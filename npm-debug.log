@@ -1,0 +1,24 @@
+0 info it worked if it ends with ok
+1 verbose cli [ 'node', '/usr/local/bin/npm', 'install' ]
+2 info using npm@1.1.45
+3 info using node@v0.8.6
+4 verbose node symlink /usr/local/bin/node
+5 verbose config file /Users/ColinMegill/.npmrc
+6 verbose config file /usr/local/etc/npmrc
+7 verbose config file /usr/local/lib/node_modules/npm/npmrc
+8 verbose read json /Users/ColinMegill/package.json
+9 error install Couldn't read dependencies
+10 error Error: ENOENT, open '/Users/ColinMegill/package.json'
+11 error If you need help, you may report this log at:
+11 error     <http://github.com/isaacs/npm/issues>
+11 error or email it to:
+11 error     <npm-@googlegroups.com>
+12 error System Darwin 10.8.0
+13 error command "node" "/usr/local/bin/npm" "install"
+14 error cwd /Users/ColinMegill/dropbox/coding/seattle
+15 error node -v v0.8.6
+16 error npm -v 1.1.45
+17 error path /Users/ColinMegill/package.json
+18 error code ENOENT
+19 error errno 34
+20 verbose exit [ 34, true ]
