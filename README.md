@@ -1,4 +1,7 @@
 polis
 =====
 
-this is the repository for the polis application
+scalable communication.
+
+polis is a web application dedicated to facilitating constructive conversations at large scales utilizing design & math.
+
