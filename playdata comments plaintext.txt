@@ -26,221 +26,53 @@ Because a frank look at the alternatives of (a) pre-emptive war and (b) a nuclea
 		
 		
 ****************************************************
+
+
+
+
+var nuclearMullahComments = [
+        {userID: 1, id: 1001, text: "Would Iran really launch such a weapon? Wrap your mind around these words delivered by Iranian President Mahmoud Ahmadinejad on Israel's milestone, 60th birthday in 2008:  "Those who think they can revive the stinking corpse of the usurping and fake Israeli regime by throwing a birthday party are seriously mistaken. Today, the reason for the Zionist regime's existence is questioned, and this regime is on its way to annihilation. They should know that regional nations hate this fake and criminal regime and if the smallest and briefest chance is given to regional nations they will destroy it."  Some weeks ago Ahmadinejad reaffirmed his intentions in a televised speech he gave in Teheran marking Quds Day, the annual protest against the Jewish presence in Jerusalem which is held on the last Friday of Ramadan.   He said, "The nations of the region will soon finish off the usurper Zionists [Israel] in the Palestinian land. A new Middle East will definitely be formed. With the grace of God and help of the nations, in the new Middle East there will be no trace of the Americans and Zionists."  Tell us who are those western expert that are not convinced this regime hasn't made the decision to build the bomb?",},
+
+        {userID: 2, id: 1002, text: "Bill Keller says the mullahs are rational, which suggests we should trust them when they have nukes. But was it rational to sacrifice a generation of young boys during the Iran-Iraq war by having them repeatedly cross mine fields as human detectors forced to march ahead of Iran's military? is it rational to send agents half way across the globe to places like Buenos Aires to blow up Jews? Is it rational for an observer sitting in New York to believe, on the one hand, that the mullahs are truthful when they say their nuclear program is only for peaceful purposes, but that it is hard to believe, on the other hand, that they mean what they say when characterizing Israel as a cancer that must be eliminated? Wordsmith Bill Keller must have intended to use the word "rationalize" rather than "rational" to explain how desperate many are to accommodate a nuclear Iran. That's a lot easier to do sitting in New York rather than Jerusalem, Riyadh, Baku and other capitals in Tehran's neighborhood.",},
+
+        {userID: 3, id: 1003, text: "Great piece. In the meantime, though, Israel is ratcheting up the hysteria.  My fear is an October surprise that goes like this: Netanyahu (maybe inspired by Sheldon Adelson?) attacks Iran, insisting that the US come to Israel's aid. Obama is forced to do so against his better judgment under intense pressure from the uncritically pro-Israel crowd. Romney and the republicans jump all over Obama for not being aggressive enough, right-wing evangelicals are delirious, liberals and the war-weary in general are appalled that Obama has caved, and R & R end up winning the election.   Please, somebody, tell me this can't happen.",},
+
+        {userID: 4, id: 1004, text: "Mr. Keller has presented a thoughtful, logical argument that a world living with a nuclear-armed Iran would be better than one after a pre-emptive U.S. and/or Israeli strike to take out Iran's nuclear capability. In fact, I think he has weakened, if not demolished, the alarmist cries from some Israelis and some Americans that a nuclear Iran is, ipso facto, unacceptable because it would lead inevitably to Israel's annihilation and an Iran on the rampage in support of radical Islam. The first assumption is far from the given that that some make it out to be, but the second would undoubtedly be the consequence of a pre-emptive strike--and Iran would occupy the moral high ground.   The other "given" is that a military attack, whatever its initial success, would not by any means put an end to Iran's nuclear ambitions.  All the above is the reason that some of Mr. Keller's strongest allies in arguing against an Israeli strike are current and former leaders of Israel's security and intelligence establishment. They have become Prime Minister Netanyahu's strongest critics. Why America's media continue to ignore that Israeli consensus escapes me.",},
+
+        {userID: 5, id: 1005, text: "Hmmm ... I wonder if Mr. Keller is related to John Boehner or Harry Reid? I ask because his 'solution' appears to be simply to kick the can down the road. Any serious student of history understands that to be the most dangerous alternative as it abandons control of events to the winds of fate.  Mr. Keller's analysis of the distastefulness of the available alternatives is spot-on but that does not suggest that treading water is a better choice. That course is likely to result in fewer alternatives and far more limited maneuvering room when can-kicking is no longer possible and all of the initiative rests with Iran.",},
+
+        {userID: 6, id: 1006, text: "What is most disconcerting (and saddening) about most of these commentaries is the ease with which many people assume that Iran is a rational entity with rational leadership and that Israel, not anyone else, must take the existential leap of faith that the assumption of Iran's rationality is true.  If such assumption is proven false, do those who made it say "Oops. Our bad. Sorry about that."?   Or, to put it another way, how many people (or peoples)have faced an existential threat to their (its) existence, twice within recent memory, more often within history?",},
+
+        {userID: 7, id: 1007, text: "Anyone who champions any type of preemptive strike and subsequent occupation of Iran must either themselves sign up for some branch of the military or offer their own children. It is easy to talk about the prospect of war on some distant battlefield but the actual horror of war should never be underestimated and putting "boots on the ground" should be the absolute LAST choice available. Its always funny to see that those with the least connection to actual fighting are always the first ones to suggest starting a war.",},
+        
+        {userID: 8, id: 1008, text: "At last, some common sense on this issue. I have never understood all of the fear-mongering about a nuclear Iran. There seems to be a general assumption that the lunacy among Iran's rulers, combined with nuclear weapons, would lead to disaster all around, particularly for Israel. But the Iranians have shown themselves to be calculating, rational, opponents. Any use of nuclear weapons on their part would lead to the destruction of Iran in retaliation. The idea that they would ignore these consequences and pursue mutual destruction anyway is a weak one. On the other hand, a preemptive strike at Iran would drag the US into a prolonged war, both overt and covert. We played the waiting game with the Soviet Union for many years, and it proved to be the right choice. I hope the leaders of the US and Israel make the right choice this time as well.",},
+        
+        {userID: 9, id: 1009, text: "I suspect that you are correct in your analysis. The fact is that Iran's logic for seeking nuclear capabilities is not that different from what drove Israel's ambitions. Iran views itself as surrounded by adversaries, several of whom have nuclear weapons, and so sees a vital need to have the same capability. Frankly, I do not see how we can prevent this. Delay it, yes, but prevention would involve destroying capabilities on the ground, which means war.  No country has ever used nuclear weapons against a country capable of retaliating. We were certainly not thrilled to see such weapons in the hands of the Soviets, but we learned to live with the bomb. I would expect the same to be true for Iran.  So while a despotic regime with nuclear capabilities is hardly ideal, we have successfully lived with this situation for decades. And attacking Iran will only delay the fall of the current regime which is really the overarching concern.  Despotic regimes are ultimately unsustainable. In the modern era, they appear to last around 70-80 years at best (which leaves the mullahs another couple of decades). So it seems to me that our choices are: a) total war for regime change now (think how well Iraq worked out), b) limited war that turns the Iranian people against us and bolsters the mullahs, or c) containment until the day the Iranian people take destiny into their own hands.  Seems pretty much a no-brainer.",},
+        
+        {userID: 10, id: 1010, text: "Politicians' bluster that "Iran will never have nuclear capability" is obligatory tough-guy talk for domestic consumption -- a fake issue pumped to the max for political and K-Street advantage.  More than 30 countries, including Japan, although they do not possess nuclear weapons possess "nuclear capability" -- the ability to produce a bomb in a weekend.  This is just another example of bipartisan fear-mongering to: further the surveillance state, destabilize international relations to support imperial aims, withdraw support for necessary domestic programs and waste more money on the military.  Sabre rattling at Iran also bolsters right-wing Israeli intransigence with respect to Palestinian/Israeli relations.",},
+        
+        {userID: 11, id: 1011, text: "Even asking this question risks howls of outrage. But you still do not ask the other question, even more vital: what should we offer in negotiations to avoid a bomb?  We have offered nothing. We are not negotiating. We are demanding. We are threatening. We are attacking: economic with sanctions, cyber war with worms, and overt war with terrorist attacks. We are not actually doing the negotiation you presume.   We what could we, should we offer? What does Iran want, other than a bomb? We have never even discussed that.  In fact, when talks were inevitable in this last round, the Israelis demanded assurances that nothing would be offered, and they were given those assurances. After each round our "negotiator" went first to Israel to report before coming home to report.   Because of Israeli objections, all offers that had been hinted were left unmade.  Israel demands we fight a war for them. They won't have negotiations.   The choice is not just bomb or bombing. There is also negotiation, and we haven't tried it yet.",},
+        
+        {userID: 12, id: 1012, text: "Mr. Keller, I agree. What the United States should be seeking, and what President Obama has explicitly stated as his goal, is a nuclear-free world. This means that along with demanding that Iran not develop a nuclear weapons capability, we should be demanding that Israel and Pakistan destroy their nuclear weapons. But should Iran build a nuclear bomb, it would not be the end of the world. It is not worth my son's life, or the life of any mother's son or daughter, to prevent this from happening.",},
+        
+        {userID: 13, id: 1013, text: "Finally! A sane look at the problem! The Mullas may be mad, but they are not suicidal! Besides, after enabling Israel to go nuclear, the West has no legitimacy in its stand against Iran. I hope the powers that be pay close heed to these arguments and not involve us in yet another costly and useless war. The war mongers and the war profiteers of course will raise a hue and cry, but that's what they always do.",},
+        
+        {userID: 14, id: 1014, text: "Containing a nuclear Iran will be no more difficult and probably far less a real issue than containing a nuclear Pakistan which the west has been doing for a generation. The Pakistani government is as volatile and the population far more anti-US than Iran. I have family in Iran and have regular contact. The Iranian people are as afraid of nukes as any one else.   The Iranian government has no more desire to use nukes on its neighbors than the Israelis or the Pakistanis. They know that it is not the use of the weapons, but the possession of them that gives them the deterrent status and negotiation handle.  Their involvement in the Syrian conflict, having 2 million Afghan refugees inside their own border, and their being the lead Shiite nation in the region makes then a natural target for all the Sunni Arab states which are far different than the Persians in culture, language and, more importantly, in military might. Iran' government is also far more under the influence of Russia and China even though the vast majority of their young population is favorable towards the west and the US. But that would end in a blink if the US strikes at their nuclear facilities.",},
+
+        {userID: 15, id: 1015, text: "Kudos to Bill Keller for his superb analysis of the ramifications if Iran acquires nuclear weapons. As he points out, given Israel’s enormous military superiority, an Iranian bomb would likely not be a threat to Israel’s national security. The slightest indication that Iran intended to use the bomb would trigger an instant and devastating Israeli pre-emptive attack. The downside of a military attack is overwhelming. A military assault would most certainly drag America into the conflict. Iranian — and regional — reaction would be catastrophic for American and Western interests. Iran would unquestionably launch a multifront military and terrorist reaction. American lives would most surely be endangered worldwide. Finally, most military strategists agree that even a prolonged air campaign would set the Iranian program back by only a few years. Mr. Keller deserves our gratitude for heroically standing up to the unrelenting beating of war drums by the Israeli leadership. BRUCE van VOORST  is former senior national security correspondent for Time magazine.",},
+        
+        {userID: 16, id: 1016, text: "Bill Keller’s analysis of containing a nuclear-armed Iran suffers from a glaring omission: He did not address the possibility that an Iranian nuke might fall into terrorists’ hands. The Iranian regime could deliberately arm a terrorist cell, or terrorists could exploit Iran’s inferior security infrastructure to steal a weapon, or an unstable future Iran could collapse, leaving its stockpile vulnerable. How, then, would the United States know where to direct its “flock of reciprocal nukes” before the mushroom cloud swallowed Tel Aviv, or Manhattan? Even if the detonated bomb could be traced to Iran, the damage would be done. The potential destruction of another state will not deter a rogue group, let alone one of eager would-be martyrs. We also mustn’t forget that while America stakes its military strategy on such an optimistic gamble, Israel stakes its existence.",},
+        
+        {userID: 17, id: 1017, text: "Bill Keller makes a compelling case that it is better to tolerate a nuclear Iran than endure all the horrific consequences that a military strike would produce. He assures us that Iran is not likely to launch a nuclear attack against Israel, knowing that it would be suicidal, and that its threats to wipe Israel off the map are just words. Mr. Keller may be correct, but what if he is mistaken? How can Israeli leaders who are even 90 percent certain that deterrence will work allow their citizens to be subject to a second Holocaust, knowing that this time the Jewish people have the means to stop it? In a nuclear Iran, accidents, miscalculations, unauthorized launchings or the dying gasps of a beleaguered regime could each mean the end of Israel. Maybe Mr. Keller is right that the prudent course for Israel (and the United States) is to allow Iran to acquire nuclear arms. But if Israel or the United States does strike to prevent Iran from getting nuclear weapons, it will have ample justification to do so. STEVEN R. DAVID  is a professor of political science at Johns Hopkins University.",},
+        
+        {userID: 18, id: 1018, text: "Bill Keller thoughtfully tempers the worst fears about a nuclear-armed Iran. And he is certainly correct that Iran would be deterred from directly using nuclear weapons because of the threat of retaliation. But he plays down what would likely be the most destabilizing and dangerous impact of a nuclear Iran: Tehran’s use of its arsenal as a protective shield while it expanded power and influence across the region.
+		Mr. Keller says this “nuclear shield” would mostly just embolden Iran’s support for subversive proxies like Hezbollah. But with territorial (and other) disputes against nearly all of its neighbors, Iran could also use a nuclear deterrent to try to alter the map of the Middle East. This is not simply an idle hypothetical: If Saddam Hussein had nuclear weapons in the summer of 1990, Kuwait would most likely now be part of Iraq. The United States and its allies cannot allow Iran such a waiver to engage in reckless aggression. Perhaps if that became clear, Iran would finally think twice about proceeding with its nuclear ambitions.
+		STUART GOTTLIEB  teaches international security at Columbia University.",},
+
+
+    ];
 		
-		
-		
-		Isaac
-		Tel Aviv
-NYT Pick
-
-Would Iran really launch such a weapon? Wrap your mind around these words delivered by Iranian President Mahmoud Ahmadinejad on Israel's milestone, 60th birthday in 2008:  "Those who think they can revive the stinking corpse of the usurping and fake Israeli regime by throwing a birthday party are seriously mistaken. Today, the reason for the Zionist regime's existence is questioned, and this regime is on its way to annihilation. They should know that regional nations hate this fake and criminal regime and if the smallest and briefest chance is given to regional nations they will destroy it."  Some weeks ago Ahmadinejad reaffirmed his intentions in a televised speech he gave in Teheran marking Quds Day, the annual protest against the Jewish presence in Jerusalem which is held on the last Friday of Ramadan.   He said, "The nations of the region will soon finish off the usurper Zionists [Israel] in the Palestinian land. A new Middle East will definitely be formed. With the grace of God and help of the nations, in the new Middle East there will be no trace of the Americans and Zionists."  Tell us who are those western expert that are not convinced this regime hasn't made the decision to build the bomb?
-		Sept. 10, 2012 at 8:53 a.m.
-		RECOMMEND29
-		
-
-
-
-
-
-		gg
-		washington, dc
-NYT Pick
-
-Bill Keller says the mullahs are rational, which suggests we should trust them when they have nukes. But was it rational to sacrifice a generation of young boys during the Iran-Iraq war by having them repeatedly cross mine fields as human detectors forced to march ahead of Iran's military? is it rational to send agents half way across the globe to places like Buenos Aires to blow up Jews? Is it rational for an observer sitting in New York to believe, on the one hand, that the mullahs are truthful when they say their nuclear program is only for peaceful purposes, but that it is hard to believe, on the other hand, that they mean what they say when characterizing Israel as a cancer that must be eliminated? Wordsmith Bill Keller must have intended to use the word "rationalize" rather than "rational" to explain how desperate many are to accommodate a nuclear Iran. That's a lot easier to do sitting in New York rather than Jerusalem, Riyadh, Baku and other capitals in Tehran's neighborhood.
-		Sept. 10, 2012 at 10:53 a.m.
-		RECOMMEND8
-
-
-
-
-
-
-		Barbara Wright
-		Willimantic, cT
-NYT Pick
-
-Great piece. In the meantime, though, Israel is ratcheting up the hysteria.  My fear is an October surprise that goes like this: Netanyahu (maybe inspired by Sheldon Adelson?) attacks Iran, insisting that the US come to Israel's aid. Obama is forced to do so against his better judgment under intense pressure from the uncritically pro-Israel crowd. Romney and the republicans jump all over Obama for not being aggressive enough, right-wing evangelicals are delirious, liberals and the war-weary in general are appalled that Obama has caved, and R & R end up winning the election.   Please, somebody, tell me this can't happen.
-		Sept. 10, 2012 at 10:52 a.m.
-		RECOMMEND18
-
-
-
-
-
-
-
-
-		SouthernView
-		Virginia
-NYT Pick
-
-Mr. Keller has presented a thoughtful, logical argument that a world living with a nuclear-armed Iran would be better than one after a pre-emptive U.S. and/or Israeli strike to take out Iran's nuclear capability. In fact, I think he has weakened, if not demolished, the alarmist cries from some Israelis and some Americans that a nuclear Iran is, ipso facto, unacceptable because it would lead inevitably to Israel's annihilation and an Iran on the rampage in support of radical Islam. The first assumption is far from the given that that some make it out to be, but the second would undoubtedly be the consequence of a pre-emptive strike--and Iran would occupy the moral high ground.   The other "given" is that a military attack, whatever its initial success, would not by any means put an end to Iran's nuclear ambitions.  All the above is the reason that some of Mr. Keller's strongest allies in arguing against an Israeli strike are current and former leaders of Israel's security and intelligence establishment. They have become Prime Minister Netanyahu's strongest critics. Why America's media continue to ignore that Israeli consensus escapes me.
-		Sept. 10, 2012 at 10:51 a.m.
-		RECOMMEND18
 	
-
-
-
-
-		James Thomas
-		Seattle
-NYT Pick
-
-Hmmm ... I wonder if Mr. Keller is related to John Boehner or Harry Reid? I ask because his 'solution' appears to be simply to kick the can down the road. Any serious student of history understands that to be the most dangerous alternative as it abandons control of events to the winds of fate.  Mr. Keller's analysis of the distastefulness of the available alternatives is spot-on but that does not suggest that treading water is a better choice. That course is likely to result in fewer alternatives and far more limited maneuvering room when can-kicking is no longer possible and all of the initiative rests with Iran.
-		Sept. 10, 2012 at 10:21 a.m.
-		
-		
-		
-		
-		
-		hapinoregon
-		Brookings, OR
-		NYT Pick
-		
-		What is most disconcerting (and saddening) about most of these commentaries is the ease with which many people assume that Iran is a rational entity with rational leadership and that Israel, not anyone else, must take the existential leap of faith that the assumption of Iran's rationality is true.  If such assumption is proven false, do those who made it say "Oops. Our bad. Sorry about that."?   Or, to put it another way, how many people (or peoples)have faced an existential threat to their (its) existence, twice within recent memory, more often within history?
-		Sept. 10, 2012 at 10:06 a.m.
-		RECOMMEND10
-
-
-
-
-
-		Ossining, NY
-NYT Pick
-
-Anyone who champions any type of preemptive strike and subsequent occupation of Iran must either themselves sign up for some branch of the military or offer their own children. It is easy to talk about the prospect of war on some distant battlefield but the actual horror of war should never be underestimated and putting "boots on the ground" should be the absolute LAST choice available. Its always funny to see that those with the least connection to actual fighting are always the first ones to suggest starting a war.
-		Sept. 10, 2012 at 8:51 a.m.
-		RECOMMEND75
-
-
-
-
-		Billy Bob
-		AZ
-NYT Pick
-
-At last, some common sense on this issue. I have never understood all of the fear-mongering about a nuclear Iran. There seems to be a general assumption that the lunacy among Iran's rulers, combined with nuclear weapons, would lead to disaster all around, particularly for Israel. But the Iranians have shown themselves to be calculating, rational, opponents. Any use of nuclear weapons on their part would lead to the destruction of Iran in retaliation. The idea that they would ignore these consequences and pursue mutual destruction anyway is a weak one. On the other hand, a preemptive strike at Iran would drag the US into a prolonged war, both overt and covert. We played the waiting game with the Soviet Union for many years, and it proved to be the right choice. I hope the leaders of the US and Israel make the right choice this time as well.
-		Sept. 10, 2012 at 4:50 a.m.
-		RECOMMEND147
-
-		
-
-
-
-		John
-		France
-NYT Pick
-
-I suspect that you are correct in your analysis. The fact is that Iran's logic for seeking nuclear capabilities is not that different from what drove Israel's ambitions. Iran views itself as surrounded by adversaries, several of whom have nuclear weapons, and so sees a vital need to have the same capability. Frankly, I do not see how we can prevent this. Delay it, yes, but prevention would involve destroying capabilities on the ground, which means war.  No country has ever used nuclear weapons against a country capable of retaliating. We were certainly not thrilled to see such weapons in the hands of the Soviets, but we learned to live with the bomb. I would expect the same to be true for Iran.  So while a despotic regime with nuclear capabilities is hardly ideal, we have successfully lived with this situation for decades. And attacking Iran will only delay the fall of the current regime which is really the overarching concern.  Despotic regimes are ultimately unsustainable. In the modern era, they appear to last around 70-80 years at best (which leaves the mullahs another couple of decades). So it seems to me that our choices are: a) total war for regime change now (think how well Iraq worked out), b) limited war that turns the Iranian people against us and bolsters the mullahs, or c) containment until the day the Iranian people take destiny into their own hands.  Seems pretty much a no-brainer.
-		Sept. 10, 2012 at 4:20 a.m.
-		RECOMMEND97
-
-
-
-
-
-		Bill Appledorf
-		British Columbia
-		Verified
-
-Politicians' bluster that "Iran will never have nuclear capability" is obligatory tough-guy talk for domestic consumption -- a fake issue pumped to the max for political and K-Street advantage.  More than 30 countries, including Japan, although they do not possess nuclear weapons possess "nuclear capability" -- the ability to produce a bomb in a weekend.  This is just another example of bipartisan fear-mongering to: further the surveillance state, destabilize international relations to support imperial aims, withdraw support for necessary domestic programs and waste more money on the military.  Sabre rattling at Iran also bolsters right-wing Israeli intransigence with respect to Palestinian/Israeli relations.
-		Sept. 9, 2012 at 9:22 p.m.
-		RECOMMEND172
-
-
-
-		Mark Thomason
-		Clawson, MI
-		Verified
-
-Even asking this question risks howls of outrage. But you still do not ask the other question, even more vital: what should we offer in negotiations to avoid a bomb?  We have offered nothing. We are not negotiating. We are demanding. We are threatening. We are attacking: economic with sanctions, cyber war with worms, and overt war with terrorist attacks. We are not actually doing the negotiation you presume.   We what could we, should we offer? What does Iran want, other than a bomb? We have never even discussed that.  In fact, when talks were inevitable in this last round, the Israelis demanded assurances that nothing would be offered, and they were given those assurances. After each round our "negotiator" went first to Israel to report before coming home to report.   Because of Israeli objections, all offers that had been hinted were left unmade.  Israel demands we fight a war for them. They won't have negotiations.   The choice is not just bomb or bombing. There is also negotiation, and we haven't tried it yet.
-		Sept. 9, 2012 at 11:56 p.m.
-		RECOMMEND155
-
-
-
-
-
-
-
-		Janet Ellingson
-		Salt Lake City, Utah
-		Verified
-
-Mr. Keller, I agree. What the United States should be seeking, and what President Obama has explicitly stated as his goal, is a nuclear-free world. This means that along with demanding that Iran not develop a nuclear weapons capability, we should be demanding that Israel and Pakistan destroy their nuclear weapons. But should Iran build a nuclear bomb, it would not be the end of the world. It is not worth my son's life, or the life of any mother's son or daughter, to prevent this from happening.
-		Sept. 9, 2012 at 9:53 p.m.
-		RECOMMEND106
-
-
-
-
-
-		The Owl
-		Chicago, IL
-
-Finally! A sane look at the problem! The Mullas may be mad, but they are not suicidal! Besides, after enabling Israel to go nuclear, the West has no legitimacy in its stand against Iran. I hope the powers that be pay close heed to these arguments and not involve us in yet another costly and useless war. The war mongers and the war profiteers of course will raise a hue and cry, but that's what they always do.
-		Sept. 10, 2012 at 7:36 a.m.
-		RECOMMEND51
-
-
-		
-		Tim Newlin
-		Frederiksberg, Denmark
-
-Containing a nuclear Iran will be no more difficult and probably far less a real issue than containing a nuclear Pakistan which the west has been doing for a generation. The Pakistani government is as volatile and the population far more anti-US than Iran. I have family in Iran and have regular contact. The Iranian people are as afraid of nukes as any one else.   The Iranian government has no more desire to use nukes on its neighbors than the Israelis or the Pakistanis. They know that it is not the use of the weapons, but the possession of them that gives them the deterrent status and negotiation handle.  Their involvement in the Syrian conflict, having 2 million Afghan refugees inside their own border, and their being the lead Shiite nation in the region makes then a natural target for all the Sunni Arab states which are far different than the Persians in culture, language and, more importantly, in military might. Iran' government is also far more under the influence of Russia and China even though the vast majority of their young population is favorable towards the west and the US. But that would end in a blink if the US strikes at their nuclear facilities.
-		Sept. 10, 2012 at 7:53 a.m.
-		RECOMMEND48
-
-
-
-
-Kudos to Bill Keller for his superb analysis of the ramifications if Iran acquires nuclear weapons (“Nuclear Mullahs,” column, Sept. 10).
-As he points out, given Israel’s enormous military superiority, an Iranian bomb would likely not be a threat to Israel’s national security. The slightest indication that Iran intended to use the bomb would trigger an instant and devastating Israeli pre-emptive attack.
-The downside of a military attack is overwhelming. A military assault would most certainly drag America into the conflict. Iranian — and regional — reaction would be catastrophic for American and Western interests. Iran would unquestionably launch a multifront military and terrorist reaction. American lives would most surely be endangered worldwide.
-Finally, most military strategists agree that even a prolonged air campaign would set the Iranian program back by only a few years. Mr. Keller deserves our gratitude for heroically standing up to the unrelenting beating of war drums by the Israeli leadership.
-BRUCE van VOORST Arlington, Va., Sept. 10, 2012
-The writer is former senior national security correspondent for Time magazine.
-
-
-Bill Keller’s analysis of containing a nuclear-armed Iran suffers from a glaring omission: He did not address the possibility that an Iranian nuke might fall into terrorists’ hands. The Iranian regime could deliberately arm a terrorist cell, or terrorists could exploit Iran’s inferior security infrastructure to steal a weapon, or an unstable future Iran could collapse, leaving its stockpile vulnerable.
-How, then, would the United States know where to direct its “flock of reciprocal nukes” before the mushroom cloud swallowed Tel Aviv, or Manhattan? Even if the detonated bomb could be traced to Iran, the damage would be done.
-The potential destruction of another state will not deter a rogue group, let alone one of eager would-be martyrs. We also mustn’t forget that while America stakes its military strategy on such an optimistic gamble, Israel stakes its existence.
-PHILIP KALIKMAN New Haven, Sept. 10, 2012
-
-
-
-Bill Keller makes a compelling case that it is better to tolerate a nuclear Iran than endure all the horrific consequences that a military strike would produce. He assures us that Iran is not likely to launch a nuclear attack against Israel, knowing that it would be suicidal, and that its threats to wipe Israel off the map are just words.
-Mr. Keller may be correct, but what if he is mistaken? How can Israeli leaders who are even 90 percent certain that deterrence will work allow their citizens to be subject to a second Holocaust, knowing that this time the Jewish people have the means to stop it?
-In a nuclear Iran, accidents, miscalculations, unauthorized launchings or the dying gasps of a beleaguered regime could each mean the end of Israel. Maybe Mr. Keller is right that the prudent course for Israel (and the United States) is to allow Iran to acquire nuclear arms. But if Israel or the United States does strike to prevent Iran from getting nuclear weapons, it will have ample justification to do so.
-STEVEN R. DAVID Baltimore, Sept. 10, 2012
-The writer is a professor of political science at Johns Hopkins University.
-
-
-
-
-
-
-Bill Keller thoughtfully tempers the worst fears about a nuclear-armed Iran. And he is certainly correct that Iran would be deterred from directly using nuclear weapons because of the threat of retaliation.
-But he plays down what would likely be the most destabilizing and dangerous impact of a nuclear Iran: Tehran’s use of its arsenal as a protective shield while it expanded power and influence across the region.
-Mr. Keller says this “nuclear shield” would mostly just embolden Iran’s support for subversive proxies like Hezbollah. But with territorial (and other) disputes against nearly all of its neighbors, Iran could also use a nuclear deterrent to try to alter the map of the Middle East.
-This is not simply an idle hypothetical: If Saddam Hussein had nuclear weapons in the summer of 1990, Kuwait would most likely now be part of Iraq.
-The United States and its allies cannot allow Iran such a waiver to engage in reckless aggression. Perhaps if that became clear, Iran would finally think twice about proceeding with its nuclear ambitions.
-STUART GOTTLIEB New York, Sept. 10, 2012
-The writer teaches international security at Columbia University.
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -608,27 +440,6 @@ David E. Sanger reported from Washington, and Isabel Kershner from Jerusalem. El
 		Sept. 11, 2012 at 6:13 p.m.
 		RECOMMEND26
   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
