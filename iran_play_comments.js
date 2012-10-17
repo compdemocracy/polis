@@ -1,44 +1,39 @@
-
-var nuclearMullah_article = "
-
-
-        Nuclear Mullahs
-        By BILL KELLER
-        IRAN has returned to the front pages after a summer hiatus. Negotiations aimed at preventing the dreaded Persian Bomb have resumed their desultory course. Iran, although suffering from the international sanctions choreographed by the Obama administration, keeps adding new arrays of centrifuges while insisting the program is strictly nonmilitary. Israel is — or maybe isn’t — edging closer to a unilateral strike. The U.S., we learn from The Times’s reliable David Sanger, is considering more and bigger bouts of cybersabotage. Meanwhile, the mullahs are shipping arms to their embattled fellow despots in Syria.
-
-        This strikes me as a good time to address an unnerving question that confronts any concerned student of this subject: Can we live with a nuclear Iran? Given a choice of raining bunker-busting munitions on Iran’s underground enrichment facilities, or, alternatively, containing a nuclear-armed Iran with the sobering threat of annihilation, which is the less bad option? As the slogan goes in Israel: “Bomb? Or The Bomb?\"
-        The prevailing view now is that a nuclear Iran cannot be safely contained. On this point both President Obama and Mitt Romney agree. They can hardly say otherwise; to even hint that a nuclear Iran is acceptable would undermine the efforts aimed at preventing that outcome. But I tend to think they mean it.
-
-        However, there are serious, thoughtful people who are willing to contemplate a nuclear Iran, kept in check by the time-tested assurance of retaliatory destruction. If the U.S. arsenal deterred the Soviet Union for decades of cold war and now keeps North Korea’s nukes in their silos, if India and Pakistan have kept each other in a nuclear stalemate, why would Iran not be similarly deterred by the certainty that using nuclear weapons would bring a hellish reprisal?
-
-        Anyone who has a glib answer to this problem isn’t taking the subject seriously. Personally, I’ve tended to duck it, taking refuge in the hope that the tightening vise of international pressure — and a few cyberattacks — would make Iran relent and spare us the hard choice. But that could be wishful thinking. So I’ve spent some time reading and questioning, trying to report my way to an opinion.
-        Let’s assume, for starters, that Iran’s theocrats are determined to acquire nuclear weapons. Western analysts say there is no evidence yet that the supreme leader has made that decision. But if you ruled a country surrounded by unfriendly neighbors — Persians among the Arabs, Shiites among the Sunnis — a country with a grand sense of self-esteem, a tendency to paranoia and five nuclear powers nearby, wouldn’t you want the security of your own nuclear arsenal?
-
-        Let’s assume further that diplomacy, sanctions and computer viruses may not dissuade the regime from its nuclear ambitions. So far, these measures seem to have slowed the nuclear program and bought some time, but Iran’s stockpiles of enriched fuel have grown in size and concentration despite everything a disapproving world has thrown at them so far. So, then what?
-
-        A pre-emptive bombing campaign against Iran’s uranium factories would almost certainly require major U.S. participation to be effective, and would not be neat. Beyond the immediate casualties, it would carry grave costs: outraged Iranians rallying behind this regime that is now deservedly unpopular; Iran or its surrogates lashing out against American and Israeli targets in a long-term, low-intensity campaign of retaliation; a scorching hatred of America on the newly empowered Arab street, generating new recruits for Al Qaeda and its ilk; an untimely oil shock to a fragile world economy; an unraveling of the united front Obama has assembled to isolate Iran. All that, and a redoubled determination by Iran’s leaders to do the one thing that would prevent a future attack: rebuild the nuclear assembly line, only this time faster and deeper underground. There is a pretty broad consensus that, short of a full-scale invasion and occupation of Iran, a preventive attack would not end the nuclear program, only postpone it for a few years.
-
-        Now imagine that Iran succeeds in making its way into the nuclear club.
-
-        Despite the incendiary rhetoric, it is hard to believe the aim of an Iranian nuclear program is the extermination of Israel. The regime in Iran is brutal, mendacious and meddlesome, and given to spraying gobbets of Hitleresque bile at the Jewish state. But Israel is a nuclear power, backed by a bigger nuclear power. Before an Iranian mushroom cloud had bloomed to its full height over Tel Aviv, a flock of reciprocal nukes would be on the way to incinerate Iran. Iran may encourage fanatic chumps to carry out suicide missions, but there is not the slightest reason to believe the mullahs themselves are suicidal.
-
-        The more common arguments against tolerating a nuclear Iran are these:
-
-        First, that possession of a nuclear shield would embolden Iran to step up its interference in the region, either directly or through surrogates like Hezbollah. This is probably true. But as James Dobbins, a former diplomat who heads security studies for the RAND Corporation, told me, the subversive menace of a nuclear Iran has to be weighed against the lethal rage of an Iran that had been the victim of an unprovoked attack.
-        A second worry is that a Persian Bomb would set off a regional nuclear arms race. This is probably an exaggerated fear. A nuclear program is not cheap or easy. In other parts of the world, the proliferation virus has not been as contagious as you might have feared. So the Saudis, who regard Iran as a viper state, might be tempted buy a bomb from Pakistan, which is not a pleasant thought. But Egypt (broke), Turkey (a NATO member) and the others have strong reasons not to join the race.
-
-        Most worrisome, I think, is the danger that a crisis between Israel and Iran would escalate out of control. Given the history of mistrust and the absence of communication, some war planner on one side or the other might guess that a nuclear attack was imminent, and decide to go first.
-        “You would have a very unstable deterrent environment between Israel and Iran, simply because these are two states that tend to view each other in existential terms,\" said Ray Takeyh, an Iranian-American Middle East scholar at the Council on Foreign Relations, who is not an advocate of containment. Against this fear, history suggests that nuclear weapons make even aggressive countries more cautious. Before their first nuclear tests, India and Pakistan fought three serious conventional wars. Since getting their nukes they have bristled at each other across a long, heavily armed border, but no dispute has risen to an outright war.
-
-        At the end of this theoretical exercise, we have two awful choices with unpredictable consequences. After immersing myself in the expert thinking on both sides, I think that, forced to choose, I would swallow hard and take the risks of a nuclear Iran over the gamble of a pre-emptive war. My view may be colored by a bit of post-Iraq syndrome.
-
-        What statesmen do when faced with bad options is create new ones. The third choice in this case is to negotiate a deal that lets Iran enrich uranium for civilian use (as it is entitled to do under the Nuclear Nonproliferation Treaty), that applies rigorous safeguards (because Iran cheats), that gradually relaxes sanctions and brings this wayward country into the community of more-or-less civilized nations. That, of course, won’t happen before November. Any U.S. concession now would be decried by Republicans as an abandonment of Israel and a reward to a government that recently beat a democracy movement bloody. We can only hope that after the election we get some braver, more creative diplomacy, either from a liberated Obama or (hope springs eternal) a President Romney who has a Nixon-to-China moment. Because a frank look at the alternatives of (a) pre-emptive war and (b) a nuclear Iran should be enough to focus all of our intelligence and energy on (c) none of the above.
-
-	"	
-			
+var data = {
+    nuclearMullah_article: "" + 
+"        Nuclear Mullahs" +
+"        By BILL KELLER" +
+"        IRAN has returned to the front pages after a summer hiatus. Negotiations aimed at preventing the dreaded Persian Bomb have resumed their desultory course. Iran, although suffering from the international sanctions choreographed by the Obama administration, keeps adding new arrays of centrifuges while insisting the program is strictly nonmilitary. Israel is — or maybe isn’t — edging closer to a unilateral strike. The U.S., we learn from The Times’s reliable David Sanger, is considering more and bigger bouts of cybersabotage. Meanwhile, the mullahs are shipping arms to their embattled fellow despots in Syria." +
+"" +
+"        This strikes me as a good time to address an unnerving question that confronts any concerned student of this subject: Can we live with a nuclear Iran? Given a choice of raining bunker-busting munitions on Iran’s underground enrichment facilities, or, alternatively, containing a nuclear-armed Iran with the sobering threat of annihilation, which is the less bad option? As the slogan goes in Israel: “Bomb? Or The Bomb?\"" +
+"        The prevailing view now is that a nuclear Iran cannot be safely contained. On this point both President Obama and Mitt Romney agree. They can hardly say otherwise; to even hint that a nuclear Iran is acceptable would undermine the efforts aimed at preventing that outcome. But I tend to think they mean it." +
+"" +
+"        However, there are serious, thoughtful people who are willing to contemplate a nuclear Iran, kept in check by the time-tested assurance of retaliatory destruction. If the U.S. arsenal deterred the Soviet Union for decades of cold war and now keeps North Korea’s nukes in their silos, if India and Pakistan have kept each other in a nuclear stalemate, why would Iran not be similarly deterred by the certainty that using nuclear weapons would bring a hellish reprisal?" +
+"" +
+"        Anyone who has a glib answer to this problem isn’t taking the subject seriously. Personally, I’ve tended to duck it, taking refuge in the hope that the tightening vise of international pressure — and a few cyberattacks — would make Iran relent and spare us the hard choice. But that could be wishful thinking. So I’ve spent some time reading and questioning, trying to report my way to an opinion." +
+"        Let’s assume, for starters, that Iran’s theocrats are determined to acquire nuclear weapons. Western analysts say there is no evidence yet that the supreme leader has made that decision. But if you ruled a country surrounded by unfriendly neighbors — Persians among the Arabs, Shiites among the Sunnis — a country with a grand sense of self-esteem, a tendency to paranoia and five nuclear powers nearby, wouldn’t you want the security of your own nuclear arsenal?" +
+"" +
+"        Let’s assume further that diplomacy, sanctions and computer viruses may not dissuade the regime from its nuclear ambitions. So far, these measures seem to have slowed the nuclear program and bought some time, but Iran’s stockpiles of enriched fuel have grown in size and concentration despite everything a disapproving world has thrown at them so far. So, then what?" +
+"" +
+"        A pre-emptive bombing campaign against Iran’s uranium factories would almost certainly require major U.S. participation to be effective, and would not be neat. Beyond the immediate casualties, it would carry grave costs: outraged Iranians rallying behind this regime that is now deservedly unpopular; Iran or its surrogates lashing out against American and Israeli targets in a long-term, low-intensity campaign of retaliation; a scorching hatred of America on the newly empowered Arab street, generating new recruits for Al Qaeda and its ilk; an untimely oil shock to a fragile world economy; an unraveling of the united front Obama has assembled to isolate Iran. All that, and a redoubled determination by Iran’s leaders to do the one thing that would prevent a future attack: rebuild the nuclear assembly line, only this time faster and deeper underground. There is a pretty broad consensus that, short of a full-scale invasion and occupation of Iran, a preventive attack would not end the nuclear program, only postpone it for a few years." +
+"" +
+"        Now imagine that Iran succeeds in making its way into the nuclear club." +
+"" +
+"        Despite the incendiary rhetoric, it is hard to believe the aim of an Iranian nuclear program is the extermination of Israel. The regime in Iran is brutal, mendacious and meddlesome, and given to spraying gobbets of Hitleresque bile at the Jewish state. But Israel is a nuclear power, backed by a bigger nuclear power. Before an Iranian mushroom cloud had bloomed to its full height over Tel Aviv, a flock of reciprocal nukes would be on the way to incinerate Iran. Iran may encourage fanatic chumps to carry out suicide missions, but there is not the slightest reason to believe the mullahs themselves are suicidal." +
+"" +
+"        The more common arguments against tolerating a nuclear Iran are these:" +
+"" +
+"        First, that possession of a nuclear shield would embolden Iran to step up its interference in the region, either directly or through surrogates like Hezbollah. This is probably true. But as James Dobbins, a former diplomat who heads security studies for the RAND Corporation, told me, the subversive menace of a nuclear Iran has to be weighed against the lethal rage of an Iran that had been the victim of an unprovoked attack." +
+"        A second worry is that a Persian Bomb would set off a regional nuclear arms race. This is probably an exaggerated fear. A nuclear program is not cheap or easy. In other parts of the world, the proliferation virus has not been as contagious as you might have feared. So the Saudis, who regard Iran as a viper state, might be tempted buy a bomb from Pakistan, which is not a pleasant thought. But Egypt (broke), Turkey (a NATO member) and the others have strong reasons not to join the race." +
+"" +
+"        Most worrisome, I think, is the danger that a crisis between Israel and Iran would escalate out of control. Given the history of mistrust and the absence of communication, some war planner on one side or the other might guess that a nuclear attack was imminent, and decide to go first." +
+"        “You would have a very unstable deterrent environment between Israel and Iran, simply because these are two states that tend to view each other in existential terms,\" said Ray Takeyh, an Iranian-American Middle East scholar at the Council on Foreign Relations, who is not an advocate of containment. Against this fear, history suggests that nuclear weapons make even aggressive countries more cautious. Before their first nuclear tests, India and Pakistan fought three serious conventional wars. Since getting their nukes they have bristled at each other across a long, heavily armed border, but no dispute has risen to an outright war." +
+"" +
+"        At the end of this theoretical exercise, we have two awful choices with unpredictable consequences. After immersing myself in the expert thinking on both sides, I think that, forced to choose, I would swallow hard and take the risks of a nuclear Iran over the gamble of a pre-emptive war. My view may be colored by a bit of post-Iraq syndrome." +
+"" +
+"        What statesmen do when faced with bad options is create new ones. The third choice in this case is to negotiate a deal that lets Iran enrich uranium for civilian use (as it is entitled to do under the Nuclear Nonproliferation Treaty), that applies rigorous safeguards (because Iran cheats), that gradually relaxes sanctions and brings this wayward country into the community of more-or-less civilized nations. That, of course, won’t happen before November. Any U.S. concession now would be decried by Republicans as an abandonment of Israel and a reward to a government that recently beat a democracy movement bloody. We can only hope that after the election we get some braver, more creative diplomacy, either from a liberated Obama or (hope springs eternal) a President Romney who has a Nixon-to-China moment. Because a frank look at the alternatives of (a) pre-emptive war and (b) a nuclear Iran should be enough to focus all of our intelligence and energy on (c) none of the above.",
 
 
-var nuclearMullah_comments = [
+nuclearMullah_comments: [
 
         {userID: 1, id: 1001, text: "Would Iran really launch such a weapon? Wrap your mind around these words delivered by Iranian President Mahmoud Ahmadinejad on Israel\'s milestone, 60th birthday in 2008: \"Those who think they can revive the stinking corpse of the usurping and fake Israeli regime by throwing a birthday party are seriously mistaken. Today, the reason for the Zionist regime\'s existence is questioned, and this regime is on its way to annihilation. They should know that regional nations hate this fake and criminal regime and if the smallest and briefest chance is given to regional nations they will destroy it.\" Some weeks ago Ahmadinejad reaffirmed his intentions in a televised speech he gave in Teheran marking Quds Day, the annual protest against the Jewish presence in Jerusalem which is held on the last Friday of Ramadan.  He said, \"The nations of the region will soon finish off the usurper Zionists [Israel] in the Palestinian land. A new Middle East will definitely be formed. With the grace of God and help of the nations, in the new Middle East there will be no trace of the Americans and Zionists.\" Tell us who are those western expert that are not convinced this regime hasn\'t made the decision to build the bomb?",},
 
@@ -75,72 +70,62 @@ var nuclearMullah_comments = [
         {userID: 17, id: 1017, text: "Bill Keller makes a compelling case that it is better to tolerate a nuclear Iran than endure all the horrific consequences that a military strike would produce. He assures us that Iran is not likely to launch a nuclear attack against Israel, knowing that it would be suicidal, and that its threats to wipe Israel off the map are just words. Mr. Keller may be correct, but what if he is mistaken? How can Israeli leaders who are even 90 percent certain that deterrence will work allow their citizens to be subject to a second Holocaust, knowing that this time the Jewish people have the means to stop it? In a nuclear Iran, accidents, miscalculations, unauthorized launchings or the dying gasps of a beleaguered regime could each mean the end of Israel. Maybe Mr. Keller is right that the prudent course for Israel (and the United States) is to allow Iran to acquire nuclear arms. But if Israel or the United States does strike to prevent Iran from getting nuclear weapons, it will have ample justification to do so. STEVEN R. DAVID  is a professor of political science at Johns Hopkins University.",},
         
         {userID: 18, id: 1018, text: "Bill Keller thoughtfully tempers the worst fears about a nuclear-armed Iran. And he is certainly correct that Iran would be deterred from directly using nuclear weapons because of the threat of retaliation. But he plays down what would likely be the most destabilizing and dangerous impact of a nuclear Iran: Tehran’s use of its arsenal as a protective shield while it expanded power and influence across the region.	Mr. Keller says this “nuclear shield\" would mostly just embolden Iran’s support for subversive proxies like Hezbollah. But with territorial (and other) disputes against nearly all of its neighbors, Iran could also use a nuclear deterrent to try to alter the map of the Middle East. This is not simply an idle hypothetical: If Saddam Hussein had nuclear weapons in the summer of 1990, Kuwait would most likely now be part of Iraq. The United States and its allies cannot allow Iran such a waiver to engage in reckless aggression. Perhaps if that became clear, Iran would finally think twice about proceeding with its nuclear ambitions. STUART GOTTLIEB teaches international security at Columbia University.",},
-
-    ];
+    ],
 		
-	
 
 
 
-
-var whyIranShould_article = "
-
-        Why Iran Should Get the Bomb
-        Nuclear Balancing Would Mean Stability
-        By Kenneth N. Waltz
-        July/August 2012
-
-        The past several months have witnessed a heated debate over the best way for the United States and Israel to respond to Iran's nuclear activities As the argument has raged, the United States has tightened its already robust sanctions regime against the Islamic Republic, and the European Union announced in January that it will begin an embargo on Iranian oil on July 1. Although the United States, the EU, and Iran have recently returned to the negotiating table, a palpable sense of crisis still looms. It should not. Most U.S., European, and Israeli commentators and policymakers warn that a nucleararmed Iran would be the worst possible outcome of the current standoff. In fact, it would probably be the best possible result: the one most likely to restore stability to the Middle East.
-
-        POWER BEGS TO BE BALANCED
-
-        The crisis over Iran's nuclear program could end in three different ways. First, diplomacy coupled with serious sanctions could convince Iran to abandon its pursuit of a nuclear weapon. But this outcome isunlikely: the historical record indicates that a country bent on acquiring nuclear weapons can rarely be dissuaded from doing so. Punishing a state through economic sanctions does not inexorably derail itsnuclear program. Take North Korea, which succeeded in building its weapons despite countless rounds of sanctions and UN Security Council resolutions. If Tehran determines that its security depends onpossessing nuclear weapons, sanctions are unlikely to change its mind. In fact, adding still more sanctionsnow could make Iran feel even more vulnerable, giving it still more reason to seek the protection of the
-        ultimate deterrent.
-
-        The second possible outcome is that Iran stops short of testing a nuclear weapon but develops a breakoutcapability, the capacity to build and test one quite quickly. Iran would not be the first country to acquire asophisticated nuclear program without building an actual bomb. Japan, for instance, maintains a vastcivilian nuclear infrastructure. Experts believe that it could produce a nuclear weapon on short notice.Such a breakout capability might satisfy the domestic political needs of Iran's rulers by assuring hardliners that they can enjoy all the benefits of having a bomb (such as greater security) without thedownsides (such as international isolation and condemnation). The problem is that a breakout capability
-        might not work as intended.
-
-        The United States and its European allies are primarily concerned with weaponization, so they mightaccept a scenario in which Iran stops short of a nuclear weapon. Israel, however, has made it clear that itviews a significant Iranian enrichment capacity alone as an unacceptable threat. It is possible, then, thata verifiable commitment from Iran to stop short of a weapon could appease major Western powers butleave the Israelis unsatisfied. Israel would be less intimidated by a virtual nuclear weapon than it would be by an actual one and therefore would likely continue its risky efforts at subverting Iran's nuclear program through sabotage and assassination -- which could lead Iran to conclude that a breakout capability is an insufficient deterrent, after all, and that only weaponization can provide it with the security it seeks. The third possible outcome of the standoff is that Iran continues its current course and publicly goes nuclear by testing a weapon. U.S. and Israeli officials have declared that outcome unacceptable, arguing that a nuclear Iran is a uniquely terrifying prospect, even an existential threat. Such language is typical of major powers, which have historically gotten riled up whenever another country has begun to develop a nuclear weapon of its own. Yet so far, every time another country has managed to shoulder its way into the nuclear club, the other members have always changed tack and decided to live with it. In fact, by reducing imbalances in military power, new nuclear states generally produce more regional and international stability, not less. Israel's regional nuclear monopoly, which has proved remarkably durable for the past four decades, has long fueled instability in the Middle East. In no other region of the world does a lone, unchecked nuclear state exist. It is Israel's nuclear arsenal, not Iran's desire for one, that has contributed most to the current crisis. Power, after all, begs to be balanced. What is surprising about the Israeli case is that it has taken so long for a potential balancer to emerge.
-
-        Of course, it is easy to understand why Israel wants to remain the sole nuclear power in the region and why it is willing to use force to secure that status. In 1981, Israel bombed Iraq to prevent a challenge to its nuclear monopoly. It did the same to Syria in 2007 and is now considering similar action against Iran. But the very acts that have allowed Israel to maintain its nuclear edge in the short term have prolonged an imbalance that is unsustainable in the long term. Israel's proven ability to strike potential nuclear rivals with impunity has inevitably made its enemies anxious to develop the means to prevent Israel from doing so again. In this way, the current tensions are best viewed not as the early stages of a relatively recent Iranian nuclear crisis but rather as the final stages of a decades-long Middle East nuclear crisis that will end only when a balance of military power is restored.
-
-        UNFOUNDED FEARS
-
-        One reason the danger of a nuclear Iran has been grossly exaggerated is that the debate surrounding it has been distorted by misplaced worries and fundamental misunderstandings of how states generally behave in the international system. The first prominent concern, which undergirds many others, is that the Iranian regime is innately irrational. Despite a widespread belief to the contrary, Iranian policy is made not by \"mad mullahs\" but by perfectly sane ayatollahs who want to survive just like any other leaders. Although Iran's leaders indulge in inflammatory and hateful rhetoric, they show no propensity for self-destruction. It would be a grave error for policymakers in the United States and Israel to assume otherwise.
-
-        Yet that is precisely what many U.S. and Israeli officials and analysts have done. Portraying Iran as irrational has allowed them to argue that the logic of nuclear deterrence does not apply to the Islamic Republic. If Iran acquired a nuclear weapon, they warn, it would not hesitate to use it in a first strike against Israel, even though doing so would invite massive retaliation and risk destroying everything the Iranian regime holds dear. 
-
-        Although it is impossible to be certain of Iranian intentions, it is far more likely that if Iran desires nuclear weapons, it is for the purpose 
-        of providing for its own security, not to improve its offensive capabilities (or destroy itself). Iran may be intransigent at the negotiating 
-        table and defiant in the face of sanctions, but it still acts to secure its own preservation. Iran's leaders did not, for example, attempt to 
-        close the Strait of Hormuz despite issuing blustery warnings that they might do so after the EU announced its planned oil embargo in January. The 
-        Iranian regime clearly concluded that it did not want to provoke what would surely have been a swift and devastating American response to such a 
-        move.
-
-        Nevertheless, even some observers and policymakers who accept that the Iranian regime is rational still worry that a nuclear weapon would embolden it, providing Tehran with a shield that would allow it to act more aggressively and increase its support for terrorism. Some analysts even fear that Iran would directly provide terrorists with nuclear arms. The problem with these concerns is that they contradict the record of every other nuclear weapons state going back to 1945. History shows that when countries acquire the bomb, they feel increasingly vulnerable and become acutely aware that their nuclear weapons make them a potential target in the eyes of major powers. This awareness discourages nuclear states from bold and aggressive action. Maoist China, for example, became much less bellicose after acquiring nuclear weapons in 1964, and India and Pakistan have both become more cautious since going nuclear. There is little reason to believe Iran would break this mold.
-
-        As for the risk of a handoff to terrorists, no country could transfer nuclear weapons without running a high risk of being found out. U.S. surveillance capabilities would pose a serious obstacle, as would the United States' impressive and growing ability to identify the source of fissile material. Moreover, countries can never entirely control or even predict the behavior of the terrorist groups they sponsor. Once a country such as Iran acquires a nuclear capability, it will have every reason to maintain full control over its arsenal. After all, building a bomb is costly and dangerous. It would make little sense to transfer the product of that investment to parties that cannot be trusted or managed.
-
-        Another oft-touted worry is that if Iran obtains the bomb, other states in the region will follow suit, leading to a nuclear arms race in the Middle East. But the nuclear age is now almost 70 years old, and so far, fears of proliferation have proved to be unfounded. Properly defined, the term \"proliferation\" means a rapid and uncontrolled spread. Nothing like that has occurred; in fact, since 1970, there has been a marked slowdown in the emergence of nuclear states. There is no reason to expect that this pattern will change now. Should Iran become the second Middle Eastern nuclear power since 1945, it would hardly signal the start of a landslide. When Israel acquired the bomb in the 1960s, it was at war with many of its neighbors. Its nuclear arms were a much bigger threat to the Arab world than Iran's program is today. If an atomic Israel did not trigger an arms race then, there is no reason a nuclear Iran should now. 
-
-        REST ASSURED
-
-        In 1991, the historical rivals India and Pakistan signed a treaty agreeing not to target each other's nuclear facilities. They realized that far more worrisome than their adversary's nuclear deterrent was the instability produced by challenges to it. Since then, even in the face of high tensions and risky provocations, the two countries have kept the peace. Israel and Iran would do well to consider this precedent. If Iran goes nuclear, Israel and Iran will deter each other, as nuclear powers always have. There has never been a full-scale war between two nuclear-armed states. Once Iran crosses the nuclear threshold, deterrence will apply, even if the Iranian arsenal is relatively small. No other country in the region will have an incentive to acquire its own nuclear capability, and the current crisis will finally dissipate, leading to a Middle East that is more stable than it is today.
-
-        For that reason, the United States and its allies need not take such pains to prevent the Iranians from developing a nuclear weapon. Diplomacy between Iran and the major powers should continue, because open lines of communication will make the Western countries feel better able to live with a nuclear Iran. But the current sanctions on Iran can be dropped: they primarily harm ordinary Iranians, with little purpose.
-
-        Most important, policymakers and citizens in the Arab world, Europe, Israel, and the United States should take comfort from the fact that history has shown that where nuclear capabilities emerge, so, too, does stability. When it comes to nuclear weapons, now as ever, more may be better. 
-
-
-"
+whyIranShould_article: "" + 
+"        Why Iran Should Get the Bomb" +
+"        Nuclear Balancing Would Mean Stability" +
+"        By Kenneth N. Waltz" +
+"        July/August 2012" +
+"" +
+"        The past several months have witnessed a heated debate over the best way for the United States and Israel to respond to Iran's nuclear activities As the argument has raged, the United States has tightened its already robust sanctions regime against the Islamic Republic, and the European Union announced in January that it will begin an embargo on Iranian oil on July 1. Although the United States, the EU, and Iran have recently returned to the negotiating table, a palpable sense of crisis still looms. It should not. Most U.S., European, and Israeli commentators and policymakers warn that a nucleararmed Iran would be the worst possible outcome of the current standoff. In fact, it would probably be the best possible result: the one most likely to restore stability to the Middle East." +
+"" +
+"        POWER BEGS TO BE BALANCED" +
+"" +
+"        The crisis over Iran's nuclear program could end in three different ways. First, diplomacy coupled with serious sanctions could convince Iran to abandon its pursuit of a nuclear weapon. But this outcome isunlikely: the historical record indicates that a country bent on acquiring nuclear weapons can rarely be dissuaded from doing so. Punishing a state through economic sanctions does not inexorably derail itsnuclear program. Take North Korea, which succeeded in building its weapons despite countless rounds of sanctions and UN Security Council resolutions. If Tehran determines that its security depends onpossessing nuclear weapons, sanctions are unlikely to change its mind. In fact, adding still more sanctionsnow could make Iran feel even more vulnerable, giving it still more reason to seek the protection of the" +
+"        ultimate deterrent." +
+"" +
+"        The second possible outcome is that Iran stops short of testing a nuclear weapon but develops a breakoutcapability, the capacity to build and test one quite quickly. Iran would not be the first country to acquire asophisticated nuclear program without building an actual bomb. Japan, for instance, maintains a vastcivilian nuclear infrastructure. Experts believe that it could produce a nuclear weapon on short notice.Such a breakout capability might satisfy the domestic political needs of Iran's rulers by assuring hardliners that they can enjoy all the benefits of having a bomb (such as greater security) without thedownsides (such as international isolation and condemnation). The problem is that a breakout capability" +
+"        might not work as intended." +
+"" +
+"        The United States and its European allies are primarily concerned with weaponization, so they mightaccept a scenario in which Iran stops short of a nuclear weapon. Israel, however, has made it clear that itviews a significant Iranian enrichment capacity alone as an unacceptable threat. It is possible, then, thata verifiable commitment from Iran to stop short of a weapon could appease major Western powers butleave the Israelis unsatisfied. Israel would be less intimidated by a virtual nuclear weapon than it would be by an actual one and therefore would likely continue its risky efforts at subverting Iran's nuclear program through sabotage and assassination -- which could lead Iran to conclude that a breakout capability is an insufficient deterrent, after all, and that only weaponization can provide it with the security it seeks. The third possible outcome of the standoff is that Iran continues its current course and publicly goes nuclear by testing a weapon. U.S. and Israeli officials have declared that outcome unacceptable, arguing that a nuclear Iran is a uniquely terrifying prospect, even an existential threat. Such language is typical of major powers, which have historically gotten riled up whenever another country has begun to develop a nuclear weapon of its own. Yet so far, every time another country has managed to shoulder its way into the nuclear club, the other members have always changed tack and decided to live with it. In fact, by reducing imbalances in military power, new nuclear states generally produce more regional and international stability, not less. Israel's regional nuclear monopoly, which has proved remarkably durable for the past four decades, has long fueled instability in the Middle East. In no other region of the world does a lone, unchecked nuclear state exist. It is Israel's nuclear arsenal, not Iran's desire for one, that has contributed most to the current crisis. Power, after all, begs to be balanced. What is surprising about the Israeli case is that it has taken so long for a potential balancer to emerge." +
+"" +
+"        Of course, it is easy to understand why Israel wants to remain the sole nuclear power in the region and why it is willing to use force to secure that status. In 1981, Israel bombed Iraq to prevent a challenge to its nuclear monopoly. It did the same to Syria in 2007 and is now considering similar action against Iran. But the very acts that have allowed Israel to maintain its nuclear edge in the short term have prolonged an imbalance that is unsustainable in the long term. Israel's proven ability to strike potential nuclear rivals with impunity has inevitably made its enemies anxious to develop the means to prevent Israel from doing so again. In this way, the current tensions are best viewed not as the early stages of a relatively recent Iranian nuclear crisis but rather as the final stages of a decades-long Middle East nuclear crisis that will end only when a balance of military power is restored." +
+"" +
+"        UNFOUNDED FEARS" +
+"" +
+"        One reason the danger of a nuclear Iran has been grossly exaggerated is that the debate surrounding it has been distorted by misplaced worries and fundamental misunderstandings of how states generally behave in the international system. The first prominent concern, which undergirds many others, is that the Iranian regime is innately irrational. Despite a widespread belief to the contrary, Iranian policy is made not by \"mad mullahs\" but by perfectly sane ayatollahs who want to survive just like any other leaders. Although Iran's leaders indulge in inflammatory and hateful rhetoric, they show no propensity for self-destruction. It would be a grave error for policymakers in the United States and Israel to assume otherwise." +
+"" +
+"        Yet that is precisely what many U.S. and Israeli officials and analysts have done. Portraying Iran as irrational has allowed them to argue that the logic of nuclear deterrence does not apply to the Islamic Republic. If Iran acquired a nuclear weapon, they warn, it would not hesitate to use it in a first strike against Israel, even though doing so would invite massive retaliation and risk destroying everything the Iranian regime holds dear. " +
+"" +
+"        Although it is impossible to be certain of Iranian intentions, it is far more likely that if Iran desires nuclear weapons, it is for the purpose " +
+"        of providing for its own security, not to improve its offensive capabilities (or destroy itself). Iran may be intransigent at the negotiating " +
+"        table and defiant in the face of sanctions, but it still acts to secure its own preservation. Iran's leaders did not, for example, attempt to " +
+"        close the Strait of Hormuz despite issuing blustery warnings that they might do so after the EU announced its planned oil embargo in January. The " +
+"        Iranian regime clearly concluded that it did not want to provoke what would surely have been a swift and devastating American response to such a " +
+"        move." +
+"" +
+"        Nevertheless, even some observers and policymakers who accept that the Iranian regime is rational still worry that a nuclear weapon would embolden it, providing Tehran with a shield that would allow it to act more aggressively and increase its support for terrorism. Some analysts even fear that Iran would directly provide terrorists with nuclear arms. The problem with these concerns is that they contradict the record of every other nuclear weapons state going back to 1945. History shows that when countries acquire the bomb, they feel increasingly vulnerable and become acutely aware that their nuclear weapons make them a potential target in the eyes of major powers. This awareness discourages nuclear states from bold and aggressive action. Maoist China, for example, became much less bellicose after acquiring nuclear weapons in 1964, and India and Pakistan have both become more cautious since going nuclear. There is little reason to believe Iran would break this mold." +
+"" +
+"        As for the risk of a handoff to terrorists, no country could transfer nuclear weapons without running a high risk of being found out. U.S. surveillance capabilities would pose a serious obstacle, as would the United States' impressive and growing ability to identify the source of fissile material. Moreover, countries can never entirely control or even predict the behavior of the terrorist groups they sponsor. Once a country such as Iran acquires a nuclear capability, it will have every reason to maintain full control over its arsenal. After all, building a bomb is costly and dangerous. It would make little sense to transfer the product of that investment to parties that cannot be trusted or managed." +
+"" +
+"        Another oft-touted worry is that if Iran obtains the bomb, other states in the region will follow suit, leading to a nuclear arms race in the Middle East. But the nuclear age is now almost 70 years old, and so far, fears of proliferation have proved to be unfounded. Properly defined, the term \"proliferation\" means a rapid and uncontrolled spread. Nothing like that has occurred; in fact, since 1970, there has been a marked slowdown in the emergence of nuclear states. There is no reason to expect that this pattern will change now. Should Iran become the second Middle Eastern nuclear power since 1945, it would hardly signal the start of a landslide. When Israel acquired the bomb in the 1960s, it was at war with many of its neighbors. Its nuclear arms were a much bigger threat to the Arab world than Iran's program is today. If an atomic Israel did not trigger an arms race then, there is no reason a nuclear Iran should now. " +
+"" +
+"        REST ASSURED" +
+"" +
+"        In 1991, the historical rivals India and Pakistan signed a treaty agreeing not to target each other's nuclear facilities. They realized that far more worrisome than their adversary's nuclear deterrent was the instability produced by challenges to it. Since then, even in the face of high tensions and risky provocations, the two countries have kept the peace. Israel and Iran would do well to consider this precedent. If Iran goes nuclear, Israel and Iran will deter each other, as nuclear powers always have. There has never been a full-scale war between two nuclear-armed states. Once Iran crosses the nuclear threshold, deterrence will apply, even if the Iranian arsenal is relatively small. No other country in the region will have an incentive to acquire its own nuclear capability, and the current crisis will finally dissipate, leading to a Middle East that is more stable than it is today." +
+"" +
+"        For that reason, the United States and its allies need not take such pains to prevent the Iranians from developing a nuclear weapon. Diplomacy between Iran and the major powers should continue, because open lines of communication will make the Western countries feel better able to live with a nuclear Iran. But the current sanctions on Iran can be dropped: they primarily harm ordinary Iranians, with little purpose." +
+"" +
+"        Most important, policymakers and citizens in the Arab world, Europe, Israel, and the United States should take comfort from the fact that history has shown that where nuclear capabilities emerge, so, too, does stability. When it comes to nuclear weapons, now as ever, more may be better. " +
+"",
 
 
 
-
-
-
-
-var whyIranShould_comments = [
+whyIranShould_comments: [
 
         {userID: 19, id: 2019, text: "I am very surprised by Waltz's assumptions and conclusions in this article. If one were going to argue that Iran should be allowed to develop a nuclear weapon, one should use much better rationale to do so. My initial shock stems from the fact that Mr. Waltz actually seems to believe that Iran is a state just like any other. That they have rationallity and long-term stability in their present, as well as in their future. I would argue that this is not the case at all. There are significant power struggles happening within the country - between political factions, as well as between the Ayatollas and the politicians. In addition to that, the populace is not the contented entity that his article assumes. The reaction after the elections a couple years ago, along with the response of the regime underscore this. In addition, Iran has been very willing in the past - and possibly in the present - to make use of terrorist organizations to do their dirty work. Iran has worked through and with both Hamas and Hezbollah. Disavowal of these types of activities have been long in coming, did I miss them? Or are we still waiting? Ah yes, still waiting. The idea that a handoff of nukes to these organizations would be known in time, or not done because the weapons are expensive is fantasy. Iran doesn't play by those rules. Waltz's assertion that countries attaining nuclear capability tend to reduce imbalances in military power is specious, seeing as the other countries joining the nuclear club have NOT been Iran. Lumping this country with others from the past is a bit like saying that a strain of bird flu with mutations is bird flu like we have encountered elsewhere in the world. Iran is a country like other countries, yet Iran with nuclear weapons is an unknown entity that has in the past threatened various European powers, the United States, and Israel. Acting as though the country will not use these weapons if they are attained is whistling past the graveyard. As for the balance of power in the region, despite the fact that the weapons in Turkey are NATO nukes, there is a balancing aspect to their control of them. Turkey, although not aligned with Iran as Syria is, has an Islamist government which has a role in NATO as well as at the UN. The country has influence with the US and the world through these ties. And finally, Iran is a state protected by Russia - and to a lesser extent China - on the world stage. Both these countries have nuclear weapons that can be considered to balance Israel's arsenal. I fear Mr. Waltz is mistaken in his assumptions as well as his conclusion that Iran should not be disallowed from attaining nuclear weapons. He seems to have a very rosey view of the matter.",},
 
@@ -162,81 +147,74 @@ var whyIranShould_comments = [
         
         {userID: 28, id: 2028, text: "An interesting outline of a view very different from my own. I wonder if the author remembers Ahmadinejad's letter to Angela Merkel where he applauded Germany for their particular efforts with the Jewish people during the last of the great wars? Much 'rational' argument was passed back and forth  in the days before the war to assess or play down the danger of Hitler. Most notably was Prime Minister of the UK, Mr Chamberlain's peace negotiations with Hitler. The ruling Labour Party of my own little Scandinavian country didn't think there were any danger neither, and we therefore had practically no defences when Hitler struck. Where rationale is influenced to such a degree by beliefs, that self-destruction gives you advancement in Heaven's halls for eternity, pure logic looses its bite. I hope it's not too hard to remember across the Atlantic that hatred against Jews has found several seemingly irrational, but very tangible outlets, such as the Holocaust. In spite of a well formulated view-point, I find no trace of such understanding in the author. I would hate to live in a world where millions of Jews or people of any other race needed to pay with their lives for our academic experiments. On the other hand, I agree with the author that a hard line sometimes begets a hard response. But this works, and should work both ways. Like some of the other commenters have pointed out, the article does not explore the responses of Saudi Arabia and a whole host of other countries in the region. Nor does it explore potential global alliances between a new breed of nuclear superpowers, which would render their combined powers anything but regional. Hence, the article feels like work-in-progress rather than a completed argument. Many thanks.",},
 
-    ];
-
-
+    ],
 		
 
 
-
-
-
-var israelSharpens_article = "
-
-        Israeli Sharpens Call for United States to Set Iran Trigger
-        By DAVID E. SANGER and ISABEL KERSHNER
-
-        WASHINGTON — Prime Minister Benjamin Netanyahu of Israel inserted himself into the most contentious foreign policy issue of the American presidential campaign on Tuesday, criticizing the Obama administration for refusing to set clear \"red lines\" on Iran’s nuclear progress that would prompt the United States to undertake a military strike. As a result, he said, the administration has no \"moral right\" to restrain Israel from taking military action of its own.
-
-        Mr. Netanyahu’s unusually harsh public comments about Israel’s most important ally, which closely track what he has reportedly said in vivid terms to American officials visiting Jerusalem, laid bare the tension between him and President Obama over how to handle Iran. They also suggested that he is willing to use the pressure of the presidential election to try to force Mr. Obama to commit to attack Iran under certain conditions.
-
-        He appeared to be responding to a weekend statement by Secretary of State Hillary Rodham Clinton that the United States was \"not setting deadlines\" beyond which it would turn to a military solution.
-
-        Mr. Netanyahu, speaking at a news conference in Jerusalem, said, \"Those in the international community who refuse to put red lines before Iran don’t have a moral right to place a red light before Israel.\"
-
-        In another sign of tensions, the Israeli Embassy in Washington said late Tuesday that the Obama administration had declined a request from Mr. Netanyahu’s office for a meeting with Mr. Obama when the Israeli leader attends the United Nations General Assembly this month. The Obama administration said the decision was due to a scheduling problem and had been conveyed to Israel long ago.
-
-        On Tuesday night, Mr. Obama called Mr. Netanyahu to try to calm the situation. The two talked for a full hour, hashing through the Iran confrontation and their misunderstandings.
-
-        \"President Obama and Prime Minister Netanyahu reaffirmed that they are united in their determination to prevent Iran from obtaining a nuclear weapon, and agreed to continue their close consultations going forward,\" the White House said in a statement after the phone call.
-        The White House also tried to tamp down controversy over the request for a meeting, saying that after a possible New York encounter was ruled out, Mr. Netanyahu did not request a meeting in Washington. \"Contrary to reports in the press, there was never a request for Prime Minister Netanyahu to meet with President Obama in Washington, nor was a request for a meeting ever denied,\" the statement said.
-
-        The United States says it has no evidence that Iranian leaders have made a final decision to build a bomb. However, the International Atomic Energy Agency’s latest report says the country has amassed a stockpile of low- and medium-enriched uranium that, with further enrichment, could fuel as many as six nuclear weapons.
-
-        The United States concluded several years ago that Iran had suspended its nuclear weapons development program at the end of 2003, though there has been evidence of sporadic work since. The Israelis say Iran is quietly reconstituting a much larger effort.
-        In demanding that Mr. Obama effectively issue an ultimatum to Iran, Mr. Netanyahu appeared to be making maximum use of his political leverage at a time when Mr. Obama’s Republican opponent, Mitt Romney, has sought to make an issue of what Mr. Romney says is the administration’s lack of support for Israel.
-
-        It is not clear what level of development in Iran’s nuclear program would constitute a \"red line\" in Israeli eyes. Dore Gold, president of the Jerusalem Center for Public Affairs, a research institute, and a former Israeli ambassador to the United Nations, said in an interview last week, \"It is very important to draw a line about the quantities of enriched uranium and the levels of enrichment.\"
-
-        One option that has been widely discussed among experts advising the United States government is capping Iran’s uranium enrichment at a reactor-grade level. Also, Iran would be permitted to stockpile no more than 1,764 pounds of that uranium, less than is required, if further enriched, to make a single bomb.
-
-        Mr. Netanyahu, who is highly attuned to American politics, seemed to be using his comments to pressure Mr. Obama to specify at which point the United States would be prepared to take military action against Iran, perhaps at the United Nations General Assembly opening this month.
-
-        The Israeli ambassador to the United States, Michael B. Oren, echoed Mr. Netanyahu in an interview in Washington on Monday night and said the Israeli leadership wanted Mr. Obama and the leaders of other nations to agree on clear limits for Iran.
-        \"We know that the Iranians see red,\" Mr. Oren said. \"We know they can discern the color red. We know that the redder the line, the lesser the chance that they will pass it.\"
-
-        Mrs. Clinton publicly rejected that approach over the weekend. In an interview with Bloomberg Radio, she avoided discussion of Iran’s stockpile and said, \"We’re not setting deadlines\" for military action. It was that statement that appeared to have set off Mr. Netanyahu.
-
-        Mr. Obama has repeatedly argued — with the support of some leading Israeli officials — that the United States and Israel have closer security cooperation now than at any other point in history. The United States provided much of the Iron Dome missile defense system for Israel, and for the past five years the two countries worked closely on a major covert operation against Iran called \"Olympic Games,\" an effort to sabotage Iran’s enrichment capability with cyberattacks.
-
-        But Mr. Obama has stopped well short of saying he would prevent Iran from developing the capability to produce a bomb. He has said only that he would not allow Iran to obtain a weapon; Mr. Netanyahu has said that is not enough.
-        Depending on how one defines the term, Mr. Obama’s aides and former aides acknowledge that Iran may already have that capability. It possesses the fuel and the knowledge to make a weapon, but that would take months or years, and Mr. Obama has argued that allows \"time and space\" for a negotiated solution.
-
-        Mr. Romney had no immediate comment about Mr. Netanyahu’s challenge to Mr. Obama, and one of his informal advisers on the Middle East said, \"It’s probably better at this point to let Netanyahu make the point because it’s more powerful that way.\" The adviser said he was not authorized to speak on the record.
-
-        But the Netanyahu comments play right to the Republican nominee’s critique of Mr. Obama. On \"Meet the Press\" on Sunday, Mr. Romney declared that the progress of Iran’s nuclear program was Mr. Obama’s \"greatest failure\" in foreign policy.
-
-        \"The president hasn’t drawn us any further away from a nuclear Iran,\" he said.
-
-        There is little doubt that the Iranian effort has progressed. When Mr. Obama took office, Iran had produced enough fuel to make, if enriched further, about one bomb, compared with five or six in the International Atomic Energy Agency’s current calculation.
-
-        But Mr. Romney’s proposals have also steered clear of describing with any precision how far Iran could go before he would use force to stop its program. Like Mr. Obama, he has not said how much progress he would allow Iran to make toward a weapons capability before he authorized a strike.
-        Instead, he has insisted that Mr. Obama was late to the task of placing \"crippling sanctions\" on Iran. Yet those sanctions have begun to strike at the heart of Iran’s greatest source of national revenue — oil sales — something that the Bush administration shied away from.
-
-        Mr. Netanyahu has been dismissive of sanctions. They are an indirect form of pressure, he has argued, and have not forced Iran’s supreme leader, Ayatollah Ali Khamenei, to scale back the country’s nuclear program.
-
-        In recent days, the Israelis had appeared to be dialing down the pressure on Washington, with the Israeli news media reporting that Ehud Barak, the defense minister, was rethinking the wisdom of an attack in the coming months. There was speculation that Israeli officials feared that the long-term jeopardy to Israel’s relationship with Washington was not worth the short-term gain of setting back, but probably not destroying, Iran’s capability.
-
-        A number of American officials, in trips to Israel, have argued that an Israeli attack would only drive the nuclear program underground and most likely result in the expulsion of international inspectors, who are the best gauge of the program’s progress.
-
-        But Mr. Netanyahu revived the tough talk of the past few months and the message that time is running out for Israel.
-
-        \"So far, we can say with certainty that diplomacy and sanctions haven’t worked. The sanctions have hurt the Iranian economy, but they haven’t stopped the Iranian nuclear program,\" Mr. Netanyahu said, adding, \"The fact is that every day that passes, Iran gets closer and closer to nuclear bombs.\"
-
-        David E. Sanger reported from Washington, and Isabel Kershner from Jerusalem. Elisabeth Bumiller and Peter Baker contributed reporting from Washington, and Rick Gladstone from New York.
-
-
-"
+israelSharpens_article: "" + 
+"" +
+"        Israeli Sharpens Call for United States to Set Iran Trigger" +
+"        By DAVID E. SANGER and ISABEL KERSHNER" +
+"" +
+"        WASHINGTON — Prime Minister Benjamin Netanyahu of Israel inserted himself into the most contentious foreign policy issue of the American presidential campaign on Tuesday, criticizing the Obama administration for refusing to set clear \"red lines\" on Iran’s nuclear progress that would prompt the United States to undertake a military strike. As a result, he said, the administration has no \"moral right\" to restrain Israel from taking military action of its own." +
+"" +
+"        Mr. Netanyahu’s unusually harsh public comments about Israel’s most important ally, which closely track what he has reportedly said in vivid terms to American officials visiting Jerusalem, laid bare the tension between him and President Obama over how to handle Iran. They also suggested that he is willing to use the pressure of the presidential election to try to force Mr. Obama to commit to attack Iran under certain conditions." +
+"" +
+"        He appeared to be responding to a weekend statement by Secretary of State Hillary Rodham Clinton that the United States was \"not setting deadlines\" beyond which it would turn to a military solution." +
+"" +
+"        Mr. Netanyahu, speaking at a news conference in Jerusalem, said, \"Those in the international community who refuse to put red lines before Iran don’t have a moral right to place a red light before Israel.\"" +
+"" +
+"        In another sign of tensions, the Israeli Embassy in Washington said late Tuesday that the Obama administration had declined a request from Mr. Netanyahu’s office for a meeting with Mr. Obama when the Israeli leader attends the United Nations General Assembly this month. The Obama administration said the decision was due to a scheduling problem and had been conveyed to Israel long ago." +
+"" +
+"        On Tuesday night, Mr. Obama called Mr. Netanyahu to try to calm the situation. The two talked for a full hour, hashing through the Iran confrontation and their misunderstandings." +
+"" +
+"        \"President Obama and Prime Minister Netanyahu reaffirmed that they are united in their determination to prevent Iran from obtaining a nuclear weapon, and agreed to continue their close consultations going forward,\" the White House said in a statement after the phone call." +
+"        The White House also tried to tamp down controversy over the request for a meeting, saying that after a possible New York encounter was ruled out, Mr. Netanyahu did not request a meeting in Washington. \"Contrary to reports in the press, there was never a request for Prime Minister Netanyahu to meet with President Obama in Washington, nor was a request for a meeting ever denied,\" the statement said." +
+"" +
+"        The United States says it has no evidence that Iranian leaders have made a final decision to build a bomb. However, the International Atomic Energy Agency’s latest report says the country has amassed a stockpile of low- and medium-enriched uranium that, with further enrichment, could fuel as many as six nuclear weapons." +
+"" +
+"        The United States concluded several years ago that Iran had suspended its nuclear weapons development program at the end of 2003, though there has been evidence of sporadic work since. The Israelis say Iran is quietly reconstituting a much larger effort." +
+"        In demanding that Mr. Obama effectively issue an ultimatum to Iran, Mr. Netanyahu appeared to be making maximum use of his political leverage at a time when Mr. Obama’s Republican opponent, Mitt Romney, has sought to make an issue of what Mr. Romney says is the administration’s lack of support for Israel." +
+"" +
+"        It is not clear what level of development in Iran’s nuclear program would constitute a \"red line\" in Israeli eyes. Dore Gold, president of the Jerusalem Center for Public Affairs, a research institute, and a former Israeli ambassador to the United Nations, said in an interview last week, \"It is very important to draw a line about the quantities of enriched uranium and the levels of enrichment.\"" +
+"" +
+"        One option that has been widely discussed among experts advising the United States government is capping Iran’s uranium enrichment at a reactor-grade level. Also, Iran would be permitted to stockpile no more than 1,764 pounds of that uranium, less than is required, if further enriched, to make a single bomb." +
+"" +
+"        Mr. Netanyahu, who is highly attuned to American politics, seemed to be using his comments to pressure Mr. Obama to specify at which point the United States would be prepared to take military action against Iran, perhaps at the United Nations General Assembly opening this month." +
+"" +
+"        The Israeli ambassador to the United States, Michael B. Oren, echoed Mr. Netanyahu in an interview in Washington on Monday night and said the Israeli leadership wanted Mr. Obama and the leaders of other nations to agree on clear limits for Iran." +
+"        \"We know that the Iranians see red,\" Mr. Oren said. \"We know they can discern the color red. We know that the redder the line, the lesser the chance that they will pass it.\"" +
+"" +
+"        Mrs. Clinton publicly rejected that approach over the weekend. In an interview with Bloomberg Radio, she avoided discussion of Iran’s stockpile and said, \"We’re not setting deadlines\" for military action. It was that statement that appeared to have set off Mr. Netanyahu." +
+"" +
+"        Mr. Obama has repeatedly argued — with the support of some leading Israeli officials — that the United States and Israel have closer security cooperation now than at any other point in history. The United States provided much of the Iron Dome missile defense system for Israel, and for the past five years the two countries worked closely on a major covert operation against Iran called \"Olympic Games,\" an effort to sabotage Iran’s enrichment capability with cyberattacks." +
+"" +
+"        But Mr. Obama has stopped well short of saying he would prevent Iran from developing the capability to produce a bomb. He has said only that he would not allow Iran to obtain a weapon; Mr. Netanyahu has said that is not enough." +
+"        Depending on how one defines the term, Mr. Obama’s aides and former aides acknowledge that Iran may already have that capability. It possesses the fuel and the knowledge to make a weapon, but that would take months or years, and Mr. Obama has argued that allows \"time and space\" for a negotiated solution." +
+"" +
+"        Mr. Romney had no immediate comment about Mr. Netanyahu’s challenge to Mr. Obama, and one of his informal advisers on the Middle East said, \"It’s probably better at this point to let Netanyahu make the point because it’s more powerful that way.\" The adviser said he was not authorized to speak on the record." +
+"" +
+"        But the Netanyahu comments play right to the Republican nominee’s critique of Mr. Obama. On \"Meet the Press\" on Sunday, Mr. Romney declared that the progress of Iran’s nuclear program was Mr. Obama’s \"greatest failure\" in foreign policy." +
+"" +
+"        \"The president hasn’t drawn us any further away from a nuclear Iran,\" he said." +
+"" +
+"        There is little doubt that the Iranian effort has progressed. When Mr. Obama took office, Iran had produced enough fuel to make, if enriched further, about one bomb, compared with five or six in the International Atomic Energy Agency’s current calculation." +
+"" +
+"        But Mr. Romney’s proposals have also steered clear of describing with any precision how far Iran could go before he would use force to stop its program. Like Mr. Obama, he has not said how much progress he would allow Iran to make toward a weapons capability before he authorized a strike." +
+"        Instead, he has insisted that Mr. Obama was late to the task of placing \"crippling sanctions\" on Iran. Yet those sanctions have begun to strike at the heart of Iran’s greatest source of national revenue — oil sales — something that the Bush administration shied away from." +
+"" +
+"        Mr. Netanyahu has been dismissive of sanctions. They are an indirect form of pressure, he has argued, and have not forced Iran’s supreme leader, Ayatollah Ali Khamenei, to scale back the country’s nuclear program." +
+"" +
+"        In recent days, the Israelis had appeared to be dialing down the pressure on Washington, with the Israeli news media reporting that Ehud Barak, the defense minister, was rethinking the wisdom of an attack in the coming months. There was speculation that Israeli officials feared that the long-term jeopardy to Israel’s relationship with Washington was not worth the short-term gain of setting back, but probably not destroying, Iran’s capability." +
+"" +
+"        A number of American officials, in trips to Israel, have argued that an Israeli attack would only drive the nuclear program underground and most likely result in the expulsion of international inspectors, who are the best gauge of the program’s progress." +
+"" +
+"        But Mr. Netanyahu revived the tough talk of the past few months and the message that time is running out for Israel." +
+"" +
+"        \"So far, we can say with certainty that diplomacy and sanctions haven’t worked. The sanctions have hurt the Iranian economy, but they haven’t stopped the Iranian nuclear program,\" Mr. Netanyahu said, adding, \"The fact is that every day that passes, Iran gets closer and closer to nuclear bombs.\"" +
+"" +
+"        David E. Sanger reported from Washington, and Isabel Kershner from Jerusalem. Elisabeth Bumiller and Peter Baker contributed reporting from Washington, and Rick Gladstone from New York." +
+"",
 
 
 
@@ -244,7 +222,7 @@ var israelSharpens_article = "
 
 
 
-var israelSharpens_comments = [
+israelSharpens_comments:  [
 
         {userID: 30, id: 3030, text: "Netanyahu really is intent on helping his friend, Romney, win the White House. In so doing, he is intentionally interfering in domestic U.S. politics--a wholly inappropriate act for a foreign leader, especially one which deems itself an \"ally\". If Netanyahu (ethically compromised already as the record show) and Romney (a man with so little faith in America that he deposits large sums of money off shore) feel that their perception of Israel's security (which is all it is--a perception) trumps the larger issue of U.S. and global security, I'll trust the leader (Obama) who has neither of these marks against him and who has already amply demonstrated that he is willing and able to take the necessary steps when the time is right.",},
         
@@ -280,5 +258,8 @@ var israelSharpens_comments = [
   
         {userID: 46, id: 3046, text: "Your editorial suggests that the Israeli prime minister needs to table the military option and give negotiations more time because there is “no proof that Iran is at the point of producing a weapon.\" Unfortunately, you fail to provide any evidence that negotiations have any hope of succeeding. Even while the sanctions have dramatically decreased Iran’s ability to export oil, the Iranian regime has done a masterful job of dragging out the negotiations while not showing any signs of slowing down the enrichment process or any willingness to compromise. Furthermore, Iran continues to call explicitly for Israel’s destruction. If you are going to denounce the Israeli government over its willingness to use the military option, you will soon have to come up with a more practical alternative than giving the negotiations more time.",},
 
-];
+],
+};
   
+//console.dir(data);
+console.log(JSON.stringify(data));
