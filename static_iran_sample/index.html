@@ -64,9 +64,7 @@
           background: rgba(61, 62, 63, 0.8); 
           -webkit-box-shadow: inset 0 0 1px rgba(0,0,0,0.5); 
       }
-      ::-webkit-scrollbar-thumb:window-inactive {
-        background: rgba(255,0,0,0.4); 
-      }
+
 
 
 
@@ -91,9 +89,8 @@
               Logged in as <a href="#" class="navbar-link">Username</a>
             </p>
             <ul class="nav">
-              <li class="active"><a href="#">Home</a></li>
-              <li><a href="#about">Conversations</a></li>
-              <li><a href="#contact">Stimulus & Interaction View</a></li>
+              <li class="active"><a href="#">Comments</a></li>
+              <li><a href="#title_bar">Articles</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
@@ -125,9 +122,10 @@
            <div class="span8 offset2">
               <div class="alert alert-block alert-info">
                   <button type="button" class="close" data-dismiss="alert">×</button>
-                  <h4>Push, Pull, Delete!</h4>
-                  <p> 
-                    <a href="#" rel="tooltip" title="(dislike, downvote, disagree, criticize)">Push</a> comments away from you, <a href="#" rel="tooltip" title="(like, share, vote up)">pull</a> comments towards you and <a href="#" rel="tooltip" title="(scope creep, trolls, ignorance, offensive, irrelevance)">decline to add energy</a> to comments you think don't belong in the conversation. These actions correspond to the spatial dimensions of the visualization: users will form into groups relative to each other - effectively pulling themsleves towards and pushing themselves away from other indivuals and groups. 
+                  <h4>Push, Pull, Pass!</h4>
+                  
+                  <p id="explanation"> 
+                    <a href="#" rel="tooltip" title="(dislike, downvote, disagree, criticize & define yourself as 'of this opinion')">Push</a> comments away from you and <a href="#" rel="tooltip" title="(like, share, vote up & define yourself as 'not of this opinion')">pull</a> comments towards you and behind the scenes, a bunch of complex math will cluster you into groups with people who pulled themselves towards you and pushed themselves away from those you pushed away from. <a href="#" rel="tooltip" title="(scope creep, trolls, ignorance, offensive, irrelevance)">Decline to add energy</a> to comments you think don't belong in the conversation. These actions correspond to the spatial dimensions of the visualization: users will form into groups relative to each other - effectively pulling themsleves towards and pushing themselves away from other indivuals and groups. 
                   </p>
 
 
@@ -150,9 +148,9 @@
           <div id="title_bar" class="hero-unit">
             <h1>Articles</h1>
               <ul id="article_pills" class="nav nav-pills">
-                <li><a href="#nuclear_mullahs"  data-toggle="tab">Nuclear Mullahs by Bill Keller</a></li>
-                <li><a href="#why_iran" data-toggle="tab">Why Iran Should Get The Bomb by Kenneth Waltz</a></li>
-                <li><a href="#israel_sharpens" data-toggle="tab">Israel Sharpens Call by David Sanger</a></li>
+                <li class="active"><a href="#nuclear_mullahs"  data-toggle="tab">Nuclear Mullahs -- Keller</a></li>
+                <li><a href="#why_iran" data-toggle="tab">Why Iran Should Get The Bomb -- Waltz</a></li>
+                <li><a href="#israel_sharpens" data-toggle="tab">Israel Sharpens Call -- Sanger & Kershner</a></li>
               </ul>
             <div id="article_tab_content" class="tab-content">
               <div class="tab-pane fade active in" id="nuclear_mullahs">
@@ -384,6 +382,7 @@
         $('#push_button, #pull_button, #pass_button').button('disable');
       };
     
+      $('#explanation').tooltip('show');
 
     </script> 
 
