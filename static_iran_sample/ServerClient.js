@@ -3,8 +3,8 @@ var ServerClient = function(params) {
     var protocol = params.protocol;
     var domain = params.domain;
     var basePath = params.basePath;
-    var addEventsPath = "/addEvents";
-    var getEventsPath = "/getEvents";
+    var addEventsPath = "/v1/addEvents";
+    var getEventsPath = "/v1/getEvents";
 
     var logger = params.logger;
 
@@ -182,10 +182,10 @@ var ServerClient = function(params) {
     }
 
     function sendImmediately(item) {
-        return $.post({
+        return $.ajax({
             url: protocol + "://" + domain + basePath + addEventsPath,
-            method: 'POST',
-            data: item
+            type: 'POST',
+            data: JSON.stringify(item),
         }).then(
             function(data) {
                 // take every opportunity to sync with server time.

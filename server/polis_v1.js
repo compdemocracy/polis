@@ -1,7 +1,7 @@
-var http = require('http');
-var fs = require('fs');
-var path = require('path');
-var _ = require('underscore');
+var http = require('http'),
+    fs = require('fs'),
+    path = require('path'),
+    _ = require('underscore');
 
 function DataStoreFactory(oldEvents) {
     var events = [];
@@ -81,51 +81,82 @@ function getTimestamp() {
     // it created another event. That counter is reset if the
     // millisecond has changed since the last event was created.
     // (so usually the value will end in 000.
-    return Date.now() * 1000;
+    return Date.now();
 }
 
 function addTimeStamp(responseObject) {
-    return _.extend(responseObject, {t: getTimestamp()});
+    return _.extend(responseObject, {serverTime: getTimestamp()});
 }
 
-// start server with ds in scope.
-var routes = {
-    "/v1/addEvents" : function(queryParams) { 
-        return JSON.stringify(
-                addTimeStamp({
-                    foo: queryParams
-                }));
-    },
-    "/v1/getEvents" : function(queryParams) { 
-        return JSON.stringify(
-                addTimeStamp({
-                    bar: queryParams
-                }));
-    },
-};
+
+function collectPost(req, res, success) {
+    if(req.method == 'POST') {
+        var body = '';
+        req.on('data', function (data) {
+            body += data;
+         //  if(body.length > 1e6) // FLOOD ATTACK OR FAULTY CLIENT, NUKE req
+         //  {
+         //       req.connection.destroy();
+         //  }
+        });
+        req.on('end', function () { 
+            var json = JSON.parse(body);
+            success(json);
+        });
+    }
+}
+
 
 // Configure our HTTP server to respond with Hello World to all requests.
-var server = http.createServer(function (request, response) {
-    var parts = request.url.split("?");
+var server = http.createServer(function (req, res) {
+
+    // start server with ds in scope.
+    var routes = {
+        "/v1/addEvents" : function(req, res) {
+
+            console.log(req.url);
+            collectPost(req, res, function(events) {
+
+                var result = JSON.stringify( addTimeStamp({
+                    received: events.length,
+                }));
+                ds.addEvents(events);
+                console.dir(result);
+                res.end(result);
+            });
+        },
+        "/v1/getEvents" : function(queryParams) { 
+            return JSON.stringify(
+                    addTimeStamp({
+                        bar: queryParams
+                    }));
+        },
+    };
+
+    ds = DataStoreFactory([]);
+
+    var parts = req.url.split("?");
     var basepath = parts[0];
     var queryParams = (parts.length >= 2) ? parts[1].split("&") : [];
 
-console.log('yawn');
-console.dir(queryParams);
+        res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Credentials': 'true'
+        });
+
+console.log(basepath);
     if (routes[basepath]) {
-        response.writeHead(200, {
-		'Content-Type': 'application/json',
-		'Cache-Control': 'no-cache',
-		'Connection': 'keep-alive',
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Credentials': 'true'
-	});
-        response.end(routes[basepath](queryParams));
+        routes[basepath](req, res);
     } else {
 	// try to serve a static file
-    var filePath = '.' + request.url;
-    if (filePath == './')
-        filePath = './index.html';
+    var filePath = './static_iran_sample';
+    if (req.url === '/')
+        filePath += '/index.html';
+    else 
+        filePath += req.url;
          
     var extname = path.extname(filePath);
     var contentType = 'text/html';
@@ -143,17 +174,17 @@ console.dir(queryParams);
         if (exists) {
             fs.readFile(filePath, function(error, content) {
                 if (error) {
-		    response.writeHead(404);
-                    response.end("404 dude");
+                    res.writeHead(404);
+                    res.end('{ "status": 404}');
                 }
                 else {
-                    response.writeHead(200, { 'Content-Type': contentType });
-                    response.end(content, 'utf-8');
+                    res.writeHead(200, { 'Content-Type': contentType });
+                    res.end(content, 'utf-8');
                 }
             });
         } else {
-            response.writeHead(404);
-	    response.end("404 dude");
+            res.writeHead(404);
+            res.end('{ "status": 404}');
         }
     });
     }
