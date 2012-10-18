@@ -410,10 +410,12 @@ function makeHash(ary) {
 
 ds = DataStoreFactory([]);
 
+/*
 ds.addEvents([{t: makeTimestamp(), type: "p_stimulus", text: articles.nuclearMullah_article}]);
 ds.addEvents(articles.nuclearMullah_comments.map(function(x) {
     return _.extend({t: makeTimestamp(), type: "p_comment"}, x);
 }));
+*/
 
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (req, res) {
@@ -433,7 +435,7 @@ var server = http.createServer(function (req, res) {
                 }
 
                 var result =  addTimeStamp({
-                    received: events.length,
+                    received: (events && events.length) || 0,
                 });
                 var types_to_return = data.types_to_return;
                 if (types_to_return) {
