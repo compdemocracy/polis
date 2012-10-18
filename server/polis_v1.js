@@ -119,13 +119,15 @@ var server = http.createServer(function (req, res) {
 
     // start server with ds in scope.
     var routes = {
-        "/v1/addEvents" : function(req, res) {
+        "/v1/syncEvents" : function(req, res) {
 
             console.log(req.url);
             collectPost(req, res, function(data) {
 
                 var events = data.events;
-                ds.addEvents(events);
+                if (events && events.length) {
+                    ds.addEvents(events);
+                }
 
                 var result =  addTimeStamp({
                     received: events.length,

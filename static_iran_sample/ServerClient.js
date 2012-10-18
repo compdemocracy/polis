@@ -3,7 +3,7 @@ var ServerClient = function(params) {
     var protocol = params.protocol;
     var domain = params.domain;
     var basePath = params.basePath;
-    var addEventsPath = "/v1/addEvents";
+    var syncEventsPath = "/v1/syncEvents";
     var getEventsPath = "/v1/getEvents";
 
     var logger = params.logger;
@@ -131,7 +131,7 @@ var ServerClient = function(params) {
             logger.error('bad commentID' + commentID);
             return $.Deferred().reject().promise();
         }
-        return polisAjax(addEventsPath, { 
+        return polisAjax(syncEventsPath, { 
             events: [ {
                     t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
                     me: userid,
@@ -153,7 +153,7 @@ var ServerClient = function(params) {
             logger.error('bad commentID' + commentID);
             return $.Deferred().reject().promise();
         }
-        return polisAjax(addEventsPath, { 
+        return polisAjax(syncEventsPath, { 
             events: [ {
                 t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
                 me: userid,
