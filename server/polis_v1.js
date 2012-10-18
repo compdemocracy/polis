@@ -1,10 +1,15 @@
 // TODO make different logger
-// TODO make output files for data, or use sqlite
 
 var http = require('http'),
     fs = require('fs'),
     path = require('path'),
     _ = require('underscore');
+
+var stream = fs.createWriteStream("/home/m/events."+Date.now()+".txt");
+
+function storeEvent(event){
+    stream.write(JSON.stringify(event)+"\n");
+}
 
 function DataStoreFactory(oldEvents) {
     var events = [];
@@ -24,7 +29,7 @@ function DataStoreFactory(oldEvents) {
     function addEvents(newEvents) {
         for (var i = 0; i < newEvents.length; i++) {
             events.push(newEvents[i]);
-            console.log(newEvents[i]);
+            storeEvent(newEvents[i]);
         }
     }
 
@@ -183,58 +188,57 @@ var server = http.createServer(function (req, res) {
     var basepath = parts[0];
     var queryParams = (parts.length >= 2) ? parts[1].split("&") : [];
 
+    if (routes[basepath]) {
         res.writeHead(200, {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Credentials': 'true'
+        //    'Access-Control-Allow-Origin': '*',
+        //    'Access-Control-Allow-Credentials': 'true'
         });
 
-console.log(basepath);
-    if (routes[basepath]) {
+        // Run the route handler
         routes[basepath](req, res);
+
     } else {
-	// try to serve a static file
-    var filePath = './static_iran_sample';
-    if (req.url === '/')
-        filePath += '/index.html';
-    else 
-        filePath += req.url;
-         
-    var extname = path.extname(filePath);
-    var contentType = 'text/html';
-    switch (extname) {
-        case '.js':
-            contentType = 'text/javascript';
-            break;
-        case '.css':
-            contentType = 'text/css';
-            break;
-    }
-     
-    fs.exists(filePath, function(exists) {
-     
-        if (exists) {
-            fs.readFile(filePath, function(error, content) {
-                if (error) {
-                    res.writeHead(404);
-                    res.end('{ "status": 404}');
-                }
-                else {
-                    res.writeHead(200, { 'Content-Type': contentType });
-                    res.end(content, 'utf-8');
-                }
-            });
-        } else {
-            res.writeHead(404);
-            res.end('{ "status": 404}');
+
+        // try to serve a static file
+        var filePath = './static_iran_sample';
+        if (req.url === '/')
+            filePath += '/index.html';
+        else 
+            filePath += req.url;
+             
+        var extname = path.extname(filePath);
+        var contentType = 'text/html';
+        switch (extname) {
+            case '.js':
+                contentType = 'text/javascript';
+                break;
+            case '.css':
+                contentType = 'text/css';
+                break;
         }
-    });
+         
+        fs.exists(filePath, function(exists) {
+            if (exists) {
+                fs.readFile(filePath, function(error, content) {
+                    if (error) {
+                        res.writeHead(404);
+                        res.end('{ "status": 404}');
+                    }
+                    else {
+                        res.writeHead(200, { 'Content-Type': contentType });
+                        res.end(content, 'utf-8');
+                    }
+                });
+            } else {
+                res.writeHead(404);
+                res.end('{ "status": 404}');
+            }
+        });
     }
 });
 
 server.listen(8000);
 console.log('started');
-
-
