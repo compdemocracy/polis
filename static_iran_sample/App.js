@@ -14,8 +14,17 @@ var App = function() {
     // init UI stuff
     // (or get references to the elements / views)
 
+    serverClient.sync().then(setupUI, function() {
+        alert("couldn't sync");
+        setupUI();
+    });
+
+ function setupUI() {
     var $commentShowerElem = $("#comment_shower");
-    var commentShower = CommentShower($commentShowerElem, serverClient.getNextComment);
+    var commentShower = CommentShower({
+        $rootDomElem: $commentShowerElem,
+        serverClient: serverClient,
+    });
 
     commentShower.addPullListener(function(commentID) {
         serverClient.pull(commentID)
@@ -45,10 +54,11 @@ var App = function() {
                 });
     });
 
+}
     
     // Debug interface
     return {
-        commentShower : commentShower,
+//        commentShower : commentShower,
         serverClient: serverClient,
     }
 };

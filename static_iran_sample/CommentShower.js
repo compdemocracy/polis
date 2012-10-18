@@ -1,10 +1,11 @@
 
-var CommentShower = function($rootDomElem) {
+var CommentShower = function(params) {
+    var $rootDomElem = params.$rootDomElem;
+    var serverClient = params.serverClient;
 
     var pullCallbacks = $.Callbacks();
     var pushCallbacks = $.Callbacks();
     var shownCallbacks = $.Callbacks();
-    var s = ServerClient({});
 
     var currentCommentId;
 
@@ -15,7 +16,7 @@ var CommentShower = function($rootDomElem) {
     showNext();
 
     function showNext() {
-        s.getNextComment().done(showComment);
+        serverClient.getNextComment().done(showComment);
     }
         
 
