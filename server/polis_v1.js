@@ -1,47 +1,7 @@
-
-/*
-
-log based service
-all in ram, but logs every event to disk. (assume one server for now)
-
-At some point, we'll have to use a centralized store for that, liek dynamo or whatever db.
-
-
-
-APIs
-
-
-/v1/events/
-    POST
-        {
-          method: "GET",
-          items:
-            [
-                {timestamp: 12847283764, id: 293846, action: "view", object: 294723 },
-                {timestamp: 12847283765, id: 293846, action: "pull", object: 294723 },
-                {timestamp: 12847283765, id: 293846, action: "pull", object: 294723 },
-            ]
-        }
-
-        {
-          method: "GET", 
-          lastServerTimestamp: 9238472389, 
-        }
-
-        {
-            method: "SYNC",
-            items: [
-                {timestamp: 12847283764, id: 293846, action: "view", object: 294723 },
-                {timestamp: 12847283765, id: 293846, action: "pull", object: 294723 },
-                {timestamp: 12847283765, id: 293846, action: "pull", object: 294723 },
-            ],
-            // lastServerTimestamp: 39823423984, <-- omit this to get everything.
-        }
-
-
-        put in array and sort by timestamp.
-*/
-
+var http = require('http');
+var fs = require('fs');
+var path = require('path');
+var _ = require('underscore');
 
 function DataStoreFactory(oldEvents) {
     var events = [];
@@ -90,7 +50,6 @@ process.stdin.on('data', function (chunk) {
       allStdin += chunk;
 });
 
-
 // load old events from disk
 var oldEvents = [];
 process.stdin.on('end', function () {
@@ -126,45 +85,81 @@ function getTimestamp() {
 }
 
 function addTimeStamp(responseObject) {
-    return $.extend(responseObject, {t: getTimestamp()});
+    return _.extend(responseObject, {t: getTimestamp()});
 }
 
 // start server with ds in scope.
 var routes = {
-    "/addEvents" : function(queryParams) { 
+    "/v1/addEvents" : function(queryParams) { 
         return JSON.stringify(
                 addTimeStamp({
                     foo: queryParams
-                });
+                }));
     },
-    "/getEvents" : function(queryParams) { 
+    "/v1/getEvents" : function(queryParams) { 
         return JSON.stringify(
                 addTimeStamp({
                     bar: queryParams
-                });
+                }));
     },
 };
-
-var http = require('http');
 
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (request, response) {
     var parts = request.url.split("?");
-    var path = parts[0];
+    var basepath = parts[0];
     var queryParams = (parts.length >= 2) ? parts[1].split("&") : [];
 
-    if (routes[path]) {
-        console.dir(queryParams);
-        response.writeHead(200, {"Content-Type": "text/plain"});
-        response.end(routes[path](queryParams));
+console.log('yawn');
+console.dir(queryParams);
+    if (routes[basepath]) {
+        response.writeHead(200, {
+		'Content-Type': 'application/json',
+		'Cache-Control': 'no-cache',
+		'Connection': 'keep-alive',
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Credentials': 'true'
+	});
+        response.end(routes[basepath](queryParams));
     } else {
-        response.writeHead(404, {"Content-Type": "text/plain"});
-        response.end("404 not found\n");
+	// try to serve a static file
+    var filePath = '.' + request.url;
+    if (filePath == './')
+        filePath = './index.html';
+         
+    var extname = path.extname(filePath);
+    var contentType = 'text/html';
+    switch (extname) {
+        case '.js':
+            contentType = 'text/javascript';
+            break;
+        case '.css':
+            contentType = 'text/css';
+            break;
+    }
+     
+    fs.exists(filePath, function(exists) {
+     
+        if (exists) {
+            fs.readFile(filePath, function(error, content) {
+                if (error) {
+		    response.writeHead(404);
+                    response.end("404 dude");
+                }
+                else {
+                    response.writeHead(200, { 'Content-Type': contentType });
+                    response.end(content, 'utf-8');
+                }
+            });
+        } else {
+            response.writeHead(404);
+	    response.end("404 dude");
+        }
+    });
     }
 });
 
-// Listen on port 8000, IP defaults to 127.0.0.1
 server.listen(8000);
+console.log('started');
 
-// Put a friendly message on the terminal
-console.log("Server running at http://127.0.0.1:8000/");
+
