@@ -3,8 +3,11 @@ var polis = {};
 var App = function() {
     
     var serverClient = ServerClient({
-        userID: 12345,
-        domain: "polisapp.com",
+        me: 12345, // userid
+        protocol: "http",
+        domain: "polis.bjorkegren.com",
+        basePath: "",
+        logger: console,
     });
 
 

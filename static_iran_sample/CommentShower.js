@@ -6,6 +6,7 @@ var CommentShower = function($rootDomElem) {
     var shownCallbacks = $.Callbacks();
     var s = ServerClient({});
 
+    var currentCommentId;
 
     $('#push_button').click(onPushClicked);
     $('#pull_button').click(onPullClicked);
@@ -24,7 +25,7 @@ var CommentShower = function($rootDomElem) {
         var template = $('#showerTemplate').html();
         var html = Mustache.to_html(template, data);
         $rootDomElem.html(html);
-        var currentCommentId = data.id; 
+        currentCommentId = data.id; 
 
 
         console.log("showing comment: " + currentCommentId);
@@ -35,14 +36,14 @@ var CommentShower = function($rootDomElem) {
         shownCallbacks.fire(data.id);
     }
 
-    function onPushClicked(currentCommentId) {
+    function onPushClicked() {
         pushCallbacks.fire(currentCommentId);
         // get the next comment from the ServerClient, and show that
         // transition
         showNext();
     }
 
-    function onPullClicked(currentCommentId) {
+    function onPullClicked() {
         pullCallbacks.fire(currentCommentId);
         // get the next comment from the ServerClient, and show that
         // transition

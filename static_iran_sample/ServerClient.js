@@ -1,5 +1,16 @@
-
 var ServerClient = function(params) {
+
+    var protocol = params.protocol;
+    var domain = params.domain;
+    var basePath = params.basePath;
+    var addEventsPath = "/addEvents";
+    var getEventsPath = "/getEvents";
+
+    var logger = params.logger;
+
+    var serverIsAheadByMicros = 0; // BAD! TODO fetch from server as first action.
+
+    var userid = params.me;
 
     var iran_comments = [
         
@@ -116,29 +127,78 @@ var ServerClient = function(params) {
 
     function push(commentID) {
         var dfd = $.Deferred();
-        if (isValidCommentID(commentID)) {
+        if (!isValidCommentID(commentID)) {
             dfd.reject();
         }
-        console.log("ServerClient PUSH: " + commentID);
-        setTimeout(dfd.resolve, 1000);
-        return dfd.promise();
+        return sendImmediately({
+            t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
+            me: userid,
+            type: 2, // types.push = 2, create comment will be 3, 0 will be 'observed, or maybe pass'
+            to: commentID,
+        });
     }
 
     function pull(commentID) {
         var dfd = $.Deferred();
-        if (isValidCommentID(commentID)) {
+        if (!isValidCommentID(commentID)) {
             dfd.reject();
         }
-        console.log("ServerClient PULL: " + commentID);
-        setTimeout(dfd.resolve, 1000);
-        return dfd.promise();
+        return sendImmediately({
+            t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
+            me: userid,
+            type: 1, // types.pull=1, create comment will be 3, 0 will be 'observed, or maybe pass'
+            to: commentID,
+        });
     }
 
     function reportAsShown(commentID) {
         var dfd = $.Deferred();
-        console.log("ServerClient SHOWN: " + commentID);
+        logger.log("ServerClient SHOWN: " + commentID);
         setTimeout(dfd.resolve, 1000);
         return dfd.promise();
+    }
+
+    function addToJournal(item) {
+    }
+
+    var getMicroseconds = (function() {
+        var counter = 0;
+        var currentMillisecond = Date.now();
+        return function() {
+            var now = Date.now();
+            if (now !== currentMillisecond) { 
+                currentMillisecond = now;
+                counter = 0;
+            }
+            if (counter >= 999) {
+                counter = 999;
+            }
+            return now*1000 + counter;
+        };
+    })();
+
+    function makeTimestamp() {
+        return getMicroseconds() + serverIsAheadByMicros;
+    }
+
+    function sendImmediately(item) {
+        return $.post({
+            url: protocol + "://" + domain + basePath + addEventsPath,
+            method: 'POST',
+            data: item
+        }).then(
+            function(data) {
+                // take every opportunity to sync with server time.
+                serverTime = data.serverTime;
+                logger.log('send OK', item);
+            },
+            function(jqXHR, message, errorType) {
+                logger.error('send ERROR', item);
+                logger.dir(item);
+                logger.dir(message);
+                logger.dir(errorType);
+            }
+        );
     }
 
     return {
