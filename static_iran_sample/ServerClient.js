@@ -9,10 +9,11 @@ var ServerClient = function(params) {
     var logger = params.logger;
 
     var serverIsAheadByMicros = 0; // BAD! TODO fetch from server as first action.
+    var previousServerTime = 0; // start syncing from 0
 
     var userid = params.me;
 
-    var iran_comments = [
+    var comments = [
         
         {userID: 1, id: 1001, text: "Would Iran really launch such a weapon? Wrap your mind around these words delivered by Iranian President Mahmoud Ahmadinejad on Israel\'s milestone, 60th birthday in 2008: \"Those who think they can revive the stinking corpse of the usurping and fake Israeli regime by throwing a birthday party are seriously mistaken. Today, the reason for the Zionist regime\'s existence is questioned, and this regime is on its way to annihilation. They should know that regional nations hate this fake and criminal regime and if the smallest and briefest chance is given to regional nations they will destroy it.\" Some weeks ago Ahmadinejad reaffirmed his intentions in a televised speech he gave in Teheran marking Quds Day, the annual protest against the Jewish presence in Jerusalem which is held on the last Friday of Ramadan.  He said, \"The nations of the region will soon finish off the usurper Zionists [Israel] in the Palestinian land. A new Middle East will definitely be formed. With the grace of God and help of the nations, in the new Middle East there will be no trace of the Americans and Zionists.\" Tell us who are those western expert that are not convinced this regime hasn\'t made the decision to build the bomb?",},
 
@@ -116,38 +117,49 @@ var ServerClient = function(params) {
 
     function getNextComment() {
         var dfd = $.Deferred();
-        if (commentIndex >= iran_comments.length) {
+        if (commentIndex >= comments.length) {
             dfd.reject();
         } else {
-            dfd.resolve(iran_comments[commentIndex]);
+            dfd.resolve(comments[commentIndex]);
             commentIndex += 1;
         }
         return dfd.promise();
     }
 
     function push(commentID) {
-        var dfd = $.Deferred();
         if (!isValidCommentID(commentID)) {
-            dfd.reject();
+            logger.error('bad commentID' + commentID);
+            return $.Deferred().reject().promise();
         }
-        return sendImmediately({
-            t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
-            me: userid,
-            type: 2, // types.push = 2, create comment will be 3, 0 will be 'observed, or maybe pass'
-            to: commentID,
+        return polisAjax(addEventsPath, { 
+            events: [ {
+                    t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
+                    me: userid,
+                    type: "p_push",
+                    to: commentID,
+                } ]
         });
     }
 
+//  function getEventsFromPolis() {
+//      return polisAjax(getEventsPath, {
+//          previousServerTime: previousServerTime,
+//          me: userid,
+//      }).pipe(function(data);
+//  }
+
     function pull(commentID) {
-        var dfd = $.Deferred();
         if (!isValidCommentID(commentID)) {
-            dfd.reject();
+            logger.error('bad commentID' + commentID);
+            return $.Deferred().reject().promise();
         }
-        return sendImmediately({
-            t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
-            me: userid,
-            type: 1, // types.pull=1, create comment will be 3, 0 will be 'observed, or maybe pass'
-            to: commentID,
+        return polisAjax(addEventsPath, { 
+            events: [ {
+                t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
+                me: userid,
+                type: "p_pull",
+                to: commentID,
+            } ],
         });
     }
 
@@ -181,20 +193,34 @@ var ServerClient = function(params) {
         return getMicroseconds() + serverIsAheadByMicros;
     }
 
-    function sendImmediately(item) {
+    function polisAjax(api, data) {
+        data = $.extend({}, data, {
+            types_to_return: ["p_pull"],
+            previousServerTime: previousServerTime,
+        });
         return $.ajax({
-            url: protocol + "://" + domain + basePath + addEventsPath,
+            url: protocol + "://" + domain + basePath + api,
             type: 'POST',
-            data: JSON.stringify(item),
+            data: JSON.stringify(data),
         }).then(
             function(data) {
                 // take every opportunity to sync with server time.
-                serverTime = data.serverTime;
-                logger.log('send OK', item);
+                previousServerTime = data.serverTime;
+                var evs = data.newEvents;
+                if (evs) {
+                    for (var i = 0; i < evs.length; i++) {
+                        if (evs[i].type === "p_comment") {
+                            comments.push(evs[i]);
+                        } else {
+                            // we may want other types later.
+                        }
+                    }
+                }
+                logger.log('send OK', data);
             },
             function(jqXHR, message, errorType) {
-                logger.error('send ERROR', item);
-                logger.dir(item);
+                logger.error('send ERROR', data);
+                logger.dir(data);
                 logger.dir(message);
                 logger.dir(errorType);
             }

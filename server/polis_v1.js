@@ -1,3 +1,6 @@
+// TODO make different logger
+// TODO make output files for data, or use sqlite
+
 var http = require('http'),
     fs = require('fs'),
     path = require('path'),
@@ -19,7 +22,7 @@ function DataStoreFactory(oldEvents) {
     }
 
     function addEvents(newEvents) {
-        for (var i = 0; i < newEvents.legth; i++) {
+        for (var i = 0; i < newEvents.length; i++) {
             events.push(newEvents[i]);
             console.log(newEvents[i]);
         }
@@ -107,6 +110,10 @@ function collectPost(req, res, success) {
 }
 
 
+function makeHash(ary) {
+    return _.object(ary, ary.map(function(){return 1;}));
+}
+
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (req, res) {
 
@@ -115,21 +122,37 @@ var server = http.createServer(function (req, res) {
         "/v1/addEvents" : function(req, res) {
 
             console.log(req.url);
-            collectPost(req, res, function(events) {
+            collectPost(req, res, function(data) {
 
-                var result = JSON.stringify( addTimeStamp({
-                    received: events.length,
-                }));
+                var events = data.events;
                 ds.addEvents(events);
+
+                var result =  addTimeStamp({
+                    received: events.length,
+                });
+                console.log(types_to_return);
+                var types_to_return = data.types_to_return;
+                if (types_to_return) {
+                    types_to_return = makeHash(types_to_return);
+                    console.log(types_to_return);
+                    var evs = _.filter(ds.getEventsSince(data.previousServerTime), function(x) {
+                        // "p_comment", etc
+                        return !!types_to_return[x.type];
+                    });
+                    result.newEvents = evs;
+                }
+                
                 console.dir(result);
-                res.end(result);
+                res.end(JSON.stringify(result));
             });
         },
-        "/v1/getEvents" : function(queryParams) { 
-            return JSON.stringify(
-                    addTimeStamp({
-                        bar: queryParams
-                    }));
+        "/v1/getEvents" : function(req, res) { 
+            console.log(req.url);
+            collectPost(req, res, function(data) {
+                var result = JSON.stringify(ds.getEventsSince(data.previousServerTime));
+                console.log(result);
+                req.end(result);
+            });
         },
     };
 
