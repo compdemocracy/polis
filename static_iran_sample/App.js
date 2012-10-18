@@ -20,6 +20,15 @@ var App = function() {
     });
 
  function setupUI() {
+
+    // Comment Submitter
+    var commentSubmitter= CommentSubmitter({
+    });
+    commentSubmitter.addSubmitListener(function(text) {
+        serverClient.submitComment(text);
+    });
+
+    // Comment Shower
     var $commentShowerElem = $("#comment_shower");
     var commentShower = CommentShower({
         $rootDomElem: $commentShowerElem,

@@ -270,6 +270,7 @@ israelSharpens_comments:  [
 var http = require('http'),
     fs = require('fs'),
     path = require('path'),
+    crypto = require('crypto'),
     _ = require('underscore');
 
 var stream = fs.createWriteStream("/home/m/events."+Date.now()+".txt");
@@ -281,16 +282,16 @@ function storeEvent(event){
 function DataStoreFactory(oldEvents) {
     var events = [];
 
-    function makeEventSelector(timestampNanos) {
+    function makeEventSelector(timestamp) {
         return function(event) {
-            var isNewEnough = event.t >= timestampNanos;
-            console.log("? " + JSON.stringify(event) + " " + timestampNanos + " " + isNewEnough);
+            var isNewEnough = event.t >= timestamp;
+            console.log("? " + JSON.stringify(event) + " " + timestamp+ " " + isNewEnough);
             return isNewEnough;
         }
     }
 
     function getEventsSince(serverTimestampMillis) {
-        return events.filter(makeEventSelector(1000*1000* serverTimestampMillis));
+        return events.filter(makeEventSelector(serverTimestampMillis));
     }
 
     function addEvents(newEvents) {
@@ -347,24 +348,8 @@ process.stdin.on('end', function () {
      console.dir(allEvents);
 });
 
-    var getNanoseconds = (function() {
-        var counter = 0;
-        var currentMillisecond = Date.now();
-        return function() {
-            var now = Date.now();
-            if (now !== currentMillisecond) { 
-                currentMillisecond = now;
-                counter = 0;
-            }
-            if (counter >= 999999) {
-                counter = 999999;
-            }
-            return now*1000*1000 +""+ counter++;
-        };
-    })();
-
     function makeTimestamp() {
-        return getNanoseconds();
+        return Date.now();
     }
 
 function getTimestamp() {
@@ -382,7 +367,7 @@ function getTimestamp() {
 }
 
 function addTimeStamp(responseObject) {
-    return _.extend(responseObject, {serverTime: getTimestamp()});
+    return _.extend(responseObject, {serverTimeMillis: getTimestamp()});
 }
 
 
@@ -417,6 +402,17 @@ ds.addEvents(articles.nuclearMullah_comments.map(function(x) {
 }));
 */
 
+String.prototype.hashCode = function(){
+    var hash = 0, i, char;
+    if (this.length == 0) return hash;
+    for (i = 0; i < this.length; i++) {
+        char = this.charCodeAt(i);
+        hash = ((hash<<5)-hash)+char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+};
+
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (req, res) {
 
@@ -430,7 +426,11 @@ var server = http.createServer(function (req, res) {
                 var events = data.events;
                 if (events && events.length) {
                     // Add timestamps
-                    events = events.map(function(x) {x.t = makeTimestamp(); return x;});
+                    events = events.map(function(x) {
+                        x.t = makeTimestamp();
+                        x.id = crypto.createHash('md5').update(JSON.stringify(x)).digest('hex')
+                        return x;
+                    });
                     ds.addEvents(events);
                 }
 

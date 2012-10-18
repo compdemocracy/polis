@@ -18,6 +18,9 @@ var ServerClient = function(params) {
     var commentIndex = 0;
 
     // function getNextStimulus() {}
+
+    // key on id field
+    var dedupMap = {};
     
     function isValidCommentID(commentID) {
         return isNumber(commentID);
@@ -43,6 +46,19 @@ var ServerClient = function(params) {
         return dfd.promise();
     }
 
+    function submitComment(text) {
+        if (typeof text !== 'string' || text.length === 0) {
+            logger.error('bad comment');
+            return $.Deferred().reject().promise();
+        }
+        return polisAjax(syncEventsPath, { 
+            events: [ {
+                    userID: userid,
+                    type: "p_comment",
+                    text: text,
+                } ]
+        });
+    }
     function push(commentID) {
         if (!isValidCommentID(commentID)) {
             logger.error('bad commentID: ' + commentID);
@@ -50,7 +66,7 @@ var ServerClient = function(params) {
         }
         return polisAjax(syncEventsPath, { 
             events: [ {
-                    me: userid,
+                    userID: userid,
                     type: "p_push",
                     to: commentID,
                 } ]
@@ -60,7 +76,7 @@ var ServerClient = function(params) {
 //  function getEventsFromPolis() {
 //      return polisAjax(getEventsPath, {
 //          previousServerTimeMillis: previousServerTimeMillis,
-//          me: userid,
+//          userID: userid,
 //      }).pipe(function(data);
 //  }
 
@@ -71,7 +87,7 @@ var ServerClient = function(params) {
         }
         return polisAjax(syncEventsPath, { 
             events: [ {
-                me: userid,
+                userID: userid,
                 type: "p_pull",
                 to: commentID,
             } ],
@@ -111,8 +127,13 @@ var ServerClient = function(params) {
                 var evs = data.newEvents;
                 if (evs) {
                     for (var i = 0; i < evs.length; i++) {
+                        if (dedupMap[evs[i].id]) {
+                            logger.warn('duplicate found for', evs[i]);
+                            continue;
+                        }
                         if (evs[i].type === "p_comment") {
                             comments.push(evs[i]);
+                            dedupMap[evs[i].id] = 1;
                         } else {
                             // we may want other types later.
                         }
@@ -135,5 +156,6 @@ var ServerClient = function(params) {
         push: push,
         pull: pull,
         reportAsShown: reportAsShown,
+        submitComment: submitComment,
     }
 };

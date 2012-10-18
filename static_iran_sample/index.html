@@ -89,8 +89,9 @@
               Logged in as <a href="#" class="navbar-link">Username</a>
             </p>
             <ul class="nav">
-              <li class="active"><a href="#">Comments</a></li>
-              <li><a href="#title_bar">Articles</a></li>
+              <li class="active"><a href="#comment_shower_span">Comments</a></li>
+              <li><a href="#articles">Articles</a></li>
+              <li><a href="#debug">Debug</a></li>
             </ul>
           </div><!--/.nav-collapse -->
         </div>
@@ -99,10 +100,6 @@
 
     <div class="container-fluid">
      
-
-
-
-
       <div class="row-fluid">
         <div class="span12">
           <div class="row-fluid">
@@ -118,6 +115,7 @@
             </div><!--/span-->
           </div><!--/row-->
           
+          </div><!--/row-->
           <div class="row-fluid messages">
            <div class="span8 offset2">
               <div class="alert alert-block alert-info">
@@ -145,7 +143,7 @@
 
 
 
-          <div id="title_bar" class="hero-unit">
+          <div id="articles" class="hero-unit">
             <h1>Articles</h1>
               <ul id="article_pills" class="nav nav-pills">
                 <li class="active"><a href="#nuclear_mullahs"  data-toggle="tab">Nuclear Mullahs -- Keller</a></li>
@@ -317,7 +315,14 @@
 
 
 
-
+          <div id="debug" class="row-fluid">
+            <div id="comment_form_span" class="span8 offset2">
+              <h2>Comment Form</h2>
+                <form id="comment_form">
+                <textarea id="comment_form_textarea" rows="3"></textarea>
+                <button type="submit" id="comment_form_button" class="btn">Submit</button>
+            </div><!--/span-->
+        </div>
 
 
 
@@ -366,6 +371,7 @@
     <script src="util.js"></script>
     <script src="ServerClient.js"></script>
     <script src="CommentShower.js"></script>
+    <script src="CommentSubmitter.js"></script>
     <script src="mustache.js"></script>
     <script src="App.js"></script>
    
