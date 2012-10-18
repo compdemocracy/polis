@@ -4,12 +4,12 @@ var ServerClient = function(params) {
     var domain = params.domain;
     var basePath = params.basePath;
     var syncEventsPath = "/v1/syncEvents";
-    var getEventsPath = "/v1/getEvents";
+//    var getEventsPath = "/v1/getEvents";
 
     var logger = params.logger;
 
     var serverIsAheadByMicros = 0; // BAD! TODO fetch from server as first action.
-    var previousServerTime = 0; // start syncing from 0
+    var previousServerTimeMillis = 0; // start syncing from 0
 
     var userid = params.me;
 
@@ -133,7 +133,6 @@ var ServerClient = function(params) {
         }
         return polisAjax(syncEventsPath, { 
             events: [ {
-                    t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
                     me: userid,
                     type: "p_push",
                     to: commentID,
@@ -143,7 +142,7 @@ var ServerClient = function(params) {
 
 //  function getEventsFromPolis() {
 //      return polisAjax(getEventsPath, {
-//          previousServerTime: previousServerTime,
+//          previousServerTimeMillis: previousServerTimeMillis,
 //          me: userid,
 //      }).pipe(function(data);
 //  }
@@ -155,7 +154,6 @@ var ServerClient = function(params) {
         }
         return polisAjax(syncEventsPath, { 
             events: [ {
-                t: makeTimestamp(), // put this first, that might enable alphabetic sorting w/o parsing..?
                 me: userid,
                 type: "p_pull",
                 to: commentID,
@@ -173,30 +171,11 @@ var ServerClient = function(params) {
     function addToJournal(item) {
     }
 
-    var getMicroseconds = (function() {
-        var counter = 0;
-        var currentMillisecond = Date.now();
-        return function() {
-            var now = Date.now();
-            if (now !== currentMillisecond) { 
-                currentMillisecond = now;
-                counter = 0;
-            }
-            if (counter >= 999) {
-                counter = 999;
-            }
-            return now*1000 + counter;
-        };
-    })();
-
-    function makeTimestamp() {
-        return getMicroseconds() + serverIsAheadByMicros;
-    }
 
     function polisAjax(api, data) {
         data = $.extend({}, data, {
             types_to_return: ["p_pull"],
-            previousServerTime: previousServerTime,
+            previousServerTimeMillis: previousServerTimeMillis,
         });
         return $.ajax({
             url: protocol + "://" + domain + basePath + api,
@@ -205,7 +184,7 @@ var ServerClient = function(params) {
         }).then(
             function(data) {
                 // take every opportunity to sync with server time.
-                previousServerTime = data.serverTime;
+                previousServerTimeMillis = data.serverTimeMillis;
                 var evs = data.newEvents;
                 if (evs) {
                     for (var i = 0; i < evs.length; i++) {

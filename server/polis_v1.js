@@ -9,16 +9,16 @@ var http = require('http'),
 function DataStoreFactory(oldEvents) {
     var events = [];
 
-    function makeEventSelector(timestamp) {
+    function makeEventSelector(timestampNanos) {
         return function(event) {
-            var isNewEnough = event.t >= timestamp;
-            console.log("? " + JSON.stringify(event) + " " + timestamp + " " + isNewEnough);
+            var isNewEnough = event.t >= timestampNanos;
+            console.log("? " + JSON.stringify(event) + " " + timestampNanos + " " + isNewEnough);
             return isNewEnough;
         }
     }
 
-    function getEventsSince(serverTimestamp) {
-        return events.filter(makeEventSelector(serverTimestamp));
+    function getEventsSince(serverTimestampMillis) {
+        return events.filter(makeEventSelector(1000*1000* serverTimestampMillis));
     }
 
     function addEvents(newEvents) {
@@ -72,6 +72,25 @@ process.stdin.on('end', function () {
      console.dir(allEvents);
 });
 
+    var getNanoseconds = (function() {
+        var counter = 0;
+        var currentMillisecond = Date.now();
+        return function() {
+            var now = Date.now();
+            if (now !== currentMillisecond) { 
+                currentMillisecond = now;
+                counter = 0;
+            }
+            if (counter >= 999999) {
+                counter = 999999;
+            }
+            return now*1000*1000 + counter;
+        };
+    })();
+
+    function makeTimestamp() {
+        return getNanoseconds();
+    }
 
 function getTimestamp() {
     // This timestamp will be used by the client to compute an
@@ -121,37 +140,37 @@ var server = http.createServer(function (req, res) {
     var routes = {
         "/v1/syncEvents" : function(req, res) {
 
-            console.log(req.url);
+            console.log('url',req.url);
             collectPost(req, res, function(data) {
 
                 var events = data.events;
                 if (events && events.length) {
+                    // Add timestamps
+                    events = events.map(function(x) {x.t = makeTimestamp(); return x;});
                     ds.addEvents(events);
                 }
 
                 var result =  addTimeStamp({
                     received: events.length,
                 });
-                console.log(types_to_return);
                 var types_to_return = data.types_to_return;
                 if (types_to_return) {
+                    console.log('types',types_to_return);
                     types_to_return = makeHash(types_to_return);
-                    console.log(types_to_return);
-                    var evs = _.filter(ds.getEventsSince(data.previousServerTime), function(x) {
+                    var evs = _.filter(ds.getEventsSince(data.previousServerTimeMillis), function(x) {
                         // "p_comment", etc
                         return !!types_to_return[x.type];
                     });
                     result.newEvents = evs;
                 }
                 
-                console.dir(result);
                 res.end(JSON.stringify(result));
             });
         },
         "/v1/getEvents" : function(req, res) { 
             console.log(req.url);
             collectPost(req, res, function(data) {
-                var result = JSON.stringify(ds.getEventsSince(data.previousServerTime));
+                var result = JSON.stringify(ds.getEventsSince(data.previousServerTimeMillis));
                 console.log(result);
                 req.end(result);
             });
