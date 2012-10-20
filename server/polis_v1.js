@@ -268,6 +268,7 @@ israelSharpens_comments:  [
 
 
 var http = require('http'),
+    pg = require('pg'),
     fs = require('fs'),
     path = require('path'),
     crypto = require('crypto'),
@@ -515,6 +516,17 @@ var server = http.createServer(function (req, res) {
             }
         });
     }
+});
+
+var TABLE_REACTIONS = 'reactions';
+
+
+pg.connect(process.env.DATABASE_URL, function(err, client) {
+  var query = client.query('SELECT * FROM ' + TABLE_REACTIONS);
+
+    query.on('row', function(row) {
+        console.log(JSON.stringify(row));
+    });
 });
 
 server.listen(process.env.PORT);
