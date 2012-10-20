@@ -518,4 +518,4 @@ var server = http.createServer(function (req, res) {
 });
 
 server.listen(process.env.PORT);
-console.log('started');
+console.log('started on port ' + process.env.PORT);
