@@ -273,7 +273,7 @@ var http = require('http'),
     crypto = require('crypto'),
     _ = require('underscore');
 
-var stream = fs.createWriteStream("/home/m/events."+Date.now()+".txt");
+var stream = fs.createWriteStream("./polis_events."+Date.now()+".txt");
 
 function storeEvent(event){
     stream.write(JSON.stringify(event)+"\n");
