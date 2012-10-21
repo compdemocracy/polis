@@ -268,6 +268,7 @@ israelSharpens_comments:  [
 
 
 var http = require('http'),
+    pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-database
     fs = require('fs'),
     path = require('path'),
     crypto = require('crypto'),
@@ -515,6 +516,22 @@ var server = http.createServer(function (req, res) {
             }
         });
     }
+});
+
+var TABLE_REACTIONS = 'test';
+
+
+console.log(process.env.DATABASE_URL);
+pg.connect(process.env.DATABASE_URL, function(err, client) {
+    if (err) {
+        console.error(err);
+        return;
+    }
+  var query = client.query('SELECT * FROM ' + TABLE_REACTIONS);
+
+    query.on('row', function(row) {
+        console.log(JSON.stringify(row));
+    });
 });
 
 server.listen(process.env.PORT);
