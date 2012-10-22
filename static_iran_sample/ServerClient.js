@@ -9,17 +9,20 @@ var ServerClient = function(params) {
     var logger = params.logger;
 
     var serverIsAheadByMicros = 0; // BAD! TODO fetch from server as first action.
-    var previousServerTimeMillis = 0; // start syncing from 0
+    var previousServerToken = 0; // start syncing from 0
 
     var userid = params.me;
+    var currentStimulusId;
 
     var comments = [];
+    var users = [];
          
     var commentIndex = 0;
 
     // function getNextStimulus() {}
 
     // key on id field
+    // TODO remove - We shouldn't need this, just for verification
     var dedupMap = {};
     
     function isValidCommentID(commentID) {
@@ -75,7 +78,7 @@ var ServerClient = function(params) {
 
 //  function getEventsFromPolis() {
 //      return polisAjax(getEventsPath, {
-//          previousServerTimeMillis: previousServerTimeMillis,
+//          previousServerToken: previousServerToken,
 //          userID: userid,
 //      }).pipe(function(data);
 //  }
@@ -107,14 +110,19 @@ var ServerClient = function(params) {
     function sync() {
         return polisAjax(syncEventsPath, {
             types_to_return: ["p_comment"],
-            previousServerTimeMillis: previousServerTimeMillis,
+            previousServerToken: previousServerToken,
         });
     }
 
     function polisAjax(api, data) {
+        if (!currentStimulusId) {
+            logger.error('stimulusId should probably be set');
+            return $.Deferred().reject().promise();
+        }
         data = $.extend({}, data, {
             types_to_return: ["p_comment"],
-            previousServerTimeMillis: previousServerTimeMillis,
+            previousServerToken: previousServerToken,
+            s: currentStimulusId,
         });
         return $.ajax({
             url: protocol + "://" + domain + basePath + api,
@@ -123,7 +131,7 @@ var ServerClient = function(params) {
         }).then(
             function(data) {
                 // take every opportunity to sync with server time.
-                previousServerTimeMillis = data.serverTimeMillis;
+                previousServerToken = data.serverTimeMillis;
                 var evs = data.newEvents;
                 if (evs) {
                     for (var i = 0; i < evs.length; i++) {
@@ -134,6 +142,8 @@ var ServerClient = function(params) {
                         if (evs[i].type === "p_comment") {
                             comments.push(evs[i]);
                             dedupMap[evs[i].id] = 1;
+                        } else if (evs[i].type === "p_newuser") {
+                            users.push(evs[i]);
                         } else {
                             // we may want other types later.
                         }
@@ -150,12 +160,44 @@ var ServerClient = function(params) {
         );
     }
 
+    function observeStimulus(stimulusId) {
+        if (typeof stimulusId !== 'string' || stimulusId.length === 0) {
+            logger.error('bad id');
+            return $.Deferred().reject().promise();
+        }
+        currentStimulusId = stimulusId;
+        return polisAjax(syncEventsPath, { 
+            events: [ {
+                    userID: userid,
+                    type: "p_observe_stimulus",
+                    // NOTE currentStimulusId is added by polisAjax
+                } ]
+        });
+    }
+
+    function getListOfUsersForThisTopic() {
+        return polisAjax(syncEventsPath, { 
+            events: [ {
+                    type: "p_newuser",
+                    s: currentStimulusId,
+                } ]
+        }).pipe(function() {
+            return users;
+        }, function(err) {
+            console.error('error fetching users ');
+            console.dir(err);
+            return users;
+        });
+    }
+
     return {
         sync: sync, // TODO remove from this API
         getNextComment: getNextComment,
+        observeStimulus: observeStimulus,
         push: push,
         pull: pull,
         reportAsShown: reportAsShown,
         submitComment: submitComment,
+        getListOfUsersForThisTopic: getListOfUsersForThisTopic,
     }
 };

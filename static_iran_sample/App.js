@@ -10,6 +10,11 @@ var App = function() {
         logger: console,
     });
 
+    function observeStimulus(id) {
+        // mostly for early dev, it would be nice to show the current stimulus in the hash params
+        window.location.hash = "#s=" + id
+        serverClient.observe(id);
+    }
 
     // init UI stuff
     // (or get references to the elements / views)
@@ -48,8 +53,6 @@ var App = function() {
                 });
     });
 
-
-
     commentShower.addPushListener(function(commentID) {
         serverClient.push(commentID)
             .done(
@@ -63,6 +66,11 @@ var App = function() {
                 });
     });
 
+    observeStimulus("5084f4f42985e5b6317ead7d");
+    serverClient.getListOfUsersForThisTopic().always( function(users) {
+        console.log("Current users for this topic:");
+        console.dir(users);
+    });
 }
     
     // Debug interface
