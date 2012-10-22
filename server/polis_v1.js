@@ -9,7 +9,9 @@
 var http = require('http'),
     pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
+    async = require('async'),
     fs = require('fs'),
+    url = require('url'),
     path = require('path'),
     crypto = require('crypto'),
     _ = require('underscore');
@@ -54,103 +56,6 @@ mongo.connect(process.env.MONGOLAB_URI, {safe: true}, function(err, db) {
 });
 
 
-var stream = fs.createWriteStream("./polis_events."+Date.now()+".txt");
-
-function storeEvent(event){
-    stream.write(JSON.stringify(event)+"\n");
-}
-
-function DataStoreFactory(oldEvents) {
-    var events = [];
-
-    function makeEventSelector(timestamp) {
-        return function(event) {
-            var isNewEnough = event.t >= timestamp;
-            console.log("? " + JSON.stringify(event) + " " + timestamp+ " " + isNewEnough);
-            return isNewEnough;
-        }
-    }
-
-    function getEventsSince(serverTimestampMillis) {
-        return events.filter(makeEventSelector(serverTimestampMillis));
-    }
-
-    function addEvents(newEvents) {
-        if (!newEvents.length) {
-            console.error('bad events');
-        }
-        for (var i = 0; i < newEvents.length; i++) {
-            events.push(newEvents[i]);
-            storeEvent(newEvents[i]);
-        }
-    }
-
-    // init
-    for (var i = 0; i < oldEvents.length; i++) {
-        events.push(oldEvents[i]);
-    }
-
-    return {
-        addEvents: addEvents,
-        getEventsSince: getEventsSince,
-    };
-}
-
-
-// Read stdin, parse as JSON, and use as oldEvents
-process.stdin.resume();
-process.stdin.setEncoding('utf8');
-
-// data store
-var ds;
-
-var allStdin = "";
-process.stdin.on('data', function (chunk) {
-      //process.stdout.write('data: ' + chunk);
-      allStdin += chunk;
-});
-
-// load old events from disk
-var oldEvents = [];
-process.stdin.on('end', function () {
-     var lines = allStdin.split("\n");
-     for (var i = 0; i < lines.length; i++) {
-         try {
-             console.log("a: " + lines[i]);
-             oldEvents.push(JSON.parse(lines[i]));
-         } catch (err) {
-             console.error( "bad line. got: " + lines[i]);
-         }
-     }
-     ds = DataStoreFactory(oldEvents);
-
-     // try it
-     allEvents = ds.getEventsSince(1349491010997);
-     console.dir(allEvents);
-});
-
-    function makeTimestamp() {
-        return Date.now();
-    }
-
-function getTimestamp() {
-    // This timestamp will be used by the client to compute an
-    // offset.
-    // The system uses microseconds to enforce per-user uniqueness 
-    // of timestamps. (which gives an unambiguous order-of-events)
-    // These values will be fudged when we generate events.. the
-    // client may keep a counter, which will increment every time
-    // it tries to create a new event during the same millisecond
-    // it created another event. That counter is reset if the
-    // millisecond has changed since the last event was created.
-    // (so usually the value will end in 000.
-    return Date.now();
-}
-
-function addTimeStamp(responseObject) {
-    return _.extend(responseObject, {serverTimeMillis: getTimestamp()});
-}
-
 
 function collectPost(req, res, success) {
     if(req.method == 'POST') {
@@ -174,14 +79,6 @@ function makeHash(ary) {
 }
 
 
-ds = DataStoreFactory([]);
-
-/*
-ds.addEvents([{t: makeTimestamp(), type: "p_stimulus", text: articles.nuclearMullah_article}]);
-ds.addEvents(articles.nuclearMullah_comments.map(function(x) {
-    return _.extend({t: makeTimestamp(), type: "p_comment"}, x);
-}));
-*/
 
 String.prototype.hashCode = function(){
     var hash = 0, i, char;
@@ -198,62 +95,66 @@ function initializePolisAPI(params) {
 
 var collection = params.mongoCollectionOfEvents;
 
+
+function fail(res, code, err) {
+    console.error(code, err);
+    res.writeHead(500);
+    res.end(code);
+}
+
+var polis = {
+    reactions: {
+        push: 1,
+        pull: -1,
+        see: 0,
+   },
+};
+
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (req, res) {
+    var parsedUrl = url.parse(req.url, true);
+    var query = parsedUrl.query;
+    console.dir(parsedUrl);
+    var basepath = parsedUrl.pathname;
 
     // start server with ds in scope.
     var routes = {
-        "/v1/syncEvents" : function(req, res) {
+        "/v2/reactions" : (function() {
+            function makeQuery(stimulusId) {
+                // $or [{type: push}, {type: pull},...]
+                return {
+                    s: ObjectId(stimulusId), 
+                    $or: _.values(polis.reactions).map( function(r) {return { type: r }; }), 
+                };
+            }
 
-            console.log('url',req.url);
-            collectPost(req, res, function(data) {
+            return function(req, res) {
+                var stimulus = query.s;
+                var users = [];
+                collection.find(makeQuery(stimulus), function(err, cursor) {
+                    if (err) { fail(res, 234234325, err); return; }
 
-                var events = data.events;
-                if (events && events.length) {
-                    ds.addEvents(events);
-                }
+                    function onNext( err, doc) {
+                        if (err) { fail(res, 987298783, err); return; }
+                        console.dir(doc);
 
-                var result =  addTimeStamp({
-                    received: (events && events.length) || 0,
+                        if (doc) {
+                            users.push(doc);
+                            cursor.nextObject(onNext);
+                        } else {
+                            console.log(' finished query ');
+                            res.end(JSON.stringify(users));
+                        }
+                    }
+
+                    cursor.nextObject( onNext);
                 });
-                var types_to_return = data.types_to_return;
-                if (types_to_return) {
-                    collection.find({_id: {$gt: ObjectId(data.previousServerToken)}})
-                    // Add timestamps
-                    events = events.map(function(x) {
-                        x.t = makeTimestamp();
-                        x.id = crypto.createHash('md5').update(JSON.stringify(x)).digest('hex')
-                        return x;
-                    });
-
-                    console.log('types',types_to_return);
-                    types_to_return = makeHash(types_to_return);
-                    var evs = _.filter(ds.getEventsSince(data.previousServerToken), function(x) {
-                        // "p_comment", etc
-                        return !!types_to_return[x.type];
-                    });
-                    result.newEvents = evs;
-                }
-                
-                res.end(JSON.stringify(result));
-            });
-        },
-        "/v1/getEvents" : function(req, res) { 
-//            console.log(req.url);
-//            collectPost(req, res, function(data) {
-//                var result = JSON.stringify(ds.getEventsSince(data.previousServerToken));
-//                console.log(result);
-//                req.end(result);
-//            });
-        },
+            };
+        }()),
     };
 
-    var parts = req.url.split("?");
-    var basepath = parts[0];
-    var queryParams = (parts.length >= 2) ? parts[1].split("&") : [];
-
     if (routes[basepath]) {
-        res.writeHead(200, {
+        res.writeHead(200, { // TODO don't write 200 so early
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
@@ -303,23 +204,8 @@ var server = http.createServer(function (req, res) {
         });
     }
 });
-
-var TABLE_REACTIONS = 'test';
-
-
-console.log(process.env.DATABASE_URL);
-pg.connect(process.env.DATABASE_URL, function(err, client) {
-    if (err) {
-        console.error(err);
-        return;
-    }
-  var query = client.query('SELECT * FROM ' + TABLE_REACTIONS);
-
-    query.on('row', function(row) {
-        console.log(JSON.stringify(row));
-    });
-});
-
 server.listen(process.env.PORT);
 console.log('started on port ' + process.env.PORT);
+} // End of initializePolisAPI
+
 
