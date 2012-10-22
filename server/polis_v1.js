@@ -2,6 +2,7 @@
 // TODO remove articles from here
 // TODO decide on timestamp/id/hash precision
 // TODO add a conversationID
+// TODO https://github.com/caolan/async
 
 var articles = {
     nuclearMullah_article: "" + 
@@ -268,11 +269,52 @@ israelSharpens_comments:  [
 
 
 var http = require('http'),
-    pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-database
+    pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+    mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
     fs = require('fs'),
     path = require('path'),
     crypto = require('crypto'),
     _ = require('underscore');
+
+
+
+// Connect to a mongo database via URI
+// With the MongoLab addon the MONGOLAB_URI config variable is added to your
+// Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
+var polisEventsCollection = 'events';
+console.log(process.env.MONGOLAB_URI);
+//var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
+//var db = new MongoDb('exampleDb', mongoServer, {safe: true});
+mongo.connect(process.env.MONGOLAB_URI, {safe: true}, function(err, db) {
+    if(err) {
+        console.error('mongo failed to init');
+        console.error(err);
+        process.exit(1);
+    }
+    db.collection(polisEventsCollection, function(err, collection) {
+        if (err) { console.error(err); return; }
+        collection.find({s: ObjectId("5084c8e3e4b059e606c9ff2a")}, function(err, cursor) {
+            if (err) { console.error(err); return; }
+
+            cursor.each(function(err, item) {
+                if (err) { console.error(err); return; }
+
+                if(item != null) {
+                    console.dir(item);
+                    var timestampBase16 = item._id.toString().substring(0, 8);
+                    var timestamp = new Date(parseInt( timestampBase16, 16) * 1000) + "";
+                    console.log(timestampBase16);
+                    console.log(timestamp);
+                }
+            });
+        });
+        // OK, DB is ready, start the API server.
+        initializePolisAPI({
+            mongoCollectionOfEvents: collection,
+        });
+    });
+});
+
 
 var stream = fs.createWriteStream("./polis_events."+Date.now()+".txt");
 
@@ -414,6 +456,10 @@ String.prototype.hashCode = function(){
     return hash;
 };
 
+function initializePolisAPI(params) {
+
+var collection = params.mongoCollectionOfEvents;
+
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (req, res) {
 
@@ -426,12 +472,6 @@ var server = http.createServer(function (req, res) {
 
                 var events = data.events;
                 if (events && events.length) {
-                    // Add timestamps
-                    events = events.map(function(x) {
-                        x.t = makeTimestamp();
-                        x.id = crypto.createHash('md5').update(JSON.stringify(x)).digest('hex')
-                        return x;
-                    });
                     ds.addEvents(events);
                 }
 
@@ -440,9 +480,17 @@ var server = http.createServer(function (req, res) {
                 });
                 var types_to_return = data.types_to_return;
                 if (types_to_return) {
+                    collection.find({_id: {$gt: ObjectId(data.previousServerToken)}})
+                    // Add timestamps
+                    events = events.map(function(x) {
+                        x.t = makeTimestamp();
+                        x.id = crypto.createHash('md5').update(JSON.stringify(x)).digest('hex')
+                        return x;
+                    });
+
                     console.log('types',types_to_return);
                     types_to_return = makeHash(types_to_return);
-                    var evs = _.filter(ds.getEventsSince(data.previousServerTimeMillis), function(x) {
+                    var evs = _.filter(ds.getEventsSince(data.previousServerToken), function(x) {
                         // "p_comment", etc
                         return !!types_to_return[x.type];
                     });
@@ -453,12 +501,12 @@ var server = http.createServer(function (req, res) {
             });
         },
         "/v1/getEvents" : function(req, res) { 
-            console.log(req.url);
-            collectPost(req, res, function(data) {
-                var result = JSON.stringify(ds.getEventsSince(data.previousServerTimeMillis));
-                console.log(result);
-                req.end(result);
-            });
+//            console.log(req.url);
+//            collectPost(req, res, function(data) {
+//                var result = JSON.stringify(ds.getEventsSince(data.previousServerToken));
+//                console.log(result);
+//                req.end(result);
+//            });
         },
     };
 
@@ -536,3 +584,5 @@ pg.connect(process.env.DATABASE_URL, function(err, client) {
 
 server.listen(process.env.PORT);
 console.log('started on port ' + process.env.PORT);
+
+setTimeout(function(){console.dir(articles);}, 4000);
