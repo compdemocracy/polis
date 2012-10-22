@@ -57,6 +57,7 @@ mongo.connect(process.env.MONGOLAB_URI, {safe: true}, function(err, db) {
 
 
 
+// TODO add error callback
 function collectPost(req, res, success) {
     if(req.method == 'POST') {
         var body = '';
@@ -68,8 +69,8 @@ function collectPost(req, res, success) {
          //  }
         });
         req.on('end', function () { 
-            var json = JSON.parse(body);
-            success(json);
+            var data = JSON.parse(body);
+            success(data);
         });
     }
 }
@@ -130,25 +131,40 @@ var server = http.createServer(function (req, res) {
 
             return function(req, res) {
                 var stimulus = query.s;
-                var users = [];
-                collection.find(makeQuery(stimulus), function(err, cursor) {
-                    if (err) { fail(res, 234234325, err); return; }
+                if('GET' === req.method) {
+                    var users = [];
+                    collection.find(makeQuery(stimulus), function(err, cursor) {
+                        if (err) { fail(res, 234234325, err); return; }
 
-                    function onNext( err, doc) {
-                        if (err) { fail(res, 987298783, err); return; }
-                        console.dir(doc);
+                        function onNext( err, doc) {
+                            if (err) { fail(res, 987298783, err); return; }
+                            console.dir(doc);
 
-                        if (doc) {
-                            users.push(doc);
-                            cursor.nextObject(onNext);
-                        } else {
-                            console.log(' finished query ');
-                            res.end(JSON.stringify(users));
+                            if (doc) {
+                                users.push(doc);
+                                cursor.nextObject(onNext);
+                            } else {
+                                console.log(' finished query ');
+                                res.end(JSON.stringify(users));
+                            }
                         }
-                    }
 
-                    cursor.nextObject( onNext);
-                });
+                        cursor.nextObject( onNext);
+                    });
+                    return;
+                }
+                if('POST' === req.method) {
+                    collectPost(req, res, function(data) {
+                        data.events.forEach(function(ev){
+                            // TODO add some kind of validation - also check the user & token database 
+                            collection.insert(ev, function(err, cursor) {
+                                if (err) { fail(res, 324234324, err); return; }
+                                res.end();
+                            });
+                        });
+                    });
+                    return;
+                }
             };
         }()),
     };
