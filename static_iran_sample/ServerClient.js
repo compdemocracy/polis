@@ -1,203 +1,212 @@
 var ServerClient = function(params) {
 
+    var polisTypes = {
+        reactions: {
+            push: 1,
+            pull: -1,
+            pass: 0,
+            see: 'see',
+        },
+    };
+
     var protocol = params.protocol;
     var domain = params.domain;
     var basePath = params.basePath;
-    var syncEventsPath = "/v1/syncEvents";
-//    var getEventsPath = "/v1/getEvents";
+
+    var reactionsPath = "/v2/reactions";
+    var txtPath = "/v2/txt";
 
     var logger = params.logger;
-
-    var serverIsAheadByMicros = 0; // BAD! TODO fetch from server as first action.
-    var previousServerToken = 0; // start syncing from 0
 
     var userid = params.me;
     var currentStimulusId;
 
     var comments = [];
     var users = [];
-         
-    var commentIndex = 0;
 
-    // function getNextStimulus() {}
-
-    // key on id field
-    // TODO remove - We shouldn't need this, just for verification
-    var dedupMap = {};
+    // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
+    // Err... I guess discussions can be circular.
+    //function discussionClient(params) {  
     
-    function isValidCommentID(commentID) {
-        return isNumber(commentID);
+    function isValidCommentId(commentId) {
+        return isNumber(commentId);
     }
 
-    function getNextComment() {
-        var dfd = $.Deferred();
-        polisAjax(syncEventsPath, { 
-            events: [ {
-                    type: "p_push",
-                } ]
-        }).then(function() {
-                if (commentIndex >= comments.length) {
-                    dfd.reject();
+    var getNextComment = (function() {
+
+        var lastServerToken;
+        var commentIndex = 0;
+
+        return function () {
+            var dfd = $.Deferred();
+
+            function onOk() {
+                dfd.resolve(comments[commentIndex]);
+                commentIndex++;
+            }
+
+
+            var params = {
+                s: currentStimulusId,
+                //tags: [ {$not: "stimulus"} ], 
+            };
+            if (lastServerToken) {
+                params.lastServerToken = lastServerToken;
+            }
+            polisGet(txtPath, params).done( function(data) {
+                var evs = data.events;
+                if (evs) {
+                    for (var i = 0; i < evs.length; i++) {
+                        comments.push(evs[i]);
+                        // keep the max id as the last token
+                        if (evs[i]._id >lastServerToken) {
+                            lastServerToken = evs[i]._id;
+                        }
+                    }
                 }
+                lastServerToken = data.lastServerToken;
+                onOk();
+            }).fail( function() {
+                dfd.reject();
             });
-        if (commentIndex >= comments.length) {
-            // wait for the ajax, TODO fix this?
-        } else {
-            dfd.resolve(comments[commentIndex]);
-            commentIndex += 1;
-        }
-        return dfd.promise();
-    }
 
-    function submitComment(text) {
-        if (typeof text !== 'string' || text.length === 0) {
+            if (commentIndex >= comments.length) {
+                // wait for the ajax, TODO fix this?
+            } else {
+                onOk();
+            }
+            return dfd.promise();
+        }
+    }());
+
+    function submitComment(txt, optionalSpecificSubStimulus) {
+        if (typeof txt !== 'string' || txt.length === 0) {
             logger.error('bad comment');
             return $.Deferred().reject().promise();
         }
-        return polisAjax(syncEventsPath, { 
-            events: [ {
-                    userID: userid,
-                    type: "p_comment",
-                    text: text,
-                } ]
-        });
-    }
-    function push(commentID) {
-        if (!isValidCommentID(commentID)) {
-            logger.error('bad commentID: ' + commentID);
-            return $.Deferred().reject().promise();
+        var ev = {
+            u : userid,
+            s: currentStimulusId,
+            txt: txt,
+        };
+        // This allows for comments against other comments.
+        // We may not want to allow that, but want to make sure
+        // we could support it.
+        // We may even want to add the entire stimulus chain
+        // as an array?
+        if (optionalSpecificSubStimulus) {
+            ev.to = optionalSpecificSubStimulus;
         }
-        return polisAjax(syncEventsPath, { 
-            events: [ {
-                    userID: userid,
-                    type: "p_push",
-                    to: commentID,
-                } ]
+        return polisPost(txtPath, {
+            events: [ev],
         });
     }
 
-//  function getEventsFromPolis() {
-//      return polisAjax(getEventsPath, {
-//          previousServerToken: previousServerToken,
-//          userID: userid,
-//      }).pipe(function(data);
-//  }
-
-    function pull(commentID) {
-        if (!isValidCommentID(commentID)) {
-            logger.error('bad commentID' + commentID);
-            return $.Deferred().reject().promise();
-        }
-        return polisAjax(syncEventsPath, { 
+    function push(commentId) {
+        return polisPost(reactionsPath, { 
             events: [ {
-                userID: userid,
-                type: "p_pull",
-                to: commentID,
+                u: userid,
+                s: currentStimulusId,
+                type: polisTypes.push,
+                to: commentId,
             } ],
         });
     }
 
-    function reportAsShown(commentID) {
-        var dfd = $.Deferred();
-        logger.log("ServerClient SHOWN: " + commentID);
-        setTimeout(dfd.resolve, 1000);
-        return dfd.promise();
-    }
-
-    function addToJournal(item) {
-    }
-
-    function sync() {
-        return polisAjax(syncEventsPath, {
-            types_to_return: ["p_comment"],
-            previousServerToken: previousServerToken,
+    function pull(commentId) {
+        return polisPost(reactionsPath, { 
+            events: [ {
+                u: userid,
+                s: currentStimulusId,
+                type: polisTypes.pull,
+                to: commentId,
+            } ],
         });
     }
 
-    function polisAjax(api, data) {
-        if (!currentStimulusId) {
-            logger.error('stimulusId should probably be set');
-            return $.Deferred().reject().promise();
-        }
-        data = $.extend({}, data, {
-            types_to_return: ["p_comment"],
-            previousServerToken: previousServerToken,
+    // optionalSpecificSubStimulus (aka commentId)
+    function see(optionalSpecificSubStimulus) {
+        var ev = {
+            u: userid,
             s: currentStimulusId,
+            type: polisTypes.see,
+        }; 
+        if (optionalSpecificSubStimulus) {
+            ev.to = optionalSpecificSubStimulus;
+        }
+        return polisPost(reactionsPath, { 
+            events: [ ev ],
         });
-        return $.ajax({
-            url: protocol + "://" + domain + basePath + api,
-            type: 'POST',
-            data: JSON.stringify(data),
-        }).then(
-            function(data) {
-                // take every opportunity to sync with server time.
-                previousServerToken = data.serverTimeMillis;
-                var evs = data.newEvents;
-                if (evs) {
-                    for (var i = 0; i < evs.length; i++) {
-                        if (dedupMap[evs[i].id]) {
-                            logger.warn('duplicate found for', evs[i]);
-                            continue;
-                        }
-                        if (evs[i].type === "p_comment") {
-                            comments.push(evs[i]);
-                            dedupMap[evs[i].id] = 1;
-                        } else if (evs[i].type === "p_newuser") {
-                            users.push(evs[i]);
-                        } else {
-                            // we may want other types later.
-                        }
-                    }
-                }
-                logger.log('send OK', data);
-            },
-            function(jqXHR, message, errorType) {
+    }
+
+
+    function pass(optionalSpecificSubStimulus) {
+        var ev = {
+            u: userid,
+            s: currentStimulusId,
+            type: polisTypes.pass,
+        }; 
+        if (optionalSpecificSubStimulus) {
+            ev.to = optionalSpecificSubStimulus;
+        }
+        return polisPost(reactionsPath, { 
+            events: [ ev ],
+        });
+    }
+
+    function polisPost(api, data) {
+        return polisAjax(api, data, "POST");
+    }
+
+    function polisGet(api, data) {
+        return polisAjax(api, data, "GET");
+    }
+
+    function polisAjax(api, data, type) {
+        var url = protocol ? (protocol + "://") : "" + domain + basePath + api;
+        
+        var promise;
+        if ("GET" === type) {
+            promise = $.get(url, data);
+        } else if ("POST" === type) {
+            promise = $.post(url, JSON.stringify(data));
+        }
+        
+        promise.fail( function(jqXHR, message, errorType) {
                 logger.error('send ERROR', data);
                 logger.dir(data);
                 logger.dir(message);
                 logger.dir(errorType);
-            }
-        );
-    }
-
-    function observeStimulus(stimulusId) {
-        if (typeof stimulusId !== 'string' || stimulusId.length === 0) {
-            logger.error('bad id');
-            return $.Deferred().reject().promise();
-        }
-        currentStimulusId = stimulusId;
-        return polisAjax(syncEventsPath, { 
-            events: [ {
-                    userID: userid,
-                    type: "p_observe_stimulus",
-                    // NOTE currentStimulusId is added by polisAjax
-                } ]
         });
+        return promise;
     }
 
-    function getListOfUsersForThisTopic() {
-        return polisAjax(syncEventsPath, { 
-            events: [ {
-                    type: "p_newuser",
-                    s: currentStimulusId,
-                } ]
-        }).pipe(function() {
-            return users;
-        }, function(err) {
-            console.error('error fetching users ');
-            console.dir(err);
-            return users;
+    function observeStimulus(newStimulusId) {
+        currentStimulusId = newStimulusId;
+        return see();
+    }
+
+    function authenticate(username, password) {
+        //userid = "5084f8ae2985e5b6317ead7e";
+        console.warn('authenticate not implemented');
+        return $.Deferred().resolve();
+    }
+
+    function authAnonNew() {
+        return polisGet("v2/auth/newAnon").done( function(authData) {
+            userid = authData.u;
         });
     }
 
     return {
-        sync: sync, // TODO remove from this API
+        authAnonNew: authAnonNew,
         getNextComment: getNextComment,
-        observeStimulus: observeStimulus,
+        observeStimulus: observeStimulus, // with no args
         push: push,
         pull: pull,
-        reportAsShown: reportAsShown,
+        pass: pass,
+        see: see,
         submitComment: submitComment,
-        getListOfUsersForThisTopic: getListOfUsersForThisTopic,
+        authenticate: authenticate,
     }
 };

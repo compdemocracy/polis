@@ -13,7 +13,6 @@ var CommentShower = function(params) {
     $('#pull_button').click(onPullClicked);
 
 
-    showNext();
 
     function showNext() {
         serverClient.getNextComment().done(showComment);

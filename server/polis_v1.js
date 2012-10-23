@@ -103,12 +103,12 @@ function fail(res, code, err) {
     res.end(code);
 }
 
-var polis = {
+var polisTypes = {
     reactions: {
         push: 1,
         pull: -1,
         see: 0,
-   },
+    },
 };
 
 // Configure our HTTP server to respond with Hello World to all requests.
@@ -120,12 +120,89 @@ var server = http.createServer(function (req, res) {
 
     // start server with ds in scope.
     var routes = {
+        "/v2/auth/newAnon" : function(req, res) {
+            var response_data = {};
+            var retrieveThis = Math.random();
+            collection.insert({type: "newuser"}, function(err, docs) {
+                if (err) { fail(res, 238943589, err); return; }
+                response_data.u = docs[0]._id;
+                res.end(JSON.stringify(response_data));
+            });
+        },
+
+        "/v2/txt" : (function() {
+            function makeQuery(stimulusId, lastServerToken) {
+                var q = {
+                    $and: [
+                        {$or : [
+                            {s:   ObjectId(stimulusId)},
+                        //    {_id: ObjectId(stimulusId)},// Hmm, lets include the stimulus itself.  We'll need to fetch the "lastServerToken" so we don't redeliver things.
+                        ]}, 
+                        {txt : {$exists: true}},// return anything that has text attached.
+                        //{type: {$neq: "stimulus"}},
+                    ],
+                }; 
+                if (lastServerToken) {
+                    q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
+                }
+                return q;
+            }
+
+            return function(req, res) {
+                var stimulus = query.s;
+                var lastServerToken = query.lastServerToken;
+                if('GET' === req.method) {
+                    var docs = [];
+                    collection.find(makeQuery(stimulus, lastServerToken), function(err, cursor) {
+                        if (err) { fail(res, 234234332, err); return; }
+
+                        function onNext( err, doc) {
+                            if (err) { fail(res, 987298787, err); return; }
+                            console.dir(doc);
+
+                            if (doc) {
+                                docs.push(doc);
+                                cursor.nextObject(onNext);
+                            } else {
+                                console.log(' finished query ');
+                                res.end(JSON.stringify(docs));
+                            }
+                        }
+
+                        cursor.nextObject( onNext);
+                    });
+                    return;
+                }
+                if('POST' === req.method) {
+                    collectPost(req, res, function(data) {
+                        data.events.forEach(function(ev){
+                            // TODO check the user & token database 
+                            //
+                            if (!ev.txt) { fail(res, 'expected txt field'); return; }
+
+                            if (ev.s) ev.s = ObjectId(ev.s);
+                            if (ev.u) {
+                                ev.u = ObjectId(ev.u);
+                            } else {
+                                fail(res, "need u (userid) field.");
+                                return;
+                            }
+                            collection.insert(ev, function(err, cursor) {
+                                if (err) { fail(res, 324234331, err); return; }
+                                res.end();
+                            });
+                        });
+                    });
+                    return;
+                }
+            };
+        }()),
         "/v2/reactions" : (function() {
             function makeQuery(stimulusId) {
                 // $or [{type: push}, {type: pull},...]
                 return {
                     s: ObjectId(stimulusId), 
-                    $or: _.values(polis.reactions).map( function(r) {return { type: r }; }), 
+                    $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
                 };
             }
 
@@ -156,7 +233,14 @@ var server = http.createServer(function (req, res) {
                 if('POST' === req.method) {
                     collectPost(req, res, function(data) {
                         data.events.forEach(function(ev){
-                            // TODO add some kind of validation - also check the user & token database 
+                            // TODO check the user & token database 
+                            if (ev.s) ev.s = ObjectId(ev.s);
+                            if (ev.u) {
+                                ev.u = ObjectId(ev.u);
+                            } else {
+                                fail(res, "need u (userid) field.");
+                                return;
+                            }
                             collection.insert(ev, function(err, cursor) {
                                 if (err) { fail(res, 324234324, err); return; }
                                 res.end();

@@ -4,33 +4,43 @@ var App = function() {
     
     var serverClient = ServerClient({
         me: 12345, // userid
-        protocol: "http",
-        domain: "polis.bjorkegren.com",
+        protocol: "", //"http",
+        domain: "",// "polis.bjorkegren.com",
         basePath: "",
         logger: console,
     });
 
     function observeStimulus(id) {
         // mostly for early dev, it would be nice to show the current stimulus in the hash params
-        window.location.hash = "#s=" + id
-        serverClient.observe(id);
+        window.location.hash += "&s=" + id
+        serverClient.observeStimulus(id);
     }
 
     // init UI stuff
     // (or get references to the elements / views)
 
-    serverClient.sync().then(setupUI, function() {
-        alert("couldn't sync");
-        setupUI();
-    });
+    //serverClient.authenticate("mike", "12345").then(
+    serverClient.authAnonNew().then(
+        function(authData) {
+            onAuthenticated(authData);
+            setupUI();
+        }, 
+        function() {alert('login failed');}
+    );
+
+    function onAuthenticated(data) {
+        console.log("Your userid is " + data.u);
+        window.location.hash = "#u=" + data.u;
+    }
 
  function setupUI() {
 
     // Comment Submitter
     var commentSubmitter= CommentSubmitter({
+     formId: '#comment_form',
     });
-    commentSubmitter.addSubmitListener(function(text) {
-        serverClient.submitComment(text);
+    commentSubmitter.addSubmitListener(function(txt) {
+        serverClient.submitComment(txt);
     });
 
     // Comment Shower
@@ -67,10 +77,6 @@ var App = function() {
     });
 
     observeStimulus("5084f4f42985e5b6317ead7d");
-    serverClient.getListOfUsersForThisTopic().always( function(users) {
-        console.log("Current users for this topic:");
-        console.dir(users);
-    });
 }
     
     // Debug interface
