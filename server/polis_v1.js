@@ -120,6 +120,10 @@ var server = http.createServer(function (req, res) {
 
     // start server with ds in scope.
     var routes = {
+
+        // Cookies / auth tokens:
+        // all we need is a random string to set as the cookie of an authenticated user, and a key that will tell us what is the user ID of the client holding such a random string. 
+        //
         "/v2/auth/newAnon" : function(req, res) {
             var response_data = {};
             var retrieveThis = Math.random();

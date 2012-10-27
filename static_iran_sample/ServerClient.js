@@ -107,7 +107,7 @@ var ServerClient = function(params) {
             events: [ {
                 u: userid,
                 s: currentStimulusId,
-                type: polisTypes.push,
+                type: polisTypes.reactions.push,
                 to: commentId,
             } ],
         });
@@ -118,7 +118,7 @@ var ServerClient = function(params) {
             events: [ {
                 u: userid,
                 s: currentStimulusId,
-                type: polisTypes.pull,
+                type: polisTypes.reactions.pull,
                 to: commentId,
             } ],
         });
@@ -129,7 +129,7 @@ var ServerClient = function(params) {
         var ev = {
             u: userid,
             s: currentStimulusId,
-            type: polisTypes.see,
+            type: polisTypes.reactions.see,
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
@@ -144,7 +144,7 @@ var ServerClient = function(params) {
         var ev = {
             u: userid,
             s: currentStimulusId,
-            type: polisTypes.pass,
+            type: polisTypes.reactions.pass,
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
