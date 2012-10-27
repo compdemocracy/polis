@@ -1,0 +1,15 @@
+{
+  "name": "polis",
+  "version": "0.0.1",
+  "description": "ERROR: No README.md file found!",
+  "main": "polis_v1.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "",
+  "author": "",
+  "license": "",
+  "dependencies": {
+    "underscore": "~1.4.2"
+  }
+}
