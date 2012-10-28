@@ -5,12 +5,14 @@ var CommentShower = function(params) {
 
     var pullCallbacks = $.Callbacks();
     var pushCallbacks = $.Callbacks();
+    var passCallbacks = $.Callbacks();
     var shownCallbacks = $.Callbacks();
 
     var currentCommentId;
 
     $('#push_button').click(onPushClicked);
     $('#pull_button').click(onPullClicked);
+    $('#pass_button').click(onPassClicked);
 
 
 
@@ -33,27 +35,30 @@ var CommentShower = function(params) {
 
         // attach event listeners to buttons, and have them trigger onPushClicked, onPullClicked COMPLETED
 
-        shownCallbacks.fire(data.id);
+        shownCallbacks.fire(currentCommentId);
     }
 
     function onPushClicked() {
         pushCallbacks.fire(currentCommentId);
-        // get the next comment from the ServerClient, and show that
-        // transition
+        showNext();
+    }
+
+    function onPassClicked() {
+        passCallbacks.fire(currentCommentId);
         showNext();
     }
 
     function onPullClicked() {
         pullCallbacks.fire(currentCommentId);
-        // get the next comment from the ServerClient, and show that
-        // transition
         showNext();
     }
 
     return {
+        showNext: showNext,
         showComment : showComment,
         addPullListener: pullCallbacks.add,
         addPushListener: pushCallbacks.add,
+        addPassListener: passCallbacks.add,
         addShownListener: shownCallbacks.add,
     };
 }

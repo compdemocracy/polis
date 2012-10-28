@@ -48,33 +48,14 @@ var App = function() {
         serverClient: serverClient,
     });
 
-    commentShower.addPullListener(function(commentID) {
-        serverClient.pull(commentID)
-            .done(
-                function() {
-                    console.log("pull ok");
-                })
-            .fail(
-                function(error) {
-                    console.error("failed to pull");
-                    console.dir(error);
-                });
-    });
-
-    commentShower.addPushListener(function(commentID) {
-        serverClient.push(commentID)
-            .done(
-                function() {
-                    console.log("push ok");
-                })
-            .fail(
-                function(error) {
-                    console.error("failed to push");
-                    console.dir(error);
-                });
-    });
+    commentShower.addPullListener(serverClient.pull);
+    commentShower.addPushListener(serverClient.push);
+    commentShower.addPassListener(serverClient.pass);
+    commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
 
     observeStimulus("5084f4f42985e5b6317ead7d");
+
+    commentShower.showNext();
 }
     
     // Debug interface
