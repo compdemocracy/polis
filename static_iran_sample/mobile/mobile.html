@@ -41,6 +41,10 @@
                         </strong>
                     </p>
                 </div>
+                <a data-role="button" data-transition="flip" data-theme="c" href="#page7"
+                data-icon="info" data-iconpos="left">
+                    A Brief Introduction
+                </a>
                 <ul data-role="listview" data-divider-theme="b" data-inset="true">
                     <li data-role="list-divider" role="heading">
                         Articles
@@ -66,10 +70,7 @@
                         </a>
                     </li>
                 </ul>
-                <a data-role="button" data-transition="flip" data-theme="c" href="#page7"
-                data-icon="info" data-iconpos="left">
-                    About Polis
-                </a>
+                
             </div>
             <div data-role="tabbar" data-iconpos="top" data-theme="a">
                 <ul>
@@ -96,7 +97,7 @@
             <div data-role="content">
                 <div>
                     <h5 style="text-align: left; " data-mce-style="text-align: left;">
-                        <span>
+                        <span id="comment_shower">
                             Sed irure seitan, shoreditch sunt photo booth organic hella etsy wes anderson
                             yr cray consequat. Dreamcatcher esse you probably haven't heard of them,
                             consectetur godard direct trade trust fund aesthetic skateboard terry richardson
@@ -190,8 +191,30 @@
                 <div>
                     <p>
                         <b>
-                            Polis is an ambitious, cutting edge web application developd by neat people.
-                            We'd tell you more about ourselves if that wasn't an insanely low priority.
+                            <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis seeks to provide a platform to facilitate productive, large scale conversations. </p>
+
+                            <p>In this prototype, we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, it is a timely and important issue full of messy value judgements, priorities and eventualities - exactly the kind of conversation that breaks down at large scales on the internet and exactly the kind of trans-national discussion we're excited to try to facilitate. </p>
+
+                            <h6> What to do: </h6>
+
+                            <p> 1. Read the articles, or skim them if you're familiar with the issue </p> 
+
+                            <p> 2. Go to the comments page. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. </p>
+
+                            <p>Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. </p>
+
+                            <h6> How it works: </h6> 
+
+                            <p>The flow is simple: first, users experience a stimulus, which could be a question, a series of articles, etc. Users then interact by submitting comments and reacting to other users' comments. Rather than displaying all the comments submitted, Polis sends out select collections of these comments and each user upvotes, downvotes or passes each comment they read, one at a time. Behind the scenes, statistical algorithms help choose which comments to show based on a number of complex factors and group users who react similarly. </p>
+
+                            <p>Reacting to other people's comments (not commenting yourself) is how you place yourself within the landscape of opinion. If you do choose to comment (it is not required) you are not reacting to any one comment per se, rather submitting a new waypoint for other users to potentially rally around or against. Lastly, user groups are displayed in a real-time data visualization that shows what groups have formed and what statements they came together around. This visualization will not be functional for the prototype - instead the purpose of the prototype is the create a dataset with which to build the visualization. </p>
+                            
+                            <p> --The Polis Team</p>
+
+                            <p><em>For XKCD readers:
+                            Polis is built on Node, Mongo, Mustache, Heroku, R, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
+
+
                         </b>
                     </p>
                 </div>
@@ -2053,6 +2076,14 @@
         <script>
               //App custom javascript
         </script>
+        <script id="showerTemplate" type="text/template">
+                    <h4>Comment ID: {{_id}}</h4>
+                    <p>{{txt}}</p>
+                    <p>User ID: {{u}}</p>
+        </script>
+        <script src="mustache.js"></script>
+
+
     </body>
 
 </html>

@@ -1,5 +1,14 @@
 /*neoretro @font-face template*/
 
+#page7 p { 
+  font-weight: lighter;
+
+}
+
+#page7 h6 {
+  text-transform: uppercase;
+}
+
 .neoretroff {font: 18px/27px 'NeoRetroFillRegular', Arial, sans-serif;}
 
 @font-face {
