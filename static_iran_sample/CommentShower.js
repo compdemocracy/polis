@@ -19,13 +19,13 @@ var CommentShower = function(params) {
     }
         
 
-    // {id: 12345, text: "This is a great article dude."}
+    // {_id: 12345, txt: "This is a great article dude."}
     function showComment(data) {
 
         var template = $('#showerTemplate').html();
         var html = Mustache.to_html(template, data);
         $rootDomElem.html(html);
-        currentCommentId = data.id; 
+        currentCommentId = data._id; 
 
 
         console.log("showing comment: " + currentCommentId);

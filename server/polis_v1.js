@@ -169,7 +169,10 @@ var server = http.createServer(function (req, res) {
                                 cursor.nextObject(onNext);
                             } else {
                                 console.log(' finished query ');
-                                res.end(JSON.stringify(docs));
+                                res.end(JSON.stringify({
+                                    lastServerToken: lastServerToken,
+                                    events: docs,
+                                }));
                             }
                         }
 

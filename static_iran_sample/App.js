@@ -12,7 +12,6 @@ var App = function() {
 
     function observeStimulus(id) {
         // mostly for early dev, it would be nice to show the current stimulus in the hash params
-        window.location.hash += "&s=" + id
         serverClient.observeStimulus(id);
     }
 
@@ -30,7 +29,6 @@ var App = function() {
 
     function onAuthenticated(data) {
         console.log("Your userid is " + data.u);
-        window.location.hash = "#u=" + data.u;
     }
 
  function setupUI() {

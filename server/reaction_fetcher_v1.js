@@ -13,7 +13,7 @@ var http = require('http'),
     argv = require('optimist')
         .default('o', process.stdout)
         .alias('o', 'outputfile')
-        .default('stimulus', "5084c8e3e4b059e606c9ff2a")
+        .default('stimulus', "5084f4f42985e5b6317ead7d")
         .argv;
 
 // Connect to a mongo database via URI
