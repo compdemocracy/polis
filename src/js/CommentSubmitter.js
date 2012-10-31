@@ -14,6 +14,6 @@ var CommentSubmitter = function(params) {
 
 
     return {
-        addSubmitListener: submitCallbacks.add,
+        addSubmitListener: submitCallbacks.add
     };
-}
+};

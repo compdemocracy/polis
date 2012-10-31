@@ -1,14 +1,11 @@
 var polis = {};
 
-var App = function() {
+var App = function(params) {
     
-    var serverClient = ServerClient({
-        me: 12345, // userid
-        protocol: "", //"http",
-        domain: "",// "polis.bjorkegren.com",
-        basePath: "",
-        logger: console,
-    });
+    var utils = params.utils;
+    var serverClient = params.serverClient;
+    var CommentShower = params.CommentShower;
+    var CommentSubmitter = params.CommentSubmitter;
 
     function observeStimulus(id) {
         // mostly for early dev, it would be nice to show the current stimulus in the hash params
@@ -24,7 +21,9 @@ var App = function() {
             onAuthenticated(authData);
             setupUI();
         }, 
-        function() {alert('login failed');}
+        function() {
+            console.error('login failed');
+        }
     );
 
     function onAuthenticated(data) {
@@ -34,8 +33,8 @@ var App = function() {
  function setupUI() {
 
     // Comment Submitter
-    var commentSubmitter= CommentSubmitter({
-     formId: '#comment_form',
+    var commentSubmitter= new CommentSubmitter({
+     formId: '#comment_form'
     });
     commentSubmitter.addSubmitListener(function(txt) {
         serverClient.submitComment(txt);
@@ -43,9 +42,9 @@ var App = function() {
 
     // Comment Shower
     var $commentShowerElem = $("#comment_shower");
-    var commentShower = CommentShower({
+    var commentShower = new CommentShower({
         $rootDomElem: $commentShowerElem,
-        serverClient: serverClient,
+        serverClient: serverClient
     });
 
     commentShower.addPullListener(serverClient.pull);
@@ -61,10 +60,24 @@ var App = function() {
     // Debug interface
     return {
 //        commentShower : commentShower,
-        serverClient: serverClient,
-    }
+        serverClient: serverClient
+    };
 };
     
 $(document).ready(function() {
-    polis.app = App();
+    var serverClient = new window.ServerClient({
+        utils: window.utils,
+        me: 12345, // userid
+        protocol: "", //"http",
+        domain: "",// "polis.bjorkegren.com",
+        basePath: "",
+        logger: console
+    });
+
+    polis.app = new App({
+        CommentShower: window.CommentShower,
+        CommentSubmitter: window.CommentSubmitter,
+        serverClient: serverClient,
+        utils: window.utils
+    });
 });

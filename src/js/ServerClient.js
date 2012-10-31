@@ -5,8 +5,8 @@ var ServerClient = function(params) {
             push: 1,
             pull: -1,
             pass: 0,
-            see: 'see',
-        },
+            see: 'see'
+        }
     };
 
     var protocol = params.protocol;
@@ -26,7 +26,7 @@ var ServerClient = function(params) {
 
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
     // Err... I guess discussions can be circular.
-    //function discussionClient(params) {  
+    //function discussionClient(params)
     
     function isValidCommentId(commentId) {
         return isNumber(commentId);
@@ -47,8 +47,8 @@ var ServerClient = function(params) {
 
 
             var params = {
-                s: currentStimulusId,
                 //tags: [ {$not: "stimulus"} ], 
+                s: currentStimulusId
             };
             if (lastServerToken) {
                 params.lastServerToken = lastServerToken;
@@ -76,7 +76,7 @@ var ServerClient = function(params) {
                 onOk();
             }
             return dfd.promise();
-        }
+        };
     }());
 
     function submitComment(txt, optionalSpecificSubStimulus) {
@@ -87,7 +87,7 @@ var ServerClient = function(params) {
         var ev = {
             u : userid,
             s: currentStimulusId,
-            txt: txt,
+            txt: txt
         };
         // This allows for comments against other comments.
         // We may not want to allow that, but want to make sure
@@ -98,7 +98,7 @@ var ServerClient = function(params) {
             ev.to = optionalSpecificSubStimulus;
         }
         return polisPost(txtPath, {
-            events: [ev],
+            events: [ev]
         });
     }
 
@@ -108,8 +108,8 @@ var ServerClient = function(params) {
                 u: userid,
                 s: currentStimulusId,
                 type: polisTypes.reactions.push,
-                to: commentId,
-            } ],
+                to: commentId
+            } ]
         });
     }
 
@@ -119,8 +119,8 @@ var ServerClient = function(params) {
                 u: userid,
                 s: currentStimulusId,
                 type: polisTypes.reactions.pull,
-                to: commentId,
-            } ],
+                to: commentId
+            } ]
         });
     }
 
@@ -129,13 +129,13 @@ var ServerClient = function(params) {
         var ev = {
             u: userid,
             s: currentStimulusId,
-            type: polisTypes.reactions.see,
+            type: polisTypes.reactions.see
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
         }
         return polisPost(reactionsPath, { 
-            events: [ ev ],
+            events: [ ev ]
         });
     }
 
@@ -144,13 +144,13 @@ var ServerClient = function(params) {
         var ev = {
             u: userid,
             s: currentStimulusId,
-            type: polisTypes.reactions.pass,
+            type: polisTypes.reactions.pass
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
         }
         return polisPost(reactionsPath, { 
-            events: [ ev ],
+            events: [ ev ]
         });
     }
 
@@ -207,6 +207,6 @@ var ServerClient = function(params) {
         pass: pass,
         see: see,
         submitComment: submitComment,
-        authenticate: authenticate,
-    }
+        authenticate: authenticate
+    };
 };

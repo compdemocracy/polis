@@ -275,13 +275,17 @@ var server = http.createServer(function (req, res) {
     } else {
 
         // try to serve a static file
-        var filePath = './static_iran_sample';
-        if (req.url === '/')
-            filePath += '/index.html';
-        else 
-            filePath += req.url;
-             
-        var extname = path.extname(filePath);
+        var requestPath = req.url;
+        var contentPath = './src';
+        if (requestPath === '/')
+            contentPath += '/desktop/index.html';
+        else if (requestPath === '/mobile/')
+            contentPath += '/mobile/index.html';
+        else if (requestPath.indexOf('/static/') === 0) {
+            contentPath += requestPath.slice(7);
+        }
+
+        var extname = path.extname(contentPath);
         var contentType = 'text/html';
         switch (extname) {
             case '.js':
@@ -290,11 +294,15 @@ var server = http.createServer(function (req, res) {
             case '.css':
                 contentType = 'text/css';
                 break;
+            case '.woff':
+                contentType = 'application/x-font-woff';
+                break;
         }
          
-        fs.exists(filePath, function(exists) {
+        console.log("PATH " + contentPath);
+        fs.exists(contentPath, function(exists) {
             if (exists) {
-                fs.readFile(filePath, function(error, content) {
+                fs.readFile(contentPath, function(error, content) {
                     if (error) {
                         res.writeHead(404);
                         res.end('{ "status": 404}');

@@ -16,6 +16,9 @@
   },
   "author": "",
   "license": "",
+  "devDependencies": {
+     "grunt": "~0.3.17"
+  },
   "dependencies": {
     "underscore": "~1.4.2",
     "fs": "0.0.0",
@@ -24,6 +27,7 @@
     "mongodb": "~1.1.11",
     "pg": "~0.6.15",
     "async": "~0.1.22",
-    "optimist": "~0.3.5"
+    "optimist": "~0.3.5",
+    "grunt": "~0.3.17"
   }
 }

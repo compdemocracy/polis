@@ -10,12 +10,6 @@ var CommentShower = function(params) {
 
     var currentCommentId;
 
-    $('#push_button').click(onPushClicked);
-    $('#pull_button').click(onPullClicked);
-    $('#pass_button').click(onPassClicked);
-
-
-
     function showNext() {
         serverClient.getNextComment().done(showComment);
     }
@@ -53,12 +47,16 @@ var CommentShower = function(params) {
         showNext();
     }
 
+    $('#push_button').click(onPushClicked);
+    $('#pull_button').click(onPullClicked);
+    $('#pass_button').click(onPassClicked);
+
     return {
-        showNext: showNext,
-        showComment : showComment,
         addPullListener: pullCallbacks.add,
         addPushListener: pushCallbacks.add,
         addPassListener: passCallbacks.add,
         addShownListener: shownCallbacks.add,
+        showComment : showComment,
+        showNext: showNext
     };
-}
+};

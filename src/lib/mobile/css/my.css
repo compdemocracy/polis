@@ -13,11 +13,11 @@
 
 @font-face {
     font-family: 'NeoRetroFillRegular';
-    src: url('NEORF___-webfont.eot');
-    src: url('NEORF___-webfont.eot?#iefix') format('embedded-opentype'),
-         url('NEORF___-webfont.woff') format('woff'),
-         url('NEORF___-webfont.ttf') format('truetype'),
-         url('NEORF___-webfont.svg#NeoRetroFillRegular') format('svg');
+    src: url('/static/lib/fonts/NEORF___-webfont.eot');
+    src: url('/static/lib/fonts/NEORF___-webfont.eot?#iefix') format('embedded-opentype'),
+         url('/static/lib/fonts/NEORF___-webfont.woff') format('woff'),
+         url('/static/lib/fonts/NEORF___-webfont.ttf') format('truetype'),
+         url('/static/lib/fonts/NEORF___-webfont.svg#NeoRetroFillRegular') format('svg');
     font-weight: normal;
     font-style: normal;
 
