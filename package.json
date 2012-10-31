@@ -2,7 +2,7 @@
   "name": "polis",
   "version": "0.0.0",
   "description": "polis =====",
-  "main": "server/polis_v1.js",
+  "main": "server/polis.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
