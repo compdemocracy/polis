@@ -199,20 +199,46 @@
             </a>
             <a class="brand" href="#">Polis</a>
             <div class="nav-collapse collapse">
-
               <p class="navbar-text pull-right">
                 Logged in as <a href="#" class="navbar-link">Username</a>
               </p>
-
-
               <ul class="nav">
-                <li ><a href="#explanation">A Brief Introduction</a></li>
+                <li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
                 <li><a href="#articles">Articles</a></li>
                 <li ><a href="#puller">Push & Pull</a></li>
+                
 
                   <li class="dropdown">
                     <a id="drop1" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">CREATE USER <b class="caret"></b></a>
                       <ul class="dropdown-menu" role="menu" aria-labelledby="drop1">
+
+                          <form class="form-horizontal">
+                            <div class="control-group">
+                              <div class="controls">
+                                <input type="text" id="inputEmail" placeholder="Email">
+                              </div>
+                            </div>
+                            <div class="control-group">
+                              <div class="controls">
+                                <input type="password" id="inputPassword" placeholder="Password">
+                              </div>
+                            </div>
+                            <div class="control-group">
+                              <div class="controls">
+                                <input type="password" id="confirmPassword" placeholder="Confirm Password">
+                              </div>
+                            </div>
+                            <div class="control-group">
+                              <div class="controls">
+                                <label class="checkbox">
+                                  <input type="checkbox"> Remember me
+                                </label>
+                                <button type="submit" class="btn">Sign in</button>
+                              </div>
+                            </div>
+                          </form>
+
+
                         <li><a tabindex="-1" href="http://google.com">Action</a></li>
                         <li><a tabindex="-1" href="#anotherAction">Another action</a></li>
                         <li><a tabindex="-1" href="#">Something else here</a></li>
@@ -220,10 +246,33 @@
                         <li><a tabindex="-1" href="#">Separated link</a></li>
                       </ul>
                     </li>
-
                     <li class="dropdown">
                       <a href="#" id="drop2" role="button" class="dropdown-toggle" data-toggle="dropdown">LOGIN <b class="caret"></b></a>
                       <ul class="dropdown-menu" role="menu" aria-labelledby="drop2">
+                        
+                          <form class="form-horizontal">
+                            <div class="control-group">
+                              <label class="control-label" for="inputEmail">Email</label>
+                              <div class="controls">
+                                <input type="text" id="inputEmail" placeholder="Email">
+                              </div>
+                            </div>
+                            <div class="control-group">
+                              <label class="control-label" for="inputPassword">Password</label>
+                              <div class="controls">
+                                <input type="password" id="inputPassword" placeholder="Password">
+                              </div>
+                            </div>
+                            <div class="control-group">
+                              <div class="controls">
+                                <label class="checkbox">
+                                  <input type="checkbox"> Remember me
+                                </label>
+                                <button type="submit" class="btn">Sign in</button>
+                              </div>
+                            </div>
+                          </form>
+
                         <li><a tabindex="-1" href="#">Action</a></li>
                         <li><a tabindex="-1" href="#">Another action</a></li>
                         <li><a tabindex="-1" href="#">Something else here</a></li>
@@ -231,12 +280,52 @@
                         <li><a tabindex="-1" href="#">Separated link</a></li>
                       </ul>
                     </li>
-
               </ul>
             </div><!--/.nav-collapse -->
           </div>
         </div>
       </div>
+
+
+        <div id="introduction_modal" class="modal hide fade" role="dialog">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal">×</button>
+            <h3 id="myModalLabel">A Brief Introduction</h3>
+          </div>
+           <div class="modal-body">       
+                <h6>WELCOME:</h6>
+                <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis seeks to provide a platform to facilitate productive, large scale conversations. </p>
+
+                <p>In this prototype, we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, it is a timely and important issue full of messy value judgements, priorities and eventualities - exactly the kind of conversation that breaks down at large scales on the internet and exactly the kind of trans-national discussion we're excited to try to facilitate. </p>
+
+                <h6> WHAT TO DO: </h6>
+
+                <p> 1. Create a new user identity, or login. </p> 
+
+                <p> 2. Read the articles, or skim them if you're familiar with the issue. </p> 
+
+                <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. </p>
+
+                <p>Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. </p>
+
+                <h6> HOW IT WORKS: </h6> 
+
+                <p>The flow is simple: first, users experience a stimulus, which could be a question, a series of articles, etc. Users then interact by submitting comments and reacting to other users' comments. Rather than displaying all the comments submitted, Polis sends out a random or specific collection of these comments and each user upvotes, downvotes or passes each comment they read, one at a time. Behind the scenes, statistical algorithms help choose which comments to show based on a number of complex factors and group users who react similarly. </p>
+
+                <p>Reacting to other people's comments (not commenting yourself) is how you place yourself within the landscape of opinion. If you do choose to comment (it is not required) you are not reacting to any one comment per se, rather submitting a new waypoint for other users to potentially rally around or against. Lastly, user groups are displayed in a real-time data visualization that shows what groups have formed and what statements they came together around. This visualization will not be functional for the prototype - instead the purpose of the prototype is the create a dataset with which to build the visualization. </p>
+                
+                <p> --The Polis Team</p>
+
+                <p><em>For XKCD readers:
+                Polis is built on Node, Mongo, Mustache, Heroku, R, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
+           </div>
+          <div class="modal-footer">
+            <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+            <button class="btn btn-primary">Save changes</button>
+          </div>
+        </div>
+
+
 
 
       <div class="row-fluid messages">
@@ -450,38 +539,7 @@
 
 
 
-        <div class="row-fluid">
-              <div class="span12">
-                <div id="explanation" class="alert alert-block alert-info">
-                    <button type="button" class="close" data-dismiss="alert">×</button>
-                    <h6>WELCOME:</h6>
-                      <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis seeks to provide a platform to facilitate productive, large scale conversations. </p>
-
-                            <p>In this prototype, we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, it is a timely and important issue full of messy value judgements, priorities and eventualities - exactly the kind of conversation that breaks down at large scales on the internet and exactly the kind of trans-national discussion we're excited to try to facilitate. </p>
-
-                            <h6> WHAT TO DO: </h6>
-
-                            <p> 1. Create a user, or login. </p> 
-
-                            <p> 2. Read the articles, or skim them if you're familiar with the issue. </p> 
-
-                            <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. </p>
-
-                            <p>Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. </p>
-
-                            <h6> HOW IT WORKS: </h6> 
-
-                            <p>The flow is simple: first, users experience a stimulus, which could be a question, a series of articles, etc. Users then interact by submitting comments and reacting to other users' comments. Rather than displaying all the comments submitted, Polis sends out a random or specific collection of these comments and each user upvotes, downvotes or passes each comment they read, one at a time. Behind the scenes, statistical algorithms help choose which comments to show based on a number of complex factors and group users who react similarly. </p>
-
-                            <p>Reacting to other people's comments (not commenting yourself) is how you place yourself within the landscape of opinion. If you do choose to comment (it is not required) you are not reacting to any one comment per se, rather submitting a new waypoint for other users to potentially rally around or against. Lastly, user groups are displayed in a real-time data visualization that shows what groups have formed and what statements they came together around. This visualization will not be functional for the prototype - instead the purpose of the prototype is the create a dataset with which to build the visualization. </p>
-                            
-                            <p> --The Polis Team</p>
-
-                            <p><em>For XKCD readers:
-                            Polis is built on Node, Mongo, Mustache, Heroku, R, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
-                </div> <!-- alert-block -->
-              </div> <!-- span -->
-          </div> 
+       
           
 
           <ul class="responsive-utilities-test">
