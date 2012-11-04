@@ -1,25 +1,15 @@
-
-
-
-
-
-
-
-
-
-
-
 .card {
   
   -webkit-perspective: 600px;
   perspective: 600px; 
   overflow: scroll;
-
+  position: relative;
   }
  
 
   .card .front, .card .back {
-    position: absolute;
+        position: absolute;
+
     -webkit-transform-style: preserve-3d;
     transform-style: preserve-3d;
     -webkit-backface-visibility: hidden;
