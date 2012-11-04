@@ -22,16 +22,28 @@
 
       }
 
-      .pull_buttons .btn {
+      .pull_buttons .btn, #comment_form_button {
           margin-bottom: 20px;
           font-weight: lighter;
           text-transform: uppercase;
+          letter-spacing: 6px;
+          padding-left: 51px;
+          padding-right: 51px;
+          font-family: neoretrofill;
 
+ 
+      }
+
+
+      #pull_button {
+        background-image: none;
+        background-color: rgb(136, 26, 26);
+        color: white;
+        text-shadow: none;
       }
 
       #flipcard {
         border-radius: 20px;
-        height: 600px;
       }
 
       #flipcard h1 {
@@ -57,6 +69,12 @@
         border-radius: 15px;
         padding-left: 20px;
         padding-top: 17px;
+      }
+
+      #comment_shower:hover {
+        -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+        -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
       }
 
       #comment_form_textarea{ 
@@ -188,6 +206,9 @@
             padding-top: 0px;
           }
 
+          #flipcard {
+            margin-top: 20px;
+          }
 
        }
        
@@ -199,6 +220,10 @@
           }
           body{
             padding-top: 0px;
+          }
+
+          #flipcard {
+            margin-top: 20px;
           }
 
        }
@@ -339,9 +364,9 @@
                   </div> 
 
                   <div class="pull_buttons">
-                    <button id="push_button" class="showerbtns btn btn-large " >&nbsp; Push &raquo; &nbsp;</button>
-                    <button id="pull_button" class="showerbtns btn btn-large "> &nbsp; Pull &raquo; &nbsp;</button>
-                    <button id="pass_button" class="btn btn-large "> &nbsp; Pass &raquo; &nbsp;</button>
+                    <button id="push_button" class="showerbtns btn btn-large " > Push</button>
+                    <button id="pull_button" class="showerbtns btn btn-large ">  Pull</button>
+                    <button id="pass_button" class="btn btn-large ">  Pass</button>
                   </div> 
               
                   <form id="comment_form">
@@ -353,8 +378,8 @@
 
 
 
-            <div id="flipcard" class="span6 right_panel"> 
-             <div class="card">
+            <div class="span6"> 
+             <div id="flipcard" class="card">
               <div class="front">
                  <div id="articles" >
                   <h1>Articles</h1>
@@ -589,7 +614,11 @@
         /////////////////////////////////////////////////////////////////*/
         $('.card .front').append('<span class="flip_back"></span>');
         $('.card .back').append('<span class="flip_front"></span>');
-        
+        var flipheight = $(document).height() * .88;
+        var showerheight = $(document).height() * .45;
+        $('#flipcard').css('height', flipheight);
+        $('#comment_shower').css('height', showerheight)
+
         $('.card').click(function(e){
           if($(this).hasClass('flip')){
             if(e.target.tagName == "A"){
@@ -607,6 +636,9 @@
             }
           }
         });
+
+
+
     </script>
 
 

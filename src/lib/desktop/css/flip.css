@@ -1,7 +1,7 @@
 
 
 .card {
-  height: inherit;
+  
   -webkit-perspective: 600px;
   perspective: 600px; 
   overflow: scroll;
@@ -10,7 +10,7 @@
  
 
   .card .front, .card .back {
-    
+    position: absolute;
     -webkit-transform-style: preserve-3d;
     transform-style: preserve-3d;
     -webkit-backface-visibility: hidden;
@@ -55,10 +55,12 @@
  
   .card .back {
     z-index: 800;
-    border-color: #cccccc;
-    background: #ee0011;
-    border-color: #d4000f;
-    color: #fff;
+    border-radius: 20px;
+    padding: 20px;
+    border-color: #fff;
+    background: #fff;
+    border-color: #fff;
+    color: black;
     -webkit-transform: rotateY(-180deg);
     -moz-transform: rotateY(-180deg);
     -ms-transform: rotateY(-180deg);
@@ -75,16 +77,14 @@
     -ms-transform: rotateY(0deg);
     -o-transform: rotateY(0deg);
     transform: rotateY(0deg);
-    -webkit-box-shadow: 0px 1px 10px rgba(0, 0, 0, 0.5);
-    -moz-box-shadow: 0px 1px 10px rgba(0, 0, 0, 0.5);
-    box-shadow: 0px 1px 10px rgba(0, 0, 0, 0.5); 
+    
     }
   
   .card .front:hover {
     border-color: #cccccc;
-    -webkit-box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.3);
-    -moz-box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.3);
-    box-shadow: 0px 1px 5px rgba(0, 0, 0, 0.3); 
+    -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+    -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+    box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
     }
     
     
