@@ -1,3 +1,6 @@
+// TODO start checking auth token, test it, remove it from json data
+
+
 // TODO make different logger
 // TODO decide on timestamp/id/hash precision
 // TODO add a conversationID
@@ -6,6 +9,8 @@
 //
 // TODO try mongo explain https://github.com/mongodb/node-mongodb-native/blob/master/examples/queries.js#L90
 
+console.log('redis url ' +process.env.REDISTOGO_URL);
+
 var http = require('http'),
     pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
@@ -13,16 +18,78 @@ var http = require('http'),
     fs = require('fs'),
     url = require('url'),
     path = require('path'),
+    bcrypt = require('bcrypt'),
     crypto = require('crypto'),
     _ = require('underscore');
 
 
+var AUTH_FAILED = 'auth failed';
+
+var redis;
+if (process.env.REDISTOGO_URL) {
+    // inside if statement
+    var rtg   = url.parse(process.env.REDISTOGO_URL);
+    var redis = require("redis").createClient(rtg.port, rtg.hostname);
+    redis.auth(rtg.auth.split(":")[1]);
+} else {
+    redis = require('redis').createClient();
+}
 
 // Connect to a mongo database via URI
 // With the MongoLab addon the MONGOLAB_URI config variable is added to your
 // Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
-var polisEventsCollection = 'events';
+
 console.log(process.env.MONGOLAB_URI);
+
+function makeSessionToken() {
+    // These can probably be shortened at some point.
+    return crypto.randomBytes(256).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 100);
+}
+
+function getUserInfoForSessionToken(sessionToken, cb) {
+    redis.get(sessionToken, function(errGetToken, replies) {
+        if (errGetToken) { cb(errGetToken); return; }
+        cb(null, {u: replies});
+    });
+}
+
+function startSession(userID, cb) {
+    var sessionToken = makeSessionToken();
+    redis.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
+        if (errSetToken) { cb(errSetToken); return }
+        redis.expire(sessionToken, 7*24*60*60, function(errSetTokenExpire, repliesExpire) {
+            if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
+            cb(null, sessionToken);
+        });
+    });
+}
+
+function endSession(sessionToken, cb) {
+    redis.del(sessionToken, function(errDelToken, repliesSetToken) {
+        if (errDelToken) { cb(errDelToken); return }
+        cb(null);
+    });
+}
+
+console.log('b4 starting session');
+var testSession = function(userID) {
+    console.log('starting session');
+    startSession(userID, function(err, token) {
+        if (err) {
+            console.error('startSession failed with error: ' + err);
+            return;
+        }
+        console.log('started session with token: ' + token);
+        getUserInfoForSessionToken(token, function(err, fetchedUserInfo) {
+            if (err) { console.error('getUserInfoForSessionToken failed with error: ' + err); return; }
+            console.log(userID, fetchedUserInfo.u);
+            var status = userID === fetchedUserInfo.u ? "sessions work" : "sessions broken";
+            console.log(status);
+        });
+    });
+};
+testSession("12345ADFHSADFJKASHDF");
+
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
 mongo.connect(process.env.MONGOLAB_URI, {safe: true}, function(err, db) {
@@ -31,26 +98,32 @@ mongo.connect(process.env.MONGOLAB_URI, {safe: true}, function(err, db) {
         console.error(err);
         process.exit(1);
     }
-    db.collection(polisEventsCollection, function(err, collection) {
-        if (err) { console.error(err); return; }
-        collection.find({s: ObjectId("5084c8e3e4b059e606c9ff2a")}, function(err, cursor) {
-            if (err) { console.error(err); return; }
 
-            cursor.each(function(err, item) {
+    db.collection('users', function(err, collectionOfUsers) {
+        db.collection('events', function(err, collection) {
+            if (err) { console.error(err); return; }
+            collection.find({s: ObjectId("5084c8e3e4b059e606c9ff2a")}, function(err, cursor) {
                 if (err) { console.error(err); return; }
 
-                if(item != null) {
-                    console.dir(item);
-                    var timestampBase16 = item._id.toString().substring(0, 8);
-                    var timestamp = new Date(parseInt( timestampBase16, 16) * 1000) + "";
-                    console.log(timestampBase16);
-                    console.log(timestamp);
-                }
+                /*
+                cursor.each(function(err, item) {
+                    if (err) { console.error(err); return; }
+
+                    if(item != null) {
+                        console.dir(item);
+                        var timestampBase16 = item._id.toString().substring(0, 8);
+                        var timestamp = new Date(parseInt( timestampBase16, 16) * 1000) + "";
+                        console.log(timestampBase16);
+                        console.log(timestamp);
+                    }
+                });
+                */
             });
-        });
-        // OK, DB is ready, start the API server.
-        initializePolisAPI({
-            mongoCollectionOfEvents: collection,
+            // OK, DB is ready, start the API server.
+            initializePolisAPI({
+                mongoCollectionOfEvents: collection,
+                mongoCollectionOfUsers: collectionOfUsers,
+            });
         });
     });
 });
@@ -75,11 +148,21 @@ function collectPost(req, res, success) {
     }
 }
 
+function convertFromSession(postData, callback) {
+    var token = postData.token;
+    if (!token) { callback('missing token'); return; }
+    getUserInfoForSessionToken(token, function(err, fetchedUserInfo) {
+        if (err) { callback(AUTH_FAILED); return; }
+        postData = _.omit(postData, ['token']);
+        if (postData.u) { console.error('got postData.u, not needed'); }
+        postData.u = fetchedUserInfo.u;
+        callback(null, postData);
+    });
+}
+
 function makeHash(ary) {
     return _.object(ary, ary.map(function(){return 1;}));
 }
-
-
 
 String.prototype.hashCode = function(){
     var hash = 0, i, char;
@@ -95,6 +178,7 @@ String.prototype.hashCode = function(){
 function initializePolisAPI(params) {
 
 var collection = params.mongoCollectionOfEvents;
+var collectionOfUsers = params.mongoCollectionOfUsers;
 
 
 function fail(res, code, err) {
@@ -121,16 +205,72 @@ var server = http.createServer(function (req, res) {
     // start server with ds in scope.
     var routes = {
 
-        // Cookies / auth tokens:
-        // all we need is a random string to set as the cookie of an authenticated user, and a key that will tell us what is the user ID of the client holding such a random string. 
-        //
-        "/v2/auth/newAnon" : function(req, res) {
-            var response_data = {};
-            var retrieveThis = Math.random();
-            collection.insert({type: "newuser"}, function(err, docs) {
-                if (err) { fail(res, 238943589, err); return; }
-                response_data.u = docs[0]._id;
-                res.end(JSON.stringify(response_data));
+        "/v2/auth/deregister" : function(req, res) {
+            collectPost(req, res, function(data) {
+                endSession(data, function(err, data) {
+                    if (err) { fail(res, 213489289, "couldn't end session"); return; }
+                    res.end();
+                });
+                // log the deregister
+                convertFromSession(data, function(err, data) {
+                    collection.insert({type: "deregister", u: data.u}, function(err, docs) {
+                        if (err) { console.error("couldn't add deregister event to eventstream"); return; }
+                    });
+                });
+            });
+        },
+
+        "/v2/auth/login" : function(req, res) {
+            collectPost(req, res, function(data) {
+                var username = data.username;
+                var password = data.password;
+                collectionOfUsers.find({username: username}, function(errFindPassword, docs) {
+                    if (errFindPassword) { fail(res, 238943621, errFindPassword); return; }
+                    var hashedPassword  = docs[0].pwhash;
+                    bcrypt.compare(hashedPassword, function(errCompare, res) {
+                        if (errCompare) { res.writeHead(403); res.end(code); return; } // TODO move to authFail function
+                        
+                        var response_data = {token: makeSessionToken()};
+                        res.end(JSON.stringify(response_data));
+                        // log the login
+                        collection.insert({type: "login", u: docs[0].u}, function(errInsertEvent, docs) {
+                            if (err) { console.error("couldn't add register event to eventstream u:"+docs[0]); return; }
+                        });
+                    });
+                });
+            });
+        },
+        "/v2/auth/new" : function(req, res) {
+            collectPost(req, res, function(data) {
+                var username = data.username;
+                var password = data.password;
+                bcrypt.genSalt(12, function(errSalt, salt) {
+                    if (errSalt) { fail(res, 238943585, errHash); return; }
+
+                    bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+                        delete data.password; password = null;
+                        if (errHash) { fail(res, 238943594, errHash); return; }
+
+                        var response_data = {};
+                        collection.insert({type: "newuser", username: username}, function(errInsertEvent, docs) {
+
+                            if (errInsertEvent) { fail(res, 238943603, errInsertEvent); return; }
+
+                            var userID = docs[0]._id;
+                            collectionOfUsers.insert({
+                                u: userID,
+                                username: username,
+                                pwhash: hashedPassword}, 
+                                function(errInsertPassword, docs) {
+                                    if (errInsertPassword) { fail(res, 238943599, errInsertPassword); return; }
+
+                                    startSession(userID, function(errSessionStart,token) {
+                                        res.end(JSON.stringify({token: token}));
+                                    });
+                            });
+                        });
+                    });
+                });
             });
         },
 
@@ -238,19 +378,27 @@ var server = http.createServer(function (req, res) {
                     return;
                 }
                 if('POST' === req.method) {
+
                     collectPost(req, res, function(data) {
-                        data.events.forEach(function(ev){
-                            // TODO check the user & token database 
-                            if (ev.s) ev.s = ObjectId(ev.s);
-                            if (ev.u) {
-                                ev.u = ObjectId(ev.u);
-                            } else {
-                                fail(res, "need u (userid) field.");
-                                return;
-                            }
-                            collection.insert(ev, function(err, cursor) {
-                                if (err) { fail(res, 324234324, err); return; }
-                                res.end();
+
+                        console.log('collected');
+                        console.dir(data);
+                        convertFromSession(data, function(err, data) {
+                            console.log('converted');
+                            console.dir(data);
+                            if (err) { fail(res, 93482572, err); return; }
+
+                            data.events.forEach(function(ev){
+
+                                if (ev.s) {
+                                    ev.s = ObjectId(ev.s);
+                                }
+                                ev.u = ObjectId(data.u);
+
+                                collection.insert(ev, function(err, cursor) {
+                                    if (err) { fail(res, 324234324, err); return; }
+                                    res.end();
+                                });
                             });
                         });
                     });

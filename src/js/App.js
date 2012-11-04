@@ -1,5 +1,3 @@
-var polis = {};
-
 var App = function(params) {
     
     var utils = params.utils;
@@ -14,21 +12,6 @@ var App = function(params) {
 
     // init UI stuff
     // (or get references to the elements / views)
-
-    //serverClient.authenticate("mike", "12345").then(
-    serverClient.authAnonNew().then(
-        function(authData) {
-            onAuthenticated(authData);
-            setupUI();
-        }, 
-        function() {
-            console.error('login failed');
-        }
-    );
-
-    function onAuthenticated(data) {
-        console.log("Your userid is " + data.u);
-    }
 
  function setupUI() {
 
@@ -56,6 +39,8 @@ var App = function(params) {
 
     commentShower.showNext();
 }
+    setupUI();
+
     
     // Debug interface
     return {
@@ -66,15 +51,16 @@ var App = function(params) {
     
 $(document).ready(function() {
     var serverClient = new window.ServerClient({
+        token: PolisStorage.token,
+        username: PolisStorage.username,
         utils: window.utils,
-        me: 12345, // userid
         protocol: "", //"http",
         domain: "",// "polis.bjorkegren.com",
         basePath: "",
         logger: console
     });
 
-    polis.app = new App({
+    window.polisapp = new App({
         CommentShower: window.CommentShower,
         CommentSubmitter: window.CommentSubmitter,
         serverClient: serverClient,

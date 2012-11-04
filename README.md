@@ -7,6 +7,12 @@ polis is a web application dedicated to facilitating constructive conversations 
 ## Getting Started
 Install the module with: `npm install test`
 
+### Running the server locally with foreman
+```bash
+heroku config:pull --overwrite --interactive
+forment start
+```
+
 ```javascript
 var test = require('test');
 test.awesome(); // "awesome"
