@@ -9,8 +9,9 @@ Install the module with: `npm install test`
 
 ### Running the server locally with foreman
 ```bash
+heroku plugins:install git://github.com/ddollar/heroku-config.git
 heroku config:pull --overwrite --interactive
-forment start
+foreman start
 ```
 
 ```javascript
