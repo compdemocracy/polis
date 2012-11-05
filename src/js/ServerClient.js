@@ -24,6 +24,7 @@ var ServerClient = function(params) {
 
     var logger = params.logger;
 
+    var authStateChangeCallbacks = $.Callbacks();
 
     var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
@@ -222,6 +223,7 @@ var ServerClient = function(params) {
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
+            authStateChangeCallbacks.fire("p_registered");
         });//.then(logger.log, logger.error);
     }
 
@@ -238,12 +240,14 @@ var ServerClient = function(params) {
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
+            authStateChangeCallbacks.fire("p_registered");
         });//.then(logger.log, logger.error);
     }
 
     function authDeregister() {
         return polisPost(deregisterPath).always( function(authData) {
             clearAuthStores();
+            authStateChangeCallbacks.fire("p_deregistered");
         });//.then(logger.log, logger.error);
     }
 
@@ -257,7 +261,8 @@ var ServerClient = function(params) {
         pull: pull,
         pass: pass,
         see: see,
-        addAuthNeededListener: needAuthCallbacks.add,
+        addAuthStatChangeListener: authStateChangeCallbacks.add,
+        addAuthNeededListener: needAuthCallbacks.add, // needed?
         submitComment: submitComment
     };
 };

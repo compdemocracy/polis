@@ -42,6 +42,17 @@ var App = function(params) {
         rememberMeFieldId: "register_rememberme"
     });
 
+    $("#deregister_button").click(serverClient.authDeregister);
+
+    serverClient.addAuthStatChangeListener(function(state) {
+        console.log("auth state: " + state);
+        if ("p_registered" === state) {
+            // update UI
+        } else if ("p_deregistered" === state) {
+            // update UI
+        }
+    });
+
     // Comment Shower
     var $commentShowerElem = $("#comment_shower");
     var commentShower = new CommentShower({
