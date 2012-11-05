@@ -44,11 +44,13 @@ var App = function(params) {
 
     $("#deregister_button").click(serverClient.authDeregister);
 
-    serverClient.addAuthStatChangeListener(function(state) {
-        console.log("auth state: " + state);
-        if ("p_registered" === state) {
+    serverClient.addAuthStatChangeListener(function(e) {
+        console.dir(e);
+        if ("p_registered" === e.state) {
+            //var username = e.username;
+            //var email = e.email;
             // update UI
-        } else if ("p_deregistered" === state) {
+        } else if ("p_deregistered" === e.state) {
             // update UI
         }
     });

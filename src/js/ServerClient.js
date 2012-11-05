@@ -223,7 +223,11 @@ var ServerClient = function(params) {
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
-            authStateChangeCallbacks.fire("p_registered");
+            authStateChangeCallbacks.fire(assemble({
+                email: params.email,
+                username: params.username,
+                state: "p_registered"
+            }));
         });//.then(logger.log, logger.error);
     }
 
@@ -240,14 +244,20 @@ var ServerClient = function(params) {
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
-            authStateChangeCallbacks.fire("p_registered");
+            authStateChangeCallbacks.fire(assemble({
+                email: params.email,
+                username: params.username,
+                state: "p_registered"
+            }));
         });//.then(logger.log, logger.error);
     }
 
     function authDeregister() {
         return polisPost(deregisterPath).always( function(authData) {
             clearAuthStores();
-            authStateChangeCallbacks.fire("p_deregistered");
+            authStateChangeCallbacks.fire(assemble({
+                state: "p_deregistered"
+            }));
         });//.then(logger.log, logger.error);
     }
 
