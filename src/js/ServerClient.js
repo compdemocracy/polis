@@ -196,10 +196,10 @@ var ServerClient = function(params) {
             promise = $.post(url, JSON.stringify(data));
         }
         promise.fail( function(jqXHR, message, errorType) {
-                logger.error('send ERROR');
-                logger.dir(data);
-                logger.dir(message);
-                logger.dir(errorType);
+                logger.error('SEND ERROR');
+                //logger.dir(data);
+                //logger.dir(message);
+                //logger.dir(errorType);
         });
         return promise;
     }

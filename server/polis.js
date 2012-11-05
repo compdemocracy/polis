@@ -49,21 +49,22 @@ function makeSessionToken() {
 function getUserInfoForSessionToken(sessionToken, cb) {
     redis.get(sessionToken, function(errGetToken, replies) {
         if (errGetToken) { cb(errGetToken); return; }
-        console.log('redis:');
-        console.dir(replies);
+        //console.log('redis:');
+        //console.dir(replies);
         cb(null, {u: replies});
     });
 }
 
 function startSession(userID, cb) {
     var sessionToken = makeSessionToken();
-    console.log('token will be: ' + sessionToken);
+    //console.log('startSession: token will be: ' + sessionToken);
+    console.log('startSession');
     redis.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
         if (errSetToken) { cb(errSetToken); return }
-        console.log('token set.');
+        console.log('startSession: token set.');
         redis.expire(sessionToken, 7*24*60*60, function(errSetTokenExpire, repliesExpire) {
             if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
-            console.log('token will expire.');
+            console.log('startSession: token will expire.');
             cb(null, sessionToken);
         });
     });
@@ -229,8 +230,6 @@ var server = http.createServer(function (req, res) {
 
         "/v2/auth/login" : function(req, res) {
             collectPost(req, res, function(data) {
-            console.log('got');
-            console.dir(data);
                 var username = data.username;
                 var password = data.password;
                 var email = data.email;
@@ -241,14 +240,12 @@ var server = http.createServer(function (req, res) {
                     $or : handles
                 }; 
                 if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
-                console.log('about to check users');
                 collectionOfUsers.find(query, function(errFindPassword, cursor) {
                     if (errFindPassword) { fail(res, 238943622, "polis_err_login_unknown_user_or_password", 403); return; }
                     cursor.toArray( function(err, docs) {
                         if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
                         if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
 
-                        console.dir(docs);
                         var hashedPassword  = docs[0].pwhash;
                         var userID = docs[0].u;
 
@@ -261,7 +258,6 @@ var server = http.createServer(function (req, res) {
                                 };
                                 res.end(JSON.stringify(response_data));
                                 // log the login
-                                console.log('about to add event');
                                 collection.insert({type: "login", u: docs[0].u}, function(errInsertEvent, docs) {
                                     if (err) { console.error("couldn't add register event to eventstream u:"+docs[0]); return; }
                                 });
@@ -273,8 +269,6 @@ var server = http.createServer(function (req, res) {
         },
         "/v2/auth/new" : function(req, res) {
             collectPost(req, res, function(data) {
-                console.log('got');
-                console.dir(data);
                 var username = data.username;
                 var password = data.password;
                 var email = data.email;
@@ -292,7 +286,6 @@ var server = http.createServer(function (req, res) {
                     if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
                     cursor.toArray(function(err, docs) {
                         if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
-                        console.dir(docs);
                         if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
 
                         bcrypt.genSalt(12, function(errSalt, salt) {
@@ -313,7 +306,6 @@ var server = http.createServer(function (req, res) {
                                 if (username) {
                                     regEvent.username = username;
                                 }
-                                console.log('about to add to events');
                                 collection.insert(regEvent, function(errInsertEvent, docs) {
 
                                     if (errInsertEvent) { fail(res, 238943603, "polis_err_reg_failed_to_add_event"); return; }
@@ -329,7 +321,6 @@ var server = http.createServer(function (req, res) {
                                     if (email) {
                                         userRecord.email = email;
                                     }
-                                    console.log('about to add to users');
                                     collectionOfUsers.insert(userRecord,
                                         function(errInsertPassword, docs) {
                                             if (errInsertPassword) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; } // we should probably delete the log entry.. would be nice to have a transaction here
@@ -375,13 +366,12 @@ var server = http.createServer(function (req, res) {
 
                         function onNext( err, doc) {
                             if (err) { fail(res, 987298787, err); return; }
-                            console.dir(doc);
+                            //console.dir(doc);
 
                             if (doc) {
                                 docs.push(doc);
                                 cursor.nextObject(onNext);
                             } else {
-                                console.log(' finished query ');
                                 res.end(JSON.stringify({
                                     lastServerToken: lastServerToken,
                                     events: docs,
@@ -435,13 +425,12 @@ var server = http.createServer(function (req, res) {
 
                         function onNext( err, doc) {
                             if (err) { fail(res, 987298783, err); return; }
-                            console.dir(doc);
+                            //console.dir(doc);
 
                             if (doc) {
                                 users.push(doc);
                                 cursor.nextObject(onNext);
                             } else {
-                                console.log(' finished query ');
                                 res.end(JSON.stringify(users));
                             }
                         }
@@ -454,11 +443,11 @@ var server = http.createServer(function (req, res) {
 
                     collectPost(req, res, function(data) {
 
-                        console.log('collected');
-                        console.dir(data);
+                        //console.log('collected');
+                        //console.dir(data);
                         convertFromSession(data, function(err, data) {
-                            console.log('converted');
-                            console.dir(data);
+                            //console.log('converted');
+                            //console.dir(data);
                             if (err) { fail(res, 93482572, err); return; }
 
                             data.events.forEach(function(ev){
