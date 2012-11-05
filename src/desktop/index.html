@@ -264,13 +264,16 @@
                   <li class="dropdown">
                     <a href="#" id="drop1" role="button" class="dropdown-toggle" data-toggle="dropdown">CREATE USER <b class="caret"></b></a>
                       <div class="dropdown-menu" role="menu">
-                        <form class="dropdown_forms">
+                        <form id="register_form" class="dropdown_forms">
                           <fieldset>
-                            <input type="text" placeholder="Email">
-                            <input type="password" placeholder="Password">
-                            <input type="password" placeholder="Confirm Password">
-                            <label class="checkbox"><input type="checkbox"> Remember me</label>
-                            <button type="submit" class="btn btn-large">Register & Login</button>
+                            <input id="register_email" class="email" type="text" placeholder="Email">
+                            <input id="register_password" type="password" placeholder="Password">
+                            <input id="register_password_again" type="password" placeholder="Confirm Password">
+                            <label class="checkbox">
+                                <input id="register_rememberme" type="checkbox"></input>
+                                <span> Remember me</span>
+                            </label>
+                            <button type="submit" id="register_button" class="btn btn-large">Register & Login</button>
                           </fieldset>
                         </form>
                       </div>
@@ -278,12 +281,15 @@
                     <li class="dropdown">
                       <a href="#" id="drop2" role="button" class="dropdown-toggle" data-toggle="dropdown">LOGIN <b class="caret"></b></a>
                       <div class="dropdown-menu" role="menu">
-                        <form class="dropdown_forms">
+                        <form id="login_form" class="dropdown_forms">
                           <fieldset>
-                            <input type="text" placeholder="Email">
-                            <input type="password" placeholder="Password">
-                            <label class="checkbox"><input type="checkbox"> Remember me</label>
-                            <button type="submit" class="btn btn-large">Login</button>
+                            <input id="login_email" type="text" placeholder="Email">
+                            <input id="login_password" type="password" placeholder="Password">
+                            <label class="checkbox">
+                                <input id="login_rememberme" type="checkbox"></input>
+                                <span> Remember me</span>
+                            </label>
+                            <button id="login_button" type="submit" class="btn btn-large">Login</button>
                           </fieldset>
                         </form>
                       </div>
@@ -576,6 +582,7 @@
     <script src="/static/lib/js/mustache.js"></script>
     <script src="/static/js/util.js"></script>
     <script src="/static/js/ServerClient.js"></script>
+    <script src="/static/js/LoginView.js"></script>
     <script src="/static/js/CommentShower.js"></script>
     <script src="/static/js/CommentSubmitter.js"></script>
     <script src="/static/js/App.js"></script>

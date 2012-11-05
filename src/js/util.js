@@ -11,9 +11,11 @@ var utils = function() {
 var PolisStorage = function() {
     var cache = {
     };
-    function saveAndCache(k, v) {
+    function saveAndCache(k, v, temporary) {
         if (cache[k] !== v) {
-            window.localStorage.setItem(k, v);
+            if (!temporary) {
+                window.localStorage.setItem(k, v);
+            }
             cache[k] = v;
         }
     }
@@ -37,8 +39,8 @@ var PolisStorage = function() {
             clear: function() {
                 return clear(k);
             },
-            set: function(v) {
-                return saveAndCache(k, v);
+            set: function(v, temporary) {
+                return saveAndCache(k, v, temporary);
             },
             get: function() {
                 return retrieveWithCache(k);
@@ -48,8 +50,9 @@ var PolisStorage = function() {
                 
 
     return {
-        token: makeAccessor('p_authToken'),
-        username: makeAccessor('p_username')
+        email: makeAccessor('p_email'),
+        username: makeAccessor('p_username'),
+        token: makeAccessor('p_authToken')
     };
 }();
 

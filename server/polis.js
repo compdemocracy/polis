@@ -49,16 +49,21 @@ function makeSessionToken() {
 function getUserInfoForSessionToken(sessionToken, cb) {
     redis.get(sessionToken, function(errGetToken, replies) {
         if (errGetToken) { cb(errGetToken); return; }
+        console.log('redis:');
+        console.dir(replies);
         cb(null, {u: replies});
     });
 }
 
 function startSession(userID, cb) {
     var sessionToken = makeSessionToken();
+    console.log('token will be: ' + sessionToken);
     redis.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
         if (errSetToken) { cb(errSetToken); return }
+        console.log('token set.');
         redis.expire(sessionToken, 7*24*60*60, function(errSetTokenExpire, repliesExpire) {
             if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
+            console.log('token will expire.');
             cb(null, sessionToken);
         });
     });
@@ -71,6 +76,7 @@ function endSession(sessionToken, cb) {
     });
 }
 
+/*
 console.log('b4 starting session');
 var testSession = function(userID) {
     console.log('starting session');
@@ -89,6 +95,7 @@ var testSession = function(userID) {
     });
 };
 testSession("12345ADFHSADFJKASHDF");
+*/
 
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
@@ -181,10 +188,10 @@ var collection = params.mongoCollectionOfEvents;
 var collectionOfUsers = params.mongoCollectionOfUsers;
 
 
-function fail(res, code, err) {
+function fail(res, code, err, httpCode) {
     console.error(code, err);
-    res.writeHead(500);
-    res.end(code);
+    res.writeHead(httpCode || 500);
+    res.end(err);
 }
 
 var polisTypes = {
@@ -222,57 +229,123 @@ var server = http.createServer(function (req, res) {
 
         "/v2/auth/login" : function(req, res) {
             collectPost(req, res, function(data) {
+            console.log('got');
+            console.dir(data);
                 var username = data.username;
                 var password = data.password;
-                collectionOfUsers.find({username: username}, function(errFindPassword, docs) {
-                    if (errFindPassword) { fail(res, 238943621, errFindPassword); return; }
-                    var hashedPassword  = docs[0].pwhash;
-                    bcrypt.compare(hashedPassword, function(errCompare, res) {
-                        if (errCompare) { res.writeHead(403); res.end(code); return; } // TODO move to authFail function
-                        
-                        var response_data = {token: makeSessionToken()};
-                        res.end(JSON.stringify(response_data));
-                        // log the login
-                        collection.insert({type: "login", u: docs[0].u}, function(errInsertEvent, docs) {
-                            if (err) { console.error("couldn't add register event to eventstream u:"+docs[0]); return; }
-                        });
-                    });
-                });
-            });
+                var email = data.email;
+                var handles = [];
+                if (username) { handles.push({username: username}); }
+                if (email) { handles.push({email: email}); }
+                var query = {
+                    $or : handles
+                }; 
+                if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
+                console.log('about to check users');
+                collectionOfUsers.find(query, function(errFindPassword, cursor) {
+                    if (errFindPassword) { fail(res, 238943622, "polis_err_login_unknown_user_or_password", 403); return; }
+                    cursor.toArray( function(err, docs) {
+                        if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
+                        if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
+
+                        console.dir(docs);
+                        var hashedPassword  = docs[0].pwhash;
+                        var userID = docs[0].u;
+
+                        bcrypt.compare(password, hashedPassword, function(errCompare, result) {
+                            if (errCompare || !result) { fail(res, 238943623, "polis_err_login_unknown_user_or_password", 403); return; }
+                            
+                            startSession(userID, function(errSess, token) {
+                                var response_data = {
+                                    token: token
+                                };
+                                res.end(JSON.stringify(response_data));
+                                // log the login
+                                console.log('about to add event');
+                                collection.insert({type: "login", u: docs[0].u}, function(errInsertEvent, docs) {
+                                    if (err) { console.error("couldn't add register event to eventstream u:"+docs[0]); return; }
+                                });
+                            }); // end startSession
+                        }); // compare
+                    }); // toArray
+                }); // find
+            }); // collectPost
         },
         "/v2/auth/new" : function(req, res) {
             collectPost(req, res, function(data) {
+                console.log('got');
+                console.dir(data);
                 var username = data.username;
                 var password = data.password;
-                bcrypt.genSalt(12, function(errSalt, salt) {
-                    if (errSalt) { fail(res, 238943585, errHash); return; }
+                var email = data.email;
+                if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
+                if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
+                if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
+                if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
 
-                    bcrypt.hash(password, salt, function(errHash, hashedPassword) {
-                        delete data.password; password = null;
-                        if (errHash) { fail(res, 238943594, errHash); return; }
+                var handles = [];
+                if (username) { handles.push({username: username}); }
+                if (email) { handles.push({email: email}); }
+                collectionOfUsers.find({
+                    $or: handles
+                }, function(err, cursor) {
+                    if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
+                    cursor.toArray(function(err, docs) {
+                        if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
+                        console.dir(docs);
+                        if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
 
-                        var response_data = {};
-                        collection.insert({type: "newuser", username: username}, function(errInsertEvent, docs) {
+                        bcrypt.genSalt(12, function(errSalt, salt) {
+                            if (errSalt) { fail(res, 238943585, "polis_err_reg_123"); return; }
 
-                            if (errInsertEvent) { fail(res, 238943603, errInsertEvent); return; }
+                            bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+                                delete data.password;
+                                password = null;
+                                if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
 
-                            var userID = docs[0]._id;
-                            collectionOfUsers.insert({
-                                u: userID,
-                                username: username,
-                                pwhash: hashedPassword}, 
-                                function(errInsertPassword, docs) {
-                                    if (errInsertPassword) { fail(res, 238943599, errInsertPassword); return; }
+                                var response_data = {};
+                                var regEvent = {
+                                    type: "newuser",
+                                };
+                                if (email) {
+                                    regEvent.email = email;
+                                }
+                                if (username) {
+                                    regEvent.username = username;
+                                }
+                                console.log('about to add to events');
+                                collection.insert(regEvent, function(errInsertEvent, docs) {
 
-                                    startSession(userID, function(errSessionStart,token) {
-                                        res.end(JSON.stringify({token: token}));
-                                    });
-                            });
-                        });
-                    });
-                });
-            });
-        },
+                                    if (errInsertEvent) { fail(res, 238943603, "polis_err_reg_failed_to_add_event"); return; }
+
+                                    var userID = docs[0]._id;
+                                    var userRecord = {
+                                        u: userID,
+                                        pwhash: hashedPassword
+                                    };
+                                    if (username) {
+                                        userRecord.username = username;
+                                    }
+                                    if (email) {
+                                        userRecord.email = email;
+                                    }
+                                    console.log('about to add to users');
+                                    collectionOfUsers.insert(userRecord,
+                                        function(errInsertPassword, docs) {
+                                            if (errInsertPassword) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; } // we should probably delete the log entry.. would be nice to have a transaction here
+
+                                            startSession(userID, function(errSessionStart,token) {
+                                                if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
+                                                res.end(JSON.stringify({token: token}));
+                                            });
+                                    }); // end insert user
+                                }); // end insert regevent
+                            }); // end hash
+                        }); // end gensalt
+                    }); // end cursor.toArray
+                }); // end find existing users
+            }); // end collect post
+        }, // end auth/new
 
         "/v2/txt" : (function() {
             function makeQuery(stimulusId, lastServerToken) {
@@ -441,6 +514,9 @@ var server = http.createServer(function (req, res) {
                 break;
             case '.css':
                 contentType = 'text/css';
+                break;
+            case '.png':
+                contentType = 'image/png';
                 break;
             case '.woff':
                 contentType = 'application/x-font-woff';
