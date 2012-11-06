@@ -23,38 +23,6 @@ var App = function(params) {
         serverClient.submitComment(txt);
     });
 
-    var loginView = new LoginView({
-        submit: serverClient.authLogin,
-        onOk: function() { console.log('login success'); },
-        formId: "login_form",
-        emailFieldId: "login_email",
-        passwordFieldId: "login_password",
-        rememberMeFieldId: "login_rememberme"
-    });
-
-    var registerView = new LoginView({
-        submit: serverClient.authNew,
-        onOk: function() { console.log('register success'); },
-        formId: "register_form",
-        emailFieldId: "register_email",
-        passwordFieldId: "register_password",
-        passwordAgainFieldId: "register_password_again",
-        rememberMeFieldId: "register_rememberme"
-    });
-
-    $("#deregister_button").click(serverClient.authDeregister);
-
-    serverClient.addAuthStatChangeListener(function(e) {
-        console.dir(e);
-        if ("p_registered" === e.state) {
-            //var username = e.username;
-            //var email = e.email;
-            // update UI
-        } else if ("p_deregistered" === e.state) {
-            // update UI
-        }
-    });
-
     // Comment Shower
     var $commentShowerElem = $("#comment_shower");
     var commentShower = new CommentShower({
@@ -83,9 +51,8 @@ var App = function(params) {
     
 $(document).ready(function() {
     var serverClient = new window.ServerClient({
-        tokenStore: PolisStorage.token,
-        emailStore: PolisStorage.email,
-        usernameStore: PolisStorage.username,
+        token: PolisStorage.token,
+        username: PolisStorage.username,
         utils: window.utils,
         protocol: "", //"http",
         domain: "",// "polis.bjorkegren.com",

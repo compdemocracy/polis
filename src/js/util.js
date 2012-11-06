@@ -7,30 +7,13 @@ var utils = function() {
     };
 }();
 
-function assemble() {
-    var obj = {};
-    for (var i = 0; i < arguments.length; i++) {
-        var candidateKvPairs = arguments[i];
-        for( var k in candidateKvPairs) {
-            if (candidateKvPairs.hasOwnProperty(k)) {
-                if (candidateKvPairs[k] !== undefined) {
-                    obj[k] = candidateKvPairs[k];
-                }
-            }
-        }
-    }
-    return obj;
-}
-
 
 var PolisStorage = function() {
     var cache = {
     };
-    function saveAndCache(k, v, temporary) {
+    function saveAndCache(k, v) {
         if (cache[k] !== v) {
-            if (!temporary) {
-                window.localStorage.setItem(k, v);
-            }
+            window.localStorage.setItem(k, v);
             cache[k] = v;
         }
     }
@@ -54,8 +37,8 @@ var PolisStorage = function() {
             clear: function() {
                 return clear(k);
             },
-            set: function(v, temporary) {
-                return saveAndCache(k, v, temporary);
+            set: function(v) {
+                return saveAndCache(k, v);
             },
             get: function() {
                 return retrieveWithCache(k);
@@ -65,9 +48,8 @@ var PolisStorage = function() {
                 
 
     return {
-        email: makeAccessor('p_email'),
-        username: makeAccessor('p_username'),
-        token: makeAccessor('p_authToken')
+        token: makeAccessor('p_authToken'),
+        username: makeAccessor('p_username')
     };
 }();
 

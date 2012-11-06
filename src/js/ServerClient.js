@@ -24,17 +24,9 @@ var ServerClient = function(params) {
 
     var logger = params.logger;
 
-    var authStateChangeCallbacks = $.Callbacks();
 
-    var usernameStore = params.usernameStore;
-    var tokenStore = params.tokenStore;
-    var emailStore = params.emailStore;
-    var authStores = [tokenStore, usernameStore, emailStore];
-    function clearAuthStores() {
-        authStores.forEach(function(x) {
-            x.clear();
-        });
-    }
+    var usernameStore = params.username;
+    var tokenStore = params.token;
 
     var needAuthCallbacks = $.Callbacks();
 
@@ -196,10 +188,10 @@ var ServerClient = function(params) {
             promise = $.post(url, JSON.stringify(data));
         }
         promise.fail( function(jqXHR, message, errorType) {
-                logger.error('SEND ERROR');
-                //logger.dir(data);
-                //logger.dir(message);
-                //logger.dir(errorType);
+                logger.error('send ERROR');
+                logger.dir(data);
+                logger.dir(message);
+                logger.dir(errorType);
         });
         return promise;
     }
@@ -209,56 +201,39 @@ var ServerClient = function(params) {
         return see();
     }
 
-    function authNew(params) {
-        if (!params.password) { return $.Deferred().reject("need password"); }
-        if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
-        return polisPost(createAccountPath, params).done( function(authData) {
-
-            clearAuthStores();
-            var temporary = !params.rememberMe;
-            tokenStore.set(authData.token, temporary);
-            if (params.username) {
-                usernameStore.set(params.username, temporary);
-            }
-            if (params.email) {
-                emailStore.set(params.email, temporary);
-            }
-            authStateChangeCallbacks.fire(assemble({
-                email: params.email,
-                username: params.username,
-                state: "p_registered"
-            }));
-        });//.then(logger.log, logger.error);
+    function authNew(username, password, email) {
+        var x = {
+            username: username,
+            password: password
+        };
+        if (email) {
+            x.email = email;
+        }
+        return polisPost(createAccountPath, x).done( function(authData) {
+            tokenStore.set(authData.token);
+            usernameStore.set(username);
+        });
     }
 
-    function authLogin(params) {
-        if (!params.password) { return $.Deferred().reject("need password"); }
-        if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
-        return polisPost(loginPath, params).done( function(authData) {
-            clearAuthStores();
-            var temporary = !params.rememberMe;
-            tokenStore.set(authData.token, temporary);
-            if (params.username) {
-                usernameStore.set(params.username, temporary);
-            }
-            if (params.email) {
-                emailStore.set(params.email, temporary);
-            }
-            authStateChangeCallbacks.fire(assemble({
-                email: params.email,
-                username: params.username,
-                state: "p_registered"
-            }));
-        });//.then(logger.log, logger.error);
+    function authLogin(username, password, email) {
+        var x = {
+            username: username,
+            password: password
+        };
+        if (email) {
+            x.email = email;
+        }
+        return polisPost(loginPath, x).done( function(authData) {
+            tokenStore.set(authData.token);
+            usernameStore.set(username);
+        });
     }
 
     function authDeregister() {
         return polisPost(deregisterPath).always( function(authData) {
-            clearAuthStores();
-            authStateChangeCallbacks.fire(assemble({
-                state: "p_deregistered"
-            }));
-        });//.then(logger.log, logger.error);
+            tokenStore.clear();
+            usernameStore.clear();
+        });
     }
 
     return {
@@ -271,8 +246,7 @@ var ServerClient = function(params) {
         pull: pull,
         pass: pass,
         see: see,
-        addAuthStatChangeListener: authStateChangeCallbacks.add,
-        addAuthNeededListener: needAuthCallbacks.add, // needed?
+        addAuthNeededListener: needAuthCallbacks.add,
         submitComment: submitComment
     };
 };
