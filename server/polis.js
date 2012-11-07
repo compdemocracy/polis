@@ -254,6 +254,8 @@ var server = http.createServer(function (req, res) {
                             
                             startSession(userID, function(errSess, token) {
                                 var response_data = {
+                                    username: username,
+                                    email: email,
                                     token: token
                                 };
                                 res.end(JSON.stringify(response_data));
@@ -327,7 +329,11 @@ var server = http.createServer(function (req, res) {
 
                                             startSession(userID, function(errSessionStart,token) {
                                                 if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
-                                                res.end(JSON.stringify({token: token}));
+                                                res.end(JSON.stringify({
+                                                    username: username,
+                                                    email: email,
+                                                    token: token
+                                                }));
                                             });
                                     }); // end insert user
                                 }); // end insert regevent

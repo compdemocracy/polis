@@ -10,67 +10,65 @@ var App = function(params) {
         serverClient.observeStimulus(id);
     }
 
-    // init UI stuff
-    // (or get references to the elements / views)
+    function setupUI() {
 
- function setupUI() {
+        // Comment Submitter
+        var commentSubmitter= new CommentSubmitter({
+            formId: '#comment_form'
+        });
+        commentSubmitter.addSubmitListener(function(txt) {
+            serverClient.submitComment(txt);
+        });
 
-    // Comment Submitter
-    var commentSubmitter= new CommentSubmitter({
-     formId: '#comment_form'
-    });
-    commentSubmitter.addSubmitListener(function(txt) {
-        serverClient.submitComment(txt);
-    });
+        var loginView = new LoginView({
+            rootElemId: "login_dropdown",
+            submit: serverClient.authLogin,
+            onOk: function() { console.log('login success'); },
+            formId: "login_form",
+            emailFieldId: "login_email",
+            passwordFieldId: "login_password",
+            rememberMeFieldId: "login_rememberme"
+        });
 
-    var loginView = new LoginView({
-        submit: serverClient.authLogin,
-        onOk: function() { console.log('login success'); },
-        formId: "login_form",
-        emailFieldId: "login_email",
-        passwordFieldId: "login_password",
-        rememberMeFieldId: "login_rememberme"
-    });
+        var registerView = new LoginView({
+            rootElemId: "register_dropdown",
+            submit: serverClient.authNew,
+            onOk: function() { console.log('register success'); },
+            formId: "register_form",
+            emailFieldId: "register_email",
+            passwordFieldId: "register_password",
+            passwordAgainFieldId: "register_password_again",
+            rememberMeFieldId: "register_rememberme"
+        });
 
-    var registerView = new LoginView({
-        submit: serverClient.authNew,
-        onOk: function() { console.log('register success'); },
-        formId: "register_form",
-        emailFieldId: "register_email",
-        passwordFieldId: "register_password",
-        passwordAgainFieldId: "register_password_again",
-        rememberMeFieldId: "register_rememberme"
-    });
+        serverClient.addAuthStatChangeListener(function(e) {
+            console.dir(e);
+            if ("p_registered" === e.state) {
+                //var username = e.username;
+                //var email = e.email;
+                // update UI
+            } else if ("p_deregistered" === e.state) {
+                // update UI
+            }
+        });
 
-    $("#deregister_button").click(serverClient.authDeregister);
+        // Comment Shower
+        var $commentShowerElem = $("#comment_shower");
+        var commentShower = new CommentShower({
+            $rootDomElem: $commentShowerElem,
+            serverClient: serverClient
+        });
 
-    serverClient.addAuthStatChangeListener(function(e) {
-        console.dir(e);
-        if ("p_registered" === e.state) {
-            //var username = e.username;
-            //var email = e.email;
-            // update UI
-        } else if ("p_deregistered" === e.state) {
-            // update UI
-        }
-    });
+        commentShower.addPullListener(serverClient.pull);
+        commentShower.addPushListener(serverClient.push);
+        commentShower.addPassListener(serverClient.pass);
+        commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
 
-    // Comment Shower
-    var $commentShowerElem = $("#comment_shower");
-    var commentShower = new CommentShower({
-        $rootDomElem: $commentShowerElem,
-        serverClient: serverClient
-    });
+        // hardcode the stimilus
+        observeStimulus("5084f4f42985e5b6317ead7d");
 
-    commentShower.addPullListener(serverClient.pull);
-    commentShower.addPushListener(serverClient.push);
-    commentShower.addPassListener(serverClient.pass);
-    commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
-
-    observeStimulus("5084f4f42985e5b6317ead7d");
-
-    commentShower.showNext();
-}
+        commentShower.showNext();
+    }
     setupUI();
 
     
