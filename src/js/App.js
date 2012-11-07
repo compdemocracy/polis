@@ -40,6 +40,7 @@ var App = function(params) {
             rememberMeFieldId: "login_rememberme"
         });
         loginView.addDeregisterListener(onDeregister);
+        loginView.render();
 
         registerView = new LoginView({
             rootElemId: "register_dropdown",
@@ -51,7 +52,8 @@ var App = function(params) {
             passwordAgainFieldId: "register_password_again",
             rememberMeFieldId: "register_rememberme"
         });
-        loginView.addDeregisterListener(onDeregister);
+        registerView.addDeregisterListener(onDeregister);
+        registerView.render();
 
         serverClient.addAuthStatChangeListener(function(e) {
             console.dir(e);
