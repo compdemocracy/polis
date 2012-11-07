@@ -4,10 +4,20 @@ var App = function(params) {
     var serverClient = params.serverClient;
     var CommentShower = params.CommentShower;
     var CommentSubmitter = params.CommentSubmitter;
+    var loginView;
+    var registerView;
 
     function observeStimulus(id) {
         // mostly for early dev, it would be nice to show the current stimulus in the hash params
         serverClient.observeStimulus(id);
+    }
+
+    function onDeregister() {
+        serverClient.authDeregister().then(function() {
+            loginView.render();
+        }, function() {
+            console.log("deregister failed");
+        });
     }
 
     function setupUI() {
@@ -20,7 +30,7 @@ var App = function(params) {
             serverClient.submitComment(txt);
         });
 
-        var loginView = new LoginView({
+        loginView = new LoginView({
             rootElemId: "login_dropdown",
             submit: serverClient.authLogin,
             onOk: function() { console.log('login success'); },
@@ -29,8 +39,9 @@ var App = function(params) {
             passwordFieldId: "login_password",
             rememberMeFieldId: "login_rememberme"
         });
+        loginView.addDeregisterListener(onDeregister);
 
-        var registerView = new LoginView({
+        registerView = new LoginView({
             rootElemId: "register_dropdown",
             submit: serverClient.authNew,
             onOk: function() { console.log('register success'); },
@@ -40,6 +51,7 @@ var App = function(params) {
             passwordAgainFieldId: "register_password_again",
             rememberMeFieldId: "register_rememberme"
         });
+        loginView.addDeregisterListener(onDeregister);
 
         serverClient.addAuthStatChangeListener(function(e) {
             console.dir(e);
