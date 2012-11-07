@@ -255,13 +255,14 @@
             </a>
             <a class="brand" href="#">Polis</a>
             <div class="nav-collapse collapse">
-              <p class="navbar-text pull-right">
-                Logged in as <a href="#" class="navbar-link">Username</a>
-              </p>
+              <p id="username_label"></p>
               <ul class="nav">
                 <li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
- 
-                  <li class="dropdown">
+                  
+
+                  
+
+                  <li id="register_dropdown" class="dropdown">
                     <a href="#" id="drop1" role="button" class="dropdown-toggle" data-toggle="dropdown">CREATE USER <b class="caret"></b></a>
                       <div class="dropdown-menu" role="menu">
                         <form id="register_form" class="dropdown_forms">
@@ -278,7 +279,7 @@
                         </form>
                       </div>
                     </li>
-                    <li class="dropdown">
+                    <li id="login_dropdown" class="dropdown">
                       <a href="#" id="drop2" role="button" class="dropdown-toggle" data-toggle="dropdown">LOGIN <b class="caret"></b></a>
                       <div class="dropdown-menu" role="menu">
                         <form id="login_form" class="dropdown_forms">
@@ -292,10 +293,11 @@
                             <button id="login_button" type="submit" class="btn btn-large">Login</button>
                           </fieldset>
                         </form>
+                        <button id="deregister_button" class="btn btn-large">Sign Out</button>
                       </div>
                     </li>
                     <li>
-                        <button id="deregister_button" class="btn">Sign Out</button>
+
                     </li>
               </ul>
             </div><!--/.nav-collapse -->
@@ -596,6 +598,10 @@
                     <p>User ID: {{u}}</p>
     </script>
 
+    <script id="usernameTemplate" type="text/template">
+        <p class="navbar-text pull-right">Logged in as {{email}}</p>
+    </script>
+
     <script> 
       
       if($('#comment_shower').length < 0) {
@@ -635,7 +641,14 @@
           }
         });
 
-
+    function onResize(){
+        var resizeArticleHeight = $(document).height() * .70;
+        var resizeShowerHeight = $(document).height() * .60;
+        $('#articles').css('height', resizeArticleHeight);
+        $('#comment_shower').css('height', resizeShowerHeight);
+    }
+    $(window).resize(onResize);
+    onResize();
 
     </script>
 
