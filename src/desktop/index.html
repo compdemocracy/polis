@@ -266,13 +266,14 @@
                                 <span> Remember me</span>
                             </label>
                             <button id="login_button" type="submit" class="btn btn-large">Login</button>
+                            <button id="deregister_button" class="btn btn-large">Sign Out</button>
                           </fieldset>
                         </form>
                         <button id="deregister_button" class="btn btn-large">Sign Out</button>
                       </div>
                     </li>
                     <li>
-
+                        
                     </li>
               </ul>
             </div><!--/.nav-collapse -->
@@ -343,10 +344,7 @@
               <button id="pass_button" class="btn btn-large ">  Pass   </button>
             </div> 
         
-            <form id="comment_form">
-             <textarea id="comment_form_textarea" ></textarea>
-             <button type="submit" id="comment_form_button" class="btn btn-large ">Submit</button>
-            </form>
+            
         </div> <!--span -->
          
 
@@ -518,11 +516,11 @@
 
 
                          <div class="tab-pane fade" id="point_of_no_return">
-                            <h4> The Point of No Return<h4> 
+                            <h4> The Point of No Return</h4> 
                             
-                            <h6> For the Obama administration, the prospect of a nuclearized Iran is dismal to contemplate — it would create major new national-security challenges and crush the president's dream of ending nuclear proliferation. But the view from Jerusalem is still more dire: a nuclearized Iran represents, among other things, a threat to Israel's very existence. In the gap between Washington's and Jerusalem's views of Iran lies the question: who, if anyone, will stop Iran before it goes nuclear, and how? As Washington and Jerusalem study each other intensely, here's an inside look at the strategic calculations on both sides—and at how, if things remain on the current course, an Israeli air strike will unfold.<h6> 
+                            <p> For the Obama administration, the prospect of a nuclearized Iran is dismal to contemplate — it would create major new national-security challenges and crush the president's dream of ending nuclear proliferation. But the view from Jerusalem is still more dire: a nuclearized Iran represents, among other things, a threat to Israel's very existence. In the gap between Washington's and Jerusalem's views of Iran lies the question: who, if anyone, will stop Iran before it goes nuclear, and how? As Washington and Jerusalem study each other intensely, here's an inside look at the strategic calculations on both sides—and at how, if things remain on the current course, an Israeli air strike will unfold.</p> 
                             
-                            <h6> By Jeffrey Goldberg<h6> 
+                            <h6> By Jeffrey Goldberg</h6> 
 
                             <p> IT IS POSSIBLE that at some point in the next 12 months, the imposition of devastating economic sanctions on the Islamic Republic of Iran will persuade its leaders to cease their pursuit of nuclear weapons. It is also possible that Iran's reform-minded Green Movement will somehow replace the mullah-led regime, or at least discover the means to temper the regime's ideological extremism. It is possible, as well, that "foiling operations" conducted by the intelligence agencies of Israel, the United States, Great Britain, and other Western powers—programs designed to subvert the Iranian nuclear effort through sabotage and, on occasion, the carefully engineered disappearances of nuclear scientists—will have hindered Iran's progress in some significant way. It is also possible that President Obama, who has said on more than a few occasions that he finds the prospect of a nuclear Iran "unacceptable," will order a military strike against the country's main weapons and uranium-enrichment facilities.</p>
 
@@ -755,16 +753,13 @@
              /* CARD FLIP
         /////////////////////////////////////////////////////////////////*/
         
-       $(document).ready(function(){
+       
+        var articleheight = $(document).height() * .70;
+        var showerheight = $(document).height() * .38;
+        $('#articles').css('height', articleheight);
+        $('#comment_shower').css('height', showerheight);
 
-    function onResize(){
-        var resizeArticleHeight = $(document).height() * .70;
-        var resizeShowerHeight = $(document).height() * .60;
-        $('#articles').css('height', resizeArticleHeight);
-        $('#comment_shower').css('height', resizeShowerHeight);
-    }
-    $(window).resize(onResize);
-    onResize();
+        
 
     </script>
 
