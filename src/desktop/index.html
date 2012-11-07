@@ -768,17 +768,16 @@
         /////////////////////////////////////////////////////////////////*/
         
 
-        var initialArticleHeight = $(window).height() * .72;
-        var initialShowerHeight = $(window).height() * .62;
-        $('#articles').css('height', initialArticleHeight);
-        $('#comment_shower').css('height', initialShowerHeight);
-
-      $(window).resize(function(){
-        var resizeArticleHeight = $(window).height() * .72;
-        var resizeShowerHeight = $(window).height() * .62;
-        $('#articles').css('height', resizeArticleHeight);
-        $('#comment_shower').css('height', resizeShowerHeight);
-        });
+        function onResize(){
+                var resizeArticleHeight = $(window).height() * .70;
+                var resizeShowerHeight = $(window).height() * .60;
+                $('#articles').css('height', resizeArticleHeight);
+                $('#comment_shower').css('height', resizeShowerHeight);
+            }
+            
+    $(window).resize(onResize);
+            
+    onResize();
         
 
     </script>
