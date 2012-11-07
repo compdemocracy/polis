@@ -40,7 +40,9 @@ var App = function(params) {
             rememberMeFieldId: "login_rememberme"
         });
         loginView.addDeregisterListener(onDeregister);
-        loginView.render();
+        loginView.render({
+            email: PolisStorage.email.get()
+        });
 
         registerView = new LoginView({
             rootElemId: "register_dropdown",

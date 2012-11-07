@@ -27,7 +27,6 @@ var LoginView = function(params) {
         }
         $("#username_label").html(html);
 
-        $("#" + rootElemId).removeClass("open");
     }
 
     function get(id) {
@@ -75,6 +74,7 @@ var LoginView = function(params) {
     function onSuccess(data) {
         render(data);
         onOk(data);
+        $("#" + rootElemId).removeClass("open");
     }
 
     function onSubmit() {
