@@ -175,6 +175,9 @@
           body{
             padding-top: 0px;
           }
+          #comment_shower {
+            margin-top: 20px;
+          }
        }
        
       /* Landscape phones and down */
@@ -186,7 +189,9 @@
           body{
             padding-top: 0px;
           }
-
+          #comment_shower {
+            margin-top: 20px;
+          }
           
 
           .pull_buttons .btn, #comment_form_button {
@@ -326,28 +331,15 @@
       <a id="mobile_switch" href="/static/mobile/index.html" class=" btn btn-large "> switch to mobile </a>
 
       <div class="container-fluid">
+        <div class="row-fluid">
+          <div class="span12 alert alert-block alert-info">
+            <button type="button" class="close" data-dismiss="alert">×</button>
+            <strong> Instructions: </strong> read the introduction above, create a user, read or skim the four articles below, react to comments by pulling (upvoting) or pushing (downvoting).
+          </div>
+        </div>
+
        <div class="row-fluid ">
-        <div class="span6"> 
-            <div id="comment_shower"> 
-              <p>Blog commodo kale chips, tempor aliquip retro pour-over iphone +1 vinyl ad. Whatever chillwave messenger bag esse, pinterest leggings odio fap portland pariatur blog excepteur tofu reprehenderit. Fanny pack street art marfa wes anderson, iphone quis gentrify. Retro cred chambray, pour-over non viral anim. Viral ennui direct trade, thundercats aute DIY salvia esse cray. Beard 8-bit messenger bag, odd future narwhal bicycle rights single-origin coffee officia dreamcatcher synth VHS portland sunt ethical. Veniam freegan culpa portland, cliche gluten-free chillwave consectetur flexitarian nisi next level.</p>
-
-              <p>Raw denim small batch seitan put a bird on it. Banksy wes anderson deserunt messenger bag, umami accusamus chambray bicycle rights odd future craft beer twee pariatur. Authentic PBR pinterest, whatever aesthetic fanny pack iphone. Thundercats craft beer gentrify, portland organic kale chips irure magna chambray incididunt banksy. Nihil godard pariatur brunch, excepteur portland 8-bit officia photo booth sunt consequat art party umami cliche reprehenderit. Authentic wayfarers cliche aliquip tofu. Brooklyn stumptown banksy mustache, dreamcatcher odio mumblecore anim culpa.</p>
-
-              <p>Dolor aliquip thundercats pork belly reprehenderit shoreditch, nisi irony eu artisan delectus pour-over. Truffaut polaroid excepteur gentrify. Fap cliche aute high life commodo aesthetic. Irure twee delectus cardigan, hoodie four loko magna tempor DIY et pour-over cupidatat trust fund. Truffaut tempor cray incididunt seitan readymade etsy, whatever you probably haven't heard of them keffiyeh in letterpress selvage laborum cupidatat. Brunch veniam iphone, irure readymade cosby sweater laborum american apparel letterpress ex organic. Consequat typewriter direct trade, gluten-free bespoke single-origin coffee etsy anim.</p>
-
-              <p>Tattooed freegan, officia do commodo photo booth skateboard aesthetic vegan fingerstache cillum +1 lo-fi. Delectus american apparel lo-fi small batch, swag commodo aliqua echo park readymade odio DIY irony qui. Sriracha sunt kale chips, farm-to-table etsy you probably haven't heard of them reprehenderit fingerstache et mixtape vero vinyl photo booth. Typewriter sustainable umami polaroid. Twee ea locavore deserunt, excepteur assumenda artisan synth anim. Trust fund gentrify cupidatat occupy. Skateboard occupy fanny pack marfa veniam et.</p>
-            </div> 
-
-            <div class="pull_buttons">
-              <button id="push_button" class="showerbtns btn btn-large " > Push   </button>
-              <button id="pull_button" class="showerbtns btn btn-large ">  Pull   </button>
-              <button id="pass_button" class="btn btn-large ">  Pass   </button>
-            </div> 
         
-            
-        </div> <!--span -->
-         
-
 
             
             <div id="articles_span" class="span6"> 
@@ -708,6 +700,28 @@
 
 
             </div> <!--span -->
+
+          <div class="span6"> 
+            <div id="comment_shower"> 
+              <p>Blog commodo kale chips, tempor aliquip retro pour-over iphone +1 vinyl ad. Whatever chillwave messenger bag esse, pinterest leggings odio fap portland pariatur blog excepteur tofu reprehenderit. Fanny pack street art marfa wes anderson, iphone quis gentrify. Retro cred chambray, pour-over non viral anim. Viral ennui direct trade, thundercats aute DIY salvia esse cray. Beard 8-bit messenger bag, odd future narwhal bicycle rights single-origin coffee officia dreamcatcher synth VHS portland sunt ethical. Veniam freegan culpa portland, cliche gluten-free chillwave consectetur flexitarian nisi next level.</p>
+
+              <p>Raw denim small batch seitan put a bird on it. Banksy wes anderson deserunt messenger bag, umami accusamus chambray bicycle rights odd future craft beer twee pariatur. Authentic PBR pinterest, whatever aesthetic fanny pack iphone. Thundercats craft beer gentrify, portland organic kale chips irure magna chambray incididunt banksy. Nihil godard pariatur brunch, excepteur portland 8-bit officia photo booth sunt consequat art party umami cliche reprehenderit. Authentic wayfarers cliche aliquip tofu. Brooklyn stumptown banksy mustache, dreamcatcher odio mumblecore anim culpa.</p>
+
+              <p>Dolor aliquip thundercats pork belly reprehenderit shoreditch, nisi irony eu artisan delectus pour-over. Truffaut polaroid excepteur gentrify. Fap cliche aute high life commodo aesthetic. Irure twee delectus cardigan, hoodie four loko magna tempor DIY et pour-over cupidatat trust fund. Truffaut tempor cray incididunt seitan readymade etsy, whatever you probably haven't heard of them keffiyeh in letterpress selvage laborum cupidatat. Brunch veniam iphone, irure readymade cosby sweater laborum american apparel letterpress ex organic. Consequat typewriter direct trade, gluten-free bespoke single-origin coffee etsy anim.</p>
+
+              <p>Tattooed freegan, officia do commodo photo booth skateboard aesthetic vegan fingerstache cillum +1 lo-fi. Delectus american apparel lo-fi small batch, swag commodo aliqua echo park readymade odio DIY irony qui. Sriracha sunt kale chips, farm-to-table etsy you probably haven't heard of them reprehenderit fingerstache et mixtape vero vinyl photo booth. Typewriter sustainable umami polaroid. Twee ea locavore deserunt, excepteur assumenda artisan synth anim. Trust fund gentrify cupidatat occupy. Skateboard occupy fanny pack marfa veniam et.</p>
+            </div> 
+
+            <div class="pull_buttons">
+              <button id="push_button" class="showerbtns btn btn-large " > Push   </button>
+              <button id="pull_button" class="showerbtns btn btn-large ">  Pull   </button>
+              <button id="pass_button" class="btn btn-large ">  Pass   </button>
+            </div> 
+        
+            
+        </div> <!--span -->
+
+
           </div> <!--row --> 
          </div><!--/span-->
         </div><!--/row-->
@@ -753,12 +767,18 @@
              /* CARD FLIP
         /////////////////////////////////////////////////////////////////*/
         
-       
-        var articleheight = $(document).height() * .70;
-        var showerheight = $(document).height() * .38;
-        $('#articles').css('height', articleheight);
-        $('#comment_shower').css('height', showerheight);
 
+        var initialArticleHeight = $(window).height() * .72;
+        var initialShowerHeight = $(window).height() * .62;
+        $('#articles').css('height', initialArticleHeight);
+        $('#comment_shower').css('height', initialShowerHeight);
+
+      $(window).resize(function(){
+        var resizeArticleHeight = $(window).height() * .72;
+        var resizeShowerHeight = $(window).height() * .62;
+        $('#articles').css('height', resizeArticleHeight);
+        $('#comment_shower').css('height', resizeShowerHeight);
+        });
         
 
     </script>
