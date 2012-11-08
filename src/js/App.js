@@ -31,6 +31,8 @@ var App = function(params) {
         });
 
         loginView = new LoginView({
+            emailStore: PolisStorage.email,
+            usernameStore: PolisStorage.username,
             rootElemId: "login_dropdown",
             submit: serverClient.authLogin,
             onOk: function() { console.log('login success'); },
@@ -45,6 +47,8 @@ var App = function(params) {
         });
 
         registerView = new LoginView({
+            emailStore: PolisStorage.email,
+            usernameStore: PolisStorage.username,
             rootElemId: "register_dropdown",
             submit: serverClient.authNew,
             onOk: function() { console.log('register success'); },
@@ -63,7 +67,11 @@ var App = function(params) {
                 //var username = e.username;
                 //var email = e.email;
                 // update UI
+                registerView.render();
+                loginView.render();
             } else if ("p_deregistered" === e.state) {
+                registerView.render();
+                loginView.render();
                 // update UI
             }
         });

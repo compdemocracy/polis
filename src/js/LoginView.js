@@ -3,34 +3,48 @@ var LoginView = function(params) {
     var onOk = params.onOk;
     var rootElemId = params.rootElemId;
 
+    var usernameStore = params.usernameStore;
+    var tokenStore = params.tokenStore;
+    var emailStore = params.emailStore;
+
     var deregisterCallbacks = $.Callbacks();
 
     $("#deregister_button").click( function() {
         deregisterCallbacks.fire();
     });
 
-    // {email: "mike@foo.com", u: "myusername"}
-    function render(data) {
-        data = data || {};
+    function render() {
+        data = {
+            email: emailStore.get(),
+            username: usernameStore.get()
+        };
         var template = $('#usernameTemplate').html();
         var html;
         if (data.email) {
             html = Mustache.to_html(template, {
                 identity: data.email
             });
+            $("#deregister_button").show();
+            $("#" + rootElemId).hide();
         } else if (data.username) {
             html = Mustache.to_html(template, {
                 identity: data.username
             });
+            $("#deregister_button").show();
+            $("#" + rootElemId).hide();
         } else {
             html = "";
+            $("#deregister_button").hide();
+            $("#" + rootElemId).show();
         }
         $("#username_label").html(html);
-
     }
 
     function get(id) {
         return $('#' + id);
+    }
+    function getForm() {
+        return get(params.formId);
     }
     function getEmail() {
         return get(params.emailFieldId).val();
@@ -72,6 +86,7 @@ var LoginView = function(params) {
     }
 
     function onSuccess(data) {
+        getForm()[0].reset();
         render(data);
         onOk(data);
         $("#" + rootElemId).removeClass("open");
