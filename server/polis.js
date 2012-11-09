@@ -391,28 +391,29 @@ var server = http.createServer(function (req, res) {
                 }
                 if('POST' === req.method) {
                     collectPost(req, res, function(data) {
-                        data.events.forEach(function(ev){
-                            // TODO check the user & token database 
-                            //
-                            if (!ev.txt) { fail(res, 'expected txt field'); return; }
+                        convertFromSession(data, function(err, data) {
+                            if (err) { fail(res, 93482573, err); return; }
 
-                            if (ev.s) ev.s = ObjectId(ev.s);
-                            if (ev.u) {
-                                ev.u = ObjectId(ev.u);
-                            } else {
-                                fail(res, "need u (userid) field.");
-                                return;
-                            }
-                            collection.insert(ev, function(err, cursor) {
-                                if (err) { fail(res, 324234331, err); return; }
-                                res.end();
-                            });
-                        });
-                    });
+                            data.events.forEach(function(ev){
+                                // TODO check the user & token database 
+                                //
+                                if (!ev.txt) { fail(res, 'expected txt field'); return; }
+
+                                if (ev.s) ev.s = ObjectId(ev.s);
+                                if (data.u) {
+                                    ev.u = ObjectId(data.u);
+                                }
+                                collection.insert(ev, function(err, cursor) {
+                                    if (err) { fail(res, 324234331, err); return; }
+                                    res.end();
+                                }); // insert
+                            }); // each 
+                        }); // session
+                    }); // post body
                     return;
-                }
-            };
-        }()),
+                } // POST
+            }; // closure
+        }()), // route
         "/v2/reactions" : (function() {
             function makeQuery(stimulusId) {
                 // $or [{type: push}, {type: pull},...]
