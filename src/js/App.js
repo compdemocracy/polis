@@ -4,13 +4,9 @@ var App = function(params) {
     var serverClient = params.serverClient;
     var CommentShower = params.CommentShower;
     var CommentSubmitter = params.CommentSubmitter;
+    var StimulusSubmitter = params.StimulusSubmitter;
     var loginView;
     var registerView;
-
-    function observeStimulus(id) {
-        // mostly for early dev, it would be nice to show the current stimulus in the hash params
-        serverClient.observeStimulus(id);
-    }
 
     function onDeregister() {
         serverClient.authDeregister().then(function() {
@@ -88,10 +84,6 @@ var App = function(params) {
         commentShower.addPassListener(serverClient.pass);
         commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
 
-        // hardcode the stimilus
-        observeStimulus("5084f4f42985e5b6317ead7d");
-
-        commentShower.showNext();
     }
     setupUI();
 
@@ -123,7 +115,29 @@ $(document).ready(function() {
     window.polisapp = new App({
         CommentShower: window.CommentShower,
         CommentSubmitter: window.CommentSubmitter,
+        StimulusSubmitter: window.StimulusSubmitter,
         serverClient: serverClient,
         utils: window.utils
     });
+
+    function locationHashChanged(e) {
+        console.log(e);
+        alert(location.hash);
+        if (location.hash === "#somecoolfeature") {
+            somecoolfeature();
+        }
+    }
+    window.addEventListener("hashchange", locationHashChanged);
+
+    function setStimulus(stimulusId) {
+        stimulusId = stimulusId || this.dataset.stimulusId;
+        serverClient.observeStimulus(stimulusId);
+        commentShower.showNext();
+    }
+    $(".stimulus_link").click(setStimulus);
+    // Start with a default stimulus.
+    $(".stimulus_link").first().parent().addClass("active");
+    setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
+
+
 });
