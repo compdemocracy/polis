@@ -26,6 +26,14 @@ var App = function(params) {
             serverClient.submitComment(txt);
         });
 
+        // StimulusSubmitter
+        var stimulusSubmitter = new StimulusSubmitter({
+            formId: '#stimulus_form'
+        });
+        stimulusSubmitter.addSubmitListener(function(data) {
+            serverClient.submitStimulus(data);
+        });
+
         loginView = new LoginView({
             emailStore: PolisStorage.email,
             usernameStore: PolisStorage.username,

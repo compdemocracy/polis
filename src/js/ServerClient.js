@@ -98,6 +98,16 @@ var ServerClient = function(params) {
         };
     }());
 
+    function submitStimulus(data) {
+        if (typeof data.txt !== 'string' || data.txt.length === 0) {
+            logger.error("fill out the txt field!");
+            return $.Deferred().reject().promise();
+        }
+        return polisPost(txtPath, {
+            events: [data]
+        });
+    }
+
     function submitComment(txt, optionalSpecificSubStimulus) {
         if (typeof txt !== 'string' || txt.length === 0) {
             logger.error('bad comment');
@@ -273,6 +283,7 @@ var ServerClient = function(params) {
         see: see,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
+        submitStimulus: submitStimulus,
         submitComment: submitComment
     };
 };
