@@ -18,7 +18,7 @@ var App = function(params) {
 
     function setupUI() {
 
-        // Comment Submitter
+        // CommentSubmitter
         var commentSubmitter= new CommentSubmitter({
             formId: '#comment_form'
         });
