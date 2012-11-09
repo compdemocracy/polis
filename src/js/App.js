@@ -104,6 +104,11 @@ var App = function(params) {
 };
     
 $(document).ready(function() {
+
+    window.debug = {};
+    window.debug.enterComments = function() { $("#comment_form").removeClass("debug_hidden"); };
+    window.debug.enterStim = function() { $("#stimulus_form").removeClass("debug_hidden"); };
+
     var serverClient = new window.ServerClient({
         tokenStore: PolisStorage.token,
         emailStore: PolisStorage.email,

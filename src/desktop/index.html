@@ -12,6 +12,10 @@
     <link href="/static/lib/desktop/css/flip.css" rel="stylesheet">
     <style type="text/css">
       
+        .debug_hidden {
+            display: none;
+        }
+
       .sidebar-nav {
         padding: 9px 0;
       }
@@ -777,7 +781,22 @@
     </script>
 
 
+    <form id="comment_form" class="debug_hidden">
+      <fieldset>
+          <textarea id="comment_form_textarea" type="text" placeholder="Type a comment here..."></textarea>
+        <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
+      </fieldset>
+    </form>
 
+    <form id="stimulus_form" class="debug_hidden">
+      <fieldset>
+            <textarea id="stimulus_form_textarea" type="text" placeholder="Type a story here..."></textarea>
+            <input id="stimulus_form_title" type="text" placeholder="Title...">
+            <input id="stimulus_form_authors_commaseparated" type="text" placeholder="comma-separated list of authors...">
+            <input id="stimulus_form_authors_organization" type="text" placeholder="Organization the author belongs to: (NY Times, etc)">
+            <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
+      </fieldset>
+    </form>
 
 
 
