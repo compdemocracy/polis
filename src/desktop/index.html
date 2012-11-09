@@ -27,7 +27,7 @@
          margin-right: 5%;
       }
 
-       .nav-pills > .active > a, .nav-pills > .active > a:hover {
+      .nav-pills > .active > a, .nav-pills > .active > a:hover {
       color: white;
       background-color: #6B6E70;
       }
@@ -49,34 +49,33 @@
           font-family: neoretrofill;
       }
 
-      #pull_button {
-        background-image: none;
-        background-color: #000;
-        color: white;
-        text-shadow: none;
-      }
 
       .dropdown_forms {
         padding: 20px;
       }
 
-      #articles {
-        height: 800px;
-        border-radius: 20px;
+      #articles_span{
         background-color: white;
-        padding: 20px;
-        overflow: scroll;
-        -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 20px 0px 20px 20px ;
+        border-radius: 20px;
+
       }
 
-      
-      #articles:hover {
+      #articles_span:hover{
         -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
         -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
         box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
       }
+
+      #articles {
+        height: 800px;
+        background-color: white;
+        overflow: scroll;
+        padding-right: 20px;
+      }
+
+      
+      
 
      #comment_shower {
         height: 300px;
@@ -115,22 +114,15 @@
           }
 
     
-
-
       body{
         padding-top: 60px;
         background-image: url(/static/images/bgnoise_lg.png);
       }
 
       
-
-
-
       /* Let's get this scrollbar party started */
-
-
       ::-webkit-scrollbar {
-          width: 0px;
+          width: 6px;
           height: 0px;
       }
        
@@ -286,7 +278,7 @@
         </div>
       </div>
 
-      <div id="introduction_modal" class="modal hide fade" role="dialog">
+      <div id="introduction_modal" class="modal hide fade" data-show="true" role="dialog">
           <div class="modal-header">
             <button type="button" class="close" data-dismiss="modal">×</button>
             <h3 >A Brief Introduction</h3>
@@ -329,32 +321,25 @@
       </div>
 
 
-      <div class="container-fluid">
-        <div class="row-fluid">
-          <div class="span12 alert alert-block alert-info">
-            <button type="button" class="close" data-dismiss="alert">×</button>
-             <strong> INSTRUCTIONS </strong>  
-             <ol>
-             <li>read the introduction in the menu above</li>
-             <li>create a user</li>
-             <li>read or skim the four articles below</li>
-             <li>react to comments by pulling (upvoting) or pushing (downvoting)</li>
-             </ol>
-          </div>
-        </div>
+       
+
+
+
+
+<div class="container-fluid">
 
        <div class="row-fluid ">
-        
+   
 
             
             <div id="articles_span" class="span6"> 
              <div id="articles">
               <h3>Articles</h3>
                 <ul id="article_pills" class="nav nav-pills">
-                  <li class="active"><a href="#nuclear_mullahs"  data-toggle="tab">&bull; &nbsp; Nuclear Mullahs -- Keller</a></li>
-                  <li><a href="#why_iran" data-toggle="tab">&bull; &nbsp; Why Iran Should Get The Bomb -- Waltz</a></li>
-                  <li><a href="#israel_sharpens" data-toggle="tab">&bull; &nbsp; Israel Sharpens Call -- Sanger & Kershner</a></li>
-                  <li><a href="#point_of_no_return"  data-toggle="tab"> &bull; &nbsp; The Point of No Return -- Goldberg</a></li> 
+                  <li class="active"><a href="#nuclear_mullahs"  data-toggle="tab">1: Nuclear Mullahs -- Keller</a></li>
+                  <li><a href="#why_iran" data-toggle="tab">2: Why Iran Should Get The Bomb -- Waltz</a></li>
+                  <li><a href="#israel_sharpens" data-toggle="tab">3: Israel Sharpens Call -- Sanger & Kershner</a></li>
+                  <li><a href="#point_of_no_return"  data-toggle="tab"> 4: The Point of No Return -- Goldberg</a></li> 
                 </ul>
                <div id="article_tab_content" class="tab-content">
                               <div class="tab-pane fade" id="why_iran">
@@ -775,10 +760,11 @@
              /* CARD FLIP
         /////////////////////////////////////////////////////////////////*/
         
+        $('#introduction_modal').modal('show')
 
         function onResize(){
-                var resizeArticleHeight = $(window).height() * .70;
-                var resizeShowerHeight = $(window).height() * .60;
+                var resizeArticleHeight = $(window).height() * .80;
+                var resizeShowerHeight = $(window).height() * .70;
                 $('#articles').css('height', resizeArticleHeight);
                 $('#comment_shower').css('height', resizeShowerHeight);
             }
