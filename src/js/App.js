@@ -71,6 +71,10 @@ var App = function(params) {
                 //var username = e.username;
                 //var email = e.email;
                 // update UI
+
+                $('#login_modal').modal('hide'); 
+                $('#introduction_modal').modal('hide');
+
                 registerView.render();
                 loginView.render();
             } else if ("p_deregistered" === e.state) {

@@ -116,24 +116,31 @@
 
       #introduction_modal.modal {
         left: 50px;
-        width: 80%;
+        width: 40%;
         top: 50px;
         margin: 0px;
       }
 
-      #modal_right_side {
-        width: 30%;
-        display: inline-block;
-      }
-
       #modal_left_side {
-        display: inline-block;
-        width: 45%;
         padding-left: 20px;
         text-align: justify;
+
       }
 
-    
+      #create_user_modal {
+        margin: 0px;
+        top: 50px;
+        width: 30%;    
+      }
+
+      #register_email {
+        display: block;
+      }
+
+      #modal_left_side.modal-body{
+        max-height: 500px;
+      }
+
       body{
         padding-top: 60px;
         background-image: url(/static/images/bgnoise_lg.png);
@@ -245,73 +252,31 @@
               
               <ul class="nav">
                 <li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
-                  
-
-                  
-
-                  <li id="register_dropdown" class="dropdown">
-                    <a href="#" id="drop1" role="button" class="dropdown-toggle" data-toggle="dropdown">CREATE USER <b class="caret"></b></a>
-                      <div class="dropdown-menu" role="menu">
-                        <form id="register_form" class="dropdown_forms">
-                          <fieldset>
-                            <input id="register_email" class="email" type="text" placeholder="Email">
-                            <input id="register_password" type="password" placeholder="Password">
-                            <input id="register_password_again" type="password" placeholder="Confirm Password">
-                            <label class="checkbox">
-                                <input id="register_rememberme" type="checkbox"></input>
-                                <span> Remember me</span>
-                            </label>
-                            <button type="submit" id="register_button" class="btn btn-large">Register & Login</button>
-                          </fieldset>
-                        </form>
-                      </div>
-                    </li>
-                    <li id="login_dropdown" class="dropdown">
-                      <a href="#" id="drop2" role="button" class="dropdown-toggle" data-toggle="dropdown">LOGIN <b class="caret"></b></a>
-                      <div class="dropdown-menu" role="menu">
-                        <form id="login_form" class="dropdown_forms">
-                          <fieldset>
-                            <input id="login_email" type="text" placeholder="Email">
-                            <input id="login_password" type="password" placeholder="Password">
-                            <label class="checkbox">
-                                <input id="login_rememberme" type="checkbox"></input>
-                                <span> Remember me</span>
-                            </label>
-                            <button id="login_button" type="submit" class="btn btn-large">Login</button>
-                          </fieldset>
-                        </form>
-                      </div>
-                    </li>
-                    <li>
-                      <p id="username_label" class="navbar-text pull-right"></p>
-                    </li>
-                    <li>
-                      <a id="deregister_button" class="pull-right">Sign Out</a>
-                    </li>
+                <li><p id="username_label" class="navbar-text pull-right"></p></li>
+                <li><a id="deregister_button" class="pull-right">Sign Out</a></li>
               </ul>
             </div><!--/.nav-collapse -->
           </div>
         </div>
       </div>
 
-      <div id="introduction_modal" class="modal hide fade" data-show="true" role="dialog">
+      <div id="introduction_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
           <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal">×</button>
             <h3 >A Brief Introduction</h3>
           </div>
            <div id="modal_left_side" class="modal-body">       
                 <h6>WELCOME:</h6>
-                <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis seeks to provide a platform to facilitate productive, large scale conversations. The Polis application is accessible from any device, and we're working to optimize the experience across screen sizes.  </p>
+                <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis seeks to provide a platform to facilitate productive, large scale conversations. The Polis application will soon be accessible from any device, but is currently optimized only for desktop.  </p>
 
                 <p>In this prototype, we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, it is a timely and important issue full of messy value judgements, priorities and eventualities - exactly the kind of conversation that breaks down at large scales on the internet and exactly the kind of trans-national discussion we're excited to try to facilitate. </p>
 
                 <h6> WHAT TO DO: </h6>
 
-                <p> 1. Create a new user identity, or login. </p> 
+                <p> 1. Create a new user identity or login to dismiss this screen. </p> 
 
                 <p> 2. Read the articles, or skim them if you're familiar with the issue. </p> 
 
-                <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. There are slightly less than 100 comments in the prototype, please react to all of them. </p>
+                <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. The more comments you react to the better the data - but we'll be grateful for however many you finish. There are roughly ninety comments. </p>
 
                 <form class="dropdown_forms">
                   <fieldset>
@@ -331,8 +296,15 @@
                 <p><em>For XKCD readers:
                 Polis is built on Node, Mongo, Mustache, Heroku, R, Twitter Bootstrap, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
            </div>
+      </div>
 
-          <div id="modal_right_side" class="modal-body">       
+
+      <div id="create_user_modal" class="modal hide fade" data-backdrop="false" data-show="true" role="dialog">
+          <div class="modal-header">
+            <h3 >Create New User & Login</h3>
+          </div>
+           <div id="modal_right_side" class="modal-body">
+            <form>        
               <fieldset>
                     <input id="register_email" class="email" type="text" placeholder="Email">
                     <input id="register_password" type="password" placeholder="Password">
@@ -343,7 +315,10 @@
                     </label>
                     <button type="submit" id="register_button" class="btn btn-large btn-info">Register & Login</button>
               </fieldset>
-              <form id="login_form" class="dropdown_forms">
+            </form> 
+
+            <h3 >Existing User Login</h3>
+            <form id="login_form">
                 <fieldset>
                   <input id="login_email" type="text" placeholder="Email">
                   <input id="login_password" type="password" placeholder="Password">
@@ -356,10 +331,6 @@
               </form>
           </div> 
       </div>
-
-
-       
-
 
 
 
@@ -806,14 +777,17 @@
              /* CARD FLIP
         /////////////////////////////////////////////////////////////////*/
         
-        $('#introduction_modal').modal('show')
+        $('#introduction_modal').modal('show');
+        $('#create_user_modal').modal('show');
+        $('#login_modal').modal('show');
+
 
         function onResize(){
                 var resizeArticleHeight = $(window).height() * .80;
                 var resizeShowerHeight = $(window).height() * .70;
                 $('#articles').css('height', resizeArticleHeight);
                 $('#comment_shower').css('height', resizeShowerHeight);
-            }
+            };
             
     $(window).resize(onResize);
             
