@@ -16,9 +16,28 @@ var ServerClient = function(params) {
     var reactionsPath = "/v2/reactions";
     var txtPath = "/v2/txt";
 
+    var createAccountPath = "/v2/auth/new";
+    var loginPath = "/v2/auth/login";
+    var deregisterPath = "/v2/auth/deregister";
+
+    var authenticatedCalls = [reactionsPath, txtPath, deregisterPath];
+
     var logger = params.logger;
 
-    var userid = params.me;
+    var authStateChangeCallbacks = $.Callbacks();
+
+    var usernameStore = params.usernameStore;
+    var tokenStore = params.tokenStore;
+    var emailStore = params.emailStore;
+    var authStores = [tokenStore, usernameStore, emailStore];
+    function clearAuthStores() {
+        authStores.forEach(function(x) {
+            x.clear();
+        });
+    }
+
+    var needAuthCallbacks = $.Callbacks();
+
     var currentStimulusId;
 
     var comments = [];
@@ -85,7 +104,6 @@ var ServerClient = function(params) {
             return $.Deferred().reject().promise();
         }
         var ev = {
-            u : userid,
             s: currentStimulusId,
             txt: txt
         };
@@ -105,7 +123,6 @@ var ServerClient = function(params) {
     function push(commentId) {
         return polisPost(reactionsPath, { 
             events: [ {
-                u: userid,
                 s: currentStimulusId,
                 type: polisTypes.reactions.push,
                 to: commentId
@@ -116,7 +133,6 @@ var ServerClient = function(params) {
     function pull(commentId) {
         return polisPost(reactionsPath, { 
             events: [ {
-                u: userid,
                 s: currentStimulusId,
                 type: polisTypes.reactions.pull,
                 to: commentId
@@ -127,7 +143,6 @@ var ServerClient = function(params) {
     // optionalSpecificSubStimulus (aka commentId)
     function see(optionalSpecificSubStimulus) {
         var ev = {
-            u: userid,
             s: currentStimulusId,
             type: polisTypes.reactions.see
         }; 
@@ -142,7 +157,6 @@ var ServerClient = function(params) {
 
     function pass(optionalSpecificSubStimulus) {
         var ev = {
-            u: userid,
             s: currentStimulusId,
             type: polisTypes.reactions.pass
         }; 
@@ -165,18 +179,27 @@ var ServerClient = function(params) {
     function polisAjax(api, data, type) {
         var url = protocol ? (protocol + "://") : "" + domain + basePath + api;
         
+        // Add the auth token if needed.
+        if (_.contains(authenticatedCalls, api)) {
+            var token = tokenStore.get();
+            if (!token) {
+                needAuthCallbacks.fire();
+                return $.Deferred().reject('auth needed');
+            }
+            data = $.extend({ token: token}, data);
+        }
+            
         var promise;
         if ("GET" === type) {
             promise = $.get(url, data);
         } else if ("POST" === type) {
             promise = $.post(url, JSON.stringify(data));
         }
-        
         promise.fail( function(jqXHR, message, errorType) {
-                logger.error('send ERROR', data);
-                logger.dir(data);
-                logger.dir(message);
-                logger.dir(errorType);
+                logger.error('SEND ERROR');
+                //logger.dir(data);
+                //logger.dir(message);
+                //logger.dir(errorType);
         });
         return promise;
     }
@@ -186,27 +209,70 @@ var ServerClient = function(params) {
         return see();
     }
 
-    function authenticate(username, password) {
-        //userid = "5084f8ae2985e5b6317ead7e";
-        console.warn('authenticate not implemented');
-        return $.Deferred().resolve();
+    function authNew(params) {
+        if (!params.password) { return $.Deferred().reject("need password"); }
+        if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
+        return polisPost(createAccountPath, params).done( function(authData) {
+
+            clearAuthStores();
+            var temporary = !params.rememberMe;
+            tokenStore.set(authData.token, temporary);
+            if (params.username) {
+                usernameStore.set(params.username, temporary);
+            }
+            if (params.email) {
+                emailStore.set(params.email, temporary);
+            }
+            authStateChangeCallbacks.fire(assemble({
+                email: params.email,
+                username: params.username,
+                state: "p_registered"
+            }));
+        });//.then(logger.log, logger.error);
     }
 
-    function authAnonNew() {
-        return polisGet("v2/auth/newAnon").done( function(authData) {
-            userid = authData.u;
-        });
+    function authLogin(params) {
+        if (!params.password) { return $.Deferred().reject("need password"); }
+        if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
+        return polisPost(loginPath, params).done( function(authData) {
+            clearAuthStores();
+            var temporary = !params.rememberMe;
+            tokenStore.set(authData.token, temporary);
+            if (params.username) {
+                usernameStore.set(params.username, temporary);
+            }
+            if (params.email) {
+                emailStore.set(params.email, temporary);
+            }
+            authStateChangeCallbacks.fire(assemble({
+                email: params.email,
+                username: params.username,
+                state: "p_registered"
+            }));
+        });//.then(logger.log, logger.error);
+    }
+
+    function authDeregister() {
+        return polisPost(deregisterPath).always( function(authData) {
+            clearAuthStores();
+            authStateChangeCallbacks.fire(assemble({
+                state: "p_deregistered"
+            }));
+        });//.then(logger.log, logger.error);
     }
 
     return {
-        authAnonNew: authAnonNew,
+        authNew: authNew,
+        authLogin: authLogin,
+        authDeregister: authDeregister,
         getNextComment: getNextComment,
         observeStimulus: observeStimulus, // with no args
         push: push,
         pull: pull,
         pass: pass,
         see: see,
-        submitComment: submitComment,
-        authenticate: authenticate
+        addAuthStatChangeListener: authStateChangeCallbacks.add,
+        addAuthNeededListener: needAuthCallbacks.add, // needed?
+        submitComment: submitComment
     };
 };

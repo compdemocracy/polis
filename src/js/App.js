@@ -1,5 +1,3 @@
-var polis = {};
-
 var App = function(params) {
     
     var utils = params.utils;
@@ -12,50 +10,67 @@ var App = function(params) {
         serverClient.observeStimulus(id);
     }
 
-    // init UI stuff
-    // (or get references to the elements / views)
+    function setupUI() {
 
-    //serverClient.authenticate("mike", "12345").then(
-    serverClient.authAnonNew().then(
-        function(authData) {
-            onAuthenticated(authData);
-            setupUI();
-        }, 
-        function() {
-            console.error('login failed');
-        }
-    );
+        // Comment Submitter
+        var commentSubmitter= new CommentSubmitter({
+            formId: '#comment_form'
+        });
+        commentSubmitter.addSubmitListener(function(txt) {
+            serverClient.submitComment(txt);
+        });
 
-    function onAuthenticated(data) {
-        console.log("Your userid is " + data.u);
+        var loginView = new LoginView({
+            rootElemId: "login_dropdown",
+            submit: serverClient.authLogin,
+            onOk: function() { console.log('login success'); },
+            formId: "login_form",
+            emailFieldId: "login_email",
+            passwordFieldId: "login_password",
+            rememberMeFieldId: "login_rememberme"
+        });
+
+        var registerView = new LoginView({
+            rootElemId: "register_dropdown",
+            submit: serverClient.authNew,
+            onOk: function() { console.log('register success'); },
+            formId: "register_form",
+            emailFieldId: "register_email",
+            passwordFieldId: "register_password",
+            passwordAgainFieldId: "register_password_again",
+            rememberMeFieldId: "register_rememberme"
+        });
+
+        serverClient.addAuthStatChangeListener(function(e) {
+            console.dir(e);
+            if ("p_registered" === e.state) {
+                //var username = e.username;
+                //var email = e.email;
+                // update UI
+            } else if ("p_deregistered" === e.state) {
+                // update UI
+            }
+        });
+
+        // Comment Shower
+        var $commentShowerElem = $("#comment_shower");
+        var commentShower = new CommentShower({
+            $rootDomElem: $commentShowerElem,
+            serverClient: serverClient
+        });
+
+        commentShower.addPullListener(serverClient.pull);
+        commentShower.addPushListener(serverClient.push);
+        commentShower.addPassListener(serverClient.pass);
+        commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
+
+        // hardcode the stimilus
+        observeStimulus("5084f4f42985e5b6317ead7d");
+
+        commentShower.showNext();
     }
+    setupUI();
 
- function setupUI() {
-
-    // Comment Submitter
-    var commentSubmitter= new CommentSubmitter({
-     formId: '#comment_form'
-    });
-    commentSubmitter.addSubmitListener(function(txt) {
-        serverClient.submitComment(txt);
-    });
-
-    // Comment Shower
-    var $commentShowerElem = $("#comment_shower");
-    var commentShower = new CommentShower({
-        $rootDomElem: $commentShowerElem,
-        serverClient: serverClient
-    });
-
-    commentShower.addPullListener(serverClient.pull);
-    commentShower.addPushListener(serverClient.push);
-    commentShower.addPassListener(serverClient.pass);
-    commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
-
-    observeStimulus("5084f4f42985e5b6317ead7d");
-
-    commentShower.showNext();
-}
     
     // Debug interface
     return {
@@ -66,15 +81,17 @@ var App = function(params) {
     
 $(document).ready(function() {
     var serverClient = new window.ServerClient({
+        tokenStore: PolisStorage.token,
+        emailStore: PolisStorage.email,
+        usernameStore: PolisStorage.username,
         utils: window.utils,
-        me: 12345, // userid
         protocol: "", //"http",
         domain: "",// "polis.bjorkegren.com",
         basePath: "",
         logger: console
     });
 
-    polis.app = new App({
+    window.polisapp = new App({
         CommentShower: window.CommentShower,
         CommentSubmitter: window.CommentSubmitter,
         serverClient: serverClient,
