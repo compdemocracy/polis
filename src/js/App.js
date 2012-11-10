@@ -72,7 +72,7 @@ var App = function(params) {
                 //var email = e.email;
                 // update UI
 
-                $('#login_modal').modal('hide'); 
+                $('#create_user_modal').modal('hide'); 
                 $('#introduction_modal').modal('hide');
 
                 registerView.render();
