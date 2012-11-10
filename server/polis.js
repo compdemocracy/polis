@@ -414,6 +414,36 @@ var server = http.createServer(function (req, res) {
                 } // POST
             }; // closure
         }()), // route
+        "/v2/reactions/me" : function(req, res) {
+                convertFromSession({} , function(err, data) {
+                if('GET' === req.method) {
+                    var users = [];
+                    var query = {
+                        u : data.u,
+                        s: ObjectId(stimulusId), 
+                        $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
+                    };
+                    collection.find(query, function(err, cursor) {
+                        if (err) { fail(res, 234234325, err); return; }
+
+                        function onNext( err, doc) {
+                            if (err) { fail(res, 987298783, err); return; }
+                            //console.dir(doc);
+
+                            if (doc) {
+                                users.push(doc);
+                                cursor.nextObject(onNext);
+                            } else {
+                                res.end(JSON.stringify(users));
+                            }
+                        }
+
+                        cursor.nextObject( onNext);
+                    });
+                    return;
+                }
+            });
+        },
         "/v2/reactions" : (function() {
             function makeQuery(stimulusId) {
                 // $or [{type: push}, {type: pull},...]

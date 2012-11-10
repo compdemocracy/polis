@@ -14,18 +14,21 @@ var ServerClient = function(params) {
     var basePath = params.basePath;
 
     var reactionsPath = "/v2/reactions";
+    var reactionsByMePath = "/v2/reactions/me";
     var txtPath = "/v2/txt";
 
     var createAccountPath = "/v2/auth/new";
     var loginPath = "/v2/auth/login";
     var deregisterPath = "/v2/auth/deregister";
 
-    var authenticatedCalls = [reactionsPath, txtPath, deregisterPath];
+    var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath];
 
     var logger = params.logger;
 
     var authStateChangeCallbacks = $.Callbacks();
 
+    var reactionsByMeStore = params.reactionsByMeStore;
+    var commentsStore = params.commentsStore;
     var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
@@ -51,52 +54,62 @@ var ServerClient = function(params) {
         return isNumber(commentId);
     }
 
-    var getNextComment = (function() {
+    function getAllReactionsForSelf() {
+        var params = {
+            s: currentStimulusId
+        };
+        return polisGet(reactionsByMePath, params).done( function(data) {
+            // BAD! use a real DB
+            var oldStore = JSON.parse(reactionsStore.get());
+            oldStore[currentStimulusId] = data.evs;
+            reactionsStore.set(JSON.stringify(oldStore));
+            console.dir(oldStore);
+        });
+    }
 
-        var lastServerToken;
-        var commentIndex = 0;
-
-        return function () {
-            var dfd = $.Deferred();
-
-            function onOk() {
-                dfd.resolve(comments[commentIndex]);
-                commentIndex++;
-            }
-
-
-            var params = {
-                //tags: [ {$not: "stimulus"} ], 
-                s: currentStimulusId
-            };
-            if (lastServerToken) {
-                params.lastServerToken = lastServerToken;
-            }
-            polisGet(txtPath, params).done( function(data) {
+    function getAllCommentsForCurrentStimulus() {
+        return polisGet(txtPath, params).then( function(data) {
                 var evs = data.events;
                 if (evs) {
-                    for (var i = 0; i < evs.length; i++) {
-                        comments.push(evs[i]);
-                        // keep the max id as the last token
-                        if (evs[i]._id >lastServerToken) {
-                            lastServerToken = evs[i]._id;
-                        }
-                    }
+                    var old = JSON.parse(commentsStore.get());
+                    old[currentStimulusId] = data.evs;
+                    commentsStore.set(JSON.stringify(old));
+                } else {
+                    logger.error('no comments for stimulus');
                 }
-                lastServerToken = data.lastServerToken;
-                onOk();
-            }).fail( function() {
-                dfd.reject();
+            }, function(err) {
+                logger.error('failed to fetch comments for ' + currentStimulusId);
+                logger.dir(err);
             });
+    }
 
-            if (commentIndex >= comments.length) {
-                // wait for the ajax, TODO fix this?
-            } else {
-                onOk();
+    var getNextComment = function() {
+
+        var dfd = $.Deferred();
+        var reactions = JSON.parse(reactionsByMeStore.get());
+        reactions = reactions[currentStimulusId]; 
+        
+        function hasReactedTo(commentId) {
+            return reactions.filter(function(comment) {
+                return (comment.type === 0 || comment.type === 1 || comment.type === -1);
+            }).length > 0;
+        }
+
+        var comments = commentsStore.get();
+        comments = comments[currentStimulusId];
+        
+        for (var i = 0; i < comments.length; i++) {
+            if (!hasReactedTo(comments[i])) {
+                dfd.resolve(comments[i]);
             }
-            return dfd.promise();
-        };
-    }());
+        }
+        dfd.resolve({
+            s: currentStimulusId,
+            _id: "",
+            txt: "There are no more comments for this story."
+        });
+        return dfd.promise();
+    };
 
     function submitStimulus(data) {
         if (typeof data.txt !== 'string' || data.txt.length === 0) {
@@ -281,6 +294,7 @@ var ServerClient = function(params) {
         pull: pull,
         pass: pass,
         see: see,
+    getAllCommentsForCurrentStimulus: getAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
         submitStimulus: submitStimulus,

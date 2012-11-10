@@ -8,6 +8,20 @@ var App = function(params) {
     var loginView;
     var registerView;
 
+    var commentSubmitter;
+    var commentShower;
+
+    var logger = console;
+
+    function setStimulus(stimulusId) {
+        stimulusId = stimulusId || this.dataset.stimulusId;
+        serverClient.observeStimulus(stimulusId);
+        serverClient.getAllCommentsForCurrentStimulus().then(
+            commentShower.showNext,
+            logger.error
+        );
+    }
+
     function onDeregister() {
         serverClient.authDeregister().then(function() {
             loginView.render();
@@ -19,7 +33,7 @@ var App = function(params) {
     function setupUI() {
 
         // CommentSubmitter
-        var commentSubmitter= new CommentSubmitter({
+        commentSubmitter= new CommentSubmitter({
             formId: '#comment_form'
         });
         commentSubmitter.addSubmitListener(function(txt) {
@@ -86,7 +100,7 @@ var App = function(params) {
 
         // Comment Shower
         var $commentShowerElem = $("#comment_shower");
-        var commentShower = new CommentShower({
+        commentShower = new CommentShower({
             $rootDomElem: $commentShowerElem,
             serverClient: serverClient
         });
@@ -95,6 +109,11 @@ var App = function(params) {
         commentShower.addPushListener(serverClient.push);
         commentShower.addPassListener(serverClient.pass);
         commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
+
+        $(".stimulus_link").click(setStimulus);
+        // Start with a default stimulus.
+        $(".stimulus_link").first().parent().addClass("active");
+        setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
 
     }
     setupUI();
@@ -117,6 +136,8 @@ $(document).ready(function() {
         tokenStore: PolisStorage.token,
         emailStore: PolisStorage.email,
         usernameStore: PolisStorage.username,
+        commentsStore: PolisStorage.comments,
+        reactionsByMeStore: PolisStorage.reactionsByMe,
         utils: window.utils,
         protocol: "", //"http",
         domain: "",// "polis.bjorkegren.com",
@@ -140,16 +161,5 @@ $(document).ready(function() {
         }
     }
     window.addEventListener("hashchange", locationHashChanged);
-
-    function setStimulus(stimulusId) {
-        stimulusId = stimulusId || this.dataset.stimulusId;
-        serverClient.observeStimulus(stimulusId);
-        commentShower.showNext();
-    }
-    $(".stimulus_link").click(setStimulus);
-    // Start with a default stimulus.
-    $(".stimulus_link").first().parent().addClass("active");
-    setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
-
 
 });
