@@ -38,7 +38,7 @@
 
       #feedback_text {
         height: 150px;
-        width: 450px;
+        width: 90%;
         resize: vertical;
 
       }
@@ -78,9 +78,6 @@
         padding-right: 20px;
       }
 
-      
-      
-
      #comment_shower {
         height: 300px;
         overflow: auto;
@@ -97,7 +94,7 @@
         border-radius: 15px;
         padding-left: 20px;
         padding-top: 17px;
-   }
+      }
 
       #comment_shower_frame:hover {
         -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
@@ -116,6 +113,25 @@
            border-radius: 15px 15px 0px  15px;
            padding: 20px;
           }
+
+      #introduction_modal.modal {
+        left: 50px;
+        width: 80%;
+        top: 50px;
+        margin: 0px;
+      }
+
+      #modal_right_side {
+        width: 30%;
+        display: inline-block;
+      }
+
+      #modal_left_side {
+        display: inline-block;
+        width: 45%;
+        padding-left: 20px;
+        text-align: justify;
+      }
 
     
       body{
@@ -283,7 +299,7 @@
             <button type="button" class="close" data-dismiss="modal">×</button>
             <h3 >A Brief Introduction</h3>
           </div>
-           <div class="modal-body">       
+           <div id="modal_left_side" class="modal-body">       
                 <h6>WELCOME:</h6>
                 <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis seeks to provide a platform to facilitate productive, large scale conversations. The Polis application is accessible from any device, and we're working to optimize the experience across screen sizes.  </p>
 
@@ -315,9 +331,30 @@
                 <p><em>For XKCD readers:
                 Polis is built on Node, Mongo, Mustache, Heroku, R, Twitter Bootstrap, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
            </div>
-          <div class="modal-footer">
-            <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
-          </div>
+
+          <div id="modal_right_side" class="modal-body">       
+              <fieldset>
+                    <input id="register_email" class="email" type="text" placeholder="Email">
+                    <input id="register_password" type="password" placeholder="Password">
+                    <input id="register_password_again" type="password" placeholder="Confirm Password">
+                    <label class="checkbox">
+                        <input id="register_rememberme" type="checkbox">
+                        <span> Remember me</span>
+                    </label>
+                    <button type="submit" id="register_button" class="btn btn-large btn-info">Register & Login</button>
+              </fieldset>
+              <form id="login_form" class="dropdown_forms">
+                <fieldset>
+                  <input id="login_email" type="text" placeholder="Email">
+                  <input id="login_password" type="password" placeholder="Password">
+                  <label class="checkbox">
+                      <input id="login_rememberme" type="checkbox">
+                      <span> Remember me</span>
+                  </label>
+                  <button id="login_button" type="submit" class="btn btn-large btn-info">Login</button>
+                </fieldset>
+              </form>
+          </div> 
       </div>
 
 
