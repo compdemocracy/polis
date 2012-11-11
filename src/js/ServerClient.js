@@ -9,9 +9,19 @@ var ServerClient = function(params) {
         }
     };
 
-    var commentsStore = new Lawnchair({name: 'v2_comments'}, function() {
-        console.log('lawnchair ready'); // TODO make 'this' available to the module manager to prevent race conditions
-    });
+    // stimulusId -> Lawnchair of comments
+    var commentStores = {};
+    function getCommentStore() {
+        if (undefined === commentStores[currentStimulusId]) {
+            commentStores[currentStimulusId] = new Lawnchair({
+                name: 'v2_comments_' + currentStimulusId
+            }, function() {
+                console.log('lawnchair for '+ currentStimulusId +' ready'); // TODO make 'this' available to the module manager to prevent race conditions
+            });
+        }
+        return commentStores[currentStimulusId];
+    }
+
 
     var protocol = params.protocol;
     var domain = params.domain;
@@ -32,7 +42,6 @@ var ServerClient = function(params) {
     var authStateChangeCallbacks = $.Callbacks();
 
     var reactionsByMeStore = params.reactionsByMeStore;
-    //var commentsStore = params.commentsStore;
     var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
@@ -89,10 +98,11 @@ var ServerClient = function(params) {
                 var evs = data.events;
                 if (!evs) {
                     logger.log('no comments for stimulus');
-                    dfd.resolve([]);
+                    dfd.resolve(0);
                 } else {
                     var IDs = _.pluck(evs, "_id");
-                    commentsStore.keys(function(keys) {
+                    var commentStore = getCommentStore();
+                    commentStore.keys(function(keys) {
                         var newIDs = _.difference(IDs, keys);
                         var newComments = evs.filter(function(ev) {
                             return _.contains(newIDs, ev._id);
@@ -103,21 +113,21 @@ var ServerClient = function(params) {
                             ev.key = ev._id;
                             return ev;
                         });
-                        commentsStore.batch(newComments);
-                        dfd.resolve(newComments);
+                        commentStore.batch(newComments);
+                        dfd.resolve(newComments.length);
                     });
                 }
         }, function(err) {
             logger.error('failed to fetch comments for ' + currentStimulusId);
             logger.dir(err);
-            dfd.reject([]);
+            dfd.reject(0);
         });
         return dfd.promise();
     }
 
     var getNextComment = function() {
         var dfd = $.Deferred();
-        commentsStore.all(function(comments) {
+        getCommentStore().all(function(comments) {
             for (var i = 0; i < comments.length; i++) {
                 var comment = comments[i];
                 if (undefined === comment.myReaction) {
@@ -164,9 +174,9 @@ var ServerClient = function(params) {
     }
 
     function markReaction(commentId, reaction) {
-        commentsStore.get(commentId, function(comment) {
+        getCommentStore().get(commentId, function(comment) {
             comment.myReaction = reaction;
-            commentsStore.save(comment);
+            getCommentStore().save(comment);
         });
     }
 
