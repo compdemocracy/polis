@@ -312,7 +312,12 @@ var ServerClient = function(params) {
         });//.then(logger.log, logger.error);
     }
 
+    function authenticated() {
+        return !!tokenStore.get();
+    }
+
     return {
+        authenticated: authenticated,
         authNew: authNew,
         authLogin: authLogin,
         authDeregister: authDeregister,

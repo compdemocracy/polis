@@ -160,8 +160,10 @@ $(document).ready(function() {
     }
     window.addEventListener("hashchange", locationHashChanged);
 
-    $('#introduction_modal').modal('show');
-    $('#create_user_modal').modal('show');
+    if (!serverClient.authenticated()) {
+        $('#introduction_modal').modal('show');
+        $('#create_user_modal').modal('show');
+    }
 
 
     function onResize(){
