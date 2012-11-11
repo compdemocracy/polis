@@ -124,6 +124,7 @@
       #modal_left_side {
         padding-left: 20px;
         text-align: justify;
+        padding-right: 30px;
 
       }
 
@@ -266,9 +267,9 @@
           </div>
            <div id="modal_left_side" class="modal-body">       
                 <h6>WELCOME:</h6>
-                <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis seeks to provide a platform to facilitate productive, large scale conversations. The Polis application will soon be accessible from any device, but is currently optimized only for desktop.  </p>
+                <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis provides a platform to facilitate productive, large scale conversations.  </p>
 
-                <p>In this prototype, we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, it is a timely and important issue full of messy value judgements, priorities and eventualities - exactly the kind of conversation that breaks down at large scales on the internet and exactly the kind of trans-national discussion we're excited to try to facilitate. </p>
+                <p>In this prototype we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, Israel beats the drums of war and Iranian aircraft fire on American drones, it is a timely and important issue full of messy value judgements, competing priorities and complex eventualities - exactly the kind of conversation that breaks down at large scales on the internet. We're building a framework we strongly believe will perform far more effectively than anything in the current landscape of forums and comment threads. Thanks for helping.  </p>
 
                 <h6> WHAT TO DO: </h6>
 
@@ -285,16 +286,26 @@
                   </fieldset>
                 </form>
 
-                <h6> HOW IT WORKS: </h6> 
+                <h6> HOW POLIS WILL WORK: </h6> 
 
-                <p>The flow is simple: first, users experience a stimulus, which could be a question, a series of articles, etc. Users then interact by submitting comments and reacting to other users' comments. Rather than displaying all the comments submitted, Polis sends out a random or specific collection of these comments and each user upvotes, downvotes or passes each comment they read, one at a time. Behind the scenes, statistical algorithms help choose which comments to show based on a number of complex factors and group users who react similarly. </p>
+                <p> The beta of the application will be done before the end of the year, and will be tested in large college classrooms. Here's how it will work:</p> 
 
-                <p>Reacting to other people's comments (not commenting yourself) is how you place yourself within the landscape of opinion. If you do choose to comment (it is not required) you are not reacting to any one comment per se, rather submitting a new waypoint for other users to potentially rally around or against. Lastly, user groups are displayed in a real-time data visualization that shows what groups have formed and what statements they came together around. This visualization will not be functional for the prototype - instead the purpose of the prototype is the creation of a dataset with which to build the visualization. </p>
-                
+                <ol> 
+                  <li> Users experience a stimulus (a series of articles, a question, etc)</li>  
+                  <li> Users submit comments in response</li>  
+                  <li> Polis sends out those comments, randomly and one at a time, to users</li>  
+                  <li> Users react to comments by upvoting, downvoting or passing</li>  
+                  <li> Polis uses statistical algorithms to group users based on reactions</li>  
+                  <li> Polis displays a real-time data visualization of groups as they form and change</li>  
+                </ol> 
+
+
+                <p>For this data gathering prototype you will not have the opportunity to comment, and the data visualization is not yet functioning. Rather, this prototype will gather the play data we'll need to enable that functionality in the beta.</p> 
+          
                 <p> --The Polis Team</p>
 
                 <p><em>For XKCD readers:
-                Polis is built on Node, Mongo, Mustache, Heroku, R, Twitter Bootstrap, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
+                Polis is built on Node, Mongo, Mustache, Heroku, R, D3, Redis, Twitter Bootstrap, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
            </div>
       </div>
 
@@ -712,13 +723,12 @@
            <div id="comment_shower_frame"> 
             <div id="comment_shower"> 
               <h3> Comments </h3> 
-              <p>Blog commodo kale chips, tempor aliquip retro pour-over iphone +1 vinyl ad. Whatever chillwave messenger bag esse, pinterest leggings odio fap portland pariatur blog excepteur tofu reprehenderit. Fanny pack street art marfa wes anderson, iphone quis gentrify. Retro cred chambray, pour-over non viral anim. Viral ennui direct trade, thundercats aute DIY salvia esse cray. Beard 8-bit messenger bag, odd future narwhal bicycle rights single-origin coffee officia dreamcatcher synth VHS portland sunt ethical. Veniam freegan culpa portland, cliche gluten-free chillwave consectetur flexitarian nisi next level.</p>
-
-              <p>Raw denim small batch seitan put a bird on it. Banksy wes anderson deserunt messenger bag, umami accusamus chambray bicycle rights odd future craft beer twee pariatur. Authentic PBR pinterest, whatever aesthetic fanny pack iphone. Thundercats craft beer gentrify, portland organic kale chips irure magna chambray incididunt banksy. Nihil godard pariatur brunch, excepteur portland 8-bit officia photo booth sunt consequat art party umami cliche reprehenderit. Authentic wayfarers cliche aliquip tofu. Brooklyn stumptown banksy mustache, dreamcatcher odio mumblecore anim culpa.</p>
-
-              <p>Dolor aliquip thundercats pork belly reprehenderit shoreditch, nisi irony eu artisan delectus pour-over. Truffaut polaroid excepteur gentrify. Fap cliche aute high life commodo aesthetic. Irure twee delectus cardigan, hoodie four loko magna tempor DIY et pour-over cupidatat trust fund. Truffaut tempor cray incididunt seitan readymade etsy, whatever you probably haven't heard of them keffiyeh in letterpress selvage laborum cupidatat. Brunch veniam iphone, irure readymade cosby sweater laborum american apparel letterpress ex organic. Consequat typewriter direct trade, gluten-free bespoke single-origin coffee etsy anim.</p>
-
-              <p>Tattooed freegan, officia do commodo photo booth skateboard aesthetic vegan fingerstache cillum +1 lo-fi. Delectus american apparel lo-fi small batch, swag commodo aliqua echo park readymade odio DIY irony qui. Sriracha sunt kale chips, farm-to-table etsy you probably haven't heard of them reprehenderit fingerstache et mixtape vero vinyl photo booth. Typewriter sustainable umami polaroid. Twee ea locavore deserunt, excepteur assumenda artisan synth anim. Trust fund gentrify cupidatat occupy. Skateboard occupy fanny pack marfa veniam et.</p>
+              <form class="dropdown_forms">
+                  <fieldset>
+                    <textarea id="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
+                    <button type="submit" class="btn btn-large">Submit Feedback</button>
+                  </fieldset>
+                </form>
             </div> 
 
             <div class="pull_buttons">
@@ -779,7 +789,6 @@
         
         $('#introduction_modal').modal('show');
         $('#create_user_modal').modal('show');
-        $('#login_modal').modal('show');
 
 
         function onResize(){
