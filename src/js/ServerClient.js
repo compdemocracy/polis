@@ -81,16 +81,23 @@ var ServerClient = function(params) {
     }
 
     function getAllReactionsForSelf() {
+        var dfd = $.Deferred();
         var params = {
             s: currentStimulusId
         };
-        return polisGet(reactionsByMePath, params).done( function(data) {
-            // BAD! use a real DB
-            var oldStore = JSON.parse(reactionsStore.get());
-            oldStore[currentStimulusId] = data.evs;
-            reactionsStore.set(JSON.stringify(oldStore));
-            console.dir(oldStore);
-        });
+        polisGet(reactionsByMePath, params).done( function(data) {
+            var reactions = data.events;
+            if (!reactions) {
+                logger.log('no comments for stimulus');
+                dfd.resolve(0);
+                return;
+            } 
+            reactions.forEach(function(r) {
+                markReaction(r.to, r.type);
+            });
+            dfd.resolve();
+        }, dfd.reject);
+        return dfd.promise();
     }
 
     function syncAllCommentsForCurrentStimulus() { // more like sync?
@@ -119,7 +126,11 @@ var ServerClient = function(params) {
                             return ev;
                         });
                         commentStore.batch(newComments);
-                        dfd.resolve(newComments.length);
+                        getAllReactionsForSelf().then( function() {
+                            dfd.resolve(newComments.length);
+                        }, function() {
+                            dfd.reject(0);
+                        });
                     });
                 }
         }, function(err) {
@@ -180,8 +191,10 @@ var ServerClient = function(params) {
 
     function markReaction(commentId, reaction) {
         getCommentStore().get(commentId, function(comment) {
-            comment.myReaction = reaction;
-            getCommentStore().save(comment);
+            if (comment) {
+                comment.myReaction = reaction;
+                getCommentStore().save(comment);
+            }
         });
     }
 
