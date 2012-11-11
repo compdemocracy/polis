@@ -100,7 +100,14 @@ testSession("12345ADFHSADFJKASHDF");
 
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
-mongo.connect(process.env.MONGOLAB_URI, {safe: true}, function(err, db) {
+mongo.connect(process.env.MONGOLAB_URI, {
+    server: {
+        auto_reconnect: true
+    },
+    db: {
+        safe: true
+    }
+}, function(err, db) {
     if(err) {
         console.error('mongo failed to init');
         console.error(err);
