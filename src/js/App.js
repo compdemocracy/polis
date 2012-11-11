@@ -160,20 +160,17 @@ $(document).ready(function() {
     }
     window.addEventListener("hashchange", locationHashChanged);
 
-        $('#introduction_modal').modal('show');
-        $('#create_user_modal').modal('show');
+    $('#introduction_modal').modal('show');
+    $('#create_user_modal').modal('show');
 
 
-        function onResize(){
-                var resizeArticleHeight = $(window).height() * .80;
-                var resizeShowerHeight = $(window).height() * .70;
-                $('#articles').css('height', resizeArticleHeight);
-                $('#comment_shower').css('height', resizeShowerHeight);
-            };
+    function onResize(){
+        var resizeArticleHeight = $(window).height() * .80;
+        var resizeShowerHeight = $(window).height() * .70;
+        $('#articles').css('height', resizeArticleHeight);
+        $('#comment_shower').css('height', resizeShowerHeight);
+    };
             
     $(window).resize(onResize);
-            
     onResize();
-        
-
 });
