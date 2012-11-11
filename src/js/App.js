@@ -16,7 +16,8 @@ var App = function(params) {
     function setStimulus(stimulusId) {
         stimulusId = "string" === typeof stimulusId ? stimulusId : this.dataset.stimulusId;
         serverClient.observeStimulus(stimulusId);
-        serverClient.syncAllCommentsForCurrentStimulus().done(
+        serverClient.syncAllCommentsForCurrentStimulus().then(
+            commentShower.showNext,
             commentShower.showNext
         );
     }
@@ -160,18 +161,22 @@ $(document).ready(function() {
     }
     window.addEventListener("hashchange", locationHashChanged);
 
-    if (!serverClient.authenticated()) {
+    function promptUserToRegister() {
         $('#introduction_modal').modal('show');
         $('#create_user_modal').modal('show');
     }
+    if (!serverClient.authenticated()) {
+        promptUserToRegister();
+    }
 
+    serverClient.addAuthNeededListener(promptUserToRegister);
 
     function onResize(){
-        var resizeArticleHeight = $(window).height() * .80;
-        var resizeShowerHeight = $(window).height() * .70;
+        var resizeArticleHeight = $(window).height() * 0.80;
+        var resizeShowerHeight = $(window).height() * 0.70;
         $('#articles').css('height', resizeArticleHeight);
         $('#comment_shower').css('height', resizeShowerHeight);
-    };
+    }
             
     $(window).resize(onResize);
     onResize();
