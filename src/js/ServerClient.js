@@ -9,6 +9,10 @@ var ServerClient = function(params) {
         }
     };
 
+    var commentsStore = new Lawnchair({name: 'v2_comments'}, function() {
+        console.log('lawnchair ready'); // TODO make 'this' available to the module manager to prevent race conditions
+    });
+
     var protocol = params.protocol;
     var domain = params.domain;
     var basePath = params.basePath;
@@ -28,7 +32,7 @@ var ServerClient = function(params) {
     var authStateChangeCallbacks = $.Callbacks();
 
     var reactionsByMeStore = params.reactionsByMeStore;
-    var commentsStore = params.commentsStore;
+    //var commentsStore = params.commentsStore;
     var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
@@ -49,6 +53,14 @@ var ServerClient = function(params) {
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
     // Err... I guess discussions can be circular.
     //function discussionClient(params)
+
+    function makeEmptyComment() {
+        return {
+            s: currentStimulusId,
+            _id: "",
+            txt: "There are no more comments for this story."
+        };
+    }
     
     function isValidCommentId(commentId) {
         return isNumber(commentId);
@@ -67,46 +79,56 @@ var ServerClient = function(params) {
         });
     }
 
-    function getAllCommentsForCurrentStimulus() {
-        return polisGet(txtPath, params).then( function(data) {
+    function syncAllCommentsForCurrentStimulus() { // more like sync?
+        var dfd = $.Deferred();
+        var params = {
+            s: currentStimulusId
+            //?
+        };
+        polisGet(txtPath, params).then( function(data) {
                 var evs = data.events;
-                if (evs) {
-                    var old = JSON.parse(commentsStore.get());
-                    old[currentStimulusId] = data.evs;
-                    commentsStore.set(JSON.stringify(old));
+                if (!evs) {
+                    logger.log('no comments for stimulus');
+                    dfd.resolve([]);
                 } else {
-                    logger.error('no comments for stimulus');
+                    var id_to_ev = {};
+                    evs.forEach(function(ev) {
+                        id_to_ev[ev._id] = ev;
+                    });
+                    var IDs = _.keys(id_to_ev);
+                    commentsStore.keys(function(keys) {
+                        var newIDs = _.difference(IDs, keys);
+                        var newComments = evs.filter(function(ev) {
+                            _.contains(newIDs, ev._id);
+                        });
+                        // Lawnchair wants the key to be "key".
+                        // could it be modified to have options.keyname?  a9w8ehfdfzgh
+                        newComments = newComments.map(function(ev) {
+                            ev.key = ev._id;
+                        });
+                        commentsStore.batch(newComments);
+                        dfd.resolve(newComments);
+                    });
                 }
-            }, function(err) {
-                logger.error('failed to fetch comments for ' + currentStimulusId);
-                logger.dir(err);
-            });
+        }, function(err) {
+            logger.error('failed to fetch comments for ' + currentStimulusId);
+            logger.dir(err);
+            dfd.reject([]);
+        });
     }
 
     var getNextComment = function() {
-
         var dfd = $.Deferred();
         var reactions = JSON.parse(reactionsByMeStore.get());
-        reactions = reactions[currentStimulusId]; 
-        
-        function hasReactedTo(commentId) {
-            return reactions.filter(function(comment) {
-                return (comment.type === 0 || comment.type === 1 || comment.type === -1);
-            }).length > 0;
-        }
-
-        var comments = commentsStore.get();
-        comments = comments[currentStimulusId];
-        
-        for (var i = 0; i < comments.length; i++) {
-            if (!hasReactedTo(comments[i])) {
-                dfd.resolve(comments[i]);
+        commentsStore.all(function(comments) {
+            for (var i = 0; i < comments.length; i++) {
+                var comment = comments[i];
+                if (undefined === comment.myReaction) {
+                    delete comment.key; // a9w8ehfdfzgh
+                    dfd.resolve(comment);
+                }
             }
-        }
-        dfd.resolve({
-            s: currentStimulusId,
-            _id: "",
-            txt: "There are no more comments for this story."
+            dfd.resolve(makeEmptyComment());
         });
         return dfd.promise();
     };
@@ -143,52 +165,60 @@ var ServerClient = function(params) {
         });
     }
 
+    function markReaction(commentId, reaction) {
+        commentsStore.get(commentId, function(comment) {
+            comment.myReaction = reaction;
+            commentStore.save(comment);
+        });
+    }
+
     function push(commentId) {
+        markReaction(commentId, "push");
+        return react({
+            type: polisTypes.reactions.push,
+            to: commentId
+        });
+    }
+
+    function react(parmams) {
         return polisPost(reactionsPath, { 
-            events: [ {
-                s: currentStimulusId,
-                type: polisTypes.reactions.push,
-                to: commentId
-            } ]
+            events: [ $.extend(params, {
+                s: currentStimulusId
+            }) ]
         });
     }
 
     function pull(commentId) {
-        return polisPost(reactionsPath, { 
-            events: [ {
-                s: currentStimulusId,
-                type: polisTypes.reactions.pull,
-                to: commentId
-            } ]
+        markReaction(commentId, "pull");
+        return react({
+            type: polisTypes.reactions.pull,
+            to: commentId
         });
     }
 
     // optionalSpecificSubStimulus (aka commentId)
     function see(optionalSpecificSubStimulus) {
         var ev = {
-            s: currentStimulusId,
             type: polisTypes.reactions.see
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
         }
-        return polisPost(reactionsPath, { 
-            events: [ ev ]
-        });
+        return react(ev);
     }
 
 
     function pass(optionalSpecificSubStimulus) {
         var ev = {
-            s: currentStimulusId,
             type: polisTypes.reactions.pass
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
         }
-        return polisPost(reactionsPath, { 
-            events: [ ev ]
-        });
+        if (ev.to) {
+            markReaction(ev.to, "pass");
+        }
+        return react(ev);
     }
 
     function polisPost(api, data) {
@@ -294,7 +324,7 @@ var ServerClient = function(params) {
         pull: pull,
         pass: pass,
         see: see,
-    getAllCommentsForCurrentStimulus: getAllCommentsForCurrentStimulus,
+        syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
         submitStimulus: submitStimulus,

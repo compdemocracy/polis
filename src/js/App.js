@@ -14,11 +14,10 @@ var App = function(params) {
     var logger = console;
 
     function setStimulus(stimulusId) {
-        stimulusId = stimulusId || this.dataset.stimulusId;
+        stimulusId = "string" === typeof stimulusId ? stimulusId : this.dataset.stimulusId;
         serverClient.observeStimulus(stimulusId);
-        serverClient.getAllCommentsForCurrentStimulus().then(
-            commentShower.showNext,
-            logger.error
+        serverClient.syncAllCommentsForCurrentStimulus().done(
+            commentShower.showNext
         );
     }
 
@@ -131,13 +130,12 @@ $(document).ready(function() {
     window.debug = {};
     window.debug.enterComments = function() { $("#comment_form").removeClass("debug_hidden"); };
     window.debug.enterStim = function() { $("#stimulus_form").removeClass("debug_hidden"); };
-
     var serverClient = new window.ServerClient({
         tokenStore: PolisStorage.token,
         emailStore: PolisStorage.email,
         usernameStore: PolisStorage.username,
-        commentsStore: PolisStorage.comments,
-        reactionsByMeStore: PolisStorage.reactionsByMe,
+        //commentsStore: PolisStorage.comments,
+        //reactionsByMeStore: PolisStorage.reactionsByMe,
         utils: window.utils,
         protocol: "", //"http",
         domain: "",// "polis.bjorkegren.com",
