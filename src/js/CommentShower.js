@@ -29,22 +29,26 @@ var CommentShower = function(params) {
 
         // attach event listeners to buttons, and have them trigger onPushClicked, onPullClicked COMPLETED
 
+        serverClient.see(currentCommentId);
         shownCallbacks.fire(currentCommentId);
     }
 
     function onPushClicked() {
-        pushCallbacks.fire(currentCommentId);
+        serverClient.push(currentCommentId);
         showNext();
+        pushCallbacks.fire(currentCommentId);
     }
 
     function onPassClicked() {
-        passCallbacks.fire(currentCommentId);
+        serverClient.pass(currentCommentId);
         showNext();
+        passCallbacks.fire(currentCommentId);
     }
 
     function onPullClicked() {
-        pullCallbacks.fire(currentCommentId);
+        serverClient.pull(currentCommentId);
         showNext();
+        pullCallbacks.fire(currentCommentId);
     }
 
     $('#push_button').click(onPushClicked);

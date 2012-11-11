@@ -105,10 +105,10 @@ var App = function(params) {
             serverClient: serverClient
         });
 
-        commentShower.addPullListener(serverClient.pull);
-        commentShower.addPushListener(serverClient.push);
-        commentShower.addPassListener(serverClient.pass);
-        commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
+        //commentShower.addPullListener(serverClient.pull);
+        //commentShower.addPushListener(serverClient.push);
+        //commentShower.addPassListener(serverClient.pass);
+        //commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
 
         $(".stimulus_link").click(setStimulus);
         // Start with a default stimulus.
