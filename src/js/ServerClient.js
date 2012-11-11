@@ -91,20 +91,17 @@ var ServerClient = function(params) {
                     logger.log('no comments for stimulus');
                     dfd.resolve([]);
                 } else {
-                    var id_to_ev = {};
-                    evs.forEach(function(ev) {
-                        id_to_ev[ev._id] = ev;
-                    });
-                    var IDs = _.keys(id_to_ev);
+                    var IDs = _.pluck(evs, "_id");
                     commentsStore.keys(function(keys) {
                         var newIDs = _.difference(IDs, keys);
                         var newComments = evs.filter(function(ev) {
-                            _.contains(newIDs, ev._id);
+                            return _.contains(newIDs, ev._id);
                         });
                         // Lawnchair wants the key to be "key".
                         // could it be modified to have options.keyname?  a9w8ehfdfzgh
                         newComments = newComments.map(function(ev) {
                             ev.key = ev._id;
+                            return ev;
                         });
                         commentsStore.batch(newComments);
                         dfd.resolve(newComments);
@@ -115,20 +112,21 @@ var ServerClient = function(params) {
             logger.dir(err);
             dfd.reject([]);
         });
+        return dfd.promise();
     }
 
     var getNextComment = function() {
         var dfd = $.Deferred();
-        var reactions = JSON.parse(reactionsByMeStore.get());
         commentsStore.all(function(comments) {
             for (var i = 0; i < comments.length; i++) {
                 var comment = comments[i];
                 if (undefined === comment.myReaction) {
                     delete comment.key; // a9w8ehfdfzgh
                     dfd.resolve(comment);
+                    return;
                 }
             }
-            dfd.resolve(makeEmptyComment());
+            dfd.resolve(makeEmptyComment()); // may already be resolved above
         });
         return dfd.promise();
     };
@@ -168,7 +166,7 @@ var ServerClient = function(params) {
     function markReaction(commentId, reaction) {
         commentsStore.get(commentId, function(comment) {
             comment.myReaction = reaction;
-            commentStore.save(comment);
+            commentsStore.save(comment);
         });
     }
 
@@ -180,9 +178,9 @@ var ServerClient = function(params) {
         });
     }
 
-    function react(parmams) {
+    function react(params) {
         return polisPost(reactionsPath, { 
-            events: [ $.extend(params, {
+            events: [ $.extend({}, params, {
                 s: currentStimulusId
             }) ]
         });
