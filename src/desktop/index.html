@@ -322,8 +322,9 @@
                     <input id="register_email" class="email" type="text" placeholder="Email">
                     <input id="register_password" type="password" placeholder="Password">
                     <input id="register_password_again" type="password" placeholder="Confirm Password">
-                    <label class="checkbox">
-                        <input id="register_rememberme" type="checkbox">
+                    <label style="display: none;" class="checkbox"> 
+                        <!-- defaulting to checked until the auth code is ready to handle the unchecked case -->
+                        <input id="register_rememberme" type="checkbox" checked="checked">
                         <span> Remember me</span>
                     </label>
                     <button type="submit" id="register_button" class="btn btn-large btn-info">Register & Login</button>
@@ -335,8 +336,10 @@
                 <fieldset>
                   <input id="login_email" type="text" placeholder="Email">
                   <input id="login_password" type="password" placeholder="Password">
-                  <label class="checkbox">
-                      <input id="login_rememberme" type="checkbox">
+                  <label style="display: none;" class="checkbox">
+                        <!-- defaulting to checked until the auth code is ready to handle the unchecked case -->
+                        <input id="register_rememberme" type="checkbox" checked="checked">
+                      <input id="login_rememberme" type="checkbox" checked="checked">
                       <span> Remember me</span>
                   </label>
                   <button id="login_button" type="submit" class="btn btn-large btn-info">Login</button>
