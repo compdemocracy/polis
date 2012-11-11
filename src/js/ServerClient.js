@@ -22,6 +22,11 @@ var ServerClient = function(params) {
         return commentStores[currentStimulusId];
     }
 
+    function clearDb() {
+        for (var name in commentStores) {
+            commentStores[name].nuke();
+        }
+    }
 
     var protocol = params.protocol;
     var domain = params.domain;
@@ -316,10 +321,11 @@ var ServerClient = function(params) {
     function authDeregister() {
         return polisPost(deregisterPath).always( function(authData) {
             clearAuthStores();
+            clearDb();
             authStateChangeCallbacks.fire(assemble({
                 state: "p_deregistered"
             }));
-        });//.then(logger.log, logger.error);
+        });
     }
 
     function authenticated() {
