@@ -422,15 +422,15 @@ var server = http.createServer(function (req, res) {
             }; // closure
         }()), // route
         "/v2/reactions/me" : function(req, res) {
-                convertFromSession({} , function(err, data) {
+                convertFromSession(query , function(err, data) {
                 if('GET' === req.method) {
-                    var users = [];
-                    var query = {
-                        u : data.u,
-                        s: ObjectId(stimulusId), 
+                    var events = [];
+                    var findQuery = {
+                        u : ObjectId(data.u),
+                        s: ObjectId(data.s), 
                         $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
                     };
-                    collection.find(query, function(err, cursor) {
+                    collection.find(findQuery, function(err, cursor) {
                         if (err) { fail(res, 234234325, err); return; }
 
                         function onNext( err, doc) {
@@ -438,10 +438,12 @@ var server = http.createServer(function (req, res) {
                             //console.dir(doc);
 
                             if (doc) {
-                                users.push(doc);
+                                events.push(doc);
                                 cursor.nextObject(onNext);
                             } else {
-                                res.end(JSON.stringify(users));
+                                res.end(JSON.stringify({
+                                    events: events
+                                }));
                             }
                         }
 
