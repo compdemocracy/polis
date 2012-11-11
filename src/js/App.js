@@ -97,9 +97,13 @@ var App = function(params) {
 
                 registerView.render();
                 loginView.render();
+                setStimulusOnFirstLoad();
             } else if ("p_deregistered" === e.state) {
-                registerView.render();
-                loginView.render();
+                //registerView.render();
+                //loginView.render();
+                _.defer(function() {
+                    window.location = window.location;
+                });
                 // update UI
             }
         });
@@ -119,7 +123,10 @@ var App = function(params) {
         $(".stimulus_link").click(setStimulus);
         // Start with a default stimulus.
         $(".stimulus_link").first().parent().addClass("active");
-        setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
+
+        var setStimulusOnFirstLoad = _.once(function() {
+            setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
+        });
 
     }
     setupUI();
