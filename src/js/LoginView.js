@@ -81,7 +81,11 @@ var LoginView = function(params) {
         if (data === "polis_err_reg_user_exists") {
             alert("user exists");
         }
-        console.error("auth error");
+        if ("polis_err_reg_user_exists" === data.responseText) {
+            alert("user already exists");
+        } else {
+            alert(data.responseText);
+        }
         console.dir(data);
     }
 
