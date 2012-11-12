@@ -11,15 +11,16 @@ var ServerClient = function(params) {
 
     // stimulusId -> Lawnchair of comments
     var commentStores = {};
-    function getCommentStore() {
-        if (undefined === commentStores[currentStimulusId]) {
-            commentStores[currentStimulusId] = new Lawnchair({
-                name: 'v2_comments_' + currentStimulusId
+    function getCommentStore(optionalStimulusId) {
+        var stim = optionalStimulusId || currentStimulusId;
+        if (undefined === commentStores[stim]) {
+            commentStores[stim] = new Lawnchair({
+                name: 'v2_comments_' + stim
             }, function() {
-                console.log('lawnchair for '+ currentStimulusId +' ready'); // TODO make 'this' available to the module manager to prevent race conditions
+                console.log('lawnchair for '+ stim +' ready'); // TODO make 'this' available to the module manager to prevent race conditions
             });
         }
-        return commentStores[currentStimulusId];
+        return commentStores[stim];
     }
 
     function clearDb() {
@@ -35,6 +36,7 @@ var ServerClient = function(params) {
     var reactionsPath = "/v2/reactions";
     var reactionsByMePath = "/v2/reactions/me";
     var txtPath = "/v2/txt";
+    var feedbackPath = "/v2/feedback";
 
     var createAccountPath = "/v2/auth/new";
     var loginPath = "/v2/auth/login";
@@ -80,10 +82,11 @@ var ServerClient = function(params) {
         return isNumber(commentId);
     }
 
-    function getAllReactionsForSelf() {
+    function getAllReactionsForSelf(optionalStimulusId) {
         var dfd = $.Deferred();
+        var stim = optionalStimulusId || currentStimulusId;
         var params = {
-            s: currentStimulusId
+            s: stim
         };
         polisGet(reactionsByMePath, params).done( function(data) {
             var reactions = data.events;
@@ -93,17 +96,19 @@ var ServerClient = function(params) {
                 return;
             } 
             reactions.forEach(function(r) {
-                markReaction(r.to, r.type);
+                markReaction(r.to, r.type, stim);
             });
             dfd.resolve();
         }, dfd.reject);
         return dfd.promise();
     }
 
-    function syncAllCommentsForCurrentStimulus() { // more like sync?
+    // TODO rename
+    function syncAllCommentsForCurrentStimulus(optionalStimulusId) { // more like sync?
+        var stim = optionalStimulusId || currentStimulusId;
         var dfd = $.Deferred();
         var params = {
-            s: currentStimulusId
+            s: stim
             //?
         };
         polisGet(txtPath, params).then( function(data) {
@@ -113,9 +118,9 @@ var ServerClient = function(params) {
                     dfd.resolve(0);
                 } else {
                     var IDs = _.pluck(evs, "_id");
-                    var commentStore = getCommentStore();
-                    commentStore.keys(function(keys) {
-                        var newIDs = _.difference(IDs, keys);
+                    var commentStore = getCommentStore(stim);
+                    commentStore.keys(function(oldkeys) {
+                        var newIDs = _.difference(IDs, oldkeys);
                         var newComments = evs.filter(function(ev) {
                             return _.contains(newIDs, ev._id);
                         });
@@ -126,7 +131,7 @@ var ServerClient = function(params) {
                             return ev;
                         });
                         commentStore.batch(newComments);
-                        getAllReactionsForSelf().then( function() {
+                        getAllReactionsForSelf(stim).then( function() {
                             dfd.resolve(newComments.length);
                         }, function() {
                             dfd.reject(0);
@@ -134,16 +139,16 @@ var ServerClient = function(params) {
                     });
                 }
         }, function(err) {
-            logger.error('failed to fetch comments for ' + currentStimulusId);
+            logger.error('failed to fetch comments for ' + stim);
             logger.dir(err);
             dfd.reject(0);
         });
         return dfd.promise();
     }
 
-    var getNextComment = function() {
+    var getNextComment = function(optionalStimulusId) {
         var dfd = $.Deferred();
-        getCommentStore().all(function(comments) {
+        getCommentStore(optionalStimulusId).all(function(comments) {
             for (var i = 0; i < comments.length; i++) {
                 var comment = comments[i];
                 if (undefined === comment.myReaction) {
@@ -152,7 +157,8 @@ var ServerClient = function(params) {
                     return;
                 }
             }
-            dfd.resolve(makeEmptyComment()); // may already be resolved above
+            //dfd.resolve(makeEmptyComment()); // may already be resolved above
+            dfd.reject(null); // may already be resolved above
         });
         return dfd.promise();
     };
@@ -189,11 +195,12 @@ var ServerClient = function(params) {
         });
     }
 
-    function markReaction(commentId, reaction) {
-        getCommentStore().get(commentId, function(comment) {
+    function markReaction(commentId, reaction, optionalStimulusId) {
+        var stim = optionalStimulusId || currentStimulusId;
+        getCommentStore(stim).get(commentId, function(comment) {
             if (comment) {
                 comment.myReaction = reaction;
-                getCommentStore().save(comment);
+                getCommentStore(stim).save(comment);
             }
         });
     }
@@ -207,6 +214,11 @@ var ServerClient = function(params) {
     }
 
     function react(params) {
+        if (params.s && params.s !== currentStimulusId) {
+            if (params.type !== polisTypes.reactions.see) {
+                console.error('wrong stimulus');
+            }
+        }
         return polisPost(reactionsPath, { 
             events: [ $.extend({}, params, {
                 s: currentStimulusId
@@ -263,6 +275,7 @@ var ServerClient = function(params) {
             var token = tokenStore.get();
             if (!token) {
                 needAuthCallbacks.fire();
+                console.error('auth needed');
                 return $.Deferred().reject('auth needed');
             }
             data = $.extend({ token: token}, data);
@@ -345,6 +358,24 @@ var ServerClient = function(params) {
         return !!tokenStore.get();
     }
 
+    // todo make a separate file for stimulus stuff
+    function stories() {
+        return ["509c9db2bc1e120000000001",
+                "509c9eddbc1e120000000002",
+                "509c9fd6bc1e120000000003",
+                "509ca042bc1e120000000004"];
+    }
+
+    function submitFeedback(data) {
+        data = $.extend({}, data, {
+            s: currentStimulusId,
+            type: "feedback"
+        });
+        return polisPost(feedbackPath, {
+            events: [data]
+        });
+    }
+
     return {
         authenticated: authenticated,
         authNew: authNew,
@@ -356,10 +387,12 @@ var ServerClient = function(params) {
         pull: pull,
         pass: pass,
         see: see,
+        stories: stories,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
         submitStimulus: submitStimulus,
+        submitFeedback: submitFeedback,
         submitComment: submitComment
     };
 };

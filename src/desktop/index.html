@@ -36,7 +36,7 @@
       background-color: #6B6E70;
       }
 
-      #feedback_text {
+      .feedback_text {
         height: 150px;
         width: 90%;
         resize: vertical;
@@ -113,6 +113,12 @@
            border-radius: 15px 15px 0px  15px;
            padding: 20px;
           }
+
+      #feedback_modal.modal {
+        width: 40%;
+        top: 50px;
+        margin: 0px;
+      }
 
       #introduction_modal.modal {
         left: 50px;
@@ -261,6 +267,25 @@
         </div>
       </div>
 
+      <div id="feedback_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
+          <div class="modal-header">
+              Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application.
+          </div>
+        <form id="finished_feedback_form" class="feedback_form dropdown_forms">
+          <fieldset>
+            <textarea class="feedback_text" placeholder="If you are moved to, please leave us suggestions and comments here."></textarea>
+            <button type="submit" class="btn btn-large">Submit Feedback</button>
+            <input type="hidden" name="ui_location" value="feedback_modal">
+          </fieldset>
+        </form>
+      </div>
+
+      <div id="thank_you_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
+          <div class="modal-header">
+              Thank you - Feedback sent.
+          </div>
+      </div>
+
       <div id="introduction_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
           <div class="modal-header">
             <button id="introduction_modal_button" type="button" class="close" disabled="disabled" data-dismiss="modal" aria-hidden="true">&times;</button>
@@ -281,10 +306,11 @@
 
                 <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. The more comments you react to the better the data - but we'll be grateful for however many you finish. There are roughly ninety comments. </p>
 
-                <form class="dropdown_forms">
+                <form id="introduction_feedback_form" class="feedback_form dropdown_forms">
                   <fieldset>
-                    <textarea id="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
+                    <textarea class="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
                     <button type="submit" class="btn btn-large">Submit Feedback</button>
+                    <input type="hidden" name="ui_location" value="introduction_modal">
                   </fieldset>
                 </form>
 
@@ -760,6 +786,7 @@
     <script src="/static/js/CommentShower.js"></script>
     <script src="/static/js/CommentSubmitter.js"></script>
     <script src="/static/js/StimulusSubmitter.js"></script>
+    <script src="/static/js/FeedbackSubmitter.js"></script>
     <script src="/static/js/App.js"></script>
    
     <script id="showerTemplate" type="text/template">
@@ -768,14 +795,6 @@
                     <p>User ID: {{u}}</p>
     </script>
 
-    <script id=feedbackTemplate" type="text/template">
-        <form id="feedback_form" class="dropdown_forms">
-          <fieldset>
-            <textarea id="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
-            <button type="submit" class="btn btn-large">Submit Feedback</button>
-          </fieldset>
-        </form>
-    </script>
 
     <script id="usernameTemplate" type="text/template">
         Logged in as {{identity}}

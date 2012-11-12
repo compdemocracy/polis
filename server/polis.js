@@ -165,9 +165,9 @@ function collectPost(req, res, success) {
 
 function convertFromSession(postData, callback) {
     var token = postData.token;
-    if (!token) { callback('missing token'); return; }
+    if (!token) { callback('missing token', postData); return; }
     getUserInfoForSessionToken(token, function(err, fetchedUserInfo) {
-        if (err) { callback(AUTH_FAILED); return; }
+        if (err) { callback(AUTH_FAILED, postData); return; }
         postData = _.omit(postData, ['token']);
         if (postData.u) { console.error('got postData.u, not needed'); }
         postData.u = fetchedUserInfo.u;
@@ -351,6 +351,25 @@ var server = http.createServer(function (req, res) {
             }); // end collect post
         }, // end auth/new
 
+        "/v2/feedback" : function(req, res) {
+            if('POST' === req.method) {
+                collectPost(req, res, function(data) {
+                    // Try to get session info if possible.
+                    convertFromSession(data, function(err, dataWithSessionData) {
+                        dataWithSessionData.events.forEach(function(ev){
+                            if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
+                            if (ev.s) ev.s = ObjectId(ev.s);
+                            if (dataWithSessionData.u) ev.u = ObjectId(dataWithSessionData.u); 
+                            collection.insert(ev, function(err, cursor) {
+                                if (err) { fail(res, 324234331, err); return; }
+                                res.end();
+                            }); // insert
+                        }); // each 
+                    }); // session?
+                }); // post body
+                return;
+            } // POST
+        },
         "/v2/txt" : (function() {
             function makeQuery(stimulusId, lastServerToken) {
                 var q = {

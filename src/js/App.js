@@ -13,13 +13,37 @@ var App = function(params) {
 
     var logger = console;
 
+    function finishedAllComments() {
+        var promises = serverClient.stories().map(function(storyId) {
+            var dfd = $.Deferred();
+            serverClient.syncAllCommentsForCurrentStimulus(storyId).always(function() {
+                serverClient.getNextComment(storyId).then(
+                    function(x) {
+                        dfd.reject();
+                    },
+                    function(x) {
+                        dfd.resolve();
+                    });
+            });
+            return dfd;
+        });
+        return $.when.apply($, promises);
+    }
+    function checkForGameOver() {
+        function finished() {
+            $('#feedback_modal').modal('show');
+        }
+        _.defer(function() {
+            finishedAllComments().then( finished );
+        });
+    }
+
     function setStimulus(stimulusId) {
         stimulusId = "string" === typeof stimulusId ? stimulusId : this.dataset.stimulusId;
         serverClient.observeStimulus(stimulusId);
-        serverClient.syncAllCommentsForCurrentStimulus().then(
-            commentShower.showNext,
-            commentShower.showNext
-        );
+        serverClient.syncAllCommentsForCurrentStimulus().always( function() {
+                commentShower.showNext().always(checkForGameOver);
+        });
     }
     var setStimulusOnFirstLoad = _.once(function() {
         setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
@@ -51,10 +75,35 @@ var App = function(params) {
             serverClient.submitStimulus(data);
         });
 
+        // FeedbackSubmitter that's shown in the intro
+        var feedbackSubmitterIntro = new FeedbackSubmitter({
+            form: $('#introduction_feedback_form')
+        });
+        feedbackSubmitterIntro.addSubmitListener(function(data) {
+            serverClient.submitFeedback(data);
+            feedbackSubmitterIntro.clear();
+            alert("Thank you - Your feedback was sent.");
+        });
+
+        // FeedbackSubmitter that's shown after all comments are rated
+        var feedbackSubmitterFinished = new FeedbackSubmitter({
+            form: $('#finished_feedback_form')
+        });
+        feedbackSubmitterFinished.addSubmitListener(function(data) {
+            serverClient.submitFeedback(data);
+            feedbackSubmitterFinished.clear();
+            $('#feedback_modal').modal('hide');
+            _.defer(function() {
+                finishedAllComments().done(function() {
+                    $('#thank_you_modal').modal('show'); 
+                });
+            });
+        });
+
         loginView = new LoginView({
             emailStore: PolisStorage.email,
             usernameStore: PolisStorage.username,
-            rootElemId: "login_dropdown",
+            rootElemId: "create_user_modal",
             submit: serverClient.authLogin,
             onOk: function() { console.log('login success'); },
             formId: "login_form",
@@ -70,7 +119,7 @@ var App = function(params) {
         registerView = new LoginView({
             emailStore: PolisStorage.email,
             usernameStore: PolisStorage.username,
-            rootElemId: "register_dropdown",
+            rootElemId: "create_user_modal",
             submit: serverClient.authNew,
             onOk: function() { console.log('register success'); },
             formId: "register_form",
@@ -94,12 +143,13 @@ var App = function(params) {
                 
                 //add close button and enable background click so users can
                 //close intro modal if clicked from menu after login
-                $('#introduction_modal').removeAttr('data-backdrop')
+                $('#introduction_modal').removeAttr('data-backdrop');
                 $('#introduction_modal_button').removeAttr('disabled'); 
 
                 registerView.render();
                 loginView.render();
                 setStimulusOnFirstLoad();
+                checkForGameOver();
         }
 
         serverClient.addAuthStatChangeListener(function(e) {
@@ -123,9 +173,9 @@ var App = function(params) {
             serverClient: serverClient
         });
 
-        //commentShower.addPullListener(serverClient.pull);
-        //commentShower.addPushListener(serverClient.push);
-        //commentShower.addPassListener(serverClient.pass);
+        commentShower.addPullListener(checkForGameOver);
+        commentShower.addPushListener(checkForGameOver);
+        commentShower.addPassListener(checkForGameOver);
         //commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
 
         $(".stimulus_link").click(setStimulus);
