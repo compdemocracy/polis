@@ -242,7 +242,7 @@ $(document).ready(function() {
     serverClient.addAuthNeededListener(promptUserToRegister);
 
     function onResize(){
-        var resizeArticleHeight = $(window).height() * 0.80;
+        var resizeArticleHeight = $(window).height() * 0.68;
         var resizeShowerHeight = $(window).height() * 0.70;
         $('#articles').css('height', resizeArticleHeight);
         $('#comment_shower').css('height', resizeShowerHeight);
