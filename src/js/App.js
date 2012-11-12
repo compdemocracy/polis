@@ -21,6 +21,9 @@ var App = function(params) {
             commentShower.showNext
         );
     }
+    var setStimulusOnFirstLoad = _.once(function() {
+        setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
+    });
 
     function onDeregister() {
         serverClient.authDeregister().then(function() {
@@ -79,9 +82,8 @@ var App = function(params) {
         registerView.addDeregisterListener(onDeregister);
         registerView.render();
 
-        serverClient.addAuthStatChangeListener(function(e) {
-            console.dir(e);
-            if ("p_registered" === e.state) {
+
+        function onRegistered(e) {
                 //var username = e.username;
                 //var email = e.email;
                 // update UI
@@ -98,6 +100,12 @@ var App = function(params) {
                 registerView.render();
                 loginView.render();
                 setStimulusOnFirstLoad();
+        }
+
+        serverClient.addAuthStatChangeListener(function(e) {
+            console.dir(e);
+            if ("p_registered" === e.state) {
+                onRegistered(e);
             } else if ("p_deregistered" === e.state) {
                 //registerView.render();
                 //loginView.render();
@@ -124,10 +132,9 @@ var App = function(params) {
         // Start with a default stimulus.
         $(".stimulus_link").first().parent().addClass("active");
 
-        var setStimulusOnFirstLoad = _.once(function() {
-            setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
-        });
-
+        if (serverClient.authenticated()) {
+            onRegistered();
+        }
     }
     setupUI();
 
