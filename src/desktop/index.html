@@ -728,12 +728,6 @@
            <div id="comment_shower_frame"> 
             <div id="comment_shower"> 
               <h3> Comments </h3> 
-              <form class="dropdown_forms">
-                  <fieldset>
-                    <textarea id="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
-                    <button type="submit" class="btn btn-large">Submit Feedback</button>
-                  </fieldset>
-                </form>
             </div> 
 
             <div class="pull_buttons">
@@ -772,6 +766,15 @@
                     <h4>Comment ID: {{_id}}</h4>
                     <p>{{txt}}</p>
                     <p>User ID: {{u}}</p>
+    </script>
+
+    <script id=feedbackTemplate" type="text/template">
+        <form id="feedback_form" class="dropdown_forms">
+          <fieldset>
+            <textarea id="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
+            <button type="submit" class="btn btn-large">Submit Feedback</button>
+          </fieldset>
+        </form>
     </script>
 
     <script id="usernameTemplate" type="text/template">

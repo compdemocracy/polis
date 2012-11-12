@@ -18,6 +18,12 @@ var CommentShower = function(params) {
     // {_id: 12345, txt: "This is a great article dude."}
     function showComment(data) {
 
+        if (!data) {
+            var template = $('#feedbackTemplate').html();
+            var html = Mustache.to_html(template, {});
+            $rootDomElem.html(html);
+        }
+
         var template = $('#showerTemplate').html();
         var html = Mustache.to_html(template, data);
         $rootDomElem.html(html);
