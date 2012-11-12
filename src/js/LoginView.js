@@ -9,7 +9,7 @@ var LoginView = function(params) {
 
     var deregisterCallbacks = $.Callbacks();
 
-    $("#deregister_button").click( function() {
+    $(".deregister_button").click( function() {
         deregisterCallbacks.fire();
     });
 
