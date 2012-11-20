@@ -24,6 +24,8 @@
         /* float: left; */
 
       }
+     
+
       #pull_button {
          margin-left: 2%;
       }
@@ -51,6 +53,10 @@
         /*  padding-left: 5%; */
         /*  padding-right: 5%; */
           font-family: neoretrofill;
+      }
+
+      .pull_buttons i {
+        vertical-align: 0;
       }
 
 
@@ -304,7 +310,7 @@
 
                 <p> 2. Read the articles, or skim them if you're familiar with the issue. </p> 
 
-                <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. The more comments you react to the better the data - but we'll be grateful for however many you finish. There are roughly ninety comments. </p>
+                <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 & 30 comments. The more comments you react to the better the data - but we'll be grateful for however many you finish. There are roughly ninety comments. </p>
 
                 <form id="introduction_feedback_form" class="feedback_form dropdown_forms">
                   <fieldset>
@@ -758,9 +764,9 @@
             </div> 
 
             <div class="pull_buttons">
-              <button id="push_button" class="showerbtns btn btn-large " > Push   </button>
-              <button id="pull_button" class="showerbtns btn btn-large ">  Pull   </button>
-              <button id="pass_button" class="showerbtns btn btn-large pull-right">  Pass   </button>
+              <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i>  Pull   </button>
+              <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Push   </button>
+              <button id="pass_button" class="showerbtns btn btn-large pull-right"><i class="icon-remove-circle"></i>  Pass   </button>
             </div> 
           </div> <!-- comment_shower_frame -->
             
@@ -808,6 +814,12 @@
         $('#push_button, #pull_button, #pass_button').button('disable');
       };
     
+      $('#push_button, #pull_button, #pass_button').hover(function(){
+
+        $('#push_button, #pull_button, #pass_button').tooltip('show');
+
+      });
+
 
     </script> 
 
