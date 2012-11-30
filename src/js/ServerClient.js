@@ -9,23 +9,46 @@ var ServerClient = function(params) {
         }
     };
 
+    // stimulusId -> Lawnchair of comments
+    var commentStores = {};
+    function getCommentStore(optionalStimulusId) {
+        var stim = optionalStimulusId || currentStimulusId;
+        if (undefined === commentStores[stim]) {
+            commentStores[stim] = new Lawnchair({
+                name: 'v2_comments_' + stim
+            }, function() {
+                console.log('lawnchair for '+ stim +' ready'); // TODO make 'this' available to the module manager to prevent race conditions
+            });
+        }
+        return commentStores[stim];
+    }
+
+    function clearDb() {
+        for (var name in commentStores) {
+            commentStores[name].nuke();
+        }
+    }
+
     var protocol = params.protocol;
     var domain = params.domain;
     var basePath = params.basePath;
 
     var reactionsPath = "/v2/reactions";
+    var reactionsByMePath = "/v2/reactions/me";
     var txtPath = "/v2/txt";
+    var feedbackPath = "/v2/feedback";
 
     var createAccountPath = "/v2/auth/new";
     var loginPath = "/v2/auth/login";
     var deregisterPath = "/v2/auth/deregister";
 
-    var authenticatedCalls = [reactionsPath, txtPath, deregisterPath];
+    var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath];
 
     var logger = params.logger;
 
     var authStateChangeCallbacks = $.Callbacks();
 
+    var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
@@ -46,57 +69,114 @@ var ServerClient = function(params) {
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
     // Err... I guess discussions can be circular.
     //function discussionClient(params)
+
+    function makeEmptyComment() {
+        return {
+            s: currentStimulusId,
+            _id: "",
+            txt: "There are no more comments for this story."
+        };
+    }
     
     function isValidCommentId(commentId) {
         return isNumber(commentId);
     }
 
-    var getNextComment = (function() {
-
-        var lastServerToken;
-        var commentIndex = 0;
-
-        return function () {
-            var dfd = $.Deferred();
-
-            function onOk() {
-                dfd.resolve(comments[commentIndex]);
-                commentIndex++;
-            }
-
-
-            var params = {
-                //tags: [ {$not: "stimulus"} ], 
-                s: currentStimulusId
-            };
-            if (lastServerToken) {
-                params.lastServerToken = lastServerToken;
-            }
-            polisGet(txtPath, params).done( function(data) {
-                var evs = data.events;
-                if (evs) {
-                    for (var i = 0; i < evs.length; i++) {
-                        comments.push(evs[i]);
-                        // keep the max id as the last token
-                        if (evs[i]._id >lastServerToken) {
-                            lastServerToken = evs[i]._id;
-                        }
-                    }
-                }
-                lastServerToken = data.lastServerToken;
-                onOk();
-            }).fail( function() {
-                dfd.reject();
-            });
-
-            if (commentIndex >= comments.length) {
-                // wait for the ajax, TODO fix this?
-            } else {
-                onOk();
-            }
-            return dfd.promise();
+    function getAllReactionsForSelf(optionalStimulusId) {
+        var dfd = $.Deferred();
+        var stim = optionalStimulusId || currentStimulusId;
+        var params = {
+            s: stim
         };
-    }());
+        polisGet(reactionsByMePath, params).done( function(data) {
+            var reactions = data.events;
+            if (!reactions) {
+                logger.log('no comments for stimulus');
+                dfd.resolve(0);
+                return;
+            } 
+            reactions.forEach(function(r) {
+                markReaction(r.to, r.type, stim);
+            });
+            dfd.resolve();
+        }, dfd.reject);
+        return dfd.promise();
+    }
+
+    // TODO rename
+    function syncAllCommentsForCurrentStimulus(optionalStimulusId) { // more like sync?
+        var stim = optionalStimulusId || currentStimulusId;
+        var dfd = $.Deferred();
+        var params = {
+            s: stim
+            //?
+        };
+        polisGet(txtPath, params).then( function(data) {
+                var evs = data.events;
+                if (!evs) {
+                    logger.log('no comments for stimulus');
+                    dfd.resolve(0);
+                } else {
+                    var IDs = _.pluck(evs, "_id");
+                    var commentStore = getCommentStore(stim);
+                    commentStore.keys(function(oldkeys) {
+                        var newIDs = _.difference(IDs, oldkeys);
+                        var newComments = evs.filter(function(ev) {
+                            return _.contains(newIDs, ev._id);
+                        });
+                        // Lawnchair wants the key to be "key".
+                        // could it be modified to have options.keyname?  a9w8ehfdfzgh
+                        newComments = newComments.map(function(ev) {
+                            ev.key = ev._id;
+                            return ev;
+                        });
+                        commentStore.batch(newComments);
+                        getAllReactionsForSelf(stim).then( function() {
+                            dfd.resolve(newComments.length);
+                        }, function() {
+                            dfd.reject(0);
+                        });
+                    });
+                }
+        }, function(err) {
+            logger.error('failed to fetch comments for ' + stim);
+            logger.dir(err);
+            dfd.reject(0);
+        });
+        return dfd.promise();
+    }
+
+    var getNextComment = function(optionalStimulusId) {
+        var dfd = $.Deferred();
+        var c = getNextPriorityComment();
+        if (c) {
+            return dfd.resolve(c);
+        }
+
+        getCommentStore(optionalStimulusId).all(function(comments) {
+            for (var i = 0; i < comments.length; i++) {
+                var comment = comments[i];
+                if (undefined === comment.myReaction) {
+                    delete comment.key; // a9w8ehfdfzgh
+                    dfd.resolve(comment);
+                    return;
+                }
+            }
+            //dfd.resolve(makeEmptyComment()); // may already be resolved above
+            dfd.reject(null); // may already be resolved above
+        });
+        return dfd.promise();
+    };
+
+    function submitStimulus(data) {
+        if (typeof data.txt !== 'string' || data.txt.length === 0) {
+            logger.error("fill out the txt field!");
+            return $.Deferred().reject().promise();
+        }
+        return polisPost(txtPath, {
+            events: [data]
+        });
+    }
 
     function submitComment(txt, optionalSpecificSubStimulus) {
         if (typeof txt !== 'string' || txt.length === 0) {
@@ -120,52 +200,80 @@ var ServerClient = function(params) {
         });
     }
 
+    function markReaction(commentId, reaction, optionalStimulusId) {
+        var stim = optionalStimulusId || currentStimulusId;
+        function mark(stim) {
+            getCommentStore(stim).get(commentId, function(comment) {
+                if (comment) {
+                    comment.myReaction = reaction;
+                    getCommentStore(stim).save(comment);
+                }
+            });
+        }
+        if (true) {
+            // for demo, we have 6 comments which may be shown out of context
+            for (var s in commentStores) {
+                window.localStorage.setItem("v2.1_comments_" + commentId, 1);
+                mark(s);
+            }
+        } else {
+            // this is the normal operation, assuming we're in the right stimulus for that comment.
+            mark(stim);
+        }
+    }
+
     function push(commentId) {
+        markReaction(commentId, "push");
+        return react({
+            type: polisTypes.reactions.push,
+            to: commentId
+        });
+    }
+
+    function react(params) {
+        if (params.s && params.s !== currentStimulusId) {
+            if (params.type !== polisTypes.reactions.see) {
+                console.error('wrong stimulus');
+            }
+        }
         return polisPost(reactionsPath, { 
-            events: [ {
-                s: currentStimulusId,
-                type: polisTypes.reactions.push,
-                to: commentId
-            } ]
+            events: [ $.extend({}, params, {
+                s: currentStimulusId
+            }) ]
         });
     }
 
     function pull(commentId) {
-        return polisPost(reactionsPath, { 
-            events: [ {
-                s: currentStimulusId,
-                type: polisTypes.reactions.pull,
-                to: commentId
-            } ]
+        markReaction(commentId, "pull");
+        return react({
+            type: polisTypes.reactions.pull,
+            to: commentId
         });
     }
 
     // optionalSpecificSubStimulus (aka commentId)
     function see(optionalSpecificSubStimulus) {
         var ev = {
-            s: currentStimulusId,
             type: polisTypes.reactions.see
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
         }
-        return polisPost(reactionsPath, { 
-            events: [ ev ]
-        });
+        return react(ev);
     }
 
 
     function pass(optionalSpecificSubStimulus) {
         var ev = {
-            s: currentStimulusId,
             type: polisTypes.reactions.pass
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
         }
-        return polisPost(reactionsPath, { 
-            events: [ ev ]
-        });
+        if (ev.to) {
+            markReaction(ev.to, "pass");
+        }
+        return react(ev);
     }
 
     function polisPost(api, data) {
@@ -184,6 +292,7 @@ var ServerClient = function(params) {
             var token = tokenStore.get();
             if (!token) {
                 needAuthCallbacks.fire();
+                console.error('auth needed');
                 return $.Deferred().reject('auth needed');
             }
             data = $.extend({ token: token}, data);
@@ -255,13 +364,68 @@ var ServerClient = function(params) {
     function authDeregister() {
         return polisPost(deregisterPath).always( function(authData) {
             clearAuthStores();
+            clearDb();
             authStateChangeCallbacks.fire(assemble({
                 state: "p_deregistered"
             }));
-        });//.then(logger.log, logger.error);
+        });
+    }
+
+    function authenticated() {
+        return !!tokenStore.get();
+    }
+
+    // todo make a separate file for stimulus stuff
+    function stories() {
+        return ["509c9db2bc1e120000000001",
+                "509c9eddbc1e120000000002",
+                "509c9fd6bc1e120000000003",
+                "509ca042bc1e120000000004"];
+    }
+
+    function submitFeedback(data) {
+        data = $.extend({}, data, {
+            s: currentStimulusId,
+            type: "feedback"
+        });
+        return polisPost(feedbackPath, {
+            events: [data]
+        });
+    }
+
+
+    function getNextPriorityComment() {
+
+        var items = [
+        { "s" : ObjectId("509c9fd6bc1e120000000003"), "txt" : "Your editorial suggests that the Israeli prime minister needs to table the military option and give negotiations more time because there is “no proof that Iran is at the point of producing a weapon.\" Unfortunately, you fail to provide any evidence that negotiations have any hope of succeeding. Even while the sanctions have dramatically decreased Iran’s ability to export oil, the Iranian regime has done a masterful job of dragging out the negotiations while not showing any signs of slowing down the enrichment process or any willingness to compromise. Furthermore, Iran continues to call explicitly for Israel’s destruction. If you are going to denounce the Israeli government over its willingness to use the military option, you will soon have to come up with a more practical alternative than giving the negotiations more time.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509caa00bc1e120000000040") },
+
+        { "s" : ObjectId("509c9db2bc1e120000000001"), "txt" : "At last, some common sense on this issue. I have never understood all of the fear-mongering about a nuclear Iran. There seems to be a general assumption that the lunacy among Iran's rulers, combined with nuclear weapons, would lead to disaster all around, particularly for Israel. But the Iranians have shown themselves to be calculating, rational, opponents. Any use of nuclear weapons on their part would lead to the destruction of Iran in retaliation. The idea that they would ignore these consequences and pursue mutual destruction anyway is a weak one. On the other hand, a preemptive strike at Iran would drag the US into a prolonged war, both overt and covert. We played the waiting game with the Soviet Union for many years, and it proved to be the right choice. I hope the leaders of the US and Israel make the right choice this time as well.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509ca6ddbc1e120000000019") },
+
+        { "s" : ObjectId("509c9fd6bc1e120000000003"), "txt" : "No, the sanctions haven't worked and there's no indication that they will work as long as there continues to be a strong international demand for Iran's crude. So, under the circumstances, I can't fault Israel for taking whatever actions it deems necessary. If Israel fails to act then I think that it's likely that Iran will obtain nuclear weapons. This will then prompt other countries in the region, including Saudi Arabia, to also want nuclear weapons - thus making the Middle East a more dangerous place.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509ca958bc1e12000000003d") },
+
+        { "s" : ObjectId("509c9fd6bc1e120000000003"), "txt" : "What is most troubling about all this from an American's perspective is that our leaders feel so compelled to repeat that our bond with Israel is \"unbreakable.\" It's as though some invisible handshake of history has determined that the United States' and Israel's interests will forever remain one in the same. There is no argument as anti-realist as this. Israel's outlook under Netanyahu mirror the infantile \"clash of civilizations\" approach of the Bush administration, which were disastrous for U.S. interests and credibility. Our new, thoughtful president understands this, and he is attempting mold a foreign policy agenda in which nuance, cross-cultural dialogue and diplomacy are of first resort. It's the right way to go for out country's sake, and if Israel would like to play an allied role, it can be very useful. But if Israel would rather play out its pre-Cold War delusions, then our \"sacred bond\" can and should be broken.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509ca8d9bc1e120000000031") },
+
+        { "s" : ObjectId("509ca042bc1e120000000004"), "txt" : "Iran would not be ANY sort of threat to us if we hadn't overthrown their ELECTED government in 1953. We overthrew a sovereign nation that was never a threat to us and instituted a pro-US dictator called the Shah. The shah committed thousands of human rights abuses. When the Iranians took control of the embassy, the Iranian hostage crisis, the students who instigated it had three simple demands. 1. Return the shah to Iran for trial (and probably execution), 2. remove the US military presence from the Arab Peninsula, and 3. apologize to Iran. All reasonable. What does Romney think that we would do if another nation were to impose \"crippling sanctions\" on us?", "u" : ObjectId("509c9ae5d9a8f382ff00000b"), "_id" : ObjectId("50a13f407efb5d0500000060") },
+
+        { "s" : ObjectId("509ca042bc1e120000000004"), "txt" : "Israel cannot risk another Holocaust; it deserves to be particularly sensative to existential threats. It's both rational and emotional.", "u" : ObjectId("509c9ae5d9a8f382ff00000b"), "_id" : ObjectId("50a140f27efb5d0500000081") }
+        ];
+        for (var i = 0; i < items.length; i++) {
+            if (window.localStorage.getItem("v2.1_comments_" + items[i]._id)) {
+                continue;
+            } else {
+                return items[i];
+            }
+        }
+        return null;
+    }
+
+    // helper for copy-and-pasted mongo documents
+    function ObjectId(s) {
+        return s;
     }
 
     return {
+        authenticated: authenticated,
         authNew: authNew,
         authLogin: authLogin,
         authDeregister: authDeregister,
@@ -271,8 +435,12 @@ var ServerClient = function(params) {
         pull: pull,
         pass: pass,
         see: see,
+        stories: stories,
+        syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
+        submitStimulus: submitStimulus,
+        submitFeedback: submitFeedback,
         submitComment: submitComment
     };
 };

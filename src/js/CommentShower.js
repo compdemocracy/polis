@@ -10,16 +10,41 @@ var CommentShower = function(params) {
 
     var currentCommentId;
 
+    var buttons = [
+        $('#push_button'),
+        $('#pull_button'),
+        $('#pass_button')
+    ];
+    function showButtons() {
+        buttons.forEach(function(b) {
+            b.show();
+        });
+    }
+    function hideButtons() {
+        buttons.forEach(function(b) {
+            b.hide();
+        });
+    }
+
     function showNext() {
-        serverClient.getNextComment().done(showComment);
+        return serverClient.getNextComment().always(showComment);
     }
         
 
     // {_id: 12345, txt: "This is a great article dude."}
     function showComment(data) {
+        var template,
+            html;
 
-        var template = $('#showerTemplate').html();
-        var html = Mustache.to_html(template, data);
+        if (!data) {
+            $rootDomElem.html("<h3>You've finished reacting to comments for the current article, please select the next article to proceed.</h3>");
+            hideButtons();
+            return;
+        }
+        showButtons();
+
+        template = $('#showerTemplate').html();
+        html = Mustache.to_html(template, data);
         $rootDomElem.html(html);
         currentCommentId = data._id; 
 
@@ -29,22 +54,26 @@ var CommentShower = function(params) {
 
         // attach event listeners to buttons, and have them trigger onPushClicked, onPullClicked COMPLETED
 
+        serverClient.see(currentCommentId);
         shownCallbacks.fire(currentCommentId);
     }
 
     function onPushClicked() {
-        pushCallbacks.fire(currentCommentId);
+        serverClient.push(currentCommentId);
         showNext();
+        pushCallbacks.fire(currentCommentId);
     }
 
     function onPassClicked() {
-        passCallbacks.fire(currentCommentId);
+        serverClient.pass(currentCommentId);
         showNext();
+        passCallbacks.fire(currentCommentId);
     }
 
     function onPullClicked() {
-        pullCallbacks.fire(currentCommentId);
+        serverClient.pull(currentCommentId);
         showNext();
+        pullCallbacks.fire(currentCommentId);
     }
 
     $('#push_button').click(onPushClicked);

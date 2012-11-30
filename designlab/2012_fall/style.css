@@ -1,0 +1,60 @@
+html {
+	background-color: 
+}
+
+body {
+	background-image: url('city.jpg');
+	background-size: 100%;
+	background-repeat: no-repeat;
+	background-attachment: fixed;
+	background-color: black;
+	font-size: 16px;
+}
+
+#polis {
+	font-family: "Gotham Bold";
+	text-align: center;
+	color: red;
+	opacity: .65;
+}
+
+.polis {
+	font-family: "Gotham Bold";
+	text-align: center;
+	color: red;
+	opacity: .65;
+}
+
+h1 {
+	font-size: 72px; 
+}
+
+.container {
+	opacity: .8;
+	color: white;
+	background-color: black;
+	border-radius: 10px;
+	width: 80%;
+	margin: auto;
+	padding: 87px;
+	text-align: justify;
+	margin-top: 100px;
+	font-family: "Adobe Caslon Pro";
+
+}
+
+.biggertext {
+		font-size: 22px;
+}
+
+.smallertext {
+	font-size: 18px;
+}
+
+.container ol {
+	padding-left: 20%;
+}
+
+.container ol span {
+	color: red;
+}
