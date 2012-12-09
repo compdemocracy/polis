@@ -1163,6 +1163,14 @@ force
   .links(links)
   .start();
 
+//this d3.json had some git weirdness - may be the source of an error if one crops up, or might be fine
+
+d3.json("miserablesTwoGroups.json", function(error, graph) {
+  force
+      .nodes(nodes)
+      .links(links)
+      .start();
+
 var link = svg.selectAll("line.link")
   .data(links)
 .enter().append("line")
@@ -1188,6 +1196,7 @@ link.attr("x1", function(d) { return d.source.x; })
 
 node.attr("cx", function(d) { return d.x; })
     .attr("cy", function(d) { return d.y; });
+
 });
 
 </script>
