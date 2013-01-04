@@ -15,6 +15,7 @@
 </style>
 <body>
 <script src="../src/lib/js/underscore.js"></script>
+<script src="../src/lib/js/jquery.js"></script>
 <script src="../src/lib/js/d3.v3.js"></script>
 <script src="../src/lib/js/categorical.js"></script>
 <script src="500randomLines.js"></script>
@@ -55,10 +56,19 @@ for (var key in rows[0]) {
 nodes.push.apply(nodes, questions);
 
 function filterValue(value) {
-    if (value > 3) {
-        return 1;
+    if (value === "NA") {
+        return undefined;
     } else {
-        return -1;
+        if (value < 0) {
+            return -1 * value;
+        } else if (value > 0) {
+            return 1 * value;
+        } else if (value == 0) {
+            return 0;
+        } else {
+            console.error("huh?" + value);
+            return undefined;
+        }
     }
 }
 
@@ -113,6 +123,7 @@ var force = d3.layout.force()
     .size([width, height]);
 
 var svg = d3.select("body").append("svg")
+    .attr("id", "vis")
     .attr("width", width)
     .attr("height", height);
 
