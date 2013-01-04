@@ -7,6 +7,7 @@ body {
 	background-size: 100%;
 	background-repeat: no-repeat;
 	background-attachment: fixed;
+	background-position-y: -172px;
 	background-color: black;
 	font-size: 16px;
 }
@@ -15,18 +16,12 @@ body {
 	font-family: "Gotham Bold";
 	text-align: center;
 	color: red;
-	opacity: .65;
+	opacity: .55;
 }
 
-.polis {
-	font-family: "Gotham Bold";
-	text-align: center;
-	color: red;
-	opacity: .65;
-}
 
 h1 {
-	font-size: 72px; 
+	font-size: 112px; 
 }
 
 .container {
