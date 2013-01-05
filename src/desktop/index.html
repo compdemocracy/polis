@@ -68,18 +68,7 @@
         padding: 20px;
       }
 
-      #articles_span{
-        background-color: white;
-        padding: 0px 0px 20px 20px ;
-        border-radius: 20px;
 
-      }
-
-      #articles_span:hover{
-        -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
-      }
 
       #articles {
         background-color: white;
@@ -248,8 +237,99 @@
 
         }
 
+        /* flipcard css */
+
+      .fliptextright {
+        
+        cursor: hand;
+        cursor: pointer;
+        text-align: right;
+        padding-right: 20px;
+        text-transform: uppercase;
+
+      }
+      
+      .fliptextright span {
+        position: relative;
+        top: 1px;
+      }
+
+      #articles_span{
+        position: relative;
+        background-color: white;
+        padding: 0px 0px 20px 20px ;
+        border-radius: 20px;
+
+        -webkit-perspective: 600px;
+        -moz-perspective: 600px;
+
+      }
 
 
+      #articles_span #articles_span_front {
+
+        -webkit-transform: rotateX(0deg) rotateY(0deg);
+        -webkit-transform-style: preserve-3d;
+        -webkit-backface-visibility: hidden;
+
+        -moz-transform: rotateX(0deg) rotateY(0deg);
+        -moz-transform-style: preserve-3d;
+        -moz-backface-visibility: hidden;
+
+        /* -- transition is the magic sauce for animation -- */
+        -o-transition: all 1s ease-in-out;
+        -ms-transition: all 1s ease-in-out;
+        -moz-transition: all 1s ease-in-out;
+        -webkit-transition: all 1s ease-in-out;
+        transition: all 1s ease-in-out;
+
+      }
+
+
+      #articles_span_back {
+
+        position: absolute;
+        top:0px;
+        left: 0px;
+        background-color: white;
+        padding: 0px 0px 20px 20px ;
+        border-radius: 20px;
+
+        -webkit-transform: rotateY(-180deg);
+        -webkit-transform-style: preserve-3d;
+        -webkit-backface-visibility: hidden;
+
+        -moz-transform: rotateY(-180deg);
+        -moz-transform-style: preserve-3d;
+        -moz-backface-visibility: hidden;
+
+        /* -- transition is the magic sauce for animation -- */
+        -o-transition: all 1s ease-in-out;
+        -ms-transition: all 1s ease-in-out;
+        -moz-transition: all 1s ease-in-out;
+        -webkit-transition: all 1s ease-in-out;
+        transition: all 1s ease-in-out;
+
+      }
+
+      #articles_span:hover{
+        -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+        -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
+        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
+      }
+
+
+      .flip {
+        z-index: 900;
+        -webkit-transform: rotateY(180deg);
+        -moz-transform: rotateY(180deg);
+      }
+
+      .flipback {
+        z-index: 1000;
+        -webkit-transform: rotateX(0deg) rotateY(0deg);
+        -moz-transform: rotateX(0deg) rotateY(0deg);
+      }
 
     </style>
     </head> 
@@ -295,6 +375,8 @@
               Thank you - Feedback sent.
           </div>
       </div>
+
+<!-- modals disabled for development
 
       <div id="introduction_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
           <div class="modal-header">
@@ -347,6 +429,10 @@
            </div>
       </div>
 
+  disabled for development end --> 
+
+
+<!--
 
       <div id="create_user_modal" class="modal hide fade" data-backdrop="false" data-show="true" role="dialog">
           <div class="modal-header">
@@ -359,7 +445,7 @@
                     <input id="register_password" type="password" placeholder="Password">
                     <input id="register_password_again" type="password" placeholder="Confirm Password">
                     <label style="display: none;" class="checkbox"> 
-                        <!-- defaulting to checked until the auth code is ready to handle the unchecked case -->
+                       <!-- defaulting to checked until the auth code is ready to handle the unchecked case **->
                         <input id="register_rememberme" type="checkbox" checked="checked">
                         <span> Remember me</span>
                     </label>
@@ -373,7 +459,7 @@
                   <input id="login_email" type="text" placeholder="Email">
                   <input id="login_password" type="password" placeholder="Password">
                   <label style="display: none;" class="checkbox">
-                        <!-- defaulting to checked until the auth code is ready to handle the unchecked case -->
+                        <!-- defaulting to checked until the auth code is ready to handle the unchecked case **->
                         <input id="register_rememberme" type="checkbox" checked="checked">
                       <input id="login_rememberme" type="checkbox" checked="checked">
                       <span> Remember me</span>
@@ -384,31 +470,40 @@
           </div> 
       </div>
 
+--> 
+
+
+
 
 
 <div class="container-fluid">
 
        <div class="row-fluid ">
-   
 
-            
+
             <div id="articles_span" class="span6"> 
-             <h3>Articles</h3>
-                <ul id="article_pills" class="nav nav-pills">
-                  <li> <!-- class="active" -->
-                    <a href="#nuclear_mullahs" class="stimulus_link" data-stimulus-id="509c9db2bc1e120000000001" data-toggle="tab">1: Nuclear Mullahs -- Keller</a>
-                  </li>
-                  <li>
-                    <a href="#why_iran" class="stimulus_link" data-stimulus-id="509c9eddbc1e120000000002" data-toggle="tab">2: Why Iran Should Get The Bomb -- Waltz</a>
-                  </li>
-                  <li>
-                    <a href="#israel_sharpens" class="stimulus_link" data-stimulus-id="509c9fd6bc1e120000000003" data-toggle="tab">3: Israel Sharpens Call -- Sanger & Kershner</a>
-                  </li>
-                  <li>
-                    <a href="#point_of_no_return"  class="stimulus_link" data-stimulus-id="509ca042bc1e120000000004" data-toggle="tab"> 4: The Point of No Return -- Goldberg</a>
-                  </li> 
-                </ul>
-             <div id="articles">
+
+              <div id="articles_span_front">
+
+                <div class="fliptextdiv row-fluid"> 
+                  <h3 class="fliptextleft span2">Stimulus</h3>
+                  <h6 class="fliptextright span10"> <i class="icon-repeat"></i> <span> flip: visualizations </span> </h6>
+                </div> 
+                  <ul id="article_pills" class="nav nav-pills">
+                    <li> <!-- class="active" -->
+                      <a href="#nuclear_mullahs" class="stimulus_link" data-stimulus-id="509c9db2bc1e120000000001" data-toggle="tab">1: Nuclear Mullahs -- Keller</a>
+                    </li>
+                    <li>
+                      <a href="#why_iran" class="stimulus_link" data-stimulus-id="509c9eddbc1e120000000002" data-toggle="tab">2: Why Iran Should Get The Bomb -- Waltz</a>
+                    </li>
+                    <li>
+                      <a href="#israel_sharpens" class="stimulus_link" data-stimulus-id="509c9fd6bc1e120000000003" data-toggle="tab">3: Israel Sharpens Call -- Sanger & Kershner</a>
+                    </li>
+                    <li>
+                      <a href="#point_of_no_return"  class="stimulus_link" data-stimulus-id="509ca042bc1e120000000004" data-toggle="tab"> 4: The Point of No Return -- Goldberg</a>
+                    </li> 
+                  </ul>
+               <div id="articles">
               
                <div id="article_tab_content" class="tab-content">
                               <div class="tab-pane fade" id="why_iran">
@@ -528,42 +623,42 @@
                              
                              <div class="tab-pane fade active in" id="nuclear_mullahs">
                              <h4>  Nuclear Mullahs</h4> 
-                            <h6> By BILL KELLER - NYTIMES</h6> 
+                          <h6> By BILL KELLER - NYTIMES</h6> 
 
-                            <p> IRAN has returned to the front pages after a summer hiatus. Negotiations aimed at preventing the dreaded Persian Bomb have resumed their desultory course. Iran, although suffering from the international sanctions choreographed by the Obama administration, keeps adding new arrays of centrifuges while insisting the program is strictly nonmilitary. Israel is - or maybe isn't - edging closer to a unilateral strike. The U.S., we learn from The Times's reliable David Sanger, is considering more and bigger bouts of cybersabotage. Meanwhile, the mullahs are shipping arms to their embattled fellow despots in Syria.</p>
+                          <p> IRAN has returned to the front pages after a summer hiatus. Negotiations aimed at preventing the dreaded Persian Bomb have resumed their desultory course. Iran, although suffering from the international sanctions choreographed by the Obama administration, keeps adding new arrays of centrifuges while insisting the program is strictly nonmilitary. Israel is - or maybe isn't - edging closer to a unilateral strike. The U.S., we learn from The Times's reliable David Sanger, is considering more and bigger bouts of cybersabotage. Meanwhile, the mullahs are shipping arms to their embattled fellow despots in Syria.</p>
 
-                            <p>This strikes me as a good time to address an unnerving question that confronts any concerned student of this subject: Can we live with a nuclear Iran? Given a choice of raining bunker-busting munitions on Iran's underground enrichment facilities, or, alternatively, containing a nuclear-armed Iran with the sobering threat of annihilation, which is the less bad option? As the slogan goes in Israel: “Bomb? Or The Bomb?"</p>
+                          <p>This strikes me as a good time to address an unnerving question that confronts any concerned student of this subject: Can we live with a nuclear Iran? Given a choice of raining bunker-busting munitions on Iran's underground enrichment facilities, or, alternatively, containing a nuclear-armed Iran with the sobering threat of annihilation, which is the less bad option? As the slogan goes in Israel: “Bomb? Or The Bomb?"</p>
 
-                            <p> The prevailing view now is that a nuclear Iran cannot be safely contained. On this point both President Obama and Mitt Romney agree. They can hardly say otherwise; to even hint that a nuclear Iran is acceptable would undermine the efforts aimed at preventing that outcome. But I tend to think they mean it.</p>
+                          <p> The prevailing view now is that a nuclear Iran cannot be safely contained. On this point both President Obama and Mitt Romney agree. They can hardly say otherwise; to even hint that a nuclear Iran is acceptable would undermine the efforts aimed at preventing that outcome. But I tend to think they mean it.</p>
 
-                            <p>However, there are serious, thoughtful people who are willing to contemplate a nuclear Iran, kept in check by the time-tested assurance of retaliatory destruction. If the U.S. arsenal deterred the Soviet Union for decades of cold war and now keeps North Korea's nukes in their silos, if India and Pakistan have kept each other in a nuclear stalemate, why would Iran not be similarly deterred by the certainty that using nuclear weapons would bring a hellish reprisal?</p>
+                          <p>However, there are serious, thoughtful people who are willing to contemplate a nuclear Iran, kept in check by the time-tested assurance of retaliatory destruction. If the U.S. arsenal deterred the Soviet Union for decades of cold war and now keeps North Korea's nukes in their silos, if India and Pakistan have kept each other in a nuclear stalemate, why would Iran not be similarly deterred by the certainty that using nuclear weapons would bring a hellish reprisal?</p>
 
-                            <p>Anyone who has a glib answer to this problem isn't taking the subject seriously. Personally, I've tended to duck it, taking refuge in the hope that the tightening vise of international pressure - and a few cyberattacks - would make Iran relent and spare us the hard choice. But that could be wishful thinking. So I've spent some time reading and questioning, trying to report my way to an opinion.</p>
+                          <p>Anyone who has a glib answer to this problem isn't taking the subject seriously. Personally, I've tended to duck it, taking refuge in the hope that the tightening vise of international pressure - and a few cyberattacks - would make Iran relent and spare us the hard choice. But that could be wishful thinking. So I've spent some time reading and questioning, trying to report my way to an opinion.</p>
 
-                            <p> Let's assume, for starters, that Iran's theocrats are determined to acquire nuclear weapons. Western analysts say there is no evidence yet that the supreme leader has made that decision. But if you ruled a country surrounded by unfriendly neighbors - Persians among the Arabs, Shiites among the Sunnis - a country with a grand sense of self-esteem, a tendency to paranoia and five nuclear powers nearby, wouldn't you want the security of your own nuclear arsenal?</p>
+                          <p> Let's assume, for starters, that Iran's theocrats are determined to acquire nuclear weapons. Western analysts say there is no evidence yet that the supreme leader has made that decision. But if you ruled a country surrounded by unfriendly neighbors - Persians among the Arabs, Shiites among the Sunnis - a country with a grand sense of self-esteem, a tendency to paranoia and five nuclear powers nearby, wouldn't you want the security of your own nuclear arsenal?</p>
 
-                            <p>Let's assume further that diplomacy, sanctions and computer viruses may not dissuade the regime from its nuclear ambitions. So far, these measures seem to have slowed the nuclear program and bought some time, but Iran's stockpiles of enriched fuel have grown in size and concentration despite everything a disapproving world has thrown at them so far. So, then what?</p>
+                          <p>Let's assume further that diplomacy, sanctions and computer viruses may not dissuade the regime from its nuclear ambitions. So far, these measures seem to have slowed the nuclear program and bought some time, but Iran's stockpiles of enriched fuel have grown in size and concentration despite everything a disapproving world has thrown at them so far. So, then what?</p>
 
-                            <p>A pre-emptive bombing campaign against Iran's uranium factories would almost certainly require major U.S. participation to be effective, and would not be neat. Beyond the immediate casualties, it would carry grave costs: outraged Iranians rallying behind this regime that is now deservedly unpopular; Iran or its surrogates lashing out against American and Israeli targets in a long-term, low-intensity campaign of retaliation; a scorching hatred of America on the newly empowered Arab street, generating new recruits for Al Qaeda and its ilk; an untimely oil shock to a fragile world economy; an unraveling of the united front Obama has assembled to isolate Iran. All that, and a redoubled determination by Iran's leaders to do the one thing that would prevent a future attack: rebuild the nuclear assembly line, only this time faster and deeper underground. There is a pretty broad consensus that, short of a full-scale invasion and occupation of Iran, a preventive attack would not end the nuclear program, only postpone it for a few years.</p>
+                          <p>A pre-emptive bombing campaign against Iran's uranium factories would almost certainly require major U.S. participation to be effective, and would not be neat. Beyond the immediate casualties, it would carry grave costs: outraged Iranians rallying behind this regime that is now deservedly unpopular; Iran or its surrogates lashing out against American and Israeli targets in a long-term, low-intensity campaign of retaliation; a scorching hatred of America on the newly empowered Arab street, generating new recruits for Al Qaeda and its ilk; an untimely oil shock to a fragile world economy; an unraveling of the united front Obama has assembled to isolate Iran. All that, and a redoubled determination by Iran's leaders to do the one thing that would prevent a future attack: rebuild the nuclear assembly line, only this time faster and deeper underground. There is a pretty broad consensus that, short of a full-scale invasion and occupation of Iran, a preventive attack would not end the nuclear program, only postpone it for a few years.</p>
 
-                            <p>Now imagine that Iran succeeds in making its way into the nuclear club.</p>
+                          <p>Now imagine that Iran succeeds in making its way into the nuclear club.</p>
 
-                            <p>Despite the incendiary rhetoric, it is hard to believe the aim of an Iranian nuclear program is the extermination of Israel. The regime in Iran is brutal, mendacious and meddlesome, and given to spraying gobbets of Hitleresque bile at the Jewish state. But Israel is a nuclear power, backed by a bigger nuclear power. Before an Iranian mushroom cloud had bloomed to its full height over Tel Aviv, a flock of reciprocal nukes would be on the way to incinerate Iran. Iran may encourage fanatic chumps to carry out suicide missions, but there is not the slightest reason to believe the mullahs themselves are suicidal.</p>
+                          <p>Despite the incendiary rhetoric, it is hard to believe the aim of an Iranian nuclear program is the extermination of Israel. The regime in Iran is brutal, mendacious and meddlesome, and given to spraying gobbets of Hitleresque bile at the Jewish state. But Israel is a nuclear power, backed by a bigger nuclear power. Before an Iranian mushroom cloud had bloomed to its full height over Tel Aviv, a flock of reciprocal nukes would be on the way to incinerate Iran. Iran may encourage fanatic chumps to carry out suicide missions, but there is not the slightest reason to believe the mullahs themselves are suicidal.</p>
 
-                            <p>The more common arguments against tolerating a nuclear Iran are these:</p>
+                          <p>The more common arguments against tolerating a nuclear Iran are these:</p>
 
-                            <p>First, that possession of a nuclear shield would embolden Iran to step up its interference in the region, either directly or through surrogates like Hezbollah. This is probably true. But as James Dobbins, a former diplomat who heads security studies for the RAND Corporation, told me, the subversive menace of a nuclear Iran has to be weighed against the lethal rage of an Iran that had been the victim of an unprovoked attack.</p>
+                          <p>First, that possession of a nuclear shield would embolden Iran to step up its interference in the region, either directly or through surrogates like Hezbollah. This is probably true. But as James Dobbins, a former diplomat who heads security studies for the RAND Corporation, told me, the subversive menace of a nuclear Iran has to be weighed against the lethal rage of an Iran that had been the victim of an unprovoked attack.</p>
 
-                            <p> A second worry is that a Persian Bomb would set off a regional nuclear arms race. This is probably an exaggerated fear. A nuclear program is not cheap or easy. In other parts of the world, the proliferation virus has not been as contagious as you might have feared. So the Saudis, who regard Iran as a viper state, might be tempted buy a bomb from Pakistan, which is not a pleasant thought. But Egypt (broke), Turkey (a NATO member) and the others have strong reasons not to join the race.</p>
+                          <p> A second worry is that a Persian Bomb would set off a regional nuclear arms race. This is probably an exaggerated fear. A nuclear program is not cheap or easy. In other parts of the world, the proliferation virus has not been as contagious as you might have feared. So the Saudis, who regard Iran as a viper state, might be tempted buy a bomb from Pakistan, which is not a pleasant thought. But Egypt (broke), Turkey (a NATO member) and the others have strong reasons not to join the race.</p>
 
-                            <p>Most worrisome, I think, is the danger that a crisis between Israel and Iran would escalate out of control. Given the history of mistrust and the absence of communication, some war planner on one side or the other might guess that a nuclear attack was imminent, and decide to go first.</p>
+                          <p>Most worrisome, I think, is the danger that a crisis between Israel and Iran would escalate out of control. Given the history of mistrust and the absence of communication, some war planner on one side or the other might guess that a nuclear attack was imminent, and decide to go first.</p>
 
-                            <p>“You would have a very unstable deterrent environment between Israel and Iran, simply because these are two states that tend to view each other in existential terms," said Ray Takeyh, an Iranian-American Middle East scholar at the Council on Foreign Relations, who is not an advocate of containment. Against this fear, history suggests that nuclear weapons make even aggressive countries more cautious. Before their first nuclear tests, India and Pakistan fought three serious conventional wars. Since getting their nukes they have bristled at each other across a long, heavily armed border, but no dispute has risen to an outright war.</p>
+                          <p>“You would have a very unstable deterrent environment between Israel and Iran, simply because these are two states that tend to view each other in existential terms," said Ray Takeyh, an Iranian-American Middle East scholar at the Council on Foreign Relations, who is not an advocate of containment. Against this fear, history suggests that nuclear weapons make even aggressive countries more cautious. Before their first nuclear tests, India and Pakistan fought three serious conventional wars. Since getting their nukes they have bristled at each other across a long, heavily armed border, but no dispute has risen to an outright war.</p>
 
-                            <p>At the end of this theoretical exercise, we have two awful choices with unpredictable consequences. After immersing myself in the expert thinking on both sides, I think that, forced to choose, I would swallow hard and take the risks of a nuclear Iran over the gamble of a pre-emptive war. My view may be colored by a bit of post-Iraq syndrome.</p>
+                          <p>At the end of this theoretical exercise, we have two awful choices with unpredictable consequences. After immersing myself in the expert thinking on both sides, I think that, forced to choose, I would swallow hard and take the risks of a nuclear Iran over the gamble of a pre-emptive war. My view may be colored by a bit of post-Iraq syndrome.</p>
 
-                            <p>What statesmen do when faced with bad options is create new ones. The third choice in this case is to negotiate a deal that lets Iran enrich uranium for civilian use (as it is entitled to do under the Nuclear Nonproliferation Treaty), that applies rigorous safeguards (because Iran cheats), that gradually relaxes sanctions and brings this wayward country into the community of more-or-less civilized nations. That, of course, won't happen before November. Any U.S. concession now would be decried by Republicans as an abandonment of Israel and a reward to a government that recently beat a democracy movement bloody. We can only hope that after the election we get some braver, more creative diplomacy, either from a liberated Obama or (hope springs eternal) a President Romney who has a Nixon-to-China moment. Because a frank look at the alternatives of (a) pre-emptive war and (b) a nuclear Iran should be enough to focus all of our intelligence and energy on (c) none of the above.</p>
-                           </div> <!-- nuclear mullahs --> 
+                          <p>What statesmen do when faced with bad options is create new ones. The third choice in this case is to negotiate a deal that lets Iran enrich uranium for civilian use (as it is entitled to do under the Nuclear Nonproliferation Treaty), that applies rigorous safeguards (because Iran cheats), that gradually relaxes sanctions and brings this wayward country into the community of more-or-less civilized nations. That, of course, won't happen before November. Any U.S. concession now would be decried by Republicans as an abandonment of Israel and a reward to a government that recently beat a democracy movement bloody. We can only hope that after the election we get some braver, more creative diplomacy, either from a liberated Obama or (hope springs eternal) a President Romney who has a Nixon-to-China moment. Because a frank look at the alternatives of (a) pre-emptive war and (b) a nuclear Iran should be enough to focus all of our intelligence and energy on (c) none of the above.</p>
+                         </div> <!-- nuclear mullahs --> 
 
 
                          <div class="tab-pane fade" id="point_of_no_return">
@@ -757,8 +852,19 @@
                    </div> <!-- tab content --> 
                  </div> <!-- articles --> 
 
+              </div> <!-- articles span front --> 
 
-            </div> <!--span -->
+            <div id="articles_span_back" class="span6">
+              articles span back d3 goes here
+            </div> <!--end articles_span_back --> 
+
+
+
+            </div> <!--end articles_span -->
+
+            
+
+
 
           <div class="span6"> 
 
@@ -826,6 +932,9 @@
 
       });
 
+      $(".fliptextright").click(function(){
+        $("#articles_span").addClass("flip");  
+      });
 
     </script> 
 
