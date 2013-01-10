@@ -308,9 +308,20 @@ force.on("tick", function(e) {
 
   // Push nodes toward their designated focus.
   var k = .1 * e.alpha;
-  nodes.forEach(function(o, i) {
-    o.y += (foci[o.id].y - o.y) * k;
-    o.x += (foci[o.id].x - o.x) * k;
+  nodes.forEach( function(o, i) {
+    var xw = o.weights[0];
+    var yw = o.weights[1];
+    var alpha = 3;
+
+    // http://math.stackexchange.com/questions/121720/ease-in-out-function
+    var blendX = Math.pow(xw, alpha) / ( Math.pow(xw, alpha) + Math.pow(1 - xw, alpha));
+    var blendY = Math.pow(yw, alpha) / ( Math.pow(yw, alpha) + Math.pow(1 - yw, alpha));
+
+    var targetX = (w - clusterPadding*2) * blendX + clusterPadding;
+    var targetY = (h - clusterPadding*2) * blendY + clusterPadding;
+
+    o.x += (targetX - o.x) * k;
+    o.y += (targetY - o.y) * k;
   });
 
   visualization.selectAll("circle.node")
@@ -319,7 +330,13 @@ force.on("tick", function(e) {
 });
 
 setInterval(function(){
-  nodes.push({id: ~~(Math.random() * foci.length)});
+  nodes.push({
+    //id: ~~(Math.random() * foci.length),
+    weights: [
+        Math.random(),
+        Math.random(),
+    ],
+  });
   force.start();
 
   visualization.selectAll("circle.node")
@@ -329,8 +346,14 @@ setInterval(function(){
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; })
       .attr("r", 8)
-      .style("fill", function(d) { return fill(d.id); })
-      .style("stroke", function(d) { return d3.rgb(fill(d.id)).darker(2); })
+      .style("fill", function(d) {
+            var red = Math.floor(d.weights[0]*255);
+            var green = 0;
+            var blue = Math.floor(d.weights[1]*255);
+            var alpha = 0.7;
+            return "rgba(" + red +"," + green + "," + blue + "," + alpha +")";
+      }) //fill(d.id); })
+      //.style("stroke", function(d) { return "black"; //d3.rgb(fill(d.id)).darker(2); })
       .style("stroke-width", 1.5)
       .call(force.drag);
 }, 1000);
