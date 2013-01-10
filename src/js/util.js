@@ -65,6 +65,8 @@ var PolisStorage = function() {
                 
 
     return {
+        comments: makeAccessor('p_comments'), // TODO use a real db
+        reactionsByMe: makeAccessor('p_reactions_by_me'), // TODO use a real db
         email: makeAccessor('p_email'),
         username: makeAccessor('p_username'),
         token: makeAccessor('p_authToken')

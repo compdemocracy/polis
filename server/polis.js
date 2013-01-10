@@ -100,7 +100,14 @@ testSession("12345ADFHSADFJKASHDF");
 
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
-mongo.connect(process.env.MONGOLAB_URI, {safe: true}, function(err, db) {
+mongo.connect(process.env.MONGOLAB_URI, {
+    server: {
+        auto_reconnect: true
+    },
+    db: {
+        safe: true
+    }
+}, function(err, db) {
     if(err) {
         console.error('mongo failed to init');
         console.error(err);
@@ -158,9 +165,9 @@ function collectPost(req, res, success) {
 
 function convertFromSession(postData, callback) {
     var token = postData.token;
-    if (!token) { callback('missing token'); return; }
+    if (!token) { callback('missing token', postData); return; }
     getUserInfoForSessionToken(token, function(err, fetchedUserInfo) {
-        if (err) { callback(AUTH_FAILED); return; }
+        if (err) { callback(AUTH_FAILED, postData); return; }
         postData = _.omit(postData, ['token']);
         if (postData.u) { console.error('got postData.u, not needed'); }
         postData.u = fetchedUserInfo.u;
@@ -344,6 +351,25 @@ var server = http.createServer(function (req, res) {
             }); // end collect post
         }, // end auth/new
 
+        "/v2/feedback" : function(req, res) {
+            if('POST' === req.method) {
+                collectPost(req, res, function(data) {
+                    // Try to get session info if possible.
+                    convertFromSession(data, function(err, dataWithSessionData) {
+                        dataWithSessionData.events.forEach(function(ev){
+                            if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
+                            if (ev.s) ev.s = ObjectId(ev.s);
+                            if (dataWithSessionData.u) ev.u = ObjectId(dataWithSessionData.u); 
+                            collection.insert(ev, function(err, cursor) {
+                                if (err) { fail(res, 324234331, err); return; }
+                                res.end();
+                            }); // insert
+                        }); // each 
+                    }); // session?
+                }); // post body
+                return;
+            } // POST
+        },
         "/v2/txt" : (function() {
             function makeQuery(stimulusId, lastServerToken) {
                 var q = {
@@ -391,28 +417,61 @@ var server = http.createServer(function (req, res) {
                 }
                 if('POST' === req.method) {
                     collectPost(req, res, function(data) {
-                        data.events.forEach(function(ev){
-                            // TODO check the user & token database 
-                            //
-                            if (!ev.txt) { fail(res, 'expected txt field'); return; }
+                        convertFromSession(data, function(err, data) {
+                            if (err) { fail(res, 93482573, err); return; }
 
-                            if (ev.s) ev.s = ObjectId(ev.s);
-                            if (ev.u) {
-                                ev.u = ObjectId(ev.u);
+                            data.events.forEach(function(ev){
+                                // TODO check the user & token database 
+                                //
+                                if (!ev.txt) { fail(res, 'expected txt field'); return; }
+
+                                if (ev.s) ev.s = ObjectId(ev.s);
+                                if (data.u) {
+                                    ev.u = ObjectId(data.u);
+                                }
+                                collection.insert(ev, function(err, cursor) {
+                                    if (err) { fail(res, 324234331, err); return; }
+                                    res.end();
+                                }); // insert
+                            }); // each 
+                        }); // session
+                    }); // post body
+                    return;
+                } // POST
+            }; // closure
+        }()), // route
+        "/v2/reactions/me" : function(req, res) {
+                convertFromSession(query , function(err, data) {
+                if('GET' === req.method) {
+                    var events = [];
+                    var findQuery = {
+                        u : ObjectId(data.u),
+                        s: ObjectId(data.s), 
+                        $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
+                    };
+                    collection.find(findQuery, function(err, cursor) {
+                        if (err) { fail(res, 234234325, err); return; }
+
+                        function onNext( err, doc) {
+                            if (err) { fail(res, 987298783, err); return; }
+                            //console.dir(doc);
+
+                            if (doc) {
+                                events.push(doc);
+                                cursor.nextObject(onNext);
                             } else {
-                                fail(res, "need u (userid) field.");
-                                return;
+                                res.end(JSON.stringify({
+                                    events: events
+                                }));
                             }
-                            collection.insert(ev, function(err, cursor) {
-                                if (err) { fail(res, 324234331, err); return; }
-                                res.end();
-                            });
-                        });
+                        }
+
+                        cursor.nextObject( onNext);
                     });
                     return;
                 }
-            };
-        }()),
+            });
+        },
         "/v2/reactions" : (function() {
             function makeQuery(stimulusId) {
                 // $or [{type: push}, {type: pull},...]
