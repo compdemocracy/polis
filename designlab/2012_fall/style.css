@@ -32,18 +32,32 @@ h1 {
 	width: 80%;
 	margin: auto;
 	padding: 87px;
-	text-align: justify;
-	margin-top: 100px;
-	font-family: "Adobe Caslon Pro";
+	/* text-align: justify; */
+	margin-top: 200px;
+	font-family: "Garogier";
 
 }
 
 .biggertext {
-		font-size: 22px;
+		font-size: 100px;
+		font-weight: lighter;
 }
 
 .smallertext {
 	font-size: 18px;
+}
+
+.middletext {
+	font-size: 30px;
+}
+
+.middletext span {
+	color:red;
+}
+
+.middletext em {
+	font-family: "Baskerville";
+	font-weight: lighter;
 }
 
 .container ol {
