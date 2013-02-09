@@ -37,6 +37,7 @@ var ServerClient = function(params) {
     var reactionsByMePath = "/v2/reactions/me";
     var txtPath = "/v2/txt";
     var feedbackPath = "/v2/feedback";
+    var eventPath  = "/v2/ev";
 
     var createAccountPath = "/v2/auth/new";
     var loginPath = "/v2/auth/login";
@@ -167,6 +168,12 @@ var ServerClient = function(params) {
         });
         return dfd.promise();
     };
+
+    function submitEvent(data) {
+        return polisPost(eventPath, {
+            events: [data]
+        });
+    }
 
     function submitStimulus(data) {
         if (typeof data.txt !== 'string' || data.txt.length === 0) {
@@ -439,6 +446,9 @@ var ServerClient = function(params) {
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
+        addModeChangeEventListener: addModeChangeEventListener,
+        getLatestEvents: getLatestEvents,
+        submitEvent: submitEvent,
         submitStimulus: submitStimulus,
         submitFeedback: submitFeedback,
         submitComment: submitComment

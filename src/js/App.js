@@ -46,7 +46,8 @@ var App = function(params) {
         });
     }
     var setStimulusOnFirstLoad = _.once(function() {
-        setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
+        setStimulus("509c9db2bc1e120000000001");
+        //setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
     });
 
     function onDeregister() {
@@ -239,7 +240,59 @@ $(document).ready(function() {
         promptUserToRegister();
     }
 
+    function onModeChange(e) {
+        if (!e.ev) {
+            console.error("missing e.ev");
+            return;
+        }
+        if (e.ev === "commentingOnly") {
+            console.log('commentingOnly');
+        } else if (e.ev === "ratingOnly") {
+            console.log('ratingOnly');
+        }
+    }
+
+
+    /*
+    setInterval(function() {
+        serverClient.getLatestComments().then( function(comments) {
+            // template + comments --> html
+            $("#asdfasdf").append($(result of above line));
+            
+        }, function(err) {
+            console.error("couldn't getLatestComments... ");
+            console.dir(err);
+        });
+    }, 5000);
+    */
+
+    setInterval(function() {
+        serverClient.getLatestEvents().then( function(comments) {
+            events.forEach(function(e) {
+                // try various event handlers
+                onModeChange(e);
+            });
+        }, function(err) {
+            console.error("couldn't getLatestComments... ");
+            console.dir(err);
+        });
+    });
+
     serverClient.addAuthNeededListener(promptUserToRegister);
+
+    KeyboardJS.on('ctrl + m', function() {
+        serverClient.submitEvent({
+            ev: "commentingOnly",
+        });
+    });
+
+    KeyboardJS.on('ctrl + r', function() {
+        serverClient.submitEvent({
+            ev: "ratingOnly",
+        });
+    });
+    serverClient.addModeChangeEventListener(onModeChange);
+
 
     function onResize(){
         var resizeArticleHeight = $(window).height() * 0.68;
