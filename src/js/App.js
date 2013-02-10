@@ -63,7 +63,7 @@ var App = function(params) {
         if (!serverClient.authenticated()) {
             serverClient.authNew({ anon: true, rememberMe: true});
         }
-
+        
         // CommentSubmitter
         commentSubmitter= new CommentSubmitter({
             formId: '#comment_form'
@@ -258,17 +258,6 @@ $(document).ready(function() {
 
 
     /*
-    setInterval(function() {
-        serverClient.getLatestComments().then( function(comments) {
-            // template + comments --> html
-            $("#asdfasdf").append($(result of above line));
-            
-        }, function(err) {
-            console.error("couldn't getLatestComments... ");
-            console.dir(err);
-        });
-    }, 5000);
-    */
 
     setInterval(function() {
         serverClient.getLatestEvents().then( function(comments) {
@@ -280,22 +269,23 @@ $(document).ready(function() {
             console.error("couldn't getLatestComments... ");
             console.dir(err);
         });
-    });
+    }, 1000);
+    */
 
     serverClient.addAuthNeededListener(promptUserToRegister);
 
     KeyboardJS.on('ctrl + m', function() {
         serverClient.submitEvent({
-            ev: "commentingOnly",
+            ev: "commentingOnly"
         });
     });
 
     KeyboardJS.on('ctrl + r', function() {
         serverClient.submitEvent({
-            ev: "ratingOnly",
+            ev: "ratingOnly"
         });
     });
-    serverClient.addModeChangeEventListener(onModeChange);
+    //serverClient.addModeChangeEventListener(onModeChange);
 
 
     function onResize(){

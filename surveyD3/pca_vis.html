@@ -344,7 +344,7 @@ force.on("tick", function(e) {
   nodes.forEach( function(o, i) {
     if (o.children && o.children.length) {
         return;
-    } 
+    }
     o.x = o.data.projection[0] * w / 2 + w/2;
     o.y = o.data.projection[1] * h / 2 + h/2;
     
@@ -460,6 +460,7 @@ tree.traverseDown(function(n) {
         n.data.projection = n.data.projection.map(normalize);
     }
 });
+
 
 /*
 tree.traverseDown(function(n) {

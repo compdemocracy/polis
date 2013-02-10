@@ -276,6 +276,7 @@ var server = http.createServer(function (req, res) {
                 }); // find
             }); // collectPost
         },
+
         "/v2/auth/new" : function(req, res) {
             collectPost(req, res, function(data) {
                 var username = data.username;

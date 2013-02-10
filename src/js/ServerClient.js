@@ -448,8 +448,8 @@ var ServerClient = function(params) {
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
-        addModeChangeEventListener: addModeChangeEventListener,
-        getLatestEvents: getLatestEvents,
+        //addModeChangeEventListener: addModeChangeEventListener,
+        //getLatestEvents: getLatestEvents,
         submitEvent: submitEvent,
         submitStimulus: submitStimulus,
         submitFeedback: submitFeedback,
