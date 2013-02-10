@@ -276,11 +276,27 @@ var server = http.createServer(function (req, res) {
                 }); // find
             }); // collectPost
         },
+
         "/v2/auth/new" : function(req, res) {
             collectPost(req, res, function(data) {
                 var username = data.username;
                 var password = data.password;
                 var email = data.email;
+                if (data.anon) {
+                    var response_data = {};
+                    collection.insert({type: "newuser"}, function(err, docs) {
+                        if (err) { fail(res, 238943589, err); return; }
+                        var userID = docs[0]._id;
+                        response_data.u = userID;
+                        startSession(userID, function(errSessionStart,token) {
+                            if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
+                            res.end(JSON.stringify({
+                                token: token
+                            }));
+                        });
+                    });
+                    return;
+                }
                 if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
                 if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
                 if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
@@ -370,6 +386,76 @@ var server = http.createServer(function (req, res) {
                 return;
             } // POST
         },
+        "/v2/ev" : (function() {
+            function makeQuery(stimulusId, lastServerToken) {
+                var q = {
+                    $and: [
+                        {s:   ObjectId(stimulusId)},
+                        {ev : {$exists: true}},// return anything that has text attached.
+                        //{type: {$neq: "stimulus"}},
+                    ],
+                }; 
+                if (lastServerToken) {
+                    q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
+                }
+                return q;
+            }
+
+            return function(req, res) {
+                var stimulus = query.s;
+                var lastServerToken = query.lastServerToken;
+                if('GET' === req.method) {
+                    // TODO this is basically identical to /v2/txt...  refactor
+                    var docs = [];
+                    collection.find(makeQuery(stimulus, lastServerToken), function(err, cursor) {
+                        if (err) { fail(res, 234234338, err); return; }
+
+                        function onNext( err, doc) {
+                            if (err) { fail(res, 987298793, err); return; }
+                            //console.dir(doc);
+
+                            if (doc) {
+                                docs.push(doc);
+                                cursor.nextObject(onNext);
+                            } else {
+                                res.end(JSON.stringify({
+                                    lastServerToken: lastServerToken,
+                                    events: docs,
+                                }));
+                            }
+                        }
+                        cursor.nextObject( onNext);
+                    });
+                    return;
+                } // GET
+                if('POST' === req.method) {
+                    collectPost(req, res, function(data) {
+                        convertFromSession(data, function(err, data) {
+                            if (err) { fail(res, 93482576, err); return; }
+
+                            data.events.forEach(function(ev){
+                                // TODO check the user & token database 
+                                //
+                                if (!ev.ev) { fail(res, 'expected ev field'); return; }
+
+                                if (ev.s) ev.s = ObjectId(ev.s);
+                                if (data.u) {
+                                    ev.u = ObjectId(data.u);
+                                }
+                                collection.insert(ev, function(err, cursor) {
+                                    if (err) { fail(res, 324234335, err); return; }
+                                    res.end();
+                                }); // insert
+                            }); // each 
+                        }); // session
+                    }); // post body
+                    return;
+                }  // POST
+
+            }; // closure
+
+        }()), // route
+
         "/v2/txt" : (function() {
             function makeQuery(stimulusId, lastServerToken) {
                 var q = {
