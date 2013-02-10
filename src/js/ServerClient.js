@@ -326,8 +326,10 @@ var ServerClient = function(params) {
     }
 
     function authNew(params) {
-        if (!params.password) { return $.Deferred().reject("need password"); }
-        if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
+        if (!params.anon) {
+            if (!params.password) { return $.Deferred().reject("need password"); }
+            if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
+        }
         return polisPost(createAccountPath, params).done( function(authData) {
 
             clearAuthStores();

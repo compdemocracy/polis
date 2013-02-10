@@ -60,6 +60,10 @@ var App = function(params) {
 
     function setupUI() {
 
+        if (!serverClient.authenticated()) {
+            serverClient.authNew({ anon: true, rememberMe: true});
+        }
+
         // CommentSubmitter
         commentSubmitter= new CommentSubmitter({
             formId: '#comment_form'

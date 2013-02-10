@@ -281,6 +281,21 @@ var server = http.createServer(function (req, res) {
                 var username = data.username;
                 var password = data.password;
                 var email = data.email;
+                if (data.anon) {
+                    var response_data = {};
+                    collection.insert({type: "newuser"}, function(err, docs) {
+                        if (err) { fail(res, 238943589, err); return; }
+                        var userID = docs[0]._id;
+                        response_data.u = userID;
+                        startSession(userID, function(errSessionStart,token) {
+                            if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
+                            res.end(JSON.stringify({
+                                token: token
+                            }));
+                        });
+                    });
+                    return;
+                }
                 if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
                 if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
                 if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
