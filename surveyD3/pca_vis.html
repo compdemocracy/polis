@@ -174,8 +174,41 @@
 
 <script type="text/javascript" src="d3.v3.js"></script>
 <script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript" src="arboreal.js"></script>
+<script type="text/javascript" src="underscore.js"></script>
+<script type="text/javascript" src="survey200.js"></script>
 
 <script> 
+
+
+
+
+ var wikipediaJsCategory = {
+      n: 0,
+      projection: [0.5, 0.5],
+      category: 'JavaScript',
+      subcategories: [
+        {category: 'Ajax (programming)', projection: [0.1, 0.7], n: 1},
+        {category: 'JavaScript engines', projection: [0.2, 0.6], n: 2},
+        {category: 'JavaScript programming languages family', projection: [0.5, 0.2], n: 3,
+         subcategories: [
+            { category: 'JavaScript dialect engines', projection: [0.7, 0.2], n: 4},
+            {category: 'JavaScript programming languages family', projection: [0.6, 0.3], n: 5,
+             subcategories: [{
+               category: 'JavaScript dialect engines', projection: [0.7, 0.1], n: 6
+             }]
+            },
+
+         ]
+        },
+        {category: 'JavaScript based calendar components', projection: [0.9, 0.7], n: 7},
+        {category: 'JavaScript based HTML editors', projection: [0.9, 0.9], n: 8}
+      ]
+    };
+
+    //var tree = Arboreal.parse(wikipediaJsCategory, 'subcategories');
+    var tree = Arboreal.parse(survey200, 'children');
+
 
 //the h and w values should be locked at a 1:2 ratio of h to w
 var h = 450;
@@ -303,13 +336,21 @@ var force = d3.layout.force()
     .gravity(0)
     .size([w, h]);
 
+
 force.on("tick", function(e) {
 
   // Push nodes toward their designated focus.
   var k = .1 * e.alpha;
   nodes.forEach( function(o, i) {
-    var xw = o.weights[0];
-    var yw = o.weights[1];
+    if (o.children && o.children.length) {
+        return;
+    } 
+    o.x = o.data.projection[0] * w / 2 + w/2;
+    o.y = o.data.projection[1] * h / 2 + h/2;
+    
+/*
+    var xw = o.data.projection[0];
+    var yw = o.data.projection[1];
     var alpha = 3;
 
     // http://math.stackexchange.com/questions/121720/ease-in-out-function
@@ -319,23 +360,43 @@ force.on("tick", function(e) {
     var targetX = (w - clusterPadding*2) * blendX + clusterPadding;
     var targetY = (h - clusterPadding*2) * blendY + clusterPadding;
 
-    o.x += (targetX - o.x) * k;
-    o.y += (targetY - o.y) * k;
+    //var siblings = o.parent && o.parent.children || [];
+    
+
+    o.data.x += (targetX - o.data.x) * k;
+    o.data.y += (targetY - o.data.y) * k;
+*/
   });
 
-  visualization.selectAll("circle.node")
+  var node = visualization.selectAll("circle.node")
       .attr("cx", function(d) { return d.x; })
       .attr("cy", function(d) { return d.y; });
+
 });
 
+
+function hashCode(s){
+    var hash = 0, i, char;
+    if (s.length == 0) return hash;
+    for (i = 0; i < s.length; i++) {
+        char = s.charCodeAt(i);
+        hash = ((hash<<5)-hash)+char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash;
+}
+
+var colorFromString = _.compose(d3.scale.category20(), function(s) {
+    return hashCode(s) % 20;
+});
+
+//principlecomponents
+
 setInterval(function(){
-  nodes.push({
-    //id: ~~(Math.random() * foci.length),
-    weights: [
-        Math.random(),
-        Math.random(),
-    ],
-  });
+  if  (dataFromPca.length === 0) {
+    return;
+  }
+  nodes.push(dataFromPca.shift());
   force.start();
 
   visualization.selectAll("circle.node")
@@ -346,20 +407,100 @@ setInterval(function(){
       .attr("cy", function(d) { return d.y; })
       .attr("r", 8)
       .style("fill", function(d) {
-            var red = Math.floor(d.weights[0]*255);
-            var green = 0;
-            var blue = Math.floor(d.weights[1]*255);
-            var alpha = 0.7;
-            return "rgba(" + red +"," + green + "," + blue + "," + alpha +")";
+            if (d.children && d.children.length) {
+                // only render leaves - may change? render large transucent circles? 
+                return "rgba(0,0,0,0)";
+            }
+            var color = colorFromString(d.data && d.data.meta && d.data.meta.country || "");
+            if (!color) {
+                console.error(29384723897);
+                return "black";
+            }
+            return color;
+            //var red = Math.floor(normalize(d.data.projection[0]*255));
+            //var green = 0;
+            //var blue = Math.floor(normalize(d.data.projection[1]*255));
+            //var alpha = 0.7;
+            //return "rgba(" + red +"," + green + "," + blue + "," + alpha +")";
       }) //fill(d.id); })
       //.style("stroke", function(d) { return "black"; //d3.rgb(fill(d.id)).darker(2); })
       .style("stroke-width", 1.5)
       .call(force.drag);
-}, 1000);
-
-
-
+}, 10);
 });
+
+
+
+// traverse tree BFS
+// add parent references
+
+
+function average(items) {
+    if (items.length === 0) {
+        return NaN;
+    }
+    var sum = 0;
+    for (var i = 0; i < items.length; i++) {
+        sum += items[i];
+    }
+    sum /= items.length
+    return sum;
+}
+
+
+
+
+function normalize(projectionDimension) {
+    return projectionDimension / 6;
+}
+
+
+tree.traverseDown(function(n) {
+    if (n.data.projection) {
+        n.data.projection = n.data.projection.map(normalize);
+    }
+});
+
+/*
+tree.traverseDown(function(n) {
+    if (n.children && n.children.length) {
+        // average the children's projection
+        var childWeights = n.children.map(function(c) { return c.data.projection; });
+        var averages = _.zip(childWeights).map(average);
+console.dir(averages);
+        n.data.projection = averages;
+    } else {
+    //    if (n.depth !== 0) {
+       //     console.error(123243);
+     //       console.dir(n);
+      //  }
+    }
+});
+*/
+
+
+var dataFromPca = tree.toArray();
+//tree.traverseDown(function(n) {
+    //dataFromPca
+
+
+/*
+for (var i = 0; i < 9; i++) {
+    dataFromPca.push({
+        //id: ~~(Math.random() * foci.length),
+        getSiblings: function() {
+            return this.parent.children;
+        },
+//        parent:
+        projection: [
+            Math.random(),
+            Math.random(),
+        ],
+
+    });
+}
+*/
+
 
 
 
