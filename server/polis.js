@@ -9,7 +9,8 @@
 //
 // TODO try mongo explain https://github.com/mongodb/node-mongodb-native/blob/master/examples/queries.js#L90
 
-console.log('redis url ' +process.env.REDISTOGO_URL);
+console.log('redisAuth url ' +process.env.REDISTOGO_URL);
+console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
 var http = require('http'),
     pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
@@ -22,17 +23,27 @@ var http = require('http'),
     crypto = require('crypto'),
     _ = require('underscore');
 
-
 var AUTH_FAILED = 'auth failed';
+var ALLOW_ANON = true;
 
-var redis;
+var redisForAuth;
 if (process.env.REDISTOGO_URL) {
     // inside if statement
     var rtg   = url.parse(process.env.REDISTOGO_URL);
-    var redis = require("redis").createClient(rtg.port, rtg.hostname);
-    redis.auth(rtg.auth.split(":")[1]);
+    var redisForAuth = require("redis").createClient(rtg.port, rtg.hostname);
+    redisForAuth.auth(rtg.auth.split(":")[1]);
 } else {
-    redis = require('redis').createClient();
+    redisForAuth = require('redis').createClient();
+}
+
+var redisForMathResults;
+if (process.env.REDISCLOUD_URL) {
+    // inside if statement
+    var rc   = url.parse(process.env.REDISCLOUD_URL);
+    var redisForMathResults= require("redis").createClient(rc.port, rc.hostname);
+    redisForMathResults.auth(rc.auth.split(":")[1]);
+} else {
+    redisForMathResults = require('redis').createClient();
 }
 
 // Connect to a mongo database via URI
@@ -47,7 +58,7 @@ function makeSessionToken() {
 }
 
 function getUserInfoForSessionToken(sessionToken, cb) {
-    redis.get(sessionToken, function(errGetToken, replies) {
+    redisForAuth.get(sessionToken, function(errGetToken, replies) {
         if (errGetToken) { cb(errGetToken); return; }
         //console.log('redis:');
         //console.dir(replies);
@@ -59,10 +70,10 @@ function startSession(userID, cb) {
     var sessionToken = makeSessionToken();
     //console.log('startSession: token will be: ' + sessionToken);
     console.log('startSession');
-    redis.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
+    redisForAuth.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
         if (errSetToken) { cb(errSetToken); return }
         console.log('startSession: token set.');
-        redis.expire(sessionToken, 7*24*60*60, function(errSetTokenExpire, repliesExpire) {
+        redisForAuth.expire(sessionToken, 7*24*60*60, function(errSetTokenExpire, repliesExpire) {
             if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
             console.log('startSession: token will expire.');
             cb(null, sessionToken);
@@ -71,7 +82,7 @@ function startSession(userID, cb) {
 }
 
 function endSession(sessionToken, cb) {
-    redis.del(sessionToken, function(errDelToken, repliesSetToken) {
+    redisForAuth.del(sessionToken, function(errDelToken, repliesSetToken) {
         if (errDelToken) { cb(errDelToken); return }
         cb(null);
     });
@@ -220,6 +231,38 @@ var server = http.createServer(function (req, res) {
     // start server with ds in scope.
     var routes = {
 
+        "/v2/math/pca" : function(req, res) {
+            var stimulus = query.s;
+            var lastServerToken = query.lastServerToken;
+            if('GET' === req.method) {
+                redisCloud.get("pca:timestamp:" + stimulus, function(errGetToken, replies) {
+                    if (errGetToken) {
+                        fail(res, 287472365, errGetToken, 404);
+                        return;
+                    }
+                    var timestampOfLatestMath = replies;
+                    if (timestampOfLatestMath <= lastServerToken) {
+                        res.end(204); // No Content
+                        // log?
+                        return;
+                    }
+                    // OK, looks like some newer math results are available, let's fetch those.
+                    redisCloud.get("pca:" + stimulus, function(errGetToken, replies) {
+                        if (errGetToken) {
+                            fail(res, 287472364, errGetToken);
+                            return;
+                        }
+                        res.end(JSON.stringify({
+                            lastServerToken: lastServerToken,
+                            pca: replies,
+                        }));
+                    });
+                });
+                return;
+            } // GET
+            res.end(403, "post not supported");
+        },
+
         "/v2/auth/deregister" : function(req, res) {
             collectPost(req, res, function(data) {
                 endSession(data, function(err, data) {
@@ -282,7 +325,7 @@ var server = http.createServer(function (req, res) {
                 var username = data.username;
                 var password = data.password;
                 var email = data.email;
-                if (data.anon) {
+                if (ALLOW_ANON && data.anon) {
                     var response_data = {};
                     collection.insert({type: "newuser"}, function(err, docs) {
                         if (err) { fail(res, 238943589, err); return; }
