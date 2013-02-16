@@ -19,58 +19,58 @@ var visualization = d3.select('#visualization_div').append('svg')
 
     //add four directional arrows, scalable on resize of parent container which must be a square to preserve dimensions of viz.
     visualization.append('line')
-            .attr('x1', w*.5)
-            .attr('y1', h*.25)
-            .attr('x2', w*.5)
+            .attr('x1', w * 0.5)
+            .attr('y1', h * 0.25)
+            .attr('x2', w * 0.5)
             .attr('y2', 15)
             .attr('id', 'toparrow')
             .attr('marker-end', "url(#Triangle)");
     visualization.append('line')
-            .attr('x1', w*.75)
-            .attr('y1', h*.5)
-            .attr('x2', w-15)
-            .attr('y2', h*.5)
+            .attr('x1', w * 0.75)
+            .attr('y1', h * 0.5)
+            .attr('x2', w - 15)
+            .attr('y2', h * 0.5)
             .attr('id', 'rightarrow')
             .attr('marker-end', "url(#Triangle)");
     visualization.append('line')
-            .attr('x1', w*.25)
-            .attr('y1', h*.5)
+            .attr('x1', w * 0.25)
+            .attr('y1', h * 0.5)
             .attr('x2', 15)
-            .attr('y2', h*.5)
+            .attr('y2', h * 0.5)
             .attr('id', 'leftarrow')
             .attr('marker-end', "url(#Triangle)");
     visualization.append('line')
-            .attr('x1', w*.5)
-            .attr('y1', h*.75)
-            .attr('x2', w*.5)
-            .attr('y2', h-15)
+            .attr('x1', w * 0.5)
+            .attr('y1', h * 0.75)
+            .attr('x2', w * 0.5)
+            .attr('y2', h - 15)
             .attr('id', 'bottomarrow')
             .attr('marker-end', "url(#Triangle)");
     // add the center circle
     visualization.append('circle')
-            .attr('cx', w*.5)
-            .attr('cy', h*.5)
+            .attr('cx', w * 0.5)
+            .attr('cy', h * 0.5)
             .attr('r', 7)
             .attr('id', 'centercircle');
     // add four hover circles on lines
     visualization.append('circle')
-            .attr('cx', w*.5)
-            .attr('cy', h*.1)
+            .attr('cx', w * 0.5)
+            .attr('cy', h * 0.1)
             .attr('r', 10)
             .attr('id', 'top_circle');
     visualization.append('circle')
-            .attr('cx', w*.9)
-            .attr('cy', h*.5)
+            .attr('cx', w * 0.9)
+            .attr('cy', h * 0.5)
             .attr('r', 10)
             .attr('id', 'right_circle');
     visualization.append('circle')
-            .attr('cx', w*.5)
-            .attr('cy', h*.9)
+            .attr('cx', w * 0.5)
+            .attr('cy', h * 0.9)
             .attr('r', 10)
             .attr('id', 'bottom_circle');
     visualization.append('circle')
-            .attr('cx', w*.1)
-            .attr('cy', h*.5)
+            .attr('cx', w * 0.1)
+            .attr('cy', h * 0.5)
             .attr('r', 10)
             .attr('id', 'left_circle');
     // add four boxes that will come up on hover to show PILLARS which will show comments with 
@@ -81,13 +81,11 @@ var visualization = d3.select('#visualization_div').append('svg')
 
       $('#toparrow').hover(function(){ 
           $('.visualization').addClass('.toparrow_hover');
-          $('visualization').addClass
         }, function() { 
-           
 
         });
 
-      $('#centercircle').hover(function(){})
+      $('#centercircle').hover(function(){});
 
       //make this more robust using conditionals to make sure the class isn't misapplied:
       
@@ -97,7 +95,7 @@ var visualization = d3.select('#visualization_div').append('svg')
 
       $('#centercircle_content, #top_pillar, #right_pillar, #bottom_pillar, #left_pillar').click(function(){
         $(this).addClass('hidden');
-      })
+      });
 
       $('#top_circle').click(function(){
         $('#top_pillar').toggleClass('hidden');
@@ -130,7 +128,7 @@ var visualization = d3.select('#visualization_div').append('svg')
     force.on("tick", function(e) {
 
       // Push nodes toward their designated location
-      var k = .1 * e.alpha;
+      var k = 0.1 * e.alpha;
       nodes.forEach( function(o, i) {
         if (o.children && o.children.length) {
             return;
@@ -149,8 +147,12 @@ var visualization = d3.select('#visualization_div').append('svg')
 
 
     function hashCode(s){
-        var hash = 0, i, char;
-        if (s.length == 0) return hash;
+        var hash = 0,
+            i,
+            char;
+        if (s.length === 0) {
+            return hash;
+        }
         for (i = 0; i < s.length; i++) {
             char = s.charCodeAt(i);
             hash = ((hash<<5)-hash)+char;
