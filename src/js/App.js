@@ -171,6 +171,10 @@ var App = function(params) {
             }
         });
 
+        serverClient.addPersonUpdateListener( function(e) {
+            console.dir(e);
+        });
+
         // Comment Shower
         var $commentShowerElem = $("#comment_shower");
         commentShower = new CommentShower({
@@ -218,6 +222,9 @@ $(document).ready(function() {
         basePath: "",
         logger: console
     });
+
+    serverClient = PolisClientForStudents(serverClient);
+
 
     window.polisapp = new App({
         CommentShower: window.CommentShower,

@@ -42,12 +42,14 @@ var ServerClient = function(params) {
     var createAccountPath = "/v2/auth/new";
     var loginPath = "/v2/auth/login";
     var deregisterPath = "/v2/auth/deregister";
+    var pcaPath = "/v2/math/pca";
 
     var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath];
 
     var logger = params.logger;
 
     var authStateChangeCallbacks = $.Callbacks();
+    var personUpdateCallbacks = $.Callbacks();
 
     var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
@@ -380,6 +382,23 @@ var ServerClient = function(params) {
         });
     }
 
+    function getPca() {
+        return polisGet(pcaPath).then( function(pcaData) {
+                // TODO we should include the vectors for each comment (with the comments?)
+                commentVectors = pcaData.commentVectors;
+
+                // TODO this is not runnable, just a rough idea. (data isn't structured like this)
+                var people = pcaData.people;
+
+                for (var i = 0; i < pcaData.length; i++) {
+                    personUpdateCallbacks.fire(people[i]);
+                }
+            },
+            function(err) {
+                console.error('failed to get pca data');
+            });
+    }
+
     function authenticated() {
         return !!tokenStore.get();
     }
@@ -448,6 +467,7 @@ var ServerClient = function(params) {
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
+        addPersonUpdateListener: personUpdateCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,
         submitEvent: submitEvent,
