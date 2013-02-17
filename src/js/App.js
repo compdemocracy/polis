@@ -223,7 +223,7 @@ $(document).ready(function() {
         logger: console
     });
 
-    serverClient = PolisClientForStudents(serverClient);
+    // serverClient = PolisClientForStudents(serverClient);
 
 
     window.polisapp = new App({
@@ -265,7 +265,6 @@ $(document).ready(function() {
 
 
     /*
-
     setInterval(function() {
         serverClient.getLatestEvents().then( function(comments) {
             events.forEach(function(e) {
