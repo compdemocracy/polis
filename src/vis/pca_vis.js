@@ -1,33 +1,29 @@
 
-var PcaVis = (function(el){
+var PcaVis = (function(){
 
-    //the h and w values should be locked at a 1:2 ratio of h to w
-    var h = 450;
-    var w = 900;
-    var nodes = d3.map();
-    var visualization;
-    var force;
+// The h and w values should be locked at a 1:2 ratio of h to w
+var h = 450;
+var w = 900;
+var nodes = d3.map();
+var visualization;
+var force;
 
-    function initialize() {
-        //if (supportsSvg() {
-        Mustache.to_html($("#pca_vis_template_svg").html(), {
-            height: h,
-            width: w
-        });
-        //}
+function initialize(el_selector) {
+    //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
+    //to connect viz to responsive layout if desired
+    visualization = d3.select(el_selector)
+        .append('svg')
+          .attr('width', w)
+          .attr('height', h)
+          .attr('class', 'visualization');
 
-        //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
-        //to connect viz to responsive layout if desired
-        visualization = d3.select('#visualization_div').append('svg')
-                      .attr('width', w)
-                      .attr('height', h)
-                      .attr('class', 'visualization');
+        $(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
-        setupOverlays();
-        setupPlot();
-    }
+    setupOverlays();
+    setupPlot();
+}
 
-    function setupOverlays() {
+function setupOverlays() {
 
     //add four directional arrows, scalable on resize of parent container which must be a square to preserve dimensions of viz.
     visualization.append('line')
@@ -283,7 +279,7 @@ return {
 
 // TODO use almond.js to manage dependencies
 $(document).ready( function() {
-    PcaVis.initialize();
+    PcaVis.initialize("#visualization_div");
 
     var tree = Arboreal.parse(survey200, 'children');
 
