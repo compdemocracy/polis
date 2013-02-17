@@ -171,10 +171,6 @@ var App = function(params) {
             }
         });
 
-        serverClient.addPersonUpdateListener( function(e) {
-            console.dir(e);
-        });
-
         // Comment Shower
         var $commentShowerElem = $("#comment_shower");
         commentShower = new CommentShower({
@@ -300,6 +296,14 @@ $(document).ready(function() {
         $('#articles').css('height', resizeArticleHeight);
         $('#comment_shower').css('height', resizeShowerHeight);
     }
+
+
+    PcaVis.initialize("#visualization_div");
+
+    serverClient.addPersonUpdateListener( function(e) {
+        PcaVis.upsertNode(e);
+    });
+
             
     $(window).resize(onResize);
     onResize();

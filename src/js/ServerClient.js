@@ -452,6 +452,50 @@ var ServerClient = function(params) {
         return s;
     }
 
+    // Setup mock PCA data
+    (function() {
+        var tree = Arboreal.parse(survey200, 'children');
+
+        // Normalize to [-1,1]
+        function normalize(projectionDimension) {
+            return projectionDimension / 6;
+        }
+        tree.traverseDown(function(n) {
+            if (n.data.projection) {
+                n.data.projection = n.data.projection.map(normalize);
+            }
+        });
+
+        var dataFromPca = tree.toArray();
+        console.log(dataFromPca.length);
+
+        var alreadyInserted = []; // for mutation demo
+
+        // Add people to the PcaVis
+        setInterval(function(){
+          if  (dataFromPca.length === 0) {
+            return;
+          }
+          var temp = dataFromPca.shift();
+          personUpdateCallbacks.fire(temp);
+          alreadyInserted.push(temp); // for mutation demo
+        }, 10);
+
+        // for mutation demo
+        setInterval(function() {
+            var mutateThis = alreadyInserted[_.random(0, alreadyInserted.length-1)];
+            if (isPersonNode(mutateThis)) {
+                mutateThis.data.projection[0] = mutateThis.data.projection[0] + 0.3*(Math.random()-0.5);
+                mutateThis.data.projection[1] = mutateThis.data.projection[1] + 0.3*(Math.random()-0.5);
+                PcaVis.upsertNode(mutateThis);
+                personUpdateCallbacks.fire(mutateThis);
+            }
+        }, 100);
+    }()); // end setup mock PCA data
+
+
+
+
     return {
         authenticated: authenticated,
         authNew: authNew,
