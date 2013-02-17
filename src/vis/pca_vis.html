@@ -39,7 +39,11 @@
   </div>
 
 
-<svg style="height: 0px; width:0px;">
+
+
+
+<script type="text/template" id="pca_vis_template_svg">
+    <svg style="height: {{height}}; width:{{width}};">
   <defs>
     <marker id="Triangle"
       viewBox="0 0 10 10" refX="0" refY="5"
@@ -52,13 +56,16 @@
     </marker>
   </defs>
 </svg>
+</script>
 
 
 
 <script src="../lib/js/d3.v3.js"></script>
 <script src="../lib/js/jquery.js"></script>
+<script src="../lib/js/mustache.js"></script>
 <script src="../lib/js/arboreal.js"></script>
 <script src="../lib/js/underscore.js"></script>
+<script src="../lib/js/backbone.js"></script>
 <script src="../lib/js/polisUtils.js"></script>
 <script src="survey200.js"></script>
 <script src="pca_vis.js"></script>

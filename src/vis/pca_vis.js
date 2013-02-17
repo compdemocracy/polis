@@ -1,14 +1,21 @@
 
-var PcaVis = (function(){
+var PcaVis = (function(el){
 
     //the h and w values should be locked at a 1:2 ratio of h to w
     var h = 450;
     var w = 900;
-    var nodes = [];
+    var nodes = d3.map();
     var visualization;
     var force;
 
     function initialize() {
+        //if (supportsSvg() {
+        Mustache.to_html($("#pca_vis_template_svg").html(), {
+            height: h,
+            width: w
+        });
+        //}
+
         //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
         //to connect viz to responsive layout if desired
         visualization = d3.select('#visualization_div').append('svg')
@@ -116,13 +123,25 @@ var PcaVis = (function(){
 
 } // End setup overlays
 
+function computePosition(projection, screenSize, e) {
+    var u = projection;
+
+    var halfScreenSize = screenSize/2;
+    // scale to width (or height if we're mapping to y)
+    u *= halfScreenSize;
+    // animation effect - TODO remove or find something better
+    //u *= (1 - e.alpha);
+    // align to the center
+    u += halfScreenSize;
+    return u;
+}
 
 // pca plotting setup
 function setupPlot() {
 
 
     force = d3.layout.force()
-        .nodes(nodes)
+        .nodes(nodes.values())
         .links([])
         .gravity(0)
         .size([w, h]);
@@ -132,19 +151,72 @@ function setupPlot() {
 
       // Push nodes toward their designated location
       var k = 0.1 * e.alpha;
-      nodes.forEach( function(o, i) {
-        if (o.children && o.children.length) {
+      nodes.forEach( function(id, o) {
+          /*
+        if (!isPersonNode(o)) {
+            // If we decide to show the branching points, we could
+            // compute their position as the average of their childrens'
+            // positions, and return that here.
             return;
         }
-        o.x = o.data.projection[0] * w / 2 + w/2;
-        o.y = o.data.projection[1] * h / 2 + h/2;
+        if (undefined === o.x) { o.x = w/2; }
+        if (undefined === o.y) { o.y = h/2; }
+        var targetX = computePosition(o.data.projection[0], w, e);
+        var targetY = computePosition(o.data.projection[1], h, e);
+
+        o.x += (targetX - o.x) * k;
+        o.y += (targetY - o.y) * k;
+
+
+        var roughDistance = (Math.abs(targetX - o.x) + Math.abs(targetY - o.y))/ (w+h)/2;
+        var opacity = 1 / roughDistance;
+        debugger;
+*/
         
       });
 
+
       // TODO Can we do this less frequently?
       var node = visualization.selectAll("circle.node")
-          .attr("cx", function(d) { return d.x; })
-          .attr("cy", function(d) { return d.y; });
+          .attr("cx", function(d) {
+            if (!isPersonNode(d)) {
+                // If we decide to show the branching points, we could
+                // compute their position as the average of their childrens'
+                // positions, and return that here.
+                return;
+            }
+            if (undefined === d.x) { d.x = w/2; }
+            d.targetX = computePosition(d.data.projection[0], w, e);
+
+            d.x += (d.targetX - d.x) * k;
+
+
+            //var roughDistance = (Math.abs(targetX - d.x) + Math.abs(targetY - d.y))/ (w+h)/2;
+            //var opacity = 1 / roughDistance;
+            return d.x;
+          })
+          .attr("cy", function(d) {
+            if (!isPersonNode(d)) {
+                // If we decide to show the branching points, we could
+                // compute their position as the average of their childrens'
+                // positions, and return that here.
+                return;
+            }
+            if (undefined === d.y) { d.y = h/2; }
+            d.targetY = computePosition(d.data.projection[1], h, e);
+
+            d.y += (d.targetY - d.y) * k;
+
+
+            return d.y;
+          })
+          .attr("opacity", function(d) {
+            var distance = (Math.pow(d.targetX - d.x,2) + Math.pow(d.targetY - d.y,2))/ (w+h)/2;
+            // A gradual slope will cause the opacity to smoothly transition.
+            // A high value for slope will cause the nodes  to pop in and out.
+            var slope = 0.2;
+            return Math.min(1, 1 - distance * slope);
+          });
 
     });
 
@@ -172,19 +244,22 @@ var colorFromString = _.compose(d3.scale.category20(), function(s) {
     return hashCode(s) % 20;
 });
 
-function addNode(node) {
-    nodes.push(node);
-  force.start();
+function key(d) {
+    return d.id;
+}
+
+
+function upsertNode(node) {
+    nodes.set(node.id, node);
+    force.start();
 
   visualization.selectAll("circle.node")
-      .data(nodes)
+      .data(nodes.values(), key)
     .enter().append("svg:circle")
       .attr("class", "node")
-      .attr("cx", function(d) { return d.x; })
-      .attr("cy", function(d) { return d.y; })
       .attr("r", 8)
       .style("fill", function(d) {
-            if (d.children && d.children.length) {
+            if (!isPersonNode(d)) {
                 // only render leaves - may change? render large transucent circles? 
                 return "rgba(0,0,0,0)";
             }
@@ -199,10 +274,10 @@ function addNode(node) {
       .call(force.drag);
 }
 
-    return {
-        initialize: initialize,
-        addNode: addNode
-    };
+return {
+    initialize: initialize,
+    upsertNode: upsertNode
+};
 }());
 
 
@@ -224,11 +299,27 @@ $(document).ready( function() {
     });
 
     var dataFromPca = tree.toArray();
+    console.log(dataFromPca.length);
 
+    var alreadyInserted = []; // for mutation demo
+
+    // Add people to the PcaVis
     setInterval(function(){
       if  (dataFromPca.length === 0) {
         return;
       }
-      PcaVis.addNode(dataFromPca.shift());
+      var temp = dataFromPca.shift();
+      PcaVis.upsertNode(temp);
+      alreadyInserted.push(temp); // for mutation demo
     }, 10);
+
+    // for mutation demo
+    setInterval(function() {
+        var mutateThis = alreadyInserted[_.random(0, alreadyInserted.length-1)];
+        if (isPersonNode(mutateThis)) {
+            mutateThis.data.projection[0] = mutateThis.data.projection[0] + 0.3*(Math.random()-0.5);
+            mutateThis.data.projection[1] = mutateThis.data.projection[1] + 0.3*(Math.random()-0.5);
+            PcaVis.upsertNode(mutateThis);
+        }
+    }, 100);
 });
