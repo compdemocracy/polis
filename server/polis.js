@@ -126,23 +126,6 @@ mongo.connect(process.env.MONGOLAB_URI, {
     db.collection('users', function(err, collectionOfUsers) {
         db.collection('events', function(err, collection) {
             if (err) { console.error(err); return; }
-            collection.find({s: ObjectId("5084c8e3e4b059e606c9ff2a")}, function(err, cursor) {
-                if (err) { console.error(err); return; }
-
-                /*
-                cursor.each(function(err, item) {
-                    if (err) { console.error(err); return; }
-
-                    if(item != null) {
-                        console.dir(item);
-                        var timestampBase16 = item._id.toString().substring(0, 8);
-                        var timestamp = new Date(parseInt( timestampBase16, 16) * 1000) + "";
-                        console.log(timestampBase16);
-                        console.log(timestamp);
-                    }
-                });
-                */
-            });
             // OK, DB is ready, start the API server.
             initializePolisAPI({
                 mongoCollectionOfEvents: collection,
