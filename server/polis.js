@@ -28,7 +28,6 @@ var ALLOW_ANON = true;
 
 var redisForAuth;
 if (process.env.REDISTOGO_URL) {
-    // inside if statement
     var rtg   = url.parse(process.env.REDISTOGO_URL);
     var redisForAuth = require("redis").createClient(rtg.port, rtg.hostname);
     redisForAuth.auth(rtg.auth.split(":")[1]);
@@ -38,7 +37,6 @@ if (process.env.REDISTOGO_URL) {
 
 var redisForMathResults;
 if (process.env.REDISCLOUD_URL) {
-    // inside if statement
     var rc   = url.parse(process.env.REDISCLOUD_URL);
     var redisForMathResults= require("redis").createClient(rc.port, rc.hostname);
     redisForMathResults.auth(rc.auth.split(":")[1]);
