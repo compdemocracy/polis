@@ -124,14 +124,16 @@ mongo.connect(process.env.MONGOLAB_URI, {
     }
 
     db.collection('users', function(err, collectionOfUsers) {
-        db.collection('events', function(err, collection) {
-            if (err) { console.error(err); return; }
-            // OK, DB is ready, start the API server.
-            initializePolisAPI({
-                mongoCollectionOfEvents: collection,
-                mongoCollectionOfUsers: collectionOfUsers,
-            });
+    db.collection('events', function(err, collection) {
+    db.collection('stimuli', function(err, collectionOfStimuli) {
+        // OK, DB is ready, start the API server.
+        initializePolisAPI({
+            mongoCollectionOfEvents: collection,
+            mongoCollectionOfUsers: collectionOfUsers,
+            mongoCollectionOfStimuli: collectionOfStimuli,
         });
+    });
+    });
     });
 });
 
@@ -186,6 +188,7 @@ function initializePolisAPI(params) {
 
 var collection = params.mongoCollectionOfEvents;
 var collectionOfUsers = params.mongoCollectionOfUsers;
+var collectionOfStimuli = params.mongoCollectionOfStimuli;
 
 
 function fail(res, code, err, httpCode) {
