@@ -10,6 +10,7 @@
     <!-- Le styles -->
     <link href="/static/lib/desktop/css/bootstrap.css" rel="stylesheet">
     <link href="/static/lib/desktop/css/flip.css" rel="stylesheet">
+    <link href="/static/vis/pca_vis.css" rel="stylesheet">
     <style type="text/css">
       
         .debug_hidden {
@@ -503,6 +504,7 @@
         </div><!--/row-->
       </div><!--/.fluid-container-->
 
+
     <!-- Le javascript
     ================================================== -->
     <!-- Placed at the end of the document so the pages load faster -->
@@ -511,9 +513,12 @@
     <script src="/static/lib/js/jquery.js"></script>
     <script src="/static/lib/js/lawnchair.js"></script>
     <script src="/static/lib/js/keyboard.js"></script>
+    <script src="/static/lib/js/arboreal.js"></script>
+    <script src="/static/lib/js/d3.v3.js"></script>
     <!-- script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script-->
     <script src="/static/lib/desktop/js/bootstrap.js"></script>
     <script src="/static/lib/js/mustache.js"></script>
+    <script src="/static/lib/js/polisUtils.js"></script>
     <script src="/static/js/util.js"></script>
     <script src="/static/js/ServerClient.js"></script>
     <script src="/static/js/LoginView.js"></script>
@@ -521,6 +526,8 @@
     <script src="/static/js/CommentSubmitter.js"></script>
     <script src="/static/js/StimulusSubmitter.js"></script>
     <script src="/static/js/FeedbackSubmitter.js"></script>
+    <script src="/static/js/VisView.js"></script>
+    <script src="/static/vis/survey200.js"></script>
     <script src="/static/js/App.js"></script>
    
     <script id="showerTemplate" type="text/template">
@@ -558,6 +565,41 @@
         /////////////////////////////////////////////////////////////////*/
     </script>
 
+<script type="text/template" id="pca_vis_overlays_template">
+
+     <div id="centercircle_content" class="hidden">
+      <h3> this is probably... like... you know... a tutorial video </h3> 
+     </div> 
+     <div id="top_pillar" class="hidden">
+      <h2> Members in clusters towards the top have, on average, pulled and pushed the following comments:</h2> 
+      <h4> Pulled: </h4> 
+      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
+      <h4> Pushed: </h4> 
+      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
+     </div>
+     <div id="right_pillar" class="hidden">
+      <h2> Members in clusters towards the right have, on average, pulled and pushed the following comments:</h2> 
+      <h4> Pulled: </h4> 
+      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
+      <h4> Pushed: </h4> 
+      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
+     </div>
+     <div id="bottom_pillar" class="hidden">
+      <h2> Members in clusters towards the bottom have, on average, pulled and pushed the following comments:</h2> 
+      <h4> Pulled: </h4> 
+      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
+      <h4> Pushed: </h4> 
+      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
+     </div>
+     <div id="left_pillar" class="hidden">
+      <h2> Members in clusters towards the left have, on average, pulled and pushed the following comments:</h2> 
+      <h4> Pulled: </h4> 
+      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
+      <h4> Pushed: </h4> 
+      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
+     </div>
+</script>
+
 
     <form id="comment_form">
       <fieldset>
@@ -575,6 +617,8 @@
             <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
       </fieldset>
     </form>
+
+  <div id="visualization_div"></div>
 
 
 

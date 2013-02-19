@@ -219,6 +219,9 @@ $(document).ready(function() {
         logger: console
     });
 
+    // serverClient = PolisClientForStudents(serverClient);
+
+
     window.polisapp = new App({
         CommentShower: window.CommentShower,
         CommentSubmitter: window.CommentSubmitter,
@@ -258,7 +261,6 @@ $(document).ready(function() {
 
 
     /*
-
     setInterval(function() {
         serverClient.getLatestEvents().then( function(comments) {
             events.forEach(function(e) {
@@ -294,6 +296,14 @@ $(document).ready(function() {
         $('#articles').css('height', resizeArticleHeight);
         $('#comment_shower').css('height', resizeShowerHeight);
     }
+
+
+    PcaVis.initialize("#visualization_div");
+
+    serverClient.addPersonUpdateListener( function(e) {
+        PcaVis.upsertNode(e);
+    });
+
             
     $(window).resize(onResize);
     onResize();

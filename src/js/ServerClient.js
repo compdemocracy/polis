@@ -42,12 +42,14 @@ var ServerClient = function(params) {
     var createAccountPath = "/v2/auth/new";
     var loginPath = "/v2/auth/login";
     var deregisterPath = "/v2/auth/deregister";
+    var pcaPath = "/v2/math/pca";
 
     var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath];
 
     var logger = params.logger;
 
     var authStateChangeCallbacks = $.Callbacks();
+    var personUpdateCallbacks = $.Callbacks();
 
     var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
@@ -380,6 +382,23 @@ var ServerClient = function(params) {
         });
     }
 
+    function getPca() {
+        return polisGet(pcaPath).then( function(pcaData) {
+                // TODO we should include the vectors for each comment (with the comments?)
+                commentVectors = pcaData.commentVectors;
+
+                // TODO this is not runnable, just a rough idea. (data isn't structured like this)
+                var people = pcaData.people;
+
+                for (var i = 0; i < pcaData.length; i++) {
+                    personUpdateCallbacks.fire(people[i]);
+                }
+            },
+            function(err) {
+                console.error('failed to get pca data');
+            });
+    }
+
     function authenticated() {
         return !!tokenStore.get();
     }
@@ -433,6 +452,50 @@ var ServerClient = function(params) {
         return s;
     }
 
+    // Setup mock PCA data
+    (function() {
+        var tree = Arboreal.parse(survey200, 'children');
+
+        // Normalize to [-1,1]
+        function normalize(projectionDimension) {
+            return projectionDimension / 6;
+        }
+        tree.traverseDown(function(n) {
+            if (n.data.projection) {
+                n.data.projection = n.data.projection.map(normalize);
+            }
+        });
+
+        var dataFromPca = tree.toArray();
+        console.log(dataFromPca.length);
+
+        var alreadyInserted = []; // for mutation demo
+
+        // Add people to the PcaVis
+        setInterval(function(){
+          if  (dataFromPca.length === 0) {
+            return;
+          }
+          var temp = dataFromPca.shift();
+          personUpdateCallbacks.fire(temp);
+          alreadyInserted.push(temp); // for mutation demo
+        }, 10);
+
+        // for mutation demo
+        setInterval(function() {
+            var mutateThis = alreadyInserted[_.random(0, alreadyInserted.length-1)];
+            if (isPersonNode(mutateThis)) {
+                mutateThis.data.projection[0] = mutateThis.data.projection[0] + 0.3*(Math.random()-0.5);
+                mutateThis.data.projection[1] = mutateThis.data.projection[1] + 0.3*(Math.random()-0.5);
+                PcaVis.upsertNode(mutateThis);
+                personUpdateCallbacks.fire(mutateThis);
+            }
+        }, 100);
+    }()); // end setup mock PCA data
+
+
+
+
     return {
         authenticated: authenticated,
         authNew: authNew,
@@ -448,6 +511,7 @@ var ServerClient = function(params) {
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
+        addPersonUpdateListener: personUpdateCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,
         submitEvent: submitEvent,
