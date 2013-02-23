@@ -66,6 +66,8 @@ body {
 	font-family: 'Airplane';
 	background-color: rgba(255, 255, 255, 0.2);
 	position: relative;
+	cursor: hand; 
+	cursor: pointer; 
 }
 
 .box h3 {
@@ -115,4 +117,15 @@ body {
 
 #clusters {
 	position: absolute;
+}
+
+#clusters2 {
+	position: absolute;
+}
+
+#plus_sign {
+	position: absolute;
+	margin-left: 113px;
+	margin-top: 83px;
+	width: 70px;
 }
