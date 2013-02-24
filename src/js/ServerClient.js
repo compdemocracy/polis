@@ -487,7 +487,6 @@ var ServerClient = function(params) {
             if (isPersonNode(mutateThis)) {
                 mutateThis.data.projection[0] = mutateThis.data.projection[0] + 0.3*(Math.random()-0.5);
                 mutateThis.data.projection[1] = mutateThis.data.projection[1] + 0.3*(Math.random()-0.5);
-                PcaVis.upsertNode(mutateThis);
                 personUpdateCallbacks.fire(mutateThis);
             }
         }, 100);
