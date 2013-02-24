@@ -1,4 +1,7 @@
 
+// TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
+// Use a css animation to transition the position
+
 var PcaVis = (function(){
 
 // The h and w values should be locked at a 1:2 ratio of h to w
