@@ -383,15 +383,24 @@ var ServerClient = function(params) {
     }
 
     function getPca() {
-        return polisGet(pcaPath).then( function(pcaData) {
+        return polisGet(pcaPath, {
+            s: currentStimulusId
+        }).then( function(pcaData) {
                 // TODO we should include the vectors for each comment (with the comments?)
-                commentVectors = pcaData.commentVectors;
+                ///commentVectors = pcaData.commentVectors;
 
                 // TODO this is not runnable, just a rough idea. (data isn't structured like this)
-                var people = pcaData.people;
+                ///var people = pcaData.people;
+                var people = parseTree(pcaData.cluster_tree);
+                //var pcaComponents = parseTree(pcaData.pca_components);
 
-                for (var i = 0; i < pcaData.length; i++) {
-                    personUpdateCallbacks.fire(people[i]);
+                for (var i = 0; i < people.length; i++) {
+                    var person = people[i];
+                    if (isPersonNode(person)) {
+                        person.data.projection[0] += 0.1*(Math.random()-0.5);
+                        person.data.projection[1] += 0.1*(Math.random()-0.5);
+                    }
+                    personUpdateCallbacks.fire(person);
                 }
             },
             function(err) {
@@ -452,9 +461,8 @@ var ServerClient = function(params) {
         return s;
     }
 
-    // Setup mock PCA data
-    (function() {
-        var tree = Arboreal.parse(survey200, 'children');
+    function parseTree(treeObject) {
+        var tree = Arboreal.parse(treeObject, 'children');
 
         // Normalize to [-1,1]
         function normalize(projectionDimension) {
@@ -466,12 +474,18 @@ var ServerClient = function(params) {
             }
         });
 
-        var dataFromPca = tree.toArray();
+        return tree.toArray();
+    }
+
+    // Setup mock PCA data
+    (function() {
+        var dataFromPca= parseTree(survey200);
         console.log(dataFromPca.length);
 
         var alreadyInserted = []; // for mutation demo
 
         // Add people to the PcaVis
+        /*
         setInterval(function(){
           if  (dataFromPca.length === 0) {
             return;
@@ -480,8 +494,13 @@ var ServerClient = function(params) {
           personUpdateCallbacks.fire(temp);
           alreadyInserted.push(temp); // for mutation demo
         }, 10);
+        */
+        setInterval(function() {
+            getPca();
+        }, 5000);
 
         // for mutation demo
+/*
         setInterval(function() {
             var mutateThis = alreadyInserted[_.random(0, alreadyInserted.length-1)];
             if (isPersonNode(mutateThis)) {
@@ -490,6 +509,7 @@ var ServerClient = function(params) {
                 personUpdateCallbacks.fire(mutateThis);
             }
         }, 100);
+*/
     }()); // end setup mock PCA data
 
 

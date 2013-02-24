@@ -126,12 +126,15 @@ mongo.connect(process.env.MONGOLAB_URI, {
     db.collection('users', function(err, collectionOfUsers) {
     db.collection('events', function(err, collection) {
     db.collection('stimuli', function(err, collectionOfStimuli) {
+    db.collection('pcaResults', function(err, collectionOfPcaResults) {
         // OK, DB is ready, start the API server.
         initializePolisAPI({
             mongoCollectionOfEvents: collection,
             mongoCollectionOfUsers: collectionOfUsers,
             mongoCollectionOfStimuli: collectionOfStimuli,
+            mongoCollectionOfPcaResults: collectionOfPcaResults,
         });
+    });
     });
     });
     });
@@ -189,6 +192,7 @@ function initializePolisAPI(params) {
 var collection = params.mongoCollectionOfEvents;
 var collectionOfUsers = params.mongoCollectionOfUsers;
 var collectionOfStimuli = params.mongoCollectionOfStimuli;
+var collectionOfPcaResults = params.mongoCollectionOfPcaResults;
 
 
 function fail(res, code, err, httpCode) {
@@ -219,6 +223,21 @@ var server = http.createServer(function (req, res) {
             var stimulus = query.s;
             var lastServerToken = query.lastServerToken;
             if('GET' === req.method) {
+                collectionOfPcaResults.find({s: stimulus}, function(err, cursor) {
+                    if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
+                    cursor.toArray( function(err, docs) {
+                        if (err) { fail(res, 2389364, "polis_err_get_pca_results_toarray", 500); return; }
+                        if (docs.length) {
+                            res.end(docs[0].pca);
+                        } else {
+                            res.writeHead(404, {
+                            })
+                            res.end();
+                        }
+                    });
+                });
+
+                        /*
                 redisCloud.get("pca:timestamp:" + stimulus, function(errGetToken, replies) {
                     if (errGetToken) {
                         fail(res, 287472365, errGetToken, 404);
@@ -242,6 +261,7 @@ var server = http.createServer(function (req, res) {
                         }));
                     });
                 });
+                */
                 return;
             } // GET
             res.end(403, "post not supported");

@@ -9,7 +9,6 @@ var h = 450;
 var w = 900;
 var nodes = d3.map();
 var visualization;
-var force;
 
 function initialize(el_selector) {
     //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
@@ -122,7 +121,7 @@ function setupOverlays() {
 
 } // End setup overlays
 
-function computePosition(projection, screenSize, e) {
+function computePosition(projection, screenSize) {
     var u = projection;
 
     var halfScreenSize = screenSize/2;
@@ -137,88 +136,6 @@ function computePosition(projection, screenSize, e) {
 
 // pca plotting setup
 function setupPlot() {
-
-
-    force = d3.layout.force()
-        .nodes(nodes.values())
-        .links([])
-        .gravity(0)
-        .size([w, h]);
-
-
-    force.on("tick", function(e) {
-
-      // Push nodes toward their designated location
-      var k = 0.1 * e.alpha;
-      nodes.forEach( function(id, o) {
-          /*
-        if (!isPersonNode(o)) {
-            // If we decide to show the branching points, we could
-            // compute their position as the average of their childrens'
-            // positions, and return that here.
-            return;
-        }
-        if (undefined === o.x) { o.x = w/2; }
-        if (undefined === o.y) { o.y = h/2; }
-        var targetX = computePosition(o.data.projection[0], w, e);
-        var targetY = computePosition(o.data.projection[1], h, e);
-
-        o.x += (targetX - o.x) * k;
-        o.y += (targetY - o.y) * k;
-
-
-        var roughDistance = (Math.abs(targetX - o.x) + Math.abs(targetY - o.y))/ (w+h)/2;
-        var opacity = 1 / roughDistance;
-        debugger;
-*/
-        
-      });
-
-
-      // TODO Can we do this less frequently?
-      var node = visualization.selectAll("circle.node")
-          .attr("cx", function(d) {
-            if (!isPersonNode(d)) {
-                // If we decide to show the branching points, we could
-                // compute their position as the average of their childrens'
-                // positions, and return that here.
-                return;
-            }
-            if (undefined === d.x) { d.x = w/2; }
-            d.targetX = computePosition(d.data.projection[0], w, e);
-
-            d.x += (d.targetX - d.x) * k;
-
-
-            //var roughDistance = (Math.abs(targetX - d.x) + Math.abs(targetY - d.y))/ (w+h)/2;
-            //var opacity = 1 / roughDistance;
-            return d.x;
-          })
-          .attr("cy", function(d) {
-            if (!isPersonNode(d)) {
-                // If we decide to show the branching points, we could
-                // compute their position as the average of their childrens'
-                // positions, and return that here.
-                return;
-            }
-            if (undefined === d.y) { d.y = h/2; }
-            d.targetY = computePosition(d.data.projection[1], h, e);
-
-            d.y += (d.targetY - d.y) * k;
-
-
-            return d.y;
-          })
-          .attr("opacity", function(d) {
-            var distance = (Math.pow(d.targetX - d.x,2) + Math.pow(d.targetY - d.y,2))/ (w+h)/2;
-            // A gradual slope will cause the opacity to smoothly transition.
-            // A high value for slope will cause the nodes  to pop in and out.
-            var slope = 0.2;
-            return Math.min(1, 1 - distance * slope);
-          });
-
-    });
-
 
 
 } // end setupPlot
@@ -250,13 +167,17 @@ function key(d) {
 
 function upsertNode(node) {
     nodes.set(node.id, node);
-    force.start();
 
-  visualization.selectAll("circle.node")
-      .data(nodes.values(), key)
-    .enter().append("svg:circle")
-      .attr("class", "node")
+  var circle = visualization.selectAll("circle.node")
+      .data(nodes.values(), key);
+
+  // ENTER
+  circle.enter().append("svg:circle")
+      .attr("class", "node enter")
       .attr("r", 8)
+      .attr("opacity", 0)
+      .attr("cx", w/2)
+      .attr("cy", h/2)
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
                 // only render leaves - may change? render large transucent circles? 
@@ -270,7 +191,56 @@ function upsertNode(node) {
             return color;
       })
       .style("stroke-width", 1.5)
-      .call(force.drag);
+          ;
+      //.call(force.drag);
+
+      // UPDATE
+      // TODO Can we do this less frequently?
+      circle.attr("class", "node update")
+        .transition()
+          .duration(2000)
+          .attr("cx", function(d) {
+            if (!isPersonNode(d)) {
+                // If we decide to show the branching points, we could
+                // compute their position as the average of their childrens'
+                // positions, and return that here.
+                return;
+            }
+            if (undefined === d.x) { d.x = w/2; }
+            d.targetX = computePosition(d.data.projection[0], w);
+
+            return d.targetX;
+            /*
+
+            d.x += (d.targetX - d.x) * k;
+
+
+            //var roughDistance = (Math.abs(targetX - d.x) + Math.abs(targetY - d.y))/ (w+h)/2;
+            //var opacity = 1 / roughDistance;
+            return d.x;
+            */
+          })
+          .attr("cy", function(d) {
+            if (!isPersonNode(d)) {
+                // If we decide to show the branching points, we could
+                // compute their position as the average of their childrens'
+                // positions, and return that here.
+                return;
+            }
+            if (undefined === d.y) { d.y = h/2; }
+            d.targetY = computePosition(d.data.projection[1], h);
+            return d.targetY;
+/*
+
+            d.y += (d.targetY - d.y) * k;
+
+
+            return d.y;
+*/
+          })
+          .attr("opacity", 1)
+          ;
+
 }
 
 return {
