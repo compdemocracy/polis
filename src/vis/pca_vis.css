@@ -1,15 +1,3 @@
-.enter {
-  fill: green;
-}
-
-.update {
-  fill: #333;
-}
-
-.exit {
-  fill: brown;
-}
-
 #visualization_div {
   margin-top: 100px;
   position: relative;
@@ -121,6 +109,18 @@
 
 .hidden {
   display: none;
+}
+
+.enter {
+  fill: green;
+}
+
+.update {
+  fill: #333;
+}
+
+.exit {
+  fill: brown;
 }
 
 

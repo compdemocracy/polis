@@ -397,8 +397,10 @@ var ServerClient = function(params) {
                 for (var i = 0; i < people.length; i++) {
                     var person = people[i];
                     if (isPersonNode(person)) {
-                        person.data.projection[0] += 0.1*(Math.random()-0.5);
-                        person.data.projection[1] += 0.1*(Math.random()-0.5);
+                        if (Math.random() < 0.1) {
+                            person.data.projection[0] += 0.1*(Math.random()-0.5);
+                            person.data.projection[1] += 0.1*(Math.random()-0.5);
+                        }
                     }
                     personUpdateCallbacks.fire(person);
                 }

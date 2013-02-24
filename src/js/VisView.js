@@ -178,6 +178,7 @@ function upsertNode(node) {
       .attr("opacity", 0)
       .attr("cx", w/2)
       .attr("cy", h/2)
+/*
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
                 // only render leaves - may change? render large transucent circles? 
@@ -190,6 +191,7 @@ function upsertNode(node) {
             }
             return color;
       })
+*/
       .style("stroke-width", 1.5)
           ;
       //.call(force.drag);
@@ -197,48 +199,56 @@ function upsertNode(node) {
       // UPDATE
       // TODO Can we do this less frequently?
       circle.attr("class", "node update")
-        .transition()
-          .duration(2000)
-          .attr("cx", function(d) {
+        .each(function(d) {
             if (!isPersonNode(d)) {
                 // If we decide to show the branching points, we could
                 // compute their position as the average of their childrens'
                 // positions, and return that here.
                 return;
             }
-            if (undefined === d.x) { d.x = w/2; }
             d.targetX = computePosition(d.data.projection[0], w);
-
+            d.targetY = computePosition(d.data.projection[1], h);
+            return d;
+        })
+        .style("fill", function(d) {
+            if (!isPersonNode(d)) {
+                return;
+            }
+            if (Math.abs(this.cx.baseVal.value - d.targetX) > 0.001) {
+                return "red";
+            } else {
+                return "black";
+            }
+        })
+        .style("r", function(d) {
+            if (!isPersonNode(d)) {
+                return;
+            }
+            if (Math.abs(this.cx.baseVal.value - d.targetX) > 0.001) {
+                return 15;
+            } else {
+                return 8;
+            }
+        })
+        .transition()
+        .duration(350)
+        .style("fill", "black")
+        .transition()
+          .duration(1000)
+          .attr("cx", function(d) {
             return d.targetX;
-            /*
-
-            d.x += (d.targetX - d.x) * k;
-
-
-            //var roughDistance = (Math.abs(targetX - d.x) + Math.abs(targetY - d.y))/ (w+h)/2;
-            //var opacity = 1 / roughDistance;
-            return d.x;
-            */
           })
           .attr("cy", function(d) {
-            if (!isPersonNode(d)) {
-                // If we decide to show the branching points, we could
-                // compute their position as the average of their childrens'
-                // positions, and return that here.
-                return;
-            }
-            if (undefined === d.y) { d.y = h/2; }
-            d.targetY = computePosition(d.data.projection[1], h);
             return d.targetY;
-/*
-
-            d.y += (d.targetY - d.y) * k;
-
-
-            return d.y;
-*/
           })
-          .attr("opacity", 1)
+          .attr("opacity", function(d) {
+              return isPersonNode(d) ? 1 : 0;
+          })
+          //.ease("quad")
+          //.delay(100)
+          //.transition()
+           // .duration(500)
+            //.style("fill", "black")
           ;
 
 }
