@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Polis: originator view</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+
+    <!-- Le styles -->
+    <link href="/static/lib/desktop/css/bootstrap.css" rel="stylesheet">
+    <link href="/static/lib/desktop/css/flip.css" rel="stylesheet">
+    <style type="text/css">
+    
+      body{
+        padding-top: 60px;
+        background-image: url(/static/images/bgnoise_lg.png);
+      }
+
+      /* Let's get this scrollbar party started */
+      ::-webkit-scrollbar {
+          width: 6px;
+          height: 0px;
+      }
+
+      /* Handle */
+      ::-webkit-scrollbar-thumb {
+        
+          background: rgba(61, 62, 63, 0.8); 
+          -webkit-box-shadow: inset 0 0 1px rgba(0,0,0,0.5); 
+      }
+
+    </style>
+    </head> 
+    <body>
+
+
+<div class="container-fluid">
+ <div class="row-fluid ">
+  <div class="span6 well" id="stats">
+    <h5> total comments in system: </h5> 
+    <h5> this button turns on and off commenting:  &nbsp; <button id="comment_on_off" class="btn"> Commenting On/Off</button>
+    <h5> students are currently allowed to comment: <span>no/yes</span> </h5>   
+
+  </div> 
+  <div class="span6 well">
+    <h5> a list of all comments: </h5> 
+    <ul id="originator_comments_list">
+      <li> {{ templated li here }} {{ # of reactions }} </li>
+      <li> {{ templated li here }} {{ # of reactions }} </li>
+      <li> {{ templated li here }} {{ # of reactions }} </li>
+      <li> {{ templated li here }} {{ # of reactions }} </li>
+    </ul>
+  </div>
+ </div><!--/row-->
+ <div class="row-fluid">
+  <div class="span6">
+    this is a span 6
+  </div>
+ </div> 
+</div><!--/.fluid-container-->
+
+    <!-- Le javascript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="/static/lib/js/jquery.js"></script>
+    <script src="/static/lib/js/underscore.js"></script>
+    <script src="/static/lib/js/jquery.js"></script>
+    <script src="/static/lib/js/lawnchair.js"></script>
+    <!-- script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script-->
+    <script src="/static/lib/desktop/js/bootstrap.js"></script>
+    <script src="/static/lib/js/mustache.js"></script>
+    <script src="/static/js/util.js"></script>
+    <script src="/static/js/ServerClient.js"></script>
+    <script src="/static/js/LoginView.js"></script>
+    <script src="/static/js/CommentShower.js"></script>
+    <script src="/static/js/CommentSubmitter.js"></script>
+    <script src="/static/js/StimulusSubmitter.js"></script>
+    <script src="/static/js/FeedbackSubmitter.js"></script>
+    <script src="/static/js/App.js"></script>
+
+
+  </body>
+</html>
