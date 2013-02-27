@@ -14,6 +14,12 @@
       $('#polis').css('margin-top', h);
     
     });  */
+  /* $(document).ready(function(){
+    $('.polis_word').hide().fadeIn(1000);
+    $('#fadecontainer').hide().fadeIn(7000);
+  }); */
+    
+
   </script>
 <style type="text/css">
 
@@ -34,7 +40,7 @@ circle {
 <body>
 
 
-
+  <div id="fadecontainer">
 
 
 
@@ -48,7 +54,6 @@ circle {
 
     <p> Welcome to constructive crowd communication. </p>
 
-    <h1 id="hard"> MANY TO ONE IS <span>HARD</span> </h1> 
   </div> 
 
   
@@ -67,12 +72,17 @@ circle {
     </div>
   </div> 
   
-  <div class="polis_text"
-  <h1> <span class="polis_word"> POLIS </span> <span class="many"> MANY TO ONE</span> </h1>
-  </div> 
+  <div class="polis_text_wrapper">
+    <div class="polis_text">
+        <span class="polis_word"> POLIS </span>
+      <div class="many_wrapper"> 
+        <h3 class="to_many"> MANY TO MANY </h3> 
+        <h3 class="to_one"> MANY TO ONE</h3>  
+      </div> 
+    </div> 
+  </div>
 
-
-
+</div> <!-- fadecontainer -->
 
 
 
@@ -84,7 +94,7 @@ var margin = {top: 0, right: 0, bottom: 0, left: 0},
     width = 295 - margin.left - margin.right,
     height = 250 - margin.top - margin.bottom;
 
-var n = 200,
+var n = 100,
     m = 3,
     padding = 6,
     radius = d3.scale.sqrt().range([0, 7]),
