@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# usage: eval `./bin/herokuConfigExport`
+# usage (unsafe!)
+#  eval `./bin/herokuConfigExport`
 
-heroku config:pull | /dev/null
-cat .env  | sed "s/=/='/" | sed "s/$/'/" | sed "s/^/export /"
+heroku config | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /"
