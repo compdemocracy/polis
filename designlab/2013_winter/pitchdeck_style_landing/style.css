@@ -1,14 +1,18 @@
-body {
-	background-image: url('city.jpg');
-	background-size: 100%;
-	background-repeat: no-repeat;
-	background-attachment: fixed;
-	background-position-y: -172px;
-	background-color: black;
+
+html {
 	font-size: 16px;
 }
 
+body {
+		background-image: url('city.jpg');
+		background-size: 100%;
+		background-repeat: no-repeat;
+		background-attachment: fixed;
+		background-position-y: 100px;
+		font-size: 16px;
+	}
 
+/*
 #hero {
 	margin-left: 30px;
 	margin-top: 70px;
@@ -48,72 +52,12 @@ body {
 #hero p h1 {
 	opacity: 1;
 }
-
-.boxes {
-	height: 300px;
-	width: 600px;
-	float: right;
-	margin-right: 30px;
-	margin-top: 70px;
-
-}
-
-.box {
-	width: 295px;
-	height: 288px;
-	color: white;
-	font-weight: lighter;
-	font-family: 'Airplane';
-	background-color: rgba(255, 255, 255, 0.2);
-	position: relative;
-	cursor: hand; 
-	cursor: pointer; 
-}
-
-.box h3 {
-	opacity: .9;
-	color: white;
-	font-weight: lighter;
-	font-family: "Adobe Caslon Pro";
-	text-transform: uppercase;
-	font-size: 14px;
-	text-align: center;
-	margin-top: 234px;
-	background-color: rgba(255, 255, 255, 0.4);
-	padding-top: 20px;
-	padding-bottom: 17px;
-}
+*/
 
 
 
-.left {
-	float: left;
-}
 
-.right {
-	float: right;
-}
 
-.polis_text_wrapper {
-	width: 300px;
-	float: right;
-}
-
-.polis_text {
-	width: 487px;
-	margin-right: 30px;
-	margin-top: 70px;
-	font-family: "Gotham Bold";
-	color: red;
-	font-size: 72px;
-	background-color: black;
-	opacity: .7;
-	padding: 20px;
-}
-
-.polis_word {
-	opacity: .7;
-}
 
 .many_wrapper .to_many, .many_wrapper .to_one {
 	color: white;
@@ -136,9 +80,148 @@ body {
 	position: absolute;
 }
 
-#plus_sign {
-	position: absolute;
-	margin-left: 113px;
-	margin-top: 83px;
-	width: 70px;
+
+
+
+
+
+
+/* Large desktop */
+@media (min-width: 1200px) { 
+
+	body {
+		background-image: url('city.jpg');
+		background-size: 100%;
+		background-repeat: no-repeat;
+		background-attachment: fixed;
+		background-position-y: -172px;
+		background-color: black;
+		font-size: 16px;
+	}
+
 }
+ 
+/* Portrait tablet to landscape and desktop */
+@media (min-width: 768px) and (max-width: 979px) { ... }
+ 
+/* Landscape phone to portrait tablet */
+@media (max-width: 767px) { ... }
+ 
+/* Landscape phones and down */
+@media (max-width: 480px) { 
+
+	body {
+		background-image: url('city.jpg');
+		background-size: 270%;
+		background-repeat: no-repeat;
+		background-attachment: fixed;
+		background-position-y: -170px;
+		background-position-x: -252px;
+		font-size: 16px;
+	}
+
+	#desktop {
+		display: none;
+	}
+
+	#mobile_first {
+
+		display: block; 
+	}
+
+	.polis_word_background {
+		
+		background-color: rgba(0, 0, 0, .2);
+		padding: 20px;
+		width: 80%;
+		margin: auto;
+		border-radius: 2px;
+		text-align: center;
+
+	}
+
+	.polis_word {
+		opacity: .6;
+		font-family: "Gotham Bold";
+		color: red;
+		font-size: 36px;
+
+	}
+
+	.boxes {
+		height: 120px;
+		width: 300px;
+		margin: auto;
+		margin-top: 20px;
+	}
+
+	.box {
+		width: 135px;
+		height: 146px;
+		color: white;
+		font-weight: lighter;
+		background-color: rgba(255, 255, 255, 0.2);
+		position: relative;
+		cursor: hand; 
+		cursor: pointer; 
+	}
+
+	.box h3 {
+		opacity: .9;
+		color: black;
+		font-weight: lighter;
+		font-family: "Gotham Bold";
+		text-transform: uppercase;
+		font-size: 14px;
+		text-align: center;
+		margin-top: 116px;
+		background-color: rgba(255, 255, 255, .9);
+		padding-top: 10px;
+		padding-bottom: 7px;
+	}
+
+	.left {
+		float: left;
+	}
+	.right {
+		float: right;
+	}
+
+	#plus_sign {
+		position: absolute;
+		width: 50px;
+		margin-left: 44px;
+		margin-top: 27px;
+	}
+
+
+	#hero {
+		width: 80%;
+		margin: auto;
+		background-color: rgba(0, 0, 0, .8);
+		padding: 20px;
+		margin-top: 50px;
+		border-top: 2px solid white;
+	}
+
+	#hero h1 {
+		font-size: 16px; 
+		font-weight: lighter;
+		margin: 0px;
+		font-family: "Adobe Caslon Pro";
+		opacity: .9;
+		color: white;
+	}
+
+	#hero p {
+		font-size: 16px;
+		font-weight: lighter;
+		margin-top: 15px;
+		margin-bottom: 15px;
+		font-family: "Adobe Caslon Pro";
+		color: white;
+		opacity: .9;
+	}
+
+
+} /***** END MOBILE MEDIA QUERY *****/
