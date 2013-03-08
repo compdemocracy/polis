@@ -12,50 +12,6 @@ body {
 		font-size: 16px;
 	}
 
-/*
-#hero {
-	margin-left: 30px;
-	margin-top: 70px;
-	background-color: black;
-	opacity: .8;
-	width: 410px;
-	padding: 20px;
-	float: left;
-}
-
-#hero h1 {
-	font-size: 24px; 
-	font-weight: lighter;
-	margin: 0px;
-	font-family: "Adobe Caslon Pro";
-	color: white;
-	opacity: 1;
-
-}
-
-#hero p {
-	
-	font-size: 16px;
-	width: 90%;
-	font-weight: lighter;
-	margin-top: 30px;
-	margin-bottom: 30px;
-	font-family: "Adobe Caslon Pro";
-	color: white;
-	width: 400px;
-}
-
-#hero span {
-	color: red;
-}
-
-#hero p h1 {
-	opacity: 1;
-}
-*/
-
-
-
 
 
 
@@ -131,17 +87,19 @@ body {
 
 	.polis_word_background {
 		
-		background-color: rgba(0, 0, 0, .2);
-		padding: 20px;
+		padding-top: 20px;
 		width: 80%;
 		margin: auto;
-		border-radius: 2px;
 		text-align: center;
-
+		/*
+		border-top: 2px solid white;
+		border-bottom: 2px solid white;
+		background-color: rgba(0, 0, 0, .2);
+		*/
 	}
 
 	.polis_word {
-		opacity: .6;
+		opacity: .8;
 		font-family: "Gotham Bold";
 		color: red;
 		font-size: 36px;
@@ -149,10 +107,10 @@ body {
 	}
 
 	.boxes {
-		height: 120px;
+		height: 146px;
 		width: 300px;
 		margin: auto;
-		margin-top: 20px;
+		margin-top: 22px;
 	}
 
 	.box {
@@ -200,7 +158,7 @@ body {
 		margin: auto;
 		background-color: rgba(0, 0, 0, .8);
 		padding: 20px;
-		margin-top: 50px;
+		margin-top: 25px;
 		border-top: 2px solid white;
 	}
 
@@ -221,6 +179,23 @@ body {
 		font-family: "Adobe Caslon Pro";
 		color: white;
 		opacity: .9;
+	}
+
+	#about {
+		width: 80%;
+		padding: 20px;
+		margin: auto;
+		margin-top: 20px;
+		background-color: rgba(255, 255, 255, .8);
+		opacity: .9;
+		color: black;
+		font-weight: lighter;
+		font-family: "Gotham Bold";
+		text-transform: uppercase;
+		font-size: 14px;
+		text-align: center;
+		cursor: hand; 
+		cursor: pointer;
 	}
 
 
