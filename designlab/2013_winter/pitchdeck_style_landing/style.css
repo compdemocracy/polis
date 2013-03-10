@@ -47,12 +47,20 @@ body {
 
 	body {
 		background-image: url('city.jpg');
-		background-size: 100%;
+		background-size: cover;
 		background-repeat: no-repeat;
 		background-attachment: fixed;
 		background-position-y: -172px;
 		background-color: black;
 		font-size: 16px;
+	}
+
+	#mobile_first {
+		display: none;
+	}
+
+	#desktop {
+		display: block;
 	}
 
 }
