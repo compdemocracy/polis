@@ -1,3 +1,12 @@
+function getLocationHash() {
+    var pairs = {};
+    var kv = location.hash.slice(1).split("&").map(function(kv) { return kv.split("=");});
+    for (var i = 0; i < kv.length; i++) {
+        pairs[kv[i][0]] = kv[i][1];
+    }
+    return pairs;
+}
+
 var App = function(params) {
     
     var utils = params.utils;
@@ -46,7 +55,12 @@ var App = function(params) {
         });
     }
     var setStimulusOnFirstLoad = _.once(function() {
-        setStimulus("509c9db2bc1e120000000001");
+        var stim = "513d7389d05267781416684e";
+        var kv = getLocationHash();
+        if (kv.s) {
+            stim = kv.s;
+        }
+        setStimulus(stim);
         //setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
     });
 
@@ -108,6 +122,7 @@ var App = function(params) {
         loginView = new LoginView({
             emailStore: PolisStorage.email,
             usernameStore: PolisStorage.username,
+            personIdStore: PolisStorage.personId,
             rootElemId: "create_user_modal",
             submit: serverClient.authLogin,
             onOk: function() { console.log('login success'); },
@@ -210,6 +225,7 @@ $(document).ready(function() {
         tokenStore: PolisStorage.token,
         emailStore: PolisStorage.email,
         usernameStore: PolisStorage.username,
+        personIdStore: PolisStorage.personId,
         //commentsStore: PolisStorage.comments,
         //reactionsByMeStore: PolisStorage.reactionsByMe,
         utils: window.utils,
@@ -236,6 +252,10 @@ $(document).ready(function() {
         if (location.hash === "#somecoolfeature") {
             somecoolfeature();
         }
+        var pairs = getLocationHash();
+        if (pairs.s) { // stimulus
+            setStimulus(pairs.s);
+        }
     }
     window.addEventListener("hashchange", locationHashChanged);
 
@@ -298,7 +318,10 @@ $(document).ready(function() {
     }
 
 
-    PcaVis.initialize("#visualization_div");
+    PcaVis.initialize({
+        getPersonId: PolisStorage.personId.get,
+        el: "#visualization_div"
+    });
 
     serverClient.addPersonUpdateListener( function(e) {
         PcaVis.upsertNode(e);

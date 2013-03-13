@@ -53,9 +53,10 @@ var ServerClient = function(params) {
 
     var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
+    var personIdStore = params.personIdStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
-    var authStores = [tokenStore, usernameStore, emailStore];
+    var authStores = [tokenStore, usernameStore, emailStore, personIdStore];
     function clearAuthStores() {
         authStores.forEach(function(x) {
             x.clear();
@@ -340,11 +341,15 @@ var ServerClient = function(params) {
             if (params.username) {
                 usernameStore.set(params.username, temporary);
             }
+            if (authData.u) {
+                personIdStore.set(authData.u, temporary);
+            }
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
             authStateChangeCallbacks.fire(assemble({
                 email: params.email,
+                person_id: params.u,
                 username: params.username,
                 state: "p_registered"
             }));
@@ -361,11 +366,15 @@ var ServerClient = function(params) {
             if (params.username) {
                 usernameStore.set(params.username, temporary);
             }
+            if (authData.u) {
+                personIdStore.set(authData.u, temporary);
+            }
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
             authStateChangeCallbacks.fire(assemble({
                 email: params.email,
+                person_id: params.u,
                 username: params.username,
                 state: "p_registered"
             }));
@@ -396,12 +405,14 @@ var ServerClient = function(params) {
 
                 for (var i = 0; i < people.length; i++) {
                     var person = people[i];
+                    /*
                     if (isPersonNode(person)) {
                         if (Math.random() < 0.1) {
                             person.data.projection[0] += 0.1*(Math.random()-0.5);
                             person.data.projection[1] += 0.1*(Math.random()-0.5);
                         }
                     }
+                    */
                     personUpdateCallbacks.fire(person);
                 }
             },

@@ -338,6 +338,7 @@ var server = http.createServer(function (req, res) {
                         startSession(userID, function(errSessionStart,token) {
                             if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
                             res.end(JSON.stringify({
+                                u: userID,
                                 token: token
                             }));
                         });

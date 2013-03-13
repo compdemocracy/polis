@@ -69,6 +69,7 @@ var PolisStorage = function() {
         reactionsByMe: makeAccessor('p_reactions_by_me'), // TODO use a real db
         email: makeAccessor('p_email'),
         username: makeAccessor('p_username'),
+        personId: makeAccessor('p_personId'),
         token: makeAccessor('p_authToken')
     };
 }();

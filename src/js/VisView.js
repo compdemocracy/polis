@@ -10,7 +10,14 @@ var w = 900;
 var nodes = d3.map();
 var visualization;
 
-function initialize(el_selector) {
+var el_selector;
+var getPersonId;
+
+function initialize(params) {
+    el_selector = params.el;
+    getPersonId = params.getPersonId;
+
+
     //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
     //to connect viz to responsive layout if desired
     visualization = d3.select(el_selector)
@@ -215,6 +222,8 @@ function upsertNode(node) {
                 return;
             }
             if (Math.abs(this.cx.baseVal.value - d.targetX) > 0.001) {
+                return "blue";
+            } else if (d.data.person_id === getPersonId()) {
                 return "red";
             } else {
                 return "black";
@@ -232,7 +241,7 @@ function upsertNode(node) {
         })
         .transition()
         .duration(350)
-        .style("fill", "black")
+        .style("fill", function(d) { return d.data.person_id === getPersonId() ? "red" : "black";})
         .transition()
           .duration(1000)
           .attr("cx", function(d) {
