@@ -8,37 +8,9 @@ body {
 		background-size: 100%;
 		background-repeat: no-repeat;
 		background-attachment: fixed;
-		background-position-y: 100px;
+		background-position-y: -172px;
 		font-size: 16px;
 	}
-
-
-
-
-.many_wrapper .to_many, .many_wrapper .to_one {
-	color: white;
-	font-size: 26px;
-	opacity: 1;
-	position: relative;
-	margin: 0px;
-	padding-top: 4px;
-}
-
-.many_wrapper {
-	float: right;
-}
-
-#clusters {
-	position: absolute;
-}
-
-#clusters2 {
-	position: absolute;
-}
-
-
-
-
 
 
 
@@ -54,6 +26,155 @@ body {
 		background-color: black;
 		font-size: 16px;
 	}
+
+
+	#hero {
+	  margin-left: 30px;
+	  margin-top: 70px;
+	  background-color: black;
+	  opacity: .8;
+	  width: 410px;
+	  padding: 20px;
+	  float: left;
+	}
+
+	#hero h1 {
+	  font-size: 24px; 
+	  font-weight: lighter;
+	  margin: 0px;
+	  font-family: "Adobe Caslon Pro";
+	  color: white;
+	  opacity: 1;
+
+	}
+
+	#hero p {
+	  
+	  font-size: 16px;
+	  width: 90%;
+	  font-weight: lighter;
+	  margin-top: 30px;
+	  margin-bottom: 30px;
+	  font-family: "Adobe Caslon Pro";
+	  color: white;
+	  width: 400px;
+	}
+
+	#hero span {
+	  color: red;
+	}
+
+	#hero p h1 {
+	  opacity: 1;
+	}
+
+	.boxes {
+	  height: 300px;
+	  width: 600px;
+	  float: right;
+	  margin-right: 30px;
+	  margin-top: 70px;
+
+	}
+
+	.box {
+	  width: 295px;
+	  height: 288px;
+	  color: white;
+	  font-weight: lighter;
+	  font-family: 'Airplane';
+	  background-color: rgba(255, 255, 255, 0.2);
+	  position: relative;
+	  cursor: hand; 
+	  cursor: pointer; 
+	}
+
+	.box h3 {
+	  opacity: .9;
+	  color: white;
+	  font-weight: lighter;
+	  font-family: "Adobe Caslon Pro";
+	  text-transform: uppercase;
+	  font-size: 14px;
+	  text-align: center;
+	  margin-top: 234px;
+	  background-color: rgba(255, 255, 255, 0.4);
+	  padding-top: 20px;
+	  padding-bottom: 17px;
+	}
+
+
+
+	.left {
+	  float: left;
+	}
+
+	.right {
+	  float: right;
+	}
+
+	.polis_text_wrapper {
+	  width: 300px;
+	  float: right;
+	}
+
+	.polis_text {
+	  width: 487px;
+	  margin-right: 30px;
+	  margin-top: 70px;
+	  font-family: "Gotham Bold";
+	  color: red;
+	  font-size: 72px;
+	  background-color: black;
+	  opacity: .7;
+	  padding: 20px;
+	}
+
+	.polis_word {
+	  opacity: .7;
+	}
+
+	.many_wrapper .to_many, .many_wrapper .to_one {
+	  color: white;
+	  font-size: 26px;
+	  opacity: 1;
+	  position: relative;
+	  margin: 0px;
+	  padding-top: 4px;
+	}
+
+	.many_wrapper {
+	  float: right;
+	}
+
+	#clusters {
+	  position: absolute;
+	}
+
+	#clusters2 {
+	  position: absolute;
+	}
+
+	#plus_sign {
+	  position: absolute;
+	  margin-left: 113px;
+	  margin-top: 83px;
+	  width: 70px;
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	#mobile_first {
 		display: none;
