@@ -510,7 +510,7 @@ var ServerClient = function(params) {
         */
         setInterval(function() {
             getPca();
-        }, 5000);
+        }, 500);
 
         // for mutation demo
 /*
