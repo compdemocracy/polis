@@ -128,19 +128,6 @@ function setupOverlays() {
 
 } // End setup overlays
 
-function computePosition(projection, screenSize) {
-    var u = projection;
-
-    var halfScreenSize = screenSize/2;
-    // scale to width (or height if we're mapping to y)
-    u *= halfScreenSize;
-    // animation effect - TODO remove or find something better
-    //u *= (1 - e.alpha);
-    // align to the center
-    u += halfScreenSize;
-    return u;
-}
-
 // pca plotting setup
 function setupPlot() {
 
@@ -171,17 +158,41 @@ function key(d) {
     return d.id;
 }
 
+var nodeCounts = [];
 
-function upsertNode(node) {
+function upsertNode(node) { // TODO, accept an array, since this could get expensive.
     nodes.set(node.id, node);
+    var sortedNodes = nodes.values().sort(key);
+    nodeCounts.push(sortedNodes.length);
+    //console.dir(nodeCounts);
+    console.log(sortedNodes.length);
+
+    var nodeRadius = 10;
+
+    var spans = { 
+        x: { min: Infinity, max: -Infinity },
+        y: { min: Infinity, max: -Infinity }
+    };
+    for (var i = 0; i < sortedNodes.length; i++) {
+        if (sortedNodes[i].data.projection) {
+            spans.x.min = Math.min(spans.x.min, sortedNodes[i].data.projection[0]);
+            spans.x.max = Math.max(spans.x.max, sortedNodes[i].data.projection[0]);
+            spans.y.min = Math.min(spans.y.min, sortedNodes[i].data.projection[1]);
+            spans.y.max = Math.max(spans.y.max, sortedNodes[i].data.projection[1]);
+        }
+    }
+
+    var border = nodeRadius + 5;
+    var scaleX = d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]);
+    var scaleY = d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min, spans.y.max]);
 
   var circle = visualization.selectAll("circle.node")
-      .data(nodes.values(), key);
+      .data(sortedNodes, key);
 
   // ENTER
   circle.enter().append("svg:circle")
       .attr("class", "node enter")
-      .attr("r", 8)
+      .attr("r", nodeRadius)
       .attr("opacity", 0)
       .attr("cx", w/2)
       .attr("cy", h/2)
@@ -213,8 +224,8 @@ function upsertNode(node) {
                 // positions, and return that here.
                 return;
             }
-            d.targetX = computePosition(d.data.projection[0], w);
-            d.targetY = computePosition(d.data.projection[1], h);
+            d.targetX = scaleX(d.data.projection[0]);
+            d.targetY = scaleY(d.data.projection[1]);
             return d;
         })
         .style("fill", function(d) {
