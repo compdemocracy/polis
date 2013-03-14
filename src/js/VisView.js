@@ -42,7 +42,7 @@ function initialize(params) {
     force.on("tick", function(e) {
 
       // Push nodes toward their designated focus.
-      var k = .1 * e.alpha;
+      var k = 0.1 * e.alpha;
       sortedNodes.forEach(function(o, i) {
         o.x += (o.targetX - o.x) * k;
         o.y += (o.targetY - o.y) * k;
@@ -254,7 +254,6 @@ console.dir(force);
 */
       .style("stroke-width", 1.5)
       .call(force.drag);
-          ;
       //.call(force.drag);
 
       // UPDATE
