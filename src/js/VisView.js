@@ -7,16 +7,49 @@ var PcaVis = (function(){
 // The h and w values should be locked at a 1:2 ratio of h to w
 var h = 450;
 var w = 900;
-var nodes = d3.map();
+var nodes = [];
 var visualization;
 
 var el_selector;
 var getPersonId;
 
 var force;
-var sortedNodes = [];
+
+// maps of key to current location
+// TODO delete on D3 delete event
+var currentX = {};
+var currentY = {};
+
+var updatesEnabled = true;
+
+window.P.stop = function() {
+    if (window.P.stop) {
+        window.P.stop();
+    }
+    updatesEnabled = false;
+};
+
+function setCy(d) {
+    if (currentY[key(d)] !== undefined) {
+        return currentY[key(d)];
+    } else {
+        console.log('y bad');
+        return h/2;
+    }
+}
+
+function setCx(d) {
+    //console.log(d.id, d.data.projection[0]);
+    if (currentX[key(d)] !== undefined) {
+        return currentX[key(d)];
+    } else {
+        console.log('x bad');
+        return w/2;
+    }
+}
 
 function initialize(params) {
+    console.log('init');
     el_selector = params.el;
     getPersonId = params.getPersonId;
 
@@ -32,30 +65,30 @@ function initialize(params) {
         $(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
     force = d3.layout.force()
-        .nodes(sortedNodes)
+        .nodes(nodes)
         .links([])
         .gravity(0)
-        //.charge(0.01)
+        .charge(0.01)
         .size([w, h]);
 
-
     force.on("tick", function(e) {
+          // Push nodes toward their designated focus.
+          var k = 0.9 * e.alpha;
+          if (k <= 0.04) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
+          nodes.forEach(function(o, i) {
+              //o.x = o.data.targetX;
+              //o.y = o.data.targetY;
+              if (!currentX[key(o)]) { currentX[key(o)] = w/2; }
+              if (!currentY[key(o)]) { currentY[key(o)] = h/2; }
+              currentX[key(o)] += (o.data.targetX - currentX[key(o)]) * k;
+              currentY[key(o)] += (o.data.targetY - currentY[key(o)]) * k;
+          });
 
-      // Push nodes toward their designated focus.
-      var k = 0.1 * e.alpha;
-      sortedNodes.forEach(function(o, i) {
-        o.x += (o.targetX - o.x) * k;
-        o.y += (o.targetY - o.y) * k;
-      });
-
-      visualization.selectAll("circle.node")
-          .attr("cx", function(d) {
-            return d.x || w/2; })
-          .attr("cy", function(d) { return d.y || h/2; });
-    });
-
+          visualization.selectAll("circle.node")
+              .attr("cx", setCx)
+              .attr("cy", setCy);
+        });
     setupOverlays();
-    setupPlot();
 }
 
 function setupOverlays() {
@@ -154,12 +187,6 @@ function setupOverlays() {
 
 } // End setup overlays
 
-// pca plotting setup
-function setupPlot() {
-
-
-} // end setupPlot
-
 
 function hashCode(s){
     var hash = 0,
@@ -185,59 +212,98 @@ function key(d) {
 }
 
 
-function upsertNode(node) { // TODO, accept an array, since this could get expensive.
-    force.start();
-console.dir(force);
-    nodes.set(node.id, node);
+function hasChanged(n1, n2) {
+    //return !_.isEqual(n1.data.projection, n2.data.projection);
+    var p1 = n1.data.projection;
+    var p2 = n2.data.projection;
+    for (var i = 0; i < p1.length; i++) {
+        if (Math.abs(p1[i] - p2[i]) > 0.01) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    //var bisect = d3.bisector(key).left;
-
-    //var index = bisect(sortedNodes, node);
-    //var numToRemove = 0;
-    //if (sortedNodes.length > 0 && key(sortedNodes[index]) === key(node)) {
-        ////numToRemove = 1;
-    //}
-    //sortedNodes.splice(index, numToRemove, node);
-
-    // or do this        
-    // we don't want the force layout to lose the reference to this array
-    sortedNodes.length = 0;
-    sortedNodes.push.apply(sortedNodes, nodes.values().sort(key));
-
-//    console.log(sortedNodes);
+function upsertNode(updatedNodes) { // TODO, accept an array, since this could get expensive.
+    if (!updatesEnabled) {
+        return;
+    }
+    console.log('upsert');
+    //nodes.set(node.id, node);
 
 
+    function computeTarget(d) {
+        //if (!isPersonNode(d)) {
+            // If we decide to show the branching points, we could
+            // compute their position as the average of their childrens'
+            // positions, and return that here.
+            //return;
+        //}
 
-    var nodeRadius = 10;
+        d.data.targetX = scaleX(d.data.projection[0]);
+        d.data.targetY = scaleY(d.data.projection[1]);
+        return d;
+    }
+
+
+    var nodeRadius = 10;// + Math.random() * 10 - 5;
+    var maxNodeRadius = 10 + 5;
 
     var spans = { 
         x: { min: Infinity, max: -Infinity },
         y: { min: Infinity, max: -Infinity }
     };
-    for (var i = 0; i < sortedNodes.length; i++) {
-        if (sortedNodes[i].data.projection) {
-            spans.x.min = Math.min(spans.x.min, sortedNodes[i].data.projection[0]);
-            spans.x.max = Math.max(spans.x.max, sortedNodes[i].data.projection[0]);
-            spans.y.min = Math.min(spans.y.min, sortedNodes[i].data.projection[1]);
-            spans.y.max = Math.max(spans.y.max, sortedNodes[i].data.projection[1]);
+    for (var i = 0; i < updatedNodes.length; i++) {
+        if (updatedNodes[i].data && updatedNodes[i].data.projection) {
+            spans.x.min = Math.min(spans.x.min, updatedNodes[i].data.projection[0]);
+            spans.x.max = Math.max(spans.x.max, updatedNodes[i].data.projection[0]);
+            spans.y.min = Math.min(spans.y.min, updatedNodes[i].data.projection[1]);
+            spans.y.max = Math.max(spans.y.max, updatedNodes[i].data.projection[1]);
         }
     }
 
-    var border = nodeRadius + 50;
+    var border = maxNodeRadius + 50;
     var scaleX = d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]);
     var scaleY = d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min, spans.y.max]);
+    //var scaleX = d3.scale.linear().range([0 + border, w - border]).domain([-0.5, 0.5]);
+    //var scaleY = d3.scale.linear().range([0 + border, h - border]).domain([-0.5, 0.5]);
  
+    nodes = updatedNodes.filter(isPersonNode).sort(key).map(computeTarget);
+
+    // simplify debugging by looking at a single node
+    //nodes = nodes.slice(0, 1);
+    // check for unexpected changes in input
+    if (window.temp !== undefined) {
+        if (key(window.temp) !== key(nodes[0])) {
+            console.log('changed key');
+            console.dir(window.temp);
+            console.dir(nodes[0]);
+        }
+        if (!_.isEqual(window.temp.data.projection, nodes[0].data.projection)) {
+            console.log('changed projection');
+            console.dir(window.temp);
+            console.dir(nodes[0]);
+        }
+        window.temp = nodes[0];
+    }
+
+    function chooseFill(d) {
+        if (d.data.person_id === getPersonId()) {
+            return "red";
+        } else {
+            return "black";
+        }
+    }
+
 
   var circle = visualization.selectAll("circle.node")
-      .data(sortedNodes, key);
+      .data(nodes);
 
   // ENTER
   circle.enter().append("svg:circle")
       .attr("class", "node enter")
+      .each(function(d) {d.x = w/2; d.y = h/2;})
       .attr("r", nodeRadius)
-      .attr("cx", function(d) {
-         return d.x; })
-      .attr("cy", function(d) { return d.y; })
 /*
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
@@ -252,60 +318,59 @@ console.dir(force);
             return color;
       })
 */
-      .style("stroke-width", 1.5)
-      .call(force.drag);
+        .style("stroke-width", 1.5)
+        .call(force.drag)
+          ;
       //.call(force.drag);
+
+ 
 
       // UPDATE
       // TODO Can we do this less frequently?
       circle.attr("class", "node update")
         .each(function(d) {
-            if (!isPersonNode(d)) {
-                // If we decide to show the branching points, we could
-                // compute their position as the average of their childrens'
-                // positions, and return that here.
-                return;
-            }
-            d.targetX = scaleX(d.data.projection[0]);
-            d.targetY = scaleY(d.data.projection[1]);
-            return d;
+            d.x = d.x !== undefined ? d.x : d.data.targetX;
+            d.y = d.y !== undefined ? d.y : d.data.targetY;
         })
-        .style("fill", function(d) {
+        .style("stroke", function(d) {
             if (!isPersonNode(d)) {
                 return;
             }
-            if (Math.abs(this.cx.baseVal.value - d.targetX) > 0.001) {
+            return "orange";
+        })
+        .style("fill", function(d) { 
+            var distanceInPixels = Math.abs(this.cx.baseVal.value - d.data.targetX);
+            if (distanceInPixels > 30) {
                 return "blue";
-            } else if (d.data.person_id === getPersonId()) {
-                return "red";
             } else {
-                return "black";
+                return chooseFill(d);
             }
         })
         .style("r", function(d) {
             if (!isPersonNode(d)) {
                 return;
             }
-            if (Math.abs(this.cx.baseVal.value - d.targetX) > 0.001) {
+            if (Math.abs(this.cx.baseVal.value - d.data.targetX) > 0.001) {
                 return 50;
             } else {
                 return nodeRadius;
             }
         })
         .transition()
-        .duration(350)
-        .style("fill", function(d) { return d.data.person_id === getPersonId() ? "red" : "black";})
+        .duration(500)
+        .style("stroke", "black")
+        .style("fill", chooseFill)
         .transition()
-          .duration(1000)
+          .duration(500)
           //.attr("cx", function(d) {
-            //return d.targetX;
+            //return d.data.targetX;
           //})
           //.attr("cy", function(d) {
-            //return d.targetY;
+            //return d.data.targetY;
           //})
-          .attr("opacity", function(d) {
-              return isPersonNode(d) ? 1 : 0;
-          })
+          //.attr("opacity", function(d) {
+          //return isPersonNode(d) ? 1 : 0;
+          //})
           //.ease("quad")
           //.delay(100)
           //.transition()
@@ -313,6 +378,7 @@ console.dir(force);
             //.style("fill", "black")
           ;
 
+    force.nodes(nodes, key).start();
 
 }
 

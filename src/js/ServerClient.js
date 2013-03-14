@@ -403,18 +403,21 @@ var ServerClient = function(params) {
                 var people = parseTree(pcaData.cluster_tree);
                 //var pcaComponents = parseTree(pcaData.pca_components);
 
-                for (var i = 0; i < people.length; i++) {
-                    var person = people[i];
+                //for (var i = 0; i < people.length; i++) {
+                    //var person = people[i];
+                    
                     /*
                     if (isPersonNode(person)) {
-                        if (Math.random() < 0.1) {
-                            person.data.projection[0] += 0.1*(Math.random()-0.5);
-                            person.data.projection[1] += 0.1*(Math.random()-0.5);
+                        if (Math.random() < 0.05) {
+                            person.data.projection[0] += 0.01*(Math.random()-0.5);
+                            person.data.projection[1] += 0.01*(Math.random()-0.5);
                         }
                     }
                     */
-                    personUpdateCallbacks.fire(person);
-                }
+                    
+                    //personUpdateCallbacks.fire(person);
+                //}
+                personUpdateCallbacks.fire(people);
             },
             function(err) {
                 console.error('failed to get pca data');
@@ -498,7 +501,8 @@ var ServerClient = function(params) {
         var alreadyInserted = []; // for mutation demo
 
         // Add people to the PcaVis
-        /*
+        
+/*
         setInterval(function(){
           if  (dataFromPca.length === 0) {
             return;
@@ -507,21 +511,25 @@ var ServerClient = function(params) {
           personUpdateCallbacks.fire(temp);
           alreadyInserted.push(temp); // for mutation demo
         }, 10);
-        */
+*/
+        
+        setTimeout(getPca,0);
         setInterval(function() {
             getPca();
-        }, 500);
+        }, 5000);
 
         // for mutation demo
 /*
         setInterval(function() {
-            var mutateThis = alreadyInserted[_.random(0, alreadyInserted.length-1)];
+            for (var i = 0; i < alreadyInserted.length; i++) {
+            var mutateThis = alreadyInserted[i];
             if (isPersonNode(mutateThis)) {
-                mutateThis.data.projection[0] = mutateThis.data.projection[0] + 0.3*(Math.random()-0.5);
-                mutateThis.data.projection[1] = mutateThis.data.projection[1] + 0.3*(Math.random()-0.5);
+                mutateThis.data.projection[0] = mutateThis.data.projection[0] + 1.1;//*(Math.random()-0.5);
+                mutateThis.data.projection[1] = mutateThis.data.projection[1] + 1.1;//*(Math.random()-0.5);
                 personUpdateCallbacks.fire(mutateThis);
             }
-        }, 100);
+            }
+        }, 1000);
 */
     }()); // end setup mock PCA data
 

@@ -264,7 +264,7 @@ $(document).ready(function() {
         $('#create_user_modal').modal('show');
     }
     if (!serverClient.authenticated()) {
-        promptUserToRegister();
+        //promptUserToRegister();
     }
 
     function onModeChange(e) {
@@ -327,6 +327,14 @@ $(document).ready(function() {
         PcaVis.upsertNode(e);
     });
 
+window.newUser = function() {
+    PolisStorage.token.clear();
+    PolisStorage.email.clear();
+    PolisStorage.username.clear();
+    PolisStorage.personId.clear();
+    window.location = window.location;
+};
+    
             
     $(window).resize(onResize);
     onResize();
