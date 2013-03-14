@@ -158,13 +158,13 @@ var App = function(params) {
                 // update UI
 
                 //hide modals when user successfully registers
-                $('#create_user_modal').modal('hide'); 
-                $('#introduction_modal').modal('hide');
+                //$('#create_user_modal').modal('hide'); 
+                //$('#introduction_modal').modal('hide');
                 
                 //add close button and enable background click so users can
                 //close intro modal if clicked from menu after login
-                $('#introduction_modal').removeAttr('data-backdrop');
-                $('#introduction_modal_button').removeAttr('disabled'); 
+                //$('#introduction_modal').removeAttr('data-backdrop');
+                //$('#introduction_modal_button').removeAttr('disabled'); 
 
                 registerView.render();
                 loginView.render();
