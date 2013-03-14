@@ -13,6 +13,9 @@ var visualization;
 var el_selector;
 var getPersonId;
 
+var force;
+var sortedNodes = [];
+
 function initialize(params) {
     el_selector = params.el;
     getPersonId = params.getPersonId;
@@ -27,6 +30,29 @@ function initialize(params) {
           .attr('class', 'visualization');
 
         $(el_selector).prepend($($("#pca_vis_overlays_template").html()));
+
+    force = d3.layout.force()
+        .nodes(sortedNodes)
+        .links([])
+        .gravity(0)
+        //.charge(0.01)
+        .size([w, h]);
+
+
+    force.on("tick", function(e) {
+
+      // Push nodes toward their designated focus.
+      var k = .1 * e.alpha;
+      sortedNodes.forEach(function(o, i) {
+        o.x += (o.targetX - o.x) * k;
+        o.y += (o.targetY - o.y) * k;
+      });
+
+      visualization.selectAll("circle.node")
+          .attr("cx", function(d) {
+            return d.x || w/2; })
+          .attr("cy", function(d) { return d.y || h/2; });
+    });
 
     setupOverlays();
     setupPlot();
@@ -158,14 +184,19 @@ function key(d) {
     return d.id;
 }
 
-var nodeCounts = [];
 
 function upsertNode(node) { // TODO, accept an array, since this could get expensive.
+    force.start();
+console.dir(force);
     nodes.set(node.id, node);
-    var sortedNodes = nodes.values().sort(key);
-    nodeCounts.push(sortedNodes.length);
-    //console.dir(nodeCounts);
-    console.log(sortedNodes.length);
+
+    // we don't want the force layout to lose the reference to this array
+    sortedNodes.length = 0;
+    sortedNodes.push.apply(sortedNodes, nodes.values().sort(key));
+
+//    console.log(sortedNodes);
+
+
 
     var nodeRadius = 10;
 
@@ -182,9 +213,10 @@ function upsertNode(node) { // TODO, accept an array, since this could get expen
         }
     }
 
-    var border = nodeRadius + 5;
+    var border = nodeRadius + 50;
     var scaleX = d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]);
     var scaleY = d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min, spans.y.max]);
+ 
 
   var circle = visualization.selectAll("circle.node")
       .data(sortedNodes, key);
@@ -193,9 +225,9 @@ function upsertNode(node) { // TODO, accept an array, since this could get expen
   circle.enter().append("svg:circle")
       .attr("class", "node enter")
       .attr("r", nodeRadius)
-      .attr("opacity", 0)
-      .attr("cx", w/2)
-      .attr("cy", h/2)
+      .attr("cx", function(d) {
+         return d.x; })
+      .attr("cy", function(d) { return d.y; })
 /*
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
@@ -211,6 +243,7 @@ function upsertNode(node) { // TODO, accept an array, since this could get expen
       })
 */
       .style("stroke-width", 1.5)
+      .call(force.drag);
           ;
       //.call(force.drag);
 
@@ -245,9 +278,9 @@ function upsertNode(node) { // TODO, accept an array, since this could get expen
                 return;
             }
             if (Math.abs(this.cx.baseVal.value - d.targetX) > 0.001) {
-                return 15;
+                return 50;
             } else {
-                return 8;
+                return nodeRadius;
             }
         })
         .transition()
@@ -255,12 +288,12 @@ function upsertNode(node) { // TODO, accept an array, since this could get expen
         .style("fill", function(d) { return d.data.person_id === getPersonId() ? "red" : "black";})
         .transition()
           .duration(1000)
-          .attr("cx", function(d) {
-            return d.targetX;
-          })
-          .attr("cy", function(d) {
-            return d.targetY;
-          })
+          //.attr("cx", function(d) {
+            //return d.targetX;
+          //})
+          //.attr("cy", function(d) {
+            //return d.targetY;
+          //})
           .attr("opacity", function(d) {
               return isPersonNode(d) ? 1 : 0;
           })
@@ -270,6 +303,7 @@ function upsertNode(node) { // TODO, accept an array, since this could get expen
            // .duration(500)
             //.style("fill", "black")
           ;
+
 
 }
 
