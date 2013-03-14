@@ -1,10 +1,17 @@
 <!DOCTYPE html> 
-<html>
+<html lang="en">
 <head>
-<title> POLIS </title>
+	    
+	<meta charset="utf-8">
+	<title> POLIS </title>
 
 <script type="text/javascript" src="//use.typekit.net/hay1ujx.js"></script>
 <script type="text/javascript">try{Typekit.load();}catch(e){}</script>
+<link href="/static/vis/pca_vis.css" rel="stylesheet">
+
+
+
+
 <style type="text/css">
 
 
@@ -178,22 +185,71 @@ html {
     <div id="left_third">
       <div id="comment_shower_frame">
       	<div id="comment_shower">
+              <h3> Comments </h3> 
       	</div> <!-- comment shower -->
-      	<div id="buttons">
-      	</div> <!-- buttons -->
+      	<div class="pull_buttons">
+         <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i>  Agree   </button>
+         <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
+         <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
+         <button id="pass_button" class="showerbtns btn btn-large pull-right"><i class="icon-question-sign"></i>  Pass   </button>
+        </div>
       </div> <!-- comment shower frame -->
       <div id="text_entry">
       	<div id="text_entry_size">
-      	<textarea autofocus form="text_entry" placeholder="Enter comments here. You are never responding directly to another comment - your comment will be sent out randomly. Break ideas up: comments that stick to one idea are more successful, comments with multiple ideas are less so."></textarea>
+      	 <form id="comment_form">
+ 		  <fieldset>
+      	   <textarea autofocus type="text" placeholder="Enter comments here. You are never responding directly to another comment - your comment will be sent out randomly. Break ideas up: comments that stick to one idea are more successful, comments with multiple ideas are less so."></textarea>
+		   <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
+		  </fieldset>
+		 </form>
         </div> <!--text entry size --> 
       </div> <!-- text entry -->
     </div> <!-- left third --> 
     <div id="right_two_thirds">
+    	<div id="visualization_div"></div>
     </div> <!-- right two thirds --> 
   </div> <!-- container --> 
 
 
-<form id="text_entry"></form>
+
+
+
+
+
+
+
+	<script src="/static/lib/js/underscore.js"></script>
+    <script src="/static/lib/js/jquery.js"></script>
+    <script src="/static/lib/js/lawnchair.js"></script>
+    <script src="/static/lib/js/keyboard.js"></script>
+    <script src="/static/lib/js/arboreal.js"></script>
+    <script src="/static/lib/js/d3.v3.js"></script>
+    <!-- script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script-->
+    <script src="/static/lib/desktop/js/bootstrap.js"></script>
+    <script src="/static/lib/js/mustache.js"></script>
+    <script src="/static/lib/js/polisUtils.js"></script>
+    <script src="/static/js/util.js"></script>
+    <script src="/static/js/ServerClient.js"></script>
+    <script src="/static/js/LoginView.js"></script>
+    <script src="/static/js/CommentShower.js"></script>
+    <script src="/static/js/CommentSubmitter.js"></script>
+    <script src="/static/js/StimulusSubmitter.js"></script>
+    <script src="/static/js/FeedbackSubmitter.js"></script>
+    <script src="/static/js/VisView.js"></script>
+    <script src="/static/vis/survey200.js"></script>
+    <script src="/static/js/App.js"></script>
+   
+    <script id="showerTemplate" type="text/template">
+                    <h4>Comment ID: {{_id}}</h4>
+                    <p>{{txt}}</p>
+                    <p>User ID: {{u}}</p>
+    </script>
+
+
+    <script id="usernameTemplate" type="text/template">
+        Logged in as {{identity}}
+    </script>
+
 
 </body>
 </html> 

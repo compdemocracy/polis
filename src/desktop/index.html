@@ -1,514 +1,216 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Polis: student view</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="">
-    <meta name="author" content="">
-
-    <!-- Le styles -->
-    <link href="/static/lib/desktop/css/bootstrap.css" rel="stylesheet">
-    <link href="/static/lib/desktop/css/flip.css" rel="stylesheet">
-    <link href="/static/vis/pca_vis.css" rel="stylesheet">
-    <style type="text/css">
+<head>
       
-        .debug_hidden {
-            display: none;
-        }
-
-      .sidebar-nav {
-        padding: 9px 0;
-      }
-
-      .showerbtns{
-        /* float: left; */
-
-      }
-     
-
-      #pull_button {
-         margin-left: 2%;
-      }
-      #pass_button {
-         margin-right: 5%;
-      }
-
-      #trash_button {
-        margin-right: 2%;
-      }
-
-      .nav-pills > .active > a, .nav-pills > .active > a:hover {
-      color: white;
-      background-color: #6B6E70;
-      }
-
-      .feedback_text {
-        height: 150px;
-        width: 90%;
-        resize: vertical;
-
-      }
-
-      .pull_buttons .btn, #comment_form_button, #mobile_switch {
-          margin-bottom: 20px;
-          font-weight: lighter;
-          text-transform: uppercase;
-          letter-spacing: 6px;
-        /*  padding-left: 5%; */
-        /*  padding-right: 5%; */
-          font-family: neoretrofill;
-      }
-
-      .pull_buttons i {
-        vertical-align: 0;
-      }
-
-
-      .dropdown_forms {
-        padding: 20px;
-      }
-
-
-
-      #articles {
-        background-color: white;
-        overflow: scroll;
-        padding-right: 20px;
-      }
-
-     #comment_shower {
-        height: 300px;
-        overflow: auto;
-        margin-bottom: 20px;
-        text-align: justify;
-        padding-right: 20px;
-      }
-
-     #comment_shower_frame {
-        background-color: white;
-        -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        border-radius: 15px;
-        padding-left: 20px;
-        padding-top: 17px;
-      }
-
-      #comment_shower_frame:hover {
-        -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
-      }
-
-      #comment_form {
-        margin: 0px;
-      }
-
-      #comment_form_textarea{ 
-           width: 93.5%;
-           height: 148px;
-           resize: vertical;
-           border-radius: 15px 15px 0px  15px;
-           padding: 20px;
-          }
-
-      #feedback_modal.modal {
-        width: 40%;
-        top: 50px;
-        margin: 0px;
-      }
-
-      #introduction_modal.modal {
-        left: 50px;
-        width: 40%;
-        top: 50px;
-        margin: 0px;
-      }
-
-      #modal_left_side {
-        padding-left: 20px;
-        text-align: justify;
-        padding-right: 30px;
-
-      }
-
-      #create_user_modal {
-        margin: 0px;
-        top: 50px;
-        width: 30%;    
-      }
-
-      #register_email {
-        display: block;
-      }
-
-      #modal_left_side.modal-body{
-        max-height: 500px;
-      }
-
-      body{
-        padding-top: 60px;
-        background-image: url(/static/images/bgnoise_lg.png);
-      }
-
-      
-      /* Let's get this scrollbar party started */
-      ::-webkit-scrollbar {
-          width: 6px;
-          height: 0px;
-      }
-   
-       
-      /* Handle */
-      ::-webkit-scrollbar-thumb {
-        
-          background: rgba(61, 62, 63, 0.8); 
-          -webkit-box-shadow: inset 0 0 1px rgba(0,0,0,0.5); 
-      }
-
-     
-
-      #mobile_switch {
-        display: none;
-      }
-
-      
-
-      /* Large desktop */
-      @media (min-width: 1200px) { 
-        
-          
-
-      }
-       
-      /* Portrait tablet to landscape and desktop */
-      @media (min-width: 768px) and (max-width: 979px) {       
-           body{
-            padding-top: 0px;
-          }
-       }
-       
-      /* Landscape phone to portrait tablet */
-      @media (max-width: 767px) { 
-           #mobile_switch{
-            display: block;
-            font-size: 1em;
-            margin-bottom: 20px;
-          }
-          
-        
-
-          body{
-            padding-top: 0px;
-            }
-          #comment_shower {
-            margin-top: 20px;
-            }
-       }
-       
-      /* Landscape phones and down */
-      @media (max-width: 480px) { 
-           #mobile_switch{
-            display: block;
-            font-size: 1em;
-          }
-          body{
-            padding-top: 0px;
-          }
-          #comment_shower {
-            margin-top: 20px;
-          }
-          
-       }
-
-      /* @font-face template */
-
-      .neoretroff {font: 18px/27px 'NeoRetroFillRegular', Arial, sans-serif;}
-
-    @font-face {
-        font-family: 'NeoRetroFillRegular';
-        src: url('NEORF___-webfont.eot');
-        src: url('NEORF___-webfont.eot?#iefix') format('embedded-opentype'),
-             url('NEORF___-webfont.woff') format('woff'),
-             url('NEORF___-webfont.ttf') format('truetype'),
-             url('NEORF___-webfont.svg#NeoRetroFillRegular') format('svg');
-        font-weight: normal;
-        font-style: normal;
-
-        }
-
-        /* flipcard css */
-
-      .fliptextright {
-        
-        cursor: hand;
-        cursor: pointer;
-        text-align: right;
-        padding-right: 20px;
-        text-transform: uppercase;
-
-      }
-      
-      .fliptextright span {
-        position: relative;
-        top: 1px;
-      }
-
-      #articles_span{
-        position: relative;
-        background-color: white;
-        padding: 0px 0px 20px 20px ;
-        border-radius: 20px;
-
-        -webkit-perspective: 600px;
-        -moz-perspective: 600px;
-
-      }
-
-
-      #articles_span #articles_span_front {
-
-        -webkit-transform: rotateX(0deg) rotateY(0deg);
-        -webkit-transform-style: preserve-3d;
-        -webkit-backface-visibility: hidden;
-
-        -moz-transform: rotateX(0deg) rotateY(0deg);
-        -moz-transform-style: preserve-3d;
-        -moz-backface-visibility: hidden;
-
-        /* -- transition is the magic sauce for animation -- */
-        -o-transition: all 1s ease-in-out;
-        -ms-transition: all 1s ease-in-out;
-        -moz-transition: all 1s ease-in-out;
-        -webkit-transition: all 1s ease-in-out;
-        transition: all 1s ease-in-out;
-
-      }
-
-
-      #articles_span_back {
-
-        position: absolute;
-        top:0px;
-        left: 0px;
-        background-color: white;
-        padding: 0px 0px 20px 20px ;
-        border-radius: 20px;
-
-        -webkit-transform: rotateY(-180deg);
-        -webkit-transform-style: preserve-3d;
-        -webkit-backface-visibility: hidden;
-
-        -moz-transform: rotateY(-180deg);
-        -moz-transform-style: preserve-3d;
-        -moz-backface-visibility: hidden;
-
-        /* -- transition is the magic sauce for animation -- */
-        -o-transition: all 1s ease-in-out;
-        -ms-transition: all 1s ease-in-out;
-        -moz-transition: all 1s ease-in-out;
-        -webkit-transition: all 1s ease-in-out;
-        transition: all 1s ease-in-out;
-
-      }
-
-      #articles_span:hover{
-        -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
-      }
-
-
-      .flip {
-        z-index: 900;
-        -webkit-transform: rotateY(180deg);
-        -moz-transform: rotateY(180deg);
-      }
-
-      .flipback {
-        z-index: 1000;
-        -webkit-transform: rotateX(0deg) rotateY(0deg);
-        -moz-transform: rotateX(0deg) rotateY(0deg);
-      }
-
-    </style>
-    </head> 
-    <body>
-
-      <div class="navbar navbar-inverse navbar-fixed-top">
-        <div class="navbar-inner">
-          <div class="container-fluid">
-            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-            </a>
-            <a class="brand" href="#">Polis</a>
-            <div class="nav-collapse collapse">
-              
-              <ul class="nav">
-                <li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
-                <li><p id="username_label" class="navbar-text pull-right"></p></li>
-                <li><a class="deregister_button" class="pull-right">Sign Out</a></li>
-              </ul>
-            </div><!--/.nav-collapse -->
-          </div>
-        </div>
-      </div>
-
-      <div id="feedback_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
-          <div class="modal-header">
-              Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application.
-          </div>
-        <form id="finished_feedback_form" class="feedback_form dropdown_forms">
-          <fieldset>
-            <textarea class="feedback_text" placeholder="If you are moved to, please leave us suggestions and comments here."></textarea>
-            <button type="submit" class="btn btn-large">Submit Feedback</button>
-            <a class="deregister_button">Sign Out</a>
-            <input type="hidden" name="ui_location" value="feedback_modal">
-          </fieldset>
-        </form>
-      </div>
-
-      <div id="thank_you_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
-          <div class="modal-header">
-              Thank you - Feedback sent.
-          </div>
-      </div>
-
-<!-- modals disabled for development
-
-      <div id="introduction_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
-          <div class="modal-header">
-            <button id="introduction_modal_button" type="button" class="close" disabled="disabled" data-dismiss="modal" aria-hidden="true">&times;</button>
-            <h3 >A Brief Introduction</h3>
-
-          </div>
-           <div id="modal_left_side" class="modal-body">       
-                <h6>WELCOME:</h6>
-                <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis provides a platform to facilitate productive, large scale conversations.  </p>
-
-                <p>In this prototype we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, Israel beats the drums of war and Iranian aircraft fire on American drones, it is a timely and important issue full of messy value judgements, competing priorities and complex eventualities - exactly the kind of conversation that breaks down at large scales on the internet. We are building a framework we believe will produce effective outcomes in such contexts. Thanks for helping. </p>
-
-                <h6> WHAT TO DO: </h6>
-
-                <p> 1. Create a new user identity or login to dismiss this screen. </p> 
-
-                <p> 2. Read the articles, or skim them if you're familiar with the issue. </p> 
-
-                <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 & 30 comments. The more comments you react to the better the data - but we'll be grateful for however many you finish. There are roughly ninety comments. </p>
-
-                <form id="introduction_feedback_form" class="feedback_form dropdown_forms">
-                  <fieldset>
-                    <textarea class="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
-                    <button type="submit" class="btn btn-large">Submit Feedback</button>
-                    <input type="hidden" name="ui_location" value="introduction_modal">
-                  </fieldset>
-                </form>
-
-                <h6> HOW POLIS WILL WORK: </h6> 
-
-                <p> The beta of the application will be done before the end of the year, and will be tested in large college classrooms. Here's how it will work:</p> 
-
-                <ol> 
-                  <li> Users experience a stimulus (a series of articles, a question, etc)</li>  
-                  <li> Users submit comments in response</li>  
-                  <li> Polis sends out those comments, randomly and one at a time, to users</li>  
-                  <li> Users react to comments by upvoting, downvoting or passing</li>  
-                  <li> Polis uses statistical algorithms to group users based on reactions</li>  
-                  <li> Polis displays a real-time data visualization of groups as they form and change</li>  
-                </ol> 
-
-
-                <p>For this data gathering prototype you will not have the opportunity to comment, and the data visualization is not yet functioning. Rather, this prototype will gather the play data we'll need to enable that functionality in the beta.</p> 
-          
-                <p> --The Polis Team</p>
-
-                <p><em>For XKCD readers:
-                Polis is built on Node, Mongo, Mustache, Heroku, R, D3, Redis, Twitter Bootstrap, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
-           </div>
-      </div>
-
-  disabled for development end --> 
-
-
-<!--
-
-      <div id="create_user_modal" class="modal hide fade" data-backdrop="false" data-show="true" role="dialog">
-          <div class="modal-header">
-            <h3 >Create New User & Login</h3>
-          </div>
-           <div id="modal_right_side" class="modal-body">
-            <form id="register_form">        
-              <fieldset>
-                    <input id="register_email" class="email" type="text" placeholder="Email">
-                    <input id="register_password" type="password" placeholder="Password">
-                    <input id="register_password_again" type="password" placeholder="Confirm Password">
-                    <label style="display: none;" class="checkbox"> 
-                       <!-- defaulting to checked until the auth code is ready to handle the unchecked case **->
-                        <input id="register_rememberme" type="checkbox" checked="checked">
-                        <span> Remember me</span>
-                    </label>
-                    <button type="submit" id="register_button" class="btn btn-large btn-info">Register & Login</button>
-              </fieldset>
-            </form> 
-
-            <h3 >Existing User Login</h3>
-            <form id="login_form">
-                <fieldset>
-                  <input id="login_email" type="text" placeholder="Email">
-                  <input id="login_password" type="password" placeholder="Password">
-                  <label style="display: none;" class="checkbox">
-                        <!-- defaulting to checked until the auth code is ready to handle the unchecked case **->
-                        <input id="register_rememberme" type="checkbox" checked="checked">
-                      <input id="login_rememberme" type="checkbox" checked="checked">
-                      <span> Remember me</span>
-                  </label>
-                  <button id="login_button" type="submit" class="btn btn-large btn-info">Login</button>
-                </fieldset>
-              </form>
-          </div> 
-      </div>
-
---> 
-
-
-
-
-
-<div class="container-fluid">
-
-       <div class="row-fluid ">
-
-          <div class="span6"> 
-
-           <div id="comment_shower_frame"> 
-            <div id="comment_shower"> 
+  <meta charset="utf-8">
+  <title> POLIS </title>
+
+<script type="text/javascript" src="//use.typekit.net/hay1ujx.js"></script>
+<script type="text/javascript">try{Typekit.load();}catch(e){}</script>
+<link href="/static/vis/pca_vis.css" rel="stylesheet">
+
+
+
+
+<style type="text/css">
+
+
+html {
+  font-size: 16px;
+  font-family: georgia;
+}
+
+#container {
+  width: 100%;
+}
+
+
+/* Large desktop */
+@media (min-width: 1200px) { 
+
+
+  #left_third {
+    width: 38%;
+    float: left;
+    margin-left: 7px;
+  }
+
+  #stimulus {
+    background-color: rgb(238, 238, 238); 
+    height: 35px;
+    padding: 17px;
+    margin-bottom: 20px;
+    font-size: 32px;
+    font-family: "Adobe Caslon Pro";
+  }
+
+  #stimulus:hover {
+    background-color: rgb(230, 230, 230);
+  }
+
+  #comment_shower_frame {
+    background-color: rgb(238, 238, 238);
+    height: 400px;
+  }
+
+  #comment_shower_frame:hover {
+    background-color: rgb(230, 230, 230);
+  }
+
+  #right_two_thirds {
+    float: right;
+    width: 59%;
+    height: 648px;
+    background-color: rgb(238, 238, 238);
+    margin-right: 7px;
+  }
+
+  #right_two_thirds:hover {
+    background-color: rgb(230, 230, 230);
+  }
+
+  #text_entry {
+    width: 100%;
+    margin-top: 20px;
+    background-color: rgb(238, 238, 238);
+  }
+
+  #text_entry:hover {
+    background-color: rgb(230, 230, 230);
+  }
+
+  #text_entry_size {
+    width: 92%;
+    margin-left: 5px;
+  }
+
+  #comment_form textarea {
+    margin: 10px;
+    height: 200px;
+    outline: none;
+    width: 100%;
+    white-space: pre-wrap;
+    overflow: hidden;
+    resize: none;
+    background-color: transparent;
+    border: none;
+    font-size: 16px;
+  }
+
+
+}
+ 
+/* Portrait tablet to landscape and desktop */
+@media (min-width: 768px) and (max-width: 979px) { }
+ 
+/* Landscape phone to portrait tablet */
+@media (max-width: 767px) { }
+ 
+/* Landscape phones and down */
+@media (max-width: 480px) { 
+
+
+  #left_third {
+    width: 100%;
+  }
+
+  #stimulus {
+    background-color: rgb(238, 238, 238); 
+    height: 35px;
+    padding: 17px;
+    margin-bottom: 20px;
+    font-size: 32px;
+    font-family: "Adobe Caslon Pro";
+  }
+
+  
+
+  #comment_shower_frame {
+    background-color: rgb(238, 238, 238);
+    height: 400px;
+  }
+
+  #comment_shower_frame:hover {
+    background-color: rgb(230, 230, 230);
+  }
+
+  #right_two_thirds {
+    height: 400px;
+    background-color: rgb(238, 238, 238);
+    margin-top: 20px;
+  }
+
+  
+
+  #text_entry {
+    width: 100%;
+    margin-top: 20px;
+    background-color: rgb(238, 238, 238);
+  }
+
+  
+  #text_entry_size {
+    width: 92%;
+    margin-left: 5px;
+    padding-top: 5px;
+  }
+
+  #text_entry textarea {
+    height: 200px;
+    outline: none;
+    width: 100%;
+    white-space: pre-wrap;
+    overflow: hidden;
+    resize: none;
+    background-color: transparent;
+    border: none;
+    font-size: 16px;
+  }
+
+
+}
+
+
+
+
+
+</style>
+</head>
+<body>
+
+  <div id="container">
+    <!-- <div id="stimulus">
+      Is the grassroots change in drug policy a positive step? Should more drugs be legal?
+    </div> <!-- stimulus -->
+    <div id="left_third">
+      <div id="comment_shower_frame">
+        <div id="comment_shower">
               <h3> Comments </h3> 
-            </div> 
+        </div> <!-- comment shower -->
+        <div class="pull_buttons">
+         <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i>  Agree   </button>
+         <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
+         <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
+         <button id="pass_button" class="showerbtns btn btn-large pull-right"><i class="icon-question-sign"></i>  Pass   </button>
+        </div>
+      </div> <!-- comment shower frame -->
+      <div id="text_entry">
+        <div id="text_entry_size">
+         <form id="comment_form">
+      <fieldset>
+           <textarea autofocus type="text" placeholder="Enter comments here. You are never responding directly to another comment - your comment will be sent out randomly. Break ideas up: comments that stick to one idea are more successful, comments with multiple ideas are less so."></textarea>
+       <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
+      </fieldset>
+     </form>
+        </div> <!--text entry size --> 
+      </div> <!-- text entry -->
+    </div> <!-- left third --> 
+    <div id="right_two_thirds">
+      <div id="visualization_div"></div>
+    </div> <!-- right two thirds --> 
+  </div> <!-- container --> 
 
-            <div class="pull_buttons">
-              <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i>  Agree   </button>
-              <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
-              <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
-              <button id="pass_button" class="showerbtns btn btn-large pull-right"><i class="icon-question-sign"></i>  Pass   </button>
 
-            </div> 
-          </div> <!-- comment_shower_frame -->
-            
-        </div> <!--span -->
-
-          </div> <!--row --> 
-         </div><!--/span-->
-        </div><!--/row-->
-      </div><!--/.fluid-container-->
-
-
-    <!-- Le javascript
-    ================================================== -->
-    <!-- Placed at the end of the document so the pages load faster -->
-    <script src="/static/lib/js/jquery.js"></script>
     <script src="/static/lib/js/underscore.js"></script>
     <script src="/static/lib/js/jquery.js"></script>
     <script src="/static/lib/js/lawnchair.js"></script>
@@ -516,7 +218,6 @@
     <script src="/static/lib/js/arboreal.js"></script>
     <script src="/static/lib/js/d3.v3.js"></script>
     <!-- script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script-->
-    <script src="/static/lib/desktop/js/bootstrap.js"></script>
     <script src="/static/lib/js/mustache.js"></script>
     <script src="/static/lib/js/polisUtils.js"></script>
     <script src="/static/js/util.js"></script>
@@ -541,87 +242,6 @@
         Logged in as {{identity}}
     </script>
 
-    <script> 
-      
-      if($('#comment_shower').length < 0) {
-        $('#push_button, #pull_button, #pass_button').addClass('disabled');
-        $('#push_button, #pull_button, #pass_button').button('disable');
-      };
-    
-      $('#push_button, #pull_button, #pass_button').hover(function(){
 
-        $('#push_button, #pull_button, #pass_button').tooltip('show');
-
-      });
-
-      $(".fliptextright").click(function(){
-        $("#articles_span").addClass("flip");  
-      });
-
-    </script> 
-
-    <script> 
-             /* CARD FLIP
-        /////////////////////////////////////////////////////////////////*/
-    </script>
-
-<script type="text/template" id="pca_vis_overlays_template">
-
-     <div id="centercircle_content" class="hidden">
-      <h3> this is probably... like... you know... a tutorial video </h3> 
-     </div> 
-     <div id="top_pillar" class="hidden">
-      <h2> Members in clusters towards the top have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-     <div id="right_pillar" class="hidden">
-      <h2> Members in clusters towards the right have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-     <div id="bottom_pillar" class="hidden">
-      <h2> Members in clusters towards the bottom have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-     <div id="left_pillar" class="hidden">
-      <h2> Members in clusters towards the left have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-</script>
-
-
-    <form id="comment_form">
-      <fieldset>
-          <textarea id="comment_form_textarea" type="text" placeholder="Type a comment here..."></textarea>
-        <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
-      </fieldset>
-    </form>
-
-    <form id="stimulus_form" class="debug_hidden">
-      <fieldset>
-            <textarea id="stimulus_form_textarea" type="text" placeholder="Type a story here..."></textarea>
-            <input id="stimulus_form_title" type="text" placeholder="Title...">
-            <input id="stimulus_form_authors_commaseparated" type="text" placeholder="comma-separated list of authors...">
-            <input id="stimulus_form_authors_organization" type="text" placeholder="Organization the author belongs to: (NY Times, etc)">
-            <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
-      </fieldset>
-    </form>
-
-  <div id="visualization_div"></div>
-
-
-
-
-  </body>
-</html>
+</body>
+</html> 
