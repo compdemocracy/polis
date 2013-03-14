@@ -188,21 +188,21 @@ function key(d) {
 function upsertNode(node) { // TODO, accept an array, since this could get expensive.
     force.start();
 console.dir(force);
-    //nodes.set(node.id, node);
+    nodes.set(node.id, node);
 
-    var bisect = d3.bisector(key).left;
+    //var bisect = d3.bisector(key).left;
 
-    var index = bisect(sortedNodes, node);
-    var numToRemove = 0;
-    if (key(sortedNodes[index].id) === key(node)) {
-        numToRemove = 1;
-    }
-    sortedNodes.splice(index, numToRemove, node);
+    //var index = bisect(sortedNodes, node);
+    //var numToRemove = 0;
+    //if (sortedNodes.length > 0 && key(sortedNodes[index]) === key(node)) {
+        ////numToRemove = 1;
+    //}
+    //sortedNodes.splice(index, numToRemove, node);
 
     // or do this        
     // we don't want the force layout to lose the reference to this array
-    //sortedNodes.length = 0;
-    //sortedNodes.push.apply(sortedNodes, nodes.values().sort(key));
+    sortedNodes.length = 0;
+    sortedNodes.push.apply(sortedNodes, nodes.values().sort(key));
 
 //    console.log(sortedNodes);
 
