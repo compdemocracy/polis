@@ -521,13 +521,21 @@ var server = http.createServer(function (req, res) {
                 }
                 return q;
             }
+            function makeGetCommentByIdQuery(ids) {
+                ids = ids.split(',');
+                return {$or : 
+                    ids.map(function(id) { return { _id: ObjectId(id)}; })
+                };
+            }
 
             return function(req, res) {
                 var stimulus = query.s;
+                var ids = query.ids;
                 var lastServerToken = query.lastServerToken;
                 if('GET' === req.method) {
                     var docs = [];
-                    collection.find(makeQuery(stimulus, lastServerToken), function(err, cursor) {
+                    var q = ids ? makeGetCommentByIdQuery(ids) : makeQuery(stimulus, lastServerToken);
+                    collection.find(q, function(err, cursor) {
                         if (err) { fail(res, 234234332, err); return; }
 
                         function onNext( err, doc) {

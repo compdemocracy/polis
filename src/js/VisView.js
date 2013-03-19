@@ -12,6 +12,7 @@ var visualization;
 
 var el_selector;
 var getPersonId;
+var getCommentsForProjection;
 
 var force;
 
@@ -48,10 +49,26 @@ function setCx(d) {
     }
 }
 
+function renderCommentsList(comments) {
+    function renderComment(comment) {
+        var template = $('#commentListItemTemplate').html();
+        return Mustache.to_html(template, comment);
+    }
+    // TODO check out template partials "> foo"
+    var x = "<ul>";
+    for (var i = 0; i < comments.length; i++) {
+        x += renderComment(comments[i]);
+    }
+    x += "</ul>";
+    return x;
+}
+
+
 function initialize(params) {
     console.log('init');
     el_selector = params.el;
     getPersonId = params.getPersonId;
+    getCommentsForProjection = params.getCommentsForProjection;
 
 
     //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
@@ -62,7 +79,7 @@ function initialize(params) {
           .attr('height', h)
           .attr('class', 'visualization');
 
-        $(el_selector).prepend($($("#pca_vis_overlays_template").html()));
+        //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
     force = d3.layout.force()
         .nodes(nodes)
@@ -157,7 +174,6 @@ function setupOverlays() {
 
     $('#toparrow').hover(function(){ 
         $('.visualization').addClass('.toparrow_hover');
-    }, function() { 
     });
 
     $('#centercircle').hover(function(){});
@@ -172,19 +188,29 @@ function setupOverlays() {
         $(this).addClass('hidden');
     });
 
-    $('#top_circle').click(function(){
-        $('#top_pillar').toggleClass('hidden');
-    });
-    $('#right_circle').click(function(){
-        $('#right_pillar').toggleClass('hidden');
-    });
-    $('#bottom_circle').click(function(){
-        $('#bottom_pillar').toggleClass('hidden');
-    });
-    $('#left_circle').click(function(){
-        $('#left_pillar').toggleClass('hidden');
-    });
+    function setupHandler(directionName) {
+        function handler(comments) {
+            // hide the others
+            $('.commentlist').addClass('hidden');
+            
+            // render and show this
+            $('#'+directionName+'_pillar > .commentlist_contents').html(renderCommentsList(comments));
+            $('#'+directionName+'_pillar').removeClass('hidden');
+        }
 
+        var projection = {"top": 1, "bottom": 1, "left": 0, "right": 0}[directionName];
+        var sort = {"top": -1, "bottom": 1, "left": 1, "right": -1}[directionName];
+
+        $('#'+directionName+'_circle').click(function(){
+            getCommentsForProjection({
+                sort: sort,
+                count: 2,
+                projection: projection 
+            }).done( handler );
+        });
+    }
+
+    ["top", "bottom", "left", "right"].forEach(setupHandler);
 } // End setup overlays
 
 

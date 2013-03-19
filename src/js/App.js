@@ -320,6 +320,7 @@ $(document).ready(function() {
 
     PcaVis.initialize({
         getPersonId: PolisStorage.personId.get,
+        getCommentsForProjection: serverClient.getCommentsForProjection,
         el: "#visualization_div"
     });
 

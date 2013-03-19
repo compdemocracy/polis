@@ -533,8 +533,46 @@ var ServerClient = function(params) {
 */
     }()); // end setup mock PCA data
 
+    function getCommentsForProjection(params) {
+        var ascending = params.sort > 0;
+        var count = params.count;
+        var projection = params.projection;
 
+        function compare(a,b) {
+            if (ascending) {
+                return a.projection[projection] - b.projection[projection];
+            } else {
+                return b.projection[projection] - a.projection[projection];
+            }
+        }
 
+        var comments;
+        return polisGet(pcaPath, { 
+            s: currentStimulusId
+        }).pipe( function(pcaData) {
+            comments = pcaData.principal_components;
+            var keys = _.keys(comments);
+            comments = keys.map(function(key) { return {id: key, projection: comments[key]};});
+            comments.sort(compare);
+            if (count >= 0) {
+                comments = comments.slice(0, count);
+            }
+            return comments;
+        }).pipe( function (commentIds) {
+            return getTxt(commentIds.map(function(comment) { return comment.id; }));
+        }).pipe( function (results) {
+            // they arrive out of order, so map results onto the array that has the right ordering.
+            return comments.map(function(comment) {
+                return _.findWhere(results.events, {_id: comment.id});
+            });
+        });
+    }
+
+    function getTxt(ids) {
+        return polisGet(txtPath, {
+            ids: ids.join(',')
+        });
+    }
 
     return {
         authenticated: authenticated,
@@ -542,6 +580,7 @@ var ServerClient = function(params) {
         authLogin: authLogin,
         authDeregister: authDeregister,
         getNextComment: getNextComment,
+        getCommentsForProjection: getCommentsForProjection,
         observeStimulus: observeStimulus, // with no args
         push: push,
         pull: pull,

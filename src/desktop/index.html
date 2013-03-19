@@ -212,7 +212,32 @@ html {
       </div> <!-- text entry -->
     </div> <!-- left third --> 
     <div id="right_two_thirds">
-      <div id="visualization_div"></div>
+      <div id="visualization_div">
+
+    <div id="centercircle_content" class="hidden">
+        <h3> this is probably... like... you know... a tutorial video </h3> 
+    </div> 
+    <div id="top_pillar" class="commentlist hidden">
+        <h2> members in clusters towards the top have, on average, pulled and pushed the following comments:</h2> 
+        <ol class="commentlist_contents"></ol>
+    </div>
+    <div id="right_pillar" class="commentlist hidden">
+        <h2> members in clusters towards the right have, on average, pulled and pushed the following comments:</h2> 
+        <ol class="commentlist_contents"></ol>
+    </div>
+    <div id="bottom_pillar" class="commentlist hidden">
+        <h2> members in clusters towards the bottom have, on average, pulled and pushed the following comments:</h2> 
+        <ol class="commentlist_contents"></ol>
+    </div>
+    <div id="left_pillar" class="commentlist hidden">
+        <h2> members in clusters towards the left have, on average, pulled and pushed the following comments:</h2> 
+        <ol class="commentlist_contents"></ol>
+    </div>
+    </div>
+    </div>
+
+
+
     </div> <!-- right two thirds --> 
   </div> <!-- container --> 
 
@@ -244,6 +269,9 @@ html {
                     <p>User ID: {{u}}</p>
     </script>
 
+    <script id="commentListItemTemplate" type="text/template">
+        <li> {{txt}} </li>
+    </script>
 
     <script id="usernameTemplate" type="text/template">
         Logged in as {{identity}}
