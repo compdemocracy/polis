@@ -335,6 +335,7 @@ window.newUser = function() {
     PolisStorage.personId.clear();
     window.location = window.location;
 };
+KeyboardJS.on("ctrl+n", newUser);
     
             
     $(window).resize(onResize);
