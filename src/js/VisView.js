@@ -16,10 +16,6 @@ var getCommentsForProjection;
 
 var force;
 
-// maps of key to current location
-// TODO delete on D3 delete event
-var currentX = {};
-var currentY = {};
 
 var updatesEnabled = true;
 
@@ -31,8 +27,8 @@ window.P.stop = function() {
 };
 
 function setCy(d) {
-    if (currentY[key(d)] !== undefined) {
-        return currentY[key(d)];
+    if (o.y !== undefined) {
+        return o.y;
     } else {
         console.log('y bad');
         return h/2;
@@ -41,8 +37,8 @@ function setCy(d) {
 
 function setCx(d) {
     //console.log(d.id, d.data.projection[0]);
-    if (currentX[key(d)] !== undefined) {
-        return currentX[key(d)];
+    if (o.x !== undefined) {
+        return o.x;
     } else {
         console.log('x bad');
         return w/2;
@@ -63,6 +59,9 @@ function renderCommentsList(comments) {
     return x;
 }
 
+function isSelf(d) {
+    return d.data.person_id === getPersonId();
+}
 
 function initialize(params) {
     console.log('init');
@@ -85,25 +84,25 @@ function initialize(params) {
         .nodes(nodes)
         .links([])
         .gravity(0)
-        .charge(0.01)
+        .charge(-10) // slight overlap allowed
         .size([w, h]);
 
     force.on("tick", function(e) {
           // Push nodes toward their designated focus.
-          var k = 0.9 * e.alpha;
-          if (k <= 0.04) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
+          var k = 0.1 * e.alpha;
+          //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
           nodes.forEach(function(o, i) {
               //o.x = o.data.targetX;
               //o.y = o.data.targetY;
-              if (!currentX[key(o)]) { currentX[key(o)] = w/2; }
-              if (!currentY[key(o)]) { currentY[key(o)] = h/2; }
-              currentX[key(o)] += (o.data.targetX - currentX[key(o)]) * k;
-              currentY[key(o)] += (o.data.targetY - currentY[key(o)]) * k;
+              if (!o.x) { o.x = w/2; }
+              if (!o.y) { o.y = h/2; }
+              o.x += (o.data.targetX - o.x) * k;
+              o.y += (o.data.targetY - o.y) * k;
           });
 
           visualization.selectAll("circle.node")
-              .attr("cx", setCx)
-              .attr("cy", setCy);
+              .attr("cx", function(d) { return d.x;})
+              .attr("cy", function(d) { return d.y;});
         });
     setupOverlays();
 }
@@ -266,13 +265,13 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
             //return;
         //}
 
-        d.data.targetX = scaleX(d.data.projection[0]);
-        d.data.targetY = scaleY(d.data.projection[1]);
+        d.x = d.data.targetX = scaleX(d.data.projection[0]);
+        d.y = d.data.targetY = scaleY(d.data.projection[1]);
         return d;
     }
 
 
-    var nodeRadius = 10;// + Math.random() * 10 - 5;
+    var nodeRadius = 5;
     var maxNodeRadius = 10 + 5;
 
     var spans = { 
@@ -294,7 +293,30 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
     //var scaleX = d3.scale.linear().range([0 + border, w - border]).domain([-0.5, 0.5]);
     //var scaleY = d3.scale.linear().range([0 + border, h - border]).domain([-0.5, 0.5]);
  
-    nodes = updatedNodes.filter(isPersonNode).sort(key).map(computeTarget);
+    var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, id: node.id }; });
+
+    function sortWithSelfOnTop(a, b) {
+        if (isSelf(a)) {
+            return 1;
+        }
+        if (isSelf(b)) {
+            return -1;
+        }
+        return key(a) - key(b);
+    }
+
+    nodes = updatedNodes.filter(isPersonNode).sort(sortWithSelfOnTop).map(computeTarget);
+    oldpositions.forEach(function(oldNode) { 
+        var newNode = _.findWhere(nodes, {id: oldNode.id});
+        if (!newNode) { 
+            console.error('not sure why a node would dissapear');
+            return;
+        }
+        newNode.x = oldNode.x;
+        newNode.y = oldNode.y;
+    });
+
+    force.nodes(nodes, key).start();
 
     // simplify debugging by looking at a single node
     //nodes = nodes.slice(0, 1);
@@ -314,11 +336,7 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
     }
 
     function chooseFill(d) {
-        if (d.data.person_id === getPersonId()) {
-            return "red";
-        } else {
-            return "black";
-        }
+        return isSelf(d) ? "red" : "black";
     }
 
 
@@ -326,10 +344,16 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
       .data(nodes);
 
   // ENTER
-  circle.enter().append("svg:circle")
+  circle
+    .enter().append("svg:circle")
       .attr("class", "node enter")
-      .each(function(d) {d.x = w/2; d.y = h/2;})
-      .attr("r", nodeRadius)
+      //.each(function(d) {d.x = w/2; d.y = h/2;})
+      .attr("r", function(d) {
+            if (isSelf(d)){
+                return nodeRadius + 5; // medium
+            }
+            return nodeRadius + (Math.random() * 10);
+        })
 /*
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
@@ -345,19 +369,24 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
       })
 */
         .style("stroke-width", 1.5)
+          .attr("cx", function(d) {
+            return d.x;
+          })
+          .attr("cy", function(d) {
+            return d.y;
+          })
         .call(force.drag)
           ;
-      //.call(force.drag);
 
  
 
       // UPDATE
       // TODO Can we do this less frequently?
       circle.attr("class", "node update")
-        .each(function(d) {
-            d.x = d.x !== undefined ? d.x : d.data.targetX;
-            d.y = d.y !== undefined ? d.y : d.data.targetY;
-        })
+        //.each(function(d) {
+            //d.x = d.x !== undefined ? d.x : d.data.targetX;
+            //d.y = d.y !== undefined ? d.y : d.data.targetY;
+        //})
         .style("stroke", function(d) {
             if (!isPersonNode(d)) {
                 return;
@@ -372,28 +401,41 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
                 return chooseFill(d);
             }
         })
+/*
         .style("r", function(d) {
             if (!isPersonNode(d)) {
                 return;
             }
-            if (Math.abs(this.cx.baseVal.value - d.data.targetX) > 0.001) {
-                return 50;
-            } else {
+            //if (Math.abs(this.cx.baseVal.value - d.data.targetX) > 0.001) {
+                //return 50;
+            //} else {
                 return nodeRadius;
-            }
+            //}
         })
+*/
+;
+/*
+function dragstart(e) {
+}
+function dragend(e) {
+}
+function dragmove(e) {
+}
+
+var node_drag = d3.behavior.drag()
+        .on("dragstart", dragstart)
+        .on("drag", dragmove)
+        .on("dragend", dragend);
+*/
+
+  visualization.selectAll("circle.node")
+        .call(force.drag)
         .transition()
         .duration(500)
         .style("stroke", "black")
         .style("fill", chooseFill)
         .transition()
           .duration(500)
-          //.attr("cx", function(d) {
-            //return d.data.targetX;
-          //})
-          //.attr("cy", function(d) {
-            //return d.data.targetY;
-          //})
           //.attr("opacity", function(d) {
           //return isPersonNode(d) ? 1 : 0;
           //})
@@ -403,8 +445,6 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
            // .duration(500)
             //.style("fill", "black")
           ;
-
-    force.nodes(nodes, key).start();
 
 }
 
