@@ -216,6 +216,58 @@ var server = http.createServer(function (req, res) {
     console.dir(parsedUrl);
     var basepath = parsedUrl.pathname;
 
+
+    function reactionsPost(res, events) {
+        events.forEach(function(ev){
+            if (ev.s) {
+                ev.s = ObjectId(ev.s);
+            }
+            ev.u = ObjectId(data.u);
+
+            collection.insert(ev, function(err, cursor) {
+                if (err) { fail(res, 324234324, err); return; }
+                res.end();
+            });
+        });
+    }
+
+    function reactionsGet() {
+        function makeQuery(stimulusId) {
+            // $or [{type: push}, {type: pull},...]
+            return {
+                s: ObjectId(stimulusId), 
+                $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
+            };
+        }
+        var users = [];
+        collection.find(makeQuery(stimulus), function(err, cursor) {
+            if (err) { fail(res, 234234325, err); return; }
+
+            function onNext( err, doc) {
+                if (err) { fail(res, 987298783, err); return; }
+                //console.dir(doc);
+
+                if (doc) {
+                    users.push(doc);
+                    cursor.nextObject(onNext);
+                } else {
+                    res.end(JSON.stringify(users));
+                }
+            }
+
+            cursor.nextObject( onNext);
+        });
+    }
+
+
+
+
+
+
+
+
+
+
     // start server with ds in scope.
     var routes = {
 
@@ -716,35 +768,10 @@ console.dir(query);
             };
         }()),
         "/v2/reactions" : (function() {
-            function makeQuery(stimulusId) {
-                // $or [{type: push}, {type: pull},...]
-                return {
-                    s: ObjectId(stimulusId), 
-                    $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
-                };
-            }
-
             return function(req, res) {
                 var stimulus = query.s;
                 if('GET' === req.method) {
-                    var users = [];
-                    collection.find(makeQuery(stimulus), function(err, cursor) {
-                        if (err) { fail(res, 234234325, err); return; }
-
-                        function onNext( err, doc) {
-                            if (err) { fail(res, 987298783, err); return; }
-                            //console.dir(doc);
-
-                            if (doc) {
-                                users.push(doc);
-                                cursor.nextObject(onNext);
-                            } else {
-                                res.end(JSON.stringify(users));
-                            }
-                        }
-
-                        cursor.nextObject( onNext);
-                    });
+                    reactionsGet(res, stimulus);
                     return;
                 }
                 if('POST' === req.method) {
@@ -758,18 +785,7 @@ console.dir(query);
                             //console.dir(data);
                             if (err) { fail(res, 93482572, err); return; }
 
-                            data.events.forEach(function(ev){
-
-                                if (ev.s) {
-                                    ev.s = ObjectId(ev.s);
-                                }
-                                ev.u = ObjectId(data.u);
-
-                                collection.insert(ev, function(err, cursor) {
-                                    if (err) { fail(res, 324234324, err); return; }
-                                    res.end();
-                                });
-                            });
+                            reactionsPost(res, data.events);
                         });
                     });
                     return;
