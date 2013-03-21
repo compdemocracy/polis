@@ -217,12 +217,11 @@ var server = http.createServer(function (req, res) {
     var basepath = parsedUrl.pathname;
 
 
-    function reactionsPost(res, events) {
+    function reactionsPost(res, user, events) {
+        if (!events.length) { fail(res, 324234327, err); return; }
+
         events.forEach(function(ev){
-            if (ev.s) {
-                ev.s = ObjectId(ev.s);
-            }
-            ev.u = ObjectId(data.u);
+            ev.u = ObjectId(user);
 
             collection.insert(ev, function(err, cursor) {
                 if (err) { fail(res, 324234324, err); return; }
@@ -629,13 +628,31 @@ console.dir(query);
                                 //
                                 if (!ev.txt) { fail(res, 'expected txt field'); return; }
 
-                                if (ev.s) ev.s = ObjectId(ev.s);
+                                var ev2 = _.extend({}, ev);
+                                if (ev.s) {
+                                    ev2.s = ObjectId(ev.s);
+                                }
                                 if (data.u) {
                                     ev.u = ObjectId(data.u);
                                 }
-                                collection.insert(ev, function(err, cursor) {
+
+                                collection.insert(ev, function(err, docs) {
                                     if (err) { fail(res, 324234331, err); return; }
-                                    res.end();
+
+            console.log('autopull');
+            console.dir(docs);
+                                    // Since the user posted it, we'll submit an auto-pull for that.
+                                    docs.forEach( function(newComment) {
+                                        var autoPull = {
+                                            s: ev.s,
+                                            type: polisTypes.reactions.pull,
+                                            to: newComment._id,
+                                            u: ev.u,
+                                        };
+            console.dir(autoPull);
+                                        reactionsPost(res, data.u, [autoPull]);
+                                    }); // auto pull
+            console.log('end autopull');
                                 }); // insert
                             }); // each 
                         }); // session
@@ -785,7 +802,7 @@ console.dir(query);
                             //console.dir(data);
                             if (err) { fail(res, 93482572, err); return; }
 
-                            reactionsPost(res, data.events);
+                            reactionsPost(res, data.u, data.events);
                         });
                     });
                     return;
