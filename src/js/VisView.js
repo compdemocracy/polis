@@ -83,6 +83,7 @@ function initialize(params) {
     force = d3.layout.force()
         .nodes(nodes)
         .links([])
+        .friction(0.9) // more like viscosity [0,1], defaults to 0.9
         .gravity(0)
         .charge(-10) // slight overlap allowed
         .size([w, h]);
