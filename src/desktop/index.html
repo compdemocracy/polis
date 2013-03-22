@@ -19,35 +19,27 @@ html {
   width: 100%;
 }
 
+textarea {
+  font-family: museo-slab;
+}
+
+button {
+  font-family: museo-slab;
+  padding: 12px 45px;
+  border: none;
+  cursor: hand;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
 /* Large desktop */
 @media (min-width: 1200px) { 
 
-  #comment_shower {
-    margin: 0px;
-    padding: 0px;
-  }
-
-  #comment_shower h3 {
-    margin-top: 0px;
-  }
 
   #left_third {
     width: 38%;
     float: left;
     margin-left: 7px;
-  }
-
-  #stimulus {
-    background-color: rgb(238, 238, 238); 
-    height: 35px;
-    padding: 17px;
-    margin-bottom: 20px;
-    font-size: 32px;
-    font-family: "Adobe Caslon Pro";
-  }
-
-  #stimulus:hover {
-    background-color: rgb(230, 230, 230);
   }
 
   #comment_shower_frame {
@@ -58,6 +50,34 @@ html {
   #comment_shower_frame:hover {
     background-color: rgb(230, 230, 230);
   }
+
+  #comment_shower {
+    margin: 0px;
+    height: 235px;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  #comment_shower p {
+    font-size: 16px;
+    width: 80%;
+    padding-left: 25px;
+  }
+
+  #comment_shower h4 {
+    margin-top: 0px;
+    font-family: "museo-slab";
+    font-weight: lighter;
+    padding-top: 20px;
+    padding-left: 25px;
+  }
+
+
+
+  
+
+
 
   #right_two_thirds {
     float: right;
@@ -112,15 +132,6 @@ html {
 
   #left_third {
     width: 100%;
-  }
-
-  #stimulus {
-    background-color: rgb(238, 238, 238); 
-    height: 35px;
-    padding: 17px;
-    margin-bottom: 20px;
-    font-size: 32px;
-    font-family: "Adobe Caslon Pro";
   }
 
   #comment_shower_frame {
@@ -182,14 +193,13 @@ html {
     </div> <!-- stimulus -->
     <div id="left_third">
       <div id="comment_shower_frame">
-
         <div id="comment_shower">
               <h3> Comments </h3> 
         </div> 
         <div class="pull_buttons">
          <button id="pull_button" class=""> <i class="icon-thumbs-up"></i>  Agree   </button>
          <button id="push_button" class="" ><i class="icon-thumbs-down"></i> Disagree   </button>
-         <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
+         <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button>
          <button id="pass_button" class=""><i class="icon-question-sign"></i>  Pass   </button>
         </div>
 
@@ -198,11 +208,13 @@ html {
         <div id="text_entry_size">
          <form id="comment_form">
            <textarea autofocus type="text" id="comment_form_textarea" placeholder="Enter comments here. You are never responding directly to another comment - your comment will be sent out randomly. Break ideas up: comments that stick to one idea are more successful, comments with multiple ideas are less so."></textarea>
-       <button type="submit" id="comment_button" class="">Submit</button>
-     </form>
+           <button type="submit" id="comment_button" class="">Submit</button>
+         </form>
         </div> <!--text entry size --> 
       </div> <!-- text entry -->
     </div> <!-- left third --> 
+
+
     <div id="right_two_thirds">
       <div id="visualization_div">
 

@@ -1,21 +1,18 @@
 
 html {
 	font-size: 16px;
+	font-family: "museo-slab", georgia;
 }
 
 body {
-		background-image: url('city.jpg');
-		background-size: 100%;
-		background-repeat: no-repeat;
-		background-attachment: fixed;
-		background-position-y: -172px;
-		font-size: 16px;
+		background-position-y: 0px;
 	}
 
 
 
+
 /* Large desktop */
-@media (min-width: 481px) { 
+@media (min-width: 481px) and (max-width: 1299px) { 
 
 	body {
 		background-image: url('city.jpg');
@@ -39,12 +36,12 @@ body {
 	}
 
 	#hero h1 {
-	  font-size: 24px; 
-	  font-weight: lighter;
+	  font-size: 26px; 
 	  margin: 0px;
-	  font-family: "Adobe Caslon Pro";
+	  font-family: "futura-pt";
+	  font-weight: ;
 	  color: white;
-	  opacity: 1;
+	  opacity: 1;	
 
 	}
 
@@ -93,12 +90,12 @@ body {
 	
 
 	.box h3 {
-	  opacity: .9;
+	  opacity: 1;
 	  color: black;
 	  font-weight: lighter;
-	  font-family: "Adobe Caslon Pro";
+	  font-family: "museo-slab";
 	  text-transform: uppercase;
-	  font-size: 14px;
+	  font-size: 15px;
 	  text-align: center;
 	  margin-top: 234px;
 	  background-color: rgba(255, 255, 255, 0.8);
@@ -116,33 +113,16 @@ body {
 	  float: right;
 	}
 
-	.polis_text {
-	  width: 487px;
-	  margin-right: 30px;
-	  margin-top: 70px;
-	  font-family: "Gotham Bold";
-	  color: red;
-	  font-size: 72px;
-	  opacity: .6;
-	  padding: 20px;
-	}
-
 	.polis_word {
-	  opacity: .7;
-	}
-
-	.many_wrapper .to_many, .many_wrapper .to_one {
-	  color: white;
-	  font-size: 26px;
-	  opacity: 1;
-	  position: relative;
-	  margin: 0px;
-	  padding-top: 4px;
-	}
-
-	.many_wrapper {
-	  float: right;
-	}
+	  opacity: .8;
+	  font-family: "futura-pt";
+	  color: red;
+	  font-size: 105px;
+	  font-weight: bold;
+	  margin-left: 12.5%;
+	  border-radius: 5px;
+	  
+	} 
 
 	#clusters {
 	  position: absolute;
@@ -206,7 +186,7 @@ body {
 
 	.polis_word {
 		opacity: .8;
-		font-family: "Gotham Bold";
+		font-family: "Futura PT";
 		color: red;
 		font-size: 36px;
 
@@ -234,7 +214,7 @@ body {
 		opacity: .9;
 		color: black;
 		font-weight: lighter;
-		font-family: "Gotham Bold";
+		font-family: "Futura PT";
 		text-transform: uppercase;
 		font-size: 14px;
 		text-align: center;
@@ -296,7 +276,7 @@ body {
 		opacity: .9;
 		color: black;
 		font-weight: lighter;
-		font-family: "Gotham Bold";
+		font-family: "Futura PT";
 		text-transform: uppercase;
 		font-size: 14px;
 		text-align: center;
