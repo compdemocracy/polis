@@ -318,9 +318,12 @@ $(document).ready(function() {
     }
 
 
+    var w = 900;
     PcaVis.initialize({
         getPersonId: PolisStorage.personId.get,
         getCommentsForProjection: serverClient.getCommentsForProjection,
+        w: w,
+        h: w/2,
         el: "#visualization_div"
     });
 

@@ -5,8 +5,8 @@
 var PcaVis = (function(){
 
 // The h and w values should be locked at a 1:2 ratio of h to w
-var h = 450;
-var w = 900;
+var h;
+var w;
 var nodes = [];
 var visualization;
 
@@ -65,6 +65,8 @@ function isSelf(d) {
 
 function initialize(params) {
     console.log('init');
+    w = params.w;
+    h = params.h;
     el_selector = params.el;
     getPersonId = params.getPersonId;
     getCommentsForProjection = params.getCommentsForProjection;
