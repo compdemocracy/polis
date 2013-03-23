@@ -55,7 +55,7 @@ var App = function(params) {
         });
     }
     var setStimulusOnFirstLoad = _.once(function() {
-        var stim = "513d7389d05267781416684e";
+        var stim = "514ac77ba313c76729000006";
         var kv = getLocationHash();
         if (kv.s) {
             stim = kv.s;

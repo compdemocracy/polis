@@ -152,10 +152,11 @@ var ServerClient = function(params) {
 
     var getNextComment = function(optionalStimulusId) {
         var dfd = $.Deferred();
-        var c = getNextPriorityComment();
-        if (c) {
-            return dfd.resolve(c);
-        }
+        var c;
+        //c = getNextPriorityComment();
+        //if (c) {
+            //return dfd.resolve(c);
+        //}
 
         getCommentStore(optionalStimulusId).all(function(comments) {
             for (var i = 0; i < comments.length; i++) {
@@ -430,10 +431,11 @@ var ServerClient = function(params) {
 
     // todo make a separate file for stimulus stuff
     function stories() {
-        return ["509c9db2bc1e120000000001",
-                "509c9eddbc1e120000000002",
-                "509c9fd6bc1e120000000003",
-                "509ca042bc1e120000000004"];
+        return [currentStimulusId];
+                //"509c9db2bc1e120000000001",
+                //"509c9eddbc1e120000000002",
+                //"509c9fd6bc1e120000000003",
+                //"509ca042bc1e120000000004"];
     }
 
     function submitFeedback(data) {
