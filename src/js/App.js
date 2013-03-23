@@ -40,7 +40,7 @@ var App = function(params) {
     }
     function checkForGameOver() {
         function finished() {
-            $('#feedback_modal').modal('show');
+            //$('#feedback_modal').modal('show');
         }
         _.defer(function() {
             finishedAllComments().then( finished );
