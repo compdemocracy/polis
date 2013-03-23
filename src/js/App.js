@@ -22,6 +22,16 @@ var App = function(params) {
 
     var logger = console;
 
+    var shouldPollForMoreComments = false;
+    var commentPollInterval = 5 * 1000;
+
+    function pollForComments() {
+        if (shouldPollForMoreComments) {
+            serverClient.syncAllCommentsForCurrentStimulus()
+        }
+    }
+    setInterval(pollForComments, commentPollInterval);
+
     function finishedAllComments() {
         var promises = serverClient.stories().map(function(storyId) {
             var dfd = $.Deferred();
@@ -31,6 +41,7 @@ var App = function(params) {
                         dfd.reject();
                     },
                     function(x) {
+                        shouldPollForMoreComments = true;
                         dfd.resolve();
                     });
             });
@@ -197,6 +208,8 @@ var App = function(params) {
         commentShower.addPushListener(checkForGameOver);
         commentShower.addPassListener(checkForGameOver);
         //commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
+
+        serverClient.addCommentsAvailableListener(commentShower.notifyCommentsAvailable);
 
         $(".stimulus_link").click(setStimulus);
         // Start with a default stimulus.

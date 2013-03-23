@@ -9,6 +9,7 @@ var CommentShower = function(params) {
     var shownCallbacks = $.Callbacks();
 
     var currentCommentId;
+    var waitingForComments = true;
 
     var buttons = [
         $('#push_button'),
@@ -37,8 +38,9 @@ var CommentShower = function(params) {
             html;
 
         if (!data) {
-            $rootDomElem.html("<h3>You've finished reacting to comments for the current article, please select the next article to proceed.</h3>");
+            $rootDomElem.html("<h3>You've rated all the comments, waiting for more...</h3>");
             hideButtons();
+            waitingForComments = true;
             return;
         }
         showButtons();
@@ -80,11 +82,19 @@ var CommentShower = function(params) {
     $('#pull_button').click(onPullClicked);
     $('#pass_button').click(onPassClicked);
 
+
+    function notifyCommentsAvailable() {
+        if (waitingForComments) {
+            showNext();
+        }
+    }
+
     return {
         addPullListener: pullCallbacks.add,
         addPushListener: pushCallbacks.add,
         addPassListener: passCallbacks.add,
         addShownListener: shownCallbacks.add,
+        notifyCommentsAvailable: notifyCommentsAvailable,
         showComment : showComment,
         showNext: showNext
     };

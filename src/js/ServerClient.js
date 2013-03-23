@@ -50,6 +50,7 @@ var ServerClient = function(params) {
 
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
+    var commentsAvailableCallbacks = $.Callbacks();
 
     var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
@@ -136,6 +137,7 @@ var ServerClient = function(params) {
                         });
                         commentStore.batch(newComments);
                         getAllReactionsForSelf(stim).then( function() {
+                            commentsAvailableCallbacks.fire();
                             dfd.resolve(newComments.length);
                         }, function() {
                             dfd.reject(0);
@@ -593,6 +595,7 @@ var ServerClient = function(params) {
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
         addPersonUpdateListener: personUpdateCallbacks.add,
+        addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,
         submitEvent: submitEvent,
