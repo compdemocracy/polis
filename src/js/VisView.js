@@ -80,8 +80,8 @@ function initialize(params) {
           .attr('height', "100%")
           .attr('class', 'visualization');
     window.vis = visualization;
-    w = $(el_selector).width()
-    h = $(el_selector).height()
+    w = $(el_selector).width();
+    h = $(el_selector).height();
 
         //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 

@@ -27,7 +27,7 @@ var App = function(params) {
 
     function pollForComments() {
         if (shouldPollForMoreComments) {
-            serverClient.syncAllCommentsForCurrentStimulus()
+            serverClient.syncAllCommentsForCurrentStimulus();
         }
     }
     setInterval(pollForComments, commentPollInterval);
@@ -343,8 +343,7 @@ $(document).ready(function() {
             h: h,
             el: "#visualization_div"
         });
-    }
-    
+    };
 
     serverClient.addPersonUpdateListener( function(e) {
         PcaVis.upsertNode(e);
