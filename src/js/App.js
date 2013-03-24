@@ -15,14 +15,12 @@ function navigateToWriteTab(e) {
     if (e && e.preventDefault) { 
         e.preventDefault();
     }
-    hideAddressBar();
     $(".write_tab").tab('show');
 }
 function navigateToReactTab(e) {
     if (e && e.preventDefault) { 
         e.preventDefault();
     }
-    hideAddressBar();
     $(".react_tab").tab('show');
 }
 function showTopicModal() {
@@ -86,6 +84,7 @@ var App = function(params) {
         serverClient.syncAllCommentsForCurrentStimulus().always( function() {
                 commentShower.showNext().always(checkForGameOver);
         });
+        document.title= "Polis topic: Legalization?";
     }
     var setStimulusOnFirstLoad = _.once(function() {
         var stim = "513d7389d05267781416684e";
