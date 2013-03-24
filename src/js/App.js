@@ -15,12 +15,14 @@ function navigateToWriteTab(e) {
     if (e && e.preventDefault) { 
         e.preventDefault();
     }
+    hideAddressBar();
     $(".write_tab").tab('show');
 }
 function navigateToReactTab(e) {
     if (e && e.preventDefault) { 
         e.preventDefault();
     }
+    hideAddressBar();
     $(".react_tab").tab('show');
 }
 function showTopicModal() {
