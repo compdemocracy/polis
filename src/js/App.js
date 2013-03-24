@@ -7,6 +7,26 @@ function getLocationHash() {
     return pairs;
 }
 
+function shouldShowFirstTimeUserExperience() {
+    return !PolisStorage.personId.get();
+}
+
+function navigateToWriteTab(e) {
+    if (e && e.preventDefault) { 
+        e.preventDefault();
+    }
+    $("#write_tab").tab('show');
+}
+function navigateToReactTab(e) {
+    if (e && e.preventDefault) { 
+        e.preventDefault();
+    }
+    $("#react_tab").tab('show');
+}
+function showTopicModal() {
+    //alert("In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkldsfku sadfh asudhfo aisufsufasdhfiuadhiu aefw uirh weoiuhr uiwereyruw eyro iweuryoi weuyru wef g fd h fg h fgdg sn luahfiluafleidsuhsf s d fpa iusdfpjip asdp if ipa spidif ijpi dsaip fi adisu i  fahuihefas");
+}
+
 var App = function(params) {
     
     var utils = params.utils;
@@ -95,6 +115,8 @@ var App = function(params) {
         });
         commentSubmitter.addSubmitListener(function(txt) {
             serverClient.submitComment(txt);
+            alert("Thanks! let's see what happens.");
+            navigateToReactTab();
         });
 
         // StimulusSubmitter
@@ -323,13 +345,6 @@ $(document).ready(function() {
     //serverClient.addModeChangeEventListener(onModeChange);
 
 
-    var onResize = _.throttle(function onResize(){
-        //var resizeArticleHeight = $(window).height() * 0.68;
-        //var resizeShowerHeight = $(window).height() * 0.70;
-        //$('#articles').css('height', resizeArticleHeight);
-        //$('#comment_shower').css('height', resizeShowerHeight);
-        initPcaVis(); 
-    },1000);
 
 
     var initPcaVis = function() {
@@ -345,25 +360,35 @@ $(document).ready(function() {
         });
     };
 
-    $('.react').click(function (e) {
-      e.preventDefault();
-      $(this).tab('show');
-    });
-    $('.write').click(function (e) {
-      e.preventDefault();
-      $(this).tab('show');
-    });
+    initPcaVis();
+    var onResize = _.throttle(function onResize(){
+        //var resizeArticleHeight = $(window).height() * 0.68;
+        //var resizeShowerHeight = $(window).height() * 0.70;
+        //$('#articles').css('height', resizeArticleHeight);
+        //$('#comment_shower').css('height', resizeShowerHeight);
+        initPcaVis(); 
+    },1000);
+
+    //$("#topic_modal").click(showTopicModal);
+    $('#topic_modal').modal({show: false, keyboard: true, backdrop: true});
+
+    $('#react_tab').click(navigateToReactTab);
+    $('#write_tab').click(navigateToWriteTab);
 
     serverClient.addPersonUpdateListener( function(e) {
         PcaVis.upsertNode(e);
     });
+
+    if (shouldShowFirstTimeUserExperience()) {
+        alert("Welcome to Polis");
+    }
 
 window.newUser = function() {
     PolisStorage.token.clear();
     PolisStorage.email.clear();
     PolisStorage.username.clear();
     PolisStorage.personId.clear();
-    window.location = window.location;
+    window.location.reload(true); // force get
 };
 KeyboardJS.on("ctrl+n", newUser);
     

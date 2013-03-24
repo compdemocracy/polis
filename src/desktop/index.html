@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>Polis: student view</title>
+    <title>Polis</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="">
     <meta name="author" content="">
@@ -360,15 +360,21 @@
             </a>
             <a class="brand" href="#">Polis</a>
             <div class="nav-collapse collapse">
-              
               <ul class="nav">
-                <li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
+                <li> <a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Should drugs be legal?</a> </li> 
+                <!--li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
                 <li><p id="username_label" class="navbar-text pull-right"></p></li>
-                <li><a class="deregister_button" class="pull-right">Sign Out</a></li>
+                <li><a class="deregister_button" class="pull-right">Sign Out</a></li-->
               </ul>
             </div><!--/.nav-collapse -->
           </div>
         </div>
+      </div>
+
+      <div id="topic_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
+          <div class="modal-header">
+In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkldsfku sadfh asudhfo aisufsufasdhfiuadhiu aefw uirh weoiuhr uiwereyruw eyro iweuryoi weuyru wef g fd h fg h fgdg sn luahfiluafleidsuhsf s d fpa iusdfpjip asdp if ipa spidif ijpi dsaip fi adisu i  fahuihefas
+          </div>
       </div>
 
       <div id="feedback_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
@@ -491,20 +497,6 @@
 
 
 
-<div class="container-fluid">
-
-       <div class="row-fluid ">
-
-          <div class="span6"> 
-
-            
-        </div> <!--span -->
-
-          </div> <!--row --> 
-         </div><!--/span-->
-        </div><!--/row-->
-      </div><!--/.fluid-container-->
-
 
     <!-- Le javascript
     ================================================== -->
@@ -612,23 +604,23 @@
 
 
 <ul class="nav nav-tabs" id="myTab">
-  <li class="active"><a class="react" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
-  <li><a class="write" href="#write"><i class="icon-pencil"></i>Write</a></li>
+  <li class="active"><a id="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
+  <li><a id="write_tab" href="#write"><i class="icon-pencil"></i>Write</a></li>
 </ul>
 
 <div class="tab-content">
  <div class="tab-pane active" id="react">
-  <div id="visualization_div"></div> 
+  <div class="row-fluid" id="visualization_div"></div> 
   <div id="comment_shower_frame"> 
     <div id="comment_shower"> 
       <h3> Comments </h3> 
     </div> 
 
     <div class="pull_buttons">
-      <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i>  Agree   </button>
+      <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i> Agree   </button>
       <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
       <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
-      <button id="pass_button" class="showerbtns btn btn-large pull-right"><i class="icon-question-sign"></i>  Pass   </button>
+      <button id="pass_button" class="showerbtns btn btn-large pull-right">Pass</button>
 
     </div> 
   </div> <!-- comment_shower_frame -->
@@ -636,7 +628,7 @@
  <div class="tab-pane" id="write">
     <form id="comment_form">
       <fieldset>
-          <textarea id="comment_form_textarea" type="text" placeholder="Type a comment here..."></textarea>
+          <textarea id="comment_form_textarea" type="text" placeholder="Write your opinion..."></textarea>
         <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
       </fieldset>
     </form>
