@@ -392,6 +392,8 @@ window.newUser = function() {
 };
 KeyboardJS.on("ctrl+n", newUser);
     
+
+setTimeout(function(){$(document.body).scrollTop();},0);
             
     $(window).resize(onResize);
     onResize();
