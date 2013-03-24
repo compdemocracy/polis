@@ -61,7 +61,8 @@
           margin-bottom: 20px;
           font-weight: lighter;
           text-transform: uppercase;
-          letter-spacing: 6px;
+          letter-spacing: 3px;
+            padding: 3px;
         /*  padding-left: 5%; */
         /*  padding-right: 5%; */
           font-family: neoretrofill;
@@ -361,8 +362,10 @@
             </a>
             <a class="brand" href="#">Polis</a>
               <ul class="nav">
-                <li> <a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalize drugs?</a> </li> 
-                <li><a id="write_tab" href="#write">✎Write</a></li>
+                <ul class="nav nav-tabs" id="fooTab">
+                    <li class="active"><a class="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
+                    <li><a class="write_tab" href="#write">✎Write</a></li>
+                </ul>
                 <!--li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
                 <li><p id="username_label" class="navbar-text pull-right"></p></li>
                 <li><a class="deregister_button" class="pull-right">Sign Out</a></li-->
@@ -373,6 +376,7 @@
         </div>
       </div>
 
+                 <center><a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalize drugs?</a> </center>
       <div id="topic_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
           <div class="modal-header">
 In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkldsfku sadfh asudhfo aisufsufasdhfiuadhiu aefw uirh weoiuhr uiwereyruw eyro iweuryoi weuyru wef g fd h fg h fgdg sn luahfiluafleidsuhsf s d fpa iusdfpjip asdp if ipa spidif ijpi dsaip fi adisu i  fahuihefas
@@ -605,10 +609,10 @@ In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkld
 </script>
 
 
-<ul class="nav nav-tabs" id="myTab">
-  <li class="active"><a id="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
-  <li><a id="write_tab" href="#write"><i class="icon-pencil"></i>Write</a></li>
-</ul>
+<!--ul class="nav nav-tabs" id="myTab">
+  <li class="active"><a class="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
+  <li><a class="write_tab" href="#write"><i class="icon-pencil"></i>Write</a></li>
+</ul-->
 
 <div class="tab-content">
  <div class="tab-pane active" id="react">

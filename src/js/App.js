@@ -15,13 +15,13 @@ function navigateToWriteTab(e) {
     if (e && e.preventDefault) { 
         e.preventDefault();
     }
-    $("#write_tab").tab('show');
+    $(".write_tab").tab('show');
 }
 function navigateToReactTab(e) {
     if (e && e.preventDefault) { 
         e.preventDefault();
     }
-    $("#react_tab").tab('show');
+    $(".react_tab").tab('show');
 }
 function showTopicModal() {
     //alert("In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkldsfku sadfh asudhfo aisufsufasdhfiuadhiu aefw uirh weoiuhr uiwereyruw eyro iweuryoi weuyru wef g fd h fg h fgdg sn luahfiluafleidsuhsf s d fpa iusdfpjip asdp if ipa spidif ijpi dsaip fi adisu i  fahuihefas");
@@ -372,8 +372,8 @@ $(document).ready(function() {
     //$("#topic_modal").click(showTopicModal);
     $('#topic_modal').modal({show: false, keyboard: true, backdrop: true});
 
-    $('#react_tab').click(navigateToReactTab);
-    $('#write_tab').click(navigateToWriteTab);
+    $('.react_tab').click(navigateToReactTab);
+    $('.write_tab').click(navigateToWriteTab);
 
     serverClient.addPersonUpdateListener( function(e) {
         PcaVis.upsertNode(e);
@@ -393,7 +393,12 @@ window.newUser = function() {
 KeyboardJS.on("ctrl+n", newUser);
     
 
-setTimeout(function(){$(document.body).scrollTop();},0);
+// Hide the address bar on iphone
+setTimeout(function(){
+    // Be sure the document is taller than the window
+    // http://stackoverflow.com/questions/4117377/how-to-hide-the-address-bar-on-iphone
+    window.scrollTo(0,1) 
+},0);
             
     $(window).resize(onResize);
     onResize();
