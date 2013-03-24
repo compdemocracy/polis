@@ -92,7 +92,6 @@
         overflow: auto;
         margin-bottom: 20px;
         text-align: justify;
-        padding-right: 20px;
       }
      #comment_shower>p {
         margin: 10px;
@@ -123,7 +122,7 @@
 
       #comment_form_textarea{ 
             display: block;
-           width: 310px;
+           width: 280px;
            height: 148px;
            resize: vertical;
            border-radius: 15px 15px 0px  15px;
@@ -553,6 +552,8 @@ In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkld
    
     <script id="showerTemplate" type="text/template">
         <p>{{txt}}</p>
+
+What is your reaction to this statement?
     </script>
     <!-- script id="showerTemplate" type="text/template">
                     <h4>Comment ID: {{_id}}</h4>
@@ -632,12 +633,10 @@ In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkld
 
 <div class="tab-content">
  <div class="tab-pane active" id="react">
-  <div class="row-fluid" id="visualization_div"></div> 
   <div id="comment_shower_frame"> 
     <div id="comment_shower"> 
       <h3> Comments </h3> 
     </div> 
-
     <div class="pull_buttons">
       <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i> Agree   </button>
       <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
@@ -646,6 +645,11 @@ In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkld
 
     </div> 
   </div> <!-- comment_shower_frame -->
+
+<p>
+<center>The conversation visualized</center>
+  <div class="row-fluid" id="visualization_div"></div> 
+</p>
  </div>
  <div class="tab-pane" id="write">
     <form id="comment_form">
