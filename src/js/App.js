@@ -393,12 +393,27 @@ window.newUser = function() {
 KeyboardJS.on("ctrl+n", newUser);
     
 
-// Hide the address bar on iphone
-setTimeout(function(){
-    // Be sure the document is taller than the window
-    // http://stackoverflow.com/questions/4117377/how-to-hide-the-address-bar-on-iphone
-    window.scrollTo(0,1);
-},0);
+
+        
+// hack_ios_hide_locationbar
+// Be sure the document is taller than the window
+// http://mobile.tutsplus.com/tutorials/mobile-web-apps/remove-address-bar/
+function hideAddressBar()
+{
+  if(!window.location.hash)
+  {
+      if(document.height < window.outerHeight)
+      {
+          document.body.style.height = (window.outerHeight + 50) + 'px';
+      }
+ 
+      setTimeout( function(){ window.scrollTo(0, 1); }, 0);
+  }
+}
+ 
+window.addEventListener("load", function(){ if(!window.pageYOffset){ hideAddressBar(); } } );
+window.addEventListener("orientationchange", hideAddressBar );
+
             
     $(window).resize(onResize);
     onResize();
