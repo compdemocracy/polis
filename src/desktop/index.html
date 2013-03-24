@@ -7,32 +7,30 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
+
+    <script type="text/javascript" src="//use.typekit.net/hay1ujx.js"></script>
+    <script type="text/javascript">try{Typekit.load();}catch(e){}</script>
     <!-- Le styles -->
     <link href="/static/lib/desktop/css/bootstrap.css" rel="stylesheet">
-    <link href="/static/lib/desktop/css/flip.css" rel="stylesheet">
     <link href="/static/vis/pca_vis.css" rel="stylesheet">
     <style type="text/css">
-          #visualization_div {
-            margin: 0px;
-            width: 100%;
-            max-width: 900px;
-            min-width: 290px;
-            min-height: 145px;
-          }
       
-        .debug_hidden {
-            display: none;
-        }
+
+      #visualization_div {
+        margin: 0px;
+        width: 100%;
+        max-width: 900px;
+        min-width: 290px;
+        min-height: 145px;
+      }
+    
+      .debug_hidden {
+          display: none;
+      }
 
       .sidebar-nav {
         padding: 9px 0;
       }
-
-      .showerbtns{
-        /* float: left; */
-
-      }
-     
 
       #pull_button {
          margin-left: 2%;
@@ -66,7 +64,7 @@
             padding: 3px;
         /*  padding-left: 5%; */
         /*  padding-right: 5%; */
-          font-family: neoretrofill;
+          font-family: futura-pt;
       }
 
       .pull_buttons i {
@@ -100,7 +98,7 @@
      #comment_shower_frame {
         max-height: 500px;
         max-width: 900px;
-        background-color: white;
+        background-color: #F5F5F5;
         -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -166,7 +164,6 @@
       body{
         min-height: 900px; /* hack_ios_hide_locationbar */
         padding-top: 60px;
-        background-image: url(/static/images/bgnoise_lg.png);
       }
 
       
@@ -249,119 +246,13 @@
           #trash_button {
             margin-right: 0px;
           }
-
+          .navbar, .navbar-fixed-top, .navbar-inverse .navbar-inner {
+            display: none;
+          }
           
        }
 
-      /* @font-face template */
-
-      .neoretroff {font: 18px/27px 'NeoRetroFillRegular', Arial, sans-serif;}
-
-    @font-face {
-        font-family: 'NeoRetroFillRegular';
-        src: url('NEORF___-webfont.eot');
-        src: url('NEORF___-webfont.eot?#iefix') format('embedded-opentype'),
-             url('NEORF___-webfont.woff') format('woff'),
-             url('NEORF___-webfont.ttf') format('truetype'),
-             url('NEORF___-webfont.svg#NeoRetroFillRegular') format('svg');
-        font-weight: normal;
-        font-style: normal;
-
-        }
-
-        /* flipcard css */
-
-      .fliptextright {
-        
-        cursor: hand;
-        cursor: pointer;
-        text-align: right;
-        padding-right: 20px;
-        text-transform: uppercase;
-
-      }
       
-      .fliptextright span {
-        position: relative;
-        top: 1px;
-      }
-
-      #articles_span{
-        position: relative;
-        background-color: white;
-        padding: 0px 0px 20px 20px ;
-        border-radius: 20px;
-
-        -webkit-perspective: 600px;
-        -moz-perspective: 600px;
-
-      }
-
-
-      #articles_span #articles_span_front {
-
-        -webkit-transform: rotateX(0deg) rotateY(0deg);
-        -webkit-transform-style: preserve-3d;
-        -webkit-backface-visibility: hidden;
-
-        -moz-transform: rotateX(0deg) rotateY(0deg);
-        -moz-transform-style: preserve-3d;
-        -moz-backface-visibility: hidden;
-
-        /* -- transition is the magic sauce for animation -- */
-        -o-transition: all 1s ease-in-out;
-        -ms-transition: all 1s ease-in-out;
-        -moz-transition: all 1s ease-in-out;
-        -webkit-transition: all 1s ease-in-out;
-        transition: all 1s ease-in-out;
-
-      }
-
-
-      #articles_span_back {
-
-        position: absolute;
-        top:0px;
-        left: 0px;
-        background-color: white;
-        padding: 0px 0px 20px 20px ;
-        border-radius: 20px;
-
-        -webkit-transform: rotateY(-180deg);
-        -webkit-transform-style: preserve-3d;
-        -webkit-backface-visibility: hidden;
-
-        -moz-transform: rotateY(-180deg);
-        -moz-transform-style: preserve-3d;
-        -moz-backface-visibility: hidden;
-
-        /* -- transition is the magic sauce for animation -- */
-        -o-transition: all 1s ease-in-out;
-        -ms-transition: all 1s ease-in-out;
-        -moz-transition: all 1s ease-in-out;
-        -webkit-transition: all 1s ease-in-out;
-        transition: all 1s ease-in-out;
-
-      }
-
-      #articles_span:hover{
-        -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
-      }
-
-
-      .flip {
-        z-index: 900;
-        -webkit-transform: rotateY(180deg);
-        -moz-transform: rotateY(180deg);
-      }
-
-      .flipback {
-        z-index: 1000;
-        -webkit-transform: rotateX(0deg) rotateY(0deg);
-        -moz-transform: rotateX(0deg) rotateY(0deg);
-      }
 
     </style>
     </head> 
@@ -376,11 +267,7 @@
               <span class="icon-bar"></span>
             </a>
             <a class="brand" href="#">Polis</a>
-              <ul class="nav">
-                <ul class="nav nav-tabs" id="fooTab">
-                    <li class="active"><a class="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
-                    <li><a class="write_tab" href="#write">✎Write</a></li>
-                </ul>
+              
                 <!--li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
                 <li><p id="username_label" class="navbar-text pull-right"></p></li>
                 <li><a class="deregister_button" class="pull-right">Sign Out</a></li-->
@@ -390,6 +277,13 @@
           </div>
         </div>
       </div>
+
+            <ul class="nav">
+                <ul class="nav nav-tabs" id="fooTab">
+                    <li class="active"><a class="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
+                    <li><a class="write_tab" href="#write">✎Write</a></li>
+                </ul>
+
 
                  <center><a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </center>
       <div id="topic_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
@@ -592,9 +486,9 @@ What is your reaction to this statement?
 
 <script type="text/template" id="pca_vis_overlays_template">
 
-     <div id="centercircle_content" class="hidden">
+     /* <div id="centercircle_content" class="hidden">
       <h3> this is probably... like... you know... a tutorial video </h3> 
-     </div> 
+     </div> */
      <div id="top_pillar" class="hidden">
       <h2> Members in clusters towards the top have, on average, pulled and pushed the following comments:</h2> 
       <h4> Pulled: </h4> 
@@ -638,8 +532,8 @@ What is your reaction to this statement?
       <h3> Comments </h3> 
     </div> 
     <div class="pull_buttons">
-      <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i> Agree   </button>
-      <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
+      <button id="pull_button" class="showerbtns btn btn-large ">  Agree   </button>
+      <button id="push_button" class="showerbtns btn btn-large " >Disagree   </button>
       <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
       <button id="pass_button" class="showerbtns btn btn-large pull-right">Pass</button>
 
