@@ -323,22 +323,28 @@ $(document).ready(function() {
     //serverClient.addModeChangeEventListener(onModeChange);
 
 
-    function onResize(){
-        var resizeArticleHeight = $(window).height() * 0.68;
-        var resizeShowerHeight = $(window).height() * 0.70;
-        $('#articles').css('height', resizeArticleHeight);
-        $('#comment_shower').css('height', resizeShowerHeight);
+    var onResize = _.throttle(function onResize(){
+        //var resizeArticleHeight = $(window).height() * 0.68;
+        //var resizeShowerHeight = $(window).height() * 0.70;
+        //$('#articles').css('height', resizeArticleHeight);
+        //$('#comment_shower').css('height', resizeShowerHeight);
+        initPcaVis(); 
+    },1000);
+
+
+    var initPcaVis = function() {
+        var w = $("#visualization_div").width();
+        var h = w/2;
+        $("#visualization_div").height(h);
+        PcaVis.initialize({
+            getPersonId: PolisStorage.personId.get,
+            getCommentsForProjection: serverClient.getCommentsForProjection,
+            w: w,
+            h: h,
+            el: "#visualization_div"
+        });
     }
-
-
-    var w = 900;
-    PcaVis.initialize({
-        getPersonId: PolisStorage.personId.get,
-        getCommentsForProjection: serverClient.getCommentsForProjection,
-        w: w,
-        h: w/2,
-        el: "#visualization_div"
-    });
+    
 
     serverClient.addPersonUpdateListener( function(e) {
         PcaVis.upsertNode(e);

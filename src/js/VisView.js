@@ -65,20 +65,23 @@ function isSelf(d) {
 
 function initialize(params) {
     console.log('init');
-    w = params.w;
-    h = params.h;
     el_selector = params.el;
     getPersonId = params.getPersonId;
     getCommentsForProjection = params.getCommentsForProjection;
 
+    // Since initialize is called on resize, clear the old vis before setting up the new one.
+    $(el_selector).html("");
 
     //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
     //to connect viz to responsive layout if desired
     visualization = d3.select(el_selector)
         .append('svg')
-          .attr('width', w)
-          .attr('height', h)
+          .attr('width', "100%")
+          .attr('height', "100%")
           .attr('class', 'visualization');
+    window.vis = visualization;
+    w = $(el_selector).width()
+    h = $(el_selector).height()
 
         //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 

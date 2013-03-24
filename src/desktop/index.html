@@ -12,6 +12,10 @@
     <link href="/static/lib/desktop/css/flip.css" rel="stylesheet">
     <link href="/static/vis/pca_vis.css" rel="stylesheet">
     <style type="text/css">
+          #visualization_div {
+            margin: 0px;
+            width: 100%;
+          }
       
         .debug_hidden {
             display: none;
@@ -538,10 +542,13 @@
 
    
     <script id="showerTemplate" type="text/template">
+        <p>{{txt}}</p>
+    </script>
+    <!-- script id="showerTemplate" type="text/template">
                     <h4>Comment ID: {{_id}}</h4>
                     <p>{{txt}}</p>
                     <p>User ID: {{u}}</p>
-    </script>
+    </script -->
 
 
     <script id="usernameTemplate" type="text/template">
