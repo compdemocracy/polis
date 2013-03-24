@@ -277,7 +277,7 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
     }
 
 
-    var nodeRadius = 5;
+    var nodeRadius = 4;
     var maxNodeRadius = 10 + 5;
 
     var spans = { 
@@ -358,7 +358,7 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
             if (isSelf(d)){
                 return nodeRadius + 5; // medium
             }
-            return nodeRadius + (Math.random() * 10);
+            return nodeRadius;// + (Math.random() * 10);
         })
 /*
       .style("fill", function(d) {
