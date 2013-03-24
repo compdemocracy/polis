@@ -397,7 +397,7 @@ KeyboardJS.on("ctrl+n", newUser);
 setTimeout(function(){
     // Be sure the document is taller than the window
     // http://stackoverflow.com/questions/4117377/how-to-hide-the-address-bar-on-iphone
-    window.scrollTo(0,1) 
+    window.scrollTo(0,1);
 },0);
             
     $(window).resize(onResize);
