@@ -16,6 +16,8 @@
             margin: 0px;
             width: 100%;
             max-width: 900px;
+            min-width: 400px;
+            min-height: 200px;
           }
       
         .debug_hidden {
@@ -95,6 +97,8 @@
      }
 
      #comment_shower_frame {
+        max-height: 500px;
+        max-width: 900px;
         background-color: white;
         -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -224,7 +228,7 @@
             font-size: 1em;
           }
           body{
-            padding-top: 0px;
+            margin: 0px;
           }
           #comment_shower {
             margin-top: 20px;
@@ -493,19 +497,6 @@
 
           <div class="span6"> 
 
-           <div id="comment_shower_frame"> 
-            <div id="comment_shower"> 
-              <h3> Comments </h3> 
-            </div> 
-
-            <div class="pull_buttons">
-              <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i>  Agree   </button>
-              <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
-              <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
-              <button id="pass_button" class="showerbtns btn btn-large pull-right"><i class="icon-question-sign"></i>  Pass   </button>
-
-            </div> 
-          </div> <!-- comment_shower_frame -->
             
         </div> <!--span -->
 
@@ -514,7 +505,6 @@
         </div><!--/row-->
       </div><!--/.fluid-container-->
 
-        <div id="visualization_div"></div> 
 
     <!-- Le javascript
     ================================================== -->
@@ -621,12 +611,38 @@
 </script>
 
 
+<ul class="nav nav-tabs" id="myTab">
+  <li class="active"><a class="react" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
+  <li><a class="write" href="#write"><i class="icon-pencil"></i>Write</a></li>
+</ul>
+
+<div class="tab-content">
+ <div class="tab-pane active" id="react">
+  <div id="visualization_div"></div> 
+  <div id="comment_shower_frame"> 
+    <div id="comment_shower"> 
+      <h3> Comments </h3> 
+    </div> 
+
+    <div class="pull_buttons">
+      <button id="pull_button" class="showerbtns btn btn-large "> <i class="icon-thumbs-up"></i>  Agree   </button>
+      <button id="push_button" class="showerbtns btn btn-large " ><i class="icon-thumbs-down"></i> Disagree   </button>
+      <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
+      <button id="pass_button" class="showerbtns btn btn-large pull-right"><i class="icon-question-sign"></i>  Pass   </button>
+
+    </div> 
+  </div> <!-- comment_shower_frame -->
+ </div>
+ <div class="tab-pane" id="write">
     <form id="comment_form">
       <fieldset>
           <textarea id="comment_form_textarea" type="text" placeholder="Type a comment here..."></textarea>
         <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
       </fieldset>
     </form>
+ </div>
+</div>
+
 
     <form id="stimulus_form" class="debug_hidden">
       <fieldset>
@@ -638,7 +654,6 @@
       </fieldset>
     </form>
 
-  <div id="visualization_div"></div>
 
 
 

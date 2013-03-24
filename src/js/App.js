@@ -345,6 +345,15 @@ $(document).ready(function() {
         });
     };
 
+    $('.react').click(function (e) {
+      e.preventDefault();
+      $(this).tab('show');
+    })
+    $('.write').click(function (e) {
+      e.preventDefault();
+      $(this).tab('show');
+    })
+
     serverClient.addPersonUpdateListener( function(e) {
         PcaVis.upsertNode(e);
     });
