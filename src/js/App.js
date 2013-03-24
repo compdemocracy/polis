@@ -84,7 +84,7 @@ var App = function(params) {
         serverClient.syncAllCommentsForCurrentStimulus().always( function() {
                 commentShower.showNext().always(checkForGameOver);
         });
-        document.title= "Polis topic: Legalization?";
+        document.title= "Polis topic: Legalization";
     }
     var setStimulusOnFirstLoad = _.once(function() {
         var stim = "513d7389d05267781416684e";
