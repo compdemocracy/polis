@@ -7,13 +7,21 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
+    
+
+    <link href="//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/css/bootstrap-combined.no-icons.min.css" rel="stylesheet">    
+    <link href="//netdna.bootstrapcdn.com/font-awesome/3.0.2/css/font-awesome.css" rel="stylesheet">  
+
     <script type="text/javascript" src="//use.typekit.net/hay1ujx.js"></script>
     <script type="text/javascript">try{Typekit.load();}catch(e){}</script>
 
-    <link href="/static/lib/desktop/css/bootstrap.css" rel="stylesheet">
-    <link href="//netdna.bootstrapcdn.com/font-awesome/3.0.2/css/font-awesome.css" rel="stylesheet">    
+    <link href="/static/lib/desktop/css/bootstro.min.css" rel="stylesheet">
     <link href="/static/vis/pca_vis.css" rel="stylesheet">
     <style type="text/css">
+
+      body {
+        font-family: museo-slab;
+      }
 
       #visualization_div {
         margin: 0px;
@@ -28,8 +36,9 @@
       }
 
       
-      #introduction_feedback_form {
-
+      #introduction_feedback_form textarea {
+        width: 90%;
+        height: 125px;
       }
 
       #pass_button {
@@ -44,7 +53,9 @@
           border: none;
           background-color: #F5F5F5;
           background-image: none;
-          color: rgb(148, 39, 39);
+          color: rgb(87, 87, 87);
+          border-radius: 2px;
+          font-size: 16px;
 
       /*  padding-left: 5%; */
       /*  padding-right: 5%; */
@@ -70,11 +81,12 @@
         text-align: justify;
       }
     
-     #comment_shower p {
-        font-family: times;
+     #comment_shower p, #comment_shower h3 {
+        font-family: futura-pt, times;
         font-size: 16px;
         padding: 10px;
-
+        font-weight: normal;
+        line-height: normal;
      }
 
      #comment_shower_frame {
@@ -178,6 +190,7 @@
           }
          #comment_shower_frame {
             padding: 5px;
+            border-bottom: 1px solid black;
          }
          #pull_button {
              margin-left: 0px;
@@ -193,6 +206,7 @@
             display: none;
           }*/
           
+
        }
 
       
@@ -209,12 +223,12 @@
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
       </button>
-      <a class="brand" href="#">Polis</a>
+      <a class="brand"  href="#">Polis</a>
       <div class="nav-collapse collapse">
         <ul class="nav">
           <li class="active" data-toggle="modal" data-target="#introduction_modal"><a href="#">Intro & Overview</a></li>
           <li><a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </li>
-          <li><a href="#about">About Polis</a></li>
+          <li><a href="#about" class="bootstro" data-bootstro-title="Welcome" data-bootstro-content="Polis is a web application developed in Seattle by a small team of designers, developers and math geeks. One of them likely invited you to this prototype. Polis provides a platform to facilitate constructive conversations at very large scales." data-bootstro-placement="bottom" data-bootstro-step="1">About Polis</a></li>
           <li><a href="">Contact & Feedback</a></li>
         </ul>
       </div><!--/.nav-collapse -->
@@ -275,29 +289,28 @@
 
 
 <!-- NOW ENTERING MODAL LAND... -->
-
                  
       <div id="introduction_modal" class="modal hide fade" data-keyboard="true" data-show="true" role="dialog">
           <div class="modal-header">
-            <button id="introduction_modal_button" type="button" class="close" disabled="disabled" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <button id="introduction_modal_button" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
             <h3 >A Brief Introduction</h3>
 
           </div>
            <div id="modal_left_side" class="modal-body">       
                 <h6>WELCOME:</h6>
-                <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis provides a platform to facilitate productive, large scale conversations.  </p>
+                <p>Polis is a web application developed in Seattle by a small team of designers, developers and math geeks. One of them likely invited you to this prototype. Polis provides a platform to facilitate constructive conversations at very large scales. </p>
 
-                <p>In this prototype we ask our social network from across the country to discuss their thoughts and feelings on national drug policy, exactly the kind of conversation that breaks down at large scales on the internet. We are building a framework we believe will produce effective outcomes in such contexts. Thank you for helping. </p>
+                <p>In this prototype we ask our social network from across the country to discuss their thoughts and feelings on national drug policy, the kind of conversation that breaks down in large groups, be they in person or on the internet. </p>
 
                 <h6> WHAT TO DO: </h6>
 
                 <p> 1. Take the guided tour of the user interface. </p> 
 
-                <p> 2. Read the comments and react to them. Agree if the comment you are reading represents your opinion, disagree if it doesn't. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 & 30 comments. The more comments you react to the better the data - but we'll be grateful for however many you finish. </p>
+                <p> 2. Read the comments and react to them. Agree if the comment you are reading represents your opinion, disagree if it doesn't. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 & 30 comments. The more comments you react to the better the data - but we'll be grateful for however many you react to. </p>
 
-                <p> 3. Submit at least one comment of your own after seeing what has already been said in the conversation. Try to add something original. Focused, well written comments will gain more support than longer, meandering ones. </p> 
+                <p> 3. Submit at least one comment of your own after seeing what ideas have already been stated. </p>
 
-                <p> 4. Watch the visualization change as you react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives a real-time overview of the opinion groups in the conversation. </p> 
+                <p> 4. Watch the visualization change as you react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives you a real-time overview of the opinion groups in the conversation. As we develop Polis, this visualization will become more and more navigable, and users will be able to extract more and more information. </p> 
 
                 <form id="introduction_feedback_form" class="feedback_form dropdown_forms">
                   <fieldset>
@@ -334,6 +347,7 @@
     <script src="/static/lib/js/d3.v3.js"></script>
     <!-- script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script-->
     <script src="/static/lib/desktop/js/bootstrap.js"></script>
+    <script src="/static/lib/desktop/js/bootstro.min.js"></script>
     <script src="/static/lib/js/mustache.js"></script>
     <script src="/static/lib/js/polisUtils.js"></script>
     <script src="/static/js/util.js"></script>
