@@ -7,14 +7,13 @@
     <meta name="description" content="">
     <meta name="author" content="">
 
-
     <script type="text/javascript" src="//use.typekit.net/hay1ujx.js"></script>
     <script type="text/javascript">try{Typekit.load();}catch(e){}</script>
-    <!-- Le styles -->
+
     <link href="/static/lib/desktop/css/bootstrap.css" rel="stylesheet">
+    <link href="//netdna.bootstrapcdn.com/font-awesome/3.0.2/css/font-awesome.css" rel="stylesheet">    
     <link href="/static/vis/pca_vis.css" rel="stylesheet">
     <style type="text/css">
-      
 
       #visualization_div {
         margin: 0px;
@@ -28,38 +27,27 @@
           display: none;
       }
 
-      #pull_button {
-         margin-left: 2%;
+      
+      #introduction_feedback_form {
+
       }
+
       #pass_button {
-         margin-right: 5%;
+        /* margin-right: 5%; PUT THIS BACK IN WHEN THE TRASH CAN GOES IN*/ 
       }
 
-      #trash_button {
-        margin-right: 2%;
-      }
-
-      .nav-pills > .active > a, .nav-pills > .active > a:hover {
-      color: white;
-      background-color: #6B6E70;
-      }
-
-      .feedback_text {
-        height: 150px;
-        width: 90%;
-        resize: vertical;
-
-      }
-
-      .pull_buttons .btn, #comment_form_button, #mobile_switch {
-          margin-bottom: 5px;
-          font-weight: lighter;
+      .btn {
+          
           text-transform: uppercase;
-          letter-spacing: 0px;
-            font-size: 0.7em;
-            padding: 3px;
-        /*  padding-left: 5%; */
-        /*  padding-right: 5%; */
+          font-weight: bold;
+          padding: 10px 20px;
+          border: none;
+          background-color: #F5F5F5;
+          background-image: none;
+          color: rgb(148, 39, 39);
+
+      /*  padding-left: 5%; */
+      /*  padding-right: 5%; */
           font-family: futura-pt;
       }
 
@@ -67,18 +55,12 @@
         vertical-align: 0;
       }
 
+      /* modal css */
 
       .dropdown_forms {
         padding: 20px;
       }
 
-
-
-      #articles {
-        background-color: white;
-        overflow: scroll;
-        padding-right: 20px;
-      }
 
      #comment_shower {
         max-height: 300px;
@@ -87,16 +69,17 @@
         margin-bottom: 20px;
         text-align: justify;
       }
-     #comment_shower>p {
-        margin: 10px;
+    
+     #comment_shower p {
+        font-family: times;
+        font-size: 16px;
+        padding: 10px;
+
      }
 
      #comment_shower_frame {
         max-height: 500px;
-        max-width: 900px;
-        border-radius: 2  px;
-        padding-left: 20px;
-        padding-top: 17px;
+        max-width: 900px;        
       }
 
       #comment_shower_frame:hover {
@@ -112,7 +95,7 @@
           font-family: museo-slab;
           height: 179px;
           outline: none;
-          width: 100%;
+          width: 88%;
           white-space: pre-wrap;
           overflow: hidden;
           resize: none;
@@ -129,27 +112,8 @@
           -o-transition: none;
           transition: none;
 
-
           }
 
-      #feedback_modal.modal {
-        width: 40%;
-        top: 50px;
-        margin: 0px;
-      }
-
-      #introduction_modal.modal {
-        left: 50px;
-        width: 40%;
-        top: 50px;
-        margin: 0px;
-      }
-
-
-      body{
-        min-height: 900px; /* hack_ios_hide_locationbar */
-        padding-top: 60px;
-      }
 
       
       /* Let's get this scrollbar party started */
@@ -178,6 +142,13 @@
 
       }
        
+
+      @media (min-width: 980px) {
+         body { 
+            margin-top: 60px;
+          }
+      }
+
       /* Portrait tablet to landscape and desktop */
       @media (min-width: 768px) and (max-width: 979px) {       
            body{
@@ -187,14 +158,7 @@
        
       /* Landscape phone to portrait tablet */
       @media (max-width: 767px) { 
-           #mobile_switch{
-            display: block;
-            font-size: 1em;
-            margin-bottom: 20px;
-          }
-          
-        
-
+         
           body{
             padding-top: 0px;
             }
@@ -205,10 +169,7 @@
        
       /* Landscape phones and down */
       @media (max-width: 480px) { 
-           #mobile_switch{
-            display: block;
-            font-size: 1em;
-          }
+          
           body{
             margin: 0px;
           }
@@ -218,7 +179,7 @@
          #comment_shower_frame {
             padding: 5px;
          }
-          #pull_button {
+         #pull_button {
              margin-left: 0px;
           }
           #pass_button {
@@ -228,9 +189,9 @@
           #trash_button {
             margin-right: 0px;
           }
-          .navbar, .navbar-fixed-top, .navbar-inverse .navbar-inner {
+          /*.navbar, .navbar-fixed-top, .navbar-inverse .navbar-inner {
             display: none;
-          }
+          }*/
           
        }
 
@@ -251,10 +212,10 @@
       <a class="brand" href="#">Polis</a>
       <div class="nav-collapse collapse">
         <ul class="nav">
-          <li class="active"><a href="#">Intro</a></li>
+          <li class="active" data-toggle="modal" data-target="#introduction_modal"><a href="#">Intro & Overview</a></li>
           <li><a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </li>
-          <li><a href="#about">About</a></li>
-          <li><a href="">Contact</a></li>
+          <li><a href="#about">About Polis</a></li>
+          <li><a href="">Contact & Feedback</a></li>
         </ul>
       </div><!--/.nav-collapse -->
     </div>
@@ -268,8 +229,8 @@
 
 
     <ul class="nav nav-tabs" id="fooTab">
-        <li class="active"><a class="react_tab" href="#react"><i class=""></i><i class=""></i>React</a></li>
-        <li><a class="write_tab" href="#write">✎Write</a></li>
+        <li class="active"><a class="react_tab" href="#react"><i class="icon-align-justify"></i> Read & React</a></li>
+        <li><a class="write_tab" href="#write"> <i class="icon-pencil"></i> Write</a></li>
     </ul>
     <div class="tab-content">
      <div class="tab-pane active" id="react">
@@ -289,7 +250,7 @@
      <div class="tab-pane" id="write">
         <form id="comment_form">
           <fieldset>
-              <textarea id="comment_form_textarea" type="text" placeholder="Submit your own opinion here. Please note that you are never responding directly to another opinion - they are distributed to other users randomly. Several focused, well written opinions tend to be more successful than longer comments, which tend to get passed."></textarea>
+              <textarea id="comment_form_textarea" type="text" placeholder="Submit your own opinion here. You are not responding to another opinion - what you write is sent out randomly. Shorter is more successful than longer."></textarea>
             <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
           </fieldset>
         </form>
@@ -299,10 +260,12 @@
 </div> 
 
 
+
+
+
 <div class="span8">
 
       <div id="visualization_div"></div> 
-
 </div>
 
 
@@ -311,14 +274,10 @@
 
 
 
-
+<!-- NOW ENTERING MODAL LAND... -->
 
                  
-
-      
-<!-- modals disabled for development
-
-      <div id="introduction_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
+      <div id="introduction_modal" class="modal hide fade" data-keyboard="true" data-show="true" role="dialog">
           <div class="modal-header">
             <button id="introduction_modal_button" type="button" class="close" disabled="disabled" data-dismiss="modal" aria-hidden="true">&times;</button>
             <h3 >A Brief Introduction</h3>
@@ -328,15 +287,17 @@
                 <h6>WELCOME:</h6>
                 <p>Polis is an ambitious web application developed by a small team of designers, developers and math geeks. Polis provides a platform to facilitate productive, large scale conversations.  </p>
 
-                <p>In this prototype we have compiled a select group of articles that illustrate different positions on the issue of a nuclear armed Iran. As the United States led sanctions cripple the Iranian economy, Israel beats the drums of war and Iranian aircraft fire on American drones, it is a timely and important issue full of messy value judgements, competing priorities and complex eventualities - exactly the kind of conversation that breaks down at large scales on the internet. We are building a framework we believe will produce effective outcomes in such contexts. Thanks for helping. </p>
+                <p>In this prototype we ask our social network from across the country to discuss their thoughts and feelings on national drug policy, exactly the kind of conversation that breaks down at large scales on the internet. We are building a framework we believe will produce effective outcomes in such contexts. Thank you for helping. </p>
 
                 <h6> WHAT TO DO: </h6>
 
-                <p> 1. Create a new user identity or login to dismiss this screen. </p> 
+                <p> 1. Take the guided tour of the user interface. </p> 
 
-                <p> 2. Read the articles, or skim them if you're familiar with the issue. </p> 
+                <p> 2. Read the comments and react to them. Agree if the comment you are reading represents your opinion, disagree if it doesn't. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 & 30 comments. The more comments you react to the better the data - but we'll be grateful for however many you finish. </p>
 
-                <p> 3. Read the comments and react to them. Pull if the comment you are reading represents your opinion, push if it doesn't. Push if you think the comment is unintelligent, emotional to a fault, distasteful, weakly reasoned, offensive or illogical. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 & 30 comments. The more comments you react to the better the data - but we'll be grateful for however many you finish. There are roughly ninety comments. </p>
+                <p> 3. Submit at least one comment of your own after seeing what has already been said in the conversation. Try to add something original. Focused, well written comments will gain more support than longer, meandering ones. </p> 
+
+                <p> 4. Watch the visualization change as you react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives a real-time overview of the opinion groups in the conversation. </p> 
 
                 <form id="introduction_feedback_form" class="feedback_form dropdown_forms">
                   <fieldset>
@@ -346,21 +307,7 @@
                   </fieldset>
                 </form>
 
-                <h6> HOW POLIS WILL WORK: </h6> 
-
-                <p> The beta of the application will be done before the end of the year, and will be tested in large college classrooms. Here's how it will work:</p> 
-
-                <ol> 
-                  <li> Users experience a stimulus (a series of articles, a question, etc)</li>  
-                  <li> Users submit comments in response</li>  
-                  <li> Polis sends out those comments, randomly and one at a time, to users</li>  
-                  <li> Users react to comments by upvoting, downvoting or passing</li>  
-                  <li> Polis uses statistical algorithms to group users based on reactions</li>  
-                  <li> Polis displays a real-time data visualization of groups as they form and change</li>  
-                </ol> 
-
-
-                <p>For this data gathering prototype you will not have the opportunity to comment, and the data visualization is not yet functioning. Rather, this prototype will gather the play data we'll need to enable that functionality in the beta.</p> 
+                With gratitude,
           
                 <p> --The Polis Team</p>
 
@@ -369,7 +316,6 @@
            </div>
       </div>
 
-  disabled for development end --> 
 
 
 
@@ -377,9 +323,8 @@
 
 
 
-    <!-- Le javascript
+    <!-- Scriptopolis
     ================================================== -->
-    <!-- Placed at the end of the document so the pages load faster -->
     <script src="/static/lib/js/jquery.js"></script>
     <script src="/static/lib/js/underscore.js"></script>
     <script src="/static/lib/js/jquery.js"></script>
