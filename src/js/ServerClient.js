@@ -48,6 +48,8 @@ var ServerClient = function(params) {
 
     var logger = params.logger;
 
+    var lastServerTokenForPCA = "";
+
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
@@ -396,14 +398,22 @@ var ServerClient = function(params) {
 
     function getPca() {
         return polisGet(pcaPath, {
+            lastServerToken: lastServerTokenForPCA,
             s: currentStimulusId
-        }).then( function(pcaData) {
+        }).then( function(pcaData, textStatus, xhr) {
+                if (304 === xhr.status) {
+                    // not nodified
+                    return;
+                }
+
+                lastServerTokenForPCA = pcaData.lastServerToken;
+
                 // TODO we should include the vectors for each comment (with the comments?)
                 ///commentVectors = pcaData.commentVectors;
 
                 // TODO this is not runnable, just a rough idea. (data isn't structured like this)
                 ///var people = pcaData.people;
-                var people = parseTree(pcaData.cluster_tree);
+                var people = parseTree(pcaData.pca.cluster_tree);
                 //var pcaComponents = parseTree(pcaData.pca_components);
 
                 //for (var i = 0; i < people.length; i++) {

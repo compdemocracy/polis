@@ -221,16 +221,18 @@ var server = http.createServer(function (req, res) {
 
         "/v2/math/pca" : function(req, res) {
             var stimulus = query.s;
-            var lastServerToken = query.lastServerToken;
+            var lastServerToken = query.lastServerToken || "000000000000000000000000";
+console.dir(query);
             if('GET' === req.method) {
-                collectionOfPcaResults.find({s: stimulus}, function(err, cursor) {
+                collectionOfPcaResults.find({s: stimulus, lastServerToken: {$gt: ObjectId(lastServerToken)}}, function(err, cursor) {
                     if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
                     cursor.toArray( function(err, docs) {
                         if (err) { fail(res, 2389364, "polis_err_get_pca_results_toarray", 500); return; }
                         if (docs.length) {
-                            res.end(docs[0].pca);
+                            res.end(JSON.stringify(docs[0]));
                         } else {
-                            res.writeHead(404, {
+                            // Could actually be a 404, would require more work to determine that.
+                            res.writeHead(304, {
                             })
                             res.end();
                         }
