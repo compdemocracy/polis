@@ -121,7 +121,7 @@ var ServerClient = function(params) {
             //?
         };
         polisGet(txtPath, params).then( function(data) {
-                var evs = data.events;
+                var evs = data && data.events;
                 if (!evs) {
                     logger.log('no new comments for stimulus');
                     dfd.resolve(0);
