@@ -16,6 +16,7 @@ function navigateToWriteTab(e) {
         e.preventDefault();
     }
     $(".write_tab").tab('show');
+    $("#comment_form_textarea").focus();
 }
 function navigateToReactTab(e) {
     if (e && e.preventDefault) { 
