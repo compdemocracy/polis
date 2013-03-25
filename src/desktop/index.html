@@ -28,10 +28,6 @@
           display: none;
       }
 
-      .sidebar-nav {
-        padding: 9px 0;
-      }
-
       #pull_button {
          margin-left: 2%;
       }
@@ -98,19 +94,12 @@
      #comment_shower_frame {
         max-height: 500px;
         max-width: 900px;
-        background-color: #F5F5F5;
-        -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        -moz-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        border-radius: 15px;
+        border-radius: 2  px;
         padding-left: 20px;
         padding-top: 17px;
       }
 
       #comment_shower_frame:hover {
-        -webkit-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        -moz-box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3);
-        box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.3); 
       }
 
       #comment_form {
@@ -119,12 +108,28 @@
       }
 
       #comment_form_textarea{ 
-            display: block;
-           width: 280px;
-           height: 148px;
-           resize: vertical;
-           border-radius: 15px 15px 0px  15px;
-           padding: 20px;
+          margin: 10px;
+          font-family: museo-slab;
+          height: 179px;
+          outline: none;
+          width: 100%;
+          white-space: pre-wrap;
+          overflow: hidden;
+          resize: none;
+          background-color: transparent;
+          border: none;
+          font-size: 16px;
+
+          /*undo bootstrap*/
+          -webkit-box-shadow: none;
+          -moz-box-shadow: none;
+          box-shadow: none;
+          -webkit-transition: none;
+          -moz-transition: none;
+          -o-transition: none;
+          transition: none;
+
+
           }
 
       #feedback_modal.modal {
@@ -140,26 +145,6 @@
         margin: 0px;
       }
 
-      #modal_left_side {
-        padding-left: 20px;
-        text-align: justify;
-        padding-right: 30px;
-
-      }
-
-      #create_user_modal {
-        margin: 0px;
-        top: 50px;
-        width: 30%;    
-      }
-
-      #register_email {
-        display: block;
-      }
-
-      #modal_left_side.modal-body{
-        max-height: 500px;
-      }
 
       body{
         min-height: 900px; /* hack_ios_hide_locationbar */
@@ -172,7 +157,6 @@
           width: 6px;
           height: 0px;
       }
-   
        
       /* Handle */
       ::-webkit-scrollbar-thumb {
@@ -180,8 +164,6 @@
           background: rgba(61, 62, 63, 0.8); 
           -webkit-box-shadow: inset 0 0 1px rgba(0,0,0,0.5); 
       }
-
-     
 
       #mobile_switch {
         display: none;
@@ -256,62 +238,84 @@
 
     </style>
     </head> 
-    <body>
+<body>
 
-      <div class="navbar navbar-inverse navbar-fixed-top">
-        <div class="navbar-inner">
-          <div class="container-fluid">
-            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-              <span class="icon-bar"></span>
-            </a>
-            <a class="brand" href="#">Polis</a>
-              
-                <!--li> <a href="#introduction_modal" role="button" data-toggle="modal">A Brief Introduction</a> </li> 
-                <li><p id="username_label" class="navbar-text pull-right"></p></li>
-                <li><a class="deregister_button" class="pull-right">Sign Out</a></li-->
-              </ul>
-            <div class="nav-collapse collapse">
-            </div><!--/.nav-collapse -->
-          </div>
-        </div>
-      </div>
+  <div class="navbar navbar-inverse navbar-fixed-top">
+  <div class="navbar-inner">
+    <div class="container">
+      <button type="button" class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="brand" href="#">Polis</a>
+      <div class="nav-collapse collapse">
+        <ul class="nav">
+          <li class="active"><a href="#">Intro</a></li>
+          <li><a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </li>
+          <li><a href="#about">About</a></li>
+          <li><a href="">Contact</a></li>
+        </ul>
+      </div><!--/.nav-collapse -->
+    </div>
+  </div>
+  </div>
 
-            <ul class="nav">
-                <ul class="nav nav-tabs" id="fooTab">
-                    <li class="active"><a class="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
-                    <li><a class="write_tab" href="#write">✎Write</a></li>
-                </ul>
+    
+  <div class="container-fluid">
+    <div class="row-fluid">
+      <div class="span4">
 
 
-                 <center><a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </center>
-      <div id="topic_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
-          <div class="modal-header">
-In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkldsfku sadfh asudhfo aisufsufasdhfiuadhiu aefw uirh weoiuhr uiwereyruw eyro iweuryoi weuyru wef g fd h fg h fgdg sn luahfiluafleidsuhsf s d fpa iusdfpjip asdp if ipa spidif ijpi dsaip fi adisu i  fahuihefas
-          </div>
-      </div>
+    <ul class="nav nav-tabs" id="fooTab">
+        <li class="active"><a class="react_tab" href="#react"><i class=""></i><i class=""></i>React</a></li>
+        <li><a class="write_tab" href="#write">✎Write</a></li>
+    </ul>
+    <div class="tab-content">
+     <div class="tab-pane active" id="react">
+      <div id="comment_shower_frame"> 
+        <div id="comment_shower"> 
+          <h3> Comments </h3> 
+        </div> 
+        <div class="pull_buttons">
+          <button id="pull_button" class="showerbtns btn btn-large ">  Agree   </button>
+          <button id="push_button" class="showerbtns btn btn-large " >Disagree   </button>
+          <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
+          <button id="pass_button" class="showerbtns btn btn-large pull-right">Pass</button>
 
-      <div id="feedback_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
-          <div class="modal-header">
-              Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application.
-          </div>
-        <form id="finished_feedback_form" class="feedback_form dropdown_forms">
+        </div> 
+      </div> <!-- comment_shower_frame -->
+     </div>
+     <div class="tab-pane" id="write">
+        <form id="comment_form">
           <fieldset>
-            <textarea class="feedback_text" placeholder="If you are moved to, please leave us suggestions and comments here."></textarea>
-            <button type="submit" class="btn btn-large">Submit Feedback</button>
-            <a class="deregister_button">Sign Out</a>
-            <input type="hidden" name="ui_location" value="feedback_modal">
+              <textarea id="comment_form_textarea" type="text" placeholder="Submit your own opinion here. Please note that you are never responding directly to another opinion - they are distributed to other users randomly. Several focused, well written opinions tend to be more successful than longer comments, which tend to get passed."></textarea>
+            <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
           </fieldset>
         </form>
-      </div>
+     </div>
+    </div>
 
-      <div id="thank_you_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
-          <div class="modal-header">
-              Thank you - Feedback sent.
-          </div>
-      </div>
+</div> 
 
+
+<div class="span8">
+
+      <div id="visualization_div"></div> 
+
+</div>
+
+
+
+
+
+
+
+
+
+                 
+
+      
 <!-- modals disabled for development
 
       <div id="introduction_modal" class="modal hide fade" data-backdrop="static" data-show="true" role="dialog">
@@ -368,46 +372,6 @@ In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkld
   disabled for development end --> 
 
 
-<!--
-
-      <div id="create_user_modal" class="modal hide fade" data-backdrop="false" data-show="true" role="dialog">
-          <div class="modal-header">
-            <h3 >Create New User & Login</h3>
-          </div>
-           <div id="modal_right_side" class="modal-body">
-            <form id="register_form">        
-              <fieldset>
-                    <input id="register_email" class="email" type="text" placeholder="Email">
-                    <input id="register_password" type="password" placeholder="Password">
-                    <input id="register_password_again" type="password" placeholder="Confirm Password">
-                    <label style="display: none;" class="checkbox"> 
-                       <!-- defaulting to checked until the auth code is ready to handle the unchecked case **->
-                        <input id="register_rememberme" type="checkbox" checked="checked">
-                        <span> Remember me</span>
-                    </label>
-                    <button type="submit" id="register_button" class="btn btn-large btn-info">Register & Login</button>
-              </fieldset>
-            </form> 
-
-            <h3 >Existing User Login</h3>
-            <form id="login_form">
-                <fieldset>
-                  <input id="login_email" type="text" placeholder="Email">
-                  <input id="login_password" type="password" placeholder="Password">
-                  <label style="display: none;" class="checkbox">
-                        <!-- defaulting to checked until the auth code is ready to handle the unchecked case **->
-                        <input id="register_rememberme" type="checkbox" checked="checked">
-                      <input id="login_rememberme" type="checkbox" checked="checked">
-                      <span> Remember me</span>
-                  </label>
-                  <button id="login_button" type="submit" class="btn btn-large btn-info">Login</button>
-                </fieldset>
-              </form>
-          </div> 
-      </div>
-
---> 
-
 
 
 
@@ -447,7 +411,6 @@ In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkld
     <script id="showerTemplate" type="text/template">
         <p>{{txt}}</p>
 
-What is your reaction to this statement?
     </script>
     <!-- script id="showerTemplate" type="text/template">
                     <h4>Comment ID: {{_id}}</h4>
@@ -455,118 +418,8 @@ What is your reaction to this statement?
                     <p>User ID: {{u}}</p>
     </script -->
 
-
-    <script id="usernameTemplate" type="text/template">
-        Logged in as {{identity}}
-    </script>
-
-    <script> 
-      
-      if($('#comment_shower').length < 0) {
-        $('#push_button, #pull_button, #pass_button').addClass('disabled');
-        $('#push_button, #pull_button, #pass_button').button('disable');
-      };
-    
-      $('#push_button, #pull_button, #pass_button').hover(function(){
-
-        $('#push_button, #pull_button, #pass_button').tooltip('show');
-
-      });
-
-      $(".fliptextright").click(function(){
-        $("#articles_span").addClass("flip");  
-      });
-
-    </script> 
-
-    <script> 
-             /* CARD FLIP
-        /////////////////////////////////////////////////////////////////*/
-    </script>
-
-<script type="text/template" id="pca_vis_overlays_template">
-
-     /* <div id="centercircle_content" class="hidden">
-      <h3> this is probably... like... you know... a tutorial video </h3> 
-     </div> */
-     <div id="top_pillar" class="hidden">
-      <h2> Members in clusters towards the top have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-     <div id="right_pillar" class="hidden">
-      <h2> Members in clusters towards the right have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-     <div id="bottom_pillar" class="hidden">
-      <h2> Members in clusters towards the bottom have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-     <div id="left_pillar" class="hidden">
-      <h2> Members in clusters towards the left have, on average, pulled and pushed the following comments:</h2> 
-      <h4> Pulled: </h4> 
-      <p>Flexitarian meggings umami, deep v accusamus wayfarers reprehenderit. Hella mumblecore sint, squid four loko 8-bit intelligentsia ea fingerstache PBR pop-up food truck qui small batch. Meh tempor kale chips letterpress, keytar YOLO mustache nulla organic hoodie flannel fashion axe semiotics. Literally dolor keytar tempor, viral terry richardson sustainable umami pop-up iphone pug hashtag mustache Austin. Gluten-free semiotics elit, blog et cliche aute dreamcatcher before they sold out occaecat salvia post-ironic whatever bushwick gentrify. Hashtag portland nostrud adipisicing. Sed mustache nisi, sustainable vegan art party ethical.</p>
-      <h4> Pushed: </h4> 
-      <p>Food truck authentic tonx, chambray Austin duis fugiat. Pariatur aliqua hashtag pinterest stumptown qui, hoodie tonx adipisicing sed veniam craft beer. Twee kale chips cillum, post-ironic deserunt swag brunch sint velit occaecat etsy high life nesciunt. In marfa wolf master cleanse forage. Photo booth sustainable wes anderson accusamus leggings seitan. Retro squid brooklyn, incididunt est reprehenderit blog voluptate cillum anim mixtape occaecat. Mlkshk american apparel 3 wolf moon, actually flexitarian enim keffiyeh ethnic.</p>
-     </div>
-</script>
-
-
-<!--ul class="nav nav-tabs" id="myTab">
-  <li class="active"><a class="react_tab" href="#react"><i class="icon-thumbs-up"></i><i class="icon-thumbs-down"></i>React</a></li>
-  <li><a class="write_tab" href="#write"><i class="icon-pencil"></i>Write</a></li>
-</ul-->
-
-<div class="tab-content">
- <div class="tab-pane active" id="react">
-  <div id="comment_shower_frame"> 
-    <div id="comment_shower"> 
-      <h3> Comments </h3> 
-    </div> 
-    <div class="pull_buttons">
-      <button id="pull_button" class="showerbtns btn btn-large ">  Agree   </button>
-      <button id="push_button" class="showerbtns btn btn-large " >Disagree   </button>
-      <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
-      <button id="pass_button" class="showerbtns btn btn-large pull-right">Pass</button>
-
-    </div> 
-  </div> <!-- comment_shower_frame -->
-
-<p>
-<center>The conversation visualized</center>
-  <div class="row-fluid" id="visualization_div"></div> 
-</p>
- </div>
- <div class="tab-pane" id="write">
-    <form id="comment_form">
-      <fieldset>
-          <textarea id="comment_form_textarea" type="text" placeholder="Write your opinion..."></textarea>
-        <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
-      </fieldset>
-    </form>
- </div>
-</div>
-
-
-    <form id="stimulus_form" class="debug_hidden">
-      <fieldset>
-            <textarea id="stimulus_form_textarea" type="text" placeholder="Type a story here..."></textarea>
-            <input id="stimulus_form_title" type="text" placeholder="Title...">
-            <input id="stimulus_form_authors_commaseparated" type="text" placeholder="comma-separated list of authors...">
-            <input id="stimulus_form_authors_organization" type="text" placeholder="Organization the author belongs to: (NY Times, etc)">
-            <button type="submit" id="comment_button" class="btn btn-large">Submit</button>
-      </fieldset>
-    </form>
-
-
+</div> <!-- main row -->
+</div> <!-- container -->
 
 
 
