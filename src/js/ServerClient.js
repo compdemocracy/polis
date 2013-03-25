@@ -49,6 +49,7 @@ var ServerClient = function(params) {
     var logger = params.logger;
 
     var lastServerTokenForPCA = "";
+    var lastServerTokenForComments = "";
 
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
@@ -115,6 +116,7 @@ var ServerClient = function(params) {
         var stim = optionalStimulusId || currentStimulusId;
         var dfd = $.Deferred();
         var params = {
+            lastServerToken: lastServerTokenForComments,
             s: stim
             //?
         };
@@ -128,6 +130,11 @@ var ServerClient = function(params) {
                     var commentStore = getCommentStore(stim);
                     commentStore.keys(function(oldkeys) {
                         var newIDs = _.difference(IDs, oldkeys);
+                        evs.forEach(function(ev) {
+                            if (ev._id > lastServerTokenForComments) {
+                                lastServerTokenForComments = ev._id;
+                            }
+                        });
                         var newComments = evs.filter(function(ev) {
                             return _.contains(newIDs, ev._id);
                         });
@@ -330,6 +337,8 @@ var ServerClient = function(params) {
 
     function observeStimulus(newStimulusId) {
         currentStimulusId = newStimulusId;
+        lastServerTokenForPCA = "";
+        lastServerTokenForComments = "";
         return see();
     }
 
