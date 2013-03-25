@@ -123,7 +123,7 @@ var ServerClient = function(params) {
         polisGet(txtPath, params).then( function(data) {
                 var evs = data.events;
                 if (!evs) {
-                    logger.log('no comments for stimulus');
+                    logger.log('no new comments for stimulus');
                     dfd.resolve(0);
                 } else {
                     var IDs = _.pluck(evs, "_id");

@@ -540,18 +540,26 @@ console.dir(query);
                     collection.find(q, function(err, cursor) {
                         if (err) { fail(res, 234234332, err); return; }
 
+                        var foundSome = false; // TODO I think we can just use "toArray"
                         function onNext( err, doc) {
                             if (err) { fail(res, 987298787, err); return; }
                             //console.dir(doc);
 
                             if (doc) {
+                                foundSome = true;
                                 docs.push(doc);
                                 cursor.nextObject(onNext);
                             } else {
-                                res.end(JSON.stringify({
-                                    lastServerToken: lastServerToken,
-                                    events: docs,
-                                }));
+                                if (foundSome) {
+                                    res.end(JSON.stringify({
+                                        lastServerToken: lastServerToken,
+                                        events: docs,
+                                    }));
+                                } else {
+                                    res.writeHead(304, {
+                                    })
+                                    res.end();
+                                }
                             }
                         }
 
