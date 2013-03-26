@@ -48,14 +48,19 @@ var ServerClient = function(params) {
 
     var logger = params.logger;
 
+    var lastServerTokenForPCA = "";
+    var lastServerTokenForComments = "";
+
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
+    var commentsAvailableCallbacks = $.Callbacks();
 
     var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
+    var personIdStore = params.personIdStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
-    var authStores = [tokenStore, usernameStore, emailStore];
+    var authStores = [tokenStore, usernameStore, emailStore, personIdStore];
     function clearAuthStores() {
         authStores.forEach(function(x) {
             x.clear();
@@ -111,19 +116,25 @@ var ServerClient = function(params) {
         var stim = optionalStimulusId || currentStimulusId;
         var dfd = $.Deferred();
         var params = {
+            lastServerToken: lastServerTokenForComments,
             s: stim
             //?
         };
         polisGet(txtPath, params).then( function(data) {
-                var evs = data.events;
+                var evs = data && data.events;
                 if (!evs) {
-                    logger.log('no comments for stimulus');
+                    logger.log('no new comments for stimulus');
                     dfd.resolve(0);
                 } else {
                     var IDs = _.pluck(evs, "_id");
                     var commentStore = getCommentStore(stim);
                     commentStore.keys(function(oldkeys) {
                         var newIDs = _.difference(IDs, oldkeys);
+                        evs.forEach(function(ev) {
+                            if (ev._id > lastServerTokenForComments) {
+                                lastServerTokenForComments = ev._id;
+                            }
+                        });
                         var newComments = evs.filter(function(ev) {
                             return _.contains(newIDs, ev._id);
                         });
@@ -135,6 +146,7 @@ var ServerClient = function(params) {
                         });
                         commentStore.batch(newComments);
                         getAllReactionsForSelf(stim).then( function() {
+                            commentsAvailableCallbacks.fire();
                             dfd.resolve(newComments.length);
                         }, function() {
                             dfd.reject(0);
@@ -151,10 +163,11 @@ var ServerClient = function(params) {
 
     var getNextComment = function(optionalStimulusId) {
         var dfd = $.Deferred();
-        var c = getNextPriorityComment();
-        if (c) {
-            return dfd.resolve(c);
-        }
+        var c;
+        //c = getNextPriorityComment();
+        //if (c) {
+            //return dfd.resolve(c);
+        //}
 
         getCommentStore(optionalStimulusId).all(function(comments) {
             for (var i = 0; i < comments.length; i++) {
@@ -324,6 +337,8 @@ var ServerClient = function(params) {
 
     function observeStimulus(newStimulusId) {
         currentStimulusId = newStimulusId;
+        lastServerTokenForPCA = "";
+        lastServerTokenForComments = "";
         return see();
     }
 
@@ -340,11 +355,15 @@ var ServerClient = function(params) {
             if (params.username) {
                 usernameStore.set(params.username, temporary);
             }
+            if (authData.u) {
+                personIdStore.set(authData.u, temporary);
+            }
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
             authStateChangeCallbacks.fire(assemble({
                 email: params.email,
+                person_id: params.u,
                 username: params.username,
                 state: "p_registered"
             }));
@@ -361,11 +380,15 @@ var ServerClient = function(params) {
             if (params.username) {
                 usernameStore.set(params.username, temporary);
             }
+            if (authData.u) {
+                personIdStore.set(authData.u, temporary);
+            }
             if (params.email) {
                 emailStore.set(params.email, temporary);
             }
             authStateChangeCallbacks.fire(assemble({
                 email: params.email,
+                person_id: params.u,
                 username: params.username,
                 state: "p_registered"
             }));
@@ -383,16 +406,40 @@ var ServerClient = function(params) {
     }
 
     function getPca() {
-        return polisGet(pcaPath).then( function(pcaData) {
+        return polisGet(pcaPath, {
+            lastServerToken: lastServerTokenForPCA,
+            s: currentStimulusId
+        }).then( function(pcaData, textStatus, xhr) {
+                if (304 === xhr.status) {
+                    // not nodified
+                    return;
+                }
+
+                lastServerTokenForPCA = pcaData.lastServerToken;
+
                 // TODO we should include the vectors for each comment (with the comments?)
-                commentVectors = pcaData.commentVectors;
+                ///commentVectors = pcaData.commentVectors;
 
                 // TODO this is not runnable, just a rough idea. (data isn't structured like this)
-                var people = pcaData.people;
+                ///var people = pcaData.people;
+                var people = parseTree(pcaData.pca.cluster_tree);
+                //var pcaComponents = parseTree(pcaData.pca_components);
 
-                for (var i = 0; i < pcaData.length; i++) {
-                    personUpdateCallbacks.fire(people[i]);
-                }
+                //for (var i = 0; i < people.length; i++) {
+                    //var person = people[i];
+                    
+                    /*
+                    if (isPersonNode(person)) {
+                        if (Math.random() < 0.05) {
+                            person.data.projection[0] += 0.01*(Math.random()-0.5);
+                            person.data.projection[1] += 0.01*(Math.random()-0.5);
+                        }
+                    }
+                    */
+                    
+                    //personUpdateCallbacks.fire(person);
+                //}
+                personUpdateCallbacks.fire(people);
             },
             function(err) {
                 console.error('failed to get pca data');
@@ -405,10 +452,11 @@ var ServerClient = function(params) {
 
     // todo make a separate file for stimulus stuff
     function stories() {
-        return ["509c9db2bc1e120000000001",
-                "509c9eddbc1e120000000002",
-                "509c9fd6bc1e120000000003",
-                "509ca042bc1e120000000004"];
+        return [currentStimulusId];
+                //"509c9db2bc1e120000000001",
+                //"509c9eddbc1e120000000002",
+                //"509c9fd6bc1e120000000003",
+                //"509ca042bc1e120000000004"];
     }
 
     function submitFeedback(data) {
@@ -452,9 +500,8 @@ var ServerClient = function(params) {
         return s;
     }
 
-    // Setup mock PCA data
-    (function() {
-        var tree = Arboreal.parse(survey200, 'children');
+    function parseTree(treeObject) {
+        var tree = Arboreal.parse(treeObject, 'children');
 
         // Normalize to [-1,1]
         function normalize(projectionDimension) {
@@ -466,12 +513,19 @@ var ServerClient = function(params) {
             }
         });
 
-        var dataFromPca = tree.toArray();
+        return tree.toArray();
+    }
+
+    // Setup mock PCA data
+    (function() {
+        var dataFromPca= parseTree(survey200);
         console.log(dataFromPca.length);
 
         var alreadyInserted = []; // for mutation demo
 
         // Add people to the PcaVis
+        
+/*
         setInterval(function(){
           if  (dataFromPca.length === 0) {
             return;
@@ -480,21 +534,68 @@ var ServerClient = function(params) {
           personUpdateCallbacks.fire(temp);
           alreadyInserted.push(temp); // for mutation demo
         }, 10);
+*/
+        
+        setTimeout(getPca,0);
+        setInterval(function() {
+            getPca();
+        }, 5000);
 
         // for mutation demo
+/*
         setInterval(function() {
-            var mutateThis = alreadyInserted[_.random(0, alreadyInserted.length-1)];
+            for (var i = 0; i < alreadyInserted.length; i++) {
+            var mutateThis = alreadyInserted[i];
             if (isPersonNode(mutateThis)) {
-                mutateThis.data.projection[0] = mutateThis.data.projection[0] + 0.3*(Math.random()-0.5);
-                mutateThis.data.projection[1] = mutateThis.data.projection[1] + 0.3*(Math.random()-0.5);
-                PcaVis.upsertNode(mutateThis);
+                mutateThis.data.projection[0] = mutateThis.data.projection[0] + 1.1;//*(Math.random()-0.5);
+                mutateThis.data.projection[1] = mutateThis.data.projection[1] + 1.1;//*(Math.random()-0.5);
                 personUpdateCallbacks.fire(mutateThis);
             }
-        }, 100);
+            }
+        }, 1000);
+*/
     }()); // end setup mock PCA data
 
+    function getCommentsForProjection(params) {
+        var ascending = params.sort > 0;
+        var count = params.count;
+        var projection = params.projection;
 
+        function compare(a,b) {
+            if (ascending) {
+                return a.projection[projection] - b.projection[projection];
+            } else {
+                return b.projection[projection] - a.projection[projection];
+            }
+        }
 
+        var comments;
+        return polisGet(pcaPath, { 
+            s: currentStimulusId
+        }).pipe( function(pcaData) {
+            comments = pcaData.principal_components;
+            var keys = _.keys(comments);
+            comments = keys.map(function(key) { return {id: key, projection: comments[key]};});
+            comments.sort(compare);
+            if (count >= 0) {
+                comments = comments.slice(0, count);
+            }
+            return comments;
+        }).pipe( function (commentIds) {
+            return getTxt(commentIds.map(function(comment) { return comment.id; }));
+        }).pipe( function (results) {
+            // they arrive out of order, so map results onto the array that has the right ordering.
+            return comments.map(function(comment) {
+                return _.findWhere(results.events, {_id: comment.id});
+            });
+        });
+    }
+
+    function getTxt(ids) {
+        return polisGet(txtPath, {
+            ids: ids.join(',')
+        });
+    }
 
     return {
         authenticated: authenticated,
@@ -502,6 +603,7 @@ var ServerClient = function(params) {
         authLogin: authLogin,
         authDeregister: authDeregister,
         getNextComment: getNextComment,
+        getCommentsForProjection: getCommentsForProjection,
         observeStimulus: observeStimulus, // with no args
         push: push,
         pull: pull,
@@ -512,6 +614,7 @@ var ServerClient = function(params) {
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
         addPersonUpdateListener: personUpdateCallbacks.add,
+        addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,
         submitEvent: submitEvent,

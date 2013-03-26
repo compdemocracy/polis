@@ -1,14 +1,12 @@
-
 #visualization_div {
   margin-top: 100px;
   position: relative;
-  margin-left: auto;
-  margin-right: auto;
+  margin-left: 10px;
   width: 70%;
 }
 
 .visualization {
-  border: 1px solid black;
+  /*border: 1px solid gray;*/
   background: ;
 }
 
@@ -110,6 +108,18 @@
 
 .hidden {
   display: none;
+}
+
+.enter {
+  fill: green;
+}
+
+.update {
+  fill: #333;
+}
+
+.exit {
+  fill: brown;
 }
 
 

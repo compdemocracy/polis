@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# usage (unsafe!)
+#  eval `./bin/herokuConfigExport`
+
+heroku config | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /"

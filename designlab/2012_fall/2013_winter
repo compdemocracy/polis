@@ -1,15 +1,110 @@
-<!DOCTYPE html>
-<meta charset="utf-8">
-<style>
+<!DOCTYPE html> 
+<html>
+<head>
+	<title> POLIS </title>
+	<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+
+<script src="jquery.js"></script>
+  <script type="text/javascript">
+    $('#polis').ready(function(){
+
+      var h = $(window).height() * .7;
+      $('#polis').css('margin-top', h);
+
+    
+    });
+  </script>
+<style type="text/css">
+
+body::-webkit-scrollbar { width: 0 !important }
+
 
 circle {
-  stroke: #fff;
+  stroke: black;
+  opacity: .8
 }
 
+.lastdiv {
+	margin-top: 400px;
+	margin-bottom: 400px;
+}
+
+.lastdiv p {
+	text-align: center;
+	color: red;
+	font-family: "Adobe Caslon Pro";
+	font-size: 42px;
+	width: 50%;
+	margin: auto;
+	background-color: black;
+	opacity: .8;
+	border-radius: 10px;
+	padding: 10px;
+}
+
+
 </style>
+
+
 <body>
-<script src="http://mbostock.github.com/d3/d3.js?2.7.4"></script>
-<script type="text/javascript" src="d3.v3.js"></script>
+
+	<h1 id="polis"> POLIS </h1>
+
+	<div class="container biggertext"> 
+		<p> many to one. </p> 
+	</div> 
+
+	<div class="container"> 
+		<img src="clickersaredead.jpg">
+	</div> 
+
+  <div class="container biggertext"> 
+    
+      longscroll is inadequate.
+  
+  </div> 
+
+	<div class="container biggertext"> 
+		<p> a comprehensible & sophisticated response from a large, decentralized group. </p>
+		<div id="clusters"></div>
+	</div> 
+
+	<div class="container middletext"> 
+		 <h4> Customer segments <span>:</span> <em>where are the bottlenecks?</em> </h4> 
+		 <ul>
+			<li> large university classrooms </li>
+			<li> digital arms of major newspapers & high profile blogs </li>
+			<li> local, regional & national politicians </li>
+			<li> market research & academic research </li>
+			<li> internal business communications </li>
+			<li> conferences</li>
+			<li> activist organizations</li>
+	  	 </ul>
+	</div> 
+
+
+
+	<div class="container middletext"> 
+		<p> Colin Megill <span>:</span> Founder/CEO </p> 
+		<p> Michael Bjorkegren, Amazon <span>:</span> Founder/CTO </p>
+		<p> Chris Small, Fred Hutchinson Cancer Research Center <span>:</span> Lead Data Scientist </p>
+		<p> Timo Erkilla PhD, Amazon <span>:</span> Machine Learning, Data Visualization & Scalability </p>
+		<p> Lynette Shaw, PhD Candidate, University of Washington <span>:</span> Quantitative Sociology </p>
+	</div> 
+
+	<div class="lastdiv"> 
+		<p>polisapp.com & polisapp.org</p> 
+	</div> 
+
+
+
+
+
+
+	
+	<script src="http://d3js.org/d3.v3.min.js"></script>
+
 <script>
 
 var margin = {top: 0, right: 0, bottom: 0, left: 0},
@@ -39,7 +134,7 @@ var force = d3.layout.force()
     .on("tick", tick)
     .start();
 
-var svg = d3.select("body").append("svg")
+var svg = d3.select("#clusters").append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
     .append("g")
@@ -83,7 +178,7 @@ function cluster(alpha) {
     // For cluster nodes, apply custom gravity.
     if (node == d) {
       node = {x: width / 2, y: height / 2, radius: -d.radius};
-      k = .1 * Math.sqrt(d.radius);
+      k = .07 * Math.sqrt(d.radius);
     }
 
     x = d.x - node.x;
@@ -132,5 +227,9 @@ function collide(alpha) {
 }
 
 </script>
+
+
+
+
 </body>
 </html>

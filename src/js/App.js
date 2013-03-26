@@ -1,3 +1,33 @@
+function getLocationHash() {
+    var pairs = {};
+    var kv = location.hash.slice(1).split("&").map(function(kv) { return kv.split("=");});
+    for (var i = 0; i < kv.length; i++) {
+        pairs[kv[i][0]] = kv[i][1];
+    }
+    return pairs;
+}
+
+function shouldShowFirstTimeUserExperience() {
+    return !PolisStorage.personId.get();
+}
+
+function navigateToWriteTab(e) {
+    if (e && e.preventDefault) { 
+        e.preventDefault();
+    }
+    $(".write_tab").tab('show');
+    $("#comment_form_textarea").focus();
+}
+function navigateToReactTab(e) {
+    if (e && e.preventDefault) { 
+        e.preventDefault();
+    }
+    $(".react_tab").tab('show');
+}
+function showTopicModal() {
+    //alert("In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkldsfku sadfh asudhfo aisufsufasdhfiuadhiu aefw uirh weoiuhr uiwereyruw eyro iweuryoi weuyru wef g fd h fg h fgdg sn luahfiluafleidsuhsf s d fpa iusdfpjip asdp if ipa spidif ijpi dsaip fi adisu i  fahuihefas");
+}
+
 var App = function(params) {
     
     var utils = params.utils;
@@ -13,6 +43,16 @@ var App = function(params) {
 
     var logger = console;
 
+    var shouldPollForMoreComments = false;
+    var commentPollInterval = 5 * 1000;
+
+    function pollForComments() {
+        if (shouldPollForMoreComments) {
+            serverClient.syncAllCommentsForCurrentStimulus();
+        }
+    }
+    setInterval(pollForComments, commentPollInterval);
+
     function finishedAllComments() {
         var promises = serverClient.stories().map(function(storyId) {
             var dfd = $.Deferred();
@@ -22,6 +62,7 @@ var App = function(params) {
                         dfd.reject();
                     },
                     function(x) {
+                        shouldPollForMoreComments = true;
                         dfd.resolve();
                     });
             });
@@ -31,7 +72,7 @@ var App = function(params) {
     }
     function checkForGameOver() {
         function finished() {
-            $('#feedback_modal').modal('show');
+            //$('#feedback_modal').modal('show');
         }
         _.defer(function() {
             finishedAllComments().then( finished );
@@ -44,9 +85,15 @@ var App = function(params) {
         serverClient.syncAllCommentsForCurrentStimulus().always( function() {
                 commentShower.showNext().always(checkForGameOver);
         });
+        document.title= "Polis topic: Legalization";
     }
     var setStimulusOnFirstLoad = _.once(function() {
-        setStimulus("509c9db2bc1e120000000001");
+        var stim = "514ac77ba313c76729000007";
+        var kv = getLocationHash();
+        if (kv.s) {
+            stim = kv.s;
+        }
+        setStimulus(stim);
         //setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
     });
 
@@ -70,6 +117,8 @@ var App = function(params) {
         });
         commentSubmitter.addSubmitListener(function(txt) {
             serverClient.submitComment(txt);
+            alert("Thanks! let's see what happens.");
+            navigateToReactTab();
         });
 
         // StimulusSubmitter
@@ -108,6 +157,7 @@ var App = function(params) {
         loginView = new LoginView({
             emailStore: PolisStorage.email,
             usernameStore: PolisStorage.username,
+            personIdStore: PolisStorage.personId,
             rootElemId: "create_user_modal",
             submit: serverClient.authLogin,
             onOk: function() { console.log('login success'); },
@@ -143,13 +193,13 @@ var App = function(params) {
                 // update UI
 
                 //hide modals when user successfully registers
-                $('#create_user_modal').modal('hide'); 
-                $('#introduction_modal').modal('hide');
+                //$('#create_user_modal').modal('hide'); 
+                //$('#introduction_modal').modal('hide');
                 
                 //add close button and enable background click so users can
                 //close intro modal if clicked from menu after login
-                $('#introduction_modal').removeAttr('data-backdrop');
-                $('#introduction_modal_button').removeAttr('disabled'); 
+                //$('#introduction_modal').removeAttr('data-backdrop');
+                //$('#introduction_modal_button').removeAttr('disabled'); 
 
                 registerView.render();
                 loginView.render();
@@ -183,6 +233,8 @@ var App = function(params) {
         commentShower.addPassListener(checkForGameOver);
         //commentShower.addShownListener(serverClient.see); // important that this one pass the commentid
 
+        serverClient.addCommentsAvailableListener(commentShower.notifyCommentsAvailable);
+
         $(".stimulus_link").click(setStimulus);
         // Start with a default stimulus.
         $(".stimulus_link").first().parent().addClass("active");
@@ -203,6 +255,7 @@ var App = function(params) {
     
 $(document).ready(function() {
 
+    bootstro.start();
     window.debug = {};
     window.debug.enterComments = function() { $("#comment_form").removeClass("debug_hidden"); };
     window.debug.enterStim = function() { $("#stimulus_form").removeClass("debug_hidden"); };
@@ -210,6 +263,7 @@ $(document).ready(function() {
         tokenStore: PolisStorage.token,
         emailStore: PolisStorage.email,
         usernameStore: PolisStorage.username,
+        personIdStore: PolisStorage.personId,
         //commentsStore: PolisStorage.comments,
         //reactionsByMeStore: PolisStorage.reactionsByMe,
         utils: window.utils,
@@ -236,6 +290,10 @@ $(document).ready(function() {
         if (location.hash === "#somecoolfeature") {
             somecoolfeature();
         }
+        var pairs = getLocationHash();
+        if (pairs.s) { // stimulus
+            setStimulus(pairs.s);
+        }
     }
     window.addEventListener("hashchange", locationHashChanged);
 
@@ -244,7 +302,7 @@ $(document).ready(function() {
         $('#create_user_modal').modal('show');
     }
     if (!serverClient.authenticated()) {
-        promptUserToRegister();
+        //promptUserToRegister();
     }
 
     function onModeChange(e) {
@@ -290,19 +348,74 @@ $(document).ready(function() {
     //serverClient.addModeChangeEventListener(onModeChange);
 
 
-    function onResize(){
-        var resizeArticleHeight = $(window).height() * 0.68;
-        var resizeShowerHeight = $(window).height() * 0.70;
-        $('#articles').css('height', resizeArticleHeight);
-        $('#comment_shower').css('height', resizeShowerHeight);
-    }
 
 
-    PcaVis.initialize("#visualization_div");
+    var initPcaVis = function() {
+        var w = $("#visualization_div").width();
+        var h = w/2;
+        $("#visualization_div").height(h);
+        PcaVis.initialize({
+            getPersonId: PolisStorage.personId.get,
+            getCommentsForProjection: serverClient.getCommentsForProjection,
+            w: w,
+            h: h,
+            el: "#visualization_div"
+        });
+    };
+
+    initPcaVis();
+    var onResize = _.throttle(function onResize(){
+        //var resizeArticleHeight = $(window).height() * 0.68;
+        //var resizeShowerHeight = $(window).height() * 0.70;
+        //$('#articles').css('height', resizeArticleHeight);
+        //$('#comment_shower').css('height', resizeShowerHeight);
+        initPcaVis(); 
+    },1000);
+
+    //$("#topic_modal").click(showTopicModal);
+    $('#topic_modal').modal({show: false, keyboard: true, backdrop: true});
+
+    $('.react_tab').click(navigateToReactTab);
+    $('.write_tab').click(navigateToWriteTab);
 
     serverClient.addPersonUpdateListener( function(e) {
         PcaVis.upsertNode(e);
     });
+
+    if (shouldShowFirstTimeUserExperience()) {
+        alert("Welcome to Polis");
+    }
+
+window.newUser = function() {
+    PolisStorage.token.clear();
+    PolisStorage.email.clear();
+    PolisStorage.username.clear();
+    PolisStorage.personId.clear();
+    window.location.reload(true); // force get
+};
+KeyboardJS.on("ctrl+n", newUser);
+    
+
+
+        
+// hack_ios_hide_locationbar
+// Be sure the document is taller than the window
+// http://mobile.tutsplus.com/tutorials/mobile-web-apps/remove-address-bar/
+function hideAddressBar()
+{
+  if(!window.location.hash)
+  {
+      if(document.height < window.outerHeight)
+      {
+          document.body.style.height = (window.outerHeight + 50) + 'px';
+      }
+ 
+      setTimeout( function(){ window.scrollTo(0, 1); }, 0);
+  }
+}
+ 
+window.addEventListener("load", function(){ if(!window.pageYOffset){ hideAddressBar(); } } );
+window.addEventListener("orientationchange", hideAddressBar );
 
             
     $(window).resize(onResize);

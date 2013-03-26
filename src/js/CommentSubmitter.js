@@ -9,6 +9,7 @@ var CommentSubmitter = function(params) {
     function onSubmit() {
         var txt = $('#comment_form_textarea').val();
         submitCallbacks.fire(txt);
+        $('#comment_form_textarea').val("");
         return false; // don't let browser handle it.
     }
 

@@ -28,7 +28,6 @@ var ALLOW_ANON = true;
 
 var redisForAuth;
 if (process.env.REDISTOGO_URL) {
-    // inside if statement
     var rtg   = url.parse(process.env.REDISTOGO_URL);
     var redisForAuth = require("redis").createClient(rtg.port, rtg.hostname);
     redisForAuth.auth(rtg.auth.split(":")[1]);
@@ -38,7 +37,6 @@ if (process.env.REDISTOGO_URL) {
 
 var redisForMathResults;
 if (process.env.REDISCLOUD_URL) {
-    // inside if statement
     var rc   = url.parse(process.env.REDISCLOUD_URL);
     var redisForMathResults= require("redis").createClient(rc.port, rc.hostname);
     redisForMathResults.auth(rc.auth.split(":")[1]);
@@ -126,31 +124,19 @@ mongo.connect(process.env.MONGOLAB_URI, {
     }
 
     db.collection('users', function(err, collectionOfUsers) {
-        db.collection('events', function(err, collection) {
-            if (err) { console.error(err); return; }
-            collection.find({s: ObjectId("5084c8e3e4b059e606c9ff2a")}, function(err, cursor) {
-                if (err) { console.error(err); return; }
-
-                /*
-                cursor.each(function(err, item) {
-                    if (err) { console.error(err); return; }
-
-                    if(item != null) {
-                        console.dir(item);
-                        var timestampBase16 = item._id.toString().substring(0, 8);
-                        var timestamp = new Date(parseInt( timestampBase16, 16) * 1000) + "";
-                        console.log(timestampBase16);
-                        console.log(timestamp);
-                    }
-                });
-                */
-            });
-            // OK, DB is ready, start the API server.
-            initializePolisAPI({
-                mongoCollectionOfEvents: collection,
-                mongoCollectionOfUsers: collectionOfUsers,
-            });
+    db.collection('events', function(err, collection) {
+    db.collection('stimuli', function(err, collectionOfStimuli) {
+    db.collection('pcaResults', function(err, collectionOfPcaResults) {
+        // OK, DB is ready, start the API server.
+        initializePolisAPI({
+            mongoCollectionOfEvents: collection,
+            mongoCollectionOfUsers: collectionOfUsers,
+            mongoCollectionOfStimuli: collectionOfStimuli,
+            mongoCollectionOfPcaResults: collectionOfPcaResults,
         });
+    });
+    });
+    });
     });
 });
 
@@ -205,6 +191,8 @@ function initializePolisAPI(params) {
 
 var collection = params.mongoCollectionOfEvents;
 var collectionOfUsers = params.mongoCollectionOfUsers;
+var collectionOfStimuli = params.mongoCollectionOfStimuli;
+var collectionOfPcaResults = params.mongoCollectionOfPcaResults;
 
 
 function fail(res, code, err, httpCode) {
@@ -233,8 +221,25 @@ var server = http.createServer(function (req, res) {
 
         "/v2/math/pca" : function(req, res) {
             var stimulus = query.s;
-            var lastServerToken = query.lastServerToken;
+            var lastServerToken = query.lastServerToken || "000000000000000000000000";
+console.dir(query);
             if('GET' === req.method) {
+                collectionOfPcaResults.find({s: stimulus, lastServerToken: {$gt: ObjectId(lastServerToken)}}, function(err, cursor) {
+                    if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
+                    cursor.toArray( function(err, docs) {
+                        if (err) { fail(res, 2389364, "polis_err_get_pca_results_toarray", 500); return; }
+                        if (docs.length) {
+                            res.end(JSON.stringify(docs[0]));
+                        } else {
+                            // Could actually be a 404, would require more work to determine that.
+                            res.writeHead(304, {
+                            })
+                            res.end();
+                        }
+                    });
+                });
+
+                        /*
                 redisCloud.get("pca:timestamp:" + stimulus, function(errGetToken, replies) {
                     if (errGetToken) {
                         fail(res, 287472365, errGetToken, 404);
@@ -258,6 +263,7 @@ var server = http.createServer(function (req, res) {
                         }));
                     });
                 });
+                */
                 return;
             } // GET
             res.end(403, "post not supported");
@@ -334,6 +340,7 @@ var server = http.createServer(function (req, res) {
                         startSession(userID, function(errSessionStart,token) {
                             if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
                             res.end(JSON.stringify({
+                                u: userID,
                                 token: token
                             }));
                         });
@@ -516,27 +523,43 @@ var server = http.createServer(function (req, res) {
                 }
                 return q;
             }
+            function makeGetCommentByIdQuery(ids) {
+                ids = ids.split(',');
+                return {$or : 
+                    ids.map(function(id) { return { _id: ObjectId(id)}; })
+                };
+            }
 
             return function(req, res) {
                 var stimulus = query.s;
+                var ids = query.ids;
                 var lastServerToken = query.lastServerToken;
                 if('GET' === req.method) {
                     var docs = [];
-                    collection.find(makeQuery(stimulus, lastServerToken), function(err, cursor) {
+                    var q = ids ? makeGetCommentByIdQuery(ids) : makeQuery(stimulus, lastServerToken);
+                    collection.find(q, function(err, cursor) {
                         if (err) { fail(res, 234234332, err); return; }
 
+                        var foundSome = false; // TODO I think we can just use "toArray"
                         function onNext( err, doc) {
                             if (err) { fail(res, 987298787, err); return; }
                             //console.dir(doc);
 
                             if (doc) {
+                                foundSome = true;
                                 docs.push(doc);
                                 cursor.nextObject(onNext);
                             } else {
-                                res.end(JSON.stringify({
-                                    lastServerToken: lastServerToken,
-                                    events: docs,
-                                }));
+                                if (foundSome) {
+                                    res.end(JSON.stringify({
+                                        lastServerToken: lastServerToken,
+                                        events: docs,
+                                    }));
+                                } else {
+                                    res.writeHead(304, {
+                                    })
+                                    res.end();
+                                }
                             }
                         }
 
