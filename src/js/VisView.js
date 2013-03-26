@@ -114,7 +114,7 @@ function initialize(params) {
 }
 
 function setupOverlays() {
-
+    /*
     //add four directional arrows, scalable on resize of parent container which must be a square to preserve dimensions of viz.
     visualization.append('line')
         .attr('x1', w * 0.5)
@@ -174,7 +174,7 @@ function setupOverlays() {
     // add four boxes that will come up on hover to show PILLARS which will show comments with 
     // most PCA SUPPORT both positively and negatively
 
-
+*/
 
 
     $('#toparrow').hover(function(){ 
@@ -214,7 +214,6 @@ function setupOverlays() {
             }).done( handler );
         });
     }
-
     ["top", "bottom", "left", "right"].forEach(setupHandler);
 } // End setup overlays
 

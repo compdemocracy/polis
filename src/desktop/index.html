@@ -35,7 +35,10 @@
           display: none;
       }
 
-      
+      svg {
+        background-color: rgb(236, 248, 255);
+      }
+
       #introduction_feedback_form textarea {
         width: 90%;
         height: 125px;
@@ -45,7 +48,18 @@
         /* margin-right: 5%; PUT THIS BACK IN WHEN THE TRASH CAN GOES IN*/ 
       }
 
-      .btn {
+      #visualization_buttons button {
+        font-family: museo-slab;
+        padding: 5px 10px;
+        border: none;
+        background-color: rgb(236, 248, 255);
+        background-image: none;
+        color: black;
+        border-radius: 2px;
+        font-size: 16px;
+      }
+
+      #comment_button, .pull_buttons .btn {
           
           text-transform: uppercase;
           font-weight: bold;
@@ -61,6 +75,8 @@
       /*  padding-right: 5%; */
           font-family: futura-pt;
       }
+
+
 
       .pull_buttons i {
         vertical-align: 0;
@@ -113,7 +129,7 @@
           resize: none;
           background-color: transparent;
           border: none;
-          font-size: 16px;
+          font-size: 14px;
 
           /*undo bootstrap*/
           -webkit-box-shadow: none;
@@ -159,12 +175,17 @@
          body { 
             margin-top: 60px;
           }
+
+         
       }
 
       /* Portrait tablet to landscape and desktop */
       @media (min-width: 768px) and (max-width: 979px) {       
            body{
             padding-top: 0px;
+          }
+         #visualization_buttons {
+            display: none;
           }
        }
        
@@ -177,6 +198,9 @@
           #comment_shower {
             margin-top: 20px;
             }
+            #visualization_buttons {
+            display: none;
+          }
        }
        
       /* Landscape phones and down */
@@ -201,6 +225,9 @@
 
           #trash_button {
             margin-right: 0px;
+          }
+          #visualization_buttons {
+            display: none;
           }
           /*.navbar, .navbar-fixed-top, .navbar-inverse .navbar-inner {
             display: none;
@@ -278,7 +305,31 @@
 
 
 <div class="span8">
-      <div id="visualization_div" class="bootstro" data-bootstro-title="Visualization" data-bootstro-content="The visualization is a real-time visual representation of the groups that emerge when individuals react to opinions. You are the red dot. Watch the visualization change as you and other users react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives you a real-time overview of the opinion groups in the conversation. As we develop Polis, this visualization will become more and more navigable, and users will be able to extract more and more information about what groups and individuals believe." data-bootstro-placement="bottom" data-bootstro-step="3"></div> 
+
+      <div id="visualization_buttons" class="row-fluid btn-toolbar">
+        <div class="btn-group ">
+          <button class="btn ">Visualization</button>
+          <button class="btn dropdown-toggle" data-toggle="dropdown">
+            <span class="caret"></span>
+          </button>
+          <ul class="dropdown-menu ">
+            <li> <a href="#">PCA</a></li>
+            <li class="disabled"> <a href="#">Cluster Slice</a></li>
+            <li class="disabled"> <a href="">Cluster Pack</a></li> 
+          </ul>
+        </div>
+
+        <div class="btn-group">
+        <button class="btn"><i class="icon-move"></i>  Axis Overlay</button>
+        <button class="btn"><i class="icon-edit"></i> Select Tool</button>
+        <button class="btn disabled"><i class="icon-filter"></i> Filter</button>
+        <button class="btn disabled"><i class="icon-beaker"></i> Statistics</button>
+      </div> 
+
+      </div>
+
+
+      <div id="visualization_div" class="row-fluid bootstro" data-bootstro-title="Visualization" data-bootstro-content="The visualization is a real-time visual representation of the groups that emerge when individuals react to opinions. You are the red dot. Watch the visualization change as you and other users react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives you a real-time overview of the opinion groups in the conversation. As we develop Polis, this visualization will become more and more navigable, and users will be able to extract more and more information about what groups and individuals believe." data-bootstro-placement="bottom" data-bootstro-step="3"></div> 
 </div>
 
 
