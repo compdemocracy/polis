@@ -659,10 +659,13 @@ console.dir(query);
                             //console.log("foo");
                             //console.dir(reactions);
                             commentIdCounts = _.pairs(commentIdCounts);
+                            commentIdCounts = _.shuffle(commentIdCounts);
+                            /*
                             commentIdCounts.sort(function(a,b) {
                                 return b[1] - a[1]; // descending
                             });
-                            commentIdCounts = commentIdCounts.slice(0, 10);
+                            */
+                            commentIdCounts = commentIdCounts.slice(0, _.random(1,10));
                             // keep the commentId
                             var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
                             var qq = {
