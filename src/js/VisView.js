@@ -129,8 +129,6 @@ function initialize(params) {
         });
     setupOverlays();
 
-    // selection
-    //$(el_selector + ">svg").on('click', dismissSelection);
 
 
     function getOffsetX(e) {
@@ -159,6 +157,8 @@ function initialize(params) {
         }
         mouseDown = false;
     });
+    // selection
+    $(el_selector).on('click', dismissSelection);
 }
 
 function setupOverlays() {
@@ -573,10 +573,13 @@ function drawSelectionRectangle(rect) {
         .attr("y", y)
         .attr("width", width)
         .attr("height", height);
+
+    d3Rect.exit().remove();
 }
 
 function dismissSelection() {
     console.log('dismiss');
+    drawSelectionRectangle(null);
     visualization.selectAll("rect")
         .data([]);
 }
