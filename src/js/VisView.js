@@ -9,10 +9,13 @@ var h;
 var w;
 var nodes = [];
 var visualization;
+var queryResults;
 
 var el_selector;
+var el_queryResultSelector;
 var getPersonId;
 var getCommentsForProjection;
+var getCommentsForSelection;
 
 var force;
 
@@ -74,8 +77,10 @@ function isSelf(d) {
 function initialize(params) {
     console.log('init');
     el_selector = params.el;
+    el_queryResultSelector = params.el_queryResultSelector;
     getPersonId = params.getPersonId;
     getCommentsForProjection = params.getCommentsForProjection;
+    getCommentsForSelection = params.getCommentsForSelection;
 
     // Since initialize is called on resize, clear the old vis before setting up the new one.
     $(el_selector).html("");
@@ -90,6 +95,10 @@ function initialize(params) {
     window.vis = visualization;
     w = $(el_selector).width();
     h = $(el_selector).height();
+
+    queryResults = d3.select(el_queryResultSelector)
+        .append('ol')
+          .attr('class', 'query_results');
 
         //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
@@ -133,22 +142,18 @@ function initialize(params) {
         return e.offsetY !== undefined ? e.offsetY : e.layerY;
     }
     $(el_selector).on('mousedown', function(e) {
-        console.log(1);
         selectionRectangle.x1 = getOffsetX(e);
         selectionRectangle.y1 = getOffsetY(e);
         mouseDown = true;
     });
     $(el_selector).on('mousemove', function(e) {
-        console.log(2);
         if (mouseDown) {
-            console.log(22);
             selectionRectangle.x2 = getOffsetX(e);
             selectionRectangle.y2 = getOffsetY(e);
             drawSelectionRectangle(selectionRectangle);
         }
     });
     $(el_selector).on('mouseup', function(e) {
-        console.log(3);
         if (mouseDown) {
             selectRectangle(selectionRectangle);
         }
@@ -496,18 +501,16 @@ var node_drag = d3.behavior.drag()
 }
 
 function inside(rect, x, y) {
-    console.dir(rect, x,y);
     var ok = x <= rect.right && x >= rect.left && y <= rect.bottom && y >= rect.top;
-    console.log(ok);
     return ok;
 }
 
 function selectRectangle(rect) {
     var rect2 = {
-        top:    Math.min(rect.x1, rect.x2),
-        bottom: Math.max(rect.x1, rect.x2),
-        left:   Math.min(rect.y1, rect.y2),
-        right:  Math.max(rect.y1, rect.y2)
+        top:    Math.min(rect.y1, rect.y2),
+        bottom: Math.max(rect.y1, rect.y2),
+        left:   Math.min(rect.x1, rect.x2),
+        right:  Math.max(rect.x1, rect.x2)
     };
     var circle = visualization.selectAll("circle.node")
         .data(nodes);
@@ -518,7 +521,32 @@ function selectRectangle(rect) {
             selectedNodes.push(d);
         }
     });
-    console.dir(selectedNodes);
+    var selectedIds = selectedNodes.map(function(d) { return d.data.person_id;});
+    function renderComments(comments) {
+        var d3CommentList = queryResults.selectAll("li")
+            .data(comments, function(d) { return d._id; });
+
+        d3CommentList.enter()
+            .append("li")
+            .text(function(d) { return d.txt; });
+        ;
+        d3CommentList.exit().remove();
+
+        //d3CommentList
+            //.attr("x", x)
+            //.attr("y", y)
+            //.attr("width", width)
+            //.attr("height", height);
+    }
+    if (selectedIds.length) {
+        getCommentsForSelection(selectedIds).then(
+            renderComments,
+            function(err) {
+                console.error(err);
+            });
+    } else {
+        renderComments([]);
+    }
 }
 
 function drawSelectionRectangle(rect) {

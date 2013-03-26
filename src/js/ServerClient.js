@@ -43,6 +43,7 @@ var ServerClient = function(params) {
     var loginPath = "/v2/auth/login";
     var deregisterPath = "/v2/auth/deregister";
     var pcaPath = "/v2/math/pca";
+    var selectionPath = "/v2/selection";
 
     var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath];
 
@@ -598,6 +599,14 @@ var ServerClient = function(params) {
         });
     }
 
+    function getCommentsForSelection(listOfUserIds) {
+        console.dir(listOfUserIds);
+        return polisGet(selectionPath, {
+            s: currentStimulusId,
+            users: listOfUserIds.join(',')
+        });
+    }
+
     return {
         authenticated: authenticated,
         authNew: authNew,
@@ -605,6 +614,7 @@ var ServerClient = function(params) {
         authDeregister: authDeregister,
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
+        getCommentsForSelection: getCommentsForSelection,
         observeStimulus: observeStimulus, // with no args
         push: push,
         pull: pull,

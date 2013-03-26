@@ -357,8 +357,10 @@ $(document).ready(function() {
         PcaVis.initialize({
             getPersonId: PolisStorage.personId.get,
             getCommentsForProjection: serverClient.getCommentsForProjection,
+            getCommentsForSelection: serverClient.getCommentsForSelection,
             w: w,
             h: h,
+            el_queryResultSelector: "#query_results_div",
             el: "#visualization_div"
         });
     };
