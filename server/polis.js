@@ -667,6 +667,7 @@ console.dir(query);
                             var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
                             var qq = {
                                 s: ObjectId(stimulus),
+                                txt: {$exists: true},
                                 $or : commentIds
                             };
                             collection.find(qq, function(err, commentsCursor) {
