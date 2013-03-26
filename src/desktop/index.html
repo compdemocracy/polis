@@ -40,10 +40,14 @@
           display: none;
       }
 
+      #query_results_div {
+        margin-top: 20px;
+      }
+
       svg {
         /*background-color: rgb(236, 248, 255);*/
         border: 1px solid rgb(218, 218, 218);
-;
+
       }
 
       #introduction_feedback_form textarea {
@@ -261,10 +265,9 @@
       <a class="brand"  href="#">Polis</a>
       <div class="nav-collapse collapse">
         <ul class="nav">
-          <li class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="Click this tab to return to this tutorial at any time. Polis is a web application developed by a small, Seattle based team of designers, developers and math geeks. Polis provides a platform to facilitate constructive conversations at very large scales, the kind of conversations that break down over email, forums and comment boards." data-bootstro-placement="bottom" data-bootstro-step="0" data-toggle="modal" data-target="#introduction_modal"><a href="#">Intro & Overview</a></li>
-          <li><a href="" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </li>
-          <li><a href="#about" >About Polis</a></li>
-          <li><a href="">Contact & Feedback</a></li>
+          <li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="Click this tab to return to this tutorial at any time. Polis is a web application developed by a small, Seattle based team of designers, developers and math geeks. Polis provides a platform to facilitate constructive conversations at very large scales, the kind of conversations that break down over email, forums and comment boards." data-bootstro-placement="bottom" data-bootstro-step="0" ><a href="#">Intro & Overview</a></li>
+          <li id="topic_toggle"><a href="" role="button">Topic: Legalization</a> </li>
+          <li data-toggle="modal" data-target="#introduction_modal"><a href="#">Contact & Feedback</a></li>
         </ul>
       </div><!--/.nav-collapse -->
     </div>
@@ -306,7 +309,7 @@
      </div>
     </div>
 
-    <div id="topic" class="well bootstro" data-bootstro-title="Write" data-bootstro-content="This is the topic of the conversation. All comments should fundamentally be addressing this, or issues derived from this. Click the x button to close it, toggle it back on from the menu bar." data-bootstro-placement="bottom" data-bootstro-step="1">
+    <div id="topic" class="well bootstro" data-bootstro-title="Topic" data-bootstro-content="This is the topic of the conversation. All comments should fundamentally be addressing this, or issues derived from this. Click the x button to close it, toggle it back on from the menu bar." data-bootstro-placement="bottom" data-bootstro-step="1">
         <i id="remove_topic_x" class="icon-remove pull-right"></i>
         <h3> Topic: Legalization of Drugs in the U.S. </h3> 
         <p> Within the past year, Colorado and Washington state <a href="#"> have legalized the recreational use of marijuana.</a> At the present time, several other states are considering taking similar measures. While marijuana remains a prohibited substance at the federal level, the present administration <a href=""> has indicated </a> that the enforcement of that prohibition in states which have legalized marijuana is a very low priority.</p>
@@ -350,7 +353,7 @@
 
 
       <div id="visualization_div" class="row-fluid bootstro" data-bootstro-title="Visualization" data-bootstro-content="The visualization is a real-time visual representation of the groups that emerge when individuals react to opinions. You are the red dot. Watch the visualization change as you and other users react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives you a real-time overview of the opinion groups in the conversation. As we develop Polis, this visualization will become more and more navigable, and users will be able to extract more and more information about what groups and individuals believe." data-bootstro-placement="bottom" data-bootstro-step="4"></div> 
-      <div id="query_results_div"></div> 
+      <div class="well" id="query_results_div"></div> 
 </div>
 
 
@@ -444,6 +447,14 @@
     $(document).ready(function(){
       $('#remove_topic_x').click(function(){
         $('#topic').hide();
+      })
+      $('#topic_toggle').click(function(e){
+        e.preventDefault();
+        $('#topic').toggle();
+      })
+      $('#bootstro_starter').click(function(e){
+        e.preventDefault()
+        bootstro.start();
       })
     })
 
