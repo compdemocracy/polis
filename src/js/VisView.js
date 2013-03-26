@@ -16,6 +16,14 @@ var getCommentsForProjection;
 
 var force;
 
+var mouseDown = false;
+var selectionRectangle = {
+    x1: 0,
+    y1: 0,
+    x2: 0,
+    y2: 0
+};
+
 
 var updatesEnabled = true;
 
@@ -111,6 +119,41 @@ function initialize(params) {
               .attr("cy", function(d) { return d.y;});
         });
     setupOverlays();
+
+    // selection
+    //$(el_selector + ">svg").on('click', dismissSelection);
+
+
+    function getOffsetX(e) {
+        // FF has layerX
+        return e.offsetX !== undefined ? e.offsetX : e.layerX;
+    }
+    function getOffsetY(e) {
+        // FF has layerY
+        return e.offsetY !== undefined ? e.offsetY : e.layerY;
+    }
+    $(el_selector).on('mousedown', function(e) {
+        console.log(1);
+        selectionRectangle.x1 = getOffsetX(e);
+        selectionRectangle.y1 = getOffsetY(e);
+        mouseDown = true;
+    });
+    $(el_selector).on('mousemove', function(e) {
+        console.log(2);
+        if (mouseDown) {
+            console.log(22);
+            selectionRectangle.x2 = getOffsetX(e);
+            selectionRectangle.y2 = getOffsetY(e);
+            drawSelectionRectangle(selectionRectangle);
+        }
+    });
+    $(el_selector).on('mouseup', function(e) {
+        console.log(3);
+        if (mouseDown) {
+            selectRectangle(selectionRectangle);
+        }
+        mouseDown = false;
+    });
 }
 
 function setupOverlays() {
@@ -175,7 +218,6 @@ function setupOverlays() {
     // most PCA SUPPORT both positively and negatively
 
 */
-
 
     $('#toparrow').hover(function(){ 
         $('.visualization').addClass('.toparrow_hover');
@@ -452,6 +494,65 @@ var node_drag = d3.behavior.drag()
           ;
 
 }
+
+function inside(rect, x, y) {
+    console.dir(rect, x,y);
+    var ok = x <= rect.right && x >= rect.left && y <= rect.bottom && y >= rect.top;
+    console.log(ok);
+    return ok;
+}
+
+function selectRectangle(rect) {
+    var rect2 = {
+        top:    Math.min(rect.x1, rect.x2),
+        bottom: Math.max(rect.x1, rect.x2),
+        left:   Math.min(rect.y1, rect.y2),
+        right:  Math.max(rect.y1, rect.y2)
+    };
+    var circle = visualization.selectAll("circle.node")
+        .data(nodes);
+
+    var selectedNodes = [];
+    circle.each(function(d) {
+        if (inside(rect2, d.x, d.y)) {
+            selectedNodes.push(d);
+        }
+    });
+    console.dir(selectedNodes);
+}
+
+function drawSelectionRectangle(rect) {
+    function x(d) { 
+        return Math.min(d.x1, d.x2);}
+    function y(d) { 
+        return Math.min(d.y1, d.y2);}
+    function width(d) { 
+        return Math.abs(d.x1 - d.x2);}
+    function height(d) { 
+        return Math.abs(d.y1 - d.y2);}
+
+    var data = rect ? [rect] : [];
+    var d3Rect = visualization.selectAll("rect")
+        .data(data);
+
+    d3Rect.enter()
+        .append("svg:rect")
+        .style("opacity", 0.4)
+        .style("fill", "teal");
+
+    d3Rect
+        .attr("x", x)
+        .attr("y", y)
+        .attr("width", width)
+        .attr("height", height);
+}
+
+function dismissSelection() {
+    console.log('dismiss');
+    visualization.selectAll("rect")
+        .data([]);
+}
+
 
 return {
     initialize: initialize,
