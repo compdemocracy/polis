@@ -142,6 +142,8 @@ function initialize(params) {
     $(el_selector).on('mousedown', function(e) {
         selectionRectangle.x1 = getOffsetX(e);
         selectionRectangle.y1 = getOffsetY(e);
+        selectionRectangle.x2 = getOffsetX(e);
+        selectionRectangle.y2 = getOffsetY(e);
         mouseDown = true;
     });
     $(el_selector).on('mousemove', function(e) {
@@ -154,11 +156,13 @@ function initialize(params) {
     $(el_selector).on('mouseup', function(e) {
         if (mouseDown) {
             selectRectangle(selectionRectangle);
+            if (selectionRectangle.x1 === selectionRectangle.x2 &&
+                selectionRectangle.y1 === selectionRectangle.y2) {
+                drawSelectionRectangle(null);
+            }
         }
         mouseDown = false;
     });
-    // selection
-    $(el_selector).on('click', dismissSelection);
 }
 
 function setupOverlays() {
@@ -516,11 +520,17 @@ function selectRectangle(rect) {
         .data(nodes);
 
     var selectedNodes = [];
-    circle.each(function(d) {
-        if (inside(rect2, d.x, d.y)) {
-            selectedNodes.push(d);
-        }
-    });
+    circle
+      .style('stroke', "black")
+      .filter(function(d) {
+          if (inside(rect2, d.x, d.y)) {
+              selectedNodes.push(d);
+              return true;
+          }
+          return false;
+      })
+      .style("stroke", "yellow");
+
     var selectedIds = selectedNodes.map(function(d) { return d.data.person_id;});
     function renderComments(comments) {
         var d3CommentList = queryResults.selectAll("li")
