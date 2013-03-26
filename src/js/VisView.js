@@ -529,7 +529,7 @@ function selectRectangle(rect) {
         d3CommentList.enter()
             .append("li")
             .text(function(d) { return d.txt; });
-        ;
+
         d3CommentList.exit().remove();
 
         //d3CommentList
