@@ -30,13 +30,20 @@
         min-width: 290px;
         min-height: 145px;
       }
-    
+      
+      .icon-remove {
+        cursor: hand; 
+        cursor: pointer;
+      }
+
       .debug_hidden {
           display: none;
       }
 
       svg {
-        background-color: rgb(236, 248, 255);
+        /*background-color: rgb(236, 248, 255);*/
+        border: 1px solid rgb(218, 218, 218);
+;
       }
 
       #introduction_feedback_form textarea {
@@ -57,6 +64,7 @@
         color: black;
         border-radius: 2px;
         font-size: 16px;
+        display: none;
       }
 
       #comment_button, .pull_buttons .btn {
@@ -70,6 +78,7 @@
           color: rgb(87, 87, 87);
           border-radius: 2px;
           font-size: 16px;
+          margin-bottom: 20px;
 
       /*  padding-left: 5%; */
       /*  padding-right: 5%; */
@@ -214,7 +223,6 @@
           }
          #comment_shower_frame {
             padding: 5px;
-            border-bottom: 1px solid lightgrey;
          }
          #pull_button {
              margin-left: 0px;
@@ -254,7 +262,7 @@
       <div class="nav-collapse collapse">
         <ul class="nav">
           <li class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="Click this tab to return to this tutorial at any time. Polis is a web application developed by a small, Seattle based team of designers, developers and math geeks. Polis provides a platform to facilitate constructive conversations at very large scales, the kind of conversations that break down over email, forums and comment boards." data-bootstro-placement="bottom" data-bootstro-step="0" data-toggle="modal" data-target="#introduction_modal"><a href="#">Intro & Overview</a></li>
-          <li><a href="#topic_modal" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </li>
+          <li><a href="" role="button" data-dismiss="modal" data-toggle="modal">Topic: Legalization</a> </li>
           <li><a href="#about" >About Polis</a></li>
           <li><a href="">Contact & Feedback</a></li>
         </ul>
@@ -271,11 +279,11 @@
 
     <ul class="nav nav-tabs" id="fooTab">
         <li class="active"><a class="react_tab" href="#react"><i class="icon-align-justify"></i> Read &amp; React</a></li>
-        <li><a class="write_tab bootstro" data-bootstro-title="Write" data-bootstro-content="Click the 'Write' tab to write your response to the stimulus. Several shorter, well-written, focused opinions are better than one long opinion. Your identity is anonymous: no one will know who is writing what. You may submit opinions at any time. Opinions are sent out randomly: you are not responding directly to another user." data-bootstro-placement="bottom" data-bootstro-step="1" href="#write"> <i class="icon-pencil"></i> Write</a></li>
+        <li><a class="write_tab bootstro" data-bootstro-title="Write" data-bootstro-content="Click the 'Write' tab to write your response to the stimulus. Several shorter, well-written, focused opinions are better than one long opinion. Your identity is anonymous: no one will know who is writing what. You may submit opinions at any time. Opinions are sent out randomly: you are not responding directly to another user." data-bootstro-placement="bottom" data-bootstro-step="2" href="#write"> <i class="icon-pencil"></i> Write</a></li>
     </ul>
     <div class="tab-content">
      <div class="tab-pane active" id="react">
-      <div id="comment_shower_frame" class="react_tab bootstro" data-bootstro-title="Read &amp; React" data-bootstro-content="Click the 'Read &amp; React' tab to see opinions others have submitted, one at a time. Read the comments and react to them. Agree if the comment you are reading represents your opinion, disagree if it doesn't. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 &amp; 30 comments - please check back if there aren't many comments in the system yet. The more comments you react to the better the data - but we'll be grateful for however many you react to." data-bootstro-placement="bottom" data-bootstro-step="2"> 
+      <div id="comment_shower_frame" class="react_tab bootstro" data-bootstro-title="Read &amp; React" data-bootstro-content="Click the 'Read &amp; React' tab to see opinions others have submitted, one at a time. Read the comments and react to them. Agree if the comment you are reading represents your opinion, disagree if it doesn't. Pass if you have no reaction, are confused by what the writer means or if the comment is off topic. Please rate between 20 &amp; 30 comments - please check back if there aren't many comments in the system yet. The more comments you react to the better the data - but we'll be grateful for however many you react to." data-bootstro-placement="bottom" data-bootstro-step="3"> 
         <div id="comment_shower"> 
           <h3> Comments </h3> 
         </div> 
@@ -298,6 +306,17 @@
      </div>
     </div>
 
+    <div id="topic" class="well bootstro" data-bootstro-title="Write" data-bootstro-content="This is the topic of the conversation. All comments should fundamentally be addressing this, or issues derived from this. Click the x button to close it, toggle it back on from the menu bar." data-bootstro-placement="bottom" data-bootstro-step="1">
+        <i id="remove_topic_x" class="icon-remove pull-right"></i>
+        <h3> Topic: Legalization of Drugs in the U.S. </h3> 
+        <p> Within the past year, Colorado and Washington state <a href="#"> have legalized the recreational use of marijuana.</a> At the present time, several other states are considering taking similar measures. While marijuana remains a prohibited substance at the federal level, the present administration <a href=""> has indicated </a> that the enforcement of that prohibition in states which have legalized marijuana is a very low priority.</p>
+
+        <p>What do you think about this seeming trend toward the legalization of marijuana in the United States? Should marijuana remain illegal? If not, how far should legalization go? Should it stop at marijuana or should other controlled substances be legalized as well?</p>
+      </div>
+
+
+
+
 </div> 
 
 
@@ -305,6 +324,7 @@
 
 
 <div class="span8">
+
 
       <div id="visualization_buttons" class="row-fluid btn-toolbar">
         <div class="btn-group ">
@@ -329,7 +349,7 @@
       </div>
 
 
-      <div id="visualization_div" class="row-fluid bootstro" data-bootstro-title="Visualization" data-bootstro-content="The visualization is a real-time visual representation of the groups that emerge when individuals react to opinions. You are the red dot. Watch the visualization change as you and other users react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives you a real-time overview of the opinion groups in the conversation. As we develop Polis, this visualization will become more and more navigable, and users will be able to extract more and more information about what groups and individuals believe." data-bootstro-placement="bottom" data-bootstro-step="3"></div> 
+      <div id="visualization_div" class="row-fluid bootstro" data-bootstro-title="Visualization" data-bootstro-content="The visualization is a real-time visual representation of the groups that emerge when individuals react to opinions. You are the red dot. Watch the visualization change as you and other users react. Behind the scenes, statistical analysis of user responses is grouping together users who react similarly. This gives you a real-time overview of the opinion groups in the conversation. As we develop Polis, this visualization will become more and more navigable, and users will be able to extract more and more information about what groups and individuals believe." data-bootstro-placement="bottom" data-bootstro-step="4"></div> 
       <div id="query_results_div"></div> 
 </div>
 
@@ -418,6 +438,18 @@
                     <p>{{txt}}</p>
                     <p>User ID: {{u}}</p>
     </script -->
+
+    <script type="text/javascript">
+    /* FOR NOW, ALL CUSTOM PAGE jQuery GOES HERE */
+    $(document).ready(function(){
+      $('#remove_topic_x').click(function(){
+        $('#topic').hide();
+      })
+    })
+
+
+    </script>
+
 
 </div> <!-- main row -->
 </div> <!-- container -->
