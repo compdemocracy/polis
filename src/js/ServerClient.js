@@ -571,9 +571,10 @@ var ServerClient = function(params) {
 
         var comments;
         return polisGet(pcaPath, { 
+            lastServerToken: "",
             s: currentStimulusId
         }).pipe( function(pcaData) {
-            comments = pcaData.principal_components;
+            comments = pcaData.pca.principal_components;
             var keys = _.keys(comments);
             comments = keys.map(function(key) { return {id: key, projection: comments[key]};});
             comments.sort(compare);
