@@ -391,7 +391,7 @@ $(document).ready(function() {
         //alert("Welcome to Polis");
     }
 
-    if (window.localStorage.getItem("lastFTUX") < Date.now()- 1000*6 ) {
+    if (window.localStorage.getItem("lastFTUX") < Date.now()- 1000*60 ) {
         bootstro.start();
         window.localStorage.setItem("lastFTUX", Date.now());
     }
