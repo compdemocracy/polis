@@ -600,14 +600,11 @@ var ServerClient = function(params) {
     }
 
     function getCommentsForSelection(listOfUserIds) {
-        console.dir(listOfUserIds);
-        return $.Deferred().resolve([{txt: "Coming soon, You'll see who voted on what"}]);
-        /*
         return polisGet(selectionPath, {
             s: currentStimulusId,
             users: listOfUserIds.join(',')
         });
-        */
+        
     }
 
     return {

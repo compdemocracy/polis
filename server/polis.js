@@ -627,14 +627,14 @@ console.dir(query);
         "/v2/selection" :  (function() {
             function makeGetReactionsByUserQuery(users, stimulus) {
                 users = users.split(',');
-                var q = {
-                    s: ObjectId(stimulus),
-                    type: polisTypes.reactions.pull, // TODO need better math to account for pushes
-                    $or : users.map(function(id) { return { u: ObjectId(id)}; })
+                var q = { $and: [
+                    {s: ObjectId(stimulus)},
+                    {$or: [{type: polisTypes.reactions.pull}, {type: polisTypes.reactions.push}]},
+                    {$or: users.map(function(id) { return { u: ObjectId(id)}; })},
+                    {to: {$exists: true}}
+                    ]
                 };
-                console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
-                console.dir(q);
-                console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+                return q;
             }
             return function(req, res) {
                 var stimulus = query.s;
@@ -644,7 +644,6 @@ console.dir(query);
                 }
                 var q = makeGetReactionsByUserQuery(query.users, stimulus);
                 if('GET' === req.method) {
-                    var users = [];
                     collection.find(q, function(err, cursor) {
                         if (err) { fail(res, 2389369, "polis_err_get_selection", 500); return; }
                         cursor.toArray( function(err, reactions) {
@@ -653,32 +652,33 @@ console.dir(query);
                             for (var i = 0; i < reactions.length; i++) {
                                 if (reactions[i].to) { // TODO why might .to be undefined?
                                     var count = commentIdCounts[reactions[i].to];
-                                    commentIdCounts[reactions[i].to] = count + 1 || 1;
+                                    if (reactions[i].type === polisTypes.reactions.pull) {
+                                        commentIdCounts[reactions[i].to] = count + 1 || 1;
+                                    } else if (reactions[i].type === polisTypes.reactions.push) {
+                                        // push
+                                        commentIdCounts[reactions[i].to] = count - 1 || -1;
+                                    } else {
+                                        console.error("expected just push and pull in query");
+                                    }
                                 }
                             }
-                            //console.log("foo");
-                            //console.dir(reactions);
                             commentIdCounts = _.pairs(commentIdCounts);
-                            commentIdCounts = _.shuffle(commentIdCounts);
-                            /*
                             commentIdCounts.sort(function(a,b) {
                                 return b[1] - a[1]; // descending
                             });
-                            */
-                            commentIdCounts = commentIdCounts.slice(0, _.random(1,10));
-                            // keep the commentId
+                            commentIdCounts = commentIdCounts.slice(0, 10);
                             var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
-                            var qq = {
-                                s: ObjectId(stimulus),
-                                txt: {$exists: true},
-                                $or : commentIds
+                            var qq = { $and: [
+                                {s: ObjectId(stimulus)},
+                                {txt: {$exists: true}},
+                                {$or : commentIds}
+                                ]
                             };
                             collection.find(qq, function(err, commentsCursor) {
                                 if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); return; }
                                 commentsCursor.toArray( function(err, comments) {
                             console.dir(qq);
                             console.dir(comments);
-                console.log("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
                                     if (err) { fail(res, 2389367, "polis_err_get_selection_comments_toarray", 500); return; }
                                     // TODO sort
                                     res.end(JSON.stringify(comments));
