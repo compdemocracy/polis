@@ -433,6 +433,6 @@ window.addEventListener("load", function(){ if(!window.pageYOffset){ hideAddress
 window.addEventListener("orientationchange", hideAddressBar );
 
             
-    $(window).resize(onResize);
+    //$(window).resize(onResize);
     initPcaVis();
 });
