@@ -385,7 +385,7 @@ $(document).ready(function() {
     });
 
     if (shouldShowFirstTimeUserExperience()) {
-        alert("Welcome to Polis");
+        //alert("Welcome to Polis");
     }
 
 window.newUser = function() {
