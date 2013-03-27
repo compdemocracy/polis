@@ -677,10 +677,36 @@ console.dir(query);
                             collection.find(qq, function(err, commentsCursor) {
                                 if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); return; }
                                 commentsCursor.toArray( function(err, comments) {
-                            console.dir(qq);
                             console.dir(comments);
                                     if (err) { fail(res, 2389367, "polis_err_get_selection_comments_toarray", 500); return; }
-                                    // TODO sort
+
+                                    /*
+                                    // map the results onto the commentIds list, which has the right ordering
+                                    comments = commentIds.map(function(id) {
+                                        console.dir(id._id);
+                                        return _.findWhere(comments, {_id: id._id});
+                                    });
+                                    console.dir(comments);
+                                    for (var i = 0; i < comments.length; i++) {
+                                        comments[i].freq = i;
+                                    }
+
+                                    comments.sort(function(a, b) {
+                                        // desc sort primarily on frequency, then on recency
+                                        if (b.freq > a.freq) {
+                                            return 1;
+                                        } else if (b.freq < a.freq) {
+                                            return -1;
+                                        } else {
+                                            return b._id > a._id;
+                                        }
+                                    });
+                                    */
+                                    // TODO fix and use the stuff above
+                                    comments.sort(function(a, b) {
+                                        // desc sort primarily on frequency, then on recency
+                                        return b._id > a._id;
+                                    });
                                     res.end(JSON.stringify(comments));
                                 });
                             });

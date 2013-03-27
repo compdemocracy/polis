@@ -20,7 +20,7 @@
      "grunt": "~0.3.17"
   },
   "dependencies": {
-    "underscore": "~1.4.2",
+    "underscore": "~1.4.4",
     "path": "~0.4.9",
     "crypto": "0.0.3",
     "mongodb": "~1.1.11",

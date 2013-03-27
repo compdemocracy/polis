@@ -573,6 +573,38 @@ function drawSelectionRectangle(rect) {
     var d3Rect = visualization.selectAll("rect")
         .data(data);
 
+
+    /*
+    function dragmove(d) {
+        //var left = 100;
+        //var right = 200;
+        //var top = 100;
+        //var bottom = 200;
+        var z = 100;
+        //console.dir(d3.event);
+        console.dir(d);
+        d3.select(this)
+            .attr("x",function(d) {
+                d.x1 = d3.event.sourceEvent.offsetX;;
+                d.x2 = d.x1 + 100;
+                d.y1 = d3.event.sourceEvent.offsetY;;
+                d.y2 = d.y1 + 100;
+                return x(d);
+            })
+            //.attr("x", function(d) {console.dir(d); return x(d) + d3.event.dx})
+            .attr("y", function(d) {return y(d);})
+            .attr("width", width)
+            .attr("height", height)
+            ;
+            //.attr("x", d.x = Math.max(z, Math.min(500 - z, d3.event.x)))
+            //.attr("y", d.y = Math.max(z, Math.min(300 - z, d3.event.y)));
+    }
+    var drag = d3.behavior.drag()
+        .origin(Object)
+        .on("drag", dragmove)
+    ;
+    */
+
     d3Rect.enter()
         .append("svg:rect")
         .style("opacity", 0.2)
@@ -583,7 +615,9 @@ function drawSelectionRectangle(rect) {
         .attr("x", x)
         .attr("y", y)
         .attr("width", width)
-        .attr("height", height);
+        .attr("height", height)
+        .call(drag)
+    ;
 
     d3Rect.exit().remove();
 }
