@@ -616,7 +616,7 @@ function drawSelectionRectangle(rect) {
         .attr("y", y)
         .attr("width", width)
         .attr("height", height)
-        .call(drag)
+        //.call(drag)
     ;
 
     d3Rect.exit().remove();
