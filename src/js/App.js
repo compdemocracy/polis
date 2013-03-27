@@ -255,7 +255,6 @@ var App = function(params) {
     
 $(document).ready(function() {
 
-    bootstro.start();
     window.debug = {};
     window.debug.enterComments = function() { $("#comment_form").removeClass("debug_hidden"); };
     window.debug.enterStim = function() { $("#stimulus_form").removeClass("debug_hidden"); };
@@ -365,17 +364,20 @@ $(document).ready(function() {
         });
     };
 
-    initPcaVis();
-    var onResize = _.throttle(function onResize(){
+    var onResize = _.throttle(_.debounce(function onResize(){
         //var resizeArticleHeight = $(window).height() * 0.68;
         //var resizeShowerHeight = $(window).height() * 0.70;
         //$('#articles').css('height', resizeArticleHeight);
         //$('#comment_shower').css('height', resizeShowerHeight);
-        initPcaVis(); 
-    },1000);
+        //
+        //
+        //    initPcaVis(); 
+        window.location.reload(true); // force get
+
+    }),1000);
 
     //$("#topic_modal").click(showTopicModal);
-    $('#topic_modal').modal({show: false, keyboard: true, backdrop: true});
+    //$('#topic_modal').modal({show: false, keyboard: true, backdrop: true});
 
     $('.react_tab').click(navigateToReactTab);
     $('.write_tab').click(navigateToWriteTab);
@@ -385,7 +387,13 @@ $(document).ready(function() {
     });
 
     if (shouldShowFirstTimeUserExperience()) {
+
         //alert("Welcome to Polis");
+    }
+
+    if (window.localStorage.getItem("lastFTUX") < Date.now()- 1000*6 ) {
+        bootstro.start();
+        window.localStorage.setItem("lastFTUX", Date.now());
     }
 
 window.newUser = function() {
@@ -424,5 +432,5 @@ window.addEventListener("orientationchange", hideAddressBar );
 
             
     $(window).resize(onResize);
-    onResize();
+    initPcaVis();
 });
