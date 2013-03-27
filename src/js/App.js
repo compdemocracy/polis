@@ -364,7 +364,7 @@ $(document).ready(function() {
         });
     };
 
-    var onResize = _.throttle(_.debounce(function onResize(){
+    var onResize = _.throttle(function onResize(){
         //var resizeArticleHeight = $(window).height() * 0.68;
         //var resizeShowerHeight = $(window).height() * 0.70;
         //$('#articles').css('height', resizeArticleHeight);
@@ -372,9 +372,11 @@ $(document).ready(function() {
         //
         //
         //    initPcaVis(); 
-        window.location.reload(true); // force get
+        setTimeout(function() {
+            window.location.reload(true); // force get
+        }, 500);
 
-    }),1000);
+    },1000);
 
     //$("#topic_modal").click(showTopicModal);
     //$('#topic_modal').modal({show: false, keyboard: true, backdrop: true});
