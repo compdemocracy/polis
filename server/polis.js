@@ -222,7 +222,7 @@ function checkFields(ev) {
 var server = http.createServer(function (req, res) {
     var parsedUrl = url.parse(req.url, true);
     var query = parsedUrl.query;
-    console.dir(parsedUrl);
+    //console.dir(parsedUrl);
     var basepath = parsedUrl.pathname;
 
 
@@ -661,7 +661,7 @@ console.dir(query);
                                     if (err) { fail(res, 324234331, err); return; }
 
             console.log('autopull');
-            console.dir(docs);
+            //console.dir(docs);
                                     // Since the user posted it, we'll submit an auto-pull for that.
                                     docs.forEach( function(newComment) {
                                         var autoPull = {
@@ -670,7 +670,7 @@ console.dir(query);
                                             to: newComment._id,
                                             u: ev2.u,
                                         };
-            console.dir(autoPull);
+            //console.dir(autoPull);
                                         reactionsPost(res, data.u, [autoPull]);
                                     }); // auto pull
             console.log('end autopull');
@@ -767,7 +767,7 @@ console.dir(query);
                             collection.find(qq, function(err, commentsCursor) {
                                 if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); return; }
                                 commentsCursor.toArray( function(err, comments) {
-                            console.dir(comments);
+                            //console.dir(comments);
                                     if (err) { fail(res, 2389367, "polis_err_get_selection_comments_toarray", 500); return; }
 
                                     /*
