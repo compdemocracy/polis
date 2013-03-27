@@ -832,6 +832,7 @@ console.dir(query);
         }()),
     };
 
+    console.log("reqpath: " + basepath);
     if (routes[basepath]) {
         res.writeHead(200, { // TODO don't write 200 so early
             'Content-Type': 'application/json',
