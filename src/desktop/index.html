@@ -44,6 +44,10 @@
         margin-top: 20px;
       }
 
+      #push_button {
+        margin-right: 20px;
+      }
+
       svg {
         /*background-color: rgb(236, 248, 255);*/
         border: 1px solid rgb(218, 218, 218);
@@ -104,7 +108,7 @@
 
      #comment_shower {
         max-height: 300px;
-        max-width: 300px;
+        max-width: 900px;
         overflow: auto;
         margin-bottom: 20px;
         text-align: justify;
@@ -193,13 +197,34 @@
       }
 
       /* Portrait tablet to landscape and desktop */
-      @media (min-width: 768px) and (max-width: 979px) {       
+      @media (min-width: 768px) and (max-width: 1000px) {       
            body{
             padding-top: 0px;
           }
          #visualization_buttons {
             display: none;
           }
+
+          .pull_buttons .btn {
+          
+          padding: 10px 8px;
+          border: none;
+          background-color: #F5F5F5;
+          background-image: none;
+          color: rgb(87, 87, 87);
+          border-radius: 2px;
+          font-size: 16px;
+          margin-bottom: 20px;
+
+          /*  padding-left: 5%; */
+          /*  padding-right: 5%; */
+              font-family: futura-pt;
+          }
+
+          #push_button {
+            margin-right: 10px;
+          }
+
        }
        
       /* Landscape phone to portrait tablet */
@@ -265,9 +290,9 @@
       <a class="brand"  href="#">Polis</a>
       <div class="nav-collapse collapse">
         <ul class="nav">
-          <li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="Click this tab to return to this tutorial at any time. Polis is a web application developed by a small, Seattle based team of designers, developers and math geeks. Polis provides a platform to facilitate constructive conversations at very large scales, the kind of conversations that break down over email, forums and comment boards." data-bootstro-placement="bottom" data-bootstro-step="0" ><a href="#">Intro & Overview</a></li>
+          <li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="<p> Click the 'Intro &amp; Overview' tab to return to this tutorial at any time.</p> <p> Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of the application. <p> Polis is a web application developed by a small, Seattle based team of designers, developers and math geeks. Polis provides a platform to facilitate constructive conversations at very large scales, the kind of conversations that break down over email, forums and comment boards. In this data gathering prototype, we ask our social network from across the country to discuss their thoughts and feelings on national drug policy. </p>" data-html="true" data-bootstro-placement="bottom" data-bootstro-step="0" ><a href="#">Intro &amp; Overview</a></li>
           <li id="topic_toggle"><a href="" role="button">Topic: Legalization</a> </li>
-          <li data-toggle="modal" data-target="#introduction_modal"><a href="#">Contact & Feedback</a></li>
+          <li data-toggle="modal" data-target="#introduction_modal"><a href="#">Contact &amp; Feedback</a></li>
         </ul>
       </div><!--/.nav-collapse -->
     </div>
@@ -292,10 +317,10 @@
         </div> 
         <div class="pull_buttons">
           <button id="pull_button" class="showerbtns btn btn-large ">  Agree   </button>
-          <button id="push_button" class="showerbtns btn btn-large " >Disagree   </button>
+          
           <!-- <button id="trash_button" class="showerbtns btn btn-large pull-right"><i class="icon-trash"></i></button> -->
           <button id="pass_button" class="showerbtns btn btn-large pull-right">Pass</button>
-
+          <button id="push_button" class="showerbtns btn btn-large pull-right" >Disagree   </button>
         </div> 
       </div> <!-- comment_shower_frame -->
      </div>
@@ -367,19 +392,18 @@
       <div id="introduction_modal" class="modal hide fade" data-keyboard="true" data-show="true" role="dialog">
           <div class="modal-header">
             <button id="introduction_modal_button" type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
-            <h3 >A Brief Introduction</h3>
+            <h3 >Contact &amp; Feedback</h3>
 
           </div>
            <div id="modal_left_side" class="modal-body">       
                 <h6>WELCOME:</h6>
-                <p>Polis is a web application developed in Seattle by a small team of designers, developers and math geeks. One of them likely invited you to this prototype. Polis provides a platform to facilitate constructive conversations at very large scales. </p>
-
-                <p>In this prototype we ask our social network from across the country to discuss their thoughts and feelings on national drug policy, the kind of conversation that breaks down in large groups, be they in person or on the internet. </p>
+                
+                <p>Thank you sincerely for participating in the Polis prototype. If you are moved to, please leave us suggestions and comments here. If you'd like us to get in touch with you, add your email address to the message as well.</p>
 
 
                 <form id="introduction_feedback_form" class="feedback_form dropdown_forms">
                   <fieldset>
-                    <textarea class="feedback_text" placeholder="Thank you sincerely for participating in the Polis prototype - you are helping to provide a dataset we will use extensively throughout the development of our application. If you are moved to, please leave us suggestions and comments here."></textarea>
+                    <textarea class="feedback_text" placeholder="Feedback, bugs, observations, love, email addresses, etc."></textarea>
                     <button type="submit" class="btn btn-large">Submit Feedback</button>
                     <input type="hidden" name="ui_location" value="introduction_modal">
                   </fieldset>
@@ -390,7 +414,7 @@
                 <p> --The Polis Team</p>
 
                 <p><em>For XKCD readers:
-                Polis is built on Node, Mongo, Mustache, Heroku, R, D3, Redis, Twitter Bootstrap, jQuery & jQuery Mobile. Everyone pushes trolls. They cluster. :D. </em></p>
+                Polis is built on Node, Mongo, Mustache, Heroku, R, D3, Redis, Twitter Bootstrap &amp; jQuery. Everyone pushes trolls. They cluster. :D. </em></p>
            </div>
       </div>
 

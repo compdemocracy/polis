@@ -447,12 +447,12 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
             if (!isPersonNode(d)) {
                 return;
             }
-            return "orange";
+            return "darkgrey";
         })
         .style("fill", function(d) { 
             var distanceInPixels = Math.abs(this.cx.baseVal.value - d.data.targetX);
             if (distanceInPixels > 30) {
-                return "blue";
+                return "lightgrey";
             } else {
                 return chooseFill(d);
             }
@@ -529,7 +529,7 @@ function selectRectangle(rect) {
           }
           return false;
       })
-      .style("stroke", "yellow");
+      .style("stroke", "white");
 
     var selectedIds = selectedNodes.map(function(d) { return d.data.person_id;});
     function renderComments(comments) {
@@ -575,8 +575,9 @@ function drawSelectionRectangle(rect) {
 
     d3Rect.enter()
         .append("svg:rect")
-        .style("opacity", 0.4)
-        .style("fill", "teal");
+        .style("opacity", 0.2)
+        .style("stroke", "darkgrey")
+        .style("fill", "lightgrey");
 
     d3Rect
         .attr("x", x)
