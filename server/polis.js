@@ -209,6 +209,15 @@ var polisTypes = {
     },
 };
 
+var objectIdFields = ["_id", "u", "s", "to"];
+function checkFields(ev) {
+    for (k in ev) {
+        if ("string" === typeof ev[k] && objectIdFields.indexOf(k) >= 0) {
+            ev[k] = ObjectId(ev[k]);
+        }
+    }
+}
+
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (req, res) {
     var parsedUrl = url.parse(req.url, true);
@@ -223,9 +232,10 @@ var server = http.createServer(function (req, res) {
         events.forEach(function(ev){
             ev.u = ObjectId(user);
 
+            checkFields(ev);
             collection.insert(ev, function(err, cursor) {
                 if (err) { fail(res, 324234324, err); return; }
-                res.end();
+                res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
             });
         });
     }
@@ -328,7 +338,9 @@ console.dir(query);
                 });
                 // log the deregister
                 convertFromSession(data, function(err, data) {
-                    collection.insert({type: "deregister", u: data.u}, function(err, docs) {
+                    var ev = {type: "deregister", u: data.u};
+                    checkFields(ev);
+                    collection.insert(ev, function(err, docs) {
                         if (err) { console.error("couldn't add deregister event to eventstream"); return; }
                     });
                 });
@@ -367,7 +379,9 @@ console.dir(query);
                                 };
                                 res.end(JSON.stringify(response_data));
                                 // log the login
-                                collection.insert({type: "login", u: docs[0].u}, function(errInsertEvent, docs) {
+                                var ev = {type: "login", u: docs[0].u};
+                                checkFields(ev);
+                                collection.insert(ev, function(errInsertEvent, docs) {
                                     if (err) { console.error("couldn't add register event to eventstream u:"+docs[0]); return; }
                                 });
                             }); // end startSession
@@ -384,7 +398,9 @@ console.dir(query);
                 var email = data.email;
                 if (ALLOW_ANON && data.anon) {
                     var response_data = {};
-                    collection.insert({type: "newuser"}, function(err, docs) {
+                    var ev = {type: "newuser"};
+                    checkFields(ev);
+                    collection.insert(ev, function(err, docs) {
                         if (err) { fail(res, 238943589, err); return; }
                         var userID = docs[0]._id;
                         response_data.u = userID;
@@ -432,6 +448,7 @@ console.dir(query);
                                 if (username) {
                                     regEvent.username = username;
                                 }
+                                checkFields(regEvent);
                                 collection.insert(regEvent, function(errInsertEvent, docs) {
 
                                     if (errInsertEvent) { fail(res, 238943603, "polis_err_reg_failed_to_add_event"); return; }
@@ -447,6 +464,7 @@ console.dir(query);
                                     if (email) {
                                         userRecord.email = email;
                                     }
+                                    checkFields(userRecord);
                                     collectionOfUsers.insert(userRecord,
                                         function(errInsertPassword, docs) {
                                             if (errInsertPassword) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; } // we should probably delete the log entry.. would be nice to have a transaction here
@@ -477,6 +495,7 @@ console.dir(query);
                             if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
                             if (ev.s) ev.s = ObjectId(ev.s);
                             if (dataWithSessionData.u) ev.u = ObjectId(dataWithSessionData.u); 
+                            checkFields(ev);
                             collection.insert(ev, function(err, cursor) {
                                 if (err) { fail(res, 324234331, err); return; }
                                 res.end();
@@ -543,6 +562,7 @@ console.dir(query);
                                 if (data.u) {
                                     ev.u = ObjectId(data.u);
                                 }
+                                checkFields(ev);
                                 collection.insert(ev, function(err, cursor) {
                                     if (err) { fail(res, 324234335, err); return; }
                                     res.end();
@@ -633,10 +653,11 @@ console.dir(query);
                                     ev2.s = ObjectId(ev.s);
                                 }
                                 if (data.u) {
-                                    ev.u = ObjectId(data.u);
+                                    ev2.u = ObjectId(data.u);
                                 }
 
-                                collection.insert(ev, function(err, docs) {
+                                checkFields(ev2);
+                                collection.insert(ev2, function(err, docs) {
                                     if (err) { fail(res, 324234331, err); return; }
 
             console.log('autopull');
@@ -644,10 +665,10 @@ console.dir(query);
                                     // Since the user posted it, we'll submit an auto-pull for that.
                                     docs.forEach( function(newComment) {
                                         var autoPull = {
-                                            s: ev.s,
+                                            s: ev2.s,
                                             type: polisTypes.reactions.pull,
                                             to: newComment._id,
-                                            u: ev.u,
+                                            u: ev2.u,
                                         };
             console.dir(autoPull);
                                         reactionsPost(res, data.u, [autoPull]);

@@ -393,7 +393,10 @@ window.newUser = function() {
     PolisStorage.email.clear();
     PolisStorage.username.clear();
     PolisStorage.personId.clear();
-    window.location.reload(true); // force get
+    serverClient.authDeregisterClientOnly();
+    setTimeout(function() {
+        window.location.reload(true); // force get
+    }, 100);
 };
 KeyboardJS.on("ctrl+n", newUser);
     

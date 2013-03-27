@@ -91,10 +91,6 @@ var ServerClient = function(params) {
         return isNumber(commentId);
     }
 
-    function wasCreatedByMe(event) {
-        return event.u === personIdStore.get();
-    }
-
     function getAllReactionsForSelf(optionalStimulusId) {
         var dfd = $.Deferred();
         var stim = optionalStimulusId || currentStimulusId;
@@ -177,9 +173,7 @@ var ServerClient = function(params) {
         getCommentStore(optionalStimulusId).all(function(comments) {
             for (var i = 0; i < comments.length; i++) {
                 var comment = comments[i];
-                if (undefined === comment.myReaction &&
-                    !wasCreatedByMe(comment) // Comments are autopulled, so don't show to self.
-                ) {
+                if (undefined === comment.myReaction) {
                     delete comment.key; // a9w8ehfdfzgh
                     dfd.resolve(comment);
                     return;
@@ -402,6 +396,11 @@ var ServerClient = function(params) {
         });//.then(logger.log, logger.error);
     }
 
+    function authDeregisterClientOnly() {
+        clearAuthStores();
+        clearDb();
+    }
+
     function authDeregister() {
         return polisPost(deregisterPath).always( function(authData) {
             clearAuthStores();
@@ -618,6 +617,7 @@ var ServerClient = function(params) {
         authNew: authNew,
         authLogin: authLogin,
         authDeregister: authDeregister,
+        authDeregisterClientOnly: authDeregisterClientOnly,
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForSelection: getCommentsForSelection,
