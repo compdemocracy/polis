@@ -88,7 +88,7 @@ var App = function(params) {
         document.title= "Polis topic: Legalization";
     }
     var setStimulusOnFirstLoad = _.once(function() {
-        var stim = "514ac77ba313c76729000007";
+        var stim = "514ac77ba313c76729000008";
         var kv = getLocationHash();
         if (kv.s) {
             stim = kv.s;
