@@ -171,8 +171,9 @@ var ServerClient = function(params) {
         //}
 
         getCommentStore(optionalStimulusId).all(function(comments) {
-            for (var i = 0; i < comments.length; i++) {
-                var comment = comments[i];
+            var indicies = _.shuffle(_.range(comments.length));
+            for (var i = 0; i < indicies.length; i++) {
+                var comment = comments[indicies[i]];
                 if (undefined === comment.myReaction) {
                     delete comment.key; // a9w8ehfdfzgh
                     dfd.resolve(comment);
