@@ -132,12 +132,20 @@ function initialize(params) {
 
 
     function getOffsetX(e) {
-        // FF has layerX
-        return e.offsetX !== undefined ? e.offsetX : e.layerX;
+        if (undefined !== e.offsetX) {
+            return e.offsetX;
+        } else {
+            // Needed for FF
+            return e.pageX - $(el_selector).offset().left; // TODO cache offset?
+        }
     }
     function getOffsetY(e) {
-        // FF has layerY
-        return e.offsetY !== undefined ? e.offsetY : e.layerY;
+        if (undefined !== e.offsetY) {
+            return e.offsetY;
+        } else {
+            // Needed for FF
+            return e.pageY - $(el_selector).offset().top; // TODO cache offset?
+        }
     }
     $(el_selector).on('mousedown', function(e) {
         selectionRectangle.x1 = getOffsetX(e);
