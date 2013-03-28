@@ -44,6 +44,21 @@ if (process.env.REDISCLOUD_URL) {
     redisForMathResults = require('redis').createClient();
 }
 
+
+function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
+    var i;
+    // identity field -> item
+    var items = {};
+    for (i = 0; i < itemsToBeReordered.length; i++) {
+        items[itemsToBeReordered[i][fieldName]] = itemsToBeReordered[i];
+    }
+    var dest = [];
+    for (i = 0; i < itemsThatHaveTheRightOrder.length; i++) {
+        dest.push(items[itemsThatHaveTheRightOrder[i][fieldName]]);
+    }
+    return dest;
+}
+
 // Connect to a mongo database via URI
 // With the MongoLab addon the MONGOLAB_URI config variable is added to your
 // Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
@@ -753,8 +768,10 @@ console.dir(query);
                                 }
                             }
                             commentIdCounts = _.pairs(commentIdCounts);
+                            commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) >= 0; }); // remove net negative items
+                            commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); // remove net negative items
                             commentIdCounts.sort(function(a,b) {
-                                return b[1] - a[1]; // descending
+                                return b[1] - a[1]; // descending by freq
                             });
                             commentIdCounts = commentIdCounts.slice(0, 10);
                             var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
@@ -770,13 +787,8 @@ console.dir(query);
                             //console.dir(comments);
                                     if (err) { fail(res, 2389367, "polis_err_get_selection_comments_toarray", 500); return; }
 
-                                    /*
                                     // map the results onto the commentIds list, which has the right ordering
-                                    comments = commentIds.map(function(id) {
-                                        console.dir(id._id);
-                                        return _.findWhere(comments, {_id: id._id});
-                                    });
-                                    console.dir(comments);
+                                    var comments = orderLike(comments, commentIds, "_id");
                                     for (var i = 0; i < comments.length; i++) {
                                         comments[i].freq = i;
                                     }
@@ -791,7 +803,6 @@ console.dir(query);
                                             return b._id > a._id;
                                         }
                                     });
-                                    */
                                     // TODO fix and use the stuff above
                                     comments.sort(function(a, b) {
                                         // desc sort primarily on frequency, then on recency
