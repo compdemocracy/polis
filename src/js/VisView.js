@@ -9,6 +9,7 @@ var h;
 var w;
 var nodes = [];
 var visualization;
+var force;
 var queryResults;
 
 var el_selector;
@@ -17,7 +18,6 @@ var getPersonId;
 var getCommentsForProjection;
 var getCommentsForSelection;
 
-var force;
 
 var mouseDown = false;
 var selectionRectangle = {
@@ -27,8 +27,18 @@ var selectionRectangle = {
     y2: 0
 };
 
-
 var updatesEnabled = true;
+
+// Tunables
+var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([1, 5]).domain([350, 800]).clamp(true);
+var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
+var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 2]).domain([350, 800]).clamp(true);
+
+// Cached results of tunalbes - set during init
+var strokeWidth;
+var baseNodeRadius;
+
+
 
 window.P.stop = function() {
     if (window.P.stop) {
@@ -96,6 +106,10 @@ function initialize(params) {
     w = $(el_selector).width();
     h = $(el_selector).height();
 
+    strokeWidth = strokeWidthGivenVisWidth(w);
+    baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
+    charge = chargeForGivenVisWidth(w);
+
     queryResults = d3.select(el_queryResultSelector)
         .append('ol')
           .attr('class', 'query_results');
@@ -107,7 +121,7 @@ function initialize(params) {
         .links([])
         .friction(0.9) // more like viscosity [0,1], defaults to 0.9
         .gravity(0)
-        .charge(-10) // slight overlap allowed
+        .charge(charge) // slight overlap allowed
         .size([w, h]);
 
     force.on("tick", function(e) {
@@ -413,10 +427,11 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
       .attr("class", "node enter")
       //.each(function(d) {d.x = w/2; d.y = h/2;})
       .attr("r", function(d) {
+          var r = baseNodeRadius;
             if (isSelf(d)){
-                return nodeRadius + 5; // medium
+                return r += 5;
             }
-            return nodeRadius;// + (Math.random() * 10);
+            return r;
         })
 /*
       .style("fill", function(d) {
@@ -432,7 +447,7 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
             return color;
       })
 */
-        .style("stroke-width", 1.5)
+        .style("stroke-width", strokeWidth)
           .attr("cx", function(d) {
             return d.x;
           })
@@ -541,11 +556,21 @@ function selectRectangle(rect) {
 
     var selectedIds = selectedNodes.map(function(d) { return d.data.person_id;});
     function renderComments(comments) {
+        function hover(d) {
+            console.dir(d);
+            $(this).addClass("query_result_item_hover");
+        }
+        function unhover(d) {
+            $(this).removeClass("query_result_item_hover");
+        }
         var d3CommentList = queryResults.selectAll("li")
             .data(comments, function(d) { return d._id; });
 
         d3CommentList.enter()
             .append("li")
+            .attr('class', 'query_result_item')
+            .on("mouseover", hover)
+            .on("mouseout", unhover)
             .text(function(d) { return d.txt; });
 
         d3CommentList.exit().remove();

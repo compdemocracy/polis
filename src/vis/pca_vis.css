@@ -4,6 +4,13 @@
   margin-left: 10px;
   width: 70%;
 }
+.query_result_item {
+    padding: 1px;
+    margin: 1px;
+}
+.query_result_item_hover {
+    background-color: white;
+}
 
 .visualization {
   /*border: 1px solid gray;*/
