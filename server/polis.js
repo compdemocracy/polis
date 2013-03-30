@@ -255,22 +255,24 @@ var server = http.createServer(function (req, res) {
         });
     }
 
-    function reactionsGet() {
-        function makeQuery(stimulusId) {
+    function reactionsGet(res, params) {
+        function makeQuery() {
             // $or [{type: push}, {type: pull},...]
-            return {
-                s: ObjectId(stimulusId), 
-                $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
-            };
+            var q = { $and: [
+                {s: ObjectId(params.s)}, 
+                {$or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; })}, 
+            ]};
+            if (params.to) {
+                q.$and.push({to: ObjectId(params.to)});
+            }
+            return q;
         }
         var users = [];
-        collection.find(makeQuery(stimulus), function(err, cursor) {
-            if (err) { fail(res, 234234325, err); return; }
+        collection.find(makeQuery(), function(err, cursor) {
+            if (err) { fail(res, 234234326, err); return; }
 
             function onNext( err, doc) {
                 if (err) { fail(res, 987298783, err); return; }
-                //console.dir(doc);
-
                 if (doc) {
                     users.push(doc);
                     cursor.nextObject(onNext);
@@ -281,16 +283,7 @@ var server = http.createServer(function (req, res) {
 
             cursor.nextObject( onNext);
         });
-    }
-
-
-
-
-
-
-
-
-
+    } // End reactionsGet
 
     // start server with ds in scope.
     var routes = {
@@ -710,8 +703,7 @@ console.dir(query);
                         if (err) { fail(res, 234234325, err); return; }
 
                         function onNext( err, doc) {
-                            if (err) { fail(res, 987298783, err); return; }
-                            //console.dir(doc);
+                            if (err) { fail(res, 987298784, err); return; }
 
                             if (doc) {
                                 events.push(doc);
@@ -818,9 +810,8 @@ console.dir(query);
         }()),
         "/v2/reactions" : (function() {
             return function(req, res) {
-                var stimulus = query.s;
                 if('GET' === req.method) {
-                    reactionsGet(res, stimulus);
+                    reactionsGet(res, query);
                     return;
                 }
                 if('POST' === req.method) {

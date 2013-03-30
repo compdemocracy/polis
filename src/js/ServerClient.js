@@ -610,7 +610,13 @@ var ServerClient = function(params) {
             s: currentStimulusId,
             users: listOfUserIds.join(',')
         });
-        
+    }
+
+    function getReactionsToComment(commentId) {
+        return polisGet(reactionsPath, {
+            s: currentStimulusId,
+            to: commentId
+        });
     }
 
     return {
@@ -622,6 +628,7 @@ var ServerClient = function(params) {
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForSelection: getCommentsForSelection,
+        getReactionsToComment: getReactionsToComment,
         observeStimulus: observeStimulus, // with no args
         push: push,
         pull: pull,

@@ -17,6 +17,7 @@ var el_queryResultSelector;
 var getPersonId;
 var getCommentsForProjection;
 var getCommentsForSelection;
+var getReactionsToComment;
 
 
 var mouseDown = false;
@@ -66,6 +67,35 @@ function setCx(d) {
     }
 }
 
+function chooseRadiusSelected(d) {
+    return chooseRadius(d) + 2;
+}
+function chooseRadius(d) {
+  var r = baseNodeRadius;
+    if (isSelf(d)){
+        return r += 5;
+    }
+    return r;
+}
+function chooseFill(d) {
+    if (d.effects !== undefined) {
+        if (d.effects===-1) {
+            return "blue";
+        } else if (d.effects === 1) {
+            return "red";
+        } else if (d.effects === 0){
+            return "black";
+        }
+    } else { 
+        if (isSelf(d)) {
+            return "red";
+        } else {
+            return "black";
+        }
+    }
+}
+
+
 function renderCommentsList(comments) {
     function renderComment(comment) {
         var template = $('#commentListItemTemplate').html();
@@ -91,6 +121,7 @@ function initialize(params) {
     getPersonId = params.getPersonId;
     getCommentsForProjection = params.getCommentsForProjection;
     getCommentsForSelection = params.getCommentsForSelection;
+    getReactionsToComment = params.getReactionsToComment;
 
     // Since initialize is called on resize, clear the old vis before setting up the new one.
     $(el_selector).html("");
@@ -413,10 +444,6 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
         window.temp = nodes[0];
     }
 
-    function chooseFill(d) {
-        return isSelf(d) ? "red" : "black";
-    }
-
 
   var circle = visualization.selectAll("circle.node")
       .data(nodes);
@@ -426,13 +453,7 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
     .enter().append("svg:circle")
       .attr("class", "node enter")
       //.each(function(d) {d.x = w/2; d.y = h/2;})
-      .attr("r", function(d) {
-          var r = baseNodeRadius;
-            if (isSelf(d)){
-                return r += 5;
-            }
-            return r;
-        })
+      .attr("r", chooseRadius)
 /*
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
@@ -545,6 +566,7 @@ function selectRectangle(rect) {
     var selectedNodes = [];
     circle
       .style('stroke', "black")
+      .attr("r", chooseRadius)
       .filter(function(d) {
           if (inside(rect2, d.x, d.y)) {
               selectedNodes.push(d);
@@ -552,16 +574,47 @@ function selectRectangle(rect) {
           }
           return false;
       })
+      .attr("r", chooseRadiusSelected)
       .style("stroke", "white");
+
 
     var selectedIds = selectedNodes.map(function(d) { return d.data.person_id;});
     function renderComments(comments) {
         function hover(d) {
-            console.dir(d);
+            getReactionsToComment(d._id).then(function(reactions) {
+                var userToReaction = {};
+                for (var i = 0; i < reactions.length; i++) {
+                    userToReaction[reactions[i].u] = reactions[i];
+                }
+                for (var i = 0; i < nodes.length; i++) {
+                    var node = nodes[i];
+
+                    var reaction = userToReaction[node.data.person_id];
+                    if (reaction) {
+                        node.effects = reaction.type;
+                        if (undefined === node.effects) {
+                            debugger;
+                            node.effects = "blabla";
+                        }
+                    }
+                }
+                visualization.selectAll("circle.node")
+                  .style("fill", chooseFill)
+                ;
+                //console.log(reactions);
+            }, function() {
+                console.error('failed to get reactions to comment: ' + d._id);
+            });
             $(this).addClass("query_result_item_hover");
         }
         function unhover(d) {
             $(this).removeClass("query_result_item_hover");
+            for (var i = 0; i < nodes.length; i++) {
+                var node = nodes[i];
+                delete node.effects;
+            }
+            visualization.selectAll("circle.node")
+              .style("fill", chooseFill)
         }
         var d3CommentList = queryResults.selectAll("li")
             .data(comments, function(d) { return d._id; });
