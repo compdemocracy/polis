@@ -583,24 +583,23 @@ function selectRectangle(rect) {
         function hover(d) {
             getReactionsToComment(d._id).then(function(reactions) {
                 var userToReaction = {};
-                for (var i = 0; i < reactions.length; i++) {
+                var i;
+                for (i = 0; i < reactions.length; i++) {
                     userToReaction[reactions[i].u] = reactions[i];
                 }
-                for (var i = 0; i < nodes.length; i++) {
+                for (i = 0; i < nodes.length; i++) {
                     var node = nodes[i];
 
                     var reaction = userToReaction[node.data.person_id];
                     if (reaction) {
                         node.effects = reaction.type;
                         if (undefined === node.effects) {
-                            debugger;
                             node.effects = "blabla";
                         }
                     }
                 }
                 visualization.selectAll("circle.node")
-                  .style("fill", chooseFill)
-                ;
+                  .style("fill", chooseFill);
                 //console.log(reactions);
             }, function() {
                 console.error('failed to get reactions to comment: ' + d._id);
@@ -614,7 +613,7 @@ function selectRectangle(rect) {
                 delete node.effects;
             }
             visualization.selectAll("circle.node")
-              .style("fill", chooseFill)
+              .style("fill", chooseFill);
         }
         var d3CommentList = queryResults.selectAll("li")
             .data(comments, function(d) { return d._id; });
