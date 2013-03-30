@@ -768,7 +768,7 @@ console.dir(query);
                                 }
                             }
                             commentIdCounts = _.pairs(commentIdCounts);
-                            commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) >= 0; }); // remove net negative items
+                            commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; }); // remove net negative items
                             commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); // remove net negative items
                             commentIdCounts.sort(function(a,b) {
                                 return b[1] - a[1]; // descending by freq
