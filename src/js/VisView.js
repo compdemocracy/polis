@@ -19,6 +19,11 @@ var getCommentsForProjection;
 var getCommentsForSelection;
 var getReactionsToComment;
 
+// hack_mouseout_replacement
+// mouseout isn't reliable, so this is needed as part of optimizing
+// a mousemove event catcher on the window, for mosuemoves that escape
+// from the query results list. (indicating a mouseout)
+var queryItemHoverOn = false;
 
 var mouseDown = false;
 var selectionRectangle = {
@@ -580,7 +585,7 @@ function selectRectangle(rect) {
 
     var selectedIds = selectedNodes.map(function(d) { return d.data.person_id;});
     function renderComments(comments) {
-        function hover(d) {
+    function hover(d) {
             getReactionsToComment(d._id).then(function(reactions) {
                 var userToReaction = {};
                 var i;
@@ -601,19 +606,27 @@ function selectRectangle(rect) {
                 visualization.selectAll("circle.node")
                   .style("fill", chooseFill);
                 //console.log(reactions);
+                queryItemHoverOn = true;
             }, function() {
                 console.error('failed to get reactions to comment: ' + d._id);
             });
             $(this).addClass("query_result_item_hover");
         }
         function unhover(d) {
-            $(this).removeClass("query_result_item_hover");
-            for (var i = 0; i < nodes.length; i++) {
-                var node = nodes[i];
-                delete node.effects;
+            $(el_queryResultSelector).children().children().removeClass("query_result_item_hover");
+            if (queryItemHoverOn) { // check this, so we can call it on every mouse move from the window, since mouseout isn't reliable
+                //$(this).removeClass("query_result_item_hover");
+                for (var i = 0; i < nodes.length; i++) {
+                    var node = nodes[i];
+                    delete node.effects;
+                }
+                visualization.selectAll("circle.node")
+                  .style("fill", chooseFill);
             }
-            visualization.selectAll("circle.node")
-              .style("fill", chooseFill);
+            queryItemHoverOn = false;
+        }
+        function unhoverAll() {
+            $(el_queryResultSelector).removeClass("query_result_item_hover");
         }
         var d3CommentList = queryResults.selectAll("li")
             .data(comments, function(d) { return d._id; });
@@ -626,6 +639,15 @@ function selectRectangle(rect) {
             .text(function(d) { return d.txt; });
 
         d3CommentList.exit().remove();
+
+        // part of hack_mouseout_replacement
+        $(el_queryResultSelector).on('mousemove', function(e) {
+            e.preventDefault();
+            // prevent these events from propagating to window
+            return false;
+        });
+        // part of hack_mouseout_replacement
+        $(window).on('mousemove', unhover);
 
         //d3CommentList
             //.attr("x", x)
