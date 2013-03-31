@@ -721,7 +721,7 @@ console.dir(query);
                 }
             });
         },
-        "/v2/selection" :  (function() {
+        "/v2/selection" :  (function() { // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
             function makeGetReactionsByUserQuery(users, stimulus) {
                 users = users.split(',');
                 var q = { $and: [
