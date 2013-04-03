@@ -44,6 +44,10 @@
         font-weight: lighter; /* this stops firefox from rendering our font psuedo bold */
       }
 
+      #topic p {
+        font-family: times;
+      }
+
       #query_results_div {
         margin-top: 20px;
       }
@@ -57,6 +61,23 @@
         border: 1px solid rgb(218, 218, 218);
 
       }
+
+      /* take off bootstraps little black line to make red polis brand text end where white of page begins */
+
+      .navbar-inverse .navbar-inner {
+        border-color: transparent;
+      }
+
+      /* polis red brand text */
+
+      .brand {
+        font-size: 72px;
+        overflow: hidden;
+        font-family: futura-pt;
+        text-transform: uppercase;
+        color: rgb(172, 0, 0);
+      }
+
 
       #introduction_feedback_form textarea {
         width: 90%;
@@ -119,7 +140,7 @@
       }
     
      #comment_shower p, #comment_shower h3 {
-        font-family: chaparral-pro, helvetica;
+        font-family: times;
         font-size: 16px;
         padding: 10px;
         font-weight: normal;
