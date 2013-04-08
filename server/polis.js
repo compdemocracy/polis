@@ -233,6 +233,7 @@ function checkFields(ev) {
     }
 }
 
+
 // Configure our HTTP server to respond with Hello World to all requests.
 var server = http.createServer(function (req, res) {
     var parsedUrl = url.parse(req.url, true);
@@ -293,7 +294,10 @@ var server = http.createServer(function (req, res) {
             var lastServerToken = query.lastServerToken || "000000000000000000000000";
 console.dir(query);
             if('GET' === req.method) {
-                collectionOfPcaResults.find({s: stimulus, lastServerToken: {$gt: ObjectId(lastServerToken)}}, function(err, cursor) {
+                collectionOfPcaResults.find({$and :[
+                    {s: ObjectId(stimulus)},
+                    {lastServerToken: {$gt: ObjectId(lastServerToken)}},
+                    ]}, function(err, cursor) {
                     if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
                     cursor.toArray( function(err, docs) {
                         if (err) { fail(res, 2389364, "polis_err_get_pca_results_toarray", 500); return; }
