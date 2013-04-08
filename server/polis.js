@@ -62,7 +62,7 @@ function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
 
 // base 8,5,22,22,22,22,21,21
 //
-// TODO: start at the left end, and build rightward, and start by generating shorter ones, we can bump up the number of digits later
+// DONE: start at the left end, and build rightward, and start by generating shorter ones, we can bump up the number of digits later
 //
 // 0 -> 2 == 2a222222 (since the a's or 2's are actually 0's)
 // 1 -> 3 == 3a222222
@@ -99,28 +99,30 @@ var Codes = (function() {
     var mix21 = mix22.filter(function(c) { return c !== 'r';});
 
     var distributions = [numbers8, vowels5, mix22, mix22, mix22, mix22, mix21, mix21];
-    var distributionsReverse = distributions.reverse();
+    //var distributionsReverse = distributions.reverse();
 
     function intFromCode(code) {
-        var i = code.length - 1;
+        var i = 0;
         var result = 0;
         var multiplier = 1;
-        distributionsReverse.forEach(function(alphabet) {
+        console.log(distributions);
+        for (var i = 0; i < code.length; i++) {
+            var alphabet = distributions[i];
             var foo = Math.max(alphabet.indexOf(code[i]),0);
-            console.log(alphabet,result, multiplier, foo, code, i)
+           // console.log(alphabet,'res', result, 'mul',multiplier,'foo', foo,'code', code,'i', i,'alp', alphabet.length)
             result +=  foo*multiplier;
             multiplier *= alphabet.length;
-            i -= 1;
-        });
+        }
         return result;
     }
     function codeFromInt(n) {
-        return distributionsReverse.map(function(alphabet) {
+        return distributions.map(function(alphabet) {
             var base = alphabet.length;
             var i = n % base;
             n = Math.floor(n / base);
+          //  console.log(alphabet,'res', result, 'n',n,'code', code,'i', i,'alp', alphabet.length)
             return alphabet[i];
-        }).reverse().join("");
+        }).join("");
     }
     if (codeFromInt(21*21*22*22*22*22*5*8 - 1) !== "9yrrrrtt" || 
         codeFromInt(0) !== "2a222222") {
