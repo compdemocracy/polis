@@ -59,6 +59,112 @@ function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
     return dest;
 }
 
+
+// base 8,5,22,22,22,22,21,21
+//
+// TODO: start at the left end, and build rightward, and start by generating shorter ones, we can bump up the number of digits later
+//
+// 0 -> 2 == 2a222222 (since the a's or 2's are actually 0's)
+// 1 -> 3 == 3a222222
+// ... 
+// ? -> 9a
+// ? -> 9b
+// ? -> 9y
+// ? -> 2a2
+// ...
+// ? -> 9yy
+// ...
+// ? -> 9yt
+// ...
+// ? -> 9ytttt
+var Codes = (function() {
+    function rand(a) {
+        return _.random(a.length);
+    }
+    // no 1 (looks like l)
+    // no 0 (looks like 0)
+    var numbers8 = "23456789".split(""); 
+
+    // no L (mixed up with 1)
+    // no w (three syllables)
+    // no f, x, s (sounds same)
+    // no b, v (sounds same)
+    // no c, z 
+    // no m,n (sound same with a cold, m looks like two n's)
+    // no o, looks like 0
+    //
+    var vowels5 = 'aeiuy'.split("");
+    var consonants9 = 'dghjkpqtr'.split("");
+    var mix22 = _.union(numbers8, vowels5, consonants9);
+    var mix21 = mix22.filter(function(c) { return c !== 'r';});
+
+    var distributions = [numbers8, vowels5, mix22, mix22, mix22, mix22, mix21, mix21];
+    var distributionsReverse = distributions.reverse();
+
+    function intFromCode(code) {
+        var i = code.length - 1;
+        var result = 0;
+        var multiplier = 1;
+        distributionsReverse.forEach(function(alphabet) {
+            var foo = Math.max(alphabet.indexOf(code[i]),0);
+            console.log(alphabet,result, multiplier, foo, code, i)
+            result +=  foo*multiplier;
+            multiplier *= alphabet.length;
+            i -= 1;
+        });
+        return result;
+    }
+    function codeFromInt(n) {
+        return distributionsReverse.map(function(alphabet) {
+            var base = alphabet.length;
+            var i = n % base;
+            n = Math.floor(n / base);
+            return alphabet[i];
+        }).reverse().join("");
+    }
+    if (codeFromInt(21*21*22*22*22*22*5*8 - 1) !== "9yrrrrtt" || 
+        codeFromInt(0) !== "2a222222") {
+        console.error("conversation ID generation is broken");
+        exit(1);
+    }
+
+    // tradeoff - slightly longer, but read-out-loud-able.
+    // polis.io/3asdfghj
+    //   instead of
+    // polis.io/3aSDfg
+
+    // should fit within 32 bits
+    function generateConversationId(length) {
+        // 8*5*22*22*22*22*21*21 = 4132275840 (2**32 is 4294967296, so we're within 32 bits)
+        //
+        // So we can do 4 billion conversations before we need 64 bit keys
+        //
+        // actually, let's aim for unsigned
+        //
+        // Why keeping this within 32 bits is worth doing:
+        // - Once this hits 2 billion conversations (with 1000 entries each),
+        //   the cost of storing all those keys is 7 terrabytes.
+        //   (so having 64 bit numbers then would cost 14 terrabytes)
+        //    4 * 4132275840 *1000/ (1024*1024*1024*1024) = 15 TB
+        //    8 * 4132275840 *1000/ (1024*1024*1024*1024) = 30 TB
+        var result = [
+            rand(numbers8), // 8
+            rand(vowels5),  // 40
+            rand(mix22),    // 880
+            rand(mix22),    // 19360
+            rand(mix22),    // 425920
+            rand(mix22),    // 9370240
+            rand(mix21),    // 196775040
+            rand(mix21)     // 4132275840
+        ].join('');
+        return result;
+    }
+    return {
+        generateConversationId: generateConversationId,
+    };
+}());
+
+
 // Connect to a mongo database via URI
 // With the MongoLab addon the MONGOLAB_URI config variable is added to your
 // Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
