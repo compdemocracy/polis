@@ -62,6 +62,8 @@ function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
 
 // base 8,5,22,22,22,22,21,21
 //
+// TODO: start with a number, and then just use mix22 until the end. limit the domain and range on input (in the random number generator)
+//       (it's OK for these functions to overshoot their ranges)
 // DONE: start at the left end, and build rightward, and start by generating shorter ones, we can bump up the number of digits later
 //
 // 0 -> 2 == 2a222222 (since the a's or 2's are actually 0's)
@@ -93,12 +95,14 @@ var Codes = (function() {
     // no m,n (sound same with a cold, m looks like two n's)
     // no o, looks like 0
     //
-    var vowels5 = 'aeiuy'.split("");
+    var vowels5 = 'aeiuy'.split(""); // TODO remove i, hard to see on a projector
     var consonants9 = 'dghjkpqtr'.split("");
     var mix22 = _.union(numbers8, vowels5, consonants9);
     var mix21 = mix22.filter(function(c) { return c !== 'r';});
 
-    var distributions = [numbers8, vowels5, mix22, mix22, mix22, mix22, mix21, mix21];
+    var distributions = [numbers8, mix22];//, mix22, mix22, ...]
+    //_(99).times(function() {distributions.push(mix22);});
+
     //var distributionsReverse = distributions.reverse();
 
     function intFromCode(code) {
@@ -107,7 +111,7 @@ var Codes = (function() {
         var multiplier = 1;
         console.log(distributions);
         for (var i = 0; i < code.length; i++) {
-            var alphabet = distributions[i];
+            var alphabet = distributions[i] || mix22;;
             var foo = Math.max(alphabet.indexOf(code[i]),0);
            // console.log(alphabet,'res', result, 'mul',multiplier,'foo', foo,'code', code,'i', i,'alp', alphabet.length)
             result +=  foo*multiplier;
@@ -116,13 +120,18 @@ var Codes = (function() {
         return result;
     }
     function codeFromInt(n) {
-        return distributions.map(function(alphabet) {
+        var code = "";
+        var i = 0;
+        while(n > 0) {
+            var alphabet = distributions[i] || mix22;
             var base = alphabet.length;
-            var i = n % base;
+            var idx = n % base;
             n = Math.floor(n / base);
           //  console.log(alphabet,'res', result, 'n',n,'code', code,'i', i,'alp', alphabet.length)
-            return alphabet[i];
-        }).join("");
+            code += alphabet[idx];
+            i += 1;
+        }
+        return code;;
     }
     if (codeFromInt(21*21*22*22*22*22*5*8 - 1) !== "9yrrrrtt" || 
         codeFromInt(0) !== "2a222222") {
