@@ -1,1 +1,1 @@
-web: grunt && node server/polis.js
+web: grunt && node server/server.js
