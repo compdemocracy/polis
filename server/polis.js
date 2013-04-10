@@ -13,6 +13,8 @@ console.log('redisAuth url ' +process.env.REDISTOGO_URL);
 console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
 var http = require('http'),
+    express = require('express'),
+    app = express(),
     pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
     async = require('async'),
@@ -268,14 +270,6 @@ function checkFields(ev) {
 }
 
 
-// Configure our HTTP server to respond with Hello World to all requests.
-var server = http.createServer(function (req, res) {
-    var parsedUrl = url.parse(req.url, true);
-    var query = parsedUrl.query;
-    //console.dir(parsedUrl);
-    var basepath = parsedUrl.pathname;
-
-
     function reactionsPost(res, user, events) {
         if (!events.length) { fail(res, 324234327, err); return; }
 
@@ -312,7 +306,7 @@ var server = http.createServer(function (req, res) {
                     users.push(doc);
                     cursor.nextObject(onNext);
                 } else {
-                    res.end(JSON.stringify(users));
+                    res.json(users);
                 }
             }
 
@@ -320,623 +314,605 @@ var server = http.createServer(function (req, res) {
         });
     } // End reactionsGet
 
-    // start server with ds in scope.
-    var routes = {
-
-        "/v2/math/pca" : function(req, res) {
-            var stimulus = query.s;
-            var lastServerToken = query.lastServerToken || "000000000000000000000000";
-console.dir(query);
-            if('GET' === req.method) {
-                collectionOfPcaResults.find({$and :[
-                    {s: ObjectId(stimulus)},
-                    {lastServerToken: {$gt: ObjectId(lastServerToken)}},
-                    ]}, function(err, cursor) {
-                    if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
-                    cursor.toArray( function(err, docs) {
-                        if (err) { fail(res, 2389364, "polis_err_get_pca_results_toarray", 500); return; }
-                        if (docs.length) {
-                            res.end(JSON.stringify(docs[0]));
-                        } else {
-                            // Could actually be a 404, would require more work to determine that.
-                            res.writeHead(304, {
-                            })
-                            res.end();
-                        }
-                    });
-                });
-
-                        /*
-                redisCloud.get("pca:timestamp:" + stimulus, function(errGetToken, replies) {
-                    if (errGetToken) {
-                        fail(res, 287472365, errGetToken, 404);
-                        return;
-                    }
-                    var timestampOfLatestMath = replies;
-                    if (timestampOfLatestMath <= lastServerToken) {
-                        res.end(204); // No Content
-                        // log?
-                        return;
-                    }
-                    // OK, looks like some newer math results are available, let's fetch those.
-                    redisCloud.get("pca:" + stimulus, function(errGetToken, replies) {
-                        if (errGetToken) {
-                            fail(res, 287472364, errGetToken);
-                            return;
-                        }
-                        res.end(JSON.stringify({
-                            lastServerToken: lastServerToken,
-                            pca: replies,
-                        }));
-                    });
-                });
-                */
-                return;
-            } // GET
-            res.end(403, "post not supported");
-        },
-
-        "/v2/auth/deregister" : function(req, res) {
-            collectPost(req, res, function(data) {
-                endSession(data, function(err, data) {
-                    if (err) { fail(res, 213489289, "couldn't end session"); return; }
-                    res.end();
-                });
-                // log the deregister
-                convertFromSession(data, function(err, data) {
-                    var ev = {type: "deregister", u: data.u};
-                    checkFields(ev);
-                    collection.insert(ev, function(err, docs) {
-                        if (err) { console.error("couldn't add deregister event to eventstream"); return; }
-                    });
-                });
-            });
-        },
-
-        "/v2/auth/login" : function(req, res) {
-            collectPost(req, res, function(data) {
-                var username = data.username;
-                var password = data.password;
-                var email = data.email;
-                var handles = [];
-                if (username) { handles.push({username: username}); }
-                if (email) { handles.push({email: email}); }
-                var query = {
-                    $or : handles
-                }; 
-                if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
-                collectionOfUsers.find(query, function(errFindPassword, cursor) {
-                    if (errFindPassword) { fail(res, 238943622, "polis_err_login_unknown_user_or_password", 403); return; }
-                    cursor.toArray( function(err, docs) {
-                        if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
-                        if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
-
-                        var hashedPassword  = docs[0].pwhash;
-                        var userID = docs[0].u;
-
-                        bcrypt.compare(password, hashedPassword, function(errCompare, result) {
-                            if (errCompare || !result) { fail(res, 238943623, "polis_err_login_unknown_user_or_password", 403); return; }
-                            
-                            startSession(userID, function(errSess, token) {
-                                var response_data = {
-                                    username: username,
-                                    email: email,
-                                    token: token
-                                };
-                                res.end(JSON.stringify(response_data));
-                                // log the login
-                                var ev = {type: "login", u: docs[0].u};
-                                checkFields(ev);
-                                collection.insert(ev, function(errInsertEvent, docs) {
-                                    if (err) { console.error("couldn't add register event to eventstream u:"+docs[0]); return; }
-                                });
-                            }); // end startSession
-                        }); // compare
-                    }); // toArray
-                }); // find
-            }); // collectPost
-        },
-
-        "/v2/auth/new" : function(req, res) {
-            collectPost(req, res, function(data) {
-                var username = data.username;
-                var password = data.password;
-                var email = data.email;
-                if (ALLOW_ANON && data.anon) {
-                    var response_data = {};
-                    var ev = {type: "newuser"};
-                    checkFields(ev);
-                    collection.insert(ev, function(err, docs) {
-                        if (err) { fail(res, 238943589, err); return; }
-                        var userID = docs[0]._id;
-                        response_data.u = userID;
-                        startSession(userID, function(errSessionStart,token) {
-                            if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
-                            res.end(JSON.stringify({
-                                u: userID,
-                                token: token
-                            }));
-                        });
-                    });
-                    return;
-                }
-                if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
-                if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
-                if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
-                if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
-
-                var handles = [];
-                if (username) { handles.push({username: username}); }
-                if (email) { handles.push({email: email}); }
-                collectionOfUsers.find({
-                    $or: handles
-                }, function(err, cursor) {
-                    if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
-                    cursor.toArray(function(err, docs) {
-                        if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
-                        if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
-
-                        bcrypt.genSalt(12, function(errSalt, salt) {
-                            if (errSalt) { fail(res, 238943585, "polis_err_reg_123"); return; }
-
-                            bcrypt.hash(password, salt, function(errHash, hashedPassword) {
-                                delete data.password;
-                                password = null;
-                                if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
-
-                                var response_data = {};
-                                var regEvent = {
-                                    type: "newuser",
-                                };
-                                if (email) {
-                                    regEvent.email = email;
-                                }
-                                if (username) {
-                                    regEvent.username = username;
-                                }
-                                checkFields(regEvent);
-                                collection.insert(regEvent, function(errInsertEvent, docs) {
-
-                                    if (errInsertEvent) { fail(res, 238943603, "polis_err_reg_failed_to_add_event"); return; }
-
-                                    var userID = docs[0]._id;
-                                    var userRecord = {
-                                        u: userID,
-                                        pwhash: hashedPassword
-                                    };
-                                    if (username) {
-                                        userRecord.username = username;
-                                    }
-                                    if (email) {
-                                        userRecord.email = email;
-                                    }
-                                    checkFields(userRecord);
-                                    collectionOfUsers.insert(userRecord,
-                                        function(errInsertPassword, docs) {
-                                            if (errInsertPassword) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; } // we should probably delete the log entry.. would be nice to have a transaction here
-
-                                            startSession(userID, function(errSessionStart,token) {
-                                                if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
-                                                res.end(JSON.stringify({
-                                                    username: username,
-                                                    email: email,
-                                                    token: token
-                                                }));
-                                            });
-                                    }); // end insert user
-                                }); // end insert regevent
-                            }); // end hash
-                        }); // end gensalt
-                    }); // end cursor.toArray
-                }); // end find existing users
-            }); // end collect post
-        }, // end auth/new
-
-        "/v2/feedback" : function(req, res) {
-            if('POST' === req.method) {
-                collectPost(req, res, function(data) {
-                    // Try to get session info if possible.
-                    convertFromSession(data, function(err, dataWithSessionData) {
-                        dataWithSessionData.events.forEach(function(ev){
-                            if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
-                            if (ev.s) ev.s = ObjectId(ev.s);
-                            if (dataWithSessionData.u) ev.u = ObjectId(dataWithSessionData.u); 
-                            checkFields(ev);
-                            collection.insert(ev, function(err, cursor) {
-                                if (err) { fail(res, 324234331, err); return; }
-                                res.end();
-                            }); // insert
-                        }); // each 
-                    }); // session?
-                }); // post body
-                return;
-            } // POST
-        },
-        "/v2/ev" : (function() {
-            function makeQuery(stimulusId, lastServerToken) {
-                var q = {
-                    $and: [
-                        {s:   ObjectId(stimulusId)},
-                        {ev : {$exists: true}},// return anything that has text attached.
-                        //{type: {$neq: "stimulus"}},
-                    ],
-                }; 
-                if (lastServerToken) {
-                    q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
-                }
-                return q;
-            }
-
-            return function(req, res) {
-                var stimulus = query.s;
-                var lastServerToken = query.lastServerToken;
-                if('GET' === req.method) {
-                    // TODO this is basically identical to /v2/txt...  refactor
-                    var docs = [];
-                    collection.find(makeQuery(stimulus, lastServerToken), function(err, cursor) {
-                        if (err) { fail(res, 234234338, err); return; }
-
-                        function onNext( err, doc) {
-                            if (err) { fail(res, 987298793, err); return; }
-                            //console.dir(doc);
-
-                            if (doc) {
-                                docs.push(doc);
-                                cursor.nextObject(onNext);
-                            } else {
-                                res.end(JSON.stringify({
-                                    lastServerToken: lastServerToken,
-                                    events: docs,
-                                }));
-                            }
-                        }
-                        cursor.nextObject( onNext);
-                    });
-                    return;
-                } // GET
-                if('POST' === req.method) {
-                    collectPost(req, res, function(data) {
-                        convertFromSession(data, function(err, data) {
-                            if (err) { fail(res, 93482576, err); return; }
-
-                            data.events.forEach(function(ev){
-                                // TODO check the user & token database 
-                                //
-                                if (!ev.ev) { fail(res, 'expected ev field'); return; }
-
-                                if (ev.s) ev.s = ObjectId(ev.s);
-                                if (data.u) {
-                                    ev.u = ObjectId(data.u);
-                                }
-                                checkFields(ev);
-                                collection.insert(ev, function(err, cursor) {
-                                    if (err) { fail(res, 324234335, err); return; }
-                                    res.end();
-                                }); // insert
-                            }); // each 
-                        }); // session
-                    }); // post body
-                    return;
-                }  // POST
-
-            }; // closure
-
-        }()), // route
-
-        "/v2/txt" : (function() {
-            function makeQuery(stimulusId, lastServerToken) {
-                var q = {
-                    $and: [
-                        {$or : [
-                            {s:   ObjectId(stimulusId)},
-                        //    {_id: ObjectId(stimulusId)},// Hmm, lets include the stimulus itself.  We'll need to fetch the "lastServerToken" so we don't redeliver things.
-                        ]}, 
-                        {txt : {$exists: true}},// return anything that has text attached.
-                        //{type: {$neq: "stimulus"}},
-                    ],
-                }; 
-                if (lastServerToken) {
-                    q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
-                }
-                return q;
-            }
-            function makeGetCommentByIdQuery(ids) {
-                ids = ids.split(',');
-                return {$or : 
-                    ids.map(function(id) { return { _id: ObjectId(id)}; })
-                };
-            }
-
-            return function(req, res) {
-                var stimulus = query.s;
-                var ids = query.ids;
-                var lastServerToken = query.lastServerToken;
-                if('GET' === req.method) {
-                    var docs = [];
-                    var q = ids ? makeGetCommentByIdQuery(ids) : makeQuery(stimulus, lastServerToken);
-                    collection.find(q, function(err, cursor) {
-                        if (err) { fail(res, 234234332, err); return; }
-
-                        var foundSome = false; // TODO I think we can just use "toArray"
-                        function onNext( err, doc) {
-                            if (err) { fail(res, 987298787, err); return; }
-                            //console.dir(doc);
-
-                            if (doc) {
-                                foundSome = true;
-                                docs.push(doc);
-                                cursor.nextObject(onNext);
-                            } else {
-                                if (foundSome) {
-                                    res.end(JSON.stringify({
-                                        lastServerToken: lastServerToken,
-                                        events: docs,
-                                    }));
-                                } else {
-                                    res.writeHead(304, {
-                                    })
-                                    res.end();
-                                }
-                            }
-                        }
-
-                        cursor.nextObject( onNext);
-                    });
-                    return;
-                }
-                if('POST' === req.method) {
-                    collectPost(req, res, function(data) {
-                        convertFromSession(data, function(err, data) {
-                            if (err) { fail(res, 93482573, err); return; }
-
-                            data.events.forEach(function(ev){
-                                // TODO check the user & token database 
-                                //
-                                if (!ev.txt) { fail(res, 'expected txt field'); return; }
-
-                                var ev2 = _.extend({}, ev);
-                                if (ev.s) {
-                                    ev2.s = ObjectId(ev.s);
-                                }
-                                if (data.u) {
-                                    ev2.u = ObjectId(data.u);
-                                }
-
-                                checkFields(ev2);
-                                collection.insert(ev2, function(err, docs) {
-                                    if (err) { fail(res, 324234331, err); return; }
-
-            console.log('autopull');
-            //console.dir(docs);
-                                    // Since the user posted it, we'll submit an auto-pull for that.
-                                    docs.forEach( function(newComment) {
-                                        var autoPull = {
-                                            s: ev2.s,
-                                            type: polisTypes.reactions.pull,
-                                            to: newComment._id,
-                                            u: ev2.u,
-                                        };
-            //console.dir(autoPull);
-                                        reactionsPost(res, data.u, [autoPull]);
-                                    }); // auto pull
-            console.log('end autopull');
-                                }); // insert
-                            }); // each 
-                        }); // session
-                    }); // post body
-                    return;
-                } // POST
-            }; // closure
-        }()), // route
-        "/v2/reactions/me" : function(req, res) {
-                convertFromSession(query , function(err, data) {
-                if('GET' === req.method) {
-                    var events = [];
-                    var findQuery = {
-                        u : ObjectId(data.u),
-                        s: ObjectId(data.s), 
-                        $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
-                    };
-                    collection.find(findQuery, function(err, cursor) {
-                        if (err) { fail(res, 234234325, err); return; }
-
-                        function onNext( err, doc) {
-                            if (err) { fail(res, 987298784, err); return; }
-
-                            if (doc) {
-                                events.push(doc);
-                                cursor.nextObject(onNext);
-                            } else {
-                                res.end(JSON.stringify({
-                                    events: events
-                                }));
-                            }
-                        }
-
-                        cursor.nextObject( onNext);
-                    });
-                    return;
-                }
-            });
-        },
-        "/v2/selection" :  (function() { // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
-            function makeGetReactionsByUserQuery(users, stimulus) {
-                users = users.split(',');
-                var q = { $and: [
-                    {s: ObjectId(stimulus)},
-                    {$or: [{type: polisTypes.reactions.pull}, {type: polisTypes.reactions.push}]},
-                    {$or: users.map(function(id) { return { u: ObjectId(id)}; })},
-                    {to: {$exists: true}}
-                    ]
-                };
-                return q;
-            }
-            return function(req, res) {
-                var stimulus = query.s;
-                if (!query.users) {
-                    res.end(JSON.stringify([]));
-                    return;
-                }
-                var q = makeGetReactionsByUserQuery(query.users, stimulus);
-                if('GET' === req.method) {
-                    collection.find(q, function(err, cursor) {
-                        if (err) { fail(res, 2389369, "polis_err_get_selection", 500); return; }
-                        cursor.toArray( function(err, reactions) {
-                            if (err) { fail(res, 2389365, "polis_err_get_selection_toarray", 500); return; }
-                            var commentIdCounts = {};
-                            for (var i = 0; i < reactions.length; i++) {
-                                if (reactions[i].to) { // TODO why might .to be undefined?
-                                    var count = commentIdCounts[reactions[i].to];
-                                    if (reactions[i].type === polisTypes.reactions.pull) {
-                                        commentIdCounts[reactions[i].to] = count + 1 || 1;
-                                    } else if (reactions[i].type === polisTypes.reactions.push) {
-                                        // push
-                                        commentIdCounts[reactions[i].to] = count - 1 || -1;
-                                    } else {
-                                        console.error("expected just push and pull in query");
-                                    }
-                                }
-                            }
-                            commentIdCounts = _.pairs(commentIdCounts);
-                            commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; }); // remove net negative items
-                            commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); // remove net negative items
-                            commentIdCounts.sort(function(a,b) {
-                                return b[1] - a[1]; // descending by freq
-                            });
-                            commentIdCounts = commentIdCounts.slice(0, 10);
-                            var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
-                            var qq = { $and: [
-                                {s: ObjectId(stimulus)},
-                                {txt: {$exists: true}},
-                                {$or : commentIds}
-                                ]
-                            };
-                            collection.find(qq, function(err, commentsCursor) {
-                                if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); return; }
-                                commentsCursor.toArray( function(err, comments) {
-                            //console.dir(comments);
-                                    if (err) { fail(res, 2389367, "polis_err_get_selection_comments_toarray", 500); return; }
-
-                                    // map the results onto the commentIds list, which has the right ordering
-                                    var comments = orderLike(comments, commentIds, "_id");
-                                    for (var i = 0; i < comments.length; i++) {
-                                        comments[i].freq = i;
-                                    }
-
-                                    comments.sort(function(a, b) {
-                                        // desc sort primarily on frequency, then on recency
-                                        if (b.freq > a.freq) {
-                                            return 1;
-                                        } else if (b.freq < a.freq) {
-                                            return -1;
-                                        } else {
-                                            return b._id > a._id;
-                                        }
-                                    });
-                                    // TODO fix and use the stuff above
-                                    comments.sort(function(a, b) {
-                                        // desc sort primarily on frequency, then on recency
-                                        return b._id > a._id;
-                                    });
-                                    res.end(JSON.stringify(comments));
-                                });
-                            });
-                        });
-                    });
-                }
-            };
-        }()),
-        "/v2/reactions" : (function() {
-            return function(req, res) {
-                if('GET' === req.method) {
-                    reactionsGet(res, query);
-                    return;
-                }
-                if('POST' === req.method) {
-
-                    collectPost(req, res, function(data) {
-
-                        //console.log('collected');
-                        //console.dir(data);
-                        convertFromSession(data, function(err, data) {
-                            //console.log('converted');
-                            //console.dir(data);
-                            if (err) { fail(res, 93482572, err); return; }
-
-                            reactionsPost(res, data.u, data.events);
-                        });
-                    });
-                    return;
-                }
-            };
-        }()),
-    };
-
-    console.log("reqpath: " + basepath);
-    if (routes[basepath]) {
-        res.writeHead(200, { // TODO don't write 200 so early
+    // TODO consider moving to a 
+    function writeDefaultHead(req, res) {
+        res.setHeader({
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
         //    'Access-Control-Allow-Origin': '*',
         //    'Access-Control-Allow-Credentials': 'true'
         });
-
-        // Run the route handler
-        routes[basepath](req, res);
-
-    } else {
-
-        // try to serve a static file
-        var requestPath = req.url;
-        var contentPath = './src';
-        if (requestPath === '/')
-            contentPath += '/desktop/index.html';
-        else if (requestPath === '/mobile/')
-            contentPath += '/mobile/index.html';
-        else if (requestPath.indexOf('/static/') === 0) {
-            contentPath += requestPath.slice(7);
-        }
-
-        var extname = path.extname(contentPath);
-        var contentType = 'text/html';
-        switch (extname) {
-            case '.js':
-                contentType = 'text/javascript';
-                break;
-            case '.css':
-                contentType = 'text/css';
-                break;
-            case '.png':
-                contentType = 'image/png';
-                break;
-            case '.woff':
-                contentType = 'application/x-font-woff';
-                break;
-        }
-         
-        console.log("PATH " + contentPath);
-        fs.exists(contentPath, function(exists) {
-            if (exists) {
-                fs.readFile(contentPath, function(error, content) {
-                    if (error) {
-                        res.writeHead(404);
-                        res.end('{ "status": 404}');
-                    }
-                    else {
-                        res.writeHead(200, { 'Content-Type': contentType });
-                        res.end(content, 'utf-8');
-                    }
-                });
-            } else {
-                res.writeHead(404);
-                res.end('{ "status": 404}');
-            }
-        });
     }
+
+    //app.use(writeDefaultHead);
+    app.use(express.logger());
+
+    // start server with ds in scope.
+    app.get("/v2/math/pca", function(req, res) {
+        var stimulus = req.query.s;
+        var lastServerToken = req.query.lastServerToken || "000000000000000000000000";
+        console.log(123, lastServerToken);
+        console.dir(req);
+        collectionOfPcaResults.find({$and :[
+            {s: ObjectId(stimulus)},
+            {lastServerToken: {$gt: ObjectId(lastServerToken)}},
+            ]}, function(err, cursor) {
+            if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
+            cursor.toArray( function(err, docs) {
+                if (err) { fail(res, 2389364, "polis_err_get_pca_results_toarray", 500); return; }
+                if (docs.length) {
+                    res.json(docs[0]);
+                } else {
+                    // Could actually be a 404, would require more work to determine that.
+                    res.status(304).end()
+                }
+            });
+        });
+
+                /*
+        redisCloud.get("pca:timestamp:" + stimulus, function(errGetToken, replies) {
+            if (errGetToken) {
+                fail(res, 287472365, errGetToken, 404);
+                return;
+            }
+            var timestampOfLatestMath = replies;
+            if (timestampOfLatestMath <= lastServerToken) {
+                res.end(204); // No Content
+                // log?
+                return;
+            }
+            // OK, looks like some newer math results are available, let's fetch those.
+            redisCloud.get("pca:" + stimulus, function(errGetToken, replies) {
+                if (errGetToken) {
+                    fail(res, 287472364, errGetToken);
+                    return;
+                }
+                res.json({
+                    lastServerToken: lastServerToken,
+                    pca: replies,
+                });
+            });
+        });
+        */
+    });
+
+    app.post("/v2/auth/deregister", function(req, res) {
+        collectPost(req, res, function(data) {
+            endSession(data, function(err, data) {
+                if (err) { fail(res, 213489289, "couldn't end session"); return; }
+                res.end();
+            });
+            // log the deregister
+            convertFromSession(data, function(err, data) {
+                var ev = {type: "deregister", u: data.u};
+                checkFields(ev);
+                collection.insert(ev, function(err, docs) {
+                    if (err) { console.error("couldn't add deregister event to eventstream"); return; }
+                });
+            });
+        });
+    });
+
+    app.post("/v2/auth/login", function(req, res) {
+        collectPost(req, res, function(data) {
+            var username = data.username;
+            var password = data.password;
+            var email = data.email;
+            var handles = [];
+            if (username) { handles.push({username: username}); }
+            if (email) { handles.push({email: email}); }
+            var q = {
+                $or : handles
+            }; 
+            if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
+            collectionOfUsers.find(q, function(errFindPassword, cursor) {
+                if (errFindPassword) { fail(res, 238943622, "polis_err_login_unknown_user_or_password", 403); return; }
+                cursor.toArray( function(err, docs) {
+                    if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
+                    if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
+
+                    var hashedPassword  = docs[0].pwhash;
+                    var userID = docs[0].u;
+
+                    bcrypt.compare(password, hashedPassword, function(errCompare, result) {
+                        if (errCompare || !result) { fail(res, 238943623, "polis_err_login_unknown_user_or_password", 403); return; }
+                        
+                        startSession(userID, function(errSess, token) {
+                            var response_data = {
+                                username: username,
+                                email: email,
+                                token: token
+                            };
+                            res.json(response_data);
+                            // log the login
+                            var ev = {type: "login", u: docs[0].u};
+                            checkFields(ev);
+                            collection.insert(ev, function(errInsertEvent, docs) {
+                                if (err) { console.error("couldn't add register event to eventstream u:"+docs[0]); return; }
+                            });
+                        }); // end startSession
+                    }); // compare
+                }); // toArray
+            }); // find
+        }); // collectPost
+    });
+
+    app.post("/v2/auth/new", function(req, res) {
+        collectPost(req, res, function(data) {
+            var username = data.username;
+            var password = data.password;
+            var email = data.email;
+            if (ALLOW_ANON && data.anon) {
+                var response_data = {};
+                var ev = {type: "newuser"};
+                checkFields(ev);
+                collection.insert(ev, function(err, docs) {
+                    if (err) { fail(res, 238943589, err); return; }
+                    var userID = docs[0]._id;
+                    response_data.u = userID;
+                    startSession(userID, function(errSessionStart,token) {
+                        if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
+                        res.json({
+                            u: userID,
+                            token: token
+                        });
+                    });
+                });
+                return;
+            }
+            if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
+            if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
+            if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
+            if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
+
+            var handles = [];
+            if (username) { handles.push({username: username}); }
+            if (email) { handles.push({email: email}); }
+            collectionOfUsers.find({
+                $or: handles
+            }, function(err, cursor) {
+                if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
+                cursor.toArray(function(err, docs) {
+                    if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
+                    if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
+
+                    bcrypt.genSalt(12, function(errSalt, salt) {
+                        if (errSalt) { fail(res, 238943585, "polis_err_reg_123"); return; }
+
+                        bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+                            delete data.password;
+                            password = null;
+                            if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
+
+                            var response_data = {};
+                            var regEvent = {
+                                type: "newuser",
+                            };
+                            if (email) {
+                                regEvent.email = email;
+                            }
+                            if (username) {
+                                regEvent.username = username;
+                            }
+                            checkFields(regEvent);
+                            collection.insert(regEvent, function(errInsertEvent, docs) {
+
+                                if (errInsertEvent) { fail(res, 238943603, "polis_err_reg_failed_to_add_event"); return; }
+
+                                var userID = docs[0]._id;
+                                var userRecord = {
+                                    u: userID,
+                                    pwhash: hashedPassword
+                                };
+                                if (username) {
+                                    userRecord.username = username;
+                                }
+                                if (email) {
+                                    userRecord.email = email;
+                                }
+                                checkFields(userRecord);
+                                collectionOfUsers.insert(userRecord,
+                                    function(errInsertPassword, docs) {
+                                        if (errInsertPassword) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; } // we should probably delete the log entry.. would be nice to have a transaction here
+
+                                        startSession(userID, function(errSessionStart,token) {
+                                            if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
+                                            res.json({
+                                                username: username,
+                                                email: email,
+                                                token: token
+                                            });
+                                        });
+                                }); // end insert user
+                            }); // end insert regevent
+                        }); // end hash
+                    }); // end gensalt
+                }); // end cursor.toArray
+            }); // end find existing users
+        }); // end collect post
+    }); // end auth/new
+
+    app.post("/v2/feedback", function(req, res) {
+        if('POST' === req.method) {
+            collectPost(req, res, function(data) {
+                // Try to get session info if possible.
+                convertFromSession(data, function(err, dataWithSessionData) {
+                    dataWithSessionData.events.forEach(function(ev){
+                        if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
+                        if (ev.s) ev.s = ObjectId(ev.s);
+                        if (dataWithSessionData.u) ev.u = ObjectId(dataWithSessionData.u); 
+                        checkFields(ev);
+                        collection.insert(ev, function(err, cursor) {
+                            if (err) { fail(res, 324234331, err); return; }
+                            res.end();
+                        }); // insert
+                    }); // each 
+                }); // session?
+            }); // post body
+            return;
+        } // POST
+    });
+
+    app.get("/v2/ev", function(req, res) {
+        var stimulus = req.query.s;
+        var lastServerToken = req.query.lastServerToken;
+        // TODO this is basically identical to /v2/txt...  refactor
+        var docs = [];
+        function makeQuery(stimulusId, lastServerToken) {
+            var q = {
+                $and: [
+                    {s:   ObjectId(stimulusId)},
+                    {ev : {$exists: true}},// return anything that has text attached.
+                    //{type: {$neq: "stimulus"}},
+                ],
+            }; 
+            if (lastServerToken) {
+                q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
+            }
+            return q;
+        }
+        collection.find(makeQuery(stimulus, lastServerToken), function(err, cursor) {
+            if (err) { fail(res, 234234338, err); return; }
+
+            function onNext( err, doc) {
+                if (err) { fail(res, 987298793, err); return; }
+                //console.dir(doc);
+
+                if (doc) {
+                    docs.push(doc);
+                    cursor.nextObject(onNext);
+                } else {
+                    res.json({
+                        lastServerToken: lastServerToken,
+                        events: docs,
+                    });
+                }
+            }
+            cursor.nextObject( onNext);
+        });
+        return;
+    });
+
+    app.post("/v2/ev", function(req, res) {
+        collectPost(req, res, function(data) {
+            convertFromSession(data, function(err, data) {
+                if (err) { fail(res, 93482576, err); return; }
+
+                data.events.forEach(function(ev){
+                    // TODO check the user & token database 
+                    //
+                    if (!ev.ev) { fail(res, 'expected ev field'); return; }
+
+                    if (ev.s) ev.s = ObjectId(ev.s);
+                    if (data.u) {
+                        ev.u = ObjectId(data.u);
+                    }
+                    checkFields(ev);
+                    collection.insert(ev, function(err, cursor) {
+                        if (err) { fail(res, 324234335, err); return; }
+                        res.end();
+                    }); // insert
+                }); // each 
+            }); // session
+        }); // post body
+    }); // closure
+
+    app.get("/v2/txt", function(req, res) {
+        var stimulus = req.query.s;
+        var ids = req.query.ids;
+        var lastServerToken = req.query.lastServerToken;
+        function makeQuery(stimulusId, lastServerToken) {
+            var q = {
+                $and: [
+                    {$or : [
+                        {s:   ObjectId(stimulusId)},
+                    //    {_id: ObjectId(stimulusId)},// Hmm, lets include the stimulus itself.  We'll need to fetch the "lastServerToken" so we don't redeliver things.
+                    ]}, 
+                    {txt : {$exists: true}},// return anything that has text attached.
+                    //{type: {$neq: "stimulus"}},
+                ],
+            }; 
+            if (lastServerToken) {
+                q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
+            }
+            return q;
+        }
+        function makeGetCommentByIdQuery(ids) {
+            ids = ids.split(',');
+            return {$or : 
+                ids.map(function(id) { return { _id: ObjectId(id)}; })
+            };
+        }
+
+        var docs = [];
+        var q = ids ? makeGetCommentByIdQuery(ids) : makeQuery(stimulus, lastServerToken);
+        collection.find(q, function(err, cursor) {
+            if (err) { fail(res, 234234332, err); return; }
+
+            var foundSome = false; // TODO I think we can just use "toArray"
+            function onNext( err, doc) {
+                if (err) { fail(res, 987298787, err); return; }
+                //console.dir(doc);
+
+                if (doc) {
+                    foundSome = true;
+                    docs.push(doc);
+                    cursor.nextObject(onNext);
+                } else {
+                    if (foundSome) {
+                        res.json({
+                            lastServerToken: lastServerToken,
+                            events: docs,
+                        });
+                    } else {
+                        res.writeHead(304, {
+                        })
+                        res.end();
+                    }
+                }
+            }
+
+            cursor.nextObject( onNext);
+        });
+    });
+
+    app.post("/v2/txt", function(req, res) {
+        collectPost(req, res, function(data) {
+            convertFromSession(data, function(err, data) {
+                if (err) { fail(res, 93482573, err); return; }
+
+                data.events.forEach(function(ev){
+                    // TODO check the user & token database 
+                    //
+                    if (!ev.txt) { fail(res, 'expected txt field'); return; }
+
+                    var ev2 = _.extend({}, ev);
+                    if (ev.s) {
+                        ev2.s = ObjectId(ev.s);
+                    }
+                    if (data.u) {
+                        ev2.u = ObjectId(data.u);
+                    }
+
+                    checkFields(ev2);
+                    collection.insert(ev2, function(err, docs) {
+                        if (err) { fail(res, 324234331, err); return; }
+
+console.log('autopull');
+//console.dir(docs);
+                        // Since the user posted it, we'll submit an auto-pull for that.
+                        docs.forEach( function(newComment) {
+                            var autoPull = {
+                                s: ev2.s,
+                                type: polisTypes.reactions.pull,
+                                to: newComment._id,
+                                u: ev2.u,
+                            };
+//console.dir(autoPull);
+                            reactionsPost(res, data.u, [autoPull]);
+                        }); // auto pull
+console.log('end autopull');
+                    }); // insert
+                }); // each 
+            }); // session
+        }); // post body
+    });
+
+    app.get("/v2/reactions/me", function(req, res) {
+        convertFromSession(req.query , function(err, data) {
+            var events = [];
+            var findQuery = {
+                u : ObjectId(data.u),
+                s: ObjectId(data.s), 
+                $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
+            };
+            collection.find(findQuery, function(err, cursor) {
+                if (err) { fail(res, 234234325, err); return; }
+
+                function onNext( err, doc) {
+                    if (err) { fail(res, 987298784, err); return; }
+
+                    if (doc) {
+                        events.push(doc);
+                        cursor.nextObject(onNext);
+                    } else {
+                        res.json({
+                            events: events
+                        });
+                    }
+                }
+
+                cursor.nextObject( onNext);
+            });
+        });
+    });
+
+
+// TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
+    app.get("/v2/selection", function(req, res) {
+        var stimulus = req.query.s;
+        if (!req.query.users) {
+            res.json([]);
+            return;
+        }
+        function makeGetReactionsByUserQuery(users, stimulus) {
+            users = users.split(',');
+            var q = { $and: [
+                {s: ObjectId(stimulus)},
+                {$or: [{type: polisTypes.reactions.pull}, {type: polisTypes.reactions.push}]},
+                {$or: users.map(function(id) { return { u: ObjectId(id)}; })},
+                {to: {$exists: true}}
+                ]
+            };
+            return q;
+        }
+        var q = makeGetReactionsByUserQuery(req.query.users, stimulus);
+        collection.find(q, function(err, cursor) {
+            if (err) { fail(res, 2389369, "polis_err_get_selection", 500); return; }
+            cursor.toArray( function(err, reactions) {
+                if (err) { fail(res, 2389365, "polis_err_get_selection_toarray", 500); return; }
+                var commentIdCounts = {};
+                for (var i = 0; i < reactions.length; i++) {
+                    if (reactions[i].to) { // TODO why might .to be undefined?
+                        var count = commentIdCounts[reactions[i].to];
+                        if (reactions[i].type === polisTypes.reactions.pull) {
+                            commentIdCounts[reactions[i].to] = count + 1 || 1;
+                        } else if (reactions[i].type === polisTypes.reactions.push) {
+                            // push
+                            commentIdCounts[reactions[i].to] = count - 1 || -1;
+                        } else {
+                            console.error("expected just push and pull in query");
+                        }
+                    }
+                }
+                commentIdCounts = _.pairs(commentIdCounts);
+                commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; }); // remove net negative items
+                commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); // remove net negative items
+                commentIdCounts.sort(function(a,b) {
+                    return b[1] - a[1]; // descending by freq
+                });
+                commentIdCounts = commentIdCounts.slice(0, 10);
+                var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
+                var qq = { $and: [
+                    {s: ObjectId(stimulus)},
+                    {txt: {$exists: true}},
+                    {$or : commentIds}
+                    ]
+                };
+                collection.find(qq, function(err, commentsCursor) {
+                    if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); return; }
+                    commentsCursor.toArray( function(err, comments) {
+                //console.dir(comments);
+                        if (err) { fail(res, 2389367, "polis_err_get_selection_comments_toarray", 500); return; }
+
+                        // map the results onto the commentIds list, which has the right ordering
+                        var comments = orderLike(comments, commentIds, "_id");
+                        for (var i = 0; i < comments.length; i++) {
+                            comments[i].freq = i;
+                        }
+
+                        comments.sort(function(a, b) {
+                            // desc sort primarily on frequency, then on recency
+                            if (b.freq > a.freq) {
+                                return 1;
+                            } else if (b.freq < a.freq) {
+                                return -1;
+                            } else {
+                                return b._id > a._id;
+                            }
+                        });
+                        // TODO fix and use the stuff above
+                        comments.sort(function(a, b) {
+                            // desc sort primarily on frequency, then on recency
+                            return b._id > a._id;
+                        });
+                        res.json(comments);
+                    });
+                });
+            });
+        });
+    });
+
+    app.get("/v2/reactions", function(req, res) {
+        reactionsGet(res, req.query);
+    });
+
+    app.post("/v2/reactions", function(req, res) {
+        collectPost(req, res, function(data) {
+
+            //console.log('collected');
+            //console.dir(data);
+            convertFromSession(data, function(err, data) {
+                //console.log('converted');
+                //console.dir(data);
+                if (err) { fail(res, 93482572, err); return; }
+
+                reactionsPost(res, data.u, data.events);
+            });
+        });
+    });
+
+function staticFile(req, res) {
+    // try to serve a static file
+    var requestPath = req.url;
+    var contentPath = './src';
+    if (requestPath === '/')
+        contentPath += '/desktop/index.html';
+    else if (requestPath === '/mobile/')
+        contentPath += '/mobile/index.html';
+    else if (requestPath.indexOf('/static/') === 0) {
+        contentPath += requestPath.slice(7);
+    }
+
+    var extname = path.extname(contentPath);
+    var contentType = 'text/html';
+    switch (extname) {
+        case '.js':
+            contentType = 'text/javascript';
+            break;
+        case '.css':
+            contentType = 'text/css';
+            break;
+        case '.png':
+            contentType = 'image/png';
+            break;
+        case '.woff':
+            contentType = 'application/x-font-woff';
+            break;
+    }
+     
+    console.log("PATH " + contentPath);
+    fs.exists(contentPath, function(exists) {
+        if (exists) {
+            fs.readFile(contentPath, function(error, content) {
+                if (error) {
+                    res.writeHead(404);
+                    res.json({status: 404});
+                }
+                else {
+                    res.writeHead(200, { 'Content-Type': contentType });
+                    res.end(content, 'utf-8');
+                }
+            });
+        } else {
+            res.writeHead(404);
+            res.json({status: 404});
+        }
+    });
+}
+
+//app.use(express.static(__dirname + '/src/desktop/index.html'));
+//app.use('/static', express.static(__dirname + '/src'));
+app.get('/', staticFile);
+app.get(/^\/mobile\//, staticFile);
+app.get(/^\/static\//, staticFile);
+
+app.get("/a", function(req,res) {
+    res.send('hello world');
 });
-server.listen(process.env.PORT);
+app.listen(process.env.PORT);
+
 console.log('started on port ' + process.env.PORT);
 } // End of initializePolisAPI
-
 
