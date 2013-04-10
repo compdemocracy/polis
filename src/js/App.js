@@ -258,7 +258,7 @@ $(document).ready(function() {
     window.debug = {};
     window.debug.enterComments = function() { $("#comment_form").removeClass("debug_hidden"); };
     window.debug.enterStim = function() { $("#stimulus_form").removeClass("debug_hidden"); };
-    var serverClient = new window.ServerClient({
+    var serverClient = new window.Polis({
         tokenStore: PolisStorage.token,
         emailStore: PolisStorage.email,
         usernameStore: PolisStorage.username,

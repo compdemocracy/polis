@@ -1,4 +1,4 @@
-var ServerClient = function(params) {
+var Polis = function(params) {
 
     var polisTypes = {
         reactions: {
