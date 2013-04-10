@@ -16,6 +16,7 @@ var http = require('http'),
     express = require('express'),
     app = express(),
     pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+    mysql = require('mysql'),
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
     async = require('async'),
     fs = require('fs'),
@@ -157,6 +158,36 @@ var testSession = function(userID) {
 };
 testSession("12345ADFHSADFJKASHDF");
 */
+
+
+// See docs here: https://github.com/felixge/node-mysql
+var connection = mysql.createConnection(process.env.CLEARDB_DATABASE_URL)
+connection.connect();
+// alternate escaping syntax: 'SELECT * FROM users WHERE id = ' + connection.escape(userId);
+connection.query('SELECT ? + ? AS solution', [2, 3], function(err, rows, fields) {
+    if (err) throw err;
+    console.log('The solution is: ', rows[0].solution);
+});
+
+function handleDisconnect(connection) {
+  connection.on('error', function(err) {
+    if (!err.fatal) {
+      return;
+    }
+
+    if (err.code !== 'PROTOCOL_CONNECTION_LOST') {
+      throw err;
+    }
+
+    console.log('Re-connecting lost connection: ' + err.stack);
+
+    connection = mysql.createConnection(connection.config);
+    handleDisconnect(connection);
+    connection.connect();
+  });
+}
+handleDisconnect(connection);
+
 
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
