@@ -257,7 +257,7 @@ function hasChanged(n1, n2) {
     return false;
 }
 
-function upsertNode(updatedNodes) { // TODO, accept an array, since this could get expensive.
+function upsertNode(updatedNodes) {
     if (!updatesEnabled) {
         return;
     }
@@ -282,6 +282,7 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
     var nodeRadius = 4;
     var maxNodeRadius = 10 + 5;
 
+  function createScales(updatedNodes) {
     var spans = { 
         x: { min: Infinity, max: -Infinity },
         y: { min: Infinity, max: -Infinity }
@@ -296,10 +297,15 @@ function upsertNode(updatedNodes) { // TODO, accept an array, since this could g
     }
 
     var border = maxNodeRadius + 50;
-    var scaleX = d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]);
-    var scaleY = d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min, spans.y.max]);
-    //var scaleX = d3.scale.linear().range([0 + border, w - border]).domain([-0.5, 0.5]);
-    //var scaleY = d3.scale.linear().range([0 + border, h - border]).domain([-0.5, 0.5]);
+    return {
+        x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]),
+        y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min, spans.y.max])
+    };
+  }
+    // TODO pass all nodes, not just updated nodes, to createScales.
+    var scales = createScales(updatedNodes);
+    var scaleX = scales.x;
+    var scaleY = scales.y;
  
     var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, id: node.id }; });
 
