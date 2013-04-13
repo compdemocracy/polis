@@ -177,9 +177,6 @@ function initialize(params) {
               .attr("cx", function(d) { return d.x;})
               .attr("cy", function(d) { return d.y;});
         });
-    setupOverlays();
-
-
 
     function getOffsetX(e) {
         if (undefined !== e.offsetX) {
@@ -222,109 +219,6 @@ function initialize(params) {
         mouseDown = false;
     });
 }
-
-function setupOverlays() {
-    /*
-    //add four directional arrows, scalable on resize of parent container which must be a square to preserve dimensions of viz.
-    visualization.append('line')
-        .attr('x1', w * 0.5)
-        .attr('y1', h * 0.25)
-        .attr('x2', w * 0.5)
-        .attr('y2', 15)
-        .attr('id', 'toparrow')
-        .attr('marker-end', "url(#Triangle)");
-    visualization.append('line')
-        .attr('x1', w * 0.75)
-        .attr('y1', h * 0.5)
-        .attr('x2', w - 15)
-        .attr('y2', h * 0.5)
-        .attr('id', 'rightarrow')
-        .attr('marker-end', "url(#Triangle)");
-    visualization.append('line')
-        .attr('x1', w * 0.25)
-        .attr('y1', h * 0.5)
-        .attr('x2', 15)
-        .attr('y2', h * 0.5)
-        .attr('id', 'leftarrow')
-        .attr('marker-end', "url(#Triangle)");
-    visualization.append('line')
-        .attr('x1', w * 0.5)
-        .attr('y1', h * 0.75)
-        .attr('x2', w * 0.5)
-        .attr('y2', h - 15)
-        .attr('id', 'bottomarrow')
-        .attr('marker-end', "url(#Triangle)");
-    // add the center circle
-    visualization.append('circle')
-        .attr('cx', w * 0.5)
-        .attr('cy', h * 0.5)
-        .attr('r', 7)
-        .attr('id', 'centercircle');
-    // add four hover circles on lines
-    visualization.append('circle')
-        .attr('cx', w * 0.5)
-        .attr('cy', h * 0.1)
-        .attr('r', 10)
-        .attr('id', 'top_circle');
-    visualization.append('circle')
-        .attr('cx', w * 0.9)
-        .attr('cy', h * 0.5)
-        .attr('r', 10)
-        .attr('id', 'right_circle');
-    visualization.append('circle')
-        .attr('cx', w * 0.5)
-        .attr('cy', h * 0.9)
-        .attr('r', 10)
-        .attr('id', 'bottom_circle');
-    visualization.append('circle')
-        .attr('cx', w * 0.1)
-        .attr('cy', h * 0.5)
-        .attr('r', 10)
-        .attr('id', 'left_circle');
-    // add four boxes that will come up on hover to show PILLARS which will show comments with 
-    // most PCA SUPPORT both positively and negatively
-
-*/
-
-    $('#toparrow').hover(function(){ 
-        $('.visualization').addClass('.toparrow_hover');
-    });
-
-    $('#centercircle').hover(function(){});
-
-    //make this more robust using conditionals to make sure the class isn't misapplied:
-
-    $('#centercircle').click(function(){
-        $('#centercircle_content').removeClass('hidden'); 
-    });
-
-    $('#centercircle_content, #top_pillar, #right_pillar, #bottom_pillar, #left_pillar').click(function(){
-        $(this).addClass('hidden');
-    });
-
-    function setupHandler(directionName) {
-        function handler(comments) {
-            // hide the others
-            $('.commentlist').addClass('hidden');
-            
-            // render and show this
-            $('#'+directionName+'_pillar > .commentlist_contents').html(renderCommentsList(comments));
-            $('#'+directionName+'_pillar').removeClass('hidden');
-        }
-
-        var projection = {"top": 1, "bottom": 1, "left": 0, "right": 0}[directionName];
-        var sort = {"top": -1, "bottom": 1, "left": 1, "right": -1}[directionName];
-
-        $('#'+directionName+'_circle').click(function(){
-            getCommentsForProjection({
-                sort: sort,
-                count: 2,
-                projection: projection 
-            }).done( handler );
-        });
-    }
-    ["top", "bottom", "left", "right"].forEach(setupHandler);
-} // End setup overlays
 
 
 function hashCode(s){
