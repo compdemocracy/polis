@@ -85,7 +85,30 @@ var App = function(params) {
         serverClient.syncAllCommentsForCurrentStimulus().always( function() {
                 commentShower.showNext().always(checkForGameOver);
         });
-        document.title= "Polis topic: Legalization";
+
+        if (stimulusId === "514ac77ba313c76729000008") {
+            $("#topic_toggle>a").html("Topic: Legalization");
+            document.title= "Polis topic: Legalization";
+            $("#topic_content").html(
+"<h3> Topic: Legalization of Drugs in the U.S. </h3>" +
+"<p> Within the past year, Colorado and Washington state <a href='#'> have legalized the recreational use of marijuana.</a> At the present time, several other states are considering taking similar measures. While marijuana remains a prohibited substance at the federal level, the present administration <a href=''> has indicated </a> that the enforcement of that prohibition in states which have legalized marijuana is a very low priority.</p>" + 
+"<p>What do you think about this seeming trend toward the legalization of marijuana in the United States? Should marijuana remain illegal? If not, how far should legalization go? Should it stop at marijuana or should other controlled substances be legalized as well?</p>"
+);
+        } else if (stimulusId === "514ac77ba313c76729000020") {
+            $("#topic_toggle>a").html("Topic: Math & Wrestling Practice");
+            document.title= "Polis topic: Math & Wrestling Practice";
+            $("#topic_content").html(
+"<h3> Topic: Sal Khan On The Difference Between Math And Wrestling Practice</h3>" +
+"<blockquote><p><a href='http://www.youtube.com/watch?v=LiPQuOFVHl4&#038;feature=youtu.be&#038;t=14m41s'>SAL KHAN</a>: You're in tenth grade Algebra class. The teacher asks the student to do like six problems. \"Oh my god.\" They're groaning. \"This is the meanest guy on the planet.\" And then three hours later we're in wrestling practice and the coach says, \"I want you to do fifty pushups followed by running three miles followed by another fifty pushups.\" And they're like, \"Yes, sir. Yes, sir. Push me harder. I want to collapse.\" I mean, literally, sometimes people would collapse, they were willing to work so hard.</p>" +
+"<p>CHARLIE ROSE: So what's the difference?</p></blockquote>" +
+"<p>It goes without saying that if you're Sal Khan or anybody else in the drill-based math proficiency software business, you should give Charlie Rose's question a <em>lot</em> of thought. Kids generally like sports practice a lot more than math practice so there's huge risk and huge reward here. </p>" +
+"<p>I don't think <a href=\"http://www.youtube.com/watch?v=LiPQuOFVHl4&#038;feature=youtu.be&#038;t=15m22s\">Khan's answer</a> is <em>wrong</em> exactly but it's as though Charlie Rose asked him about the appeal of ice cream on a hot summer day and Khan enthused for a few minutes about the taste of the sugar cone. Sugar cones <em>are</em> tasty but there's a lot more to say there.</p>" +
+"<p>So let me load the question up on a tee and invite you all to swing away:</p>" +
+"<p><strong>What makes sports practice satisfying and how is sports practice different from math practice?</strong></p>"
+);
+
+        }
+
     }
     var setStimulusOnFirstLoad = _.once(function() {
         var stim = "514ac77ba313c76729000008";
