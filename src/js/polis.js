@@ -162,29 +162,37 @@ var Polis = function(params) {
         return dfd.promise();
     }
 
-    var getNextComment = function(optionalStimulusId) {
+    function getNextComment(optionalStimulusId) {
         var dfd = $.Deferred();
-        var c;
-        //c = getNextPriorityComment();
-        //if (c) {
-            //return dfd.resolve(c);
-        //}
 
         getCommentStore(optionalStimulusId).all(function(comments) {
-            var indicies = _.shuffle(_.range(comments.length));
-            for (var i = 0; i < indicies.length; i++) {
-                var comment = comments[indicies[i]];
-                if (undefined === comment.myReaction) {
-                    delete comment.key; // a9w8ehfdfzgh
-                    dfd.resolve(comment);
-                    return;
+            var pId = personIdStore.get();
+            var index;
+            var comment;
+            // Filters out comments this user has written or reacted to.
+            var filterFn = function filterFn(c) {
+                if (!c.u) {
+                    console.warn("comment.u is undefined:", c);
                 }
+                return (
+                    _.isUndefined(c.myReaction) &&
+                    (c.u && (c.u !== pId))
+                );
+            };
+            comments = _.filter(comments, filterFn);
+            if (comments.length > 0) {
+                // Pick a random comment
+                index = _.shuffle(_.range(comments.length)).pop();
+                comment = comments[index];
+                // Exclude Lawnchair key
+                delete comment.key;
+                dfd.resolve(comment);
+            } else {
+                dfd.reject(null);
             }
-            //dfd.resolve(makeEmptyComment()); // may already be resolved above
-            dfd.reject(null); // may already be resolved above
         });
         return dfd.promise();
-    };
+    }
 
     function submitEvent(data) {
         return polisPost(eventPath, {
