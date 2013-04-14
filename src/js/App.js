@@ -111,7 +111,7 @@ var App = function(params) {
 
     }
     var setStimulusOnFirstLoad = _.once(function() {
-        var stim = "514ac77ba313c76729000008";
+        var stim = "514ac77ba313c76729000020";
         var kv = getLocationHash();
         if (kv.s) {
             stim = kv.s;
