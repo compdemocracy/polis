@@ -171,9 +171,6 @@ var Polis = function(params) {
             var comment;
             // Filters out comments this user has written or reacted to.
             var filterFn = function filterFn(c) {
-                if (!c.u) {
-                    console.warn("comment.u is undefined:", c);
-                }
                 return (
                     _.isUndefined(c.myReaction) &&
                     (c.u && (c.u !== pId))
