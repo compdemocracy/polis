@@ -73,7 +73,7 @@ function setCx(d) {
 }
 
 function chooseRadiusSelected(d) {
-    return chooseRadius(d) + 2;
+    return Math.max(chooseRadius(d) - 1, 0.5);
 }
 function chooseRadius(d) {
   var r = baseNodeRadius;
@@ -89,6 +89,9 @@ function chooseFill(d) {
         } else if (d.effects === 1) {
             return "red";
         } else if (d.effects === 0){
+            return "black";
+        } else {
+            console.error(3289213);
             return "black";
         }
     } else { 
@@ -400,13 +403,14 @@ function upsertNode(updatedNodes) {
             }
             return "darkgrey";
         })
+        .attr("r", chooseRadius) 
         .style("fill", function(d) { 
-            var distanceInPixels = Math.abs(this.cx.baseVal.value - d.data.targetX);
-            if (distanceInPixels > 30) {
-                return "lightgrey";
-            } else {
+            //var distanceInPixels = Math.abs(this.cx.baseVal.value - d.data.targetX);
+            //if (distanceInPixels > 30) {
+                //return "lightgrey";
+            //} else {
                 return chooseFill(d);
-            }
+            //}
         })
 /*
         .style("r", function(d) {
