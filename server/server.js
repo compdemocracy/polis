@@ -112,9 +112,10 @@ function makeSessionToken() {
     return crypto.randomBytes(32).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 20);
 }
 
-function getUserInfoForSessionToken(sessionToken, cb) {
+function getUserInfoForSessionToken(sessionToken, res, cb) {
     redisForAuth.get(sessionToken, function(errGetToken, replies) {
-        if (errGetToken) { cb(errGetToken); return; }
+        if (errGetToken) { fail(res, 0, "token_fetch_error", 500); return; }
+        if (!replies) { fail(res, 0, "token_expired_or_missing", 403); return; }
         //console.log('redis:');
         //console.dir(replies);
         cb(null, {u: replies});
@@ -247,13 +248,15 @@ function collectPost(req, res, success) {
     }
 }
 
-function convertFromSession(postData, callback) {
+function convertFromSession(postData, res, callback) {
     var token = postData.token;
-    if (!token) { callback('missing token', postData); return; }
-    getUserInfoForSessionToken(token, function(err, fetchedUserInfo) {
-        if (err) { callback(AUTH_FAILED, postData); return; }
+    if (!token) { fail(res, 0, 'resuest_is_missing_token', 422); return; }
+    if (postData.u) { fail(res, 0, 'got_postData.u_not_needed', 422); return; }
+    getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
+        // err is always null. res will fail instead
+
+        // don't pass the token around
         postData = _.omit(postData, ['token']);
-        if (postData.u) { console.error('got postData.u, not needed'); }
         postData.u = fetchedUserInfo.u;
         callback(null, postData);
     });
@@ -274,6 +277,13 @@ String.prototype.hashCode = function(){
     return hash;
 };
 
+function fail(res, code, err, httpCode) {
+    console.error(code, err);
+    res.writeHead(httpCode || 500);
+    res.end(err);
+}
+
+
 function initializePolisAPI(params) {
 
 var collection = params.mongoCollectionOfEvents;
@@ -281,12 +291,6 @@ var collectionOfUsers = params.mongoCollectionOfUsers;
 var collectionOfStimuli = params.mongoCollectionOfStimuli;
 var collectionOfPcaResults = params.mongoCollectionOfPcaResults;
 
-
-function fail(res, code, err, httpCode) {
-    console.error(code, err);
-    res.writeHead(httpCode || 500);
-    res.end(err);
-}
 
 var polisTypes = {
     reactions: {
@@ -418,7 +422,7 @@ function checkFields(ev) {
                 res.end();
             });
             // log the deregister
-            convertFromSession(data, function(err, data) {
+            convertFromSession(data, res, function(err, data) {
                 var ev = {type: "deregister", u: data.u};
                 checkFields(ev);
                 collection.insert(ev, function(err, docs) {
@@ -571,7 +575,7 @@ function checkFields(ev) {
         if('POST' === req.method) {
             collectPost(req, res, function(data) {
                 // Try to get session info if possible.
-                convertFromSession(data, function(err, dataWithSessionData) {
+                convertFromSession(data, res, function(err, dataWithSessionData) {
                     dataWithSessionData.events.forEach(function(ev){
                         if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
                         if (ev.s) ev.s = ObjectId(ev.s);
@@ -629,9 +633,7 @@ function checkFields(ev) {
 
     app.post("/v2/ev", function(req, res) {
         collectPost(req, res, function(data) {
-            convertFromSession(data, function(err, data) {
-                if (err) { fail(res, 93482576, err); return; }
-
+            convertFromSession(data, res, function(err, data) {
                 data.events.forEach(function(ev){
                     // TODO check the user & token database 
                     //
@@ -711,9 +713,7 @@ function checkFields(ev) {
 
     app.post("/v2/txt", function(req, res) {
         collectPost(req, res, function(data) {
-            convertFromSession(data, function(err, data) {
-                if (err) { fail(res, 93482573, err); return; }
-
+            convertFromSession(data, res, function(err, data) {
                 data.events.forEach(function(ev){
                     // TODO check the user & token database 
                     //
@@ -748,7 +748,7 @@ function checkFields(ev) {
     });
 
     app.get("/v2/reactions/me", function(req, res) {
-        convertFromSession(req.query , function(err, data) {
+        convertFromSession(req.query, res, function(err, data) {
             var events = [];
             var findQuery = {
                 u : ObjectId(data.u),
@@ -870,11 +870,7 @@ function checkFields(ev) {
 
             //console.log('collected');
             //console.dir(data);
-            convertFromSession(data, function(err, data) {
-                //console.log('converted');
-                //console.dir(data);
-                if (err) { fail(res, 93482572, err); return; }
-
+            convertFromSession(data, res, function(err, data) {
                 reactionsPost(res, data.u, data.events);
             });
         });

@@ -322,9 +322,16 @@ $(document).ready(function() {
     window.addEventListener("hashchange", locationHashChanged);
 
     function promptUserToRegister() {
-        $('#introduction_modal').modal('show');
-        $('#create_user_modal').modal('show');
+        //$('#introduction_modal').modal('show');
+        //$('#create_user_modal').modal('show');
+
+        // TODO just show the auth dialog, or think of something else to do with
+        // anon users.. we should probably not expire anon tokens.
+        if (confirm("session expired, refresh?")) {
+            newUser(); 
+        }
     }
+
     if (!serverClient.authenticated()) {
         //promptUserToRegister();
     }
