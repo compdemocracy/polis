@@ -133,15 +133,18 @@ var App = function(params) {
         if (!serverClient.authenticated()) {
             serverClient.authNew({ anon: true, rememberMe: true});
         }
-        
+
         // CommentSubmitter
         commentSubmitter= new CommentSubmitter({
             formId: '#comment_form'
         });
         commentSubmitter.addSubmitListener(function(txt) {
-            serverClient.submitComment(txt);
-            alert("Thanks! let's see what happens.");
-            navigateToReactTab();
+            txt = txt.trim();
+            if (txt.length > 0) {
+                serverClient.submitComment(txt);
+                alert("Thanks! let's see what happens.");
+                navigateToReactTab();
+            }
         });
 
         // StimulusSubmitter
