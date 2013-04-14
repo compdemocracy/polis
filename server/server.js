@@ -104,7 +104,7 @@ console.log(process.env.MONGOLAB_URI);
 
 function makeSessionToken() {
     // These can probably be shortened at some point.
-    return crypto.randomBytes(256).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 100);
+    return crypto.randomBytes(32).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 20);
 }
 
 function getUserInfoForSessionToken(sessionToken, cb) {
@@ -123,7 +123,7 @@ function startSession(userID, cb) {
     redisForAuth.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
         if (errSetToken) { cb(errSetToken); return }
         console.log('startSession: token set.');
-        redisForAuth.expire(sessionToken, 7*24*60*60, function(errSetTokenExpire, repliesExpire) {
+        redisForAuth.expire(sessionToken, 3*31*24*60*60, function(errSetTokenExpire, repliesExpire) {
             if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
             console.log('startSession: token will expire.');
             cb(null, sessionToken);
