@@ -308,7 +308,6 @@ $(document).ready(function() {
 
     function locationHashChanged(e) {
         console.log(e);
-        alert(location.hash);
         if (location.hash === "#somecoolfeature") {
             somecoolfeature();
         }
