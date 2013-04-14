@@ -320,6 +320,8 @@ function upsertNode(updatedNodes) {
     }
 
     nodes = updatedNodes.filter(isPersonNode).sort(sortWithSelfOnTop).map(computeTarget);
+    console.log('number of people: ' + nodes.length);
+
     oldpositions.forEach(function(oldNode) { 
         var newNode = _.findWhere(nodes, {id: oldNode.id});
         if (!newNode) { 
