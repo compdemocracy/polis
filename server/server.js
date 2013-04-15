@@ -229,26 +229,13 @@ mongo.connect(process.env.MONGOLAB_URI, {
     });
 });
 
-function convertFromSession(postData, res, callback) {
-    var token = postData.token;
-    if (!token) { fail(res, 0, 'resuest_is_missing_token', 422); return; }
-    if (postData.u) { fail(res, 0, 'got_postData.u_not_needed', 422); return; }
-    getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
-        // err is always null. res will fail instead
-
-        // don't pass the token around
-        postData = _.omit(postData, ['token']);
-        postData.u = fetchedUserInfo.u;
-        callback(null, postData);
-    });
-}
-
 // input token from body or query, and populate req.body.u with userid.
 function auth(req, res, next) {
     var token = req.body.token;
     if (!token) { next(400); return; }
     if (req.body.u) { next(400); return; } // shouldn't be in the post
     getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
+        if (err) { next(err); return;}
          // don't want to pass the token around
         if (req.body) delete req.body.token;
         if (req.query) delete req.query.token;
