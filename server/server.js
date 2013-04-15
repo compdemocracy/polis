@@ -31,6 +31,9 @@ var http = require('http'),
     crypto = require('crypto'),
     _ = require('underscore');
 
+
+app.disable('x-powered-by'); // save a whale
+
 var AUTH_FAILED = 'auth failed';
 var ALLOW_ANON = true;
 
