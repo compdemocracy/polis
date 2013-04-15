@@ -117,10 +117,8 @@ function makeSessionToken() {
 
 function getUserInfoForSessionToken(sessionToken, res, cb) {
     redisForAuth.get(sessionToken, function(errGetToken, replies) {
-        if (errGetToken) { fail(res, 0, "token_fetch_error", 500); return; }
-        if (!replies) { fail(res, 0, "token_expired_or_missing", 403); return; }
-        //console.log('redis:');
-        //console.dir(replies);
+        if (errGetToken) { console.error("token_fetch_error"); cb(500); return; }
+        if (!replies) { console.error("token_expired_or_missing"); cb(403); return; }
         cb(null, {u: replies});
     });
 }
@@ -245,6 +243,30 @@ function convertFromSession(postData, res, callback) {
     });
 }
 
+// input token from body or query, and populate req.body.u with userid.
+function auth(req, res, next) {
+    var token = req.body.token;
+    if (!token) { next(400); return; }
+    if (req.body.u) { next(400); return; } // shouldn't be in the post
+    getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
+         // don't want to pass the token around
+        if (req.body) delete req.body.token;
+        if (req.query) delete req.query.token;
+
+        req.body.u = fetchedUserInfo.u;
+        next(null);
+    });
+}
+
+// Consolidate query/body items in one place so other middleware has one place to look.
+function moveToBody(req, res, next) {
+    if (req.query) {
+        req.body = req.body || {};
+        _.extend(req.body, req.query);
+    }
+    next();
+}
+
 function makeHash(ary) {
     return _.object(ary, ary.map(function(){return 1;}));
 }
@@ -351,10 +373,11 @@ function checkFields(ev) {
     //app.use(writeDefaultHead);
     app.use(express.logger());
 
-    // start server with ds in scope.
-    app.get("/v2/math/pca", function(req, res) {
-        var stimulus = req.query.s;
-        var lastServerToken = req.query.lastServerToken || "000000000000000000000000";
+app.get("/v2/math/pca",
+    moveToBody,
+    function(req, res) {
+        var stimulus = req.body.s;
+        var lastServerToken = req.body.lastServerToken || "000000000000000000000000";
         collectionOfPcaResults.find({$and :[
             {s: ObjectId(stimulus)},
             {lastServerToken: {$gt: ObjectId(lastServerToken)}},
@@ -400,19 +423,17 @@ function checkFields(ev) {
 
 app.post("/v2/auth/deregister",
     express.bodyParser(),
+    auth,
     function(req, res) {
             var data = req.body;
             endSession(data, function(err, data) {
                 if (err) { fail(res, 213489289, "couldn't end session"); return; }
                 res.end();
             });
-            // log the deregister
-            convertFromSession(data, res, function(err, data) {
-                var ev = {type: "deregister", u: data.u};
-                checkFields(ev);
-                collection.insert(ev, function(err, docs) {
-                    if (err) { console.error("couldn't add deregister event to eventstream"); return; }
-                });
+            var ev = {type: "deregister", u: req.body.u};
+            checkFields(ev);
+            collection.insert(ev, function(err, docs) {
+                if (err) { console.error("couldn't add deregister event to eventstream"); return; }
             });
     });
 
@@ -559,26 +580,26 @@ app.post("/v2/auth/new",
 
 app.post("/v2/feedback",
     express.bodyParser(),
+    auth,
     function(req, res) {
                 var data = req.body;
-                // Try to get session info if possible.
-                convertFromSession(data, res, function(err, dataWithSessionData) {
-                    dataWithSessionData.events.forEach(function(ev){
+                    data.events.forEach(function(ev){
                         if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
                         if (ev.s) ev.s = ObjectId(ev.s);
-                        if (dataWithSessionData.u) ev.u = ObjectId(dataWithSessionData.u); 
+                        if (data.u) ev.u = ObjectId(data.u); 
                         checkFields(ev);
                         collection.insert(ev, function(err, cursor) {
                             if (err) { fail(res, 324234331, err); return; }
                             res.end();
                         }); // insert
                     }); // each 
-                }); // session?
     });
 
-    app.get("/v2/ev", function(req, res) {
-        var stimulus = req.query.s;
-        var lastServerToken = req.query.lastServerToken;
+app.get("/v2/ev",
+    moveToBody,
+    function(req, res) {
+        var stimulus = req.body.s;
+        var lastServerToken = req.body.lastServerToken;
         // TODO this is basically identical to /v2/txt...  refactor
         var docs = [];
         function makeQuery(stimulusId, lastServerToken) {
@@ -617,9 +638,9 @@ app.post("/v2/feedback",
 
 app.post("/v2/ev",
     express.bodyParser(),
+    auth,
     function(req, res) {
                 var data = req.body;
-            convertFromSession(data, res, function(err, data) {
                 data.events.forEach(function(ev){
                     // TODO check the user & token database 
                     //
@@ -635,13 +656,14 @@ app.post("/v2/ev",
                         res.end();
                     }); // insert
                 }); // each 
-            }); // session
     }); // closure
 
-    app.get("/v2/txt", function(req, res) {
-        var stimulus = req.query.s;
-        var ids = req.query.ids;
-        var lastServerToken = req.query.lastServerToken;
+app.get("/v2/txt",
+    moveToBody,
+    function(req, res) {
+        var stimulus = req.body.s;
+        var ids = req.body.ids;
+        var lastServerToken = req.body.lastServerToken;
         function makeQuery(stimulusId, lastServerToken) {
             var q = {
                 $and: [
@@ -698,9 +720,9 @@ app.post("/v2/ev",
 
 app.post("/v2/txt",
     express.bodyParser(),
+    auth,
     function(req, res) {
                 var data = req.body;
-            convertFromSession(data, res, function(err, data) {
                 data.events.forEach(function(ev){
                     // TODO check the user & token database 
                     //
@@ -730,11 +752,13 @@ app.post("/v2/txt",
                         }); // auto pull
                     }); // insert
                 }); // each 
-            }); // session
     });
 
-    app.get("/v2/reactions/me", function(req, res) {
-        convertFromSession(req.query, res, function(err, data) {
+app.get("/v2/reactions/me",
+    moveToBody,
+    auth,
+    function(req, res) {
+            var data = req.body;
             var events = [];
             var findQuery = {
                 u : ObjectId(data.u),
@@ -759,14 +783,15 @@ app.post("/v2/txt",
 
                 cursor.nextObject( onNext);
             });
-        });
     });
 
 
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
-    app.get("/v2/selection", function(req, res) {
-        var stimulus = req.query.s;
-        if (!req.query.users) {
+app.get("/v2/selection",
+    moveToBody,
+    function(req, res) {
+        var stimulus = req.body.s;
+        if (!req.body.users) {
             res.json([]);
             return;
         }
@@ -781,7 +806,7 @@ app.post("/v2/txt",
             };
             return q;
         }
-        var q = makeGetReactionsByUserQuery(req.query.users, stimulus);
+        var q = makeGetReactionsByUserQuery(req.body.users, stimulus);
         collection.find(q, function(err, cursor) {
             if (err) { fail(res, 2389369, "polis_err_get_selection", 500); return; }
             cursor.toArray( function(err, reactions) {
@@ -847,20 +872,18 @@ app.post("/v2/txt",
         });
     });
 
-    app.get("/v2/reactions", function(req, res) {
-        reactionsGet(res, req.query);
+app.get("/v2/reactions",
+    moveToBody,
+    function(req, res) {
+        reactionsGet(res, req.body);
     });
 
 app.post("/v2/reactions",
     express.bodyParser(),
+    auth,
     function(req, res) {
             var data = req.body;
-console.dir(req.body);
-            //console.log('collected');
-            //console.dir(data);
-            convertFromSession(data, res, function(err, data) {
-                reactionsPost(res, data.u, data.events);
-            });
+            reactionsPost(res, data.u, data.events);
     });
 
 function staticFile(req, res) {
