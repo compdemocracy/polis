@@ -231,26 +231,6 @@ mongo.connect(process.env.MONGOLAB_URI, {
     });
 });
 
-
-
-// TODO add error callback
-function collectPost(req, res, success) {
-    if(req.method == 'POST') {
-        var body = '';
-        req.on('data', function (data) {
-            body += data;
-         //  if(body.length > 1e6) // FLOOD ATTACK OR FAULTY CLIENT, NUKE req
-         //  {
-         //       req.connection.destroy();
-         //  }
-        });
-        req.on('end', function () { 
-            var data = JSON.parse(body);
-            success(data);
-        });
-    }
-}
-
 function convertFromSession(postData, res, callback) {
     var token = postData.token;
     if (!token) { fail(res, 0, 'resuest_is_missing_token', 422); return; }
@@ -418,8 +398,10 @@ function checkFields(ev) {
         */
     });
 
-    app.post("/v2/auth/deregister", function(req, res) {
-        collectPost(req, res, function(data) {
+app.post("/v2/auth/deregister",
+    express.bodyParser(),
+    function(req, res) {
+            var data = req.body;
             endSession(data, function(err, data) {
                 if (err) { fail(res, 213489289, "couldn't end session"); return; }
                 res.end();
@@ -432,11 +414,12 @@ function checkFields(ev) {
                     if (err) { console.error("couldn't add deregister event to eventstream"); return; }
                 });
             });
-        });
     });
 
-    app.post("/v2/auth/login", function(req, res) {
-        collectPost(req, res, function(data) {
+app.post("/v2/auth/login",
+    express.bodyParser(),
+    function(req, res) {
+            var data = req.body;
             var username = data.username;
             var password = data.password;
             var email = data.email;
@@ -476,11 +459,12 @@ function checkFields(ev) {
                     }); // compare
                 }); // toArray
             }); // find
-        }); // collectPost
     });
 
-    app.post("/v2/auth/new", function(req, res) {
-        collectPost(req, res, function(data) {
+app.post("/v2/auth/new",
+    express.bodyParser(),
+    function(req, res) {
+            var data = req.body;
             var username = data.username;
             var password = data.password;
             var email = data.email;
@@ -571,12 +555,12 @@ function checkFields(ev) {
                     }); // end gensalt
                 }); // end cursor.toArray
             }); // end find existing users
-        }); // end collect post
     }); // end auth/new
 
-    app.post("/v2/feedback", function(req, res) {
-        if('POST' === req.method) {
-            collectPost(req, res, function(data) {
+app.post("/v2/feedback",
+    express.bodyParser(),
+    function(req, res) {
+                var data = req.body;
                 // Try to get session info if possible.
                 convertFromSession(data, res, function(err, dataWithSessionData) {
                     dataWithSessionData.events.forEach(function(ev){
@@ -590,9 +574,6 @@ function checkFields(ev) {
                         }); // insert
                     }); // each 
                 }); // session?
-            }); // post body
-            return;
-        } // POST
     });
 
     app.get("/v2/ev", function(req, res) {
@@ -634,8 +615,10 @@ function checkFields(ev) {
         return;
     });
 
-    app.post("/v2/ev", function(req, res) {
-        collectPost(req, res, function(data) {
+app.post("/v2/ev",
+    express.bodyParser(),
+    function(req, res) {
+                var data = req.body;
             convertFromSession(data, res, function(err, data) {
                 data.events.forEach(function(ev){
                     // TODO check the user & token database 
@@ -653,7 +636,6 @@ function checkFields(ev) {
                     }); // insert
                 }); // each 
             }); // session
-        }); // post body
     }); // closure
 
     app.get("/v2/txt", function(req, res) {
@@ -714,8 +696,10 @@ function checkFields(ev) {
         });
     });
 
-    app.post("/v2/txt", function(req, res) {
-        collectPost(req, res, function(data) {
+app.post("/v2/txt",
+    express.bodyParser(),
+    function(req, res) {
+                var data = req.body;
             convertFromSession(data, res, function(err, data) {
                 data.events.forEach(function(ev){
                     // TODO check the user & token database 
@@ -747,7 +731,6 @@ function checkFields(ev) {
                     }); // insert
                 }); // each 
             }); // session
-        }); // post body
     });
 
     app.get("/v2/reactions/me", function(req, res) {
@@ -868,15 +851,16 @@ function checkFields(ev) {
         reactionsGet(res, req.query);
     });
 
-    app.post("/v2/reactions", function(req, res) {
-        collectPost(req, res, function(data) {
-
+app.post("/v2/reactions",
+    express.bodyParser(),
+    function(req, res) {
+            var data = req.body;
+console.dir(req.body);
             //console.log('collected');
             //console.dir(data);
             convertFromSession(data, res, function(err, data) {
                 reactionsPost(res, data.u, data.events);
             });
-        });
     });
 
 function staticFile(req, res) {

@@ -331,7 +331,12 @@ var Polis = function(params) {
         if ("GET" === type) {
             promise = $.get(url, data);
         } else if ("POST" === type) {
-            promise = $.post(url, JSON.stringify(data));
+            promise = $.ajax({
+                type: "POST",
+                url: url,
+                contentType: "application/json; charset=utf-8",
+                dataType: "json",
+                data: JSON.stringify(data)});
         }
         promise.fail( function(jqXHR, message, errorType) {
             logger.error('SEND ERROR');
