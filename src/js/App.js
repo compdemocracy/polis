@@ -94,7 +94,7 @@ var App = function(params) {
 "<p> Within the past year, Colorado and Washington state <a href='#'> have legalized the recreational use of marijuana.</a> At the present time, several other states are considering taking similar measures. While marijuana remains a prohibited substance at the federal level, the present administration <a href=''> has indicated </a> that the enforcement of that prohibition in states which have legalized marijuana is a very low priority.</p>" + 
 "<p>What do you think about this seeming trend toward the legalization of marijuana in the United States? Should marijuana remain illegal? If not, how far should legalization go? Should it stop at marijuana or should other controlled substances be legalized as well?</p>"
 );
-        } else if (stimulusId === "514ac77ba313c76729000020") {
+        } else if (stimulusId === "514ac77ba313c76729000020" || stimulusId === "514ac77ba313c76729000022") {
             $("#topic_toggle>a").html("Topic: Math & Wrestling Practice");
             document.title= "Polis topic: Math & Wrestling Practice";
             $("#topic_content").html(
