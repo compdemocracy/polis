@@ -24,7 +24,6 @@
     "path": "~0.4.9",
     "crypto": "0.0.3",
     "mongodb": "~1.1.11",
-    "nodefly": "stable",
     "pg": "~0.6.15",
     "async": "~0.1.22",
     "mysql": "~2.0.0-alpha7",

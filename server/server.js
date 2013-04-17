@@ -11,10 +11,10 @@
 console.log('redisAuth url ' +process.env.REDISTOGO_URL);
 console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
-require('nodefly').profile(
-    process.env.NODEFLY_APPLICATION_KEY,
-    [process.env.APPLICATION_NAME,'Heroku']
-);
+//require('nodefly').profile(
+    //process.env.NODEFLY_APPLICATION_KEY,
+    //[process.env.APPLICATION_NAME,'Heroku']
+//);
 
 var http = require('http'),
     express = require('express'),
