@@ -1,6 +1,5 @@
 // TODO start checking auth token, test it, remove it from json data
 
-
 // TODO make different logger
 // TODO decide on timestamp/id/hash precision
 // TODO add a conversationID
