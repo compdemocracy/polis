@@ -116,6 +116,11 @@ var App = function(params) {
         if (kv.s) {
             stim = kv.s;
         }
+        var stimulusFromPath = /^\/([0-9][^\/\?\#]*)/.exec(location.pathname)[1];
+        if (stimulusFromPath) {
+            stim = stimulusFromPath;
+        }
+
         setStimulus(stim);
         //setStimulus($(".stimulus_link").first().addClass("active").data().stimulusId);
     });
@@ -320,6 +325,7 @@ $(document).ready(function() {
         }
     }
     window.addEventListener("hashchange", locationHashChanged);
+
 
     function promptUserToRegister() {
         //$('#introduction_modal').modal('show');

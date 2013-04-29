@@ -886,11 +886,11 @@ function staticFile(req, res) {
     // try to serve a static file
     var requestPath = req.url;
     var contentPath = './src';
-    if (requestPath === '/')
+
+    // polis.io/2fdsi style URLs. The JS will interpret the path as stimulusId=2fdsi
+    if (/^\/[0-9]/.exec(requestPath) || requestPath === '/') {
         contentPath += '/desktop/index.html';
-    else if (requestPath === '/mobile/')
-        contentPath += '/mobile/index.html';
-    else if (requestPath.indexOf('/static/') === 0) {
+    } else if (requestPath.indexOf('/static/') === 0) {
         contentPath += requestPath.slice(7);
     }
 
@@ -934,6 +934,7 @@ function staticFile(req, res) {
 //app.use(express.static(__dirname + '/src/desktop/index.html'));
 //app.use('/static', express.static(__dirname + '/src'));
 app.get('/', staticFile);
+app.get(/^\/[0-9]/, staticFile);
 app.get(/^\/mobile\//, staticFile);
 app.get(/^\/static\//, staticFile);
 
