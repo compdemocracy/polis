@@ -291,15 +291,30 @@ var polisTypes = {
     },
 };
 
-var objectIdFields = ["_id", "u", "s", "to"];
+var objectIdFields = ["_id", "u", "to"];
+var not_objectIdFields = ["s"];
 function checkFields(ev) {
     for (k in ev) {
         if ("string" === typeof ev[k] && objectIdFields.indexOf(k) >= 0) {
             ev[k] = ObjectId(ev[k]);
         }
+        // check if it's an ObjectId, but shouldn't be
+        if (ev[k].getTimestamp && not_objectIdFields.indexOf(k) >= 0) {
+            console.error("field should not be wrapped in ObjectId: " + k);
+            process.exit(1);
+        }
     }
 }
-
+// helper for migrating off of mongo style identifiers
+function match(key, s) {
+    var variants = [{}];
+    variants[0][key] = s;
+    if (s.length === 24) {
+        variants.push({});
+        variants[0][key] = ObjectId(s);
+    }
+    return {$or: variants};
+}
 
     function reactionsPost(res, user, events) {
         if (!events.length) { fail(res, 324234327, err); return; }
@@ -319,7 +334,7 @@ function checkFields(ev) {
         function makeQuery() {
             // $or [{type: push}, {type: pull},...]
             var q = { $and: [
-                {s: ObjectId(params.s)}, 
+                match("s", params.s),
                 {$or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; })}, 
             ]};
             if (params.to) {
@@ -365,7 +380,7 @@ app.get("/v2/math/pca",
         var stimulus = req.body.s;
         var lastServerToken = req.body.lastServerToken || "000000000000000000000000";
         collectionOfPcaResults.find({$and :[
-            {s: ObjectId(stimulus)},
+            match("s", stimulus),
             {lastServerToken: {$gt: ObjectId(lastServerToken)}},
             ]}, function(err, cursor) {
             if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
@@ -571,7 +586,6 @@ app.post("/v2/feedback",
                 var data = req.body;
                     data.events.forEach(function(ev){
                         if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
-                        if (ev.s) ev.s = ObjectId(ev.s);
                         if (data.u) ev.u = ObjectId(data.u); 
                         checkFields(ev);
                         collection.insert(ev, function(err, cursor) {
@@ -591,7 +605,7 @@ app.get("/v2/ev",
         function makeQuery(stimulusId, lastServerToken) {
             var q = {
                 $and: [
-                    {s:   ObjectId(stimulusId)},
+                    match("s", stimulusId),
                     {ev : {$exists: true}},// return anything that has text attached.
                     //{type: {$neq: "stimulus"}},
                 ],
@@ -632,7 +646,6 @@ app.post("/v2/ev",
                     //
                     if (!ev.ev) { fail(res, 'expected ev field'); return; }
 
-                    if (ev.s) ev.s = ObjectId(ev.s);
                     if (data.u) {
                         ev.u = ObjectId(data.u);
                     }
@@ -654,7 +667,7 @@ app.get("/v2/txt",
             var q = {
                 $and: [
                     {$or : [
-                        {s:   ObjectId(stimulusId)},
+                        match("s", stimulusId),
                     //    {_id: ObjectId(stimulusId)},// Hmm, lets include the stimulus itself.  We'll need to fetch the "lastServerToken" so we don't redeliver things.
                     ]}, 
                     {txt : {$exists: true}},// return anything that has text attached.
@@ -715,9 +728,6 @@ app.post("/v2/txt",
                     if (!ev.txt) { fail(res, 'expected txt field'); return; }
 
                     var ev2 = _.extend({}, ev);
-                    if (ev.s) {
-                        ev2.s = ObjectId(ev.s);
-                    }
                     if (data.u) {
                         ev2.u = ObjectId(data.u);
                     }
@@ -746,11 +756,11 @@ app.get("/v2/reactions/me",
     function(req, res) {
             var data = req.body;
             var events = [];
-            var findQuery = {
-                u : ObjectId(data.u),
-                s: ObjectId(data.s), 
-                $or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; }), 
-            };
+            var findQuery = {$and: [
+                {u : ObjectId(data.u)},
+                match("s", data.s),
+                {$or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; })}
+            ]};
             collection.find(findQuery, function(err, cursor) {
                 if (err) { fail(res, 234234325, err); return; }
 
@@ -784,7 +794,7 @@ app.get("/v2/selection",
         function makeGetReactionsByUserQuery(users, stimulus) {
             users = users.split(',');
             var q = { $and: [
-                {s: ObjectId(stimulus)},
+                match("s", stimulus),
                 {$or: [{type: polisTypes.reactions.pull}, {type: polisTypes.reactions.push}]},
                 {$or: users.map(function(id) { return { u: ObjectId(id)}; })},
                 {to: {$exists: true}}
@@ -820,7 +830,7 @@ app.get("/v2/selection",
                 commentIdCounts = commentIdCounts.slice(0, 10);
                 var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
                 var qq = { $and: [
-                    {s: ObjectId(stimulus)},
+                    match("s", stimulus),
                     {txt: {$exists: true}},
                     {$or : commentIds}
                     ]
