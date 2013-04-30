@@ -116,9 +116,9 @@ var App = function(params) {
         if (kv.s) {
             stim = kv.s;
         }
-        var stimulusFromPath = /^\/([0-9][^\/\?\#]*)/.exec(location.pathname)[1];
-        if (stimulusFromPath) {
-            stim = stimulusFromPath;
+        var stimulusFromPath = /^\/([0-9][^\/\?\#]*)/.exec(location.pathname);
+        if (stimulusFromPath && stimulusFromPath[1]) {
+            stim = stimulusFromPath[1];
         }
 
         setStimulus(stim);
