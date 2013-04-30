@@ -311,7 +311,7 @@ function match(key, s) {
     variants[0][key] = s;
     if (s.length === 24) {
         variants.push({});
-        variants[0][key] = ObjectId(s);
+        variants[1][key] = ObjectId(s);
     }
     return {$or: variants};
 }
