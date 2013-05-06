@@ -933,7 +933,12 @@ function staticFile(req, res) {
 
 //app.use(express.static(__dirname + '/src/desktop/index.html'));
 //app.use('/static', express.static(__dirname + '/src'));
-app.get('/', staticFile);
+
+//app.get('/', staticFile);
+app.get('/', function(req, res) {
+    res.writeHead(500);
+    res.end();
+});
 app.get(/^\/[0-9]/, staticFile);
 app.get(/^\/mobile\//, staticFile);
 app.get(/^\/static\//, staticFile);
