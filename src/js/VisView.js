@@ -53,25 +53,6 @@ window.P.stop = function() {
     updatesEnabled = false;
 };
 
-function setCy(d) {
-    if (o.y !== undefined) {
-        return o.y;
-    } else {
-        console.log('y bad');
-        return h/2;
-    }
-}
-
-function setCx(d) {
-    //console.log(d.id, d.data.projection[0]);
-    if (o.x !== undefined) {
-        return o.x;
-    } else {
-        console.log('x bad');
-        return w/2;
-    }
-}
-
 function chooseRadiusSelected(d) {
     return Math.max(chooseRadius(d) - 1, 0.5);
 }
@@ -83,26 +64,31 @@ function chooseRadius(d) {
     return r;
 }
 function chooseFill(d) {
+    var colorPull = "#2ECC71"; // EMERLAND
+    var colorPush = "#C0392B"; // POMEGRANATE
+    var colorPass = "#2C3E50"; // MIDNIGHT BLUE
+    var colorSelf = "#D35400"; // PUMPKIN
+    var colorNoVote = colorPass;
+
     if (d.effects !== undefined) {
-        if (d.effects===-1) {
-            return "blue";
-        } else if (d.effects === 1) {
-            return "red";
-        } else if (d.effects === 0){
-            return "black";
+        if (d.effects === -1) {  // pull
+            return colorPull;
+        } else if (d.effects === 1) { // push
+            return colorPush;
+        } else if (d.effects === 0){ // pass
+            return colorPass;
         } else {
             console.error(3289213);
-            return "black";
+            return "purple";
         }
     } else { 
         if (isSelf(d)) {
-            return "red";
+            return colorSelf;
         } else {
-            return "black";
+            return colorNoVote;
         }
     }
 }
-
 
 function renderCommentsList(comments) {
     function renderComment(comment) {
@@ -385,7 +371,6 @@ function upsertNode(updatedNodes) {
           .attr("cy", function(d) {
             return d.y;
           })
-        .call(force.drag)
           ;
 
  
@@ -425,22 +410,8 @@ function upsertNode(updatedNodes) {
         })
 */
 ;
-/*
-function dragstart(e) {
-}
-function dragend(e) {
-}
-function dragmove(e) {
-}
-
-var node_drag = d3.behavior.drag()
-        .on("dragstart", dragstart)
-        .on("drag", dragmove)
-        .on("dragend", dragend);
-*/
 
   visualization.selectAll("circle.node")
-        .call(force.drag)
         .transition()
         .duration(500)
         .style("stroke", "black")
@@ -612,10 +583,6 @@ function drawSelectionRectangle(rect) {
             //.attr("x", d.x = Math.max(z, Math.min(500 - z, d3.event.x)))
             //.attr("y", d.y = Math.max(z, Math.min(300 - z, d3.event.y)));
     }
-    var drag = d3.behavior.drag()
-        .origin(Object)
-        .on("drag", dragmove)
-    ;
     */
 
     d3Rect.enter()
@@ -629,7 +596,6 @@ function drawSelectionRectangle(rect) {
         .attr("y", y)
         .attr("width", width)
         .attr("height", height)
-        //.call(drag)
     ;
 
     d3Rect.exit().remove();
