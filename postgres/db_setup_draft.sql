@@ -49,9 +49,9 @@ CREATE TABLE user_info(
 
 CREATE TABLE participants(
     ptpt_id INTEGER,
-    conv_id INTEGER REFERENCES conv(id),
+    conv_id INTEGER REFERENCES conversations(conv_id),
     UNIQUE (ptpt_id, conv_id),
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER REFERENCES users(user_id),
     UNIQUE (conv_id, user_id) 
 );
 CREATE UNIQUE INDEX participants_conv_ptpt_idx(conv_id); -- speed up the auto-increment trigger
