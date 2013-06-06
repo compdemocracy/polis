@@ -101,3 +101,17 @@ CREATE TRIGGER ptpt_id_auto_unlock
     FOR EACH ROW
     EXECUTE PROCEDURE ptpt_id_auto_unlock();
 
+
+
+-- something like this might work too
+CREATE TABLE participant_counters(
+    conv_id INTEGER UNIQUE REFERENCES conversations(conv_id),
+    ptpt_counter INTEGER
+);
+BEGIN;
+    INSERT INTO participants VALUES ( ( UPDATE participant_counters 
+        SET ptpt_counter = ptpt_counter + 1
+        WHERE conv_id = convId
+        RETURNING ptpt_counter),
+    convId, userId);
+COMMIT;
