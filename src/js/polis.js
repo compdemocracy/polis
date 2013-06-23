@@ -443,7 +443,7 @@ var Polis = function(params) {
 
                 // TODO this is not runnable, just a rough idea. (data isn't structured like this)
                 ///var people = pcaData.people;
-                var people = parseTree(pcaData.pca.cluster_tree);
+                var people = parseFormat2(pcaData.pca);
                 //var pcaComponents = parseTree(pcaData.pca_components);
 
                 //for (var i = 0; i < people.length; i++) {
@@ -521,6 +521,21 @@ var Polis = function(params) {
         return s;
     }
 
+    function parseFormat2(obj) {
+        // Normalize to [-1,1]
+        function normalize(projectionDimension) {
+            return projectionDimension / 6;
+        }
+
+        var nodes = [];
+        for (var i = 0; i < obj.projs.length; i++) {
+            nodes.push({
+                ptptId: obj.ptptMap[i], // this can be removed once we are on an integer id system
+                projection: obj.projs[i].map(normalize)
+            });
+        }
+        return nodes;
+    }
     function parseTree(treeObject) {
         var tree = Arboreal.parse(treeObject, 'children');
 
