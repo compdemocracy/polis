@@ -308,7 +308,7 @@ function upsertNode(updatedNodes) {
         return key(a) - key(b);
     }
 
-    nodes = updatedNodes.filter(isPersonNode).sort(sortWithSelfOnTop).map(computeTarget);
+    nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
     console.log('number of people: ' + nodes.length);
 
     oldpositions.forEach(function(oldNode) { 
