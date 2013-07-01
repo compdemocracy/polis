@@ -2,9 +2,8 @@
 CREATE TABLE conversations(
     -- TODO after testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
-    conv_id INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 10)),
+    conv_id INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 10))
 );
-CREATE UNIQUE INDEX conversations(conv_id);
 
 CREATE TABLE conversation_info(
     conv_id INTEGER REFERENCES conversations(conv_id),
@@ -22,14 +21,28 @@ CREATE TABLE conversation_topics(
 );
 CREATE UNIQUE INDEX conversation_topics_idx(conv_id);
 
+
+CREATE TABLE opinions(
+    op_id INTEGER,
+    ptpt_id INTEGER,
+    conv_id INTEGER REFERENCES conversations(conv_id),
+    UNIQUE (op_id, conv_id)
+);
+
+
+ -- can't rely on SEQUENCEs since they may have gaps.. or maybe we can live with that? maybe we use a trigger incrementer like on the participants table? that would mean locking on a per conv basis, maybe ok for starters
+
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
---CREATE SEQUENCE vote_ids_for_1 START 1 OWNED BY conv.id;
+CREATE SEQUENCE vote_ids START 1 OWNED BY conv.id;
 CREATE TABLE votes(
-    conv_id INTEGER REFERENCES conv(id),
-    id INTEGER NOT NULL, -- can't rely on SEQUENCEs since they may have gaps.. or maybe we can live with that? maybe we use a trigger incrementer like on the participants table? that would mean locking on a per conv basis, maybe ok for starters
+    id INTEGER NOT NULL,
+    conv_id INTEGER REFERENCES conversations(conv_id),
+    ptpt_id INTEGER REFERENCES participants(ptpt_id),
+    op_id INTEGER REFERENCES opinions(op_id),
     vote SMALLINT,
-    ptpt_id SMALLINT REFERENCES participants(ptpt_id),
-    UNIQUE (conv_id, id)
+    created TIMESTAMP WITH TIME ZONE DEFAULT now()
+    UNIQUE (op_id, ptpt_id)
+    UNIQUE (id)
 );
 CREATE UNIQUE INDEX votes_idx(conv_id, id);
 
@@ -37,7 +50,7 @@ CREATE UNIQUE INDEX votes_idx(conv_id, id);
 CREATE TABLE users(
     -- TODO After testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
-    user_id INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 10))
+    user_id INTEGER UNIQUE DEFAULT CEIL(RANDOM() * 10)
 );
 CREATE UNIQUE INDEX users_idx(id);
 
@@ -60,6 +73,7 @@ CREATE TABLE participant_info(
     user_id INTEGER REFERENCES users(user_id),
     created TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
+
 
 CREATE TRIGGER ptpt_id_auto
     BEFORE INSERT ON participants
@@ -106,23 +120,23 @@ CREATE TRIGGER ptpt_id_auto_unlock
     FOR EACH ROW
     EXECUTE PROCEDURE ptpt_id_auto_unlock();
 
+insert into users values (1000);
+insert into users values (1001);
+insert into users values (1002);
 
+insert into conversations values (45342);
+insert into conversation_info (conv_id, owner_id) values (45342, 1000);
 
--- something like this might work too
-CREATE TABLE participant_counts(
-    conv_id INTEGER UNIQUE REFERENCES conversations(conv_id),
-    ptpt_count INTEGER
-);
-CREATE UNIQUE INDEX participant_counts(conv_id);
-
+insert into conversations values (983572);
+insert into conversation_info (conv_id, owner_id) values (983572, 1000);
+    
 BEGIN;
-    INSERT INTO participants VALUES ( ( UPDATE participant_counts 
-        SET ptpt_count = ptpt_count + 1
-        WHERE conv_id = convId
-        RETURNING ptpt_count),
-    convId, userId);
+    INSERT INTO participants (conv_id, user_id) VALUES ( 45342, 1001);
+    INSERT INTO participant_info (conv_id, user_id) VALUES ( 45342, 1001);
 COMMIT;
 
-
-
+BEGIN;
+    INSERT INTO participants (conv_id, user_id) VALUES ( 45342, 1002);
+    INSERT INTO participant_info (conv_id, user_id) VALUES ( 45342, 1002);
+COMMIT;
 
