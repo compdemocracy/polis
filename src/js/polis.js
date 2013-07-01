@@ -537,8 +537,7 @@ var Polis = function(params) {
         }
 
         var nodes = [];
-        var len = obj.pca.projs.pc1.length;
-        for (var i = 0; i < len; i++) {
+        for (var i = 0; i < obj.pca.projs.pc1.length; i++) {
             nodes.push({
                 data: {
                     person_id: obj.pca.projs.ptpt_id[i], // this can be removed/changed to ptpt_id once we are on an integer id system
