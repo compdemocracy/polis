@@ -167,6 +167,7 @@ testSession("12345ADFHSADFJKASHDF");
 
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
+function connectToMongo(callback) {
 mongo.connect(process.env.MONGOLAB_URI, {
     server: {
         auto_reconnect: true
@@ -185,8 +186,7 @@ mongo.connect(process.env.MONGOLAB_URI, {
     db.collection('events', function(err, collection) {
     db.collection('stimuli', function(err, collectionOfStimuli) {
     db.collection('pcaResults', function(err, collectionOfPcaResults) {
-        // OK, DB is ready, start the API server.
-        initializePolisAPI({
+        callback(null, {
             mongoCollectionOfEvents: collection,
             mongoCollectionOfUsers: collectionOfUsers,
             mongoCollectionOfStimuli: collectionOfStimuli,
@@ -197,6 +197,23 @@ mongo.connect(process.env.MONGOLAB_URI, {
     });
     });
 });
+}
+
+function connectToPostgres(callback) {
+    var connectionString = process.env.DATABASE_URL || 'postgres://localhost:5432/dailyjs';
+    var client = new pg.Client(connectionString);
+
+    client.connect();
+    callback(null, {
+        client: client
+    });
+}
+
+function postgresQuery() {
+    query = client.query('SELECT * FROM mytable');
+    query.on('end', function() { client.end(); });
+}
+
 
 // input token from body or query, and populate req.body.u with userid.
 function auth(req, res, next) {
@@ -245,13 +262,21 @@ function fail(res, code, err, httpCode) {
 }
 
 
-function initializePolisAPI(params) {
+function initializePolisAPI(err, args) {
+var mongoParams = args[0];
+var postgresParams = args[1];
 
-var collection = params.mongoCollectionOfEvents;
-var collectionOfUsers = params.mongoCollectionOfUsers;
-var collectionOfStimuli = params.mongoCollectionOfStimuli;
-var collectionOfPcaResults = params.mongoCollectionOfPcaResults;
+if (err) {
+    console.error("failed to init db connections");
+    console.error(err);
+    return;
+}
+var collection = mongoParams.mongoCollectionOfEvents;
+var collectionOfUsers = mongoParams.mongoCollectionOfUsers;
+var collectionOfStimuli = mongoParams.mongoCollectionOfStimuli;
+var collectionOfPcaResults = mongoParams.mongoCollectionOfPcaResults;
 
+var client = postgresParams.client;
 
 var polisTypes = {
     reactions: {
@@ -852,6 +877,121 @@ app.post("/v2/reactions",
             reactionsPost(res, data.u, data.events);
     });
 
+
+app.get('/v3/conversations', function(req, res) {
+  var date = new Date();
+
+  client.query('INSERT INTO conversations() VALUES($1)', [date]);
+
+  query = client.query('SELECT COUNT(conv_id) AS count FROM conversations', []);
+  query.on('row', function(result) {
+    console.log(result);
+
+    if (!result) {
+      return res.send('No data found');
+    } else {
+      res.send('Visits today: ' + result.count);
+    }
+  });
+});
+
+
+app.get('/v3/users', function(req, res) {
+    // creating a user may fail, since we randomly generate the uid, and there may be collisions.
+    var query = client.query('SELECT * FROM users');
+    var responseText = "";
+    query.on('row', function(row, result) {
+        responseText += row.user_id + "\n";
+    });
+    query.on('end', function(row, result) {
+        res.status(200).end(responseText);
+    });
+});
+
+
+
+
+function staticFile(req, res) {
+    // try to serve a static file
+    var requestPath = req.url;
+    var contentPath = './src';
+
+    // polis.io/2fdsi style URLs. The JS will interpret the path as stimulusId=2fdsi
+    if (/^\/[0-9]/.exec(requestPath) || requestPath === '/') {
+        contentPath += '/desktop/index.html';
+    } else if (requestPath.indexOf('/static/') === 0) {
+        contentPath += requestPath.slice(7);
+    }
+
+    var extname = path.extname(contentPath);
+    var contentType = 'text/html';
+    switch (extname) {
+        case '.js':
+            contentType = 'text/javascript';
+            break;
+        case '.css':
+            contentType = 'text/css';
+            break;
+        case '.png':
+            contentType = 'image/png';
+            break;
+        case '.woff':
+            contentType = 'application/x-font-woff';
+            break;
+    }
+     
+    console.log("PATH " + contentPath);
+    fs.exists(contentPath, function(exists) {
+        if (exists) {
+            fs.readFile(contentPath, function(error, content) {
+                if (error) {
+                    res.writeHead(404);
+                    res.json({status: 404});
+                }
+                else {
+                    res.writeHead(200, { 'Content-Type': contentType });
+                    res.end(content, 'utf-8');
+                }
+            });
+        } else {
+            res.writeHead(404);
+            res.json({status: 404});
+        }
+    });
+}
+
+app.get('/v3/users/new', function(req, res) {
+    // creating a user may fail, since we randomly generate the uid, and there may be collisions.
+    client.query('INSERT INTO users VALUES(default) returning user_id', function(err, result) {
+        if (err) {
+            /* Example error
+            {   [Error: duplicate key value violates unique constraint "users_user_id_key"]
+                severity: 'ERROR',
+                code: '23505',
+                detail: 'Key (user_id)=(6) already exists.',
+                file: 'nbtinsert.c',
+                line: '397',
+                routine: '_bt_check_unique' }
+            */
+            // make the client try again to get a user id -- don't let the server spin
+            res.setHeader('Retry-After', 0);
+            console.warn(57493875);
+            res.status(500).end(57493875)
+            return;
+        }
+        if (!result) {
+            console.error(827982173);
+            res.status(500).end(827982173)
+        } else {
+            res.send('got: ' + result.user_id);
+        }
+  //});
+  //query.on('end', function(result) {
+  });
+});
+
+
+
 function staticFile(req, res) {
     // try to serve a static file
     var requestPath = req.url;
@@ -920,4 +1060,6 @@ app.listen(process.env.PORT);
 
 console.log('started on port ' + process.env.PORT);
 } // End of initializePolisAPI
+
+async.parallel([connectToMongo, connectToPostgres], initializePolisAPI);
 
