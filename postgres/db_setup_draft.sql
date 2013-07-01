@@ -104,12 +104,14 @@ CREATE TRIGGER ptpt_id_auto_unlock
 
 
 -- something like this might work too
-CREATE TABLE participant_counters(
+CREATE TABLE participant_counts(
     conv_id INTEGER UNIQUE REFERENCES conversations(conv_id),
-    ptpt_counter INTEGER
+    ptpt_count INTEGER
 );
+CREATE UNIQUE INDEX participant_counts(conv_id);
+
 BEGIN;
-    INSERT INTO participants VALUES ( ( UPDATE participant_counters 
+    INSERT INTO participants VALUES ( ( UPDATE participant_counts 
         SET ptpt_counter = ptpt_counter + 1
         WHERE conv_id = convId
         RETURNING ptpt_counter),
