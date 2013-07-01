@@ -19,7 +19,7 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 var http = require('http'),
     express = require('express'),
     app = express(),
-    pg = require('pg'),//.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+    pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
     async = require('async'),
     fs = require('fs'),
