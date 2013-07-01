@@ -962,7 +962,7 @@ function staticFile(req, res) {
 
 app.get('/v3/users/new', function(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
-    client.query('INSERT INTO users VALUES(default) returning user_id', function(err, result) {
+    client.query('INSERT INTO users VALUES(default) returning uid', function(err, result) {
         if (err) {
             /* Example error
             {   [Error: duplicate key value violates unique constraint "users_user_id_key"]
