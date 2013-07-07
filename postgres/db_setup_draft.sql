@@ -52,6 +52,8 @@ CREATE TABLE opinions(
     oid INTEGER NOT NULL,
     cid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    txt VARCHAR(1000) NOT NULL,
     FOREIGN KEY (cid, pid) REFERENCES participants (cid, pid),
     UNIQUE (oid)
 );
