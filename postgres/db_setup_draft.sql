@@ -1,8 +1,14 @@
+
 -- This is a light table that's used exclusively for generating IDs
 CREATE TABLE users(
     -- TODO After testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
-    uid INTEGER UNIQUE DEFAULT CEIL(RANDOM() * 10)
+    uid INTEGER UNIQUE DEFAULT CEIL(RANDOM() * 100),
+    name VARCHAR(128),
+    pwhash VARCHAR(128),
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    username VARCHAR(128),
+    email VARCHAR(256)
 );
 
 --CREATE TABLE groups(
@@ -17,51 +23,29 @@ CREATE TABLE users(
     --UNIQUE (gid, uid)
 --);
 
-CREATE TABLE user_info(
-    uid INTEGER REFERENCES users(uid),
-    name VARCHAR
-);
-
 -- This is a light table that's used exclusively for generating IDs
 CREATE TABLE conversations(
     -- TODO after testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
-    cid INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 10))
-);
-
-
-CREATE TABLE conversation_info(
-    cid INTEGER REFERENCES conversations(cid),
-    --owner INTEGER REFERENCES groups(gid),
+    cid INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 100)),
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE(cid)
     -- owner_group_id ?? 
-);
-
-CREATE TABLE conversation_topics(
-    cid INTEGER REFERENCES conversations(cid),
-    title VARCHAR(1000),
-    body VARCHAR(50000)
+    title VARCHAR(1000), -- default as time in the presentation layer
+    body VARCHAR(50000),
+    UNIQUE(cid)
 );
 
 CREATE TABLE participants(
     pid INTEGER, -- populated by trigger pid_auto
     cid INTEGER NOT NULL REFERENCES conversations(cid),
     uid INTEGER NOT NULL REFERENCES users(uid),
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     UNIQUE (pid, cid),
     UNIQUE (cid, uid) 
 );
 
 CREATE INDEX participants_conv_idx ON participants USING btree (cid); -- speed up the auto-increment trigger
-
-CREATE TABLE participant_info(
-    cid INTEGER NOT NULL,
-    uid INTEGER NOT NULL,
-    FOREIGN KEY (cid, uid) REFERENCES participants (cid, uid),
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE (cid, uid)
-);
 
  -- can't rely on SEQUENCEs since they may have gaps.. or maybe we can live with that? maybe we use a trigger incrementer like on the participants table? that would mean locking on a per conv basis, maybe ok for starters
 CREATE TABLE opinions(
@@ -71,8 +55,6 @@ CREATE TABLE opinions(
     FOREIGN KEY (cid, pid) REFERENCES participants (cid, pid),
     UNIQUE (oid)
 );
-
-
 
 
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
@@ -142,38 +124,32 @@ CREATE TRIGGER pid_auto_unlock
 --COMMIT;
 
 BEGIN;
-    insert into users values (1000);
+    insert into users values (1000, 'joe');
     --insert into groups values (11000);
     --insert into memberships (uid, gid) values (1000, 11000);
 COMMIT;
 
 BEGIN;
-    insert into users values (1001);
+    insert into users values (1001, 'fran');
     --insert into groups values (11001);
     --insert into memberships (uid, gid) values (1001, 11001);
 COMMIT;
 
 BEGIN;
-    insert into users values (1002);
+    insert into users values (1002, 'holly');
     --insert into groups values (11002);
     --insert into memberships (uid, gid) values (1002, 11002);
 COMMIT;
 
-
-insert into conversations values (45342);
-insert into conversation_info (cid, owner) values (45342, 1000);
-
-insert into conversations values (983572);
-insert into conversation_info (cid, owner) values (983572, 1000);
+insert into conversations (cid, owner, created, title, body) values (45342, 1000, default, 'Legalization', 'Seattle recently ...');
+insert into conversations (cid, owner, created, title, body) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....');
     
 BEGIN;
     INSERT INTO participants (cid, uid) VALUES ( 45342, 1001);
-    INSERT INTO participant_info (cid, uid) VALUES ( 45342, 1001);
 COMMIT;
 
 BEGIN;
     INSERT INTO participants (cid, uid) VALUES ( 45342, 1002);
-    INSERT INTO participant_info (cid, uid) VALUES ( 45342, 1002);
 COMMIT;
 
 
