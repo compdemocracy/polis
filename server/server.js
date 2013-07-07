@@ -29,7 +29,6 @@ var http = require('http'),
     crypto = require('crypto'),
     _ = require('underscore');
 
-
 app.disable('x-powered-by'); // save a whale
 
 var AUTH_FAILED = 'auth failed';
@@ -574,6 +573,84 @@ app.post("/v2/auth/new",
             }); // end find existing users
     }); // end auth/new
 
+
+
+
+app.post("/v3/auth/new",
+    express.bodyParser(),
+    function(req, res) {
+            var data = req.body;
+            var username = data.username;
+            var password = data.password;
+            var email = data.email;
+            if (ALLOW_ANON && data.anon) {
+                var query = client.query("INSERT INTO users (uid, created) VALUES (default, default) RETURNING uid;", [], function(err, result) {
+                    if (err) {
+                        console.error(57493883);
+                        console.dir(err);
+                        res.status(500).end()
+                        return;
+                    }
+
+                    var uid = result && result[0] && result[0].uid;
+                    startSession(uid, function(errSessionStart,token) {
+                        if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
+                        var response = result.rows && result.rows[0]
+                        res.status(200).json({
+                            u: uid,
+                            token: token
+                        });
+                    });
+                });
+                return;
+            }
+            // not anon
+            if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
+            if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
+            if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
+            if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
+
+            var query = client.query("SELECT * FROM users WHERE username = ($1) || email = ($2)", [username, email], function(err, docs) {
+                if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
+                    if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
+                    if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
+
+                    bcrypt.genSalt(12, function(errSalt, salt) {
+                        if (errSalt) { fail(res, 238943585, "polis_err_reg_123"); return; }
+
+                        bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+                            delete data.password;
+                            password = null;
+                            if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
+                            client.query("INSERT INTO users (uid, username, email, pwhash, created) VALUES (default, $1, $2, $3, default) RETURNING uid;", [username, email, hashedPassword], function(err, result) {
+                                        if (err) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
+                                        var uid = result && result[0] && result[0].uid;
+
+                                        startSession(uid, function(errSessionStart,token) {
+                                            if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
+                                            res.json({
+                                                uid: uid,
+                                                username: username,
+                                                email: email,
+                                                token: token
+                                            });
+                                        }); // end startSession
+                                }); // end insert user
+                        }); // end hash
+                    }); // end gensalt
+            }); // end find existing users
+    }); // end auth/new
+
+
+
+
+
+
+
+
+
+
+
 app.post("/v2/feedback",
     express.bodyParser(),
     auth,
@@ -878,23 +955,34 @@ app.post("/v2/reactions",
     });
 
 
-app.get('/v3/conversations', function(req, res) {
-  var date = new Date();
-
-  client.query('INSERT INTO conversations() VALUES($1)', [date]);
-
-  query = client.query('SELECT COUNT(conv_id) AS count FROM conversations', []);
+app.get('/v3/conversations',
+moveToBody,
+function(req, res) {
+  var uid = req.body.uid || 1000;
+  query = client.query('SELECT * FROM conversations WHERE owner = ($1);', [uid]);
+  var rows = [];
   query.on('row', function(result) {
-    console.log(result);
-
-    if (!result) {
-      return res.send('No data found');
-    } else {
-      res.send('Visits today: ' + result.count);
-    }
+      rows.push(result);
+  });
+  query.on('end', function(row, result) {
+      res.status(200).json(rows);
   });
 });
 
+app.get('/v3/conversations/create', moveToBody, function(req, res) {
+  var uid = req.body.uid || 1000;
+  var title = req.body.title || "";
+  var body = req.body.body || "";
+  query = client.query('INSERT INTO conversations (cid, owner, created, title, body)  VALUES(default, $1, default, $2, $3) RETURNING cid;', [uid, title, body], function(err, result) {
+      if (err) {
+        console.error(57493879);
+        res.status(500).end()
+        return;
+      }
+      var response = result.rows && result.rows[0]
+      res.status(200).json(response);
+  });
+});
 
 app.get('/v3/users', function(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.

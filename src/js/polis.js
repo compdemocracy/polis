@@ -39,7 +39,7 @@ var Polis = function(params) {
     var feedbackPath = "/v2/feedback";
     var eventPath  = "/v2/ev";
 
-    var createAccountPath = "/v2/auth/new";
+    var createAccountPath = "/v3/auth/new";
     var loginPath = "/v2/auth/login";
     var deregisterPath = "/v2/auth/deregister";
     var pcaPath = "/v2/math/pca";
