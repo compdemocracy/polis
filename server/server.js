@@ -969,7 +969,7 @@ function(req, res) {
   });
 });
 
-app.get('/v3/conversations/create', moveToBody, function(req, res) {
+app.post('/v3/conversations', moveToBody, function(req, res) {
   var uid = req.body.uid || 1000;
   var title = req.body.title || "";
   var body = req.body.body || "";

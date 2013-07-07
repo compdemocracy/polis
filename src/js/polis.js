@@ -45,7 +45,9 @@ var Polis = function(params) {
     var pcaPath = "/v2/math/pca";
     var selectionPath = "/v2/selection";
 
-    var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath];
+    var conversationsPath = "/v3/conversations";
+
+    var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath, getConversations, createConversation];
 
     var logger = params.logger;
 
@@ -662,6 +664,17 @@ var Polis = function(params) {
         });
     }
 
+    function createConversation(title, body) {
+        return polisPost(conversationsPath, {
+            title: title,
+            body: body
+        });
+    }
+    function getConversations() {
+        return polisGet(conversationsPath, {
+        });
+    }
+
     return {
         authenticated: authenticated,
         authNew: authNew,
@@ -685,6 +698,10 @@ var Polis = function(params) {
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,
+        
+        createConversation: createConversation, 
+        getConversations: getConversations, 
+
         submitEvent: submitEvent,
         submitStimulus: submitStimulus,
         submitFeedback: submitFeedback,
