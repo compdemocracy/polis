@@ -1,4 +1,3 @@
-
 // TODO start checking auth token, test it, remove it from json data
 // TODO make different logger
 // TODO decide on timestamp/id/hash precision
@@ -574,81 +573,113 @@ app.post("/v2/auth/new",
     }); // end auth/new
 
 
+app.post("/v3/auth/deregister",
+express.bodyParser(),
+auth,
+function(req, res) {
+    var data = req.body;
+    endSession(data, function(err, data) {
+        if (err) { fail(res, 213489289, "couldn't end session"); return; }
+        res.end();
+    });
+});
 
+
+app.post("/v3/auth/login",
+express.bodyParser(),
+function(req, res) {
+    var data = req.body;
+    var username = data.username;
+    var password = data.password;
+    var email = data.email;
+    var handles = [];
+    if (username) { handles.push({username: username}); }
+    if (email) { handles.push({email: email}); }
+    if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
+    client.query("SELECT * FROM users WHERE username = ($1) || email = ($2)", [username, email], function(err, docs) {
+        if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
+        if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
+        var hashedPassword  = docs[0].pwhash;
+        var userID = docs[0].uid;
+
+        bcrypt.compare(password, hashedPassword, function(errCompare, result) {
+            if (errCompare || !result) { fail(res, 238943623, "polis_err_login_unknown_user_or_password", 403); return; }
+            
+            startSession(userID, function(errSess, token) {
+                var response_data = {
+                    username: username,
+                    email: email,
+                    token: token
+                };
+                res.json(response_data);
+            }); // startSession
+        }); // compare
+    }); // query
+}); // /v3/auth/login
 
 app.post("/v3/auth/new",
-    express.bodyParser(),
-    function(req, res) {
-            var data = req.body;
-            var username = data.username;
-            var password = data.password;
-            var email = data.email;
-            if (ALLOW_ANON && data.anon) {
-                var query = client.query("INSERT INTO users (uid, created) VALUES (default, default) RETURNING uid;", [], function(err, result) {
-                    if (err) {
-                        console.error(57493883);
-                        console.dir(err);
-                        res.status(500).end()
-                        return;
-                    }
-
-                    var uid = result && result[0] && result[0].uid;
-                    startSession(uid, function(errSessionStart,token) {
-                        if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
-                        var response = result.rows && result.rows[0]
-                        res.status(200).json({
-                            u: uid,
-                            token: token
-                        });
-                    });
-                });
+express.bodyParser(),
+function(req, res) {
+    var data = req.body;
+    var username = data.username;
+    var password = data.password;
+    var email = data.email;
+    if (ALLOW_ANON && data.anon) {
+        var query = client.query("INSERT INTO users (uid, created) VALUES (default, default) RETURNING uid;", [], function(err, result) {
+            if (err) {
+                console.error(57493883);
+                console.dir(err);
+                res.status(500).end()
                 return;
             }
-            // not anon
-            if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
-            if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
-            if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
-            if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
 
-            var query = client.query("SELECT * FROM users WHERE username = ($1) || email = ($2)", [username, email], function(err, docs) {
-                if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
-                    if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
-                    if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
+            var uid = result && result[0] && result[0].uid;
+            startSession(uid, function(errSessionStart,token) {
+                if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
+                var response = result.rows && result.rows[0]
+                res.status(200).json({
+                    u: uid,
+                    token: token
+                });
+            });
+        });
+        return;
+    }
+    // not anon
+    if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
+    if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
+    if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
+    if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
 
-                    bcrypt.genSalt(12, function(errSalt, salt) {
-                        if (errSalt) { fail(res, 238943585, "polis_err_reg_123"); return; }
+    var query = client.query("SELECT * FROM users WHERE username = ($1) || email = ($2)", [username, email], function(err, docs) {
+        if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
+            if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
+            if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
 
-                        bcrypt.hash(password, salt, function(errHash, hashedPassword) {
-                            delete data.password;
-                            password = null;
-                            if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
-                            client.query("INSERT INTO users (uid, username, email, pwhash, created) VALUES (default, $1, $2, $3, default) RETURNING uid;", [username, email, hashedPassword], function(err, result) {
-                                        if (err) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
-                                        var uid = result && result[0] && result[0].uid;
+            bcrypt.genSalt(12, function(errSalt, salt) {
+                if (errSalt) { fail(res, 238943585, "polis_err_reg_123"); return; }
 
-                                        startSession(uid, function(errSessionStart,token) {
-                                            if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
-                                            res.json({
-                                                uid: uid,
-                                                username: username,
-                                                email: email,
-                                                token: token
-                                            });
-                                        }); // end startSession
-                                }); // end insert user
-                        }); // end hash
-                    }); // end gensalt
-            }); // end find existing users
-    }); // end auth/new
-
-
-
-
-
-
-
-
-
+                bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+                    delete data.password;
+                    password = null;
+                    if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
+                    client.query("INSERT INTO users (uid, username, email, pwhash, created) VALUES (default, $1, $2, $3, default) RETURNING uid;", [username, email, hashedPassword], function(err, result) {
+                        if (err) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
+                        var uid = result && result[0] && result[0].uid;
+                        startSession(uid, function(errSessionStart,token) {
+                            if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
+                            res.json({
+                                uid: uid,
+                                username: username,
+                                email: email,
+                                token: token
+                            });
+                        }); // end startSession
+                    }); // end insert user
+                }); // end hash
+            }); // end gensalt
+    }); // end find existing users
+}); // end /v3/auth/new
 
 
 app.post("/v2/feedback",
