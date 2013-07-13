@@ -540,68 +540,6 @@ app.post("/v2/feedback",
                     }); // each 
     });
 
-app.get("/v2/ev",
-    moveToBody,
-    function(req, res) {
-        var stimulus = req.body.s;
-        var lastServerToken = req.body.lastServerToken;
-        // TODO this is basically identical to /v2/txt...  refactor
-        var docs = [];
-        function makeQuery(stimulusId, lastServerToken) {
-            var q = {
-                $and: [
-                    match("s", stimulusId),
-                    {ev : {$exists: true}},// return anything that has text attached.
-                    //{type: {$neq: "stimulus"}},
-                ],
-            }; 
-            if (lastServerToken) {
-                q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
-            }
-            return q;
-        }
-        collection.find(makeQuery(stimulus, lastServerToken), function(err, cursor) {
-            if (err) { fail(res, 234234338, err); return; }
-
-            function onNext( err, doc) {
-                if (err) { fail(res, 987298793, err); return; }
-
-                if (doc) {
-                    docs.push(doc);
-                    cursor.nextObject(onNext);
-                } else {
-                    res.json({
-                        lastServerToken: lastServerToken,
-                        events: docs,
-                    });
-                }
-            }
-            cursor.nextObject( onNext);
-        });
-        return;
-    });
-
-app.post("/v2/ev",
-    express.bodyParser(),
-    auth,
-    function(req, res) {
-                var data = req.body;
-                data.events.forEach(function(ev){
-                    // TODO check the user & token database 
-                    //
-                    if (!ev.ev) { fail(res, 'expected ev field'); return; }
-
-                    if (data.u) {
-                        ev.u = ObjectId(data.u);
-                    }
-                    checkFields(ev);
-                    collection.insert(ev, function(err, cursor) {
-                        if (err) { fail(res, 324234335, err); return; }
-                        res.end();
-                    }); // insert
-                }); // each 
-    }); // closure
-
 app.get("/v2/txt",
     moveToBody,
     function(req, res) {
