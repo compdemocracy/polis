@@ -309,14 +309,13 @@ function match(key, s) {
     return {$or: variants};
 }
 
-    function reactionsPost(res, user, events) {
+    function reactionsPost(res, pid, cid, events) {
         if (!events.length) { fail(res, 324234327, err); return; }
-
         events.forEach(function(ev){
-            ev.u = ObjectId(user);
-
-            checkFields(ev);
-            collection.insert(ev, function(err, cursor) {
+            var oid = events.oid;
+            var vote = ev.vote;
+            if ("undefined" === typeof polisTypes.reactions[vote]) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
+            client.query("INSERT INTO votes (cid, pid, oid, vote, created) VALUES ($1, $2, $3, $4, default);", [cid, pid, oid, vote], function(err, result) {
                 if (err) { fail(res, 324234324, err); return; }
                 res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
             });
@@ -324,32 +323,11 @@ function match(key, s) {
     }
 
     function reactionsGet(res, params) {
-        function makeQuery() {
-            // $or [{type: push}, {type: pull},...]
-            var q = { $and: [
-                match("s", params.s),
-                {$or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; })}, 
-            ]};
-            if (params.to) {
-                q.$and.push({to: ObjectId(params.to)});
-            }
-            return q;
-        }
-        var users = [];
-        collection.find(makeQuery(), function(err, cursor) {
+        var cid = params.cid;
+        var pid = params.pid;
+        client.query("SELECT * FROM votes WHERE cid = ($1) && pid = ($2);", [cid, pid], function(err, docs) {
             if (err) { fail(res, 234234326, err); return; }
-
-            function onNext( err, doc) {
-                if (err) { fail(res, 987298783, err); return; }
-                if (doc) {
-                    users.push(doc);
-                    cursor.nextObject(onNext);
-                } else {
-                    res.json(users);
-                }
-            }
-
-            cursor.nextObject( onNext);
+            res.json(docs);
         });
     } // End reactionsGet
 
@@ -633,36 +611,18 @@ app.post("/v2/txt",
                 }); // each 
     });
 
-app.get("/v2/reactions/me",
-    moveToBody,
-    auth,
-    function(req, res) {
-            var data = req.body;
-            var events = [];
-            var findQuery = {$and: [
-                {u : ObjectId(data.u)},
-                match("s", data.s),
-                {$or: _.values(polisTypes.reactions).map( function(r) {return { type: r }; })}
-            ]};
-            collection.find(findQuery, function(err, cursor) {
-                if (err) { fail(res, 234234325, err); return; }
-
-                function onNext( err, doc) {
-                    if (err) { fail(res, 987298784, err); return; }
-
-                    if (doc) {
-                        events.push(doc);
-                        cursor.nextObject(onNext);
-                    } else {
-                        res.json({
-                            events: events
-                        });
-                    }
-                }
-
-                cursor.nextObject( onNext);
-            });
+app.get("/v3/reactions/me",
+moveToBody,
+auth,
+function(req, res) {
+    var data = req.body;
+    client.query("SELECT * FROM votes WHERE cid = ($1) && pid = ($2);", [data.cid, data.pid], function(err, docs) {
+        if (err) { fail(res, 234234325, err); return; }
+        res.json({
+            events: docs
+        });
     });
+});
 
 
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
@@ -751,20 +711,19 @@ app.get("/v2/selection",
         });
     });
 
-app.get("/v2/reactions",
+app.get("/v3/reactions",
     moveToBody,
     function(req, res) {
         reactionsGet(res, req.body);
     });
 
-app.post("/v2/reactions",
+app.post("/v3/reactions",
     express.bodyParser(),
     auth,
     function(req, res) {
             var data = req.body;
-            reactionsPost(res, data.u, data.events);
+            reactionsPost(res, data.pid, data.cid, data.events);
     });
-
 
 app.get('/v3/conversations',
 moveToBody,
