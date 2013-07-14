@@ -62,7 +62,6 @@ CREATE TABLE opinions(
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
 --CREATE SEQUENCE vote_ids START 1 OWNED BY conversations.cid;
 CREATE TABLE votes(
-    vid INTEGER NOT NULL,
     cid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     oid INTEGER NOT NULL,
@@ -70,8 +69,7 @@ CREATE TABLE votes(
     FOREIGN KEY (oid) REFERENCES opinions (oid),
     vote SMALLINT,
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE (oid, pid),
-    UNIQUE (vid)
+    UNIQUE (oid, pid)
 );
 
 CREATE TRIGGER pid_auto
