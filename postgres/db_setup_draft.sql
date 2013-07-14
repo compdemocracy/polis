@@ -49,7 +49,7 @@ CREATE INDEX participants_conv_idx ON participants USING btree (cid); -- speed u
 
  -- can't rely on SEQUENCEs since they may have gaps.. or maybe we can live with that? maybe we use a trigger incrementer like on the participants table? that would mean locking on a per conv basis, maybe ok for starters
 CREATE TABLE opinions(
-    oid INTEGER NOT NULL,
+    oid INTEGER, -- populated by trigger oid_auto
     cid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
@@ -57,6 +57,51 @@ CREATE TABLE opinions(
     FOREIGN KEY (cid, pid) REFERENCES participants (cid, pid),
     UNIQUE (oid)
 );
+
+CREATE TRIGGER oid_auto
+    BEFORE INSERT ON opinions
+    FOR EACH ROW WHEN (NEW.oid = 0)
+    EXECUTE PROCEDURE oid_auto();
+
+CREATE OR REPLACE FUNCTION oid_auto()
+    RETURNS trigger AS $$
+DECLARE
+    _magic_id constant int := 873791984; -- This is a magic key used for locking conversation row-sets within the opinions table. TODO keep track of these 
+    _opinion_id int;
+BEGIN
+    _opinion_id = NEW.oid;
+
+    -- Obtain an advisory lock on the opinions table, limited to this conversation
+    PERFORM pg_advisory_lock(_magic_id, _opinion_id);
+
+    SELECT  COALESCE(MAX(oid) + 1, 1)
+    INTO    NEW.oid
+    FROM    opinions
+    WHERE   oid = NEW.oid;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE OR REPLACE FUNCTION oid_auto_unlock()
+    RETURNS trigger AS $$
+DECLARE
+    _magic_id constant int := 873791984;
+    _opinion_id int;
+BEGIN
+    _opinion_id = NEW.oid;
+
+    -- Release the lock.
+    PERFORM pg_advisory_unlock(_magic_id, _opinion_id);
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql STRICT;
+
+CREATE TRIGGER oid_auto_unlock
+    AFTER INSERT ON opinions
+    FOR EACH ROW
+    EXECUTE PROCEDURE oid_auto_unlock();
 
 
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
