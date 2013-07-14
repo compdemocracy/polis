@@ -33,21 +33,21 @@ var Polis = function(params) {
     var domain = params.domain;
     var basePath = params.basePath;
 
-    var reactionsPath = "/v2/reactions";
-    var reactionsByMePath = "/v2/reactions/me";
-    var txtPath = "/v2/txt";
+    var reactionsPath = "/v3/reactions";
+    var reactionsByMePath = "/v3/reactions/me";
+    var txtPath = "/v3/opinions";
     var feedbackPath = "/v2/feedback";
-    var eventPath  = "/v2/ev";
 
     var createAccountPath = "/v3/auth/new";
-    var loginPath = "/v2/auth/login";
-    var deregisterPath = "/v2/auth/deregister";
+    var loginPath = "/v3/auth/login";
+    var deregisterPath = "/v3/auth/deregister";
     var pcaPath = "/v2/math/pca";
     var selectionPath = "/v2/selection";
 
     var conversationsPath = "/v3/conversations";
+    var participantsPath = "/v3/participants";
 
-    var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath, getConversations, createConversation];
+    var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath, conversationsPath, participantsPath];
 
     var logger = params.logger;
 
@@ -63,6 +63,7 @@ var Polis = function(params) {
     var personIdStore = params.personIdStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
+    var pidStore = params.pidStore;
     var authStores = [tokenStore, usernameStore, emailStore, personIdStore];
     function clearAuthStores() {
         authStores.forEach(function(x) {
@@ -191,22 +192,6 @@ var Polis = function(params) {
             }
         });
         return dfd.promise();
-    }
-
-    function submitEvent(data) {
-        return polisPost(eventPath, {
-            events: [data]
-        });
-    }
-
-    function submitStimulus(data) {
-        if (typeof data.txt !== 'string' || data.txt.length === 0) {
-            logger.error("fill out the txt field!");
-            return $.Deferred().reject().promise();
-        }
-        return polisPost(txtPath, {
-            events: [data]
-        });
     }
 
     function submitComment(txt, optionalSpecificSubStimulus) {
@@ -675,6 +660,21 @@ var Polis = function(params) {
         });
     }
 
+    function joinConversation() {
+        var pids = JSON.parse(pidStore.get() || "{}");
+        if (pids[currentStimulusId]) {
+            return new $.Deferred().resolve(pids[currentStimulusId]);
+        }
+        return polisPost(participantsPath, {
+            cid: currentStimulusId
+        }).pipe( function (pid) {
+            var pids = JSON.parse(pidStore.get() || "{}");
+            pids[currentStimulusId] = pid;
+            pidStore.set(JSON.stringify(pids), false);
+            return pid;
+        });
+    }
+
     return {
         authenticated: authenticated,
         authNew: authNew,
@@ -702,8 +702,8 @@ var Polis = function(params) {
         createConversation: createConversation, 
         getConversations: getConversations, 
 
-        submitEvent: submitEvent,
-        submitStimulus: submitStimulus,
+        joinConversation: joinConversation,
+
         submitFeedback: submitFeedback,
         submitComment: submitComment
     };

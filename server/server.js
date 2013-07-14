@@ -404,6 +404,31 @@ function(req, res) {
     });
 });
 
+app.post("/v3/participants",
+express.bodyParser(),
+auth,
+function(req, res) {
+    var data = req.body;
+
+    var cid = data.cid;
+    var uid = data.uid;
+    client.query("INSERT INTO participants (pid, cid, uid, created) VALUES (0, $1, $2, default) RETURNING pid;", [cid, uid], function(err, docs) {
+        if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
+        var pid = docs && docs[0] && docs[0].pid;
+        res.json({
+            pid: pid,
+        });
+    });
+});
+
+// client should really supply this
+//function getParticipantId(uid, cid, callback) {
+    //client.query("SELECT pid FROM participants WHERE uid = ($1) && cid = ($2);", [uid, cid], function(err, docs) {
+        //if (err) { callback(err); return; }
+        //var pid = docs && docs[0] && docs[0].pid;
+        //callback(null, pid);
+    //});
+//}
 
 app.post("/v3/auth/login",
 express.bodyParser(),
@@ -518,98 +543,62 @@ app.post("/v2/feedback",
                     }); // each 
     });
 
-app.get("/v2/txt",
-    moveToBody,
-    function(req, res) {
-        var stimulus = req.body.s;
-        var ids = req.body.ids;
-        var lastServerToken = req.body.lastServerToken;
-        function makeQuery(stimulusId, lastServerToken) {
-            var q = {
-                $and: [
-                    {$or : [
-                        match("s", stimulusId),
-                    //    {_id: ObjectId(stimulusId)},// Hmm, lets include the stimulus itself.  We'll need to fetch the "lastServerToken" so we don't redeliver things.
-                    ]}, 
-                    {txt : {$exists: true}},// return anything that has text attached.
-                    //{type: {$neq: "stimulus"}},
-                ],
-            }; 
-            if (lastServerToken) {
-                q.$and.push({_id: {$gt: ObjectId(lastServerToken)}});
+app.get("/v3/opinions",
+moveToBody,
+function(req, res) {
+    var cid = req.body.cid;
+    var ids = req.body.ids;
+    var lastServerToken = req.body.lastServerToken;
+
+    function handleResult(err, docs) {
+        if (err) { fail(res, 234234332, err); return; }
+            if (docs.length) {
+                res.json({
+                    lastServerToken: lastServerToken,
+                    events: docs,
+                });
+            } else {
+                res.writeHead(304, {
+                })
+                res.end();
             }
-            return q;
         }
-        function makeGetCommentByIdQuery(ids) {
-            ids = ids.split(',');
-            return {$or : 
-                ids.map(function(id) { return { _id: ObjectId(id)}; })
+    }
+    ids = ids.split(',');
+    if (!!ids) {
+        client.query("SELECT * FROM opinions WHERE cid = ($1) && created > ($2);", [cid, lastServerToken], handleResult);
+    } else {
+        var i = 1;
+        var ORs = "( " + ids.map(function(id) { return "oid = ($" + (i++) + ")"; }) + " )";
+        ids.push(cid);
+        client.query("SELECT * FROM opinions WHERE "+ ORs +" && cid = ($"+ (i++) + ");", ids], handleResult);
+    }
+});
+
+app.post("/v3/opinions",
+express.bodyParser(),
+auth,
+function(req, res) {
+    var data = req.body;
+    data.events.forEach(function(ev){
+        if (!ev.txt) { fail(res, 'expected txt field'); return; }
+        var cid = data.cid;
+        var pid = data.pid;
+        var txt = data.txt;
+        client.query("INSERT INTO opinions (oid, pid, cid, txt, created) VALUES (0, $1, $2, $3, default);", [pid, cid, txt], function(err, docs) {
+            if (err) { fail(res, 324234331, err); return; }
+            var oid = result && result[0] && result[0].oid;
+            // Since the user posted it, we'll submit an auto-pull for that.
+            var autoPull = {
+                cid: cid,
+                type: polisTypes.reactions.pull,
+                oid: oid,
+                pid: pid
             };
-        }
-
-        var docs = [];
-        var q = ids ? makeGetCommentByIdQuery(ids) : makeQuery(stimulus, lastServerToken);
-        collection.find(q, function(err, cursor) {
-            if (err) { fail(res, 234234332, err); return; }
-
-            var foundSome = false; // TODO I think we can just use "toArray"
-            function onNext( err, doc) {
-                if (err) { fail(res, 987298787, err); return; }
-
-                if (doc) {
-                    foundSome = true;
-                    docs.push(doc);
-                    cursor.nextObject(onNext);
-                } else {
-                    if (foundSome) {
-                        res.json({
-                            lastServerToken: lastServerToken,
-                            events: docs,
-                        });
-                    } else {
-                        res.writeHead(304, {
-                        })
-                        res.end();
-                    }
-                }
-            }
-
-            cursor.nextObject( onNext);
-        });
-    });
-
-app.post("/v2/txt",
-    express.bodyParser(),
-    auth,
-    function(req, res) {
-                var data = req.body;
-                data.events.forEach(function(ev){
-                    // TODO check the user & token database 
-                    //
-                    if (!ev.txt) { fail(res, 'expected txt field'); return; }
-
-                    var ev2 = _.extend({}, ev);
-                    if (data.u) {
-                        ev2.u = ObjectId(data.u);
-                    }
-
-                    checkFields(ev2);
-                    collection.insert(ev2, function(err, docs) {
-                        if (err) { fail(res, 324234331, err); return; }
-
-                        // Since the user posted it, we'll submit an auto-pull for that.
-                        docs.forEach( function(newComment) {
-                            var autoPull = {
-                                s: ev2.s,
-                                type: polisTypes.reactions.pull,
-                                to: newComment._id,
-                                u: ev2.u,
-                            };
-                            reactionsPost(res, data.u, [autoPull]);
-                        }); // auto pull
-                    }); // insert
-                }); // each 
-    });
+            reactionsPost(res, pid, cid, [autoPull]);
+        }); // insert
+    }); // each 
+}); // end POST /v3/opinions
 
 app.get("/v3/reactions/me",
 moveToBody,

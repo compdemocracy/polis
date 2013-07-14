@@ -294,6 +294,7 @@ $(document).ready(function() {
         emailStore: PolisStorage.email,
         usernameStore: PolisStorage.username,
         personIdStore: PolisStorage.personId,
+        pidStore: PolisStorage.pids,
         //commentsStore: PolisStorage.comments,
         //reactionsByMeStore: PolisStorage.reactionsByMe,
         utils: window.utils,
