@@ -1,4 +1,4 @@
-var Polis = function(params) {
+window.Polis = function(params) {
 
     var polisTypes = {
         reactions: {
