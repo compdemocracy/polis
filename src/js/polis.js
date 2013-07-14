@@ -84,7 +84,7 @@ window.Polis = function(params) {
 
     function makeEmptyComment() {
         return {
-            s: currentStimulusId,
+            cid: currentStimulusId,
             _id: "",
             txt: "There are no more comments for this story."
         };
@@ -98,7 +98,7 @@ window.Polis = function(params) {
         var dfd = $.Deferred();
         var stim = optionalStimulusId || currentStimulusId;
         var params = {
-            s: stim
+            cid: stim
         };
         polisGet(reactionsByMePath, params).done( function(data) {
             var reactions = data.events;
@@ -108,7 +108,7 @@ window.Polis = function(params) {
                 return;
             } 
             reactions.forEach(function(r) {
-                markReaction(r.to, r.type, stim);
+                markReaction(r.to, r.vote, stim);
             });
             dfd.resolve();
         }, dfd.reject);
@@ -120,8 +120,8 @@ window.Polis = function(params) {
         var stim = optionalStimulusId || currentStimulusId;
         var dfd = $.Deferred();
         var params = {
-            lastServerToken: lastServerTokenForComments,
-            s: stim
+            lastServerToken: lastServerTokenForComments || 0,
+            cid: stim
             //?
         };
         polisGet(txtPath, params).then( function(data) {
@@ -200,7 +200,7 @@ window.Polis = function(params) {
             return $.Deferred().reject().promise();
         }
         var ev = {
-            s: currentStimulusId,
+            cid: currentStimulusId,
             txt: txt
         };
         // This allows for comments against other comments.
@@ -241,20 +241,20 @@ window.Polis = function(params) {
     function push(commentId) {
         markReaction(commentId, "push");
         return react({
-            type: polisTypes.reactions.push,
+            vote: polisTypes.reactions.push,
             to: commentId
         });
     }
 
     function react(params) {
         if (params.s && params.s !== currentStimulusId) {
-            if (params.type !== polisTypes.reactions.see) {
+            if (params.vote !== polisTypes.reactions.see) {
                 console.error('wrong stimulus');
             }
         }
         return polisPost(reactionsPath, { 
             events: [ $.extend({}, params, {
-                s: currentStimulusId
+                cid: currentStimulusId
             }) ]
         });
     }
@@ -262,7 +262,7 @@ window.Polis = function(params) {
     function pull(commentId) {
         markReaction(commentId, "pull");
         return react({
-            type: polisTypes.reactions.pull,
+            vote: polisTypes.reactions.pull,
             to: commentId
         });
     }
@@ -270,7 +270,7 @@ window.Polis = function(params) {
     // optionalSpecificSubStimulus (aka commentId)
     function see(optionalSpecificSubStimulus) {
         var ev = {
-            type: polisTypes.reactions.see
+            vote: polisTypes.reactions.see
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
@@ -281,7 +281,7 @@ window.Polis = function(params) {
 
     function pass(optionalSpecificSubStimulus) {
         var ev = {
-            type: polisTypes.reactions.pass
+            vote: polisTypes.reactions.pass
         }; 
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
@@ -340,8 +340,8 @@ window.Polis = function(params) {
 
     function observeStimulus(newStimulusId) {
         currentStimulusId = newStimulusId;
-        lastServerTokenForPCA = "";
-        lastServerTokenForComments = "";
+        lastServerTokenForPCA = 0;
+        lastServerTokenForComments = 0;
         return see();
     }
 
@@ -415,8 +415,8 @@ window.Polis = function(params) {
 
     function getPca() {
         return polisGet(pcaPath, {
-            lastServerToken: lastServerTokenForPCA,
-            s: currentStimulusId
+            lastServerToken: lastServerTokenForPCA || 0,
+            cid: currentStimulusId
         }).then( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
@@ -473,7 +473,7 @@ window.Polis = function(params) {
 
     function submitFeedback(data) {
         data = $.extend({}, data, {
-            s: currentStimulusId,
+            cid: currentStimulusId,
             type: "feedback"
         });
         return polisPost(feedbackPath, {
@@ -569,8 +569,8 @@ window.Polis = function(params) {
 
         var comments;
         return polisGet(pcaPath, { 
-            lastServerToken: "",
-            s: currentStimulusId
+            lastServerToken: 0,
+            cid: currentStimulusId
         }).pipe( function(pcaData) {
             comments = pcaData.pca.principal_components;
             var keys = _.keys(comments);
@@ -598,14 +598,14 @@ window.Polis = function(params) {
 
     function getCommentsForSelection(listOfUserIds) {
         return polisGet(selectionPath, {
-            s: currentStimulusId,
+            cid: currentStimulusId,
             users: listOfUserIds.join(',')
         });
     }
 
     function getReactionsToComment(commentId) {
         return polisGet(reactionsPath, {
-            s: currentStimulusId,
+            cid: currentStimulusId,
             to: commentId
         });
     }
@@ -655,7 +655,7 @@ window.Polis = function(params) {
         push: push,
         pull: pull,
         pass: pass,
-        see: see,
+        //see: see,
         stories: stories,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,

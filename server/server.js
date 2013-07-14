@@ -115,7 +115,7 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
     redisForAuth.get(sessionToken, function(errGetToken, replies) {
         if (errGetToken) { console.error("token_fetch_error"); cb(500); return; }
         if (!replies) { console.error("token_expired_or_missing"); cb(403); return; }
-        cb(null, {u: replies});
+        cb(null, {uid: replies});
     });
 }
 
@@ -217,14 +217,14 @@ function postgresQuery() {
 function auth(req, res, next) {
     var token = req.body.token;
     if (!token) { next(400); return; }
-    if (req.body.u) { next(400); return; } // shouldn't be in the post
+    if (req.body.uid) { next(400); return; } // shouldn't be in the post
     getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
         if (err) { next(err); return;}
          // don't want to pass the token around
         if (req.body) delete req.body.token;
         if (req.query) delete req.query.token;
 
-        req.body.u = fetchedUserInfo.u;
+        req.body.uid = fetchedUserInfo.uid;
         next(null);
     });
 }
@@ -237,6 +237,11 @@ function moveToBody(req, res, next) {
     }
     next();
 }
+function logPath(req, res, next) {
+    console.log("URL " + req.url);
+    next();
+}
+    
 
 function makeHash(ary) {
     return _.object(ary, ary.map(function(){return 1;}));
@@ -299,12 +304,12 @@ function checkFields(ev) {
     }
 }
 // helper for migrating off of mongo style identifiers
-function match(key, s) {
+function match(key, cid) {
     var variants = [{}];
-    variants[0][key] = s;
-    if (s.length === 24) {
+    variants[0][key] = cid;
+    if (cid.length === 24) {
         variants.push({});
-        variants[1][key] = ObjectId(s);
+        variants[1][key] = ObjectId(cid);
     }
     return {$or: variants};
 }
@@ -313,8 +318,8 @@ function match(key, s) {
         if (!events.length) { fail(res, 324234327, err); return; }
         events.forEach(function(ev){
             var oid = events.oid;
-            var vote = ev.vote;
-            if ("undefined" === typeof polisTypes.reactions[vote]) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
+            var vote = polisTypes.reactions[ev.vote];
+            if ("undefined" === typeof vote) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
             client.query("INSERT INTO votes (cid, pid, oid, vote, created) VALUES ($1, $2, $3, $4, default);", [cid, pid, oid, vote], function(err, result) {
                 if (err) { fail(res, 324234324, err); return; }
                 res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
@@ -346,12 +351,13 @@ function match(key, s) {
     app.use(express.logger());
 
 app.get("/v2/math/pca",
+    logPath,
     moveToBody,
     function(req, res) {
-        var stimulus = req.body.s;
+        var stimulus = req.body.cid;
         var lastServerToken = req.body.lastServerToken || "000000000000000000000000";
         collectionOfPcaResults.find({$and :[
-            match("s", stimulus),
+            match("cid", stimulus),
             {lastServerToken: {$gt: ObjectId(lastServerToken)}},
             ]}, function(err, cursor) {
             if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
@@ -394,6 +400,7 @@ app.get("/v2/math/pca",
     });
 
 app.post("/v3/auth/deregister",
+logPath,
 express.bodyParser(),
 auth,
 function(req, res) {
@@ -405,6 +412,7 @@ function(req, res) {
 });
 
 app.post("/v3/participants",
+logPath,
 express.bodyParser(),
 auth,
 function(req, res) {
@@ -414,7 +422,7 @@ function(req, res) {
     var uid = data.uid;
     client.query("INSERT INTO participants (pid, cid, uid, created) VALUES (0, $1, $2, default) RETURNING pid;", [cid, uid], function(err, docs) {
         if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
-        var pid = docs && docs[0] && docs[0].pid;
+        var pid = docs && docs[0];
         res.json({
             pid: pid,
         });
@@ -431,6 +439,7 @@ function(req, res) {
 //}
 
 app.post("/v3/auth/login",
+logPath,
 express.bodyParser(),
 function(req, res) {
     var data = req.body;
@@ -463,6 +472,7 @@ function(req, res) {
 }); // /v3/auth/login
 
 app.post("/v3/auth/new",
+logPath,
 express.bodyParser(),
 function(req, res) {
     var data = req.body;
@@ -478,12 +488,12 @@ function(req, res) {
                 return;
             }
 
-            var uid = result && result[0] && result[0].uid;
+            var uid = result && result[0];
             startSession(uid, function(errSessionStart,token) {
                 if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
                 var response = result.rows && result.rows[0]
                 res.status(200).json({
-                    u: uid,
+                    uid: uid,
                     token: token
                 });
             });
@@ -510,7 +520,7 @@ function(req, res) {
                     if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
                     client.query("INSERT INTO users (uid, username, email, pwhash, created) VALUES (default, $1, $2, $3, default) RETURNING uid;", [username, email, hashedPassword], function(err, result) {
                         if (err) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
-                        var uid = result && result[0] && result[0].uid;
+                        var uid = result && result[0];
                         startSession(uid, function(errSessionStart,token) {
                             if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
                             res.json({
@@ -534,73 +544,80 @@ app.post("/v2/feedback",
                 var data = req.body;
                     data.events.forEach(function(ev){
                         if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
-                        if (data.u) ev.u = ObjectId(data.u); 
+                        if (data.uid) ev.uid = ObjectId(data.uid); 
                         checkFields(ev);
                         collection.insert(ev, function(err, cursor) {
-                            if (err) { fail(res, 324234331, err); return; }
+                            if (err) { fail(res, 324234332, err); return; }
                             res.end();
                         }); // insert
                     }); // each 
     });
 
 app.get("/v3/opinions",
+logPath,
 moveToBody,
 function(req, res) {
+console.dir(req);
     var cid = req.body.cid;
     var ids = req.body.ids;
     var lastServerToken = req.body.lastServerToken;
+    ids = ids && ids.split(',');
 
     function handleResult(err, docs) {
         if (err) { fail(res, 234234332, err); return; }
-            if (docs.length) {
-                res.json({
-                    lastServerToken: lastServerToken,
-                    events: docs,
-                });
-            } else {
-                res.writeHead(304, {
-                })
-                res.end();
-            }
+        if (docs.length) {
+            res.json({
+                lastServerToken: lastServerToken,
+                events: docs,
+            });
+        } else {
+            res.writeHead(304, {
+            })
+            res.end();
         }
     }
-    ids = ids.split(',');
+console.log('mike ' + cid);
+console.dir(ids);
+console.dir(req.body);
     if (!!ids) {
-        client.query("SELECT * FROM opinions WHERE cid = ($1) && created > ($2);", [cid, lastServerToken], handleResult);
-    } else {
         var i = 1;
         var ORs = "( " + ids.map(function(id) { return "oid = ($" + (i++) + ")"; }) + " )";
         ids.push(cid);
-        client.query("SELECT * FROM opinions WHERE "+ ORs +" && cid = ($"+ (i++) + ");", ids], handleResult);
+        client.query("SELECT * FROM opinions WHERE "+ ORs +" && cid = ($"+ (i++) + ");", ids, handleResult);
+    } else {
+        //client.query("SELECT * FROM opinions WHERE cid = ($1) && created > (SELECT to_timestamp($2));", [cid, lastServerToken], handleResult);
+        client.query("SELECT * FROM opinions WHERE cid = ($1);", [cid], handleResult);
     }
-});
+}); // end GET /v3/opinions
 
 app.post("/v3/opinions",
+logPath,
 express.bodyParser(),
 auth,
 function(req, res) {
     var data = req.body;
     data.events.forEach(function(ev){
         if (!ev.txt) { fail(res, 'expected txt field'); return; }
-        var cid = data.cid;
+        var cid = Number(data.cid);
         var pid = data.pid;
         var txt = data.txt;
         client.query("INSERT INTO opinions (oid, pid, cid, txt, created) VALUES (0, $1, $2, $3, default);", [pid, cid, txt], function(err, docs) {
             if (err) { fail(res, 324234331, err); return; }
-            var oid = result && result[0] && result[0].oid;
+            var oid = docs && docs[0] && docs[0].oid;
             // Since the user posted it, we'll submit an auto-pull for that.
             var autoPull = {
                 cid: cid,
-                type: polisTypes.reactions.pull,
+                vote: polisTypes.reactions.pull,
                 oid: oid,
                 pid: pid
             };
-            reactionsPost(res, pid, cid, [autoPull]);
+            //reactionsPost(res, pid, cid, [autoPull]);
         }); // insert
     }); // each 
 }); // end POST /v3/opinions
 
 app.get("/v3/reactions/me",
+logPath,
 moveToBody,
 auth,
 function(req, res) {
@@ -616,9 +633,10 @@ function(req, res) {
 
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
 app.get("/v2/selection",
+    logPath,
     moveToBody,
     function(req, res) {
-        var stimulus = req.body.s;
+        var stimulus = req.body.cid;
         if (!req.body.users) {
             res.json([]);
             return;
@@ -626,9 +644,9 @@ app.get("/v2/selection",
         function makeGetReactionsByUserQuery(users, stimulus) {
             users = users.split(',');
             var q = { $and: [
-                match("s", stimulus),
-                {$or: [{type: polisTypes.reactions.pull}, {type: polisTypes.reactions.push}]},
-                {$or: users.map(function(id) { return { u: ObjectId(id)}; })},
+                match("cid", stimulus),
+                {$or: [{vote: polisTypes.reactions.pull}, {vote: polisTypes.reactions.push}]},
+                {$or: users.map(function(pid) { return { pid: ObjectId(pid)}; })},
                 {to: {$exists: true}}
                 ]
             };
@@ -643,9 +661,9 @@ app.get("/v2/selection",
                 for (var i = 0; i < reactions.length; i++) {
                     if (reactions[i].to) { // TODO why might .to be undefined?
                         var count = commentIdCounts[reactions[i].to];
-                        if (reactions[i].type === polisTypes.reactions.pull) {
+                        if (reactions[i].vote === polisTypes.reactions.pull) {
                             commentIdCounts[reactions[i].to] = count + 1 || 1;
-                        } else if (reactions[i].type === polisTypes.reactions.push) {
+                        } else if (reactions[i].vote === polisTypes.reactions.push) {
                             // push
                             commentIdCounts[reactions[i].to] = count - 1 || -1;
                         } else {
@@ -662,7 +680,7 @@ app.get("/v2/selection",
                 commentIdCounts = commentIdCounts.slice(0, 10);
                 var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
                 var qq = { $and: [
-                    match("s", stimulus),
+                    match("cid", stimulus),
                     {txt: {$exists: true}},
                     {$or : commentIds}
                     ]
@@ -701,20 +719,23 @@ app.get("/v2/selection",
     });
 
 app.get("/v3/reactions",
-    moveToBody,
-    function(req, res) {
-        reactionsGet(res, req.body);
-    });
+logPath,
+moveToBody,
+function(req, res) {
+    reactionsGet(res, req.body);
+});
 
 app.post("/v3/reactions",
-    express.bodyParser(),
-    auth,
-    function(req, res) {
-            var data = req.body;
-            reactionsPost(res, data.pid, data.cid, data.events);
-    });
+logPath,
+express.bodyParser(),
+auth,
+function(req, res) {
+        var data = req.body;
+        //reactionsPost(res, data.pid, data.cid, data.events);
+});
 
 app.get('/v3/conversations',
+logPath,
 moveToBody,
 function(req, res) {
   var uid = req.body.uid || 1000;
@@ -728,7 +749,10 @@ function(req, res) {
   });
 });
 
-app.post('/v3/conversations', moveToBody, function(req, res) {
+app.post('/v3/conversations',
+logPath,
+moveToBody,
+function(req, res) {
   var uid = req.body.uid || 1000;
   var title = req.body.title || "";
   var body = req.body.body || "";
@@ -743,7 +767,9 @@ app.post('/v3/conversations', moveToBody, function(req, res) {
   });
 });
 
-app.get('/v3/users', function(req, res) {
+app.get('/v3/users',
+logPath,
+function(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
     var query = client.query('SELECT * FROM users');
     var responseText = "";
@@ -807,7 +833,9 @@ function staticFile(req, res) {
     });
 }
 
-app.get('/v3/users/new', function(req, res) {
+app.get('/v3/users/new',
+logPath,
+function(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
     client.query('INSERT INTO users VALUES(default) returning uid', function(err, result) {
         if (err) {

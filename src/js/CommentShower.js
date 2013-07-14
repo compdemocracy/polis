@@ -56,7 +56,7 @@ var CommentShower = function(params) {
 
         // attach event listeners to buttons, and have them trigger onPushClicked, onPullClicked COMPLETED
 
-        serverClient.see(currentCommentId);
+        //serverClient.see(currentCommentId);
         shownCallbacks.fire(currentCommentId);
     }
 
