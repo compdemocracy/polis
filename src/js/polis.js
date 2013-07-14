@@ -553,45 +553,6 @@ window.Polis = function(params) {
         return tree.toArray();
     }
 
-    // Setup mock PCA data
-    (function() {
-        var dataFromPca= parseTree(survey200);
-        console.log(dataFromPca.length);
-
-        var alreadyInserted = []; // for mutation demo
-
-        // Add people to the PcaVis
-        
-/*
-        setInterval(function(){
-          if  (dataFromPca.length === 0) {
-            return;
-          }
-          var temp = dataFromPca.shift();
-          personUpdateCallbacks.fire(temp);
-          alreadyInserted.push(temp); // for mutation demo
-        }, 10);
-*/
-        
-        setTimeout(getPca,0);
-        setInterval(function() {
-            getPca();
-        }, 5000);
-
-        // for mutation demo
-/*
-        setInterval(function() {
-            for (var i = 0; i < alreadyInserted.length; i++) {
-            var mutateThis = alreadyInserted[i];
-            if (isPersonNode(mutateThis)) {
-                mutateThis.data.projection[0] = mutateThis.data.projection[0] + 1.1;//*(Math.random()-0.5);
-                mutateThis.data.projection[1] = mutateThis.data.projection[1] + 1.1;//*(Math.random()-0.5);
-                personUpdateCallbacks.fire(mutateThis);
-            }
-            }
-        }, 1000);
-*/
-    }()); // end setup mock PCA data
 
     function getCommentsForProjection(params) {
         var ascending = params.sort > 0;
@@ -674,6 +635,11 @@ window.Polis = function(params) {
             return pid;
         });
     }
+
+    setTimeout(getPca,0);
+    setInterval(function() {
+        getPca();
+    }, 5000);
 
     return {
         authenticated: authenticated,
