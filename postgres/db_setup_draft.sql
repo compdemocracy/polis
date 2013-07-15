@@ -4,7 +4,8 @@ CREATE TABLE users(
     -- TODO After testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
     uid INTEGER UNIQUE DEFAULT CEIL(RANDOM() * 100),
-    name VARCHAR(128),
+    given_name VARCHAR(64),
+    family_name VARCHAR(64),
     pwhash VARCHAR(128),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     username VARCHAR(128),
