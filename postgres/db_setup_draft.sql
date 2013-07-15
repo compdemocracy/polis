@@ -28,99 +28,106 @@ CREATE TABLE users(
 CREATE TABLE conversations(
     -- TODO after testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
-    cid INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 100)),
+    zid INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 100)),
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     -- owner_group_id ?? 
     title VARCHAR(1000), -- default as time in the presentation layer
     body VARCHAR(50000),
-    UNIQUE(cid)
+    -- userIsAdmin (found in permissions table)
+    UNIQUE(zid)
 );
 
 CREATE TABLE participants(
-    pid INTEGER, -- populated by trigger pid_auto
-    cid INTEGER NOT NULL REFERENCES conversations(cid),
+    pid INTEGER NOT NULL, -- populated by trigger pid_auto
     uid INTEGER NOT NULL REFERENCES users(uid),
+    zid INTEGER NOT NULL REFERENCES conversations(zid),
+    -- server admin bool
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE (pid, cid),
-    UNIQUE (cid, uid) 
+    UNIQUE (zid, pid),
+    UNIQUE (zid, uid) 
 );
 
-CREATE INDEX participants_conv_idx ON participants USING btree (cid); -- speed up the auto-increment trigger
+--CREATE TABLE permissions(
+    --uid INTEGER NOT NULL REFERENCES users(uid),
+    --zid INTEGER NOT NULL REFERENCES conversations(zid),
+    --rwx?
+    --admin bool
+--);
+
+
+CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed up the auto-increment trigger
 
  -- can't rely on SEQUENCEs since they may have gaps.. or maybe we can live with that? maybe we use a trigger incrementer like on the participants table? that would mean locking on a per conv basis, maybe ok for starters
-CREATE TABLE opinions(
-    oid INTEGER, -- populated by trigger oid_auto
-    cid INTEGER NOT NULL,
+CREATE TABLE comments(
+    tid INTEGER NOT NULL, -- populated by trigger tid_auto
+    zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     txt VARCHAR(1000) NOT NULL,
-    FOREIGN KEY (cid, pid) REFERENCES participants (cid, pid),
-    UNIQUE (oid)
+    FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
 
-CREATE TRIGGER oid_auto
-    BEFORE INSERT ON opinions
-    FOR EACH ROW WHEN (NEW.oid = 0)
-    EXECUTE PROCEDURE oid_auto();
-
-CREATE OR REPLACE FUNCTION oid_auto()
+CREATE OR REPLACE FUNCTION tid_auto()
     RETURNS trigger AS $$
 DECLARE
-    _magic_id constant int := 873791984; -- This is a magic key used for locking conversation row-sets within the opinions table. TODO keep track of these 
-    _opinion_id int;
+    _magic_id constant int := 873791984; -- This is a magic key used for locking conversation row-sets within the comments table. TODO keep track of these 
+    _conversation_id int;
 BEGIN
-    _opinion_id = NEW.oid;
+    _conversation_id = NEW.zid;
 
-    -- Obtain an advisory lock on the opinions table, limited to this conversation
-    PERFORM pg_advisory_lock(_magic_id, _opinion_id);
+    -- Obtain an advisory lock on the comments table, limited to this conversation
+    PERFORM pg_advisory_lock(_magic_id, _conversation_id);
 
-    SELECT  COALESCE(MAX(oid) + 1, 1)
-    INTO    NEW.oid
-    FROM    opinions
-    WHERE   oid = NEW.oid;
+    SELECT  COALESCE(MAX(tid) + 1, 0) -- Start with comment id of 0
+    INTO    NEW.tid
+    FROM    comments
+    WHERE   zid = NEW.zid;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE OR REPLACE FUNCTION oid_auto_unlock()
+CREATE TRIGGER tid_auto
+    BEFORE INSERT ON comments
+    FOR EACH ROW -- WHEN (NEW.tid = 0 || NEW.tid = null)
+    EXECUTE PROCEDURE tid_auto();
+
+CREATE OR REPLACE FUNCTION tid_auto_unlock()
     RETURNS trigger AS $$
 DECLARE
     _magic_id constant int := 873791984;
-    _opinion_id int;
+    _conversation_id int;
 BEGIN
-    _opinion_id = NEW.oid;
+    _conversation_id = NEW.zid;
 
     -- Release the lock.
-    PERFORM pg_advisory_unlock(_magic_id, _opinion_id);
+    PERFORM pg_advisory_unlock(_magic_id, _conversation_id);
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql STRICT;
 
-CREATE TRIGGER oid_auto_unlock
-    AFTER INSERT ON opinions
+CREATE TRIGGER tid_auto_unlock
+    AFTER INSERT ON comments
     FOR EACH ROW
-    EXECUTE PROCEDURE oid_auto_unlock();
+    EXECUTE PROCEDURE tid_auto_unlock();
 
 
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
---CREATE SEQUENCE vote_ids START 1 OWNED BY conversations.cid;
+--CREATE SEQUENCE vote_ids START 1 OWNED BY conversations.zid;
 CREATE TABLE votes(
-    cid INTEGER NOT NULL,
+    zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
-    oid INTEGER NOT NULL,
-    FOREIGN KEY (pid, cid) REFERENCES participants (pid, cid),
-    FOREIGN KEY (oid) REFERENCES opinions (oid),
+    tid INTEGER NOT NULL,
     vote SMALLINT,
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE (oid, pid)
+    UNIQUE (tid, pid)
 );
 
 CREATE TRIGGER pid_auto
     BEFORE INSERT ON participants
-    FOR EACH ROW WHEN (NEW.pid = 0)
+    FOR EACH ROW -- WHEN (NEW.pid = 0 || NEW.pid = null)
     EXECUTE PROCEDURE pid_auto();
 
 CREATE OR REPLACE FUNCTION pid_auto()
@@ -129,15 +136,15 @@ DECLARE
     _magic_id constant int := 873791983; -- This is a magic key used for locking conversation row-sets within the participants table. TODO keep track of these 
     _conversation_id int;
 BEGIN
-    _conversation_id = NEW.cid;
+    _conversation_id = NEW.zid;
 
     -- Obtain an advisory lock on the participants table, limited to this conversation
     PERFORM pg_advisory_lock(_magic_id, _conversation_id);
 
-    SELECT  COALESCE(MAX(pid) + 1, 1)
+    SELECT  COALESCE(MAX(pid) + 1, 0) -- Start with comment id of 0
     INTO    NEW.pid
     FROM    participants
-    WHERE   cid = NEW.cid;
+    WHERE   zid = NEW.zid;
 
     RETURN NEW;
 END;
@@ -149,7 +156,7 @@ DECLARE
     _magic_id constant int := 873791983;
     _conversation_id int;
 BEGIN
-    _conversation_id = NEW.cid;
+    _conversation_id = NEW.zid;
 
     -- Release the lock.
     PERFORM pg_advisory_unlock(_magic_id, _conversation_id);
@@ -187,15 +194,15 @@ BEGIN;
     --insert into memberships (uid, gid) values (1002, 11002);
 COMMIT;
 
-insert into conversations (cid, owner, created, title, body) values (45342, 1000, default, 'Legalization', 'Seattle recently ...');
-insert into conversations (cid, owner, created, title, body) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....');
+insert into conversations (zid, owner, created, title, body) values (45342, 1000, default, 'Legalization', 'Seattle recently ...');
+insert into conversations (zid, owner, created, title, body) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....');
     
 BEGIN;
-    INSERT INTO participants (cid, uid) VALUES ( 45342, 1001);
+    INSERT INTO participants (zid, uid) VALUES ( 45342, 1001);
 COMMIT;
 
 BEGIN;
-    INSERT INTO participants (cid, uid) VALUES ( 45342, 1002);
+    INSERT INTO participants (zid, uid) VALUES ( 45342, 1002);
 COMMIT;
 
 
@@ -209,9 +216,9 @@ COMMIT;
      --bar as (insert into users VALUES (default) returning uid)
      --insert into memberships (uid, gid) select uid, gid from join(bar.uid, foo.gid);
 --
-     --select cid from conversations
-         --where cid in (
-            --select cid from foo
+     --select zid from conversations
+         --where zid in (
+            --select zid from foo
         --);
 --
 --
