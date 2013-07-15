@@ -35,7 +35,7 @@ window.Polis = function(params) {
 
     var reactionsPath = "/v3/reactions";
     var reactionsByMePath = "/v3/reactions/me";
-    var txtPath = "/v3/opinions";
+    var commentsPath = "/v3/comments";
     var feedbackPath = "/v2/feedback";
 
     var createAccountPath = "/v3/auth/new";
@@ -47,7 +47,7 @@ window.Polis = function(params) {
     var conversationsPath = "/v3/conversations";
     var participantsPath = "/v3/participants";
 
-    var authenticatedCalls = [reactionsByMePath, reactionsPath, txtPath, deregisterPath, conversationsPath, participantsPath];
+    var authenticatedCalls = [reactionsByMePath, reactionsPath, commentsPath, deregisterPath, conversationsPath, participantsPath];
 
     var logger = params.logger;
 
@@ -84,7 +84,7 @@ window.Polis = function(params) {
 
     function makeEmptyComment() {
         return {
-            cid: currentStimulusId,
+            zid: currentStimulusId,
             _id: "",
             txt: "There are no more comments for this story."
         };
@@ -98,16 +98,17 @@ window.Polis = function(params) {
         var dfd = $.Deferred();
         var stim = optionalStimulusId || currentStimulusId;
         var params = {
-            cid: stim
+            pid: getPid(),
+            zid: stim
         };
         polisGet(reactionsByMePath, params).done( function(data) {
-            var reactions = data.events;
-            if (!reactions) {
+            var votes = data.votes;
+            if (!votes) {
                 logger.log('no comments for stimulus');
                 dfd.resolve(0);
                 return;
             } 
-            reactions.forEach(function(r) {
+            votes.forEach(function(r) {
                 markReaction(r.to, r.vote, stim);
             });
             dfd.resolve();
@@ -121,16 +122,17 @@ window.Polis = function(params) {
         var dfd = $.Deferred();
         var params = {
             lastServerToken: lastServerTokenForComments || 0,
-            cid: stim
+            not_pid: getPid(), // don't want to see own coments
+            zid: stim
             //?
         };
-        polisGet(txtPath, params).then( function(data) {
-                var evs = data && data.events;
+        polisGet(commentsPath, params).then( function(data) {
+                var evs = data && data.comments;
                 if (!evs) {
                     logger.log('no new comments for stimulus');
                     dfd.resolve(0);
                 } else {
-                    var IDs = _.pluck(evs, "_id");
+                    var IDs = _.pluck(evs, "tid");
                     var commentStore = getCommentStore(stim);
                     commentStore.keys(function(oldkeys) {
                         var newIDs = _.difference(IDs, oldkeys);
@@ -195,12 +197,15 @@ window.Polis = function(params) {
     }
 
     function submitComment(txt, optionalSpecificSubStimulus) {
+        console.log(213);
         if (typeof txt !== 'string' || txt.length === 0) {
             logger.error('bad comment');
             return $.Deferred().reject().promise();
         }
         var ev = {
-            cid: currentStimulusId,
+            pid: getPid(),
+            zid: currentStimulusId,
+            uid: personIdStore.get(),
             txt: txt
         };
         // This allows for comments against other comments.
@@ -211,8 +216,8 @@ window.Polis = function(params) {
         if (optionalSpecificSubStimulus) {
             ev.to = optionalSpecificSubStimulus;
         }
-        return polisPost(txtPath, {
-            events: [ev]
+        return polisPost(commentsPath, {
+            comments: [ev]
         });
     }
 
@@ -254,7 +259,7 @@ window.Polis = function(params) {
         }
         return polisPost(reactionsPath, { 
             events: [ $.extend({}, params, {
-                cid: currentStimulusId
+                zid: currentStimulusId
             }) ]
         });
     }
@@ -342,7 +347,7 @@ window.Polis = function(params) {
         currentStimulusId = newStimulusId;
         lastServerTokenForPCA = 0;
         lastServerTokenForComments = 0;
-        return see();
+        return joinConversation();
     }
 
     function authNew(params) {
@@ -358,8 +363,8 @@ window.Polis = function(params) {
             if (params.username) {
                 usernameStore.set(params.username, temporary);
             }
-            if (authData.u) {
-                personIdStore.set(authData.u, temporary);
+            if (authData.uid) {
+                personIdStore.set(authData.uid, temporary);
             }
             if (params.email) {
                 emailStore.set(params.email, temporary);
@@ -416,7 +421,7 @@ window.Polis = function(params) {
     function getPca() {
         return polisGet(pcaPath, {
             lastServerToken: lastServerTokenForPCA || 0,
-            cid: currentStimulusId
+            zid: currentStimulusId
         }).then( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
@@ -473,7 +478,7 @@ window.Polis = function(params) {
 
     function submitFeedback(data) {
         data = $.extend({}, data, {
-            cid: currentStimulusId,
+            zid: currentStimulusId,
             type: "feedback"
         });
         return polisPost(feedbackPath, {
@@ -570,7 +575,7 @@ window.Polis = function(params) {
         var comments;
         return polisGet(pcaPath, { 
             lastServerToken: 0,
-            cid: currentStimulusId
+            zid: currentStimulusId
         }).pipe( function(pcaData) {
             comments = pcaData.pca.principal_components;
             var keys = _.keys(comments);
@@ -581,7 +586,7 @@ window.Polis = function(params) {
             }
             return comments;
         }).pipe( function (commentIds) {
-            return getTxt(commentIds.map(function(comment) { return comment.id; }));
+            return getComments(commentIds.map(function(comment) { return comment.id; }));
         }).pipe( function (results) {
             // they arrive out of order, so map results onto the array that has the right ordering.
             return comments.map(function(comment) {
@@ -590,22 +595,23 @@ window.Polis = function(params) {
         });
     }
 
-    function getTxt(ids) {
-        return polisGet(txtPath, {
+    function getComments(ids) {
+        return polisGet(commentsPath, {
+            not_pid: getPid(), // don't want to see own coments
             ids: ids.join(',')
         });
     }
 
     function getCommentsForSelection(listOfUserIds) {
         return polisGet(selectionPath, {
-            cid: currentStimulusId,
+            zid: currentStimulusId,
             users: listOfUserIds.join(',')
         });
     }
 
     function getReactionsToComment(commentId) {
         return polisGet(reactionsPath, {
-            cid: currentStimulusId,
+            zid: currentStimulusId,
             to: commentId
         });
     }
@@ -621,14 +627,21 @@ window.Polis = function(params) {
         });
     }
 
+    function getPid() {
+        var pids = JSON.parse(pidStore.get() || "{}");
+        return pids[currentStimulusId];
+    }
+
     function joinConversation() {
         var pids = JSON.parse(pidStore.get() || "{}");
         if (pids[currentStimulusId]) {
             return new $.Deferred().resolve(pids[currentStimulusId]);
         }
         return polisPost(participantsPath, {
-            cid: currentStimulusId
-        }).pipe( function (pid) {
+            uid: personIdStore.get(),
+            zid: currentStimulusId
+        }).pipe( function (response) {
+            var pid = response.pid;
             var pids = JSON.parse(pidStore.get() || "{}");
             pids[currentStimulusId] = pid;
             pidStore.set(JSON.stringify(pids), false);
@@ -636,10 +649,13 @@ window.Polis = function(params) {
         });
     }
 
-    setTimeout(getPca,0);
-    setInterval(function() {
-        getPca();
-    }, 5000);
+
+
+
+    //setTimeout(getPca,0);
+    //setInterval(function() {
+        //getPca();
+    //}, 5000);
 
     return {
         authenticated: authenticated,

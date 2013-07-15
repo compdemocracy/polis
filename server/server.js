@@ -217,13 +217,17 @@ function postgresQuery() {
 function auth(req, res, next) {
     var token = req.body.token;
     if (!token) { next(400); return; }
-    if (req.body.uid) { next(400); return; } // shouldn't be in the post
+    //if (req.body.uid) { next(400); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
     getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
         if (err) { next(err); return;}
          // don't want to pass the token around
         if (req.body) delete req.body.token;
         if (req.query) delete req.query.token;
 
+        if ( req.body.uid && req.body.uid != fetchedUserInfo.uid) {
+            next(400);
+            return;
+        }
         req.body.uid = fetchedUserInfo.uid;
         next(null);
     });
@@ -238,7 +242,7 @@ function moveToBody(req, res, next) {
     next();
 }
 function logPath(req, res, next) {
-    console.log("URL " + req.url);
+    console.log(req.method + " " + req.url);
     next();
 }
     
@@ -304,23 +308,23 @@ function checkFields(ev) {
     }
 }
 // helper for migrating off of mongo style identifiers
-function match(key, cid) {
+function match(key, zid) {
     var variants = [{}];
-    variants[0][key] = cid;
-    if (cid.length === 24) {
+    variants[0][key] = zid;
+    if (zid.length === 24) {
         variants.push({});
-        variants[1][key] = ObjectId(cid);
+        variants[1][key] = ObjectId(zid);
     }
     return {$or: variants};
 }
 
-    function reactionsPost(res, pid, cid, events) {
+    function reactionsPost(res, pid, zid, events) {
         if (!events.length) { fail(res, 324234327, err); return; }
         events.forEach(function(ev){
-            var oid = events.oid;
+            var tid = events.tid;
             var vote = polisTypes.reactions[ev.vote];
             if ("undefined" === typeof vote) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
-            client.query("INSERT INTO votes (cid, pid, oid, vote, created) VALUES ($1, $2, $3, $4, default);", [cid, pid, oid, vote], function(err, result) {
+            client.query("INSERT INTO votes (zid, pid, tid, vote, created) VALUES ($1, $2, $3, $4, default);", [zid, pid, tid, vote], function(err, result) {
                 if (err) { fail(res, 324234324, err); return; }
                 res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
             });
@@ -328,9 +332,9 @@ function match(key, cid) {
     }
 
     function reactionsGet(res, params) {
-        var cid = params.cid;
+        var zid = params.zid;
         var pid = params.pid;
-        client.query("SELECT * FROM votes WHERE cid = ($1) && pid = ($2);", [cid, pid], function(err, docs) {
+        client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [zid, pid], function(err, docs) {
             if (err) { fail(res, 234234326, err); return; }
             res.json(docs);
         });
@@ -354,10 +358,10 @@ app.get("/v2/math/pca",
     logPath,
     moveToBody,
     function(req, res) {
-        var stimulus = req.body.cid;
+        var stimulus = req.body.zid;
         var lastServerToken = req.body.lastServerToken || "000000000000000000000000";
         collectionOfPcaResults.find({$and :[
-            match("cid", stimulus),
+            match("zid", stimulus),
             {lastServerToken: {$gt: ObjectId(lastServerToken)}},
             ]}, function(err, cursor) {
             if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
@@ -411,6 +415,16 @@ function(req, res) {
     });
 });
 
+
+function joinConversation(zid, uid, callback) {
+    client.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
+        if (err) {
+            console.dir(err);
+        }
+        callback(err, docs);
+    });
+}
+
 app.post("/v3/participants",
 logPath,
 express.bodyParser(),
@@ -418,11 +432,11 @@ auth,
 function(req, res) {
     var data = req.body;
 
-    var cid = data.cid;
+    var zid = data.zid;
     var uid = data.uid;
-    client.query("INSERT INTO participants (pid, cid, uid, created) VALUES (0, $1, $2, default) RETURNING pid;", [cid, uid], function(err, docs) {
+    joinConversation(zid, uid, function(err, docs) {
         if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
-        var pid = docs && docs[0];
+        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
         res.json({
             pid: pid,
         });
@@ -430,8 +444,8 @@ function(req, res) {
 });
 
 // client should really supply this
-//function getParticipantId(uid, cid, callback) {
-    //client.query("SELECT pid FROM participants WHERE uid = ($1) && cid = ($2);", [uid, cid], function(err, docs) {
+//function getParticipantId(uid, zid, callback) {
+    //client.query("SELECT pid FROM participants WHERE uid = ($1) AND zid = ($2);", [uid, zid], function(err, docs) {
         //if (err) { callback(err); return; }
         //var pid = docs && docs[0] && docs[0].pid;
         //callback(null, pid);
@@ -450,7 +464,7 @@ function(req, res) {
     if (username) { handles.push({username: username}); }
     if (email) { handles.push({email: email}); }
     if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
-    client.query("SELECT * FROM users WHERE username = ($1) || email = ($2)", [username, email], function(err, docs) {
+    client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2)", [username, email], function(err, docs) {
         if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
         if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
         var hashedPassword  = docs[0].pwhash;
@@ -462,6 +476,7 @@ function(req, res) {
             startSession(userID, function(errSess, token) {
                 var response_data = {
                     username: username,
+                    uid: userID,
                     email: email,
                     token: token
                 };
@@ -479,23 +494,44 @@ function(req, res) {
     var username = data.username;
     var password = data.password;
     var email = data.email;
+    var zid = data.zid;
     if (ALLOW_ANON && data.anon) {
         var query = client.query("INSERT INTO users (uid, created) VALUES (default, default) RETURNING uid;", [], function(err, result) {
             if (err) {
-                console.error(57493883);
-                console.dir(err);
-                res.status(500).end()
+                if (isDuplicateKey(err)) {
+                    console.error(57493882);
+                    failWithRetryRequest(res);
+                } else {
+                    fail(res, 57493883, "polis_err_add_user", 500);
+                }
                 return;
             }
 
-            var uid = result && result[0];
+            console.log('baba');
+            console.dir(result);
+            var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
             startSession(uid, function(errSessionStart,token) {
                 if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
-                var response = result.rows && result.rows[0]
-                res.status(200).json({
-                    uid: uid,
-                    token: token
-                });
+                //var response = result.rows && result.rows[0]
+                function finish(pid) {
+                    var o = {
+                        uid: uid,
+                        token: token
+                    };
+                    if (pid) {
+                        o.pid = pid;
+                    }
+                    res.status(200).json(o);
+                }
+                if (zid) {
+                    joinConversation(zid, uid, function(err, docs) {
+                        if (err) { fail(res, 5748941, "polis_err_joining_conversation_anon"); return; }
+                        var pid = docs && docs[0];
+                        finish(pid);
+                    });
+                } else {
+                    finish();
+                }
             });
         });
         return;
@@ -506,7 +542,7 @@ function(req, res) {
     if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
     if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
 
-    var query = client.query("SELECT * FROM users WHERE username = ($1) || email = ($2)", [username, email], function(err, docs) {
+    var query = client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2)", [username, email], function(err, docs) {
         if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
             if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
             if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
@@ -520,7 +556,7 @@ function(req, res) {
                     if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
                     client.query("INSERT INTO users (uid, username, email, pwhash, created) VALUES (default, $1, $2, $3, default) RETURNING uid;", [username, email, hashedPassword], function(err, result) {
                         if (err) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
-                        var uid = result && result[0];
+                        var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(errSessionStart,token) {
                             if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
                             res.json({
@@ -553,68 +589,122 @@ app.post("/v2/feedback",
                     }); // each 
     });
 
-app.get("/v3/opinions",
+app.get("/v3/comments",
 logPath,
 moveToBody,
 function(req, res) {
-console.dir(req);
-    var cid = req.body.cid;
+    var zid = Number(req.body.zid);
     var ids = req.body.ids;
+    var not_pid = Number(req.body.not_pid);
     var lastServerToken = req.body.lastServerToken;
     ids = ids && ids.split(',');
 
     function handleResult(err, docs) {
+    console.dir(docs);
         if (err) { fail(res, 234234332, err); return; }
-        if (docs.length) {
+        if (docs.rows && docs.rows.length) {
             res.json({
-                lastServerToken: lastServerToken,
-                events: docs,
+                lastServerToken: docs.rows[docs.rows.length-1].created,
+                zid: docs.rows[docs.rows.length-1].zid, // should all be the same zid
+                comments: docs.rows.map(function(row) { return _.pick(row, ["txt", "tid"]); }),
             });
         } else {
-            res.writeHead(304, {
-            })
-            res.end();
+            console.log('ending');
+            res.json(304, {
+                comments: [],
+            });
         }
     }
-console.log('mike ' + cid);
-console.dir(ids);
 console.dir(req.body);
+    var query = "SELECT * FROM comments WHERE";
+    var parameters = [];
+    parameters.unshift(zid);
+    var i = 1;
+    query += " zid = ($"+ (i++) + ")";
+    //if (_.isNumber(not_pid)) {
+        //query += " AND pid != ($"+ (i++) + ")";
+        //parameters.unshift(not_pid);
+    //}
     if (!!ids) {
-        var i = 1;
-        var ORs = "( " + ids.map(function(id) { return "oid = ($" + (i++) + ")"; }) + " )";
-        ids.push(cid);
-        client.query("SELECT * FROM opinions WHERE "+ ORs +" && cid = ($"+ (i++) + ");", ids, handleResult);
-    } else {
-        //client.query("SELECT * FROM opinions WHERE cid = ($1) && created > (SELECT to_timestamp($2));", [cid, lastServerToken], handleResult);
-        client.query("SELECT * FROM opinions WHERE cid = ($1);", [cid], handleResult);
+        query += " AND ( " + ids.map(function(id) { return "tid = ($" + (i++) + ")"; }) + " )";
+        parameters = parameters.concat(ids);
     }
-}); // end GET /v3/opinions
+    query += " ORDER BY created;";
+    console.log(query);
+    console.dir(parameters);
+    //client.query("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
+    client.query(query, parameters, handleResult);
+}); // end GET /v3/comments
 
-app.post("/v3/opinions",
+
+
+function isDuplicateKey(err) {
+    return err.code == 23505;
+}
+function failWithRetryRequest(res) {
+    res.setHeader('Retry-After', 0);
+    console.warn(57493875);
+    res.writeHead(500).send(57493875)
+}
+
+app.post("/v3/comments",
 logPath,
 express.bodyParser(),
 auth,
 function(req, res) {
     var data = req.body;
-    data.events.forEach(function(ev){
+    data.comments.forEach(function(ev){
         if (!ev.txt) { fail(res, 'expected txt field'); return; }
-        var cid = Number(data.cid);
-        var pid = data.pid;
-        var txt = data.txt;
-        client.query("INSERT INTO opinions (oid, pid, cid, txt, created) VALUES (0, $1, $2, $3, default);", [pid, cid, txt], function(err, docs) {
-            if (err) { fail(res, 324234331, err); return; }
-            var oid = docs && docs[0] && docs[0].oid;
+        console.log('1235');
+        console.dir(data);
+        var zid = Number(ev.zid);
+        var pid = Number(ev.pid);
+        var txt = ev.txt;
+
+        client.query("INSERT INTO comments (tid, pid, zid, txt, created) VALUES (NULL, $1, $2, $3, default);", [pid, zid, txt], function(err, docs) {
+            if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+            var tid = docs && docs[0] && docs[0].tid;
             // Since the user posted it, we'll submit an auto-pull for that.
             var autoPull = {
-                cid: cid,
+                zid: zid,
                 vote: polisTypes.reactions.pull,
-                oid: oid,
+                tid: tid,
                 pid: pid
             };
-            //reactionsPost(res, pid, cid, [autoPull]);
-        }); // insert
+            res.json({});
+            //reactionsPost(res, pid, zid, [autoPull]);
+        }); // INSERT
+
+        //var rollback = function(client) {
+          //client.query('ROLLBACK', function(err) {
+            //if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+          //});
+        //};
+        //client.query('BEGIN;', function(err) {
+            //if(err) return rollback(client);
+            ////process.nextTick(function() {
+              //client.query("SET CONSTRAINTS ALL DEFERRED;", function(err) {
+                //if(err) return rollback(client);
+                  //client.query("INSERT INTO comments (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default);", [pid, zid, txt], function(err, docs) {
+                    //if(err) return rollback(client);
+                      //client.query('COMMIT;', function(err, docs) {
+                        //if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+                        //var tid = docs && docs[0] && docs[0].tid;
+                        //// Since the user posted it, we'll submit an auto-pull for that.
+                        //var autoPull = {
+                            //zid: zid,
+                            //vote: polisTypes.reactions.pull,
+                            //tid: tid,
+                            //pid: pid
+                        //};
+                        ////reactionsPost(res, pid, zid, [autoPull]);
+                      //}); // COMMIT
+                    //}); // INSERT
+                //}); // SET CONSTRAINTS
+              ////}); // nextTick
+        //}); // BEGIN
     }); // each 
-}); // end POST /v3/opinions
+}); // end POST /v3/comments
 
 app.get("/v3/reactions/me",
 logPath,
@@ -622,10 +712,12 @@ moveToBody,
 auth,
 function(req, res) {
     var data = req.body;
-    client.query("SELECT * FROM votes WHERE cid = ($1) && pid = ($2);", [data.cid, data.pid], function(err, docs) {
+    var zid = Number(data.zid);
+    var pid = Number(data.pid);
+    client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [data.zid, data.pid], function(err, docs) {
         if (err) { fail(res, 234234325, err); return; }
         res.json({
-            events: docs
+            votes: docs.rows,
         });
     });
 });
@@ -636,7 +728,7 @@ app.get("/v2/selection",
     logPath,
     moveToBody,
     function(req, res) {
-        var stimulus = req.body.cid;
+        var stimulus = req.body.zid;
         if (!req.body.users) {
             res.json([]);
             return;
@@ -644,7 +736,7 @@ app.get("/v2/selection",
         function makeGetReactionsByUserQuery(users, stimulus) {
             users = users.split(',');
             var q = { $and: [
-                match("cid", stimulus),
+                match("zid", stimulus),
                 {$or: [{vote: polisTypes.reactions.pull}, {vote: polisTypes.reactions.push}]},
                 {$or: users.map(function(pid) { return { pid: ObjectId(pid)}; })},
                 {to: {$exists: true}}
@@ -680,7 +772,7 @@ app.get("/v2/selection",
                 commentIdCounts = commentIdCounts.slice(0, 10);
                 var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
                 var qq = { $and: [
-                    match("cid", stimulus),
+                    match("zid", stimulus),
                     {txt: {$exists: true}},
                     {$or : commentIds}
                     ]
@@ -731,7 +823,7 @@ express.bodyParser(),
 auth,
 function(req, res) {
         var data = req.body;
-        //reactionsPost(res, data.pid, data.cid, data.events);
+        //reactionsPost(res, data.pid, data.zid, data.events);
 });
 
 app.get('/v3/conversations',
@@ -753,18 +845,24 @@ app.post('/v3/conversations',
 logPath,
 moveToBody,
 function(req, res) {
-  var uid = req.body.uid || 1000;
-  var title = req.body.title || "";
-  var body = req.body.body || "";
-  query = client.query('INSERT INTO conversations (cid, owner, created, title, body)  VALUES(default, $1, default, $2, $3) RETURNING cid;', [uid, title, body], function(err, result) {
-      if (err) {
-        console.error(57493879);
-        res.status(500).end()
-        return;
-      }
-      var response = result.rows && result.rows[0]
-      res.status(200).json(response);
-  });
+    var uid = req.body.uid || 1000;
+    var title = req.body.title || "";
+    var body = req.body.body || "";
+    query = client.query('INSERT INTO conversations (zid, owner, created, title, body)  VALUES(default, $1, default, $2, $3) RETURNING zid;', [uid, title, body], function(err, result) {
+        if (err) {
+            if (isDuplicateKey(err)) {
+                console.error(57493879);
+                failWithRetryRequest(res);
+            } else {
+                fail(res, 324234335, "polis_err_add_conversation", 500);
+            }
+            return;
+        }
+        var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
+            res.status(200).json({
+            zid: zid,
+        });
+    });
 });
 
 app.get('/v3/users',
