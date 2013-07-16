@@ -32,7 +32,7 @@ var CommentShower = function(params) {
     }
         
 
-    // {_id: 12345, txt: "This is a great article dude."}
+    // {tid: 12345, txt: "This is a great article dude."}
     function showComment(data) {
         var template,
             html;
@@ -48,7 +48,7 @@ var CommentShower = function(params) {
         template = $('#showerTemplate').html();
         html = Mustache.to_html(template, data);
         $rootDomElem.html(html);
-        currentCommentId = data._id; 
+        currentCommentId = data.tid; 
 
 
         console.log("showing comment: " + currentCommentId);

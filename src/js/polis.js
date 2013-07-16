@@ -33,8 +33,8 @@ window.Polis = function(params) {
     var domain = params.domain;
     var basePath = params.basePath;
 
-    var reactionsPath = "/v3/reactions";
-    var reactionsByMePath = "/v3/reactions/me";
+    var votesPath = "/v3/votes";
+    var votesByMePath = "/v3/votes/me";
     var commentsPath = "/v3/comments";
     var feedbackPath = "/v2/feedback";
 
@@ -47,12 +47,12 @@ window.Polis = function(params) {
     var conversationsPath = "/v3/conversations";
     var participantsPath = "/v3/participants";
 
-    var authenticatedCalls = [reactionsByMePath, reactionsPath, commentsPath, deregisterPath, conversationsPath, participantsPath];
+    var authenticatedCalls = [votesByMePath, votesPath, commentsPath, deregisterPath, conversationsPath, participantsPath];
 
     var logger = params.logger;
 
-    var lastServerTokenForPCA = "";
-    var lastServerTokenForComments = "";
+    var lastServerTokenForPCA = "000000000000000000000000";
+    var lastServerTokenForComments = new Date(0);
 
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
@@ -82,14 +82,6 @@ window.Polis = function(params) {
     // Err... I guess discussions can be circular.
     //function discussionClient(params)
 
-    function makeEmptyComment() {
-        return {
-            zid: currentStimulusId,
-            _id: "",
-            txt: "There are no more comments for this story."
-        };
-    }
-    
     function isValidCommentId(commentId) {
         return isNumber(commentId);
     }
@@ -101,7 +93,7 @@ window.Polis = function(params) {
             pid: getPid(),
             zid: stim
         };
-        polisGet(reactionsByMePath, params).done( function(data) {
+        polisGet(votesByMePath, params).done( function(data) {
             var votes = data.votes;
             if (!votes) {
                 logger.log('no comments for stimulus');
@@ -109,7 +101,7 @@ window.Polis = function(params) {
                 return;
             } 
             votes.forEach(function(r) {
-                markReaction(r.to, r.vote, stim);
+                markReaction(r.tid, r.vote, stim);
             });
             dfd.resolve();
         }, dfd.reject);
@@ -121,7 +113,7 @@ window.Polis = function(params) {
         var stim = optionalStimulusId || currentStimulusId;
         var dfd = $.Deferred();
         var params = {
-            lastServerToken: lastServerTokenForComments || 0,
+            lastServerToken: lastServerTokenForComments || new Date(0),
             not_pid: getPid(), // don't want to see own coments
             zid: stim
             //?
@@ -137,17 +129,18 @@ window.Polis = function(params) {
                     commentStore.keys(function(oldkeys) {
                         var newIDs = _.difference(IDs, oldkeys);
                         evs.forEach(function(ev) {
-                            if (ev._id > lastServerTokenForComments) {
-                                lastServerTokenForComments = ev._id;
+                            var d = new Date(ev.created);
+                            if (d > lastServerTokenForComments) {
+                                lastServerTokenForComments = d;
                             }
                         });
                         var newComments = evs.filter(function(ev) {
-                            return _.contains(newIDs, ev._id);
+                            return _.contains(newIDs, ev.tid);
                         });
                         // Lawnchair wants the key to be "key".
                         // could it be modified to have options.keyname?  a9w8ehfdfzgh
                         newComments = newComments.map(function(ev) {
-                            ev.key = ev._id;
+                            ev.key = ev.tid;
                             return ev;
                         });
                         commentStore.batch(newComments);
@@ -171,15 +164,12 @@ window.Polis = function(params) {
         var dfd = $.Deferred();
 
         getCommentStore(optionalStimulusId).all(function(comments) {
-            var pId = personIdStore.get();
+            var pid = getPid();
             var index;
             var comment;
             // Filters out comments this user has written or reacted to.
             var filterFn = function filterFn(c) {
-                return (
-                    _.isUndefined(c.myReaction) &&
-                    (c.u && (c.u !== pId))
-                );
+                return _.isUndefined(c.myReaction) && c.pid !== pid;
             };
             comments = _.filter(comments, filterFn);
             if (comments.length > 0) {
@@ -213,9 +203,9 @@ window.Polis = function(params) {
         // we could support it.
         // We may even want to add the entire stimulus chain
         // as an array?
-        if (optionalSpecificSubStimulus) {
-            ev.to = optionalSpecificSubStimulus;
-        }
+        //if (optionalSpecificSubStimulus) {
+            //ev.tid = optionalSpecificSubStimulus;
+        //}
         return polisPost(commentsPath, {
             comments: [ev]
         });
@@ -247,18 +237,24 @@ window.Polis = function(params) {
         markReaction(commentId, "push");
         return react({
             vote: polisTypes.reactions.push,
-            to: commentId
+            tid: commentId
         });
     }
 
     function react(params) {
-        if (params.s && params.s !== currentStimulusId) {
+        if (params.zid && params.zid !== currentStimulusId) {
             if (params.vote !== polisTypes.reactions.see) {
                 console.error('wrong stimulus');
             }
         }
-        return polisPost(reactionsPath, { 
-            events: [ $.extend({}, params, {
+        if (typeof params.tid === "undefined") {
+            console.error('missing tid');
+            console.error(params);
+        }
+
+        return polisPost(votesPath, { 
+            votes: [ $.extend({}, params, {
+                pid: getPid(),
                 zid: currentStimulusId
             }) ]
         });
@@ -268,7 +264,7 @@ window.Polis = function(params) {
         markReaction(commentId, "pull");
         return react({
             vote: polisTypes.reactions.pull,
-            to: commentId
+            tid: commentId
         });
     }
 
@@ -278,21 +274,22 @@ window.Polis = function(params) {
             vote: polisTypes.reactions.see
         }; 
         if (optionalSpecificSubStimulus) {
-            ev.to = optionalSpecificSubStimulus;
+            ev.tid = optionalSpecificSubStimulus;
         }
         return react(ev);
     }
 
 
+    // optionalSpecificSubStimulus (aka commentId)
     function pass(optionalSpecificSubStimulus) {
         var ev = {
             vote: polisTypes.reactions.pass
         }; 
         if (optionalSpecificSubStimulus) {
-            ev.to = optionalSpecificSubStimulus;
+            ev.tid = optionalSpecificSubStimulus;
         }
-        if (ev.to) {
-            markReaction(ev.to, "pass");
+        if (ev.tid) {
+            markReaction(ev.tid, "pass");
         }
         return react(ev);
     }
@@ -345,8 +342,8 @@ window.Polis = function(params) {
 
     function observeStimulus(newStimulusId) {
         currentStimulusId = newStimulusId;
-        lastServerTokenForPCA = 0;
-        lastServerTokenForComments = 0;
+        lastServerTokenForPCA = "000000000000000000000000"; // MongoDB token
+        lastServerTokenForComments = new Date(0);
         return joinConversation();
     }
 
@@ -420,7 +417,7 @@ window.Polis = function(params) {
 
     function getPca() {
         return polisGet(pcaPath, {
-            lastServerToken: lastServerTokenForPCA || 0,
+            lastServerToken: lastServerTokenForPCA || "000000000000000000000000",
             zid: currentStimulusId
         }).then( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
@@ -590,7 +587,7 @@ window.Polis = function(params) {
         }).pipe( function (results) {
             // they arrive out of order, so map results onto the array that has the right ordering.
             return comments.map(function(comment) {
-                return _.findWhere(results.events, {_id: comment.id});
+                return _.findWhere(results.comments, {tid: comment.id});
             });
         });
     }
@@ -610,7 +607,7 @@ window.Polis = function(params) {
     }
 
     function getReactionsToComment(commentId) {
-        return polisGet(reactionsPath, {
+        return polisGet(votesPath, {
             zid: currentStimulusId,
             to: commentId
         });
@@ -652,10 +649,10 @@ window.Polis = function(params) {
 
 
 
-    //setTimeout(getPca,0);
-    //setInterval(function() {
-        //getPca();
-    //}, 5000);
+    setTimeout(getPca,0);
+    setInterval(function() {
+        getPca();
+    }, 5000);
 
     return {
         authenticated: authenticated,

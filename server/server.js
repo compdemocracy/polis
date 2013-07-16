@@ -1,3 +1,5 @@
+// TODO security - the server needs to assert that the uid associated with the auth token matches the pid for the given conversation.
+
 // TODO start checking auth token, test it, remove it from json data
 // TODO make different logger
 // TODO decide on timestamp/id/hash precision
@@ -198,7 +200,7 @@ mongo.connect(process.env.MONGOLAB_URI, {
 }
 
 function connectToPostgres(callback) {
-    var connectionString = process.env.DATABASE_URL || 'postgres://localhost:5432/dailyjs';
+    var connectionString = process.env.DATABASE_URL;
     var client = new pg.Client(connectionString);
 
     client.connect();
@@ -206,12 +208,6 @@ function connectToPostgres(callback) {
         client: client
     });
 }
-
-function postgresQuery() {
-    query = client.query('SELECT * FROM mytable');
-    query.on('end', function() { client.end(); });
-}
-
 
 // input token from body or query, and populate req.body.u with userid.
 function auth(req, res, next) {
@@ -292,6 +288,7 @@ var polisTypes = {
         see: 0,
     },
 };
+polisTypes.reactionValues = _.values(polisTypes.reactions);
 
 var objectIdFields = ["_id", "u", "to"];
 var not_objectIdFields = ["s"];
@@ -318,51 +315,60 @@ function match(key, zid) {
     return {$or: variants};
 }
 
-    function reactionsPost(res, pid, zid, events) {
-        if (!events.length) { fail(res, 324234327, err); return; }
-        events.forEach(function(ev){
-            var tid = events.tid;
-            var vote = polisTypes.reactions[ev.vote];
-            if ("undefined" === typeof vote) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
-            client.query("INSERT INTO votes (zid, pid, tid, vote, created) VALUES ($1, $2, $3, $4, default);", [zid, pid, tid, vote], function(err, result) {
-                if (err) { fail(res, 324234324, err); return; }
-                res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
-            });
+function votesPost(res, pid, zid, events) {
+    if (!events.length) { fail(res, 324234327, err); return; }
+    events.forEach(function(vote){
+        var zid = vote.zid;
+        var pid = vote.pid;
+        var tid = vote.tid;
+        var voteType = vote.vote;
+        if (-1 === polisTypes.reactionValues.indexOf[vote.vote]) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
+        client.query("INSERT INTO votes (zid, pid, tid, vote, created) VALUES ($1, $2, $3, $4, default);", [zid, pid, tid, voteType], function(err, result) {
+            if (err) {
+                if (isDuplicateKey(err)) {
+                    fail(res, 57493886, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
+                } else {
+                    fail(res, 324234324, "polis_err_vote", 500);
+                }
+                return;
+            }
+            res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
         });
-    }
+    });
+}
 
-    function reactionsGet(res, params) {
-        var zid = params.zid;
-        var pid = params.pid;
-        client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [zid, pid], function(err, docs) {
-            if (err) { fail(res, 234234326, err); return; }
-            res.json(docs);
-        });
-    } // End reactionsGet
+function votesGet(res, params) {
+    var zid = params.zid;
+    var pid = params.pid;
+    client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [zid, pid], function(err, docs) {
+        if (err) { fail(res, 234234326, err); return; }
+        res.json(docs);
+    });
+} // End votesGet
 
-    // TODO consider moving to a 
-    function writeDefaultHead(req, res) {
-        res.setHeader({
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-        //    'Access-Control-Allow-Origin': '*',
-        //    'Access-Control-Allow-Credentials': 'true'
-        });
-    }
+// TODO consider moving to a 
+function writeDefaultHead(req, res) {
+    res.setHeader({
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+    //    'Access-Control-Allow-Origin': '*',
+    //    'Access-Control-Allow-Credentials': 'true'
+    });
+}
 
-    //app.use(writeDefaultHead);
-    app.use(express.logger());
+//app.use(writeDefaultHead);
+app.use(express.logger());
 
 app.get("/v2/math/pca",
     logPath,
     moveToBody,
     function(req, res) {
         var stimulus = req.body.zid;
-        var lastServerToken = req.body.lastServerToken || "000000000000000000000000";
+        var lastVoteTimestamp = req.body.lastVoteTimestamp || 0;
         collectionOfPcaResults.find({$and :[
             match("zid", stimulus),
-            {lastServerToken: {$gt: ObjectId(lastServerToken)}},
+            {lastVoteTimestamp: {$gt: new Date(lastVoteTimestamp)}},
             ]}, function(err, cursor) {
             if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
             cursor.toArray( function(err, docs) {
@@ -606,7 +612,7 @@ function(req, res) {
             res.json({
                 lastServerToken: docs.rows[docs.rows.length-1].created,
                 zid: docs.rows[docs.rows.length-1].zid, // should all be the same zid
-                comments: docs.rows.map(function(row) { return _.pick(row, ["txt", "tid"]); }),
+                comments: docs.rows.map(function(row) { return _.pick(row, ["txt", "tid", "created"]); }),
             });
         } else {
             console.log('ending');
@@ -672,7 +678,7 @@ function(req, res) {
                 pid: pid
             };
             res.json({});
-            //reactionsPost(res, pid, zid, [autoPull]);
+            //votesPost(res, pid, zid, [autoPull]);
         }); // INSERT
 
         //var rollback = function(client) {
@@ -697,7 +703,7 @@ function(req, res) {
                             //tid: tid,
                             //pid: pid
                         //};
-                        ////reactionsPost(res, pid, zid, [autoPull]);
+                        ////votesPost(res, pid, zid, [autoPull]);
                       //}); // COMMIT
                     //}); // INSERT
                 //}); // SET CONSTRAINTS
@@ -706,7 +712,7 @@ function(req, res) {
     }); // each 
 }); // end POST /v3/comments
 
-app.get("/v3/reactions/me",
+app.get("/v3/votes/me",
 logPath,
 moveToBody,
 auth,
@@ -747,17 +753,17 @@ app.get("/v2/selection",
         var q = makeGetReactionsByUserQuery(req.body.users, stimulus);
         collection.find(q, function(err, cursor) {
             if (err) { fail(res, 2389369, "polis_err_get_selection", 500); return; }
-            cursor.toArray( function(err, reactions) {
+            cursor.toArray( function(err, votes) {
                 if (err) { fail(res, 2389365, "polis_err_get_selection_toarray", 500); return; }
                 var commentIdCounts = {};
-                for (var i = 0; i < reactions.length; i++) {
-                    if (reactions[i].to) { // TODO why might .to be undefined?
-                        var count = commentIdCounts[reactions[i].to];
-                        if (reactions[i].vote === polisTypes.reactions.pull) {
-                            commentIdCounts[reactions[i].to] = count + 1 || 1;
-                        } else if (reactions[i].vote === polisTypes.reactions.push) {
+                for (var i = 0; i < votes.length; i++) {
+                    if (votes[i].to) { // TODO why might .to be undefined?
+                        var count = commentIdCounts[votes[i].to];
+                        if (votes[i].vote === polisTypes.votes.pull) {
+                            commentIdCounts[votes[i].to] = count + 1 || 1;
+                        } else if (votes[i].vote === polisTypes.votes.push) {
                             // push
-                            commentIdCounts[reactions[i].to] = count - 1 || -1;
+                            commentIdCounts[votes[i].to] = count - 1 || -1;
                         } else {
                             console.error("expected just push and pull in query");
                         }
@@ -810,20 +816,20 @@ app.get("/v2/selection",
         });
     });
 
-app.get("/v3/reactions",
+app.get("/v3/votes",
 logPath,
 moveToBody,
 function(req, res) {
-    reactionsGet(res, req.body);
+    votesGet(res, req.body);
 });
 
-app.post("/v3/reactions",
+app.post("/v3/votes",
 logPath,
 express.bodyParser(),
 auth,
 function(req, res) {
         var data = req.body;
-        //reactionsPost(res, data.pid, data.zid, data.events);
+        votesPost(res, data.pid, data.zid, data.votes);
 });
 
 app.get('/v3/conversations',
