@@ -30,11 +30,18 @@ CREATE TABLE conversations(
     -- 2147483647  (2**32/2 -1)
     zid INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 100)),
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     -- owner_group_id ?? 
-    title VARCHAR(1000), -- default as time in the presentation layer
-    body VARCHAR(50000),
-    -- userIsAdmin (found in permissions table)
+    isActive BOOLEAN DEFAULT FALSE,
+    isDraft BOOLEAN DEFAULT FALSE, -- TODO check default
+    isAnon BOOLEAN DEFAULT TRUE,
+    isPublic BOOLEAN DEFAULT TRUE,
+    participantsMustHaveAcct BOOLEAN DEFAULT FALSE,
+    participantsMustValidate BOOLEAN DEFAULT FALSE,
+    participantsMustHaveEmail BOOLEAN DEFAULT FALSE,
+    participantsMustHaveEmailDomain VARCHAR(200), -- space separated domain names
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    topic VARCHAR(1000), -- default as time in the presentation layer
+    description VARCHAR(50000),
     UNIQUE(zid)
 );
 
@@ -44,9 +51,11 @@ CREATE TABLE participants(
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     -- server admin bool
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    -- archived (not included because creator might not be a participant) will add later somewhere else
     UNIQUE (zid, pid),
     UNIQUE (zid, uid) 
 );
+
 
 --CREATE TABLE permissions(
     --uid INTEGER NOT NULL REFERENCES users(uid),
@@ -194,8 +203,8 @@ BEGIN;
     --insert into memberships (uid, gid) values (1002, 11002);
 COMMIT;
 
-insert into conversations (zid, owner, created, title, body) values (45342, 1000, default, 'Legalization', 'Seattle recently ...');
-insert into conversations (zid, owner, created, title, body) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....');
+INSERT INTO conversations (zid, owner, created, topic, description, active, draft) values (45342, 1000, default, 'Legalization', 'Seattle recently ...', default, default);
+INSERT INTO conversations (zid, owner, created, topic, description, active, draft) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....', default, default);
     
 BEGIN;
     INSERT INTO participants (zid, uid) VALUES ( 45342, 1001);
