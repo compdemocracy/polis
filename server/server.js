@@ -20,6 +20,7 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 var http = require('http'),
     express = require('express'),
     app = express(),
+    squel = require('squel')
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
     async = require('async'),
@@ -31,6 +32,7 @@ var http = require('http'),
     _ = require('underscore');
 
 app.disable('x-powered-by'); // save a whale
+
 
 var AUTH_FAILED = 'auth failed';
 var ALLOW_ANON = true;
@@ -338,8 +340,8 @@ function votesPost(res, pid, zid, events) {
 }
 
 function votesGet(res, params) {
-    var zid = params.zid;
-    var pid = params.pid;
+    var zid = Number(params.zid);
+    var pid = Number(params.pid);
     client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [zid, pid], function(err, docs) {
         if (err) { fail(res, 234234326, err); return; }
         res.json(docs);
@@ -832,29 +834,43 @@ function(req, res) {
         votesPost(res, data.pid, data.zid, data.votes);
 });
 
-app.get('/v3/conversations',
+app.get('/v3/conversation',
 logPath,
 moveToBody,
 function(req, res) {
-  var uid = req.body.uid || 1000;
-  query = client.query('SELECT * FROM conversations WHERE owner = ($1);', [uid]);
-  var rows = [];
-  query.on('row', function(result) {
-      rows.push(result);
-  });
-  query.on('end', function(row, result) {
-      res.status(200).json(rows);
-  });
+    var data = req.body;
+    console.dir(data);
+    var uid = data.uid || 1000;
+    var query = squel.select().from('conversations');
+    //query = query.where('isOwner = ?', uid);
+    if ("undefined" != typeof data.isActive) {
+        query = query.where('isActive = ?', !!data.isActive);
+    }
+    //if ("undefined" != typeof data.isDraft) {
+        //query = query.where('isDraft = ?', !!data.isDraft);
+    //}
+    query = query.order('created', true);
+    query = query.limit(999); // TODO paginate
+    client.query(query.toString(), [], function(err, result) {
+        if (err) { console.dir(err); fail(res, 324234339, "polis_err_get_conversation", 500); return; }
+        res.json(result.rows || []);
+    });
 });
 
-app.post('/v3/conversations',
+app.post('/v3/conversation',
 logPath,
-moveToBody,
+express.bodyParser(),
+//auth, TODO add
 function(req, res) {
+    console.log("aishdfuisahd");
+    console.dir(req);
+    console.dir(req.body);
     var uid = req.body.uid || 1000;
-    var title = req.body.title || "";
-    var body = req.body.body || "";
-    query = client.query('INSERT INTO conversations (zid, owner, created, title, body)  VALUES(default, $1, default, $2, $3) RETURNING zid;', [uid, title, body], function(err, result) {
+    var topic = req.body.topic || "";
+    var description = req.body.description || "";
+    var isActive = !!req.body.isActive;
+    var isDraft = !!req.body.isDraft;
+    query = client.query('INSERT INTO conversations (zid, owner, created, topic, description, isActive, isDraft)  VALUES(default, $1, default, $2, $3, $4, $5) RETURNING zid;', [uid, topic, description, isActive, isDraft], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
                 console.error(57493879);
