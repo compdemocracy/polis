@@ -846,6 +846,30 @@ function(req, res) {
         votesPost(res, data.pid, data.zid, data.votes);
 });
 
+app.put('/v3/conversation/:zid',
+logPath,
+express.bodyParser(),
+//auth, // TODO
+function(req, res){
+    var zid = req.params.zid;
+    var data = req.body;
+    console.log(data)
+    console.log(zid);
+    res.status(200).json('');
+    var is_active = !!data.is_active;
+    client.query(
+        'UPDATE conversations SET is_active = $2 WHERE zid = $1',
+        [zid, is_active],
+        function(err, result){
+            if (err) {
+                fail(res, 435673243, "polis_err_update_conversation", 500);
+                return;
+            }
+            res.status(200).end();
+        }
+    )
+})
+
 app.get('/v3/conversation',
 logPath,
 moveToBody,
