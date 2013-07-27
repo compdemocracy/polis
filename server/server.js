@@ -829,34 +829,110 @@ app.get("/v2/selection",
 app.get("/v3/votes",
 logPath,
 moveToBody,
-express.bodyParser(),
 function(req, res) {
     votesGet(res, req.body);
 });
 
 app.post("/v3/votes",
 logPath,
-express.bodyParser(),
 auth,
 function(req, res) {
         var data = req.body;
         votesPost(res, data.pid, data.zid, data.votes);
 });
 
+function getBool(s) {
+    if ("boolean" === typeof s) {
+        return s;
+    }
+    s = s.toLowerCase();
+    if (s === 't' || s === 'true') {
+        return true;
+    } else if (s === 'f' || s === 'false') {
+        return false;
+    }
+    throw "polis_fail_parse_boolean";
+}
+function getInt(s) {
+    if (_.isNumber(s) && s >> 0 === s) {
+        return s;
+    }
+    var x = parseInt(s);
+    if (isNaN(x)) {
+        throw "polis_fail_parse_int";
+    }
+    return x;
+}
+function assignToP(req, name, x) {
+    req.p = req.p || {};
+    req.p[name] = x;
+}
+
+var prrrams = (function() {
+    function getParam(name, parserWhichThrowsOnParseFail, assigner, required) {
+        var f = function(req, res, next) {
+console.log(name);
+console.log(1);
+            if (req.body && !_.isUndefined(req.body[name])) {
+console.log(2);
+                var parsed;
+                try {
+console.log(3);
+                    parsed = parserWhichThrowsOnParseFail(req.body[name]);
+                } catch (e) {
+console.log(9);
+                    next(400);
+                    return;
+                }
+console.log(4);
+                assigner(req, name, parsed);
+                next();
+            } else if (!required) {
+console.log(5);
+                next();
+            } else {
+console.log(6);
+                next(400);
+            }
+        };
+        return f;
+    }
+    function need(name, parserWhichThrowsOnParseFail, assigner) {
+        return getParam(name, parserWhichThrowsOnParseFail, assigner, true);
+    }
+    function want(name, parserWhichThrowsOnParseFail, assigner) {
+        return getParam(name, parserWhichThrowsOnParseFail, assigner, false);
+    }
+    return {
+        need: need,
+        want: want,
+    };
+}());
+var need = prrrams.need;
+var want = prrrams.want;
+
+
+function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
+    if ("undefined" === typeof nameOfSqlColumnName) {
+        // assume same name if not provided
+        nameOfSqlColumnName = name;
+    }
+    if (P.hasOwnProperty(name)) {
+        squelQuery = squelQuery.where(nameOfSqlColumnName + ' = ?', P[name]);
+    }
+    return squelQuery;
+}
+
 app.put('/v3/conversation/:zid',
-logPath,
-express.bodyParser(),
-//auth, // TODO
+    logPath,
+    moveToBody,
+    need('zid', getInt, assignToP),
+    want('is_active', getBool, assignToP),
+    //auth, // TODO
 function(req, res){
-    var zid = req.params.zid;
-    var data = req.body;
-    console.log(data)
-    console.log(zid);
-    console.log(typeof data.is_active);
-    var is_active = !!data.is_active;
     client.query(
         'UPDATE conversations SET is_active = $2 WHERE zid = $1',
-        [zid, is_active],
+        [req.p.zid, req.p.is_active],
         function(err, result){
             if (err) {
                 fail(res, 435673243, "polis_err_update_conversation", 500);
@@ -865,26 +941,25 @@ function(req, res){
             res.status(200).end();
         }
     )
-})
+});
+
 
 app.get('/v3/conversation',
-logPath,
-moveToBody,
-express.bodyParser(),
-//auth, // TODO
+    logPath,
+    moveToBody,
+    want('is_active', getBool, assignToP),
+    want('is_draft', getBool, assignToP),
+    need('uid', getInt, assignToP),
+    //auth, // TODO
 function(req, res) {
-    var data = req.body;
-    var uid = data.uid || 1000;
+
     var query = squel.select().from('conversations');
-    query = query.where('owner = ?', uid);
-    if ("undefined" != typeof data.is_active) {
-        query = query.where('is_active = ?', data.is_active);
-    }
-    if ("undefined" != typeof data.is_draft) {
-        query = query.where('is_draft = ?', data.is_draft);
-    }
+    query = query.where('owner = ?', req.p.uid);
+    query = whereOptional(query, req.p, 'is_active');
+    query = whereOptional(query, req.p, 'is_draft');
     query = query.order('created', true);
     query = query.limit(999); // TODO paginate
+
     client.query(query.toString(), [], function(err, result) {
         if (err) { console.dir(err); fail(res, 324234339, "polis_err_get_conversation", 500); return; }
         var rows = result.rows;
@@ -896,18 +971,17 @@ function(req, res) {
 });
 
 app.post('/v3/conversation',
-logPath,
-express.bodyParser(),
-//auth, TODO add
+    logPath,
+    want('is_active', getBool, assignToP),
+    want('is_draft', getBool, assignToP),
+    want('topic', _.identity, assignToP, ""),
+    want('description', _.identity, assignToP, ""),
+    need('uid', getInt, assignToP),
+    //auth, TODO add
 function(req, res) {
-    var uid = req.body.uid || 1000;
-    var topic = req.body.topic || "";
-    var description = req.body.description || "";
-    var is_active = !!req.body.is_active;
-    var is_draft = !!req.body.is_draft;
     query = client.query(
 'INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft)  VALUES(default, $1, default, $2, $3, $4, $5) RETURNING zid;',
-[uid, topic, description, is_active, is_draft], function(err, result) {
+[req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
                 console.error(57493879);
