@@ -3,19 +3,20 @@
 CREATE TABLE users(
     -- TODO After testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
-    uid INTEGER UNIQUE DEFAULT CEIL(RANDOM() * 100),
+    uid SERIAL,
     given_name VARCHAR(64),
     family_name VARCHAR(64),
     pwhash VARCHAR(128),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     username VARCHAR(128),
-    email VARCHAR(256)
+    email VARCHAR(256),
+    UNIQUE (uid)
 );
 
 --CREATE TABLE groups(
     ---- TODO After testing failure cases with 10, use this:
     ---- 2147483647  (2**32/2 -1)
-    --gid INTEGER UNIQUE DEFAULT CEIL(RANDOM() * 10)
+    --gid SERIAL
 --);
 
 --CREATE TABLE memberships(
@@ -28,20 +29,17 @@ CREATE TABLE users(
 CREATE TABLE conversations(
     -- TODO after testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
-    zid INTEGER UNIQUE DEFAULT (CEIL(RANDOM() * 100)),
-    owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
-    -- owner_group_id ?? 
-    isActive BOOLEAN DEFAULT FALSE,
-    isDraft BOOLEAN DEFAULT FALSE, -- TODO check default
-    isAnon BOOLEAN DEFAULT TRUE,
-    isPublic BOOLEAN DEFAULT TRUE,
-    participantsMustHaveAcct BOOLEAN DEFAULT FALSE,
-    participantsMustValidate BOOLEAN DEFAULT FALSE,
-    participantsMustHaveEmail BOOLEAN DEFAULT FALSE,
-    participantsMustHaveEmailDomain VARCHAR(200), -- space separated domain names
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    zid SERIAL,
     topic VARCHAR(1000), -- default as time in the presentation layer
     description VARCHAR(50000),
+    is_anon BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT FALSE,
+    is_draft BOOLEAN DEFAULT FALSE, -- TODO check default
+    is_public BOOLEAN DEFAULT TRUE,
+    email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
+    owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
+    -- owner_group_id ?? 
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     UNIQUE(zid)
 );
 
@@ -203,8 +201,8 @@ BEGIN;
     --insert into memberships (uid, gid) values (1002, 11002);
 COMMIT;
 
-INSERT INTO conversations (zid, owner, created, topic, description, active, draft) values (45342, 1000, default, 'Legalization', 'Seattle recently ...', default, default);
-INSERT INTO conversations (zid, owner, created, topic, description, active, draft) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....', default, default);
+INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft) values (45342, 1000, default, 'Legalization', 'Seattle recently ...', default, default);
+INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....', default, default);
     
 BEGIN;
     INSERT INTO participants (zid, uid) VALUES ( 45342, 1001);
