@@ -849,17 +849,17 @@ function(req, res) {
 app.get('/v3/conversation',
 logPath,
 moveToBody,
+//auth, // TODO
 function(req, res) {
     var data = req.body;
-    console.dir(data);
     var uid = data.uid || 1000;
     var query = squel.select().from('conversations');
-    //query = query.where('isOwner = ?', uid);
-    if ("undefined" != typeof data.isActive) {
-        query = query.where('isActive = ?', !!data.isActive);
+    //query = query.where('owner = ?', uid);
+    if ("undefined" != typeof data.is_active) {
+        query = query.where('is_active = ?', !!data.is_active);
     }
-    //if ("undefined" != typeof data.isDraft) {
-        //query = query.where('isDraft = ?', !!data.isDraft);
+    //if ("undefined" != typeof data.is_draft) {
+        //query = query.where('is_draft = ?', !!data.is_draft);
     //}
     query = query.order('created', true);
     query = query.limit(999); // TODO paginate
@@ -884,9 +884,11 @@ function(req, res) {
     var uid = req.body.uid || 1000;
     var topic = req.body.topic || "";
     var description = req.body.description || "";
-    var isActive = !!req.body.isActive;
-    var isDraft = !!req.body.isDraft;
-    query = client.query('INSERT INTO conversations (zid, owner, created, topic, description, isActive, isDraft)  VALUES(default, $1, default, $2, $3, $4, $5) RETURNING zid;', [uid, topic, description, isActive, isDraft], function(err, result) {
+    var is_active = !!req.body.is_active;
+    var is_draft = !!req.body.is_draft;
+    query = client.query(
+'INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft)  VALUES(default, $1, default, $2, $3, $4, $5) RETURNING zid;',
+[uid, topic, description, is_active, is_draft], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
                 console.error(57493879);
@@ -898,9 +900,9 @@ function(req, res) {
         }
         var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
             res.status(200).json({
-            zid: zid,
+                zid: zid,
+            });
         });
-    });
 });
 
 app.get('/v3/users',
