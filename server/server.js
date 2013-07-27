@@ -361,6 +361,8 @@ function writeDefaultHead(req, res) {
 
 //app.use(writeDefaultHead);
 app.use(express.logger());
+app.use(express.bodyParser());
+
 app.all("/v3/*", function(req, res, next) {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
@@ -377,7 +379,6 @@ app.all("/v3/*", function(req, res, next) {
 app.get("/v2/math/pca",
     logPath,
     moveToBody,
-    express.bodyParser(),
     function(req, res) {
         var stimulus = req.body.zid;
         var lastVoteTimestamp = req.body.lastVoteTimestamp || 0;
@@ -426,7 +427,6 @@ app.get("/v2/math/pca",
 
 app.post("/v3/auth/deregister",
 logPath,
-express.bodyParser(),
 auth,
 function(req, res) {
     var data = req.body;
@@ -448,7 +448,6 @@ function joinConversation(zid, uid, callback) {
 
 app.post("/v3/participants",
 logPath,
-express.bodyParser(),
 auth,
 function(req, res) {
     var data = req.body;
@@ -475,7 +474,6 @@ function(req, res) {
 
 app.post("/v3/auth/login",
 logPath,
-express.bodyParser(),
 function(req, res) {
     var data = req.body;
     var username = data.username;
@@ -509,7 +507,6 @@ function(req, res) {
 
 app.post("/v3/auth/new",
 logPath,
-express.bodyParser(),
 function(req, res) {
     var data = req.body;
     var username = data.username;
@@ -595,7 +592,6 @@ function(req, res) {
 
 
 app.post("/v2/feedback",
-    express.bodyParser(),
     auth,
     function(req, res) {
                 var data = req.body;
@@ -613,7 +609,6 @@ app.post("/v2/feedback",
 app.get("/v3/comments",
 logPath,
 moveToBody,
-express.bodyParser(),
 function(req, res) {
     var zid = Number(req.body.zid);
     var ids = req.body.ids;
@@ -671,7 +666,6 @@ function failWithRetryRequest(res) {
 
 app.post("/v3/comments",
 logPath,
-express.bodyParser(),
 auth,
 function(req, res) {
     var data = req.body;
@@ -731,7 +725,6 @@ function(req, res) {
 app.get("/v3/votes/me",
 logPath,
 moveToBody,
-express.bodyParser(),
 auth,
 function(req, res) {
     var data = req.body;
@@ -750,7 +743,6 @@ function(req, res) {
 app.get("/v2/selection",
     logPath,
     moveToBody,
-    express.bodyParser(),
     function(req, res) {
         var stimulus = req.body.zid;
         if (!req.body.users) {
