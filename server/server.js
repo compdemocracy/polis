@@ -377,6 +377,7 @@ app.all("/v3/*", function(req, res, next) {
 app.get("/v2/math/pca",
     logPath,
     moveToBody,
+    express.bodyParser(),
     function(req, res) {
         var stimulus = req.body.zid;
         var lastVoteTimestamp = req.body.lastVoteTimestamp || 0;
@@ -612,6 +613,7 @@ app.post("/v2/feedback",
 app.get("/v3/comments",
 logPath,
 moveToBody,
+express.bodyParser(),
 function(req, res) {
     var zid = Number(req.body.zid);
     var ids = req.body.ids;
@@ -729,6 +731,7 @@ function(req, res) {
 app.get("/v3/votes/me",
 logPath,
 moveToBody,
+express.bodyParser(),
 auth,
 function(req, res) {
     var data = req.body;
@@ -747,6 +750,7 @@ function(req, res) {
 app.get("/v2/selection",
     logPath,
     moveToBody,
+    express.bodyParser(),
     function(req, res) {
         var stimulus = req.body.zid;
         if (!req.body.users) {
@@ -833,6 +837,7 @@ app.get("/v2/selection",
 app.get("/v3/votes",
 logPath,
 moveToBody,
+express.bodyParser(),
 function(req, res) {
     votesGet(res, req.body);
 });
@@ -855,7 +860,7 @@ function(req, res){
     var data = req.body;
     console.log(data)
     console.log(zid);
-    res.status(200).json('');
+    console.log(typeof data.is_active);
     var is_active = !!data.is_active;
     client.query(
         'UPDATE conversations SET is_active = $2 WHERE zid = $1',
@@ -873,27 +878,28 @@ function(req, res){
 app.get('/v3/conversation',
 logPath,
 moveToBody,
+express.bodyParser(),
 //auth, // TODO
 function(req, res) {
     var data = req.body;
     var uid = data.uid || 1000;
     var query = squel.select().from('conversations');
-    //query = query.where('owner = ?', uid);
+    query = query.where('owner = ?', uid);
     if ("undefined" != typeof data.is_active) {
-        query = query.where('is_active = ?', !!data.is_active);
+        query = query.where('is_active = ?', data.is_active);
     }
-    //if ("undefined" != typeof data.is_draft) {
-        //query = query.where('is_draft = ?', !!data.is_draft);
-    //}
+    if ("undefined" != typeof data.is_draft) {
+        query = query.where('is_draft = ?', data.is_draft);
+    }
     query = query.order('created', true);
     query = query.limit(999); // TODO paginate
     client.query(query.toString(), [], function(err, result) {
         if (err) { console.dir(err); fail(res, 324234339, "polis_err_get_conversation", 500); return; }
         var rows = result.rows;
-        rows = rows.map(function(row) {
-            row.userIsAdmin = true; // TODO do a query for this
-        });
-        res.json(result.rows || []);
+        //rows = rows.map(function(row) {
+            //row.userIsAdmin = true; // TODO do a query for this
+        //});
+        res.json(rows || []);
     });
 });
 
@@ -902,9 +908,6 @@ logPath,
 express.bodyParser(),
 //auth, TODO add
 function(req, res) {
-    console.log("aishdfuisahd");
-    console.dir(req);
-    console.dir(req.body);
     var uid = req.body.uid || 1000;
     var topic = req.body.topic || "";
     var description = req.body.description || "";
