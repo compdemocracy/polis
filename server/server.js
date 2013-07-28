@@ -572,14 +572,15 @@ app.post("/v3/auth/login",
     want('username', _.identity, assignToP),
     want('email', _.identity, assignToP),
 function(req, res) {
-    var username = req.p.username;
     var password = req.p.password;
+    var username = req.p.username;
     var email = req.p.email;
     var handles = [];
     if (username) { handles.push({username: username}); }
     if (email) { handles.push({email: email}); }
     if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
     client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2)", [username, email], function(err, docs) {
+        docs = docs.rows;
         if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
         if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
         var hashedPassword  = docs[0].pwhash;
@@ -606,8 +607,10 @@ app.post("/v3/auth/new",
     logPath,
     want('anon', getBool, assignToP),
     want('username', _.identity, assignToP),
+    want('password', _.identity, assignToP),
     want('email', _.identity, assignToP),
-    want('zid', getInt, assignToP),
+    want('given_name', _.identity, assignToP),
+    want('family_name', _.identity, assignToP),
 function(req, res) {
     var username = req.p.username;
     var password = req.p.password;
