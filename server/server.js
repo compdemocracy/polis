@@ -268,6 +268,89 @@ function fail(res, code, err, httpCode) {
     res.end(err);
 }
 
+function getBool(s) {
+    if ("boolean" === typeof s) {
+        return s;
+    }
+    s = s.toLowerCase();
+    if (s === 't' || s === 'true') {
+        return true;
+    } else if (s === 'f' || s === 'false') {
+        return false;
+    }
+    throw "polis_fail_parse_boolean";
+}
+function getInt(s) {
+    if (_.isNumber(s) && s >> 0 === s) {
+        return s;
+    }
+    var x = parseInt(s);
+    if (isNaN(x)) {
+        throw "polis_fail_parse_int";
+    }
+    return x;
+}
+function assignToP(req, name, x) {
+    req.p = req.p || {};
+    req.p[name] = x;
+}
+
+var prrrams = (function() {
+    function getParam(name, parserWhichThrowsOnParseFail, assigner, required, defaultVal) {
+        var f = function(req, res, next) {
+console.log(name);
+console.log(1);
+            if (req.body && !_.isUndefined(req.body[name])) {
+console.log(2);
+                var parsed;
+                try {
+console.log(3);
+                    parsed = parserWhichThrowsOnParseFail(req.body[name]);
+                } catch (e) {
+console.log(9);
+                    next(400);
+                    return;
+                }
+console.log(4);
+                assigner(req, name, parsed);
+                next();
+            } else if (!required) {
+console.log(5);
+                assigner(req, name, defaultVal);
+                next();
+            } else {
+console.log(6);
+                next(400);
+            }
+        };
+        return f;
+    }
+    function need(name, parserWhichThrowsOnParseFail, assigner) {
+        return getParam(name, parserWhichThrowsOnParseFail, assigner, true);
+    }
+    function want(name, parserWhichThrowsOnParseFail, assigner, defaultVal) {
+        return getParam(name, parserWhichThrowsOnParseFail, assigner, false, defaultVal);
+    }
+    return {
+        need: need,
+        want: want,
+    };
+}());
+var need = prrrams.need;
+var want = prrrams.want;
+
+
+function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
+    if ("undefined" === typeof nameOfSqlColumnName) {
+        // assume same name if not provided
+        nameOfSqlColumnName = name;
+    }
+    if (P.hasOwnProperty(name)) {
+        squelQuery = squelQuery.where(nameOfSqlColumnName + ' = ?', P[name]);
+    }
+    return squelQuery;
+}
+
 
 function initializePolisAPI(err, args) {
 var mongoParams = args[0];
@@ -843,89 +926,6 @@ app.post("/v3/votes",
 function(req, res) {
         votesPost(res, req.p.pid, req.p.zid, req.p.votes);
 });
-
-function getBool(s) {
-    if ("boolean" === typeof s) {
-        return s;
-    }
-    s = s.toLowerCase();
-    if (s === 't' || s === 'true') {
-        return true;
-    } else if (s === 'f' || s === 'false') {
-        return false;
-    }
-    throw "polis_fail_parse_boolean";
-}
-function getInt(s) {
-    if (_.isNumber(s) && s >> 0 === s) {
-        return s;
-    }
-    var x = parseInt(s);
-    if (isNaN(x)) {
-        throw "polis_fail_parse_int";
-    }
-    return x;
-}
-function assignToP(req, name, x) {
-    req.p = req.p || {};
-    req.p[name] = x;
-}
-
-var prrrams = (function() {
-    function getParam(name, parserWhichThrowsOnParseFail, assigner, required, defaultVal) {
-        var f = function(req, res, next) {
-console.log(name);
-console.log(1);
-            if (req.body && !_.isUndefined(req.body[name])) {
-console.log(2);
-                var parsed;
-                try {
-console.log(3);
-                    parsed = parserWhichThrowsOnParseFail(req.body[name]);
-                } catch (e) {
-console.log(9);
-                    next(400);
-                    return;
-                }
-console.log(4);
-                assigner(req, name, parsed);
-                next();
-            } else if (!required) {
-console.log(5);
-                assigner(req, name, defaultVal);
-                next();
-            } else {
-console.log(6);
-                next(400);
-            }
-        };
-        return f;
-    }
-    function need(name, parserWhichThrowsOnParseFail, assigner) {
-        return getParam(name, parserWhichThrowsOnParseFail, assigner, true);
-    }
-    function want(name, parserWhichThrowsOnParseFail, assigner, defaultVal) {
-        return getParam(name, parserWhichThrowsOnParseFail, assigner, false, defaultVal);
-    }
-    return {
-        need: need,
-        want: want,
-    };
-}());
-var need = prrrams.need;
-var want = prrrams.want;
-
-
-function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
-    if ("undefined" === typeof nameOfSqlColumnName) {
-        // assume same name if not provided
-        nameOfSqlColumnName = name;
-    }
-    if (P.hasOwnProperty(name)) {
-        squelQuery = squelQuery.where(nameOfSqlColumnName + ' = ?', P[name]);
-    }
-    return squelQuery;
-}
 
 app.put('/v3/conversation/:zid',
     logPath,
