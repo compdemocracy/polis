@@ -206,9 +206,7 @@ window.Polis = function(params) {
         //if (optionalSpecificSubStimulus) {
             //ev.tid = optionalSpecificSubStimulus;
         //}
-        return polisPost(commentsPath, {
-            comments: [ev]
-        });
+        return polisPost(commentsPath, ev);
     }
 
     function markReaction(commentId, reaction, optionalStimulusId) {
@@ -252,12 +250,11 @@ window.Polis = function(params) {
             console.error(params);
         }
 
-        return polisPost(votesPath, { 
-            votes: [ $.extend({}, params, {
+        return polisPost(votesPath, $.extend({}, params, {
                 pid: getPid(),
                 zid: currentStimulusId
-            }) ]
-        });
+            }) 
+        );
     }
 
     function pull(commentId) {
@@ -313,7 +310,7 @@ window.Polis = function(params) {
                 console.error('auth needed');
                 return $.Deferred().reject('auth needed');
             }
-            data = $.extend({ token: token}, data);
+            //data = $.extend({ token: token}, data); // moving to cookies
         }
             
         var promise;

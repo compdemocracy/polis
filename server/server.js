@@ -20,6 +20,7 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 //);
 
 var http = require('http'),
+    httpProxy = require('http-proxy'),
     express = require('express'),
     app = express(),
     squel = require('squel'),
@@ -35,6 +36,13 @@ var http = require('http'),
 
 app.disable('x-powered-by'); // save a whale
 
+
+
+function connectError(errorcode, message){
+  var err = new Error(message);
+  err.status = errorcode;
+  return err;
+}
 
 var AUTH_FAILED = 'auth failed';
 var ALLOW_ANON = true;
@@ -215,21 +223,23 @@ function connectToPostgres(callback) {
 
 // input token from body or query, and populate req.body.u with userid.
 function auth(req, res, next) {
-    var token = req.body.token;
-    if (!token) { next(400); return; }
+    //var token = req.body.token;
+    var token = req.cookies.token;
+    if (!token) { next(connectError(400, "polis_err_auth_token_not_supplied")); return; }
     //if (req.body.uid) { next(400); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
     getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
-        if (err) { next(err); return;}
+        if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
          // don't want to pass the token around
         if (req.body) { delete req.body.token; }
         if (req.query) { delete req.query.token; }
 
         if ( req.body.uid && req.body.uid !== fetchedUserInfo.uid) {
-            next(400);
+            next(connectError(400, "polis_err_auth_mismatch_uid"));
             return;
         }
+        req.body = req.body || {};
         req.body.uid = fetchedUserInfo.uid;
-        next(null);
+        next();
     });
 }
 
@@ -308,7 +318,7 @@ console.log(3);
                     parsed = parserWhichThrowsOnParseFail(req.body[name]);
                 } catch (e) {
 console.log(9);
-                    next(400);
+                    next(connectError(400, "polis_err_param_parse_failed" + " " + name));
                     return;
                 }
 console.log(4);
@@ -320,6 +330,7 @@ console.log(5);
                 next();
             } else {
 console.log(6);
+                next(connectError(400, "polis_err_param_missing" + " " + name));
                 next(400);
             }
         };
@@ -349,6 +360,14 @@ function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
         squelQuery = squelQuery.where(nameOfSqlColumnName + ' = ?', P[name]);
     }
     return squelQuery;
+}
+
+function addCookie(res, token) {
+    res.cookie('token', token, {
+   //     domain: '.polis.io',
+    //    path: '/',
+     //   secure: true,
+    });
 }
 
 
@@ -402,25 +421,18 @@ function match(key, zid) {
     return {$or: variants};
 }
 
-function votesPost(res, pid, zid, events) {
-    if (!events.length) { fail(res, 324234327, err); return; }
-    events.forEach(function(vote){
-        var zid = vote.zid;
-        var pid = vote.pid;
-        var tid = vote.tid;
-        var voteType = vote.vote;
-        if (-1 === polisTypes.reactionValues.indexOf[vote.vote]) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
-        client.query("INSERT INTO votes (zid, pid, tid, vote, created) VALUES ($1, $2, $3, $4, default);", [zid, pid, tid, voteType], function(err, result) {
-            if (err) {
-                if (isDuplicateKey(err)) {
-                    fail(res, 57493886, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
-                } else {
-                    fail(res, 324234324, "polis_err_vote", 500);
-                }
-                return;
+function votesPost(res, pid, zid, tid, voteType) {
+    if (-1 === polisTypes.reactionValues.indexOf[voteType]) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
+    client.query("INSERT INTO votes (zid, pid, tid, vote, created) VALUES ($1, $2, $3, $4, default);", [zid, pid, tid, voteType], function(err, result) {
+        if (err) {
+            if (isDuplicateKey(err)) {
+                fail(res, 57493886, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
+            } else {
+                fail(res, 324234324, "polis_err_vote", 500);
             }
-            res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
-        });
+            return;
+        }
+        res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
     });
 }
 
@@ -444,6 +456,7 @@ function writeDefaultHead(req, res) {
 
 //app.use(writeDefaultHead);
 app.use(express.logger());
+app.use(express.cookieParser());
 app.use(express.bodyParser());
 
 app.all("/v3/*", function(req, res, next) {
@@ -582,6 +595,7 @@ function(req, res) {
                     email: email,
                     token: token
                 };
+                addCookie(res, token);
                 res.json(response_data);
             }); // startSession
         }); // compare
@@ -599,6 +613,8 @@ function(req, res) {
     var password = req.p.password;
     var email = req.p.email;
     var zid = req.p.zid;
+
+
     if (ALLOW_ANON && req.p.anon) {
         client.query("INSERT INTO users (uid, created) VALUES (default, default) RETURNING uid;", [], function(err, result) {
             if (err) {
@@ -625,6 +641,7 @@ function(req, res) {
                     if (pid) {
                         o.pid = pid;
                     }
+                    addCookie(res, token);
                     res.status(200).json(o);
                 }
                 if (zid) {
@@ -663,6 +680,7 @@ function(req, res) {
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(errSessionStart,token) {
                             if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
+                            addCookie(res, token);
                             res.json({
                                 uid: uid,
                                 username: username,
@@ -696,8 +714,8 @@ app.get("/v3/comments",
     logPath,
     moveToBody,
     need('zid', getInt, assignToP),
-    need('ids', _.identity, assignToP),
-    need('not_pid', getInt, assignToP),
+    want('ids', _.identity, assignToP),
+    want('not_pid', getInt, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
 function(req, res) {
 
@@ -756,9 +774,10 @@ app.post("/v3/comments",
     need('pid', getInt, assignToP),
     need('txt', _.identity, assignToP),
 function(req, res) {
-    var data = req.body;
-    data.comments.forEach(function(ev){
-        client.query("INSERT INTO comments (tid, pid, zid, txt, created) VALUES (NULL, $1, $2, $3, default);", [req.p.pid, req.p.zid, req.p.txt], function(err, docs) {
+    client.query(
+        "INSERT INTO comments (tid, pid, zid, txt, created) VALUES (NULL, $1, $2, $3, default);",
+        [req.p.pid, req.p.zid, req.p.txt],
+        function(err, docs) {
             if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
             var tid = docs && docs[0] && docs[0].tid;
             // Since the user posted it, we'll submit an auto-pull for that.
@@ -800,7 +819,6 @@ function(req, res) {
                 //}); // SET CONSTRAINTS
               ////}); // nextTick
         //}); // BEGIN
-    }); // each 
 }); // end POST /v3/comments
 
 app.get("/v3/votes/me",
@@ -920,19 +938,20 @@ function(req, res) {
 app.post("/v3/votes",
     logPath,
     auth,
+    need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
     need('pid', getInt, assignToP),
-    need('votes', _.identity, assignToP),
+    need('vote', getInt, assignToP),
 function(req, res) {
-        votesPost(res, req.p.pid, req.p.zid, req.p.votes);
+        votesPost(res, req.p.pid, req.p.zid, req.p.tid, req.p.vote);
 });
 
 app.put('/v3/conversation/:zid',
     logPath,
     moveToBody,
+    auth,
     need('zid', getInt, assignToP),
     want('is_active', getBool, assignToP),
-    //auth, // TODO
 function(req, res){
     client.query(
         'UPDATE conversations SET is_active = $2 WHERE zid = $1',
@@ -951,10 +970,10 @@ function(req, res){
 app.get('/v3/conversation',
     logPath,
     moveToBody,
+    auth,
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     need('uid', getInt, assignToP),
-    //auth, // TODO
 function(req, res) {
 
     var query = squel.select().from('conversations');
@@ -976,14 +995,14 @@ function(req, res) {
 
 app.post('/v3/conversation',
     logPath,
+    auth,
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('topic', _.identity, assignToP, ""),
     want('description', _.identity, assignToP, ""),
     need('uid', getInt, assignToP),
-    //auth, TODO add
 function(req, res) {
-    query = client.query(
+    client.query(
 'INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft)  VALUES(default, $1, default, $2, $3, $4, $5) RETURNING zid;',
 [req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft], function(err, result) {
         if (err) {
@@ -1155,10 +1174,27 @@ function staticFile(req, res) {
 //app.use('/static', express.static(__dirname + '/src'));
 
 //app.get('/', staticFile);
+
+
+
+var routingProxy = new httpProxy.RoutingProxy();
+
+function proxy(req, res) {
+    routingProxy.proxyRequest(req, res, {
+        host: 'localhost',
+        port: 8000
+    });
+}
+
 app.get('/', function(req, res) {
-    res.writeHead(500);
-    res.end();
+    //res.writeHead(500);
+    //res.end();
+    proxy(req, res);
 });
+app.get(/^\/modules\//, proxy);
+app.get(/^\/font\//, proxy);
+app.get(/^\/fonts\//, proxy);
+
 app.get(/^\/[0-9]/, staticFile);
 app.get(/^\/mobile\//, staticFile);
 app.get(/^\/static\//, staticFile);
