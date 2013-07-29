@@ -249,6 +249,10 @@ function moveToBody(req, res, next) {
         req.body = req.body || {};
         _.extend(req.body, req.query);
     }
+    if (req.params) {
+        req.body = req.body || {};
+        _.extend(req.body, req.params);
+    }
     next();
 }
 function logPath(req, res, next) {
