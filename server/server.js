@@ -312,28 +312,22 @@ function assignToP(req, name, x) {
 var prrrams = (function() {
     function getParam(name, parserWhichThrowsOnParseFail, assigner, required, defaultVal) {
         var f = function(req, res, next) {
-console.log(name);
-console.log(1);
             if (req.body && !_.isUndefined(req.body[name])) {
-console.log(2);
                 var parsed;
                 try {
-console.log(3);
                     parsed = parserWhichThrowsOnParseFail(req.body[name]);
                 } catch (e) {
-console.log(9);
                     next(connectError(400, "polis_err_param_parse_failed" + " " + name));
                     return;
                 }
-console.log(4);
                 assigner(req, name, parsed);
                 next();
             } else if (!required) {
-console.log(5);
-                assigner(req, name, defaultVal);
+                if (typeof defaultVal !== "undefined") {
+                    assigner(req, name, defaultVal);
+                }
                 next();
             } else {
-console.log(6);
                 next(connectError(400, "polis_err_param_missing" + " " + name));
                 next(400);
             }
