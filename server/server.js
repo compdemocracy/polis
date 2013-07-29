@@ -536,7 +536,15 @@ function joinConversation(zid, uid, callback) {
         if (err) {
             console.dir(err);
         }
-        callback(err, docs);
+        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
+        callback(err, pid);
+    });
+}
+
+function getPid(zid, uid, callback) {
+    client.query("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
+        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
+        callback(err, pid);
     });
 }
 
@@ -546,12 +554,21 @@ app.post("/v3/participants",
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
 function(req, res) {
-    joinConversation(req.p.zid, req.p.uid, function(err, docs) {
-        if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
-        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
+    function finish(pid) {
         res.json({
             pid: pid,
         });
+    }
+    // Check if already in the conversation
+    getPid(req.p.zid, req.p.uid, function(err, pid) {
+        if (err) {
+            joinConversation(req.p.zid, req.p.uid, function(err, pid) {
+                if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
+                finish(pid);
+            });
+            return;
+        }
+        finish(pid);
     });
 });
 
@@ -646,9 +663,8 @@ function(req, res) {
                     res.status(200).json(o);
                 }
                 if (zid) {
-                    joinConversation(zid, uid, function(err, docs) {
+                    joinConversation(zid, uid, function(err, pid) {
                         if (err) { fail(res, 5748941, "polis_err_joining_conversation_anon"); return; }
-                        var pid = docs && docs[0];
                         finish(pid);
                     });
                 } else {
@@ -967,20 +983,23 @@ function(req, res){
     );
 });
 
-
-app.get('/v3/conversation',
+[ '/v3/conversation', '/v3/conversation/:zid', ].forEach(function(route) {
+app.get(route,
     logPath,
     moveToBody,
     auth,
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
-    need('uid', getInt, assignToP),
+    want('zid', getInt, assignToP),
+    want('owner', getInt, assignToP),
+    //need('uid', getInt, assignToP),
 function(req, res) {
 
     var query = squel.select().from('conversations');
-    query = query.where('owner = ?', req.p.uid);
+    query = whereOptional(query, req.p, 'owner');
     query = whereOptional(query, req.p, 'is_active');
     query = whereOptional(query, req.p, 'is_draft');
+    query = whereOptional(query, req.p, 'zid');
     query = query.order('created', true);
     query = query.limit(999); // TODO paginate
 
