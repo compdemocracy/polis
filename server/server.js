@@ -1011,6 +1011,7 @@ function(req, res) {
         //});
         res.json(rows || []);
     });
+})
 });
 
 app.post('/v3/conversation',
