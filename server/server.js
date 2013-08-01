@@ -430,7 +430,7 @@ function votesPost(res, pid, zid, tid, voteType) {
             }
             return;
         }
-        res.end();  // TODO don't stop after the first one, map the inserts to deferreds.
+        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
     });
 }
 
@@ -813,7 +813,7 @@ function(req, res) {
                     //tid: tid,
                     //pid: req.p.pid
                 //};
-                res.status(200).end();
+                res.status(200).json({});
                 //votesPost(res, pid, zid, [autopull]);
             }); // insert
     });
@@ -990,7 +990,7 @@ function(req, res){
                 fail(res, 435673243, "polis_err_update_conversation", 500);
                 return;
             }
-            res.status(200).end();
+            res.status(200).json({});
         }
     );
 });
