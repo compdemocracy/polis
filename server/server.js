@@ -1054,6 +1054,7 @@ function(req, res) {
         });
 });
 
+/*
 app.get('/v3/users',
 logPath,
 function(req, res) {
@@ -1067,6 +1068,7 @@ function(req, res) {
         res.status(200).end(responseText);
     });
 });
+*/
 
 
 
