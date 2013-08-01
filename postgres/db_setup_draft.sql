@@ -154,6 +154,11 @@ BEGIN
     FROM    participants
     WHERE   zid = NEW.zid;
 
+    -- Duplicate participant_count to the conversations table to speed up conversationsView queries.
+    UPDATE conversations
+    SET participant_count = NEW.pid + 1
+    WHERE zid = NEW.zid;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql STRICT;
