@@ -532,13 +532,14 @@ function(req, res) {
 
 
 function joinConversation(zid, uid, callback) {
-    client.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
+    client.query("UPDATE conversations SET participant_count = participant_count + 1 WHERE zid = $1; INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
         if (err) {
             console.dir(err);
         }
         var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
         callback(err, pid);
     });
+
 }
 
 function getPid(zid, uid, callback) {
@@ -1036,7 +1037,7 @@ app.post('/v3/conversation',
     need('uid', getInt, assignToP),
 function(req, res) {
     client.query(
-'INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft)  VALUES(default, $1, default, $2, $3, $4, $5) RETURNING zid;',
+'INSERT INTO conversations (zid, owner, created, topic, description, participant_count, is_active, is_draft)  VALUES(default, $1, default, $2, $3, default, $4, $5) RETURNING zid;',
 [req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
