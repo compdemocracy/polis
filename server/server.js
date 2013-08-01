@@ -735,9 +735,10 @@ app.post("/v2/feedback",
 app.get("/v3/comments",
     logPath,
     moveToBody,
+    auth,
     need('zid', getInt, assignToP),
-    want('ids', _.identity, assignToP),
     want('not_pid', getInt, assignToP),
+    want('not_voted_by_pid', getInt, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
 function(req, res) {
 
@@ -751,31 +752,30 @@ function(req, res) {
                 comments: docs.rows.map(function(row) { return _.pick(row, ["txt", "tid", "created"]); }),
             });
         } else {
-            console.log('ending');
-            res.json(304, {
-                comments: [],
-            });
+            res.status(304).end();
         }
     }
-console.dir(req.body);
-    var query = "SELECT * FROM comments WHERE";
-    var parameters = [];
-    parameters.unshift(req.p.zid);
-    var i = 1;
-    query += " zid = ($"+ (i++) + ")";
+
+    var query = squel.select().from('comments');
+    query = query.where("zid = ?", req.p.zid);
+    if (!_.isUndefined(req.p.not_pid)) {
+        query = query.where("pid != ?", req.p.not_pid);
+    }
+    if (!_.isUndefined(req.p.not_voted_by_pid)) {
+        // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
+        // Don't return comments the user has already voted on.
+        query = query.where( "tid NOT IN (SELECT tid FROM votes WHERE zid = ? AND pid = ?)", req.p.zid, req.p.not_voted_by_pid);
+    }
+    query = query.order('created', true);
+    query = query.limit(999); // TODO paginate
+
     //if (_.isNumber(req.p.not_pid)) {
         //query += " AND pid != ($"+ (i++) + ")";
         //parameters.unshift(req.p.not_pid);
     //}
-    if (!!req.p.ids) {
-        query += " AND ( " + req.p.ids.map(function(id) { return "tid = ($" + (i++) + ")"; }) + " )";
-        parameters = parameters.concat(req.p.ids);
-    }
-    query += " ORDER BY created;";
-    console.log(query);
-    console.dir(parameters);
+    //
     //client.query("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
-    client.query(query, parameters, handleResult);
+    client.query(query.toString(), [], handleResult);
 }); // end GET /v3/comments
 
 
@@ -793,25 +793,30 @@ app.post("/v3/comments",
     logPath,
     auth,
     need('zid', getInt, assignToP),
-    need('pid', getInt, assignToP),
+    need('uid', getInt, assignToP),
     need('txt', _.identity, assignToP),
 function(req, res) {
-    client.query(
-        "INSERT INTO comments (tid, pid, zid, txt, created) VALUES (NULL, $1, $2, $3, default);",
-        [req.p.pid, req.p.zid, req.p.txt],
-        function(err, docs) {
-            if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
-            var tid = docs && docs[0] && docs[0].tid;
-            // Since the user posted it, we'll submit an auto-pull for that.
-            var autoPull = {
-                zid: req.p.zid,
-                vote: polisTypes.reactions.pull,
-                tid: tid,
-                pid: req.p.pid
-            };
-            res.json({});
-            //votesPost(res, pid, zid, [autoPull]);
-        }); // INSERT
+    getPid(req.p.zid, req.p.uid, function(err, pid) {
+        if (err) { console.dir(err); fail(res, 324234336, "polis_err_getting_pid"); return; }
+        console.log(pid);
+        console.log(req.p.uid);
+        client.query(
+            "INSERT INTO COMMENTS (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default);",
+            [pid, req.p.zid, req.p.txt],
+            function(err, docs) {
+                if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+                var tid = docs && docs[0] && docs[0].tid;
+                // Since the user posted it, we'll submit an auto-pull for that.
+                //var autopull = {
+                    //zid: req.p.zid,
+                    //vote: polistypes.reactions.pull,
+                    //tid: tid,
+                    //pid: req.p.pid
+                //};
+                res.status(200).end();
+                //votesPost(res, pid, zid, [autopull]);
+            }); // insert
+    });
 
         //var rollback = function(client) {
           //client.query('ROLLBACK', function(err) {
