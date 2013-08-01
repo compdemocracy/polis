@@ -543,7 +543,12 @@ function joinConversation(zid, uid, callback) {
 
 function getPid(zid, uid, callback) {
     client.query("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
-        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
+        var pid;
+        if (docs.rows.length == 0) {
+            err = err || 1;
+        } else {
+            pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
+        }
         callback(err, pid);
     });
 }
