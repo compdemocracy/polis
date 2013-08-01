@@ -32,6 +32,7 @@ CREATE TABLE conversations(
     zid SERIAL,
     topic VARCHAR(1000), -- default as time in the presentation layer
     description VARCHAR(50000),
+    participant_count INTEGER DEFAULT 0,
     is_anon BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT FALSE,
     is_draft BOOLEAN DEFAULT FALSE, -- TODO check default
