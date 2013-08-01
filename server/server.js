@@ -853,12 +853,14 @@ app.get("/v3/votes/me",
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
-    need('pid', getInt, assignToP),
+    need('uid', getInt, assignToP),
 function(req, res) {
-    client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
-        if (err) { fail(res, 234234325, err); return; }
-        res.json({
-            votes: docs.rows,
+    getPid(req.p.zid, req.p.uid, function(err, pid) {
+        client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
+            if (err) { fail(res, 234234325, err); return; }
+            res.json({
+                votes: docs.rows,
+            });
         });
     });
 });
