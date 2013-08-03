@@ -532,7 +532,7 @@ function(req, res) {
 
 
 function joinConversation(zid, uid, callback) {
-    client.query("UPDATE conversations SET participant_count = participant_count + 1 WHERE zid = $1; INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
+    client.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
         if (err) {
             console.dir(err);
         }
