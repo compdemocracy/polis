@@ -329,7 +329,6 @@ var prrrams = (function() {
                 next();
             } else {
                 next(connectError(400, "polis_err_param_missing" + " " + name));
-                next(400);
             }
         };
         return f;
