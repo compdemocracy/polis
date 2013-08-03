@@ -587,6 +587,26 @@ function(req, res) {
     //});
 //}
 
+
+app.post("/v3/beta", 
+    logPath,
+    want('email', _.identity, assignToP),
+    want('username', _.identity, assignToP),
+    want('organization', _.identity, assignToP),
+    function(req,res){
+
+        var email = req.p.email;
+        var username = req.p.username;
+        var organization = req.p.organization;
+
+        console.log(email, username, organization)
+        client.query("INSERT INTO beta (email, username, organization) VALUES ($1, $2, $3);", [email, username, organization], function(err, result) {
+            //write validation
+        })
+
+})
+
+
 app.post("/v3/auth/login",
     logPath,
     need('password', _.identity, assignToP),

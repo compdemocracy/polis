@@ -44,6 +44,14 @@ CREATE TABLE conversations(
     UNIQUE(zid)
 );
 
+CREATE TABLE beta(
+    email VARCHAR(200),
+    username VARCHAR(200),
+    organization VARCHAR(200),
+    UNIQUE(email),
+    UNIQUE(username)
+)
+
 CREATE TABLE participants(
     pid INTEGER NOT NULL, -- populated by trigger pid_auto
     uid INTEGER NOT NULL REFERENCES users(uid),
