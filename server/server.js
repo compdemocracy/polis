@@ -890,93 +890,88 @@ function(req, res) {
 
 
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
-app.get("/v2/selection",
+app.get("/v3/selection",
     logPath,
     moveToBody,
-    want('users', _.identity, assignToP),
-    want('zid', getInt, assignToP),
+    need('users', _.identity, assignToP),
+    need('zid', getInt, assignToP),
 function(req, res) {
-        var stimulus = req.p.zid;
-        if (!req.p.users) {
+        var zid = req.p.zid;
+        var users = req.p.users;
+        if (_.isUndefined(users)) { 
             res.json([]);
             return;
         }
-        function makeGetReactionsByUserQuery(users, stimulus) {
-            users = users.split(',');
-            var q = { $and: [
-                match("zid", stimulus),
-                {$or: [{vote: polisTypes.reactions.pull}, {vote: polisTypes.reactions.push}]},
-                {$or: users.map(function(pid) { return { pid: ObjectId(pid)}; })},
-                {to: {$exists: true}}
-                ]
-            };
-            return q;
+        var usersListOk = /^([0-9]+,)?[0-9]$/;
+        if (!usersListOk.test(users)) {
+            if (err) { fail(res, 2389373, "polis_err_get_selection_users_list_formatting", 400); return; }
         }
-        var q = makeGetReactionsByUserQuery(req.p.users, stimulus);
-        collection.find(q, function(err, cursor) {
-            if (err) { fail(res, 2389369, "polis_err_get_selection", 500); return; }
-            cursor.toArray( function(err, votes) {
-                if (err) { fail(res, 2389365, "polis_err_get_selection_toarray", 500); return; }
-                var commentIdCounts = {};
-                for (var i = 0; i < votes.length; i++) {
-                    if (votes[i].to) { // TODO why might .to be undefined?
-                        var count = commentIdCounts[votes[i].to];
-                        if (votes[i].vote === polisTypes.votes.pull) {
-                            commentIdCounts[votes[i].to] = count + 1 || 1;
-                        } else if (votes[i].vote === polisTypes.votes.push) {
-                            // push
-                            commentIdCounts[votes[i].to] = count - 1 || -1;
-                        } else {
-                            console.error("expected just push and pull in query");
-                        }
-                    }
+        
+        var query = squel.select()
+            .from("votes")
+            .where("zid = ?", zid)
+            .where("vote = 1 OR vote = -1")
+            .where("pid IN (" + users + ")");
+
+        client.query(query.toString(), [], function(err, results) {
+            console.log('votes query');
+            if (err) { fail(res, 2389369, "polis_err_get_selection", 500); console.dir(results); return; }
+            var votes = results.rows;
+            var commentIdCounts = {};
+            for (var i = 0; i < votes.length; i++) {
+                var vote = votes[i];
+                var count = commentIdCounts[vote.tid];
+                if (vote.vote === polisTypes.reactions.pull) {
+                    commentIdCounts[vote.tid] = count + 1 || 1;
+                } else if (vote.vote === polisTypes.reactions.push) {
+                    // push
+                    commentIdCounts[vote.tid] = count - 1 || -1;
+                } else {
+                    console.error("expected just push and pull in query");
                 }
-                commentIdCounts = _.pairs(commentIdCounts);
-                commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; }); // remove net negative items
-                commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); // remove net negative items
-                commentIdCounts.sort(function(a,b) {
-                    return b[1] - a[1]; // descending by freq
-                });
-                commentIdCounts = commentIdCounts.slice(0, 10);
-                var commentIds = commentIdCounts.map(function(x) { return {_id: ObjectId(x[0])};});
-                var qq = { $and: [
-                    match("zid", stimulus),
-                    {txt: {$exists: true}},
-                    {$or : commentIds}
-                    ]
-                };
-                collection.find(qq, function(err, commentsCursor) {
-                    if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); return; }
-                    commentsCursor.toArray( function(err, comments) {
-                        if (err) { fail(res, 2389367, "polis_err_get_selection_comments_toarray", 500); return; }
-
-                        // map the results onto the commentIds list, which has the right ordering
-                        var comments = orderLike(comments, commentIds, "_id"); // TODO fix and test the extra declaration of comments
-                        for (var i = 0; i < comments.length; i++) {
-                            comments[i].freq = i;
-                        }
-
-                        comments.sort(function(a, b) {
-                            // desc sort primarily on frequency, then on recency
-                            if (b.freq > a.freq) {
-                                return 1;
-                            } else if (b.freq < a.freq) {
-                                return -1;
-                            } else {
-                                return b._id > a._id;
-                            }
-                        });
-                        // TODO fix and use the stuff above
-                        comments.sort(function(a, b) {
-                            // desc sort primarily on frequency, then on recency
-                            return b._id > a._id;
-                        });
-                        res.json(comments);
-                    });
-                });
+            }
+            commentIdCounts = _.pairs(commentIdCounts);
+            commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; }); // remove net negative items
+            commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); // remove net negative items ????
+            commentIdCounts.sort(function(a,b) {
+                return b[1] - a[1]; // descending by freq
             });
-        });
-    });
+            commentIdCounts = commentIdCounts.slice(0, 10);
+            var commentIdsOrdering = commentIdCounts.map(function(x) { return {tid: x[0]};});
+            var commentIds = commentIdCounts.map(function(x) { return x[0];});
+            var queryForSelectedComments = squel.select()
+                .from("comments")
+                .where("zid = ?", zid)
+                .where("tid IN (" + commentIds.join(",") + ")");
+            client.query(queryForSelectedComments.toString(), [], function(err, results) {
+                console.log('comments query');
+                if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); console.dir(err); return; }
+                var comments = results.rows;
+                // map the results onto the commentIds list, which has the right ordering
+                comments = orderLike(comments, commentIdsOrdering, "tid"); // TODO fix and test the extra declaration of comments
+                for (var i = 0; i < comments.length; i++) {
+                    comments[i].freq = i;
+                }
+
+                comments.sort(function(a, b) {
+                    // desc sort primarily on frequency, then on recency
+                    if (b.freq > a.freq) {
+                        return 1;
+                    } else if (b.freq < a.freq) {
+                        return -1;
+                    } else {
+                        return b._id > a._id;
+                    }
+                });
+                // TODO fix and use the stuff above
+                comments.sort(function(a, b) {
+                    // desc sort primarily on frequency, then on recency
+                    return b._id > a._id;
+                });
+                res.json(comments);
+            }); // end comments query
+        }); // end votes query
+    }); // end GET selection
 
 app.get("/v3/votes",
     logPath,
