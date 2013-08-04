@@ -472,15 +472,15 @@ app.all("/v3/*", function(req, res, next) {
   return res.send(204);
 });
 
-app.get("/v2/math/pca",
+app.get("/v3/math/pca",
     logPath,
     moveToBody,
     need('zid', getInt, assignToP),
     want('lastVoteTimestamp', getInt, assignToP, 0),
     function(req, res) {
         collectionOfPcaResults.find({$and :[
-            match("zid", req.p.zid),
-            {lastVoteTimestamp: {$gt: new Date(req.p.lastVoteTimestamp)}},
+            {zid: req.p.zid},
+            {lastVoteTimestamp: {$gt: new Date(req.p.lastVoteTimestamp).getTime()}},
             ]}, function(err, cursor) {
             if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
             cursor.toArray( function(err, docs) {
