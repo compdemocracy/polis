@@ -420,7 +420,10 @@ function match(key, zid) {
 
 function votesPost(res, pid, zid, tid, voteType) {
     if (-1 === polisTypes.reactionValues.indexOf[voteType]) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
-    client.query("INSERT INTO votes (zid, pid, tid, vote, created) VALUES ($1, $2, $3, $4, default);", [zid, pid, tid, voteType], function(err, result) {
+    var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default);";
+    var params = [pid, zid, tid, voteType];
+    console.log(query, params);
+    client.query(query, params, function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
                 fail(res, 57493886, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
@@ -834,7 +837,7 @@ function(req, res) {
                     //pid: req.p.pid
                 //};
                 res.status(200).json({});
-                //votesPost(res, pid, zid, [autopull]);
+                //votesPost(res, pid, zid, tid, [autopull]);
             }); // insert
     });
 
@@ -860,7 +863,7 @@ function(req, res) {
                             //tid: tid,
                             //pid: pid
                         //};
-                        ////votesPost(res, pid, zid, [autoPull]);
+                        ////votesPost(res, pid, zid, tid, [autoPull]);
                       //}); // COMMIT
                     //}); // INSERT
                 //}); // SET CONSTRAINTS
