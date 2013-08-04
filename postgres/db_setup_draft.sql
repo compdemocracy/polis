@@ -138,7 +138,7 @@ CREATE TABLE votes(
     tid INTEGER NOT NULL,
     vote SMALLINT,
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    UNIQUE (tid, pid)
+    UNIQUE (tid, pid, zid)
 );
 
 CREATE TRIGGER pid_auto
