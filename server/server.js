@@ -439,7 +439,7 @@ function votesPost(res, pid, zid, tid, voteType) {
 function votesGet(res, p) {
     client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [p.zid, p.pid], function(err, docs) {
         if (err) { fail(res, 234234326, err); return; }
-        res.json(docs);
+        res.json(docs.rows);
     });
 } // End votesGet
 
@@ -961,13 +961,8 @@ function(req, res) {
                     } else if (b.freq < a.freq) {
                         return -1;
                     } else {
-                        return b._id > a._id;
+                        return b.created > a.created;
                     }
-                });
-                // TODO fix and use the stuff above
-                comments.sort(function(a, b) {
-                    // desc sort primarily on frequency, then on recency
-                    return b._id > a._id;
                 });
                 res.json(comments);
             }); // end comments query
