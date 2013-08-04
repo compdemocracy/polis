@@ -443,18 +443,18 @@ function votesGet(res, p) {
     });
 } // End votesGet
 
-// TODO consider moving to a 
-function writeDefaultHead(req, res) {
-    res.setHeader({
+function writeDefaultHead(req, res, next) {
+    res.set({
         'Content-Type': 'application/json',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
     //    'Access-Control-Allow-Origin': '*',
     //    'Access-Control-Allow-Credentials': 'true'
     });
+    next();
 }
 
-//app.use(writeDefaultHead);
+app.use(writeDefaultHead);
 app.use(express.logger());
 app.use(express.cookieParser());
 app.use(express.bodyParser());
@@ -766,16 +766,14 @@ app.get("/v3/comments",
 function(req, res) {
 
     function handleResult(err, docs) {
-    console.dir(docs);
+        console.dir(docs);
         if (err) { fail(res, 234234332, err); return; }
         if (docs.rows && docs.rows.length) {
-            res.json({
-                lastServerToken: docs.rows[docs.rows.length-1].created,
-                zid: docs.rows[docs.rows.length-1].zid, // should all be the same zid
-                comments: docs.rows.map(function(row) { return _.pick(row, ["txt", "tid", "created"]); }),
-            });
+            res.json(
+                docs.rows.map(function(row) { return _.pick(row, ["txt", "tid", "created"]); })
+            );
         } else {
-            res.status(304).end();
+            res.json([]);
         }
     }
 
@@ -824,10 +822,11 @@ function(req, res) {
         console.log(pid);
         console.log(req.p.uid);
         client.query(
-            "INSERT INTO COMMENTS (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default);",
+            "INSERT INTO COMMENTS (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default) RETURNING tid;",
             [pid, req.p.zid, req.p.txt],
             function(err, docs) {
                 if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+                docs = docs.rows;
                 var tid = docs && docs[0] && docs[0].tid;
                 // Since the user posted it, we'll submit an auto-pull for that.
                 //var autopull = {
@@ -836,7 +835,9 @@ function(req, res) {
                     //tid: tid,
                     //pid: req.p.pid
                 //};
-                res.status(200).json({});
+                res.json({
+                    tid: tid,
+                });
                 //votesPost(res, pid, zid, tid, [autopull]);
             }); // insert
     });
