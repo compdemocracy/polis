@@ -1230,8 +1230,9 @@ var routingProxy = new httpProxy.RoutingProxy();
 
 function proxy(req, res) {
     routingProxy.proxyRequest(req, res, {
-        host: 'localhost',
-        port: 8000
+
+        host: process.env.STATIC_FILES_HOST,
+        port: process.env.STATIC_FILES_PORT,
     });
 }
 
