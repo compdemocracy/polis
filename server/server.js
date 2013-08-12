@@ -359,11 +359,14 @@ function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
     return squelQuery;
 }
 
+var oneYear = 1000*60*60*24*365;
 function addCookie(res, token) {
     res.cookie('token', token, {
-   //     domain: '.polis.io',
-    //    path: '/',
-     //   secure: true,
+        path: '/',
+        domain: 'polis.io',
+        maxAge: oneYear,
+        httpOnly: true,
+     //   secure: true, // TODO need HTTPS
     });
 }
 
@@ -460,9 +463,10 @@ app.use(express.cookieParser());
 app.use(express.bodyParser());
 
 app.all("/v3/*", function(req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Origin", "http://www.polis.io");
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
   res.header("Access-Control-Allow-Methods", "GET, PUT, POST");
+  res.header("Access-Control-Allow-Credentials", true);
   return next();
 });
 app.all("/v3/*", function(req, res, next) {
