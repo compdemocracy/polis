@@ -11,6 +11,7 @@
 //
 // TODO try mongo explain https://github.com/mongodb/node-mongodb-native/blob/master/examples/queries.js#L90
 
+
 console.log('redisAuth url ' +process.env.REDISTOGO_URL);
 console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
@@ -37,6 +38,7 @@ var http = require('http'),
 app.disable('x-powered-by'); // save a whale
 
 
+var domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
 function connectError(errorcode, message){
   var err = new Error(message);
@@ -361,13 +363,19 @@ function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
 
 var oneYear = 1000*60*60*24*365;
 function addCookie(res, token) {
-    res.cookie('token', token, {
-        path: '/',
-        domain: 'polis.io',
-        maxAge: oneYear,
-        httpOnly: true,
-     //   secure: true, // TODO need HTTPS
-    });
+    var o = {
+    };
+    if (domainOverride) { 
+        // set nothing - Assuming localhost
+    } else {
+        o.domain = 'polis.io';
+        o.path = '/';
+        o.httpOnly = true;
+        o.maxAge = oneYear;
+     //   o.secure = true; // TODO need HTTPS
+    }
+
+    res.cookie('token', token, o);
 }
 
 
@@ -463,7 +471,11 @@ app.use(express.cookieParser());
 app.use(express.bodyParser());
 
 app.all("/v3/*", function(req, res, next) {
-  res.header("Access-Control-Allow-Origin", "http://www.polis.io");
+  if (domainOverride) {
+      res.header("Access-Control-Allow-Origin", "http://" + domainOverride);
+  } else {
+      res.header("Access-Control-Allow-Origin", "http://www.polis.io");
+  }
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
   res.header("Access-Control-Allow-Methods", "GET, PUT, POST");
   res.header("Access-Control-Allow-Credentials", true);
