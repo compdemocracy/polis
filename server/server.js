@@ -474,7 +474,7 @@ app.all("/v3/*", function(req, res, next) {
   if (domainOverride) {
       res.header("Access-Control-Allow-Origin", "http://" + domainOverride);
   } else {
-      res.header("Access-Control-Allow-Origin", "http://www.polis.io");
+      res.header("Access-Control-Allow-Origin", "http://beta7816238476123.polis.io"); // www.polis.io
   }
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
   res.header("Access-Control-Allow-Methods", "GET, PUT, POST");
