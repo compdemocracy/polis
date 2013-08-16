@@ -448,7 +448,16 @@ function votesPost(res, pid, zid, tid, voteType) {
 }
 
 function votesGet(res, p) {
-    client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [p.zid, p.pid], function(err, docs) {
+    var q = squel.select()
+        .from("votes")
+        .where("zid = ?", p.zid);
+    if (!_.isUndefined(p.pid)) {
+        q = q.where("pid = ?", p.pid);
+    }
+    if (!_.isUndefined(p.tid)) {
+        q = q.where("tid = ?", p.tid);
+    }
+    client.query(q.toString(), [], function(err, docs) {
         if (err) { fail(res, 234234326, err); return; }
         res.json(docs.rows);
     });
@@ -989,7 +998,8 @@ app.get("/v3/votes",
     logPath,
     moveToBody,
     need('zid', getInt, assignToP),
-    need('pid', getInt, assignToP),
+    want('pid', getInt, assignToP),
+    want('tid', getInt, assignToP),
 function(req, res) {
     votesGet(res, req.p);
 });
