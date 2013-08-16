@@ -47,7 +47,7 @@ module.exports = function(grunt) {
     jshint: readOptionalJSON( ".jshintrc" ) || {},
 
     //forever: {
-        //main: 'server/server.js'
+        //main: 'server.js'
     //},
     watch: {
       files: '<config:lint.files>',

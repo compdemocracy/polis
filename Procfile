@@ -1,1 +1,1 @@
-web: grunt && node server/server.js
+web: grunt && node server.js
