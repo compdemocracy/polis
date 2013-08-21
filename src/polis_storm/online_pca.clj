@@ -11,8 +11,9 @@
         (let [json-data json/read-str @(lamina/read-channel reactions-channel)]         
           ;;(def reactions (apply map vector (json-data :reactions)))
           (def reactions (partition 3 (interleave json-data :reactions)))
+          (doseq [reaction reactions]
             (emit-spout! collector [reaction])
-          )))
+         )))
       (ack [id]
       ;;error handling here..requires tuple to have id, do research
       ))))
