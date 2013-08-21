@@ -9,8 +9,8 @@
     (spout
       (nextTuple []
         (let [json-data json/read-str @(lamina/read-channel reactions-channel)]         
-          (def reactions (apply map vector (json-data :reactions)))
-          (doseq [reaction reactions]                                                  
+          ;;(def reactions (apply map vector (json-data :reactions)))
+          (def reactions (partition 3 (interleave json-data :reactions)))
             (emit-spout! collector [reaction])
           )))
       (ack [id]
