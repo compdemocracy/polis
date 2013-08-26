@@ -1,7 +1,6 @@
 (defproject polis-storm "0.1.0-SNAPSHOT"
-  :source-paths ["src"]
+  :source-paths ["src/clj"]
   :java-source-paths ["src/jvm"]
-  :resource-paths ["multilang"]
   :aot :all
   :repositories {
 ;;                 "twitter4j" "http://twitter4j.org/maven2"
@@ -11,6 +10,8 @@
                    [commons-collections/commons-collections "3.2.1"]
                    [aleph "0.3.0-rc2"]
                    [org.clojure/data.json "0.2.2"]
+                   [lamina "0.5.0"]
+                   [gloss "0.2.2"]
                  ]
 
   :profiles {:dev
