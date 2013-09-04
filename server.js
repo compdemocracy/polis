@@ -1057,11 +1057,15 @@ function(req, res) {
 
     client.query(query.toString(), [], function(err, result) {
         if (err) { console.dir(err); fail(res, 324234339, "polis_err_get_conversation", 500); return; }
-        var rows = result.rows;
+        var data = result.rows || [];
         //rows = rows.map(function(row) {
             //row.userIsAdmin = true; // TODO do a query for this
         //});
-        res.json(rows || []);
+        if (req.p.zid) {
+            // only returning a single conversation
+            data = data[0];
+        }
+        res.json(data);
     });
 })
 });
