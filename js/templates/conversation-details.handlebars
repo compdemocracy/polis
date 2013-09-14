@@ -1,0 +1,91 @@
+<div class="row">
+  <div class="span6 offset3">
+    <div class="well detailsBox">
+
+	{{#link "conversation/view/{{zid}}" expand-tokens=true class="btn btn-block btn-warning launchConversation"}}<i class="icon-rocket"></i> Launch Conversation {{/link}}
+
+	<h3> {{topic}} </h3> 
+	<blockquote> {{description}} </blockquote>
+
+	{{#if is_active}}
+	  <li> This conversation is active and has {{participantCount}} participants. </li>
+	{{/if}}
+
+
+	{{#if is_anon}}
+	  <li> This conversation is anonymous. </li>
+	{{/if}}
+
+	{{#if is_public}}
+	  <li> This conversation is available to anyone with a link. </li>
+	{{/if}}
+
+	{{#if participants_must_have_acct}}
+	  <li> This conversation is not publically available to anyone with a link. Participants must have a Polis account.</li>
+	{{/if}}
+
+	{{#if participants_must_validate}}
+	  <li> This conversation is not publically available to anyone with a link. Participants must have a Polis account that has been validated via SMS.</li>
+	{{/if}}
+
+	{{#if participants_must_have_email}}
+	  <p> This conversation is not publically available to anyone with a link. Participants must have a Polis account that has been validated with an email address from the following subdomain: {{participants_must_have_domain}}</p>
+	{{/if}}
+
+	{{! COMMENT will have to figure out how we represent concluded here. 
+	  <p> This conversation has been concluded. Participants are no longer able to vote, and can  </p>
+	}}
+
+	<input type="text" value="{{url_name}}" name="convoLink" readonly>
+	
+    <input type="text" value="<iframe src='{{url_name}}'></iframe>" name="convoEmbed" readonly>
+
+	</div> <!-- end well -->
+
+	<h3> Conversation Summary </h3> 
+
+	{{#if true}}
+		<h5> If the conversation is concluded... </h5> 
+		<p>change true to isConcluded - we'll show the data visualization here, sans voting view. Launch conversation will no longer be available, and the link to the conversation should redirect to this. Is that appropriate? any objections? I don't think it makes sense to keep the conversation view available.</p>
+		<p> Hi! I'm an engaging data visualization! Interact with me :)</p> 
+		<p> By default I am showing you the major <em> groups </em> in the conversation </p>
+		<p> And I'm some helper text explaining how man groups there were in the conversation. </p>
+	{{/if}}
+
+	<h5> What [all] participants in the conversation agreed on </h5>
+	<p> I am some templated comments from a collection of all comments... </p>
+	<p> I make it easy to see points of global consensus, though I'll be complicated by matrix sparsity. That's why mommy and daddy want to throttle commenting based on their confidence in the data. </p>
+	<p> That [all] could be a slider... 90%? </p>
+	<p> Here are the [ten] most starred comments... with some reference to their parent groups </p>
+	
+	<h5> What the groups disagreed on most </h5>
+	<p> of the main groups identified... why were they separate? </p>
+
+	<h5> Here's what brought each group together </h5>
+	<p> I'm group one and we starred... </p>
+	<p> I'm group two and we starred... </p>
+	<p> I'm group three and we starred... </p>
+
+	<h5> Here's what was contentious within each group... </h5>
+	<p> I'm group one and we couldn't agree on... </p>
+	<p> I'm group two and we thought differnetly about... </p>
+	<p> I'm group three and we found we disagreed on... </p>
+
+	{{#if is_active}}
+	  {{#button method="conclude" tag="a" type="button" class="btn btn-block concludeButton"}} Conclude Conversation {{/button}}
+	{{/if}}
+
+
+{{!-- COMMENT do we allow users to delete? Still undecided 
+
+	<div class="well deleteConversation">
+
+	{{#button method="delete" tag="a" type="button" class="btn btn-danger btn-block "}}<i class="icon-remove"></i> Delete Conversation{{/button}}
+
+	</div>
+
+--}}
+
+
+	</div> <!-- end span -->
+</div> <!-- end row -->

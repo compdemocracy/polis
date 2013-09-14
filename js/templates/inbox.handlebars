@@ -1,0 +1,61 @@
+<div class="row">
+	<div class="span12">
+	{{#link "conversation/add" expand-tokens=true className="startNewConversation btn btn-large btn-success"}}<i class="icon-plus-sign-alt"></i> Start A New Conversation {{/link}}
+	</div>
+</div>
+
+<div class="row">
+    <div class="span6 offset3">
+		<h2> Existing Conversations </h2>
+    <ul class="nav nav-pills">
+      <li {{#if active}}class="active"{{/if}}>{{#link "index/active" expand-tokens=true}}Active{{/link}}</li>
+      <li {{#if closed}}class="active"{{/if}}>{{#link "index/closed" expand-tokens=true}}Concluded{{/link}}</li>
+
+    </ul>
+	</div>
+</div>
+<div class="row">
+    <div class="span6 offset3">
+      {{#collection tag="ul" class="conversations"}}
+        <li class="conversation">
+              <h3> {{topic}} </h3>
+              <p> {{{description}}} </p>
+              <!-- tried this... may try again <p class="share"> Share: </p> --> 
+              <input type="text" value="{{url_name}}" name="convoLink" readonly>
+              <div class="alert alert-info"> 
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
+              </div> 
+              <span class="status">
+                <p>{{#if is_draft}}DRAFT{{/if}}{{#if is_active}}ACTIVE{{/if}}
+                {{#unless is_active}} {{!nested for concise db-ness.. fewer model params}}
+                {{#unless is_draft}}
+                CONCLUDED
+                {{/unless}}
+                {{/unless}}</p>
+              </span>
+              <span class="participantCount"> {{participant_count}}
+                <i class="icon-user"></i>
+                <span class="indicator {{#if is_active}}active{{/if}}"><i class="icon-circle"></i></span>
+              </span>
+
+              {{#if isDraft}} {{! COMMENT draft has two buttons, the others get one.}}
+                <ul class="actions">
+                  <li>{{#link "conversation/edit/{{zid}}" expand-tokens=true}}<i   class="icon-edit"></i>Edit draft{{/link}}</li>
+                  <li>{{#button method="publish" tag="a" type="button"}}Publish{{/button}}
+                </ul>
+              {{/if}}
+
+              {{#unless isDraft}}
+              <ul class="actions actionsDetailsView">
+                <li>{{#link "conversation/details/{{zid}}" expand-tokens=true}}<i class="icon-align-justify"></i>Conversation details{{/link}}</li>
+              </ul>
+              {{/unless}}
+            
+        </li>
+      {{else}}
+        <p>No conversations found. Add a new one. I dare you.</p>
+      {{/collection}}
+  </div>
+</div>
+

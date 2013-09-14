@@ -1,0 +1,76 @@
+<div class="row">
+
+<div class="span12">
+  <div class="alert alert-block alert-warning">
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+    <h4>How do I use Polis?</h4>
+    <ol>
+      <li> The purpose of this tool is to create groups. </li>
+      <li> Start by reading comments. After you read each one:
+        <ul>
+          <li>agree</li>
+          <li>disagree</li>
+          <li>press pass if you are uncertain for any reason</li>
+          <li>press trash if you believe the comment is inappropriate or abusive</li>
+        </ul> 
+      <li> Click the 'write' tab if you want to submit your own opinion. Other participants in the conversation will be able to vote on it. </li>
+      <li> Watch the visualization change in real-time as you and others vote. The visualization helps identify what opinion groups are forming. </li>
+    </ol>
+  </div>
+</div>
+
+
+  <div class="span4">
+
+  <div class="tabbable"> <!-- Only required for left/right tabs -->
+    <ul class="nav nav-tabs">
+      <li class="active"><a href="#commentView" data-toggle="tab"><i class="icon-align-justify"></i> Read &amp; React</a></li>
+      <li><a href="#commentForm" data-toggle="tab"><i class="icon-pencil"></i> Write</a></li>       
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane active " id="commentView">
+        {{view commentView}}
+      </div>
+      <div class="tab-pane" id="commentForm">
+        {{view commentForm}}
+      </div>      
+      <div class="tab-pane" id="changeVotes">
+        {{view changeVotes}}
+      </div>
+    </div>
+  </div>
+
+  
+    <div id="topic" class="well">
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+      <div id="topic_content">
+        <h3>{{topic}}</h3>
+        <p>{{description}}</p>
+      </div>
+    </div>
+  
+    
+  </div> <!-- span 4 --> 
+
+
+
+  <div class="span8">
+    <div id="visualization_div" class="row-fluid">
+    </div> 
+    <div class="well" id="query_results_div">
+    </div> 
+  </div> <!-- span 8 --> 
+
+<div class="span12">
+  <div class="alert alert-block alert-warning">
+    <button type="button" class="close" data-dismiss="alert">&times;</button>
+    <h4>How do I make meaning of the visualization?</h4>
+    <ol>
+      <li> Each dot represents a person. The red dot represents you.</li>
+      <li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li>
+      <li> Shaded areas represent groups. Click on a shaded area to discover what the members of that group agreed on. </li>
+    </ol>
+  </div>
+</div>
+
+</div> <!-- row --> 

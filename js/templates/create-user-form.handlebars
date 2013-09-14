@@ -1,0 +1,44 @@
+{{#ifEmbedded}}
+    <h1>Sign in to Polis</h1>
+{{/ifEmbedded}}
+
+{{view loginForm}}
+
+<div class="row">
+	<div class="span4 offset2">
+		<h2> Create New User </h2> 
+		<form class="form-horizontal conversationsForm"> <!-- ken rename style -->
+			<div class="control-group">
+			  	<label for="given_name" class="control-label">First Name</label>
+			  	<div class="controls">
+			  		<input type="text" name="given_name" placeholder="First Name" />
+				</div>
+			</div>
+			<div class="control-group">
+			  	<label for="family_name" class="control-label">Last Name:</label>
+			  	<div class="controls">
+			  		<input type="text" name="family_name" placeholder="Last Name" />
+				</div>
+			</div>
+			<div class="control-group">
+			  	<label for="email" class="control-label">Email:</label>
+			  	<div class="controls">
+			  		<input type="text" name="email" placeholder="Email" />
+				</div>
+			</div>
+			<div class="control-group">
+			  	<label for="username" class="control-label">Username: </label>
+			  	<div class="controls">
+			  		<input type="text" name="username" placeholder="Username" />
+				</div>
+			</div>
+			<div class="control-group">
+			  	<label for="password" class="control-label">Password: </label>
+			  	<div class="controls">
+			  		<input type="password" name="password" placeholder="password" />
+				</div>
+			</div>	
+			<button type="submit" class="btn btn-block"> Create New User </button>
+		</form>
+	</div>
+</div>

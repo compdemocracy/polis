@@ -1,0 +1,16 @@
+    <div id="comment_shower"> 
+      <p> {{txt}} </p> 
+    </div>
+    <div class="reactionButtons">
+
+    {{#ifDefined tid}}
+      {{#button method="participantAgreed" class="showerbtns btn btn-large" id="agreeButton" type="button"}} Agree {{/button}}
+
+      {{#button method="participantTrashed" class="showerbtns btn btnlarge pull-right" type="button"}} <i class="icon-trash"></i> {{/button}}
+
+      {{#button method="participantPassed" id="pass_button"class="showerbtns btn btn-large pull-right" type="button"}} Pass {{/button}}
+
+      {{#button method="participantDisagreed" id="push_button"class="showerbtns btn btn-large pull-right" type="button"}} Disagree {{/button}}
+    {{/ifDefined}}
+
+    </div>

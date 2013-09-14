@@ -1,0 +1,64 @@
+<div class="row">
+	<div class="span8 offset2">
+		<input type="hidden" name="id" id="id" value="{{id}}"/>
+		<form class="form-horizontal conversationsForm">
+			<div class="control-group">
+			  	<label for="topic" class="control-label">Topic</label>
+			  	<div class="controls">
+			  		<input type="text" name="topic" placeholder="Topic" value="{{topic}}"/>
+				</div>
+			</div>
+		  	<div class="control-group">
+			  	<label for="description" class="control-label">Description</label>
+			  	<div class="controls">
+			  		<textarea type="text" name="description" placeholder="Description">{{description}}</textarea>
+				</div>
+			</div>
+			<div class="control-group">
+			  	<div class="controls">
+			  		<label for="anonymous" class="checkbox">
+			  			<input type="checkbox" id="anonymous" name="anonymous" data-toggle="checkbox" {{#if anonymous}}checked{{/if}}> Anonymous
+			  		</label>
+				</div>
+			</div>
+			<div class="control-group">
+				<div class="controls">
+			  		<label for="participantsMustHaveAcct" class="checkbox">
+			  			<input type="checkbox" id="participantsMustHaveAcct" name="participantsMustHaveAcct" data-toggle="checkbox" {{#if participantsMustHaveAcct}}checked{{/if}}> Participants must have a Polis account
+			  		</label>
+				</div>
+			</div>
+			<div class="control-group">
+				<div class="controls">
+			  		<label for="participantsMustValidate" class="checkbox">
+			  			<input type="checkbox" id="participantsMustValidate" name="participantsMustValidate" data-toggle="checkbox" {{#if participantsMustValidate}}checked{{/if}}> Participants must have validated thier account via SMS to ensure they are a real person
+			  		</label>
+				</div>
+			</div>
+			<div class="control-group">
+				<div class="controls">
+			  		<label for="participantsMustHaveEmail" class="checkbox">
+			  			<input type="checkbox" id="participantsMustHaveEmail" name="participantsMustHaveEmail" data-toggle="checkbox" {{#if participantsMustHaveEmail}}checked{{/if}}> Participants must have validated their Polis account with an email address from the following domain:
+			  		</label>
+				</div>
+			</div>
+			<div class="control-group">
+				<div class="controls">
+
+				{{#if add}}
+					<button class="btn btn-success action" name="formAction" type="submit" value="publish">Create & Publish</button>
+					<button class="btn btn-success action" name="formAction" type="submit" value="draft">Save as Draft</button>
+
+				{{/if}}
+
+				{{#if edit}}
+					<button class="btn btn-success action" name="formAction" value="publish" type="submit">Update & Publish</button>
+					<button class="btn btn-success action" name="formAction" value="draft" type="submit">Save as Draft</button>
+					{{#button method="delete" class="btn btn-danger" type="button"}}<i class="icon-trash"></i> Delete {{/button}}
+				{{/if}}
+
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
