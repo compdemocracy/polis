@@ -496,14 +496,28 @@ app.use(express.logger());
 app.use(express.cookieParser());
 app.use(express.bodyParser());
 
+var whitelistedDomains = [
+  "http://beta7816238476123.polis.io",
+  "http://www.polis.io",
+  "http://polis.io",
+];
+
 app.all("/v3/*", function(req, res, next) {
+ 
+  var host;
   if (domainOverride) {
-      res.header("Access-Control-Allow-Origin", "http://" + domainOverride);
+      host = req.protocol + "://" + domainOverride;
   } else {
-      res.header("Access-Control-Allow-Origin", "http://beta7816238476123.polis.io, http://www.polis.io, http://polis.io");
+      host =  req.get("Origin");
   }
+  console.log(host);
+  if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
+      console.log('not whitelisted');
+      return next(); // don't supply the CORS headers, domain is not whitelisted.
+  }
+  res.header("Access-Control-Allow-Origin", host);
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
-  res.header("Access-Control-Allow-Methods", "GET, PUT, POST");
+  res.header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
   res.header("Access-Control-Allow-Credentials", true);
   return next();
 });
