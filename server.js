@@ -636,25 +636,22 @@ app.post("/v3/beta",
     logPath,
     need('email', getEmail, assignToP),
     want('name', getOptionalStringLimitLength(999), assignToP),
-    want('username', getOptionalStringLimitLength(100), assignToP),
     want('organization', getOptionalStringLimitLength(999), assignToP),
     function(req,res){
 
         var email = req.p.email;
         var name = req.p.name;
-        var username = req.p.username;
         var organization = req.p.organization;
 
-        client.query("INSERT INTO beta (email, name, username, organization) VALUES ($1, $2, $3, $4);", [email, name, username, organization], function(err, result) {
+        client.query("INSERT INTO beta (email, name, organization) VALUES ($1, $2, $3);", [email, name, organization], function(err, result) {
             if (err) { 
-                console.log(email, name, username, organization);
+                console.log(email, name, organization);
                 fail(res, 238943628, "polis_err_beta_registration", 403);
                 return;
             }
-            res.status(200).end();
-        })
-
-})
+            res.status(200).json({});
+        });
+});
 
 
 app.post("/v3/auth/login",

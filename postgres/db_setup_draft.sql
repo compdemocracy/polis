@@ -45,13 +45,11 @@ CREATE TABLE conversations(
 );
 
 CREATE TABLE beta(
-    email VARCHAR(200),
     name VARCHAR(999),
-    username VARCHAR(200),
+    email VARCHAR(200),
     organization VARCHAR(200),
-    UNIQUE(email),
-    UNIQUE(username)
-)
+    UNIQUE(email)
+);
 
 CREATE TABLE participants(
     pid INTEGER NOT NULL, -- populated by trigger pid_auto
