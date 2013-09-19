@@ -284,6 +284,23 @@ function fail(res, code, err, httpCode) {
     res.end(err);
 }
 
+function getEmail(s) {
+    if (typeof s !== "string" || s.length > 999 || -1 === s.indexOf("@")) {
+        throw "polis_fail_parse_email";
+    }
+    return s;
+}
+function getOptionalStringLimitLength(limit) {
+    return function(s) {
+        if (s.length && s.length > limit) {
+            throw "polis_fail_parse_string_too_long";
+        }
+        // strip leading/trailing spaces
+        s = s.replace(/^ */,"").replace(/ *$/,"");
+        return s;
+    };
+}
+
 function getBool(s) {
     if ("boolean" === typeof s) {
         return s;
@@ -483,7 +500,7 @@ app.all("/v3/*", function(req, res, next) {
   if (domainOverride) {
       res.header("Access-Control-Allow-Origin", "http://" + domainOverride);
   } else {
-      res.header("Access-Control-Allow-Origin", "http://beta7816238476123.polis.io"); // www.polis.io
+      res.header("Access-Control-Allow-Origin", "http://beta7816238476123.polis.io, http://www.polis.io, http://polis.io");
   }
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
   res.header("Access-Control-Allow-Methods", "GET, PUT, POST");
@@ -617,18 +634,24 @@ function(req, res) {
 
 app.post("/v3/beta", 
     logPath,
-    want('email', _.identity, assignToP),
-    want('username', _.identity, assignToP),
-    want('organization', _.identity, assignToP),
+    need('email', getEmail, assignToP),
+    want('name', getOptionalStringLimitLength(999), assignToP),
+    want('username', getOptionalStringLimitLength(100), assignToP),
+    want('organization', getOptionalStringLimitLength(999), assignToP),
     function(req,res){
 
         var email = req.p.email;
+        var name = req.p.name;
         var username = req.p.username;
         var organization = req.p.organization;
 
-        console.log(email, username, organization)
-        client.query("INSERT INTO beta (email, username, organization) VALUES ($1, $2, $3);", [email, username, organization], function(err, result) {
-            //write validation
+        client.query("INSERT INTO beta (email, name, username, organization) VALUES ($1, $2, $3, $4);", [email, name, username, organization], function(err, result) {
+            if (err) { 
+                console.log(email, name, username, organization);
+                fail(res, 238943628, "polis_err_beta_registration", 403);
+                return;
+            }
+            res.status(200).end();
         })
 
 })
