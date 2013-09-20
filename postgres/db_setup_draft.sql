@@ -131,14 +131,26 @@ CREATE TRIGGER tid_auto_unlock
 
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
 --CREATE SEQUENCE vote_ids START 1 OWNED BY conversations.zid;
+-- not enforcing uniqueness, save complete history
+-- TODO make a table that has a snapshot of the current state
 CREATE TABLE votes(
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     vote SMALLINT,
     created TIMESTAMP WITH TIME ZONE DEFAULT now()
- --   UNIQUE (tid, pid, zid)   Keeping every vote
 );
+
+-- not enforcing uniqueness, save complete history
+-- TODO make a table that has a snapshot of the current state
+CREATE TABLE stars(
+    zid INTEGER NOT NULL,
+    pid INTEGER NOT NULL,
+    tid INTEGER NOT NULL,
+    starred INTEGER NOT NULL, -- 0 for unstarred, 1 for starred
+    created TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
 
 CREATE TRIGGER pid_auto
     BEFORE INSERT ON participants

@@ -323,6 +323,15 @@ function getInt(s) {
     }
     return x;
 }
+function getIntInRange(min, max) {
+    return function(s) {
+        var x = getInt(s)
+        if (x < min || max < x) {
+            throw "polis_fail_parse_int_out_of_range";
+        }
+        return x;
+    };
+}
 function assignToP(req, name, x) {
     req.p = req.p || {};
     req.p[name] = x;
@@ -418,8 +427,13 @@ var polisTypes = {
         pull: -1,
         see: 0,
     },
+    staractions: {
+        unstar: 0,
+        star: 1,
+    },
 };
 polisTypes.reactionValues = _.values(polisTypes.reactions);
+polisTypes.starValues = _.values(polisTypes.staractions);
 
 var objectIdFields = ["_id", "u", "to"];
 var not_objectIdFields = ["s"];
@@ -447,7 +461,6 @@ function match(key, zid) {
 }
 
 function votesPost(res, pid, zid, tid, voteType) {
-    if (-1 === polisTypes.reactionValues.indexOf[voteType]) { fail(res, 2394626, "polis_err_bad_vote_type", 400); return; }
     var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default);";
     var params = [pid, zid, tid, voteType];
     console.log(query, params);
@@ -1044,9 +1057,32 @@ app.post("/v3/votes",
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
     need('pid', getInt, assignToP),
-    need('vote', getInt, assignToP),
+    need('vote', getIntInRange(-1, 1), assignToP),
 function(req, res) {
         votesPost(res, req.p.pid, req.p.zid, req.p.tid, req.p.vote);
+});
+
+app.post("/v3/stars",
+    logPath,
+    auth,
+    need('tid', getInt, assignToP),
+    need('zid', getInt, assignToP),
+    need('pid', getInt, assignToP),
+    need('starred', getIntInRange(0,1), assignToP),
+function(req, res) {
+    var query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default);";
+    var params = [req.p.pid, req.p.zid, req.p.tid, req.p.starred];
+    client.query(query, params, function(err, result) {
+        if (err) {
+            if (isDuplicateKey(err)) {
+                fail(res, 57493890, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
+            } else {
+                fail(res, 324234324, "polis_err_vote", 500);
+            }
+            return;
+        }
+        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
+    });
 });
 
 app.put('/v3/conversation/:zid',
