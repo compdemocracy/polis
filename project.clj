@@ -12,6 +12,7 @@
                    [org.clojure/data.json "0.2.2"]
                    [lamina "0.5.0"]
                    [gloss "0.2.2"]
+                   [incanter "1.5.4"] 
                  ]
 
   :profiles {:dev
