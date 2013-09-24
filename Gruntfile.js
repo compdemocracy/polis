@@ -151,7 +151,7 @@ module.exports = function(grunt) {
         'bootstrap': '../bower_components/bootstrap/js/bootstrap',
         'd3': '../bower_components/d3/d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
-        'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox'
+        'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox',
         'app': 'lib/App',
         'backbone-polis': 'lib/backbone-polis',
         'CommentShower': 'lib/CommentShower',

@@ -1,7 +1,47 @@
 define([
   'view',
-  'templates/conversation-view'
-], function (View, template) {
+  'templates/conversation-view',
+  'views/comment-view',
+  'views/comment-form',
+  'views/change-votes',
+  'models/vote',
+  'models/participant',
+  'models/conversation',
+  'models/comment',
+  'models/user',
+  'collections/comments',
+  'collections/votes',
+  'app',
+  'CommentShower',
+  'FeedbackSubmitter',
+  'LoginView',
+  'p',
+  'polis',
+  'polisUtils',
+  'StimulusSubmitter',
+  'VisView'
+  ], function (View, 
+    template,
+    CommentView, 
+    CommentFormView,
+    ChangeVotesView,
+    VoteModel,
+    ParticipantModel,
+    ConversationModel,
+    CommentModel,
+    UserModel,
+    CommentsCollection,
+    VotesCollection,
+    app, 
+    CommentShower, 
+    FeedbackSubmitter,
+    LoginView,
+    p,
+    polis,
+    polisUtils,
+    StimulusSubmitter,
+    VisView
+    ) {
   return View.extend({
     name: 'conversation-view',
     template: template,
@@ -33,24 +73,24 @@ define([
         //commentsStore: PolisStorage.comments,
         //reactionsByMeStore: PolisStorage.reactionsByMe,
         utils: window.utils,
-        protocol: "", //"http",
+        protocol: "",  //"http",
         domain: (-1 !== document.domain.indexOf(".polis.io")) ? "api.polis.io" : "localhost:5000",
         basePath: "",
         logger: console
       });
       serverClient.observeStimulus(this.model.get('zid'));
       //var commentCollection = new Application.Collections["comments"]();
-      this.commentView = new Application.Views["commentView"]({
+      this.commentView = new CommentView({
         serverClient: serverClient,
         zid: this.zid,
       });
-      this.commentsByMe = new Application.Collections["comments"]();
+      this.commentsByMe = new CommentsCollection();
         // Application.Models["comment"]
-      this.commentForm = new Application.Views["commentForm"]({
+      this.commentForm = new CommentFormView({
         serverClient: serverClient,
         zid: this.zid,
       });
-      this.changeVotes = new Application.Views["changeVotes"]({
+      this.changeVotes = new ChangeVotesView({
         serverClient: serverClient,
         zid: this.zid,
       })

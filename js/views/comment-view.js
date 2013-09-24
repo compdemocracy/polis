@@ -1,7 +1,8 @@
 define([
   'view',
-  'templates/comment-view'
-], function (View, template) {
+  'templates/comment-view',
+  'models/comment'
+], function (View, template, CommentModel) {
   return View.extend({
     name: 'comment-view',
     template: template,
@@ -16,7 +17,7 @@ define([
         }
       }
       function showComment(model) {
-        that.model = new Application.Models["comment"](model);
+        that.model = new CommentModel(model);
         that.render();
         waitingForComments = false;
       };
@@ -26,7 +27,7 @@ define([
           function() {
             waitingForComments = true;
             pollForComments();
-            that.model = new Application.Models["comment"]({
+            that.model = new CommentModel({
               txt: "No comments to show..." // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
             });
             that.render();

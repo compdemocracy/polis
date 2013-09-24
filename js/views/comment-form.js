@@ -13,7 +13,7 @@ define([
           console.log(attrs);
           that.participantCommented(attrs);
         });
-        $('#comment_form_textarea').val('')
+        $('#comment_form_textarea').val('') //use this.$
       },
     },
     participantCommented: function(attrs) {

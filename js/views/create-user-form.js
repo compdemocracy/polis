@@ -1,7 +1,8 @@
 define([
   'view',
-  'templates/create-user-form'
-], function (View, template) {
+  'templates/create-user-form',
+  'views/login-form'
+], function (View, template, LoginFormView) {
   return View.extend({
     name: 'create-user-form',
     template: template,
@@ -55,9 +56,7 @@ define([
       return errors; 
     },
     initialize: function(){
-        this.loginForm = new Application.Views["loginForm"]({
-        //Application.Models["vote"]
-      })
+        this.loginForm = new LoginFormView()
     },
   });
 });

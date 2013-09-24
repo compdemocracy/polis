@@ -1,7 +1,9 @@
 define([
   'view',
-  'templates/create-conversation-form'
-], function (View, template) {
+  'templates/create-conversation-form',
+  'models/conversation',
+  'views/inbox'
+], function (View, template, ConversationModel, InboxView) {
   return View.extend({
     name: 'create-conversation-form',
     template: template,
@@ -35,16 +37,19 @@ define([
                 attrs.is_draft = false;
               break;
         }
-          model = new Application.Models["conversation"]();
+          model = new ConversationModel();
           model.save(attrs);
           this.collection.add(model, {at: 0});
           this.collection.sort();
   
         }
-        var conversationsView = new Application.Views["conversations"]({
-           collection: Application.Collections.conversationsCollection
+        
+        var conversationsCollection = new ConversationsCollection(); //every time to replace application??
+        conversationsCollection.fetch()
+        var inboxView = new InboxView({
+           collection: conversationsCollection
         });
-        Application.setView(conversationsView);
+        RootView.getInstance().setView(inboxView);
         Backbone.history.navigate('/');
         })
       },
@@ -67,16 +72,16 @@ define([
     delete: function() {
       var model = this.collection.get(this.id)
       var deleteConfirm = new konfirm({
-        message: 'You sure about that, bro?',
+        message: 'Conversations cannot be deleted during the Beta.',
         success: function(){
           model.destroy();
-          Application.Collections.conversationsCollection.remove(model);
-          var conversationsView = new Application.Views["conversations"]({
-            collection: Application.Collections.conversationsCollection,
+          conversationsCollection.remove(model);
+          var inboxView = new InboxView({
+            collection: conversationsCollection,
             active: true
           });
           Backbone.history.navigate('/');
-          Application.setView(conversationsView);
+          RootView.getInstance().setView(inboxView);
         },
         cancel: function(){
           return false;
@@ -86,7 +91,7 @@ define([
     saveDraft: function(){
       var model = this.collection.get(this.id)
       model.save()
-      Application.setView(conversationsView);
+      RootView.getInstance().setView(inboxView);
       Backbone.history.navigate('/');
     }
   });

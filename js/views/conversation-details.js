@@ -1,7 +1,8 @@
 define([
   'view',
-  'templates/conversation-details'
-], function (View, template) {
+  'templates/conversation-details',
+  'views/inbox'
+], function (View, template, InboxView) {
   return View.extend({
     name: 'conversation-details',
     template: template,
@@ -27,25 +28,25 @@ define([
         }
       });
     },
-    delete: function() {
-   	  var model = $(event.target).model();
-      var deleteConfirm = new konfirm({
-      	message: 'Deleting a conversation is permanent. It will affect all participants by concluding the conversation, but will not remove the conversation from their accounts.',
-      	success: function(){
-  		    model.destroy();
-  		    Application.Collections.conversationsCollection.remove(model);
-  		    var conversationsView = new Application.Views["conversations"]({
-  	          collection: Application.Collections.conversationsCollection,
-              active: true
-  	        });
-            Backbone.history.navigate('/');
-  	        Application.setView(conversationsView);
+    // delete: function() {
+   	//   var model = $(event.target).model();
+    //   var deleteConfirm = new konfirm({
+    //   	message: 'Deleting a conversation is permanent. It will affect all participants by concluding the conversation, but will not remove the conversation from their accounts.',
+    //   	success: function(){
+  		//     model.destroy();
+  		//     Application.Collections.conversationsCollection.remove(model);
+  		//     var inboxView = new InboxView({
+  	 //          collection: Application.Collections.conversationsCollection,
+    //           active: true
+  	 //        });
+    //         Backbone.history.navigate('/');
+  	 //        RootView.getInstance().setView(conversationsView);
   	        
-      	},
-      	cancel: function(){
-      		console.log('canceled');
-      	}
-      });
-    }
+    //   	},
+    //   	cancel: function(){
+    //   		console.log('canceled');
+    //   	}
+    //   });
+    // }
   });
 });
