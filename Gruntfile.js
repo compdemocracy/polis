@@ -148,7 +148,24 @@ module.exports = function(grunt) {
         'handlebars': '../bower_components/handlebars/handlebars.runtime',
         'backbone': '../bower_components/backbone/backbone',
         'thorax': '../bower_components/thorax/thorax',
-        'bootstrap': '../bower_components/bootstrap/js/bootstrap'
+        'bootstrap': '../bower_components/bootstrap/js/bootstrap',
+        'd3': '../bower_components/d3/d3',
+        'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
+        'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox'
+        'app': 'lib/App',
+        'backbone-polis': 'lib/backbone-polis',
+        'CommentShower': 'lib/CommentShower',
+        'CommentSubmitter': 'lib/CommentSubmitter',
+        'FeedbackSubmitter': 'lib/FeedbackSubmitter',
+        'keyboard': 'lib/keyboard',
+        'konfirm': 'lib/konfirm',
+        'LoginView': 'lib/LoginView',
+        'p': 'lib/p',
+        'polis': 'lib/polis',
+        'polisUtils': 'lib/polisUtils',
+        'StimulusSubmitter': 'lib/StimulusSubmitter',
+        'util': 'lib/util',
+        'VisView': 'lib/VisView'
       },
       shim: {
         'handlebars': {
