@@ -1336,22 +1336,9 @@ function proxy(req, res) {
     });
 }
 
-app.get('/', function(req, res) {
-    //res.writeHead(500);
-    //res.end();
-    proxy(req, res);
-});
-app.get(/^\/modules\//, proxy);
-app.get(/^\/font\//, proxy);
-app.get(/^\/fonts\//, proxy);
+// proxy everything that isn't an API call
+app.get(/^\/[^(v3)]?.*/, proxy);
 
-app.get(/^\/[0-9]/, staticFile);
-app.get(/^\/mobile\//, staticFile);
-app.get(/^\/static\//, staticFile);
-
-app.get("/a", function(req,res) {
-    res.send('hello world');
-});
 app.listen(process.env.PORT);
 
 console.log('started on port ' + process.env.PORT);
