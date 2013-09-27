@@ -37,6 +37,14 @@ module.exports = function(grunt) {
       ]
     },
     copy: {
+      html: {
+        files: [
+        {
+          src: 'index.html',
+          dest: 'public/index.html'
+        }
+        ]
+      },
       requirejs: {
         files: [
           {
@@ -50,7 +58,7 @@ module.exports = function(grunt) {
           {
             expand: true,
             cwd: paths.css,
-            src: '*.css',
+            src: '**/*.css',
             dest: paths.output.css
           }
         ]
@@ -140,20 +148,21 @@ module.exports = function(grunt) {
       modules: [
         {
           name: 'main'
-        } 
+        }
       ],
       paths: {
         'jquery': '../bower_components/jquery/jquery',
         'underscore': '../bower_components/underscore/underscore',
-        'handlebars': '../bower_components/handlebars/handlebars.runtime',
-        'backbone': '../bower_components/backbone/backbone',
+        'originalhandlebars': '../bower_components/handlebars/handlebars.runtime', //original handlebars
+        'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
+        'originalbackbone': '../bower_components/backbone/backbone', // backbone before modifications
+        'backbone': 'net/backbonePolis', // polis-specific backbone modifications
         'thorax': '../bower_components/thorax/thorax',
         'bootstrap': '../bower_components/bootstrap/js/bootstrap',
         'd3': '../bower_components/d3/d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
         'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox',
         'app': 'lib/App',
-        'backbone-polis': 'lib/backbone-polis',
         'CommentShower': 'lib/CommentShower',
         'CommentSubmitter': 'lib/CommentSubmitter',
         'FeedbackSubmitter': 'lib/FeedbackSubmitter',
@@ -163,15 +172,13 @@ module.exports = function(grunt) {
         'p': 'lib/p',
         'polis': 'lib/polis',
         'polisUtils': 'lib/polisUtils',
-        'StimulusSubmitter': 'lib/StimulusSubmitter',
-        'util': 'lib/util',
         'VisView': 'lib/VisView'
       },
       shim: {
-        'handlebars': {
+        'originalhandlebars': {
           exports: 'Handlebars'
         },
-        'backbone': {
+        'originalbackbone': {
           exports: 'Backbone',
           deps: ['jquery', 'underscore']
         },
@@ -184,6 +191,9 @@ module.exports = function(grunt) {
         },
         'bootstrap': {
           deps: ['jquery']
+        },
+        'VisView': {
+          deps: ['d3']
         }
       }
     };
@@ -207,6 +217,14 @@ module.exports = function(grunt) {
     var open = require('open');
     open('http://' + hostname + ':' + port);
   });
+
+  grunt.registerTask('html:development', [
+    'copy:html',
+  ]);
+
+  grunt.registerTask('html:production', [
+    'copy:html',
+  ]);
 
   grunt.registerTask('scripts:development', [
     'copy:requirejs',
@@ -248,6 +266,7 @@ module.exports = function(grunt) {
     'create-output-directories',
     'styles',
     'templates',
+    'html:development',
     'scripts:development',
     'thorax:inspector',
     'connect:development',
@@ -260,6 +279,7 @@ module.exports = function(grunt) {
     'create-output-directories',
     'styles',
     'templates',
+    'html:production',
     'scripts:production',
     'open-browser',
     'connect:production'

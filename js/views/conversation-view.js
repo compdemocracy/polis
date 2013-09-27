@@ -16,9 +16,9 @@ define([
   'FeedbackSubmitter',
   'LoginView',
   'p',
-  'polis',
   'polisUtils',
-  'StimulusSubmitter',
+  'util/polisStorage',
+  'polis',
   'VisView'
   ], function (View, 
     template,
@@ -37,88 +37,112 @@ define([
     FeedbackSubmitter,
     LoginView,
     p,
-    polis,
     polisUtils,
-    StimulusSubmitter,
+    PolisStorage,
+    ServerClient,
     VisView
     ) {
   return View.extend({
     name: 'conversation-view',
     template: template,
     events: {
-      "click #topic_toggle": function(e){
-        e.preventDefault();
-        this.$('#topic').toggle();
-      },
-      "click #react_tab": function(e){
-        e.preventDefault();
-        console.dir(this);
-        console.dir(e);
-        $(e.target).tab('show');
-      },
-      "click #write_tab": function(e){
-        e.preventDefault();
-        //$(this).tab('show')
-        $(e.target).tab('show');
-      }
+    "click #topic_toggle": function(e){
+      e.preventDefault();
+      this.$('#topic').toggle();
     },
-    initialize: function(){
-      var that = this;
-      var serverClient = new window.Polis({
-        tokenStore: PolisStorage.token,
-        emailStore: PolisStorage.email,
-        usernameStore: PolisStorage.username,
-        pidStore: PolisStorage.pids,
-        uidStore: PolisStorage.uid,
-        //commentsStore: PolisStorage.comments,
-        //reactionsByMeStore: PolisStorage.reactionsByMe,
-        utils: window.utils,
-        protocol: "",  //"http",
-        domain: (-1 !== document.domain.indexOf(".polis.io")) ? "api.polis.io" : "localhost:5000",
-        basePath: "",
-        logger: console
-      });
-      serverClient.observeStimulus(this.model.get('zid'));
-      //var commentCollection = new Application.Collections["comments"]();
-      this.commentView = new CommentView({
-        serverClient: serverClient,
-        zid: this.zid,
-      });
-      this.commentsByMe = new CommentsCollection();
-        // Application.Models["comment"]
-      this.commentForm = new CommentFormView({
-        serverClient: serverClient,
-        zid: this.zid,
-      });
-      this.changeVotes = new ChangeVotesView({
-        serverClient: serverClient,
-        zid: this.zid,
-      })
-      this.commentForm.on("commentSubmitted", function() {
-        $("#react_tab").tab('show');
-      });
-       var initPcaVis = function() {
-           var w = $("#visualization_div").width();
-           var h = w/2;
-           $("#visualization_div").height(h);
-           PcaVis.initialize({
-               getPersonId: function() {
-                                return PolisStorage.pids.get(that.zid);
-                            },
-               getCommentsForProjection: serverClient.getCommentsForProjection,
-               getCommentsForSelection: serverClient.getCommentsForSelection,
-               getReactionsToComment: serverClient.getReactionsToComment,
-               w: w,
-               h: h,
-               el_queryResultSelector: "#query_results_div",
-               el: "#visualization_div"
-           });
-       };
-       serverClient.addPersonUpdateListener( function() {
-           PcaVis.upsertNode.apply(PcaVis, arguments);
-       });
-       // Let the DOM finish its layout
-       _.defer(initPcaVis);
-    }// end initialize
+    "click #react_tab": function(e){
+      e.preventDefault();
+      console.dir(this);
+      console.dir(e);
+      $(e.target).tab('show');
+    },
+    "click #write_tab": function(e){
+      e.preventDefault();
+      //$(this).tab('show')
+      $(e.target).tab('show');
+    }
+  },
+  onClusterTapped : function() {
+      if (window.isMobile()) {
+         window.scrollTo(0,$("#visualization_div").offset().top);
+      }
+  },
+  initialize: function(){
+    var that = this;
+    var vis;
+    var serverClient = new ServerClient({
+      tokenStore: PolisStorage.token,
+      emailStore: PolisStorage.email,
+      usernameStore: PolisStorage.username,
+      pidStore: PolisStorage.pids,
+      uidStore: PolisStorage.uid,
+      //commentsStore: PolisStorage.comments,
+      //reactionsByMeStore: PolisStorage.reactionsByMe,
+      utils: window.utils,
+      protocol: "", //"http",
+      domain: (-1 !== document.domain.indexOf(".polis.io")) ? "api.polis.io" : "localhost:5000",
+      basePath: "",
+      logger: console
+    });
+
+    serverClient.observeStimulus(this.model.get('zid'));
+    
+    this.commentView = new CommentView({
+      serverClient: serverClient,
+      zid: this.zid,
+    });
+
+    // this.commentsByMe = new SomeViewColinWillCreate({
+    //   serverClient: serverClient,
+    //   zid: this.zid,
+    // });
+
+    this.commentForm = new CommentFormView({
+      serverClient: serverClient,
+      zid: this.zid,
+    });
+   
+    this.changeVotes = new ChangeVotesView({
+      serverClient: serverClient,
+      zid: this.zid,
+    })
+
+    this.commentForm.on("commentSubmitted", function() {
+      $("#react_tab").tab('show');
+    });
+
+
+    function onClusterTapped() {
+        that.onClusterTapped();
+    }
+
+    var initPcaVis = function() {
+        var w = $("#visualization_div").width();
+        var h = w/2;
+        $("#visualization_div").height(h);
+        if (vis) {
+            serverClient.removePersonUpdateListener(vis.upsertNode);
+        }
+        vis = PcaVis({
+            getPersonId: function() {
+                return PolisStorage.pids.get(that.zid);
+            },
+            getCommentsForProjection: serverClient.getCommentsForProjection,
+            getCommentsForSelection: serverClient.getCommentsForSelection,
+            getReactionsToComment: serverClient.getReactionsToComment,
+            onClusterTapped: onClusterTapped,
+            w: w,
+            h: h,
+            el_queryResultSelector: "#query_results_div",
+            el: "#visualization_div"
+        });
+        serverClient.addPersonUpdateListener(vis.upsertNode);
+    };
+
+
+     // Let the DOM finish its layout
+     _.defer(initPcaVis);
+     $(window).resize(initPcaVis);
+  }// end initialize
   });
 });

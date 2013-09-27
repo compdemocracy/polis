@@ -2,7 +2,7 @@
     will place a view where layout-element is called below. }}
 
 
-{{#ifNotEmbedded}}
+{{! ifNotEmbedded}}
 <header>
 	<div class="navbar navbar-inverse">
 	  <div class="navbar-inner no-rounding">
@@ -26,7 +26,7 @@
 
 	      <div class="nav-collapse collapse">
 			<ul class="nav">
-			  <li>{{#link "dash" class="active" expand-tokens=true}}Conversations{{/link}}</li>
+			  <li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
 			  {{#if false}}
 			  	<li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="<p> Click the 'Intro &amp; Overview' tab to return to this tutorial at any time.</p>" data-html="true" data-bootstro-placement="bottom" data-bootstro-step="0" ><a href="#">Intro &amp; Overview</a></li>
           			<li id="topic_toggle"><a href="" role="button">Topic</a> </li>
@@ -38,8 +38,18 @@
 	  </div>
 	</div>
 </header>
-{{/ifNotEmbedded}}
+{{! end ifNotEmbedded}}
 
-<section class="container">
-		{{layout-element}}
-</section>
+
+
+
+
+
+{{layout-element}}
+
+
+
+
+
+
+

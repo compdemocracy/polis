@@ -1,12 +1,23 @@
-window.Polis = function(params) {
+define([
+    'util/shuffleWithSeed',
+], function(
+    shuffleWithSeed
+) {
+
+return function(params) {
 
     var polisTypes = {
         reactions: {
             push: 1,
             pull: -1,
             pass: 0,
+            trash: 'trash',
             see: 'see'
-        }
+        },
+        staractions: {
+            unstar: 0,
+            star: 1,
+        },
     };
 
     var commentsToVoteOn = {}; // tid -> comment
@@ -16,6 +27,7 @@ window.Polis = function(params) {
     var basePath = params.basePath;
 
     var votesPath = "/v3/votes";
+    var starsPath = "/v3/stars";
     var votesByMePath = "/v3/votes/me";
     var commentsPath = "/v3/comments";
     var feedbackPath = "/v2/feedback";
@@ -39,6 +51,9 @@ window.Polis = function(params) {
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
+
+    var projectionPeopleCache;
+    var clustersCache;
 
     var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
@@ -221,6 +236,47 @@ window.Polis = function(params) {
             clearComment(ev.tid);
         }
         return react(ev);
+    }
+
+    function trash(tid) {
+        clearComment(tid, "trash");
+        return react({
+            vote: polisTypes.reactions.trash,
+            tid: tid
+        });
+    }
+
+    function doStarAction(params) {
+        if (params.zid && params.zid !== currentStimulusId) {
+            console.error('wrong stimulus');
+        }
+        if (typeof params.tid === "undefined") {
+            console.error('missing tid');
+            console.error(params);
+        }
+        if (typeof params.starred === "undefined") {
+            console.error('missing star type');
+            console.error(params);
+        }
+        return polisPost(starsPath, $.extend({}, params, {
+                pid: getPid(),
+                zid: currentStimulusId
+            }) 
+        );
+    }
+
+    function unstar(tid) {
+        return doStarAction({
+            starred: polisTypes.staractions.unstar,
+            tid: tid
+        });
+    }
+
+    function star(tid) {
+        return doStarAction({
+            starred: polisTypes.staractions.star,
+            tid: tid
+        });
     }
 
     function polisPost(api, data) {
@@ -493,11 +549,17 @@ window.Polis = function(params) {
                     
                     //personUpdateCallbacks.fire(person);
                 //}
-                personUpdateCallbacks.fire(people, clusters);
+                projectionPeopleCache = people;
+                clustersCache = clusters;
+                sendUpdatedVisData(people, clusters);
             },
             function(err) {
                 console.error('failed to get pca data');
             });
+    }
+
+    function sendUpdatedVisData(people, clusters) {
+        personUpdateCallbacks.fire(people, clusters);
     }
 
     function authenticated() {
@@ -697,12 +759,21 @@ window.Polis = function(params) {
         disagree: disagree,
         agree: agree,
         pass: pass,
+        trash: trash,
+        star: star,
+        unstar: unstar,
         //see: see,
         stories: stories,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
-        addPersonUpdateListener: personUpdateCallbacks.add,
+        removePersonUpdateListener: personUpdateCallbacks.remove,
+        addPersonUpdateListener: function() {
+            personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
+            if (projectionPeopleCache && clustersCache) {
+                sendUpdatedVisData(projectionPeopleCache, clustersCache);
+            }
+        },
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,
@@ -716,3 +787,4 @@ window.Polis = function(params) {
         submitComment: submitComment
     };
 };
+});

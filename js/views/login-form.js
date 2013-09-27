@@ -1,7 +1,13 @@
 define([
   'view',
-  'templates/login-form'
-], function (View, template) {
+  'templates/login-form',
+  //'util/polisStorage',
+], function (
+  View,
+  template
+  //,
+  //PolisStorage
+) {
   return View.extend({
     name: 'login-form',
     template: template,

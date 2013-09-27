@@ -1,6 +1,7 @@
 define(['model'], function (Model) {
   return Model.extend({
     name: 'conversation',
+    path: "conversations",
     idAttribute: "zid",
     defaults: {
       topic: "Year,Month,Day,Hours,Minutes",

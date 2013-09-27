@@ -8,7 +8,8 @@ define([  //begin dependencies
   'views/create-conversation-form',
   'views/conversation-details',
   'views/conversation-view',
-  'views/create-user-form'
+  'views/create-user-form',
+  'util/polisStorage',
 ], function (  //begin args
 		RootView, 
 		Backbone, 
@@ -19,20 +20,20 @@ define([  //begin dependencies
 		CreateConversationFormView,
 		ConversationDetailsView,
 		ConversationView,
-		CreateUserFormView
+		CreateUserFormView,
+    PolisStorage
 	) {  //end args, begin function block
 	return Backbone.Router.extend({
     routes: {
       "": "index",
-      "index/:filter": "index",
       "conversation/add": "addConversation",
       "conversation/edit/:id": "editConversation",
       "conversation/details/:id": "conversationDetails",
       "conversation/view/:id": "conversationView", 
-      "dash": "dash",
+      "inbox(/:filter)": "inbox",
       "login": "createOrSignIn"
     },
-    dash: function(filter){
+    inbox: function(filter){
 
     var conversationsCollection = new ConversationsCollection();
 
@@ -99,7 +100,7 @@ define([  //begin dependencies
   	var conversationsCollection = new ConversationsCollection();
   	conversationsCollection.fetch();
     var model = conversationsCollection.get(id);    
-    var conversationDetailsView = new ConversationDetailsView({
+    var detailsView = new ConversationDetailsView({
       collection: conversationsCollection,
       model: model
     });
@@ -108,27 +109,24 @@ define([  //begin dependencies
   conversationView: function(zid) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
     var that = this;
  
-  	var conversationsCollection = new ConversationsCollection();
-  	conversationsCollection.fetch()
-    var model = conversationsCollection.get(id);    
-
+    console.dir("conversationView");
+    console.dir(this);
     if (!PolisStorage.uid.get()) {
         this.createOrSignIn(zid);
         return;
     }
-    var model = null;
-    if (conversationsCollection) {  //TODO rewrite 
-      model = conversationsCollection.get(zid); 
-    } else {
-      model = new ConversationModel({id: zid, zid: zid}); // TODO remove id
-    }
+    var model = new ConversationModel({id: zid, zid: zid}); // TODO remove id
     model.fetch({
       success: function() {
+
+        console.dir("fetch success");
         var conversationView = new ConversationView({
           model: model,
           zid: zid,
         });
+        console.dir("fetch success2");
         RootView.getInstance().setView(conversationView);
+        console.dir("fetch success3");
       },
       error: function(e) {
         console.error('error loading conversation model', e);

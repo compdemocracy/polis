@@ -2,7 +2,15 @@
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
 
-var PcaVis = (function(){
+var PcaVis = function(params){
+
+var el_selector = params.el;
+var el_queryResultSelector = params.el_queryResultSelector;
+var getPersonId = params.getPersonId;
+var getCommentsForProjection = params.getCommentsForProjection;
+var getCommentsForSelection = params.getCommentsForSelection;
+var getReactionsToComment = params.getReactionsToComment;
+var onClusterTapped = params.onClusterTapped;
 
 // The h and w values should be locked at a 1:2 ratio of h to w
 var h;
@@ -10,17 +18,14 @@ var w;
 var nodes = [];
 var clusters = [];
 var hulls = [];
+var bounds = []; // Bounding rectangles for each hull
 var visualization;
+var g; // top level svg group within the vis that gets translated/scaled on zoom
 var force;
 var queryResults;
 var d3Hulls;
 
-var el_selector;
-var el_queryResultSelector;
-var getPersonId;
-var getCommentsForProjection;
-var getCommentsForSelection;
-var getReactionsToComment;
+var selectedCluster;
 
 // hack_mouseout_replacement
 // mouseout isn't reliable, so this is needed as part of optimizing
@@ -46,6 +51,183 @@ var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 2]).domain([350, 80
 // Cached results of tunalbes - set during init
 var strokeWidth;
 var baseNodeRadius;
+// Since initialize is called on resize, clear the old vis before setting up the new one.
+$(el_selector).html("");
+
+//create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
+//to connect viz to responsive layout if desired
+visualization = d3.select(el_selector)
+    .append('svg')
+      .attr('width', "100%")
+      .attr('height', "100%")
+      .attr('class', 'visualization').append("g").call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom));
+      
+
+function zoom() {
+  // TODO what is event?
+  visualization.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+}
+
+window.vis = visualization; // TODO why? may prevent GC
+w = $(el_selector).width();
+h = $(el_selector).height();
+
+strokeWidth = strokeWidthGivenVisWidth(w);
+baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
+charge = chargeForGivenVisWidth(w);
+
+queryResults = d3.select(el_queryResultSelector)
+    .append('ol')
+      .attr('class', 'query_results');
+
+    //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
+
+force = d3.layout.force()
+    .nodes(nodes)
+    .links([])
+    .friction(0.9) // more like viscosity [0,1], defaults to 0.9
+    .gravity(0)
+    .charge(charge) // slight overlap allowed
+    .size([w, h]);
+
+d3Hulls = _.times(9, function() {
+    return visualization.append("path")
+        .style("opacity", 0.2)
+        .style("stroke", "lightgrey")
+        .style("stroke-width", "32px")
+        .style("stroke-linejoin", "round")
+        .style("fill", "lightgrey")
+        .on("click", function(d){
+            console.log("selectedCluster " + selectedCluster);
+            console.log("d.hullId " + d.hullId);
+            if (selectedCluster === d.hullId) {
+              renderComments([]);
+              return resetSelection();
+            }
+
+            visualization.selectAll(".active").classed("active", false);
+            d3.select(this).classed("active", selectedCluster = d.hullId);
+
+            var b = bounds[d.hullId];
+            visualization.transition().duration(750)
+            //.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            .attr("transform", ""
+              //"translate(" + projection.translate() + ")" +
+              //"translate(" + d3.event.translate + ")" +
+              + "scale(" + .95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")"
+              + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")"
+              );
+
+            getCommentsForSelection(clusters[d.hullId]).then(
+              renderComments,
+              function(err) {
+                console.error(err);
+              });
+
+//
+              //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
+
+            selectedCluster = d.hullId;
+            if (onClusterTapped) {
+                onClusterTapped();
+            }
+            d3.select(this)
+                .style("fill","lightgreen")
+                .style("stroke","lightgreen");
+        });
+});
+
+force.on("tick", function(e) {
+      // Push nodes toward their designated focus.
+      var k = 0.1 * e.alpha;
+      //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
+      nodes.forEach(function(o, i) {
+          //o.x = o.data.targetX;
+          //o.y = o.data.targetY;
+          if (!o.x) { o.x = w/2; }
+          if (!o.y) { o.y = h/2; }
+          o.x += (o.data.targetX - o.x) * k;
+          o.y += (o.data.targetY - o.y) * k;
+      });
+
+      visualization.selectAll("circle.node")
+          .attr("cx", function(d) { return d.x;})
+          .attr("cy", function(d) { return d.y;});
+
+    var pidToPerson = _.object(_.pluck(nodes, "pid"), nodes);
+    bounds = [];
+    hulls = clusters.map(function(cluster, clusterNumber) {
+        var top = Infinity;
+        var bottom = -Infinity;
+        var right = -Infinity;
+        var left = Infinity;
+        var temp = cluster.map(function(pid) {
+            var x = pidToPerson[pid].x;
+            var y = pidToPerson[pid].y;
+            // update bounds
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            return [x, y];
+        });
+        // emulating this: https://github.com/mbostock/d3/wiki/Geo-Paths#wiki-bounds
+        var b = [[left, bottom], [right, top]];
+
+        bounds.push(b);
+        return temp;
+    });
+    // update hulls
+    for (var i = 0; i < hulls.length; i++) {
+        var d3Hull = d3Hulls[i];
+        var hull = hulls[i];
+        var d = d3.geom.hull(hull);
+        d.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
+        d3Hull.datum(d).attr("d", function(d) { return "M" + d.join("L") + "Z"; });
+    }
+});
+
+function getOffsetX(e) {
+    if (undefined !== e.offsetX) {
+        return e.offsetX;
+    } else {
+        // Needed for FF
+        return e.pageX - $(el_selector).offset().left; // TODO cache offset?
+    }
+}
+function getOffsetY(e) {
+    if (undefined !== e.offsetY) {
+        return e.offsetY;
+    } else {
+        // Needed for FF
+        return e.pageY - $(el_selector).offset().top; // TODO cache offset?
+    }
+}
+$(el_selector).on('mousedown', function(e) {
+    selectionRectangle.x1 = getOffsetX(e);
+    selectionRectangle.y1 = getOffsetY(e);
+    selectionRectangle.x2 = getOffsetX(e);
+    selectionRectangle.y2 = getOffsetY(e);
+    mouseDown = true;
+});
+$(el_selector).on('mousemove', function(e) {
+    if (mouseDown) {
+        selectionRectangle.x2 = getOffsetX(e);
+        selectionRectangle.y2 = getOffsetY(e);
+        drawSelectionRectangle(selectionRectangle);
+    }
+});
+$(el_selector).on('mouseup', function(e) {
+    if (mouseDown) {
+        selectRectangle(selectionRectangle);
+        if (selectionRectangle.x1 === selectionRectangle.x2 &&
+            selectionRectangle.y1 === selectionRectangle.y2) {
+            drawSelectionRectangle(null);
+        }
+    }
+    mouseDown = false;
+});
+
 
 
 
@@ -118,133 +300,6 @@ function isSelf(d) {
     return d.pid === getPersonId();
 }
 
-function initialize(params) {
-    console.log('init');
-    el_selector = params.el;
-    el_queryResultSelector = params.el_queryResultSelector;
-    getPersonId = params.getPersonId;
-    getCommentsForProjection = params.getCommentsForProjection;
-    getCommentsForSelection = params.getCommentsForSelection;
-    getReactionsToComment = params.getReactionsToComment;
-
-    // Since initialize is called on resize, clear the old vis before setting up the new one.
-    $(el_selector).html("");
-
-    //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
-    //to connect viz to responsive layout if desired
-    visualization = d3.select(el_selector)
-        .append('svg')
-          .attr('width', "100%")
-          .attr('height', "100%")
-          .attr('class', 'visualization');
-    window.vis = visualization;
-    w = $(el_selector).width();
-    h = $(el_selector).height();
-
-    strokeWidth = strokeWidthGivenVisWidth(w);
-    baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
-    charge = chargeForGivenVisWidth(w);
-
-    queryResults = d3.select(el_queryResultSelector)
-        .append('ol')
-          .attr('class', 'query_results');
-
-        //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
-
-    force = d3.layout.force()
-        .nodes(nodes)
-        .links([])
-        .friction(0.9) // more like viscosity [0,1], defaults to 0.9
-        .gravity(0)
-        .charge(charge) // slight overlap allowed
-        .size([w, h]);
-
-    d3Hulls = _.times(9, function() {
-        return visualization.append("path")
-            .style("opacity", 0.2)
-            .style("stroke", "lightgrey")
-            .style("stroke-width", "32px")
-            .style("stroke-linejoin", "round")
-            .style("fill", "lightgrey")
-            .on("click", function(){
-                d3.select(this)
-                    .style("fill","lightgreen")
-                    .style("stroke","lightgreen");
-            });
-    });
-
-    force.on("tick", function(e) {
-          // Push nodes toward their designated focus.
-          var k = 0.1 * e.alpha;
-          //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
-          nodes.forEach(function(o, i) {
-              //o.x = o.data.targetX;
-              //o.y = o.data.targetY;
-              if (!o.x) { o.x = w/2; }
-              if (!o.y) { o.y = h/2; }
-              o.x += (o.data.targetX - o.x) * k;
-              o.y += (o.data.targetY - o.y) * k;
-          });
-
-          visualization.selectAll("circle.node")
-              .attr("cx", function(d) { return d.x;})
-              .attr("cy", function(d) { return d.y;});
-
-        var pidToPerson = _.object(_.pluck(nodes, "pid"), nodes);
-        hulls = clusters.map(function(cluster) {
-            return cluster.map(function(pid) {
-                return [pidToPerson[pid].x, pidToPerson[pid].y];
-            });
-        });
-        // update hulls
-        for (var i = 0; i < hulls.length; i++) {
-            var d3Hull = d3Hulls[i];
-            var hull = hulls[i];
-            d3Hull.datum(d3.geom.hull(hull)).attr("d", function(d) { return "M" + d.join("L") + "Z"; });
-        }
-    });
-
-    function getOffsetX(e) {
-        if (undefined !== e.offsetX) {
-            return e.offsetX;
-        } else {
-            // Needed for FF
-            return e.pageX - $(el_selector).offset().left; // TODO cache offset?
-        }
-    }
-    function getOffsetY(e) {
-        if (undefined !== e.offsetY) {
-            return e.offsetY;
-        } else {
-            // Needed for FF
-            return e.pageY - $(el_selector).offset().top; // TODO cache offset?
-        }
-    }
-    $(el_selector).on('mousedown', function(e) {
-        selectionRectangle.x1 = getOffsetX(e);
-        selectionRectangle.y1 = getOffsetY(e);
-        selectionRectangle.x2 = getOffsetX(e);
-        selectionRectangle.y2 = getOffsetY(e);
-        mouseDown = true;
-    });
-    $(el_selector).on('mousemove', function(e) {
-        if (mouseDown) {
-            selectionRectangle.x2 = getOffsetX(e);
-            selectionRectangle.y2 = getOffsetY(e);
-            drawSelectionRectangle(selectionRectangle);
-        }
-    });
-    $(el_selector).on('mouseup', function(e) {
-        if (mouseDown) {
-            selectRectangle(selectionRectangle);
-            if (selectionRectangle.x1 === selectionRectangle.x2 &&
-                selectionRectangle.y1 === selectionRectangle.y2) {
-                drawSelectionRectangle(null);
-            }
-        }
-        mouseDown = false;
-    });
-}
 
 
 function hashCode(s){
@@ -325,7 +380,7 @@ function upsertNode(updatedNodes, newClusters) {
         }
     }
 
-    var border = maxNodeRadius + 50;
+    var border = maxNodeRadius + w / 50;
     return {
         x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]),
         y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min, spans.y.max])
@@ -507,7 +562,18 @@ function selectRectangle(rect) {
     }).flatten().value();
 
     console.dir(selectedIds);
-    function renderComments(comments) {
+    if (selectedIds.length) {
+        getCommentsForSelection(selectedIds).then(
+            renderComments,
+            function(err) {
+                console.error(err);
+            });
+    } else {
+        renderComments([]);
+    }
+}
+
+function renderComments(comments) {
     function hover(d) {
             getReactionsToComment(d.tid).then(function(reactions) {
                 var userToReaction = {};
@@ -579,16 +645,6 @@ function selectRectangle(rect) {
             //.attr("y", y)
             //.attr("width", width)
             //.attr("height", height);
-    }
-    if (selectedIds.length) {
-        getCommentsForSelection(selectedIds).then(
-            renderComments,
-            function(err) {
-                console.error(err);
-            });
-    } else {
-        renderComments([]);
-    }
 }
 
 function drawSelectionRectangle(rect) {
@@ -656,12 +712,14 @@ function dismissSelection() {
     visualization.selectAll("rect")
         .data([]);
 }
-
+ 
+function resetSelection() {
+  visualization.selectAll(".active").classed("active", selectedCluster = false);
+  visualization.transition().duration(750).attr("transform", "");
+}
 
 return {
-    initialize: initialize,
     upsertNode: upsertNode
 };
-}());
 
-
+};
