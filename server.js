@@ -1085,7 +1085,7 @@ function(req, res) {
     });
 });
 
-app.put('/v3/conversation/:zid',
+app.put('/v3/conversations/:zid',
     logPath,
     moveToBody,
     auth,
@@ -1105,7 +1105,7 @@ function(req, res){
     );
 });
 
-[ '/v3/conversation', '/v3/conversation/:zid', ].forEach(function(route) {
+[ '/v3/conversations', '/v3/conversations/:zid', ].forEach(function(route) {
 app.get(route,
     logPath,
     moveToBody,
@@ -1140,7 +1140,7 @@ function(req, res) {
 })
 });
 
-app.post('/v3/conversation',
+app.post('/v3/conversations',
     logPath,
     auth,
     want('is_active', getBool, assignToP),
