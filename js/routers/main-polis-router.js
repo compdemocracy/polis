@@ -26,7 +26,7 @@ define([  //begin dependencies
 	return Backbone.Router.extend({
     routes: {
       "": "index",
-      "conversation/add": "addConversation",
+      "conversation/create": "createConversation",
       "conversation/edit/:id": "editConversation",
       "conversation/details/:id": "conversationDetails",
       "conversation/view/:id": "conversationView", 
@@ -68,9 +68,10 @@ define([  //begin dependencies
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
-  addConversation: function(){
+  createConversation: function(){
+    conversationsCollection = new ConversationsCollection();
     var createConversationFormView = new CreateConversationFormView({
-      collection: Application.Collections.conversationsCollection,
+      collection: conversationsCollection,
       add: true
     })
     RootView.getInstance().setView(createConversationFormView);
