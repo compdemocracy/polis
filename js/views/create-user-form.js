@@ -34,7 +34,7 @@ define([
             if (window.onAuthSuccess) {
               window.onAuthSuccess();
             } else {
-              Backbone.history.navigate('/dash', true);
+              Backbone.history.navigate('/inbox', true);
             }
           }, function(err) {
               alert("login was unsuccessful");
