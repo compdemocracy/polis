@@ -12,7 +12,11 @@ define(['model'], function (Model) {
       owner: undefined,
       participant_count: "",
       url_name: function(){
-        return "polis.io/#conversation/view/" + this.zid;
+        var s = "polis.io/#conversation/view/" + this.zid;
+        if (this.zinvites) {
+          s += "/" + this.zinvites[0]; // TODO deal with multiple?
+        }
+        return s;
       },
       is_anon: true,
       is_draft: false,
