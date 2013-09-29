@@ -1,0 +1,118 @@
+		.body {
+			background-image: url('conductor.jpeg');
+			background-size: 100%;
+		}
+
+		.brandon400 {
+			font-family: "brandon-grotesque",sans-serif;
+			font-weight: 400;
+			letter-spacing: .1em
+		}
+
+		.landingPageHeadline{
+			margin-top: 50px;
+		}
+
+		input {
+			 font-family: "brandon-grotesque",sans-serif;
+			 font-weight: 400;
+		}
+		.landingPagePolis {
+			font-weight: 100;
+			text-align: center;
+			color: black;
+			font-size: 48px;
+		}
+		.landingPageCommunication {
+			font-family: "brandon-grotesque",sans-serif;
+			font-weight: 100;
+			text-align: center;
+			font-size: 28px;
+			width: 70%;
+			margin: auto;
+			margin-bottom: ;
+		}
+		#right {
+			background-color: rgba(0,0,0,.3);
+			border-radius: 3px;
+		}
+		#right input {
+			width: 90%;
+			margin-bottom: 15px;
+		}
+		#right form {
+			margin: 20px;
+		}
+		.action {
+			display: block;
+		}
+		#landingPageForm{
+			margin-top: 20px;
+		}
+
+/* Large desktop */
+ 
+/* Portrait tablet to landscape and desktop */
+@media (min-width: 768px) and (max-width: 979px) { 
+
+		.landingPageBody {
+			background-image: url('conductor.jpeg');
+			background-size: 1280px;
+			background-position-x: -200px;
+		}
+
+		
+
+}
+ 
+/* Landscape phone to portrait tablet */
+@media (min-width: 481px) and (max-width: 767px) { 
+
+.landingPageBody {
+			background-image: url('conductor.jpeg');
+			background-size: 1280px;
+			background-position-x: -200px;
+		}
+
+
+		#right {
+			background-color: rgba(0,0,0,0);
+			border-radius: 3px;
+			padding: 20px;
+		}
+		#right input {
+			width: 50%;
+			margin-bottom: 15px;
+		}
+
+
+}
+ 
+/* Landscape phones and down */
+@media (max-width: 480px) { 
+.landingPageBody {
+			background-image: url('conductor.jpeg');
+			background-size: 1280px;
+			background-position-x: -200px;
+		}
+
+
+		.landingPageHeadline{
+			background-color: ;
+			margin-top: 20px;
+			margin-bottom: 10px;
+		}
+
+		#right {
+			background-color: rgba(0,0,0,0);
+			border-radius: 3px;
+			padding: 20px;
+		}
+		#right input {
+			width: 90%;
+			margin-bottom: 15px;
+		}
+
+
+
+}

@@ -1,14 +1,8 @@
 <section class="container">
 
 
-{{#ifEmbedded}}
-    <h1>Sign in to Polis</h1>
-{{/ifEmbedded}}
-
-{{view loginForm}}
-
 <div class="row">
-	<div class="span4 offset2">
+	<div class="span4 offset4">
 		<h2> Create New User </h2> 
 		<form class="form-horizontal conversationsForm"> <!-- ken rename style -->
 			<div class="control-group">
@@ -40,7 +34,13 @@
 			  	<div class="controls">
 			  		<input type="password" name="password" placeholder="password" />
 				</div>
-			</div>	
+			</div>
+			<div class="control-group">
+			  	<label for="password" class="control-label">Password: </label>
+			  	<div class="controls">
+			  		<input type="password" name="password" placeholder="password" />
+				</div>
+			</div>		
 			<button type="submit" class="btn btn-block"> Create New User </button>
 		</form>
 	</div>

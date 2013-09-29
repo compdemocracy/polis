@@ -9,6 +9,8 @@ define([  //begin dependencies
   'views/conversation-details',
   'views/conversation-view',
   'views/create-user-form',
+  'views/login-form',
+  'views/landing-page',
   'util/polisStorage',
 ], function (  //begin args
 		RootView, 
@@ -21,17 +23,25 @@ define([  //begin dependencies
 		ConversationDetailsView,
 		ConversationView,
 		CreateUserFormView,
+    LoginFormView,
+    LandingPageView,
     PolisStorage
 	) {  //end args, begin function block
 	return Backbone.Router.extend({
     routes: {
-      "": "index",
+      "homepage": "homepageView",
       "conversation/create": "createConversation",
       "conversation/edit/:id": "editConversation",
       "conversation/details/:id": "conversationDetails",
       "conversation/view/:id": "conversationView", 
+      "user/create": "createUser",
+      "user/login":"login",
       "inbox(/:filter)": "inbox",
-      "login": "createOrSignIn"
+      "": "landingPageView",
+    },
+    landingPageView: function() {
+      var landingPageView = new LandingPageView();
+      RootView.getInstance().setView(landingPageView);
     },
     inbox: function(filter){
 
@@ -64,7 +74,7 @@ define([  //begin dependencies
     RootView.getInstance().setView(inboxView);
 
   },
-  index: function(){
+  homepageView: function(){
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
@@ -135,7 +145,7 @@ define([  //begin dependencies
       },
     });
   },
-  createOrSignIn: function(zid){
+  createUser: function(zid){
     var that = this;  //save a reference to the view
     var createUserFormView = new CreateUserFormView();
     if (zid) {
@@ -146,6 +156,10 @@ define([  //begin dependencies
         };
     }
     RootView.getInstance().setView(createUserFormView);
+  },
+  login: function(){
+    var loginFormView = new LoginFormView();
+    RootView.getInstance().setView(loginFormView);
   }
   });
 });

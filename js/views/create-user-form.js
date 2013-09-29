@@ -1,12 +1,10 @@
 define([
   'view',
   'templates/create-user-form',
-  'views/login-form',
   'util/polisStorage',
 ], function (
   View,
   template,
-  LoginFormView,
   PolisStorage
 ) {
   return View.extend({
@@ -60,9 +58,6 @@ define([
         errors.push({name: 'description',  message: 'hey there... you need an email'});
       }
       return errors; 
-    },
-    initialize: function(){
-        this.loginForm = new LoginFormView()
-    },
+    }
   });
 });
