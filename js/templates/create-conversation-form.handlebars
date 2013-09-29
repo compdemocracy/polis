@@ -58,31 +58,38 @@
 			<div class="control-group">
 			  	<div class="controls">
 			  		<label for="anonymous" class="checkbox">
-			  			<input type="checkbox" id="anonymous" name="anonymous" data-toggle="checkbox" {{#if anonymous}}checked{{/if}}> Anonymous
+			  			<input type="checkbox" id="anonymous" name="is_anon" data-toggle="checkbox" {{#if is_anon}}checked{{/if}}> Anonymous
 			  		</label>
 				</div>
 			</div>
 			<div class="control-group">
+				<div class="controls">
+			  		<label for="participantsMustHaveZinvite" class="checkbox">
+			  			<input type="checkbox" id="participantsMustHaveZinvite" name="is_public" data-toggle="checkbox" {{#if is_public}}checked{{/if}}> Conversation is open to the public.
+			  		</label>
+				</div>
+			</div>
+			<!--div class="control-group">
 				<div class="controls">
 			  		<label for="participantsMustHaveAcct" class="checkbox">
 			  			<input type="checkbox" id="participantsMustHaveAcct" name="participantsMustHaveAcct" data-toggle="checkbox" {{#if participantsMustHaveAcct}}checked{{/if}}> Participants must have a Polis account
 			  		</label>
 				</div>
-			</div>
-			<div class="control-group">
+			</div-->
+			<!--div class="control-group">
 				<div class="controls">
 			  		<label for="participantsMustValidate" class="checkbox">
 			  			<input type="checkbox" id="participantsMustValidate" name="participantsMustValidate" data-toggle="checkbox" {{#if participantsMustValidate}}checked{{/if}}> Participants must have validated thier account via SMS to ensure they are a real person
 			  		</label>
 				</div>
-			</div>
-			<div class="control-group">
+			</div-->
+			<!--div class="control-group">
 				<div class="controls">
 			  		<label for="participantsMustHaveEmail" class="checkbox">
-			  			<input type="checkbox" id="participantsMustHaveEmail" name="participantsMustHaveEmail" data-toggle="checkbox" {{#if participantsMustHaveEmail}}checked{{/if}}> Participants must have validated their Polis account with an email address from the following domain:
+			  			<input type="checkbox" id="participantsMustHaveEmail" name="email_domain" data-toggle="checkbox" {{#if email_domain}}checked{{/if}}> Participants must have validated their Polis account with an email address from the following domain:
 			  		</label>
 				</div>
-			</div>
+			</div-->
 			<div class="control-group">
 				<div class="controls">
 
