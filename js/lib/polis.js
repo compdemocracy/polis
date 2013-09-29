@@ -339,11 +339,11 @@ return function(params) {
         return promise;
     }
 
-    function observeStimulus(newStimulusId) {
+    function observeStimulus(newStimulusId, zinvite) {
         currentStimulusId = Number(newStimulusId);
         lastServerTokenForPCA = (new Date(0)).getTime();
         lastServerTokenForComments = (new Date(0)).getTime();
-        return joinConversation();
+        return joinConversation(zinvite);
     }
 
     function authNew(params) {
@@ -731,10 +731,16 @@ return function(params) {
         return pidStore.get(currentStimulusId);
     }
 
-    function joinConversation() {
-        return polisPost(participantsPath, {
-            zid: currentStimulusId
-        }).pipe( function (response) {
+    function joinConversation(zinvite) {
+        var params = {
+            zid: currentStimulusId,
+        };
+        if (zinvite) {
+            _.extend(params, {
+                zinvite: zinvite,
+            });
+        }
+        return polisPost(participantsPath, params).pipe( function (response) {
             pidStore.set(currentStimulusId, response.pid);
             return response.pid;
         });

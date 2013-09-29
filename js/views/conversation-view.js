@@ -85,7 +85,7 @@ define([
       logger: console
     });
 
-    serverClient.observeStimulus(this.model.get('zid'));
+    serverClient.observeStimulus(this.model.get('zid'), this.model.get('zinvite'));
     
     this.commentView = new CommentView({
       serverClient: serverClient,

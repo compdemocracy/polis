@@ -33,7 +33,7 @@ define([  //begin dependencies
       "conversation/create": "createConversation",
       "conversation/edit/:id": "editConversation",
       "conversation/details/:id": "conversationDetails",
-      "conversation/view/:id": "conversationView", 
+      "conversation/view/:id(/:zinvite)": "conversationView", 
       "user/create": "createUser",
       "user/login":"login",
       "inbox(/:filter)": "inbox",
@@ -117,7 +117,7 @@ define([  //begin dependencies
     });
     RootView.getInstance().setView(detailsView);
   },
-  conversationView: function(zid) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
+  conversationView: function(zid, zinvite) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
     var that = this;
  
     console.dir("conversationView");
@@ -126,7 +126,11 @@ define([  //begin dependencies
         this.createOrSignIn(zid);
         return;
     }
-    var model = new ConversationModel({id: zid, zid: zid}); // TODO remove id
+    var model = new ConversationModel({
+        id: zid, // TODO remove id
+        zid: zid,
+        zinvite: zinvite,
+    });
     model.fetch({
       success: function() {
 
