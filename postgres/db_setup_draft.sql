@@ -44,6 +44,14 @@ CREATE TABLE conversations(
     UNIQUE(zid)
 );
 
+--  invite codes for converationZ
+CREATE TABLE zinvites (
+    zid INTEGER NOT NULL REFERENCES conversations(zid),
+    zinvite VARCHAR(300) NOT NULL,
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    UNIQUE (zinvite)
+);
+
 CREATE TABLE beta(
     name VARCHAR(999),
     email VARCHAR(200),
