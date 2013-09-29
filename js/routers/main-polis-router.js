@@ -155,19 +155,29 @@ define([  //begin dependencies
     });
   },
   createUser: function(zid){
-    var that = this;  //save a reference to the view
+    var that = this;
     var createUserFormView = new CreateUserFormView();
-    if (zid) {
+    createUserFormView.on("authenticated", function() {
+      if (zid) {
         // Redirect to a specific conversation after the user signs in.
-        window.onAuthSuccess = function() {
-            console.log('redirecting to conversation: ' + zid);
-            that.conversationView(zid);  //and rather than 'this' being the window, it's the present view
-        };
-    }
+        that.conversationView(zid);
+      } else {
+        that.inbox();
+      }
+    });
     RootView.getInstance().setView(createUserFormView);
   },
-  login: function(){
+  login: function(zid){
+    var that = this;
     var loginFormView = new LoginFormView();
+    loginFormView.on("authenticated", function() {
+      if (zid) {
+        // Redirect to a specific conversation after the user signs in.
+        that.conversationView(zid);
+      } else {
+        that.inbox();
+      }
+    });
     RootView.getInstance().setView(loginFormView);
   }
   });

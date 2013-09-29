@@ -12,6 +12,7 @@ define([
     template: template,
     events: {
       "submit form": function(event){
+        var that = this;
         event.preventDefault();
         var urlPrefix = "http://api.polis.io/";
         if (-1 === document.domain.indexOf(".polis.io")) {
@@ -31,11 +32,7 @@ define([
           }).then(function(data) { 
             PolisStorage.uid.set(data.uid);
             PolisStorage.email.set(data.email);
-            if (window.onAuthSuccess) {
-              window.onAuthSuccess();
-            } else {
-              Backbone.history.navigate('/inbox', true);
-            }
+            that.trigger("authenticated");
           }, function(err) {
               alert("login was unsuccessful");
           });

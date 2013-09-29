@@ -1,22 +1,22 @@
 define([
   'view',
   'templates/login-form',
-  //'util/polisStorage',
+  'util/polisStorage',
 ], function (
   View,
-  template
-  //,
-  //PolisStorage
+  template,
+  PolisStorage
 ) {
   return View.extend({
     name: 'login-form',
     template: template,
     events: {
       "submit form": function(event){
+        var that = this;
         event.preventDefault();
         var urlPrefix = "http://api.polis.io/";
         if (-1 === document.domain.indexOf(".polis.io")) {
-            urlPrefix = "http://localhost:5000/";
+            urlPrefix = "http://localhost:5000/"; // TODO centralize the network config
         }
         this.serialize(function(attrs){
           PolisStorage.clearAll(); // clear old user - TODO setup deregistration
@@ -32,11 +32,7 @@ define([
           }).then(function(data) { 
             PolisStorage.uid.set(data.uid);
             PolisStorage.email.set(data.email);
-            if (window.onAuthSuccess) {
-              window.onAuthSuccess();
-            } else {
-              Backbone.history.navigate('/dash', true);
-            }
+            that.trigger("authenticated");
           }, function(err) {
               alert("login was unsuccessful");
           });
