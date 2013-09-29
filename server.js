@@ -1210,8 +1210,25 @@ function(req, res){
     );
 });
 
-[ '/v3/conversations', '/v3/conversations/:zid', ].forEach(function(route) {
-app.get(route,
+
+app.get('/v3/conversations/:zid',
+    logPath,
+    moveToBody,
+    auth,
+    want('zid', getInt, assignToP),
+function(req, res) {
+    client.query('SELECT * FROM conversations WHERE zid = ($1);', [req.p.zid], function(err, results) {
+        if (err) { console.dir(err); fail(res, 324234342, "polis_err_get_conversation_by_zid", 500); return; }
+        if (!results || !results.rows || !results.rows.length) {
+            res.writeHead(404);
+            res.json({status: 404});
+        } else {
+            res.status(200).json(results.rows[0]);
+        }
+    });
+});
+
+app.get('/v3/conversations',
     logPath,
     moveToBody,
     auth,
@@ -1222,20 +1239,28 @@ app.get(route,
     need('uid', getInt, assignToP),
 function(req, res) {
 
+  // First fetch a list of conversations that the user is a participant in.
+  client.query('select zid from participants where uid = ($1);', [req.p.uid], function(err, results) {
+    if (err) { console.dir(err); fail(res, 324234338, "polis_err_get_conversations_participated_in", 500); return; }
+
+    var participantIn = results && results.rows && _.pluck(results.rows, "zid") || null;
+
     var query = squel.select().from('conversations');
-    query = whereOptional(query, req.p, 'owner');
-    query = query.where("(owner = ?)", req.p.uid); // TODO .. OR subquery/join partipants for same pid
+    var or_clauses = ["owner = " + req.p.uid];
+    if (participantIn.length) {
+        or_clauses.push("zid IN (" + participantIn.join(",") + ")");
+    }
+    query = query.where("("+ or_clauses.join(" OR ") + ")");
     query = whereOptional(query, req.p, 'is_active');
     query = whereOptional(query, req.p, 'is_draft');
     query = whereOptional(query, req.p, 'zid');
+    //query = whereOptional(query, req.p, 'owner');
     query = query.order('created', true);
     query = query.limit(999); // TODO paginate
 
-    // if owner === uid, fetch the invite codes!
-
-
+    console.log(query.toString());
     client.query(query.toString(), [], function(err, result) {
-        if (err) { console.dir(err); fail(res, 324234339, "polis_err_get_conversation", 500); return; }
+        if (err) { console.dir(err); fail(res, 324234339, "polis_err_get_conversations", 500); return; }
         var data = result.rows || [];
 
         // fetch invites
@@ -1257,10 +1282,6 @@ function(req, res) {
 
         async.parallel(result.rows.map(fetchZinvites), function(err) {
             if (err) { console.dir(err); fail(res, 324234341, "polis_err_get_conversation_zinvites", 500); return; }
-            if (req.p.zid) {
-                // only returning a single conversation
-                data = data[0];
-            }
             res.json(data);
         });
 
@@ -1268,7 +1289,7 @@ function(req, res) {
             //row.userIsAdmin = true; // TODO do a query for this
         //});
     });
-})
+  });
 });
 
 app.post('/v3/conversations',
