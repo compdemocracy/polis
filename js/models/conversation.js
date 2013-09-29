@@ -4,7 +4,9 @@ define(['model'], function (Model) {
     path: "conversations",
     idAttribute: "zid",
     defaults: {
-      topic: "Year,Month,Day,Hours,Minutes",
+      topic: function() {
+        return new Date(this.created).toString();
+      },
       description: "",
       created: 0,
       owner: undefined,
