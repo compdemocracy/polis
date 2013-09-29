@@ -646,10 +646,13 @@ function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 213489299, "polis_err_creating_zinvite_invalid_conversation_or_owner"); return; }
 
-        require('crypto').randomBytes(48, function(err, buf) {
+        // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
+        require('crypto').randomBytes(12, function(err, buf) {
             if (err) { fail(res, 213489302, "polis_err_creating_zinvite_invalid_conversation_or_owner"); return; }
 
-            var zinvite = buf.toString('hex');
+            var zinvite = buf.toString('base64')
+                .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
+
             client.query('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [req.p.zid, zinvite], function(err, results) {
                 if (err) { console.dir(err); fail(res, 213489300, "polis_err_creating_zinvite"); return; }
                 res.status(200).json({
