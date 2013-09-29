@@ -27,7 +27,7 @@ define([  //begin dependencies
     LandingPageView,
     PolisStorage
 	) {  //end args, begin function block
-	return Backbone.Router.extend({
+	var router = Backbone.Router.extend({
     routes: {
       "homepage": "homepageView",
       "conversation/create": "createConversation",
@@ -166,4 +166,15 @@ define([  //begin dependencies
     RootView.getInstance().setView(loginFormView);
   }
   });
+
+  // routes
+  //router.route("", "index");
+  //router.route("conversation/create": "createConversation");
+  //router.route("conversation/edit/:id": "editConversation");
+  //router.route("conversation/details/:id": "conversationDetails");
+  //router.route("conversation/view/:id(/:zinvite)": "conversationView");
+  //router.route("inbox(/:filter)": "inbox");
+  //router.route("login": "createOrSignIn");
+  //
+  return router;
 });
