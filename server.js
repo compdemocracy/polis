@@ -1218,11 +1218,12 @@ app.get(route,
     want('is_draft', getBool, assignToP),
     want('zid', getInt, assignToP),
     want('owner', getInt, assignToP),
-    want('uid', getInt, assignToP),
+    need('uid', getInt, assignToP),
 function(req, res) {
 
     var query = squel.select().from('conversations');
     query = whereOptional(query, req.p, 'owner');
+    query = query.where("(owner = ?)", req.p.uid); // TODO .. OR subquery/join partipants for same pid
     query = whereOptional(query, req.p, 'is_active');
     query = whereOptional(query, req.p, 'is_draft');
     query = whereOptional(query, req.p, 'zid');
