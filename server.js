@@ -647,6 +647,7 @@ function(req, res) {
         if (err) { fail(res, 213489299, "polis_err_creating_zinvite_invalid_conversation_or_owner"); return; }
 
         // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
+        // TODO if you want more readable tokens, see ReadableIds 
         require('crypto').randomBytes(12, function(err, buf) {
             if (err) { fail(res, 213489302, "polis_err_creating_zinvite_invalid_conversation_or_owner"); return; }
 
@@ -1217,7 +1218,7 @@ app.get(route,
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('zid', getInt, assignToP),
-    want('owner', getInt, assignToP),
+    want('owner', getInt, assignToP), // TODO needed?
     need('uid', getInt, assignToP),
 function(req, res) {
 
