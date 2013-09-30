@@ -61,7 +61,7 @@ visualization = d3.select(el_selector)
     .append('svg')
       .attr('width', "100%")
       .attr('height', "100%")
-      .attr('class', 'visualization')
+      .classed("visualization", true)
       .on('click', resetSelection)
         .append("g")
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
@@ -83,7 +83,7 @@ charge = chargeForGivenVisWidth(w);
 
 queryResults = d3.select(el_queryResultSelector)
     .append('ol')
-      .attr('class', 'query_results');
+      .classed("query_results", true);
 
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
@@ -167,7 +167,7 @@ force.on("tick", function(e) {
           o.y += (o.data.targetY - o.y) * k;
       });
 
-      visualization.selectAll("circle.node")
+      visualization.selectAll(".ptpt")
           .attr("cx", function(d) { return d.x;})
           .attr("cy", function(d) { return d.y;});
 
@@ -454,13 +454,15 @@ function upsertNode(updatedNodes, newClusters) {
     }
 
 
-  var circle = visualization.selectAll("circle.node")
+  var circle = visualization.selectAll(".ptpt")
       .data(nodes);
 
   // ENTER
   circle
     .enter().append("svg:circle")
-      .attr("class", "node enter")
+      .classed("node", true)
+      .classed("enter", true)
+      .classed("ptpt", true)
       //.each(function(d) {d.x = w/2; d.y = h/2;})
       .attr("r", chooseRadius)
 /*
@@ -490,7 +492,8 @@ function upsertNode(updatedNodes, newClusters) {
 
       // UPDATE
       // TODO Can we do this less frequently?
-      circle.attr("class", "node update")
+      circle.classed("node", true)
+      circle.classed("update", true)
         //.each(function(d) {
             //d.x = d.x !== undefined ? d.x : d.data.targetX;
             //d.y = d.y !== undefined ? d.y : d.data.targetY;
@@ -524,7 +527,7 @@ function upsertNode(updatedNodes, newClusters) {
 */
 ;
 
-  visualization.selectAll("circle.node")
+  visualization.selectAll(".ptpt")
         .transition()
         .duration(500)
         //.style("stroke", "black")
@@ -555,7 +558,7 @@ function selectRectangle(rect) {
         left:   Math.min(rect.x1, rect.x2),
         right:  Math.max(rect.x1, rect.x2)
     };
-    var circle = visualization.selectAll("circle.node")
+    var circle = visualization.selectAll(".ptpt")
         .data(nodes);
 
     var selectedNodes = [];
@@ -609,7 +612,7 @@ function renderComments(comments) {
                         }
                     }
                 }
-                visualization.selectAll("circle.node")
+                visualization.selectAll(".ptpt")
                   .style("fill", chooseFill);
                 //console.log(reactions);
                 queryItemHoverOn = true;
@@ -626,7 +629,7 @@ function renderComments(comments) {
                     var node = nodes[i];
                     delete node.effects;
                 }
-                visualization.selectAll("circle.node")
+                visualization.selectAll(".ptpt")
                   .style("fill", chooseFill);
             }
             queryItemHoverOn = false;
@@ -646,7 +649,7 @@ function renderComments(comments) {
 
         d3CommentList.enter()
             .append("li")
-            .attr('class', 'query_result_item')
+            .classed("query_result_item", true)
             .on("mouseover", hover)
             .on("mouseout", unhover)
             .text(function(d) { return d.txt; });
