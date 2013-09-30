@@ -657,6 +657,12 @@ return function(params) {
         return tree.toArray();
     }
 
+    function getUserInfoByPid(pid) {
+        return polisGet(participantsPath, {
+            pid: pid,
+            zid: currentStimulusId
+        });
+    }
 
     function getCommentsForProjection(params) {
         var ascending = params.sort > 0;
@@ -761,6 +767,7 @@ return function(params) {
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForSelection: getCommentsForSelection,
         getReactionsToComment: getReactionsToComment,
+        getUserInfoByPid: getUserInfoByPid,
         observeStimulus: observeStimulus, // with no args
         disagree: disagree,
         agree: agree,

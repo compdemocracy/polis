@@ -10,6 +10,7 @@ var getPersonId = params.getPersonId;
 var getCommentsForProjection = params.getCommentsForProjection;
 var getCommentsForSelection = params.getCommentsForSelection;
 var getReactionsToComment = params.getReactionsToComment;
+var getUserInfoByPid = params.getUserInfoByPid;
 
 var clusterClickedCallbacks = $.Callbacks();
 
@@ -440,6 +441,7 @@ function upsertNode(updatedNodes, newClusters) {
   // ENTER
   circle
     .enter().append("path")
+      .on("click", onParticipantClicked)
       .attr("d", d3.svg.symbol().type("circle"))
       // .attr("d", d3.svg.symbol().type("triangle-down"))
       // .attr("d", d3.svg.symbol().type("triangle-up"))
@@ -581,6 +583,15 @@ function renderComments(comments) {
             .text(function(d) { return d.txt; });
 
         d3CommentList.exit().remove();
+}
+
+
+function onParticipantClicked(d) {
+  getUserInfoByPid(d.pid).then(function(data) {
+      alert(data.hname);
+  }, function(err) {
+    alert(err);
+  });
 }
 
 function unhoverAll() {

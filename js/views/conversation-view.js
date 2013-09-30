@@ -130,6 +130,7 @@ define([
             getCommentsForProjection: serverClient.getCommentsForProjection,
             getCommentsForSelection: serverClient.getCommentsForSelection,
             getReactionsToComment: serverClient.getReactionsToComment,
+            getUserInfoByPid: serverClient.getUserInfoByPid,
             w: w,
             h: h,
             el_queryResultSelector: "#query_results_div",
