@@ -21,6 +21,7 @@ module.exports = function(grunt) {
   // Register required tasks
   grunt.loadTasks('tasks');
   grunt.loadNpmTasks('thorax-inspector');
+  grunt.loadNpmTasks('grunt-contrib-less');
   require('matchdep').filterDev('grunt-*').forEach(function(task) {
     if (task !== 'grunt-cli') {
       grunt.loadNpmTasks(task);
@@ -62,6 +63,28 @@ module.exports = function(grunt) {
             dest: paths.output.css
           }
         ]
+      },
+      less: {
+        development: {
+          options: {
+            paths: [
+              "bower_components/bootstrap/less/bootstrap.less",
+               
+              ]
+          },
+          files: {
+            "path/to/result.css": "path/to/source.less"
+          }
+        },
+        production: {
+          options: {
+            paths: ["assets/css"],
+            yuicompress: true
+          },
+          files: {
+            "path/to/result.css": "path/to/source.less"
+          }
+        }
       },
       bootstrap: {
         files: [
