@@ -4,8 +4,7 @@ CREATE TABLE users(
     -- TODO After testing failure cases with 10, use this:
     -- 2147483647  (2**32/2 -1)
     uid SERIAL,
-    given_name VARCHAR(64),
-    family_name VARCHAR(64),
+    hname VARCHAR(746), --  human name (the token 'name' returns too many results when grepped) 746 is the longest name on records: (Wolfe+585, Senior.) Some cultures have more than two names, and some people don't even have two names. for example: http://s.ai/dl_redacted_small.png
     pwhash VARCHAR(128),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     username VARCHAR(128),

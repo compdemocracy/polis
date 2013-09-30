@@ -829,8 +829,7 @@ app.post("/v3/auth/new",
     want('username', _.identity, assignToP),
     want('password', _.identity, assignToP),
     want('email', _.identity, assignToP),
-    want('given_name', _.identity, assignToP),
-    want('family_name', _.identity, assignToP),
+    want('hname', _.identity, assignToP),
 function(req, res) {
     var username = req.p.username;
     var password = req.p.password;
