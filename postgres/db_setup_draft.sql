@@ -8,7 +8,7 @@ CREATE TABLE users(
     pwhash VARCHAR(128),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     username VARCHAR(128),
-    email VARCHAR(256),
+    email VARCHAR(256), -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
     UNIQUE (uid)
 );
 
