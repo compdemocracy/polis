@@ -269,8 +269,8 @@ function chooseRadius(d) {
     return r;
 }
 function chooseFill(d) {
-    var colorPull = "#F39C12"; // ORANGE
-    var colorPush = "#3498DB"; // PETER RIVER
+    var colorPull = "#2ecc71"; // EMERALD
+    var colorPush = "#e74c3c"; // ALIZARIN
     var colorPass = "#BDC3C7"; // SILVER
     var colorSelf = "#D35400"; // PUMPKIN
     var colorNoVote = colorPass;
@@ -294,6 +294,28 @@ function chooseFill(d) {
         }
     }
 }
+
+
+function chooseShape(d) {
+    if (d.effects !== undefined) {
+        if (d.effects === -1) {  // pull
+            return d3.svg.symbol().type("triangle-up")(d);
+        } else if (d.effects === 1) { // push
+            return d3.svg.symbol().type("triangle-down")(d);
+        } else if (d.effects === 0){ // pass
+            return d3.svg.symbol().type("circle")(d);
+        } else {
+            return d3.svg.symbol().type("circle")(d);
+        }
+    } else { 
+        // if (isSelf(d)) {
+            return d3.svg.symbol().type("circle")(d);
+        // } else {
+            // return d3.svg.symbol().type("circle");
+        // }
+    }
+}
+
 
 function chooseHullFill(d) {
     return "#ECF0F1";
@@ -459,7 +481,10 @@ function upsertNode(updatedNodes, newClusters) {
 
   // ENTER
   circle
-    .enter().append("svg:circle")
+    .enter().append("path")
+      .attr("d", d3.svg.symbol().type("circle"))
+      // .attr("d", d3.svg.symbol().type("triangle-down"))
+      // .attr("d", d3.svg.symbol().type("triangle-up"))
       .classed("node", true)
       .classed("enter", true)
       .classed("ptpt", true)
@@ -480,12 +505,15 @@ function upsertNode(updatedNodes, newClusters) {
       })
 */
         .style("stroke-width", strokeWidth)
-          .attr("cx", function(d) {
-            return d.x;
-          })
-          .attr("cy", function(d) {
-            return d.y;
-          })
+        .attr("transform", function(d) {
+            return "translate(" + d.x + "," + d.y + ")"
+        })
+          // .attr("cx", function(d) {
+          //   return d.x;
+          // })
+          // .attr("cy", function(d) {
+          //   return d.y;
+          // })
           ;
 
  
@@ -613,7 +641,9 @@ function renderComments(comments) {
                     }
                 }
                 visualization.selectAll(".ptpt")
-                  .style("fill", chooseFill);
+                  .style("fill", chooseFill)
+                  .attr("d", chooseShape)
+                ;
                 //console.log(reactions);
                 queryItemHoverOn = true;
             }, function() {
@@ -630,7 +660,9 @@ function renderComments(comments) {
                     delete node.effects;
                 }
                 visualization.selectAll(".ptpt")
-                  .style("fill", chooseFill);
+                  .style("fill", chooseFill)
+                  .attr("d", chooseShape)
+                ;
             }
             queryItemHoverOn = false;
         }
