@@ -39,9 +39,7 @@ define([
         }
           model = new ConversationModel();
           model.save(attrs);
-          this.collection.add(model, {at: 0});
-          this.collection.sort();
-  
+          Backbone.history.navigate('/#inbox');
         }
         
         var conversationsCollection = new ConversationsCollection(); //every time to replace application??
