@@ -69,7 +69,9 @@ module.exports = function(grunt) {
           options: {
             paths: [
               "bower_components/bootstrap/less/bootstrap.less",
-               
+              "bower_components/bootstrap/less/responsive.less",
+              "bower_components/flatui/less/flat-ui.less",
+              "bower_components/font-awesome/less/font-awesome.less"
               ]
           },
           files: {
