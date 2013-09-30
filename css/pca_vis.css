@@ -14,7 +14,23 @@
 
 .visualization {
   border: 1px dotted lightgray;
-  background: ;
+  background: white;
+  -moz-user-select: none; 
+  -khtml-user-select: none; 
+  -webkit-user-select: none; 
+  -o-user-select: none; 
+}
+
+.hull {
+  opacity: 0.2;
+  fill: lightgrey;
+  stroke: lightgrey;
+  stroke-width: 32px;
+  stroke-linejoin: round;
+}
+.active {
+  fill: lightgreen;
+  stroke: lightgreen;
 }
 
 #toparrow, #rightarrow, #bottomarrow, #leftarrow {

@@ -10,7 +10,8 @@ var getPersonId = params.getPersonId;
 var getCommentsForProjection = params.getCommentsForProjection;
 var getCommentsForSelection = params.getCommentsForSelection;
 var getReactionsToComment = params.getReactionsToComment;
-var onClusterTapped = params.onClusterTapped;
+
+var clusterClickedCallbacks = $.Callbacks();
 
 // The h and w values should be locked at a 1:2 ratio of h to w
 var h;
@@ -60,7 +61,11 @@ visualization = d3.select(el_selector)
     .append('svg')
       .attr('width', "100%")
       .attr('height', "100%")
-      .attr('class', 'visualization').append("g").call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom));
+      .attr('class', 'visualization')
+      .on('click', resetSelection)
+        .append("g")
+            // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
+;
       
 
 function zoom() {
@@ -90,51 +95,63 @@ force = d3.layout.force()
     .charge(charge) // slight overlap allowed
     .size([w, h]);
 
-d3Hulls = _.times(9, function() {
-    return visualization.append("path")
-        .style("opacity", 0.2)
-        .style("stroke", "lightgrey")
-        .style("stroke-width", "32px")
-        .style("stroke-linejoin", "round")
-        .style("fill", "lightgrey")
-        .on("click", function(d){
-            console.log("selectedCluster " + selectedCluster);
-            console.log("d.hullId " + d.hullId);
-            if (selectedCluster === d.hullId) {
-              renderComments([]);
-              return resetSelection();
-            }
+function zoomToHull(d){
 
-            visualization.selectAll(".active").classed("active", false);
-            d3.select(this).classed("active", selectedCluster = d.hullId);
+    var b = bounds[d.hullId];
+    visualization.transition().duration(750)
+    //.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+    .attr("transform", ""
+      //"translate(" + projection.translate() + ")" +
+      //"translate(" + d3.event.translate + ")" +
+      + "scale(" + .95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")"
+      + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")"
+      );
 
-            var b = bounds[d.hullId];
-            visualization.transition().duration(750)
-            //.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-            .attr("transform", ""
-              //"translate(" + projection.translate() + ")" +
-              //"translate(" + d3.event.translate + ")" +
-              + "scale(" + .95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")"
-              + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")"
-              );
 
-            getCommentsForSelection(clusters[d.hullId]).then(
-              renderComments,
-              function(err) {
-                console.error(err);
-              });
 
 //
-              //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
+      //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
 
-            selectedCluster = d.hullId;
-            if (onClusterTapped) {
-                onClusterTapped();
-            }
-            d3.select(this)
-                .style("fill","lightgreen")
-                .style("stroke","lightgreen");
+}
+function setClusterActive(d) {
+    console.log("selectedCluster " + selectedCluster);
+    console.log("d.hullId " + d.hullId);
+    if (selectedCluster === d.hullId) {
+      console.log('unselecting');
+      return resetSelection();
+    } else {
+      getCommentsForSelection(clusters[d.hullId]).then(
+        renderComments,
+        function(err) {
+          console.error(err);
         });
+    }
+    // duplicated at 938457938475438975
+    visualization.selectAll(".active").classed("active", false);
+    d3.select(this).classed("active", true);
+ 
+    // d3.select(this)
+    //     .style("fill","lightgreen")
+    //     .style("stroke","lightgreen");
+
+    selectedCluster = d.hullId;
+}
+
+function onClusterClicked(d) {
+    console.log('setClusterActive');
+    console.log(d);
+    console.log(this);
+    setClusterActive.call(this, d);
+
+ //   zoomToHull.call(this, d);
+    d3.event.stopPropagation()
+}
+
+d3Hulls = _.times(9, function() {
+    return visualization.append("path")
+        .classed("hull", true)
+        .on("click", onClusterClicked)
+    ;
 });
 
 force.on("tick", function(e) {
@@ -714,12 +731,16 @@ function dismissSelection() {
 }
  
 function resetSelection() {
-  visualization.selectAll(".active").classed("active", selectedCluster = false);
-  visualization.transition().duration(750).attr("transform", "");
+  console.log('resetting selection');
+  visualization.selectAll(".active").classed("active", false);
+  selectedCluster = false;
+  // visualization.transition().duration(750).attr("transform", "");
+  renderComments([]);
 }
 
 return {
-    upsertNode: upsertNode
+    upsertNode: upsertNode,
+    addClusterTappedListener: clusterClickedCallbacks.add,
 };
 
 };

@@ -130,12 +130,12 @@ define([
             getCommentsForProjection: serverClient.getCommentsForProjection,
             getCommentsForSelection: serverClient.getCommentsForSelection,
             getReactionsToComment: serverClient.getReactionsToComment,
-            onClusterTapped: onClusterTapped,
             w: w,
             h: h,
             el_queryResultSelector: "#query_results_div",
             el: "#visualization_div"
         });
+        vis.addClusterTappedListener(onClusterTapped);
         serverClient.addPersonUpdateListener(vis.upsertNode);
     };
 
