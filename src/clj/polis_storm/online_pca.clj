@@ -19,9 +19,9 @@
 
 (defn update-rating-matrix [new-reactions rating-matrix ptpts cmts] 
   (doseq [reaction new-reactions]
-    (println "the reaction is : " new-reactions)
+    (println "the reaction is : " reaction)
     (if (not (some #(= (nth reaction 0) %) @ptpts))
-      (swap! ptpts (conj @ptpts (nth reaction 2))))
+      (swap! ptpts (conj @ptpts (nth reaction 0))))
     (if (not (some #(= (nth reaction 1) %) @cmts))
       (swap! cmts (conj @cmts (nth reaction 1)))))
   (swap! rating-matrix (map #(into % (repeat (- (count cmts) (count (get rating-matrix 0)) 0)) new-reactions))) 
@@ -36,7 +36,9 @@
   (let [rating-matrix (atom (matrix [[]])) ptpts (atom []) cmts (atom [])]         
     (bolt
       (execute [tuple]
-        (update-rating-matrix tuple rating-matrix ptpts cmts)       
+        ;;storm tuple impl seems to need some unwrapping
+        (def new-reactions (nth (.getValues tuple) 0))
+        (update-rating-matrix new-reactions rating-matrix ptpts cmts)       
         (println @rating-matrix)))))
 
 (defn mk-topology [] 
