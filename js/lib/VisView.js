@@ -28,20 +28,6 @@ var d3Hulls;
 
 var selectedCluster;
 
-// hack_mouseout_replacement
-// mouseout isn't reliable, so this is needed as part of optimizing
-// a mousemove event catcher on the window, for mosuemoves that escape
-// from the query results list. (indicating a mouseout)
-var queryItemHoverOn = false;
-
-var mouseDown = false;
-var selectionRectangle = {
-    x1: 0,
-    y1: 0,
-    x2: 0,
-    y2: 0
-};
-
 var updatesEnabled = true;
 
 // Tunables
@@ -138,9 +124,7 @@ function setClusterActive(d) {
 }
 
 function onClusterClicked(d) {
-    console.log('setClusterActive');
-    console.log(d);
-    console.log(this);
+    unhoverAll();
     setClusterActive.call(this, d);
 
  //   zoomToHull.call(this, d);
@@ -220,32 +204,6 @@ function getOffsetY(e) {
         return e.pageY - $(el_selector).offset().top; // TODO cache offset?
     }
 }
-$(el_selector).on('mousedown', function(e) {
-    selectionRectangle.x1 = getOffsetX(e);
-    selectionRectangle.y1 = getOffsetY(e);
-    selectionRectangle.x2 = getOffsetX(e);
-    selectionRectangle.y2 = getOffsetY(e);
-    mouseDown = true;
-});
-$(el_selector).on('mousemove', function(e) {
-    if (mouseDown) {
-        selectionRectangle.x2 = getOffsetX(e);
-        selectionRectangle.y2 = getOffsetY(e);
-        drawSelectionRectangle(selectionRectangle);
-    }
-});
-$(el_selector).on('mouseup', function(e) {
-    if (mouseDown) {
-        selectRectangle(selectionRectangle);
-        if (selectionRectangle.x1 === selectionRectangle.x2 &&
-            selectionRectangle.y1 === selectionRectangle.y2) {
-            drawSelectionRectangle(null);
-        }
-    }
-    mouseDown = false;
-});
-
-
 
 
 window.P.stop = function() {
@@ -574,55 +532,12 @@ function upsertNode(updatedNodes, newClusters) {
 
 }
 
-function inside(rect, x, y) {
-    var ok = x <= rect.right && x >= rect.left && y <= rect.bottom && y >= rect.top;
-    return ok;
-}
-
-function selectRectangle(rect) {
-    var rect2 = {
-        top:    Math.min(rect.y1, rect.y2),
-        bottom: Math.max(rect.y1, rect.y2),
-        left:   Math.min(rect.x1, rect.x2),
-        right:  Math.max(rect.x1, rect.x2)
-    };
-    var circle = visualization.selectAll(".ptpt")
-        .data(nodes);
-
-    var selectedNodes = [];
-    circle
-      //.style('stroke', "black")
-      .attr("r", chooseRadius)
-      .filter(function(d) {
-          if (inside(rect2, d.x, d.y)) {
-              selectedNodes.push(d);
-              return true;
-          }
-          return false;
-      })
-      .attr("r", chooseRadiusSelected)
-      .style("stroke", "white");
-
-
-    var selectedIds = _.chain(selectedNodes).map(function(d) {
-        // Don't return the pid if it has participants, since the pid is for the cluster - CHECK THIS ASSUMPTION LATER
-        return d.data.participants || d.pid;
-    }).flatten().value();
-
-    console.dir(selectedIds);
-    if (selectedIds.length) {
-        getCommentsForSelection(selectedIds).then(
-            renderComments,
-            function(err) {
-                console.error(err);
-            });
-    } else {
-        renderComments([]);
-    }
-}
-
 function renderComments(comments) {
-    function hover(d) {
+
+        function onCommentClicked(d) {
+            unhoverAll();
+            d3CommentList.classed("query_result_item_hover", false);
+
             getReactionsToComment(d.tid).then(function(reactions) {
                 var userToReaction = {};
                 var i;
@@ -644,30 +559,10 @@ function renderComments(comments) {
                   .style("fill", chooseFill)
                   .attr("d", chooseShape)
                 ;
-                //console.log(reactions);
-                queryItemHoverOn = true;
             }, function() {
                 console.error('failed to get reactions to comment: ' + d._id);
             });
             $(this).addClass("query_result_item_hover");
-        }
-        function unhover(d) {
-            $(el_queryResultSelector).children().children().removeClass("query_result_item_hover");
-            if (queryItemHoverOn) { // check this, so we can call it on every mouse move from the window, since mouseout isn't reliable
-                //$(this).removeClass("query_result_item_hover");
-                for (var i = 0; i < nodes.length; i++) {
-                    var node = nodes[i];
-                    delete node.effects;
-                }
-                visualization.selectAll(".ptpt")
-                  .style("fill", chooseFill)
-                  .attr("d", chooseShape)
-                ;
-            }
-            queryItemHoverOn = false;
-        }
-        function unhoverAll() {
-            $(el_queryResultSelector).removeClass("query_result_item_hover");
         }
         if (comments.length) {
             $(el_queryResultSelector).show();
@@ -682,100 +577,30 @@ function renderComments(comments) {
         d3CommentList.enter()
             .append("li")
             .classed("query_result_item", true)
-            .on("mouseover", hover)
-            .on("mouseout", unhover)
+            .on("click", onCommentClicked)
             .text(function(d) { return d.txt; });
 
         d3CommentList.exit().remove();
-
-        // part of hack_mouseout_replacement
-        $(el_queryResultSelector).on('mousemove', function(e) {
-            e.preventDefault();
-            // prevent these events from propagating to window
-            return false;
-        });
-        // part of hack_mouseout_replacement
-        $(window).on('mousemove', unhover);
-
-        //d3CommentList
-            //.attr("x", x)
-            //.attr("y", y)
-            //.attr("width", width)
-            //.attr("height", height);
 }
 
-function drawSelectionRectangle(rect) {
-    function x(d) { 
-        return Math.min(d.x1, d.x2);}
-    function y(d) { 
-        return Math.min(d.y1, d.y2);}
-    function width(d) { 
-        return Math.abs(d.x1 - d.x2);}
-    function height(d) { 
-        return Math.abs(d.y1 - d.y2);}
-
-    var data = rect ? [rect] : [];
-    var d3Rect = visualization.selectAll("rect")
-        .data(data);
-
-
-    /*
-    function dragmove(d) {
-        //var left = 100;
-        //var right = 200;
-        //var top = 100;
-        //var bottom = 200;
-        var z = 100;
-        //console.dir(d3.event);
-        console.dir(d);
-        d3.select(this)
-            .attr("x",function(d) {
-                d.x1 = d3.event.sourceEvent.offsetX;;
-                d.x2 = d.x1 + 100;
-                d.y1 = d3.event.sourceEvent.offsetY;;
-                d.y2 = d.y1 + 100;
-                return x(d);
-            })
-            //.attr("x", function(d) {console.dir(d); return x(d) + d3.event.dx})
-            .attr("y", function(d) {return y(d);})
-            .attr("width", width)
-            .attr("height", height)
-            ;
-            //.attr("x", d.x = Math.max(z, Math.min(500 - z, d3.event.x)))
-            //.attr("y", d.y = Math.max(z, Math.min(300 - z, d3.event.y)));
+function unhoverAll() {
+    $(el_queryResultSelector).removeClass("query_result_item_hover");
+    for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        delete node.effects;
     }
-    */
-
-    d3Rect.enter()
-        .append("svg:rect")
-        .style("opacity", 0.2)
-        .style("stroke", "1px dotted lightgrey")
-        .style("fill", "lightgrey");
-
-    d3Rect
-        .attr("x", x)
-        .attr("y", y)
-        .attr("width", width)
-        .attr("height", height)
+    visualization.selectAll(".ptpt")
+        .style("fill", chooseFill)
+        .attr("d", chooseShape)
     ;
-
-    d3Rect.exit().remove();
-
 }
 
-function dismissSelection() {
-    console.log('dismiss');
-    drawSelectionRectangle(null);
-    visualization.selectAll("rect")
-        .data([]);
-}
- 
 function resetSelection() {
-  console.log('resetting selection');
   visualization.selectAll(".active").classed("active", false);
   selectedCluster = false;
   // visualization.transition().duration(750).attr("transform", "");
   renderComments([]);
+  unhoverAll();
 }
 
 return {
