@@ -634,6 +634,11 @@ function renderComments(comments) {
         function unhoverAll() {
             $(el_queryResultSelector).removeClass("query_result_item_hover");
         }
+        if (comments.length) {
+            $(el_queryResultSelector).show();
+        } else {
+            $(el_queryResultSelector).hide();
+        }
         queryResults.html("");
         var d3CommentList = queryResults.selectAll("li")
             .data(comments)
