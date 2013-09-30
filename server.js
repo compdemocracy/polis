@@ -708,6 +708,39 @@ function getPid(zid, uid, callback) {
     });
 }
 
+app.get("/v3/participants",
+    logPath,
+    auth,
+    moveToBody,
+    need('pid', getInt, assignToP),
+    need('zid', getInt, assignToP),
+    need('uid', getInt, assignToP), // requester
+function(req, res) {
+    var pid = req.p.pid;
+    var uid = req.p.uid;
+    var zid = req.p.zid;
+
+    function fetchInfo() {
+        client.query("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
+            if (err || !result || !result.rows || !result.rows.length) { fail(res, 213489303, "polis_err_fetching_participant_info"); return; }
+            var ptpt = result.rows[0];
+            var data = {};
+            // choose which fields to expose
+            data.hname = ptpt.hname;
+
+            res.status(200).json(data);
+        });
+    }
+    client.query("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
+        if (err || !result || !result.rows || !result.rows.length) { fail(res, 213489304, "polis_err_fetching_participant_info"); return; }
+        if (result.rows[0].is_anon) {
+            res.status(403).json({status: "polis_err_fetching_participant_info_conversation_is_anon"});
+            return;
+        }
+        fetchInfo();
+    });
+});
+
 app.post("/v3/participants",
     logPath,
     auth,
