@@ -22,6 +22,7 @@ module.exports = function(grunt) {
   grunt.loadTasks('tasks');
   grunt.loadNpmTasks('thorax-inspector');
   grunt.loadNpmTasks('grunt-contrib-less');
+  grunt.loadNpmTasks('grunt-contrib-requirejs');
   require('matchdep').filterDev('grunt-*').forEach(function(task) {
     if (task !== 'grunt-cli') {
       grunt.loadNpmTasks(task);
@@ -78,7 +79,6 @@ module.exports = function(grunt) {
       development: {
         options: {
           yuicompress: true,
-          report: 'gzip'
         },
         files: [
           {src: ['css/polis_main.less'], dest: 'public/css/lib/polis_main.css'}
