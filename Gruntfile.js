@@ -28,13 +28,22 @@ module.exports = function(grunt) {
     }
   });
 
+  // ******from http://gruntjs.com/configuring-tasks:******
+  // All most people need to know is that foo/*.js 
+  // will match all files ending with .js in the foo/ subdirectory, 
+  // but foo/**/*.js will match all files 
+  // ending with .js in the foo/ subdirectory and all of its subdirectories.
+  // ******from http://gruntjs.com/configuring-tasks:******
+
+
+
   grunt.config.init({
     pkg: grunt.file.readJSON('package.json'),
     paths: paths,
     clean: {
-      output: [
-        paths.output.js,
-        paths.output.css
+      output: [           //DELETE EVERYTHING IN THE 
+        paths.output.js,  //public/js folder
+        paths.output.css  //and the public/css folder
       ]
     },
     copy: {
@@ -63,46 +72,25 @@ module.exports = function(grunt) {
             dest: paths.output.css
           }
         ]
-      },
-      less: {
-        development: {
-          options: {
-            paths: [
-              "bower_components/bootstrap/less/bootstrap.less",
-              "bower_components/bootstrap/less/responsive.less",
-              "bower_components/flatui/less/flat-ui.less",
-              "bower_components/font-awesome/less/font-awesome.less"
-              ]
-          },
-          files: {
-            "path/to/result.css": "path/to/source.less"
-          }
+      }
+    },
+    less: {
+      development: {
+        options: {
+          yuicompress: true,
+          report: 'gzip'
         },
-        production: {
-          options: {
-            paths: ["assets/css"],
-            yuicompress: true
-          },
-          files: {
-            "path/to/result.css": "path/to/source.less"
-          }
-        }
-      },
-      bootstrap: {
         files: [
-          {
-            src: ['bower_components/bootstrap/dist/js/bootstrap.js'],
-            dest: 'public/js/bootstrap.js'
-          },
-          {
-            src: ['bower_components/bootstrap/dist/css/bootstrap.css'],
-            dest: 'public/css/bootstrap.css'
-          },
-          {
-            expand: true,
-            src: ['bower_components/bootstrap/fonts/*'],
-            dest: 'public/fonts'
-          }
+          {src: ['css/polis_main.less'], dest: 'public/css/lib/polis_main.css'}
+        ]
+      },
+      production: {
+        options: {
+          yuicompress: true,
+          report: 'gzip'
+        },
+        files: [
+          {src: ['css/polis_main.less'], dest: 'public/css/lib/polis_main.css'}
         ]
       }
     },
@@ -214,7 +202,7 @@ module.exports = function(grunt) {
           exports: 'Thorax',
           deps: ['handlebars', 'backbone']
         },
-        'bootstrap': {
+        'bootstrap': { 
           deps: ['jquery']
         },
         'VisView': {
@@ -273,6 +261,7 @@ module.exports = function(grunt) {
   grunt.registerTask('create-output-directories', function() {
     grunt.file.mkdir('public/js');
     grunt.file.mkdir('public/css');
+    grunt.file.mkdir('public/css/lib') //for the third part libray css builds
   });
 
   grunt.registerTask('templates', [
@@ -282,7 +271,7 @@ module.exports = function(grunt) {
 
   grunt.registerTask('styles', [
     'copy:styles',
-    'copy:bootstrap'
+    'less:development'
   ]);
 
   grunt.registerTask('default', [
@@ -307,6 +296,6 @@ module.exports = function(grunt) {
     'html:production',
     'scripts:production',
     'open-browser',
-    'connect:production'
+    'connect:production',
   ]);
 };
