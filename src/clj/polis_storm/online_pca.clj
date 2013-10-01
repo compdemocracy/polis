@@ -1,6 +1,6 @@
 (ns polis-storm.online-pca
   (:import [backtype.storm StormSubmitter LocalCluster])
-  (:use [backtype.storm clojure config] [incanter core stats charts] lamina.core aleph.tcp gloss.core [clojure.data.json :as json]) 
+  (:use [backtype.storm clojure config] [incanter [core :exclude [trace]] stats charts] clojure.tools.trace lamina.core aleph.tcp gloss.core [clojure.data.json :as json]) 
   (:gen-class))
 
 (defspout reaction-spout ["reaction"] {:params [json-server] :prepare true}
@@ -21,14 +21,15 @@
   (doseq [reaction new-reactions]
     (println "the reaction is : " reaction)
     (if (not (some #(= (nth reaction 0) %) @ptpts))
-      (swap! ptpts (conj @ptpts (nth reaction 0))))
+      (swap! ptpts conj (nth reaction 0)))
     (if (not (some #(= (nth reaction 1) %) @cmts))
-      (swap! cmts (conj @cmts (nth reaction 1)))))
-  (swap! rating-matrix (map #(into % (repeat (- (count cmts) (count (get rating-matrix 0)) 0)) new-reactions))) 
-  (swap! rating-matrix (into rating-matrix (into [] (repeat (- (count ptpts) (count rating-matrix) ) 0))))
+      (swap! cmts conj (nth reaction 1))))
+  (reset! rating-matrix (mapv #(into % (repeat (- (count cmts) (count (get @rating-matrix 0))) 0)) @rating-matrix)) 
+  (reset! rating-matrix (into @rating-matrix (into [] (repeat (- (count @ptpts) (count @rating-matrix) ) 0))))
+  ;; maybe could have used map below
   (doseq [reaction new-reactions]
-    (let [row (.indexOf cmts (nth reaction 1)) column (.indexOf  (nth reaction 0))]
-      (swap! rating-matrix (replace {row (replace {column (nth reaction 2)} (nth rating-matrix row))} rating-matrix)))))  
+    (let [row (.indexOf @cmts (nth reaction 1)) column (.indexOf @ptpts (nth reaction 0))]
+      (reset! rating-matrix (replace {row (replace {column (nth reaction 2)} (nth @rating-matrix row))} @rating-matrix)))))  
 
 
 (defbolt pca ["pca"] {:prepare true}
@@ -39,7 +40,7 @@
         ;;storm tuple impl seems to need some unwrapping
         (def new-reactions (nth (.getValues tuple) 0))
         (update-rating-matrix new-reactions rating-matrix ptpts cmts)       
-        (println @rating-matrix)))))
+        (println "complete, RM is " @rating-matrix)))))
 
 (defn mk-topology [] 
   (topology
