@@ -135,7 +135,7 @@ function onClusterClicked(d) {
 }
 
 d3Hulls = _.times(9, function() {
-    return visualization.append("path")
+    return visualization.append("path") // NOTE: appending to end, so they will be behind the ptpt nodes (so the ptpt nodes get click priority)
         .classed("hull", true)
         .on("click", onClusterClicked)
     ;
@@ -442,7 +442,7 @@ function upsertNode(updatedNodes, newClusters) {
 
   // ENTER
   circle
-    .enter().append("path")
+    .enter().insert("path", ":first-child") // insert to front so they are in front of the hulls
       .on("click", onParticipantClicked)
       .attr("d", d3.svg.symbol().type("circle"))
       // .attr("d", d3.svg.symbol().type("triangle-down"))
