@@ -27,10 +27,14 @@
   stroke: lightgrey;
   stroke-width: 32px;
   stroke-linejoin: round;
+  z-index: 400;
 }
 .active {
   fill: lightgreen;
   stroke: lightgreen;
+}
+.ptpt {
+  z-index: 500;
 }
 
 #toparrow, #rightarrow, #bottomarrow, #leftarrow {
