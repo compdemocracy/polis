@@ -72,6 +72,8 @@ queryResults = d3.select(el_queryResultSelector)
     .append('ol')
       .classed("query_results", true);
 
+$(el_queryResultSelector).hide();
+
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
 force = d3.layout.force()
