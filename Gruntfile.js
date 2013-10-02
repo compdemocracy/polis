@@ -153,6 +153,9 @@ module.exports = function(grunt) {
     }
   });
 
+  // for an explanation of the getRequireJSOptions function, see: 
+  // https://github.com/jrburke/r.js/blob/master/build/example.build.js
+
   function getRequireJSOptions(env) {
     var options = {
       appDir: paths.js,
@@ -219,7 +222,13 @@ module.exports = function(grunt) {
     }
     if (env === 'development') {
       options.keepBuildDir = true;
-      options.optimize = 'none';
+      options.optimize = 'uglify2';
+      options.uglify2 = {
+        compress: {
+          dead_code: true,
+          unused: true,
+        } 
+      }
     }
     return {
       options: options

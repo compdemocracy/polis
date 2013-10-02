@@ -8,6 +8,7 @@
     "d3": "~3.3.3",
     "flatui": "latest",
     "font-awesome": "~3.2.1",
-    "lawnchair": "~0.6.3"
+    "lawnchair": "~0.6.3",
+    "almond": "~0.2.6"
   }
 }
