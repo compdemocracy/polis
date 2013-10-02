@@ -174,10 +174,22 @@ module.exports = function(grunt) {
         'originalbackbone': '../bower_components/backbone/backbone', // backbone before modifications
         'backbone': 'net/backbonePolis', // polis-specific backbone modifications
         'thorax': '../bower_components/thorax/thorax',
-        'bootstrap': '../bower_components/bootstrap/js/bootstrap',
+        'bootstrap_alert': '../bower_components/bootstrap/js/bootstrap-alert',
+        'bootstrap_tab': '../bower_components/bootstrap/js/bootstrap-tab',
+        'bootstrap_tooltip': '../bower_components/bootstrap/js/bootstrap-tooltip',
+        'bootstrap_button': '../bower_components/bootstrap/js/bootstrap-button',
+        'bootstrap_transition': '../bower_components/bootstrap/js/bootstrap-transition',
+        'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox',
+        'flatuiapplication': '../bower_components/flatui/js/application',
+        'bootstrap_select': '../bower_components/flatui/js/bootstrap-select',
+        'bootstrap_switch': '../bower_components/flatui/js/bootstrap-switch',
+        'placeholder': '../bower_components/flatui/js/jquery.placeholder',
+        'html5shiv': '../bower_components/flatui/js/html5shiv',
+        'jqueryui': '../bower_components/flatui/js/jquery-ui-1.10.3.custom.min',
+        'tagsinput': '../bower_components/flatui/js/jquery.tagsinput',
+        'touchpunch': '../bower_components/flatui/js/jquery.ui.touch-punch.min',
         'd3': '../bower_components/d3/d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
-        'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox',
         'app': 'lib/App',
         'CommentShower': 'lib/CommentShower',
         'CommentSubmitter': 'lib/CommentSubmitter',
@@ -205,8 +217,47 @@ module.exports = function(grunt) {
           exports: 'Thorax',
           deps: ['handlebars', 'backbone']
         },
-        'bootstrap': { 
+        'bootstrap_alert': {  //all bootstrap files need to be added to the dependency array of js/main.js
           deps: ['jquery']
+        },
+        'bootstrap_tab': { 
+          deps: ['jquery']
+        },
+        'bootstrap_tooltip': { 
+          deps: ['jquery']
+        },
+        'bootstrap_button': { 
+          deps: ['jquery']
+        },
+        'bootstrap_transition': { 
+          deps: ['jquery']
+        },         
+        'flatuicheckbox': {
+          deps: ['jquery', 'jqueryui']
+        },
+        'flatuiapplication': {
+          deps: ['jquery', 'jqueryui']
+        },
+        'bootstrap_select': {
+          deps: ['jquery', 'jqueryui']
+        },
+        'placeholder': {
+          deps: ['jquery']
+        },
+        'bootstrap_switch': {
+          deps: ['jquery', 'jqueryui']
+        },
+        'html5shiv': {
+          deps: ['jquery', 'jqueryui']
+        },
+        'jqueryui': {
+          deps: ['jquery']
+        },
+        'tagsinput': {
+          deps: ['jquery', 'jqueryui']
+        },
+        'touchpunch': {
+          deps: ['jquery', 'jqueryui']
         },
         'VisView': {
           deps: ['d3']

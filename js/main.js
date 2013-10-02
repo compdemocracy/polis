@@ -2,7 +2,21 @@ require([
   'jquery',
   'backbone',
   'views/root',
-  'routers/main-polis-router'
+  'routers/main-polis-router',
+  'bootstrap_alert',
+  'bootstrap_tab',
+  'bootstrap_tooltip',
+  'bootstrap_button',
+  'bootstrap_transition',
+  'flatuicheckbox',
+  'flatuiapplication',
+  'bootstrap_select',
+  'bootstrap_switch',
+  'html5shiv',
+  'jqueryui',
+  'tagsinput',
+  'touchpunch',
+  'placeholder'
 ], function ($, Backbone, RootView, MainPolisRouter) {
   
   initialize(function(next) {
