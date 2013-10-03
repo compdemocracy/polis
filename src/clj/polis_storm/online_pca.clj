@@ -24,17 +24,25 @@
       (swap! ptpts conj (nth reaction 0)))
     (if (not (some #(= (nth reaction 1) %) @cmts))
       (swap! cmts conj (nth reaction 1))))
-  (reset! rating-matrix (mapv #(into % (repeat (- (count cmts) (count (get @rating-matrix 0))) 0)) @rating-matrix)) 
+  
+  (println "expansion col diff is : " (- (count @cmts) (count (nth @rating-matrix 0))))
+  (println "pre expansion matrix is: " @rating-matrix)
+  (reset! rating-matrix (mapv #(into % (repeat (- (count @cmts) (count (nth @rating-matrix 0))) 0)) @rating-matrix))
+  (println "first expansion is : " @rating-matrix)
+  (println "expansion comment count is : " (count @cmts)) 
   (reset! rating-matrix (into @rating-matrix (into [] (repeat (- (count @ptpts) (count @rating-matrix) ) 0))))
+  (println "second expansion is : " @rating-matrix)
   ;; maybe could have used map below
   (doseq [reaction new-reactions]
     (let [row (.indexOf @cmts (nth reaction 1)) column (.indexOf @ptpts (nth reaction 0))]
-      (reset! rating-matrix (replace {row (replace {column (nth reaction 2)} (nth @rating-matrix row))} @rating-matrix)))))  
+      (println "row is :" row "  column is :" column "  matrix is: " @rating-matrix)
+      (swap! rating-matrix assoc-in [row column] (nth reaction 2)) 
+      )))  
 
 
 (defbolt pca ["pca"] {:prepare true}
   [conf context collector]
-  (let [rating-matrix (atom (matrix [[]])) ptpts (atom []) cmts (atom [])]         
+  (let [rating-matrix (atom [[0]]) ptpts (atom []) cmts (atom [])]         
     (bolt
       (execute [tuple]
         ;;storm tuple impl seems to need some unwrapping
