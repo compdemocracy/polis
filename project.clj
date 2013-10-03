@@ -3,7 +3,7 @@
   :java-source-paths ["src/jvm"]
   :aot :all
   :repositories {
-;;                 "twitter4j" "http://twitter4j.org/maven2"
+                 "twitter4j" "http://twitter4j.org/maven2"
                  }
 
   :dependencies [
@@ -12,11 +12,13 @@
                    [org.clojure/data.json "0.2.2"]
                    [lamina "0.5.0"]
                    [gloss "0.2.2"]
+                   [incanter "1.5.2"]
+                   [org.clojure/math.numeric-tower "0.0.2"]
                  ]
 
   :profiles {:dev
               {:dependencies [
                               [storm "0.8.2"]
-                              [org.clojure/clojure "1.4.0"]]}}
+                              ]}}
   :min-lein-version "2.0.0"
   )
