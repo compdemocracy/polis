@@ -4,6 +4,7 @@ define([
   'views/comment-view',
   'views/comment-form',
   'views/change-votes',
+  'views/analyze',
   'models/vote',
   'models/participant',
   'models/conversation',
@@ -11,6 +12,7 @@ define([
   'models/user',
   'collections/comments',
   'collections/votes',
+  'collections/metadata',
   'app',
   'CommentShower',
   'FeedbackSubmitter',
@@ -25,6 +27,7 @@ define([
     CommentView, 
     CommentFormView,
     ChangeVotesView,
+    AnalyzeView,
     VoteModel,
     ParticipantModel,
     ConversationModel,
@@ -32,6 +35,7 @@ define([
     UserModel,
     CommentsCollection,
     VotesCollection,
+    MetadataCollection,
     app, 
     CommentShower, 
     FeedbackSubmitter,
@@ -102,6 +106,62 @@ define([
       zid: this.zid,
     });
    
+    var metadataCollection = new MetadataCollection();
+
+
+
+
+
+
+
+// ***************************************
+// ***************************************
+    metadataCollection.create({
+      'question': 'Do you like sunrises and puppies?',
+      'answers': ['biodiesel',
+                  'Williamsburg',
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
+      required: true
+    })
+    metadataCollection.create({
+      'question': 'Do you like sunrises and puppies?',
+      'answers': ['biodiesel',
+                  'Williamsburg',
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
+      required: true
+    })
+    metadataCollection.create({
+      'question': 'Do you like sunrises and puppies?',
+      'answers': ['biodiesel',
+                  'Williamsburg',
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
+      required: true
+    })
+    metadataCollection.create({
+      'question': 'Do you like sunrises and puppies?',
+      'answers': ['biodiesel',
+                  'Williamsburg',
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
+                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
+      required: true
+    })
+
+// ***************************************
+// ***************************************
+
+    this.analyzeView = new AnalyzeView({
+      serverClient: serverClient,
+      zid: this.zid,
+      collection: metadataCollection
+    })
+
     this.changeVotes = new ChangeVotesView({
       serverClient: serverClient,
       zid: this.zid,

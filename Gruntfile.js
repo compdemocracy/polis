@@ -77,9 +77,6 @@ module.exports = function(grunt) {
     },
     less: {
       development: {
-        options: {
-          yuicompress: true,
-        },
         files: [
           {src: ['css/polis_main.less'], dest: 'public/css/lib/polis_main.css'}
         ]
@@ -179,15 +176,15 @@ module.exports = function(grunt) {
         'bootstrap_tooltip': '../bower_components/bootstrap/js/bootstrap-tooltip',
         'bootstrap_button': '../bower_components/bootstrap/js/bootstrap-button',
         'bootstrap_transition': '../bower_components/bootstrap/js/bootstrap-transition',
-        'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox',
-        'flatuiapplication': '../bower_components/flatui/js/application',
-        'bootstrap_select': '../bower_components/flatui/js/bootstrap-select',
-        'bootstrap_switch': '../bower_components/flatui/js/bootstrap-switch',
-        'placeholder': '../bower_components/flatui/js/jquery.placeholder',
-        'html5shiv': '../bower_components/flatui/js/html5shiv',
-        'jqueryui': '../bower_components/flatui/js/jquery-ui-1.10.3.custom.min',
-        'tagsinput': '../bower_components/flatui/js/jquery.tagsinput',
-        'touchpunch': '../bower_components/flatui/js/jquery.ui.touch-punch.min',
+        // 'flatuicheckbox': '../bower_components/flatui/js/flatui-checkbox',
+        // 'flatuiapplication': '../bower_components/flatui/js/application',
+        // 'bootstrap_select': '../bower_components/flatui/js/bootstrap-select',
+        // 'bootstrap_switch': '../bower_components/flatui/js/bootstrap-switch',
+        // 'placeholder': '../bower_components/flatui/js/jquery.placeholder',
+        // 'html5shiv': '../bower_components/flatui/js/html5shiv',
+        // 'jqueryui': '../bower_components/flatui/js/jquery-ui-1.10.3.custom.min',
+        // 'tagsinput': '../bower_components/flatui/js/jquery.tagsinput',
+        // 'touchpunch': '../bower_components/flatui/js/jquery.ui.touch-punch.min',
         'd3': '../bower_components/d3/d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
         'app': 'lib/App',
@@ -232,33 +229,33 @@ module.exports = function(grunt) {
         'bootstrap_transition': { 
           deps: ['jquery']
         },         
-        'flatuicheckbox': {
-          deps: ['jquery', 'jqueryui']
-        },
-        'flatuiapplication': {
-          deps: ['jquery', 'jqueryui']
-        },
-        'bootstrap_select': {
-          deps: ['jquery', 'jqueryui']
-        },
-        'placeholder': {
-          deps: ['jquery']
-        },
-        'bootstrap_switch': {
-          deps: ['jquery', 'jqueryui']
-        },
-        'html5shiv': {
-          deps: ['jquery', 'jqueryui']
-        },
-        'jqueryui': {
-          deps: ['jquery']
-        },
-        'tagsinput': {
-          deps: ['jquery', 'jqueryui']
-        },
-        'touchpunch': {
-          deps: ['jquery', 'jqueryui']
-        },
+        // 'flatuicheckbox': {
+        //   deps: ['jquery', 'jqueryui']
+        // },
+        // 'flatuiapplication': {
+        //   deps: ['jquery', 'jqueryui']
+        // },
+        // 'bootstrap_select': {
+        //   deps: ['jquery', 'jqueryui']
+        // },
+        // 'placeholder': {
+        //   deps: ['jquery']
+        // },
+        // 'bootstrap_switch': {
+        //   deps: ['jquery', 'jqueryui']
+        // },
+        // 'html5shiv': {
+        //   deps: ['jquery', 'jqueryui']
+        // },
+        // 'jqueryui': {
+        //   deps: ['jquery']
+        // },
+        // 'tagsinput': {
+        //   deps: ['jquery', 'jqueryui']
+        // },
+        // 'touchpunch': {
+        //   deps: ['jquery', 'jqueryui']
+        // },
         'VisView': {
           deps: ['d3']
         }
@@ -273,7 +270,7 @@ module.exports = function(grunt) {
     }
     if (env === 'development') {
       options.keepBuildDir = true;
-      options.optimize = 'uglify2';
+      options.optimize = 'none';
       options.uglify2 = {
         compress: {
           dead_code: true,

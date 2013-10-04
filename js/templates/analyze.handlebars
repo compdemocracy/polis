@@ -1,0 +1,10 @@
+{{#collection}}
+  <h3> {{question}} </h3> 
+  <form>
+    {{#each answers}}
+      <label class="checkbox">
+      <input type="checkbox"> {{this}}
+      </label>
+    {{/each}}
+  </form>
+{{/collection}}

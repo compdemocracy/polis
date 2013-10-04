@@ -8,15 +8,15 @@ require([
   'bootstrap_tooltip',
   'bootstrap_button',
   'bootstrap_transition',
-  'flatuicheckbox',
-  'flatuiapplication',
-  'bootstrap_select',
-  'bootstrap_switch',
-  'html5shiv',
-  'jqueryui',
-  'tagsinput',
-  'touchpunch',
-  'placeholder'
+  // 'flatuicheckbox',
+  // 'flatuiapplication',
+  // 'bootstrap_select',
+  // 'bootstrap_switch',
+  // 'html5shiv',
+  // 'jqueryui',
+  // 'tagsinput',
+  // 'touchpunch',
+  // 'placeholder'
 ], function ($, Backbone, RootView, MainPolisRouter) {
   
   initialize(function(next) {
