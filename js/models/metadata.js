@@ -4,7 +4,7 @@ define(['model'], function (Model) {
     defaults: {
     	question: "No metadata question was entered. This is the default value of the model.",
     	answers: [],
-    	required: false
+    	required: false, 
     }
   });
 });
