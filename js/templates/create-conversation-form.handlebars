@@ -1,40 +1,22 @@
-{{! ifNotEmbedded}}
 <header>
 	<div class="navbar navbar-inverse">
 	  <div class="navbar-inner no-rounding">
 	  	<div class="container">
-		  	<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-	        <span class="icon-bar"></span>
-	        <span class="icon-bar"></span>
-	        <span class="icon-bar"></span>
-	      	</a>
 	      <a class="brand" href="#">Polis</a>
 
-
 	      <ul class="nav pull-right">
-	      	{{#if false}}
-	    	<li><a href="#"><span class="user">Colin Megill</span><i class="icon-user"></i> </a></li>
-	    	{{/if}}
-	    	{{#if true}}
-	    		<li>{{#link "login" expand-tokens=true}} Sign In {{/link}}</li>
-	    	{{/if}}
-		  </ul>
+		    	<li>{{#link "settings" expand-tokens=true}}<i class="icon-gears"></i>Settings{{/link}}</li>
+		  	</ul>
 
-	      <div class="nav-collapse collapse">
-			<ul class="nav">
-			  <li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
-			  {{#if false}}
-			  	<li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="<p> Click the 'Intro &amp; Overview' tab to return to this tutorial at any time.</p>" data-html="true" data-bootstro-placement="bottom" data-bootstro-step="0" ><a href="#">Intro &amp; Overview</a></li>
-          			<li id="topic_toggle"><a href="" role="button">Topic</a> </li>
-          			<li data-toggle="modal" data-target="#introduction_modal"><a href="#">Contact &amp; Feedback</a></li>
-			  {{/if}}
-			</ul>
-		  </div>
-		</div>
-	  </div>
+	     	<div class="nav-collapse collapse">
+					<ul class="nav">
+			  		<li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
+					</ul>
+		  	</div>
+			</div>
+	 	</div>
 	</div>
 </header>
-{{! end ifNotEmbedded}}
 
 
 
@@ -55,13 +37,10 @@
 			  		<textarea type="text" name="description" placeholder="Description">{{description}}</textarea>
 				</div>
 			</div>
-			<div class="control-group">
-			  	<div class="controls">
-			  		<label for="anonymous" class="checkbox">
-			  			<input type="checkbox" id="anonymous" name="is_anon" data-toggle="checkbox" {{#if is_anon}}checked{{/if}}> Anonymous
-			  		</label>
-				</div>
-			</div>
+
+
+
+
 			<div class="control-group">
 				<div class="controls">
 			  		<label for="participantsMustHaveZinvite" class="checkbox">
@@ -69,34 +48,24 @@
 			  		</label>
 				</div>
 			</div>
-			<!--div class="control-group">
-				<div class="controls">
-			  		<label for="participantsMustHaveAcct" class="checkbox">
-			  			<input type="checkbox" id="participantsMustHaveAcct" name="participantsMustHaveAcct" data-toggle="checkbox" {{#if participantsMustHaveAcct}}checked{{/if}}> Participants must have a Polis account
-			  		</label>
+
+			<div class="control-group">
+			  <div class="controls">
+			  	<label for="anonymous" class="checkbox">
+			  		<input type="checkbox" id="anonymous" name="is_anon" data-toggle="checkbox" {{#if is_anon}}checked{{/if}}> Anonymous
+			  	</label>
 				</div>
-			</div-->
-			<!--div class="control-group">
-				<div class="controls">
-			  		<label for="participantsMustValidate" class="checkbox">
-			  			<input type="checkbox" id="participantsMustValidate" name="participantsMustValidate" data-toggle="checkbox" {{#if participantsMustValidate}}checked{{/if}}> Participants must have validated thier account via SMS to ensure they are a real person
-			  		</label>
-				</div>
-			</div-->
-			<!--div class="control-group">
-				<div class="controls">
-			  		<label for="participantsMustHaveEmail" class="checkbox">
-			  			<input type="checkbox" id="participantsMustHaveEmail" name="email_domain" data-toggle="checkbox" {{#if email_domain}}checked{{/if}}> Participants must have validated their Polis account with an email address from the following domain:
-			  		</label>
-				</div>
-			</div-->
+			</div>
+
+
+
+
 			<div class="control-group">
 				<div class="controls">
 
 				{{#if add}}
 					<button class="btn btn-success action" name="formAction" type="submit" value="publish">Create & Publish</button>
 					<button class="btn btn-success action" name="formAction" type="submit" value="draft">Save as Draft</button>
-
 				{{/if}}
 
 				{{#if edit}}

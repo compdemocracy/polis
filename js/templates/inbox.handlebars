@@ -1,39 +1,18 @@
-{{! ifNotEmbedded}}
 <header>
     <div class="navbar navbar-inverse">
       <div class="navbar-inner no-rounding">
         <div class="container">
-            <a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            <span class="icon-bar"></span>
-            </a>
+
           <a class="brand" href="#">Polis</a>
 
           <ul class="nav pull-right">
-            {{#if false}}
-            <li><a href="#"><span class="user">Colin Megill</span><i class="icon-user"></i> </a></li>
-            {{/if}}
-            {{#if true}}
-                <li>{{#link "login" expand-tokens=true}} Sign In {{/link}}</li>
-            {{/if}}
+            <li>{{#link "settings" expand-tokens=true}}<i class="icon-gears"></i>Settings{{/link}}</li>
           </ul>
 
-          <div class="nav-collapse collapse">
-            <ul class="nav">
-              <li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
-              {{#if false}}
-                <li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="<p> Click the 'Intro &amp; Overview' tab to return to this tutorial at any time.</p>" data-html="true" data-bootstro-placement="bottom" data-bootstro-step="0" ><a href="#">Intro &amp; Overview</a></li>
-                    <li id="topic_toggle"><a href="" role="button">Topic</a> </li>
-                    <li data-toggle="modal" data-target="#introduction_modal"><a href="#">Contact &amp; Feedback</a></li>
-              {{/if}}
-            </ul>
-          </div>
         </div>
       </div>
     </div>
 </header>
-{{! end ifNotEmbedded}}
 
 
 

@@ -1,43 +1,51 @@
-<section class="container">
+<div class="conductor" style="background-image: url('img/conductor.jpeg')">
+	<div class="container"> 
+	<div class="row">
+		<div class="span12 landingPageHeadline">
+			<h1 class="landingPagePolis"> polis </h1>
+			<h3 class="landingPageCommunication"> communication for groups </h3> 
+		</div>
+	</div> 
 
-
-<div class="row">
-	<div class="span4 offset4">
-		<h2> Create New User </h2> 
-		<form class="form-horizontal conversationsForm"> <!-- ken rename style -->
-			<div class="control-group">
-			  	<label for="hname" class="control-label">Name</label>
-			  	<div class="controls">
-			  		<input type="text" name="hname" placeholder="Name" />
-				</div>
-			</div>
-			<div class="control-group">
-			  	<label for="email" class="control-label">Email:</label>
-			  	<div class="controls">
-			  		<input type="text" name="email" placeholder="Email" />
-				</div>
-			</div>
-			<div class="control-group">
-			  	<label for="username" class="control-label">Username: </label>
-			  	<div class="controls">
-			  		<input type="text" name="username" placeholder="Username" />
-				</div>
-			</div>
-			<div class="control-group">
-			  	<label for="password" class="control-label">Password: </label>
-			  	<div class="controls">
-			  		<input type="password" name="password" placeholder="password" />
-				</div>
-			</div>
-			<div class="control-group">
-			  	<label for="beta_invite" class="control-label">Invite Code: </label>
-			  	<div class="controls">
-			  		<input type="text" name="beta_invite" placeholder="Invite Code" />
-				</div>
-			</div>		
-			<button type="submit" class="btn btn-block"> Create New User </button>
+	<div class="row landingBoxTop">
+		<div class="span4 landingBox">
+		<h4 class="formTextHeader"> Create New User: </h4> 
+		<form > <!--rename style -->	
+			<input type="text" name="hname" placeholder="Full Name" />  	
+  		<input type="text" name="email" placeholder="Email" />  	
+  		<input type="text" name="username" placeholder="Username" />  	
+  		<input type="password" name="password" placeholder="Password" />  	
+  		<input type="text" name="beta_invite" placeholder="Invite Code" />
+			<button type="submit" class="btn btn-large"> Create New User </button>
 		</form>
-	</div>
-</div>
+		<p class="otherOptions1">{{#link "" expand-tokens=true}} Back {{/link}}</p>
 
-</section>
+		</div> <!-- requestInviteBox --> 
+	</div> <!-- row -->
+
+</div> <!-- container -->
+</div> <!-- conductor -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

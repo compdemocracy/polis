@@ -1,118 +1,138 @@
-		.body {
-			background-image: url('conductor.jpeg');
-			background-size: 100%;
-		}
+/* 
+	 ***************************
+	 ***************************
+	     Landing Page
+	 ***************************
+	 ***************************
+*/
 
+		.conductor {
+			/* he's 844px tall */
+			background-color: black;
+		}
 		.brandon400 {
-			font-family: "brandon-grotesque",sans-serif;
 			font-weight: 400;
 			letter-spacing: .1em
 		}
-
+		.otherOptions1{
+			background-color: rgba(0,0,0,.6); 
+			padding-top: 10px;
+			padding-left: 20px;
+			padding-bottom: 10px;
+			margin-bottom: 0px;
+		}
+		.otherOptions2{
+			background-color: rgba(0,0,0,.6); 
+			padding-left: 20px;
+			padding-bottom: 10px;
+			margin-bottom: 0px;
+		}
 		.landingPageHeadline{
 			margin-top: 50px;
 		}
-
 		input {
 			 font-family: "brandon-grotesque",sans-serif;
 			 font-weight: 400;
 		}
 		.landingPagePolis {
 			font-weight: 100;
+			color: white;
+			font-size: 60px;
 			text-align: center;
-			color: black;
-			font-size: 48px;
 		}
 		.landingPageCommunication {
-			font-family: "brandon-grotesque",sans-serif;
-			font-weight: 100;
+			font-weight: 100;			
+			color: white;
+			font-size: 32px;
 			text-align: center;
-			font-size: 28px;
-			width: 70%;
-			margin: auto;
-			margin-bottom: ;
+			padding-top: 15px;
 		}
-		#right {
+		.landingBox {
 			background-color: rgba(0,0,0,.3);
 			border-radius: 3px;
 		}
-		#right input {
+		.landingBox input {
 			width: 90%;
 			margin-bottom: 15px;
 		}
-		#right form {
+		.landingBox form {
 			margin: 20px;
 		}
 		.action {
 			display: block;
 		}
-		#landingPageForm{
+		.landingBoxTop{
 			margin-top: 20px;
 		}
+		.formTextHeader {
+			padding-left: 20px;
+			padding-top: 10px;
+			color: white;
+		}
+
 
 /* Large desktop */
- 
-/* Portrait tablet to landscape and desktop */
-@media (min-width: 768px) and (max-width: 979px) { 
-
-		.landingPageBody {
-			background-image: url('conductor.jpeg');
-			background-size: 1280px;
-			background-position-x: -200px;
+@media (min-width: 1200px) { 
+		.conductor {
+			background-size: 100%;
+			height: 770px;
+			background-position-y: -70px;
 		}
+}
 
-		
-
+ 
+/* LITTLE TABLET to BIG TABLET and DESKTOP */
+@media (min-width: 768px) and (max-width: 1199px) { 
+		.conductor {
+			background-size: 1280px;
+			height: 800px;
+		}
 }
  
-/* Landscape phone to portrait tablet */
+/* BIG PHONE to LITTLE tablet */
 @media (min-width: 481px) and (max-width: 767px) { 
-
-.landingPageBody {
-			background-image: url('conductor.jpeg');
+		.conductor {
 			background-size: 1280px;
-			background-position-x: -200px;
+			height: 800px;
 		}
-
-
-		#right {
-			background-color: rgba(0,0,0,0);
+		.landingBox {
+			background-color: rgba(0,0,0,.3);
+			border-radius: 3px;
+		}
+		.landingBox {
 			border-radius: 3px;
 			padding: 20px;
 		}
-		#right input {
+		.landingBox input {
 			width: 50%;
 			margin-bottom: 15px;
 		}
-
-
 }
  
-/* Landscape phones and down */
+/* BIG PHONE and down */
 @media (max-width: 480px) { 
-.landingPageBody {
-			background-image: url('conductor.jpeg');
+		.conductor {
 			background-size: 1280px;
-			background-position-x: -200px;
+			height: 600px;
 		}
-
-
 		.landingPageHeadline{
-			background-color: ;
 			margin-top: 20px;
 			margin-bottom: 10px;
 		}
-
-		#right {
-			background-color: rgba(0,0,0,0);
+		.landingBox {
+			background-color: rgba(0,0,0,.3);
 			border-radius: 3px;
-			padding: 20px;
+			padding-top: 15px;
 		}
-		#right input {
+		.landingBox input {
 			width: 90%;
 			margin-bottom: 15px;
 		}
-
-
-
 }
+
+
+
+
+
+
+
