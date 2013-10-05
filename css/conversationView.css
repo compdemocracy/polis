@@ -3,20 +3,27 @@
 }
 
 .conversationViewHeadline {
-    background-color: rgb(250,250,250);
+    background-color: rgb(245,245,245);
     margin-bottom: 20px;
-    padding: 20px 4% 20px 4%;
-    margin-top: -20px;
 }
 
 .conversationViewHeadline h1 {
     font-weight: 100;
+    padding: 20px 4% 20px 4%;
+    margin-top: -20px;
+    width: 40%;
   }
 
 .conversationViewHeadline h5 {
     font-weight: 400;
     text-transform: none;
+    width: 40%;
+    display: inline;
 }
+
+
+
+
 
 #visualization_div {
   margin: 0px;
@@ -32,14 +39,7 @@
 .debug_hidden {
     display: none;
 }
-#topic h3 {
-  font-weight: lighter; /* this stops firefox from rendering our font psuedo bold */
-}
-#topic p {
-}
-#query_results_div {
-  margin-top: 20px;
-}
+
 #push_button {
   margin-right: 20px;
 }
@@ -47,14 +47,8 @@ svg {
   /*background-color: rgb(236, 248, 255);*/
   border: 1px solid rgb(218, 218, 218);
 }
-/* take off bootstraps little black line to make red polis brand text end where white of page begins */
-.navbar-inverse .navbar-inner {
-  border-color: transparent;
-}
-#introduction_feedback_form textarea {
-  width: 90%;
-  height: 125px;
-}
+
+
 #pass_button {
    margin-right: 5%; 
 }
@@ -69,9 +63,7 @@ svg {
     border-radius: 2px;
     font-size: 16px;
     margin-bottom: 20px;
-/*  padding-left: 5%; */
-/*  padding-right: 5%; */
-/*    font-family: futura-pt; */
+
 }
 .pull_buttons i {
   vertical-align: 0;
@@ -122,17 +114,8 @@ svg {
     -moz-transition: none;
     -o-transition: none;
     transition: none;
-    }
-/* Let's get this scrollbar party started */
-::-webkit-scrollbar {
-    width: 6px;
-    height: 0px;
 }
-/* Handle */
-::-webkit-scrollbar-thumb { 
-    background: rgba(61, 62, 63, 0.8); 
-    -webkit-box-shadow: inset 0 0 1px rgba(0,0,0,0.5); 
-}
+
 
 /* Large desktop */
 @media (min-width: 1200px) {  

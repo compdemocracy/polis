@@ -2,19 +2,6 @@ body {
 	font-family: "brandon-grotesque", sans-serif;
 }
 
-/* Landing Page */
-
-.landingView_header {
-	text-align: center;
-}
-
-.landingView_subheader{
-	text-align: center;
-	font-weight: 100;
-	padding-bottom: 40px;
-	font-size: 48px;
-}
-
 /* Helpers */
 
 .no-rounding {
@@ -28,26 +15,15 @@ body {
 header .navbar .user { margin-right: 15px; }
 
 
-/* FlatUI overrides */
-
-.navbar .nav > li:first-child > a { border-radius: 0px; -webkit-border-radius: 0px; -moz-border-radius: 0px; }
-.navbar-inverse .nav > li > a { border-bottom: 0px; }
-.navbar-inverse .nav > li.active > a { background-color: #2980B9; }
-.navbar-inverse .nav > li.active > a:hover { background-color: #3498DB; }
-.navbar .nav > li > a:hover { color: #3498DB; }
-.navbar .brand:hover { color: #3498DB;}
-.navbar .brand { font-weight: lighter; }
-a { color: #3498DB; }
-
 /* Bootstrap Overrides */
 
 .controls > .radio:first-child, .controls > .checkbox:first-child { padding-top: 0px; }
 .nav-pills { margin-top: 10px;}
 .nav-pills > .active > a { background: #2980B9;}
-.navbar-inverse .brand { border: 0px; text-decoration: none; }
+.navbar-inverse .brand { border: 0px; text-decoration: none; font-weight: 400px; }
 .navbar-inverse .nav > li.active > a:hover { padding-left: 20px; }
 .navbar .btn-navbar { float: left; }
-.startNewConversation { margin: 0px auto; display: block; position: relative; width: 230px; }
+.startNewConversation { margin: 0px auto; display: block; position: relative; width: 230px; margin-bottom: 20px }
 .startNewConversation i { margin-right: 10px; }
 
 /* Custom Confirm Dialog */
