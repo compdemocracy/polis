@@ -1246,6 +1246,149 @@ function(req, res){
     );
 });
 
+app.get('/v3/metadata/keys',
+    logPath,
+    moveToBody,
+    auth,
+    need('zid', getInt, assignToP),
+    need('uid', getInt, assignToP),
+    want('zinvite', getInt, assignToP),
+    // TODO want('lastMetaTime', getInt, assignToP, 0),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var zinvite = req.p.zinvite;
+
+    if (zinvite) {
+        checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else {
+        // make sure user is already a participant
+        getPid(zid, uid, doneChecking);
+    }
+    function doneChecking(err, foo) {
+        if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
+        async.parallel([
+            function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
+            //function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
+            //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
+        ], function(err, result) {
+            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata", 500); return; }
+            var keys = result[0] && result[0].rows;
+            res.status(200).json(keys);
+        });
+    }
+});
+
+app.get('/v3/metadata/values',
+    logPath,
+    moveToBody,
+    auth,
+    need('zid', getInt, assignToP),
+    need('uid', getInt, assignToP),
+    want('zinvite', getInt, assignToP),
+    // TODO want('lastMetaTime', getInt, assignToP, 0),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var zinvite = req.p.zinvite;
+
+    if (zinvite) {
+        checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else {
+        // make sure user is already a participant
+        getPid(zid, uid, doneChecking);
+    }
+    function doneChecking(err, foo) {
+        if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
+        async.parallel([
+            //function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
+            function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
+            //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
+        ], function(err, result) {
+            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata", 500); return; }
+            var values = result[0] && result[0].rows;
+            res.status(200).json(values);
+        });
+    }
+});
+
+app.get('/v3/metadata',
+    logPath,
+    moveToBody,
+    auth,
+    need('zid', getInt, assignToP),
+    need('uid', getInt, assignToP),
+    want('zinvite', getInt, assignToP),
+    // TODO want('lastMetaTime', getInt, assignToP, 0),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var zinvite = req.p.zinvite;
+
+    if (zinvite) {
+        checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else {
+        // make sure user is already a participant
+        getPid(zid, uid, doneChecking);
+    }
+    function doneChecking(err, foo) {
+        if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
+        async.parallel([
+            function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
+            function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
+            function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
+        ], function(err, result) {
+            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata", 500); return; }
+            var keys = result[0] && result[0].rows;
+            var vals = result[1] && result[1].rows;
+            var choices = result[2] && result[2].rows;
+            var o = {};
+            var keyNames = {};
+            var valueNames = {};
+            var i;
+            if (!keys || !keys.length) {
+                res.status(200).json({});
+                return;
+            }
+            for (i = 0; i < keys.length; i++) {
+                // Add a map for each keyId
+                var k = keys[i];
+                o[k.pmkid] = {}; 
+                // keep the user-facing key name
+                keyNames[k.pmkid] = k.key;
+            }
+            for (i = 0; i < vals.length; i++) {
+                // Add an array for each possible valueId
+                var k = vals[i];
+                var v = vals[i];
+                o[k.pmkid][v.pmvid] = []; 
+                // keep the user-facing value string
+                valueNames[v.pmvid] = v.value;
+            }
+            for (i = 0; i < choices.length; i++) {
+                // Append a pid for each person who has seleted that value for that key.
+                o[choices[i].pmkid][choices[i].pmvid] = choices[i].pid;
+            }
+            // TODO cache
+            res.status(200).json({
+                kvp: o, // key_id => value_id => [pid]
+                keys: keyNames,
+                values: valueNames,
+            });
+        });
+    }
+});
+
+app.post('/v3/metadata/new',
+    logPath,
+    moveToBody,
+    auth,
+    want('oid', getInt, assignToP),
+    need('uid', getInt, assignToP),
+    need('metaname', getInt, assignToP),
+    need('metavalue', getInt, assignToP),
+function(req, res) {
+});
 
 app.get('/v3/conversations/:zid',
     logPath,
@@ -1328,6 +1471,7 @@ function(req, res) {
   });
 });
 
+// TODO check to see if ptpt has answered necessary metadata questions.
 app.post('/v3/conversations',
     logPath,
     auth,
