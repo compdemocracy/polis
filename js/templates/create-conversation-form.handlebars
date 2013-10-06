@@ -38,17 +38,6 @@
 				</div>
 			</div>
 
-
-
-
-			<div class="control-group">
-				<div class="controls">
-			  		<label for="participantsMustHaveZinvite" class="checkbox">
-			  			<input type="checkbox" id="participantsMustHaveZinvite" name="is_public" data-toggle="checkbox" {{#if is_public}}checked{{/if}}> Conversation is open to the public.
-			  		</label>
-				</div>
-			</div>
-
 			<div class="control-group">
 			  <div class="controls">
 			  	<label for="anonymous" class="checkbox">
@@ -64,8 +53,8 @@
 				<div class="controls">
 
 				{{#if add}}
-					<button class="btn btn-success action" name="formAction" type="submit" value="publish">Create & Publish</button>
-					<button class="btn btn-success action" name="formAction" type="submit" value="draft">Save as Draft</button>
+					<button class="btn btn-success" name="formAction" type="submit" value="publish">Create & Publish</button>
+					<button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button>
 				{{/if}}
 
 				{{#if edit}}

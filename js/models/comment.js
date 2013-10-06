@@ -5,7 +5,7 @@ define(['model'], function (Model) {
     idAttribute: 'tid',
     defaults: {
       tid: undefined,  // comment id
-      pid: undefined,
+      pid: undefined,	 // participant id
       txt: "This is default comment text defined in the model.",
       created: 0,
   	}
