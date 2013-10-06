@@ -3,6 +3,10 @@ define(['model'], function (Model) {
     name: 'conversation',
     path: "conversations",
     idAttribute: "zid",
+    urlRoot: 'conversations',
+    url: function() {
+        return this.urlRoot + "/" + this.id;
+    },
     defaults: {
       topic: function() {
         return new Date(this.created).toString();

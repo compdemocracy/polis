@@ -106,16 +106,26 @@ define([
       zid: this.zid,
     });
    
-    var metadataCollection = new MetadataCollection();
+    var metadataCollection = new MetadataCollection([], {
+        zid: this.zid,
+    });
 
+    metadataCollection.fetch({
+        data: $.param({
+            zid: this.zid
+        }), 
+        processData: true
+    });
+    window.m = metadataCollection;
 
-
+    // HTTP PATCH - model.save({patch: true})
 
 
 
 
 // ***************************************
 // ***************************************
+/*
     metadataCollection.create({
       'question': 'Do you like sunrises and puppies?',
       'answers': ['biodiesel',
@@ -152,6 +162,7 @@ define([
                   'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
       required: true
     })
+    */
 
 // ***************************************
 // ***************************************

@@ -1,9 +1,9 @@
 {{#collection}}
-  <h5> {{question}} </h5> 
+  <h5> {{key}} </h5> 
   <form>
-    {{#each answers}}
+    {{#each values}}
       <label class="checkbox">
-      <input type="checkbox"> {{this}}
+      <input type="checkbox"> {{this.value}}
       </label>
     {{/each}}
   </form>
