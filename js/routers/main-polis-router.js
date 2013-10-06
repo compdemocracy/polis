@@ -54,7 +54,7 @@ define([  //begin dependencies
 
     switch(filter) {
       case "closed":
-        conversationsCollection.fetch({query: "is_active=false&is_draft=false"});
+        conversationsCollection.fetch({data: {is_active: false, is_draft: false}});
         var inboxView = new InboxView({
           collection: conversationsCollection,
           closed: true
@@ -64,7 +64,7 @@ define([  //begin dependencies
         // fall through to default
       default:
         // active
-        conversationsCollection.fetch({query: "is_active=true&is_draft=false"});
+        conversationsCollection.fetch({data: {is_active: true, is_draft: false}});
         var inboxView = new InboxView({
           collection: conversationsCollection,
           active: true
