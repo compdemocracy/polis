@@ -1229,9 +1229,13 @@ app.put('/v3/conversations/:zid',
     need('zid', getInt, assignToP),
     want('is_active', getBool, assignToP),
 function(req, res){
+    var query = squel.select().from('conversations');
+    query = query.where("zid = ?", req.p.zid);
+    if (req.p.is_active) {
+        query = query.where("is_active = ?", req.p.is_active);
+    }
     client.query(
-        'UPDATE conversations SET is_active = $2 WHERE zid = $1',
-        [req.p.zid, req.p.is_active],
+        query.toString(),
         function(err, result){
             if (err) {
                 fail(res, 435673243, "polis_err_update_conversation", 500);
