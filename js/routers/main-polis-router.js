@@ -12,6 +12,7 @@ define([  //begin dependencies
   'views/login-form',
   'views/landing-page',
   'util/polisStorage',
+  'jquery',
 ], function (  //begin args
 		RootView, 
 		Backbone, 
@@ -25,7 +26,8 @@ define([  //begin dependencies
 		CreateUserFormView,
     LoginFormView,
     LandingPageView,
-    PolisStorage
+    PolisStorage,
+    $
 	) {  //end args, begin function block
 	return Backbone.Router.extend({
     routes: {
@@ -54,7 +56,13 @@ define([  //begin dependencies
 
     switch(filter) {
       case "closed":
-        conversationsCollection.fetch({data: {is_active: false, is_draft: false}});
+        conversationsCollection.fetch({
+            data: $.param({
+                is_active: false,
+                is_draft: false,
+            }), 
+            processData: true,
+        });
         var inboxView = new InboxView({
           collection: conversationsCollection,
           closed: true
@@ -64,7 +72,13 @@ define([  //begin dependencies
         // fall through to default
       default:
         // active
-        conversationsCollection.fetch({data: {is_active: true, is_draft: false}});
+        conversationsCollection.fetch({
+            data: $.param({
+                is_active: true,
+                is_draft: false,
+            }), 
+            processData: true,
+        });
         var inboxView = new InboxView({
           collection: conversationsCollection,
           active: true
