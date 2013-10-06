@@ -12,17 +12,62 @@ CREATE TABLE users(
     UNIQUE (uid)
 );
 
---CREATE TABLE groups(
-    ---- TODO After testing failure cases with 10, use this:
-    ---- 2147483647  (2**32/2 -1)
-    --gid SERIAL
+--CREATE TABLE orgs (
+    --oid SERIAL,
+    --oname VARCHAR(999)
 --);
 
---CREATE TABLE memberships(
-    --gid INTEGER REFERENCES groups(gid),
-    --uid INTEGER REFERENCES users(uid),
-    --UNIQUE (gid, uid)
+--CREATE TABLE oadmins (
+    --uid REFERENCES users(uid),
+    --oid REFERENCES orgs(oid),
+    --UNIQUE (uid, oid)
 --);
+
+--CREATE TABLE omemberships(
+    --oid REFERENCES orgs(oid),
+    --uid REFERENCES users(uid),
+    --UNIQUE (uid, oid)
+--);
+
+--CREATE TABLE org_member_metadata_types (
+
+CREATE TABLE participant_metadata_keys (
+    pmkid SERIAL,
+    zid INTEGER REFERENCES conversations(zid),
+    key VARCHAR(999), -- City, Office, Role, etc
+    UNIQUE (zid, key), -- TODO index!
+    UNIQUE (pmkid)
+);
+
+CREATE TABLE participant_metadata_values (
+    pmvid SERIAL,
+    pmkid INTEGER REFERENCES participant_metadata_keys(pmkid),
+    zid INTEGER REFERENCES conversations(zid), -- for fast disk-local indexing
+    value VARCHAR(999), -- Seattle, Office 23, Manager, etc
+    UNIQUE (pmkid, zid, value),
+    UNIQUE (pmvid)
+);
+
+CREATE TABLE participant_metadata_choices (
+    zid INTEGER,
+    pid INTEGER,
+    pmkid INTEGER REFERENCES participant_metadata_keys(pmkid),
+    pmvid INTEGER REFERENCES participant_metadata_values(pmvid),
+    FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid),
+    UNIQUE (zid, pid, pmkid, pmvid)
+);
+
+ ---- top level
+---- these can be used to construct the tree, then add an empty list to each node
+--SELECT * FROM participant_metadata_keys WHERE zid = 34;
+--SELECT * FROM participant_metadata_values WHERE zid = 34;
+-- now populate the tree with participant entries
+--SELECT * from participant_metadata_choices WHERE zid = 34;
+----for (each) {
+----  tree.zid.pmkid.pmvid.push(pid)
+----}
+
+
 
 -- This is a light table that's used exclusively for generating IDs
 CREATE TABLE conversations(
