@@ -8,7 +8,8 @@ module.exports = function(grunt) {
         'public': 'public',
         output: {
           js: 'public/js',
-          css: 'public/css'
+          css: 'public/css',
+          font: 'public/font'
         },
         js: 'js',
         css: 'css',
@@ -44,7 +45,8 @@ module.exports = function(grunt) {
     clean: {
       output: [           //DELETE EVERYTHING IN THE 
         paths.output.js,  //public/js folder
-        paths.output.css  //and the public/css folder
+        paths.output.css,  //and the public/css folder
+        paths.output.font
       ]
     },
     copy: {
@@ -61,6 +63,18 @@ module.exports = function(grunt) {
           {
             src: 'bower_components/requirejs/require.js',
             dest: 'public/js/require.js'
+          }
+        ]
+      },
+      fontawesome: {
+        files: [
+          {
+            expand: true,
+            cwd: 'bower_components/font-awesome/font/',
+            src: '*',
+            dest: 'public/font/',
+            flatten: true,
+            filter: 'isFile'
           }
         ]
       },
@@ -260,6 +274,10 @@ module.exports = function(grunt) {
     'copy:html',
   ]);
 
+  grunt.registerTask('copyfontawesome', [
+    'copy:fontawesome',
+  ]);
+
   grunt.registerTask('scripts:development', [
     'copy:requirejs',
     'requirejs:development'
@@ -282,7 +300,8 @@ module.exports = function(grunt) {
   grunt.registerTask('create-output-directories', function() {
     grunt.file.mkdir('public/js');
     grunt.file.mkdir('public/css');
-    grunt.file.mkdir('public/css/lib') //for the third part libray css builds
+    grunt.file.mkdir('public/css/lib'); //for the third part libray css builds
+    grunt.file.mkdir('public/font'); //for fontawesome fonts
   });
 
   grunt.registerTask('templates', [
@@ -301,6 +320,7 @@ module.exports = function(grunt) {
     'create-output-directories',
     'styles',
     'templates',
+    'copyfontawesome',
     'html:development',
     'scripts:development',
     'thorax:inspector',
