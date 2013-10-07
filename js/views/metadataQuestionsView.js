@@ -1,16 +1,16 @@
 define([
-  'views/metadataQuestionView',
+  'views/metadataQuestionAndAnswersView',
   'templates/metadataQuestions',
   'thorax'
 ], function (
-  MetadataQuestionView,
+  MetadataQuestionAndAnswersView,
   template,
   Thorax
 ) {
   return Thorax.CollectionView.extend({
-    name: 'analyze',
+    name: 'metadataQuestionsView',
     template: template,
-    itemView: MetadataQuestionView,
+    itemView: MetadataQuestionAndAnswersView,
     initialize: function(options) {
       this.collection = options.collection;
       this.zid = options.zid;

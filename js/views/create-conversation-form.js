@@ -2,14 +2,14 @@ define([
   'view',
   'templates/create-conversation-form',
   'models/conversation',
-  'views/metadataQuestionCreateView',
+  'views/metadataQuestionsViewWithCreate',
   'collections/MetadataQuestions',
   'views/inbox'
 ], function (
   View,
   template,
   ConversationModel,
-  MetadataQuestionCreateView,
+  MetadataQuestionsViewWithCreate,
   MetadataQuestionCollection,
   InboxView
 ) {
@@ -79,7 +79,7 @@ define([
           }), 
           processData: true,
       });
-      this.metadataQuestionCreateView = new MetadataQuestionCreateView({
+      this.metadataQuestionsViewWithCreate = new MetadataQuestionsViewWithCreate({
         collection: metadataCollection,
         zid: zid,
       });

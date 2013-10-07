@@ -4,7 +4,7 @@ define([
   'views/comment-view',
   'views/comment-form',
   'views/change-votes',
-  'views/analyze',
+  'views/metadataQuestionsView', // analyze view
   'models/vote',
   'models/participant',
   'models/conversation',
@@ -22,12 +22,13 @@ define([
   'util/polisStorage',
   'polis',
   'VisView'
-  ], function (View, 
+  ], function (
+    View, 
     template,
     CommentView, 
     CommentFormView,
     ChangeVotesView,
-    AnalyzeView,
+    MetadataQuestionsView,
     VoteModel,
     ParticipantModel,
     ConversationModel,
@@ -167,12 +168,7 @@ define([
 // ***************************************
 // ***************************************
 
-
-
-
-
-
-    this.analyzeView = new AnalyzeView({
+    this.metadataQuestionsView = new MetadataQuestionsView({
       serverClient: serverClient,
       zid: this.zid,
       collection: metadataCollection
