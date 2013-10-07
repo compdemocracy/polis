@@ -706,6 +706,35 @@ function joinConversation(zid, uid, callback) {
 
 }
 
+function isOwnerOrParticipant(zid, uid, callback) {
+    callback(null); // TODO remove and uncomment below, and fix.
+    // // TODO should be parallel.
+    // // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
+    // getPid(zid, uid, function(err) {
+    //     if (err) {
+    //         isConversationOwner(zid, uid, function(err) {
+    //             callback(err);
+    //         });
+    //     } else {
+    //         callback(null);
+    //     }
+    // });
+}
+
+function isConversationOwner(zid, uid, callback) {
+    client.query("SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);", [zid, uid], function(err, docs) {
+        var pid;
+        if (!docs || !docs.rows || docs.rows.length === 0) {
+            err = err || 1;
+        }
+        console.log('isConversationOwner: ' + err);
+        console.log(zid, uid);
+        console.dir(docs);
+        console.dir(err);
+        callback(err);
+    });
+}
+
 function getPid(zid, uid, callback) {
     client.query("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
         var pid;
@@ -1268,8 +1297,8 @@ function(req, res){
 
 app.get('/v3/metadata/keys',
     logPath,
-    moveToBody,
     auth,
+    moveToBody,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
     want('zinvite', getInt, assignToP),
@@ -1282,11 +1311,16 @@ function(req, res) {
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
     } else {
-        // make sure user is already a participant
-        getPid(zid, uid, doneChecking);
+        isOwnerOrParticipant(zid, uid, doneChecking);
     }
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
+
+
+        zid = 32;
+
+
+
         async.parallel([
             function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
             //function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
@@ -1298,6 +1332,33 @@ function(req, res) {
         });
     }
 });
+
+app.post('/v3/metadata/keys',
+    logPath,
+    moveToBody,
+    auth,
+    need('zid', getInt, assignToP),
+    need('uid', getInt, assignToP),
+    need('key', _.identity, assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var key = req.p.key;
+
+    isOwnerOrParticipant(zid, uid, doneChecking);
+    function doneChecking(err, foo) {
+        if (err) { fail(res, 2394632, "polis_err_post_participant_metadata_auth", 403); return; }
+        client.query("INSERT INTO participant_metadata_keys (zid, uid, key) VALUES ($1, $2, $3)", [
+            zid,
+            uid,
+            key,
+            ], function(err, results) {
+            if (err) { fail(res, 2394630, "polis_err_post_participant_metadata_key", 500); console.dir(err); return; }
+            res.status(200).json({});
+        });
+    }
+});
+    
 
 app.get('/v3/metadata/values',
     logPath,
@@ -1317,13 +1378,16 @@ function(req, res) {
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
     } else {
-        // make sure user is already a participant
-        getPid(zid, uid, doneChecking);
+        isOwnerOrParticipant(zid, uid, doneChecking);
     }
     
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
         var query = squel.select().from('participant_metadata_values');
+
+
+            zid = 32;
+
         query = query.where("zid = ?", zid);
         if (pmkid) {
             query = query.where("pmkid = ?", pmkid);
@@ -1351,10 +1415,9 @@ function(req, res) {
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
     } else {
-        // make sure user is already a participant
-        getPid(zid, uid, doneChecking);
+        isOwnerOrParticipant(zid, uid, doneChecking);
     }
-    function doneChecking(err, foo) {
+    function doneChecking(err) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
         async.parallel([
             function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
