@@ -27,15 +27,20 @@ return MetadataQuestionAndAnswersView.extend({
     this.serialize(function(attrs){
       alert('add answer for ' + that.model.get('pmkid'));
 
+      var zid = that.model.get('zid');
       var data = {
-        zid: that.zid,
+        zid: zid,
         pmkid: that.model.get('pmkid'),
         value: "new answer " + Math.random(), // attrs.text?
       };
       var model = new MetadataAnswer(data);
-      model.save();
-      that.collection.add(model);
-      that.collection.sync();
+      model.save().then(that.collection.fetch({
+        data: $.param({
+          zid: zid,
+          pmkid: that.model.get('pmkid'),
+        }), 
+        processData: true,
+      }));
       that.formActive = false;
       that.render();
     });

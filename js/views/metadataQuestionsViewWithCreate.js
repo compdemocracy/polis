@@ -25,9 +25,13 @@ define([
           key: "new question " + Math.random(), // attrs.text?
         };
         var model = new MetadataQuestion(data);
-        model.save();
-        that.collection.add(model);
-        that.collection.sync();
+        model.save().then(that.collection.fetch({
+          data: $.param({
+            zid: that.zid
+          }), 
+          processData: true,
+        }));
+        
         that.formActive = false;
         that.render();
       });
