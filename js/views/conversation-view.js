@@ -171,13 +171,13 @@ define([
     this.metadataQuestionsView = new MetadataQuestionsView({
       serverClient: serverClient,
       zid: this.zid,
-      collection: metadataCollection
-    })
+      collection: metadataCollection,
+    });
 
     this.changeVotes = new ChangeVotesView({
       serverClient: serverClient,
       zid: this.zid,
-    })
+    });
 
     this.commentForm.on("commentSubmitted", function() {
       $("#react_tab").tab('show');

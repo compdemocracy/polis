@@ -21,11 +21,13 @@ define([
         alert('add question ' + JSON.stringify(attrs) + 'for ' + that.zid);
 
         var data = {
-          zid: 32,
-          key: "new question " + Math.random(),
+          zid: that.zid,
+          key: "new question " + Math.random(), // attrs.text?
         };
         var model = new MetadataQuestion(data);
         model.save();
+        that.collection.add(model);
+        that.collection.sync();
         that.formActive = false;
         that.render();
       });

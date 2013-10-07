@@ -6,6 +6,7 @@ define([
     Model) {
 return Model.extend({
     name: 'metadata/key',
+    url: 'metadata/keys',
     defaults: {
     	key: "No metadata question was entered. This is the default value of the model.",
     	required: false, 

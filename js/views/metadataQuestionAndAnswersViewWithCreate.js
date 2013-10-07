@@ -1,7 +1,9 @@
 define([
+  'models/metadataAnswer',
   'views/metadataAnswerViewWithDelete',
   'views/metadataQuestionAndAnswersView',
 ], function (
+  MetadataAnswer,
   MetadataAnswerViewWithDelete,
   MetadataQuestionAndAnswersView
 ) {
@@ -20,9 +22,23 @@ return MetadataQuestionAndAnswersView.extend({
     this.render();
   },
   hideAddAnswerForm: function() {
-    alert('add answer for ' + this.get('pmkid'));
-    this.formActive = false;
-    this.render();
+    var that = this;
+    var formAction = $(event.target).data('action');
+    this.serialize(function(attrs){
+      alert('add answer for ' + that.model.get('pmkid'));
+
+      var data = {
+        zid: that.zid,
+        pmkid: that.model.get('pmkid'),
+        value: "new answer " + Math.random(), // attrs.text?
+      };
+      var model = new MetadataAnswer(data);
+      model.save();
+      that.collection.add(model);
+      that.collection.sync();
+      that.formActive = false;
+      that.render();
+    });
   },
   allowCreate: true,
   allowDelete: true,

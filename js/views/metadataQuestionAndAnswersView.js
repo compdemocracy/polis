@@ -14,17 +14,10 @@ return Thorax.CollectionView.extend({
   itemView: MetadataAnswerView,
   allowCreate: false,
   allowDelete: false,
-  deleteQuestion: function() {
-    console.log('delete ' + this.get('pmvid'));
-  },
-  createAnswer: function() {
-    this.formEnabled = true;
-    this.render();
-  },
   initialize: function(options) {
       var that = this;
-      this.model = options.model;
-      this.collection = options.model.collection;
+      this.model = options.model; // question model
+      this.collection = options.model.collection; // answers collection
       this.zid = options.zid;
   }
 });
