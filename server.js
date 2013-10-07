@@ -386,6 +386,16 @@ function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
     }
     return squelQuery;
 }
+function setOptional(squelQuery, P, name, nameOfSqlColumnName) {
+    if ("undefined" === typeof nameOfSqlColumnName) {
+        // assume same name if not provided
+        nameOfSqlColumnName = name;
+    }
+    if (P.hasOwnProperty(name)) {
+        squelQuery = squelQuery.set(nameOfSqlColumnName, P[name]);
+    }
+    return squelQuery;
+}
 
 var oneYear = 1000*60*60*24*365;
 function addCookie(res, token) {
