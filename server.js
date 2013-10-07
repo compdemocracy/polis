@@ -1237,13 +1237,23 @@ app.put('/v3/conversations/:zid',
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
+    need('uid', getInt, assignToP),
     want('is_active', getBool, assignToP),
+    want('is_anon', getBool, assignToP),
+    want('is_draft', getBool, assignToP),
+    want('is_public', getBool, assignToP),
+    want('topic', _.identity, assignToP),
+    want('description', _.identity, assignToP),
 function(req, res){
-    var query = squel.select().from('conversations');
+    var query = squel.update().table('conversations');
     query = query.where("zid = ?", req.p.zid);
-    if (req.p.is_active) {
-        query = query.where("is_active = ?", req.p.is_active);
-    }
+    query = query.where("owner = ?", req.p.uid);
+    query = setOptional(query, req.p, 'is_active');
+    query = setOptional(query, req.p, 'is_anon');
+    query = setOptional(query, req.p, 'is_draft');
+    query = setOptional(query, req.p, 'is_public');
+    query = setOptional(query, req.p, 'topic');
+    query = setOptional(query, req.p, 'description');
     client.query(
         query.toString(),
         function(err, result){
@@ -1282,7 +1292,7 @@ function(req, res) {
             //function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
             //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
         ], function(err, result) {
-            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata", 500); return; }
+            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_keys", 500); return; }
             var keys = result[0] && result[0].rows;
             res.status(200).json(keys);
         });
