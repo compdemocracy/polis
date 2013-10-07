@@ -13,6 +13,14 @@ return Thorax.CollectionView.extend({
   template: template,
   itemView: MetadataAnswerView,
   allowCreate: false,
+  allowDelete: false,
+  deleteQuestion: function() {
+    console.log('delete ' + this.get('pmvid'));
+  },
+  createAnswer: function() {
+    this.formEnabled = true;
+    this.render();
+  },
   initialize: function(options) {
       var that = this;
       this.model = options.model;

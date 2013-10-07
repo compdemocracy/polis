@@ -1,5 +1,5 @@
 define([
-  'templates/metadataAnswer',
+  'templates/metadataAnswerWithDelete',
   'view'
 ], function (
   template,
@@ -7,14 +7,9 @@ define([
 ) {
 
 return View.extend({
-  name: 'metadataAnswerView',
+  name: 'metadataAnswerViewWithDelete',
   template: template,
-  allowDelete: false,
-  
-  deleteAnswer: function() {
-    console.dir(arguments);
-    console.dir(this);
-  },
+  allowDelete: true,
   initialize: function(options) {
       this.model = options.model;
       this.zid = options.zid;

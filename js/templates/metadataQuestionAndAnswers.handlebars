@@ -1,7 +1,29 @@
 <form>
+
 {{key}}
-{{collection}}
-{{#if allowCreate}}
-    [CREATE NEW ANSWER]
+
+{{#if allowDelete}}
+	{{#button "deleteQuestion" class="btn btn-success action"}}
+		Delete Question
+	{{/button}}
 {{/if}}
+
+{{collection}}
+
+
+{{#if allowCreate}}
+	{{#if formActive}}
+		<div class="add_answer_form">
+			Add answer here
+			<form>
+			<textarea></textarea>
+			</form>
+		</div>
+	{{else}}
+		{{#button "showAddAnswerForm" class="btn btn-success action"}}
+	    	Add Answer
+	    {{/button}}
+	{{/if}}
+{{/if}}
+
 </form>

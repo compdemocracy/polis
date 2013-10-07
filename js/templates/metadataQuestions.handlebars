@@ -1,5 +1,22 @@
 Metadata!!!!!
 {{collection}}
+
 {{#if allowCreate}}
-	[CREATE NEW QUESTION BUTTON]
+	{{#if formActive}}
+		<div class="add_question_form">
+			Add question here
+			<form>
+			<textarea></textarea>
+			</form>
+		</div>
+	{{else}}
+		{{#button "showAddQuestionForm" class="btn btn-success action"}}
+	    	Add Question
+	    {{/button}}
+	{{/if}}
+{{/if}}
+
+
+{{#if allowCreate}}
+
 {{/if}}
