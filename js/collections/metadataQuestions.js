@@ -1,9 +1,9 @@
 define([
     'collection',
-    'models/metadata'
+    'models/metadataQuestion'
 ], function (
     Collection,
-    Metadata
+    metadataQuestion
 ) {
   return Collection.extend({
     name: 'metadata/keys',
@@ -13,6 +13,6 @@ define([
     url: function() {
         return this.name;
     },
-    model: Metadata
+    model: metadataQuestion
   });
 });

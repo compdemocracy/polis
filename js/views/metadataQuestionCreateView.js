@@ -8,7 +8,7 @@ define([
   Thorax
 ) {
   return Thorax.CollectionView.extend({
-    name: 'analyze',
+    name: 'metadataQuestionCreateView',
     template: template,
     itemView: MetadataQuestionView,
     initialize: function(options) {

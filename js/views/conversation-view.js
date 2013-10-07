@@ -12,7 +12,7 @@ define([
   'models/user',
   'collections/comments',
   'collections/votes',
-  'collections/metadata',
+  'collections/metadataQuestions',
   'app',
   'CommentShower',
   'FeedbackSubmitter',
@@ -35,7 +35,7 @@ define([
     UserModel,
     CommentsCollection,
     VotesCollection,
-    MetadataCollection,
+    MetadataQuestionsCollection,
     app, 
     CommentShower, 
     FeedbackSubmitter,
@@ -106,7 +106,7 @@ define([
       zid: this.zid,
     });
    
-    var metadataCollection = new MetadataCollection([], {
+    var metadataCollection = new MetadataQuestionsCollection([], {
         zid: this.zid,
     });
 
@@ -114,7 +114,7 @@ define([
         data: $.param({
             zid: this.zid
         }), 
-        processData: true
+        processData: true,
     });
     window.m = metadataCollection;
 
