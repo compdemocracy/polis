@@ -1495,7 +1495,7 @@ function(req, res) {
 });
 
 // TODO check to see if ptpt has answered necessary metadata questions.
-app.post('/v3/conversations',
+app.post('/v3/conversations/undefined', // TODO undefined is not ok
     logPath,
     auth,
     want('is_active', getBool, assignToP),
