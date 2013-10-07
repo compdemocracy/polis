@@ -50,25 +50,25 @@ define([
     name: 'conversation-view',
     template: template,
     events: {
-    "click #topic_toggle": function(e){
+    "click #topic_toggle": function(e) {
       e.preventDefault();
       this.$('#topic').toggle();
     },
-    "click #react_tab": function(e){
+    "click #react_tab": function(e) {
       e.preventDefault();
       console.dir(this);
       console.dir(e);
       $(e.target).tab('show');
     },
-    "click #write_tab": function(e){
+    "click #write_tab": function(e) {
       e.preventDefault();
       //$(this).tab('show')
       $(e.target).tab('show');
-    }
+    },
   },
   onClusterTapped : function() {
       if (window.isMobile()) {
-         window.scrollTo(0,$("#visualization_div").offset().top);
+         window.scrollTo(0, $("#visualization_div").offset().top);
       }
   },
   initialize: function(){

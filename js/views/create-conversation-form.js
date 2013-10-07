@@ -2,17 +2,44 @@ define([
   'view',
   'templates/create-conversation-form',
   'models/conversation',
+  'views/metadataQuestionCreateView',
   'views/inbox'
-], function (View, template, ConversationModel, InboxView) {
+], function (
+  View,
+  template,
+  ConversationModel,
+  MetadataQuestionCreateView,
+  InboxView
+) {
   return View.extend({
     name: 'create-conversation-form',
     template: template,
     events: {
+      initialize: function(options) {
+
+        // ConversationModel
+        this.model = options.model;
+
+        var metadataCollection = new MetadataCollection([], {
+            zid: this.zid,
+        });
+
+        metadataCollection.fetch({
+            data: $.param({
+                zid: this.zid
+            }), 
+            processData: true,
+        });
+        this.metadataQuestionCreateView = new MetadataQuestionCreateView({
+
+        });
+      },
       "click :submit": function(event) {
         var formAction = $(event.target).val();
         $(event.target).parents('form:first').attr('data-action',formAction);
       },
       "submit form": function(event){
+        var that = this;
         event.preventDefault();
         var formAction = $(event.target).data('action');
         this.serialize(function(attrs){
@@ -25,8 +52,6 @@ define([
                 attrs.is_active = true;
               break;
             }
-            this.collection.get(this.id).save(attrs);
-            this.collection.sort();
           } else {
             switch(formAction) {
               case "draft":
@@ -36,20 +61,15 @@ define([
                 attrs.is_active = true;
                 attrs.is_draft = false;
               break;
-        }
-          model = new ConversationModel();
-          model.save(attrs);
-          Backbone.history.navigate('/#inbox');
-        }
-        
-        var conversationsCollection = new ConversationsCollection(); //every time to replace application??
-        conversationsCollection.fetch()
-        var inboxView = new InboxView({
-           collection: conversationsCollection
+            }
+          }
+          this.model.save(attrs).then(function(data) {
+            alert('saved!');
+            that.trigger('done');
+          }, function(err) {
+            alert("unable to save");
+          });
         });
-        RootView.getInstance().setView(inboxView);
-        Backbone.history.navigate('/');
-        })
       },
       "invalid": function(errors){ 
         console.log('invalid form input' + errors[0].name);
@@ -68,18 +88,22 @@ define([
       return errors; 
     },
     delete: function() {
-      var model = this.collection.get(this.id)
+      var that = this;
+      // var model = this.collection.get(this.id)
       var deleteConfirm = new konfirm({
         message: 'Conversations cannot be deleted during the Beta.',
         success: function(){
-          model.destroy();
-          conversationsCollection.remove(model);
-          var inboxView = new InboxView({
-            collection: conversationsCollection,
-            active: true
+          that.model.destroy().then(function(data) {
+            alert('deleted!');
+            that.trigger('done');
+          }, function(err) {
+            alert("delete failed");
           });
-          Backbone.history.navigate('/');
-          RootView.getInstance().setView(inboxView);
+          // conversationsCollection.remove(model);
+          // var inboxView = new InboxView({
+          //   collection: conversationsCollection,
+          //   active: true
+          // });
         },
         cancel: function(){
           return false;
@@ -87,10 +111,14 @@ define([
       });
     },
     saveDraft: function(){
-      var model = this.collection.get(this.id)
-      model.save()
-      RootView.getInstance().setView(inboxView);
-      Backbone.history.navigate('/');
+      var that = this;
+//      var model = this.collection.get(this.id)
+      this.model.save().then(function(data) {
+        alert('draft saved!');
+        that.trigger('done');
+      }, function(err) {
+        alert("saveDraft failed");
+      });
     }
   });
 });

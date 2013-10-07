@@ -52,61 +52,70 @@ define([  //begin dependencies
     },
     inbox: function(filter){
 
-    var conversationsCollection = new ConversationsCollection();
+      // TODO add to inboxview init
 
-    switch(filter) {
-      case "closed":
-        conversationsCollection.fetch({
-            data: $.param({
-                is_active: false,
-                is_draft: false,
-            }), 
-            processData: true,
-        });
-        var inboxView = new InboxView({
-          collection: conversationsCollection,
-          closed: true
-        })
-      break;
-      case "active":
-        // fall through to default
-      default:
-        // active
-        conversationsCollection.fetch({
-            data: $.param({
-                is_active: true,
-                is_draft: false,
-            }), 
-            processData: true,
-        });
-        var inboxView = new InboxView({
-          collection: conversationsCollection,
-          active: true
-        })
-      break;
-    }
-    
-    conversationsCollection.comparator = function(conversation) {
-      return -new Date(conversation.get("createdAt")).getTime();
-    }
+        // conversationsCollection.fetch({
+        //     data: $.param({
+        //         is_active: false,
+        //         is_draft: false,
+        //     }), 
+        //     processData: true,
+        // });
+      var filterAttrs = {};
+      if (filter) {
+        switch(filter) {
+          case "closed":
+            filterAttrs.is_active = false;
+            filterAttrs.is_draft = false;
+          break;
+         case "active":
+            // fall through to default
+          default:
+            filterAttrs.is_active = true
+  //          filterAttrs.is_draft = false;
+          break;
+        }
+      }
 
-    RootView.getInstance().setView(inboxView);
-
+      var conversationsCollection = new ConversationsCollection();
+      // Let the InboxView filter the conversationsCollection.
+      var inboxView = new InboxView($.extend(filterAttrs, {
+        collection: conversationsCollection,
+      }));
+      RootView.getInstance().setView(inboxView);
   },
   homepageView: function(){
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
   createConversation: function(){
+    var that = this;
     conversationsCollection = new ConversationsCollection();
-    var createConversationFormView = new CreateConversationFormView({
-      collection: conversationsCollection,
-      add: true
-    })
-    RootView.getInstance().setView(createConversationFormView);
-    $('[data-toggle="checkbox"]').each(function() {
-      var $checkbox = $(this);
-      $checkbox.checkbox();
+
+    var model = new ConversationModel({
+      is_draft: true,
+      is_active: true, // TODO think
+    });
+    model.save().then(function(data) {
+      model.set('zid', data.zid);
+      var createConversationFormView = new CreateConversationFormView({
+        model: model,
+        collection: conversationsCollection,
+        add: true
+      });
+      that.listenTo(createConversationFormView, "all", function(eventName, data) {
+        if (eventName === 'done') {
+          that.inbox();
+        }
+      });
+      RootView.getInstance().setView(createConversationFormView);
+      $('[data-toggle="checkbox"]').each(function() {
+        var $checkbox = $(this);
+        $checkbox.checkbox();
+      });
+    }, function(err) {
+      alert('failed to create new conversation');
+      console.dir(err);
     });
   },
   editConversation: function(id) {
@@ -114,10 +123,15 @@ define([  //begin dependencies
   	conversationsCollection.fetch()
     var model = conversationsCollection.get(id);
     var createConversationFormView = new CreateConversationFormView({
+      model: model,
       collection: conversationsCollection,
-      id: id,
       edit: true,
       model: model
+    });
+    that.listenTo(createConversationFormView, "all", function(eventName, data) {
+      if (eventName === 'done') {
+        that.inbox();
+      }
     });
     createConversationFormView.populate(model.attributes);
     RootView.getInstance().setView(createConversationFormView);
