@@ -1,6 +1,6 @@
 define([
   'views/metadataQuestionView',
-  'templates/analyze',
+  'templates/metadataQuestions',
   'thorax'
 ], function (
   MetadataQuestionView,
@@ -14,6 +14,7 @@ define([
     initialize: function(options) {
       this.collection = options.collection;
       this.zid = options.zid;
+      this.allowCreate = false;
     },
 });
 });

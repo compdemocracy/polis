@@ -3,37 +3,20 @@ define([
   'templates/create-conversation-form',
   'models/conversation',
   'views/metadataQuestionCreateView',
+  'collections/MetadataQuestions',
   'views/inbox'
 ], function (
   View,
   template,
   ConversationModel,
   MetadataQuestionCreateView,
+  MetadataQuestionCollection,
   InboxView
 ) {
   return View.extend({
     name: 'create-conversation-form',
     template: template,
     events: {
-      initialize: function(options) {
-
-        // ConversationModel
-        this.model = options.model;
-
-        var metadataCollection = new MetadataCollection([], {
-            zid: this.zid,
-        });
-
-        metadataCollection.fetch({
-            data: $.param({
-                zid: this.zid
-            }), 
-            processData: true,
-        });
-        this.metadataQuestionCreateView = new MetadataQuestionCreateView({
-
-        });
-      },
       "click :submit": function(event) {
         var formAction = $(event.target).val();
         $(event.target).parents('form:first').attr('data-action',formAction);
@@ -79,6 +62,27 @@ define([
           //'input[name="firstName"]'
         //})
       }
+    },
+    initialize: function(options) {
+
+      // ConversationModel
+      this.model = options.model;
+      var zid = this.model.get('zid');
+
+      var metadataCollection = new MetadataQuestionCollection([], {
+          zid: zid,
+      });
+
+      metadataCollection.fetch({
+          data: $.param({
+              zid: zid
+          }), 
+          processData: true,
+      });
+      this.metadataQuestionCreateView = new MetadataQuestionCreateView({
+        collection: metadataCollection,
+        zid: zid,
+      });
     },
     validateInput: function(attrs){
       var errors = [];

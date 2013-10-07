@@ -9,20 +9,15 @@ define([
 ) {
 
 return Thorax.CollectionView.extend({
-  name: 'metadataQuestionView',
+  name: 'metadataAnswerCreateView',
   template: template,
   itemView: MetadataAnswerView,
-  events: {
-    "mouseup input": function(event) {
-      console.log('selected');
-      $(event.target).select();
-    }
-  },
   initialize: function(options) {
       var that = this;
       this.model = options.model;
       this.collection = options.model.collection;
       this.zid = options.zid;
+      this.allowCreate = true;
   }
 });
 
