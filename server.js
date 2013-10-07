@@ -1305,12 +1305,14 @@ app.get('/v3/metadata/values',
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
+    want('pmkid', getInt, assignToP),
     want('zinvite', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
+    var pmkid = req.p.pmkid;
 
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
@@ -1318,16 +1320,17 @@ function(req, res) {
         // make sure user is already a participant
         getPid(zid, uid, doneChecking);
     }
+    
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
-        async.parallel([
-            //function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
-            function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
-            //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
-        ], function(err, result) {
-            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata", 500); return; }
-            var values = result[0] && result[0].rows;
-            res.status(200).json(values);
+        var query = squel.select().from('participant_metadata_values');
+        query = query.where("zid = ?", zid);
+        if (pmkid) {
+            query = query.where("pmkid = ?", pmkid);
+        }
+        client.query(query.toString(), [], function(err, result) {
+            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_values", 500); console.dir(err); return; }
+            res.status(200).json(result.rows);
         });
     }
 });
