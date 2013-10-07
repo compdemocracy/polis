@@ -7,7 +7,6 @@
     font-weight: 100;
     padding: 20px 4% 20px 4%;
     margin-top: -20px;
-    width: 40%;
   }
 
 .conversationViewHeadline h5 {
@@ -60,6 +59,7 @@ svg {
 #comment_form {
   max-width: 900px;
   margin: 0px;
+  margin-bottom: 20px;
 }
 #comment_form_textarea{ 
     margin: 10px;
@@ -100,7 +100,6 @@ svg {
 
 
 #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
-    text-transform: uppercase;
     background-color: #F5F5F5;
     background-image: none;
     color: rgb(87, 87, 87);
@@ -120,15 +119,32 @@ svg {
 }
 
 .icon-star {
-  color: #FFF79A;
+  color: #f39c12;
 }
 
+#starButton:hover, #starButton:focus, #starButton:active {
+  color: #f39c12;
+}
+
+#agreeButton:hover, #agreeButton:focus, #agreeButton:active {
+  color: #2ecc71;
+}
+
+#disagreeButton:hover, #disagreeButton:focus, #disagreeButton:active {
+  color: #e74c3c;
+}
 
 
 /* Large desktop */
 @media (min-width: 1200px) { 
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 15px;
+  }
+  .conversationViewHeadline h1 {
+    width: 70%;
+  }
+  .conversationViewHeadline h5 {
+    width: 40%;
   }
 }
 
@@ -137,6 +153,9 @@ svg {
 @media (min-width: 768px) and (max-width: 1199px) { 
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 10px;
+  }
+  .conversationViewHeadline h5 {
+    width: 49%;
   }
 }
  
