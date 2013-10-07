@@ -167,6 +167,11 @@ define([
 // ***************************************
 // ***************************************
 
+
+
+
+
+
     this.analyzeView = new AnalyzeView({
       serverClient: serverClient,
       zid: this.zid,

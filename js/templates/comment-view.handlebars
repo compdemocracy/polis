@@ -6,15 +6,60 @@
     {{#ifDefined tid}}
       
       <div class="btn-group">
-        {{#button method="participantAgreed" class="showerbtns btn btn-large" id="agreeButton" type="button"}} Agree {{/button}}
-        {{#button method="participantStarred" class="showerbtns btn btn-large starbutton"}} <i class="icon-star-empty"></i> {{/button}}
+        {{#button 
+          method="participantAgreed" 
+          class="showerbtns btn btn-large commentButton" 
+          id="agreeButton" 
+          type="button"
+        }} Agree {{/button}}
+
+        {{#button 
+          method="participantStarred" 
+          class="showerbtns btn btn-large starbutton commentButton" 
+          id="starButton"
+          data-placement="bottom"
+          data-toggle="tooltip"
+          data-title="This comment is a superior summary of a critical point and/or central to my worldview. Starring a comment automatically 'agrees' with the comment as well."
+          data-trigger="hover focus"
+          data-delay="500"
+        }} <i class="icon-star-empty"></i> {{/button}}
       </div>
 
-      {{#button method="participantTrashed" class="showerbtns btn btnlarge pull-right" type="button"}} <i class="icon-trash"></i> {{/button}}
+      {{#button 
+        method="participantTrashed" 
+        class="showerbtns btn btn-large pull-right commentButton" 
+        type="button" 
+        id="trashButton"
+        data-toggle="tooltip"
+        data-placement="bottom"
+        data-title="This comment is irrelevant and/or abusive"
+        data-trigger="hover focus"
+        data-delay="500"
+      }} <i class="icon-trash"></i> {{/button}}
 
-      {{#button method="participantPassed" id="pass_button"class="showerbtns btn btn-large pull-right" type="button"}} Pass {{/button}}
+      {{#button 
+        method="participantPassed" 
+        id="passButton"
+        class="showerbtns btn btn-large pull-right commentButton" 
+        type="button"
+        data-toggle="tooltip"
+        data-placement="bottom"
+        data-title="See the next comment without voting. I have no reaction to this comment and/or I am unsure."
+        data-trigger="hover focus"
+        data-delay="500"
+      }} Pass {{/button}}
 
-      {{#button method="participantDisagreed" id="push_button"class="showerbtns btn btn-large pull-right" type="button"}} Disagree {{/button}}
+      {{#button 
+        method="participantDisagreed"
+        id="disagreeButton"
+        class="showerbtns btn btn-large pull-right commentButton" 
+        type="button"
+        data-toggle="tooltip"
+        data-placement="bottom"
+        data-title="This comment does not represent my opinion."
+        data-trigger="hover focus"
+        data-delay="500"
+      }} Disagree {{/button}}
 
     {{/ifDefined}}
 

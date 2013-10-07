@@ -8,8 +8,14 @@ define([
     name: 'comment-view',
     template: template,
     events: {
-    "click .starbutton": function(){
+    "hover .starbutton": function(){
       this.$('.starbutton').html('<i class="icon-star"></i>')
+    },
+    "ready": function(){
+      this.$('#agreeButton').tooltip({
+          placement: "right",
+          title: "This comment represents my opinion",
+      })
     }
   },
   initialize: function() {
@@ -76,6 +82,8 @@ define([
     });
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
+  
+
   }
   });
 });
