@@ -756,7 +756,7 @@ app.post("/v3/participants",
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
-    want('zinvite', getInt, assignToP),
+    want('zinvite', _.identity, assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
