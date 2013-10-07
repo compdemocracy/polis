@@ -706,22 +706,31 @@ function joinConversation(zid, uid, callback) {
 
 }
 
-function isOwnerOrParticipant(zid, uid, callback) {
-    callback(null); // TODO remove and uncomment below, and fix.
-    // // TODO should be parallel.
-    // // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
-    // getPid(zid, uid, function(err) {
-    //     if (err) {
-    //         isConversationOwner(zid, uid, function(err) {
-    //             callback(err);
-    //         });
-    //     } else {
-    //         callback(null);
-    //     }
-    // });
+function isOwnerOrParticipant(zid, uid, callback) { 
+
+    if (true) {
+        callback(null); // TODO remove!
+        return;
+    }
+
+    // TODO should be parallel.
+    // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
+    getPid(zid, uid, function(err) {
+        if (err) {
+            isConversationOwner(zid, uid, function(err) {
+                callback(err);
+            });
+        } else {
+            callback(null);
+        }
+    });
 }
 
 function isConversationOwner(zid, uid, callback) {
+    if (true) {
+        callback(null); // TODO remove!
+        return;
+    }
     client.query("SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);", [zid, uid], function(err, docs) {
         var pid;
         if (!docs || !docs.rows || docs.rows.length === 0) {
@@ -1316,11 +1325,6 @@ function(req, res) {
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
 
-
-        zid = 32;
-
-
-
         async.parallel([
             function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
             //function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
@@ -1344,13 +1348,12 @@ function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var key = req.p.key;
-
-    isOwnerOrParticipant(zid, uid, doneChecking);
+  
+    isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394632, "polis_err_post_participant_metadata_auth", 403); return; }
-        client.query("INSERT INTO participant_metadata_keys (zid, uid, key) VALUES ($1, $2, $3)", [
+        client.query("INSERT INTO participant_metadata_keys (pmkid, zid, key) VALUES (default, $1, $2)", [
             zid,
-            uid,
             key,
             ], function(err, results) {
             if (err) { fail(res, 2394630, "polis_err_post_participant_metadata_key", 500); console.dir(err); return; }
@@ -1359,6 +1362,33 @@ function(req, res) {
     }
 });
     
+app.post('/v3/metadata/values',
+    logPath,
+    moveToBody,
+    auth,
+    need('zid', getInt, assignToP),
+    need('uid', getInt, assignToP),
+    need('pmkid', getInt, assignToP),
+    need('value', _.identity, assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var pmkid = req.p.pmkid;
+    var value = req.p.value;
+
+    isConversationOwner(zid, uid, doneChecking);
+    function doneChecking(err, foo) {
+        if (err) { fail(res, 2394635, "polis_err_post_participant_metadata_auth", 403); return; }
+        client.query("INSERT INTO participant_metadata_values (pmkid, zid, value) VALUES ($1, $2, $3)", [
+            pmkid,
+            zid,
+            value,
+            ], function(err, results) {
+            if (err) { fail(res, 2394638, "polis_err_post_participant_metadata_value", 500); console.dir(err); return; }
+            res.status(200).json({});
+        });
+    }
+});
 
 app.get('/v3/metadata/values',
     logPath,
@@ -1385,8 +1415,6 @@ function(req, res) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
         var query = squel.select().from('participant_metadata_values');
 
-
-            zid = 32;
 
         query = query.where("zid = ?", zid);
         if (pmkid) {
