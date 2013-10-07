@@ -11,10 +11,10 @@ define([
     name: 'metadataQuestionsView',
     template: template,
     itemView: MetadataQuestionAndAnswersView,
+    allowCreate: false,
     initialize: function(options) {
       this.collection = options.collection;
       this.zid = options.zid;
-      this.allowCreate = false;
     },
 });
 });

@@ -1,20 +1,13 @@
 define([
-  'views/metadataAnswerCreateView',
-  'templates/metadataQuestions',
-  'thorax'
+  'views/metadataQuestionAndAnswersViewWithCreate',
+  'views/metadataQuestionsView',
 ], function (
-  MetadataAnswerCreateView,
-  template,
-  Thorax
+  MetadataQuestionAndAnswersViewWithCreate,
+  MetadataQuestionsView
 ) {
-  return Thorax.CollectionView.extend({
+  return MetadataQuestionsView.extend({
     name: 'metadataQuestionsViewWithCreate',
-    template: template,
-    itemView: MetadataAnswerCreateView,
-    initialize: function(options) {
-      this.collection = options.collection;
-      this.zid = options.zid;
-      this.allowCreate = true;
-    },
+    itemView: MetadataQuestionAndAnswersViewWithCreate,
+    allowCreate: true,
 });
 });
