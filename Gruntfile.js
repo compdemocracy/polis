@@ -148,7 +148,7 @@ module.exports = function(grunt) {
     },
     watch: {
       handlebars: {
-        files: [paths.templates + '/**/*.hbs'],
+        files: [paths.templates + '/**/*.h*'],
         tasks: ['templates']
       },
       scripts: {
