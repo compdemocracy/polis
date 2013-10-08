@@ -233,7 +233,11 @@ module.exports = function(grunt) {
         },
         'bootstrap_transition': { 
           deps: ['jquery']
-        },         
+        },
+        'net/bbFetch': {
+          exports: 'bbFetch',
+          deps: ['jquery', 'underscore'],
+        },
         'VisView': {
           deps: ['d3']
         }
