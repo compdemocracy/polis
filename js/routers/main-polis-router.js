@@ -2,6 +2,8 @@ define([  //begin dependencies
   'views/root',
   'backbone',
   'models/conversation',
+  'models/participant',
+  'net/bbFetch',
   'collections/conversations',
   'views/inbox',
   'views/homepage',
@@ -17,6 +19,8 @@ define([  //begin dependencies
 		RootView, 
 		Backbone, 
 		ConversationModel,
+    ParticipantModel,
+    bbFetch,
 		ConversationsCollection, 
 		InboxView, 
 		HomepageView, 
@@ -150,50 +154,82 @@ define([  //begin dependencies
     });
     RootView.getInstance().setView(detailsView);
   },
+
+  doLaunchConversation: function(zid) {
+    // Assumes you have a pid already.
+    var model = new ConversationModel({
+        zid: zid,
+    });
+    bbFetch(model).then(function() {
+      var conversationView = new ConversationView({
+        model: model,
+        zid: zid,
+      });
+      RootView.getInstance().setView(conversationView);
+    },function(e) {
+      console.error('error loading conversation model', e);
+      setTimeout(function() { that.conversationView(zid); }, 5000); // retry
+    });
+  },
+
   conversationView: function(zid, zinvite) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
     var that = this;
  
-    console.dir("conversationView");
-    console.dir(this);
     if (!PolisStorage.uid.get()) {
-        this.createOrSignIn(zid);
-        return;
-    }
-    var model = new ConversationModel({
-        id: zid, // TODO remove id
+        console.log('trying to load conversation, but no auth');
+        // Not signed in.
+        // Or not registered.
+        this.doCreateUser(zinvite).done(function() {
+          if (zid) {
+            // Try again, should be ready now.
+            that.conversationView(zid, zinvite);
+          } else {
+            that.inbox();
+          }
+        });
+
+    } else if (!PolisStorage.pids.get(zid)) {
+      console.log('trying to load conversation, but no pid');
+      // Signed in...
+      // But not yet a participant for this converation.
+      // (at least from this browser)
+      //
+      // Try to create or fetch a participant record.
+      var ptpt = new ParticipantModel({
         zid: zid,
         zinvite: zinvite,
-    });
-    model.fetch({
-      success: function() {
-
-        console.dir("fetch success");
-        var conversationView = new ConversationView({
-          model: model,
-          zid: zid,
-        });
-        console.dir("fetch success2");
-        RootView.getInstance().setView(conversationView);
-        console.dir("fetch success3");
-      },
-      error: function(e) {
-        console.error('error loading conversation model', e);
-        setTimeout(function() { that.conversationView(zid); }, 5000); // retry
-      },
-    });
+      });
+      ptpt.save().then(function() {
+        // Participant record was created, or already existed.
+        // Go to the conversation.
+        that.doLaunchConversation(zid);
+      }, function(err) {
+        // Couldn't create participant record.
+        alert("could't join conversation");
+      });
+    } else {
+      // Found a pid for that zid.
+      // Go to the conversation.
+      that.doLaunchConversation(zid);
+    }
   },
-  createUser: function(zid){
+
+  doCreateUser: function(zinvite){
     var that = this;
-    var createUserFormView = new CreateUserFormView();
-    createUserFormView.on("authenticated", function() {
-      if (zid) {
-        // Redirect to a specific conversation after the user signs in.
-        that.conversationView(zid);
-      } else {
-        that.inbox();
-      }
+    var dfd = $.Deferred();
+
+    var createUserFormView = new CreateUserFormView({
+      zinvite: zinvite,
     });
+    createUserFormView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(createUserFormView);
+    return dfd.promise();
+  },
+  createUser: function(){
+    var that = this;
+    this.doCreateUser().done(function() {
+      that.inbox();
+    });
   },
   login: function(zid){
     var that = this;
