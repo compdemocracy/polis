@@ -688,10 +688,11 @@ function getConversationProperty(zid, propertyName, callback) {
 
 function checkZinviteCodeValidity(zid, zinvite, callback) {
     client.query('SELECT * FROM zinvites WHERE zid = ($1) AND zinvite = ($2);', [zid, zinvite], function(err, results) {
-        if (err || !results || !results.length) {
+        if (err || !results || !results.rows || !results.rows.length) {
             callback(1);
+        } else {
+            callback(null);// ok
         }
-        callback(null);// ok
     });
 }
 
@@ -823,9 +824,9 @@ function(req, res) {
                     checkZinviteCodeValidity(zid, zinvite, function(err) {
                         if (err) {
                             res.status(403).json({status:"polis_err_add_participant_bad_zinvide_code"});
-                            return;
+                        } else {
+                            doJoin();
                         }
-                        doJoin();
                     });
                 }
             });
