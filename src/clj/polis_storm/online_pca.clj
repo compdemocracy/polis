@@ -25,12 +25,13 @@
     (if (not (some #(= (nth reaction 1) %) @cmts))
       (swap! cmts conj (nth reaction 1))))
   
-  (println "expansion col diff is : " (- (count @cmts) (count (nth @rating-matrix 0))))
+  (println "expansion collumn diff is : " (- (count @cmts) (count (nth @rating-matrix 0))))
   (println "pre expansion matrix is: " @rating-matrix)
-  (reset! rating-matrix (mapv #(into % (repeat (- (count @cmts) (count (nth @rating-matrix 0))) 0)) @rating-matrix))
+  (reset! rating-matrix (into @rating-matrix (repeat (- (count @ptpts) (count @rating-matrix) ) [])))
   (println "first expansion is : " @rating-matrix)
+  (reset! rating-matrix (mapv #(into % (repeat (- (count @cmts) (count %)) 0)) @rating-matrix))
   (println "expansion comment count is : " (count @cmts)) 
-  (reset! rating-matrix (into @rating-matrix (into [] (repeat (- (count @ptpts) (count @rating-matrix) ) 0))))
+  ;(reset! rating-matrix (into @rating-matrix (into [] (repeat (- (count @ptpts) (count @rating-matrix) ) 0))))
   (println "second expansion is : " @rating-matrix)
   ;; maybe could have used map below
   (doseq [reaction new-reactions]
@@ -38,6 +39,7 @@
       (println "row is :" row "  column is :" column "  matrix is: " @rating-matrix)
       (swap! rating-matrix assoc-in [row column] (nth reaction 2)) 
       )))  
+
 
 
 (defbolt pca ["pca"] {:prepare true}
@@ -48,12 +50,23 @@
         ;;storm tuple impl seems to need some unwrapping
         (def new-reactions (nth (.getValues tuple) 0))
         (update-rating-matrix new-reactions rating-matrix ptpts cmts)       
-        (println "complete, RM is " @rating-matrix)))))
+        (println "complete, RM is " @rating-matrix)
+        (def pca (principal-components @rating-matrix))
+        (def components (:rotation pca))
+        (def pc1 (sel components :cols 0))
+        (def pc2 (sel components :cols 1)) 
+        (def x1 (mmult @rating-matrix pc1)) 
+        (def x2 (mmult @rating-matrix pc2)) 
+        (view (scatter-plot x1 x2 
+          :x-label "PC1" 
+          :y-label "PC2" 
+          :title "legalization_conv"))))))
+
 
 (defn mk-topology [] 
   (topology
     {"1" (spout-spec (reaction-spout
-                    "polis.io/whatever-controller-action") 
+                     "polis.io/whatever-controller-action") 
                     :p 1)}
      
     {"2" (bolt-spec {"1" :all}
