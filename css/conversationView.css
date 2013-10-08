@@ -7,7 +7,7 @@
     font-weight: 100;
     padding: 20px 4% 20px 4%;
     margin-top: -20px;
-  }
+}
 
 .conversationViewHeadline h5 {
     font-weight: 400;
@@ -147,7 +147,6 @@ svg {
     width: 40%;
   }
 }
-
  
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
 @media (min-width: 768px) and (max-width: 1199px) { 
@@ -157,6 +156,9 @@ svg {
   .conversationViewHeadline h5 {
     width: 49%;
   }
+  .row-fluid .t-span6 {
+    width: 48.61878453038674%;
+  } 
 }
  
 /* BIG PHONE to LITTLE tablet */

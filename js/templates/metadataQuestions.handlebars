@@ -1,18 +1,18 @@
-Metadata!!!!!
 {{collection}}
 
 {{#if allowCreate}}
 	{{#if formActive}}
-		<div class="add_question_form">
-			Add question here
-			<form>
-			<textarea></textarea>
-			</form>
+		<form class="form-horizontal">
+		<div class="add_question_form control-group">
+			<label for="questionInput" class="control-label">Add a new metadata question - ie., "What is your gender?" or "What office are you based in?" </label>
+			<textarea id="questionInput" placeholder="Metadata question"></textarea>
 		</div>
+		</form>
 	{{else}}
-		{{#button "showAddQuestionForm" class="btn btn-success action"}}
-	    	Add Question
-	    {{/button}}
+
+		 {{#button method="showAddQuestionForm" class="addNewMetadataButton makeCursorPointer controls" tag="a"}}
+	    	<i class="icon-tags"></i>&nbsp;Add new metadata 
+	   {{/button}}
 	{{/if}}
 {{/if}}
 

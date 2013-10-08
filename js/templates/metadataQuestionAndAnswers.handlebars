@@ -1,8 +1,8 @@
-{{key}}
 
+{{key}}
 {{#if allowDelete}}
-	{{#button "deleteQuestion" class="btn btn-success action"}}
-		Delete Question
+	{{#button method="deleteQuestion" tag="a"}}
+		 &nbsp;<i class="icon-remove"></i>
 	{{/button}}
 {{/if}}
 
@@ -12,14 +12,14 @@
 {{#if allowCreate}}
 	{{#if formActive}}
 		<div class="add_answer_form">
-			Add answer here
+			Add answer here, ie. - "Male" or "NYC"
 			<form>
 			<textarea></textarea>
 			</form>
 		</div>
 	{{else}}
-		{{#button "showAddAnswerForm" class="btn btn-success action"}}
-	    	Add Answer
-	    {{/button}}
+		{{#button method="showAddAnswerForm" tag="a" class="createAnswer"}}
+	    <i class="icon-plus"></i>&nbsp;Add an answer for participants to select
+	  {{/button}}
 	{{/if}}
 {{/if}}

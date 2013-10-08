@@ -65,6 +65,24 @@ header .navbar .user { margin-right: 15px; }
 .concludeButton:hover {	background-color: #3498db; }
 .detailsBox input { width: 97%; color: #34495e; }
 
+/* Conversation create - and everything concerned with metadata */
+
+.makeCursorPointer {
+  cursor: pointer;	
+}
+.addNewMetadataButton {
+	margin-top: 25px;
+	margin-bottom: 30px;
+	font-size: 13.5px;
+}
+.addNewMetadataButton:hover {
+	text-decoration: none;
+}
+[data-view-name="metadataQuestionsViewWithCreate"] {
+
+}
+
+
 /* Mobile Only */
 
 @media only screen and (max-width : 640px) {

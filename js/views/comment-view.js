@@ -16,7 +16,8 @@ define([
           placement: "right",
           title: "This comment represents my opinion",
       })
-    }
+    },
+    
   },
   initialize: function() {
     var serverClient = this.serverClient;
@@ -82,7 +83,7 @@ define([
     });
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
-  
+    
 
   }
   });
