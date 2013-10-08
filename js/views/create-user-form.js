@@ -2,10 +2,12 @@ define([
   'view',
   'templates/create-user-form',
   'util/polisStorage',
+  'jquery',
 ], function (
   View,
   template,
-  PolisStorage
+  PolisStorage,
+  $
 ) {
   return View.extend({
     name: 'create-user-form',
@@ -20,6 +22,10 @@ define([
         }
         this.serialize(function(attrs){
           PolisStorage.clearAll(); // clear old user - TODO setup deregistration
+
+          // Incorporate options, like zinvite.
+          attrs = $.extend(options, attrs);
+
           $.ajax({
             url: urlPrefix + "v3/auth/new",
             type: "POST",
@@ -54,6 +60,9 @@ define([
         errors.push({name: 'description',  message: 'hey there... you need an email'});
       }
       return errors; 
-    }
+    },
+    initialize: function(options) {
+      this.options = options;
+    },
   });
 });
