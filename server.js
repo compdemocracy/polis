@@ -540,7 +540,7 @@ app.all("/v3/*", function(req, res, next) {
   }
   res.header("Access-Control-Allow-Origin", host);
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
-  res.header("Access-Control-Allow-Methods", "GET, PUT, POST, OPTIONS");
+  res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Credentials", true);
   return next();
 });
@@ -1305,7 +1305,106 @@ function(req, res){
     );
 });
 
-app.get('/v3/metadata/keys',
+app.delete('/v3/metadata/questions/:pmqid',
+    logPath,
+    auth,
+    moveToBody,
+    need('uid', getInt, assignToP),
+    need('pmqid', getInt, assignToP),
+function(req, res) {
+    var uid = req.p.uid;
+    var pmqid = req.p.pmqid;
+
+    getZidForQuestion(pmqid, function(err, zid) {
+        if (err) { fail(res, 45434534, "polis_err_delete_participant_metadata_questions_zid", 500); return; }
+        isConversationOwner(zid, uid, function(err) {
+            if (err) { fail(res, 34534565, "polis_err_delete_participant_metadata_questions_auth", 403); return; }
+
+            deleteMetadataQuestionAndAnswers(pmqid, function(err) {
+                if (err) { fail(res, 324234, "polis_err_delete_participant_metadata_questions_"+err, 500); return; }
+                console.log('ok');
+                res.status(200)
+            });
+        });
+    });
+});
+
+app.delete('/v3/metadata/answers/:pmaid',
+    logPath,
+    auth,
+    moveToBody,
+    need('uid', getInt, assignToP),
+    need('pmaid', getInt, assignToP),
+function(req, res) {
+    var uid = req.p.uid;
+    var pmaid = req.p.pmaid;
+
+    getZidForAnswer(pmaid, function(err, zid) {
+        if (err) { fail(res, 3345345, "polis_err_delete_participant_metadata_answers_zid", 500); return; }
+        isConversationOwner(zid, uid, function(err) {
+            if (err) { fail(res, 34534565, "polis_err_delete_participant_metadata_answers_auth", 403); return; }
+
+            deleteMetadataAnswer(pmaid, function(err) {
+                if (err) { fail(res, 324234, "polis_err_delete_participant_metadata_answers_"+err, 500); return; }
+                console.log('ok');
+                res.send(200);
+            });
+        });
+    });
+});
+
+function getZidForAnswer(pmaid, callback) {
+    client.query("SELECT zid FROM participant_metadata_answers WHERE pmaid = ($1);", [pmaid], function(err, result) {
+        console.dir(arguments);
+        if (err) { console.dir(err); callback(err); return;}
+        if (!result.rows || !result.rows.length) {
+            console.log('no result');
+            console.dir(result);
+            callback(1);
+            return;
+        }
+        callback(null, result.rows[0].zid);
+    });
+}
+
+function getZidForQuestion(pmqid, callback) {
+    client.query("SELECT zid FROM participant_metadata_questions WHERE pmqid = ($1);", [pmqid], function(err, result) {
+        console.dir(arguments);
+        if (err) {console.dir(err);  callback(err); return;}
+        if (!result.rows || !result.rows.length) {
+                        console.log('no result');
+            console.dir(result);
+            callback(1);
+            return;
+        }
+        callback(null, result.rows[0].zid);
+    });
+}
+
+function deleteMetadataAnswer(pmaid, callback) {
+    // client.query("update participant_metadata_choices set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
+    //     if (err) {callback(34534545); return;}
+        client.query("update participant_metadata_answers set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
+            if (err) {callback(23424234); return;}
+            callback(null);
+        });           
+     // });
+}
+
+function deleteMetadataQuestionAndAnswers(pmqid, callback) {
+    // client.query("update participant_metadata_choices set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
+    //     if (err) {callback(93847834); return;}
+        client.query("update participant_metadata_answers set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
+            if (err) {callback(92374827); return;}
+            client.query("update participant_metadata_questions set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
+                if (err) {callback(29386827); return;}
+                callback(null);
+            });
+        });           
+     // });
+}
+
+app.get('/v3/metadata/questions',
     logPath,
     auth,
     moveToBody,
@@ -1327,18 +1426,18 @@ function(req, res) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
 
         async.parallel([
-            function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
-            //function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
-            //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
+            function(callback) { client.query("SELECT * FROM participant_metadata_questions WHERE alive = true AND zid = ($1);", [zid], callback) },
+            //function(callback) { client.query("SELECT * FROM participant_metadata_answers WHERE alive = true AND zid = ($1);", [zid], callback) },
+            //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE alive = true AND zid = ($1);", [zid], callback) },
         ], function(err, result) {
-            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_keys", 500); return; }
+            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_questions", 500); return; }
             var keys = result[0] && result[0].rows;
             res.status(200).json(keys);
         });
     }
 });
 
-app.post('/v3/metadata/keys',
+app.post('/v3/metadata/questions',
     logPath,
     moveToBody,
     auth,
@@ -1353,7 +1452,7 @@ function(req, res) {
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394632, "polis_err_post_participant_metadata_auth", 403); return; }
-        client.query("INSERT INTO participant_metadata_keys (pmkid, zid, key) VALUES (default, $1, $2)", [
+        client.query("INSERT INTO participant_metadata_questions (pmqid, zid, key) VALUES (default, $1, $2)", [
             zid,
             key,
             ], function(err, results) {
@@ -1363,25 +1462,25 @@ function(req, res) {
     }
 });
     
-app.post('/v3/metadata/values',
+app.post('/v3/metadata/answers',
     logPath,
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
-    need('pmkid', getInt, assignToP),
+    need('pmqid', getInt, assignToP),
     need('value', _.identity, assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
-    var pmkid = req.p.pmkid;
+    var pmqid = req.p.pmqid;
     var value = req.p.value;
 
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394635, "polis_err_post_participant_metadata_auth", 403); return; }
-        client.query("INSERT INTO participant_metadata_values (pmkid, zid, value) VALUES ($1, $2, $3)", [
-            pmkid,
+        client.query("INSERT INTO participant_metadata_answers (pmqid, zid, value) VALUES ($1, $2, $3)", [
+            pmqid,
             zid,
             value,
             ], function(err, results) {
@@ -1391,20 +1490,20 @@ function(req, res) {
     }
 });
 
-app.get('/v3/metadata/values',
+app.get('/v3/metadata/answers',
     logPath,
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
-    want('pmkid', getInt, assignToP),
+    want('pmqid', getInt, assignToP),
     want('zinvite', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
-    var pmkid = req.p.pmkid;
+    var pmqid = req.p.pmqid;
 
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
@@ -1414,15 +1513,16 @@ function(req, res) {
     
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
-        var query = squel.select().from('participant_metadata_values');
+        var query = squel.select().from('participant_metadata_answers');
 
 
         query = query.where("zid = ?", zid);
-        if (pmkid) {
-            query = query.where("pmkid = ?", pmkid);
+        query = query.where("alive = true");
+        if (pmqid) {
+            query = query.where("pmqid = ?", pmqid);
         }
         client.query(query.toString(), [], function(err, result) {
-            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_values", 500); console.dir(err); return; }
+            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_answers", 500); console.dir(err); return; }
             res.status(200).json(result.rows);
         });
     }
@@ -1449,8 +1549,8 @@ function(req, res) {
     function doneChecking(err) {
         if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
         async.parallel([
-            function(callback) { client.query("SELECT * FROM participant_metadata_keys WHERE zid = ($1);", [zid], callback) },
-            function(callback) { client.query("SELECT * FROM participant_metadata_values WHERE zid = ($1);", [zid], callback) },
+            function(callback) { client.query("SELECT * FROM participant_metadata_questions WHERE zid = ($1);", [zid], callback) },
+            function(callback) { client.query("SELECT * FROM participant_metadata_answers WHERE zid = ($1);", [zid], callback) },
             function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
         ], function(err, result) {
             if (err) { fail(res, 2394629, "polis_err_get_participant_metadata", 500); return; }
@@ -1468,21 +1568,21 @@ function(req, res) {
             for (i = 0; i < keys.length; i++) {
                 // Add a map for each keyId
                 var k = keys[i];
-                o[k.pmkid] = {}; 
+                o[k.pmqid] = {}; 
                 // keep the user-facing key name
-                keyNames[k.pmkid] = k.key;
+                keyNames[k.pmqid] = k.key;
             }
             for (i = 0; i < vals.length; i++) {
                 // Add an array for each possible valueId
                 var k = vals[i];
                 var v = vals[i];
-                o[k.pmkid][v.pmvid] = []; 
+                o[k.pmqid][v.pmaid] = []; 
                 // keep the user-facing value string
-                valueNames[v.pmvid] = v.value;
+                valueNames[v.pmaid] = v.value;
             }
             for (i = 0; i < choices.length; i++) {
                 // Append a pid for each person who has seleted that value for that key.
-                o[choices[i].pmkid][choices[i].pmvid] = choices[i].pid;
+                o[choices[i].pmqid][choices[i].pmaid] = choices[i].pid;
             }
             // TODO cache
             res.status(200).json({

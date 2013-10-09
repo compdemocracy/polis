@@ -31,40 +31,43 @@ CREATE TABLE users(
 
 --CREATE TABLE org_member_metadata_types (
 
-CREATE TABLE participant_metadata_keys (
-    pmkid SERIAL,
+CREATE TABLE participant_metadata_questions (
+    pmqid SERIAL,
     zid INTEGER REFERENCES conversations(zid),
     key VARCHAR(999), -- City, Office, Role, etc
+    alive BOOLEAN  DEFAULT TRUE, -- !deleted
     UNIQUE (zid, key), -- TODO index!
-    UNIQUE (pmkid)
+    UNIQUE (pmqid)
 );
 
-CREATE TABLE participant_metadata_values (
-    pmvid SERIAL,
-    pmkid INTEGER REFERENCES participant_metadata_keys(pmkid),
+CREATE TABLE participant_metadata_answers (
+    pmaid SERIAL,
+    pmqid INTEGER REFERENCES participant_metadata_questions(pmqid),
     zid INTEGER REFERENCES conversations(zid), -- for fast disk-local indexing
     value VARCHAR(999), -- Seattle, Office 23, Manager, etc
-    UNIQUE (pmkid, zid, value),
-    UNIQUE (pmvid)
+    alive BOOLEAN DEFAULT TRUE, -- !deleted
+    UNIQUE (pmqid, zid, value),
+    UNIQUE (pmaid)
 );
 
 CREATE TABLE participant_metadata_choices (
     zid INTEGER,
     pid INTEGER,
-    pmkid INTEGER REFERENCES participant_metadata_keys(pmkid),
-    pmvid INTEGER REFERENCES participant_metadata_values(pmvid),
+    pmqid INTEGER REFERENCES participant_metadata_questions(pmqid),
+    pmaid INTEGER REFERENCES participant_metadata_answers(pmaid),
+    alive BOOLEAN DEFAULT TRUE, -- !deleted
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid),
-    UNIQUE (zid, pid, pmkid, pmvid)
+    UNIQUE (zid, pid, pmqid, pmaid)
 );
 
  ---- top level
 ---- these can be used to construct the tree, then add an empty list to each node
---SELECT * FROM participant_metadata_keys WHERE zid = 34;
---SELECT * FROM participant_metadata_values WHERE zid = 34;
+--SELECT * FROM participant_metadata_questions WHERE zid = 34;
+--SELECT * FROM participant_metadata_answers WHERE zid = 34;
 -- now populate the tree with participant entries
 --SELECT * from participant_metadata_choices WHERE zid = 34;
 ----for (each) {
-----  tree.zid.pmkid.pmvid.push(pid)
+----  tree.zid.pmqid.pmaid.push(pid)
 ----}
 
 
