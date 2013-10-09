@@ -10,13 +10,9 @@
 			<textarea id="questionInput" name="questionInput" placeholder="Metadata question" ></textarea>
 		</div>
 		</form>
-
-
-
 	{{else}}
-
-		 {{#button method="showAddQuestionForm" class="removeUnderlinedLink makeCursorPointer controls" tag="a"}}
-	    	<i class="icon-tags"></i>&nbsp;Add new metadata 
+		 {{#button method="showAddQuestionForm" class="addNewMetadataButton makeCursorPointer controls" tag="a"}}
+	    	<i class="icon-tags"></i>&nbsp;Add metadata 
 	   {{/button}}
 	{{/if}}
 {{/if}}
