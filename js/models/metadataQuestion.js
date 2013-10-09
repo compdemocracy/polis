@@ -6,10 +6,11 @@ define([
     Model) {
 return Model.extend({
     name: 'metadata/key',
-    url: 'metadata/questions',
+    urlRoot: 'metadata/questions',
+    idAttribute: 'pmqid',
     defaults: {
-    	key: "No metadata question was entered. This is the default value of the model.",
-    	required: false, 
+    	// key: "No metadata question was entered. This is the default value of the model.",
+    	// required: false, 
     },
     initialize: function() {
         var zid = this.get('zid');

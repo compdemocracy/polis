@@ -5,8 +5,10 @@ function makeOpt(o, opt, dfd) {
     });
 }
 // o is a backbone object
-function bbFetch(o, opt){
+function bbSave(o, opt){
     var dfd = $.Deferred();
-    o.fetch(makeOpt(o, opt, dfd));
+    if (!o.save(makeOpt(o, opt, dfd))) {
+      dfd.rejectWith(o, 'validation failed');
+    }
     return dfd.promise();
 }

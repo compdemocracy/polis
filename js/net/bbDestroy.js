@@ -5,8 +5,8 @@ function makeOpt(o, opt, dfd) {
     });
 }
 // o is a backbone object
-function bbFetch(o, opt){
+function bbDestroy(o, opt){
     var dfd = $.Deferred();
-    o.fetch(makeOpt(o, opt, dfd));
+    o.destroy(makeOpt(o, opt, dfd));
     return dfd.promise();
 }

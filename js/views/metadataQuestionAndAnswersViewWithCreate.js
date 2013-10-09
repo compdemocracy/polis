@@ -16,12 +16,13 @@ return MetadataQuestionAndAnswersView.extend({
   },
   deleteQuestion: function() {
     // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
-    this.model.destroy().then(function() {
-      // ok
-    }, function(err) {
-      alert("couldn't delete question");
-      console.dir(arguments);
-    });
+    this.model.destroy();
+    // .then(function() {
+    //   // ok
+    // }, function(err) {
+    //   alert("couldn't delete question");
+    //   console.dir(arguments);
+    // });
   },
   showAddAnswerForm: function() {
     this.formActive = true;
@@ -41,13 +42,16 @@ return MetadataQuestionAndAnswersView.extend({
           value: attrs.answerInput,
         };
         var model = new MetadataAnswer(data);
-        model.save().then(that.collection.fetch({
-          data: $.param({
-            zid: zid,
-            pmqid: that.model.get('pmqid'),
-          }), 
-          processData: true,
-        }));
+        model.save().done(function() {
+          that.collection.fetch({
+            data: $.param({
+              zid: zid,
+              pmqid: that.model.get('pmqid'),
+            }), 
+            processData: true,
+          });
+          model.fetch();
+        });
       }
       that.formActive = false;
       that.render();

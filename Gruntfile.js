@@ -238,6 +238,14 @@ module.exports = function(grunt) {
           exports: 'bbFetch',
           deps: ['jquery', 'underscore'],
         },
+        'net/bbSave': {
+          exports: 'bbSave',
+          deps: ['jquery', 'underscore'],
+        },
+        'net/bbDestroy': {
+          exports: 'bbDestroy',
+          deps: ['jquery', 'underscore'],
+        },
         'VisView': {
           deps: ['d3']
         }
