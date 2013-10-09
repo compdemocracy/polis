@@ -148,18 +148,16 @@ module.exports = function(grunt) {
     },
     watch: {
       handlebars: {
-        files: [paths.templates + '/**/*.h*'],
-        tasks: ['templates']
+        files: ['js/templates/**/*'], //when any of these files change
+        tasks: ['templates']          //these tasks are run.
       },
       scripts: {
-        files: [
-          paths.js + '/**/*.js'
-        ],
+        files: ['js/**/*.js'],
         tasks: ['scripts:development']
       },
       styles: {
-        files: [paths.css + '/**/*'],
-        tasks: ['copy:styles']
+        files: ['css/**/*'],
+        tasks: ['copy:styles', 'less:development']
       }
     }
   });
