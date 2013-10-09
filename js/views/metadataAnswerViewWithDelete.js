@@ -11,8 +11,12 @@ return View.extend({
   template: template,
   allowDelete: true,
   deleteAnswer: function() {
-    console.dir(arguments);
-    console.dir(this);
+    this.model.destroy().then(function() {
+      // ok
+    }, function(err) {
+      alert("couldn't delete answer");
+      console.dir(arguments);
+    });
   },
   initialize: function(options) {
       this.model = options.model;

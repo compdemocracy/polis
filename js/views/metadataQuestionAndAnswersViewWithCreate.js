@@ -15,7 +15,13 @@ return MetadataQuestionAndAnswersView.extend({
     "blur .add_answer_form": "hideAddAnswerForm"
   },
   deleteQuestion: function() {
-    console.log('delete ' + this.get('pmvid'));
+    // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
+    this.model.destroy().then(function() {
+      // ok
+    }, function(err) {
+      alert("couldn't delete question");
+      console.dir(arguments);
+    });
   },
   showAddAnswerForm: function() {
     this.formActive = true;
@@ -25,22 +31,24 @@ return MetadataQuestionAndAnswersView.extend({
     var that = this;
     var formAction = $(event.target).data('action');
     this.serialize(function(attrs){
-      alert('add answer for ' + that.model.get('pmkid'));
 
-      var zid = that.model.get('zid');
-      var data = {
-        zid: zid,
-        pmkid: that.model.get('pmkid'),
-        value: "new answer " + Math.random(), // attrs.text?
-      };
-      var model = new MetadataAnswer(data);
-      model.save().then(that.collection.fetch({
-        data: $.param({
+      // Make sure the form isn't empty.
+      if (attrs.answerInput && attrs.answerInput.length) {
+        var zid = that.model.get('zid');
+        var data = {
           zid: zid,
-          pmkid: that.model.get('pmkid'),
-        }), 
-        processData: true,
-      }));
+          pmqid: that.model.get('pmqid'),
+          value: attrs.answerInput,
+        };
+        var model = new MetadataAnswer(data);
+        model.save().then(that.collection.fetch({
+          data: $.param({
+            zid: zid,
+            pmqid: that.model.get('pmqid'),
+          }), 
+          processData: true,
+        }));
+      }
       that.formActive = false;
       that.render();
     });

@@ -18,20 +18,21 @@ define([
       var that = this;
       var formAction = $(event.target).data('action');
       this.serialize(function(attrs){
-        alert('add question ' + JSON.stringify(attrs) + 'for ' + that.zid);
 
-        var data = {
-          zid: that.zid,
-          key: "new question " + Math.random(), // attrs.text?
-        };
-        var model = new MetadataQuestion(data);
-        model.save().then(that.collection.fetch({
-          data: $.param({
-            zid: that.zid
-          }), 
-          processData: true,
-        }));
-        
+        // Make sure the form isn't empty.
+        if (attrs.questionInput && attrs.questionInput.length) {
+          var data = {
+            zid: that.zid,
+            key: attrs.questionInput,
+          };
+          var model = new MetadataQuestion(data);
+          model.save().then(that.collection.fetch({
+            data: $.param({
+              zid: that.zid
+            }), 
+            processData: true,
+          }));
+        }
         that.formActive = false;
         that.render();
       });

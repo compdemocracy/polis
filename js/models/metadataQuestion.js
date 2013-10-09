@@ -6,22 +6,22 @@ define([
     Model) {
 return Model.extend({
     name: 'metadata/key',
-    url: 'metadata/keys',
+    url: 'metadata/questions',
     defaults: {
     	key: "No metadata question was entered. This is the default value of the model.",
     	required: false, 
     },
     initialize: function() {
         var zid = this.get('zid');
-        var pmkid = this.get('pmkid');
+        var pmqid = this.get('pmqid');
         this.collection = new MetadataAnswersCollection([], {
             zid: zid,
-            pmkid: pmkid,
+            pmqid: pmqid,
         });
         this.collection.fetch({
             data: $.param({
                 zid: zid,
-                pmkid: pmkid,
+                pmqid: pmqid,
             }), 
             processData: true
         });

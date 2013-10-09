@@ -10,7 +10,7 @@ define([
     url: 'metadata/values',
     initialize: function(models, options) {
         this.zid = options.zid;
-        this.pmkid = options.pmkid;
+        this.pmqid = options.pmqid;
     },
     model: MetadataAnswer
   });

@@ -3,11 +3,11 @@ define([
 ], function (Model) {
   return Model.extend({
     name: 'metadataAnswers',
-    url: 'metadata/values',
+    url: 'metadata/answers',
     defaults: {
-        pmvid: -1,
+        pmaid: -1,
         zid: -1,
-        pmkid: -1,
+        pmqid: -1,
         value: "",
         checked: "checked", // TODO would be nice to use a boolean and have the template say "checked"
     }

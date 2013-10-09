@@ -8,9 +8,10 @@ define(['model'], function (Model) {
         return this.urlRoot + "/" + this.id;
     },
     defaults: {
-      topic: function() {
-        return new Date(this.created).toString();
-      },
+      topic: "", // an empty topic will be shown as a localized date string
+      // topic: function() {
+      //   return new Date(this.created).toString();
+      // },
       description: "",
       created: 0,
       owner: undefined,
