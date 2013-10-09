@@ -75,7 +75,7 @@ header .navbar .user { margin-right: 15px; }
 	margin-bottom: 30px;
 	font-size: 13.5px;
 }
-.addNewMetadataButton:hover {
+.removeUnderlinedLink:hover {
 	text-decoration: none;
 }
 .createAnswer{
