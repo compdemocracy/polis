@@ -23,10 +23,9 @@
 <section class="container">
 <div class="row">
 
-
-
 	<div class="span6">
 		<input type="hidden" name="id" id="id" value="{{id}}"/>
+
 		<form class="form-horizontal conversationsForm">
 			<div class="control-group">
 			  	<label for="topic" class="control-label">Topic</label>
@@ -37,7 +36,7 @@
 		  	<div class="control-group">
 			  	<label for="description" class="control-label">Description</label>
 			  	<div class="controls">
-			  		<textarea type="text" name="description" placeholder="Description">{{description}}</textarea>
+			  		<textarea type="text" name="description" placeholder="Description" rows="8">{{description}}</textarea>
 				</div>
 			</div>
 
@@ -49,25 +48,6 @@
 				</div>
 			</div>
 
-
-
-
-			<div class="control-group">
-				<div class="controls">
-
-				{{#if add}}
-					<button class="btn btn-success" name="formAction" type="submit" value="publish">Create & Publish</button>
-					<button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button>
-				{{/if}}
-
-				{{#if edit}}
-					<button class="btn btn-success action" name="formAction" value="publish" type="submit">Update & Publish</button>
-					<button class="btn btn-success action" name="formAction" value="draft" type="submit">Save as Draft</button>
-					{{#button method="delete" class="btn btn-danger" type="button"}}<i class="icon-trash"></i> Delete {{/button}}
-				{{/if}}
-
-				</div>
-			</div>
 		</form>
 	</div>
 

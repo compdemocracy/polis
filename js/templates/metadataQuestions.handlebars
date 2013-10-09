@@ -2,16 +2,21 @@
 
 {{#if allowCreate}}
 	{{#if formActive}}
-		<form class="form-horizontal">
-		<div class="add_question_form control-group">
-			<label for="questionInput" class="control-label">Add a new metadata question - ie., "What is your gender?" or "What office are you based in?" </label>
-			<textarea id="questionInput" placeholder="Metadata question"></textarea>
+
+
+		<form >
+		<div class="add_question_form">
+			<label for="questionInput">Add a new metadata question - ie., "What is your gender?" or "What office are you based in?" </label>
+			<textarea id="questionInput" name="questionInput" placeholder="Metadata question" ></textarea>
 		</div>
 		</form>
+
+
+
 	{{else}}
 
 		 {{#button method="showAddQuestionForm" class="addNewMetadataButton makeCursorPointer controls" tag="a"}}
-	    	<i class="icon-tags"></i>&nbsp;Add new metadata 
+	    	<i class="icon-tags"></i>&nbsp;Add metadata 
 	   {{/button}}
 	{{/if}}
 {{/if}}

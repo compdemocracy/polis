@@ -78,8 +78,25 @@ header .navbar .user { margin-right: 15px; }
 .addNewMetadataButton:hover {
 	text-decoration: none;
 }
+.createAnswer{
+	padding-left: ;
+}
+.createAnswer:hover{
+	text-decoration: none;
+}
 [data-view-name="metadataQuestionsViewWithCreate"] {
 
+}
+[data-view-name="metadataQuestionAndAnswersViewWithCreate"] {
+	margin-bottom: 30px	;
+}
+
+[data-view-name="metadataAnswerViewWithDelete"] {
+	margin-left: 20px;
+}
+.questionText { /* a medium weight / bolder brandon */
+	font-weight: 500;
+	display: inline;
 }
 
 

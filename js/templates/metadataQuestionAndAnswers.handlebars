@@ -1,5 +1,5 @@
 
-{{key}}
+<p class="questionText"> {{key}} </p>
 {{#if allowDelete}}
 	{{#button method="deleteQuestion" tag="a"}}
 		 &nbsp;<i class="icon-remove"></i>
@@ -18,7 +18,7 @@
 			</form>
 		</div>
 	{{else}}
-		{{#button method="showAddAnswerForm" tag="a" class="createAnswer"}}
+		{{#button method="showAddAnswerForm" tag="a" class="createAnswer makeCursorPointer"}}
 	    <i class="icon-plus"></i>&nbsp;Add an answer for participants to select
 	  {{/button}}
 	{{/if}}
