@@ -1,6 +1,5 @@
 (defproject polis-storm "0.1.0-SNAPSHOT"
-  :source-paths ["src/clj"]
-  :java-source-paths ["src/jvm"]
+  :source-paths ["src/"]
   :aot :all
   :repositories {
                  "twitter4j" "http://twitter4j.org/maven2"
