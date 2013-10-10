@@ -8,17 +8,10 @@ define([
     name: 'comment-view',
     template: template,
     events: {
-    "hover .starbutton": function(){
-      this.$('.starbutton').html('<i class="icon-star"></i>')
+      "hover .starbutton": function(){
+        this.$('.starbutton').html('<i class="icon-star"></i>')
+      }
     },
-    "ready": function(){
-      this.$('#agreeButton').tooltip({
-          placement: "right",
-          title: "This comment represents my opinion",
-      })
-    },
-    
-  },
   initialize: function() {
     var serverClient = this.serverClient;
     console.dir(serverClient)
@@ -83,8 +76,28 @@ define([
     });
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
-    
-
+    this.listenTo(this, 'rendered', function(){
+      this.$('#agreeButton').tooltip({
+        title: "'This comment represents my opinion'",
+        placement: "right"
+      });
+      this.$('#disagreeButton').tooltip({
+        title: "'This comment does not represent my opinion'",
+        placement: "top"
+      });
+      this.$('#passButton').tooltip({
+        title: "'No reaction', or 'I am unsure'",
+        placement: "left"
+      });
+      this.$('#starButton').tooltip({
+        title: "'Critical point', or 'central to my worldview'",
+        placement: "right"
+      });
+      this.$('#trashButton').tooltip({
+        title: "This comment is irrelevant and/or abusive",
+        placement: "left"
+      });                  
+    })
   }
   });
 });

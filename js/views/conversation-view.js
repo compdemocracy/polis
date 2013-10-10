@@ -121,53 +121,6 @@ define([
 
     // HTTP PATCH - model.save({patch: true})
 
-
-
-
-// ***************************************
-// ***************************************
-/*
-    metadataCollection.create({
-      'question': 'Do you like sunrises and puppies?',
-      'answers': ['biodiesel',
-                  'Williamsburg',
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
-      required: true
-    })
-    metadataCollection.create({
-      'question': 'Do you like sunrises and puppies?',
-      'answers': ['biodiesel',
-                  'Williamsburg',
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
-      required: true
-    })
-    metadataCollection.create({
-      'question': 'Do you like sunrises and puppies?',
-      'answers': ['biodiesel',
-                  'Williamsburg',
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
-      required: true
-    })
-    metadataCollection.create({
-      'question': 'Do you like sunrises and puppies?',
-      'answers': ['biodiesel',
-                  'Williamsburg',
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur tempor consequat. Shabby chic mollit laborum consectetur ethnic umami kale chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt f chips eiusmod Schlitz cray, velit photo booth meh street art. Vegan yr raw denim, chia chillwave lo-fi viral Bushwick butcher American Apparel cornhole. Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.', 
-                  'Sunt biodiesel authentic, Williamsburg Schlitz elit disrupt fanny pack nulla synth culpa excepteur te Roof party letterpress blog, culpa semiotics literally wayfarers. Veniam cliche excepteur, culpa ethical Brooklyn actually assumendkogi drinking vinegar.'],
-      required: true
-    })
-    */
-
-// ***************************************
-// ***************************************
-
     this.metadataQuestionsView = new MetadataQuestionsView({
       serverClient: serverClient,
       zid: this.zid,
@@ -182,6 +135,12 @@ define([
     this.commentForm.on("commentSubmitted", function() {
       $("#react_tab").tab('show');
     });
+
+    /* tooltips */
+    console.log('here are the views children:')
+    console.dir(this.children)
+
+
 
 
     function onClusterTapped() {
@@ -211,6 +170,22 @@ define([
         vis.addClusterTappedListener(onClusterTapped);
         serverClient.addPersonUpdateListener(vis.upsertNode);
     };
+
+
+    this.listenTo(this, 'rendered', function(){
+      this.$('#commentViewTab').tooltip({
+        title: "Start here - read comments submitted by others and react to each.",
+        placement: "top"
+      });
+      this.$('#commentFormTab').tooltip({
+        title: "Once you have a sense of what others have said, submit your own opinion. Others will be able to react to it.",
+        placement: "top"
+      });
+      this.$('#analyzeTab').tooltip({
+        title: "Click on the 'analyze' tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc. Selecting a particular metadata field fades out all participants who don't fulfill that criteria.",
+        placement: "top"
+      });  
+    })
 
 
      // Let the DOM finish its layout
