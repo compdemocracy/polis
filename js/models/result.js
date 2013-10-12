@@ -1,5 +1,8 @@
 define(['model'], function (Model) {
   return Model.extend({
-    name: 'result'
+    name: 'result',
+    defaults: {
+    	
+    }
   });
 });
