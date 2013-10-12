@@ -14,6 +14,7 @@ var getUserInfoByPid = params.getUserInfoByPid;
 
 var clusterClickedCallbacks = $.Callbacks();
 
+
 // The h and w values should be locked at a 1:2 ratio of h to w
 var h;
 var w;
@@ -95,22 +96,21 @@ function zoomToHull(d){
       + "scale(" + .95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")"
       + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")"
       );
-
-
-
-//
       //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
-
 }
+
 function setClusterActive(d) {
-    console.log("selectedCluster " + selectedCluster);
-    console.log("d.hullId " + d.hullId);
-    if (selectedCluster === d.hullId) {
-      console.log('unselecting');
-      return resetSelection();
-    } else {
-      getCommentsForSelection(clusters[d.hullId]).then(
-        renderComments,
+    console.log("selectedCluster " + selectedCluster);  // log the cluster/hull currently selected, if any
+    console.log("d.hullId " + d.hullId);                // log the id of the hull
+    if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
+      console.log('unselecting');                       // ...tell everyone you're going to unselect it
+      return resetSelection();                          // and resetSelection
+    } else {                                            // otherwise
+      getCommentsForSelection(clusters[d.hullId]).then( // getCommentsForSelection with clusters array
+        renderComments,                                 // !! this is tightly coupled. 
+                                                        // !! it makes sense to keep this in the view because 
+                                                        // !! we have to come BACK to the viz from the 
+                                                        // !! backbonified list, then. Not worth it?
         function(err) {
           console.error(err);
         });
@@ -128,7 +128,7 @@ function setClusterActive(d) {
 
 function onClusterClicked(d) {
     unhoverAll();
-    setClusterActive.call(this, d);
+    setClusterActive.call(this, d);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
 
  //   zoomToHull.call(this, d);
     d3.event.stopPropagation()
@@ -137,7 +137,7 @@ function onClusterClicked(d) {
 d3Hulls = _.times(9, function() {
     return visualization.append("path")
         .classed("hull", true)
-        .on("click", onClusterClicked)
+        .on("click", onClusterClicked)  //selection-results:1 handle the click event
     ;
 });
 
