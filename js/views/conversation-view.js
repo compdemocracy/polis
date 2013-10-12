@@ -5,6 +5,7 @@ define([
   'views/comment-form',
   'views/change-votes',
   'views/metadataQuestionsView', // analyze view
+  'views/results-view', //results view
   'models/vote',
   'models/participant',
   'models/conversation',
@@ -13,6 +14,7 @@ define([
   'collections/comments',
   'collections/votes',
   'collections/metadataQuestions',
+  'collections/results',
   'app',
   'CommentShower',
   'FeedbackSubmitter',
@@ -29,6 +31,7 @@ define([
     CommentFormView,
     ChangeVotesView,
     MetadataQuestionsView,
+    ResultsView,
     VoteModel,
     ParticipantModel,
     ConversationModel,
@@ -37,6 +40,7 @@ define([
     CommentsCollection,
     VotesCollection,
     MetadataQuestionsCollection,
+    ResultsCollection,
     app, 
     CommentShower, 
     FeedbackSubmitter,
@@ -92,20 +96,13 @@ define([
 
     serverClient.observeStimulus(this.model.get('zid'), this.model.get('zinvite'));
     
-    this.commentView = new CommentView({
-      serverClient: serverClient,
-      zid: this.zid,
-    });
 
     // this.commentsByMe = new SomeViewColinWillCreate({
     //   serverClient: serverClient,
     //   zid: this.zid,
     // });
 
-    this.commentForm = new CommentFormView({
-      serverClient: serverClient,
-      zid: this.zid,
-    });
+
    
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: this.zid,
@@ -117,9 +114,14 @@ define([
         }), 
         processData: true,
     });
+
+    var resultsCollection = new ResultsCollection()
+
     window.m = metadataCollection;
 
     // HTTP PATCH - model.save({patch: true})
+
+    /* child views */
 
     this.metadataQuestionsView = new MetadataQuestionsView({
       serverClient: serverClient,
@@ -131,6 +133,23 @@ define([
       serverClient: serverClient,
       zid: this.zid,
     });
+
+    this.commentView = new CommentView({
+      serverClient: serverClient,
+      zid: this.zid,
+    });
+
+    this.commentForm = new CommentFormView({
+      serverClient: serverClient,
+      zid: this.zid,
+    });
+
+    this.resultsView = new ResultsView({
+      serverClient: serverClient,
+      zid: this.zid,
+      collection: resultsCollection
+    })
+
 
     this.commentForm.on("commentSubmitted", function() {
       $("#react_tab").tab('show');
