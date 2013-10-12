@@ -193,15 +193,15 @@ define([
 
     this.listenTo(this, 'rendered', function(){
       this.$('#commentViewTab').tooltip({
-        title: "Start here - read comments submitted by others and react to each.",
+        title: "Start here - read and react to comments submitted by others",
         placement: "top"
       });
       this.$('#commentFormTab').tooltip({
-        title: "Once you have a sense of what others have said, submit your own opinion. Others will be able to react to it.",
+        title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react to it.",
         placement: "top"
       });
       this.$('#analyzeTab').tooltip({
-        title: "Click on the 'analyze' tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc. Selecting a particular metadata field fades out all participants who don't fulfill that criteria.",
+        title: "Filters! Click on the 'analyze' tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top"
       });  
     })
