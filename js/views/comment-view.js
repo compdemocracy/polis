@@ -78,11 +78,11 @@ define([
     setInterval(pollForComments, commentPollInterval);
     this.listenTo(this, 'rendered', function(){
       this.$('#agreeButton').tooltip({
-        title: "'This comment represents my opinion'",
+        title: "This comment represents my opinion",
         placement: "right"
       });
       this.$('#disagreeButton').tooltip({
-        title: "'This comment does not represent my opinion'",
+        title: "This comment does not represent my opinion",
         placement: "top"
       });
       this.$('#passButton').tooltip({
