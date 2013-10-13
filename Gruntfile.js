@@ -196,6 +196,7 @@ module.exports = function(grunt) {
         'FeedbackSubmitter': 'lib/FeedbackSubmitter',
         'keyboard': 'lib/keyboard',
         'konfirm': 'lib/konfirm',
+        'anystretch': 'lib/anystretch',
         'LoginView': 'lib/LoginView',
         'p': 'lib/p',
         'polis': 'lib/polis',
@@ -230,6 +231,9 @@ module.exports = function(grunt) {
           deps: ['jquery']
         },
         'bootstrap_transition': { 
+          deps: ['jquery']
+        },
+        'anystretch': {
           deps: ['jquery']
         },
         'net/bbFetch': {

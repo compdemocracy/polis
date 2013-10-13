@@ -7,7 +7,6 @@
     "thorax": "~2.0",
     "bootstrap": "2.3.2",
     "d3": "~3.3.3",
-    "flatui": "latest",
     "font-awesome": "~3.2.1",
     "lawnchair": "~0.6.3",
     "almond": "~0.2.6"
