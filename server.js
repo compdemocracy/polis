@@ -911,7 +911,7 @@ function(req, res) {
     if (username) { handles.push({username: username}); }
     if (email) { handles.push({email: email}); }
     if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
-    client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2)", [username, email], function(err, docs) {
+    client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2);", [username, email], function(err, docs) {
         docs = docs.rows;
         if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
         if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
