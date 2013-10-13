@@ -106,7 +106,7 @@ function setClusterActive(d) {
       console.log('unselecting');                       // ...tell everyone you're going to unselect it
       return resetSelection();                          // and resetSelection
     } else {                                            // otherwise
-      getCommentsForSelection(clusters[d.hullId]).then( // getCommentsForSelection with clusters array
+      getCommentsForSelection(clusters[d.hullId]).then( // getCommentsForSelection with clusters array (of pids)
         renderComments,                                 // !! this is tightly coupled. 
                                                         // !! it makes sense to keep this in the view because 
                                                         // !! we have to come BACK to the viz from the 
