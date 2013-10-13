@@ -51,8 +51,12 @@ define([  //begin dependencies
       this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
     },
     landingPageView: function() {
-      var landingPageView = new LandingPageView();
-      RootView.getInstance().setView(landingPageView);
+      if (!PolisStorage.uid.get()) {
+        var landingPageView = new LandingPageView();
+        RootView.getInstance().setView(landingPageView);
+      } else {
+        this.inbox();
+      }
     },
     inbox: function(filter){
 
