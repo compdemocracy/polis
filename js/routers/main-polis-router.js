@@ -224,22 +224,11 @@ define([  //begin dependencies
     }
   },
   conversationGatekeeper: function(zid, zinvite) {
-     // You probably don't have a zid, but you can get info about the conversation
-     // by supplying the zinvite.
-    var model = new ConversationModel({
-        zid: zid,
-        zinvite: zinvite,
+    var gatekeeperView = new ConversationGatekeeperView({
+      zid: zid,
+      zinvite: zinvite,
     });
-    bbFetch(model).then(function() {
-      var gatekeeperView = new ConversationGatekeeperView({
-        model: model,
-        zid: zid,
-        zinvite: zinvite,
-      });
-      RootView.getInstance().setView(gatekeeperView);
-    },function(e) {
-      alert("Unable to join conversation.");
-    });
+    RootView.getInstance().setView(gatekeeperView);
   },
   doCreateUser: function(zinvite){
     var that = this;
