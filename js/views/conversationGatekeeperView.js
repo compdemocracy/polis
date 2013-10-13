@@ -1,11 +1,13 @@
 define([
   'templates/conversationGatekeeper',
+  'views/userCreateView',
   'views/metadataQuestionsView',
   'collections/MetadataQuestions',
   'util/polisStorage',
   'view',
 ], function (
   template,
+  UserCreateView,
   MetadataQuestionsView,
   MetadataQuestionCollection,
   PolisStorage,
@@ -35,6 +37,13 @@ define([
         zid: zid,
         zinvite: zinvite,
       });
+
+      this.gatekeeperAuthView = new UserCreateView({
+        zinvite: zinvite,
+      });
+
+  //    gatekeeperAuthView.on("authenticated", dfd.resolve);
+
 
       // if (PolisStorage.uid.get()) {
       //   // "hello Joe! Not Joe? (existing) (new)"
