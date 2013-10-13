@@ -91,6 +91,14 @@ CREATE TABLE conversations(
     UNIQUE(zid)
 );
 
+--  invite codes for Owners
+CREATE TABLE oinvites (
+    oinvite VARCHAR(300) NOT NULL,
+    notes VARCHAR(999),
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    UNIQUE (oinvite)
+);
+
 --  invite codes for converationZ
 CREATE TABLE zinvites (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
