@@ -201,7 +201,8 @@ module.exports = function(grunt) {
         'p': 'lib/p',
         'polis': 'lib/polis',
         'polisUtils': 'lib/polisUtils',
-        'VisView': 'lib/VisView'
+        'VisView': 'lib/VisView',
+        'd3tooltips': '../bower_components/d3-tip/index'
       },
       shim: {
         'originalhandlebars': {
@@ -249,7 +250,7 @@ module.exports = function(grunt) {
           deps: ['jquery', 'underscore'],
         },
         'VisView': {
-          deps: ['d3']
+          deps: ['d3', 'd3tooltips']
         }
       }
     };

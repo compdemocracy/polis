@@ -31,6 +31,8 @@ var d3Hulls;
 var selectedCluster;
 
 var updatesEnabled = true;
+/* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
+var tip = d3.tip().attr('stroke', 'rgb(52,73,94)').html(function(d) { return d.pid; });
 
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 7]).domain([350, 800]).clamp(true);
@@ -47,6 +49,7 @@ $(el_selector).html("");
 //to connect viz to responsive layout if desired
 visualization = d3.select(el_selector)
     .append('svg')
+      .call(tip) /* initialize d3-tip */
       .attr('width', "100%")
       .attr('height', "100%")
       .classed("visualization", true)
@@ -452,6 +455,7 @@ function upsertNode(updatedNodes, newClusters) {
       .classed("ptpt", true)
       //.each(function(d) {d.x = w/2; d.y = h/2;})
       .attr("r", chooseRadius)
+
 /*
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
@@ -476,7 +480,9 @@ function upsertNode(updatedNodes, newClusters) {
           // .attr("cy", function(d) {
           //   return d.y;
           // })
-          ;
+        .on('mouseover', tip.show)
+        .on('mouseout', tip.hide)
+        ;
 
  
 
