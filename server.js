@@ -1470,13 +1470,13 @@ app.post('/v3/metadata/questions',
     logPath,
     moveToBody,
     auth,
-    need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
     need('key', _.identity, assignToP),
+    need('zid', getInt, assignToP),
+    want('uid', getInt, assignToP),
 function(req, res) {
     var zid = req.p.zid;
-    var uid = req.p.uid;
     var key = req.p.key;
+    var uid = req.p.uid;
   
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
