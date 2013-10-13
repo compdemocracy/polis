@@ -1904,6 +1904,9 @@ function staticFile(req, res) {
 var routingProxy = new httpProxy.RoutingProxy();
 
 function proxy(req, res) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', 0);
     routingProxy.proxyRequest(req, res, {
 
         host: process.env.STATIC_FILES_HOST,
