@@ -223,6 +223,17 @@ function connectToPostgres(callback) {
     });
 }
 
+
+function authOr(alternativeAuth) {
+    return function(req, res, next) {
+        if (req.cookies.token) {
+            return auth(req, res, next);
+        } else {
+            return alternativeAuth(req, req, next);
+        }
+    };
+}
+
 // input token from body or query, and populate req.body.u with userid.
 function auth(req, res, next) {
     //var token = req.body.token;
@@ -757,6 +768,21 @@ function getPid(zid, uid, callback) {
     });
 }
 
+// function userHasAnsweredZeQuestions(uid, zid, zinvite, callback) {
+
+// }
+
+function conversationHasQuestions(zid, callback) {
+    client.query("SELECT * from participant_metadata_questions WHERE zid = ($1);", [zid], function(err, x) {
+        if (err) { callback(1); return;}
+        if (!x || !x.rows || !x.rows.length) {
+            callback(0, true);
+        } else {
+            callback(0, false);
+        }
+    });
+}
+
 app.get("/v3/participants",
     logPath,
     auth,
@@ -809,6 +835,10 @@ function(req, res) {
     // Check if already in the conversation
     getPid(zid, req.p.uid, function(err, pid) {
         if (err) {
+
+            // conversationHasQuestions(zid, function(err, hasQuestions) {
+
+            // }
             // need to join
             getConversationProperty(zid, "is_public", function(err, is_public) {
                 if (err) { fail(res, 213489296, "polis_err_add_participant_property_missing"); return; }
@@ -1406,11 +1436,10 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 
 app.get('/v3/metadata/questions',
     logPath,
-    auth,
     moveToBody,
+    authOr(need('zinvite', _.identity, assignToP)),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
-    want('zinvite', getInt, assignToP),
+    want('uid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
@@ -1493,11 +1522,10 @@ function(req, res) {
 app.get('/v3/metadata/answers',
     logPath,
     moveToBody,
-    auth,
+    authOr(want('zinvite', _.identity, assignToP)),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
+    want('uid', getInt, assignToP),
     want('pmqid', getInt, assignToP),
-    want('zinvite', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
@@ -1534,7 +1562,7 @@ app.get('/v3/metadata',
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
-    want('zinvite', getInt, assignToP),
+    want('zinvite', _.identity, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
