@@ -9,6 +9,7 @@ define([  //begin dependencies
   'views/homepage',
   'views/create-conversation-form',
   'views/conversation-details',
+  'views/conversationGatekeeperView',
   'views/conversation-view',
   'views/create-user-form',
   'views/login-form',
@@ -26,6 +27,7 @@ define([  //begin dependencies
 		HomepageView, 
 		CreateConversationFormView,
 		ConversationDetailsView,
+    ConversationGatekeeperView,
 		ConversationView,
 		CreateUserFormView,
     LoginFormView,
@@ -213,8 +215,7 @@ define([  //begin dependencies
         // Go to the conversation.
         that.doLaunchConversation(zid);
       }, function(err) {
-        // Couldn't create participant record.
-        alert("could't join conversation");
+        that.conversationGatekeeper(zid, zinvite);
       });
     } else {
       // Found a pid for that zid.
@@ -222,7 +223,24 @@ define([  //begin dependencies
       that.doLaunchConversation(zid);
     }
   },
-
+  conversationGatekeeper: function(zid, zinvite) {
+     // You probably don't have a zid, but you can get info about the conversation
+     // by supplying the zinvite.
+    var model = new ConversationModel({
+        zid: zid,
+        zinvite: zinvite,
+    });
+    bbFetch(model).then(function() {
+      var gatekeeperView = new ConversationGatekeeperView({
+        model: model,
+        zid: zid,
+        zinvite: zinvite,
+      });
+      RootView.getInstance().setView(gatekeeperView);
+    },function(e) {
+      alert("Unable to join conversation.");
+    });
+  },
   doCreateUser: function(zinvite){
     var that = this;
     var dfd = $.Deferred();
