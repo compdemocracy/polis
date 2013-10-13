@@ -24,11 +24,11 @@ return MetadataQuestionAndAnswersView.extend({
     //   console.dir(arguments);
     // });
   },
-  showAddAnswerForm: function() {
+  showAddAnswerForm: function(event) {
     this.formActive = true;
     this.render();
   },
-  hideAddAnswerForm: function() {
+  hideAddAnswerForm: function(event) {
     var that = this;
     var formAction = $(event.target).data('action');
     this.serialize(function(attrs){

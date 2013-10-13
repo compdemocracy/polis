@@ -14,7 +14,7 @@ define([
     events: {
       "blur .add_question_form": "hideAddQuestionForm"
     },
-    hideAddQuestionForm: function() {
+    hideAddQuestionForm: function(event) {
       var that = this;
       var formAction = $(event.target).data('action');
       this.serialize(function(attrs){
@@ -37,7 +37,7 @@ define([
         that.render();
       });
     },
-    showAddQuestionForm: function() {
+    showAddQuestionForm: function(event) {
       this.formActive = true;
       this.render();
     },

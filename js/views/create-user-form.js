@@ -24,7 +24,7 @@ define([
           PolisStorage.clearAll(); // clear old user - TODO setup deregistration
 
           // Incorporate options, like zinvite.
-          attrs = $.extend(options, attrs);
+          attrs = $.extend(that.options || {}, attrs);
 
           $.ajax({
             url: urlPrefix + "v3/auth/new",
