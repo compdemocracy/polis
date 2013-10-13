@@ -42,6 +42,7 @@ define([  //begin dependencies
       "conversation/view/:id(/:zinvite)": "conversationView", 
       "user/create": "createUser",
       "user/login":"login",
+      "settings": "deregister",
       "inbox(/:filter)": "inbox",
       "": "landingPageView",
       // see others in the initialize method
@@ -57,6 +58,10 @@ define([  //begin dependencies
       } else {
         this.inbox();
       }
+    },
+    deregister: function() {
+      PolisStorage.clearAll(); // clear old user - TODO setup deregistration
+      this.landingPageView();
     },
     inbox: function(filter){
 
