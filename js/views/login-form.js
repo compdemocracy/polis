@@ -18,7 +18,7 @@ define([
         if (-1 === document.domain.indexOf(".polis.io")) {
             urlPrefix = "http://localhost:5000/"; // TODO centralize the network config
         }
-        this.serialize(function(attrs){
+        this.serialize(function(attrs, release){
           PolisStorage.clearAll(); // clear old user - TODO setup deregistration
           $.ajax({
             url: urlPrefix + "v3/auth/login",
@@ -32,8 +32,10 @@ define([
           }).then(function(data) { 
             PolisStorage.uid.set(data.uid);
             PolisStorage.email.set(data.email);
+            release();
             that.trigger("authenticated");
           }, function(err) {
+              release();
               alert("login was unsuccessful");
           });
         })

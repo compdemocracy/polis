@@ -20,7 +20,7 @@ define([
         if (-1 === document.domain.indexOf(".polis.io")) {
             urlPrefix = "http://localhost:5000/";
         }
-        this.serialize(function(attrs){
+        this.serialize(function(attrs, release){
           PolisStorage.clearAll(); // clear old user - TODO setup deregistration
 
           // Incorporate options, like zinvite.
@@ -39,8 +39,10 @@ define([
             PolisStorage.uid.set(data.uid);
             PolisStorage.email.set(data.email);
             that.trigger("authenticated");
+            release();
           }, function(err) {
               alert("login was unsuccessful");
+              release();
           });
         })
       },

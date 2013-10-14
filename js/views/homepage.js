@@ -8,7 +8,7 @@ define([
     events: {
       "submit form": function(e){
         e.preventDefault();
-        this.serialize(function(attrs){
+        this.serialize(function(attrs, release){
           $.ajax({
             url: "/v3/beta/",
             type: "POST",
@@ -18,6 +18,10 @@ define([
             },
             crossDomain: true,
             data: attrs
+          }).then(function() {
+            release();
+          }, function() {
+            release();
           })
         })
       },

@@ -25,7 +25,7 @@ define([
         var that = this;
         event.preventDefault();
         var formAction = $(event.target).data('action');
-        this.serialize(function(attrs){
+        this.serialize(function(attrs, release) {
           if(this.edit===true) {
             switch(formAction) {
               case "draft":
@@ -47,9 +47,10 @@ define([
             }
           }
           this.model.save(attrs).then(function(data) {
-            alert('saved!');
+            release();
             that.trigger('done');
           }, function(err) {
+            release();
             alert("unable to save");
           });
         });

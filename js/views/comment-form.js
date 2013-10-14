@@ -9,9 +9,10 @@ define([
       "submit form": function(e){
         var that = this;
         e.preventDefault();
-        this.serialize(function(attrs){
+        this.serialize(function(attrs, release){
           console.log(attrs);
           that.participantCommented(attrs);
+          release();
         });
         $('#comment_form_textarea').val('') //use this.$
       },

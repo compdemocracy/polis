@@ -42,7 +42,7 @@ return MetadataQuestionAndAnswersView.extend({
           value: attrs.answerInput,
         };
         var model = new MetadataAnswer(data);
-        model.save().done(function() {
+        model.save().then(function() {
           that.collection.fetch({
             data: $.param({
               zid: zid,
@@ -51,6 +51,10 @@ return MetadataQuestionAndAnswersView.extend({
             processData: true,
           });
           model.fetch();
+          release();
+        }, function() {
+          release();
+          alert('failed');
         });
       }
       that.formActive = false;
