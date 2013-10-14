@@ -657,6 +657,26 @@ function(req, res) {
     });
 });
 
+function createZinvite(zid, callback) {
+    // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
+    // TODO if you want more readable tokens, see ReadableIds 
+    require('crypto').randomBytes(12, function(err, buf) {
+        if (err) {
+            return callback("polis_err_creating_zinvite_invalid_conversation_or_owner");
+        }
+
+        var zinvite = buf.toString('base64')
+            .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
+
+        client.query('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [zid, zinvite], function(err, results) {
+            if (err) {
+                return callback("polis_err_creating_zinvite");
+            }
+            return callback(0, zinvite);
+        });
+    });  
+}
+
 app.post("/v3/zinvites/:zid",
     logPath,
     auth,
@@ -667,22 +687,12 @@ function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 213489299, "polis_err_creating_zinvite_invalid_conversation_or_owner"); return; }
 
-        // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
-        // TODO if you want more readable tokens, see ReadableIds 
-        require('crypto').randomBytes(12, function(err, buf) {
-            if (err) { fail(res, 213489302, "polis_err_creating_zinvite_invalid_conversation_or_owner"); return; }
-
-            var zinvite = buf.toString('base64')
-                .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
-
-            client.query('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [req.p.zid, zinvite], function(err, results) {
-                if (err) { console.dir(err); fail(res, 213489300, "polis_err_creating_zinvite"); return; }
-                res.status(200).json({
-                    zinvite: zinvite,
-                });
+        createZinvite(req.p.zid, function(err, zinvite) {
+            if (err) { fail(res, 213489302, err); return; }
+            res.status(200).json({
+                zinvite: zinvite,
             });
         });
-
     });
 });
 
@@ -1707,35 +1717,37 @@ function(req, res) {
         function fetchZinvites(conv) {
             return function(callback) {
                 if (conv.is_public) {
+                    console.log('public');
+                    console.dir(conv);
                     return callback(null);
                 }
-                client.query("SELECT * FROM zinvites WHERE zid = ($1);", [conv.zid], function(err, zinviteResults) {
-                    if (err) { console.dir(err); fail(res, 324234340, "polis_err_get_conversation_zinvites", 500); return callback(1); }
-                    if (!zinviteResults.rows || !zinviteResults.rows.length) {
-                        zinviteResults.rows = [];
+                isConversationOwner(conv.zid, req.p.uid, function(err) {
+                    if (err) {
+                        console.log('not owner, nothing to do');
+                        return callback(null);
                     }
-                    conv.zinvites = _.pluck(zinviteResults.rows, "zinvite");;
-                    callback(null);
+
+                    client.query("SELECT * FROM zinvites WHERE zid = ($1);", [conv.zid], function(err, zinviteResults) {
+                        if (err) { console.dir(err); fail(res, 324234340, "polis_err_get_conversation_zinvites", 500); return callback(1); }
+                        if (!zinviteResults.rows || !zinviteResults.rows.length) {
+                            zinviteResults.rows = [];
+                        }
+
+                        console.log('zinvites');
+                        console.dir(zinviteResults);
+                        console.dir(data);
+                        conv.zinvites = _.pluck(zinviteResults.rows, "zinvite");;
+                        callback(null);
+                    });
                 });
-            }
+            };
         }
 
-        isConversationOwner(req.p.zid, req.p.uid, function(err) {
-            if (err) {
-                // don't add zinvites
-                res.json(data);
-            } else {
+        async.parallel(result.rows.map(fetchZinvites), function(err) {
+            if (err) { console.dir(err); fail(res, 324234341, "polis_err_get_conversation_zinvites", 500); return; }
+            res.json(data);
+        });
 
-                async.parallel(result.rows.map(fetchZinvites), function(err) {
-                    if (err) { console.dir(err); fail(res, 324234341, "polis_err_get_conversation_zinvites", 500); return; }
-                    res.json(data);
-                });
-            }
-         });
-
-        //rows = rows.map(function(row) {
-            //row.userIsAdmin = true; // TODO do a query for this
-        //});
     });
   });
 });
@@ -1746,13 +1758,15 @@ app.post('/v3/conversations/undefined', // TODO undefined is not ok
     auth,
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
+    want('is_public', getBool, assignToP, false),
+    want('is_anon', getBool, assignToP, false),
     want('topic', _.identity, assignToP, ""),
     want('description', _.identity, assignToP, ""),
     need('uid', getInt, assignToP),
 function(req, res) {
     client.query(
-'INSERT INTO conversations (zid, owner, created, topic, description, participant_count, is_active, is_draft)  VALUES(default, $1, default, $2, $3, default, $4, $5) RETURNING zid;',
-[req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft], function(err, result) {
+'INSERT INTO conversations (zid, owner, created, topic, description, participant_count, is_active, is_draft, is_public, is_anon)  VALUES(default, $1, default, $2, $3, default, $4, $5, $6, $7) RETURNING zid;',
+[req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft, req.p.is_public, req.p.is_anon], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
                 console.error(57493879);
@@ -1762,11 +1776,22 @@ function(req, res) {
             }
             return;
         }
+
         var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
+        function finish() {
             res.status(200).json({
                 zid: zid,
             });
-        });
+        }
+        if (!req.p.is_public) {
+            createZinvite(zid, function(err, zinvite) {
+                if (err) { console.dir(err); fail(res, 324234339, err, 500); return; }
+                finish();
+            });
+        } else {
+            finish();
+        }
+    });
 });
 
 /*
