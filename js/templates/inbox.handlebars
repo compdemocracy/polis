@@ -231,7 +231,7 @@
               <h3> {{topic}} </h3>
               <p> {{{description}}} </p>
               <!-- tried this... may try again <p class="share"> Share: </p> --> 
-              <input type="text" value="{{url_name}}" name="convoLink" readonly>
+              <input type="text" value="{{url_name_with_hostname}}" name="convoLink" readonly>
               <div class="alert alert-info"> 
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
                 <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
@@ -258,7 +258,7 @@
 
               {{#unless isDraft}}
               <ul class="actions actionsDetailsView">
-                <li>{{#link "{{zid}}" expand-tokens=true}}<i class="icon-rocket"></i>&nbsp;Launch Conversation{{/link}}</li>
+                <li><a href="{{url_name}}"><i class="icon-rocket"></i>&nbsp;Launch Conversation</a></li>
               </ul>
               {{/unless}}
             

@@ -17,13 +17,19 @@ define(['model'], function (Model) {
       owner: undefined,
       participant_count: "",
       url_name: function(){
-        // build the URL for the user to copy & paste
-        var port = document.location.port ? (":" + document.location.port) : "";
-        var s = document.location.hostname + port + "/#" + this.zid;
+        var s = "/#" + this.zid;
         if (this.zinvites) {
           s += "/" + this.zinvites[0]; // TODO deal with multiple?
         }
         return s;
+      },
+      url_name_with_hostname: function() {
+
+        // build the URL for the user to copy & paste
+        var port = document.location.port ? (":" + document.location.port) : "";
+        var s = document.location.hostname + port 
+
+        return s + this.url_name();
       },
       is_anon: false,
       is_draft: false,
