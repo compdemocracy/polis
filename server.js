@@ -532,8 +532,11 @@ app.use(express.bodyParser());
 
 var whitelistedDomains = [
   "http://beta7816238476123.polis.io",
+  "https://beta7816238476123.polis.io",  
   "http://www.polis.io",
+  "https://www.polis.io",  
   "http://polis.io",
+  "https://polis.io",
 ];
 
 app.all("/v3/*", function(req, res, next) {
@@ -1954,10 +1957,14 @@ function staticFile(req, res) {
 
 var routingProxy = new httpProxy.RoutingProxy();
 
+
+var devMode = !!process.env.STATIC_FILES_HOST;
 function proxy(req, res) {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', 0);
+    if (devMode) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', 0);
+    }
     routingProxy.proxyRequest(req, res, {
 
         host: process.env.STATIC_FILES_HOST,
