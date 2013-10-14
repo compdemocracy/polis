@@ -1720,10 +1720,18 @@ function(req, res) {
             }
         }
 
-        async.parallel(result.rows.map(fetchZinvites), function(err) {
-            if (err) { console.dir(err); fail(res, 324234341, "polis_err_get_conversation_zinvites", 500); return; }
-            res.json(data);
-        });
+        isConversationOwner(req.p.zid, req.p.uid, function(err) {
+            if (err) {
+                // don't add zinvites
+                res.json(data);
+            } else {
+
+                async.parallel(result.rows.map(fetchZinvites), function(err) {
+                    if (err) { console.dir(err); fail(res, 324234341, "polis_err_get_conversation_zinvites", 500); return; }
+                    res.json(data);
+                });
+            }
+         });
 
         //rows = rows.map(function(row) {
             //row.userIsAdmin = true; // TODO do a query for this
