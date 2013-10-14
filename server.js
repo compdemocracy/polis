@@ -768,18 +768,10 @@ function getPid(zid, uid, callback) {
     });
 }
 
-// function userHasAnsweredZeQuestions(uid, zid, zinvite, callback) {
-
-// }
-
-function conversationHasQuestions(zid, callback) {
-    client.query("SELECT * from participant_metadata_questions WHERE zid = ($1);", [zid], function(err, x) {
+function getAnswersForConversation(zid, callback) {
+    client.query("SELECT * from participant_metadata_answers WHERE zid = ($1) AND alive=TRUE;", [zid], function(err, x) {
         if (err) { callback(1); return;}
-        if (!x || !x.rows || !x.rows.length) {
-            callback(0, true);
-        } else {
-            callback(0, false);
-        }
+        callback(0, x.rows);
     });
 }
 
@@ -816,16 +808,42 @@ function(req, res) {
     });
 });
 
+
+function userHasAnsweredZeQuestions(zid, answers, callback) {
+    getAnswersForConversation(zid, function(err, available_answers) {
+        if (err) { callback(err); return;}
+
+        console.dir(available_answers);
+        var q2a = _.indexBy(available_answers, 'pmqid');
+        var a2q = _.indexBy(available_answers, 'pmaid');
+        console.dir(q2a);
+        console.dir(a2q);
+        for (var i = 0; i < answers.length; i++) {
+            var pmqid = a2q[answers[i]].pmqid;
+            delete q2a[pmqid];
+        }
+        var remainingKeys = _.keys(q2a);
+        var missing = remainingKeys && remainingKeys.length > 0;
+        if (missing) {
+            return callback('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]);
+        } else {
+            return callback(0);
+        }
+    });
+}
+
 app.post("/v3/participants",
     logPath,
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
     want('zinvite', _.identity, assignToP),
+    want('answers', _.identity, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
+    var answers = req.p.answers;
 
     function finish(pid) {
         res.status(200).json({
@@ -836,30 +854,30 @@ function(req, res) {
     getPid(zid, req.p.uid, function(err, pid) {
         if (err) {
 
-            // conversationHasQuestions(zid, function(err, hasQuestions) {
-
-            // }
-            // need to join
-            getConversationProperty(zid, "is_public", function(err, is_public) {
-                if (err) { fail(res, 213489296, "polis_err_add_participant_property_missing"); return; }
-                function doJoin() {
-                    joinConversation(zid, uid, function(err, pid) {
-                        if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
-                        finish(pid);
-                    });
-                }
-                if (is_public) {
-                    doJoin();
-                } else {
-                    checkZinviteCodeValidity(zid, zinvite, function(err) {
-                        if (err) {
-                            res.status(403).json({status:"polis_err_add_participant_bad_zinvide_code"});
-                        } else {
-                            doJoin();
-                        }
-                    });
-                }
-            });
+            userHasAnsweredZeQuestions(zid, answers, function(err) {
+                if (err) { fail(res, 213489277, err); return; }
+                // need to join
+                getConversationProperty(zid, "is_public", function(err, is_public) {
+                    if (err) { fail(res, 213489296, "polis_err_add_participant_property_missing"); return; }
+                    function doJoin() {
+                        joinConversation(zid, uid, function(err, pid) {
+                            if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
+                            finish(pid);
+                        });
+                    }
+                    if (is_public) {
+                        doJoin();
+                    } else {
+                        checkZinviteCodeValidity(zid, zinvite, function(err) {
+                            if (err) {
+                                res.status(403).json({status:"polis_err_add_participant_bad_zinvide_code"});
+                            } else {
+                                doJoin();
+                            }
+                        });
+                    }
+                }); // end get is_public
+            }); // end userHasAnsweredZeQuestions
         } else {
             finish(pid);
         }
