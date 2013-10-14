@@ -25,7 +25,6 @@
   -webkit-user-select: none; 
   -o-user-select: none; 
 }
-
 .hull {
   opacity: 0.2;
   fill: lightgrey;

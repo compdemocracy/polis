@@ -203,7 +203,19 @@ define([
       this.$('#analyzeTab').tooltip({
         title: "Filters! Click on the 'analyze' tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top"
-      });  
+      }); 
+      // this.$('#what_is_polis').popover({
+      //   title: "What is the purpose of Polis?",
+      //   content: "The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis producing groups from the actions of many individuals, and you can understand what these groups thought by exploring the visualization (you don't, however, need to use the visualization to participate in the conversation). Read and react to what others have said, and watch your ",
+      //   trigger: "click",
+      //   placement: "bottom",
+      // })
+      // this.$('#making_meaning_of_viz').popover({
+      //   title: "How do I make meaning of the visualization?",
+      //   content: "",
+      //   trigger: "click",
+      //   placement: "top",
+      // })
     })
 
 

@@ -7,7 +7,8 @@ require([
   'bootstrap_tab',
   'bootstrap_tooltip',
   'bootstrap_button',
-  'bootstrap_transition'
+  'bootstrap_transition',
+  // 'bootstrap_popover',
 ], function ($, Backbone, RootView, MainPolisRouter) {
   
   initialize(function(next) {
