@@ -74,7 +74,7 @@ charge = chargeForGivenVisWidth(w);
 
 queryResults = d3.select(el_queryResultSelector)
     .append('ol')
-      .classed("query_results", true);
+    .classed("query_results", true);
 
 $(el_queryResultSelector).hide();
 
@@ -597,9 +597,9 @@ function renderComments(comments) {
 function onParticipantClicked(d) {
     d3.event.stopPropagation()
   getUserInfoByPid(d.pid).then(function(data) {
-      alert(data.hname);
+  //    alert(data.hname);
   }, function(err) {
-    alert(err);
+    // alert(err);
   });
 }
 

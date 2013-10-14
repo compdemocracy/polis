@@ -8,15 +8,14 @@
 #query_results_div {
   padding-top: 10px;
 }
-
 .query_result_item {
     padding: 1px;
     margin: 1px;
+    cursor: pointer;
 }
-.query_result_item_hover {
-    background-color: white;
+.active_result_item {
+  background-color: #FFFBE8;
 }
-
 .visualization {
   border: 1px dotted lightgray;
   background: white;
@@ -32,123 +31,24 @@
   stroke-width: 32px;
   stroke-linejoin: round;
   z-index: 400;
+  cursor: pointer;
 }
 .active {
-  fill: lightgreen;
-  stroke: lightgreen;
+  fill: #FFF3BB;
+  stroke: #FFF3BB;
 }
 .ptpt {
   z-index: 500;
 }
-
-#toparrow, #rightarrow, #bottomarrow, #leftarrow {
-  stroke: steelblue;
-  stroke-width: 2px;
-}
-
-#centercircle {
-  fill: white;
-  stroke: steelblue;
-  stroke-width: 1px;
-}
-
-#centercircle:hover {
-  fill:lightgrey;
-}
-
-#top_circle, #right_circle, #bottom_circle, #left_circle {
-  fill: white;
-  stroke: steelblue;
-  stroke-width: 2px;
-}
-
-#top_circle:hover, #right_circle:hover, #bottom_circle:hover, #left_circle:hover {
-  fill:lightgrey;
-}
-
-.toparrow_hover {
-  width: 400px;
-}
-
-
-#top_pillar { 
-  position: absolute;
-  width: 882px;
-  height: 308px;
-  padding: 10px;
-  background-color: black;
-  opacity: .6;
-  margin-top: 123px;
-  color: white;
-  font-family: garamond;
-  overflow-y: scroll;
-  overflow-x: hidden;
-}
-
-#right_pillar {
-  position: absolute;
-  width: 661px;
-  height: 99%;
-  background-color: black;
-  opacity: .6;
-  color: white;
-  font-family: garamond;
-  overflow-y: scroll;
-  overflow-x: hidden;
-}
-
-#bottom_pillar {
-  position: absolute;
-  width: 882px;
-  height: 308px;
-  padding: 10px;
-  background-color: black;
-  opacity: .6;
-  color: white;
-  font-family: garamond;
-  overflow-y: scroll;
-  overflow-x: hidden;
-}
-
-#left_pillar {
-  position: absolute;
-  width: 661px;
-  height: 99%;
-  margin-left: 241px;
-  background-color: black;
-  opacity: .6;
-  color: white;
-  font-family: garamond;
-  overflow-y: scroll;
-  overflow-x: hidden;
-}
-
-#centercircle_content {
-  position: absolute;
-  width: 600px;
-  height: 350px;
-  margin-left: 130px;
-  margin-top: 30px;
-  padding: 20px;
-  background-color: black;
-  opacity: .6;
-  color: white;
-  font-family: garamond;
-
-}
-
 .hidden {
   display: none;
 }
-
 .enter {
   fill: green;
 }
-
 .update {
   fill: #333;
 }
-
 .exit {
   fill: brown;
 }
