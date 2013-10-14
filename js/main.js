@@ -3,14 +3,21 @@ require([
   'backbone',
   'views/root',
   'routers/main-polis-router',
+  'util/polisStorage',
   'bootstrap_alert',
   'bootstrap_tab',
   'bootstrap_tooltip',
   'bootstrap_button',
-  'bootstrap_transition',
   // 'bootstrap_popover',
-], function ($, Backbone, RootView, MainPolisRouter) {
+  'bootstrap_transition'
+], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
+
   
+  // debug convenience function for deregistering.
+  window.deregister = function() {
+    PolisStorage.clearAll();
+  };
+
   initialize(function(next) {
     // Load any data that your app requires to boot
     // and initialize all routers here, the callback
