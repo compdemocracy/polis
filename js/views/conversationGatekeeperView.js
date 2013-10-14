@@ -25,11 +25,23 @@ define([
             urlPrefix = "http://localhost:5000/";
         }
         this.serialize(function(attrs, release){
+
+          // pull out the for values for pmaid
+          var numbers = _.chain(attrs).keys().map(Number).filter(function(num) {
+            return !_.isNaN(num) && _.isNumber(num);
+          }).value();
+          // delete them from the hash
+          numbers.forEach(function(num) {
+            delete attrs[num];
+          });
+          // add the pmaid values as answers
+          attrs.answers = numbers;
+
           // Incorporate options, like zinvite.
           attrs = $.extend(that.options || {}, attrs);
 
           $.ajax({
-            url: urlPrefix + "v3/auth/new",
+            url: urlPrefix + "v3/participants",
             type: "POST",
             dataType: "json",
             xhrFields: {
@@ -44,7 +56,7 @@ define([
             that.trigger("done");
           }, function(err) {
             release();
-            alert("login was unsuccessful");
+            alert("Some questions are missing answers.");
           });
         })
       },
