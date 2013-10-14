@@ -4,6 +4,11 @@
   margin-left: 10px;
   width: 70%;
 }
+
+#query_results_div {
+  padding-top: 10px;
+}
+
 .query_result_item {
     padding: 1px;
     margin: 1px;
