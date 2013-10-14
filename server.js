@@ -739,10 +739,10 @@ function isOwnerOrParticipant(zid, uid, callback) {
 }
 
 function isConversationOwner(zid, uid, callback) {
-    if (true) {
-        callback(null); // TODO remove!
-        return;
-    }
+    // if (true) {
+    //     callback(null); // TODO remove!
+    //     return;
+    // }
     client.query("SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);", [zid, uid], function(err, docs) {
         var pid;
         if (!docs || !docs.rows || docs.rows.length === 0) {
@@ -870,7 +870,7 @@ function(req, res) {
                     } else {
                         checkZinviteCodeValidity(zid, zinvite, function(err) {
                             if (err) {
-                                res.status(403).json({status:"polis_err_add_participant_bad_zinvide_code"});
+                                res.status(403).end("polis_err_add_participant_bad_zinvide_code");
                             } else {
                                 doJoin();
                             }
