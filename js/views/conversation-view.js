@@ -99,15 +99,10 @@ define([
     });
 
     serverClient.observeStimulus(this.model.get('zid'), this.model.get('zinvite'));
-    
-
     // this.commentsByMe = new SomeViewColinWillCreate({
     //   serverClient: serverClient,
     //   zid: this.zid,
     // });
-
-
-   
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: this.zid,
     });
