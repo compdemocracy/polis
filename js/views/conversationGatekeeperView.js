@@ -56,7 +56,8 @@ define([
             that.trigger("done");
           }, function(err) {
             release();
-            alert("Some questions are missing answers.");
+            console.dir(arguments);
+            alert(err.responseText);
           });
         })
       },
@@ -67,11 +68,11 @@ define([
       var zid = options.zid;
       var zinvite = options.zinvite;
 
-      var metadataCollection = new MetadataQuestionCollection([], {
+      this.metadataCollection = new MetadataQuestionCollection([], {
         zid: zid,
       });
 
-      metadataCollection.fetch({
+      this.metadataCollection.fetch({
           data: $.param({
               zid: zid,
               zinvite: zinvite,
@@ -79,7 +80,7 @@ define([
           processData: true,
       });
       this.metadataQuestionsView = new MetadataQuestionsView({
-        collection: metadataCollection,
+        collection: this.metadataCollection,
         zid: zid,
         zinvite: zinvite,
       });

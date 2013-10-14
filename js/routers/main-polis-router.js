@@ -10,6 +10,7 @@ define([  //begin dependencies
   'views/create-conversation-form',
   'views/conversation-details',
   'views/conversationGatekeeperView',
+  'views/conversationGatekeeperViewCreateUser',
   'views/conversation-view',
   'views/create-user-form',
   'views/login-form',
@@ -28,6 +29,7 @@ define([  //begin dependencies
 		CreateConversationFormView,
 		ConversationDetailsView,
     ConversationGatekeeperView,
+    ConversationGatekeeperViewCreateUser,
 		ConversationView,
 		CreateUserFormView,
     LoginFormView,
@@ -192,7 +194,7 @@ define([  //begin dependencies
         console.log('trying to load conversation, but no auth');
         // Not signed in.
         // Or not registered.
-        this.doCreateUser(zinvite).done(function() {
+        this.doCreateUserFromGatekeeper(zinvite).done(function() {
           // Try again, should be ready now.
           that.conversationView(zid, zinvite);
         });
@@ -232,6 +234,17 @@ define([  //begin dependencies
     });
     gatekeeperView.on('done', dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
+    return dfd.promise();
+  },
+  doCreateUserFromGatekeeper: function(zinvite) {
+    var that = this;
+    var dfd = $.Deferred();
+
+    var createUserFormView = new ConversationGatekeeperViewCreateUser({
+      zinvite: zinvite,
+    });
+    createUserFormView.on("authenticated", dfd.resolve);
+    RootView.getInstance().setView(createUserFormView);
     return dfd.promise();
   },
   doCreateUser: function(zinvite){
