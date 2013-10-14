@@ -14,8 +14,12 @@
 			<input type="text" name="hname" placeholder="Full Name" />  	
   		<input type="text" name="email" placeholder="Email" />  	
   		<input type="text" name="username" placeholder="Username" />  	
-  		<input type="password" name="password" placeholder="Password" />  	
-  		<input type="text" name="beta_invite" placeholder="Invite Code" />
+  		<input type="password" name="password" placeholder="Password" /> 
+      {{#if zinvite}} 	
+        <input type="hidden" name="zinvite" value="{{zinvite}}" />
+      {{else}}
+        <input type="text" name="beta_invite" placeholder="Invite Code" />
+      {{/if}}
   		<p> </p>
 			<button type="submit" class="btn btn-large"> Create New User </button>
 		</form>

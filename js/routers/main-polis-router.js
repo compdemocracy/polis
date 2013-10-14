@@ -185,20 +185,17 @@ define([  //begin dependencies
 
   conversationView: function(zid, zinvite) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
     var that = this;
+
+    var uid = PolisStorage.uid.get();
  
-    if (!PolisStorage.uid.get()) {
+    if (!uid) {
         console.log('trying to load conversation, but no auth');
         // Not signed in.
         // Or not registered.
         this.doCreateUser(zinvite).done(function() {
-          if (zid) {
-            // Try again, should be ready now.
-            that.conversationView(zid, zinvite);
-          } else {
-            that.inbox();
-          }
+          // Try again, should be ready now.
+          that.conversationView(zid, zinvite);
         });
-
     } else if (!PolisStorage.pids.get(zid)) {
       console.log('trying to load conversation, but no pid');
       // Signed in...
@@ -215,7 +212,9 @@ define([  //begin dependencies
         // Go to the conversation.
         that.doLaunchConversation(zid);
       }, function(err) {
-        that.conversationGatekeeper(zid, zinvite);
+        that.conversationGatekeeper(zid, uid, zinvite ).done(function() {
+          that.doLaunchConversation(zid);
+        });
       });
     } else {
       // Found a pid for that zid.
@@ -223,12 +222,17 @@ define([  //begin dependencies
       that.doLaunchConversation(zid);
     }
   },
-  conversationGatekeeper: function(zid, zinvite) {
+  // assumes the user already exists.
+  conversationGatekeeper: function(zid, uid, zinvite) {
+    var dfd = $.Deferred();
     var gatekeeperView = new ConversationGatekeeperView({
       zid: zid,
+      uid: uid,
       zinvite: zinvite,
     });
+    gatekeeperView.on('done', dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
+    return dfd.promise();
   },
   doCreateUser: function(zinvite){
     var that = this;

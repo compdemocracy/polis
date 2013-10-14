@@ -65,6 +65,7 @@ define([
     },
     initialize: function(options) {
       this.options = options;
+      this.zinvite = options.zinvite;
     },
   });
 });
