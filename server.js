@@ -720,15 +720,59 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
     });
 }
 
-function joinConversation(zid, uid, callback) {
+function saveParticipantMetadataChoices(zid, pid, answers, callback) {
+    // answers is a list of pmaid
+    if (!answers || !answers.length) {
+        // nothing to save
+        return callback(0);
+    }
+
+    client.query("SELECT pmqid, pmaid FROM participant_metadata_answers WHERE zid = ($1) AND pmaid IN ($2)", [
+        zid,
+        answers,
+    ], function(err, qa_results) {
+        if (err) { return callback(err);}
+
+        qa_results = qa_results.rows;
+        qa_results = _.indexBy(qa_results, "pmaid");
+        // construct an array of params arrays
+        answers = answers.map(function(pmaid) {
+            var pmqid = qa_results[pmaid];
+            return [zid, pid, pmaid, pmqid];
+        });
+        // make simultaneous requests to insert the choices
+        async.map(answers, function(x, cb) {
+            client.query(
+                "INSERT INTO participant_metadata_choices (zid, pid, pmaid, pmqid) VALUES ($1,$2,$3,$4);",
+                function(err, results) {
+                    if (err) { return cb(err);}
+                    cb(0);
+                }
+            });            
+        }, function(err) {
+            if (err) { return callback(err);}
+            // finished with all the inserts
+            callback(0);
+        });
+    });
+}
+
+function joinConversation(zid, uid, pmaid_answers, callback) {
     client.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
         if (err) {
             console.dir(err);
+            return callback(err);
         }
         var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
-        callback(err, pid);
-    });
 
+        saveParticipantMetadataChoices(zid, pid, pmaid_answers, function(err) {
+            if (err) {
+                console.dir(err);
+                return callback(err);
+            }
+            callback(err, pid);
+        });
+    });
 }
 
 function isOwnerOrParticipant(zid, uid, callback) { 
@@ -837,6 +881,8 @@ function userHasAnsweredZeQuestions(zid, answers, callback) {
         }
         var remainingKeys = _.keys(q2a);
         var missing = remainingKeys && remainingKeys.length > 0;
+        console.log('missing');
+        console.dir(remainingKeys);
         if (missing) {
             return callback('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]);
         } else {
@@ -858,11 +904,13 @@ function(req, res) {
     var zinvite = req.p.zinvite;
     var answers = req.p.answers;
 
+console.dir(answers);
     function finish(pid) {
         res.status(200).json({
             pid: pid,
         });
     }
+
     // Check if already in the conversation
     getPid(zid, req.p.uid, function(err, pid) {
         if (err) {
@@ -873,7 +921,7 @@ function(req, res) {
                 getConversationProperty(zid, "is_public", function(err, is_public) {
                     if (err) { fail(res, 213489296, "polis_err_add_participant_property_missing"); return; }
                     function doJoin() {
-                        joinConversation(zid, uid, function(err, pid) {
+                        joinConversation(zid, uid, answers, function(err, pid) {
                             if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
                             finish(pid);
                         });
@@ -1010,7 +1058,7 @@ function(req, res) {
                     res.status(200).json(o);
                 }
                 if (zid) {
-                    joinConversation(zid, uid, function(err, pid) {
+                    joinConversation(zid, uid, [], function(err, pid) {
                         if (err) { fail(res, 5748941, "polis_err_joining_conversation_anon"); return; }
                         finish(pid);
                     });
@@ -1681,6 +1729,7 @@ function(req, res) {
     });
 });
 
+
 app.get('/v3/conversations',
     logPath,
     moveToBody,
@@ -1964,6 +2013,9 @@ function proxy(req, res) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', 0);
+    }
+    if (req.host === "polis.io" || req.host === "www.polis.io") {
+        req.host = process.env.STATIC_FILES_HOST;
     }
     routingProxy.proxyRequest(req, res, {
 
