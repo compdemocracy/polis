@@ -2041,7 +2041,7 @@ function proxy(req, res) {
         http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
             res.status(200).end(page);
         }).on('error', function(e) {
-            res.status(404).end(e);
+            res.status(200).end("Apollogies, this browser is not supported. We recommend Chrome, Firefox, or Safari.");
         });
     } else {
         routingProxy.proxyRequest(req, res, {
