@@ -46,7 +46,7 @@ $(el_selector).html("");
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 $("#ptpt-tip").remove();
-var tip = d3.tip().attr('id', 'ptpt-tip').attr('stroke', 'rgb(52,73,94)').html(function(d) { return d.pid; });
+var tip = d3.tip().attr('id', 'ptpt-tip').attr('stroke', 'rgb(52,73,94)').html(function(d) { return getUserInfoByPid(d.pid).email; });
 
 //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
 //to connect viz to responsive layout if desired
@@ -606,11 +606,7 @@ function renderComments(comments) {
 
 function onParticipantClicked(d) {
     d3.event.stopPropagation()
-  getUserInfoByPid(d.pid).then(function(data) {
-  //    alert(data.hname);
-  }, function(err) {
-    // alert(err);
-  });
+  // alert(getUserInfoByPid(d.pid).hname)
 }
 
 function unhoverAll() {

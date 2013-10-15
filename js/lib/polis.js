@@ -55,6 +55,9 @@ return function(params) {
     var projectionPeopleCache;
     var clustersCache;
 
+    var participantCount = 0;
+    var userInfoCache = [];
+
     var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
@@ -511,7 +514,7 @@ return function(params) {
         return polisGet(pcaPath, {
             lastVoteTimestamp: lastServerTokenForPCA,
             zid: currentStimulusId
-        }).then( function(pcaData, textStatus, xhr) {
+        }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
                     return;
@@ -525,6 +528,7 @@ return function(params) {
                 // TODO this is not runnable, just a rough idea. (data isn't structured like this)
                 ///var people = pcaData.people;
                 var people = parseFormat2(pcaData);
+                participantCount = people.length;
                 //var myself = _.findWhere(people, {pid: getPid()});
                 //people = _.without(people, myself);
                 var clusters = clientSideBaseCluster(people, 3);
@@ -657,6 +661,28 @@ return function(params) {
         return tree.toArray();
     }
 
+    function getAllUserInfo() {
+        return polisGet(participantsPath, {
+            zid: currentStimulusId
+        });
+    }
+
+    function fetchUserInfoIfNeeded() {
+        if (participantCount > userInfoCache.length) {
+            updateUserInfoCache();
+        }
+    }
+
+    function updateUserInfoCache() {
+        getAllUserInfo().done(function(data) {
+            userInfoCache = data;
+        });
+    }
+
+    function getUserInfoByPidSync(pid) {
+        return userInfoCache[pid];
+    }
+
     function getUserInfoByPid(pid) {
         return polisGet(participantsPath, {
             pid: pid,
@@ -754,7 +780,9 @@ return function(params) {
 
     setTimeout(getPca,0);
     setInterval(function() {
-        getPca();
+        getPca().then(
+            fetchUserInfoIfNeeded,
+            fetchUserInfoIfNeeded);
     }, 5000);
 
     return {
@@ -768,6 +796,7 @@ return function(params) {
         getCommentsForSelection: getCommentsForSelection,
         getReactionsToComment: getReactionsToComment,
         getUserInfoByPid: getUserInfoByPid,
+        getUserInfoByPidSync: getUserInfoByPidSync,
         observeStimulus: observeStimulus, // with no args
         disagree: disagree,
         agree: agree,
