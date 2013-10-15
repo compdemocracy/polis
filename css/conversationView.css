@@ -159,7 +159,7 @@ svg {
 }
  
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
-@media (min-width: 768px) and (max-width: 1199px) { 
+@media (min-width: 1024px) and (max-width: 1199px) { 
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 10px;
   }
@@ -172,7 +172,7 @@ svg {
 }
  
 /* BIG PHONE to LITTLE tablet */
-@media (min-width: 481px) and (max-width: 767px) { 
+@media only screen and (min-device-width : 768px) and (max-device-width : 1024px) {
   body {
     padding-top: 0px;
   }
@@ -185,7 +185,7 @@ svg {
 }
  
 /* BIG PHONE and down */
-@media (max-width: 480px) { 
+@media only screen and (min-device-width : 320px) and (max-device-width : 568px) {
   body{
     margin: 0px;
   }
@@ -217,5 +217,3 @@ svg {
     margin-right: 2px;
   }
 }
-
-
