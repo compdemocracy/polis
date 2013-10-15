@@ -191,15 +191,21 @@ define([
     this.listenTo(this, 'rendered', function(){
       this.$('#commentViewTab').tooltip({
         title: "Start here - read and react to comments submitted by others.",
-        placement: "top"
+        placement: "top",
+        delay: { show: 300, hide: 200 },
+
       });
       this.$('#commentFormTab').tooltip({
         title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react.",
-        placement: "top"
+        placement: "top",
+        delay: { show: 300, hide: 200 },
+
       });
       this.$('#analyzeTab').tooltip({
         title: "Filters! Click on the 'analyze' tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
-        placement: "top"
+        placement: "top",
+        delay: { show: 300, hide: 200 },
+
       }); 
       this.$('#how_do_i_use').popover({
         title: "How do I use Polis?",

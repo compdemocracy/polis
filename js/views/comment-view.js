@@ -79,23 +79,28 @@ define([
     this.listenTo(this, 'rendered', function(){
       this.$('#agreeButton').tooltip({
         title: "This comment represents my opinion",
-        placement: "right"
+        placement: "right",
+        delay: { show: 500, hide: 0 },
       });
       this.$('#disagreeButton').tooltip({
         title: "This comment does not represent my opinion",
-        placement: "top"
+        placement: "top",
+        delay: { show: 500, hide: 0 },
       });
       this.$('#passButton').tooltip({
         title: "'No reaction', or 'I am unsure'",
-        placement: "left"
+        placement: "left",
+        delay: { show: 500, hide: 0 },
       });
       this.$('#starButton').tooltip({
         title: "'Critical point', or 'central to my worldview'",
-        placement: "right"
+        placement: "right",
+        delay: { show: 500, hide: 0 },
       });
       this.$('#trashButton').tooltip({
         title: "This comment is irrelevant and/or abusive",
-        placement: "left"
+        placement: "left",
+        delay: { show: 500, hide: 0 },
       });                  
     })
   }
