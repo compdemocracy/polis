@@ -1,5 +1,4 @@
 define([], function() {
-    console.log('weee');
     var cache = {
     };
     function saveAndCache(k, v, temporary) {
