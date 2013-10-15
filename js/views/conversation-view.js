@@ -196,27 +196,35 @@ define([
         placement: "top"
       });
       this.$('#commentFormTab').tooltip({
-        title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react to it.",
+        title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react.",
         placement: "top"
       });
       this.$('#analyzeTab').tooltip({
         title: "Filters! Click on the 'analyze' tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top"
       }); 
-      // this.$('#what_is_polis').popover({
-      //   title: "What is the purpose of Polis?",
-      //   content: "The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis producing groups from the actions of many individuals, and you can understand what these groups thought by exploring the visualization (you don't, however, need to use the visualization to participate in the conversation). Read and react to what others have said, and watch your ",
-      //   trigger: "click",
-      //   placement: "bottom",
-      // })
-      // this.$('#making_meaning_of_viz').popover({
-      //   title: "How do I make meaning of the visualization?",
-      //   content: "",
-      //   trigger: "click",
-      //   placement: "top",
-      // })
+      this.$('#how_do_i_use').popover({
+        title: "How do I use Polis?",
+        content: "<ol> <li> Read & react to what others have said.</li><li> Write comments for others to react to.</li> <li> Watch the visualization change in real-time as you and others react.</li><li> Optionally, explore the visualization to learn more about what brought the groups together and what is differentiating them.</li>  <li> Hover over the menu items and buttons to learn about them (mobile: press and hold). </li>  </ol>",
+        html: true, //XSS risk, not important for now
+        trigger: "click",
+        placement: "bottom",
+      });
+      this.$('#feedback_and_suggestions').popover({
+        title: "Feedback & Suggestions",
+        content: "<p> During the beta period, you can email us directly with feedback, questions or requests.</p> <i class=\"icon-info-envelope\"></i> <a href=\"mailto:info@polis.io?Subject=Polis%20feedback:%20inbox\" target=\"_blank\">info@polis.io </a>",
+        html: true, //XSS risk, not important for now
+        trigger: "click",
+        placement: "bottom",
+      });
+      this.$('#making_meaning_of_viz').popover({
+        title: "How do I make meaning of the visualization?",
+        content: "<ol><li> Each dot represents a person. The red dot represents you. You will see the dots move around the visualization as you and other participants vote. Hover over a dot to find out who it is.</li><li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li><li> Shaded areas represent groups. Click on a shaded area to bring up comments that had the highest consensus amongst that group. Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. </li> <li> Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment remain a grey dot. </li> <li> Use the 'analyze' tab to filter participants using metadata.</li></ol>",
+        html: true, //XSS risk, not important for now
+        trigger: "click",
+        placement: "top",
+      });
     })
-
 
      // Let the DOM finish its layout
      _.defer(initPcaVis);

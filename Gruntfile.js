@@ -186,7 +186,7 @@ module.exports = function(grunt) {
         'bootstrap_alert': '../bower_components/bootstrap/js/bootstrap-alert',
         'bootstrap_tab': '../bower_components/bootstrap/js/bootstrap-tab',
         'bootstrap_tooltip': '../bower_components/bootstrap/js/bootstrap-tooltip',
-        // 'bootstrap_popover': '../bower_components/bootstrap/js/bootstrap-popover',
+        'bootstrap_popover': '../bower_components/bootstrap/js/bootstrap-popover',
         'bootstrap_button': '../bower_components/bootstrap/js/bootstrap-button',
         'bootstrap_transition': '../bower_components/bootstrap/js/bootstrap-transition',
         'd3': '../bower_components/d3/d3',

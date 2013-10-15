@@ -8,7 +8,7 @@ require([
   'bootstrap_tab',
   'bootstrap_tooltip',
   'bootstrap_button',
-  // 'bootstrap_popover',
+  'bootstrap_popover',
   'bootstrap_transition'
 ], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
 

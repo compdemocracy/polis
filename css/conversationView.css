@@ -10,11 +10,13 @@
 }
 
 .conversationViewHeadline h5 {
-    font-weight: 400;
-    text-transform: none;
-    padding: 0px 4% 20px 4%;
+  font-weight: 400;
+  text-transform: none;
+  padding: 0px 4% 20px 4%;
 }
-
+#making_meaning_of_viz {
+  display: inline;
+}
 #visualization_div {
   margin: 0px;
   width: 100%;
@@ -26,6 +28,14 @@
 .icon-remove {
   cursor: hand; 
   cursor: pointer;
+}
+
+.popover_helper_class {
+  cursor: pointer;
+  text-decoration: underline;
+}
+.popover_helper_class:hover{
+  color: #7f8c8d;
 }
 
 svg {

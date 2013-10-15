@@ -27,12 +27,8 @@
 
     <div class="alert alert-block alert-info">
       <button type="button" class="close" data-dismiss="alert">&times;</button>
-      <h4>How do I use Polis?</h4>
-      <ol>
-        <li> The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. </li>
-        <li> Hover over the menu items and buttons to learn what they do (mobile: press and hold). </li> 
-        <li> Watch the visualization change in real-time as you and others vote. The visualization helps identify what opinion groups are forming. Explore the visualization by clicking  </li>
-      </ol>
+      <h4> Welcome </h4> 
+      <p> The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis is currently in private beta - your <span class="popover_helper_class" id="feedback_and_suggestions"> feedback and suggestions</span> are welcome as we work to improve the overall experience of the application. <i class="icon-info-sign"></i> <span class="popover_helper_class" id="how_do_i_use">How do I use Polis?</span></p> 
     </div>
 
 <div class="row-fluid">
@@ -66,35 +62,23 @@
         {{view metadataQuestionsView}}
       </div> 
     </div>
-  </div>
-  
+  </div> <!-- tabbable -->
   </div> <!-- span 4 --> 
 
   <div class="span8 t-span6">
     <div id="visualization_div" class="row-fluid">
-    </div> 
+    </div> <!-- visualization div --> 
     <div id="query_results_div">
-    </div> 
-{{!--    
-    <div> 
-      {{view resultsView}}
-    </div>
---}} 
-  </div> <!-- span 8 --> 
-
-</div> 
-
+    </div> <!-- query results div --> 
+    {{!--    
+        <div> 
+          {{view resultsView}}
+        </div>
+    --}} 
     <div class="alert alert-block alert-info" style="margin-top:20px">
       <button type="button" class="close" data-dismiss="alert">&times;</button>
-      <h4>How do I make meaning of the visualization?</h4>
-      <ol>
-        <li> Each dot represents a person. The red dot represents you. You will see the dots move around the visualization as you and other participants vote.</li>
-        <li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li>
-        <li> Shaded areas represent groups. Click on a shaded area to bring up comments that had the highest consensus amongst that group. Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. </li> 
-        <li> Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment remain a grey dot. </li>
-        <li> Use the 'analyze' tab to filter participants using metadata.  </li>
-      </ol>
-  </div>
-
+      <i class="icon-info-sign"></i> <p class="popover_helper_class" id="making_meaning_of_viz"> How do I make meaning of the visualization?</p>
+    </div> <!-- viz meaning alert block --> 
+  </div> <!-- span 8 --> 
 </div> <!-- row --> 
 </section>
