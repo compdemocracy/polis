@@ -770,6 +770,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
 function joinConversation(zid, uid, pmaid_answers, callback) {
     client.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
         if (err) {
+            console.log("failed to insert into participants");
             console.dir(err);
             return callback(err);
         }
