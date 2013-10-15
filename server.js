@@ -727,33 +727,43 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
         return callback(0);
     }
 
-    client.query("SELECT pmqid, pmaid FROM participant_metadata_answers WHERE zid = ($1) AND pmaid IN ($2)", [
-        zid,
-        answers,
-    ], function(err, qa_results) {
-        if (err) { return callback(err);}
+    var q = squel.select()
+        .from("participant_metadata_answers")
+        .where("zid = ?", zid)
+        .where("pmaid IN ("+ answers.join(",") +")");
+
+    client.query(q.toString(), function(err, qa_results) {
+        if (err) { console.log("adsfasdfasd"); return callback(err);}
 
         qa_results = qa_results.rows;
         qa_results = _.indexBy(qa_results, "pmaid");
         // construct an array of params arrays
         answers = answers.map(function(pmaid) {
-            var pmqid = qa_results[pmaid];
+            var pmqid = qa_results[pmaid].pmqid;
             return [zid, pid, pmaid, pmqid];
         });
         // make simultaneous requests to insert the choices
-        async.map(answers, function(x, cb) {
-            client.query(
-                "INSERT INTO participant_metadata_choices (zid, pid, pmaid, pmqid) VALUES ($1,$2,$3,$4);",
-                function(err, results) {
-                    if (err) { return cb(err);}
-                    cb(0);
-                }
-            });            
-        }, function(err) {
-            if (err) { return callback(err);}
-            // finished with all the inserts
-            callback(0);
-        });
+        async.map(
+            answers, 
+            function(x, cb) {
+                // squel.insert()
+                //     .into("participant_metadata_choices")
+                //     .
+                client.query(
+                    "INSERT INTO participant_metadata_choices (zid, pid, pmaid, pmqid) VALUES ($1,$2,$3,$4);",
+                    x,
+                    function(err, results) {
+                        if (err) { console.log("sdkfuhsdu"); return cb(err);}
+                        cb(0);
+                    }
+                );
+            },
+            function(err) {
+                if (err) { console.log("ifudshf78ds"); return callback(err);}
+                // finished with all the inserts
+                callback(0);
+            }
+        );
     });
 }
 
@@ -767,6 +777,7 @@ function joinConversation(zid, uid, pmaid_answers, callback) {
 
         saveParticipantMetadataChoices(zid, pid, pmaid_answers, function(err) {
             if (err) {
+                console.log("failed to saveParticipantMetadataChoices");
                 console.dir(err);
                 return callback(err);
             }
