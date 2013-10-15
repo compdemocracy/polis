@@ -57,5 +57,10 @@ define([
       }
       return errors; 
     },
+    initialize: function(options) {
+      this.listenTo(this, 'rendered', function(){
+        this.$('#conductor').anystretch("img/conductor.jpeg");
+      })
+    },
   });
 });

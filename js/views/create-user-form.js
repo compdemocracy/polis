@@ -66,6 +66,9 @@ define([
     initialize: function(options) {
       this.options = options;
       this.zinvite = options.zinvite;
+      this.listenTo(this, 'rendered', function(){
+        this.$('#conductor').anystretch("img/conductor.jpeg");
+      })
     },
   });
 });
