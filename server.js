@@ -2037,9 +2037,6 @@ function proxy(req, res) {
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', 0);
     }
-    if (req.host === "polis.io" || req.host === "www.polis.io") {
-        req.host = process.env.STATIC_FILES_HOST;
-    }
     if (/MSIE/.exec(req.headers['user-agent'])) {
         http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
             res.status(200).end(page);
