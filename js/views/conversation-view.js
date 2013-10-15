@@ -15,7 +15,6 @@ define([
   'collections/votes',
   'collections/metadataQuestions',
   'collections/results',
-  'app',
   'CommentShower',
   'FeedbackSubmitter',
   'LoginView',
@@ -41,7 +40,6 @@ define([
     VotesCollection,
     MetadataQuestionsCollection,
     ResultsCollection,
-    app, 
     CommentShower, 
     FeedbackSubmitter,
     LoginView,
@@ -192,7 +190,7 @@ define([
 
     this.listenTo(this, 'rendered', function(){
       this.$('#commentViewTab').tooltip({
-        title: "Start here - read and react to comments submitted by others",
+        title: "Start here - read and react to comments submitted by others.",
         placement: "top"
       });
       this.$('#commentFormTab').tooltip({

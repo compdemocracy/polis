@@ -191,7 +191,7 @@ module.exports = function(grunt) {
         'bootstrap_transition': '../bower_components/bootstrap/js/bootstrap-transition',
         'd3': '../bower_components/d3/d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
-        'app': 'lib/App',
+        // 'app': 'lib/App',
         'CommentShower': 'lib/CommentShower',
         'CommentSubmitter': 'lib/CommentSubmitter',
         'FeedbackSubmitter': 'lib/FeedbackSubmitter',

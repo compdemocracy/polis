@@ -95,20 +95,6 @@ svg {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     background-color: #F5F5F5;
     background-image: none;
@@ -171,6 +157,7 @@ svg {
   } 
 }
  
+
 /* BIG PHONE to LITTLE tablet */
 @media only screen and (min-width : 768px) and (max-width : 1024px) {
   body {
