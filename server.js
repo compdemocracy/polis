@@ -1046,6 +1046,7 @@ app.post("/v3/auth/new",
     want('hname', _.identity, assignToP),
 function(req, res) {
     var username = req.p.username;
+    var hname = req.p.hname;
     var password = req.p.password;
     var email = req.p.email;
     var zid = req.p.zid;
@@ -1093,12 +1094,13 @@ function(req, res) {
         return;
     }
     // not anon
-    if (!email && !username) { fail(res, 5748932, "polis_err_reg_need_username_or_email"); return; }
+    if (!email) { fail(res, 5748932, "polis_err_reg_need_email"); return; }
+    if (!hname) { fail(res, 5748532, "polis_err_reg_need_name"); return; }
     if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
     if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
     if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
 
-    client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2)", [username, email], function(err, docs) {
+    client.query("SELECT * FROM users WHERE email = ($1)", [email], function(err, docs) {
         if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
             if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
             if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
@@ -1110,8 +1112,8 @@ function(req, res) {
                     delete req.p.password;
                     password = null;
                     if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
-                    client.query("INSERT INTO users (uid, username, email, pwhash, created) VALUES (default, $1, $2, $3, default) RETURNING uid;", [username, email, hashedPassword], function(err, result) {
-                        if (err) { fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
+                    client.query("INSERT INTO users (uid, username, email, pwhash, hname, created) VALUES (default, $1, $2, $3, $4, default) RETURNING uid;", [username, email, hashedPassword, hname], function(err, result) {
+                        if (err) { console.dir(err); fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(errSessionStart,token) {
                             if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
