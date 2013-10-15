@@ -4,17 +4,15 @@
         <div class="container">
 
           <a class="brand" href="#">Polis</a>
-
+          {{!--
           <ul class="nav pull-right">
             <li>{{#link "settings" expand-tokens=true}}<i class="icon-gears"></i>&nbsp; Settings{{/link}}</li>
           </ul>
-
+          --}}
         </div>
       </div>
     </div>
 </header>
-
-
 
 <section class="container">
 <div class="row">
@@ -23,46 +21,25 @@
 	</div>
 </div>
 
-
-
-
 <div class="row">
     <div class="span6 offset3">
       {{#collection tag="ul" class="conversations"}}
         <li class="conversation">
               <h3> {{topic}} </h3>
               <p> {{{description}}} </p>
-              <!-- tried this... may try again <p class="share"> Share: </p> --> 
-              <input type="text" value="{{url_name_with_hostname}}" name="convoLink" readonly>
+              <input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly>
               <div class="alert alert-info"> 
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
                 <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
               </div> 
-              <span class="status">
-                <p>{{#if is_draft}}DRAFT{{/if}}{{#if is_active}}ACTIVE{{/if}}
-                {{#unless is_active}} {{!nested for concise db-ness.. fewer model params}}
-                {{#unless is_draft}}
-                CONCLUDED
-                {{/unless}}
-                {{/unless}}</p>
-              </span>
               <span class="participantCount"> {{participant_count}}
                 <i class="icon-user"></i>
                 <span class="indicator {{#if is_active}}active{{/if}}"><i class="icon-circle"></i></span>
               </span>
 
-              {{#if isDraft}} {{! COMMENT draft has two buttons, the others get one.}}
-                <ul class="actions">
-                  <li>{{#link "conversation/edit/{{zid}}" expand-tokens=true}}<i   class="icon-edit"></i>Edit draft{{/link}}</li>
-                  <li>{{#button method="publish" tag="a" type="button"}}Publish{{/button}}
-                </ul>
-              {{/if}}
-
-              {{#unless isDraft}}
               <ul class="actions actionsDetailsView">
                 <li><a href="{{url_name}}"><i class="icon-rocket"></i>&nbsp;Launch Conversation</a></li>
               </ul>
-              {{/unless}}
             
         </li>
       {{else}}

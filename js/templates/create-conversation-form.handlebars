@@ -4,10 +4,11 @@
 	  	<div class="container">
 	      <a class="brand" href="#">Polis</a>
 
+				{{!--
 	      <ul class="nav pull-right">
-		    	<li>{{#link "settings" expand-tokens=true}}<i class="icon-gears"></i>Settings{{/link}}</li>
+		    	 <li>{{#link "settings" expand-tokens=true}}<i class="icon-signout"></i>Settings{{/link}}</li> 
 		  	</ul>
-
+				--}}
 	     	<div class="nav-collapse collapse">
 					<ul class="nav">
 			  		<li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
@@ -51,7 +52,7 @@
 --}}
 
 			<button class="btn btn-success" name="formAction" type="submit" value="publish">Create & Publish</button>
-			<button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button>
+			{{!-- <button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button> --}}
 
 		</form>
 	</div>
