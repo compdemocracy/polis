@@ -892,8 +892,6 @@ function userHasAnsweredZeQuestions(zid, answers, callback) {
         }
         var remainingKeys = _.keys(q2a);
         var missing = remainingKeys && remainingKeys.length > 0;
-        console.log('missing');
-        console.dir(remainingKeys);
         if (missing) {
             return callback('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]);
         } else {
@@ -1266,7 +1264,6 @@ function(req, res) {
         });
     });
 });
-
 
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
 app.get("/v3/selection",
