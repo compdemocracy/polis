@@ -31,8 +31,7 @@ var d3Hulls;
 var selectedCluster;
 
 var updatesEnabled = true;
-/* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
-var tip = d3.tip().attr('stroke', 'rgb(52,73,94)').html(function(d) { return d.pid; });
+
 
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 7]).domain([350, 800]).clamp(true);
@@ -44,6 +43,10 @@ var strokeWidth;
 var baseNodeRadius;
 // Since initialize is called on resize, clear the old vis before setting up the new one.
 $(el_selector).html("");
+
+/* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
+$("#ptpt-tip").remove();
+var tip = d3.tip().attr('id', 'ptpt-tip').attr('stroke', 'rgb(52,73,94)').html(function(d) { return d.pid; });
 
 //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
 //to connect viz to responsive layout if desired
