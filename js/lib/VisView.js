@@ -75,7 +75,7 @@ strokeWidth = strokeWidthGivenVisWidth(w);
 baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
-queryResults = d3.select(el_queryResultSelector)
+queryResults = d3.select(el_queryResultSelector).html("")
     .append('ol')
     .classed("query_results", true);
 
