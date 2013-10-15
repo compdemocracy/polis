@@ -2040,6 +2040,9 @@ function proxy(req, res) {
     if (req.host === "polis.io" || req.host === "www.polis.io") {
         req.host = process.env.STATIC_FILES_HOST;
     }
+    if (/MSIE/.exec(req.headers['user-agent'])) {
+        req.path = "unsupportedBrowser.html";
+    }
     routingProxy.proxyRequest(req, res, {
 
         host: process.env.STATIC_FILES_HOST,
