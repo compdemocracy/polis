@@ -24,11 +24,6 @@
 <section class="container">
 <div class="row">
 
-	<div class="span12">
-		<h3> Share this link with participants to invite them to the conversation: {{url_name}} </h3> 
-	</div> 
-
-
 	<div class="span6 createConversationForm">
 		<input type="hidden" name="id" id="id" value="{{id}}"/>
 
@@ -45,8 +40,7 @@
 			  		<textarea type="text" name="description" placeholder="Description" rows="8">{{description}}</textarea>
 				</div>
 			</div>
-
-{{!--  
+			{{!--  
 			<div class="control-group">
 			  <div class="controls">
 			  	<label for="anonymous" class="checkbox">
@@ -54,8 +48,16 @@
 			  	</label>
 				</div>
 			</div>
---}}
+			--}}
 
+			{{!--
+			<div class="alert alert-info"> 
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+                <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
+              </div>  
+			<input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly>
+              <div class="alert alert-info"> 
+			--}}
 			<button class="btn btn-success" name="formAction" type="submit" value="publish">Create & Publish</button>
 			{{!-- <button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button> --}}
 
