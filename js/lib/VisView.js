@@ -157,9 +157,16 @@ force.on("tick", function(e) {
           o.y += (o.data.targetY - o.y) * k;
       });
 
-      visualization.selectAll(".ptpt")
-          .attr("cx", function(d) { return d.x;})
-          .attr("cy", function(d) { return d.y;});
+      // visualization.selectAll(".ptpt")
+      //     .attr("cx", function(d) { return d.x;})
+      //     .attr("cy", function(d) { return d.y;});
+
+      visualization
+        .selectAll(".ptpt")
+        .attr("transform", function(d) {
+          return "translate(" + d.x + "," + d.y + ")";
+        });
+
 
     var pidToPerson = _.object(_.pluck(nodes, "pid"), nodes);
     bounds = [];
