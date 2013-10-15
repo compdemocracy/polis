@@ -1,3 +1,8 @@
+.container {
+	position: relative;
+	z-index: 9999;
+}
+
 .landingView{
 	-webkit-font-smoothing: antialiased;
 	font-family: "helvetica neue";
