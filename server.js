@@ -1569,12 +1569,13 @@ function(req, res) {
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394632, "polis_err_post_participant_metadata_auth", 403); return; }
-        client.query("INSERT INTO participant_metadata_questions (pmqid, zid, key) VALUES (default, $1, $2)", [
+        client.query("INSERT INTO participant_metadata_questions (pmqid, zid, key) VALUES (default, $1, $2) RETURNING *;", [
             zid,
             key,
             ], function(err, results) {
-            if (err) { fail(res, 2394630, "polis_err_post_participant_metadata_key", 500); console.dir(err); return; }
-            res.status(200).json({});
+            if (err || !results || !results.rows || !results.rows.length) { fail(res, 2394630, "polis_err_post_participant_metadata_key", 500); console.dir(err); return; }
+
+            res.status(200).json(results.rows[0]);
         });
     }
 });
@@ -1596,13 +1597,13 @@ function(req, res) {
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 2394635, "polis_err_post_participant_metadata_auth", 403); return; }
-        client.query("INSERT INTO participant_metadata_answers (pmqid, zid, value) VALUES ($1, $2, $3)", [
+        client.query("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [
             pmqid,
             zid,
             value,
             ], function(err, results) {
-            if (err) { fail(res, 2394638, "polis_err_post_participant_metadata_value", 500); console.dir(err); return; }
-            res.status(200).json({});
+            if (err || !results || !results.rows || !results.rows.length) { fail(res, 2394638, "polis_err_post_participant_metadata_value", 500); console.dir(err); return; }
+            res.status(200).json(results.rows[0]);
         });
     }
 });
