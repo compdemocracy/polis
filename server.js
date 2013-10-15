@@ -2041,13 +2041,18 @@ function proxy(req, res) {
         req.host = process.env.STATIC_FILES_HOST;
     }
     if (/MSIE/.exec(req.headers['user-agent'])) {
-        req.path = "unsupportedBrowser.html";
-    }
-    routingProxy.proxyRequest(req, res, {
+        http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
+            res.status(200).end(page);
+        }).on('error', function(e) {
+            res.status(404).end(e);
+        });
+    } else {
+        routingProxy.proxyRequest(req, res, {
 
-        host: process.env.STATIC_FILES_HOST,
-        port: process.env.STATIC_FILES_PORT,
-    });
+            host: process.env.STATIC_FILES_HOST,
+            port: process.env.STATIC_FILES_PORT,
+        });
+    }
 }
 
 // proxy everything that isn't an API call
