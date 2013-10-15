@@ -13,7 +13,7 @@ define([
     itemView: MetadataQuestionAndAnswersView,
     allowCreate: false,
     initialize: function(options) {
-      this.collection = options.collection;
+      this.collection = options.collection; // questions collection
       this.zid = options.zid;
     },
 });

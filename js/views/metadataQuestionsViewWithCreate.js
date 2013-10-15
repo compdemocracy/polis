@@ -17,7 +17,7 @@ define([
     hideAddQuestionForm: function(event) {
       var that = this;
       var formAction = $(event.target).data('action');
-      this.serialize(function(attrs){
+      this.serialize(function(attrs, release){
 
         // Make sure the form isn't empty.
         if (attrs.questionInput && attrs.questionInput.length) {
@@ -26,15 +26,22 @@ define([
             key: attrs.questionInput,
           };
           var model = new MetadataQuestion(data);
-          model.save().then(that.collection.fetch({
-            data: $.param({
-              zid: that.zid
-            }), 
-            processData: true,
-          }));
+
+          model.save().done(function() {
+            //that.collection.add(model);
+            that.collection.fetch({
+              data: $.param({
+                zid: that.zid
+              }), 
+              reset: true,
+            });
+            that.formActive = false;
+            that.render();
+          });
+        } else {
+          this.formActive = false;
+          this.render();
         }
-        that.formActive = false;
-        that.render();
       });
     },
     showAddQuestionForm: function(event) {

@@ -31,7 +31,7 @@ return MetadataQuestionAndAnswersView.extend({
   hideAddAnswerForm: function(event) {
     var that = this;
     var formAction = $(event.target).data('action');
-    this.serialize(function(attrs){
+    this.serialize(function(attrs, release){
 
       // Make sure the form isn't empty.
       if (attrs.answerInput && attrs.answerInput.length) {
