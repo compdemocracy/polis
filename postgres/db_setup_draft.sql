@@ -214,6 +214,16 @@ CREATE TABLE stars(
     created TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
+-- not enforcing uniqueness, save complete history
+-- TODO make a table that has a snapshot of the current state
+CREATE TABLE trashes(
+    zid INTEGER NOT NULL,
+    pid INTEGER NOT NULL,
+    tid INTEGER NOT NULL,
+    trashed INTEGER NOT NULL, -- 1 for trashed, 0 for untrashed
+    created TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
 
 CREATE TRIGGER pid_auto
     BEFORE INSERT ON participants

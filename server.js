@@ -1404,6 +1404,29 @@ function(req, res) {
     });
 });
 
+app.post("/v3/trashes",
+    logPath,
+    auth,
+    need('tid', getInt, assignToP),
+    need('zid', getInt, assignToP),
+    need('pid', getInt, assignToP),
+    need('trashed', getIntInRange(0,1), assignToP),
+function(req, res) {
+    var query = "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
+    var params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
+    client.query(query, params, function(err, result) {
+        if (err) {
+            if (isDuplicateKey(err)) {
+                fail(res, 57493891, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
+            } else {
+                fail(res, 324234325, "polis_err_vote", 500);
+            }
+            return;
+        }
+        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
+    });
+});
+
 app.put('/v3/conversations/:zid',
     logPath,
     moveToBody,
