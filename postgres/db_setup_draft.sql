@@ -97,7 +97,7 @@ CREATE TABLE conversations(
 --  invite codes for Owners
 CREATE TABLE oinvites (
     oinvite VARCHAR(300) NOT NULL,
-    notes VARCHAR(999),
+    note VARCHAR(999),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     UNIQUE (oinvite)
 );
