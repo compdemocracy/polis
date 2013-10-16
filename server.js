@@ -989,7 +989,7 @@ app.post("/v3/beta",
         var name = req.p.name;
         var organization = req.p.organization;
 
-        client.query("INSERT INTO beta (email, name, organization) VALUES ($1, $2, $3);", [email, name, organization], function(err, result) {
+        client.query("INSERT INTO beta (email, name, organization, created) VALUES ($1, $2, $3, default);", [email, name, organization], function(err, result) {
             if (err) { 
                 console.log(email, name, organization);
                 fail(res, 238943628, "polis_err_beta_registration", 403);

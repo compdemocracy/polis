@@ -111,6 +111,7 @@ CREATE TABLE beta(
     name VARCHAR(999),
     email VARCHAR(200),
     organization VARCHAR(200),
+    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
     UNIQUE(email)
 );
 
