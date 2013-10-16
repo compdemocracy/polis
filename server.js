@@ -680,6 +680,29 @@ function createZinvite(zid, callback) {
     });  
 }
 
+// Custom invite code generator, returns the code in the response
+app.get("/v3/oinvites/magicString9823742834/:note",
+    logPath,
+    auth,
+    moveToBody,
+    want('note', getOptionalStringLimitLength(999), assignToP),
+function(req, res) {
+    var note = req.p.note;
+
+    require('crypto').randomBytes(12, function(err, buf) {
+        if (err) { fail(res, 3453453, "polis_err_creating_oinvite_random_bytes", 500); return; }
+
+        var oinvite = buf.toString('base64')
+            .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
+
+        client.query('INSERT INTO oinvites (oinvite, note, created) VALUES ($1, $2, default);', [oinvite, note], function(err, results) {
+            if (err) { fail(res, 234534523, "polis_err_creating_oinvite_db", 500); return; }
+            res.status(200).end(oinvite);
+        });
+    });  
+});
+
+
 app.post("/v3/zinvites/:zid",
     logPath,
     auth,
@@ -1037,63 +1060,68 @@ function(req, res) {
     }); // query
 }); // /v3/auth/login
 
+
+function sqlHasResults(query, params, callback) {
+    client.query(query, params, function(err, results) {
+        if (err) { return callback(err); }
+        if (!results || !results.rows || !results.rows.length) {
+            return callback(0, false);
+        }
+        callback(0, true);
+    });
+}
+
+function oinviteExists(oinvite, callback) {
+    sqlHasResults(
+        "select oinvite from oinvites where oinvite = ($1);",
+        [oinvite], 
+        callback);
+}
+function zinviteExists(zinvite, callback) {
+    sqlHasResults(
+        "select zinvite from zinvites where zinvite = ($1);",
+        [zinvite], 
+        callback);
+}
+
 app.post("/v3/auth/new",
     logPath,
     want('anon', getBool, assignToP),
-    want('username', _.identity, assignToP),
-    want('password', _.identity, assignToP),
-    want('email', _.identity, assignToP),
-    want('hname', _.identity, assignToP),
+    want('username', getOptionalStringLimitLength(999), assignToP),
+    want('password', getOptionalStringLimitLength(999), assignToP),
+    want('email', getOptionalStringLimitLength(999), assignToP),
+    want('hname', getOptionalStringLimitLength(999), assignToP),
+    want('oinvite', getOptionalStringLimitLength(999), assignToP),
+    want('zinvite', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
     var username = req.p.username;
     var hname = req.p.hname;
     var password = req.p.password;
     var email = req.p.email;
-    var zid = req.p.zid;
+    var oinvite = req.p.oinvite;
+    var zinvite = req.p.zinvite;
 
+  // Check for an invite code
+  if (!oinvite && !zinvite) {
+    fail(res, 982748723, "polis_err_missing_invite", 403);
+  }
+  if (oinvite) {
+    oinviteExists(oinvite, function(err, ok) {
+      if (err) { console.error(err); fail(res, 34534534, "polis_err_reg_oinvite", 500); return; }
+      if (!ok) { fail(res, 34534532, "polis_err_reg_unknown_oinvite", 403); return; }
+      finishedValidatingInvite();
+   });
+  } else if (zinvite) {
+    zinviteExists(zid, zinvite, function(err, ok) {
+      if (err) { console.error(err); fail(res, 43534534, "polis_err_reg_zinvite", 500); return; }
+      if (!ok) { fail(res, 435345346, "polis_err_reg_unknown_zinvite", 403); return; }
+      finishedValidatingInvite();
+    });
+  } else {
+    finishedValidatingInvite();
+  }
 
-    if (ALLOW_ANON && req.p.anon) {
-        client.query("INSERT INTO users (uid, created) VALUES (default, default) RETURNING uid;", [], function(err, result) {
-            if (err) {
-                if (isDuplicateKey(err)) {
-                    console.error(57493882);
-                    failWithRetryRequest(res);
-                } else {
-                    fail(res, 57493883, "polis_err_add_user", 500);
-                }
-                return;
-            }
-
-            console.log('baba');
-            console.dir(result);
-            var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
-            startSession(uid, function(errSessionStart,token) {
-                if (errSessionStart) { fail(res, 238943597, "polis_err_reg_failed_to_start_session_anon"); return; }
-                //var response = result.rows && result.rows[0]
-                function finish(pid) {
-                    var o = {
-                        uid: uid,
-                        token: token
-                    };
-                    if (pid) {
-                        o.pid = pid;
-                    }
-                    addCookie(res, token);
-                    res.status(200).json(o);
-                }
-                if (zid) {
-                    joinConversation(zid, uid, [], function(err, pid) {
-                        if (err) { fail(res, 5748941, "polis_err_joining_conversation_anon"); return; }
-                        finish(pid);
-                    });
-                } else {
-                    finish();
-                }
-            });
-        });
-        return;
-    }
-    // not anon
+  function finishedValidatingInvite() {
     if (!email) { fail(res, 5748932, "polis_err_reg_need_email"); return; }
     if (!hname) { fail(res, 5748532, "polis_err_reg_need_name"); return; }
     if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
@@ -1112,7 +1140,36 @@ function(req, res) {
                     delete req.p.password;
                     password = null;
                     if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
-                    client.query("INSERT INTO users (uid, username, email, pwhash, hname, created) VALUES (default, $1, $2, $3, $4, default) RETURNING uid;", [username, email, hashedPassword, hname], function(err, result) {
+
+
+
+                    // TODO update squel so we can use .returning
+                    //squel.useFlavour('postgres');
+                    // var query = squel.insert().into("users")
+                    //     /* .set("uid", default) */
+                    //     .set("username", username)
+                    //     .set("email", email)
+                    //     .set("pwhash", hashedPassword)
+                    //     .set("hname", hname)
+                    //     /* .set("created", default) */
+                    // ;
+                    // if (oinvite) {
+                    //     query = query.set("is_owner", true);
+                    //     query = query.set("oinvite", oinvite);
+                    // }
+                    // if (zinvite) {
+                    //     query = query.set("zinvite", zinvite)
+                    // }
+                    // query = query.returning("uid");
+
+                    var query = "insert into users " +
+                        "(username, email, pwhash, hname, zinvite, oinvite, is_owner) VALUES "+
+                        "($1, $2, $3, $4, $5, $6, $7) "+
+                        "returning uid;";
+                    var vals = 
+                        [username, email, hashedPassword, hname, zinvite||null, oinvite||null, !!oinvite];
+
+                    client.query(query, vals, function(err, result) {
                         if (err) { console.dir(err); fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(errSessionStart,token) {
@@ -1120,6 +1177,7 @@ function(req, res) {
                             addCookie(res, token);
                             res.json({
                                 uid: uid,
+                                hname: hname,
                                 username: username,
                                 email: email,
                                 token: token
@@ -1129,6 +1187,7 @@ function(req, res) {
                 }); // end hash
             }); // end gensalt
     }); // end find existing users
+  } // end finishedValidatingInvite
 }); // end /v3/auth/new
 
 
@@ -1852,6 +1911,17 @@ function(req, res) {
   });
 });
 
+
+function isUserAllowedToCreateConversations(uid, callback) {
+    client.query("select is_owner from users where uid = ($1);", [uid], function(err, results) {
+        if (err) { console.dir(err); return callback(err); }
+        if (!results || !results.rows || !results.rows.length) {
+            return callback(1);
+        }
+        callback(null, results.rows[0].is_owner);
+    });
+}
+
 // TODO check to see if ptpt has answered necessary metadata questions.
 app.post('/v3/conversations/undefined', // TODO undefined is not ok
     logPath,
@@ -1864,6 +1934,10 @@ app.post('/v3/conversations/undefined', // TODO undefined is not ok
     want('description', _.identity, assignToP, ""),
     need('uid', getInt, assignToP),
 function(req, res) {
+
+  isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
+    if (err) { console.dir(err); fail(res, 8274682374, "polis_err_add_conversation_failed_user_check", 500); return; }
+    if (!isAllowed) { console.log("denied create conversation to " + req.p.uid); fail(res, 372468723, "polis_err_add_conversation_not_enabled", 403); return; }
     client.query(
 'INSERT INTO conversations (zid, owner, created, topic, description, participant_count, is_active, is_draft, is_public, is_anon)  VALUES(default, $1, default, $2, $3, default, $4, $5, $6, $7) RETURNING zid;',
 [req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft, req.p.is_public, req.p.is_anon], function(err, result) {
@@ -1891,8 +1965,9 @@ function(req, res) {
         } else {
             finish();
         }
-    });
-});
+    }); // end insert
+  }); // end isUserAllowedToCreateConversations
+}); // end post conversations
 
 /*
 app.get('/v3/users',
