@@ -24,11 +24,14 @@ define(['model'], function (Model) {
         return s;
       },
       url_name_with_hostname: function() {
-
         // build the URL for the user to copy & paste
-        var port = document.location.port ? (":" + document.location.port) : "";
-        var s = document.location.hostname + port 
-
+        var s = "";
+        if (/polis/.exec(document.location.hostname)) {
+          // production
+          s += "https://"
+        }
+        s += document.location.hostname;
+        s += document.location.port ? (":" + document.location.port) : "";
         return s + this.url_name();
       },
       is_anon: false,
