@@ -2164,6 +2164,13 @@ var routingProxy = new httpProxy.RoutingProxy();
 
 var devMode = !!process.env.STATIC_FILES_HOST;
 function proxy(req, res) {
+    if (!devMode) {
+        // force https for production
+        if (!req.secure) {
+            res.status(302).setHeader('Location', 'https://www.polis.io').end();
+            return;
+        }
+    }
     if (devMode) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
