@@ -2166,7 +2166,7 @@ var devMode = !!process.env.STATIC_FILES_HOST;
 function proxy(req, res) {
     if (!devMode) {
         // force https for production
-        if (!req.secure) {
+        if ('https' !== req.protocol) {
             res.status(302).setHeader('Location', 'https://www.polis.io').end();
             return;
         }
