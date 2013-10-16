@@ -295,6 +295,34 @@ function fail(res, code, err, httpCode) {
     res.end(err);
 }
 
+
+function mysql_real_escape_string (str) {
+    return str.replace(/[\0\x08\x09\x1a\n\r"'\\\%]/g, function (char) {
+        switch (char) {
+            case "\0":
+                return "\\0";
+            case "\x08":
+                return "\\b";
+            case "\x09":
+                return "\\t";
+            case "\x1a":
+                return "\\z";
+            case "\n":
+                return "\\n";
+            case "\r":
+                return "\\r";
+            case "\"":
+            case "'":
+            case "\\":
+            case "%":
+                return "\\"+char; // prepends a backslash to backslash, percent,
+                                  // and double/single quotes
+        }
+    });
+}
+
+var sqlEscape = mysql_real_escape_string;
+
 function getEmail(s) {
     if (typeof s !== "string" || s.length > 999 || -1 === s.indexOf("@")) {
         throw "polis_fail_parse_email";
@@ -1496,8 +1524,8 @@ app.put('/v3/conversations/:zid',
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('is_public', getBool, assignToP),
-    want('topic', _.identity, assignToP),
-    want('description', _.identity, assignToP),
+    want('topic', getOptionalStringLimitLength(1000), assignToP),
+    want('description', getOptionalStringLimitLength(50000), assignToP),
 function(req, res){
     var query = squel.update().table('conversations');
     query = query.where("zid = ?", req.p.zid);
@@ -1506,8 +1534,12 @@ function(req, res){
     query = setOptional(query, req.p, 'is_anon');
     query = setOptional(query, req.p, 'is_draft');
     query = setOptional(query, req.p, 'is_public');
-    query = setOptional(query, req.p, 'topic');
-    query = setOptional(query, req.p, 'description');
+    if (req.p.topic) {
+        query = query.set('topic', sqlEscape(req.p.topic));
+    }
+    if (req.p.description) {
+        query = query.set('description', sqlEscape(req.p.description));
+    }
     client.query(
         query.toString(),
         function(err, result){
