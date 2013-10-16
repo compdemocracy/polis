@@ -1,5 +1,3 @@
-<h1>Welcome to the Polis beta.</h1>
-
 <!--section>
 The conversation you are about to join requires that you create a Polis account.
 Your name and email address will be available to the conversation starter, and with other invitees to the conversation.
@@ -10,16 +8,14 @@ Beyond that, we will not share this information with others.
 {{view gatekeeperAuthView}}
 </section-->
 
-<section>
-<h2>The conversation owner has requested that you answer the following questions before joining the conversation:</h2>
-
-<form>
-
-  <div class="span6">
-    {{view metadataQuestionsView}}
-    <button type="submit" class="btn btn-large"> Join Conversation </button>
-  </div>
-
-</form>
-
-</section>
+<section class="container">
+	<div class="row">
+		<div class="span4 offset4">
+			<h4 class="gatekeeperHeader">The conversation owner has requested that you provide the following information before joining:</h2>
+			<form>
+			   {{view metadataQuestionsView}}
+			   <button type="submit" class="btn btn-large gatekeeperButton"> Join Conversation </button>
+			</form>
+		</div> <!-- span -->
+	</div> <!-- row -->
+</section> <!-- container -->

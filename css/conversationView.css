@@ -72,28 +72,13 @@ svg {
   margin-bottom: 20px;
 }
 #comment_form_textarea{ 
-    margin: 10px;
-    height: 179px;
-    outline: none;
+    margin-top: 10px;
+    margin-bottom: 10px;
     width: 88%;
     white-space: pre-wrap;
-    overflow: hidden;
     resize: none;
-    background-color: transparent;
-    border: none;
     font-size: 14px;
-    /*undo bootstrap*/
-    -webkit-box-shadow: none;
-    -moz-box-shadow: none;
-    box-shadow: none;
-    -webkit-transition: none;
-    -moz-transition: none;
-    -o-transition: none;
-    transition: none;
 }
-
-
-
 
 #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     background-color: #F5F5F5;

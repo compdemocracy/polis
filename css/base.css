@@ -100,10 +100,39 @@ header .navbar .user { margin-right: 15px; }
 }
 
 
+/* conversationGatekeper.handlebars */
+
+.gatekeeperHeader {
+	margin-bottom: 15px;
+	font-weight: 400;
+	line-height: 1.3;
+}
+
+.gatekeeperButton {
+	margin-top: 15px;
+}
+
+.metadataCheckbox {
+	margin-left: 20px;
+}
+
+
 /* Mobile Only */
 
 @media only screen and (max-width : 640px) {
 
 	.navbar .brand { display: none; }
 
+}
+
+/* get rid of bootstrap's gutters on mobile */
+
+@media (max-width: 767px) {
+
+  .navbar-fixed-top,
+  .navbar-fixed-bottom,
+  .navbar-static-top {
+    margin-right: 0;
+    margin-left: 0;
+  }
 }
