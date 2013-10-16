@@ -1140,7 +1140,7 @@ function(req, res) {
       finishedValidatingInvite();
    });
   } else if (zinvite) {
-    zinviteExists(zid, zinvite, function(err, ok) {
+    zinviteExists(zinvite, function(err, ok) {
       if (err) { console.error(err); fail(res, 43534534, "polis_err_reg_zinvite", 500); return; }
       if (!ok) { fail(res, 435345346, "polis_err_reg_unknown_zinvite", 403); return; }
       finishedValidatingInvite();
