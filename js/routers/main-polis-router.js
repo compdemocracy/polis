@@ -60,7 +60,8 @@ define([  //begin dependencies
         var landingPageView = new LandingPageView();
         RootView.getInstance().setView(landingPageView);
       } else {
-        this.inbox();
+        // this.inbox();
+        Backbone.history.navigate("inbox", {trigger: true});
       }
     },
     deregister: function() {
@@ -122,7 +123,8 @@ define([  //begin dependencies
       });
       that.listenTo(createConversationFormView, "all", function(eventName, data) {
         if (eventName === 'done') {
-          that.inbox();
+          Backbone.history.navigate("inbox", {trigger: true});
+//          that.inbox();
         }
       });
       RootView.getInstance().setView(createConversationFormView);
@@ -147,7 +149,8 @@ define([  //begin dependencies
     });
     that.listenTo(createConversationFormView, "all", function(eventName, data) {
       if (eventName === 'done') {
-        that.inbox();
+        Backbone.history.navigate("inbox", {trigger: true});
+        // that.inbox();
       }
     });
     createConversationFormView.populate(model.attributes);
@@ -261,7 +264,8 @@ define([  //begin dependencies
   createUser: function(){
     var that = this;
     this.doCreateUser().done(function() {
-      that.inbox();
+      Backbone.history.navigate("inbox", {trigger: true});      
+      // that.inbox();
     });
   },
   login: function(zid){
@@ -272,7 +276,8 @@ define([  //begin dependencies
         // Redirect to a specific conversation after the user signs in.
         that.conversationView(zid);
       } else {
-        that.inbox();
+        Backbone.history.navigate("inbox", {trigger: true});
+        // that.inbox();
       }
     });
     RootView.getInstance().setView(loginFormView);
