@@ -988,8 +988,8 @@ app.post("/v3/participants",
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
-    want('zinvite', _.identity, assignToP),
-    want('answers', _.identity, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+    want('zinvite', getOptionalStringLimitLength(300), assignToP),
+    want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -1071,9 +1071,9 @@ app.post("/v3/beta",
 
 app.post("/v3/auth/login",
     logPath,
-    need('password', _.identity, assignToP),
-    want('username', _.identity, assignToP),
-    want('email', _.identity, assignToP),
+    need('password', getOptionalStringLimitLength(999), assignToP),
+    want('username', getOptionalStringLimitLength(999), assignToP),
+    want('email', getEmail, assignToP),
 function(req, res) {
     var password = req.p.password;
     var username = req.p.username;
@@ -1312,7 +1312,7 @@ app.post("/v3/comments",
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
-    need('txt', _.identity, assignToP),
+    need('txt', getOptionalStringLimitLength(1000), assignToP),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err) { console.dir(err); fail(res, 324234336, "polis_err_getting_pid"); return; }
@@ -1390,7 +1390,7 @@ function(req, res) {
 app.get("/v3/selection",
     logPath,
     moveToBody,
-    need('users', _.identity, assignToP),
+    need('users', getArrayOfInt, assignToP),
     need('zid', getInt, assignToP),
 function(req, res) {
         var zid = req.p.zid;
@@ -1672,7 +1672,7 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 app.get('/v3/metadata/questions',
     logPath,
     moveToBody,
-    authOr(need('zinvite', _.identity, assignToP)),
+    authOr(need('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     want('uid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -1705,7 +1705,7 @@ app.post('/v3/metadata/questions',
     logPath,
     moveToBody,
     auth,
-    need('key', _.identity, assignToP),
+    need('key', getOptionalStringLimitLength(999), assignToP),
     need('zid', getInt, assignToP),
     want('uid', getInt, assignToP),
 function(req, res) {
@@ -1734,7 +1734,7 @@ app.post('/v3/metadata/answers',
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
     need('pmqid', getInt, assignToP),
-    need('value', _.identity, assignToP),
+    need('value', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -1758,7 +1758,7 @@ function(req, res) {
 app.get('/v3/metadata/answers',
     logPath,
     moveToBody,
-    authOr(want('zinvite', _.identity, assignToP)),
+    authOr(want('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     want('uid', getInt, assignToP),
     want('pmqid', getInt, assignToP),
@@ -1798,7 +1798,7 @@ app.get('/v3/metadata',
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
-    want('zinvite', _.identity, assignToP),
+    want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
@@ -1980,8 +1980,8 @@ app.post('/v3/conversations/undefined', // TODO undefined is not ok
     want('is_draft', getBool, assignToP),
     want('is_public', getBool, assignToP, false),
     want('is_anon', getBool, assignToP, false),
-    want('topic', _.identity, assignToP, ""),
-    want('description', _.identity, assignToP, ""),
+    want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
+    want('description', getOptionalStringLimitLength(50000), assignToP, ""),
     need('uid', getInt, assignToP),
 function(req, res) {
 
