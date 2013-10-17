@@ -2020,54 +2020,7 @@ function(req, res) {
 
 
 
-function staticFile(req, res) {
-    // try to serve a static file
-    var requestPath = req.url;
-    var contentPath = './src';
 
-    // polis.io/2fdsi style URLs. The JS will interpret the path as stimulusId=2fdsi
-    if (/^\/[0-9]/.exec(requestPath) || requestPath === '/') {
-        contentPath += '/desktop/index.html';
-    } else if (requestPath.indexOf('/static/') === 0) {
-        contentPath += requestPath.slice(7);
-    }
-
-    var extname = path.extname(contentPath);
-    var contentType = 'text/html';
-    switch (extname) {
-        case '.js':
-            contentType = 'text/javascript';
-            break;
-        case '.css':
-            contentType = 'text/css';
-            break;
-        case '.png':
-            contentType = 'image/png';
-            break;
-        case '.woff':
-            contentType = 'application/x-font-woff';
-            break;
-    }
-     
-    console.log("PATH " + contentPath);
-    fs.exists(contentPath, function(exists) {
-        if (exists) {
-            fs.readFile(contentPath, function(error, content) {
-                if (error) {
-                    res.writeHead(404);
-                    res.json({status: 404});
-                }
-                else {
-                    res.writeHead(200, { 'Content-Type': contentType });
-                    res.end(content, 'utf-8');
-                }
-            });
-        } else {
-            res.writeHead(404);
-            res.json({status: 404});
-        }
-    });
-}
 
 app.get('/v3/users/new',
 logPath,
