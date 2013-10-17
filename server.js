@@ -2038,6 +2038,34 @@ function(req, res) {
 
 
 
+app.post('/v3/query_participants_by_metadata',
+    logPath,
+    auth,
+    need('uid', getInt, assignToP),
+    need('pmaids', getArrayOfInt, assignToP, []),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var pmaids = req.p.pmaids;
+
+    isOwnerOrParticipant(zid, uid, doneChecking);
+    function doneChecking() {
+        // find list of participants who are not eliminated by the list of excluded choices.
+        client.query(
+            // 3. invert the selection of participants, so we get those who passed the filter.
+            "select pid from participants where zid = ($1) and pid not in " +
+                // 2. find the people who chose those answers
+                "(select pid from participant_metadata_choices where alive = TRUE and pmaid in " +
+                    // 1. find the unchecked answers
+                    "(select pmaid from participant_metadata_answers where alive = TRUE and zid = ($2) and pmaid not in ("+ pmaids.join(",") +"))" +
+                ")" +
+            ";", 
+            [ zid, zid ], function( err, results) {
+                if (err) { console.dir(err); fail(res, 342342564, "polis_err_metadata_query", 500); return; }
+                res.status(200).end(_.pluck(results, "pid"));
+            });
+    }
+});
 
 
 app.get('/v3/users/new',
