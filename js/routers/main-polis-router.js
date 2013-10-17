@@ -65,8 +65,7 @@ define([  //begin dependencies
       }
     },
     deregister: function() {
-      PolisStorage.clearAll(); // clear old user - TODO setup deregistration
-      this.landingPageView();
+      window.deregister();
     },
     inbox: function(filter){
 
