@@ -644,12 +644,19 @@ app.get("/v3/math/pca",
 
 app.post("/v3/auth/deregister",
     logPath,
-    auth,
 function(req, res) {
-    var data = req.body;
-    endSession(data, function(err, data) {
+    var token = req.cookies.token;
+    function finish() {
+        res.clearCookie("token");
+        res.status(200).end();
+    }
+    if (!token) {
+        // nothing to do
+        return finish();
+    }
+    endSession(token, function(err, data) {
         if (err) { fail(res, 213489289, "couldn't end session"); return; }
-        res.end();
+        finish();
     });
 });
 
