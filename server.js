@@ -362,6 +362,17 @@ function getInt(s) {
     }
     return x;
 }
+
+function getArrayOfInt(a) {
+    if (_.isString(a)) {
+        a = a.split(',');
+    }
+    if (!_.isArray(a)) {
+        throw "polis_fail_parse_int_array";
+    }
+    return a.map(getInt);
+}
+
 function getIntInRange(min, max) {
     return function(s) {
         var x = getInt(s)
