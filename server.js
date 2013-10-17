@@ -2056,18 +2056,33 @@ function(req, res) {
 
 
 
-function staticFile(req, res) {
-    // try to serve a static file
-    var requestPath = req.url;
-    var contentPath = './src';
 
-    // polis.io/2fdsi style URLs. The JS will interpret the path as stimulusId=2fdsi
-    if (/^\/[0-9]/.exec(requestPath) || requestPath === '/') {
-        contentPath += '/desktop/index.html';
-    } else if (requestPath.indexOf('/static/') === 0) {
-        contentPath += requestPath.slice(7);
-    }
 
+//app.use(express.static(__dirname + '/src/desktop/index.html'));
+//app.use('/static', express.static(__dirname + '/src'));
+
+//app.get('/', staticFile);
+
+
+
+// function staticFile(req, res) {
+//     // try to serve a static file
+//     var requestPath = req.url;
+//     // var contentPath = './src';
+//     // Don't use this approach without protecting against arbitrary file access
+//     // if (/^\/[0-9]/.exec(requestPath) || requestPath === '/') {
+//     //     contentPath += '/desktop/index.html';
+//     // } else if (requestPath.indexOf('/static/') === 0) {
+//     //     contentPath += requestPath.slice(7);
+//     // }
+//     getStaticFile(contentPath, res);
+// }
+
+
+// this cache currently never expires 
+// filename -> content
+var staticFileCache = {};
+function getStaticFile(contentPath, res) {
     var extname = path.extname(contentPath);
     var contentType = 'text/html';
     switch (extname) {
@@ -2084,31 +2099,31 @@ function staticFile(req, res) {
             contentType = 'application/x-font-woff';
             break;
     }
-     
-    console.log("PATH " + contentPath);
-    fs.exists(contentPath, function(exists) {
-        if (exists) {
+
+    function onSuccess(content) {
+        res.setHeader('Content-Type', contentType);
+        res.status(200);
+        res.send(content);
+    }
+    function onMissing() {   
+        res.setHeader(404);
+        res.json({status: 404});
+    }
+
+    if (staticFileCache[contentPath]) {
+        onSuccess(staticFileCache[contentPath]);
+    } else {
+        fs.exists(contentPath, function(exists) {
+            if (!exists) { return onMissing(); }
             fs.readFile(contentPath, function(error, content) {
-                if (error) {
-                    res.writeHead(404);
-                    res.json({status: 404});
-                }
-                else {
-                    res.writeHead(200, { 'Content-Type': contentType });
-                    res.end(content, 'utf-8');
-                }
+                if (error) { return onMissing(); }
+                staticFileCache[contentPath] = content;
+                onSuccess(content);
             });
-        } else {
-            res.writeHead(404);
-            res.json({status: 404});
-        }
-    });
+        });
+    }
 }
 
-//app.use(express.static(__dirname + '/src/desktop/index.html'));
-//app.use('/static', express.static(__dirname + '/src'));
-
-//app.get('/', staticFile);
 
 
 
