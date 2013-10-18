@@ -27,11 +27,18 @@
         width: 60%;
         text-align: center;
         padding: 20px;
-        background-color: rgba(52, 152, 219, .7);
-        border-radius: 15px;
         color: white;
+        background-color: rgb(52, 152, 219);
+        border-radius: 15px;
+        /* opacity for IE 8 */
+        -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=75)";
+        filter: progid:DXImageTransform.Microsoft.Alpha(Opacity=75);
+        opacity: .75;
       }
     </style> 
+
+
+
   </head>
   <body>
 
