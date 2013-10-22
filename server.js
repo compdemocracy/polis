@@ -2042,12 +2042,17 @@ app.post('/v3/query_participants_by_metadata',
     logPath,
     auth,
     need('uid', getInt, assignToP),
+    need('zid', getInt, assignToP),
     need('pmaids', getArrayOfInt, assignToP, []),
 function(req, res) {
-    var zid = req.p.zid;
     var uid = req.p.uid;
+    var zid = req.p.zid;    
     var pmaids = req.p.pmaids;
 
+    if (!pmaids.length) {
+        // empty selection
+        return res.status(200).json([]);
+    }
     isOwnerOrParticipant(zid, uid, doneChecking);
     function doneChecking() {
         // find list of participants who are not eliminated by the list of excluded choices.
@@ -2062,7 +2067,7 @@ function(req, res) {
             ";", 
             [ zid, zid ], function( err, results) {
                 if (err) { console.dir(err); fail(res, 342342564, "polis_err_metadata_query", 500); return; }
-                res.status(200).end(_.pluck(results, "pid"));
+                res.status(200).json(_.pluck(results.rows, "pid"));
             });
     }
 });
