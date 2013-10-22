@@ -4,7 +4,7 @@ define([
   'views/comment-view',
   'views/comment-form',
   'views/change-votes',
-  'views/metadataQuestionsView', // analyze view
+  'views/metadataQuestionsFilterView', // analyze view
   'views/results-view', //results view
   'models/vote',
   'models/participant',
@@ -29,7 +29,7 @@ define([
     CommentView, 
     CommentFormView,
     ChangeVotesView,
-    MetadataQuestionsView,
+    MetadataQuestionsFilterView,
     ResultsView,
     VoteModel,
     ParticipantModel,
@@ -120,10 +120,14 @@ define([
 
     /* child views */
 
-    this.metadataQuestionsView = new MetadataQuestionsView({
+    this.metadataQuestionsView = new MetadataQuestionsFilterView({
       serverClient: serverClient,
       zid: this.zid,
       collection: metadataCollection,
+    });
+
+    this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
+      console.log(enabledAnswers);
     });
 
     this.changeVotes = new ChangeVotesView({
