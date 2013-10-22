@@ -23,7 +23,7 @@ return Thorax.CollectionView.extend({
       this.model = options.model; // question model
       this.collection = options.model.collection; // answers collection
       this.listenTo(this.collection, "change", function() {
-        var enabledAnswers = this.collection.where({enabled:true});
+        var enabledAnswers = this.collection.filter(function(m) { return !m.get('disabled');});
         enabledAnswers = _.map(enabledAnswers, function(answerModel) { return answerModel.get('pmaid');});
         this.model.set('enabledAnswers', enabledAnswers);
       });

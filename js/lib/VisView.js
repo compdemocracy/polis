@@ -629,9 +629,27 @@ function resetSelection() {
   unhoverAll();
 }
 
+function emphasizeParticipants(pids) {
+    var hash = []; // sparse-ish array
+    for (var i = 0; i < pids.length; i++) {
+        hash[pids[i]] = true;
+    }
+
+    function chooseOpacity(d) {
+        if (hash[d.pid]) {
+            return 1;
+        }
+        return 0.3;
+    }
+
+    visualization.selectAll(".ptpt")
+        .attr("opacity", chooseOpacity);
+}
+
 return {
     upsertNode: upsertNode,
     addClusterTappedListener: clusterClickedCallbacks.add,
+    emphasizeParticipants: emphasizeParticipants,
 };
 
 };

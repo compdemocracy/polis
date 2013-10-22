@@ -128,6 +128,11 @@ define([
 
     this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
       console.log(enabledAnswers);
+      serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+        vis.emphasizeParticipants,
+        function(err) {
+          alert(err);
+        });
     });
 
     this.changeVotes = new ChangeVotesView({

@@ -42,6 +42,8 @@ return function(params) {
     var conversationsPath = "/v3/conversations";
     var participantsPath = "/v3/participants";
 
+    var queryParticipantsByMetadataPath = "/v3/query_participants_by_metadata";
+
     var authenticatedCalls = [votesByMePath, votesPath, commentsPath, deregisterPath, conversationsPath, participantsPath];
 
     var logger = params.logger;
@@ -294,6 +296,9 @@ return function(params) {
     }
 
     function polisAjax(api, data, type) {
+        if (!_.isString(api)) {
+            throw "api param should be a string";
+        }
         var url = protocol + "://"+ domain + basePath + api;
         
         // Add the auth token if needed.
@@ -781,6 +786,13 @@ return function(params) {
         });
     }
 
+    function queryParticipantsByMetadata(pmaids) {
+        return polisPost(queryParticipantsByMetadataPath, {
+            pmaids: pmaids,
+            zid: currentStimulusId,
+        });
+    }
+
     setTimeout(getPca,0);
     setInterval(function() {
         getPca().then(
@@ -809,6 +821,7 @@ return function(params) {
         unstar: unstar,
         //see: see,
         stories: stories,
+        queryParticipantsByMetadata: queryParticipantsByMetadata,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
