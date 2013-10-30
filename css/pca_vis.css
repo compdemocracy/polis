@@ -34,8 +34,8 @@
   cursor: pointer;
 }
 .active {
-  fill: #FFF3BB;
-  stroke: #FFF3BB;
+  fill: #99C3FF;
+  stroke: #99C3FF;
 }
 .ptpt {
   z-index: 500;

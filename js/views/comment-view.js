@@ -41,7 +41,7 @@ define([
       });
     };
     function onFail(err) {
-        alert('error sending vote ' + err);
+        alert('error sending vote ' + JSON.stringify(err));
     }
     this.participantAgreed = function(e) {
       serverClient.agree(this.model.get("tid"))

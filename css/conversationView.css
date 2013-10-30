@@ -103,18 +103,18 @@ svg {
   color: #f39c12;
 }
 
-#starButton:hover, #starButton:focus, #starButton:active {
-  color: #f39c12;
+/* Everything but mobile */
+@media (min-width: 767px) {
+  #starButton:hover, #starButton:focus, #starButton:active {
+    color: #f39c12;
+  }
+  #agreeButton:hover, #agreeButton:focus, #agreeButton:active {
+    color: #2ecc71;
+  }
+  #disagreeButton:hover, #disagreeButton:focus, #disagreeButton:active {
+    color: #e74c3c;
+  }
 }
-
-#agreeButton:hover, #agreeButton:focus, #agreeButton:active {
-  color: #2ecc71;
-}
-
-#disagreeButton:hover, #disagreeButton:focus, #disagreeButton:active {
-  color: #e74c3c;
-}
-
 
 /* Large desktop */
 @media (min-width: 1200px) { 
@@ -187,5 +187,12 @@ svg {
   }
   #trashButton {
     margin-right: 2px;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    padding-right: 10px;
+    padding-left: 10px;
   }
 }

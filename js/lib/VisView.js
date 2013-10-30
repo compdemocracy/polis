@@ -137,7 +137,8 @@ function onClusterClicked(d) {
     setClusterActive.call(this, d);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
 
  //   zoomToHull.call(this, d);
-    d3.event.stopPropagation()
+    d3.event.stopPropagation();
+    d3.event.preventDefault(); // prevent flashing on iOS
 }
 
 d3Hulls = _.times(9, function() {
@@ -605,7 +606,8 @@ function renderComments(comments) {
 
 
 function onParticipantClicked(d) {
-    d3.event.stopPropagation()
+    d3.event.stopPropagation();
+    d3.event.preventDefault(); // prevent flashing on iOS
   // alert(getUserInfoByPid(d.pid).hname)
 }
 
