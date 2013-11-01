@@ -937,11 +937,14 @@ function(req, res) {
         });
     }
     function fetchAll() {
-        client.query("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE zid = ($1));", [zid], function(err, result) {
+        // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
+        client.query("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
             if (err || !result || !result.rows || !result.rows.length) { fail(res, 213489325, "polis_err_fetching_participant_info"); return; }
-            res.json(result.rows.map(function(row) {
-                return _.pick(row, ["hname", "email"]);
-            }));
+            // console.dir(result.rows);
+            res.json(result.rows);
+            // .map(function(row) {
+            //     return _.pick(row, ["hname", "email"]);
+            // }));
         });
     }
     client.query("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
