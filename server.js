@@ -1451,11 +1451,11 @@ function(req, res) {
                 }
 
                 comments.sort(function(a, b) {
-                    // desc sort primarily on frequency, then on recency
+                    // desc sort primarily on frequency(ascending), then on recency
                     if (b.freq > a.freq) {
-                        return 1;
-                    } else if (b.freq < a.freq) {
                         return -1;
+                    } else if (b.freq < a.freq) {
+                        return 1;
                     } else {
                         return b.created > a.created;
                     }
