@@ -11,6 +11,6 @@
                  [incanter "1.5.4"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.trace "0.7.6"]
                                   [storm "0.8.2"]
-                                  [org.clojure/clojure "1.4.0"]]}}
+                                  [org.clojure/clojure "1.5.1"]]}}
   :min-lein-version "2.3.0")
 
