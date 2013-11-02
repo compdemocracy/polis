@@ -1,6 +1,13 @@
 (ns pca)
 
-(require ['clojure.tools.trace :as 'tr])
+(use 'utils 'matrix-utils)
+(require '(incanter
+            [core :as ic.core]
+            [stats :as ic.stats]
+            [datasets :as ic.data]
+            [io :as ic.io])
+          ['clojure.tools.trace :as 'tr])
+(use 'clojure.tools.trace)
 
 
 (defn mean [xs]
@@ -54,13 +61,16 @@
   (let [iters (or iters 100)
         n-rows (count (first data))
         start-vector (or start-vector (repeatv n-rows 1))]
-    (loop [data data iters iters start-vector start-vector]
-      (if (> iters 0)
-        (let [product-vector (xtxr data start-vector)
-              eigen-val (norm product-vector)
-              normed (mapv #(/ % eigen-val) product-vector)]
-          (recur data (dec iters) normed))
-        start-vector))))
+    (loop [iters iters start-vector start-vector last-eigval 0]
+      (let [product-vector (xtxr data start-vector)
+            eigval (norm product-vector)
+            normed (mapv #(/ % eigval) product-vector)]
+        (if (or (= iters 0) (= eigval last-eigval))
+          ;'(start-vector s)
+          (do
+            (println eigval)
+            normed)
+          (recur (dec iters) normed eigval))))))
 
 
 (defn proj-vec [xs ys]
@@ -75,19 +85,30 @@
   (mapv #(v- % (proj-vec xs %)) data))
 
 
+(defn mean-vector [data]
+  (mapv ic.stats/mean (zip data)))
+
+
+(defn centered-data [data]
+  (let [data-cntr (mean-vector data)]
+    (mapv #(v- % data-cntr) data)))
+
+
 ; Will eventually also want to add last-pcs
 (defn powerit-pca [data n-comps & [iters]]
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
-  (letfn [(inner-fn [data' n-comps' pcs]
-            (let [pc (power-iteration data' iters) ; may eventually want to return eigenvals...
-                  pcs (conj pcs pc)]
-              (if (= n-comps' 1)
-                pcs ; return if done
-                (let [data' (factor-matrix data' pc)
-                      n-comps' (dec n-comps')]
-                  (recur data' n-comps' pcs)))))]
-    (inner-fn data n-comps [])))
+  (let [data-cntr (mean-vector data)
+        shit (trace data-cntr)
+        cntrd-data (mapv #(v- % data-cntr) data)]
+    (loop [data' cntrd-data n-comps' n-comps pcs []]
+      (let [pc (power-iteration data' iters) ; may eventually want to return eigenvals...
+            pcs (conj pcs pc)]
+        (if (= n-comps' 1)
+          pcs ; return if done
+          (let [data' (factor-matrix data' pc)
+                n-comps' (dec n-comps')]
+            (recur data' n-comps' pcs)))))))
 
 
 (defn pca-project [data pcs]
@@ -99,42 +120,51 @@
     data))
 
 
-; Note this isn't safe if E[xy] ~= E[x]E[y]; should eventually replace
-(defn cov [xs ys]
-  (- (mean (map * xs ys))
-     (* (mean xs) (mean ys))))
+(defn -main []
+  ;(def data
+    ;[[1  0 0  1  1 -1  1 -1]
+     ;[0 -1 0  1 -1 -1 -1 -1]
+     ;[1  1 0 -1  0 -1 -1  1]
+     ;[-1 0 1  1 -1  0  1  1]])
+  ;(def reactions (random-reactions 50 50))
+  ;(def data (:matrix (update-rating-matrix nil reactions)))
+  (def data (ic.core/sel (ic.core/to-matrix (ic.data/get-dataset :iris)) :cols (range 4)))
+  (def data (centered-data data))
+  (println (mean-vector data))
+  (println data)
 
 
-(def data
-  [[1  0 0  1  1 -1  1 -1]
-   [0 -1 0  1 -1 -1 -1 -1]
-   [1  1 0 -1  0 -1 -1  1]
-   [-1 0 1  1 -1  0  1  1]])
+  (println "Computing powerit-pca")
+  (time (def pi-comps (powerit-pca data 2)))
+  (println "Computing incanter pca")
+  (time (def ic-pca (ic.stats/principal-components (ic.core/matrix data))))
 
+  (def ic-comps (:rotation ic-pca))
+  (def ic-pc1 (into [] (ic.core/sel ic-comps :cols 0)))
+  (def ic-pc2 (into [] (ic.core/sel ic-comps :cols 1)))
+  (def pi-pc1 (first pi-comps))
+  (def pi-pc2 (last pi-comps))
 
+  (println "")
+  (println pi-pc1)
+  (println "")
+  (println (into [] ic-pc1))
+  (println "")
+  (println (power-iteration data 50 ic-pc1))
+  (println "")
+  (println ic-pca)
+  (println "")
 
+  (println "Comparing (dot pc1 pc2) within")
+  (println (dot ic-pc1 ic-pc2))
+  (println (dot pi-pc1 pi-pc2))
 
-(time (def components (powerit-pca data 2)))
-(println components)
-(println (dot (first components) (last components)))
+  (println "Comparing (dot pc1 pc2) between")
+  (println (dot ic-pc1 pi-pc2))
+  (println (dot pi-pc1 ic-pc2))
 
-(use '(incanter core stats))
-(time (def pca (principal-components (matrix data))))
-(println pca)
-(def components (:rotation pca))
-(println components)
-(def pc1 (into [] (sel components :cols 0)))
-(def pc2 (into [] (sel components :cols 1)))
-(println [pc1 pc2])
-(println (dot pc1 pc2))
-
-(println (dot pc1 (first components)))
-(println (dot pc2 (last components)))
-
-(println (dot (first components) (first components)))
-(println (dot pc1 pc1))
-
-(defn cov-mat [mat]
-  (mapv (fn [row1]
-         (mapv (fn [row2] (cov row1 row2)) mat)) mat))
+  (println "Comparing (dot pc1 pc1) between")
+  (println (dot ic-pc1 pi-pc1))
+  (println (dot ic-pc2 pi-pc2))
+)
 
