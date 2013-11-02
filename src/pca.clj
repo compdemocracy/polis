@@ -10,24 +10,9 @@
 (use 'clojure.tools.trace)
 
 
-(defn mean [xs]
-  "Returns the mean of vector xs"
-  (/ (apply + xs) (count xs)))
-
-
 (defn dot [xs ys]
   "Returns the dot (or Euclidean inner) product of vectors xs and ys"
-  (reduce + (map * xs ys)))
-
-
-(defn v+ [xs ys]
-  "Vector addition function"
-  (mapv + xs ys))
-
-
-(defn v- [xs ys]
-  "Vector subtraction function"
-  (mapv - xs ys))
+  (ic.core/sum (ic.core/mult xs ys)))
 
 
 (defn norm [xs]
@@ -46,11 +31,11 @@
   "Will need to rename this and some of the inner variables to be easier to read...
   Computes an inner step of the power-iteration process"
   (let [n-rows (count (first data))
-        curr-vec (repeatv n-rows 0)]
+        curr-vec (ic.core/trans (repeatv n-rows 0))]
     (loop [data data curr-vec curr-vec]
       (if-let [row (first data)]
         (recur (rest data)
-               (v+ curr-vec (mapv #(* (dot row start-vec) %) row)))
+               (ic.core/plus curr-vec (ic.core/mult (dot row start-vec) row)))
         curr-vec))))
 
 
@@ -64,43 +49,40 @@
     (loop [iters iters start-vector start-vector last-eigval 0]
       (let [product-vector (xtxr data start-vector)
             eigval (norm product-vector)
-            normed (mapv #(/ % eigval) product-vector)]
+            normed (ic.core/div product-vector eigval)]
         (if (or (= iters 0) (= eigval last-eigval))
-          ;'(start-vector s)
-          (do
-            (println eigval)
-            normed)
+          normed
           (recur (dec iters) normed eigval))))))
 
 
 (defn proj-vec [xs ys]
   "This computes the projection of ys orthogonally onto the vector spanned by xs"
   (let [coeff (/ (dot xs ys) (dot xs xs))]
-    (mapv #(* coeff %) xs)))
+    (ic.core/mult coeff xs)))
 
 
 (defn factor-matrix [data xs]
   "As in the Gram-Shmidt process; we can 'factor out' the vector xs from all the vectors in data,
   such that there is no remaining variance in the xs direction within the data."
-  (mapv #(v- % (proj-vec xs %)) data))
+  (ic.core/matrix (mapv #(ic.core/minus % (proj-vec xs %)) data)))
 
 
 (defn mean-vector [data]
-  (mapv ic.stats/mean (zip data)))
+  (ic.core/matrix (mapv ic.stats/mean (zip data))))
 
 
 (defn centered-data [data]
-  (let [data-cntr (mean-vector data)]
-    (mapv #(v- % data-cntr) data)))
+  (let [data-cntr (ic.core/trans (mean-vector data))]
+    (mapv #(ic.core/minus % data-cntr) data)))
 
 
 ; Will eventually also want to add last-pcs
 (defn powerit-pca [data n-comps & [iters]]
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
-  (let [data-cntr (mean-vector data)
-        shit (trace data-cntr)
-        cntrd-data (mapv #(v- % data-cntr) data)]
+  (let [data-cntr (ic.core/trans (mean-vector data))
+        ;shit (trace data-cntr)
+        cntrd-data (mapv #(ic.core/minus % data-cntr) data)]
     (loop [data' cntrd-data n-comps' n-comps pcs []]
       (let [pc (power-iteration data' iters) ; may eventually want to return eigenvals...
             pcs (conj pcs pc)]
@@ -126,45 +108,42 @@
      ;[0 -1 0  1 -1 -1 -1 -1]
      ;[1  1 0 -1  0 -1 -1  1]
      ;[-1 0 1  1 -1  0  1  1]])
-  ;(def reactions (random-reactions 50 50))
-  ;(def data (:matrix (update-rating-matrix nil reactions)))
-  (def data (ic.core/sel (ic.core/to-matrix (ic.data/get-dataset :iris)) :cols (range 4)))
-  (def data (centered-data data))
-  (println (mean-vector data))
-  (println data)
-
+  (def reactions (random-reactions 500 500))
+  (def data (ic.core/matrix (:matrix (update-rating-matrix nil reactions))))
+  ;(def data (ic.core/sel (ic.core/to-matrix (ic.data/get-dataset :iris)) :cols (range 4)))
+  ;(def data (centered-data data))
 
   (println "Computing powerit-pca")
   (time (def pi-comps (powerit-pca data 2)))
   (println "Computing incanter pca")
   (time (def ic-pca (ic.stats/principal-components (ic.core/matrix data))))
 
-  (def ic-comps (:rotation ic-pca))
-  (def ic-pc1 (into [] (ic.core/sel ic-comps :cols 0)))
-  (def ic-pc2 (into [] (ic.core/sel ic-comps :cols 1)))
-  (def pi-pc1 (first pi-comps))
-  (def pi-pc2 (last pi-comps))
+  ;(def ic-comps (:rotation ic-pca))
+  ;(def ic-pc1 (into [] (ic.core/sel ic-comps :cols 0)))
+  ;(def ic-pc2 (into [] (ic.core/sel ic-comps :cols 1)))
+  ;(def pi-pc1 (first pi-comps))
+  ;(def pi-pc2 (last pi-comps))
 
-  (println "")
-  (println pi-pc1)
-  (println "")
-  (println (into [] ic-pc1))
-  (println "")
-  (println (power-iteration data 50 ic-pc1))
-  (println "")
-  (println ic-pca)
-  (println "")
+  ;(println "")
+  ;(println pi-pc1)
+  ;(println "")
+  ;(println (into [] ic-pc1))
+  ;(println "")
+  ;(println (power-iteration data 50 ic-pc1))
+  ;(println "")
+  ;(println ic-pca)
+  ;(println "")
 
-  (println "Comparing (dot pc1 pc2) within")
-  (println (dot ic-pc1 ic-pc2))
-  (println (dot pi-pc1 pi-pc2))
+  ;(println "Comparing (dot pc1 pc2) within")
+  ;(println (dot ic-pc1 ic-pc2))
+  ;(println (dot pi-pc1 pi-pc2))
 
-  (println "Comparing (dot pc1 pc2) between")
-  (println (dot ic-pc1 pi-pc2))
-  (println (dot pi-pc1 ic-pc2))
+  ;(println "Comparing (dot pc1 pc2) between")
+  ;(println (dot ic-pc1 pi-pc2))
+  ;(println (dot pi-pc1 ic-pc2))
 
-  (println "Comparing (dot pc1 pc1) between")
-  (println (dot ic-pc1 pi-pc1))
-  (println (dot ic-pc2 pi-pc2))
+  ;(println "Comparing (dot pc1 pc1) between")
+  ;(println (dot ic-pc1 pi-pc1))
+  ;(println (dot ic-pc2 pi-pc2))
 )
 
