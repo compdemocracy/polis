@@ -8,6 +8,6 @@ define(['model'], function (Model) {
       pid: undefined,	 // participant id
       txt: "This is default comment text defined in the model.",
       created: 0,
-  	}
+    }
   });
 });

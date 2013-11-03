@@ -9,12 +9,12 @@ define([
     template: template,
     events: {
       "hover .starbutton": function(){
-        this.$('.starbutton').html('<i class="icon-star"></i>')
+        this.$('.starbutton').html('<i class="icon-star"></i>');
       }
     },
   initialize: function() {
     var serverClient = this.serverClient;
-    console.dir(serverClient)
+    console.dir(serverClient);
     var that = this;
     var waitingForComments = true;
     var commentPollInterval = 5 * 1000;
@@ -27,7 +27,7 @@ define([
       that.model = new CommentModel(model);
       that.render();
       waitingForComments = false;
-    };
+    }
     function showNext() {
       serverClient.getNextComment().then(
         showComment,
@@ -39,7 +39,7 @@ define([
           });
           that.render();
       });
-    };
+    }
     function onFail(err) {
         alert('error sending vote ' + JSON.stringify(err));
     }
@@ -102,7 +102,7 @@ define([
         placement: "left",
         delay: { show: 500, hide: 0 },
       });                  
-    })
+    });
   }
   });
 });

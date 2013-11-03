@@ -137,14 +137,13 @@ define([  //begin dependencies
     });
   },
   editConversation: function(id) {
-  	var conversationsCollection = new ConversationsCollection();
-  	conversationsCollection.fetch()
+    var conversationsCollection = new ConversationsCollection();
+    conversationsCollection.fetch();
     var model = conversationsCollection.get(id);
     var createConversationFormView = new CreateConversationFormView({
       model: model,
       collection: conversationsCollection,
-      edit: true,
-      model: model
+      edit: true
     });
     that.listenTo(createConversationFormView, "all", function(eventName, data) {
       if (eventName === 'done') {
@@ -160,8 +159,8 @@ define([  //begin dependencies
     });
   },
   conversationDetails: function(id){
-  	var conversationsCollection = new ConversationsCollection();
-  	conversationsCollection.fetch();
+    var conversationsCollection = new ConversationsCollection();
+    conversationsCollection.fetch();
     var model = conversationsCollection.get(id);    
     var detailsView = new ConversationDetailsView({
       collection: conversationsCollection,

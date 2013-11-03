@@ -59,7 +59,7 @@ define([
             console.dir(arguments);
             alert(err.responseText);
           });
-        })
+        });
       },
     },
     initialize: function(options) {

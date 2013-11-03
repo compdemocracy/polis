@@ -29,19 +29,19 @@ define([
           }).then(function(data) {
             release();
             that.trigger("done");
-            alert("Thank you, your request was recieved.")
+            alert("Thank you, your request was recieved.");
           }, function(err) {
             release();
             console.dir(arguments);
             alert(err.responseText);
           });
-        })
+        });
       },
     },
     initialize: function(){
-    	this.listenTo(this, 'rendered', function(){
-    		this.$('#conductor').anystretch("img/conductor.jpeg");
-    	})
+      this.listenTo(this, 'rendered', function(){
+        this.$('#conductor').anystretch("img/conductor.jpeg");
+      });
     }
   });
 });

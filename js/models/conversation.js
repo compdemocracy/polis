@@ -28,7 +28,7 @@ define(['model'], function (Model) {
         var s = "";
         if (/polis/.exec(document.location.hostname)) {
           // production
-          s += "https://"
+          s += "https://";
         }
         s += document.location.hostname;
         s += document.location.port ? (":" + document.location.port) : "";

@@ -112,7 +112,7 @@ define([
         processData: true,
     });
 
-    var resultsCollection = new ResultsCollection()
+    var resultsCollection = new ResultsCollection();
 
     window.m = metadataCollection;
 
@@ -154,7 +154,7 @@ define([
       serverClient: serverClient,
       zid: this.zid,
       collection: resultsCollection
-    })
+    });
 
 
     this.commentForm.on("commentSubmitted", function() {
@@ -162,8 +162,8 @@ define([
     });
 
     /* tooltips */
-    console.log('here are the views children:')
-    console.dir(this.children)
+    console.log('here are the views children:');
+    console.dir(this.children);
 
 
 
@@ -237,7 +237,7 @@ define([
         trigger: "click",
         placement: "top",
       });
-    })
+    });
 
      // Let the DOM finish its layout
      _.defer(initPcaVis);

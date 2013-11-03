@@ -14,7 +14,7 @@ define([
           that.participantCommented(attrs);
           release();
         });
-        $('#comment_form_textarea').val('') //use this.$
+        $('#comment_form_textarea').val(''); //use this.$
       },
     },
     participantCommented: function(attrs) {

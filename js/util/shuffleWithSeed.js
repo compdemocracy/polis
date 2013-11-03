@@ -4,7 +4,7 @@ define([
 
 return function(array, seed) {
     var seq = RandomWithSeed(seed);
-    if (seed == null) {
+    if (seed === null) {
         seq = Math.random;
     }
     var rand;
