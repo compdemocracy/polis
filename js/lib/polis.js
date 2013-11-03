@@ -447,7 +447,7 @@ return function(params) {
                 }
                 if (totalSquares < best) {
                     best = totalSquares;
-                    bestMean = m
+                    bestMean = m;
                     bestIndex = mi;
                 }
             }

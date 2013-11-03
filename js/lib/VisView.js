@@ -96,13 +96,8 @@ function zoomToHull(d){
     var b = bounds[d.hullId];
     visualization.transition().duration(750)
     //.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-    .attr("transform", ""
-      //"translate(" + projection.translate() + ")" +
-      //"translate(" + d3.event.translate + ")" +
-      + "scale(" + .95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")"
-      + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")"
-      );
-      //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
+    .attr("transform", "" + "scale(" + 0.95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")" + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")");
+    //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
 }
 
 function setClusterActive(d) {
@@ -136,9 +131,10 @@ function onClusterClicked(d) {
     unhoverAll();
     setClusterActive.call(this, d);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
 
- //   zoomToHull.call(this, d);
+    //zoomToHull.call(this, d);
     d3.event.stopPropagation();
     d3.event.preventDefault(); // prevent flashing on iOS
+
 }
 
 d3Hulls = _.times(9, function() {
@@ -483,7 +479,7 @@ function upsertNode(updatedNodes, newClusters) {
 */
         .style("stroke-width", strokeWidth)
         .attr("transform", function(d) {
-            return "translate(" + d.x + "," + d.y + ")"
+            return "translate(" + d.x + "," + d.y + ")";
         })
           // .attr("cx", function(d) {
           //   return d.x;
@@ -499,7 +495,7 @@ function upsertNode(updatedNodes, newClusters) {
 
       // UPDATE
       // TODO Can we do this less frequently?
-      circle.classed("node", true)
+      circle.classed("node", true);
       circle.classed("update", true)
         //.each(function(d) {
             //d.x = d.x !== undefined ? d.x : d.data.targetX;
@@ -607,7 +603,10 @@ function renderComments(comments) {
 
 function onParticipantClicked(d) {
     d3.event.stopPropagation();
+<<<<<<< HEAD
     d3.event.preventDefault(); // prevent flashing on iOS
+=======
+>>>>>>> Squillions of semicolon and whitespace changes part two.
   // alert(getUserInfoByPid(d.pid).hname)
 }
 

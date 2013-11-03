@@ -42,7 +42,7 @@ var konfirm = (function(){
     this.shade = $('<div class="konfirm-shade"/>').appendTo('body');
     this.cancelTrigger = $('<a href="javascript:void(0)" class="btn btn-danger">Cancel</a>').appendTo(this.dialog);
     this.successTrigger = $('<a href="javascript:void(0)" class="btn btn-success">Ok</a>').appendTo(this.dialog);
-  }
+  };
 
   konfirm.prototype.position = function() {
     var ww,wh,dw,dh,nt,nl = null;
@@ -53,24 +53,24 @@ var konfirm = (function(){
     nt = (wh - dh) / 2;
     nl = (ww - dw) / 2;
     this.dialog.css({left: nl, top: nt});
-  }
+  };
 
   konfirm.prototype.bindEvents = function() {
     this.successTrigger.on('click', this.successHandler);
     this.cancelTrigger.on('click', this.cancelHandler);
-  }
+  };
 
   konfirm.prototype.successHandler = function() {
     this.success();
     this.dialog.remove();
     this.shade.remove();
-  }
+  };
 
   konfirm.prototype.cancelHandler = function() {
     this.cancel();
     this.dialog.remove();
     this.shade.remove();
-  }
+  };
 
   return konfirm;
 

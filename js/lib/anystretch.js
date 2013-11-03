@@ -35,10 +35,10 @@
             imgRatio, bgImg, bgWidth, bgHeight, bgOffset, bgCSS;
 
             // Extend the settings with those the user has provided
-            if(options && typeof options == "object") $.extend(settings, options);
+            if(options && typeof options === "object") $.extend(settings, options);
             
             // Just in case the user passed in a function without options
-            if(options && typeof options == "function") callback = options;
+            if(options && typeof options === "function") callback = options;
         
             // Initialize
             $(document).ready(_init);
@@ -57,7 +57,7 @@
                     }
                     
                     // If this is the first time that anystretch is being called
-                    if(container.length == 0) {
+                    if(container.length === 0) {
                         container = $("<div />").attr("class", "anystretch")
                                                 .css({left: 0, top: 0, position: (isBody ? "fixed" : "absolute"), overflow: "hidden", zIndex: (isBody ? -999999 : -999998), margin: 0, padding: 0, height: "100%", width: "100%"});
                     } else {
@@ -88,7 +88,7 @@
                                       .appendTo(container);
                      
                     // Append the container to the body, if it's not already there
-                    if(el.children(".anystretch").length == 0) {
+                    if(el.children(".anystretch").length === 0) {
                         if(isBody) {
                             $('body').append(container);
                         } else {
