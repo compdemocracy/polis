@@ -69,31 +69,6 @@ define([  //begin dependencies
     },
     inbox: function(filter){
 
-      // TODO add to inboxview init
-
-        // conversationsCollection.fetch({
-        //     data: $.param({
-        //         is_active: false,
-        //         is_draft: false,
-        //     }), 
-        //     processData: true,
-        // });
-      var filterAttrs = {};
-      if (filter) {
-        switch(filter) {
-          case "closed":
-            filterAttrs.is_active = false;
-            filterAttrs.is_draft = false;
-          break;
-         case "active":
-            // fall through to default
-          default:
-            filterAttrs.is_active = true
-  //          filterAttrs.is_draft = false;
-          break;
-        }
-      }
-
       var conversationsCollection = new ConversationsCollection();
       // Let the InboxView filter the conversationsCollection.
       var inboxView = new InboxView($.extend(filterAttrs, {

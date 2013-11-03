@@ -55,14 +55,6 @@ define([
           });
         });
       },
-      "invalid": function(errors){ 
-        console.log('invalid form input' + errors[0].name);
-        console.log(errors);
-       //_.each(errors, function(err){
-          $('input[name="'+errors[0].name+'"]').closest("label").append(errors[0].message) // relationship between each input and error name
-          //'input[name="firstName"]'
-        //})
-      }
     },
     initialize: function(options) {
 
@@ -84,13 +76,6 @@ define([
         collection: metadataCollection,
         zid: zid,
       });
-    },
-    validateInput: function(attrs){
-      var errors = [];
-      if(attrs.description === ''){
-        errors.push({name: 'description',  message: 'hey there... you need a description'});
-      }
-      return errors; 
     },
     delete: function() {
       var that = this;

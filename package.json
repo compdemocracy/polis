@@ -20,7 +20,8 @@
     "require-handlebars-plugin": "git://github.com/SlexAxton/require-handlebars-plugin.git",
     "grunt-contrib-uglify": "~0.2.4",
     "grunt-contrib-less": "~0.7.0",
-    "assemble-less": "~0.5.3"
+    "assemble-less": "~0.5.3",
+    "grunt-contrib-jshint": "~0.7.1"
   },
   "scripts": {
     "start": "node ./node_modules/.bin/grunt",
