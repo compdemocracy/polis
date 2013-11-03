@@ -24,6 +24,7 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('thorax-inspector');
   grunt.loadNpmTasks('grunt-contrib-less');
   grunt.loadNpmTasks('grunt-contrib-requirejs');
+  grunt.loadNpmTasks('grunt-contrib-jshint');
   require('matchdep').filterDev('grunt-*').forEach(function(task) {
     if (task !== 'grunt-cli') {
       grunt.loadNpmTasks(task);
@@ -159,6 +160,9 @@ module.exports = function(grunt) {
         files: ['css/**/*'],
         tasks: ['copy:styles', 'less:development']
       }
+    },
+    jshint: {
+        files: ['js/**/*.js']
     }
   });
 
