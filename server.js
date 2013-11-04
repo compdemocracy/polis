@@ -33,14 +33,19 @@ var http = require('http'),
     path = require('path'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
-    pushover = require( 'pushover-notifications' ),
-    yell = new pushover( {
+    Pushover = require( 'pushover-notifications' ),
+    pushoverInstance = new Pushover( {
         user: process.env['PUSHOVER_GROUP_POLIS_DEV'],
         token: process.env['PUSHOVER_POLIS_PROXY_API_KEY'],
     }),
+    airbrake = require('airbrake').createClient(process.env.AIRBRAKE_API_KEY),
     _ = require('underscore');
 
 app.disable('x-powered-by'); // save a whale
+
+airbrake.handleExceptions();
+
+
 
 
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
@@ -294,10 +299,23 @@ String.prototype.hashCode = function(){
     return hash;
 };
 
+function notifyAirbrake(code) {
+    var e = new Error(code);
+    airbrake.notify(e, function(err, url) {
+        console.log(url);
+      if (err) {
+        console.err("airbrake err " + err);
+      } else {
+        console.log("airbrake ok");
+      }
+    });
+}
+
 function fail(res, code, err, httpCode) {
     console.error(code, err);
     res.writeHead(httpCode || 500);
     res.end(err);
+    notifyAirbrake(err);
 }
 
 
@@ -574,11 +592,17 @@ function writeDefaultHead(req, res, next) {
     });
     next();
 }
-
 app.use(writeDefaultHead);
 app.use(express.logger());
 app.use(express.cookieParser());
 app.use(express.bodyParser());
+app.use(function(err, req, res, next) {
+    if(!err) return next(); 
+    notifyAirbrake(err);
+    next(err);
+});
+app.use(airbrake.expressHandler());
+
 
 var whitelistedDomains = [
   "http://beta7816238476123.polis.io",
