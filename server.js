@@ -1428,6 +1428,7 @@ function(req, res) {
             console.log('votes query');
             if (err) { fail(res, 2389369, "polis_err_get_selection", 500); console.dir(results); return; }
             var votes = results.rows;
+            if (!votes.length) { fail(res, 32432523, "polis_err_get_selection_no_votes", 500); return; }
             var commentIdCounts = {};
             for (var i = 0; i < votes.length; i++) {
                 var vote = votes[i];
