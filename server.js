@@ -73,30 +73,6 @@ if (process.env.REDISCLOUD_URL) {
 }
 
 
-var M = (function() {
-    var dgram  = require('dgram');
-    var apikey = process.env.HOSTEDGRAPHITE_APIKEY;
-    var prefix = apikey + ".";
-    function emit(key, val) {
-        var message = new Buffer(prefix + key + " " + val + "\n");
-        var client = dgram.createSocket("udp4");
-        client.send(message, 0, message.length, 2003, "carbon.hostedgraphite.com", function(err, bytes) {
-            err ? console.err("carbon err " + prefix+key) : console.log("carbon sent " + prefix + key);
-            client.close();
-        });
-    }
-
-    return function(key, val) {
-        if (!_.isNumber(val)) {
-            // emit an extra metric if we are providing bad values.
-            emit("polis_err_metric_bad_value", 1);
-        }
-        emit(key, val);
-    };
-}());
-
-// M("polis_proxy_launch", 1);
-
 function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
     var i;
     // identity field -> item
@@ -300,7 +276,6 @@ function moveToBody(req, res, next) {
 function logPath(req, res, next) {
     console.log(req.method + " " + req.url);
     next();
-    M(req.path, 1);
 }
     
 
@@ -323,7 +298,6 @@ function fail(res, code, err, httpCode) {
     console.error(code, err);
     res.writeHead(httpCode || 500);
     res.end(err);
-    M(code, 1);
 }
 
 
@@ -595,25 +569,10 @@ function writeDefaultHead(req, res, next) {
     next();
 }
 
-function logErrors(err, req, res, next) {
-  console.error(err.stack);
-  next(err);
-}
-function clientErrorHandler(err, req, res, next) {
-  M("exception", 1); // TODO better key(s)
-  if (req.xhr) {
-    res.send(500, "exception");
-  } else {
-    next(err);
-  }
-}
-
 app.use(writeDefaultHead);
 app.use(express.logger());
 app.use(express.cookieParser());
 app.use(express.bodyParser());
-app.use(logErrors);
-app.use(clientErrorHandler);
 
 var whitelistedDomains = [
   "http://beta7816238476123.polis.io",
@@ -2266,7 +2225,6 @@ app.get(/^\/[^(v3)]?.*/, proxy);
 app.listen(process.env.PORT);
 
 console.log('started on port ' + process.env.PORT);
-M("polis_proxy_launch_done", 1);
 } // End of initializePolisAPI
 
 async.parallel([connectToMongo, connectToPostgres], initializePolisAPI);
