@@ -377,6 +377,12 @@ function getArrayOfInt(a) {
     }
     return a.map(getInt);
 }
+function getArrayOfIntNonEmpty(a) {
+    if (!a || !a.length) {
+        throw "polis_fail_parse_int_array_empty";
+    }
+    return getArrayOfInt(a);
+}
 
 function getIntInRange(min, max) {
     return function(s) {
@@ -1398,7 +1404,7 @@ function(req, res) {
 app.get("/v3/selection",
     logPath,
     moveToBody,
-    need('users', getArrayOfInt, assignToP),
+    need('users', getArrayOfIntNonEmpty, assignToP),
     need('zid', getInt, assignToP),
 function(req, res) {
         var zid = req.p.zid;
