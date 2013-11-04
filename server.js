@@ -33,6 +33,11 @@ var http = require('http'),
     path = require('path'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
+    pushover = require( 'pushover-notifications' ),
+    yell = new pushover( {
+        user: process.env['PUSHOVER_GROUP_POLIS_DEV'],
+        token: process.env['PUSHOVER_POLIS_PROXY_API_KEY'],
+    }),
     _ = require('underscore');
 
 app.disable('x-powered-by'); // save a whale
