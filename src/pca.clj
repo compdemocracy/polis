@@ -77,20 +77,20 @@
 
 
 ; Will eventually also want to add last-pcs
-(defn powerit-pca [data n-comps & [iters]]
+(defn powerit-pca [data n-comps & {:keys [iters start-vectors]}]
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
   (let [data-cntr (ic.core/trans (mean-vector data))
-        ;shit (trace data-cntr)
-        cntrd-data (mapv #(ic.core/minus % data-cntr) data)]
-    (loop [data' cntrd-data n-comps' n-comps pcs []]
-      (let [pc (power-iteration data' iters) ; may eventually want to return eigenvals...
+        cntrd-data (mapv #(ic.core/minus % data-cntr) data)
+        start-vectors (or start-vectors [])]
+    (loop [data' cntrd-data n-comps' n-comps pcs [] start-vectors start-vectors]
+      (let [pc (power-iteration data' iters (first start-vectors)) ; may eventually want to return eigenvals...
             pcs (conj pcs pc)]
         (if (= n-comps' 1)
           pcs ; return if done
           (let [data' (factor-matrix data' pc)
                 n-comps' (dec n-comps')]
-            (recur data' n-comps' pcs)))))))
+            (recur data' n-comps' pcs (rest start-vectors))))))))
 
 
 (defn pca-project [data pcs]
