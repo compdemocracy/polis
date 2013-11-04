@@ -59,6 +59,32 @@ function connectError(errorcode, message){
 var AUTH_FAILED = 'auth failed';
 var ALLOW_ANON = true;
 
+
+var errorNotifications = (function() {
+    var errors = [];
+    function sendAll() {
+        if (errors.length === 0) {
+            return;
+        }
+        pushoverInstance.send({
+            title: "err",
+            message: _.uniq(errors).join("\n"),
+        }, function(err, result) {
+            console.log("pushover " + err?"failed":"ok");
+            console.dir(err);
+            console.dir(result);
+        });
+        errors = [];
+    }
+    setInterval(sendAll, 60*1000);
+    return {
+        add: function(token) { errors.push(token); },
+    }
+}());
+var yell = errorNotifications.add;
+
+
+
 var redisForAuth;
 if (process.env.REDISTOGO_URL) {
     var rtg   = url.parse(process.env.REDISTOGO_URL);
@@ -315,6 +341,7 @@ function fail(res, code, err, httpCode) {
     console.error(code, err);
     res.writeHead(httpCode || 500);
     res.end(err);
+    yell(err);
     notifyAirbrake(err);
 }
 
@@ -598,6 +625,7 @@ app.use(express.cookieParser());
 app.use(express.bodyParser());
 app.use(function(err, req, res, next) {
     if(!err) return next(); 
+    yell(err);
     notifyAirbrake(err);
     next(err);
 });
