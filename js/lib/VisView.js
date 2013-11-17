@@ -44,14 +44,27 @@ var baseNodeRadius;
 $(el_selector).html("");
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
-$("#ptpt-tip").remove();
-var tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(function(d) { return getUserInfoByPid(d.pid).email; });
+var tip = null;
+if (!($.browser.msie && Number($.browser.version) <= 8)) {
+    $("#ptpt-tip").remove();
+    tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(function(d) { return getUserInfoByPid(d.pid).email; });
+}
+function showTip() {
+    if (tip) {
+        tip.show();
+    }
+}
+function hideTip() {
+    if (tip) {
+        tip.hide();
+    }
+}
 
 //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
 //to connect viz to responsive layout if desired
 visualization = d3.select(el_selector)
     .append("svg")
-      .call(tip) /* initialize d3-tip */
+      //.call(tip) /* initialize d3-tip */
       .attr("width", "100%")
       .attr("height", "100%")
       .classed("visualization", true)
@@ -421,8 +434,8 @@ function upsertNode(updatedNodes, newClusters) {
         .attr("transform", function(d) {
             return "translate(" + d.x + "," + d.y + ")";
         })
-        .on("mouseover", tip.show)
-        .on("mouseout", tip.hide)
+        .on("mouseover", showTip)
+        .on("mouseout", hideTip)
         ;
 
 
