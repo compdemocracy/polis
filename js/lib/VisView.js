@@ -603,10 +603,7 @@ function renderComments(comments) {
 
 function onParticipantClicked(d) {
     d3.event.stopPropagation();
-<<<<<<< HEAD
     d3.event.preventDefault(); // prevent flashing on iOS
-=======
->>>>>>> Squillions of semicolon and whitespace changes part two.
   // alert(getUserInfoByPid(d.pid).hname)
 }
 
