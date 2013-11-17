@@ -45,11 +45,10 @@ var CommentShower = function(params) {
         }
         showButtons();
 
-        template = $('#showerTemplate').html();
+        template = $("#showerTemplate").html();
         html = Mustache.to_html(template, data);
         $rootDomElem.html(html);
-        currentCommentId = data._id; 
-
+        currentCommentId = data._id;
 
         console.log("showing comment: " + currentCommentId);
         console.dir(data);

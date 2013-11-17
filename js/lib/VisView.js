@@ -46,17 +46,17 @@ $(el_selector).html("");
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 $("#ptpt-tip").remove();
-var tip = d3.tip().attr('id', 'ptpt-tip').attr('stroke', 'rgb(52,73,94)').html(function(d) { return getUserInfoByPid(d.pid).email; });
+var tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(function(d) { return getUserInfoByPid(d.pid).email; });
 
 //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
 //to connect viz to responsive layout if desired
 visualization = d3.select(el_selector)
-    .append('svg')
+    .append("svg")
       .call(tip) /* initialize d3-tip */
-      .attr('width', "100%")
-      .attr('height', "100%")
+      .attr("width", "100%")
+      .attr("height", "100%")
       .classed("visualization", true)
-      .on('click', resetSelection)
+      .on("click", resetSelection)
         .append("g")
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
 ;
@@ -76,7 +76,7 @@ baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
 queryResults = d3.select(el_queryResultSelector).html("")
-    .append('ol')
+    .append("ol")
     .classed("query_results", true);
 
 $(el_queryResultSelector).hide();
@@ -104,7 +104,7 @@ function setClusterActive(d) {
     console.log("selectedCluster " + selectedCluster);  // log the cluster/hull currently selected, if any
     console.log("d.hullId " + d.hullId);                // log the id of the hull
     if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
-      console.log('unselecting');                       // ...tell everyone you're going to unselect it
+      console.log("unselecting");                       // ...tell everyone you're going to unselect it
       return resetSelection();                          // and resetSelection
     } else {                                            // otherwise
       getCommentsForSelection(clusters[d.hullId]).then( // getCommentsForSelection with clusters array (of pids)
@@ -298,7 +298,7 @@ function chooseHullFill(d) {
 
 function renderCommentsList(comments) {
     function renderComment(comment) {
-        var template = $('#commentListItemTemplate').html();
+        var template = $("#commentListItemTemplate").html();
         return Mustache.to_html(template, comment);
     }
     // TODO check out template partials "> foo"
@@ -358,7 +358,7 @@ function upsertNode(updatedNodes, newClusters) {
     if (!updatesEnabled) {
         return;
     }
-    console.log('upsert');
+    console.log("upsert");
     //nodes.set(node.pid, node);
 
     clusters = newClusters;
@@ -491,8 +491,8 @@ function upsertNode(updatedNodes, newClusters) {
           // .attr("cy", function(d) {
           //   return d.y;
           // })
-        .on('mouseover', tip.show)
-        .on('mouseout', tip.hide)
+        .on("mouseover", tip.show)
+        .on("mouseout", tip.hide)
         ;
 
  
