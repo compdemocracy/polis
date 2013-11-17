@@ -80,7 +80,7 @@
                                                   // Remove the old images, if necessary.
                                                   container.find(".deleteable").remove();
                                                   // Callback
-                                                  if(typeof callback == "function") callback();
+                                                  if(typeof callback === "function") callback();
                                               });
                                           });
 
@@ -124,18 +124,18 @@
                     // Note: Offset code provided by Peter Baker (http://ptrbkr.com/). Thanks, Peter!
                     if(bgHeight >= _height()) {
                         bgOffset = (bgHeight - _height()) /2;
-                        if(settings.positionY == "center" || settings.centeredY) { //
+                        if(settings.positionY === "center" || settings.centeredY) { //
                             $.extend(bgCSS, {top: "-" + bgOffset + "px"});
-                        } else if(settings.positionY == "bottom") {
+                        } else if(settings.positionY === "bottom") {
                             $.extend(bgCSS, {top: "auto", bottom: "0px"});
                         }
                     } else {
                         bgHeight = _height();
                         bgWidth = bgHeight * imgRatio;
                         bgOffset = (bgWidth - _width()) / 2;
-                        if(settings.positionX == "center" || settings.centeredX) {
+                        if(settings.positionX === "center" || settings.centeredX) {
                             $.extend(bgCSS, {left: "-" + bgOffset + "px"});
-                        } else if(settings.positionX == "right") {
+                        } else if(settings.positionX === "right") {
                             $.extend(bgCSS, {left: "auto", right: "0px"});
                         }
                     }
@@ -148,7 +148,7 @@
                 }
 
                 // Executed the passed in function, if necessary
-                if (typeof fn == "function") fn();
+                if (typeof fn === "function") fn();
             }
 
             function _width() {

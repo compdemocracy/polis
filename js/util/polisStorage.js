@@ -15,7 +15,7 @@ var store = (function() {
             var oPair= oCrumbles[i].split("=");
             var sKey = oPair[0].trim().toLowerCase();
             var sValue = oPair.length>1?oPair[1]:"";
-            if(sKey == sName) {
+            if(sKey === sName) {
                 var val = decodeURIComponent(sValue);
                 if (val === "null") {
                     val = null;

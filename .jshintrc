@@ -1,5 +1,6 @@
 {
     "es3": true,
+    "eqeqeq": true,
     "strict": false,
     "unused": false,
     "undef": false,

@@ -167,7 +167,7 @@ module.exports = function(grunt) {
         options: {
          // reporter: 'jslint',
           // curly: true,
-          // eqeqeq: true,
+          eqeqeq: true,
           // immed: true,
           // latedef: true,
           // newcap: true,
