@@ -651,7 +651,7 @@ function emphasizeParticipants(pids) {
 return {
     upsertNode: upsertNode,
     addClusterTappedListener: clusterClickedCallbacks.add,
-    emphasizeParticipants: emphasizeParticipants,
+    emphasizeParticipants: emphasizeParticipants
 };
 
 };

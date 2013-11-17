@@ -1,5 +1,5 @@
 define([
-    'util/shuffleWithSeed',
+    'util/shuffleWithSeed'
 ], function(
     shuffleWithSeed
 ) {
@@ -16,8 +16,8 @@ return function(params) {
         },
         staractions: {
             unstar: 0,
-            star: 1,
-        },
+            star: 1
+        }
     };
 
     var commentsToVoteOn = {}; // tid -> comment
@@ -324,7 +324,7 @@ return function(params) {
                 withCredentials: true
             },
             crossDomain: true,
-            dataType: "json",
+            dataType: "json"
         };
         if ("GET" === type) {
             promise = $.ajax($.extend(config, {
@@ -773,11 +773,11 @@ return function(params) {
 
     function joinConversation(zinvite) {
         var params = {
-            zid: currentStimulusId,
+            zid: currentStimulusId
         };
         if (zinvite) {
             _.extend(params, {
-                zinvite: zinvite,
+                zinvite: zinvite
             });
         }
         return polisPost(participantsPath, params).pipe( function (response) {
@@ -789,7 +789,7 @@ return function(params) {
     function queryParticipantsByMetadata(pmaids) {
         return polisPost(queryParticipantsByMetadataPath, {
             pmaids: pmaids,
-            zid: currentStimulusId,
+            zid: currentStimulusId
         });
     }
 

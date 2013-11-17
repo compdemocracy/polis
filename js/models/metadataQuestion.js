@@ -1,6 +1,6 @@
 define([
     'collections/metadataAnswers',
-    'model',
+    'model'
 ], function (
     MetadataAnswersCollection,
     Model) {
@@ -17,12 +17,12 @@ return Model.extend({
         var pmqid = this.get('pmqid');
         this.collection = new MetadataAnswersCollection([], {
             zid: zid,
-            pmqid: pmqid,
+            pmqid: pmqid
         });
         this.collection.fetch({
             data: $.param({
                 zid: zid,
-                pmqid: pmqid,
+                pmqid: pmqid
             }), 
             processData: true
         });
