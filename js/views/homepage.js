@@ -36,7 +36,7 @@ define([
     },
     validateInput: function(attrs){
       var errors = [];
-      if(attrs.email === ''){
+      if(attrs.email === ""){
         errors.push({name: "description",  message: "hey there... you need an email"});
       }
       return errors;

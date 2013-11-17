@@ -3,15 +3,13 @@ define([
   "templates/create-conversation-form",
   "models/conversation",
   "views/metadataQuestionsViewWithCreate",
-  "collections/MetadataQuestions",
-  "views/inbox"
+  "collections/MetadataQuestions"
 ], function (
   View,
   template,
   ConversationModel,
   MetadataQuestionsViewWithCreate,
-  MetadataQuestionCollection,
-  InboxView
+  MetadataQuestionCollection
 ) {
   return View.extend({
     name: "create-conversation-form",
@@ -80,7 +78,7 @@ define([
     "delete": function() {
       var that = this;
       // var model = this.collection.get(this.id)
-      var deleteConfirm = new konfirm({
+      var deleteConfirm = new Konfirm({
         message: "Conversations cannot be deleted during the Beta.",
         success: function(){
           that.model.destroy().then(function(data) {

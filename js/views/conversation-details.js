@@ -16,7 +16,7 @@ define([
     },
     conclude: function(){
       var model = $(event.target).model();
-      var deleteConfirm = new konfirm({
+      var deleteConfirm = new Konfirm({
         message: "Concluding the conversation is permanent and will affect all participants. Participants will no longer be able to submit comments or vote.",
         success: function(){
           console.log(model.is_active);

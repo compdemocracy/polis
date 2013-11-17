@@ -18,8 +18,7 @@ define([
   "p",
   "polisUtils",
   "util/polisStorage",
-  "polis",
-  "VisView"
+  "polis"
   ], function (
     View,
     template,
@@ -40,8 +39,7 @@ define([
     p,
     polisUtils,
     PolisStorage,
-    ServerClient,
-    VisView
+    ServerClient
     ) {
   return View.extend({
     name: "conversation-view",

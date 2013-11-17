@@ -16,7 +16,7 @@ define([
     },
     hideAddQuestionForm: function(event) {
       var that = this;
-      var formAction = $(event.target).data("action");
+      // var formAction = $(event.target).data("action");
       this.serialize(function(attrs, release){
 
         // Make sure the form isn't empty.

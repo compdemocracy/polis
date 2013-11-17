@@ -76,4 +76,4 @@ var konfirm = (function(){
 
 })();
 
-window.konfirm = konfirm;
+window.Konfirm = Konfirm;

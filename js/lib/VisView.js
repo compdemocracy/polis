@@ -147,7 +147,7 @@ force.on("tick", function(e) {
       // Push nodes toward their designated focus.
       var k = 0.1 * e.alpha;
       //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
-      nodes.forEach(function(o, i) {
+      nodes.forEach(function(o) {
           //o.x = o.data.targetX;
           //o.y = o.data.targetY;
           if (!o.x) { o.x = w/2; }
@@ -165,7 +165,7 @@ force.on("tick", function(e) {
 
     var pidToPerson = _.object(_.pluck(nodes, "pid"), nodes);
     bounds = [];
-    hulls = clusters.map(function(cluster, clusterNumber) {
+    hulls = clusters.map(function(cluster) {
         var top = Infinity;
         var bottom = -Infinity;
         var right = -Infinity;
@@ -286,26 +286,26 @@ function hashCode(s){
     return hash;
 }
 
-var colorFromString = _.compose(d3.scale.category20(), function(s) {
-    return hashCode(s) % 20;
-});
+// var colorFromString = _.compose(d3.scale.category20(), function(s) {
+//     return hashCode(s) % 20;
+// });
 
 function key(d) {
     return d.pid;
 }
 
 
-function hasChanged(n1, n2) {
-    //return !_.isEqual(n1.data.projection, n2.data.projection);
-    var p1 = n1.data.projection;
-    var p2 = n2.data.projection;
-    for (var i = 0; i < p1.length; i++) {
-        if (Math.abs(p1[i] - p2[i]) > 0.01) {
-            return true;
-        }
-    }
-    return false;
-}
+// function hasChanged(n1, n2) {
+//     //return !_.isEqual(n1.data.projection, n2.data.projection);
+//     var p1 = n1.data.projection;
+//     var p2 = n2.data.projection;
+//     for (var i = 0; i < p1.length; i++) {
+//         if (Math.abs(p1[i] - p2[i]) > 0.01) {
+//             return true;
+//         }
+//     }
+//     return false;
+// }
 
 
 // clusters [[4,3,2],[5,1]]
@@ -332,7 +332,6 @@ function upsertNode(updatedNodes, newClusters) {
     }
 
 
-    var nodeRadius = 4;
     var maxNodeRadius = 10 + 5;
 
   function createScales(updatedNodes) {

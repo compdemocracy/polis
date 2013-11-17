@@ -81,7 +81,7 @@ var store = (function() {
         }
     }
     function retrieveWithCache(k) {
-        var cached = cache[v];
+        var cached = cache[k];
         if (cached) {
             return cached;
         } else {

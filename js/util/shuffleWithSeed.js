@@ -3,7 +3,7 @@ define([
 ], function (RandomWithSeed) {
 
 return function(array, seed) {
-    var seq = RandomWithSeed(seed);
+    var seq = new RandomWithSeed(seed);
     if (seed === null) {
         seq = Math.random;
     }

@@ -15,7 +15,6 @@ return Thorax.CollectionView.extend({
   allowCreate: false,
   allowDelete: false,
   initialize: function(options) {
-      var that = this;
       this.model = options.model; // question model
       this.collection = options.model.collection; // answers collection
       this.zid = options.zid;

@@ -177,7 +177,7 @@ module.exports = function(grunt) {
           // undef: true,
           unused: true,
           quotmark: "double",
-          plusplus: true, // no ++ or --
+         // plusplus: true, // no ++ or --
           nonew: true,
           noarg: true, // no arguments.caller and arguments.callee (allow for optimizations)
           newcap: true, // constructors must be capitalized
@@ -238,7 +238,7 @@ module.exports = function(grunt) {
         'd3': '../bower_components/d3/d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
         // 'app': 'lib/App',
-        'konfirm': 'lib/konfirm',
+        'Konfirm': 'lib/konfirm',
         'anystretch': 'lib/anystretch',
         'p': 'lib/p',
         'polis': 'lib/polis',

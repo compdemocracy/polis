@@ -44,8 +44,6 @@ return function(params) {
 
     var queryParticipantsByMetadataPath = "/v3/query_participants_by_metadata";
 
-    var authenticatedCalls = [votesByMePath, votesPath, commentsPath, deregisterPath, conversationsPath, participantsPath];
-
     var logger = params.logger;
 
     var lastServerTokenForPCA = (new Date(0)).getTime();
@@ -61,7 +59,6 @@ return function(params) {
     var participantCount = 0;
     var userInfoCache = [];
 
-    var reactionsByMeStore = params.reactionsByMeStore;
     var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
     var emailStore = params.emailStore;
@@ -78,17 +75,11 @@ return function(params) {
 
     var currentStimulusId;
 
-    var comments = [];
-    var users = [];
     var means = null; // TODO move clustering into a separate file
 
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
     // Err... I guess discussions can be circular.
     //function discussionClient(params)
-
-    function isValidCommentId(commentId) {
-        return isNumber(commentId);
-    }
 
     // TODO rename
     function syncAllCommentsForCurrentStimulus(optionalStimulusId) { // more like sync?
@@ -145,12 +136,10 @@ return function(params) {
         return _.keys(commentsToVoteOn).length;
     }
 
-    function getNextComment(optionalStimulusId) {
+    function getNextComment() {
         var dfd = $.Deferred();
 
-        var pid = getPid();
         var index;
-        var comment;
         var numComments = getNumComments();
         if (numComments > 0) {
             // Pick a random comment
@@ -415,7 +404,7 @@ return function(params) {
     }
 
     function authDeregister() {
-        return polisPost(deregisterPath).always( function(authData) {
+        return polisPost(deregisterPath).always( function() {
             clearAuthStores();
             authStateChangeCallbacks.fire(assemble({
                 state: "p_deregistered"
@@ -597,31 +586,6 @@ return function(params) {
         });
     }
 
-
-    function getNextPriorityComment() {
-
-        var items = [
-        { "s" : ObjectId("509c9fd6bc1e120000000003"), "txt" : "Your editorial suggests that the Israeli prime minister needs to table the military option and give negotiations more time because there is “no proof that Iran is at the point of producing a weapon.\" Unfortunately, you fail to provide any evidence that negotiations have any hope of succeeding. Even while the sanctions have dramatically decreased Iran’s ability to export oil, the Iranian regime has done a masterful job of dragging out the negotiations while not showing any signs of slowing down the enrichment process or any willingness to compromise. Furthermore, Iran continues to call explicitly for Israel’s destruction. If you are going to denounce the Israeli government over its willingness to use the military option, you will soon have to come up with a more practical alternative than giving the negotiations more time.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509caa00bc1e120000000040") },
-
-        { "s" : ObjectId("509c9db2bc1e120000000001"), "txt" : "At last, some common sense on this issue. I have never understood all of the fear-mongering about a nuclear Iran. There seems to be a general assumption that the lunacy among Iran's rulers, combined with nuclear weapons, would lead to disaster all around, particularly for Israel. But the Iranians have shown themselves to be calculating, rational, opponents. Any use of nuclear weapons on their part would lead to the destruction of Iran in retaliation. The idea that they would ignore these consequences and pursue mutual destruction anyway is a weak one. On the other hand, a preemptive strike at Iran would drag the US into a prolonged war, both overt and covert. We played the waiting game with the Soviet Union for many years, and it proved to be the right choice. I hope the leaders of the US and Israel make the right choice this time as well.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509ca6ddbc1e120000000019") },
-
-        { "s" : ObjectId("509c9fd6bc1e120000000003"), "txt" : "No, the sanctions haven't worked and there's no indication that they will work as long as there continues to be a strong international demand for Iran's crude. So, under the circumstances, I can't fault Israel for taking whatever actions it deems necessary. If Israel fails to act then I think that it's likely that Iran will obtain nuclear weapons. This will then prompt other countries in the region, including Saudi Arabia, to also want nuclear weapons - thus making the Middle East a more dangerous place.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509ca958bc1e12000000003d") },
-
-        { "s" : ObjectId("509c9fd6bc1e120000000003"), "txt" : "What is most troubling about all this from an American's perspective is that our leaders feel so compelled to repeat that our bond with Israel is \"unbreakable.\" It's as though some invisible handshake of history has determined that the United States' and Israel's interests will forever remain one in the same. There is no argument as anti-realist as this. Israel's outlook under Netanyahu mirror the infantile \"clash of civilizations\" approach of the Bush administration, which were disastrous for U.S. interests and credibility. Our new, thoughtful president understands this, and he is attempting mold a foreign policy agenda in which nuance, cross-cultural dialogue and diplomacy are of first resort. It's the right way to go for out country's sake, and if Israel would like to play an allied role, it can be very useful. But if Israel would rather play out its pre-Cold War delusions, then our \"sacred bond\" can and should be broken.", "u" : ObjectId("509ca5a2bc1e12000000000f"), "_id" : ObjectId("509ca8d9bc1e120000000031") },
-
-        { "s" : ObjectId("509ca042bc1e120000000004"), "txt" : "Iran would not be ANY sort of threat to us if we hadn't overthrown their ELECTED government in 1953. We overthrew a sovereign nation that was never a threat to us and instituted a pro-US dictator called the Shah. The shah committed thousands of human rights abuses. When the Iranians took control of the embassy, the Iranian hostage crisis, the students who instigated it had three simple demands. 1. Return the shah to Iran for trial (and probably execution), 2. remove the US military presence from the Arab Peninsula, and 3. apologize to Iran. All reasonable. What does Romney think that we would do if another nation were to impose \"crippling sanctions\" on us?", "u" : ObjectId("509c9ae5d9a8f382ff00000b"), "_id" : ObjectId("50a13f407efb5d0500000060") },
-
-        { "s" : ObjectId("509ca042bc1e120000000004"), "txt" : "Israel cannot risk another Holocaust; it deserves to be particularly sensative to existential threats. It's both rational and emotional.", "u" : ObjectId("509c9ae5d9a8f382ff00000b"), "_id" : ObjectId("50a140f27efb5d0500000081") }
-        ];
-        for (var i = 0; i < items.length; i++) {
-            if (window.localStorage.getItem("v2.1_comments_" + items[i]._id)) {
-                continue;
-            } else {
-                return items[i];
-            }
-        }
-        return null;
-    }
 
     // helper for copy-and-pasted mongo documents
     function ObjectId(s) {

@@ -20,7 +20,7 @@
     $.fn.anystretch = function(src, options, callback) {
         var isBody = this.selector.length ? false : true; // Decide whether anystretch is being called on an element or not
 
-        return this.each(function(i){
+        return this.each(function(){
             var defaultSettings = {
                 positionX: "center",     // Should we center the image on the X axis?
                 positionY: "center",     // Should we center the image on the Y axis?
@@ -32,13 +32,17 @@
             container = isBody ? $(".anystretch") : el.children(".anystretch"),
             settings = container.data("settings") || defaultSettings, // If this has been called once before, use the old settings as the default
             existingSettings = container.data("settings"),
-            imgRatio, bgImg, bgWidth, bgHeight, bgOffset, bgCSS;
+            imgRatio, bgWidth, bgHeight, bgOffset, bgCSS;
 
             // Extend the settings with those the user has provided
-            if(options && typeof options === "object") $.extend(settings, options);
+            if(options && typeof options === "object") {
+                $.extend(settings, options);
+            }
 
             // Just in case the user passed in a function without options
-            if(options && typeof options === "function") callback = options;
+            if(options && typeof options === "function") {
+                callback = options;
+            }
 
             // Initialize
             $(document).ready(_init);
@@ -80,7 +84,9 @@
                                                   // Remove the old images, if necessary.
                                                   container.find(".deleteable").remove();
                                                   // Callback
-                                                  if(typeof callback === "function") callback();
+                                                  if(typeof callback === "function") {
+                                                    callback();
+                                                  }
                                               });
                                           });
 
@@ -148,7 +154,9 @@
                 }
 
                 // Executed the passed in function, if necessary
-                if (typeof fn === "function") fn();
+                if (typeof fn === "function") {
+                    fn();
+                }
             }
 
             function _width() {
