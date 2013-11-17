@@ -109,7 +109,7 @@ return function(params) {
                 var IDs = _.pluck(comments, "tid");
                 var oldkeys = _.keys(commentsToVoteOn).map(
                     function(tid) {
-                        return parseInt(tid);
+                        return parseInt(tid, 10);
                     }
                 );
                 var newIDs = _.difference(IDs, oldkeys);

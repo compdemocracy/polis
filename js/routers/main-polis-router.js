@@ -84,10 +84,12 @@ define([  //begin dependencies
             filterAttrs.is_active = false;
             filterAttrs.is_draft = false;
           break;
-         case "active":
-            // fall through to default
+          case "active":
+            filterAttrs.is_active = true;
+  //          filterAttrs.is_draft = false;
+          break;
           default:
-            filterAttrs.is_active = true
+            filterAttrs.is_active = true;
   //          filterAttrs.is_draft = false;
           break;
         }
