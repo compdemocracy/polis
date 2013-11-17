@@ -191,13 +191,17 @@ force.on("tick", function(e) {
         bounds.push(b);
         return temp;
     });
+
+    function makeHullShape(stuff) {
+        return "M" + stuff.join("L") + "Z";
+    }
     // update hulls
     for (var i = 0; i < hulls.length; i++) {
         var d3Hull = d3Hulls[i];
         var hull = hulls[i];
-        var d = d3.geom.hull(hull);
-        d.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
-        d3Hull.datum(d).attr("d", function(d) { return "M" + d.join("L") + "Z"; });
+        var stuff = d3.geom.hull(hull);
+        stuff.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
+        d3Hull.datum(stuff).attr("d", makeHullShape(stuff));
     }
 });
 
