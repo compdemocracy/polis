@@ -1,9 +1,9 @@
-define(['model'], function (Model) {
+define(["model"], function (Model) {
   return Model.extend({
-    name: 'user',
+    name: "user",
     defaults: {
       uid: undefined,  // user id
-      hname: "", // human name (the token 'name' returns too many results when grepped)
+      hname: "", // human name (the token "name" returns too many results when grepped)
       created: 0,
       username: "",
       email: ""

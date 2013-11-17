@@ -38,10 +38,10 @@ var konfirm = (function(){
   }
 
   konfirm.prototype.buildOut = function() {
-    this.dialog = $('<div class="konfirm-dialog"><p class="message">' + this.message + '</p></div>').appendTo('body');
-    this.shade = $('<div class="konfirm-shade"/>').appendTo('body');
-    this.cancelTrigger = $('<a href="javascript:void(0)" class="btn btn-danger">Cancel</a>').appendTo(this.dialog);
-    this.successTrigger = $('<a href="javascript:void(0)" class="btn btn-success">Ok</a>').appendTo(this.dialog);
+    this.dialog = $("<div class='konfirm-dialog'><p class='message'>" + this.message + "</p></div>").appendTo("body");
+    this.shade = $("<div class='konfirm-shade'/>").appendTo("body");
+    this.cancelTrigger = $("<a href='javascript:void(0)' class='btn btn-danger'>Cancel</a>").appendTo(this.dialog);
+    this.successTrigger = $("<a href='javascript:void(0)' class='btn btn-success'>Ok</a>").appendTo(this.dialog);
   };
 
   konfirm.prototype.position = function() {
@@ -56,8 +56,8 @@ var konfirm = (function(){
   };
 
   konfirm.prototype.bindEvents = function() {
-    this.successTrigger.on('click', this.successHandler);
-    this.cancelTrigger.on('click', this.cancelHandler);
+    this.successTrigger.on("click", this.successHandler);
+    this.cancelTrigger.on("click", this.cancelHandler);
   };
 
   konfirm.prototype.successHandler = function() {

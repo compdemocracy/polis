@@ -143,10 +143,10 @@ var store = (function() {
         clearAll: clearAll,
         //comments: makeAccessor('p_comments'), // TODO use a real db
         //reactionsByMe: makeAccessor('p_reactions_by_me'), // TODO use a real db
-        email: makeAccessor('email'),
+        email: makeAccessor("email"),
         //username: makeAccessor('p_username'),
-        uid: makeAccessor('uid'),
-        pids: makeMapAccessor(makeAccessor('pids')),
+        uid: makeAccessor("uid"),
+        pids: makeMapAccessor(makeAccessor("pids")),
         //token: makeAccessor('p_authToken')
     };
     return x;

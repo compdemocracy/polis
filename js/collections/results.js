@@ -1,5 +1,5 @@
-define(['collection'], function (Collection) {
+define(["collection"], function (Collection) {
   return Collection.extend({
-    name: 'results'
+    name: "results"
   });
 });

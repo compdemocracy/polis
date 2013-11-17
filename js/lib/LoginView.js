@@ -18,7 +18,7 @@ var LoginView = function(params) {
             email: emailStore.get(),
             username: usernameStore.get()
         };
-        var template = $('#usernameTemplate').html();
+        var template = $("#usernameTemplate").html();
         var html;
         if (data.email) {
             html = Mustache.to_html(template, {
@@ -41,7 +41,7 @@ var LoginView = function(params) {
     }
 
     function get(id) {
-        return $('#' + id);
+        return $("#" + id);
     }
     function getForm() {
         return get(params.formId);

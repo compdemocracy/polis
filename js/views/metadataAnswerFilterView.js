@@ -1,14 +1,14 @@
 define([
-  'templates/metadataAnswerFilter',
-  'view'
+  "templates/metadataAnswerFilter",
+  "view"
 ], function (
   template,
   View
 ) {
 
 return View.extend({
-  name: 'metadataAnswerFilterView',
-  tagName: 'button',
+  name: "metadataAnswerFilterView",
+  tagName: "button",
   className: 'btn ',
   template: template,
   allowDelete: false,

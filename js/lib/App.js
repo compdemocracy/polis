@@ -15,14 +15,14 @@
 //     if (e && e.preventDefault) { 
 //         e.preventDefault();
 //     }
-//     $(".write_tab").tab('show');
+//     $(".write_tab").tab("show");
 //     $("#comment_form_textarea").focus();
 // }
 // function navigateToReactTab(e) {
 //     if (e && e.preventDefault) { 
 //         e.preventDefault();
 //     }
-//     $(".react_tab").tab('show');
+//     $(".react_tab").tab("show");
 // }
 // function showTopicModal() {
 //     //alert("In Seattle, aisudhfius ashdfalis dfhias udfhliuas dfhkas ufhlaksiudhfauis dfhkldsfku sadfh asudhfo aisufsufasdhfiuadhiu aefw uirh weoiuhr uiwereyruw eyro iweuryoi weuyru wef g fd h fg h fgdg sn luahfiluafleidsuhsf s d fpa iusdfpjip asdp if ipa spidif ijpi dsaip fi adisu i  fahuihefas");
@@ -72,7 +72,7 @@
 //     }
 //     function checkForGameOver() {
 //         function finished() {
-//             //$('#feedback_modal').modal('show');
+//             //$('#feedback_modal').modal("show");
 //         }
 //         _.defer(function() {
 //             finishedAllComments().then( finished );
@@ -177,10 +177,10 @@
 //         feedbackSubmitterFinished.addSubmitListener(function(data) {
 //             serverClient.submitFeedback(data);
 //             feedbackSubmitterFinished.clear();
-//             $('#feedback_modal').modal('hide');
+//             $('#feedback_modal').modal("hide");
 //             _.defer(function() {
 //                 finishedAllComments().done(function() {
-//                     $('#thank_you_modal').modal('show'); 
+//                     $('#thank_you_modal').modal("show"); 
 //                 });
 //             });
 //         });
@@ -224,13 +224,13 @@
 //                 // update UI
 
 //                 //hide modals when user successfully registers
-//                 //$('#create_user_modal').modal('hide'); 
-//                 //$('#introduction_modal').modal('hide');
+//                 //$('#create_user_modal').modal("hide"); 
+//                 //$('#introduction_modal').modal("hide");
                 
 //                 //add close button and enable background click so users can
 //                 //close intro modal if clicked from menu after login
-//                 //$('#introduction_modal').removeAttr('data-backdrop');
-//                 //$('#introduction_modal_button').removeAttr('disabled'); 
+//                 //$('#introduction_modal').removeAttr("data-backdrop");
+//                 //$('#introduction_modal_button').removeAttr("disabled"); 
 
 //                 registerView.render();
 //                 loginView.render();
@@ -317,8 +317,8 @@
 
 
 //     function promptUserToRegister() {
-//         //$('#introduction_modal').modal('show');
-//         //$('#create_user_modal').modal('show');
+//         //$('#introduction_modal').modal("show");
+//         //$('#create_user_modal').modal("show");
 
 //         // TODO just show the auth dialog, or think of something else to do with
 //         // anon users.. we should probably not expire anon tokens.
@@ -337,9 +337,9 @@
 //             return;
 //         }
 //         if (e.ev === "commentingOnly") {
-//             console.log('commentingOnly');
+//             console.log("commentingOnly");
 //         } else if (e.ev === "ratingOnly") {
-//             console.log('ratingOnly');
+//             console.log("ratingOnly");
 //         }
 //     }
 
@@ -395,8 +395,8 @@
 //     var onResize = _.throttle(function onResize(){
 //         //var resizeArticleHeight = $(window).height() * 0.68;
 //         //var resizeShowerHeight = $(window).height() * 0.70;
-//         //$('#articles').css('height', resizeArticleHeight);
-//         //$('#comment_shower').css('height', resizeShowerHeight);
+//         //$("#articles").css("height", resizeArticleHeight);
+//         //$('#comment_shower').css("height", resizeShowerHeight);
 //         //
 //         //
 //         //    initPcaVis(); 
@@ -450,7 +450,7 @@
 //   {
 //       if(document.height < window.outerHeight)
 //       {
-//           document.body.style.height = (window.outerHeight + 50) + 'px';
+//           document.body.style.height = (window.outerHeight + 50) + "px";
 //       }
  
 //       setTimeout( function(){ window.scrollTo(0, 1); }, 0);

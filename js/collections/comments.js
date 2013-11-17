@@ -1,6 +1,6 @@
-define(['collection', 'models/comment'], function (Collection, Comment) {
+define(["collection", "models/comment"], function (Collection, Comment) {
   return Collection.extend({
-    name: 'comments',
+    name: "comments",
     model: Comment
   });
 });

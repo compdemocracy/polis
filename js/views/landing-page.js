@@ -1,10 +1,10 @@
 define([
-  'view',
-  'templates/landing-page',
-  'anystretch'
+  "view",
+  "templates/landing-page",
+  "anystretch"
 ], function (View, template) {
   return View.extend({
-    name: 'landingPage',
+    name: "landingPage",
     template: template,
 
     events: {
@@ -39,8 +39,8 @@ define([
       },
     },
     initialize: function(){
-      this.listenTo(this, 'rendered', function(){
-        this.$('#conductor').anystretch("img/conductor.jpeg");
+      this.listenTo(this, "rendered", function(){
+        this.$("#conductor").anystretch("img/conductor.jpeg");
       });
     }
   });

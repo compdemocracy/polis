@@ -1,7 +1,7 @@
-define(['collection', 'models/conversation'], function (Collection, Conversation) {
+define(["collection", "models/conversation"], function (Collection, Conversation) {
   return Collection.extend({
-    name: 'conversations',
-    url: 'conversations',
+    name: "conversations",
+    url: "conversations",
     model: Conversation
   });
 });

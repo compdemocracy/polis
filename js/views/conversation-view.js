@@ -1,28 +1,28 @@
 define([
-  'view',
-  'templates/conversation-view',
-  'views/comment-view',
-  'views/comment-form',
-  'views/change-votes',
-  'views/metadataQuestionsFilterView', // analyze view
-  'views/results-view', //results view
-  'models/vote',
-  'models/participant',
-  'models/conversation',
-  'models/comment',
-  'models/user',
-  'collections/comments',
-  'collections/votes',
-  'collections/metadataQuestions',
-  'collections/results',
-  'CommentShower',
-  'FeedbackSubmitter',
-  'LoginView',
-  'p',
-  'polisUtils',
-  'util/polisStorage',
-  'polis',
-  'VisView'
+  "view",
+  "templates/conversation-view",
+  "views/comment-view",
+  "views/comment-form",
+  "views/change-votes",
+  "views/metadataQuestionsFilterView", // analyze view
+  "views/results-view", //results view
+  "models/vote",
+  "models/participant",
+  "models/conversation",
+  "models/comment",
+  "models/user",
+  "collections/comments",
+  "collections/votes",
+  "collections/metadataQuestions",
+  "collections/results",
+  "CommentShower",
+  "FeedbackSubmitter",
+  "LoginView",
+  "p",
+  "polisUtils",
+  "util/polisStorage",
+  "polis",
+  "VisView"
   ], function (
     View, 
     template,
@@ -50,23 +50,23 @@ define([
     VisView
     ) {
   return View.extend({
-    name: 'conversation-view',
+    name: "conversation-view",
     template: template,
     events: {
     "click #topic_toggle": function(e) {
       e.preventDefault();
-      this.$('#topic').toggle();
+      this.$("#topic").toggle();
     },
     "click #react_tab": function(e) {
       e.preventDefault();
       console.dir(this);
       console.dir(e);
-      $(e.target).tab('show');
+      $(e.target).tab("show");
     },
     "click #write_tab": function(e) {
       e.preventDefault();
-      //$(this).tab('show')
-      $(e.target).tab('show');
+      //$(this).tab("show")
+      $(e.target).tab("show");
     },
     "click .query_result_item": function(e){
       this.$('.query_result_item').removeClass('active_result_item');
@@ -96,7 +96,7 @@ define([
       logger: console
     });
 
-    serverClient.observeStimulus(this.model.get('zid'), this.model.get('zinvite'));
+    serverClient.observeStimulus(this.model.get("zid"), this.model.get("zinvite"));
     // this.commentsByMe = new SomeViewColinWillCreate({
     //   serverClient: serverClient,
     //   zid: this.zid,
@@ -158,7 +158,7 @@ define([
 
 
     this.commentForm.on("commentSubmitted", function() {
-      $("#react_tab").tab('show');
+      $("#react_tab").tab("show");
     });
 
     /* tooltips */
@@ -197,21 +197,21 @@ define([
     };
 
 
-    this.listenTo(this, 'rendered', function(){
-      this.$('#commentViewTab').tooltip({
+    this.listenTo(this, "rendered", function(){
+      this.$("#commentViewTab").tooltip({
         title: "Start here - read and react to comments submitted by others.",
         placement: "top",
         delay: { show: 300, hide: 200 },
 
       });
-      this.$('#commentFormTab').tooltip({
+      this.$("#commentFormTab").tooltip({
         title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react.",
         placement: "top",
         delay: { show: 300, hide: 200 },
 
       });
-      this.$('#analyzeTab').tooltip({
-        title: "Filters! Click on the 'analyze' tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
+      this.$("#analyzeTab").tooltip({
+        title: "Filters! Click on the "analyze" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top",
         delay: { show: 300, hide: 200 },
 
@@ -232,7 +232,7 @@ define([
       });
       this.$('#making_meaning_of_viz').popover({
         title: "How do I make meaning of the visualization?",
-        content: "<ol><li> Each dot represents a person. The red dot represents you. You will see the dots move around the visualization as you and other participants vote. Hover over a dot to find out who it is.</li><li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li><li> Shaded areas represent groups. Click on a shaded area to bring up comments that had the highest consensus amongst that group. Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. </li> <li> Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment remain a grey dot. </li> <li> Use the 'analyze' tab to filter participants using metadata.</li></ol>",
+        content: "<ol><li> Each dot represents a person. The red dot represents you. You will see the dots move around the visualization as you and other participants vote. Hover over a dot to find out who it is.</li><li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li><li> Shaded areas represent groups. Click on a shaded area to bring up comments that had the highest consensus amongst that group. Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. </li> <li> Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment remain a grey dot. </li> <li> Use the \"analyze\" tab to filter participants using metadata.</li></ol>",
         html: true, //XSS risk, not important for now
         trigger: "click",
         placement: "top",

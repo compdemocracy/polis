@@ -1,4 +1,4 @@
-define(['thorax'], function (Thorax) {
+define(["thorax"], function (Thorax) {
   return Thorax.LayoutView.extend({
 
   });

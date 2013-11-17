@@ -1,8 +1,8 @@
 define([
-  'views/metadataAnswerFilterView',
-  'templates/metadataQuestionAndAnswersFilter',
-  'underscore',
-  'thorax'
+  "views/metadataAnswerFilterView",
+  "templates/metadataQuestionAndAnswersFilter",
+  "underscore",
+  "thorax"
 ], function (
   MetadataAnswerFilterView,
   template,
@@ -11,9 +11,9 @@ define([
 ) {
 
 return Thorax.CollectionView.extend({
-  name: 'metadataQuestionAndAnswersFilterView',
-  tagName: 'li',
-  className: 'questionText',
+  name: "metadataQuestionAndAnswersFilterView",
+  tagName: "li",
+  className: "questionText",
   template: template,
   itemView: MetadataAnswerFilterView,
   allowCreate: false,
@@ -23,9 +23,9 @@ return Thorax.CollectionView.extend({
       this.model = options.model; // question model
       this.collection = options.model.collection; // answers collection
       this.listenTo(this.collection, "change", function() {
-        var enabledAnswers = this.collection.filter(function(m) { return !m.get('disabled');});
-        enabledAnswers = _.map(enabledAnswers, function(answerModel) { return answerModel.get('pmaid');});
-        this.model.set('enabledAnswers', enabledAnswers);
+        var enabledAnswers = this.collection.filter(function(m) { return !m.get("disabled");});
+        enabledAnswers = _.map(enabledAnswers, function(answerModel) { return answerModel.get("pmaid");});
+        this.model.set("enabledAnswers", enabledAnswers);
       });
       this.zid = options.zid;
   }

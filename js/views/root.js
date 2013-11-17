@@ -1,9 +1,9 @@
 define([
-  'layout-view',
-  'templates/root'
+  "layout-view",
+  "templates/root"
 ], function(LayoutView, rootTemplate) {
   var RootView = LayoutView.extend({
-    name: 'root',
+    name: "root",
     template: rootTemplate
   });
   

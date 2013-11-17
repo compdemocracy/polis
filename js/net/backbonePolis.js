@@ -1,5 +1,5 @@
 define([
-    'originalbackbone'
+    "originalbackbone"
 ], function(Backbone) {
     
     var api_version = "v3";
@@ -27,7 +27,7 @@ define([
             //data
             contentType: "application/json",
             processData: false,
-            dataType: 'json',
+            dataType: "json",
             data: options.data,
 
             //authentication

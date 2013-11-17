@@ -1,5 +1,5 @@
 define([
-  'util/randomWithSeed'
+  "util/randomWithSeed"
 ], function (RandomWithSeed) {
 
 return function(array, seed) {

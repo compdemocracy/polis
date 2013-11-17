@@ -1,9 +1,9 @@
 define([
-  'view',
-  'templates/change-votes'
+  "view",
+  "templates/change-votes"
 ], function (View, template) {
   return View.extend({
-    name: 'change-votes',
+    name: "change-votes",
     template: template
   });
 });

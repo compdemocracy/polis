@@ -1,11 +1,11 @@
 define([
-  'view',
-  'templates/comment-view',
-  'models/comment',
-  'polis'
+  "view",
+  "templates/comment-view",
+  "models/comment",
+  "polis"
 ], function (View, template, CommentModel, serverClient) {
   return View.extend({
-    name: 'comment-view',
+    name: "comment-view",
     template: template,
     events: {
       "hover .starbutton": function(){
@@ -76,28 +76,28 @@ define([
     });
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
-    this.listenTo(this, 'rendered', function(){
-      this.$('#agreeButton').tooltip({
+    this.listenTo(this, "rendered", function(){
+      this.$("#agreeButton").tooltip({
         title: "This comment represents my opinion",
         placement: "right",
         delay: { show: 500, hide: 0 },
       });
-      this.$('#disagreeButton').tooltip({
+      this.$("#disagreeButton").tooltip({
         title: "This comment does not represent my opinion",
         placement: "top",
         delay: { show: 500, hide: 0 },
       });
-      this.$('#passButton').tooltip({
+      this.$("#passButton").tooltip({
         title: "'No reaction', or 'I am unsure'",
         placement: "left",
         delay: { show: 500, hide: 0 },
       });
-      this.$('#starButton').tooltip({
+      this.$("#starButton").tooltip({
         title: "'Critical point', or 'central to my worldview'",
         placement: "right",
         delay: { show: 500, hide: 0 },
       });
-      this.$('#trashButton').tooltip({
+      this.$("#trashButton").tooltip({
         title: "This comment is irrelevant and/or abusive",
         placement: "left",
         delay: { show: 500, hide: 0 },

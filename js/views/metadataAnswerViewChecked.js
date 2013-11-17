@@ -1,13 +1,13 @@
 define([
-  'templates/metadataAnswerChecked',
-  'views/metadataAnswerView'
+  "templates/metadataAnswerChecked",
+  "views/metadataAnswerView"
 ], function (
   template,
   MetadataAnswerView
 ) {
 
 return MetadataAnswerView.extend({
-  name: 'metadataAnswerViewChecked',
+  name: "metadataAnswerViewChecked",
   template: template,
 });
 

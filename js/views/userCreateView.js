@@ -1,8 +1,8 @@
 define([
-  'view',
-  'templates/userCreate',
-  'util/polisStorage',
-  'jquery',
+  "view",
+  "templates/userCreate",
+  "util/polisStorage",
+  "jquery",
 ], function (
   View,
   template,
@@ -10,7 +10,7 @@ define([
   $
 ) {
   return View.extend({
-    name: 'userCreateView',
+    name: "userCreateView",
     template: template,
     events: {
       "submit form": function(event){
@@ -59,7 +59,7 @@ define([
       var errors = [];
   
       if(attrs.email === ''){
-        errors.push({name: 'description',  message: 'hey there... you need an email'});
+        errors.push({name: "description",  message: 'hey there... you need an email'});
       }
       return errors; 
     },

@@ -1,5 +1,5 @@
 define([
-    'util/shuffleWithSeed'
+    "util/shuffleWithSeed"
 ], function(
     shuffleWithSeed
 ) {
@@ -11,8 +11,8 @@ return function(params) {
             push: 1,
             pull: -1,
             pass: 0,
-            trash: 'trash',
-            see: 'see'
+            trash: "trash",
+            see: "see"
         },
         staractions: {
             unstar: 0,
@@ -167,7 +167,7 @@ return function(params) {
             pid: getPid(),
             zid: currentStimulusId
         });
-        if (typeof model.txt !== 'string' || model.txt.length === 0) {
+        if (typeof model.txt !== "string" || model.txt.length === 0) {
             logger.error('bad comment');
             return $.Deferred().reject().promise();
         }
@@ -654,7 +654,7 @@ return function(params) {
         return nodes;
     }
     function parseTree(treeObject) {
-        var tree = Arboreal.parse(treeObject, 'children');
+        var tree = Arboreal.parse(treeObject, "children");
 
         // Normalize to [-1,1]
         function normalize(projectionDimension) {
@@ -737,14 +737,14 @@ return function(params) {
     function getComments(ids) {
         return polisGet(commentsPath, {
             not_pid: getPid(), // don't want to see own coments
-            ids: ids.join(',')
+            ids: ids.join(",")
         });
     }
 
     function getCommentsForSelection(listOfUserIds) {
         return polisGet(selectionPath, {
             zid: currentStimulusId,
-            users: listOfUserIds.join(',')
+            users: listOfUserIds.join(",")
         });
     }
 

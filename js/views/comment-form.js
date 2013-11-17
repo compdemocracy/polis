@@ -1,9 +1,9 @@
 define([
-  'view',
-  'templates/comment-form'
+  "view",
+  "templates/comment-form"
 ], function (View, template) {
   return View.extend({
-    name: 'comment-form',
+    name: "comment-form",
     template: template,
       events: {
       "submit form": function(e){

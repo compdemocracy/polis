@@ -1,9 +1,9 @@
 define([
-  'view',
-  'templates/inbox'
+  "view",
+  "templates/inbox"
 ], function (View, template) {
   return View.extend({
-    name: 'inbox',
+    name: "inbox",
     template: template,
     initialize: function(options) {
       this.collection = options.collection;
@@ -17,7 +17,7 @@ define([
     },
     events: {
       "mouseup input": function(event) {
-        console.log('selected');
+        console.log("selected");
         $(event.target).select();
       }
     },

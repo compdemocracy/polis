@@ -1,10 +1,10 @@
 define([
-    'model'
+    "model"
 ], function (Model) {
   return Model.extend({
-    name: 'metadataAnswers',
-    urlRoot: 'metadata/answers',
-    idAttribute: 'pmaid',
+    name: "metadataAnswers",
+    urlRoot: "metadata/answers",
+    idAttribute: "pmaid",
     defaults: {
         // pmaid: -1,
         // zid: -1,

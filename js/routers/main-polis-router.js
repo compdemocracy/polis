@@ -1,22 +1,22 @@
 define([  //begin dependencies
-  'views/root',
-  'backbone',
-  'models/conversation',
-  'models/participant',
-  'net/bbFetch',
-  'collections/conversations',
-  'views/inbox',
-  'views/homepage',
-  'views/create-conversation-form',
-  'views/conversation-details',
-  'views/conversationGatekeeperView',
-  'views/conversationGatekeeperViewCreateUser',
-  'views/conversation-view',
-  'views/create-user-form',
-  'views/login-form',
-  'views/landing-page',
-  'util/polisStorage',
-  'jquery',
+  "views/root",
+  "backbone",
+  "models/conversation",
+  "models/participant",
+  "net/bbFetch",
+  "collections/conversations",
+  "views/inbox",
+  "views/homepage",
+  "views/create-conversation-form",
+  "views/conversation-details",
+  "views/conversationGatekeeperView",
+  "views/conversationGatekeeperViewCreateUser",
+  "views/conversation-view",
+  "views/create-user-form",
+  "views/login-form",
+  "views/landing-page",
+  "util/polisStorage",
+  "jquery",
 ], function (  //begin args
 		RootView, 
 		Backbone, 
@@ -116,14 +116,14 @@ define([  //begin dependencies
       is_active: true, // TODO think
     });
     model.save().then(function(data) {
-      model.set('zid', data.zid);
+      model.set("zid", data.zid);
       var createConversationFormView = new CreateConversationFormView({
         model: model,
         collection: conversationsCollection,
         add: true
       });
       that.listenTo(createConversationFormView, "all", function(eventName, data) {
-        if (eventName === 'done') {
+        if (eventName === "done") {
           Backbone.history.navigate("inbox", {trigger: true});
 //          that.inbox();
         }
@@ -148,7 +148,7 @@ define([  //begin dependencies
       edit: true
     });
     that.listenTo(createConversationFormView, "all", function(eventName, data) {
-      if (eventName === 'done') {
+      if (eventName === "done") {
         Backbone.history.navigate("inbox", {trigger: true});
         // that.inbox();
       }
@@ -235,7 +235,7 @@ define([  //begin dependencies
       uid: uid,
       zinvite: zinvite,
     });
-    gatekeeperView.on('done', dfd.resolve);
+    gatekeeperView.on("done", dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
     return dfd.promise();
   },

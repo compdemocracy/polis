@@ -1,6 +1,6 @@
-define(['collection', 'models/vote'], function (Collection, Vote) {
+define(["collection", "models/vote"], function (Collection, Vote) {
   return Collection.extend({
-    name: 'votes',
+    name: "votes",
     model: Vote
   });
 });

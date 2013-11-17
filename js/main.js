@@ -1,9 +1,9 @@
 require([
-  'jquery',
-  'backbone',
-  'views/root',
-  'routers/main-polis-router',
-  'util/polisStorage',
+  "jquery",
+  "backbone",
+  "views/root",
+  "routers/main-polis-router",
+  "util/polisStorage",
   'bootstrap_alert',
   'bootstrap_tab',
   'bootstrap_tooltip',
@@ -35,7 +35,7 @@ require([
     $(function() {
       Backbone.history.start({
         pushState: false,
-        root: '/',
+        root: "/",
         silent: true
       });
 

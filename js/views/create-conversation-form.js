@@ -1,10 +1,10 @@
 define([
-  'view',
-  'templates/create-conversation-form',
-  'models/conversation',
-  'views/metadataQuestionsViewWithCreate',
-  'collections/MetadataQuestions',
-  'views/inbox'
+  "view",
+  "templates/create-conversation-form",
+  "models/conversation",
+  "views/metadataQuestionsViewWithCreate",
+  "collections/MetadataQuestions",
+  "views/inbox"
 ], function (
   View,
   template,
@@ -14,17 +14,17 @@ define([
   InboxView
 ) {
   return View.extend({
-    name: 'create-conversation-form',
+    name: "create-conversation-form",
     template: template,
     events: {
       "click :submit": function(event) {
         var formAction = $(event.target).val();
-        $(event.target).parents('form:first').attr('data-action',formAction);
+        $(event.target).parents('form:first').attr("data-action",formAction);
       },
       "submit form": function(event){
         var that = this;
         event.preventDefault();
-        var formAction = $(event.target).data('action');
+        var formAction = $(event.target).data("action");
         this.serialize(function(attrs, release) {
           if(this.edit===true) {
             switch(formAction) {
@@ -48,7 +48,7 @@ define([
           }
           this.model.save(attrs).then(function(data) {
             release();
-            that.trigger('done');
+            that.trigger("done");
           }, function(err) {
             release();
             alert("unable to save");
@@ -60,7 +60,7 @@ define([
 
       // ConversationModel
       this.model = options.model;
-      var zid = this.model.get('zid');
+      var zid = this.model.get("zid");
 
       var metadataCollection = new MetadataQuestionCollection([], {
           zid: zid,
@@ -85,7 +85,7 @@ define([
         success: function(){
           that.model.destroy().then(function(data) {
             alert('deleted!');
-            that.trigger('done');
+            that.trigger("done");
           }, function(err) {
             alert("delete failed");
           });
@@ -105,7 +105,7 @@ define([
 //      var model = this.collection.get(this.id)
       this.model.save().then(function(data) {
         alert('draft saved!');
-        that.trigger('done');
+        that.trigger("done");
       }, function(err) {
         alert("saveDraft failed");
       });

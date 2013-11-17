@@ -1,13 +1,13 @@
 define([
-  'templates/metadataAnswer',
-  'view'
+  "templates/metadataAnswer",
+  "view"
 ], function (
   template,
   View
 ) {
 
 return View.extend({
-  name: 'metadataAnswerView',
+  name: "metadataAnswerView",
   template: template,
   allowDelete: false,
   initialize: function(options) {

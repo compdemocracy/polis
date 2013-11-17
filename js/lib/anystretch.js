@@ -22,16 +22,16 @@
 
         return this.each(function(i){
             var defaultSettings = {
-                positionX: 'center',     // Should we center the image on the X axis?
-                positionY: 'center',     // Should we center the image on the Y axis?
+                positionX: "center",     // Should we center the image on the X axis?
+                positionY: "center",     // Should we center the image on the Y axis?
                 speed: 0,                // fadeIn speed for background after image loads (e.g. "fast" or 500)
-                elPosition: 'relative',  // position of containing element when not being added to the body
-                dataName: 'stretch'      // The data-* name used to search for
+                elPosition: "relative",  // position of containing element when not being added to the body
+                dataName: "stretch"      // The data-* name used to search for
             },
             el = $(this),
             container = isBody ? $('.anystretch') : el.children(".anystretch"),
             settings = container.data("settings") || defaultSettings, // If this has been called once before, use the old settings as the default
-            existingSettings = container.data('settings'),
+            existingSettings = container.data("settings"),
             imgRatio, bgImg, bgWidth, bgHeight, bgOffset, bgCSS;
 
             // Extend the settings with those the user has provided
@@ -90,7 +90,7 @@
                     // Append the container to the body, if it's not already there
                     if(el.children(".anystretch").length === 0) {
                         if(isBody) {
-                            $('body').append(container);
+                            $("body").append(container);
                         } else {
                             el.append(container);
                         }
@@ -124,18 +124,18 @@
                     // Note: Offset code provided by Peter Baker (http://ptrbkr.com/). Thanks, Peter!
                     if(bgHeight >= _height()) {
                         bgOffset = (bgHeight - _height()) /2;
-                        if(settings.positionY == 'center' || settings.centeredY) { // 
+                        if(settings.positionY == "center" || settings.centeredY) { // 
                             $.extend(bgCSS, {top: "-" + bgOffset + "px"});
-                        } else if(settings.positionY == 'bottom') {
+                        } else if(settings.positionY == "bottom") {
                             $.extend(bgCSS, {top: "auto", bottom: "0px"});
                         }
                     } else {
                         bgHeight = _height();
                         bgWidth = bgHeight * imgRatio;
                         bgOffset = (bgWidth - _width()) / 2;
-                        if(settings.positionX == 'center' || settings.centeredX) {
+                        if(settings.positionX == "center" || settings.centeredX) {
                             $.extend(bgCSS, {left: "-" + bgOffset + "px"});
-                        } else if(settings.positionX == 'right') {
+                        } else if(settings.positionX == "right") {
                             $.extend(bgCSS, {left: "auto", right: "0px"});
                         }
                     }

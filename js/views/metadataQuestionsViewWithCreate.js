@@ -1,14 +1,14 @@
 define([
-  'models/metadataQuestion',
-  'views/metadataQuestionAndAnswersViewWithCreate',
-  'views/metadataQuestionsView',
+  "models/metadataQuestion",
+  "views/metadataQuestionAndAnswersViewWithCreate",
+  "views/metadataQuestionsView",
 ], function (
   MetadataQuestion,
   MetadataQuestionAndAnswersViewWithCreate,
   MetadataQuestionsView
 ) {
   return MetadataQuestionsView.extend({
-    name: 'metadataQuestionsViewWithCreate',
+    name: "metadataQuestionsViewWithCreate",
     itemView: MetadataQuestionAndAnswersViewWithCreate,
     allowCreate: true,
     events: {
@@ -16,7 +16,7 @@ define([
     },
     hideAddQuestionForm: function(event) {
       var that = this;
-      var formAction = $(event.target).data('action');
+      var formAction = $(event.target).data("action");
       this.serialize(function(attrs, release){
 
         // Make sure the form isn't empty.

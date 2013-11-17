@@ -1,14 +1,14 @@
 define([
-  'views/metadataQuestionAndAnswersFilterView',
-  'templates/metadataQuestionsFilter',
-  'thorax'
+  "views/metadataQuestionAndAnswersFilterView",
+  "templates/metadataQuestionsFilter",
+  "thorax"
 ], function (
   MetadataQuestionAndAnswersFilterView,
   template,
   Thorax
 ) {
   return Thorax.CollectionView.extend({
-    name: 'metadataQuestionsFilterView',
+    name: "metadataQuestionsFilterView",
     template: template,
     itemView: MetadataQuestionAndAnswersFilterView,
     allowCreate: false,
@@ -17,8 +17,8 @@ define([
 
       this.query = {}; // pmqid -> [pmaid for each enabled answer]
       this.listenTo(this.collection, "change:enabledAnswers", function(model) {
-        var pmqid = model.get('pmqid');
-        var answers = model.get('enabledAnswers');
+        var pmqid = model.get("pmqid");
+        var answers = model.get("enabledAnswers");
         this.query[pmqid] = answers;
         var allAnswers = _.chain(this.query).values().flatten().value();
         this.trigger("answersSelected", allAnswers);

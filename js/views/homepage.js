@@ -1,9 +1,9 @@
 define([
-  'view',
-  'templates/homepage'
+  "view",
+  "templates/homepage"
 ], function (View, template) {
   return View.extend({
-    name: 'homepage',
+    name: "homepage",
     template: template,
     events: {
       "submit form": function(e){
@@ -37,7 +37,7 @@ define([
     validateInput: function(attrs){
       var errors = [];
       if(attrs.email === ''){
-        errors.push({name: 'description',  message: 'hey there... you need an email'});
+        errors.push({name: "description",  message: 'hey there... you need an email'});
       }
       return errors; 
     }

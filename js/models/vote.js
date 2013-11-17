@@ -1,6 +1,6 @@
-define(['model'], function (Model) {
+define(["model"], function (Model) {
   return Model.extend({
-    name: 'vote',
+    name: "vote",
     defaults: {
       commentText: "",
       tid: undefined, // commenTTTT id... must be provided by the view, because multiple are sent over at a time...

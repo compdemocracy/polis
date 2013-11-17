@@ -1,7 +1,7 @@
 define([
-  'templates/metadataAnswerWithDelete',
-  'net/bbDestroy',
-  'view'
+  "templates/metadataAnswerWithDelete",
+  "net/bbDestroy",
+  "view"
 ], function (
   template,
   bbDestroy,
@@ -9,12 +9,12 @@ define([
 ) {
 
 return View.extend({
-  name: 'metadataAnswerViewWithDelete',
+  name: "metadataAnswerViewWithDelete",
   template: template,
   allowDelete: true,
   deleteAnswer: function() {
     this.model.destroy();
-    // bbDestroy(this.model, {wait: true, data: $.param({zid: this.model.get('zid')})}).then(function() {
+    // bbDestroy(this.model, {wait: true, data: $.param({zid: this.model.get("zid")})}).then(function() {
     //   // ok
     // }, function(err) {
     //   alert("couldn't delete answer");

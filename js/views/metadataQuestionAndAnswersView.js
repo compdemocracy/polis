@@ -1,7 +1,7 @@
 define([
-  'views/metadataAnswerView',
-  'templates/metadataQuestionAndAnswers',
-  'thorax'
+  "views/metadataAnswerView",
+  "templates/metadataQuestionAndAnswers",
+  "thorax"
 ], function (
   MetadataAnswerView,
   template,
@@ -9,7 +9,7 @@ define([
 ) {
 
 return Thorax.CollectionView.extend({
-  name: 'metadataQuestionAndAnswersView',
+  name: "metadataQuestionAndAnswersView",
   template: template,
   itemView: MetadataAnswerView,
   allowCreate: false,

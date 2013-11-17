@@ -1,8 +1,8 @@
 define([
-  'view',
-  'templates/create-user-form',
-  'util/polisStorage',
-  'jquery',
+  "view",
+  "templates/create-user-form",
+  "util/polisStorage",
+  "jquery",
 ], function (
   View,
   template,
@@ -10,7 +10,7 @@ define([
   $
 ) {
   return View.extend({
-    name: 'create-user-form',
+    name: "create-user-form",
     template: template,
     events: {
       "submit form": function(event){
@@ -59,15 +59,15 @@ define([
       var errors = [];
   
       if(attrs.email === ''){
-        errors.push({name: 'description',  message: 'hey there... you need an email'});
+        errors.push({name: "description",  message: 'hey there... you need an email'});
       }
       return errors; 
     },
     initialize: function(options) {
       this.options = options;
       this.zinvite = options.zinvite;
-      this.listenTo(this, 'rendered', function(){
-        this.$('#conductor').anystretch("img/conductor.jpeg");
+      this.listenTo(this, "rendered", function(){
+        this.$("#conductor").anystretch("img/conductor.jpeg");
       });
     },
   });

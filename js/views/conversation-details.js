@@ -1,14 +1,14 @@
 define([
-  'view',
-  'templates/conversation-details',
-  'views/inbox'
+  "view",
+  "templates/conversation-details",
+  "views/inbox"
 ], function (View, template, InboxView) {
   return View.extend({
-    name: 'conversation-details',
+    name: "conversation-details",
     template: template,
     events: {
       "mouseup input": function(event) {
-        console.log('selected');
+        console.log("selected");
         $(event.target).select();
       }
     },
@@ -24,7 +24,7 @@ define([
           console.log(model.is_active);
         },
         cancel: function(){
-          console.log('canceled');
+          console.log("canceled");
         }
       });
     }

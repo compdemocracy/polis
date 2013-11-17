@@ -1,10 +1,10 @@
 define([
-  'templates/conversationGatekeeper',
-  // 'views/userCreateView',
-  'views/metadataQuestionsView',
-  'collections/MetadataQuestions',
-  'util/polisStorage',
-  'view',
+  "templates/conversationGatekeeper",
+  // "views/userCreateView",
+  "views/metadataQuestionsView",
+  "collections/MetadataQuestions",
+  "util/polisStorage",
+  "view",
 ], function (
   template,
   // UserCreateView,
@@ -14,7 +14,7 @@ define([
   View
 ) {
   return View.extend({
-    name: 'conversationGatekeeper',
+    name: "conversationGatekeeper",
     template: template,
     events: {
       "submit form": function(event){

@@ -1,9 +1,9 @@
-define(['model'], function (Model) {
+define(["model"], function (Model) {
   return Model.extend({
-    name: 'conversation',
+    name: "conversation",
     path: "conversations",
     idAttribute: "zid",
-    urlRoot: 'conversations',
+    urlRoot: "conversations",
     url: function() {
         return this.urlRoot + "/" + this.id;
     },

@@ -1,8 +1,8 @@
-define(['model'], function (Model) {
+define(["model"], function (Model) {
   return Model.extend({
-    name: 'comment',
-    urlRoot: 'comments',
-    idAttribute: 'tid',
+    name: "comment",
+    urlRoot: "comments",
+    idAttribute: "tid",
     defaults: {
       tid: undefined, // comment id
       pid: undefined, // participant id

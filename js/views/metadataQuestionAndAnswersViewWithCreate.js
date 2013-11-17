@@ -1,7 +1,7 @@
 define([
-  'models/metadataAnswer',
-  'views/metadataAnswerViewWithDelete',
-  'views/metadataQuestionAndAnswersView',
+  "models/metadataAnswer",
+  "views/metadataAnswerViewWithDelete",
+  "views/metadataQuestionAndAnswersView",
 ], function (
   MetadataAnswer,
   MetadataAnswerViewWithDelete,
@@ -9,7 +9,7 @@ define([
 ) {
 
 return MetadataQuestionAndAnswersView.extend({
-  name: 'metadataQuestionAndAnswersViewWithCreate',
+  name: "metadataQuestionAndAnswersViewWithCreate",
   itemView: MetadataAnswerViewWithDelete,
   events: {
     "blur .add_answer_form": "hideAddAnswerForm"
@@ -30,15 +30,15 @@ return MetadataQuestionAndAnswersView.extend({
   },
   hideAddAnswerForm: function(event) {
     var that = this;
-    var formAction = $(event.target).data('action');
+    var formAction = $(event.target).data("action");
     this.serialize(function(attrs, release){
 
       // Make sure the form isn't empty.
       if (attrs.answerInput && attrs.answerInput.length) {
-        var zid = that.model.get('zid');
+        var zid = that.model.get("zid");
         var data = {
           zid: zid,
-          pmqid: that.model.get('pmqid'),
+          pmqid: that.model.get("pmqid"),
           value: attrs.answerInput,
         };
         var model = new MetadataAnswer(data);
@@ -46,7 +46,7 @@ return MetadataQuestionAndAnswersView.extend({
           that.collection.fetch({
             data: $.param({
               zid: zid,
-              pmqid: that.model.get('pmqid'),
+              pmqid: that.model.get("pmqid"),
             }), 
             processData: true,
           });
@@ -54,7 +54,7 @@ return MetadataQuestionAndAnswersView.extend({
           release();
         }, function() {
           release();
-          alert('failed');
+          alert("failed");
         });
       }
       that.formActive = false;
