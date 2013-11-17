@@ -162,7 +162,25 @@ module.exports = function(grunt) {
       }
     },
     jshint: {
-        files: ['js/**/*.js']
+        all:['js/**/*.js'],
+        // configure JSHint (documented at http://www.jshint.com/docs/)
+        options: {
+          globals: {
+
+            jQuery: true,
+            console: true,
+            //curly: true,
+            //eqeqeq: true,
+            //trailing: true,
+            es3: true,
+            module: true,
+
+            // relax: eventually we should get rid of these
+            expr: true,
+            loopfunc: true,
+            shadow: true,
+          }
+        }
     }
   });
 
@@ -335,6 +353,7 @@ module.exports = function(grunt) {
   ]);
 
   grunt.registerTask('default', [
+    'jshint',
     'ensure-installed',
     'clean:output',
     'create-output-directories',
@@ -350,6 +369,7 @@ module.exports = function(grunt) {
   ]);
 
   grunt.registerTask('production', [
+    'jshint',
     'clean:output',
     'create-output-directories',
     'styles',
