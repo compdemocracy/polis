@@ -7,7 +7,6 @@ var PcaVis = function(params){
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
 var getPersonId = params.getPersonId;
-var getCommentsForProjection = params.getCommentsForProjection;
 var getCommentsForSelection = params.getCommentsForSelection;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
@@ -23,7 +22,7 @@ var clusters = [];
 var hulls = [];
 var bounds = []; // Bounding rectangles for each hull
 var visualization;
-var g; // top level svg group within the vis that gets translated/scaled on zoom
+//var g; // top level svg group within the vis that gets translated/scaled on zoom
 var force;
 var queryResults;
 var d3Hulls;
@@ -62,10 +61,10 @@ visualization = d3.select(el_selector)
 ;
 
 
-function zoom() {
-  // TODO what is event?
-  visualization.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-}
+// function zoom() {
+//   // TODO what is event?
+//   visualization.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+// }
 
 window.vis = visualization; // TODO why? may prevent GC
 w = $(el_selector).width();
@@ -91,14 +90,14 @@ force = d3.layout.force()
     .charge(charge) // slight overlap allowed
     .size([w, h]);
 
-function zoomToHull(d){
+// function zoomToHull(d){
 
-    var b = bounds[d.hullId];
-    visualization.transition().duration(750)
-    //.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
-    .attr("transform", "" + "scale(" + 0.95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")" + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")");
-    //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
-}
+//     var b = bounds[d.hullId];
+//     visualization.transition().duration(750)
+//     //.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+//     .attr("transform", "" + "scale(" + 0.95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")" + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")");
+//     //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
+// }
 
 function setClusterActive(d) {
     console.log("selectedCluster " + selectedCluster);  // log the cluster/hull currently selected, if any
@@ -157,10 +156,6 @@ force.on("tick", function(e) {
           o.y += (o.data.targetY - o.y) * k;
       });
 
-      // visualization.selectAll(".ptpt")
-      //     .attr("cx", function(d) { return d.x;})
-      //     .attr("cy", function(d) { return d.y;});
-
       visualization
         .selectAll(".ptpt")
         .attr("transform", function(d) {
@@ -205,24 +200,6 @@ force.on("tick", function(e) {
     }
 });
 
-function getOffsetX(e) {
-    if (undefined !== e.offsetX) {
-        return e.offsetX;
-    } else {
-        // Needed for FF
-        return e.pageX - $(el_selector).offset().left; // TODO cache offset?
-    }
-}
-function getOffsetY(e) {
-    if (undefined !== e.offsetY) {
-        return e.offsetY;
-    } else {
-        // Needed for FF
-        return e.pageY - $(el_selector).offset().top; // TODO cache offset?
-    }
-}
-
-
 window.P.stop = function() {
     if (window.P.stop) {
         window.P.stop();
@@ -230,9 +207,6 @@ window.P.stop = function() {
     updatesEnabled = false;
 };
 
-function chooseRadiusSelected(d) {
-    return Math.max(chooseRadius(d) - 1, 0.5);
-}
 function chooseRadius(d) {
   var r = baseNodeRadius;
     if (isSelf(d)){
@@ -289,25 +263,6 @@ function chooseShape(d) {
             // return d3.svg.symbol().type("circle");
         // }
     }
-}
-
-
-function chooseHullFill(d) {
-    return "#ECF0F1";
-}
-
-function renderCommentsList(comments) {
-    function renderComment(comment) {
-        var template = $("#commentListItemTemplate").html();
-        return Mustache.to_html(template, comment);
-    }
-    // TODO check out template partials "> foo"
-    var x = "<ul>";
-    for (var i = 0; i < comments.length; i++) {
-        x += renderComment(comments[i]);
-    }
-    x += "</ul>";
-    return x;
 }
 
 function isSelf(d) {
@@ -459,38 +414,14 @@ function upsertNode(updatedNodes, newClusters) {
     .enter().append("path")
       .on("click", onParticipantClicked)
       .attr("d", d3.svg.symbol().type("circle"))
-      // .attr("d", d3.svg.symbol().type("triangle-down"))
-      // .attr("d", d3.svg.symbol().type("triangle-up"))
       .classed("node", true)
       .classed("enter", true)
       .classed("ptpt", true)
-      //.each(function(d) {d.x = w/2; d.y = h/2;})
       .attr("r", chooseRadius)
-
-/*
-      .style("fill", function(d) {
-            if (!isPersonNode(d)) {
-                // only render leaves - may change? render large transucent circles?
-                return "rgba(0,0,0,0)";
-            }
-            var color = colorFromString(d.data && d.data.meta && d.data.meta.country || "");
-            if (!color) {
-                console.error(29384723897);
-                return "black";
-            }
-            return color;
-      })
-*/
         .style("stroke-width", strokeWidth)
         .attr("transform", function(d) {
             return "translate(" + d.x + "," + d.y + ")";
         })
-          // .attr("cx", function(d) {
-          //   return d.x;
-          // })
-          // .attr("cy", function(d) {
-          //   return d.y;
-          // })
         .on("mouseover", tip.show)
         .on("mouseout", tip.hide)
         ;
@@ -501,55 +432,15 @@ function upsertNode(updatedNodes, newClusters) {
       // TODO Can we do this less frequently?
       circle.classed("node", true);
       circle.classed("update", true)
-        //.each(function(d) {
-            //d.x = d.x !== undefined ? d.x : d.data.targetX;
-            //d.y = d.y !== undefined ? d.y : d.data.targetY;
-        //})
-        //.style("stroke", function(d) {
-            //if (!isPersonNode(d)) {
-                //return;
-            //}
-            //return "darkgrey";
-        //})
         .attr("r", chooseRadius)
-        .style("fill", function(d) {
-            //var distanceInPixels = Math.abs(this.cx.baseVal.value - d.data.targetX);
-            //if (distanceInPixels > 30) {
-                //return "lightgrey";
-            //} else {
-                return chooseFill(d);
-            //}
-        })
-/*
-        .style("r", function(d) {
-            if (!isPersonNode(d)) {
-                return;
-            }
-            //if (Math.abs(this.cx.baseVal.value - d.data.targetX) > 0.001) {
-                //return 50;
-            //} else {
-                return nodeRadius;
-            //}
-        })
-*/
-;
+        .style("fill", chooseFill);
 
   visualization.selectAll(".ptpt")
         .transition()
         .duration(500)
-        //.style("stroke", "black")
         .style("fill", chooseFill)
         .transition()
-          .duration(500)
-          //.attr("opacity", function(d) {
-          //return isPersonNode(d) ? 1 : 0;
-          //})
-          //.ease("quad")
-          //.delay(100)
-          //.transition()
-           // .duration(500)
-            //.style("fill", "black")
-          ;
+          .duration(500);
 
 }
 
