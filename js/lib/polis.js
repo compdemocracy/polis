@@ -103,7 +103,7 @@ return function(params) {
         };
         polisGet(commentsPath, params).then( function(comments) {
             if (!comments) {
-                logger.log('no new comments for stimulus');
+                logger.log("no new comments for stimulus");
                 dfd.resolve(0);
             } else {
                 var IDs = _.pluck(comments, "tid");
@@ -134,7 +134,7 @@ return function(params) {
                 }
             }
         }, function(err) {
-            logger.error('failed to fetch comments for ' + stim);
+            logger.error("failed to fetch comments for " + stim);
             logger.dir(err);
             dfd.reject(0);
         });
@@ -168,7 +168,7 @@ return function(params) {
             zid: currentStimulusId
         });
         if (typeof model.txt !== "string" || model.txt.length === 0) {
-            logger.error('bad comment');
+            logger.error("bad comment");
             return $.Deferred().reject().promise();
         }
         return polisPost(commentsPath, model).pipe(function(commentResponse) {
@@ -195,11 +195,11 @@ return function(params) {
     function react(params) {
         if (params.zid && params.zid !== currentStimulusId) {
             if (params.vote !== polisTypes.reactions.see) {
-                console.error('wrong stimulus');
+                console.error("wrong stimulus");
             }
         }
         if (typeof params.tid === "undefined") {
-            console.error('missing tid');
+            console.error("missing tid");
             console.error(params);
         }
 
@@ -256,14 +256,14 @@ return function(params) {
 
     function doStarAction(params) {
         if (params.zid && params.zid !== currentStimulusId) {
-            console.error('wrong stimulus');
+            console.error("wrong stimulus");
         }
         if (typeof params.tid === "undefined") {
-            console.error('missing tid');
+            console.error("missing tid");
             console.error(params);
         }
         if (typeof params.starred === "undefined") {
-            console.error('missing star type');
+            console.error("missing star type");
             console.error(params);
         }
         return polisPost(starsPath, $.extend({}, params, {
@@ -306,8 +306,8 @@ return function(params) {
         //     var token = tokenStore.get();
         //     if (!token) {
         //         needAuthCallbacks.fire();
-        //         console.error('auth needed');
-        //         return $.Deferred().reject('auth needed');
+        //         console.error("auth needed");
+        //         return $.Deferred().reject("auth needed");
         //     }
         //     //data = $.extend({ token: token}, data); // moving to cookies
         // }
@@ -338,7 +338,7 @@ return function(params) {
             }));
         }
         promise.fail( function(jqXHR, message, errorType) {
-            logger.error('SEND ERROR');
+            logger.error("SEND ERROR");
             console.dir(arguments);
             if (403 === jqXHR.status) {
                 needAuthCallbacks.fire();
@@ -566,7 +566,7 @@ return function(params) {
                 sendUpdatedVisData(people, clusters);
             },
             function(err) {
-                console.error('failed to get pca data');
+                console.error("failed to get pca data");
             });
     }
 
@@ -635,7 +635,7 @@ return function(params) {
         }
 
         if (obj.pca && obj.pca.cluster_tree) {
-            console.warn('got old PCA format');
+            console.warn("got old PCA format");
             return;
         }
 

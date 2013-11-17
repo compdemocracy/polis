@@ -29,7 +29,7 @@
                 dataName: "stretch"      // The data-* name used to search for
             },
             el = $(this),
-            container = isBody ? $('.anystretch') : el.children(".anystretch"),
+            container = isBody ? $(".anystretch") : el.children(".anystretch"),
             settings = container.data("settings") || defaultSettings, // If this has been called once before, use the old settings as the default
             existingSettings = container.data("settings"),
             imgRatio, bgImg, bgWidth, bgHeight, bgOffset, bgCSS;
@@ -78,7 +78,7 @@
                                           _adjustBG(function() {
                                               self.fadeIn(settings.speed, function(){
                                                   // Remove the old images, if necessary.
-                                                  container.find('.deleteable').remove();
+                                                  container.find(".deleteable").remove();
                                                   // Callback
                                                   if(typeof callback == "function") callback();
                                               });

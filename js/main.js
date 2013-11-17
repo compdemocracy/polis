@@ -4,12 +4,12 @@ require([
   "views/root",
   "routers/main-polis-router",
   "util/polisStorage",
-  'bootstrap_alert',
-  'bootstrap_tab',
-  'bootstrap_tooltip',
-  'bootstrap_button',
-  'bootstrap_popover',
-  'bootstrap_transition'
+  "bootstrap_alert",
+  "bootstrap_tab",
+  "bootstrap_tooltip",
+  "bootstrap_button",
+  "bootstrap_popover",
+  "bootstrap_transition"
 ], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
 
   

@@ -366,7 +366,7 @@ function upsertNode(updatedNodes, newClusters) {
     function computeTarget(d) {
         //if (!isPersonNode(d)) {
             // If we decide to show the branching points, we could
-            // compute their position as the average of their childrens'
+            // compute their position as the average of their childrens
             // positions, and return that here.
             //return;
         //}
@@ -381,7 +381,7 @@ function upsertNode(updatedNodes, newClusters) {
     var maxNodeRadius = 10 + 5;
 
   function createScales(updatedNodes) {
-    var spans = { 
+    var spans = {
         x: { min: Infinity, max: -Infinity },
         y: { min: Infinity, max: -Infinity }
     };
@@ -419,12 +419,12 @@ function upsertNode(updatedNodes, newClusters) {
 
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
-    console.log('number of people: ' + nodes.length);
+    console.log("number of people: " + nodes.length);
 
     oldpositions.forEach(function(oldNode) { 
         var newNode = _.findWhere(nodes, {pid: oldNode.pid});
         if (!newNode) { 
-            console.error('not sure why a node would dissapear');
+            console.error("not sure why a node would dissapear");
             return;
         }
         newNode.x = oldNode.x;
@@ -438,12 +438,12 @@ function upsertNode(updatedNodes, newClusters) {
     // check for unexpected changes in input
     if (window.temp !== undefined) {
         if (key(window.temp) !== key(nodes[0])) {
-            console.log('changed key');
+            console.log("changed key");
             console.dir(window.temp);
             console.dir(nodes[0]);
         }
         if (!_.isEqual(window.temp.data.projection, nodes[0].data.projection)) {
-            console.log('changed projection');
+            console.log("changed projection");
             console.dir(window.temp);
             console.dir(nodes[0]);
         }
@@ -581,7 +581,7 @@ function renderComments(comments) {
                   .attr("d", chooseShape)
                 ;
             }, function() {
-                console.error('failed to get reactions to comment: ' + d._id);
+                console.error("failed to get reactions to comment: " + d._id);
             });
             $(this).addClass("query_result_item_hover");
         }

@@ -47,7 +47,7 @@ define([
         });
       },
       "invalid": function(errors){ 
-        console.log('invalid form input' + errors[0].name);
+        console.log("invalid form input" + errors[0].name);
         console.log(errors);
   
        //_.each(errors, function(err){

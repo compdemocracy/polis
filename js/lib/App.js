@@ -72,7 +72,7 @@
 //     }
 //     function checkForGameOver() {
 //         function finished() {
-//             //$('#feedback_modal').modal("show");
+//             //$("#feedback_modal").modal("show");
 //         }
 //         _.defer(function() {
 //             finishedAllComments().then( finished );
@@ -141,7 +141,7 @@
 
 //         // CommentSubmitter
 //         commentSubmitter= new CommentSubmitter({
-//             formId: '#comment_form'
+//             formId: "#comment_form"
 //         });
 //         commentSubmitter.addSubmitListener(function(txt) {
 //             txt = txt.trim();
@@ -154,7 +154,7 @@
 
 //         // StimulusSubmitter
 //         var stimulusSubmitter = new StimulusSubmitter({
-//             formId: '#stimulus_form'
+//             formId: "#stimulus_form"
 //         });
 //         stimulusSubmitter.addSubmitListener(function(data) {
 //             serverClient.submitStimulus(data);
@@ -162,7 +162,7 @@
 
 //         // FeedbackSubmitter that's shown in the intro
 //         var feedbackSubmitterIntro = new FeedbackSubmitter({
-//             form: $('#introduction_feedback_form')
+//             form: $("#introduction_feedback_form")
 //         });
 //         feedbackSubmitterIntro.addSubmitListener(function(data) {
 //             serverClient.submitFeedback(data);
@@ -172,15 +172,15 @@
 
 //         // FeedbackSubmitter that's shown after all comments are rated
 //         var feedbackSubmitterFinished = new FeedbackSubmitter({
-//             form: $('#finished_feedback_form')
+//             form: $("#finished_feedback_form")
 //         });
 //         feedbackSubmitterFinished.addSubmitListener(function(data) {
 //             serverClient.submitFeedback(data);
 //             feedbackSubmitterFinished.clear();
-//             $('#feedback_modal').modal("hide");
+//             $("#feedback_modal").modal("hide");
 //             _.defer(function() {
 //                 finishedAllComments().done(function() {
-//                     $('#thank_you_modal').modal("show"); 
+//                     $("#thank_you_modal").modal("show"); 
 //                 });
 //             });
 //         });
@@ -191,7 +191,7 @@
 //             personIdStore: PolisStorage.personId,
 //             rootElemId: "create_user_modal",
 //             submit: serverClient.authLogin,
-//             onOk: function() { console.log('login success'); },
+//             onOk: function() { console.log("login success"); },
 //             formId: "login_form",
 //             emailFieldId: "login_email",
 //             passwordFieldId: "login_password",
@@ -207,7 +207,7 @@
 //             usernameStore: PolisStorage.username,
 //             rootElemId: "create_user_modal",
 //             submit: serverClient.authNew,
-//             onOk: function() { console.log('register success'); },
+//             onOk: function() { console.log("register success"); },
 //             formId: "register_form",
 //             emailFieldId: "register_email",
 //             passwordFieldId: "register_password",
@@ -224,13 +224,13 @@
 //                 // update UI
 
 //                 //hide modals when user successfully registers
-//                 //$('#create_user_modal').modal("hide"); 
-//                 //$('#introduction_modal').modal("hide");
+//                 //$("#create_user_modal").modal("hide"); 
+//                 //$("#introduction_modal").modal("hide");
                 
 //                 //add close button and enable background click so users can
 //                 //close intro modal if clicked from menu after login
-//                 //$('#introduction_modal').removeAttr("data-backdrop");
-//                 //$('#introduction_modal_button').removeAttr("disabled"); 
+//                 //$("#introduction_modal").removeAttr("data-backdrop");
+//                 //$("#introduction_modal_button").removeAttr("disabled"); 
 
 //                 registerView.render();
 //                 loginView.render();
@@ -317,8 +317,8 @@
 
 
 //     function promptUserToRegister() {
-//         //$('#introduction_modal').modal("show");
-//         //$('#create_user_modal').modal("show");
+//         //$("#introduction_modal").modal("show");
+//         //$("#create_user_modal").modal("show");
 
 //         // TODO just show the auth dialog, or think of something else to do with
 //         // anon users.. we should probably not expire anon tokens.
@@ -360,13 +360,13 @@
 
 //     serverClient.addAuthNeededListener(promptUserToRegister);
 
-//     KeyboardJS.on('ctrl + m', function() {
+//     KeyboardJS.on("ctrl + m", function() {
 //         serverClient.submitEvent({
 //             ev: "commentingOnly"
 //         });
 //     });
 
-//     KeyboardJS.on('ctrl + r', function() {
+//     KeyboardJS.on("ctrl + r", function() {
 //         serverClient.submitEvent({
 //             ev: "ratingOnly"
 //         });
@@ -396,7 +396,7 @@
 //         //var resizeArticleHeight = $(window).height() * 0.68;
 //         //var resizeShowerHeight = $(window).height() * 0.70;
 //         //$("#articles").css("height", resizeArticleHeight);
-//         //$('#comment_shower').css("height", resizeShowerHeight);
+//         //$("#comment_shower").css("height", resizeShowerHeight);
 //         //
 //         //
 //         //    initPcaVis(); 
@@ -407,10 +407,10 @@
 //     },1000);
 
 //     //$("#topic_modal").click(showTopicModal);
-//     //$('#topic_modal').modal({show: false, keyboard: true, backdrop: true});
+//     //$("#topic_modal").modal({show: false, keyboard: true, backdrop: true});
 
-//     $('.react_tab').click(navigateToReactTab);
-//     $('.write_tab').click(navigateToWriteTab);
+//     $(".react_tab").click(navigateToReactTab);
+//     $(".write_tab").click(navigateToWriteTab);
 
 //     serverClient.addPersonUpdateListener( function(e) {
 //         PcaVis.upsertNode(e);

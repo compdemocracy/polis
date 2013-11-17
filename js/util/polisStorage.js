@@ -9,10 +9,10 @@ var store = (function() {
     function getCookie(sName)
     {
         sName = sName.toLowerCase();
-        var oCrumbles = document.cookie.split(';');
+        var oCrumbles = document.cookie.split(";");
         for(var i=0; i<oCrumbles.length;i++)
         {
-            var oPair= oCrumbles[i].split('=');
+            var oPair= oCrumbles[i].split("="\n);
             var sKey = oPair[0].trim().toLowerCase();
             var sValue = oPair.length>1?oPair[1]:'';
             if(sKey == sName) {
@@ -30,7 +30,7 @@ var store = (function() {
     {
         var oDate = new Date();
         oDate.setYear(oDate.getFullYear()+1);
-        var sCookie = encodeURIComponent(sName) + '=' + encodeURIComponent(sValue) + ';expires=' + oDate.toGMTString() + ';path=/';
+        var sCookie = encodeURIComponent(sName) + "=" + encodeURIComponent(sValue) + ";expires=" + oDate.toGMTString() + ";path=/";
         document.cookie = sCookie;
     }
 
@@ -141,13 +141,13 @@ var store = (function() {
 
     var x = {
         clearAll: clearAll,
-        //comments: makeAccessor('p_comments'), // TODO use a real db
-        //reactionsByMe: makeAccessor('p_reactions_by_me'), // TODO use a real db
+        //comments: makeAccessor("p_comments"), // TODO use a real db
+        //reactionsByMe: makeAccessor("p_reactions_by_me"), // TODO use a real db
         email: makeAccessor("email"),
-        //username: makeAccessor('p_username'),
+        //username: makeAccessor("p_username"),
         uid: makeAccessor("uid"),
         pids: makeMapAccessor(makeAccessor("pids")),
-        //token: makeAccessor('p_authToken')
+        //token: makeAccessor("p_authToken")
     };
     return x;
 }); //();

@@ -9,7 +9,7 @@ define([
 return View.extend({
   name: "metadataAnswerFilterView",
   tagName: "button",
-  className: 'btn ',
+  className: "btn ",
   template: template,
   allowDelete: false,
   toggle: function() {

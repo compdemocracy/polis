@@ -12,9 +12,9 @@ var CommentShower = function(params) {
     var waitingForComments = true;
 
     var buttons = [
-        $('#push_button'),
-        $('#pull_button'),
-        $('#pass_button')
+        $("#push_button"),
+        $("#pull_button"),
+        $("#pass_button")
     ];
     function showButtons() {
         buttons.forEach(function(b) {
@@ -77,9 +77,9 @@ var CommentShower = function(params) {
         pullCallbacks.fire(currentCommentId);
     }
 
-    $('#push_button').click(onPushClicked);
-    $('#pull_button').click(onPullClicked);
-    $('#pass_button').click(onPassClicked);
+    $("#push_button").click(onPushClicked);
+    $("#pull_button").click(onPullClicked);
+    $("#pass_button").click(onPassClicked);
 
 
     function notifyCommentsAvailable() {

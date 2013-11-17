@@ -69,8 +69,8 @@ define([
       $(e.target).tab("show");
     },
     "click .query_result_item": function(e){
-      this.$('.query_result_item').removeClass('active_result_item');
-      this.$(e.target).addClass('active_result_item');
+      this.$('.query_result_item').removeClass("active_result_item");
+      this.$(e.target).addClass("active_result_item");
     },
   },
   onClusterTapped : function() {
@@ -216,21 +216,21 @@ define([
         delay: { show: 300, hide: 200 },
 
       }); 
-      this.$('#how_do_i_use').popover({
+      this.$("#how_do_i_use").popover({
         title: "How do I use Polis?",
         content: "<ol> <li> Read & react to what others have said.</li><li> Write comments for others to react to.</li> <li> Watch the visualization change in real-time as you and others react.</li><li> Optionally, explore the visualization to learn more about what brought the groups together and what is differentiating them.</li>  <li> Hover over the menu items and buttons to learn about them (mobile: press and hold). </li>  </ol>",
         html: true, //XSS risk, not important for now
         trigger: "click",
         placement: "bottom",
       });
-      this.$('#feedback_and_suggestions').popover({
+      this.$("#feedback_and_suggestions").popover({
         title: "Feedback & Suggestions",
         content: "<p> During the beta period, you can email us directly with feedback, questions or requests.</p> <i class=\"icon-info-envelope\"></i> <a href=\"mailto:colinmegill@gmail.com?Subject=Polis%20feedback:%20inbox\" target=\"_blank\">info@polis.io </a>",
         html: true, //XSS risk, not important for now
         trigger: "click",
         placement: "bottom",
       });
-      this.$('#making_meaning_of_viz').popover({
+      this.$("#making_meaning_of_viz").popover({
         title: "How do I make meaning of the visualization?",
         content: "<ol><li> Each dot represents a person. The red dot represents you. You will see the dots move around the visualization as you and other participants vote. Hover over a dot to find out who it is.</li><li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li><li> Shaded areas represent groups. Click on a shaded area to bring up comments that had the highest consensus amongst that group. Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. </li> <li> Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment remain a grey dot. </li> <li> Use the \"analyze\" tab to filter participants using metadata.</li></ol>",
         html: true, //XSS risk, not important for now

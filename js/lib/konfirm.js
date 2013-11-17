@@ -1,7 +1,7 @@
 // Function Binder
 
 var functionBinder = function(fn, me) {
-    'use strict';
+    "use strict";
     return function () {
         return fn.apply(me, arguments);
     };

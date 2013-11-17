@@ -8,7 +8,7 @@ function makeOpt(o, opt, dfd) {
 function bbSave(o, opt){
     var dfd = $.Deferred();
     if (!o.save(makeOpt(o, opt, dfd))) {
-      dfd.rejectWith(o, 'validation failed');
+      dfd.rejectWith(o, "validation failed");
     }
     return dfd.promise();
 }

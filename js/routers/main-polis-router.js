@@ -134,7 +134,7 @@ define([  //begin dependencies
         $checkbox.checkbox();
       });
     }, function(err) {
-      alert('failed to create new conversation');
+      alert("failed to create new conversation");
       console.dir(err);
     });
   },
@@ -183,7 +183,7 @@ define([  //begin dependencies
       });
       RootView.getInstance().setView(conversationView);
     },function(e) {
-      console.error('error loading conversation model', e);
+      console.error("error loading conversation model", e);
       setTimeout(function() { that.conversationView(zid); }, 5000); // retry
     });
   },
@@ -194,7 +194,7 @@ define([  //begin dependencies
     var uid = PolisStorage.uid.get();
  
     if (!uid) {
-        console.log('trying to load conversation, but no auth');
+        console.log("trying to load conversation, but no auth");
         // Not signed in.
         // Or not registered.
         this.doCreateUserFromGatekeeper(zinvite).done(function() {
@@ -202,7 +202,7 @@ define([  //begin dependencies
           that.conversationView(zid, zinvite);
         });
     } else if (!PolisStorage.pids.get(zid)) {
-      console.log('trying to load conversation, but no pid');
+      console.log("trying to load conversation, but no pid");
       // Signed in...
       // But not yet a participant for this converation.
       // (at least from this browser)

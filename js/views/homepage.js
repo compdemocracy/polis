@@ -26,10 +26,10 @@ define([
         });
       },
       "invalid": function(errors){ 
-        console.log('invalid form input' + errors[0].name);
+        console.log("invalid form input" + errors[0].name);
         console.log(errors);
        //_.each(errors, function(err){
-          $('input[name="'+errors[0].name+'"]').closest("label").append(errors[0].message); // relationship between each input and error name
+          $("input[name=\""+errors[0].name + "\"]").closest("label").append(errors[0].message); // relationship between each input and error name
           //'input[name="firstName"]'
         //})
       }
@@ -37,7 +37,7 @@ define([
     validateInput: function(attrs){
       var errors = [];
       if(attrs.email === ''){
-        errors.push({name: "description",  message: 'hey there... you need an email'});
+        errors.push({name: "description",  message: "hey there... you need an email"});
       }
       return errors; 
     }

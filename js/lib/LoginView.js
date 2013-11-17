@@ -70,7 +70,7 @@ var LoginView = function(params) {
                 return false;
             }
         }
-        if (getEmail().indexOf('@') === -1) {
+        if (getEmail().indexOf("@") === -1) {
             alert("invalid email address");
             return false;
         }

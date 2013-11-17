@@ -14,7 +14,7 @@ define([
           that.participantCommented(attrs);
           release();
         });
-        $('#comment_form_textarea').val(''); //use this.$
+        $("#comment_form_textarea").val(''); //use this.$
       },
     },
     participantCommented: function(attrs) {
@@ -22,7 +22,7 @@ define([
       this.serverClient.submitComment(attrs).then(function() {
         that.trigger("commentSubmitted"); // view.trigger
       }, function() {
-        alert('failed to send');
+        alert("failed to send");
       });
     }
   });
