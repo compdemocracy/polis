@@ -24,6 +24,6 @@ define([
         this.trigger("answersSelected", allAnswers);
       });
       this.zid = options.zid;
-    },
+    }
 });
 });

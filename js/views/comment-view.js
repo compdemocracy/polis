@@ -9,7 +9,7 @@ define([
     template: template,
     events: {
       "hover .starbutton": function(){
-        this.$(".starbutton").html('<i class="icon-star"></i>');
+        this.$(".starbutton").html("<i class='icon-star'></i>");
       }
     },
   initialize: function() {
@@ -80,27 +80,27 @@ define([
       this.$("#agreeButton").tooltip({
         title: "This comment represents my opinion",
         placement: "right",
-        delay: { show: 500, hide: 0 },
+        delay: { show: 500, hide: 0 }
       });
       this.$("#disagreeButton").tooltip({
         title: "This comment does not represent my opinion",
         placement: "top",
-        delay: { show: 500, hide: 0 },
+        delay: { show: 500, hide: 0 }
       });
       this.$("#passButton").tooltip({
         title: "'No reaction', or 'I am unsure'",
         placement: "left",
-        delay: { show: 500, hide: 0 },
+        delay: { show: 500, hide: 0 }
       });
       this.$("#starButton").tooltip({
         title: "'Critical point', or 'central to my worldview'",
         placement: "right",
-        delay: { show: 500, hide: 0 },
+        delay: { show: 500, hide: 0 }
       });
       this.$("#trashButton").tooltip({
         title: "This comment is irrelevant and/or abusive",
         placement: "left",
-        delay: { show: 500, hide: 0 },
+        delay: { show: 500, hide: 0 }
       });
     });
   }

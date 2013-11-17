@@ -1,7 +1,7 @@
 define([
   "models/metadataAnswer",
   "views/metadataAnswerViewWithDelete",
-  "views/metadataQuestionAndAnswersView",
+  "views/metadataQuestionAndAnswersView"
 ], function (
   MetadataAnswer,
   MetadataAnswerViewWithDelete,
@@ -39,16 +39,16 @@ return MetadataQuestionAndAnswersView.extend({
         var data = {
           zid: zid,
           pmqid: that.model.get("pmqid"),
-          value: attrs.answerInput,
+          value: attrs.answerInput
         };
         var model = new MetadataAnswer(data);
         model.save().then(function() {
           that.collection.fetch({
             data: $.param({
               zid: zid,
-              pmqid: that.model.get("pmqid"),
+              pmqid: that.model.get("pmqid")
             }),
-            processData: true,
+            processData: true
           });
           model.fetch();
           release();
@@ -62,7 +62,7 @@ return MetadataQuestionAndAnswersView.extend({
     });
   },
   allowCreate: true,
-  allowDelete: true,
+  allowDelete: true
 });
 
 });

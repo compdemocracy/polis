@@ -1,7 +1,7 @@
 define([
   "models/metadataQuestion",
   "views/metadataQuestionAndAnswersViewWithCreate",
-  "views/metadataQuestionsView",
+  "views/metadataQuestionsView"
 ], function (
   MetadataQuestion,
   MetadataQuestionAndAnswersViewWithCreate,
@@ -23,7 +23,7 @@ define([
         if (attrs.questionInput && attrs.questionInput.length) {
           var data = {
             zid: that.zid,
-            key: attrs.questionInput,
+            key: attrs.questionInput
           };
           var model = new MetadataQuestion(data);
 
@@ -33,7 +33,7 @@ define([
               data: $.param({
                 zid: that.zid
               }),
-              reset: true,
+              reset: true
             });
             that.formActive = false;
             that.render();
@@ -47,6 +47,6 @@ define([
     showAddQuestionForm: function(event) {
       this.formActive = true;
       this.render();
-    },
+    }
 });
 });

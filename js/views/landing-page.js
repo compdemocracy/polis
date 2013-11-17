@@ -36,7 +36,7 @@ define([
             alert(err.responseText);
           });
         });
-      },
+      }
     },
     initialize: function(){
       this.listenTo(this, "rendered", function(){

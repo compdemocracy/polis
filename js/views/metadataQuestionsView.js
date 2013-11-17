@@ -15,6 +15,6 @@ define([
     initialize: function(options) {
       this.collection = options.collection; // questions collection
       this.zid = options.zid;
-    },
+    }
 });
 });

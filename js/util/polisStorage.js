@@ -12,9 +12,9 @@ var store = (function() {
         var oCrumbles = document.cookie.split(";");
         for(var i=0; i<oCrumbles.length;i++)
         {
-            var oPair= oCrumbles[i].split("="\n);
+            var oPair= oCrumbles[i].split("=");
             var sKey = oPair[0].trim().toLowerCase();
-            var sValue = oPair.length>1?oPair[1]:'';
+            var sValue = oPair.length>1?oPair[1]:"";
             if(sKey == sName) {
                 var val = decodeURIComponent(sValue);
                 if (val === "null") {
@@ -66,7 +66,7 @@ var store = (function() {
             }
             return cookieVal;
         },
-        clear: clearCookie,
+        clear: clearCookie
     };
 }());
 
@@ -146,8 +146,9 @@ var store = (function() {
         email: makeAccessor("email"),
         //username: makeAccessor("p_username"),
         uid: makeAccessor("uid"),
-        pids: makeMapAccessor(makeAccessor("pids")),
         //token: makeAccessor("p_authToken")
+        pids: makeMapAccessor(makeAccessor("pids"))
+
     };
     return x;
 }); //();

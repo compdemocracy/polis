@@ -4,7 +4,7 @@ define([
   "views/metadataQuestionsView",
   "collections/MetadataQuestions",
   "util/polisStorage",
-  "view",
+  "view"
 ], function (
   template,
   // UserCreateView,
@@ -60,7 +60,7 @@ define([
             alert(err.responseText);
           });
         });
-      },
+      }
     },
     initialize: function(options) {
 
@@ -69,25 +69,25 @@ define([
       var zinvite = options.zinvite;
 
       this.metadataCollection = new MetadataQuestionCollection([], {
-        zid: zid,
+        zid: zid
       });
 
       this.metadataCollection.fetch({
           data: $.param({
               zid: zid,
-              zinvite: zinvite,
+              zinvite: zinvite
           }),
-          processData: true,
+          processData: true
       });
       this.metadataQuestionsView = new MetadataQuestionsView({
         collection: this.metadataCollection,
         zid: zid,
-        zinvite: zinvite,
+        zinvite: zinvite
       });
 
       // this.gatekeeperAuthView = new UserCreateView({
       //   zinvite: zinvite,
       // });
-    },
+    }
   });
 });

@@ -8,7 +8,7 @@ define([
 
 return MetadataAnswerView.extend({
   name: "metadataAnswerViewChecked",
-  template: template,
+  template: template
 });
 
 });

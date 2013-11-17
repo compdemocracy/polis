@@ -2,7 +2,7 @@ define([
   "view",
   "templates/userCreate",
   "util/polisStorage",
-  "jquery",
+  "jquery"
 ], function (
   View,
   template,
@@ -51,20 +51,20 @@ define([
         console.log(errors);
 
        //_.each(errors, function(err){
-          $('input[name="'+errors[0].name+'"]').closest("label").append(errors[0].message); // relationship between each input and error name
+          $("input[name=\""+errors[0].name+"\"]").closest("label").append(errors[0].message); // relationship between each input and error name
         //})
       }
     },
     validateInput: function(attrs){
       var errors = [];
 
-      if(attrs.email === ''){
+      if(attrs.email === ""){
         errors.push({name: "description",  message: "hey there... you need an email"});
       }
       return errors;
     },
     initialize: function(options) {
       this.options = options;
-    },
+    }
   });
 });

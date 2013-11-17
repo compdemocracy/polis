@@ -19,7 +19,7 @@ define([
     events: {
       "click :submit": function(event) {
         var formAction = $(event.target).val();
-        $(event.target).parents('form:first').attr("data-action",formAction);
+        $(event.target).parents("form:first").attr("data-action",formAction);
       },
       "submit form": function(event){
         var that = this;
@@ -54,7 +54,7 @@ define([
             alert("unable to save");
           });
         });
-      },
+      }
     },
     initialize: function(options) {
 
@@ -63,28 +63,28 @@ define([
       var zid = this.model.get("zid");
 
       var metadataCollection = new MetadataQuestionCollection([], {
-          zid: zid,
+          zid: zid
       });
 
       metadataCollection.fetch({
           data: $.param({
               zid: zid
           }),
-          processData: true,
+          processData: true
       });
       this.metadataQuestionsViewWithCreate = new MetadataQuestionsViewWithCreate({
         collection: metadataCollection,
-        zid: zid,
+        zid: zid
       });
     },
-    delete: function() {
+    "delete": function() {
       var that = this;
       // var model = this.collection.get(this.id)
       var deleteConfirm = new konfirm({
         message: "Conversations cannot be deleted during the Beta.",
         success: function(){
           that.model.destroy().then(function(data) {
-            alert('deleted!');
+            alert("deleted!");
             that.trigger("done");
           }, function(err) {
             alert("delete failed");
@@ -104,7 +104,7 @@ define([
       var that = this;
 //      var model = this.collection.get(this.id)
       this.model.save().then(function(data) {
-        alert('draft saved!');
+        alert("draft saved!");
         that.trigger("done");
       }, function(err) {
         alert("saveDraft failed");

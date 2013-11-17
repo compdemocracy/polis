@@ -16,7 +16,7 @@ define([  //begin dependencies
   "views/login-form",
   "views/landing-page",
   "util/polisStorage",
-  "jquery",
+  "jquery"
 ], function (  //begin args
 		RootView,
 		Backbone,
@@ -48,7 +48,7 @@ define([  //begin dependencies
       "user/login":"login",
       "settings": "deregister",
       "inbox(/:filter)": "inbox",
-      "": "landingPageView",
+      "": "landingPageView"
       // see others in the initialize method
     },
     initialize: function(options) {
@@ -99,7 +99,7 @@ define([  //begin dependencies
       var conversationsCollection = new ConversationsCollection();
       // Let the InboxView filter the conversationsCollection.
       var inboxView = new InboxView($.extend(filterAttrs, {
-        collection: conversationsCollection,
+        collection: conversationsCollection
       }));
       RootView.getInstance().setView(inboxView);
   },
@@ -113,7 +113,7 @@ define([  //begin dependencies
 
     var model = new ConversationModel({
       is_draft: true,
-      is_active: true, // TODO think
+      is_active: true // TODO think
     });
     model.save().then(function(data) {
       model.set("zid", data.zid);
@@ -129,7 +129,7 @@ define([  //begin dependencies
         }
       });
       RootView.getInstance().setView(createConversationFormView);
-      $('[data-toggle="checkbox"]').each(function() {
+      $("[data-toggle='checkbox']").each(function() {
         var $checkbox = $(this);
         $checkbox.checkbox();
       });
@@ -155,7 +155,7 @@ define([  //begin dependencies
     });
     createConversationFormView.populate(model.attributes);
     RootView.getInstance().setView(createConversationFormView);
-    $('[data-toggle="checkbox"]').each(function () {
+    $("[data-toggle='checkbox']").each(function () {
       var $checkbox = $(this);
       $checkbox.checkbox();
     });
@@ -174,12 +174,12 @@ define([  //begin dependencies
   doLaunchConversation: function(zid) {
     // Assumes you have a pid already.
     var model = new ConversationModel({
-        zid: zid,
+        zid: zid
     });
     bbFetch(model).then(function() {
       var conversationView = new ConversationView({
         model: model,
-        zid: zid,
+        zid: zid
       });
       RootView.getInstance().setView(conversationView);
     },function(e) {
@@ -210,7 +210,7 @@ define([  //begin dependencies
       // Try to create or fetch a participant record.
       var ptpt = new ParticipantModel({
         zid: zid,
-        zinvite: zinvite,
+        zinvite: zinvite
       });
       ptpt.save().then(function() {
         // Participant record was created, or already existed.
@@ -233,7 +233,7 @@ define([  //begin dependencies
     var gatekeeperView = new ConversationGatekeeperView({
       zid: zid,
       uid: uid,
-      zinvite: zinvite,
+      zinvite: zinvite
     });
     gatekeeperView.on("done", dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
@@ -244,7 +244,7 @@ define([  //begin dependencies
     var dfd = $.Deferred();
 
     var createUserFormView = new ConversationGatekeeperViewCreateUser({
-      zinvite: zinvite,
+      zinvite: zinvite
     });
     createUserFormView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(createUserFormView);
@@ -255,7 +255,7 @@ define([  //begin dependencies
     var dfd = $.Deferred();
 
     var createUserFormView = new CreateUserFormView({
-      zinvite: zinvite,
+      zinvite: zinvite
     });
     createUserFormView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(createUserFormView);
