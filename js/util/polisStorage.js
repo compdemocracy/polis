@@ -15,10 +15,15 @@ var store = (function() {
             var oPair= oCrumbles[i].split('=');
             var sKey = oPair[0].trim().toLowerCase();
             var sValue = oPair.length>1?oPair[1]:'';
-            if(sKey == sName)
-                return decodeURIComponent(sValue);
+            if(sKey == sName) {
+                var val = decodeURIComponent(sValue);
+                if (val === "null") {
+                    val = null;
+                }
+                return val;
+            }
         }
-        return '';
+        return null;
     }
 
     function setCookie(sName,sValue)
@@ -26,12 +31,12 @@ var store = (function() {
         var oDate = new Date();
         oDate.setYear(oDate.getFullYear()+1);
         var sCookie = encodeURIComponent(sName) + '=' + encodeURIComponent(sValue) + ';expires=' + oDate.toGMTString() + ';path=/';
-        document.cookie= sCookie;
+        document.cookie = sCookie;
     }
 
     function clearCookie(sName)
     {
-        setCookie(sName,'');
+        setCookie(sName,null);
     }
     // We might want to use localStorage for browsers that don't throw exceptions when you try to use their localStorage implementation.
     // return {
@@ -43,7 +48,7 @@ var store = (function() {
         set: setCookie,
         get: function(key) {
             var cookieVal = getCookie(key);
-            if (!cookieVal.length) {
+            if (cookieVal === null) {
                 // Beta Migration
                 // Should be OK to remove this block (and simply call getCookie) sometime early 2014                
                 try {
@@ -52,7 +57,7 @@ var store = (function() {
                     // previously, localStorage keys were prefixed with "p_", removing now to minimize extra cookie traffic.
                     var lsVal = localStorage.getItem("p_" + key);
                     if (lsVal !== null) {
-                        setCookie(key, lsVal)
+                        setCookie(key, lsVal);
                     }
                     return lsVal;
                 } catch(e) {
