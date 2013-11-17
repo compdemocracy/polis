@@ -240,7 +240,6 @@ define([  //begin dependencies
     return dfd.promise();
   },
   doCreateUserFromGatekeeper: function(zinvite) {
-    var that = this;
     var dfd = $.Deferred();
 
     var createUserFormView = new ConversationGatekeeperViewCreateUser({
@@ -251,7 +250,6 @@ define([  //begin dependencies
     return dfd.promise();
   },
   doCreateUser: function(zinvite){
-    var that = this;
     var dfd = $.Deferred();
 
     var createUserFormView = new CreateUserFormView({
@@ -262,7 +260,6 @@ define([  //begin dependencies
     return dfd.promise();
   },
   createUser: function(){
-    var that = this;
     this.doCreateUser().done(function() {
       Backbone.history.navigate("inbox", {trigger: true});
       // that.inbox();

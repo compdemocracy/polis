@@ -123,13 +123,13 @@ var store = (function() {
         return accessor;
     }
 
-    function castToNumber(accessor) {
-        var oldGet = accessor.get;
-        accessor.get = function(key) {
-            return Number(oldGet());
-        };
-        return accessor;
-    }
+    // function castToNumber(accessor) {
+    //     var oldGet = accessor.get;
+    //     accessor.get = function(key) {
+    //         return Number(oldGet());
+    //     };
+    //     return accessor;
+    // }
 
     function clearAll() {
         for (var key in x) {
