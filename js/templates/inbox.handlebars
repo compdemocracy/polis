@@ -26,10 +26,10 @@
               <h3> {{topic}} </h3>
               <p> {{{description}}} </p>
               <input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly>
-              <div class="alert alert-info"> 
+              <div class="alert alert-info">
                 <button type="button" class="close" data-dismiss="alert">&times;</button>
                 <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
-              </div> 
+              </div>
               <span class="participantCount"> {{participant_count}}
                 <i class="icon-user"></i>
                 <span class="indicator {{#if is_active}}active{{/if}}"><i class="icon-circle"></i></span>
@@ -38,7 +38,7 @@
               <ul class="actions actionsDetailsView">
                 <li><a href="{{url_name}}"><i class="icon-rocket"></i>&nbsp;Launch Conversation</a></li>
               </ul>
-            
+
         </li>
       {{else}}
         <p>You currently have no conversations in your inbox. If this is an error, please <a href="mailto:colinmegill@gmail.com?Subject=Polis%20feedback:%20inbox" target="_blank"> let us know. </a> <i class="icon-envelope-alt"></i></p>

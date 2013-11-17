@@ -12,7 +12,7 @@ require([
   "bootstrap_transition"
 ], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
 
-  
+
   // debug convenience function for deregistering.
   window.deregister = function() {
     $.post("/v3/auth/deregister", {}).always(function() {

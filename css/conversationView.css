@@ -26,7 +26,7 @@
 }
 
 .icon-remove {
-  cursor: hand; 
+  cursor: hand;
   cursor: pointer;
 }
 
@@ -59,7 +59,7 @@ svg {
 }
 #comment_shower_frame {
   max-height: 500px;
-  max-width: 900px;        
+  max-width: 900px;
 }
 #comment_shower_frame:hover {
 }
@@ -71,7 +71,7 @@ svg {
   margin: 0px;
   margin-bottom: 20px;
 }
-#comment_form_textarea{ 
+#comment_form_textarea{
     margin-top: 10px;
     margin-bottom: 10px;
     width: 88%;
@@ -96,7 +96,7 @@ svg {
 }
 
 #passButton {
-   margin-right: 5%; 
+   margin-right: 5%;
 }
 
 .icon-star {
@@ -117,7 +117,7 @@ svg {
 }
 
 /* Large desktop */
-@media (min-width: 1200px) { 
+@media (min-width: 1200px) {
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 15px;
   }
@@ -128,9 +128,9 @@ svg {
     width: 40%;
   }
 }
- 
+
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
-@media (min-width: 1024px) and (max-width: 1199px) { 
+@media (min-width: 1024px) and (max-width: 1199px) {
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 10px;
   }
@@ -139,9 +139,9 @@ svg {
   }
   .row-fluid .t-span6 {
     width: 48.61878453038674%;
-  } 
+  }
 }
- 
+
 
 /* BIG PHONE to LITTLE tablet */
 @media only screen and (min-width : 768px) and (max-width : 1024px) {
@@ -155,7 +155,7 @@ svg {
     display: none;
   }
 }
- 
+
 /* BIG PHONE and down */
 @media only screen and (min-width : 320px) and (max-width : 568px) {
   body{

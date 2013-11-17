@@ -47,7 +47,7 @@ return MetadataQuestionAndAnswersView.extend({
             data: $.param({
               zid: zid,
               pmqid: that.model.get("pmqid"),
-            }), 
+            }),
             processData: true,
           });
           model.fetch();

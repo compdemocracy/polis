@@ -1,7 +1,7 @@
 define([
     "originalbackbone"
 ], function(Backbone) {
-    
+
     var api_version = "v3";
 
     var originalAjax = Backbone.ajax;

@@ -5,7 +5,7 @@
       <div class="container">
         <a class="brand" href="#">Polis</a>
         <ul class="nav pull-right">
-          <li>{{#link "settings" expand-tokens=true}}<i class="icon-signout"></i>&nbsp;Signout{{/link}}</li> 
+          <li>{{#link "settings" expand-tokens=true}}<i class="icon-signout"></i>&nbsp;Signout{{/link}}</li>
         </ul>
         <ul class="nav">
           <li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
@@ -18,17 +18,17 @@
 
 
 
-<div class="conversationViewHeadline"> 
+<div class="conversationViewHeadline">
   <h1> {{topic}} </h1>
   <h5> {{description}} </h5>
-</div> 
+</div>
 
 <section class="container-fluid">
 
     <div class="alert alert-block alert-info">
       <button type="button" class="close" data-dismiss="alert">&times;</button>
-      <h4> Welcome </h4> 
-      <p> The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis is currently in private beta - your <span class="popover_helper_class" id="feedback_and_suggestions"> feedback and suggestions</span> are welcome as we work to improve the overall experience of the application. <i class="icon-info-sign"></i> <span class="popover_helper_class" id="how_do_i_use">How do I use Polis?</span></p> 
+      <h4> Welcome </h4>
+      <p> The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis is currently in private beta - your <span class="popover_helper_class" id="feedback_and_suggestions"> feedback and suggestions</span> are welcome as we work to improve the overall experience of the application. <i class="icon-info-sign"></i> <span class="popover_helper_class" id="how_do_i_use">How do I use Polis?</span></p>
     </div>
 
 <div class="row-fluid">
@@ -40,16 +40,16 @@
           <i class="icon-align-justify"></i> Read &amp; React
         </a>
       </li>
-      <li> 
+      <li>
         <a href="#commentForm" id="commentFormTab" data-toggle="tab">
           <i class="icon-pencil"></i> Write
-        </a> 
+        </a>
       </li>
       <li>
         <a href="#analyze" id="analyzeTab" data-toggle="tab">
           <i class="icon-coffee"></i> Analyze
         </a>
-      </li>       
+      </li>
     </ul>
     <div class="tab-content">
       <div class="tab-pane active" id="commentView">
@@ -57,28 +57,28 @@
       </div>
       <div class="tab-pane" id="commentForm">
         {{view commentForm}}
-      </div>      
+      </div>
       <div class="tab-pane" id="analyze">
         {{view metadataQuestionsView}}
-      </div> 
+      </div>
     </div>
   </div> <!-- tabbable -->
-  </div> <!-- span 4 --> 
+  </div> <!-- span 4 -->
 
   <div class="span8 t-span6">
     <div id="visualization_div" class="row-fluid">
-    </div> <!-- visualization div --> 
+    </div> <!-- visualization div -->
     <div id="query_results_div">
-    </div> <!-- query results div --> 
-    {{!--    
-        <div> 
+    </div> <!-- query results div -->
+    {{!--
+        <div>
           {{view resultsView}}
         </div>
-    --}} 
+    --}}
     <div class="alert alert-block alert-info" style="margin-top:20px">
       <button type="button" class="close" data-dismiss="alert">&times;</button>
       <i class="icon-info-sign"></i> <p class="popover_helper_class" id="making_meaning_of_viz"> How do I make meaning of the visualization?</p>
-    </div> <!-- viz meaning alert block --> 
-  </div> <!-- span 8 --> 
-</div> <!-- row --> 
+    </div> <!-- viz meaning alert block -->
+  </div> <!-- span 8 -->
+</div> <!-- row -->
 </section>

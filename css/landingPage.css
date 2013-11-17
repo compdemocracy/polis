@@ -1,4 +1,4 @@
-/* 
+/*
 	 ***************************
 	 ***************************
 	     Landing Page
@@ -24,14 +24,14 @@
 	letter-spacing: .1em
 }
 .otherOptions1{
-	background-color: rgba(0,0,0,.6); 
+	background-color: rgba(0,0,0,.6);
 	padding-top: 10px;
 	padding-left: 20px;
 	padding-bottom: 10px;
 	margin-bottom: 0px;
 }
 .otherOptions2{
-	background-color: rgba(0,0,0,.6); 
+	background-color: rgba(0,0,0,.6);
 	padding-left: 20px;
 	padding-bottom: 10px;
 	margin-bottom: 0px;
@@ -81,16 +81,16 @@ input {
 
 
 /* Large desktop */
-@media (min-width: 1200px) { 
+@media (min-width: 1200px) {
 
 }
 
- 
+
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
-@media (min-width: 1024px) and (max-width: 1199px) { 
+@media (min-width: 1024px) and (max-width: 1199px) {
 
 }
- 
+
 /* BIG PHONE to LITTLE tablet */
 @media only screen and (min-width : 768px) and (max-width : 1024px) {
 
@@ -107,7 +107,7 @@ input {
 			margin-bottom: 15px;
 		}
 }
- 
+
 /* BIG PHONE and down */
 @media only screen and (min-width : 320px) and (max-width : 568px) {
 

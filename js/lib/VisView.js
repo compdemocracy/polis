@@ -60,7 +60,7 @@ visualization = d3.select(el_selector)
         .append("g")
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
 ;
-      
+
 
 function zoom() {
   // TODO what is event?
@@ -108,9 +108,9 @@ function setClusterActive(d) {
       return resetSelection();                          // and resetSelection
     } else {                                            // otherwise
       getCommentsForSelection(clusters[d.hullId]).then( // getCommentsForSelection with clusters array (of pids)
-        renderComments,                                 // !! this is tightly coupled. 
-                                                        // !! it makes sense to keep this in the view because 
-                                                        // !! we have to come BACK to the viz from the 
+        renderComments,                                 // !! this is tightly coupled.
+                                                        // !! it makes sense to keep this in the view because
+                                                        // !! we have to come BACK to the viz from the
                                                         // !! backbonified list, then. Not worth it?
         function(err) {
           console.error(err);
@@ -119,7 +119,7 @@ function setClusterActive(d) {
     // duplicated at 938457938475438975
     visualization.selectAll(".active").classed("active", false);
     d3.select(this).classed("active", true);
- 
+
     // d3.select(this)
     //     .style("fill","lightgreen")
     //     .style("stroke","lightgreen");
@@ -237,7 +237,7 @@ function chooseRadius(d) {
   var r = baseNodeRadius;
     if (isSelf(d)){
         return r += 5;
-    } 
+    }
     if (d.data && d.data.participants) {
         return r + d.data.participants.length * 5;
     }
@@ -261,7 +261,7 @@ function chooseFill(d) {
             console.error(3289213);
             return "purple";
         }
-    } else { 
+    } else {
         if (isSelf(d)) {
             return colorSelf;
         } else {
@@ -282,7 +282,7 @@ function chooseShape(d) {
         } else {
             return d3.svg.symbol().type("circle")(d);
         }
-    } else { 
+    } else {
         // if (isSelf(d)) {
             return d3.svg.symbol().type("circle")(d);
         // } else {
@@ -404,7 +404,7 @@ function upsertNode(updatedNodes, newClusters) {
     var scales = createScales(updatedNodes);
     var scaleX = scales.x;
     var scaleY = scales.y;
- 
+
     var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, pid: node.pid }; });
 
     function sortWithSelfOnTop(a, b) {
@@ -421,9 +421,9 @@ function upsertNode(updatedNodes, newClusters) {
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
     console.log("number of people: " + nodes.length);
 
-    oldpositions.forEach(function(oldNode) { 
+    oldpositions.forEach(function(oldNode) {
         var newNode = _.findWhere(nodes, {pid: oldNode.pid});
-        if (!newNode) { 
+        if (!newNode) {
             console.error("not sure why a node would dissapear");
             return;
         }
@@ -470,7 +470,7 @@ function upsertNode(updatedNodes, newClusters) {
 /*
       .style("fill", function(d) {
             if (!isPersonNode(d)) {
-                // only render leaves - may change? render large transucent circles? 
+                // only render leaves - may change? render large transucent circles?
                 return "rgba(0,0,0,0)";
             }
             var color = colorFromString(d.data && d.data.meta && d.data.meta.country || "");
@@ -495,7 +495,7 @@ function upsertNode(updatedNodes, newClusters) {
         .on("mouseout", tip.hide)
         ;
 
- 
+
 
       // UPDATE
       // TODO Can we do this less frequently?
@@ -511,8 +511,8 @@ function upsertNode(updatedNodes, newClusters) {
             //}
             //return "darkgrey";
         //})
-        .attr("r", chooseRadius) 
-        .style("fill", function(d) { 
+        .attr("r", chooseRadius)
+        .style("fill", function(d) {
             //var distanceInPixels = Math.abs(this.cx.baseVal.value - d.data.targetX);
             //if (distanceInPixels > 30) {
                 //return "lightgrey";

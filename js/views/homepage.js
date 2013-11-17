@@ -25,7 +25,7 @@ define([
           });
         });
       },
-      "invalid": function(errors){ 
+      "invalid": function(errors){
         console.log("invalid form input" + errors[0].name);
         console.log(errors);
        //_.each(errors, function(err){
@@ -39,7 +39,7 @@ define([
       if(attrs.email === ''){
         errors.push({name: "description",  message: "hey there... you need an email"});
       }
-      return errors; 
+      return errors;
     }
   });
 });

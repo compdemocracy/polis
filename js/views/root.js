@@ -6,7 +6,7 @@ define([
     name: "root",
     template: rootTemplate
   });
-  
+
   var instance;
   RootView.getInstance = function(target) {
     if (!instance) {

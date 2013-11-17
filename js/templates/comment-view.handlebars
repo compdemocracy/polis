@@ -1,43 +1,43 @@
-    <div id="comment_shower"> 
-      <p> {{txt}} </p> 
+    <div id="comment_shower">
+      <p> {{txt}} </p>
     </div>
     <div class="reactionButtons">
 
     {{#ifDefined tid}}
-      
+
       <div class="btn-group">
-        {{#button 
-          method="participantAgreed" 
-          class="showerbtns btn btn-large commentButton" 
-          id="agreeButton" 
+        {{#button
+          method="participantAgreed"
+          class="showerbtns btn btn-large commentButton"
+          id="agreeButton"
           type="button"
         }} Agree {{/button}}
 
-        {{#button 
-          method="participantStarred" 
-          class="showerbtns btn btn-large starbutton commentButton" 
+        {{#button
+          method="participantStarred"
+          class="showerbtns btn btn-large starbutton commentButton"
           id="starButton"
         }} <i class="icon-star-empty"></i> {{/button}}
       </div>
 
-      {{#button 
-        method="participantTrashed" 
-        class="showerbtns btn btn-large pull-right commentButton" 
-        type="button" 
+      {{#button
+        method="participantTrashed"
+        class="showerbtns btn btn-large pull-right commentButton"
+        type="button"
         id="trashButton"
       }} <i class="icon-trash"></i> {{/button}}
 
-      {{#button 
-        method="participantPassed" 
+      {{#button
+        method="participantPassed"
         id="passButton"
-        class="showerbtns btn btn-large pull-right commentButton" 
+        class="showerbtns btn btn-large pull-right commentButton"
         type="button"
       }} Pass {{/button}}
 
-      {{#button 
+      {{#button
         method="participantDisagreed"
         id="disagreeButton"
-        class="showerbtns btn btn-large pull-right commentButton" 
+        class="showerbtns btn btn-large pull-right commentButton"
         type="button"
       }} Disagree {{/button}}
 

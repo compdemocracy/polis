@@ -12,14 +12,14 @@
 // }
 
 // function navigateToWriteTab(e) {
-//     if (e && e.preventDefault) { 
+//     if (e && e.preventDefault) {
 //         e.preventDefault();
 //     }
 //     $(".write_tab").tab("show");
 //     $("#comment_form_textarea").focus();
 // }
 // function navigateToReactTab(e) {
-//     if (e && e.preventDefault) { 
+//     if (e && e.preventDefault) {
 //         e.preventDefault();
 //     }
 //     $(".react_tab").tab("show");
@@ -29,7 +29,7 @@
 // }
 
 // var App = function(params) {
-    
+
 //     var utils = params.utils;
 //     var serverClient = params.serverClient;
 //     var CommentShower = params.CommentShower;
@@ -91,7 +91,7 @@
 //             document.title= "Polis topic: Legalization";
 //             $("#topic_content").html(
 // "<h3> Topic: Legalization of Drugs in the U.S. </h3>" +
-// "<p> Within the past year, Colorado and Washington state <a href='#'> have legalized the recreational use of marijuana.</a> At the present time, several other states are considering taking similar measures. While marijuana remains a prohibited substance at the federal level, the present administration <a href=''> has indicated </a> that the enforcement of that prohibition in states which have legalized marijuana is a very low priority.</p>" + 
+// "<p> Within the past year, Colorado and Washington state <a href='#'> have legalized the recreational use of marijuana.</a> At the present time, several other states are considering taking similar measures. While marijuana remains a prohibited substance at the federal level, the present administration <a href=''> has indicated </a> that the enforcement of that prohibition in states which have legalized marijuana is a very low priority.</p>" +
 // "<p>What do you think about this seeming trend toward the legalization of marijuana in the United States? Should marijuana remain illegal? If not, how far should legalization go? Should it stop at marijuana or should other controlled substances be legalized as well?</p>"
 // );
 //         } else if (stimulusId === "514ac77ba313c76729000020" || stimulusId === "514ac77ba313c76729000022") {
@@ -180,7 +180,7 @@
 //             $("#feedback_modal").modal("hide");
 //             _.defer(function() {
 //                 finishedAllComments().done(function() {
-//                     $("#thank_you_modal").modal("show"); 
+//                     $("#thank_you_modal").modal("show");
 //                 });
 //             });
 //         });
@@ -224,13 +224,13 @@
 //                 // update UI
 
 //                 //hide modals when user successfully registers
-//                 //$("#create_user_modal").modal("hide"); 
+//                 //$("#create_user_modal").modal("hide");
 //                 //$("#introduction_modal").modal("hide");
-                
+
 //                 //add close button and enable background click so users can
 //                 //close intro modal if clicked from menu after login
 //                 //$("#introduction_modal").removeAttr("data-backdrop");
-//                 //$("#introduction_modal_button").removeAttr("disabled"); 
+//                 //$("#introduction_modal_button").removeAttr("disabled");
 
 //                 registerView.render();
 //                 loginView.render();
@@ -276,22 +276,22 @@
 //     }
 //     setupUI();
 
-    
+
 //     // Debug interface
 //     return {
 // //        commentShower : commentShower,
 //         serverClient: serverClient
 //     };
 // };
-    
+
 // $(document).ready(function() {
 
 //     window.debug = {};
 //     window.debug.enterComments = function() { $("#comment_form").removeClass("debug_hidden"); };
 //     window.debug.enterStim = function() { $("#stimulus_form").removeClass("debug_hidden"); };
-    
 
-    
+
+
 //     // serverClient = PolisClientForStudents(serverClient);
 
 
@@ -323,7 +323,7 @@
 //         // TODO just show the auth dialog, or think of something else to do with
 //         // anon users.. we should probably not expire anon tokens.
 //         if (confirm("session expired, refresh?")) {
-//             newUser(); 
+//             newUser();
 //         }
 //     }
 
@@ -399,7 +399,7 @@
 //         //$("#comment_shower").css("height", resizeShowerHeight);
 //         //
 //         //
-//         //    initPcaVis(); 
+//         //    initPcaVis();
 //         setTimeout(function() {
 //             window.location.reload(true); // force get
 //         }, 500);
@@ -437,10 +437,10 @@
 //     }, 100);
 // };
 // KeyboardJS.on("ctrl+n", newUser);
-    
 
 
-        
+
+
 // // hack_ios_hide_locationbar
 // // Be sure the document is taller than the window
 // // http://mobile.tutsplus.com/tutorials/mobile-web-apps/remove-address-bar/
@@ -452,15 +452,15 @@
 //       {
 //           document.body.style.height = (window.outerHeight + 50) + "px";
 //       }
- 
+
 //       setTimeout( function(){ window.scrollTo(0, 1); }, 0);
 //   }
 // }
- 
+
 // window.addEventListener("load", function(){ if(!window.pageYOffset){ hideAddressBar(); } } );
 // window.addEventListener("orientationchange", hideAddressBar );
 
-            
+
 //     //$(window).resize(onResize);
 //     initPcaVis();
 // });

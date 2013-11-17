@@ -24,9 +24,9 @@ define([
   "polis",
   "VisView"
   ], function (
-    View, 
+    View,
     template,
-    CommentView, 
+    CommentView,
     CommentFormView,
     ChangeVotesView,
     MetadataQuestionsFilterView,
@@ -40,7 +40,7 @@ define([
     VotesCollection,
     MetadataQuestionsCollection,
     ResultsCollection,
-    CommentShower, 
+    CommentShower,
     FeedbackSubmitter,
     LoginView,
     p,
@@ -108,7 +108,7 @@ define([
     metadataCollection.fetch({
         data: $.param({
             zid: this.zid
-        }), 
+        }),
         processData: true,
     });
 
@@ -215,7 +215,7 @@ define([
         placement: "top",
         delay: { show: 300, hide: 200 },
 
-      }); 
+      });
       this.$("#how_do_i_use").popover({
         title: "How do I use Polis?",
         content: "<ol> <li> Read & react to what others have said.</li><li> Write comments for others to react to.</li> <li> Watch the visualization change in real-time as you and others react.</li><li> Optionally, explore the visualization to learn more about what brought the groups together and what is differentiating them.</li>  <li> Hover over the menu items and buttons to learn about them (mobile: press and hold). </li>  </ol>",

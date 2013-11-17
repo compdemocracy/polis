@@ -30,7 +30,7 @@ var CommentShower = function(params) {
     function showNext() {
         return serverClient.getNextComment().always(showComment);
     }
-        
+
 
     // {_id: 12345, txt: "This is a great article dude."}
     function showComment(data) {

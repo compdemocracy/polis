@@ -19,10 +19,10 @@
 .visualization {
   border: 1px dotted lightgray;
   background: white;
-  -moz-user-select: none; 
-  -khtml-user-select: none; 
-  -webkit-user-select: none; 
-  -o-user-select: none; 
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -o-user-select: none;
 }
 .hull {
   opacity: 0.2;

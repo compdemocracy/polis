@@ -41,7 +41,7 @@ define([
       });
     }
     function onFail(err) {
-        alert('error sending vote ' + JSON.stringify(err));
+        alert("error sending vote " + JSON.stringify(err));
     }
     this.participantAgreed = function(e) {
       serverClient.agree(this.model.get("tid"))
@@ -72,7 +72,7 @@ define([
     serverClient.addCommentsAvailableListener(function() {
       if (waitingForComments) {
         showNext();
-      } 
+      }
     });
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
@@ -101,7 +101,7 @@ define([
         title: "This comment is irrelevant and/or abusive",
         placement: "left",
         delay: { show: 500, hide: 0 },
-      });                  
+      });
     });
   }
   });

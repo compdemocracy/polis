@@ -69,7 +69,7 @@ define([
       metadataCollection.fetch({
           data: $.param({
               zid: zid
-          }), 
+          }),
           processData: true,
       });
       this.metadataQuestionsViewWithCreate = new MetadataQuestionsViewWithCreate({

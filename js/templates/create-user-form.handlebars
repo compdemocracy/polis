@@ -1,19 +1,19 @@
-<div class="container"> 
+<div class="container">
 <div class="row">
 	<div class="span12 landingPageHeadline">
 		<h1 class="landingPagePolis"> polis </h1>
-		<h3 class="landingPageCommunication"> communication for groups </h3> 
+		<h3 class="landingPageCommunication"> communication for groups </h3>
 	</div>
-</div> 
+</div>
 
 <div class="row landingBoxTop">
 	<div class="span4 landingBox">
-	<h4 class="formTextHeader"> Create New User: </h4> 
+	<h4 class="formTextHeader"> Create New User: </h4>
 	<form > <!--rename style -->	
 		<input type="text" name="hname" placeholder="Full Name" />  	
 		<input type="text" name="email" placeholder="Email" />  	
 		<input type="text" name="username" placeholder="Username" />  	
-		<input type="password" name="password" placeholder="Password" /> 
+		<input type="password" name="password" placeholder="Password" />
   {{#if zinvite}} 	
     <input type="hidden" name="zinvite" value="{{zinvite}}" />
   {{else}}
@@ -24,7 +24,7 @@
 	</form>
 	<p class="otherOptions1">{{#link "" expand-tokens=true}} Back {{/link}}</p>
 
-	</div> <!-- requestInviteBox --> 
+	</div> <!-- requestInviteBox -->
 </div> <!-- row -->
 
 </div> <!-- container -->

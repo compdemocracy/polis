@@ -3,7 +3,7 @@ function isPersonId(x) {
     return _.isString(x);
 }
 
-var bad = (function(errorLogger){ 
+var bad = (function(errorLogger){
     return function bad(obj, key, optionalChecker) {
         var ok = obj && obj[key];
         if (optionalChecker) {

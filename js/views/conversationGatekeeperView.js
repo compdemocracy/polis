@@ -49,7 +49,7 @@ define([
             },
             crossDomain: true,
             data: attrs
-          }).then(function(data) { 
+          }).then(function(data) {
             PolisStorage.uid.set(data.uid);
             PolisStorage.email.set(data.email);
             release();
@@ -76,7 +76,7 @@ define([
           data: $.param({
               zid: zid,
               zinvite: zinvite,
-          }), 
+          }),
           processData: true,
       });
       this.metadataQuestionsView = new MetadataQuestionsView({

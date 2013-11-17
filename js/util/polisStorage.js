@@ -50,7 +50,7 @@ var store = (function() {
             var cookieVal = getCookie(key);
             if (cookieVal === null) {
                 // Beta Migration
-                // Should be OK to remove this block (and simply call getCookie) sometime early 2014                
+                // Should be OK to remove this block (and simply call getCookie) sometime early 2014
                 try {
                     // Initially we used localStorage, but switched to cookies because of IE10 localStorage exceptions for certain security configurations.
                     // This is here for now so existing user sessions will keep working.

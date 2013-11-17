@@ -29,7 +29,7 @@ define([
             },
             crossDomain: true,
             data: attrs
-          }).then(function(data) { 
+          }).then(function(data) {
             PolisStorage.uid.set(data.uid);
             PolisStorage.email.set(data.email);
             release();
@@ -40,10 +40,10 @@ define([
           });
         });
       },
-      "invalid": function(errors){ 
+      "invalid": function(errors){
         console.log("invalid form input" + errors[0].name);
         console.log(errors);
-  
+
        //_.each(errors, function(err){
           $('input[name="'+errors[0].name+'"]').closest("label").append(errors[0].message); // relationship between each input and error name
           //'input[name="firstName"]'
@@ -55,7 +55,7 @@ define([
       if(attrs.email === ''){
         errors.push({name: "description",  message: 'hey there... you need an email'});
       }
-      return errors; 
+      return errors;
     },
     initialize: function(options) {
       this.listenTo(this, "rendered", function(){

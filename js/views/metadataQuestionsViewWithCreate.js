@@ -32,7 +32,7 @@ define([
             that.collection.fetch({
               data: $.param({
                 zid: that.zid
-              }), 
+              }),
               reset: true,
             });
             that.formActive = false;

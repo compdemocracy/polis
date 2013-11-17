@@ -206,7 +206,7 @@ return function(params) {
         return polisPost(votesPath, $.extend({}, params, {
                 pid: getPid(),
                 zid: currentStimulusId
-            }) 
+            })
         );
     }
 
@@ -222,7 +222,7 @@ return function(params) {
     function see(optionalSpecificSubStimulus) {
         var ev = {
             vote: polisTypes.reactions.see
-        }; 
+        };
         if (optionalSpecificSubStimulus) {
             ev.tid = optionalSpecificSubStimulus;
         }
@@ -234,7 +234,7 @@ return function(params) {
     function pass(optionalSpecificSubStimulus) {
         var ev = {
             vote: polisTypes.reactions.pass
-        }; 
+        };
         if (optionalSpecificSubStimulus) {
             ev.tid = optionalSpecificSubStimulus;
         }
@@ -269,7 +269,7 @@ return function(params) {
         return polisPost(starsPath, $.extend({}, params, {
                 pid: getPid(),
                 zid: currentStimulusId
-            }) 
+            })
         );
     }
 
@@ -300,7 +300,7 @@ return function(params) {
             throw "api param should be a string";
         }
         var url = protocol + "://"+ domain + basePath + api;
-        
+
         // Add the auth token if needed.
         // if (_.contains(authenticatedCalls, api)) {
         //     var token = tokenStore.get();
@@ -311,13 +311,13 @@ return function(params) {
         //     }
         //     //data = $.extend({ token: token}, data); // moving to cookies
         // }
-            
+
         var promise;
         var config = {
             url: url,
             contentType: "application/json; charset=utf-8",
             headers: {
-                //"Cache-Control": "no-cache"  // no-cache 
+                //"Cache-Control": "no-cache"  // no-cache
                 "Cache-Control": "max-age=0"
             },
             xhrFields: {
@@ -486,7 +486,7 @@ return function(params) {
             //for (var pi = 0; pi < clusters.length; pi++) {
             //}
         //}
-            
+
         function iterate() {
             _.each(people, assignToCluster);
             for (var i = 0; i < means.length; i++) {
@@ -549,7 +549,7 @@ return function(params) {
 
                 //for (var i = 0; i < people.length; i++) {
                     //var person = people[i];
-                    
+
                     /*
                     if (isPersonNode(person)) {
                         if (Math.random() < 0.05) {
@@ -558,7 +558,7 @@ return function(params) {
                         }
                     }
                     */
-                    
+
                     //personUpdateCallbacks.fire(person);
                 //}
                 projectionPeopleCache = people;
@@ -712,7 +712,7 @@ return function(params) {
         }
 
         var comments;
-        return polisGet(pcaPath, { 
+        return polisGet(pcaPath, {
             lastServerToken: 0,
             zid: currentStimulusId
         }).pipe( function(pcaData) {
@@ -835,9 +835,9 @@ return function(params) {
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,
-        
-        createConversation: createConversation, 
-        getConversations: getConversations, 
+
+        createConversation: createConversation,
+        getConversations: getConversations,
 
         joinConversation: joinConversation,
 

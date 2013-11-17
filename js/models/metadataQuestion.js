@@ -10,7 +10,7 @@ return Model.extend({
     idAttribute: "pmqid",
     defaults: {
         // key: "No metadata question was entered. This is the default value of the model.",
-        // required: false, 
+        // required: false,
     },
     initialize: function() {
         var zid = this.get("zid");
@@ -23,7 +23,7 @@ return Model.extend({
             data: $.param({
                 zid: zid,
                 pmqid: pmqid
-            }), 
+            }),
             processData: true
         });
     } // end initialize

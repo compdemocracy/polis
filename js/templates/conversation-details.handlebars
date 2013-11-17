@@ -46,7 +46,7 @@
 
 	{{#link "conversation/view/{{zid}}" expand-tokens=true class="btn btn-block btn-warning launchConversation"}}<i class="icon-rocket"></i> Launch Conversation {{/link}}
 
-	<h3> {{topic}} </h3> 
+	<h3> {{topic}} </h3>
 	<blockquote> {{description}} </blockquote>
 
 	{{#if is_active}}
@@ -74,7 +74,7 @@
 	  <p> This conversation is not publically available to anyone with a link. Participants must have a Polis account that has been validated with an email address from the following subdomain: {{participants_must_have_domain}}</p>
 	{{/if}}
 
-	{{! COMMENT will have to figure out how we represent concluded here. 
+	{{! COMMENT will have to figure out how we represent concluded here.
 	  <p> This conversation has been concluded. Participants are no longer able to vote, and can  </p>
 	}}
 
@@ -84,12 +84,12 @@
 
 	</div> <!-- end well -->
 
-	<h3> Conversation Summary </h3> 
+	<h3> Conversation Summary </h3>
 
 	{{#if true}}
-		<h5> If the conversation is concluded... </h5> 
+		<h5> If the conversation is concluded... </h5>
 		<p>change true to isConcluded - we'll show the data visualization here, sans voting view. Launch conversation will no longer be available, and the link to the conversation should redirect to this. Is that appropriate? any objections? I don't think it makes sense to keep the conversation view available.</p>
-		<p> Hi! I'm an engaging data visualization! Interact with me :)</p> 
+		<p> Hi! I'm an engaging data visualization! Interact with me :)</p>
 		<p> By default I am showing you the major <em> groups </em> in the conversation </p>
 		<p> And I'm some helper text explaining how man groups there were in the conversation. </p>
 	{{/if}}
@@ -118,7 +118,7 @@
 	{{/if}}
 
 
-{{!-- COMMENT do we allow users to delete? Still undecided 
+{{!-- COMMENT do we allow users to delete? Still undecided
 
 	<div class="well deleteConversation">
 

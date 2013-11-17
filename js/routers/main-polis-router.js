@@ -18,14 +18,14 @@ define([  //begin dependencies
   "util/polisStorage",
   "jquery",
 ], function (  //begin args
-		RootView, 
-		Backbone, 
+		RootView,
+		Backbone,
 		ConversationModel,
     ParticipantModel,
     bbFetch,
-		ConversationsCollection, 
-		InboxView, 
-		HomepageView, 
+		ConversationsCollection,
+		InboxView,
+		HomepageView,
 		CreateConversationFormView,
 		ConversationDetailsView,
     ConversationGatekeeperView,
@@ -43,7 +43,7 @@ define([  //begin dependencies
       "conversation/create": "createConversation",
       "conversation/edit/:id": "editConversation",
       "conversation/details/:id": "conversationDetails",
-      "conversation/view/:id(/:zinvite)": "conversationView", 
+      "conversation/view/:id(/:zinvite)": "conversationView",
       "user/create": "createUser",
       "user/login":"login",
       "settings": "deregister",
@@ -74,7 +74,7 @@ define([  //begin dependencies
         //     data: $.param({
         //         is_active: false,
         //         is_draft: false,
-        //     }), 
+        //     }),
         //     processData: true,
         // });
       var filterAttrs = {};
@@ -163,7 +163,7 @@ define([  //begin dependencies
   conversationDetails: function(id){
     var conversationsCollection = new ConversationsCollection();
     conversationsCollection.fetch();
-    var model = conversationsCollection.get(id);    
+    var model = conversationsCollection.get(id);
     var detailsView = new ConversationDetailsView({
       collection: conversationsCollection,
       model: model
@@ -192,7 +192,7 @@ define([  //begin dependencies
     var that = this;
 
     var uid = PolisStorage.uid.get();
- 
+
     if (!uid) {
         console.log("trying to load conversation, but no auth");
         // Not signed in.
@@ -264,7 +264,7 @@ define([  //begin dependencies
   createUser: function(){
     var that = this;
     this.doCreateUser().done(function() {
-      Backbone.history.navigate("inbox", {trigger: true});      
+      Backbone.history.navigate("inbox", {trigger: true});
       // that.inbox();
     });
   },
