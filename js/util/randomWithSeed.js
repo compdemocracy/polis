@@ -1,7 +1,7 @@
 define(function() {
 	return function(x) {
     return function(min, max) {
-        if (max === null) {
+        if (max === null || max === void 0) {
             max = min;
             min = 0;
         }

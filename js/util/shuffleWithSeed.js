@@ -8,11 +8,10 @@ return function(array, seed) {
         seq = Math.random;
     }
     var rand;
-    var index = 0;
-    var shuffled = [];
-    _.each(array, function(value) {
-      rand = seq(index++);
-      shuffled[index - 1] = shuffled[rand];
+    var shuffled = array.slice();
+    _.each(array, function(value, index) {
+      rand = seq(index);
+      shuffled[index] = shuffled[rand];
       shuffled[rand] = value;
     });
     return shuffled;
