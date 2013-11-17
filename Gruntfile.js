@@ -59,6 +59,17 @@ module.exports = function(grunt) {
         }
         ]
       },
+      conditional_js: {
+        files: [
+          {
+            src: 'bower_components/d3/d3.js',
+            dest: 'public/js/d3.js',
+          }, {
+            src: 'bower_components/r2d3/r2d3.js',
+            dest: 'public/js/r2d3.js',
+          },
+        ]
+      },
       requirejs: {
         files: [
           {
@@ -190,6 +201,7 @@ module.exports = function(grunt) {
           // browser: true,
           es3: true,          
           globals: {
+            d3: true,
             jQuery: true,
             console: true,
             require: true,
@@ -235,7 +247,9 @@ module.exports = function(grunt) {
         'bootstrap_popover': '../bower_components/bootstrap/js/bootstrap-popover',
         'bootstrap_button': '../bower_components/bootstrap/js/bootstrap-button',
         'bootstrap_transition': '../bower_components/bootstrap/js/bootstrap-transition',
-        'd3': '../bower_components/d3/d3',
+        // d3 is conditionally loaded from index
+        // 'd3': '../bower_components/d3/d3',
+        // 'r2d3': '../bower_components/r2d3/r2d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
         // 'app': 'lib/App',
         'Konfirm': 'lib/konfirm',
@@ -292,7 +306,8 @@ module.exports = function(grunt) {
           deps: ['jquery', 'underscore'],
         },
         'VisView': {
-          deps: ['d3', 'd3tooltips']
+          exports: 'VisView',
+          deps: ['d3tooltips']
         }
       }
     };
@@ -337,11 +352,13 @@ module.exports = function(grunt) {
 
   grunt.registerTask('scripts:development', [
     'copy:requirejs',
+    'copy:conditional_js',
     'requirejs:development'
   ]);
 
   grunt.registerTask('scripts:production', [
     'copy:requirejs',
+    'copy:conditional_js',
     'requirejs:production'
   ]);
 

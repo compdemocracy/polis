@@ -2,7 +2,7 @@
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
 
-var PcaVis = function(params){
+var VisView = function(params){
 
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;

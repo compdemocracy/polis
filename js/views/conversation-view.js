@@ -18,6 +18,7 @@ define([
   "p",
   "polisUtils",
   "util/polisStorage",
+  "VisView",
   "polis"
   ], function (
     View,
@@ -39,6 +40,7 @@ define([
     p,
     polisUtils,
     PolisStorage,
+    VisView,
     ServerClient
     ) {
   return View.extend({
@@ -171,7 +173,7 @@ define([
         if (vis) {
             serverClient.removePersonUpdateListener(vis.upsertNode);
         }
-        vis = new PcaVis({
+        vis = new VisView({
             getPersonId: function() {
                 return PolisStorage.pids.get(that.zid);
             },
