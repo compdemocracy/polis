@@ -445,6 +445,10 @@ return function(params) {
 
         function assignToCluster(person) {
             var bestIndex = getNearestMean(person);
+            if (bestIndex === -1) {
+                console.log("bad bestIndex, check getNearestMean");
+                return;
+            }
             if (-1 !== clusters[bestIndex].indexOf(person)) {
                 return;
             }
