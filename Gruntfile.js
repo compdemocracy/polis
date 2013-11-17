@@ -217,7 +217,6 @@ module.exports = function(grunt) {
         'CommentShower': 'lib/CommentShower',
         'CommentSubmitter': 'lib/CommentSubmitter',
         'FeedbackSubmitter': 'lib/FeedbackSubmitter',
-        'keyboard': 'lib/keyboard',
         'konfirm': 'lib/konfirm',
         'anystretch': 'lib/anystretch',
         'LoginView': 'lib/LoginView',
