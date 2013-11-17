@@ -166,16 +166,27 @@ module.exports = function(grunt) {
         // configure JSHint (documented at http://www.jshint.com/docs/)
         options: {
          // reporter: 'jslint',
-          // curly: true,
+          curly: true, // require if,else blocks to have {}
           eqeqeq: true,
+          trailing: true, // no trailing whitespace allowed
           // immed: true,
           // latedef: true,
           // newcap: true,
           // noarg: true,
           // sub: true,
           // undef: true,
-          // boss: true,
-          // eqnull: true,
+          unused: true,
+          quotmark: "double",
+          plusplus: true, // no ++ or --
+          nonew: true,
+          noarg: true, // no arguments.caller and arguments.callee (allow for optimizations)
+          newcap: true, // constructors must be capitalized
+          latedef: "nofunc",
+         // indent: 2,
+          immed: true,
+//          forin: true, require hasOwnProperty checks
+          boss: true,
+//          debug: true, // uncomment temporarily when you want to allow debugger; statements.
           // browser: true,
           es3: true,          
           globals: {

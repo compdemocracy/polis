@@ -1,6 +1,7 @@
 {
     "es3": true,
     "eqeqeq": true,
+    "boss": true,
     "strict": false,
     "unused": false,
     "undef": false,
