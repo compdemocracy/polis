@@ -2262,20 +2262,20 @@ function proxy(req, res) {
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', 0);
     }
-    if (/MSIE/.exec(req.headers['user-agent'])) {
-        // http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
-        //     res.status(200).end(page);
-        // }).on('error', function(e) {
-        //     res.status(200).end("Apollogies, this browser is not supported. We recommend Chrome, Firefox, or Safari.");
-        // });
-        getStaticFile("./unsupportedBrowser.html", res);
-    } else {
+    // if (/MSIE [^1]/.exec(req.headers['user-agent'])) { // older than 10
+    //     // http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
+    //     //     res.status(200).end(page);
+    //     // }).on('error', function(e) {
+    //     //     res.status(200).end("Apollogies, this browser is not supported. We recommend Chrome, Firefox, or Safari.");
+    //     // });
+    //     getStaticFile("./unsupportedBrowser.html", res);
+    // } else {
         routingProxy.proxyRequest(req, res, {
 
             host: process.env.STATIC_FILES_HOST,
             port: process.env.STATIC_FILES_PORT,
         });
-    }
+    // }
 }
 
 // proxy everything that isn't an API call
