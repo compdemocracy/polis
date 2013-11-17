@@ -256,7 +256,6 @@ module.exports = function(grunt) {
         'anystretch': 'lib/anystretch',
         'p': 'lib/p',
         'polis': 'lib/polis',
-        'polisUtils': 'lib/polisUtils',
         'VisView': 'lib/VisView',
         'd3tooltips': '../bower_components/d3-tip/index'
       },

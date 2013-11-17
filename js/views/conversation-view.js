@@ -16,7 +16,6 @@ define([
   "collections/metadataQuestions",
   "collections/results",
   "p",
-  "polisUtils",
   "util/polisStorage",
   "VisView",
   "polis"
@@ -38,7 +37,6 @@ define([
     MetadataQuestionsCollection,
     ResultsCollection,
     p,
-    polisUtils,
     PolisStorage,
     VisView,
     ServerClient
