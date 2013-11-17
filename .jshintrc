@@ -1,22 +1,18 @@
 {
-    "node": true,
-    "es5": true,
-    "esnext": true,
-    "bitwise": true,
-    "camelcase": true,
-    "curly": true,
-    "eqeqeq": true,
-    "immed": true,
-    "indent": 2,
-    "latedef": true,
-    "newcap": true,
-    "noarg": true,
-    "quotmark": "single",
-    "regexp": true,
-    "undef": true,
-    "unused": true,
-    "strict": true,
-    "trailing": true,
-    "smarttabs": true,
-    "white": true
+    "es3": true,
+    "strict": false,
+    "unused": false,
+    "undef": false,
+    "quotmark": true,
+    "globals": {
+        "$": true,
+        "jQuery": true,
+        "console": true,
+        "require": true,
+        "define": true,
+        "requirejs": true,
+        "describe": true,
+        "expect": true,
+        "module": true
+    }
 }
