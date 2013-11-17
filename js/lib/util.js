@@ -7,11 +7,11 @@ window.isMobile = _.memoize(function(){
     }(navigator.userAgent||navigator.vendor||window.opera));
 });
 
-var utils = function() {
+var utils = (function() {
     function isNumber(x) {
         return !isNaN(parseFloat(x)) && isFinite(x);
     }
     return {
         isNumber: isNumber
     };
-}();
+}());

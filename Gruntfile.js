@@ -175,13 +175,13 @@ module.exports = function(grunt) {
           // noarg: true,
           // sub: true,
           // undef: true,
-          unused: true,
+        //  unused: true,
           quotmark: "double",
          // plusplus: true, // no ++ or --
-          nonew: true,
+        //  nonew: true,
           noarg: true, // no arguments.caller and arguments.callee (allow for optimizations)
           newcap: true, // constructors must be capitalized
-          latedef: "nofunc",
+        //  latedef: "nofunc",
          // indent: 2,
           immed: true,
 //          forin: true, require hasOwnProperty checks

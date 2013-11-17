@@ -171,7 +171,7 @@ define([
         if (vis) {
             serverClient.removePersonUpdateListener(vis.upsertNode);
         }
-        vis = PcaVis({
+        vis = new PcaVis({
             getPersonId: function() {
                 return PolisStorage.pids.get(that.zid);
             },
