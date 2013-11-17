@@ -162,24 +162,37 @@ module.exports = function(grunt) {
       }
     },
     jshint: {
-        all:['js/**/*.js'],
+        files:['js/**/*.js'],
         // configure JSHint (documented at http://www.jshint.com/docs/)
         options: {
+         // reporter: 'jslint',
+          curly: true,
+          eqeqeq: true,
+          immed: true,
+          latedef: true,
+          newcap: true,
+          noarg: true,
+          sub: true,
+          undef: true,
+          boss: true,
+          eqnull: true,
+          browser: true,
+          es3: true,          
           globals: {
-
             jQuery: true,
             console: true,
-            //curly: true,
-            //eqeqeq: true,
-            //trailing: true,
-            es3: true,
+            require: true,
+            define: true,
+            requirejs: true,
+            describe: true,
+            expect: true,
             module: true,
-
-            // relax: eventually we should get rid of these
-            expr: true,
-            loopfunc: true,
-            shadow: true,
-          }
+            // it: true
+          },
+          // relax: eventually we should get rid of these
+            //expr: true,
+           // loopfunc: true,
+            //shadow: true,        
         }
     }
   });
