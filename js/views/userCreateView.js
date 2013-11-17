@@ -59,7 +59,7 @@ define([
       var errors = [];
 
       if(attrs.email === ''){
-        errors.push({name: "description",  message: 'hey there... you need an email'});
+        errors.push({name: "description",  message: "hey there... you need an email"});
       }
       return errors;
     },

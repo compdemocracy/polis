@@ -7,7 +7,7 @@ define(function() {
         }
         return min + Math.floor(
             // dave-scotese http://stackoverflow.com/questions/521295/javascript-random-seeds
-            (x = Number('0.'+Math.sin(x).toString().substr(6))) * (max - min + 1));
+            (x = Number("0."+Math.sin(x).toString().substr(6))) * (max - min + 1));
     };
   };
 });

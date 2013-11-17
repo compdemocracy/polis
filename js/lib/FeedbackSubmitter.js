@@ -7,7 +7,7 @@ var FeedbackSubmitter = function(params) {
     params.form.submit(onSubmit);
 
     function onSubmit() {
-        var feedback = params.form.find('.feedback_text').val();
+        var feedback = params.form.find(".feedback_text").val();
         var ui_location = params.form.find('[name=ui_location]').val();
         submitCallbacks.fire({
             feedback: feedback,

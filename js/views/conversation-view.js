@@ -69,7 +69,7 @@ define([
       $(e.target).tab("show");
     },
     "click .query_result_item": function(e){
-      this.$('.query_result_item').removeClass("active_result_item");
+      this.$(".query_result_item").removeClass("active_result_item");
       this.$(e.target).addClass("active_result_item");
     },
   },

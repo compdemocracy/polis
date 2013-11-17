@@ -81,7 +81,7 @@ define([
       var that = this;
       // var model = this.collection.get(this.id)
       var deleteConfirm = new konfirm({
-        message: 'Conversations cannot be deleted during the Beta.',
+        message: "Conversations cannot be deleted during the Beta.",
         success: function(){
           that.model.destroy().then(function(data) {
             alert('deleted!');

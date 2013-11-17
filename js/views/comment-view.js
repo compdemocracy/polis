@@ -9,7 +9,7 @@ define([
     template: template,
     events: {
       "hover .starbutton": function(){
-        this.$('.starbutton').html('<i class="icon-star"></i>');
+        this.$(".starbutton").html('<i class="icon-star"></i>');
       }
     },
   initialize: function() {
