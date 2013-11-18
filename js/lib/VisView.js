@@ -144,9 +144,12 @@ function onClusterClicked(d) {
     setClusterActive.call(this, d);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
 
     //zoomToHull.call(this, d);
-    d3.event.stopPropagation();
-    d3.event.preventDefault(); // prevent flashing on iOS
-
+    if (d3.event.stopPropagation) {
+        d3.event.stopPropagation();
+    }
+    if (d3.event.preventDefault) {
+        d3.event.preventDefault(); // prevent flashing on iOS
+    }
 }
 
 d3Hulls = _.times(9, function() {
