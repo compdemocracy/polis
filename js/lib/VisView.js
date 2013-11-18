@@ -31,6 +31,7 @@ var selectedCluster;
 
 var updatesEnabled = true;
 
+var isIE8 = $.browser.msie && Number($.browser.version) <= 8;
 
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 7]).domain([350, 800]).clamp(true);
@@ -45,7 +46,7 @@ $(el_selector).html("");
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 var tip = null;
-if (!($.browser.msie && Number($.browser.version) <= 8)) {
+if (!isIE8) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(function(d) { return getUserInfoByPid(d.pid).email; });
 }
@@ -60,13 +61,31 @@ function hideTip() {
     }
 }
 
+
+var dimensions = {
+    width: "100%",
+    height: "100%"
+};
+
+if (isIE8) {
+    // R2D3 seems to have trouble with percent values.
+    // Hard-coding pixel values for now.
+    dimensions = {
+        width: "500px",
+        height: "300px"
+    };
+}
+
+
 //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
 //to connect viz to responsive layout if desired
 visualization = d3.select(el_selector)
     .append("svg")
       //.call(tip) /* initialize d3-tip */
-      .attr("width", "100%")
-      .attr("height", "100%")
+      // .attr("width", "100%")
+      // .attr("height", "100%")
+      .attr(dimensions)
+      // .attr("viewBox", "0 0 " + w + " " + h )
       .classed("visualization", true)
       .on("click", resetSelection)
         .append("g")
