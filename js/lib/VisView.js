@@ -31,7 +31,7 @@ var selectedCluster;
 
 var updatesEnabled = true;
 
-var isIE8 = $.browser.msie && Number($.browser.version) <= 8;
+var isIE8 = navigator.userAgent.match(/MSIE 8/);
 
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 7]).domain([350, 800]).clamp(true);
