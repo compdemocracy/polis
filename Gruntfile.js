@@ -173,7 +173,7 @@ module.exports = function(grunt) {
       }
     },
     jshint: {
-        files:['js/**/*.js'],
+        files:['js/**/*.js', '!js/lib/jquery*'],
         // configure JSHint (documented at http://www.jshint.com/docs/)
         options: {
          // reporter: 'jslint',
@@ -234,7 +234,7 @@ module.exports = function(grunt) {
         }
       ],
       paths: {
-        'jquery': '../bower_components/jquery/jquery',
+        'jquery': 'lib/jquery', // Note: these jquery files were generated from this fork: https://github.com/mbjorkegren/jquery/tree/1.9-callbacks-array-fix
         'underscore': '../bower_components/underscore/underscore',
         'originalhandlebars': '../bower_components/handlebars/handlebars.runtime', //original handlebars
         'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
