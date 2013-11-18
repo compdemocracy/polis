@@ -48,16 +48,21 @@ $(el_selector).html("");
 var tip = null;
 if (!isIE8) {
     $("#ptpt-tip").remove();
-    tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(function(d) { return getUserInfoByPid(d.pid).email; });
+    tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
+        function(d) {
+            // use the email address as the html
+            return (getUserInfoByPid(d.pid)||{}).email;
+        }
+    );
 }
 function showTip() {
     if (tip) {
-        tip.show();
+        tip.show.apply(tip, arguments);
     }
 }
 function hideTip() {
     if (tip) {
-        tip.hide();
+        tip.hide.apply(tip, arguments);
     }
 }
 
@@ -81,7 +86,7 @@ if (isIE8) {
 //to connect viz to responsive layout if desired
 visualization = d3.select(el_selector)
     .append("svg")
-      //.call(tip) /* initialize d3-tip */
+      .call( tip || function(){} ) /* initialize d3-tip */
       // .attr("width", "100%")
       // .attr("height", "100%")
       .attr(dimensions)
