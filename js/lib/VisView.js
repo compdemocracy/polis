@@ -213,7 +213,8 @@ force.on("tick", function(e) {
       visualization
         .selectAll(".ptpt")
         .attr("transform", function(d) {
-          return "translate(" + d.x + "," + d.y + ")";
+          var scale = isSelf(d) ? 2 : 1;
+          return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
         });
 
 
