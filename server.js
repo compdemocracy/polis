@@ -675,7 +675,7 @@ app.get("/v3/math/pca",
     function(req, res) {
         collectionOfPcaResults.find({$and :[
             {zid: req.p.zid},
-            {lastVoteTimestamp: {$gt: new Date(req.p.lastVoteTimestamp).getTime()}},
+            {lastVoteTimestamp: {$gt: req.p.lastVoteTimestamp}},
             ]}, function(err, cursor) {
             if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
             cursor.toArray( function(err, docs) {

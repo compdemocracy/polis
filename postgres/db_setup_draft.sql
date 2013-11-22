@@ -21,13 +21,12 @@ CREATE TABLE users(
     uid SERIAL,
     hname VARCHAR(746), --  human name (the token 'name' returns too many results when grepped) 746 is the longest name on records: (Wolfe+585, Senior.) Some cultures have more than two names, and some people don't even have two names. for example: http://s.ai/dl_redacted_small.png
     pwhash VARCHAR(128),
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    created BIGINT DEFAULT now_as_millis(),
     username VARCHAR(128),
     email VARCHAR(256), -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
     is_owner BOOLEAN DEFAULT FALSE, -- has the ability to start conversations
     zinvite VARCHAR(300), -- The initial zinvite used to create the user, can be used for attribution (may be null)
     oinvite VARCHAR(300), -- The oinvite used to create the user, or to upgrade the user to a conversation owner.
-    epoch BIGINT DEFAULT now_as_millis(),
     UNIQUE (uid)
 );
 
@@ -106,8 +105,7 @@ CREATE TABLE conversations(
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ?? 
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    epoch BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
 );
 
@@ -115,8 +113,7 @@ CREATE TABLE conversations(
 CREATE TABLE oinvites (
     oinvite VARCHAR(300) NOT NULL,
     note VARCHAR(999),
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    epoch BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE (oinvite)
 );
 
@@ -124,8 +121,7 @@ CREATE TABLE oinvites (
 CREATE TABLE zinvites (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     zinvite VARCHAR(300) NOT NULL,
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    epoch BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE (zinvite)
 );
 
@@ -133,8 +129,7 @@ CREATE TABLE beta(
     name VARCHAR(999),
     email VARCHAR(200),
     organization VARCHAR(200),
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    epoch BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE(email)
 );
 
@@ -143,8 +138,7 @@ CREATE TABLE participants(
     uid INTEGER NOT NULL REFERENCES users(uid),
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     -- server admin bool
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    epoch BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis(),
     -- archived (not included because creator might not be a participant) will add later somewhere else
     UNIQUE (zid, pid),
     UNIQUE (zid, uid) 
@@ -166,8 +160,7 @@ CREATE TABLE comments(
     tid INTEGER NOT NULL, -- populated by trigger tid_auto
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
-    created TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    epoch BIGINT DEFAULT now_as_millis(),
+    created BIGINT DEFAULT now_as_millis(),
     txt VARCHAR(1000) NOT NULL,
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
@@ -227,8 +220,7 @@ CREATE TABLE votes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     vote SMALLINT,
-    epoch BIGINT DEFAULT now_as_millis(),
-    created TIMESTAMP WITH TIME ZONE DEFAULT now()
+    created BIGINT DEFAULT now_as_millis()
 );
 
 -- not enforcing uniqueness, save complete history
@@ -238,8 +230,7 @@ CREATE TABLE stars(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     starred INTEGER NOT NULL, -- 0 for unstarred, 1 for starred
-    epoch BIGINT DEFAULT now_as_millis(),
-    created TIMESTAMP WITH TIME ZONE DEFAULT now()
+    created BIGINT DEFAULT now_as_millis(),
 );
 
 -- not enforcing uniqueness, save complete history
@@ -249,8 +240,7 @@ CREATE TABLE trashes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     trashed INTEGER NOT NULL, -- 1 for trashed, 0 for untrashed
-    epoch BIGINT DEFAULT now_as_millis(),
-    created TIMESTAMP WITH TIME ZONE DEFAULT now()
+    created BIGINT DEFAULT now_as_millis(),
 );
 
 
