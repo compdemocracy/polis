@@ -27,7 +27,9 @@ var force;
 var queryResults;
 var d3Hulls;
 
-var selectedCluster;
+var selectedCluster = false;
+var selectedPids = [];
+var selectedTid = -1;
 
 var updatesEnabled = true;
 
@@ -155,16 +157,23 @@ function setClusterActive(d) {
     console.log("d.hullId " + d.hullId);                // log the id of the hull
     if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
       console.log("unselecting");                       // ...tell everyone you're going to unselect it
+
       return resetSelection();                          // and resetSelection
     } else {                                            // otherwise
-      getCommentsForSelection(clusters[d.hullId]).then( // getCommentsForSelection with clusters array (of pids)
+      var pids = clusters[d.hullId];
+      selectedPids = pids;
+      getCommentsForSelection(pids)
+      .then( // getCommentsForSelection with clusters array (of pids)
         renderComments,                                 // !! this is tightly coupled.
                                                         // !! it makes sense to keep this in the view because
                                                         // !! we have to come BACK to the viz from the
                                                         // !! backbonified list, then. Not worth it?
         function(err) {
           console.error(err);
-        });
+          resetSelection();
+        })
+      .done(unhoverAll)
+      ;
     }
     // duplicated at 938457938475438975
     visualization.selectAll(".active").classed("active", false);
@@ -178,7 +187,6 @@ function setClusterActive(d) {
 }
 
 function onClusterClicked(d) {
-    unhoverAll();
     setClusterActive.call(this, d);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
 
     //zoomToHull.call(this, d);
@@ -212,11 +220,7 @@ force.on("tick", function(e) {
 
       visualization
         .selectAll(".ptpt")
-        .attr("transform", function(d) {
-          var scale = isSelf(d) ? 2 : 1;
-          return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
-        });
-
+        .attr("transform", chooseTransform);
 
     var pidToPerson = _.object(_.pluck(nodes, "pid"), nodes);
     bounds = [];
@@ -279,7 +283,8 @@ function chooseFill(d) {
     var colorSelf = "#D35400"; // PUMPKIN
     var colorNoVote = colorPass;
 
-    if (d.effects !== undefined) {
+
+    if (selectedCluster !== false) {
         if (d.effects === -1) {  // pull
             return colorPull;
         } else if (d.effects === 1) { // push
@@ -287,6 +292,7 @@ function chooseFill(d) {
         } else if (d.effects === 0){ // pass
             return colorPass;
         } else {
+            return colorPass; // will have less alpha
             console.error(3289213);
             return "purple";
         }
@@ -299,16 +305,34 @@ function chooseFill(d) {
     }
 }
 
+function shouldShowVoteIcons() {
+    return selectedTid >= 0;
+}
+
+function chooseAlpha(d) {
+    if (shouldShowVoteIcons()) {
+        if (d.effects === undefined) {
+            // no vote
+            return 0.5;
+        }
+        // pass still gets full alpha
+    }
+    return 1;
+}
 
 function chooseShape(d) {
-    if (d.effects !== undefined) {
-        if (d.effects === -1) {  // pull
+    if (shouldShowVoteIcons()) {
+        if (d.effects === -1) {
+            // pull
             return d3.svg.symbol().type("triangle-up")(d);
-        } else if (d.effects === 1) { // push
+        } else if (d.effects === 1) {
+            // push
             return d3.svg.symbol().type("triangle-down")(d);
-        } else if (d.effects === 0){ // pass
-            return d3.svg.symbol().type("circle")(d);
+        } else if (d.effects === 0){
+            // pass
+            return d3.svg.symbol().type("square")(d);
         } else {
+            // no vote
             return d3.svg.symbol().type("circle")(d);
         }
     } else {
@@ -318,6 +342,17 @@ function chooseShape(d) {
             // return d3.svg.symbol().type("circle");
         // }
     }
+}
+
+function chooseTransform(d) {
+    var scale = isSelf(d) ? 2 : 1;
+    if (shouldShowVoteIcons()) {
+        if (d.effects === undefined) {
+            // smaller if no vote
+            scale = scale * 0.6;
+        }
+    }
+    return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
 }
 
 function isSelf(d) {
@@ -501,10 +536,12 @@ function upsertNode(updatedNodes, newClusters) {
 function renderComments(comments) {
 
         function onCommentClicked(d) {
-            unhoverAll();
+            selectedTid = d.tid;
             d3CommentList.classed("query_result_item_hover", false);
 
-            getReactionsToComment(d.tid).then(function(reactions) {
+            getReactionsToComment(d.tid)
+              .done(unhoverAll)
+              .then(function(reactions) {
                 var userToReaction = {};
                 var i;
                 for (i = 0; i < reactions.length; i++) {
@@ -523,7 +560,10 @@ function renderComments(comments) {
                 }
                 visualization.selectAll(".ptpt")
                   .style("fill", chooseFill)
+                  .style("fill-opacity", chooseAlpha)
+                  .attr("r", chooseRadius)
                   .attr("d", chooseShape)
+                  .attr("transform", chooseTransform)
                 ;
             }, function() {
                 console.error("failed to get reactions to comment: " + d._id);
@@ -564,7 +604,10 @@ function unhoverAll() {
     }
     visualization.selectAll(".ptpt")
         .style("fill", chooseFill)
+        .style("fill-opacity", chooseAlpha)
+        .attr("r", chooseRadius)
         .attr("d", chooseShape)
+        .attr("transform", chooseTransform)
     ;
 }
 
@@ -573,10 +616,13 @@ function resetSelection() {
   selectedCluster = false;
   // visualization.transition().duration(750).attr("transform", "");
   renderComments([]);
+  selectedPids = [];
+  selectedTid = -1;
   unhoverAll();
 }
 
 function emphasizeParticipants(pids) {
+    console.log("pids", pids.length);
     var hash = []; // sparse-ish array
     for (var i = 0; i < pids.length; i++) {
         hash[pids[i]] = true;
