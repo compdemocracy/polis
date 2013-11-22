@@ -1,3 +1,18 @@
+CREATE OR REPLACE FUNCTION now_as_millis() RETURNS BIGINT AS $$
+        DECLARE
+            temp TIMESTAMP := now();
+        BEGIN
+            -- NOTE: milliseconds includes the seconds, so subtracting seconds from milliseconds
+            -- SEE: http://www.postgresql.org/docs/8.4/static/functions-datetime.html
+            RETURN 1000*FLOOR(EXTRACT(EPOCH FROM temp)) + FLOOR(EXTRACT(MILLISECONDS FROM temp)) - 1000*FLOOR(EXTRACT(SECOND FROM temp));
+        END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION to_millis(t TIMESTAMP WITH TIME ZONE) RETURNS BIGINT AS $$
+        BEGIN
+            RETURN 1000*FLOOR(EXTRACT(EPOCH FROM t)) + FLOOR(EXTRACT(MILLISECONDS FROM t)) - 1000*FLOOR(EXTRACT(SECOND FROM t));
+        END;
+$$ LANGUAGE plpgsql;
 
 -- This is a light table that's used exclusively for generating IDs
 CREATE TABLE users(
@@ -12,6 +27,7 @@ CREATE TABLE users(
     is_owner BOOLEAN DEFAULT FALSE, -- has the ability to start conversations
     zinvite VARCHAR(300), -- The initial zinvite used to create the user, can be used for attribution (may be null)
     oinvite VARCHAR(300), -- The oinvite used to create the user, or to upgrade the user to a conversation owner.
+    epoch BIGINT DEFAULT now_as_millis(),
     UNIQUE (uid)
 );
 
@@ -91,6 +107,7 @@ CREATE TABLE conversations(
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ?? 
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    epoch BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
 );
 
@@ -99,6 +116,7 @@ CREATE TABLE oinvites (
     oinvite VARCHAR(300) NOT NULL,
     note VARCHAR(999),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    epoch BIGINT DEFAULT now_as_millis(),
     UNIQUE (oinvite)
 );
 
@@ -107,6 +125,7 @@ CREATE TABLE zinvites (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     zinvite VARCHAR(300) NOT NULL,
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    epoch BIGINT DEFAULT now_as_millis(),
     UNIQUE (zinvite)
 );
 
@@ -115,6 +134,7 @@ CREATE TABLE beta(
     email VARCHAR(200),
     organization VARCHAR(200),
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    epoch BIGINT DEFAULT now_as_millis(),
     UNIQUE(email)
 );
 
@@ -124,6 +144,7 @@ CREATE TABLE participants(
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     -- server admin bool
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    epoch BIGINT DEFAULT now_as_millis(),
     -- archived (not included because creator might not be a participant) will add later somewhere else
     UNIQUE (zid, pid),
     UNIQUE (zid, uid) 
@@ -146,6 +167,7 @@ CREATE TABLE comments(
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     created TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    epoch BIGINT DEFAULT now_as_millis(),
     txt VARCHAR(1000) NOT NULL,
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
@@ -205,6 +227,7 @@ CREATE TABLE votes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     vote SMALLINT,
+    epoch BIGINT DEFAULT now_as_millis(),
     created TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -215,6 +238,7 @@ CREATE TABLE stars(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     starred INTEGER NOT NULL, -- 0 for unstarred, 1 for starred
+    epoch BIGINT DEFAULT now_as_millis(),
     created TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
@@ -225,6 +249,7 @@ CREATE TABLE trashes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
     trashed INTEGER NOT NULL, -- 1 for trashed, 0 for untrashed
+    epoch BIGINT DEFAULT now_as_millis(),
     created TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
