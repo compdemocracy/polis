@@ -179,6 +179,7 @@ define([
             getCommentsForSelection: serverClient.getCommentsForSelection,
             getReactionsToComment: serverClient.getReactionsToComment,
             getUserInfoByPid: serverClient.getUserInfoByPidSync,
+            getTotalVotesByPidSync: serverClient.getTotalVotesByPidSync,
             w: w,
             h: h,
             el_queryResultSelector: "#query_results_div",

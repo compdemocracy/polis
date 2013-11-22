@@ -10,6 +10,7 @@ var getPersonId = params.getPersonId;
 var getCommentsForSelection = params.getCommentsForSelection;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
+var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
 
 var clusterClickedCallbacks = $.Callbacks();
 
@@ -30,6 +31,10 @@ var d3Hulls;
 var selectedCluster = false;
 var selectedPids = [];
 var selectedTid = -1;
+
+// number of votes by the participant who has voted the most.
+var maxVoteCount = 0;
+
 
 var updatesEnabled = true;
 
@@ -345,13 +350,22 @@ function chooseShape(d) {
 }
 
 function chooseTransform(d) {
-    var scale = isSelf(d) ? 2 : 1;
-    if (shouldShowVoteIcons()) {
-        if (d.effects === undefined) {
-            // smaller if no vote
-            scale = scale * 0.6;
+    var scale = 1;
+    if (isSelf(d)) {
+        scale = 2;
+    } else {
+        var voteCount = getTotalVotesByPidSync(d.pid);
+        maxVoteCount = Math.max(voteCount, maxVoteCount);
+        var ratio = (voteCount + 1) / (maxVoteCount + 1);
+        scale *= ratio;
+        if (shouldShowVoteIcons()) {
+            if (d.effects === undefined) {
+                // smaller if no vote
+                scale = scale * 0.6;
+            }
         }
     }
+    scale = Math.max(0.02, scale);
     return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
 }
 

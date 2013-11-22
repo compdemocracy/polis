@@ -28,7 +28,7 @@
   opacity: 0.2;
   fill: lightgrey;
   stroke: lightgrey;
-  stroke-width: 32px;
+  stroke-width: 18px; /* note: probably overriden in VisView for intro animation */
   stroke-linejoin: round;
   z-index: 400;
   cursor: pointer;

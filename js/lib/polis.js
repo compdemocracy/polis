@@ -48,6 +48,7 @@ return function(params) {
 
     var lastServerTokenForPCA = (new Date(0)).getTime();
     var lastServerTokenForComments = (new Date(0)).getTime();
+    var lastServerTokenForVotes = (new Date(0)).getTime();
 
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
@@ -761,11 +762,60 @@ return function(params) {
         });
     }
 
+
+    // basic defaultdict implementation
+    function DD(f) {
+        this.m = {};
+        this.f = f;
+    }
+    // basic defaultarray implementation
+    function DA(f) {
+        this.m = [];
+        this.f = f;
+    }
+    DD.prototype.g = DA.prototype.g = function(k) {
+        if (this.m.hasOwnProperty(k)) {
+            return this.m[k];
+        }
+        var v = this.f(k);
+        this.m[k] = v;
+        return v;
+    };
+    DD.prototype.g = DA.prototype.s = function(k,v) {
+        this.m[k] = v;
+    };
+    function emptyArray() {
+        return [];
+    }
+
+
+    // Doesn't scale obviously
+    // DD<pid, Array<index:tid, values:vote>>
+    var arrayPidToArrayTidToVote = new DA(emptyArray);
+
+    function getLatestVotes() {
+        return polisGet(votesPath, {
+            lastVoteTimestamp: lastServerTokenForVotes,
+            zid: currentStimulusId
+        }).pipe(function(data) {
+            // assuming ordered by created, so clobbering old vote values
+            for (var i = 0; i < data.length; i++) {
+                var v = data[i];
+                arrayPidToArrayTidToVote.g(v.pid)[v.tid] = v.vote;
+                lastServerTokenForVotes = Math.max(v.created, lastServerTokenForVotes);
+            }
+        });
+    }
+
+    function getTotalVotesByPidSync(pid) {
+        return arrayPidToArrayTidToVote.g(pid).length;
+    }
+
     setTimeout(getPca,0);
     setInterval(function() {
-        getPca().then(
-            fetchUserInfoIfNeeded,
-            fetchUserInfoIfNeeded);
+      getPca()
+        .then(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded)
+        .then(getLatestVotes, getLatestVotes);
     }, 5000);
 
     return {
@@ -781,6 +831,7 @@ return function(params) {
         getUserInfoByPid: getUserInfoByPid,
         getUserInfoByPidSync: getUserInfoByPidSync,
         observeStimulus: observeStimulus, // with no args
+        getTotalVotesByPidSync: getTotalVotesByPidSync,
         disagree: disagree,
         agree: agree,
         pass: pass,
