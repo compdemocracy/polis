@@ -15,7 +15,7 @@ require([
 
   // debug convenience function for deregistering.
   window.deregister = function() {
-    $.post("/v3/auth/deregister", {}).always(function() {
+    return $.post("/v3/auth/deregister", {}).always(function() {
       // PolisStorage.clearAll(); // relying on server to clear cookies instead
       Backbone.history.navigate("/", {trigger: true});
     });
