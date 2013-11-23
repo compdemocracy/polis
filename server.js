@@ -659,6 +659,9 @@ app.all("/v3/*", function(req, res, next) {
       // Origin was missing from FF, so added Referer.
       host =  req.get("Origin") || req.get("Referer"); 
   }
+  // remove trailing slash if needed
+  host = host.replace(/\/$/, "");
+
   console.log(host);
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
       console.log('not whitelisted');
