@@ -223,6 +223,17 @@ CREATE TABLE votes(
     created BIGINT DEFAULT now_as_millis()
 );
 
+-- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
+-- CREATE TABLE stats_per_comment(
+--     zid INTEGER NOT NULL,
+--     tid INTEGER NOT NULL,
+--     total INTEGER NOT NULL,
+--     agree INTEGER NOT NULL,
+--     disagree INTEGER NOT NULL,
+--     last_timestamp BIGINT NOT NULL,
+--     UNIQUE (zid, tid);
+-- );
+
 -- not enforcing uniqueness, save complete history
 -- TODO make a table that has a snapshot of the current state
 CREATE TABLE stars(
