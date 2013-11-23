@@ -516,7 +516,7 @@ function addCookie(res, token) {
     if (domainOverride) { 
         // set nothing - Assuming localhost
     } else {
-        o.domain = 'polis.io';
+        // o.domain = 'polis.io';
         o.path = '/';
         o.httpOnly = true;
         o.maxAge = oneYear;
