@@ -46,9 +46,9 @@ return function(params) {
 
     var logger = params.logger;
 
-    var lastServerTokenForPCA = (new Date(0)).getTime();
-    var lastServerTokenForComments = (new Date(0)).getTime();
-    var lastServerTokenForVotes = (new Date(0)).getTime();
+    var lastServerTokenForPCA = 0;
+    var lastServerTokenForComments = 0;
+    var lastServerTokenForVotes = 0;
 
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
@@ -106,7 +106,7 @@ return function(params) {
                 );
                 var newIDs = _.difference(IDs, oldkeys);
                 comments.forEach(function(ev) {
-                    var d = new Date(ev.created);
+                    var d = ev.created;
                     if (d > lastServerTokenForComments) {
                         lastServerTokenForComments = d;
                     }
@@ -342,8 +342,8 @@ return function(params) {
 
     function observeStimulus(newStimulusId, zinvite) {
         currentStimulusId = Number(newStimulusId);
-        lastServerTokenForPCA = (new Date(0)).getTime();
-        lastServerTokenForComments = (new Date(0)).getTime();
+        lastServerTokenForPCA = 0;
+        lastServerTokenForComments = 0;
         return joinConversation(zinvite);
     }
 
@@ -512,14 +512,14 @@ return function(params) {
         });
     }
 
-    function getPca() {
+    function fetchPca() {
         return polisGet(pcaPath, {
             lastVoteTimestamp: lastServerTokenForPCA,
             zid: currentStimulusId
         }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
-                    return;
+                    return $.Deferred().reject();
                 }
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
@@ -536,7 +536,7 @@ return function(params) {
                 var clusters = clientSideBaseCluster(people, 3);
                 //people.push(myself);
                 if (!people) {
-                    return;
+                    return $.Deferred().reject();
                 }
 
                 //var pcaComponents = parseTree(pcaData.pca_components);
@@ -558,6 +558,7 @@ return function(params) {
                 projectionPeopleCache = people;
                 clustersCache = clusters;
                 sendUpdatedVisData(people, clusters);
+                return $.Deferred().resolve();
             },
             function(err) {
                 console.error("failed to get pca data");
@@ -811,11 +812,11 @@ return function(params) {
         return arrayPidToArrayTidToVote.g(pid).length;
     }
 
-    setTimeout(getPca,0);
+    setTimeout(fetchPca,0);
     setInterval(function() {
-      getPca()
-        .then(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded)
-        .then(getLatestVotes, getLatestVotes);
+      fetchPca()
+        .done(fetchUserInfoIfNeeded)
+        .done(getLatestVotes);
     }, 5000);
 
     return {
