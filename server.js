@@ -658,7 +658,7 @@ app.all("/v3/*", function(req, res, next) {
   console.log(host);
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
       console.log('not whitelisted');
-      return next(new Error("unauthorized domain"));
+      return next(new Error("unauthorized domain: " + host));
   }
   res.header("Access-Control-Allow-Origin", host);
   res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
