@@ -298,8 +298,8 @@ function chooseFill(d) {
             return colorPass;
         } else {
             return colorPass; // will have less alpha
-            console.error(3289213);
-            return "purple";
+            // console.error(3289213);
+            // return "purple";
         }
     } else {
         if (isSelf(d)) {
