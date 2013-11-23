@@ -653,7 +653,11 @@ app.all("/v3/*", function(req, res, next) {
   if (domainOverride) {
       host = req.protocol + "://" + domainOverride;
   } else {
-      host =  req.get("Origin");
+      // TODO does it make sense for this middleware to look
+      // at origin || referer? is Origin for CORS preflight?
+      // or for everything? 
+      // Origin was missing from FF, so added Referer.
+      host =  req.get("Origin") || req.get("Referer"); 
   }
   console.log(host);
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
