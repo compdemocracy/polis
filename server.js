@@ -1452,6 +1452,49 @@ function(req, res) {
     });
 });
 
+
+function getVotesForZidPids(zid, pids, callback) {
+    var query = squel.select()
+        .from("votes")
+        .where("zid = ?", zid)
+        .where("vote = 1 OR vote = -1")
+        .where("pid IN (" + pids + ")");
+
+    client.query(query.toString(), [], function(err, results) {
+        console.log('votes query');
+        if (err) { return callback(err); }
+        callback(null, results.rows);
+    });
+}
+
+
+function getCommentIdCounts(voteRecords) {
+    var votes = voteRecords;
+    var commentIdCountMap = {};
+    for (var i = 0; i < votes.length; i++) {
+        var vote = votes[i];
+        var count = commentIdCountMap[vote.tid];
+        if (vote.vote === polisTypes.reactions.pull) {
+            commentIdCountMap[vote.tid] = count + 1 || 1;
+        } else if (vote.vote === polisTypes.reactions.push) {
+            // push
+            commentIdCountMap[vote.tid] = count - 1 || -1;
+        } else {
+            console.error("expected just push and pull in query");
+        }
+    }
+    // create array of pairs [[commentId, count],...]
+    var commentIdCounts = _.pairs(commentIdCountMap);
+    // remove net negative items
+    commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; });
+    // remove net negative items ????
+    commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); 
+    commentIdCounts.sort(function(a,b) {
+        return b[1] - a[1]; // descending by freq
+    });
+    return commentIdCounts;
+}
+
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
 app.get("/v3/selection",
     logPath,
@@ -1470,36 +1513,11 @@ function(req, res) {
             if (err) { fail(res, 2389373, "polis_err_get_selection_users_list_formatting", 400); return; }
         }
         
-        var query = squel.select()
-            .from("votes")
-            .where("zid = ?", zid)
-            .where("vote = 1 OR vote = -1")
-            .where("pid IN (" + users + ")");
-
-        client.query(query.toString(), [], function(err, results) {
-            console.log('votes query');
+        getVotesForZidPids(zid, users, function(err, voteRecords) {
             if (err) { fail(res, 2389369, "polis_err_get_selection", 500); console.dir(results); return; }
-            var votes = results.rows;
-            if (!votes.length) { fail(res, 32432523, "polis_err_get_selection_no_votes", 500); return; }
-            var commentIdCounts = {};
-            for (var i = 0; i < votes.length; i++) {
-                var vote = votes[i];
-                var count = commentIdCounts[vote.tid];
-                if (vote.vote === polisTypes.reactions.pull) {
-                    commentIdCounts[vote.tid] = count + 1 || 1;
-                } else if (vote.vote === polisTypes.reactions.push) {
-                    // push
-                    commentIdCounts[vote.tid] = count - 1 || -1;
-                } else {
-                    console.error("expected just push and pull in query");
-                }
-            }
-            commentIdCounts = _.pairs(commentIdCounts);
-            commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; }); // remove net negative items
-            commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); // remove net negative items ????
-            commentIdCounts.sort(function(a,b) {
-                return b[1] - a[1]; // descending by freq
-            });
+            if (!voteRecords.length) { fail(res, 32432523, "polis_err_get_selection_no_votes", 500); return; }
+
+            var commentIdCounts = getCommentIdCounts(voteRecords);
             commentIdCounts = commentIdCounts.slice(0, 10);
             var commentIdsOrdering = commentIdCounts.map(function(x) { return {tid: x[0]};});
             var commentIds = commentIdCounts.map(function(x) { return x[0];});
