@@ -37,6 +37,11 @@ define([  //begin dependencies
     PolisStorage,
     $
 	) {  //end args, begin function block
+
+  function authenticated() {
+    return PolisStorage.uid.get();
+  }
+
 	return Backbone.Router.extend({
     routes: {
       "homepage": "homepageView",
@@ -55,19 +60,23 @@ define([  //begin dependencies
       this.route(/([0-9]+)/, "conversationView");  // zid
       this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
     },
+    bail: function() {
+      this.navigate("/", {trigger: true});
+    },
     landingPageView: function() {
-      if (!PolisStorage.uid.get()) {
+      if (!authenticated()) {
         var landingPageView = new LandingPageView();
         RootView.getInstance().setView(landingPageView);
       } else {
         // this.inbox();
-        Backbone.history.navigate("inbox", {trigger: true});
+        this.navigate("inbox", {trigger: true});
       }
     },
     deregister: function() {
       window.deregister();
     },
     inbox: function(filter){
+      if (!authenticated()) { return this.bail(); }
       // TODO add to inboxview init
 
         // conversationsCollection.fetch({
@@ -108,6 +117,8 @@ define([  //begin dependencies
     RootView.getInstance().setView(homepage);
   },
   createConversation: function(){
+    if (!authenticated()) { return this.bail(); }
+
     var that = this;
     conversationsCollection = new ConversationsCollection();
 
@@ -124,7 +135,7 @@ define([  //begin dependencies
       });
       that.listenTo(createConversationFormView, "all", function(eventName, data) {
         if (eventName === "done") {
-          Backbone.history.navigate("inbox", {trigger: true});
+          that.navigate("inbox", {trigger: true});
 //          that.inbox();
         }
       });
@@ -139,6 +150,9 @@ define([  //begin dependencies
     });
   },
   editConversation: function(id) {
+    if (!authenticated()) { return this.bail(); }
+
+    var that = this;
     var conversationsCollection = new ConversationsCollection();
     conversationsCollection.fetch();
     var model = conversationsCollection.get(id);
@@ -149,7 +163,7 @@ define([  //begin dependencies
     });
     that.listenTo(createConversationFormView, "all", function(eventName, data) {
       if (eventName === "done") {
-        Backbone.history.navigate("inbox", {trigger: true});
+        that.navigate("inbox", {trigger: true});
         // that.inbox();
       }
     });
@@ -161,6 +175,8 @@ define([  //begin dependencies
     });
   },
   conversationDetails: function(id){
+    if (!authenticated()) { return this.bail(); }
+
     var conversationsCollection = new ConversationsCollection();
     conversationsCollection.fetch();
     var model = conversationsCollection.get(id);
@@ -172,6 +188,8 @@ define([  //begin dependencies
   },
 
   doLaunchConversation: function(zid) {
+    if (!authenticated()) { return this.bail(); }
+
     // Assumes you have a pid already.
     var model = new ConversationModel({
         zid: zid
@@ -189,6 +207,8 @@ define([  //begin dependencies
   },
 
   conversationView: function(zid, zinvite) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
+    if (!authenticated()) { return this.bail(); }
+
     var that = this;
 
     var uid = PolisStorage.uid.get();
@@ -260,8 +280,9 @@ define([  //begin dependencies
     return dfd.promise();
   },
   createUser: function(){
+    var that = this;
     this.doCreateUser().done(function() {
-      Backbone.history.navigate("inbox", {trigger: true});
+      that.navigate("inbox", {trigger: true});
       // that.inbox();
     });
   },
@@ -273,7 +294,7 @@ define([  //begin dependencies
         // Redirect to a specific conversation after the user signs in.
         that.conversationView(zid);
       } else {
-        Backbone.history.navigate("inbox", {trigger: true});
+        that.navigate("inbox", {trigger: true});
         // that.inbox();
       }
     });

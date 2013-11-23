@@ -70,28 +70,7 @@ var store = (function() {
     };
 }());
 
-    var cache = {
-    };
-    function saveAndCache(k, v, temporary) {
-        if (cache[k] !== v) {
-            if (!temporary) {
-                store.set(k, v);
-            }
-            cache[k] = v;
-        }
-    }
-    function retrieveWithCache(k) {
-        var cached = cache[k];
-        if (cached) {
-            return cached;
-        } else {
-            var v = store.get(k);
-            cache[k] = v;
-            return v;
-        }
-    }
     function clear(k) {
-        delete cache[k];
         store.clear(k);
     }
 
@@ -101,10 +80,10 @@ var store = (function() {
                 return clear(k);
             },
             set: function(v, temporary) {
-                return saveAndCache(k, v, temporary);
+                return store.set(k, v);
             },
             get: function() {
-                return retrieveWithCache(k);
+                return store.get(k);
             }
         };
     }
