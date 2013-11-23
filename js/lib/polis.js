@@ -798,7 +798,7 @@ return function(params) {
         return polisGet(votesPath, {
             lastVoteTimestamp: lastServerTokenForVotes,
             zid: currentStimulusId
-        }).pipe(function(data) {
+        }).done(function(data) {
             // assuming ordered by created, so clobbering old vote values
             for (var i = 0; i < data.length; i++) {
                 var v = data[i];
@@ -812,12 +812,14 @@ return function(params) {
         return arrayPidToArrayTidToVote.g(pid).length;
     }
 
-    setTimeout(fetchPca,0);
-    setInterval(function() {
-      fetchPca()
-        .done(fetchUserInfoIfNeeded)
-        .done(getLatestVotes);
-    }, 5000);
+    function poll() {
+      var pcaPromise = fetchPca();
+      pcaPromise.done(getLatestVotes);
+      pcaPromise.done(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded);
+    }
+
+    setTimeout(poll,0);
+    setInterval(poll, 5000);
 
     return {
         authenticated: authenticated,
