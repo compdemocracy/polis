@@ -47,6 +47,12 @@ airbrake.handleExceptions();
 
 
 
+var cookieNames = [
+    "token",
+    "uid",
+    "pids",
+    "email",
+];
 
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
@@ -721,7 +727,9 @@ app.post("/v3/auth/deregister",
 function(req, res) {
     var token = req.cookies.token;
     function finish() {
-        res.clearCookie("token");
+        cookieNames.forEach(function(name) {
+            res.clearCookie(name, {path: "/"});
+        });
         res.status(200).end();
     }
     if (!token) {
