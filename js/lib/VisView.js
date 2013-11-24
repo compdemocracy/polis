@@ -27,6 +27,7 @@ var visualization;
 var force;
 var queryResults;
 var d3Hulls;
+var d3CommentList;
 
 var selectedCluster = false;
 var selectedPids = [];
@@ -157,18 +158,62 @@ force = d3.layout.force()
 //     //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
 // }
 
-function setClusterActive(d) {
-    console.log("selectedCluster " + selectedCluster);  // log the cluster/hull currently selected, if any
-    console.log("d.hullId " + d.hullId);                // log the id of the hull
-    if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
-      console.log("unselecting");                       // ...tell everyone you're going to unselect it
 
-      return resetSelection();                          // and resetSelection
-    } else {                                            // otherwise
-      var pids = clusters[d.hullId];
-      selectedPids = pids;
-      getCommentsForSelection(pids)
-      .then( // getCommentsForSelection with clusters array (of pids)
+// compute how somilar the membership vectors are between two clusters.
+// similarity = (bothHave+1) / (longerArray.length + 1)
+function clusterSimilarity(a, b) {
+
+// clusters [[2,3,4],[1,5]]
+    var longerLength = Math.max(a.length, b.length);
+    var ai = 0;
+    var bi = 0;
+    var bothHave = 0;
+
+    while (ai < a.length) {
+
+        if (bi >= b.length) {
+            break;
+        }
+        var aa = a[ai];
+        var bb = b[bi];
+        if (aa === bb) {
+            bothHave += 1;
+            ai += 1;
+            bi += 1;
+        }
+        else if (aa > bb){
+            bi += 1;
+        }
+        else if (bb > aa) {
+            ai += 1;
+        }
+    }
+
+    return (bothHave + 1) / (longerLength + 1);
+}
+
+console.log("expect: " + (3/5));
+console.log(clusterSimilarity([2,3,4], [2,4,7,8]));
+
+
+function argMax(f, args) {
+    var max = -Infinity;
+    var maxArg = null;
+    _.each(args, function(arg) {
+        var val = f(arg);
+        if (val > max) {
+            max = val;
+            maxArg = arg;
+        }
+    });
+    return maxArg;
+}
+
+function setClusterActive(clusterId) {
+    var pids = clusters[clusterId];
+    selectedPids = pids;
+    var promise = getCommentsForSelection(pids)
+      .pipe( // getCommentsForSelection with clusters array (of pids)
         renderComments,                                 // !! this is tightly coupled.
                                                         // !! it makes sense to keep this in the view because
                                                         // !! we have to come BACK to the viz from the
@@ -177,22 +222,26 @@ function setClusterActive(d) {
           console.error(err);
           resetSelection();
         })
-      .done(unhoverAll)
+      //.done(unhoverAll)
       ;
-    }
+    
     // duplicated at 938457938475438975
     visualization.selectAll(".active").classed("active", false);
-    d3.select(this).classed("active", true);
 
     // d3.select(this)
     //     .style("fill","lightgreen")
     //     .style("stroke","lightgreen");
 
-    selectedCluster = d.hullId;
+    selectedCluster = clusterId;
+    return promise;
 }
 
 function onClusterClicked(d) {
-    setClusterActive.call(this, d);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
+    if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
+      return resetSelection();
+    } else {
+        setClusterActive(d.hullId);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
+    }
 
     //zoomToHull.call(this, d);
     if (d3.event.stopPropagation) {
@@ -210,23 +259,7 @@ d3Hulls = _.times(9, function() {
     ;
 });
 
-force.on("tick", function(e) {
-      // Push nodes toward their designated focus.
-      var k = 0.1 * e.alpha;
-      //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
-      nodes.forEach(function(o) {
-          //o.x = o.data.targetX;
-          //o.y = o.data.targetY;
-          if (!o.x) { o.x = w/2; }
-          if (!o.y) { o.y = h/2; }
-          o.x += (o.data.targetX - o.x) * k;
-          o.y += (o.data.targetY - o.y) * k;
-      });
-
-      visualization
-        .selectAll(".ptpt")
-        .attr("transform", chooseTransform);
-
+function updateHulls() {
     var pidToPerson = _.object(_.pluck(nodes, "pid"), nodes);
     bounds = [];
     hulls = clusters.map(function(cluster) {
@@ -262,6 +295,29 @@ force.on("tick", function(e) {
         stuff.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
         d3Hull.datum(stuff).attr("d", makeHullShape(stuff));
     }
+    if (selectedCluster !== false) {
+        d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
+    }
+}
+
+force.on("tick", function(e) {
+      // Push nodes toward their designated focus.
+      var k = 0.1 * e.alpha;
+      //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
+      nodes.forEach(function(o) {
+          //o.x = o.data.targetX;
+          //o.y = o.data.targetY;
+          if (!o.x) { o.x = w/2; }
+          if (!o.y) { o.y = h/2; }
+          o.x += (o.data.targetX - o.x) * k;
+          o.y += (o.data.targetY - o.y) * k;
+      });
+
+      visualization
+        .selectAll(".ptpt")
+        .attr("transform", chooseTransform);
+
+    updateHulls();
 });
 
 window.P.stop = function() {
@@ -412,7 +468,7 @@ function key(d) {
 // }
 
 
-// clusters [[4,3,2],[5,1]]
+// clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters) {
     if (!updatesEnabled) {
         return;
@@ -420,7 +476,30 @@ function upsertNode(updatedNodes, newClusters) {
     console.log("upsert");
     //nodes.set(node.pid, node);
 
-    clusters = newClusters;
+
+    // migrate an existing cluster selection to the new similar cluster
+    var readyToReselectComment = $.Deferred().resolve();
+    if (selectedCluster !== false) {
+
+        var currentSelectedCluster = clusters[selectedCluster];
+
+        var nearestCluster = argMax(
+            _.partial(clusterSimilarity, currentSelectedCluster),
+            newClusters);
+
+        var nearestClusterId = newClusters.indexOf(nearestCluster);
+        clusters = newClusters;
+        readyToReselectComment = setClusterActive(nearestClusterId);
+    } else {
+        clusters = newClusters;
+    }
+
+    readyToReselectComment.done(function() {
+        if (selectedTid >= 0) {
+            selectComment(selectedTid);
+        }
+    });
+
 
     function computeTarget(d) {
         //if (!isPersonNode(d)) {
@@ -545,62 +624,74 @@ function upsertNode(updatedNodes, newClusters) {
         .transition()
           .duration(500);
 
+  updateHulls();
+}
+
+function selectComment(tid) {
+    selectedTid = tid;
+    if (d3CommentList) {
+        d3CommentList.classed("query_result_item_hover", false);
+    }
+
+    getReactionsToComment(tid)
+      // .done(unhoverAll)
+      .then(function(reactions) {
+        var userToReaction = {};
+        var i;
+        for (i = 0; i < reactions.length; i++) {
+            userToReaction[reactions[i].pid] = reactions[i];
+        }
+        for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+
+            var reaction = userToReaction[node.pid];
+            if (reaction) {
+                node.effects = reaction.vote;
+                if (undefined === node.effects) {
+                    node.effects = "blabla";
+                }
+            } else {
+                delete node.effects;
+            }
+        }
+        visualization.selectAll(".ptpt")
+          .style("fill", chooseFill)
+          .style("fill-opacity", chooseAlpha)
+          .attr("r", chooseRadius)
+          .attr("d", chooseShape)
+          .attr("transform", chooseTransform)
+        ;
+    }, function() {
+        console.error("failed to get reactions to comment: " + d.tid);
+    });
+    $(this).addClass("query_result_item_hover");
 }
 
 function renderComments(comments) {
 
-        function onCommentClicked(d) {
-            selectedTid = d.tid;
-            d3CommentList.classed("query_result_item_hover", false);
+    var dfd = $.Deferred();
 
-            getReactionsToComment(d.tid)
-              .done(unhoverAll)
-              .then(function(reactions) {
-                var userToReaction = {};
-                var i;
-                for (i = 0; i < reactions.length; i++) {
-                    userToReaction[reactions[i].pid] = reactions[i];
-                }
-                for (i = 0; i < nodes.length; i++) {
-                    var node = nodes[i];
+    if (comments.length) {
+        $(el_queryResultSelector).show();
+    } else {
+        $(el_queryResultSelector).hide();
+    }
+    queryResults.html("");
+    d3CommentList = queryResults.selectAll("li")
+        .data(comments)
+        .sort(function(a,b) { return b.freq - a.freq; });
 
-                    var reaction = userToReaction[node.pid];
-                    if (reaction) {
-                        node.effects = reaction.vote;
-                        if (undefined === node.effects) {
-                            node.effects = "blabla";
-                        }
-                    }
-                }
-                visualization.selectAll(".ptpt")
-                  .style("fill", chooseFill)
-                  .style("fill-opacity", chooseAlpha)
-                  .attr("r", chooseRadius)
-                  .attr("d", chooseShape)
-                  .attr("transform", chooseTransform)
-                ;
-            }, function() {
-                console.error("failed to get reactions to comment: " + d._id);
-            });
-            $(this).addClass("query_result_item_hover");
-        }
-        if (comments.length) {
-            $(el_queryResultSelector).show();
-        } else {
-            $(el_queryResultSelector).hide();
-        }
-        queryResults.html("");
-        var d3CommentList = queryResults.selectAll("li")
-            .data(comments)
-            .sort(function(a,b) { return b.freq - a.freq; });
+    d3CommentList.enter()
+        .append("li")
+        .classed("query_result_item", true)
+        .on("click", function(d) {
+            selectComment(d.tid);
+        })
+        .text(function(d) { return d.txt; });
 
-        d3CommentList.enter()
-            .append("li")
-            .classed("query_result_item", true)
-            .on("click", onCommentClicked)
-            .text(function(d) { return d.txt; });
-
-        d3CommentList.exit().remove();
+    d3CommentList.exit().remove();
+    setTimeout(dfd.resolve, 0);
+    return dfd.promise();
 }
 
 
@@ -611,6 +702,7 @@ function onParticipantClicked(d) {
 }
 
 function unhoverAll() {
+  console.log("unhoverAll");
     $(el_queryResultSelector).removeClass("query_result_item_hover");
     for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
@@ -626,6 +718,7 @@ function unhoverAll() {
 }
 
 function resetSelection() {
+  console.log("resetSelection");
   visualization.selectAll(".active").classed("active", false);
   selectedCluster = false;
   // visualization.transition().duration(750).attr("transform", "");

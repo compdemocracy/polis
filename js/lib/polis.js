@@ -504,10 +504,13 @@ return function(params) {
             return representative;
         });
         */
-        // [[1,5,2],[4]]
+        // [[1,2,5],[4]]
         return clusters.map(function(cluster) {
             return cluster.map(function(person) {
                 return person.pid;
+            }).sort(function(a, b) {
+                // ascending
+                return a - b;
             });
         });
     }
