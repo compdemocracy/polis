@@ -274,7 +274,7 @@ window.P.stop = function() {
 function chooseRadius(d) {
   var r = baseNodeRadius;
     if (isSelf(d)){
-        return r += 5;
+        return r += 2;
     }
     if (d.data && d.data.participants) {
         return r + d.data.participants.length * 5;
@@ -285,7 +285,7 @@ function chooseFill(d) {
     var colorPull = "#2ecc71"; // EMERALD
     var colorPush = "#e74c3c"; // ALIZARIN
     var colorPass = "#BDC3C7"; // SILVER
-    var colorSelf = "#D35400"; // PUMPKIN
+    var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
     var colorNoVote = colorPass;
 
 
