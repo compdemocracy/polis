@@ -1,13 +1,8 @@
-# polis-storm
+# polismath - the math module!
 
-A Clojure library designed to ... well, that part is up to you.
+Welcome to teh mathz.
 
 ## Usage
 
-FIXME
+To get running, install leinengen 2. From there you should be able to do `lein deps` followed by `lein run -m storm-spec` and see things happening.
 
-## License
-
-Copyright © 2013 FIXME
-
-Distributed under the Eclipse Public License, the same as Clojure.
