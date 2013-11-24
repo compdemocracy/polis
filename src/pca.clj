@@ -1,16 +1,19 @@
 (ns pca)
 
-(use 'utils 'matrix-utils)
+(set! *unchecked-math* true)
+
+(use 'utils 'matrix-utils 'criterium.core)
 (require '(incanter
             [core :as ic.core]
             [stats :as ic.stats]
             [datasets :as ic.data]
             [io :as ic.io])
-          ['clojure.tools.trace :as 'tr])
+         ;['hiphip.double :as 'dbl]
+         ['clojure.tools.trace :as 'tr])
 (use 'clojure.tools.trace)
 
 
-(defn dot [xs ys]
+(defn dot [^doubles xs ^doubles ys]
   "Returns the dot (or Euclidean inner) product of vectors xs and ys"
   (ic.core/sum (ic.core/mult xs ys)))
 
@@ -44,8 +47,10 @@
   iters iterations and starting vector start-vector (defaulting to 100 and 111111 resp)."
   ; need to clean up some of these variables names to be more descriptive
   (let [iters (or iters 100)
-        n-rows (count (first data))
-        start-vector (or start-vector (repeatv n-rows 1))]
+        n-cols (count (first data))
+        start-vector (or start-vector (repeatv n-cols 1))
+        ; XXX - this add extra cols to the start vector if we have new comments... should test
+        start-vector (into start-vector (repeatv (- (count start-vector) n-cols) 0))]
     (loop [iters iters start-vector start-vector last-eigval 0]
       (let [product-vector (xtxr data start-vector)
             eigval (norm product-vector)

@@ -31,11 +31,12 @@
       rating-matrix)))
 
 
-(defn random-reactions [n-ptpts n-cmts & [n-reactions]]
-  (let [n-reactions (or n-reactions (* n-ptpts n-cmts))]
+(defn random-reactions [n-ptpts n-cmts & {:keys [n-reactions n-convs] :or {n-convs 1}}]
+  (let [n-reactions (or n-reactions (* n-convs n-ptpts n-cmts))]
     (letfn [(generator [wrapper-fn range]
               (take n-reactions (repeatedly #(wrapper-fn (rand-int range)))))]
       (mapv list
+        (generator identity n-convs) 
         (generator #(str "p" %) n-ptpts)
         (generator #(str "c" %) n-cmts)
         (generator #(- % 1) 3)))))
