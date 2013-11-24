@@ -327,16 +327,16 @@ window.P.stop = function() {
     updatesEnabled = false;
 };
 
-function chooseRadius(d) {
-  var r = baseNodeRadius;
-    if (isSelf(d)){
-        return r += 2;
-    }
-    if (d.data && d.data.participants) {
-        return r + d.data.participants.length * 5;
-    }
-    return r;
-}
+// function chooseRadius(d) {
+//   var r = baseNodeRadius;
+//     if (isSelf(d)){
+//         return r += 2;
+//     }
+//     if (d.data && d.data.participants) {
+//         return r + d.data.participants.length * 5;
+//     }
+//     return r;
+// }
 function chooseFill(d) {
     var colorPull = "#2ecc71"; // EMERALD
     var colorPush = "#e74c3c"; // ALIZARIN
@@ -407,21 +407,21 @@ function chooseShape(d) {
 
 function chooseTransform(d) {
     var scale = 1;
-    if (isSelf(d)) {
-        scale = 2;
-    } else {
-        var voteCount = getTotalVotesByPidSync(d.pid);
-        maxVoteCount = Math.max(voteCount, maxVoteCount);
-        var ratio = (voteCount + 1) / (maxVoteCount + 1);
-        scale *= ratio;
-        if (shouldShowVoteIcons()) {
-            if (d.effects === undefined) {
-                // smaller if no vote
-                scale = scale * 0.6;
-            }
-        }
-    }
-    scale = Math.max(0.02, scale);
+    // if (isSelf(d)) {
+    //     scale = 2;
+    // } else {
+    //     var voteCount = getTotalVotesByPidSync(d.pid);
+    //     maxVoteCount = Math.max(voteCount, maxVoteCount);
+    //     var ratio = (voteCount + 1) / (maxVoteCount + 1);
+    //     scale *= ratio;
+    //     if (shouldShowVoteIcons()) {
+    //         if (d.effects === undefined) {
+    //             // smaller if no vote
+    //             scale = scale * 0.6;
+    //         }
+    //     }
+    // }
+    // scale = Math.max(0.02, scale);
     return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
 }
 
@@ -554,6 +554,15 @@ function upsertNode(updatedNodes, newClusters) {
         return key(a) - key(b);
     }
 
+    var pidToOldNode = _.indexBy(nodes, getPersonId);
+
+    for (var i = 0; i < updatedNodes.length; i++) {
+        var node = updatedNodes[i];
+        var oldNode = pidToOldNode[node.pid];
+        if (oldNode) {
+            node.effects = oldNode.effects;
+        }
+    }
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
     console.log("number of people: " + nodes.length);
@@ -599,30 +608,35 @@ function upsertNode(updatedNodes, newClusters) {
       .classed("node", true)
       .classed("enter", true)
       .classed("ptpt", true)
-      .attr("r", chooseRadius)
-        .style("stroke-width", strokeWidth)
-        .attr("transform", function(d) {
-            return "translate(" + d.x + "," + d.y + ")";
-        })
-        .on("mouseover", showTip)
-        .on("mouseout", hideTip)
-        ;
+      // .attr("r", chooseRadius)
+      .attr("transform", chooseTransform)
+      // .attr("r", chooseRadius)
+      .attr("d", chooseShape)
+      .style("stroke-width", strokeWidth)
+      .style("fill", chooseFill)
+      .style("fill-opacity", chooseAlpha)
+      // .attr("transform", function(d) {
+      //     return "translate(" + d.x + "," + d.y + ")";
+      // })
+      .on("mouseover", showTip)
+      .on("mouseout", hideTip)
+      ;
 
 
 
       // UPDATE
       // TODO Can we do this less frequently?
-      circle.classed("node", true);
-      circle.classed("update", true)
-        .attr("r", chooseRadius)
-        .style("fill", chooseFill);
+      // circle.classed("node", true);
+      // circle.classed("update", true)
+      //   .attr("r", chooseRadius)
+      //   .style("fill", chooseFill);
 
-  visualization.selectAll(".ptpt")
-        .transition()
-        .duration(500)
-        .style("fill", chooseFill)
-        .transition()
-          .duration(500);
+  // visualization.selectAll(".ptpt")
+  //       .transition()
+  //       .duration(500)
+  //       .style("fill", chooseFill)
+  //       .transition()
+  //         .duration(500);
 
   updateHulls();
 }
@@ -657,7 +671,7 @@ function selectComment(tid) {
         visualization.selectAll(".ptpt")
           .style("fill", chooseFill)
           .style("fill-opacity", chooseAlpha)
-          .attr("r", chooseRadius)
+          // .attr("r", chooseRadius)
           .attr("d", chooseShape)
           .attr("transform", chooseTransform)
         ;
@@ -711,7 +725,7 @@ function unhoverAll() {
     visualization.selectAll(".ptpt")
         .style("fill", chooseFill)
         .style("fill-opacity", chooseAlpha)
-        .attr("r", chooseRadius)
+        // .attr("r", chooseRadius)
         .attr("d", chooseShape)
         .attr("transform", chooseTransform)
     ;
