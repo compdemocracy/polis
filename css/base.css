@@ -10,6 +10,14 @@ body {
 	border-radius: 0px;
 }
 
+.block {
+  display: block;
+}
+
+.w100 {
+  width: 100%;
+}
+
 /* Navigation */
 
 header .navbar .user { margin-right: 15px; }
@@ -98,7 +106,17 @@ header .navbar .user { margin-right: 15px; }
 	font-weight: 500;
 	display: inline;
 }
+.questionAnswer {
+  font-weight: 400;
+  display: block;
+  padding: 10px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
 
+.nobullets {
+  list-style-type: none;
+}
 
 /* conversationGatekeper.handlebars */
 
@@ -115,7 +133,6 @@ header .navbar .user { margin-right: 15px; }
 .metadataCheckbox {
 	margin-left: 20px;
 }
-
 
 /* Mobile Only */
 

@@ -8,17 +8,27 @@ define([
 
 return View.extend({
   name: "metadataAnswerFilterView",
-  tagName: "button",
-  className: "btn ",
   template: template,
+  tagName: "li",
+  className: "nobullets",
   allowDelete: false,
-  toggle: function() {
-    this.model.set("disabled", !this.model.get("disabled"));
+  events: {
+    "click .on": "disable",
+    "click .off": "enable"
   },
+  enable: function(e) {
+    this.model.set("disabled", false);
+  },
+  disable: function(e) {
+    this.model.set("disabled", true);
+  },
+
   initialize: function(options) {
-      this.model = options.model;
-      this.zid = options.zid;
-      this.model.set("disabled", false);
+    var that = this;
+    this.model = options.model;
+    this.zid = options.zid;
+    this.model.set("disabled", false);
+
   }
 });
 

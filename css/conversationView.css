@@ -80,15 +80,25 @@ svg {
     font-size: 14px;
 }
 
-#agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
+.big_button, #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     background-color: #F5F5F5;
     background-image: none;
     color: rgb(87, 87, 87);
     border-radius: 2px;
     font-size: 14px;
-    margin-bottom: 20px;
     outline: none;
     border: none;
+}
+
+.margin_bottom_20 {
+    margin-bottom: 20px;
+}
+
+.gray_out {
+  color: #888;
+}
+.questionAnswerFilterLabel {
+  padding-left: 10px;
 }
 
 #disagreeButton {

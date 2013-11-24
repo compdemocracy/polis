@@ -1,9 +1,9 @@
 {{#if disabled}}
-  {{#button method="toggle" tag="a" class="makeCursorHand"}}
-    <i class="icon-eye-close"></i> {{value}}
-  {{/button}}
+  <div class="off makeCursorHand big_button w100 questionAnswer nobullets">
+    <i class="icon-eye-close gray_out"></i><span class="questionAnswerFilterLabel">{{value}}</span>
+  </div>
 {{else}}
-  {{#button method="toggle" tag="a" class="makeCursorHand"}}
-    <i class="icon-eye-open"></i> {{value}}
-  {{/button}}
+  <div class="on makeCursorHand big_button w100 questionAnswer nobullets">
+    <i class="icon-eye-open"></i><span class="questionAnswerFilterLabel">{{value}}</span>
+  </div>
 {{/if}}
