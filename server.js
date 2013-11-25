@@ -629,6 +629,8 @@ function writeDefaultHead(req, res, next) {
 
 function redirectIfNotHttps(req, res, next) {
 
+  console.dir(req);
+
   var exempt = devMode;
 
   // IE is picky, so use HTTP.
@@ -648,7 +650,7 @@ function redirectIfNotHttps(req, res, next) {
   return next();
 }
 
-// app.use(redirectIfNotHttps);
+app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
 app.use(express.logger());
 app.use(express.cookieParser());
