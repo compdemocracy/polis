@@ -440,7 +440,7 @@ function chooseShape(d) {
 function chooseTransform(d) {
     var scale = 1;
     if (isSelf(d) && !shouldShowVoteIcons()) {
-        scale = 1.5;
+        scale = 1.2;
     }
     // else {
     //     var voteCount = getTotalVotesByPidSync(d.pid);
