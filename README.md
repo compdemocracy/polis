@@ -2,7 +2,7 @@
 
 Welcome to teh mathz.
 
-Let's use the [github issues](https://github.com/metasoarous/polismath/issues) for discussing issues -- both technical and theoretic -- and the [github wiki](https://github.com/metasoarous/polismath/wiki/_pages) for collating/synthesizing this and other information as useful.
+Let's use the [github issues](https://github.com/metasoarous/polismath/issues) for discussing issues -- both technical and theoretic -- and the [github wiki](https://github.com/metasoarous/polismath/wiki/_pages) for collating/synthesizing this and other useful information.
 
 ## Usage
 
