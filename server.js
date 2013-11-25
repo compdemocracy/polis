@@ -648,7 +648,7 @@ function redirectIfNotHttps(req, res, next) {
   return next();
 }
 
-app.use(redirectIfNotHttps);
+// app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
 app.use(express.logger());
 app.use(express.cookieParser());
