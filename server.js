@@ -639,8 +639,11 @@ function redirectIfNotHttps(req, res, next) {
     return next();
   }
 
-  if (!/https/.test(req.protocol)){
-     res.redirect("https://" + req.headers.host + req.url);
+  if(!req.secure) {
+    res.writeHead(302, {
+        Location: "https://" + req.headers.host + req.url
+    });
+    return res.end();
   }
   return next();
 }
