@@ -757,20 +757,25 @@ function onParticipantClicked(d) {
 
 function unhoverAll() {
   console.log("unhoverAll");
+  if (d3CommentList) {
     d3CommentList
-        .style("background-color", chooseCommentFill);
-    for (var i = 0; i < nodes.length; i++) {
-        var node = nodes[i];
-        delete node.effects;
-    }
-    visualization.selectAll(".ptpt")
-        .style("stroke", chooseStroke)
-        .style("fill", chooseFill)
-        .style("fill-opacity", chooseAlpha)
-        // .attr("r", chooseRadius)
-        .attr("d", chooseShape)
-        .attr("transform", chooseTransform)
-    ;
+      .style("background-color", chooseCommentFill);
+  }
+  for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      delete node.effects;
+  }
+  updateNodes();
+}
+
+function updateNodes() {
+  visualization.selectAll(".ptpt")
+    .style("stroke", chooseStroke)
+    .style("fill", chooseFill)
+    .style("fill-opacity", chooseAlpha)
+    // .attr("r", chooseRadius)
+    .attr("d", chooseShape)
+    .attr("transform", chooseTransform);
 }
 
 function resetSelectedComment() {
