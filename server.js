@@ -629,8 +629,6 @@ function writeDefaultHead(req, res, next) {
 
 function redirectIfNotHttps(req, res, next) {
 
-  console.dir(req);
-
   var exempt = devMode;
 
   // IE is picky, so use HTTP.
@@ -641,7 +639,7 @@ function redirectIfNotHttps(req, res, next) {
     return next();
   }
 
-  if(!req.secure) {
+  if(!/https/.test(req.headers["x-forwarded-proto"])) { // assuming we're running on Heroku, where we're behind a proxy.
     res.writeHead(302, {
         Location: "https://" + req.headers.host + req.url
     });
