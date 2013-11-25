@@ -39,7 +39,7 @@ var http = require('http'),
         token: process.env['PUSHOVER_POLIS_PROXY_API_KEY'],
     }),
     airbrake = require('airbrake').createClient(process.env.AIRBRAKE_API_KEY),
-    devMode = !!process.env.STATIC_FILES_HOST,
+    devMode = "localhost" === process.env["STATIC_FILES_HOST"],
     _ = require('underscore');
 
 app.disable('x-powered-by'); // save a whale
@@ -633,7 +633,7 @@ function redirectIfNotHttps(req, res, next) {
 
   // IE is picky, so use HTTP.
   // TODO figure out IE situation, (proxy static files in worst-case)
-  exempt |= /MSIE/.exec(req.headers['user-agent']); // TODO test IE11
+  exempt = exempt || /MSIE/.test(req.headers['user-agent']); // TODO test IE11
 
   if (exempt) {
     return next();
@@ -641,9 +641,8 @@ function redirectIfNotHttps(req, res, next) {
 
   if (!/https/.test(req.protocol)){
      res.redirect("https://" + req.headers.host + req.url);
-  } else {
-     return next();
   }
+  return next();
 }
 
 app.use(redirectIfNotHttps);
