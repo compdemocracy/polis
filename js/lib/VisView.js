@@ -383,11 +383,21 @@ function shouldShowVoteIcons() {
 function chooseAlpha(d) {
     if (shouldShowVoteIcons()) {
         if (d.effects === undefined) {
-            // no vote
+            // no-vote
+            // This should help differentiate a pass from a no-vote.
             return 0.5;
         }
         // pass still gets full alpha
+    } else {
+        if (!isSelf(d)) {
+            var voteCount = getTotalVotesByPidSync(d.pid);
+            maxVoteCount = Math.max(voteCount, maxVoteCount);
+            var ratio = (voteCount + 1) / (maxVoteCount + 1);
+            scale = Math.max(0.3, ratio);
+            return ratio;
+        }
     }
+    // isSelf or has voted on selected tid
     return 1;
 }
 
