@@ -58,7 +58,7 @@ if (isIE8) {
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 7]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
-var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 2]).domain([350, 800]).clamp(true);
+var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
 
 // Cached results of tunalbes - set during init
 var strokeWidth;
@@ -351,6 +351,7 @@ var colorPush = "#e74c3c"; // ALIZARIN
 var colorPass = "#BDC3C7"; // SILVER
 var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
 var colorNoVote = colorPass;
+var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
 
 function chooseFill(d) {
 
@@ -372,6 +373,15 @@ function chooseFill(d) {
             return colorSelf;
         } else {
             return colorNoVote;
+        }
+    }
+}
+function chooseStroke(d) {
+    if (selectedCluster !== false) {
+
+    } else {
+        if (isSelf(d)) {
+            return colorSelfOutline;
         }
     }
 }
@@ -633,6 +643,7 @@ function upsertNode(updatedNodes, newClusters) {
       // .attr("r", chooseRadius)
       .attr("d", chooseShape)
       .style("stroke-width", strokeWidth)
+      .style("stroke", chooseStroke)
       .style("fill", chooseFill)
       .style("fill-opacity", chooseAlpha)
       // .attr("transform", function(d) {
@@ -690,6 +701,7 @@ function selectComment(tid) {
         }
         visualization.selectAll(".ptpt")
           .style("fill", chooseFill)
+          .style("stroke", chooseStroke)
           .style("fill-opacity", chooseAlpha)
           // .attr("r", chooseRadius)
           .attr("d", chooseShape)
@@ -743,6 +755,7 @@ function unhoverAll() {
         delete node.effects;
     }
     visualization.selectAll(".ptpt")
+        .style("stroke", chooseStroke)
         .style("fill", chooseFill)
         .style("fill-opacity", chooseAlpha)
         // .attr("r", chooseRadius)
