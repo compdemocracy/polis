@@ -437,9 +437,10 @@ function chooseShape(d) {
 
 function chooseTransform(d) {
     var scale = 1;
-    // if (isSelf(d)) {
-    //     scale = 2;
-    // } else {
+    if (isSelf(d) && !shouldShowVoteIcons()) {
+        scale = 1.5;
+    }
+    // else {
     //     var voteCount = getTotalVotesByPidSync(d.pid);
     //     maxVoteCount = Math.max(voteCount, maxVoteCount);
     //     var ratio = (voteCount + 1) / (maxVoteCount + 1);
