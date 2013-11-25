@@ -212,6 +212,7 @@ function argMax(f, args) {
 function setClusterActive(clusterId) {
     var pids = clusters[clusterId];
     selectedPids = pids;
+    selectedCluster = clusterId;
     var promise = getCommentsForSelection(pids)
       .pipe( // getCommentsForSelection with clusters array (of pids)
         renderComments,                                 // !! this is tightly coupled.
@@ -232,15 +233,25 @@ function setClusterActive(clusterId) {
     //     .style("fill","lightgreen")
     //     .style("stroke","lightgreen");
 
-    selectedCluster = clusterId;
     return promise;
+}
+
+function updateHullColors() {
+    if (selectedCluster !== false) {
+       d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
+    }
 }
 
 function onClusterClicked(d) {
     if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
     } else {
-        setClusterActive(d.hullId);  //selection-results:2 fire setClusterActive with onClusterClicked as the context, passing in d
+        setClusterActive(d.hullId)
+            .then(
+                updateHulls,
+                updateHulls);
+
+        updateHullColors();
     }
 
     //zoomToHull.call(this, d);
@@ -295,9 +306,7 @@ function updateHulls() {
         stuff.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
         d3Hull.datum(stuff).attr("d", makeHullShape(stuff));
     }
-    if (selectedCluster !== false) {
-        d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
-    }
+    updateHullColors();
 }
 
 force.on("tick", function(e) {
