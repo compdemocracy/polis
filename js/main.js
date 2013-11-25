@@ -12,6 +12,9 @@ require([
   "bootstrap_transition"
 ], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
 
+  if (!window.location.hostname.match(/polis/)) {
+    window.document.title = window.location.port;
+  }
 
   // debug convenience function for deregistering.
   window.deregister = function() {
