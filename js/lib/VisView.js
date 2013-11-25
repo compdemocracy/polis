@@ -246,6 +246,8 @@ function onClusterClicked(d) {
     if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
     } else {
+        resetSelectedComment();
+        unhoverAll();
         setClusterActive(d.hullId)
             .then(
                 updateHulls,
@@ -460,8 +462,6 @@ function isSelf(d) {
     return d.pid === getPersonId();
 }
 
-
-
 function hashCode(s){
     var hash = 0,
         i,
@@ -675,9 +675,6 @@ function upsertNode(updatedNodes, newClusters) {
 
 function selectComment(tid) {
     selectedTid = tid;
-    if (d3CommentList) {
-        d3CommentList.classed("query_result_item_hover", false);
-    }
 
     getReactionsToComment(tid)
       // .done(unhoverAll)
@@ -711,7 +708,16 @@ function selectComment(tid) {
     }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
     });
-    $(this).addClass("query_result_item_hover");
+    d3CommentList
+        .style("background-color", chooseCommentFill);
+}
+
+function chooseCommentFill(d) {
+    if (selectedTid === d.tid) {
+        return "#FFFBE8";
+    } else {
+        return "rgba(0,0,0,0)";
+    }
 }
 
 function renderComments(comments) {
@@ -731,13 +737,14 @@ function renderComments(comments) {
     d3CommentList.enter()
         .append("li")
         .classed("query_result_item", true)
+        .style("background-color", chooseCommentFill)
         .on("click", function(d) {
             selectComment(d.tid);
         })
         .text(function(d) { return d.txt; });
 
     d3CommentList.exit().remove();
-    setTimeout(dfd.resolve, 0);
+    setTimeout(dfd.resolve, 4000);
     return dfd.promise();
 }
 
@@ -750,7 +757,8 @@ function onParticipantClicked(d) {
 
 function unhoverAll() {
   console.log("unhoverAll");
-    $(el_queryResultSelector).removeClass("query_result_item_hover");
+    d3CommentList
+        .style("background-color", chooseCommentFill);
     for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
         delete node.effects;
@@ -765,6 +773,10 @@ function unhoverAll() {
     ;
 }
 
+function resetSelectedComment() {
+  selectedTid = -1;
+}
+
 function resetSelection() {
   console.log("resetSelection");
   visualization.selectAll(".active").classed("active", false);
@@ -772,7 +784,7 @@ function resetSelection() {
   // visualization.transition().duration(750).attr("transform", "");
   renderComments([]);
   selectedPids = [];
-  selectedTid = -1;
+  resetSelectedComment();
   unhoverAll();
 }
 
