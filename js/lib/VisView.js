@@ -346,12 +346,13 @@ window.P.stop = function() {
 //     }
 //     return r;
 // }
+var colorPull = "#2ecc71"; // EMERALD
+var colorPush = "#e74c3c"; // ALIZARIN
+var colorPass = "#BDC3C7"; // SILVER
+var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
+var colorNoVote = colorPass;
+
 function chooseFill(d) {
-    var colorPull = "#2ecc71"; // EMERALD
-    var colorPush = "#e74c3c"; // ALIZARIN
-    var colorPass = "#BDC3C7"; // SILVER
-    var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
-    var colorNoVote = colorPass;
 
 
     if (selectedCluster !== false) {
