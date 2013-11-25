@@ -39,6 +39,7 @@ var http = require('http'),
         token: process.env['PUSHOVER_POLIS_PROXY_API_KEY'],
     }),
     airbrake = require('airbrake').createClient(process.env.AIRBRAKE_API_KEY),
+    devMode = !!process.env.STATIC_FILES_HOST,
     _ = require('underscore');
 
 app.disable('x-powered-by'); // save a whale
@@ -625,6 +626,27 @@ function writeDefaultHead(req, res, next) {
     });
     next();
 }
+
+function redirectIfNotHttps(req, res, next) {
+
+  var exempt = devMode;
+
+  // IE is picky, so use HTTP.
+  // TODO figure out IE situation, (proxy static files in worst-case)
+  exempt |= /MSIE/.exec(req.headers['user-agent']); // TODO test IE11
+
+  if (exempt) {
+    return next();
+  }
+
+  if (!/https/.test(req.protocol)){
+     res.redirect("https://" + req.headers.host + req.url);
+  } else {
+     return next();
+  }
+}
+
+app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
 app.use(express.logger());
 app.use(express.cookieParser());
@@ -2280,16 +2302,7 @@ function getStaticFile(contentPath, res) {
 
 var routingProxy = new httpProxy.RoutingProxy();
 
-
-var devMode = !!process.env.STATIC_FILES_HOST;
 function proxy(req, res) {
-    if (!devMode) {
-        // force https for production
-        if ('https' !== req.protocol) {
-            res.status(302).setHeader('Location', 'https://www.polis.io').end();
-            return;
-        }
-    }
     if (devMode) {
         res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.setHeader('Pragma', 'no-cache');
