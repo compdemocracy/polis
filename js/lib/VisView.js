@@ -411,7 +411,7 @@ function chooseShape(d) {
             return d3.svg.symbol().type("triangle-down")(d);
         } else if (d.effects === 0){
             // pass
-            return d3.svg.symbol().type("square")(d);
+            return d3.svg.symbol().type("circle")(d);
         } else {
             // no vote
             return d3.svg.symbol().type("circle")(d);
