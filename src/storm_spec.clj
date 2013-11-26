@@ -1,10 +1,7 @@
 (ns storm-spec
   (:import [backtype.storm StormSubmitter LocalCluster])
+  (:require [incanter.core :as ic.core])
   (:use [backtype.storm clojure config]
-        [incanter [core :exclude [trace]] stats charts]
-        clojure.tools.trace
-        lamina.core aleph.tcp
-        gloss.core
         matrix-utils
         [clojure.data.json :as json])
   (:gen-class))
