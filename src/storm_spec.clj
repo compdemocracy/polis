@@ -7,37 +7,37 @@
   (:gen-class))
 
 
-(def n-convs 3)
 
-
-; This simulates reactions coming in from a bunch of different sources, one reaction at a time
-(defn reaction-gen [start]
+(defn make-reaction-gen [n-convs start-n]
+  "This function creates an infinite sequence of reations which models an increasing number of comments and
+  people over time, over some number of conversations n-convs. The start-n argument sets the initial number of
+  ptpts and cmts per conversation."
+  ; I <3 clojure...
   (mapcat
     #(random-reactions % % :n-convs n-convs)
-    (map #(+ % start) (range))))
+    (map #(+ % start-n) (range))))
 
 
-(def reaction-gen-atom (atom (reaction-gen 3)))
-
-
-(defspout reaction-spout ["conv-id" "reaction"]
+(defspout reaction-spout ["conv-id" "reaction"] {:prepare true}
   [conf context collector]
-  (spout
-    (nextTuple []
-      (let [reaction (first @reaction-gen-atom)
-            conv-id (first reaction)
-            rest-reaction (rest reaction)]
-        (Thread/sleep 1000)
-        (println "RUNNING SPOUT")
-        (swap! reaction-gen-atom rest)
-        (emit-spout! collector [conv-id rest-reaction])))
-    (ack [id])))
-
-
 (defn data-updater [update-fn init-fn]
   (fn [data conv-id inputs]
     (let [value (or (get data conv-id) (init-fn))]
       (update-fn value inputs))))
+
+  (let [n-convs 3
+        start-n 3
+        reaction-gen (atom (make-reaction-gen n-convs start-n))]
+    (spout
+      (nextTuple []
+        (let [reaction (first @reaction-gen)
+              conv-id (first reaction)
+              rest-reaction (rest reaction)]
+          (Thread/sleep 1000)
+          (println "RUNNING SPOUT")
+          (swap! reaction-gen rest)
+          (emit-spout! collector [conv-id rest-reaction])))
+      (ack [id]))))
 
 
 (defbolt rating-matrix ["conv-id" "rating-matrix"] {:prepare true}
