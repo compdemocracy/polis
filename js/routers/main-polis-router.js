@@ -15,6 +15,8 @@ define([  //begin dependencies
   "views/create-user-form",
   "views/login-form",
   "views/landing-page",
+  "views/passwordResetInitView",
+  "views/passwordResetView",
   "util/polisStorage",
   "jquery"
 ], function (  //begin args
@@ -34,6 +36,8 @@ define([  //begin dependencies
 		CreateUserFormView,
     LoginFormView,
     LandingPageView,
+    PasswordResetInitView,
+    PasswordResetView,
     PolisStorage,
     $
 	) {  //end args, begin function block
@@ -53,12 +57,14 @@ define([  //begin dependencies
       "user/login":"login",
       "settings": "deregister",
       "inbox(/:filter)": "inbox",
+      "pwresetinit" : "pwResetInit",
       "": "landingPageView"
       // see others in the initialize method
     },
     initialize: function(options) {
       this.route(/([0-9]+)/, "conversationView");  // zid
       this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
+      this.route(/^pwreset\/(.*)/, "pwReset");
     },
     bail: function() {
       this.navigate("/", {trigger: true});
@@ -291,6 +297,16 @@ define([  //begin dependencies
       that.navigate("inbox", {trigger: true});
       // that.inbox();
     });
+  },
+  pwReset: function(pwresettoken) {
+    var view = new PasswordResetView({
+      pwresettoken: pwresettoken
+    });
+    RootView.getInstance().setView(view);
+  },
+  pwResetInit: function() {
+    var view = new PasswordResetInitView();
+    RootView.getInstance().setView(view);
   },
   login: function(zid){
     var that = this;
