@@ -12,6 +12,21 @@
 // TODO try mongo explain https://github.com/mongodb/node-mongodb-native/blob/master/examples/queries.js#L90
 
 
+
+
+/*
+    DNS notes:
+
+    Mailgun verification:
+     mx._domainkey.polis.io
+     polis.io TXT record v=spf1 include:mailgun.org ~all
+
+    Mailgun open/click tracking
+     CNAME email.polis.io => mailgun.org
+
+
+*/
+
 console.log('redisAuth url ' +process.env.REDISTOGO_URL);
 console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
@@ -38,6 +53,13 @@ var http = require('http'),
         user: process.env['PUSHOVER_GROUP_POLIS_DEV'],
         token: process.env['PUSHOVER_POLIS_PROXY_API_KEY'],
     }),
+    sendgrid = require('sendgrid')(
+      process.env['SENDGRID_USERNAME'],
+      process.env['SENDGRID_PASSWORD'],
+      {api: 'smtp'}
+    ),
+    Mailgun = require('mailgun').Mailgun,
+    mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
     airbrake = require('airbrake').createClient(process.env.AIRBRAKE_API_KEY),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
     _ = require('underscore');
@@ -46,7 +68,33 @@ app.disable('x-powered-by'); // save a whale
 
 airbrake.handleExceptions();
 
+// sendgrid.send({
+//   to: 'm@bjorkegren.com',
+//   from: 'noreply@polis.io',
+//   subject: 'Hello World',
+//   text: 'Sending email with NodeJS through SendGrid!'
+// }, function(err, json) {
+//     if (err) { 
+//         console.log("sendgrid");
+//         console.error(err);
 
+//         return;
+//     }
+//     console.log(json);
+// });
+
+// mailgun.sendText('noreply@polis.io', ['Mike <m@bjorkegren.com>', 'michael@bjorkegren.com'],
+//   'This is the subject',
+//   'This is the text',
+//   'noreply@polis.io', {},
+//   function(err) {
+//     if (err) {
+//         console.log('mailgun Oh noes: ' + err);
+//         console.dir(arguments);
+//     } else {
+//         console.log('mailgun success');
+//     }
+// });
 
 var cookieNames = [
     "token",
@@ -195,6 +243,36 @@ function startSession(userID, cb) {
 
 function endSession(sessionToken, cb) {
     redisForAuth.del(sessionToken, function(errDelToken, repliesSetToken) {
+        if (errDelToken) { cb(errDelToken); return; }
+        cb(null);
+    });
+}
+
+
+function setupPwReset(uid, cb) {
+    function makePwResetToken() {
+        // These can probably be shortened at some point.
+        return crypto.randomBytes(140).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 100);
+    }
+    var token = makePwResetToken();
+    redisForAuth.set(token, uid, function(errSetToken, repliesSetToken) {
+        if (errSetToken) { cb(errSetToken); return; }
+        var seconds = 2*60*60;
+        redisForAuth.expire(token, seconds, function(errSetTokenExpire, repliesExpire) {
+            if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
+            cb(null, token);
+        });
+    });
+}
+function getUidForPwResetToken(pwresettoken, cb) {
+    redisForAuth.get(pwresettoken, function(errGetToken, replies) {
+        if (errGetToken) { console.error("pwresettoken_fetch_error"); cb(500); return; }
+        if (!replies) { console.error("token_expired_or_missing"); cb(403); return; }
+        cb(null, {uid: replies});
+    });
+}
+function clearPwResetToken(pwresettoken, cb) {
+    redisForAuth.del(pwresettoken, function(errDelToken, repliesSetToken) {
         if (errDelToken) { cb(errDelToken); return; }
         cb(null);
     });
@@ -386,6 +464,16 @@ function getEmail(s) {
     }
     return s;
 }
+
+function getPassword(s) {
+    if (typeof s !== "string" || s.length > 999) {
+        throw "polis_fail_parse_password";
+    } else if (s.length < 6) {
+        throw "polis_err_password_too_short";
+    }
+    return s;
+}
+
 function getOptionalStringLimitLength(limit) {
     return function(s) {
         if (s.length && s.length > limit) {
@@ -526,6 +614,18 @@ function addCookie(res, token) {
 
     res.cookie('token', token, o);
 }
+
+function generateHashedPassword(password, callback) {
+    bcrypt.genSalt(12, function(errSalt, salt) {
+        if (errSalt) { return callback("polis_err_salt"); return; }
+        bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+            if (errHash) { return callback("polis_err_hash");}
+            callback(null, hashedPassword);
+        });
+    });
+}
+
+
 
 
 function initializePolisAPI(err, args) {
@@ -752,6 +852,57 @@ app.get("/v3/math/pca",
         });
         */
     });
+
+app.post("/v3/auth/password",
+    logPath,
+    need('pwresettoken', getOptionalStringLimitLength(1000), assignToP),
+    need('newPassword', getPassword, assignToP),
+function(req, res) {
+    var pwresettoken = req.p.pwresettoken;
+    var newPassword = req.p.newPassword;
+
+    getUidForPwResetToken(pwresettoken, function(err, userParams) {
+        if (err) { console.error(err); fail(res, 9823749823, "Password Reset failed. Couldn't find matching pwresettoken."); return; }
+        var uid = Number(userParams.uid);        
+        generateHashedPassword(newPassword, function(err, hashedPassword) {
+            client.query("UPDATE users SET pwhash = ($1) where uid=($2);", [hashedPassword, uid], function(err, results) {
+                if (err) { console.error(err); fail(res, 938459345, "Couldn't reset password."); return; }
+                res.status(200).json("Password reset successful.");
+                clearPwResetToken(pwresettoken, function(err) {
+                    if (err) {console.error(err); console.error("polis_err_auth_pwresettoken_clear_fail"); }
+                });
+            });
+        });
+    });
+});
+
+app.post("/v3/auth/pwresettoken",
+    logPath,
+    need('email', getEmail, assignToP),
+function(req, res) {
+    var email = req.p.email;
+    getUidByEmail(email, function(err, uid) {
+        setupPwReset(uid, function(err, pwresettoken) {
+            sendPasswordResetEmail(uid, pwresettoken, function(err) {
+                if (err) { console.error(err); fail(res, 4378658734, "Error: Couldn't send password reset email."); return; }
+                res.status(200).json("Password reset email sent, please check your email.");
+            });
+        });
+    });
+});
+
+function getUidByEmail(email, callback) {
+    client.query("SELECT uid FROM users where email = ($1);", [email], function(err, results) {
+        if (err) { return callback(err); }
+        if (!results || !results.rows || !results.rows.length) {
+            return callback(1);
+        }
+        callback(null, results.rows[0].uid);
+    });
+}
+
+
+
 
 app.post("/v3/auth/deregister",
     logPath,
@@ -1015,6 +1166,68 @@ function getAnswersForConversation(zid, callback) {
     });
 }
 
+function getUserInfoForUid(uid, callback) {
+    client.query("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
+        if (err) { return callback(err); }
+        if (!results.rows || !results.rows.length) {
+            return callback(null);
+        }
+        callback(null, results.rows[0]);
+    });
+}
+// function sendEmailToUser(uid, subject, bodyText, callback) {
+//     getEmailForUid(uid, function(err, email) {
+//         if (err) { return callback(err);}
+//         if (!email) { return callback('missing email');}
+//         // mailgun.sendText('noreply@polis.io', ['Mike <m@bjorkegren.com>', 'michael@bjorkegren.com'],        
+//         mailgun.sendText(
+//             'noreply@polis.io',
+//             [email],
+//             subject,
+//             bodyText,
+//             'noreply@polis.io', {},
+//             function(err) {
+//                 if (err) {
+//                  console.error('mailgun send error: ' + err);
+//                 }
+//                 callback(err);
+//             }
+//         ); 
+//     });
+// }
+
+
+function sendPasswordResetEmail(uid, pwresettoken, callback) {
+    getUserInfoForUid(uid, function(err, userInfo) {
+        if (err) { return callback(err);}
+        if (!userInfo) { return callback('missing user info');}
+        var server = devMode ? "http://localhost:5000" : "https://www.polis.io";
+        var body = "" +
+            "Hi " + userInfo.hname + ",\n" +
+            "\n" +
+            "We have just received a password reset request for " + userInfo.email + "\n" +
+            "\n" +
+            "To reset your password, visit this url:\n" +
+            server + "/#pwreset/" + pwresettoken + "\n" +
+            "\n" +
+            "Thank you for using Polis\n";
+
+        mailgun.sendText(
+            'Polis Support <noreply@polis.io>',
+            [userInfo.email],
+            "Polis Password Reset",
+            body,
+            'noreply@polis.io', {},
+            function(err) {
+                if (err) {
+                    console.error('mailgun send error: ' + err);
+                }
+                callback(err);
+            }
+        );
+    });
+}
+
 app.get("/v3/participants",
     logPath,
     auth,
@@ -1239,7 +1452,7 @@ app.post("/v3/auth/new",
     logPath,
     want('anon', getBool, assignToP),
     want('username', getOptionalStringLimitLength(999), assignToP),
-    want('password', getOptionalStringLimitLength(999), assignToP),
+    want('password', getPassword, assignToP),
     want('email', getOptionalStringLimitLength(999), assignToP),
     want('hname', getOptionalStringLimitLength(999), assignToP),
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
@@ -1272,6 +1485,7 @@ function(req, res) {
     finishedValidatingInvite();
   }
 
+
   function finishedValidatingInvite() {
     if (!email) { fail(res, 5748932, "polis_err_reg_need_email"); return; }
     if (!hname) { fail(res, 5748532, "polis_err_reg_need_name"); return; }
@@ -1284,16 +1498,7 @@ function(req, res) {
             if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
             if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
 
-            bcrypt.genSalt(12, function(errSalt, salt) {
-                if (errSalt) { fail(res, 238943585, "polis_err_reg_123"); return; }
-
-                bcrypt.hash(password, salt, function(errHash, hashedPassword) {
-                    delete req.p.password;
-                    password = null;
-                    if (errHash) { fail(res, 238943594, "polis_err_reg_124"); return; }
-
-
-
+            generateHashedPassword(function(err, hashedPassword) {
                     // TODO update squel so we can use .returning
                     //squel.useFlavour('postgres');
                     // var query = squel.insert().into("users")
@@ -1335,8 +1540,7 @@ function(req, res) {
                             });
                         }); // end startSession
                     }); // end insert user
-                }); // end hash
-            }); // end gensalt
+            }); // end generateHashedPassword
     }); // end find existing users
   } // end finishedValidatingInvite
 }); // end /v3/auth/new

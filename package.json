@@ -7,8 +7,8 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "engines": {
-    "node": "0.8.26",
-    "npm": "1.1.x"
+    "node": "0.10.22",
+    "npm": "1.3.14"
   },
   "repository": {
     "type": "git",
@@ -21,10 +21,8 @@
   },
   "dependencies": {
     "underscore": "~1.5.2",
-    "path": "~0.4.9",
-    "crypto": "0.0.3",
     "mongodb": "~1.1.11",
-    "pg": "~0.8.8",
+    "pg": "~2.6.2",
     "async": "~0.1.22",
     "mysql": "~2.0.0-alpha7",
     "optimist": "~0.3.5",
@@ -35,6 +33,8 @@
     "squel": "~1.1.3",
     "http-proxy": "~0.10.3",
     "pushover-notifications": "~0.1.5",
-    "airbrake": "~0.3.4"
+    "airbrake": "~0.3.4",
+    "mailgun": "~0.4.2",
+    "sendgrid": "~0.4.4"
   }
 }
