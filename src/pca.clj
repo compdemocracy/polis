@@ -50,7 +50,7 @@
         n-cols (count (first data))
         start-vector (or start-vector (repeatv n-cols 1))
         ; XXX - this add extra cols to the start vector if we have new comments... should test
-        start-vector (into start-vector (repeatv (- (count start-vector) n-cols) 0))]
+        start-vector (into [] (concat start-vector (repeatv (- n-cols (count start-vector)) 1)))]
     (loop [iters iters start-vector start-vector last-eigval 0]
       (let [product-vector (xtxr data start-vector)
             eigval (norm product-vector)

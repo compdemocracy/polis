@@ -1,5 +1,7 @@
 (ns utils)
 
 (defn zip [xss]
-  (partition (count xss) (apply interleave xss)))
+  (if (> (count xss) 1)
+    (partition (count xss) (apply interleave xss))
+    xss))
 
