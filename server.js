@@ -53,11 +53,11 @@ var http = require('http'),
         user: process.env['PUSHOVER_GROUP_POLIS_DEV'],
         token: process.env['PUSHOVER_POLIS_PROXY_API_KEY'],
     }),
-    sendgrid = require('sendgrid')(
-      process.env['SENDGRID_USERNAME'],
-      process.env['SENDGRID_PASSWORD'],
-      {api: 'smtp'}
-    ),
+    // sendgrid = require('sendgrid')(
+    //   process.env['SENDGRID_USERNAME'],
+    //   process.env['SENDGRID_PASSWORD'],
+    //   {api: 'smtp'}
+    // ),
     Mailgun = require('mailgun').Mailgun,
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
     airbrake = require('airbrake').createClient(process.env.AIRBRAKE_API_KEY),
