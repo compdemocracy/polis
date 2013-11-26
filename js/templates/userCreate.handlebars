@@ -1,15 +1,36 @@
 <section class="container">
 <div class="row">
-	<div class="span4 offset4">
-		<h1>Welcome to Polis</h1>
-		<p> To participate in this conversation, you'll need to create a Polis account. </p>
-		<h4 class="formTextHeader"> Create New User: </h4>
-		<form>
-		  <input type="text" name="hname" placeholder="Full Name" />
-		  <input type="text" name="email" placeholder="Email" />
-		  <input type="password" name="password" placeholder="Password" />
-		  <button type="submit" class="btn btn-large"> Create New User </button>
-		</form>
-	</div> <!-- span -->
+  <div class="span4 offset4">
+    <h1>Welcome to Polis</h1>
+  {{#if create}}
+    <p> To participate in this conversation, you'll need to create a Polis account. </p>
+    <h4 class="formTextHeader"> Create New Account: </h4>
+    <form>
+      <input type="text" name="hname" placeholder="Full Name" />
+      <input type="text" name="email" placeholder="Email" />
+      <input type="password" name="password" placeholder="Password" />
+      <button type="submit" class="btn btn-large"> Create New Account </button>
+    </form>
+
+  {{else}}
+    <p> To participate in this conversation, you'll need to sign in with a Polis account. </p>
+    <h4 class="formTextHeader"> Sign in: </h4>
+    <form>
+      <input type="text" name="email" placeholder="Email" />
+      <input type="password" name="password" placeholder="Password" />
+      <button type="submit" class="btn btn-large"> Sign In </button>
+    </form>
+  {{/if}}
+    <div class="rel">
+      <span class="alternateRegOr">OR</span>
+      <div class="alternateReg">
+        {{#if create}}
+          <button class="gotoSignIn btn">I have an account and need to sign in.</button>
+        {{else}}
+          <button class="gotoCreate btn">Create new account</button>
+        {{/if}}
+      </div>
+    </div>
+  </div> <!-- span -->
 </div> <!-- row -->
 </section> <!-- container -->

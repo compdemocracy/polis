@@ -207,7 +207,7 @@ define([  //begin dependencies
   },
 
   conversationView: function(zid, zinvite) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
-    if (!authenticated()) { return this.bail(); }
+    if (!zinvite && !authenticated()) { return this.bail(); }
 
     var that = this;
 
@@ -263,7 +263,10 @@ define([  //begin dependencies
     var dfd = $.Deferred();
 
     var createUserFormView = new ConversationGatekeeperViewCreateUser({
-      zinvite: zinvite
+      model : new Backbone.Model({
+        zinvite: zinvite,
+        create: true
+      })
     });
     createUserFormView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(createUserFormView);
@@ -273,7 +276,10 @@ define([  //begin dependencies
     var dfd = $.Deferred();
 
     var createUserFormView = new CreateUserFormView({
-      zinvite: zinvite
+      model : new Backbone.Model({
+        zinvite: zinvite,
+        create: true
+      })
     });
     createUserFormView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(createUserFormView);
