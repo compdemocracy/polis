@@ -10,7 +10,6 @@
             [io :as ic.io])
          ;['hiphip.double :as 'dbl]
          ['clojure.tools.trace :as 'tr])
-(use 'clojure.tools.trace)
 
 
 (defn dot [^doubles xs ^doubles ys]
@@ -85,8 +84,7 @@
 (defn powerit-pca [data n-comps & {:keys [iters start-vectors]}]
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
-  (let [data-cntr (ic.core/trans (mean-vector data))
-        cntrd-data (mapv #(ic.core/minus % data-cntr) data)
+  (let [cntrd-data (centered-data data)
         start-vectors (or start-vectors [])]
     (loop [data' cntrd-data n-comps' n-comps pcs [] start-vectors start-vectors]
       (let [pc (power-iteration data' iters (first start-vectors)) ; may eventually want to return eigenvals...
