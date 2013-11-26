@@ -22,7 +22,16 @@ define([
         this.serialize(function(attrs, release){
 
           attrs.pwresettoken = that.pwresettoken;
-          
+
+          if(attrs.newPassword !== attrs.pw2){
+            alert("Passwords must match.");
+            return;
+          }
+          if(attrs.newPassword.length < 8){
+            alert("Password needs to be at least 8 characters.");
+            return;
+          }
+
           $.ajax({
             url: urlPrefix + "v3/auth/password",
             type: "POST",
@@ -34,33 +43,14 @@ define([
             data: attrs
           }).then(function(message) {
             alert(message);
-            release();
+            // reload the page to clear out the password from memory
+            window.location = window.location.protocol + "//" + window.location.host + window.location.pathname
           }, function(errmessage) {
             alert(errmessage);
             release();
           });
         });
-      },
-      "invalid": function(errors){
-        console.log("invalid form input" + errors[0].name);
-        console.log(errors);
-
-       //_.each(errors, function(err){
-          $("input[name=\""+errors[0].name+"\"]").closest("label").append(errors[0].message); // relationship between each input and error name
-        //})
       }
-    },
-   
-    validateInput: function(attrs){
-      var errors = [];
-
-      if(attrs.newPassword !== attrs.pw2){
-        errors.push({name: "description",  message: "Passwords must match."});
-      }
-      if(attrs.newPassword.length < 8){
-        errors.push({name: "description",  message: "Password needs to be at least 8 characters."});
-      }
-      return errors;
     },
     initialize: function(options) {
       this.pwresettoken = options.pwresettoken;
