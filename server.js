@@ -1,19 +1,5 @@
 (function() { "use strict";
 
-// TODO security - the server needs to assert that the uid associated with the auth token matches the pid for the given conversation.
-
-// TODO start checking auth token, test it, remove it from json data
-// TODO make different logger
-// TODO decide on timestamp/id/hash precision
-// TODO add a conversationID
-//
-// TODO crap! you have to sync ALL the events, or no events.. let's just make a nice rest api and do the work on the server.
-//
-// TODO try mongo explain https://github.com/mongodb/node-mongodb-native/blob/master/examples/queries.js#L90
-
-
-
-
 /*
     DNS notes:
 
