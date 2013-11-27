@@ -10,13 +10,14 @@ define([
   $
 ) {
 
+  var urlPrefix = "http://api.polis.io/";
+  if (-1 === document.domain.indexOf(".polis.io")) {
+    urlPrefix = "http://localhost:5000/";
+  }
+
   function createUser(event) {
     var that = this;
     event.preventDefault();
-    var urlPrefix = "http://api.polis.io/";
-    if (-1 === document.domain.indexOf(".polis.io")) {
-        urlPrefix = "http://localhost:5000/";
-    }
     this.serialize(function(attrs, release){
       PolisStorage.clearAll(); // clear old user - TODO setup deregistration
 
@@ -50,10 +51,6 @@ define([
   function signIn(event) {
     var that = this;
     event.preventDefault();
-    var urlPrefix = "http://api.polis.io/";
-    if (-1 === document.domain.indexOf(".polis.io")) {
-        urlPrefix = "http://localhost:5000/"; // TODO centralize the network config
-    }
     this.serialize(function(attrs, release){
       PolisStorage.clearAll(); // clear old user - TODO setup deregistration
 
