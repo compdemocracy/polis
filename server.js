@@ -410,8 +410,10 @@ String.prototype.hashCode = function(){
     return hash;
 };
 
-function notifyAirbrake(code) {
-    var e = new Error(code);
+function notifyAirbrake(e) {
+    if (!(e instanceof Error)) {
+        e = new Error(err);
+    }
     airbrake.notify(e, function(err, url) {
         console.log(url);
       if (err) {
@@ -422,10 +424,10 @@ function notifyAirbrake(code) {
     });
 }
 
-function fail(res, code, err, httpCode) {
-    console.error(code, err);
+function fail(res, httpCode, clientVisibleErrorString, err) {
+    console.error(clientVisibleErrorString, err);
     res.writeHead(httpCode || 500);
-    res.end(err);
+    res.end(clientVisibleErrorString);
     yell(err);
     notifyAirbrake(err);
 }
@@ -690,9 +692,9 @@ function votesPost(res, pid, zid, tid, voteType) {
     client.query(query, params, function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
-                fail(res, 57493886, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
+                fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
             } else {
-                fail(res, 324234324, "polis_err_vote", 500);
+                fail(res, 500, "polis_err_vote", err);
             }
             return;
         }
@@ -711,7 +713,7 @@ function votesGet(res, p) {
         q = q.where("tid = ?", p.tid);
     }
     client.query(q.toString(), [], function(err, docs) {
-        if (err) { fail(res, 234234326, err); return; }
+        if (err) { fail(res, 500, "polis_err_votes_get", err); return; }
         res.json(docs.rows);
     });
 } // End votesGet
@@ -814,9 +816,9 @@ app.get("/v3/math/pca",
             {zid: req.p.zid},
             {lastVoteTimestamp: {$gt: req.p.lastVoteTimestamp}},
             ]}, function(err, cursor) {
-            if (err) { fail(res, 2394622, "polis_err_get_pca_results_find", 500); return; }
+            if (err) { fail(res, 500, "polis_err_get_pca_results_find", err); return; }
             cursor.toArray( function(err, docs) {
-                if (err) { fail(res, 2389364, "polis_err_get_pca_results_toarray", 500); return; }
+                if (err) { fail(res, 500, "polis_err_get_pca_results_find_toarray", err); return; }
                 if (docs.length) {
                     res.json(docs[0]);
                 } else {
@@ -825,32 +827,6 @@ app.get("/v3/math/pca",
                 }
             });
         });
-
-                /*
-        redisCloud.get("pca:timestamp:" + stimulus, function(errGetToken, replies) {
-            if (errGetToken) {
-                fail(res, 287472365, errGetToken, 404);
-                return;
-            }
-            var timestampOfLatestMath = replies;
-            if (timestampOfLatestMath <= lastServerToken) {
-                res.end(204); // No Content
-                // log?
-                return;
-            }
-            // OK, looks like some newer math results are available, let's fetch those.
-            redisCloud.get("pca:" + stimulus, function(errGetToken, replies) {
-                if (errGetToken) {
-                    fail(res, 287472364, errGetToken);
-                    return;
-                }
-                res.json({
-                    lastServerToken: lastServerToken,
-                    pca: replies,
-                });
-            });
-        });
-        */
     });
 
 app.post("/v3/auth/password",
@@ -862,14 +838,14 @@ function(req, res) {
     var newPassword = req.p.newPassword;
 
     getUidForPwResetToken(pwresettoken, function(err, userParams) {
-        if (err) { console.error(err); fail(res, 9823749823, "Password Reset failed. Couldn't find matching pwresettoken."); return; }
+        if (err) { console.error(err); fail(res, 500, "Password Reset failed. Couldn't find matching pwresettoken.", err); return; }
         var uid = Number(userParams.uid);        
         generateHashedPassword(newPassword, function(err, hashedPassword) {
             client.query("UPDATE users SET pwhash = ($1) where uid=($2);", [hashedPassword, uid], function(err, results) {
-                if (err) { console.error(err); fail(res, 938459345, "Couldn't reset password."); return; }
+                if (err) { console.error(err); fail(res, 500, "Couldn't reset password.", err); return; }
                 res.status(200).json("Password reset successful.");
                 clearPwResetToken(pwresettoken, function(err) {
-                    if (err) {console.error(err); console.error("polis_err_auth_pwresettoken_clear_fail"); }
+                    if (err) {console.error(err); notifyAirbrake(err); console.error("polis_err_auth_pwresettoken_clear_fail"); }
                 });
             });
         });
@@ -884,7 +860,7 @@ function(req, res) {
     getUidByEmail(email, function(err, uid) {
         setupPwReset(uid, function(err, pwresettoken) {
             sendPasswordResetEmail(uid, pwresettoken, function(err) {
-                if (err) { console.error(err); fail(res, 4378658734, "Error: Couldn't send password reset email."); return; }
+                if (err) { console.error(err); fail(res, 500, "Error: Couldn't send password reset email.", err); return; }
                 res.status(200).json("Password reset email sent, please check your email.");
             });
         });
@@ -919,7 +895,7 @@ function(req, res) {
         return finish();
     }
     endSession(token, function(err, data) {
-        if (err) { fail(res, 213489289, "couldn't end session"); return; }
+        if (err) { fail(res, 500, "couldn't end session", err); return; }
         finish();
     });
 });
@@ -934,7 +910,7 @@ function(req, res) {
     // if uid is not conversation owner, fail
     client.query('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) {
-            fail(res, 213489295, "polis_err_fetching_zinvite_invalid_conversation_or_owner");
+            fail(res, 500, "polis_err_fetching_zinvite_invalid_conversation_or_owner", err);
             return;
         }
         if (!results || !results.rows) {
@@ -944,7 +920,7 @@ function(req, res) {
         }
         client.query('SELECT * FROM zinvites WHERE zid = ($1);', [req.p.zid], function(err, results) {
             if (err) {
-                fail(res, 213489297, "polis_err_fetching_zinvite_invalid_conversation_or_owner_or_something");
+                fail(res, 500, "polis_err_fetching_zinvite_invalid_conversation_or_owner_or_something", err);
                 return;
             }
             if (!results || !results.rows) {
@@ -989,13 +965,13 @@ function(req, res) {
     var note = req.p.note;
 
     require('crypto').randomBytes(12, function(err, buf) {
-        if (err) { fail(res, 3453453, "polis_err_creating_oinvite_random_bytes", 500); return; }
+        if (err) { fail(res, "polis_err_creating_oinvite_random_bytes", err); return; }
 
         var oinvite = buf.toString('base64')
             .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
 
         client.query('INSERT INTO oinvites (oinvite, note, created) VALUES ($1, $2, default);', [oinvite, note], function(err, results) {
-            if (err) { fail(res, 234534523, "polis_err_creating_oinvite_db", 500); return; }
+            if (err) { fail(res, 500, "polis_err_creating_oinvite_db", err); return; }
             res.status(200).end(oinvite);
         });
     });  
@@ -1010,10 +986,10 @@ app.post("/v3/zinvites/:zid",
     need('uid', getInt, assignToP),
 function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
-        if (err) { fail(res, 213489299, "polis_err_creating_zinvite_invalid_conversation_or_owner"); return; }
+        if (err) { fail(res, 500, "polis_err_creating_zinvite_invalid_conversation_or_owner", err); return; }
 
         createZinvite(req.p.zid, function(err, zinvite) {
-            if (err) { fail(res, 213489302, err); return; }
+            if (err) { fail(res, 500, "polis_err_creating_zinvite", err); return; }
             res.status(200).json({
                 zinvite: zinvite,
             });
@@ -1242,7 +1218,7 @@ function(req, res) {
 
     function fetchOne() {
         client.query("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
-            if (err || !result || !result.rows || !result.rows.length) { fail(res, 213489303, "polis_err_fetching_participant_info"); return; }
+            if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
             var ptpt = result.rows[0];
             var data = {};
             // choose which fields to expose
@@ -1254,7 +1230,7 @@ function(req, res) {
     function fetchAll() {
         // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
         client.query("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
-            if (err || !result || !result.rows || !result.rows.length) { fail(res, 213489325, "polis_err_fetching_participant_info"); return; }
+            if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
             // console.dir(result.rows);
             res.json(result.rows);
             // .map(function(row) {
@@ -1263,7 +1239,7 @@ function(req, res) {
         });
     }
     client.query("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
-        if (err || !result || !result.rows || !result.rows.length) { fail(res, 213489304, "polis_err_fetching_participant_info"); return; }
+        if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
         if (result.rows[0].is_anon) {
             res.status(403).json({status: "polis_err_fetching_participant_info_conversation_is_anon"});
             return;
@@ -1326,13 +1302,13 @@ console.dir(answers);
         if (err) {
 
             userHasAnsweredZeQuestions(zid, answers, function(err) {
-                if (err) { fail(res, 213489277, err); return; }
+                if (err) { fail(res, 500, "polis_err_fetching_answers", err); return; }
                 // need to join
                 getConversationProperty(zid, "is_public", function(err, is_public) {
-                    if (err) { fail(res, 213489296, "polis_err_add_participant_property_missing"); return; }
+                    if (err) { fail(res, 500, "polis_err_add_participant_property_missing", err); return; }
                     function doJoin() {
                         joinConversation(zid, uid, answers, function(err, pid) {
-                            if (err) { fail(res, 213489292, "polis_err_add_participant"); return; }
+                            if (err) { fail(res, 500, "polis_err_add_participant", err); return; }
                             finish(pid);
                         });
                     }
@@ -1341,7 +1317,7 @@ console.dir(answers);
                     } else {
                         checkZinviteCodeValidity(zid, zinvite, function(err) {
                             if (err) {
-                                res.status(403).end("polis_err_add_participant_bad_zinvide_code");
+                                fail(res, 403, "polis_err_add_participant_bad_zinvide_code", err);
                             } else {
                                 doJoin();
                             }
@@ -1379,7 +1355,7 @@ app.post("/v3/beta",
         client.query("INSERT INTO beta (email, name, organization, created) VALUES ($1, $2, $3, default);", [email, name, organization], function(err, result) {
             if (err) { 
                 console.log(email, name, organization);
-                fail(res, 238943628, "polis_err_beta_registration", 403);
+                fail(res, 403, "polis_err_beta_registration", err);
                 return;
             }
             res.status(200).json({});
@@ -1399,16 +1375,16 @@ function(req, res) {
     var handles = [];
     if (username) { handles.push({username: username}); }
     if (email) { handles.push({email: email}); }
-    if (!_.isString(password)) { fail(res, 238943622, "polis_err_login_need_password", 403); return; }
+    if (!_.isString(password)) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
     client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2);", [username, email], function(err, docs) {
         docs = docs.rows;
-        if (err) { fail(res, 238943624, "polis_err_login_unknown_user_or_password", 403); return; }
-        if (!docs || docs.length === 0) { fail(res, 238943625, "polis_err_login_unknown_user_or_password", 403); return; }
+        if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); return; }
+        if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); return; }
         var hashedPassword  = docs[0].pwhash;
         var userID = docs[0].uid;
 
         bcrypt.compare(password, hashedPassword, function(errCompare, result) {
-            if (errCompare || !result) { fail(res, 238943623, "polis_err_login_unknown_user_or_password", 403); return; }
+            if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); return; }
             
             startSession(userID, function(errSess, token) {
                 var response_data = {
@@ -1471,14 +1447,14 @@ function(req, res) {
   }
   if (oinvite) {
     oinviteExists(oinvite, function(err, ok) {
-      if (err) { console.error(err); fail(res, 34534534, "polis_err_reg_oinvite", 500); return; }
-      if (!ok) { fail(res, 34534532, "polis_err_reg_unknown_oinvite", 403); return; }
+      if (err) { fail(res, 500, "polis_err_reg_oinvite", err); return; }
+      if (!ok) { fail(res, 403, "polis_err_reg_unknown_oinvite", new Error("polis_err_reg_unknown_oinvite"); return; }
       finishedValidatingInvite();
    });
   } else if (zinvite) {
     zinviteExists(zinvite, function(err, ok) {
-      if (err) { console.error(err); fail(res, 43534534, "polis_err_reg_zinvite", 500); return; }
-      if (!ok) { fail(res, 435345346, "polis_err_reg_unknown_zinvite", 403); return; }
+      if (err) { fail(res, 500, "polis_err_reg_zinvite", err); return; }
+      if (!ok) { fail(res, 403, "polis_err_reg_unknown_zinvite", new Error("polis_err_reg_unknown_oinvite")); return; }
       finishedValidatingInvite();
     });
   } else {
@@ -1487,18 +1463,18 @@ function(req, res) {
 
 
   function finishedValidatingInvite() {
-    if (!email) { fail(res, 5748932, "polis_err_reg_need_email"); return; }
-    if (!hname) { fail(res, 5748532, "polis_err_reg_need_name"); return; }
-    if (!password) { fail(res, 5748933, "polis_err_reg_password"); return; }
-    if (password.length < 6) { fail(res, 5748933, "polis_err_reg_password_too_short"); return; }
-    if (!_.contains(email, "@") || email.length < 3) { fail(res, 5748934, "polis_err_reg_bad_email"); return; }
+    if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
+    if (!hname) { fail(res, 400, "polis_err_reg_need_name"); return; }
+    if (!password) { fail(res, 400, "polis_err_reg_password"); return; }
+    if (password.length < 6) { fail(res, 400, "polis_err_reg_password_too_short"); return; }
+    if (!_.contains(email, "@") || email.length < 3) { fail(res, 400, "polis_err_reg_bad_email"); return; }
 
     client.query("SELECT * FROM users WHERE email = ($1)", [email], function(err, docs) {
-        if (err) { fail(res, 5748936, "polis_err_reg_checking_existing_users"); return; }
-            if (err) { console.error(err); fail(res, 5748935, "polis_err_reg_checking_existing_users"); return; }
-            if (docs.length > 0) { fail(res, 5748934, "polis_err_reg_user_exists", 403); return; }
+        if (err) { fail(res, 500, "polis_err_reg_checking_existing_users", err); return; }
+            if (docs.length > 0) { fail(res, 403, "polis_err_reg_user_exists", new Error("polis_err_reg_user_exists")); return; }
 
             generateHashedPassword(function(err, hashedPassword) {
+                if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
                     // TODO update squel so we can use .returning
                     //squel.useFlavour('postgres');
                     // var query = squel.insert().into("users")
@@ -1526,10 +1502,10 @@ function(req, res) {
                         [username, email, hashedPassword, hname, zinvite||null, oinvite||null, !!oinvite];
 
                     client.query(query, vals, function(err, result) {
-                        if (err) { console.dir(err); fail(res, 238943599, "polis_err_reg_failed_to_add_user_record"); return; }
+                        if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
-                        startSession(uid, function(errSessionStart,token) {
-                            if (errSessionStart) { fail(res, 238943600, "polis_err_reg_failed_to_start_session"); return; }
+                        startSession(uid, function(err,token) {
+                            if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
                             addCookie(res, token);
                             res.json({
                                 uid: uid,
@@ -1551,11 +1527,11 @@ app.post("/v2/feedback",
     function(req, res) {
                 var data = req.body;
                     data.events.forEach(function(ev){
-                        if (!ev.feedback) { fail(res, 'expected feedback field'); return; }
+                        if (!ev.feedback) { fail(res, 400, "polis_err_missing_feedback", new Error("polis_err_missing_feedback")); return; }
                         if (data.uid) { ev.uid = ObjectId(data.uid); }
                         checkFields(ev);
                         collection.insert(ev, function(err, cursor) {
-                            if (err) { fail(res, 324234332, err); return; }
+                            if (err) { fail(res, 500, "polis_err_sending_feedback", err); return; }
                             res.end();
                         }); // insert
                     }); // each 
@@ -1572,8 +1548,7 @@ app.get("/v3/comments",
 function(req, res) {
 
     function handleResult(err, docs) {
-        console.dir(docs);
-        if (err) { fail(res, 234234332, err); return; }
+        if (err) { fail(res, 500, "polis_err_get_comments", err); return; }
         if (docs.rows && docs.rows.length) {
             res.json(
                 docs.rows.map(function(row) { return _.pick(row, ["txt", "tid", "created"]); })
@@ -1624,14 +1599,14 @@ app.post("/v3/comments",
     need('txt', getOptionalStringLimitLength(1000), assignToP),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
-        if (err) { console.dir(err); fail(res, 324234336, "polis_err_getting_pid"); return; }
+        if (err) { fail(res, 500, "polis_err_getting_pid", err); return; }
         console.log(pid);
         console.log(req.p.uid);
         client.query(
             "INSERT INTO COMMENTS (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default) RETURNING tid;",
             [pid, req.p.zid, req.p.txt],
             function(err, docs) {
-                if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+                if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
                 docs = docs.rows;
                 var tid = docs && docs[0] && docs[0].tid;
                 // Since the user posted it, we'll submit an auto-pull for that.
@@ -1650,7 +1625,7 @@ function(req, res) {
 
         //var rollback = function(client) {
           //client.query('ROLLBACK', function(err) {
-            //if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+            //if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
           //});
         //};
         //client.query('BEGIN;', function(err) {
@@ -1661,7 +1636,7 @@ function(req, res) {
                   //client.query("INSERT INTO comments (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default);", [pid, zid, txt], function(err, docs) {
                     //if(err) return rollback(client);
                       //client.query('COMMIT;', function(err, docs) {
-                        //if (err) { console.dir(err); fail(res, 324234331, "polis_err_post_comment"); return; }
+                        //if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
                         //var tid = docs && docs[0] && docs[0].tid;
                         //// Since the user posted it, we'll submit an auto-pull for that.
                         //var autoPull = {
@@ -1687,7 +1662,7 @@ app.get("/v3/votes/me",
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
-            if (err) { fail(res, 234234325, err); return; }
+            if (err) { fail(res, 500, "polis_err_get_votes_by_me", err); return; }
             res.json({
                 votes: docs.rows,
             });
@@ -1751,14 +1726,10 @@ function(req, res) {
             res.json([]);
             return;
         }
-        var usersListOk = /^([0-9]+,)?[0-9]$/;
-        if (!usersListOk.test(users)) {
-            if (err) { fail(res, 2389373, "polis_err_get_selection_users_list_formatting", 400); return; }
-        }
         
         getVotesForZidPids(zid, users, function(err, voteRecords) {
-            if (err) { fail(res, 2389369, "polis_err_get_selection", 500); console.dir(results); return; }
-            if (!voteRecords.length) { fail(res, 32432523, "polis_err_get_selection_no_votes", 500); return; }
+            if (err) { fail(res, 500, "polis_err_get_selection", err); console.dir(results); return; }
+            if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes", new Error("polis_err_get_selection_no_votes")); return; }
 
             var commentIdCounts = getCommentIdCounts(voteRecords);
             commentIdCounts = commentIdCounts.slice(0, 10);
@@ -1770,7 +1741,7 @@ function(req, res) {
                 .where("tid IN (" + commentIds.join(",") + ")");
             client.query(queryForSelectedComments.toString(), [], function(err, results) {
                 console.log('comments query');
-                if (err) { fail(res, 2389366, "polis_err_get_selection_comments", 500); console.dir(err); return; }
+                if (err) { fail(res, 500, "polis_err_get_selection_comments", err); return; }
                 var comments = results.rows;
                 // map the results onto the commentIds list, which has the right ordering
                 comments = orderLike(comments, commentIdsOrdering, "tid"); // TODO fix and test the extra declaration of comments
@@ -1827,9 +1798,9 @@ function(req, res) {
     client.query(query, params, function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
-                fail(res, 57493890, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
+                fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
             } else {
-                fail(res, 324234324, "polis_err_vote", 500);
+                fail(res, 500, "polis_err_vote", err);
             }
             return;
         }
@@ -1850,9 +1821,9 @@ function(req, res) {
     client.query(query, params, function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
-                fail(res, 57493891, "polis_err_vote_duplicate", 406); // TODO allow for changing votes?
+                fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
             } else {
-                fail(res, 324234325, "polis_err_vote", 500);
+                fail(res, 500, "polis_err_vote", err);
             }
             return;
         }
@@ -1890,7 +1861,7 @@ function(req, res){
         query.toString(),
         function(err, result){
             if (err) {
-                fail(res, 435673243, "polis_err_update_conversation", 500);
+                fail(res, 500, "polis_err_update_conversation", err);
                 return;
             }
             res.status(200).json({});
@@ -1909,12 +1880,12 @@ function(req, res) {
     var pmqid = req.p.pmqid;
 
     getZidForQuestion(pmqid, function(err, zid) {
-        if (err) { fail(res, 45434534, "polis_err_delete_participant_metadata_questions_zid", 500); return; }
+        if (err) { fail(res, 500, "polis_err_delete_participant_metadata_questions_zid", err); return; }
         isConversationOwner(zid, uid, function(err) {
-            if (err) { fail(res, 34534565, "polis_err_delete_participant_metadata_questions_auth", 403); return; }
+            if (err) { fail(res, 403, "polis_err_delete_participant_metadata_questions_auth", err); return; }
 
             deleteMetadataQuestionAndAnswers(pmqid, function(err) {
-                if (err) { fail(res, 324234, "polis_err_delete_participant_metadata_questions_"+err, 500); return; }
+                if (err) { fail(res, 500, "polis_err_delete_participant_metadata_question", new Error(err)); return; }
                 console.log('ok');
                 res.status(200)
             });
@@ -1933,12 +1904,12 @@ function(req, res) {
     var pmaid = req.p.pmaid;
 
     getZidForAnswer(pmaid, function(err, zid) {
-        if (err) { fail(res, 3345345, "polis_err_delete_participant_metadata_answers_zid", 500); return; }
+        if (err) { fail(res, 500, "polis_err_delete_participant_metadata_answers_zid", err); return; }
         isConversationOwner(zid, uid, function(err) {
-            if (err) { fail(res, 34534565, "polis_err_delete_participant_metadata_answers_auth", 403); return; }
+            if (err) { fail(res, 403, "polis_err_delete_participant_metadata_answers_auth", err); return; }
 
             deleteMetadataAnswer(pmaid, function(err) {
-                if (err) { fail(res, 324234, "polis_err_delete_participant_metadata_answers_"+err, 500); return; }
+                if (err) { fail(res, 500, "polis_err_delete_participant_metadata_answers", err); return; }
                 console.log('ok');
                 res.send(200);
             });
@@ -2015,14 +1986,14 @@ function(req, res) {
         isOwnerOrParticipant(zid, uid, doneChecking);
     }
     function doneChecking(err, foo) {
-        if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
+        if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
 
         async.parallel([
             function(callback) { client.query("SELECT * FROM participant_metadata_questions WHERE alive = true AND zid = ($1);", [zid], callback) },
             //function(callback) { client.query("SELECT * FROM participant_metadata_answers WHERE alive = true AND zid = ($1);", [zid], callback) },
             //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE alive = true AND zid = ($1);", [zid], callback) },
         ], function(err, result) {
-            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_questions", 500); return; }
+            if (err) { fail(res, 500, "polis_err_get_participant_metadata_questions", err); return; }
             var keys = result[0] && result[0].rows;
             res.status(200).json(keys);
         });
@@ -2043,12 +2014,12 @@ function(req, res) {
   
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
-        if (err) { fail(res, 2394632, "polis_err_post_participant_metadata_auth", 403); return; }
+        if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
         client.query("INSERT INTO participant_metadata_questions (pmqid, zid, key) VALUES (default, $1, $2) RETURNING *;", [
             zid,
             key,
             ], function(err, results) {
-            if (err || !results || !results.rows || !results.rows.length) { fail(res, 2394630, "polis_err_post_participant_metadata_key", 500); console.dir(err); return; }
+            if (err || !results || !results.rows || !results.rows.length) { fail(res, 500, "polis_err_post_participant_metadata_key", err); return; }
 
             res.status(200).json(results.rows[0]);
         });
@@ -2071,13 +2042,13 @@ function(req, res) {
 
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
-        if (err) { fail(res, 2394635, "polis_err_post_participant_metadata_auth", 403); return; }
+        if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
         client.query("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [
             pmqid,
             zid,
             value,
             ], function(err, results) {
-            if (err || !results || !results.rows || !results.rows.length) { fail(res, 2394638, "polis_err_post_participant_metadata_value", 500); console.dir(err); return; }
+            if (err || !results || !results.rows || !results.rows.length) { fail(res, 500, "polis_err_post_participant_metadata_value", err); return; }
             res.status(200).json(results.rows[0]);
         });
     }
@@ -2104,7 +2075,7 @@ function(req, res) {
     }
     
     function doneChecking(err, foo) {
-        if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
+        if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
         var query = squel.select().from('participant_metadata_answers');
 
 
@@ -2114,7 +2085,7 @@ function(req, res) {
             query = query.where("pmqid = ?", pmqid);
         }
         client.query(query.toString(), [], function(err, result) {
-            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata_answers", 500); console.dir(err); return; }
+            if (err) { fail(res, 500, "polis_err_get_participant_metadata_answers", err); return; }
             res.status(200).json(result.rows);
         });
     }
@@ -2139,13 +2110,13 @@ function(req, res) {
         isOwnerOrParticipant(zid, uid, doneChecking);
     }
     function doneChecking(err) {
-        if (err) { fail(res, 2394631, "polis_err_get_participant_metadata_auth", 403); return; }
+        if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
         async.parallel([
             function(callback) { client.query("SELECT * FROM participant_metadata_questions WHERE zid = ($1);", [zid], callback) },
             function(callback) { client.query("SELECT * FROM participant_metadata_answers WHERE zid = ($1);", [zid], callback) },
             function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
         ], function(err, result) {
-            if (err) { fail(res, 2394629, "polis_err_get_participant_metadata", 500); return; }
+            if (err) { fail(res, 500, "polis_err_get_participant_metadata", err); return; }
             var keys = result[0] && result[0].rows;
             var vals = result[1] && result[1].rows;
             var choices = result[2] && result[2].rows;
@@ -2204,10 +2175,10 @@ app.get('/v3/conversations/:zid',
     want('zid', getInt, assignToP),
 function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1);', [req.p.zid], function(err, results) {
-        if (err) { console.dir(err); fail(res, 324234342, "polis_err_get_conversation_by_zid", 500); return; }
+        if (err) { console.dir(err); fail(res, 500, "polis_err_get_conversation_by_zid", err); return; }
         if (!results || !results.rows || !results.rows.length) {
-            res.writeHead(404);
-            res.json({status: 404});
+            fail(res, 404, "polis_err_no_such_conversation", new Error("polis_err_no_such_conversation"));
+            return;
         } else {
             res.status(200).json(results.rows[0]);
         }
@@ -2228,7 +2199,7 @@ function(req, res) {
 
   // First fetch a list of conversations that the user is a participant in.
   client.query('select zid from participants where uid = ($1);', [req.p.uid], function(err, results) {
-    if (err) { console.dir(err); fail(res, 324234338, "polis_err_get_conversations_participated_in", 500); return; }
+    if (err) { fail(res, 500, "polis_err_get_conversations_participated_in", err); return; }
 
     var participantIn = results && results.rows && _.pluck(results.rows, "zid") || null;
 
@@ -2247,7 +2218,7 @@ function(req, res) {
 
     console.log(query.toString());
     client.query(query.toString(), [], function(err, result) {
-        if (err) { console.dir(err); fail(res, 324234339, "polis_err_get_conversations", 500); return; }
+        if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
 
         // fetch invites
@@ -2265,7 +2236,7 @@ function(req, res) {
                     }
 
                     client.query("SELECT * FROM zinvites WHERE zid = ($1);", [conv.zid], function(err, zinviteResults) {
-                        if (err) { console.dir(err); fail(res, 324234340, "polis_err_get_conversation_zinvites", 500); return callback(1); }
+                        if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return callback(1); }
                         if (!zinviteResults.rows || !zinviteResults.rows.length) {
                             zinviteResults.rows = [];
                         }
@@ -2281,7 +2252,7 @@ function(req, res) {
         }
 
         async.parallel(result.rows.map(fetchZinvites), function(err) {
-            if (err) { console.dir(err); fail(res, 324234341, "polis_err_get_conversation_zinvites", 500); return; }
+            if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return; }
             res.json(data);
         });
 
@@ -2314,17 +2285,17 @@ app.post('/v3/conversations/undefined', // TODO undefined is not ok
 function(req, res) {
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
-    if (err) { console.dir(err); fail(res, 8274682374, "polis_err_add_conversation_failed_user_check", 500); return; }
-    if (!isAllowed) { console.log("denied create conversation to " + req.p.uid); fail(res, 372468723, "polis_err_add_conversation_not_enabled", 403); return; }
+    if (err) { fail(res, 500, "polis_err_add_conversation_failed_user_check", err); return; }
+    if (!isAllowed) { fail(res, 403, "polis_err_add_conversation_not_enabled", new Error("polis_err_add_conversation_not_enabled")); return; }
     client.query(
 'INSERT INTO conversations (zid, owner, created, topic, description, participant_count, is_active, is_draft, is_public, is_anon)  VALUES(default, $1, default, $2, $3, default, $4, $5, $6, $7) RETURNING zid;',
 [req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft, req.p.is_public, req.p.is_anon], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
-                console.error(57493879);
+                notifyAirbrake(err)
                 failWithRetryRequest(res);
             } else {
-                fail(res, 324234335, "polis_err_add_conversation", 500);
+                fail(res, 500, "polis_err_add_conversation", err);
             }
             return;
         }
@@ -2337,7 +2308,7 @@ function(req, res) {
         }
         if (!req.p.is_public) {
             createZinvite(zid, function(err, zinvite) {
-                if (err) { console.dir(err); fail(res, 324234339, err, 500); return; }
+                if (err) { fail(res, 500, "polis_err_zinvite_create", err); return; }
                 finish();
             });
         } else {
@@ -2394,7 +2365,7 @@ function(req, res) {
                 ")" +
             ";", 
             [ zid, zid ], function( err, results) {
-                if (err) { console.dir(err); fail(res, 342342564, "polis_err_metadata_query", 500); return; }
+                if (err) { fail(res, 500, "polis_err_metadata_query", err); return; }
                 res.status(200).json(_.pluck(results.rows, "pid"));
             });
     }
