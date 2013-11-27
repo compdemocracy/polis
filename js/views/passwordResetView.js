@@ -44,7 +44,7 @@ define([
           }).then(function(message) {
             alert(message);
             // reload the page to clear out the password from memory
-            window.location = window.location.protocol + "//" + window.location.host + window.location.pathname
+            window.location = window.location.protocol + "//" + window.location.host + window.location.pathname;
           }, function(errmessage) {
             alert(errmessage);
             release();
