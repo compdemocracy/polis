@@ -22,7 +22,7 @@
   "dependencies": {
     "underscore": "~1.5.2",
     "mongodb": "~1.1.11",
-    "pg": "~2.6.2",
+    "pg": "~2.8.3",
     "async": "~0.1.22",
     "mysql": "~2.0.0-alpha7",
     "optimist": "~0.3.5",
