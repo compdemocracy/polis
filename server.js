@@ -390,10 +390,11 @@ function moveToBody(req, res, next) {
     }
     next();
 }
-function logPath(req, res, next) {
-    console.log(req.method + " " + req.url);
-    next();
-}
+
+// function logPath(req, res, next) {
+//     console.log(req.method + " " + req.url);
+//     next();
+// }
     
 
 function makeHash(ary) {
@@ -807,7 +808,6 @@ app.all("/v3/*", function(req, res, next) {
 });
 
 app.get("/v3/math/pca",
-    logPath,
     moveToBody,
     need('zid', getInt, assignToP),
     want('lastVoteTimestamp', getInt, assignToP, 0),
@@ -830,7 +830,6 @@ app.get("/v3/math/pca",
     });
 
 app.post("/v3/auth/password",
-    logPath,
     need('pwresettoken', getOptionalStringLimitLength(1000), assignToP),
     need('newPassword', getPassword, assignToP),
 function(req, res) {
@@ -853,7 +852,6 @@ function(req, res) {
 });
 
 app.post("/v3/auth/pwresettoken",
-    logPath,
     need('email', getEmail, assignToP),
 function(req, res) {
     var email = req.p.email;
@@ -881,7 +879,6 @@ function getUidByEmail(email, callback) {
 
 
 app.post("/v3/auth/deregister",
-    logPath,
 function(req, res) {
     var token = req.cookies.token;
     function finish() {
@@ -902,7 +899,6 @@ function(req, res) {
 
 
 app.get("/v3/zinvites/:zid",
-    logPath,
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
@@ -957,7 +953,6 @@ function createZinvite(zid, callback) {
 
 // Custom invite code generator, returns the code in the response
 app.get("/v3/oinvites/magicString9823742834/:note",
-    logPath,
     auth,
     moveToBody,
     want('note', getOptionalStringLimitLength(999), assignToP),
@@ -979,7 +974,6 @@ function(req, res) {
 
 
 app.post("/v3/zinvites/:zid",
-    logPath,
     auth,
     moveToBody,
     need('zid', getInt, assignToP),
@@ -1205,7 +1199,6 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
 }
 
 app.get("/v3/participants",
-    logPath,
     auth,
     moveToBody,
     want('pid', getInt, assignToP),
@@ -1278,7 +1271,6 @@ function userHasAnsweredZeQuestions(zid, answers, callback) {
 }
 
 app.post("/v3/participants",
-    logPath,
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
@@ -1342,7 +1334,6 @@ console.dir(answers);
 
 
 app.post("/v3/beta", 
-    logPath,
     need('email', getEmail, assignToP),
     want('name', getOptionalStringLimitLength(999), assignToP),
     want('organization', getOptionalStringLimitLength(999), assignToP),
@@ -1364,7 +1355,6 @@ app.post("/v3/beta",
 
 
 app.post("/v3/auth/login",
-    logPath,
     need('password', getOptionalStringLimitLength(999), assignToP),
     want('username', getOptionalStringLimitLength(999), assignToP),
     want('email', getEmail, assignToP),
@@ -1425,7 +1415,6 @@ function zinviteExists(zinvite, callback) {
 }
 
 app.post("/v3/auth/new",
-    logPath,
     want('anon', getBool, assignToP),
     want('username', getOptionalStringLimitLength(999), assignToP),
     want('password', getPassword, assignToP),
@@ -1538,7 +1527,6 @@ app.post("/v2/feedback",
     });
 
 app.get("/v3/comments",
-    logPath,
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
@@ -1592,7 +1580,6 @@ function failWithRetryRequest(res) {
 }
 
 app.post("/v3/comments",
-    logPath,
     auth,
     need('zid', getInt, assignToP),
     need('uid', getInt, assignToP),
@@ -1654,7 +1641,6 @@ function(req, res) {
 }); // end POST /v3/comments
 
 app.get("/v3/votes/me",
-    logPath,
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
@@ -1715,7 +1701,6 @@ function getCommentIdCounts(voteRecords) {
 
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
 app.get("/v3/selection",
-    logPath,
     moveToBody,
     need('users', getArrayOfIntNonEmpty, assignToP),
     need('zid', getInt, assignToP),
@@ -1765,7 +1750,6 @@ function(req, res) {
     }); // end GET selection
 
 app.get("/v3/votes",
-    logPath,
     moveToBody,
     need('zid', getInt, assignToP),
     want('pid', getInt, assignToP),
@@ -1775,7 +1759,6 @@ function(req, res) {
 });
 
 app.post("/v3/votes",
-    logPath,
     auth,
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
@@ -1786,7 +1769,6 @@ function(req, res) {
 });
 
 app.post("/v3/stars",
-    logPath,
     auth,
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
@@ -1809,7 +1791,6 @@ function(req, res) {
 });
 
 app.post("/v3/trashes",
-    logPath,
     auth,
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
@@ -1832,7 +1813,6 @@ function(req, res) {
 });
 
 app.put('/v3/conversations/:zid',
-    logPath,
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
@@ -1870,7 +1850,6 @@ function(req, res){
 });
 
 app.delete('/v3/metadata/questions/:pmqid',
-    logPath,
     auth,
     moveToBody,
     need('uid', getInt, assignToP),
@@ -1894,7 +1873,6 @@ function(req, res) {
 });
 
 app.delete('/v3/metadata/answers/:pmaid',
-    logPath,
     auth,
     moveToBody,
     need('uid', getInt, assignToP),
@@ -1969,7 +1947,6 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 }
 
 app.get('/v3/metadata/questions',
-    logPath,
     moveToBody,
     authOr(need('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
@@ -2001,7 +1978,6 @@ function(req, res) {
 });
 
 app.post('/v3/metadata/questions',
-    logPath,
     moveToBody,
     auth,
     need('key', getOptionalStringLimitLength(999), assignToP),
@@ -2027,7 +2003,6 @@ function(req, res) {
 });
     
 app.post('/v3/metadata/answers',
-    logPath,
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
@@ -2055,7 +2030,6 @@ function(req, res) {
 });
 
 app.get('/v3/metadata/answers',
-    logPath,
     moveToBody,
     authOr(want('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
@@ -2092,7 +2066,6 @@ function(req, res) {
 });
 
 app.get('/v3/metadata',
-    logPath,
     moveToBody,
     auth,
     need('zid', getInt, assignToP),
@@ -2158,7 +2131,6 @@ function(req, res) {
 });
 
 app.post('/v3/metadata/new',
-    logPath,
     moveToBody,
     auth,
     want('oid', getInt, assignToP),
@@ -2169,7 +2141,6 @@ function(req, res) {
 });
 
 app.get('/v3/conversations/:zid',
-    logPath,
     moveToBody,
     auth,
     want('zid', getInt, assignToP),
@@ -2187,7 +2158,6 @@ function(req, res) {
 
 
 app.get('/v3/conversations',
-    logPath,
     moveToBody,
     auth,
     want('is_active', getBool, assignToP),
@@ -2273,7 +2243,6 @@ function isUserAllowedToCreateConversations(uid, callback) {
 
 // TODO check to see if ptpt has answered necessary metadata questions.
 app.post('/v3/conversations/undefined', // TODO undefined is not ok
-    logPath,
     auth,
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
@@ -2320,7 +2289,6 @@ function(req, res) {
 
 /*
 app.get('/v3/users',
-logPath,
 function(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
     var query = client.query('SELECT * FROM users');
@@ -2338,7 +2306,6 @@ function(req, res) {
 
 
 app.post('/v3/query_participants_by_metadata',
-    logPath,
     auth,
     need('uid', getInt, assignToP),
     need('zid', getInt, assignToP),
@@ -2373,7 +2340,6 @@ function(req, res) {
 
 
 app.get('/v3/users/new',
-logPath,
 function(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
     client.query('INSERT INTO users VALUES(default) returning uid', function(err, result) {
