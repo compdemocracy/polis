@@ -11,7 +11,7 @@ define([
       "submit form": function(event){
         var that = this;
         event.preventDefault();
-        var urlPrefix = "http://api.polis.io/";
+        var urlPrefix = "https://www.polis.io/";
         if (-1 === document.domain.indexOf(".polis.io")) {
             urlPrefix = "http://localhost:5000/";
         }
@@ -24,7 +24,7 @@ define([
             xhrFields: {
                 withCredentials: true
             },
-            crossDomain: true,
+            // crossDomain: true,
             data: attrs
           }).then(function(data) {
             release();
@@ -40,7 +40,9 @@ define([
     },
     initialize: function(){
       this.listenTo(this, "rendered", function(){
-        this.$("#conductor").anystretch("img/conductor.jpeg");
+        var conductorUrl = (/localhost/.test(document.domain) ? "" :  "https://s3.amazonaws.com/www.polis.io/");
+        conductorUrl += "img/conductor.jpeg";
+        this.$("#conductor").anystretch(conductorUrl);
       });
     }
   });

@@ -82,8 +82,8 @@ define([
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,
-      protocol: "", //"http",
-      domain: (-1 !== document.domain.indexOf(".polis.io")) ? "api.polis.io" : "localhost:5000",
+      protocol: /localhost/.test(document.domain) ? "http" : "https",
+      domain: /localhost/.test(document.domain) ? "localhost:5000" : "www.polis.io",
       basePath: "",
       logger: console
     });

@@ -13,8 +13,8 @@ define([
 			url = options.url; // this part is different than jQuery.ajax (it would set url to null)
 		}
 
-        var protocol = "http://";
-        var firstPart = protocol + "api.polis.io/";
+        var protocol = "//";
+        var firstPart = protocol + "www.polis.io/";
         if (-1 === document.domain.indexOf(".polis.io")) {
             firstPart = protocol + "localhost:5000/";
         }
@@ -37,10 +37,10 @@ define([
                 //"X-Parse-Application-Id": application_id,
                 //"X-Parse-REST-API-Key": rest_api_key
             },
+            // crossDomain: true,
             xhrFields: {
                 withCredentials: true
-            },
-            crossDomain: true
+            }
         };
 
         return originalAjax(url, $.extend(true, options, request));

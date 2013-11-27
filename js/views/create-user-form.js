@@ -10,7 +10,7 @@ define([
   $
 ) {
 
-  var urlPrefix = "http://api.polis.io/";
+  var urlPrefix = "https://www.polis.io/";
   if (-1 === document.domain.indexOf(".polis.io")) {
     urlPrefix = "http://localhost:5000/";
   }

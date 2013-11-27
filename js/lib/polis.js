@@ -22,7 +22,7 @@ return function(params) {
 
     var commentsToVoteOn = {}; // tid -> comment
 
-    var protocol = params.protocol || "http";
+    var protocol = params.protocol || "https";
     var domain = params.domain;
     var basePath = params.basePath;
 
@@ -313,7 +313,7 @@ return function(params) {
             xhrFields: {
                 withCredentials: true
             },
-            crossDomain: true,
+            // crossDomain: true,
             dataType: "json"
         };
         if ("GET" === type) {

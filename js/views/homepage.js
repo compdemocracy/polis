@@ -16,7 +16,7 @@ define([
             xhrFields: {
               withCredentials: true
             },
-            crossDomain: true,
+            // crossDomain: true,
             data: attrs
           }).then(function() {
             release();
