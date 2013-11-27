@@ -27,6 +27,7 @@
 
 */
 
+
 console.log('redisAuth url ' +process.env.REDISTOGO_URL);
 console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
@@ -788,7 +789,6 @@ app.all("/v3/*", function(req, res, next) {
   // remove trailing slash if needed
   host = host.replace(/\/$/, "");
 
-  console.log(host);
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
       console.log('not whitelisted');
       return next(new Error("unauthorized domain: " + host));
@@ -1448,7 +1448,7 @@ function(req, res) {
   if (oinvite) {
     oinviteExists(oinvite, function(err, ok) {
       if (err) { fail(res, 500, "polis_err_reg_oinvite", err); return; }
-      if (!ok) { fail(res, 403, "polis_err_reg_unknown_oinvite", new Error("polis_err_reg_unknown_oinvite"); return; }
+      if (!ok) { fail(res, 403, "polis_err_reg_unknown_oinvite", new Error("polis_err_reg_unknown_oinvite")); return; }
       finishedValidatingInvite();
    });
   } else if (zinvite) {
