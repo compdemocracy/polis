@@ -1256,44 +1256,39 @@ function(req, res) {
     var zinvite = req.p.zinvite;
     var answers = req.p.answers;
 
-console.dir(answers);
     function finish(pid) {
         res.status(200).json({
             pid: pid,
         });
     }
+    function onAllowed(pid) {
+        userHasAnsweredZeQuestions(zid, answers, function(err) {
+            if (err) { fail(res, 500, "polis_err_fetching_answers", err); return; }
+            joinConversation(zid, uid, answers, function(err, pid) {
+                if (err) { fail(res, 500, "polis_err_add_participant", err); return; }
+                finish(pid);
+            });
+        }); // end get is_public
+    }
 
     // Check if already in the conversation
     getPid(zid, req.p.uid, function(err, pid) {
-        if (err) {
-
-            userHasAnsweredZeQuestions(zid, answers, function(err) {
-                if (err) { fail(res, 500, "polis_err_fetching_answers", err); return; }
-                // need to join
-                getConversationProperty(zid, "is_public", function(err, is_public) {
-                    if (err) { fail(res, 500, "polis_err_add_participant_property_missing", err); return; }
-                    function doJoin() {
-                        joinConversation(zid, uid, answers, function(err, pid) {
-                            if (err) { fail(res, 500, "polis_err_add_participant", err); return; }
-                            finish(pid);
-                        });
-                    }
-                    if (is_public) {
-                        doJoin();
-                    } else {
-                        checkZinviteCodeValidity(zid, zinvite, function(err) {
-                            if (err) {
-                                fail(res, 403, "polis_err_add_participant_bad_zinvide_code", err);
-                            } else {
-                                doJoin();
-                            }
-                        });
-                    }
-                }); // end get is_public
-            }); // end userHasAnsweredZeQuestions
-        } else {
+        if (!err && pid >= 0) {
             finish(pid);
+            return;
         }
+        getConversationProperty(zid, "is_public", function(err, is_public) {
+            if (err) { fail(res, 500, "polis_err_add_participant_property_check", err); return; }
+            if (is_public) {
+                onAllowed(pid);
+            } else {
+                checkZinviteCodeValidity(zid, zinvite, function(err) {
+                    if (err) { fail(res, 403, "polis_err_add_participant_bad_zinvide_code", err); return }
+                    onAllowed(pid);
+                });
+            }
+        }); // end userHasAnsweredZeQuestions
+
     });
 });
 
