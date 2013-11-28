@@ -434,7 +434,7 @@ function fail(res, httpCode, clientVisibleErrorString, err) {
     console.error(clientVisibleErrorString, err);
     res.writeHead(httpCode || 500);
     res.end(clientVisibleErrorString);
-    yell(err);
+    yell(clientVisibleErrorString);
     notifyAirbrake(err);
 }
 
