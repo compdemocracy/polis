@@ -1517,7 +1517,7 @@ function(req, res) {
         if (err) { fail(res, 500, "polis_err_reg_checking_existing_users", err); return; }
             if (docs.length > 0) { fail(res, 403, "polis_err_reg_user_exists", new Error("polis_err_reg_user_exists")); return; }
 
-            generateHashedPassword(function(err, hashedPassword) {
+            generateHashedPassword(password, function(err, hashedPassword) {
                 if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
                     // TODO update squel so we can use .returning
                     //squel.useFlavour('postgres');
