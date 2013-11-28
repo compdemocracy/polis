@@ -212,11 +212,22 @@ function makeSessionToken() {
     return crypto.randomBytes(32).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 20);
 }
 
+
+var userTokenCache = new SimpleCache({
+    maxSize: 9000,
+});
+
 function getUserInfoForSessionToken(sessionToken, res, cb) {
-    redisForAuth.get(sessionToken, function(errGetToken, replies) {
+    var uid = userTokenCache.get();
+    if (uid) {
+        cb(null, uid);
+        return;
+    }
+    redisForAuth.get(sessionToken, function(errGetToken, uid) {
         if (errGetToken) { console.error("token_fetch_error"); cb(500); return; }
-        if (!replies) { console.error("token_expired_or_missing"); cb(403); return; }
-        cb(null, {uid: replies});
+        if (!uid) { console.error("token_expired_or_missing"); cb(403); return; }
+        userTokenCache.set(sessionToken, uid);
+        cb(null, uid);
     });
 }
 
@@ -355,18 +366,18 @@ function auth(req, res, next) {
     var token = req.cookies.token;
     if (!token) { next(connectError(400, "polis_err_auth_token_not_supplied")); return; }
     //if (req.body.uid) { next(400); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
-    getUserInfoForSessionToken(token, res, function(err, fetchedUserInfo) {
+    getUserInfoForSessionToken(token, res, function(err, uid) {
         if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
          // don't want to pass the token around
         if (req.body) { delete req.body.token; }
         if (req.query) { delete req.query.token; }
 
-        if ( req.body.uid && req.body.uid !== fetchedUserInfo.uid) {
+        if ( req.body.uid && req.body.uid !== uid) {
             next(connectError(400, "polis_err_auth_mismatch_uid"));
             return;
         }
         req.body = req.body || {};
-        req.body.uid = fetchedUserInfo.uid;
+        req.body.uid = uid;
         next();
     });
 }
@@ -680,7 +691,9 @@ function match(key, zid) {
     return {$or: variants};
 }
 
-var pidCache = new SimpleCache({"maxSize":9000})
+var pidCache = new SimpleCache({
+    maxSize: 9000,
+});
 
 // must follow auth and need('zid'...) middleware
 function getPidForParticipant(assigner, cache) {
