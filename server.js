@@ -606,19 +606,26 @@ function setOptional(squelQuery, P, name, nameOfSqlColumnName) {
 }
 
 var oneYear = 1000*60*60*24*365;
-function addCookie(res, key, value) {
-    var o = {
-    };
-    if (domainOverride) { 
-        // set nothing - Assuming localhost
+function addCookies(res, token, uid) {
+    if (domainOverride) {
+        res.cookie('token', token, {});
+        res.cookie('uid', uid, {});
     } else {
-        // o.domain = 'polis.io';
-        o.path = '/';
-        o.httpOnly = true;
-        o.maxAge = oneYear;
-     //   o.secure = true; // TODO need HTTPS
+        res.cookie('token', token, {
+            path: '/',
+            httpOnly: true,
+            maxAge: oneYear,
+            // domain: 'polis.io',
+            // secure: true, // TODO need HTTPS
+        });
+        res.cookie('uid', uid, {
+            path: '/',
+            // httpOnly: true, (client JS needs to see something to know it's signed in)
+            maxAge: oneYear,
+            // domain: 'polis.io',
+            // secure: true, // TODO need HTTPS
+        });
     }
-    res.cookie(key, value, o);
 }
 
 function generateHashedPassword(password, callback) {
@@ -1423,8 +1430,7 @@ function(req, res) {
                     email: email,
                     token: token
                 };
-                addCookie(res, 'token', token);
-                addCookie(res, 'uid', uid);
+                addCookies(res, token, uid);
                 res.json(response_data);
             }); // startSession
         }); // compare
@@ -1536,8 +1542,7 @@ function(req, res) {
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(err,token) {
                             if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
-                            addCookie(res, 'token', token);
-                            addCookie(res, 'uid', uid);
+                            addCookies(res, token, uid);
                             res.json({
                                 uid: uid,
                                 hname: hname,
