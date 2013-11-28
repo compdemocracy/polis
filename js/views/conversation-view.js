@@ -189,7 +189,8 @@ define([
     // we may need to look into something more general
     // http://stackoverflow.com/questions/11216392/how-to-handle-scroll-position-on-hashchange-in-backbone-js-application
     var scrollTopOnFirstShow = _.once(function() {
-      that.$el.scrollTop(0);
+      // scroll to top
+      window.scroll();
     });
 
 
