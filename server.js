@@ -903,7 +903,7 @@ function(req, res) {
     var email = req.p.email;
 
     // let's clear the cookies here, in case something is borked.
-    clearCookies(req);
+    clearCookies(req, res);
 
     getUidByEmail(email, function(err, uid) {
         setupPwReset(uid, function(err, pwresettoken) {
@@ -927,7 +927,7 @@ function getUidByEmail(email, callback) {
 
 
 
-function clearCookies(req) {
+function clearCookies(req, res) {
     for (var cookieName in req.cookies) {
         res.clearCookie(cookieName, {path: "/"});
     }
@@ -941,7 +941,7 @@ function(req, res) {
     var token = req.cookies.token;
 
     // clear cookies regardless of auth status
-    clearCookies(req);
+    clearCookies(req, res);
 
     function finish() {
         res.status(200).end();
