@@ -754,7 +754,8 @@ return function(params) {
             });
         }
         return polisPost(participantsPath, params).pipe( function (response) {
-            pidStore.set(currentStimulusId, response.pid);
+            // will be in cookie
+            // pidStore.set(currentStimulusId, response.pid);
             return response.pid;
         });
     }

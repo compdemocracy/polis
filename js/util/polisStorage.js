@@ -26,18 +26,21 @@ var store = (function() {
         return null;
     }
 
-    function setCookie(sName,sValue)
-    {
-        var oDate = new Date();
-        oDate.setYear(oDate.getFullYear()+1);
-        var sCookie = encodeURIComponent(sName) + "=" + encodeURIComponent(sValue) + ";expires=" + oDate.toGMTString() + ";path=/";
-        document.cookie = sCookie;
-    }
+    // function setCookie(sName,sValue)
+    // {
+    //     if (sValue === void 0) {
+    //         return;
+    //     }
+    //     var oDate = new Date();
+    //     oDate.setYear(oDate.getFullYear()+1);
+    //     var sCookie = encodeURIComponent(sName) + "=" + encodeURIComponent(sValue) + ";expires=" + oDate.toGMTString() + ";path=/";
+    //     document.cookie = sCookie;
+    // }
 
-    function clearCookie(sName)
-    {
-        setCookie(sName,null);
-    }
+    // function clearCookie(sName)
+    // {
+    //     setCookie(sName,null);
+    // }
     // We might want to use localStorage for browsers that don't throw exceptions when you try to use their localStorage implementation.
     // return {
     //     set: localStorage.setItem,
@@ -45,7 +48,8 @@ var store = (function() {
     //     clear: localStorage.clear
     // };
     return {
-        set: setCookie,
+        // clear: clearCookie,        
+        // set: setCookie,
         get: function(key) {
             var cookieVal = getCookie(key);
             if (cookieVal === null) {
@@ -65,42 +69,49 @@ var store = (function() {
                 }
             }
             return cookieVal;
-        },
-        clear: clearCookie
+        }
+
     };
 }());
 
-    function clear(k) {
-        store.clear(k);
-    }
+    // function clear(k) {
+    //     store.clear(k);
+    // }
 
     function makeAccessor(k) {
         return {
-            clear: function() {
-                return clear(k);
-            },
-            set: function(v, temporary) {
-                return store.set(k, v);
-            },
+            // clear: function() {
+            //     return clear(k);
+            // },
+            // set: function(v, temporary) {
+            //     return store.set(k, v);
+            // },
             get: function() {
                 return store.get(k);
             }
         };
     }
 
-    function makeMapAccessor(accessor) {
-        var oldGet = accessor.get;
-        accessor.get = function(key) {
-            return ( oldGet() && JSON.parse(oldGet()) || {})[key];
+    function makeCookieValueGetterForKeyWithSuffix(suffix) {
+        return function(key) {
+            key += suffix;
+            return store.get(key);
         };
-        var oldSet = accessor.set;
-        accessor.set = function(key, val, temporary) {
-            var o = oldGet() && JSON.parse(oldGet()) || {};
-            o[key] = val;
-            oldSet(JSON.stringify(o), temporary);
-        };
-        return accessor;
     }
+
+    // function makeMapAccessor(accessor) {
+    //     var oldGet = accessor.get;
+    //     accessor.get = function(key) {
+    //         return ( oldGet() && JSON.parse(oldGet()) || {})[key];
+    //     };
+    //     var oldSet = accessor.set;
+    //     accessor.set = function(key, val, temporary) {
+    //         var o = oldGet() && JSON.parse(oldGet()) || {};
+    //         o[key] = val;
+    //         oldSet(JSON.stringify(o), temporary);
+    //     };
+    //     return accessor;
+    // }
 
     // function castToNumber(accessor) {
     //     var oldGet = accessor.get;
@@ -110,23 +121,23 @@ var store = (function() {
     //     return accessor;
     // }
 
-    function clearAll() {
-        for (var key in x) {
-            if (x[key].clear) {
-                x[key].clear();
-            }
-        }
-    }
+    // function clearAll() {
+    //     for (var key in x) {
+    //         if (x[key].clear) {
+    //             x[key].clear();
+    //         }
+    //     }
+    // }
 
     var x = {
-        clearAll: clearAll,
+        // clearAll: clearAll,
         //comments: makeAccessor("p_comments"), // TODO use a real db
         //reactionsByMe: makeAccessor("p_reactions_by_me"), // TODO use a real db
         email: makeAccessor("email"),
         //username: makeAccessor("p_username"),
         uid: makeAccessor("uid"),
         //token: makeAccessor("p_authToken")
-        pids: makeMapAccessor(makeAccessor("pids"))
+        pids: makeCookieValueGetterForKeyWithSuffix("p") // p for pid, expecting keys like 314p=2; 451p=12
 
     };
     return x;
