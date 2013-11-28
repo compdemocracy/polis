@@ -14,7 +14,7 @@ define([
     events: {
       "submit form": function(event){
         event.preventDefault();
-        var urlPrefix = "http://api.polis.io/";
+        var urlPrefix = "https://www.polis.io/";
         if (-1 === document.domain.indexOf(".polis.io")) {
             urlPrefix = "http://localhost:5000/";
         }
@@ -30,7 +30,7 @@ define([
             xhrFields: {
                 withCredentials: true
             },
-            crossDomain: true,
+            // crossDomain: true,
             data: attrs
           }).then(function(message) {
             alert(message);
