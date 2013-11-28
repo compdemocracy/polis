@@ -833,6 +833,11 @@ app.all("/v3/*", function(req, res, next) {
       // Origin was missing from FF, so added Referer.
       host =  req.get("Origin") || req.get("Referer"); 
   }
+
+  // Somehow the fragment identifier is being sent by IE10????
+  // Remove unexpected fragment identifier
+  host = host.replace(/#.*$/, "");
+
   // remove trailing slash if needed
   host = host.replace(/\/$/, "");
 
