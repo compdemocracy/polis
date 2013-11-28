@@ -438,10 +438,10 @@ function chooseShape(d) {
 }
 
 function chooseTransform(d) {
-    var scale = 1;
-    if (isSelf(d) && !shouldShowVoteIcons()) {
-        scale = 1.2;
-    }
+    // var scale = 1;
+    // if (isSelf(d) && !shouldShowVoteIcons()) {
+    //     scale = 1.2;
+    // }
     // else {
     //     var voteCount = getTotalVotesByPidSync(d.pid);
     //     maxVoteCount = Math.max(voteCount, maxVoteCount);
@@ -455,7 +455,7 @@ function chooseTransform(d) {
     //     }
     // }
     // scale = Math.max(0.02, scale);
-    return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
+    return "translate(" + d.x + "," + d.y + ")";// scale(" + scale + ")";
 }
 
 function isSelf(d) {

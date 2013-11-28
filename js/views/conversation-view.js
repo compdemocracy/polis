@@ -185,8 +185,18 @@ define([
         serverClient.addPersonUpdateListener(vis.upsertNode);
     };
 
+    // just a quick hack for now.
+    // we may need to look into something more general
+    // http://stackoverflow.com/questions/11216392/how-to-handle-scroll-position-on-hashchange-in-backbone-js-application
+    var scrollTopOnFirstShow = _.once(function() {
+      that.$el.scrollTop(0);
+    });
+
 
     this.listenTo(this, "rendered", function(){
+
+      scrollTopOnFirstShow();
+
       this.$("#commentViewTab").tooltip({
         title: "Start here - read and react to comments submitted by others.",
         placement: "top",
