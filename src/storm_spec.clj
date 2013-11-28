@@ -37,28 +37,26 @@
 
 
 (defn data-updater [update-fn & [init-fn]]
-  "This isn't hooked up yet, but I'm hoping we can use something like this for
-  abstracting the common pattern of storing/fetching results by conv-id"
-  (let [init-fn #(identity nil)]
+  "This function abstracts the common pattern of fetching (or initing if necessary) an item from a
+  data dictionary, then updating it based on the specified updated function. Useful since our bolts
+  store data by conversation id."
+  (let [init-fn (or init-fn #(identity nil))]
     (fn [data conv-id & inputs]
       (let [value (or (get data conv-id) (init-fn))
             new-value (apply update-fn value inputs)]
         (assoc data conv-id new-value)))))
 
+; This is a little bit of a hack. Need to get pca working on matrices with just a couple of elements still...
 (def init-matrix (->RatingMatrix ["p1" "p2" "p3"] ["c1" "c2" "c3"] [[1 1 0] [0 1 -1] [0 -1 1]]))
 
 (defbolt rating-matrix ["conv-id" "rating-matrix"] {:prepare true}
   [conf context collector]
   (let [data (atom {})
-        ; This is a function which we can call as a transaction to update our data atom
-        update-data (fn [data conv-id reaction]
-                      (let [rating-matrix (or (get data conv-id) init-matrix)
-                            rating-matrix (update-rating-matrix rating-matrix [reaction])]
-                        (assoc data conv-id rating-matrix)))]
     (bolt (execute [tuple]
       (let [[conv-id reaction] (.getValues tuple)]
-        (println "RUNNING BOLT")
-        (swap! data update-data conv-id reaction)
+        (swap! data
+               (data-updater #(update-rating-matrix % [reaction]) #(identity init-matrix))
+               conv-id)
         (emit-bolt! collector
                     [conv-id (ic.core/matrix (:matrix (get @data conv-id)))]
                     :anchor tuple))))))
@@ -75,7 +73,6 @@
         (let [pcs (get @data conv-id)
               proj (pca-project rating-matrix pcs)]
           (emit-bolt! collector [conv-id pcs proj])))))))
-    ;{:pca pca :components components :pc1 pc1 :pc2 pc2 :x1 x1 :x2 x2})))))
 
 
 ;(defbolt clusters ["clusters"] {:prepare true}
