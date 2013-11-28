@@ -49,6 +49,7 @@ var http = require('http'),
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
     airbrake = require('airbrake').createClient(process.env.AIRBRAKE_API_KEY),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
+    SimpleCache = require("simple-lru-cache"),
     _ = require('underscore');
 
 app.disable('x-powered-by'); // save a whale
@@ -572,7 +573,6 @@ var prrrams = (function() {
 var need = prrrams.need;
 var want = prrrams.want;
 
-
 function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
     if ("undefined" === typeof nameOfSqlColumnName) {
         // assume same name if not provided
@@ -619,6 +619,8 @@ function generateHashedPassword(password, callback) {
         });
     });
 }
+
+
 
 
 
@@ -676,6 +678,40 @@ function match(key, zid) {
         variants[1][key] = ObjectId(zid);
     }
     return {$or: variants};
+}
+
+var pidCache = new SimpleCache({"maxSize":9000})
+
+// must follow auth and need('zid'...) middleware
+function getPidForParticipant(assigner, cache) {
+    return function(req, res, next) {
+        var zid = req.p.zid;
+        var uid = req.p.uid;
+        var cacheKey;
+        function finish(pid) {
+            assigner(req, "pid", pid);
+            next();
+        }
+        if (cache) {
+            cacheKey = zid + "_" + uid;
+            var pid = cache.get(cacheKey);
+            if (pid !== void 0) {
+                finish(pid);
+                return;
+            }
+        }
+        client.query("SELECT pid FROM participants WHERE zid = ($1) and uid = ($2);", [zid, uid], function(err, results) {
+            if (err) { notifyAirbrake("polis_err_get_pid_for_participant"); next(err); return }
+            var pid = -1;
+            if (results && results.rows && results.rows.length) {
+                pid = results.rows[0].pid;
+                if (cache) {
+                    cache.set(cacheKey, pid);
+                }
+            }
+            finish(pid);
+        });
+    };
 }
 
 function votesPost(res, pid, zid, tid, voteType) {
@@ -1270,10 +1306,11 @@ function(req, res) {
     var answers = req.p.answers;
 
     function finish(pid) {
-        function getZidToPidCookieKey(zid) {
-            return zid + "p";
-        }
-        addCookie(res, getZidToPidCookieKey(zid), pid);
+        // Probably don't need pid cookies..?
+        // function getZidToPidCookieKey(zid) {
+        //     return zid + "p";
+        // }
+        // addCookie(res, getZidToPidCookieKey(zid), pid);
         res.status(200).json({
             pid: pid,
         });
@@ -1753,8 +1790,8 @@ app.post("/v3/votes",
     auth,
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
-    need('pid', getInt, assignToP),
     need('vote', getIntInRange(-1, 1), assignToP),
+    getPidForParticipant(assignToP, pidCache),
 function(req, res) {
         votesPost(res, req.p.pid, req.p.zid, req.p.tid, req.p.vote);
 });
@@ -1763,8 +1800,8 @@ app.post("/v3/stars",
     auth,
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
-    need('pid', getInt, assignToP),
     need('starred', getIntInRange(0,1), assignToP),
+    getPidForParticipant(assignToP, pidCache),
 function(req, res) {
     var query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default);";
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.starred];
@@ -1785,8 +1822,8 @@ app.post("/v3/trashes",
     auth,
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
-    need('pid', getInt, assignToP),
     need('trashed', getIntInRange(0,1), assignToP),
+    getPidForParticipant(assignToP, pidCache),
 function(req, res) {
     var query = "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
