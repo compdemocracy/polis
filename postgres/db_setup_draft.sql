@@ -126,6 +126,14 @@ CREATE TABLE zinvites (
     UNIQUE (zinvite)
 );
 
+-- TODO flush regularly
+CREATE TABLE password_reset_tokens (
+    uid INTEGER REFERENCES users(uid),
+    created BIGINT DEFAULT now_as_millis(),
+    pwresettoken VARCHAR(250),
+    UNIQUE (pwresettoken)
+);
+
 CREATE TABLE beta(
     name VARCHAR(999),
     email VARCHAR(200),
