@@ -901,6 +901,10 @@ app.post("/v3/auth/pwresettoken",
     need('email', getEmail, assignToP),
 function(req, res) {
     var email = req.p.email;
+
+    // let's clear the cookies here, in case something is borked.
+    clearCookies(req);
+
     getUidByEmail(email, function(err, uid) {
         setupPwReset(uid, function(err, pwresettoken) {
             sendPasswordResetEmail(uid, pwresettoken, function(err) {
@@ -923,18 +927,22 @@ function getUidByEmail(email, callback) {
 
 
 
-
-app.post("/v3/auth/deregister",
-function(req, res) {
-    var token = req.cookies.token;
-    // Clear all cookies!
-    // clear cookies regardless of auth status
+function clearCookies(req) {
     for (var cookieName in req.cookies) {
         res.clearCookie(cookieName, {path: "/"});
     }
     // cookieNames.forEach(function(name) {
     //     res.clearCookie(name, {path: "/"});
     // });
+}
+
+app.post("/v3/auth/deregister",
+function(req, res) {
+    var token = req.cookies.token;
+
+    // clear cookies regardless of auth status
+    clearCookies(req);
+
     function finish() {
         res.status(200).end();
     }
