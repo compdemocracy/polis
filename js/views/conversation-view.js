@@ -74,6 +74,8 @@ define([
     var that = this;
     var vis;
     var serverClient = new ServerClient({
+      zid: this.model.get("zid"),
+      zinvite: this.model.get("zinvite"),
       tokenStore: PolisStorage.token,
       pidStore: PolisStorage.pid,
       uidStore: PolisStorage.uid,
@@ -86,7 +88,6 @@ define([
       logger: console
     });
 
-    serverClient.joinConversation(this.model.get("zid"), this.model.get("zinvite"));
     // this.commentsByMe = new SomeViewColinWillCreate({
     //   serverClient: serverClient,
     //   zid: this.zid,
@@ -95,12 +96,6 @@ define([
         zid: this.zid
     });
 
-    metadataCollection.fetch({
-        data: $.param({
-            zid: this.zid
-        }),
-        processData: true
-    });
 
     var resultsCollection = new ResultsCollection();
 
@@ -237,11 +232,22 @@ define([
         trigger: "click",
         placement: "top"
       });
-    });
 
-     // Let the DOM finish its layout
-     _.defer(initPcaVis);
-     $(window).resize(initPcaVis);
+      serverClient.joinConversation()
+        .done(function() {
+          metadataCollection.fetch({
+              data: $.param({
+                  zid: that.zid
+              }),
+              processData: true
+          });
+          initPcaVis();
+          $(window).resize(initPcaVis);
+      }).fail(function(err) {
+        alert(err);
+      });
+
+    });
   }// end initialize
   });
 });

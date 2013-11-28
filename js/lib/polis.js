@@ -66,7 +66,8 @@ return function(params) {
 
     var needAuthCallbacks = $.Callbacks();
 
-    var currentStimulusId;
+    var currentStimulusId = params.zid;
+    var zinvite = params.zinvite;
 
     var means = null; // TODO move clustering into a separate file
 
@@ -76,13 +77,12 @@ return function(params) {
 
     // TODO rename
     function syncAllCommentsForCurrentStimulus(optionalStimulusId) { // more like sync?
-        var stim = Number(optionalStimulusId) || currentStimulusId;
         var dfd = $.Deferred();
         var params = {
             lastServerToken: (new Date(0)).getTime(),
             not_pid: getPid(), // don't want to see own coments
             not_voted_by_pid: getPid(),
-            zid: stim
+            zid: currentStimulusId
             //?
         };
         polisGet(commentsPath, params).then( function(comments) {
@@ -118,7 +118,7 @@ return function(params) {
                 }
             }
         }, function(err) {
-            logger.error("failed to fetch comments for " + stim);
+            logger.error("failed to fetch comments");
             logger.dir(err);
             dfd.reject(0);
         });
@@ -330,10 +330,7 @@ return function(params) {
         return promise;
     }
 
-    function joinConversation(newStimulusId, zinvite) {
-        currentStimulusId = Number(newStimulusId);
-        lastServerTokenForPCA = 0;
-        lastServerTokenForComments = 0;
+    function joinConversation() {
         return doJoinConversation(zinvite);
     }
     function clientSideBaseCluster(people, N) {
