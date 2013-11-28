@@ -88,6 +88,7 @@ var cookieNames = [
     "uid",
     "pids",
     "email",
+    // also a cookie for each zid the user has a pid for... 314p=100; 451p=20;
 ];
 
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
@@ -120,7 +121,12 @@ var errorNotifications = (function() {
     }
     setInterval(sendAll, 60*1000);
     return {
-        add: function(token) { errors.push(token); },
+        add: function(token) {
+            if (!token || !token.length) {
+                throw new Error("empty token for pushover");
+            }
+            errors.push(token); 
+        },
     }
 }());
 var yell = errorNotifications.add;
@@ -589,7 +595,7 @@ function setOptional(squelQuery, P, name, nameOfSqlColumnName) {
 }
 
 var oneYear = 1000*60*60*24*365;
-function addCookie(res, token) {
+function addCookie(res, key, value) {
     var o = {
     };
     if (domainOverride) { 
@@ -601,8 +607,7 @@ function addCookie(res, token) {
         o.maxAge = oneYear;
      //   o.secure = true; // TODO need HTTPS
     }
-
-    res.cookie('token', token, o);
+    res.cookie(key, value, o);
 }
 
 function generateHashedPassword(password, callback) {
@@ -866,10 +871,15 @@ function getUidByEmail(email, callback) {
 app.post("/v3/auth/deregister",
 function(req, res) {
     var token = req.cookies.token;
+    // Clear all cookies!
+    // clear cookies regardless of auth status
+    for (var cookieName in req.cookies) {
+        res.clearCookie(cookieName, {path: "/"});
+    }
+    // cookieNames.forEach(function(name) {
+    //     res.clearCookie(name, {path: "/"});
+    // });
     function finish() {
-        cookieNames.forEach(function(name) {
-            res.clearCookie(name, {path: "/"});
-        });
         res.status(200).end();
     }
     if (!token) {
@@ -1101,7 +1111,10 @@ function isConversationOwner(zid, uid, callback) {
 // returns a pid of -1 if it's missing
 function getPid(zid, uid, callback) {
     client.query("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
-        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid || -1;
+        var pid = -1;
+        if (docs && docs.rows && docs.rows[0]) {
+            pid = docs.rows[0].pid;
+        }
         callback(err, pid);
     });
 }
@@ -1211,7 +1224,7 @@ function(req, res) {
     client.query("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
         if (result.rows[0].is_anon) {
-            res.status(403).json({status: "polis_err_fetching_participant_info_conversation_is_anon"});
+            fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
             return;
         }
         if (pid !== undefined) {
@@ -1257,11 +1270,15 @@ function(req, res) {
     var answers = req.p.answers;
 
     function finish(pid) {
+        function getZidToPidCookieKey(zid) {
+            return zid + "p";
+        }
+        addCookie(res, getZidToPidCookieKey(zid), pid);
         res.status(200).json({
             pid: pid,
         });
     }
-    function onAllowed(pid) {
+    function onAllowed() {
         userHasAnsweredZeQuestions(zid, answers, function(err) {
             if (err) { fail(res, 500, "polis_err_fetching_answers", err); return; }
             joinConversation(zid, uid, answers, function(err, pid) {
@@ -1271,24 +1288,28 @@ function(req, res) {
         }); // end get is_public
     }
 
+    function doJoin() {
+        getConversationProperty(zid, "is_public", function(err, is_public) {
+            if (err) { fail(res, 500, "polis_err_add_participant_property_check", err); return; }
+            if (is_public) {
+                onAllowed();
+            } else {
+                checkZinviteCodeValidity(zid, zinvite, function(err) {
+                    if (err) { fail(res, 403, "polis_err_add_participant_bad_zinvide_code", err); return }
+                    onAllowed();
+                });
+            }
+        }); // end userHasAnsweredZeQuestions
+    }
+
     // Check if already in the conversation
     getPid(zid, req.p.uid, function(err, pid) {
+        console.dir(arguments);
         if (!err && pid >= 0) {
             finish(pid);
             return;
         }
-        getConversationProperty(zid, "is_public", function(err, is_public) {
-            if (err) { fail(res, 500, "polis_err_add_participant_property_check", err); return; }
-            if (is_public) {
-                onAllowed(pid);
-            } else {
-                checkZinviteCodeValidity(zid, zinvite, function(err) {
-                    if (err) { fail(res, 403, "polis_err_add_participant_bad_zinvide_code", err); return }
-                    onAllowed(pid);
-                });
-            }
-        }); // end userHasAnsweredZeQuestions
-
+        doJoin();
     });
 });
 
@@ -1340,19 +1361,20 @@ function(req, res) {
         if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); return; }
         if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); return; }
         var hashedPassword  = docs[0].pwhash;
-        var userID = docs[0].uid;
+        var uid = docs[0].uid;
 
         bcrypt.compare(password, hashedPassword, function(errCompare, result) {
             if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); return; }
             
-            startSession(userID, function(errSess, token) {
+            startSession(uid, function(errSess, token) {
                 var response_data = {
                     username: username,
-                    uid: userID,
+                    uid: uid,
                     email: email,
                     token: token
                 };
-                addCookie(res, token);
+                addCookie(res, 'token', token);
+                addCookie(res, 'uid', uid);
                 res.json(response_data);
             }); // startSession
         }); // compare
@@ -1464,7 +1486,8 @@ function(req, res) {
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(err,token) {
                             if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
-                            addCookie(res, token);
+                            addCookie(res, 'token', token);
+                            addCookie(res, 'uid', uid);
                             res.json({
                                 uid: uid,
                                 hname: hname,
