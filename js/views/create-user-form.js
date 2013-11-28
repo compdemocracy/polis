@@ -19,7 +19,6 @@ define([
     var that = this;
     event.preventDefault();
     this.serialize(function(attrs, release){
-      PolisStorage.clearAll(); // clear old user - TODO setup deregistration
 
       // Incorporate options, like zinvite.
       var zinvite = that.model.get("zinvite");
@@ -37,8 +36,6 @@ define([
         crossDomain: true,
         data: attrs
       }).then(function(data) {
-        PolisStorage.uid.set(data.uid);
-        PolisStorage.email.set(data.email);
         that.trigger("authenticated");
         release();
       }, function(err) {
@@ -52,7 +49,6 @@ define([
     var that = this;
     event.preventDefault();
     this.serialize(function(attrs, release){
-      PolisStorage.clearAll(); // clear old user - TODO setup deregistration
 
       $.ajax({
         url: urlPrefix + "v3/auth/login",
@@ -64,8 +60,6 @@ define([
         crossDomain: true,
         data: attrs
       }).then(function(data) {
-        PolisStorage.uid.set(data.uid);
-        PolisStorage.email.set(data.email);
         release();
         that.trigger("authenticated");
       }, function(err) {

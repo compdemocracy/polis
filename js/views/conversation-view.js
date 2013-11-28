@@ -75,8 +75,6 @@ define([
     var vis;
     var serverClient = new ServerClient({
       tokenStore: PolisStorage.token,
-      emailStore: PolisStorage.email,
-      usernameStore: PolisStorage.username,
       pidStore: PolisStorage.pids,
       uidStore: PolisStorage.uid,
       //commentsStore: PolisStorage.comments,
@@ -88,7 +86,7 @@ define([
       logger: console
     });
 
-    serverClient.observeStimulus(this.model.get("zid"), this.model.get("zinvite"));
+    serverClient.joinConversation(this.model.get("zid"), this.model.get("zinvite"));
     // this.commentsByMe = new SomeViewColinWillCreate({
     //   serverClient: serverClient,
     //   zid: this.zid,
@@ -173,7 +171,7 @@ define([
         }
         vis = new VisView({
             getPersonId: function() {
-                return PolisStorage.pids.get(that.zid);
+                return PolisStorage.pids(that.zid);
             },
             getCommentsForProjection: serverClient.getCommentsForProjection,
             getCommentsForSelection: serverClient.getCommentsForSelection,

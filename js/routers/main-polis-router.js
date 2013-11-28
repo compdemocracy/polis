@@ -43,7 +43,7 @@ define([  //begin dependencies
 	) {  //end args, begin function block
 
   function authenticated() {
-    return PolisStorage.uid.get();
+    return PolisStorage.uid();
   }
 
 	return Backbone.Router.extend({
@@ -217,7 +217,7 @@ define([  //begin dependencies
 
     var that = this;
 
-    var uid = PolisStorage.uid.get();
+    var uid = PolisStorage.uid();
 
     if (!uid) {
         console.log("trying to load conversation, but no auth");
@@ -227,7 +227,7 @@ define([  //begin dependencies
           // Try again, should be ready now.
           that.conversationView(zid, zinvite);
         });
-    } else if (!PolisStorage.pids.get(zid)) {
+    } else if (!PolisStorage.pids(zid)) {
       console.log("trying to load conversation, but no pid");
       // Signed in...
       // But not yet a participant for this converation.

@@ -98,6 +98,11 @@ var store = (function() {
             return store.get(key);
         };
     }
+    function asNumber(getter) {
+        return function(key) {
+            return Number(getter(key));
+        };
+    }
 
     // function makeMapAccessor(accessor) {
     //     var oldGet = accessor.get;
@@ -133,11 +138,11 @@ var store = (function() {
         // clearAll: clearAll,
         //comments: makeAccessor("p_comments"), // TODO use a real db
         //reactionsByMe: makeAccessor("p_reactions_by_me"), // TODO use a real db
-        email: makeAccessor("email"),
+        email: makeAccessor("email").get,
         //username: makeAccessor("p_username"),
-        uid: makeAccessor("uid"),
+        uid: asNumber(makeAccessor("uid").get),
         //token: makeAccessor("p_authToken")
-        pids: makeCookieValueGetterForKeyWithSuffix("p") // p for pid, expecting keys like 314p=2; 451p=12
+        pids: asNumber(makeCookieValueGetterForKeyWithSuffix("p")) // p for pid, expecting keys like 314p=2; 451p=12
 
     };
     return x;

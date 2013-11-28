@@ -60,17 +60,9 @@ return function(params) {
     var participantCount = 0;
     var userInfoCache = [];
 
-    var usernameStore = params.usernameStore;
     var tokenStore = params.tokenStore;
-    var emailStore = params.emailStore;
     var pidStore = params.pidStore;
     var uidStore = params.uidStore;
-    var authStores = [tokenStore, usernameStore, emailStore, uidStore, pidStore];
-    function clearAuthStores() {
-        authStores.forEach(function(x) {
-            x.clear();
-        });
-    }
 
     var needAuthCallbacks = $.Callbacks();
 
@@ -340,79 +332,12 @@ return function(params) {
         return promise;
     }
 
-    function observeStimulus(newStimulusId, zinvite) {
+    function joinConversation(newStimulusId, zinvite) {
         currentStimulusId = Number(newStimulusId);
         lastServerTokenForPCA = 0;
         lastServerTokenForComments = 0;
-        return joinConversation(zinvite);
+        return doJoinConversation(zinvite);
     }
-
-    function authNew(params) {
-        if (!params.anon) {
-            if (!params.password) { return $.Deferred().reject("need password"); }
-            if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
-        }
-        return polisPost(createAccountPath, params).done( function(authData) {
-
-            clearAuthStores();
-            var temporary = !params.rememberMe;
-            tokenStore.set(authData.token, temporary);
-            if (params.username) {
-                usernameStore.set(params.username, temporary);
-            }
-            if (authData.uid) {
-                uidStore.set(authData.uid, temporary);
-            }
-            if (params.email) {
-                emailStore.set(params.email, temporary);
-            }
-            authStateChangeCallbacks.fire(assemble({
-                email: params.email,
-                person_id: params.u,
-                username: params.username,
-                state: "p_registered"
-            }));
-        });//.then(logger.log, logger.error);
-    }
-
-    function authLogin(params) {
-        if (!params.password) { return $.Deferred().reject("need password"); }
-        if (!params.username && !params.email) { return $.Deferred().reject("need username or email"); }
-        return polisPost(loginPath, params).done( function(authData) {
-            clearAuthStores();
-            var temporary = !params.rememberMe;
-            tokenStore.set(authData.token, temporary);
-            if (params.username) {
-                usernameStore.set(params.username, temporary);
-            }
-            if (authData.uid) {
-                uidStore.set(authData.uid, temporary);
-            }
-            if (params.email) {
-                emailStore.set(params.email, temporary);
-            }
-            authStateChangeCallbacks.fire(assemble({
-                email: params.email,
-                person_id: params.uid,
-                username: params.username,
-                state: "p_registered"
-            }));
-        });//.then(logger.log, logger.error);
-    }
-
-    function authDeregisterClientOnly() {
-        clearAuthStores();
-    }
-
-    function authDeregister() {
-        return polisPost(deregisterPath).always( function() {
-            clearAuthStores();
-            authStateChangeCallbacks.fire(assemble({
-                state: "p_deregistered"
-            }));
-        });
-    }
-
     function clientSideBaseCluster(people, N) {
         if (!N) { alert("need N"); }
         if (!means) {
@@ -741,10 +666,10 @@ return function(params) {
     }
 
     function getPid() {
-        return pidStore.get(currentStimulusId);
+        return pidStore(currentStimulusId);
     }
 
-    function joinConversation(zinvite) {
+    function doJoinConversation(zinvite) {
         var params = {
             zid: currentStimulusId
         };
@@ -827,17 +752,12 @@ return function(params) {
 
     return {
         authenticated: authenticated,
-        authNew: authNew,
-        authLogin: authLogin,
-        authDeregister: authDeregister,
-        authDeregisterClientOnly: authDeregisterClientOnly,
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForSelection: getCommentsForSelection,
         getReactionsToComment: getReactionsToComment,
         getUserInfoByPid: getUserInfoByPid,
         getUserInfoByPidSync: getUserInfoByPidSync,
-        observeStimulus: observeStimulus, // with no args
         getTotalVotesByPidSync: getTotalVotesByPidSync,
         disagree: disagree,
         agree: agree,

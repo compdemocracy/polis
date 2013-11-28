@@ -19,7 +19,7 @@ require([
   // debug convenience function for deregistering.
   window.deregister = function() {
     return $.post("/v3/auth/deregister", {}).always(function() {
-      // PolisStorage.clearAll(); // relying on server to clear cookies instead
+      // relying on server to clear cookies
       Backbone.history.navigate("/", {trigger: true});
     });
   };

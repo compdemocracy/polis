@@ -21,8 +21,6 @@ define([
             urlPrefix = "http://localhost:5000/";
         }
         this.serialize(function(attrs, release){
-          PolisStorage.clearAll(); // clear old user - TODO setup deregistration
-
           // Incorporate options, like zinvite.
           attrs = $.extend(that.options || {}, attrs);
 
@@ -36,8 +34,6 @@ define([
             // crossDomain: true,
             data: attrs
           }).then(function(data) {
-            PolisStorage.uid.set(data.uid);
-            PolisStorage.email.set(data.email);
             release();
             that.trigger("authenticated");
           }, function(err) {

@@ -81,7 +81,7 @@
 
 //     function setStimulus(stimulusId) {
 //         stimulusId = "string" === typeof stimulusId ? stimulusId : this.dataset.stimulusId;
-//         serverClient.observeStimulus(stimulusId);
+//         serverClient.joinConversation(stimulusId);
 //         serverClient.syncAllCommentsForCurrentStimulus().always( function() {
 //                 commentShower.showNext().always(checkForGameOver);
 //         });
@@ -186,9 +186,6 @@
 //         });
 
 //         loginView = new LoginView({
-//             emailStore: PolisStorage.email,
-//             usernameStore: PolisStorage.username,
-//             personIdStore: PolisStorage.personId,
 //             rootElemId: "create_user_modal",
 //             submit: serverClient.authLogin,
 //             onOk: function() { console.log("login success"); },
@@ -199,12 +196,10 @@
 //         });
 //         loginView.addDeregisterListener(onDeregister);
 //         loginView.render({
-//             email: PolisStorage.email.get()
+//             email: PolisStorage.email()
 //         });
 
 //         registerView = new LoginView({
-//             emailStore: PolisStorage.email,
-//             usernameStore: PolisStorage.username,
 //             rootElemId: "create_user_modal",
 //             submit: serverClient.authNew,
 //             onOk: function() { console.log("register success"); },
