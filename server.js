@@ -400,7 +400,7 @@ String.prototype.hashCode = function(){
 
 function notifyAirbrake(e) {
     if (!(e instanceof Error)) {
-        e = new Error(err);
+        e = new Error(e);
     }
     airbrake.notify(e, function(err, url) {
         console.log(url);
