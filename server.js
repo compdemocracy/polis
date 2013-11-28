@@ -783,7 +783,7 @@ function redirectIfNotHttps(req, res, next) {
 
   // IE is picky, so use HTTP.
   // TODO figure out IE situation, (proxy static files in worst-case)
-  exempt = exempt || /MSIE/.test(req.headers['user-agent']); // TODO test IE11
+ // exempt = exempt || /MSIE/.test(req.headers['user-agent']); // TODO test IE11
 
   if (exempt) {
     return next();
