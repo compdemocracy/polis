@@ -676,7 +676,6 @@ function match(key, zid) {
 function votesPost(res, pid, zid, tid, voteType) {
     var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default);";
     var params = [pid, zid, tid, voteType];
-    console.log(query, params);
     client.query(query, params, function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
@@ -1075,7 +1074,7 @@ function isOwnerOrParticipant(zid, uid, callback) {
     // TODO should be parallel.
     // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
     getPid(zid, uid, function(err) {
-        if (err) {
+        if (err || pid < 0) {
             isConversationOwner(zid, uid, function(err) {
                 callback(err);
             });
@@ -1095,29 +1094,21 @@ function isConversationOwner(zid, uid, callback) {
         if (!docs || !docs.rows || docs.rows.length === 0) {
             err = err || 1;
         }
-        console.log('isConversationOwner: ' + err);
-        console.log(zid, uid);
-        console.dir(docs);
-        console.dir(err);
         callback(err);
     });
 }
 
+// returns a pid of -1 if it's missing
 function getPid(zid, uid, callback) {
     client.query("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
-        var pid;
-        if (docs.rows.length == 0) {
-            err = err || 1;
-        } else {
-            pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
-        }
+        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid || -1;
         callback(err, pid);
     });
 }
 
 function getAnswersForConversation(zid, callback) {
     client.query("SELECT * from participant_metadata_answers WHERE zid = ($1) AND alive=TRUE;", [zid], function(err, x) {
-        if (err) { callback(1); return;}
+        if (err) { callback(err); return;}
         callback(0, x.rows);
     });
 }
@@ -1237,11 +1228,8 @@ function userHasAnsweredZeQuestions(zid, answers, callback) {
     getAnswersForConversation(zid, function(err, available_answers) {
         if (err) { callback(err); return;}
 
-        console.dir(available_answers);
         var q2a = _.indexBy(available_answers, 'pmqid');
         var a2q = _.indexBy(available_answers, 'pmaid');
-        console.dir(q2a);
-        console.dir(a2q);
         for (var i = 0; i < answers.length; i++) {
             var pmqid = a2q[answers[i]].pmqid;
             delete q2a[pmqid];
@@ -1572,7 +1560,7 @@ app.post("/v3/comments",
     need('txt', getOptionalStringLimitLength(1000), assignToP),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
-        if (err) { fail(res, 500, "polis_err_getting_pid", err); return; }
+        if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
         console.log(pid);
         console.log(req.p.uid);
         client.query(
@@ -1633,6 +1621,7 @@ app.get("/v3/votes/me",
     need('uid', getInt, assignToP),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
+        if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
         client.query("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
             if (err) { fail(res, 500, "polis_err_get_votes_by_me", err); return; }
             res.json({
@@ -1651,7 +1640,6 @@ function getVotesForZidPids(zid, pids, callback) {
         .where("pid IN (" + pids + ")");
 
     client.query(query.toString(), [], function(err, results) {
-        console.log('votes query');
         if (err) { return callback(err); }
         callback(null, results.rows);
     });
@@ -1711,7 +1699,6 @@ function(req, res) {
                 .where("zid = ?", zid)
                 .where("tid IN (" + commentIds.join(",") + ")");
             client.query(queryForSelectedComments.toString(), [], function(err, results) {
-                console.log('comments query');
                 if (err) { fail(res, 500, "polis_err_get_selection_comments", err); return; }
                 var comments = results.rows;
                 // map the results onto the commentIds list, which has the right ordering
@@ -1851,8 +1838,7 @@ function(req, res) {
 
             deleteMetadataQuestionAndAnswers(pmqid, function(err) {
                 if (err) { fail(res, 500, "polis_err_delete_participant_metadata_question", new Error(err)); return; }
-                console.log('ok');
-                res.status(200)
+                res.send(200);
             });
         });
     });
@@ -1874,7 +1860,6 @@ function(req, res) {
 
             deleteMetadataAnswer(pmaid, function(err) {
                 if (err) { fail(res, 500, "polis_err_delete_participant_metadata_answers", err); return; }
-                console.log('ok');
                 res.send(200);
             });
         });
@@ -1883,12 +1868,9 @@ function(req, res) {
 
 function getZidForAnswer(pmaid, callback) {
     client.query("SELECT zid FROM participant_metadata_answers WHERE pmaid = ($1);", [pmaid], function(err, result) {
-        console.dir(arguments);
-        if (err) { console.dir(err); callback(err); return;}
+        if (err) { callback(err); return;}
         if (!result.rows || !result.rows.length) {
-            console.log('no result');
-            console.dir(result);
-            callback(1);
+            callback("polis_err_zid_missing_for_answer");
             return;
         }
         callback(null, result.rows[0].zid);
@@ -1897,12 +1879,9 @@ function getZidForAnswer(pmaid, callback) {
 
 function getZidForQuestion(pmqid, callback) {
     client.query("SELECT zid FROM participant_metadata_questions WHERE pmqid = ($1);", [pmqid], function(err, result) {
-        console.dir(arguments);
         if (err) {console.dir(err);  callback(err); return;}
         if (!result.rows || !result.rows.length) {
-                        console.log('no result');
-            console.dir(result);
-            callback(1);
+            callback("polis_err_zid_missing_for_question");
             return;
         }
         callback(null, result.rows[0].zid);
@@ -1913,7 +1892,7 @@ function deleteMetadataAnswer(pmaid, callback) {
     // client.query("update participant_metadata_choices set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
     //     if (err) {callback(34534545); return;}
         client.query("update participant_metadata_answers set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
-            if (err) {callback(23424234); return;}
+            if (err) {callback(err); return;}
             callback(null);
         });           
      // });
@@ -1923,9 +1902,9 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
     // client.query("update participant_metadata_choices set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
     //     if (err) {callback(93847834); return;}
         client.query("update participant_metadata_answers set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
-            if (err) {callback(92374827); return;}
+            if (err) {callback(err); return;}
             client.query("update participant_metadata_questions set alive = FALSE where pmqid = ($1);", [pmqid], function(err) {
-                if (err) {callback(29386827); return;}
+                if (err) {callback(err); return;}
                 callback(null);
             });
         });           
@@ -2001,16 +1980,22 @@ function(req, res) {
     var pmqid = req.p.pmqid;
     var value = req.p.value;
 
+    function finish(row) {
+        res.status(200).json(row);
+    }
+
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
-        client.query("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [
-            pmqid,
-            zid,
-            value,
-            ], function(err, results) {
-            if (err || !results || !results.rows || !results.rows.length) { fail(res, 500, "polis_err_post_participant_metadata_value", err); return; }
-            res.status(200).json(results.rows[0]);
+        client.query("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [pmqid, zid, value, ], function(err, results) {
+            if (err || !results || !results.rows || !results.rows.length) { 
+                client.query("UPDATE participant_metadata_answers set alive = TRUE where pmqid = ($1) AND zid = ($2) AND value = ($3) RETURNING *;", [pmqid, zid, value], function(err, results) {
+                    if (err) { fail(res, 500, "polis_err_post_participant_metadata_value", err); return; }
+                    finish(results.rows[0]);
+                });
+            } else {
+                finish(results.rows[0]);
+            }
         });
     }
 });
@@ -2132,7 +2117,7 @@ app.get('/v3/conversations/:zid',
     want('zid', getInt, assignToP),
 function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1);', [req.p.zid], function(err, results) {
-        if (err) { console.dir(err); fail(res, 500, "polis_err_get_conversation_by_zid", err); return; }
+        if (err) { fail(res, 500, "polis_err_get_conversation_by_zid", err); return; }
         if (!results || !results.rows || !results.rows.length) {
             fail(res, 404, "polis_err_no_such_conversation", new Error("polis_err_no_such_conversation"));
             return;
@@ -2172,7 +2157,6 @@ function(req, res) {
     query = query.order('created', true);
     query = query.limit(999); // TODO paginate
 
-    console.log(query.toString());
     client.query(query.toString(), [], function(err, result) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
@@ -2181,13 +2165,11 @@ function(req, res) {
         function fetchZinvites(conv) {
             return function(callback) {
                 if (conv.is_public) {
-                    console.log('public');
-                    console.dir(conv);
                     return callback(null);
                 }
                 isConversationOwner(conv.zid, req.p.uid, function(err) {
                     if (err) {
-                        console.log('not owner, nothing to do');
+                        // not owner, nothing to do
                         return callback(null);
                     }
 
@@ -2196,10 +2178,6 @@ function(req, res) {
                         if (!zinviteResults.rows || !zinviteResults.rows.length) {
                             zinviteResults.rows = [];
                         }
-
-                        console.log('zinvites');
-                        console.dir(zinviteResults);
-                        console.dir(data);
                         conv.zinvites = _.pluck(zinviteResults.rows, "zinvite");;
                         callback(null);
                     });
@@ -2219,7 +2197,7 @@ function(req, res) {
 
 function isUserAllowedToCreateConversations(uid, callback) {
     client.query("select is_owner from users where uid = ($1);", [uid], function(err, results) {
-        if (err) { console.dir(err); return callback(err); }
+        if (err) { return callback(err); }
         if (!results || !results.rows || !results.rows.length) {
             return callback(1);
         }
@@ -2343,9 +2321,11 @@ function(req, res) {
             res.setHeader('Retry-After', 0);
             console.warn(57493875);
             res.status(500).end(57493875);
+            notifyAirbrake("polis_err_get_users_new");
             return;
         }
         if (!result) {
+            notifyAirbrake("polis_fail_get_users_new");
             console.error(827982173);
             res.status(500).end(827982173);
         } else {
