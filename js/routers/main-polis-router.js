@@ -227,13 +227,8 @@ define([  //begin dependencies
           // Try again, should be ready now.
           that.conversationView(zid, zinvite);
         });
-    } else if (!PolisStorage.pids(zid)) {
-      console.log("trying to load conversation, but no pid");
-      // Signed in...
-      // But not yet a participant for this converation.
-      // (at least from this browser)
-      //
-      // Try to create or fetch a participant record.
+    } else {
+      // join conversation (may already have joined)
       var ptpt = new ParticipantModel({
         zid: zid,
         zinvite: zinvite
@@ -247,11 +242,12 @@ define([  //begin dependencies
           that.doLaunchConversation(zid);
         });
       });
-    } else {
-      // Found a pid for that zid.
-      // Go to the conversation.
-      that.doLaunchConversation(zid);
     }
+    //  else {
+    //   // Found a pid for that zid.
+    //   // Go to the conversation.
+    //   that.doLaunchConversation(zid);
+    // }
   },
   // assumes the user already exists.
   conversationGatekeeper: function(zid, uid, zinvite) {

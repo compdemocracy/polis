@@ -146,7 +146,7 @@ return function(params) {
 
     function submitComment(model) {
         model = $.extend(model, {
-            pid: getPid(),
+            // server will find the pid
             zid: currentStimulusId
         });
         if (typeof model.txt !== "string" || model.txt.length === 0) {
@@ -186,7 +186,7 @@ return function(params) {
         }
 
         return polisPost(votesPath, $.extend({}, params, {
-                pid: getPid(),
+                // server will find the pid
                 zid: currentStimulusId
             })
         );
@@ -229,7 +229,6 @@ return function(params) {
     function trash(tid) {
         clearComment(tid, "trash");
         return polisPost(trashesPath, {
-            pid: getPid(),
             tid: tid,
             trashed: 1,
             zid: currentStimulusId
@@ -249,7 +248,6 @@ return function(params) {
             console.error(params);
         }
         return polisPost(starsPath, $.extend({}, params, {
-                pid: getPid(),
                 zid: currentStimulusId
             })
         );
@@ -666,7 +664,7 @@ return function(params) {
     }
 
     function getPid() {
-        return pidStore(currentStimulusId);
+        return pidStore.get(currentStimulusId);
     }
 
     function doJoinConversation(zinvite) {
@@ -679,8 +677,7 @@ return function(params) {
             });
         }
         return polisPost(participantsPath, params).pipe( function (response) {
-            // will be in cookie
-            // pidStore.set(currentStimulusId, response.pid);
+            pidStore.set(response.pid);
             return response.pid;
         });
     }

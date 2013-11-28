@@ -2,7 +2,9 @@
   "name": "dashboard-require",
   "appName": "DashboardRequire",
   "version": "0.0.0",
-  "dependencies": {},
+  "dependencies": {
+    "simple-lru-cache": "0.0.1"
+  },
   "devDependencies": {
     "grunt-contrib-connect": "0.1.1",
     "grunt": "~0.4",

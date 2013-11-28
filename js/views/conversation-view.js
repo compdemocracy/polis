@@ -75,7 +75,7 @@ define([
     var vis;
     var serverClient = new ServerClient({
       tokenStore: PolisStorage.token,
-      pidStore: PolisStorage.pids,
+      pidStore: PolisStorage.pid,
       uidStore: PolisStorage.uid,
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
@@ -170,9 +170,7 @@ define([
             serverClient.removePersonUpdateListener(vis.upsertNode);
         }
         vis = new VisView({
-            getPersonId: function() {
-                return PolisStorage.pids(that.zid);
-            },
+            getPersonId: PolisStorage.pid.get,
             getCommentsForProjection: serverClient.getCommentsForProjection,
             getCommentsForSelection: serverClient.getCommentsForSelection,
             getReactionsToComment: serverClient.getReactionsToComment,
