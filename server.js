@@ -350,12 +350,16 @@ function connectToPostgres(callback) {
 }
 
 
-function authOr(alternativeAuth) {
+function hasToken(req) {
+    return !!req.cookies.token;
+}
+
+function needOr(condition, primary, alternative) {
     return function(req, res, next) {
-        if (req.cookies.token) {
-            return auth(req, res, next);
+        if (condition(req)) {
+            return primary(req, res, next);
         } else {
-            return alternativeAuth(req, req, next);
+            return alternative(req, req, next);
         }
     };
 }
@@ -2006,7 +2010,10 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 
 app.get('/v3/metadata/questions',
     moveToBody,
-    authOr(need('zinvite', getOptionalStringLimitLength(300), assignToP)),
+    needOr(
+        hasToken,
+        auth(assignToP),
+        need('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
@@ -2092,7 +2099,10 @@ function(req, res) {
 
 app.get('/v3/metadata/answers',
     moveToBody,
-    authOr(want('zinvite', getOptionalStringLimitLength(300), assignToP)),
+    needOr(
+        hasToken,
+        auth(assignToP),
+        need('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     want('pmqid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
