@@ -361,25 +361,31 @@ function authOr(alternativeAuth) {
 }
 
 // input token from body or query, and populate req.body.u with userid.
-function auth(req, res, next) {
-    //var token = req.body.token;
-    var token = req.cookies.token;
-    if (!token) { next(connectError(400, "polis_err_auth_token_not_supplied")); return; }
-    //if (req.body.uid) { next(400); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
-    getUserInfoForSessionToken(token, res, function(err, uid) {
-        if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
-         // don't want to pass the token around
-        if (req.body) { delete req.body.token; }
-        if (req.query) { delete req.query.token; }
+function auth(assigner) {
+    return function(req, res, next) {
+        //var token = req.body.token;
+        var token = req.cookies.token;
+        console.log("token from cookie");
+        console.dir(req.cookies);
+        if (!token) { next(connectError(400, "polis_err_auth_token_not_supplied")); return; }
+        //if (req.body.uid) { next(400); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
+        getUserInfoForSessionToken(token, res, function(err, uid) {
 
-        if ( req.body.uid && req.body.uid !== uid) {
-            next(connectError(400, "polis_err_auth_mismatch_uid"));
-            return;
-        }
-        req.body = req.body || {};
-        req.body.uid = uid;
-        next();
-    });
+    console.log("got uid");
+        console.log(uid);
+            if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
+             // don't want to pass the token around
+            if (req.body) { delete req.body.token; }
+            if (req.query) { delete req.query.token; }
+
+            if ( req.body.uid && req.body.uid !== uid) {
+                next(connectError(400, "polis_err_auth_mismatch_uid"));
+                return;
+            }
+            assigner(req, "uid", uid);
+            next();
+        });
+    };
 }
 
 // Consolidate query/body items in one place so other middleware has one place to look.
@@ -565,6 +571,7 @@ var prrrams = (function() {
                 }
                 next();
             } else {
+                console.dir(req);
                 next(connectError(400, "polis_err_param_missing" + " " + name));
             }
         };
@@ -728,8 +735,15 @@ function getPidForParticipant(assigner, cache) {
                 if (cache) {
                     cache.set(cacheKey, pid);
                 }
+                finish(pid);
+            } else {
+                var msg = "polis_err_get_pid_for_participant_missing";
+                notifyAirbrake(msg);
+                console.log(zid);
+                console.log(uid);
+                console.dir(req.p);
+                next(msg);
             }
-            finish(pid);
         });
     };
 }
@@ -963,9 +977,8 @@ function(req, res) {
 
 
 app.get("/v3/zinvites/:zid",
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
 function(req, res) {
     // if uid is not conversation owner, fail
     client.query('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
@@ -1017,8 +1030,8 @@ function createZinvite(zid, callback) {
 
 // Custom invite code generator, returns the code in the response
 app.get("/v3/oinvites/magicString9823742834/:note",
-    auth,
     moveToBody,
+    auth(assignToP),
     want('note', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
     var note = req.p.note;
@@ -1038,10 +1051,9 @@ function(req, res) {
 
 
 app.post("/v3/zinvites/:zid",
-    auth,
     moveToBody,
+    auth(assignToP),    
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
 function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 500, "polis_err_creating_zinvite_invalid_conversation_or_owner", err); return; }
@@ -1258,11 +1270,11 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
 }
 
 app.get("/v3/participants",
-    auth,
     moveToBody,
+    auth(assignToP),
     want('pid', getInt, assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP), // requester
+    // need('uid', getInt, assignToP), // requester
 function(req, res) {
     var pid = req.p.pid;
     var uid = req.p.uid;
@@ -1327,9 +1339,8 @@ function userHasAnsweredZeQuestions(zid, answers, callback) {
 }
 
 app.post("/v3/participants",
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
@@ -1359,6 +1370,7 @@ function(req, res) {
     }
 
     function doJoin() {
+        // get all info, be sure to return is_anon, so we don't poll for user info in polis.js
         getConversationProperty(zid, "is_public", function(err, is_public) {
             if (err) { fail(res, 500, "polis_err_add_participant_property_check", err); return; }
             if (is_public) {
@@ -1572,7 +1584,7 @@ function(req, res) {
 
 
 app.post("/v2/feedback",
-    auth,
+    auth(assignToP),
     function(req, res) {
                 var data = req.body;
                     data.events.forEach(function(ev){
@@ -1588,7 +1600,7 @@ app.post("/v2/feedback",
 
 app.get("/v3/comments",
     moveToBody,
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
     want('not_voted_by_pid', getInt, assignToP),
@@ -1640,9 +1652,8 @@ function failWithRetryRequest(res) {
 }
 
 app.post("/v3/comments",
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
     need('txt', getOptionalStringLimitLength(1000), assignToP),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
@@ -1702,9 +1713,8 @@ function(req, res) {
 
 app.get("/v3/votes/me",
     moveToBody,
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
@@ -1818,7 +1828,7 @@ function(req, res) {
 });
 
 app.post("/v3/votes",
-    auth,
+    auth(assignToP),
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
     need('vote', getIntInRange(-1, 1), assignToP),
@@ -1828,7 +1838,7 @@ function(req, res) {
 });
 
 app.post("/v3/stars",
-    auth,
+    auth(assignToP),
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
     need('starred', getIntInRange(0,1), assignToP),
@@ -1850,7 +1860,7 @@ function(req, res) {
 });
 
 app.post("/v3/trashes",
-    auth,
+    auth(assignToP),
     need('tid', getInt, assignToP),
     need('zid', getInt, assignToP),
     need('trashed', getIntInRange(0,1), assignToP),
@@ -1873,9 +1883,8 @@ function(req, res) {
 
 app.put('/v3/conversations/:zid',
     moveToBody,
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
@@ -1909,9 +1918,8 @@ function(req, res){
 });
 
 app.delete('/v3/metadata/questions/:pmqid',
-    auth,
     moveToBody,
-    need('uid', getInt, assignToP),
+    auth(assignToP),
     need('pmqid', getInt, assignToP),
 function(req, res) {
     var uid = req.p.uid;
@@ -1931,9 +1939,8 @@ function(req, res) {
 });
 
 app.delete('/v3/metadata/answers/:pmaid',
-    auth,
     moveToBody,
-    need('uid', getInt, assignToP),
+    auth(assignToP),
     need('pmaid', getInt, assignToP),
 function(req, res) {
     var uid = req.p.uid;
@@ -2001,7 +2008,6 @@ app.get('/v3/metadata/questions',
     moveToBody,
     authOr(need('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
-    want('uid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
@@ -2030,10 +2036,9 @@ function(req, res) {
 
 app.post('/v3/metadata/questions',
     moveToBody,
-    auth,
+    auth(assignToP),
     need('key', getOptionalStringLimitLength(999), assignToP),
     need('zid', getInt, assignToP),
-    want('uid', getInt, assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var key = req.p.key;
@@ -2055,9 +2060,8 @@ function(req, res) {
     
 app.post('/v3/metadata/answers',
     moveToBody,
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
     need('pmqid', getInt, assignToP),
     need('value', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
@@ -2090,7 +2094,6 @@ app.get('/v3/metadata/answers',
     moveToBody,
     authOr(want('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
-    want('uid', getInt, assignToP),
     want('pmqid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
@@ -2124,9 +2127,8 @@ function(req, res) {
 
 app.get('/v3/metadata',
     moveToBody,
-    auth,
+    auth(assignToP),
     need('zid', getInt, assignToP),
-    need('uid', getInt, assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
@@ -2189,9 +2191,8 @@ function(req, res) {
 
 app.post('/v3/metadata/new',
     moveToBody,
-    auth,
+    auth(assignToP),
     want('oid', getInt, assignToP),
-    need('uid', getInt, assignToP),
     need('metaname', getInt, assignToP),
     need('metavalue', getInt, assignToP),
 function(req, res) {
@@ -2199,7 +2200,7 @@ function(req, res) {
 
 app.get('/v3/conversations/:zid',
     moveToBody,
-    auth,
+    auth(assignToP),
     want('zid', getInt, assignToP),
 function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1);', [req.p.zid], function(err, results) {
@@ -2216,12 +2217,11 @@ function(req, res) {
 
 app.get('/v3/conversations',
     moveToBody,
-    auth,
+    auth(assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('zid', getInt, assignToP),
     want('owner', getInt, assignToP), // TODO needed?
-    need('uid', getInt, assignToP),
 function(req, res) {
 
   // First fetch a list of conversations that the user is a participant in.
@@ -2293,14 +2293,13 @@ function isUserAllowedToCreateConversations(uid, callback) {
 
 // TODO check to see if ptpt has answered necessary metadata questions.
 app.post('/v3/conversations/undefined', // TODO undefined is not ok
-    auth,
+    auth(assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('is_public', getBool, assignToP, false),
     want('is_anon', getBool, assignToP, false),
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
-    need('uid', getInt, assignToP),
 function(req, res) {
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
@@ -2356,8 +2355,7 @@ function(req, res) {
 
 
 app.post('/v3/query_participants_by_metadata',
-    auth,
-    need('uid', getInt, assignToP),
+    auth(assignToP),
     need('zid', getInt, assignToP),
     need('pmaids', getArrayOfInt, assignToP, []),
 function(req, res) {
