@@ -837,7 +837,7 @@ var whitelistedDomains = [
 
 app.all("/v3/*", function(req, res, next) {
  
-  var host;
+  var host = "";
   if (domainOverride) {
       host = req.protocol + "://" + domainOverride;
   } else {
