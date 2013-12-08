@@ -88,10 +88,6 @@ define([
       logger: console
     });
 
-    // this.commentsByMe = new SomeViewColinWillCreate({
-    //   serverClient: serverClient,
-    //   zid: this.zid,
-    // });
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: this.zid
     });
@@ -130,8 +126,12 @@ define([
       zid: this.zid
     });
 
+    this.commentsByMe = new CommentsCollection();
+
     this.commentForm = new CommentFormView({
+      pidStore: PolisStorage.pid,
       serverClient: serverClient,
+      collection: this.commentsByMe,
       zid: this.zid
     });
 
@@ -241,6 +241,7 @@ define([
               }),
               processData: true
           });
+          that.commentForm.updateCollection();
           initPcaVis();
           $(window).resize(initPcaVis);
       }).fail(function(err) {
