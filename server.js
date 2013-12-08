@@ -1606,6 +1606,7 @@ app.get("/v3/comments",
     moveToBody,
     auth(assignToP),
     need('zid', getInt, assignToP),
+    want('pid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
     want('not_voted_by_pid', getInt, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
@@ -1624,6 +1625,9 @@ function(req, res) {
 
     var query = squel.select().from('comments');
     query = query.where("zid = ?", req.p.zid);
+    if (!_.isUndefined(req.p.pid)) {
+        query = query.where("pid = ?", req.p.pid);
+    }
     if (!_.isUndefined(req.p.not_pid)) {
         query = query.where("pid != ?", req.p.not_pid);
     }
