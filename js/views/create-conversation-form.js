@@ -1,15 +1,21 @@
 define([
   "view",
   "templates/create-conversation-form",
+  "collections/comments",
+  "views/comment-form",
   "models/conversation",
   "views/metadataQuestionsViewWithCreate",
-  "collections/MetadataQuestions"
+  "collections/MetadataQuestions",
+  "util/polisStorage"
 ], function (
   View,
   template,
+  CommentsCollection,
+  CommentFormView,
   ConversationModel,
   MetadataQuestionsViewWithCreate,
-  MetadataQuestionCollection
+  MetadataQuestionCollection,
+  PolisStorage
 ) {
   return View.extend({
     name: "create-conversation-form",
@@ -74,6 +80,16 @@ define([
         collection: metadataCollection,
         zid: zid
       });
+
+
+      this.commentsByMe = new CommentsCollection();
+
+      this.commentForm = new CommentFormView({
+        pidStore: PolisStorage.pid,
+        collection: this.commentsByMe,
+        zid: zid
+      });
+
     },
     "delete": function() {
       var that = this;

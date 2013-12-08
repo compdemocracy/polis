@@ -132,8 +132,16 @@ define([  //begin dependencies
       is_draft: true,
       is_active: true // TODO think
     });
-    model.save().then(function(data) {
+
+    model.save().pipe(function(data) {
       model.set("zid", data.zid);
+
+      var ptpt = new ParticipantModel({
+        zid: data.zid
+      });
+      return ptpt.save();
+    }).pipe(function(ptpt) {
+      PolisStorage.pid.set(ptpt.pid);
       var createConversationFormView = new CreateConversationFormView({
         model: model,
         collection: conversationsCollection,
