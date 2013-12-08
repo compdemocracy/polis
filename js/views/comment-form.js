@@ -1,8 +1,9 @@
 define([
   "view",
   "templates/comment-form",
+  "models/comment",
   "views/commentView"
-], function (View, template, CommentView) {
+], function (View, template, CommentModel, CommentView) {
   return Thorax.CollectionView.extend({
     name: "comment-form",
     itemView: CommentView,
@@ -21,7 +22,10 @@ define([
     },
     participantCommented: function(attrs) {
       var that = this; //that = the view
-      this.serverClient.submitComment(attrs).then(function() {
+      attrs.pid = this.pidStore.get(this.zid);
+      attrs.zid = this.zid;
+      var comment = new CommentModel(attrs);
+      comment.save().then(function() {
         that.trigger("commentSubmitted"); // view.trigger
         that.updateCollection();
       }, function() {

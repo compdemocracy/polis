@@ -130,7 +130,6 @@ define([
 
     this.commentForm = new CommentFormView({
       pidStore: PolisStorage.pid,
-      serverClient: serverClient,
       collection: this.commentsByMe,
       zid: this.zid
     });
