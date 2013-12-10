@@ -2339,15 +2339,19 @@ function(req, res) {
         }
 
         var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
-        function finish() {
-            res.status(200).json({
+        function finish(zinvite) {
+            var data = {
                 zid: zid,
-            });
+            };
+            if (zinvite) {
+                data.zinvites = [zinvite];
+            }
+            res.status(200).json(data);
         }
         if (!req.p.is_public) {
             createZinvite(zid, function(err, zinvite) {
                 if (err) { fail(res, 500, "polis_err_zinvite_create", err); return; }
-                finish();
+                finish(zinvite);
             });
         } else {
             finish();
