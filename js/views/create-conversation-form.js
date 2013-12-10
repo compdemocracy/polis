@@ -25,7 +25,7 @@ define([
         var formAction = $(event.target).val();
         $(event.target).parents("form:first").attr("data-action",formAction);
       },
-      "submit form": function(event){
+      "click .submitButton": function(event){
         var that = this;
         event.preventDefault();
         var formAction = $(event.target).data("action");
