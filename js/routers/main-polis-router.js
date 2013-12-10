@@ -124,6 +124,10 @@ define([  //begin dependencies
   },
   createConversation: function(){
     if (!authenticated()) { return this.bail(); }
+    function onFail(err) {
+      alert("failed to create new conversation");
+      console.dir(err);
+    }
 
     var that = this;
     conversationsCollection = new ConversationsCollection();
@@ -133,14 +137,14 @@ define([  //begin dependencies
       is_active: true // TODO think
     });
 
-    model.save().pipe(function(data) {
+    model.save().then(function(data) {
       model.set("zid", data.zid);
 
       var ptpt = new ParticipantModel({
         zid: data.zid
       });
       return ptpt.save();
-    }).pipe(function(ptpt) {
+    }).then(function(ptpt) {
       PolisStorage.pid.set(ptpt.pid);
       var createConversationFormView = new CreateConversationFormView({
         model: model,
@@ -159,9 +163,20 @@ define([  //begin dependencies
         $checkbox.checkbox();
       });
     }, function(err) {
-      alert("failed to create new conversation");
-      console.dir(err);
-    });
+      // try with an oinvite
+      var oinvite = window.prompt("Please enter beta invite code:");
+      return $.ajax({
+        url: "/v3/users",
+        type: "PUT",
+        data: {
+          oinvite: oinvite,
+          is_owner: true
+        }
+      }).done(function() {
+        // Try again now that we should have permissions to create conversations.
+        that.createConversation();
+      });
+    }).fail(onFail);
   },
   editConversation: function(id) {
     if (!authenticated()) { return this.bail(); }
