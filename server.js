@@ -2323,7 +2323,7 @@ app.post('/v3/conversations/undefined', // TODO undefined is not ok
 function(req, res) {
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
-    if (err) { fail(res, 500, "polis_err_add_conversation_failed_user_check", err); return; }
+    if (err) { fail(res, 403, "polis_err_add_conversation_failed_user_check", err); return; }
     if (!isAllowed) { fail(res, 403, "polis_err_add_conversation_not_enabled", new Error("polis_err_add_conversation_not_enabled")); return; }
     client.query(
 'INSERT INTO conversations (zid, owner, created, topic, description, participant_count, is_active, is_draft, is_public, is_anon)  VALUES(default, $1, default, $2, $3, default, $4, $5, $6, $7) RETURNING zid;',
