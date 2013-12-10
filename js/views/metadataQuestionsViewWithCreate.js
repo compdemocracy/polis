@@ -14,9 +14,8 @@ define([
     events: {
       "blur .add_question_form": "hideAddQuestionForm"
     },
-    hideAddQuestionForm: function(event) {
+    hideAddQuestionForm: function() {
       var that = this;
-      // var formAction = $(event.target).data("action");
       this.serialize(function(attrs, release){
 
         // Make sure the form isn't empty.
@@ -47,6 +46,15 @@ define([
     showAddQuestionForm: function(event) {
       this.formActive = true;
       this.render();
+      var that = this;
+      setTimeout(function() {
+        that.$el.find("textarea").focus().keypress(function(e) {
+          if (e.which === 13) {
+            e.preventDefault();
+            that.hideAddQuestionForm();
+          }
+        });
+      },0);
     }
 });
 });

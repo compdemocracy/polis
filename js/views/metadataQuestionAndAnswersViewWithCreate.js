@@ -27,10 +27,18 @@ return MetadataQuestionAndAnswersView.extend({
   showAddAnswerForm: function(event) {
     this.formActive = true;
     this.render();
-  },
-  hideAddAnswerForm: function(event) {
     var that = this;
-    // var formAction = $(event.target).data("action");
+    setTimeout(function() {
+      that.$el.find("textarea").focus().keypress(function(e) {
+        if (e.which === 13) {
+          e.preventDefault();
+          that.hideAddAnswerForm();
+        }
+      });
+    },0);
+  },
+  hideAddAnswerForm: function() {
+    var that = this;
     this.serialize(function(attrs, release){
 
       // Make sure the form isn't empty.
