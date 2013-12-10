@@ -27,13 +27,13 @@
 
 		<form class="form-horizontal conversationsForm">
 			<div class="control-group">
-			  	<label for="topic" id="topicLabel" class="control-label">Topic <i class="icon-info-sign"></i></label>
+			  	<label for="topic" class="control-label"><span id="topicLabel">Topic <i class="icon-info-sign"></i></span></label>
 			  	<div class="controls">
 			  		<input type="text" name="topic" placeholder="Topic" value="{{topic}}"/>
 				</div>
 			</div>
 		  	<div class="control-group">
-			  	<label for="description" id="descriptionLabel" class="control-label">Description <i class="icon-info-sign"></i></label>
+			  	<label for="description" class="control-label"><span id="descriptionLabel">Description <i class="icon-info-sign"></i></span></label>
 			  	<div class="controls">
 			  		<textarea type="text" name="description" placeholder="Description" rows="8">{{description}}</textarea>
 				</div>
@@ -61,18 +61,18 @@
 
 		</form>
 
-		<h5 id="seedLabel">SEED COMMENTS <i class="icon-info-sign"></i> </h5>
+		<h5> <span id="seedLabel">SEED COMMENTS <i class="icon-info-sign"></i></span> </h5>
 		
 		
 		{{view commentForm}}
 
 
-		<h5 id="metaLabel">METADATA <i class="icon-info-sign"></i></h5>
+		<h5><span id="metaLabel">METADATA <i class="icon-info-sign"></i></span></h5>
 		
 		
 		{{view metadataQuestionsViewWithCreate}}
 
-		<h5 id="shareLabel"> SHARING <i class="icon-info-sign"></i> </h5>
+		<h5> <span id="shareLabel">SHARING <i class="icon-info-sign"></i></span> </h5>
 
 		<p> Share this link with your participants:
 			<input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly>
