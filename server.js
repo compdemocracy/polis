@@ -2426,7 +2426,7 @@ function(req, res) {
         if (!ok) { fail(res, 403, "polis_err_put_users_unknown_oinvite", new Error("polis_err_put_users_unknown_oinvite")); return; }
         client.query('UPDATE users SET is_owner = ($1) where uid = ($2);', [is_owner, uid], function(err, results) {
             if (err) { fail(res, 500, "polis_err_put_users_db", err); return; }
-            res.send(200);
+            res.json({});
         });
     });
 });
