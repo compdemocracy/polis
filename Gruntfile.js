@@ -399,7 +399,7 @@ module.exports = function(grunt) {
     'scripts:development',
     'thorax:inspector',
     'connect:development',
-    'open-browser',
+ //   'open-browser',
     'watch'
   ]);
 
@@ -411,7 +411,7 @@ module.exports = function(grunt) {
     'templates',
     'html:production',
     'scripts:production',
-    'open-browser',
+//    'open-browser',
     'connect:production',
   ]);
 };
