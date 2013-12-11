@@ -17,11 +17,11 @@
 	</div>
 </header>
 
-
 <section class="container">
-<h1>Create a conversation</h1>
 <div class="row">
-
+	<div class="span12" style="margin-bottom:20px">
+		<h3>Create a conversation <span style="font-weight:100"><em>(all fields optional)</em></span></h3>
+	</div>
 	<div class="span6 createConversationForm">
 		<input type="hidden" name="id" id="id" value="{{id}}"/>
 
@@ -38,6 +38,8 @@
 			  		<textarea type="text" name="description" placeholder="Description" rows="8">{{description}}</textarea>
 				</div>
 			</div>
+		</form>
+
 			{{!--
 			<div class="control-group">
 			  <div class="controls">
@@ -59,12 +61,21 @@
 
 			{{!-- <button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button> --}}
 
-		</form>
 
-		<h5> <span id="seedLabel">SEED COMMENTS <i class="icon-info-sign"></i></span> </h5>
-		
-		
 		{{view commentForm}}
+
+		
+
+
+
+
+
+
+
+
+
+		
+		
 
 
 		<h5><span id="metaLabel">METADATA <i class="icon-info-sign"></i></span></h5>

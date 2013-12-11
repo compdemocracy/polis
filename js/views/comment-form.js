@@ -45,6 +45,15 @@ define([
       this.zid = options.zid;
       this.pidStore = options.pidStore;
       this.collection = options.collection; // comments by me collection
+      this.listenTo(this, "rendered", function(){
+        this.$("#seedLabel").popover({
+        title: "Seed Comments",
+        content: "<p>Add 'starter' comments to the conversation for participants to react to. Use seed comments to outline opinions & options that are 'knowns', to focus participants and give them ideas of what to write themselves. If users have additional ideas, they will be able to write those and submit them during the conversation by clicking the 'Write' tab. </p>",
+        html: true, //XSS risk, not important for now
+        trigger: "hover",
+        placement: "bottom"
+      });
+      });
     }
   });
 });

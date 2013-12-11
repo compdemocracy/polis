@@ -1,11 +1,15 @@
-  <form id="comment_form">
-    <fieldset>
-
-      <textarea id="comment_form_textarea" rows="8" name="txt" type="text" placeholder="What you write will be sent out randomly to other participants; you are not directly responding to anyone else. Break up your ideas: shorter is more successful than longer."></textarea>
-
-      <button id="comment_button" class="btn pull-right" type="submit"> Submit Comment </button>
-
-    </fieldset>
-  </form>
+<form class="form-horizontal" id="comment_form">
+  <div class="control-group">
+  		<label for="txt" class="control-label" id="seedLabel"> Seed Comments <i class="icon-info-sign"></i></label> 
+  	<div class="controls">    
+  		<textarea id="comment_form_textarea" rows="9" name="txt" type="text" placeholder="Write different perspectives as individual statements. 'We should make the widget purchase now, before widget components get more expensive.' - then, as a separate seed comment - 'We should not make any widget purchases now, because we've made it through the past couple years just fine using gizmos and doodads.'"></textarea>
+  	</div>
+  	<div class="controls">
+  		<button id="comment_button" class="btn" type="submit"> Submit Comment </button>
+  	</div>
+  </div>
+</form>
 
 {{collection}}
+ 
+
