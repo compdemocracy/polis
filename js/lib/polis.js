@@ -44,6 +44,8 @@ return function(params) {
 
     var queryParticipantsByMetadataPath = "/v3/query_participants_by_metadata";
 
+    var commentVelocitiesPath = "/v3/velocities";
+
     var logger = params.logger;
 
     var lastServerTokenForPCA = 0;
@@ -85,6 +87,10 @@ return function(params) {
             zid: currentStimulusId
             //?
         };
+      function fail() {
+        dfd.reject(0);
+      }
+      getCommentVelocities().done(function() {
         polisGet(commentsPath, params).then( function(comments) {
             if (!comments) {
                 logger.log("no new comments for stimulus");
@@ -114,14 +120,15 @@ return function(params) {
                     commentsAvailableCallbacks.fire();
                     dfd.resolve(numComments);
                 } else {
-                    dfd.reject(0);
+                    fail();
                 }
             }
         }, function(err) {
             logger.error("failed to fetch comments");
             logger.dir(err);
-            dfd.reject(0);
+            fail();
         });
+      }).fail(fail);
         return dfd.promise();
     }
 
@@ -264,6 +271,12 @@ return function(params) {
         return doStarAction({
             starred: polisTypes.staractions.star,
             tid: tid
+        });
+    }
+
+    function getCommentVelocities() {
+        return polisGet(commentVelocitiesPath, {
+            zid: currentStimulusId
         });
     }
 
