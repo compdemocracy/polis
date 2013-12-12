@@ -1,11 +1,11 @@
 define([
   "view",
-  "templates/comment-view",
+  "templates/vote-view",
   "models/comment",
   "polis"
 ], function (View, template, CommentModel, serverClient) {
   return View.extend({
-    name: "comment-view",
+    name: "vote-view",
     template: template,
     events: {
       "hover .starbutton": function(){

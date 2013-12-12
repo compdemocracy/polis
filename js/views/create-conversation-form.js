@@ -2,7 +2,7 @@ define([
   "view",
   "templates/create-conversation-form",
   "collections/comments",
-  "views/comment-form",
+  "views/comment-form-seed",
   "models/conversation",
   "views/metadataQuestionsViewWithCreate",
   "collections/MetadataQuestions",
@@ -129,8 +129,7 @@ define([
 
       this.$("#metaLabel").popover({
         title: "Metadata",
-        content: "<p>Seed comments anticipate opinion groups. Metadata, on the other hand, asks participants about facts. It reflects groups you (1) already know exist, (2) want to control for and (3) want to filter based on.</p>" +
-                 "<p>Metadata is completely flexible, and you must define both the questions and answers. You can define qualitative categories such as \"What office do you work out of?\" with answers such as \"New York\", \"LA\", \"Boston\", \"No office - remote contractor\". You can also define binary questions such as \"Have you ever lived without healthcare?\", but must manually create the answers \"Yes\" and \"No\". You can also create quantitative scales, where a question such as \"How many times do you check email per day?\" might have answers such as \"1-2\", \"3-5\", \"5+\". </p>" +
+        content: "<p>Metadata is completely flexible, and you must define both the questions and answers. You can define qualitative categories such as \"What office do you work out of?\" with answers such as \"New York\", \"LA\", \"Boston\", \"No office - remote contractor\". You can also define binary questions such as \"Have you ever lived without healthcare?\", but must manually create the answers \"Yes\" and \"No\". You can also create quantitative scales, where a question such as \"How many times do you check email per day?\" might have answers such as \"1-2\", \"3-5\", \"5+\". </p>" +
                  "<p> When participants enter the conversation, they will be asked to check boxes, and will be able to check as many as apply to them (answers to questions are not mutually exclusive). During the conversation, click the 'Analyze' tab to filter participants in the visualization by metadata. All participants are shown by default. By clicking on \"Boston\", as per the example above, participants who chose that answer will fade out, making it easier to identify patterns of agreement and disagreement in those participants who remain. </p>",
         html: true, //XSS risk, not important for now
         trigger: "hover",

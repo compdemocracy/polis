@@ -1,7 +1,7 @@
 define([
   "view",
   "templates/conversation-view",
-  "views/comment-view",
+  "views/vote-view",
   "views/comment-form",
   "views/change-votes",
   "views/metadataQuestionsFilterView", // analyze view

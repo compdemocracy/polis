@@ -1,11 +1,11 @@
 define([
   "view",
-  "templates/comment-form",
+  "templates/comment-form-seed",
   "models/comment",
   "views/commentView"
 ], function (View, template, CommentModel, CommentView) {
   return Thorax.CollectionView.extend({
-    name: "comment-form",
+    name: "comment-form-seed",
     itemView: CommentView,
     template: template,
       events: {
@@ -45,6 +45,15 @@ define([
       this.zid = options.zid;
       this.pidStore = options.pidStore;
       this.collection = options.collection; // comments by me collection
+      this.listenTo(this, "rendered", function(){
+        this.$("#seedPopover").popover({
+        title: "Seed Comments",
+        content: "<p> Use seed comments to outline opinions & options that are 'knowns', to focus participants and give them ideas of what to write themselves. If users have additional ideas, they will be able to write those and submit them during the conversation by clicking the 'Write' tab. </p>",
+        html: true, //XSS risk, not important for now
+        trigger: "hover",
+        placement: "bottom"
+      });
+      });
     }
   });
 });

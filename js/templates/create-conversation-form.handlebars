@@ -17,9 +17,10 @@
 	</div>
 </header>
 
+
 <section class="container">
-<div class="row">
-	<div class="span12" style="margin-bottom:20px">
+
+	<div class="span12" style="margin-bottom: 20px;">
 		<h3>Create a conversation <span style="font-weight:100"><em>(all fields optional)</em></span></h3>
 	</div>
 	<div class="span6 createConversationForm">
@@ -61,9 +62,9 @@
 
 			{{!-- <button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button> --}}
 
-
-		{{view commentForm}}
-
+		<div class="well">
+				{{view commentForm}}
+		</div> 
 		
 
 
@@ -75,13 +76,20 @@
 
 
 		
-		
+<div class="well">
 
+		<h5 style="font-weight:100; margin-bottom: 20px"> METADATA </h5>      
 
-		<h5><span id="metaLabel">METADATA <i class="icon-info-sign"></i></span></h5>
-		
-		
+	  <div class="alert alert-block alert-info">
+      <button type="button" class="close" data-dismiss="alert">&times;</button>
+			<p> Seed comments anticipate opinion groups. Metadata, on the other hand, asks participants for facts about them when they first join the conversation. It reflects groups you (1) already know exist, (2) want to control for and (3) want to filter based on. <i class="icon-info-sign"></i> <span class="popover_helper_class" id="how_do_i_use">How do I use metadata?</span></p>
+    </div>
+
 		{{view metadataQuestionsViewWithCreate}}
+
+</div>
+		
+		
 
 		<h5> <span id="shareLabel">SHARING <i class="icon-info-sign"></i></span> </h5>
 
@@ -90,12 +98,11 @@
 		</p>
 
 
-		<button class="btn btn-large btn-success submitButton" name="formAction" type="submit" value="publish">Create & Publish</button>
+		<button style="margin-bottom: 20px" class="btn btn-large btn-success submitButton" name="formAction" type="submit" value="publish">Create & Publish</button>
 
-	</div>
+</div> <!-- end div formerly known by span6 -->
 
 
-</div>
 
 
 </section>
