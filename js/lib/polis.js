@@ -68,7 +68,7 @@ return function(params) {
 
     var needAuthCallbacks = $.Callbacks();
 
-    var currentStimulusId = params.zid;
+    var zid = params.zid;
     var zinvite = params.zinvite;
 
     var means = null; // TODO move clustering into a separate file
@@ -84,7 +84,7 @@ return function(params) {
             lastServerToken: (new Date(0)).getTime(),
             not_pid: getPid(), // don't want to see own coments
             not_voted_by_pid: getPid(),
-            zid: currentStimulusId
+            zid: zid
             //?
         };
       function fail() {
@@ -154,7 +154,7 @@ return function(params) {
     function submitComment(model) {
         model = $.extend(model, {
             // server will find the pid
-            zid: currentStimulusId
+            zid: zid
         });
         if (typeof model.txt !== "string" || model.txt.length === 0) {
             logger.error("bad comment");
@@ -182,7 +182,7 @@ return function(params) {
     }
 
     function react(params) {
-        if (params.zid && params.zid !== currentStimulusId) {
+        if (params.zid && params.zid !== zid) {
             if (params.vote !== polisTypes.reactions.see) {
                 console.error("wrong stimulus");
             }
@@ -194,7 +194,7 @@ return function(params) {
 
         return polisPost(votesPath, $.extend({}, params, {
                 // server will find the pid
-                zid: currentStimulusId
+                zid: zid
             })
         );
     }
@@ -238,12 +238,12 @@ return function(params) {
         return polisPost(trashesPath, {
             tid: tid,
             trashed: 1,
-            zid: currentStimulusId
+            zid: zid
         });
     }
 
     function doStarAction(params) {
-        if (params.zid && params.zid !== currentStimulusId) {
+        if (params.zid && params.zid !== zid) {
             console.error("wrong stimulus");
         }
         if (typeof params.tid === "undefined") {
@@ -255,7 +255,7 @@ return function(params) {
             console.error(params);
         }
         return polisPost(starsPath, $.extend({}, params, {
-                zid: currentStimulusId
+                zid: zid
             })
         );
     }
@@ -276,7 +276,7 @@ return function(params) {
 
     function getCommentVelocities() {
         return polisGet(commentVelocitiesPath, {
-            zid: currentStimulusId
+            zid: zid
         });
     }
 
@@ -451,7 +451,7 @@ return function(params) {
     function fetchPca() {
         return polisGet(pcaPath, {
             lastVoteTimestamp: lastServerTokenForPCA,
-            zid: currentStimulusId
+            zid: zid
         }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
@@ -511,7 +511,7 @@ return function(params) {
 
     // todo make a separate file for stimulus stuff
     function stories() {
-        return [currentStimulusId];
+        return [zid];
                 //"509c9db2bc1e120000000001",
                 //"509c9eddbc1e120000000002",
                 //"509c9fd6bc1e120000000003",
@@ -520,7 +520,7 @@ return function(params) {
 
     function submitFeedback(data) {
         data = $.extend({}, data, {
-            zid: currentStimulusId,
+            zid: zid,
             type: "feedback"
         });
         return polisPost(feedbackPath, {
@@ -577,7 +577,7 @@ return function(params) {
 
     function getAllUserInfo() {
         return polisGet(participantsPath, {
-            zid: currentStimulusId
+            zid: zid
         });
     }
 
@@ -600,7 +600,7 @@ return function(params) {
     function getUserInfoByPid(pid) {
         return polisGet(participantsPath, {
             pid: pid,
-            zid: currentStimulusId
+            zid: zid
         });
     }
 
@@ -620,7 +620,7 @@ return function(params) {
         var comments;
         return polisGet(pcaPath, {
             lastServerToken: 0,
-            zid: currentStimulusId
+            zid: zid
         }).pipe( function(pcaData) {
             comments = pcaData.pca.principal_components;
             var keys = _.keys(comments);
@@ -649,14 +649,14 @@ return function(params) {
 
     function getCommentsForSelection(listOfUserIds) {
         return polisGet(selectionPath, {
-            zid: currentStimulusId,
+            zid: zid,
             users: listOfUserIds.join(",")
         });
     }
 
     function getReactionsToComment(commentId) {
         return polisGet(votesPath, {
-            zid: currentStimulusId,
+            zid: zid,
             tid: commentId
         });
     }
@@ -674,12 +674,12 @@ return function(params) {
     }
 
     function getPid() {
-        return pidStore.get(currentStimulusId);
+        return pidStore.get(zid);
     }
 
     function doJoinConversation(zinvite) {
         var params = {
-            zid: currentStimulusId
+            zid: zid
         };
         if (zinvite) {
             _.extend(params, {
@@ -695,7 +695,7 @@ return function(params) {
     function queryParticipantsByMetadata(pmaids) {
         return polisPost(queryParticipantsByMetadataPath, {
             pmaids: pmaids,
-            zid: currentStimulusId
+            zid: zid
         });
     }
 
@@ -733,7 +733,7 @@ return function(params) {
     function getLatestVotes() {
         return polisGet(votesPath, {
             lastVoteTimestamp: lastServerTokenForVotes,
-            zid: currentStimulusId
+            zid: zid
         }).done(function(data) {
             // assuming ordered by created, so clobbering old vote values
             for (var i = 0; i < data.length; i++) {
