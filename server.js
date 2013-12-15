@@ -386,7 +386,7 @@ function auth(assigner) {
                 next(connectError(400, "polis_err_auth_mismatch_uid"));
                 return;
             }
-            assigner(req, "uid", uid);
+            assigner(req, "uid", Number(uid));
             next();
         });
     };
