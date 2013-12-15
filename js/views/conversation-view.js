@@ -45,32 +45,25 @@ define([
     name: "conversation-view",
     template: template,
     events: {
-    "click #topic_toggle": function(e) {
-      e.preventDefault();
-      this.$("#topic").toggle();
-    },
-    "click #react_tab": function(e) {
-      e.preventDefault();
-      console.dir(this);
-      console.dir(e);
-      $(e.target).tab("show");
-    },
-    "click #write_tab": function(e) {
-      e.preventDefault();
-      //$(this).tab("show")
-      $(e.target).tab("show");
-    },
-    "click .query_result_item": function(e){
-      this.$(".query_result_item").removeClass("active_result_item");
-      this.$(e.target).addClass("active_result_item");
-    }
+    // "click #commentViewTab": function(e) {
+    //   e.preventDefault();
+    //   $(e.target).tab("show");
+    // },
+    // "click #commentFormTab": function(e) {
+    //   e.preventDefault();
+    //   $(e.target).tab("show");
+    // },
+    // "click #analyzeTab": function(e) {
+    //   e.preventDefault();
+    //   $(e.target).tab("show");
+    // }
   },
   onClusterTapped : function() {
       if (window.isMobile()) {
          window.scrollTo(0, $("#visualization_div").offset().top);
       }
   },
-  initialize: function(){
+  initialize: function() {
     var that = this;
     var vis;
     var zid = this.zid = this.model.get("zid");
@@ -93,7 +86,7 @@ define([
         that.onClusterTapped();
     }
 
-    var initPcaVis = function(serverClient) {
+    function initPcaVis(serverClient) {
         var w = $("#visualization_div").width();
         var h = w/2;
         $("#visualization_div").height(h);
@@ -119,7 +112,7 @@ define([
         });
         vis.addClusterTappedListener(onClusterTapped);
         serverClient.addPersonUpdateListener(vis.upsertNode);
-    };
+    }
 
     // just a quick hack for now.
     // we may need to look into something more general
@@ -130,43 +123,120 @@ define([
     });
 
 
+    var serverClient = that.serverClient = new ServerClient({
+      zid: zid,
+      zinvite: zinvite,
+      tokenStore: PolisStorage.token,
+      pid: pid,
+      //commentsStore: PolisStorage.comments,
+      //reactionsByMeStore: PolisStorage.reactionsByMe,
+      utils: window.utils,
+      protocol: /localhost/.test(document.domain) ? "http" : "https",
+      domain: /localhost/.test(document.domain) ? "localhost:5000" : "www.polis.io",
+      basePath: "",
+      logger: console
+    });
+
+      this.serverClient.startPolling();
+      /* child views */
+
+      this.metadataQuestionsView = new MetadataQuestionsFilterView({
+        serverClient: serverClient,
+        zid: zid,
+        collection: metadataCollection
+      });
+
+      this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
+        console.log(enabledAnswers);
+        serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+          vis.emphasizeParticipants,
+          function(err) {
+            alert(err);
+          });
+      });
+
+      this.changeVotes = new ChangeVotesView({
+        serverClient: serverClient,
+        zid: zid
+      });
+
+      this.commentView = new CommentView({
+        serverClient: serverClient,
+        zid: zid
+      });
+
+      this.commentsByMe = new CommentsCollection({
+        zid: zid,
+        pid: pid
+      });
+
+      this.commentForm = new CommentFormView({
+        pid: pid,
+        collection: this.commentsByMe,
+        zid: zid
+      });
+
+      this.resultsView = new ResultsView({
+        serverClient: serverClient,
+        zid: zid,
+        collection: resultsCollection
+      });
+
+      this.commentForm.on("commentSubmitted", function() {
+        $("#commentViewTab").tab("show");
+      });
+
+      /* tooltips */
+      console.log("here are the views children:");
+      console.dir(this.children);
+
+      metadataCollection.fetch({
+          data: $.param({
+              zid: zid
+          }),
+          processData: true
+      });
+      this.commentForm.updateCollection();
+
+
     this.listenTo(this, "rendered", function(){
+      setTimeout(function() {
 
       scrollTopOnFirstShow();
 
-      this.$("#commentViewTab").tooltip({
+      that.$("#commentViewTab").tooltip({
         title: "Start here - read and react to comments submitted by others.",
         placement: "top",
         delay: { show: 300, hide: 200 }
 
       });
-      this.$("#commentFormTab").tooltip({
+      that.$("#commentFormTab").tooltip({
         title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react.",
         placement: "top",
         delay: { show: 300, hide: 200 }
 
       });
-      this.$("#analyzeTab").tooltip({
+      that.$("#analyzeTab").tooltip({
         title: "Filters! Click on the \"analyze\" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top",
         delay: { show: 300, hide: 200 }
 
       });
-      this.$("#how_do_i_use").popover({
+      that.$("#how_do_i_use").popover({
         title: "How do I use Polis?",
         content: "<ol> <li> Read & react to what others have said.</li><li> Write comments for others to react to.</li> <li> Watch the visualization change in real-time as you and others react.</li><li> Optionally, explore the visualization to learn more about what brought the groups together and what is differentiating them.</li>  <li> Hover over the menu items and buttons to learn about them (mobile: press and hold). </li>  </ol>",
         html: true, //XSS risk, not important for now
         trigger: "click",
         placement: "bottom"
       });
-      this.$("#feedback_and_suggestions").popover({
+      that.$("#feedback_and_suggestions").popover({
         title: "Feedback & Suggestions",
         content: "<p> During the beta period, you can email us directly with feedback, questions or requests.</p> <i class=\"icon-info-envelope\"></i> <a href=\"mailto:colinmegill@gmail.com?Subject=Polis%20feedback:%20inbox\" target=\"_blank\">info@polis.io </a>",
         html: true, //XSS risk, not important for now
         trigger: "click",
         placement: "bottom"
       });
-      this.$("#making_meaning_of_viz").popover({
+      that.$("#making_meaning_of_viz").popover({
         title: "How do I make meaning of the visualization?",
         content: "<ol><li> Each dot represents a person. The red dot represents you. You will see the dots move around the visualization as you and other participants vote. Hover over a dot to find out who it is.</li><li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li><li> Shaded areas represent groups. Click on a shaded area to bring up comments that had the highest consensus amongst that group. Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. </li> <li> Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment remain a grey dot. </li> <li> Use the \"analyze\" tab to filter participants using metadata.</li></ol>",
         html: true, //XSS risk, not important for now
@@ -174,91 +244,13 @@ define([
         placement: "top"
       });
 
+      initPcaVis(serverClient);
 
-      var serverClient = that.serverClient = new ServerClient({
-        zid: zid,
-        zinvite: zinvite,
-        tokenStore: PolisStorage.token,
-        pid: pid,
-        //commentsStore: PolisStorage.comments,
-        //reactionsByMeStore: PolisStorage.reactionsByMe,
-        utils: window.utils,
-        protocol: /localhost/.test(document.domain) ? "http" : "https",
-        domain: /localhost/.test(document.domain) ? "localhost:5000" : "www.polis.io",
-        basePath: "",
-        logger: console
-      });
+      $(window).resize(initPcaVis);
 
-      that.serverClient.addInitReadyListener(
-        function() {
-          that.serverClient.startPolling();
-          /* child views */
+  }); // end listenTo "rendered"
+  }, 0);
 
-          that.metadataQuestionsView = new MetadataQuestionsFilterView({
-            serverClient: serverClient,
-            zid: zid,
-            collection: metadataCollection
-          });
-
-          that.listenTo(that.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-            console.log(enabledAnswers);
-            serverClient.queryParticipantsByMetadata(enabledAnswers).then(
-              vis.emphasizeParticipants,
-              function(err) {
-                alert(err);
-              });
-          });
-
-          that.changeVotes = new ChangeVotesView({
-            serverClient: serverClient,
-            zid: zid
-          });
-
-          that.commentView = new CommentView({
-            serverClient: serverClient,
-            zid: zid
-          });
-
-          that.commentsByMe = new CommentsCollection({
-            zid: zid,
-            pid: pid
-          });
-
-          that.commentForm = new CommentFormView({
-            pid: pid,
-            collection: that.commentsByMe,
-            zid: zid
-          });
-
-          that.resultsView = new ResultsView({
-            serverClient: serverClient,
-            zid: zid,
-            collection: resultsCollection
-          });
-
-
-          that.commentForm.on("commentSubmitted", function() {
-            $("#react_tab").tab("show");
-          });
-
-          /* tooltips */
-          console.log("here are the views children:");
-          console.dir(that.children);
-
-          metadataCollection.fetch({
-              data: $.param({
-                  zid: zid
-              }),
-              processData: true
-          });
-          that.commentForm.updateCollection();
-          initPcaVis(serverClient);
-
-          $(window).resize(initPcaVis);
-        }
-      );
-
-    });
-  }// end initialize
+  } // end initialize
   });
 });

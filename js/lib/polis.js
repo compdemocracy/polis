@@ -70,7 +70,7 @@ return function(params) {
 
     var zid = params.zid;
     var zinvite = params.zinvite;
-    var pid = -1;
+    var pid = params.pid;
 
     var means = null; // TODO move clustering into a separate file
 
@@ -679,20 +679,20 @@ return function(params) {
         return pid;
     }
 
-    function doJoinConversation(zinvite) {
-        var params = {
-            zid: zid
-        };
-        if (zinvite) {
-            _.extend(params, {
-                zinvite: zinvite
-            });
-        }
-        return polisPost(participantsPath, params).pipe( function (response) {
-            pid = response.pid;
-            return response.pid;
-        });
-    }
+    // function doJoinConversation(zinvite) {
+    //     var params = {
+    //         zid: zid
+    //     };
+    //     if (zinvite) {
+    //         _.extend(params, {
+    //             zinvite: zinvite
+    //         });
+    //     }
+    //     return polisPost(participantsPath, params).pipe( function (response) {
+    //         pid = response.pid;
+    //         return response.pid;
+    //     });
+    // }
 
     function queryParticipantsByMetadata(pmaids) {
         return polisPost(queryParticipantsByMetadataPath, {
@@ -756,12 +756,12 @@ return function(params) {
       pcaPromise.done(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded);
     }
 
-    doJoinConversation(zinvite).then(
-        initReadyCallbacks.fire,
-        function(err) {
-            alert(err);
-        }
-    );
+    // doJoinConversation(zinvite).then(
+    //     initReadyCallbacks.fire,
+    //     function(err) {
+    //         alert(err);
+    //     }
+    // );
 
     function startPolling() {
         setTimeout(poll, 0);
