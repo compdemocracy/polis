@@ -216,8 +216,10 @@ define([  //begin dependencies
     RootView.getInstance().setView(detailsView);
   },
 
-  doLaunchConversation: function(zid) {
+  doLaunchConversation: function(ptptModel) {
     if (!authenticated()) { return this.bail(); }
+    var zid = ptptModel.get("zid");
+    var pid = ptptModel.get("pid");
 
     // Assumes you have a pid already.
     var model = new ConversationModel({
@@ -225,8 +227,8 @@ define([  //begin dependencies
     });
     bbFetch(model).then(function() {
       var conversationView = new ConversationView({
-        model: model,
-        zid: zid
+        pid: pid,
+        model: model
       });
       RootView.getInstance().setView(conversationView);
     },function(e) {
@@ -259,10 +261,12 @@ define([  //begin dependencies
       ptpt.save().then(function() {
         // Participant record was created, or already existed.
         // Go to the conversation.
-        that.doLaunchConversation(zid);
+        that.doLaunchConversation(ptpt);
       }, function(err) {
-        that.conversationGatekeeper(zid, uid, zinvite ).done(function() {
-          that.doLaunchConversation(zid);
+        that.conversationGatekeeper(zid, uid, zinvite).done(function() {
+          bbFetch(ptpt).done(function() {
+            that.doLaunchConversation(ptpt);
+          });
         });
       });
     }

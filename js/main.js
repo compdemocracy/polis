@@ -12,6 +12,12 @@ require([
   "bootstrap_transition"
 ], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
 
+  _.mixin({
+    isId: function(n) {
+      return n >= 0;
+    }
+  });
+
   if (!window.location.hostname.match(/polis/)) {
     window.document.title = window.location.port;
   }

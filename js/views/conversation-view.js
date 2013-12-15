@@ -70,12 +70,15 @@ define([
          window.scrollTo(0, $("#visualization_div").offset().top);
       }
   },
-  initialize: function(options){
+  initialize: function(){
     var that = this;
     var vis;
+    var zid = this.zid = this.model.get("zid");
+    var pid = this.pid;
+    var zinvite = this.zinvite = this.model.get("zinvite");
 
     var metadataCollection = new MetadataQuestionsCollection([], {
-        zid: this.zid
+        zid: zid
     });
 
 
@@ -85,31 +88,12 @@ define([
 
     // HTTP PATCH - model.save({patch: true})
 
-    /* child views */
-
-    this.metadataQuestionsView = new MetadataQuestionsFilterView({
-      serverClient: serverClient,
-      zid: this.zid,
-      collection: metadataCollection
-    });
-
-    this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-      console.log(enabledAnswers);
-      serverClient.queryParticipantsByMetadata(enabledAnswers).then(
-        vis.emphasizeParticipants,
-        function(err) {
-          alert(err);
-        });
-    });
-
-
-
 
     function onClusterTapped() {
         that.onClusterTapped();
     }
 
-    var initPcaVis = function() {
+    var initPcaVis = function(serverClient) {
         var w = $("#visualization_div").width();
         var h = w/2;
         $("#visualization_div").height(h);
@@ -118,12 +102,10 @@ define([
         }
         vis = new VisView({
             getPid: function() {
-              // if debug {
-              if (!(that.pid >= 0)) {
-                alert("bad pid: " + that.pid);
+              if (!_.isId(pid)) {
+                alert("bad pid: " + pid);
               }
-              // }
-              return that.pid;
+              return pid;
             },
             getCommentsForProjection: serverClient.getCommentsForProjection,
             getCommentsForSelection: serverClient.getCommentsForSelection,
@@ -193,9 +175,9 @@ define([
       });
 
 
-      that.serverClient = new ServerClient({
-        zid: this.model.get("zid"),
-        zinvite: this.model.get("zinvite"),
+      var serverClient = that.serverClient = new ServerClient({
+        zid: zid,
+        zinvite: zinvite,
         tokenStore: PolisStorage.token,
         pid: pid,
         //commentsStore: PolisStorage.comments,
@@ -208,30 +190,49 @@ define([
       });
 
       that.serverClient.addInitReadyListener(
-        function(pid) {
-          that.pid = pid;
+        function() {
+          that.serverClient.startPolling();
+          /* child views */
+
+          that.metadataQuestionsView = new MetadataQuestionsFilterView({
+            serverClient: serverClient,
+            zid: zid,
+            collection: metadataCollection
+          });
+
+          that.listenTo(that.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
+            console.log(enabledAnswers);
+            serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+              vis.emphasizeParticipants,
+              function(err) {
+                alert(err);
+              });
+          });
 
           that.changeVotes = new ChangeVotesView({
             serverClient: serverClient,
-            zid: that.zid
+            zid: zid
           });
 
           that.commentView = new CommentView({
             serverClient: serverClient,
-            zid: that.zid
+            zid: zid
           });
 
-          that.commentsByMe = new CommentsCollection();
+          that.commentsByMe = new CommentsCollection({
+            zid: zid,
+            pid: pid
+          });
 
           that.commentForm = new CommentFormView({
             pid: pid,
             collection: that.commentsByMe,
-            zid: that.zid
+            zid: zid
           });
 
           that.resultsView = new ResultsView({
             serverClient: serverClient,
-            zid: that.zid,
+            zid: zid,
             collection: resultsCollection
           });
 
@@ -246,12 +247,13 @@ define([
 
           metadataCollection.fetch({
               data: $.param({
-                  zid: that.zid
+                  zid: zid
               }),
               processData: true
           });
           that.commentForm.updateCollection();
-          initPcaVis();
+          initPcaVis(serverClient);
+
           $(window).resize(initPcaVis);
         }
       );

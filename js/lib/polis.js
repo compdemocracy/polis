@@ -88,15 +88,16 @@ return function(params) {
             zid: zid
             //?
         };
-      function fail() {
-        dfd.reject(0);
-      }
-      getCommentVelocities().done(function() {
-        polisGet(commentsPath, params).then( function(comments) {
+        function fail() {
+            dfd.reject(0);
+        }
+        getComments(params).then( function(comments) {
             if (!comments) {
                 logger.log("no new comments for stimulus");
                 dfd.resolve(0);
-            } else {
+                return;
+            }
+           // getCommentVelocities().then(function() {
                 var IDs = _.pluck(comments, "tid");
                 var oldkeys = _.keys(commentsToVoteOn).map(
                     function(tid) {
@@ -123,13 +124,12 @@ return function(params) {
                 } else {
                     fail();
                 }
-            }
+           // }, fail);
         }, function(err) {
             logger.error("failed to fetch comments");
             logger.dir(err);
             fail();
         });
-      }).fail(fail);
         return dfd.promise();
     }
 
@@ -638,11 +638,12 @@ return function(params) {
         });
     }
 
-    function getComments(ids) {
-        return polisGet(commentsPath, {
-            not_pid: getPid(), // don't want to see own coments
-            ids: ids.join(",")
-        });
+    function getComments(params) {
+        params = $.extend({
+            zid: zid,
+            not_pid: getPid() // don't want to see own coments
+        }, params);
+        return polisGet(commentsPath, params);
     }
 
     function getCommentsForSelection(listOfUserIds) {
@@ -672,7 +673,7 @@ return function(params) {
     }
 
     function getPid() {
-        if (!(pid >= 0)) {
+        if (!_.isId(pid)) {
             alert("bad pid: " + pid);
         }
         return pid;
