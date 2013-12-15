@@ -2276,17 +2276,16 @@ function(req, res) {
         if (!conversationsWithZinvites.length) {
             return res.json(data);
         }
-console.log(4, Date.now());
         client.query("select * from zinvites where zid in (" + conversationsWithZinvites.join(",") + ");",[], function(err, results) {
             if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return; }
             var zinvites = _.indexBy(results.rows, "zid");
 
-console.log(5, Date.now());
-            data.forEach(function(conv) {
-                conv.zinvite = zinvites[conv.zid];
+            data = data.map(function(conv) {
+                if (zinvites[conv.zid]) {
+                    conv.zinvites = [zinvites[conv.zid].zinvite];
+                }
+                return conv;
             });
-
-console.log(6, Date.now());
             res.json(data);
         });
     });
