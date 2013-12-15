@@ -26,7 +26,7 @@ define([
       },
       "click :submit": function(event) {
         var formAction = $(event.target).val();
-        $(event.target).parents("form:first").attr("data-action",formAction);
+        $(event.target).parents("form:first").attr("data-action", formAction);
       },
       "click .submitButton": function(event){
         var that = this;
@@ -93,56 +93,48 @@ define([
         zid: zid
       });
 
-      this.listenTo(this, "rendered", this.setupTooltips);
+      this.listenTo(this, "rendered", this.setupInterface);
 
     },
-    setupTooltips: function(){
+    setupInterface: function(){
 
-      this.$("#topicLabel").popover({
-        title: "Topic",
-        content: "<p>The topic is the first thing participants see, and should be just a few words.</p>",
-        html: true, //XSS risk, not important for now
-        trigger: "hover",
-        placement: "bottom"
+      var $seedCommentsContainer = this.$("#seedCommentsContainer");
+      var $hiddenSeedCommentForm = this.$("#hiddenSeedCommentForm");
+      var $metadataFormContainer = this.$("#metadataFormContainer");
+      var $hiddenMetadataForm = this.$("#hiddenMetadataForm");
+      var $seedCommentsCaret = this.$("#seedCommentsCaret");
+      var $metadataCaret = this.$("#metadataCaret");
+      var $metaDataHelperTextButton = this.$("#metaDataHelperTextButton");
+      var $hiddenMetadataHelperText = this.$("#hiddenMetadataHelperText");
+      var $seedCommentHelperTextButton = this.$("#seedCommentHelperTextButton");
+      var $hiddenSeedCommentHelperText = this.$("#hiddenSeedCommentHelperText");
+
+      $seedCommentsContainer.css({"cursor": "pointer"});
+
+      $seedCommentsContainer.click(function(){
+        
+        $seedCommentsCaret.removeClass("icon-caret-right").addClass("icon-caret-down");
+        $hiddenSeedCommentForm.show();
+        $seedCommentsContainer.css({"cursor": "default"});
+
       });
 
-      this.$("#descriptionLabel").popover({
-        title: "Description",
-        content:  "<ol>"+
-                    "<li> Pose an open-ended question: </li>"+
-                      "<ul>"+
-                        "<li>\"Should we buy widgets?\"</li>"+
-                        "<li>\"We are about to phase out gizmos - how will this impact you?\"</li>"+
-                      "</ul>"+
-                    "<li> Explain any background or context, if necessary, using text & hyperlinks: </li>"+
-                      "<ul>"+
-                        "<li>\"Last year, we...\"</li>"+
-                        "<li>\"The following study showed...\"</li>"+
-                        "<li>\"Take a look at the new design...\"</li>"+
-                      "</ul>"+
-                  "</ol>",
-        html: true, //XSS risk, not important for now
-        trigger: "hover",
-        placement: "bottom"
+      $metadataFormContainer.css({"cursor": "pointer"});
+
+      $metadataFormContainer.click(function(){
+        
+        $metadataCaret.removeClass("icon-caret-right").addClass("icon-caret-down");
+        $hiddenMetadataForm.show();
+        $metadataFormContainer.css({"cursor": "default"});
+
       });
 
-
-      this.$("#metaLabel").popover({
-        title: "Metadata",
-        content: "<p>Metadata is completely flexible, and you must define both the questions and answers. You can define qualitative categories such as \"What office do you work out of?\" with answers such as \"New York\", \"LA\", \"Boston\", \"No office - remote contractor\". You can also define binary questions such as \"Have you ever lived without healthcare?\", but must manually create the answers \"Yes\" and \"No\". You can also create quantitative scales, where a question such as \"How many times do you check email per day?\" might have answers such as \"1-2\", \"3-5\", \"5+\". </p>" +
-                 "<p> When participants enter the conversation, they will be asked to check boxes, and will be able to check as many as apply to them (answers to questions are not mutually exclusive). During the conversation, click the 'Analyze' tab to filter participants in the visualization by metadata. All participants are shown by default. By clicking on \"Boston\", as per the example above, participants who chose that answer will fade out, making it easier to identify patterns of agreement and disagreement in those participants who remain. </p>",
-        html: true, //XSS risk, not important for now
-        trigger: "hover",
-        placement: "top"
+      $metaDataHelperTextButton.click(function(){
+        $hiddenMetadataHelperText.toggle();
       });
 
-
-
-      this.$("#shareLabel").popover({
-        title: "Sharing",
-        content: "While you need an invite token to start conversations, all of your users will be able to join the conversation without one.",
-        trigger: "hover",
-        placement: "top"
+      $seedCommentHelperTextButton.click(function(){
+        $hiddenSeedCommentHelperText.toggle();
       });
 
     },
