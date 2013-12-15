@@ -8,8 +8,8 @@ define([
     name: "comment-form",
     itemView: CommentView,
     template: template,
-      events: {
-      "submit form": function(e){
+    events: {
+      "click #comment_button": function(e){
         var that = this;
         e.preventDefault();
         this.serialize(function(attrs, release){
@@ -40,11 +40,6 @@ define([
         })
       });
 
-    },
-    initialize: function(options) {
-      this.zid = options.zid;
-      this.pid = options.pid;
-      this.collection = options.collection; // comments by me collection
     }
   });
 });
