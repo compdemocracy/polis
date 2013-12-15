@@ -2267,35 +2267,28 @@ function(req, res) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
 
-        // fetch invites
-        function fetchZinvites(conv) {
-            return function(callback) {
-                if (conv.is_public) {
-                    return callback(null);
-                }
-                isConversationOwner(conv.zid, req.p.uid, function(err) {
-                    if (err) {
-                        // not owner, nothing to do
-                        return callback(null);
-                    }
-
-                    client.query("SELECT * FROM zinvites WHERE zid = ($1);", [conv.zid], function(err, zinviteResults) {
-                        if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return callback(1); }
-                        if (!zinviteResults.rows || !zinviteResults.rows.length) {
-                            zinviteResults.rows = [];
-                        }
-                        conv.zinvites = _.pluck(zinviteResults.rows, "zinvite");;
-                        callback(null);
-                    });
-                });
-            };
-        }
-
-        async.parallel(result.rows.map(fetchZinvites), function(err) {
-            if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return; }
-            res.json(data);
+        var conversationsWithZinvites = data.filter(function(conv) {
+            return conv.owner === req.p.uid && !conv.is_public;
+        }).map(function(conv) {
+            return conv.zid;
         });
 
+        if (!conversationsWithZinvites.length) {
+            return res.json(data);
+        }
+console.log(4, Date.now());
+        client.query("select * from zinvites where zid in (" + conversationsWithZinvites.join(",") + ");",[], function(err, results) {
+            if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return; }
+            var zinvites = _.indexBy(results.rows, "zid");
+
+console.log(5, Date.now());
+            data.forEach(function(conv) {
+                conv.zinvite = zinvites[conv.zid];
+            });
+
+console.log(6, Date.now());
+            res.json(data);
+        });
     });
   });
 });
