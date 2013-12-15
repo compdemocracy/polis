@@ -9,7 +9,7 @@ define([
     itemView: CommentView,
     template: template,
       events: {
-      "submit form": function(e){
+      "click #comment_button": function(e){
         var that = this;
         e.preventDefault();
         this.serialize(function(attrs, release){
@@ -22,7 +22,7 @@ define([
     },
     participantCommented: function(attrs) {
       var that = this; //that = the view
-      attrs.pid = this.pidStore.get(this.zid);
+      attrs.pid = this.pid;
       attrs.zid = this.zid;
       var comment = new CommentModel(attrs);
       comment.save().then(function() {
@@ -36,14 +36,14 @@ define([
       this.collection.fetch({
         data: $.param({
           zid: this.zid,
-          pid: this.pidStore.get(this.zid)
+          pid: this.pid
         })
       });
 
     },
     initialize: function(options) {
       this.zid = options.zid;
-      this.pidStore = options.pidStore;
+      this.pid = options.pid;
       this.collection = options.collection; // comments by me collection
     }
   });

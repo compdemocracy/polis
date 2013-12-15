@@ -144,11 +144,11 @@ define([  //begin dependencies
         zid: data.zid
       });
       return ptpt.save();
-    }).then(function(ptpt) {
-      PolisStorage.pid.set(ptpt.pid);
+    }).then(function(ptptAttrs) {
       var createConversationFormView = new CreateConversationFormView({
         model: model,
         collection: conversationsCollection,
+        pid: ptptAttrs.pid,
         add: true
       });
       that.listenTo(createConversationFormView, "all", function(eventName, data) {

@@ -11,7 +11,7 @@ define([
   View,
   template,
   CommentsCollection,
-  CommentFormView,
+  CommentFormSeedView,
   ConversationModel,
   MetadataQuestionsViewWithCreate,
   MetadataQuestionCollection,
@@ -68,6 +68,7 @@ define([
       // ConversationModel
       this.model = options.model;
       var zid = this.model.get("zid");
+      var pid = options.pid;
 
       var metadataCollection = new MetadataQuestionCollection([], {
           zid: zid
@@ -84,11 +85,12 @@ define([
         zid: zid
       });
 
+      this.commentsByMe = new CommentsCollection({
+        zid: zid
+      });
 
-      this.commentsByMe = new CommentsCollection();
-
-      this.commentForm = new CommentFormView({
-        pidStore: PolisStorage.pid,
+      this.commentForm = new CommentFormSeedView({
+        pid: pid,
         collection: this.commentsByMe,
         zid: zid
       });
