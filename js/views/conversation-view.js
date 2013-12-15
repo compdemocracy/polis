@@ -70,23 +70,9 @@ define([
          window.scrollTo(0, $("#visualization_div").offset().top);
       }
   },
-  initialize: function(){
+  initialize: function(options){
     var that = this;
     var vis;
-    var serverClient = new ServerClient({
-      zid: this.model.get("zid"),
-      zinvite: this.model.get("zinvite"),
-      tokenStore: PolisStorage.token,
-      pidStore: PolisStorage.pid,
-      uidStore: PolisStorage.uid,
-      //commentsStore: PolisStorage.comments,
-      //reactionsByMeStore: PolisStorage.reactionsByMe,
-      utils: window.utils,
-      protocol: /localhost/.test(document.domain) ? "http" : "https",
-      domain: /localhost/.test(document.domain) ? "localhost:5000" : "www.polis.io",
-      basePath: "",
-      logger: console
-    });
 
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: this.zid
@@ -116,39 +102,6 @@ define([
         });
     });
 
-    this.changeVotes = new ChangeVotesView({
-      serverClient: serverClient,
-      zid: this.zid
-    });
-
-    this.commentView = new CommentView({
-      serverClient: serverClient,
-      zid: this.zid
-    });
-
-    this.commentsByMe = new CommentsCollection();
-
-    this.commentForm = new CommentFormView({
-      pidStore: PolisStorage.pid,
-      collection: this.commentsByMe,
-      zid: this.zid
-    });
-
-    this.resultsView = new ResultsView({
-      serverClient: serverClient,
-      zid: this.zid,
-      collection: resultsCollection
-    });
-
-
-    this.commentForm.on("commentSubmitted", function() {
-      $("#react_tab").tab("show");
-    });
-
-    /* tooltips */
-    console.log("here are the views children:");
-    console.dir(this.children);
-
 
 
 
@@ -164,7 +117,14 @@ define([
             serverClient.removePersonUpdateListener(vis.upsertNode);
         }
         vis = new VisView({
-            getPersonId: PolisStorage.pid.get,
+            getPid: function() {
+              // if debug {
+              if (!(that.pid >= 0)) {
+                alert("bad pid: " + that.pid);
+              }
+              // }
+              return that.pid;
+            },
             getCommentsForProjection: serverClient.getCommentsForProjection,
             getCommentsForSelection: serverClient.getCommentsForSelection,
             getReactionsToComment: serverClient.getReactionsToComment,
@@ -232,8 +192,58 @@ define([
         placement: "top"
       });
 
-      serverClient.joinConversation()
-        .done(function() {
+
+      that.serverClient = new ServerClient({
+        zid: this.model.get("zid"),
+        zinvite: this.model.get("zinvite"),
+        tokenStore: PolisStorage.token,
+        pid: pid,
+        //commentsStore: PolisStorage.comments,
+        //reactionsByMeStore: PolisStorage.reactionsByMe,
+        utils: window.utils,
+        protocol: /localhost/.test(document.domain) ? "http" : "https",
+        domain: /localhost/.test(document.domain) ? "localhost:5000" : "www.polis.io",
+        basePath: "",
+        logger: console
+      });
+
+      that.serverClient.addInitReadyListener(
+        function(pid) {
+          that.pid = pid;
+
+          that.changeVotes = new ChangeVotesView({
+            serverClient: serverClient,
+            zid: that.zid
+          });
+
+          that.commentView = new CommentView({
+            serverClient: serverClient,
+            zid: that.zid
+          });
+
+          that.commentsByMe = new CommentsCollection();
+
+          that.commentForm = new CommentFormView({
+            pid: pid,
+            collection: that.commentsByMe,
+            zid: that.zid
+          });
+
+          that.resultsView = new ResultsView({
+            serverClient: serverClient,
+            zid: that.zid,
+            collection: resultsCollection
+          });
+
+
+          that.commentForm.on("commentSubmitted", function() {
+            $("#react_tab").tab("show");
+          });
+
+          /* tooltips */
+          console.log("here are the views children:");
+          console.dir(that.children);
+
           metadataCollection.fetch({
               data: $.param({
                   zid: that.zid
@@ -243,9 +253,8 @@ define([
           that.commentForm.updateCollection();
           initPcaVis();
           $(window).resize(initPcaVis);
-      }).fail(function(err) {
-        alert(err);
-      });
+        }
+      );
 
     });
   }// end initialize

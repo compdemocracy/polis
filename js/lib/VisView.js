@@ -6,14 +6,13 @@ var VisView = function(params){
 
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
-var getPersonId = params.getPersonId;
+var getPid = params.getPid;
 var getCommentsForSelection = params.getCommentsForSelection;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
 var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
 
 var clusterClickedCallbacks = $.Callbacks();
-
 
 // The h and w values should be locked at a 1:2 ratio of h to w
 var h;
@@ -459,7 +458,7 @@ function chooseTransform(d) {
 }
 
 function isSelf(d) {
-    return d.pid === getPersonId();
+    return d.pid === getPid();
 }
 
 function hashCode(s){
@@ -585,7 +584,7 @@ function upsertNode(updatedNodes, newClusters) {
         return key(a) - key(b);
     }
 
-    var pidToOldNode = _.indexBy(nodes, getPersonId);
+    var pidToOldNode = _.indexBy(nodes, getPid);
 
     for (var i = 0; i < updatedNodes.length; i++) {
         var node = updatedNodes[i];

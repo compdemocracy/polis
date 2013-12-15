@@ -136,22 +136,22 @@ var store = (function() {
 
 
     // stored in RAM only
-    var pid = -1;
-    function setPid(newPid) {
-        pid = newPid;
-    }
-    function getPid() {
-        return pid;
-    }
-    var pidRamStore = {
-        set: setPid,
-        get: getPid
-    };
+    // var pid = -1;
+    // function setPid(newPid) {
+    //     pid = newPid;
+    // }
+    // function getPid() {
+    //     return pid;
+    // }
+    // var pidRamStore = {
+    //     set: setPid,
+    //     get: getPid
+    // };
 
 
     var x = {
         // pids: asNumber(makeCookieValueGetterForKeyWithSuffix("p")) // p for pid, expecting keys like 314p=2; 451p=12
-        pid: pidRamStore,
+        // pid: pidRamStore,
         // clearAll: clearAll,
         //comments: makeAccessor("p_comments"), // TODO use a real db
         //reactionsByMe: makeAccessor("p_reactions_by_me"), // TODO use a real db

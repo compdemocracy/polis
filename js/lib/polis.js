@@ -52,6 +52,7 @@ return function(params) {
     var lastServerTokenForComments = 0;
     var lastServerTokenForVotes = 0;
 
+    var initReadyCallbacks = $.Callbacks();
     var authStateChangeCallbacks = $.Callbacks();
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
@@ -63,13 +64,13 @@ return function(params) {
     var userInfoCache = [];
 
     var tokenStore = params.tokenStore;
-    var pidStore = params.pidStore;
     var uidStore = params.uidStore;
 
     var needAuthCallbacks = $.Callbacks();
 
     var zid = params.zid;
     var zinvite = params.zinvite;
+    var pid = -1;
 
     var means = null; // TODO move clustering into a separate file
 
@@ -343,9 +344,6 @@ return function(params) {
         return promise;
     }
 
-    function joinConversation() {
-        return doJoinConversation(zinvite);
-    }
     function clientSideBaseCluster(people, N) {
         if (!N) { alert("need N"); }
         if (!means) {
@@ -674,7 +672,10 @@ return function(params) {
     }
 
     function getPid() {
-        return pidStore.get(zid);
+        if (!(pid >= 0)) {
+            alert("bad pid: " + pid);
+        }
+        return pid;
     }
 
     function doJoinConversation(zinvite) {
@@ -687,7 +688,7 @@ return function(params) {
             });
         }
         return polisPost(participantsPath, params).pipe( function (response) {
-            pidStore.set(response.pid);
+            pid = response.pid;
             return response.pid;
         });
     }
@@ -754,8 +755,17 @@ return function(params) {
       pcaPromise.done(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded);
     }
 
-    setTimeout(poll,0);
-    setInterval(poll, 5000);
+    doJoinConversation(zinvite).then(
+        initReadyCallbacks.fire,
+        function(err) {
+            alert(err);
+        }
+    );
+
+    function startPolling() {
+        setTimeout(poll, 0);
+        setInterval(poll, 5000);
+    }
 
     return {
         authenticated: authenticated,
@@ -776,6 +786,7 @@ return function(params) {
         stories: stories,
         queryParticipantsByMetadata: queryParticipantsByMetadata,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
+        addInitReadyListener: initReadyCallbacks.add,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
         addAuthNeededListener: needAuthCallbacks.add, // needed?
         removePersonUpdateListener: personUpdateCallbacks.remove,
@@ -792,7 +803,7 @@ return function(params) {
         createConversation: createConversation,
         getConversations: getConversations,
 
-        joinConversation: joinConversation,
+        startPolling: startPolling,
 
         submitFeedback: submitFeedback,
         submitComment: submitComment
