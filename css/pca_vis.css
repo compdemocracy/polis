@@ -8,11 +8,23 @@
 #query_results_div {
   padding-top: 10px;
 }
+
+.query_results {
+  margin-left: 0px;
+  list-style: none;
+}
+
 .query_result_item {
     padding: 1px;
-    margin: 1px;
     cursor: pointer;
+    border-left: 2px solid #ACCFE1;
+    padding-left: 15px;
+    margin-top: 15px;
+    margin-left: 2px;
+    text-align: justify;
+    width: 92%
 }
+
 .active_result_item {
   background-color: #FFFBE8;
 }
