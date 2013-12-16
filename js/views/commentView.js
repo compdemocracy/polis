@@ -4,11 +4,9 @@ define([
   "models/comment"
 ], function (View, template, CommentModel) {
 
-return View.extend({
-  
-  name: "commentView",
-  
-  template: template
-});
+	return View.extend({
+		name: "commentView",
+		template: template
+	});
 
 });
