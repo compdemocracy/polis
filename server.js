@@ -178,6 +178,7 @@ var sql_votes = sql.define({
     "tid",
     "pid",
     "created",
+    "vote",
     ]
 });
 var sql_comments = sql.define({
