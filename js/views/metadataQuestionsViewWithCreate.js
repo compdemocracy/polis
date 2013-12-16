@@ -35,17 +35,17 @@ define([
             zid: that.zid,
             key: attrs.questionInput
           };
-          that.collection.create(data).then(function() {
-          // var model = new MetadataQuestion(data);
 
-          // model.save().done(function() {
+          var model = new MetadataQuestion(data);
+
+          model.save().done(function() {
             that.$el.find("input").val("");
-            //that.collection.add(model);
-        // that.collection.fetch({
-        //   data: $.param({
-        //     zid: that.zid
-        //   })
-        // });
+
+            that.collection.fetch({
+              data: $.param({
+                zid: that.zid
+              })
+            });
             // that.formActive = false;
             // that.render();
           });

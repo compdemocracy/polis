@@ -23,6 +23,13 @@ return MetadataQuestionAndAnswersView.extend({
       zid: zid,
       pmqid: pmqid
     });
+    this.collection.fetch({
+      data: $.param({
+        zid: zid,
+        pmqid: pmqid
+      }),
+      processData: true
+    });
     this.listenTo(this, "rendered", function(){
       this.showAddAnswerForm();
     });
