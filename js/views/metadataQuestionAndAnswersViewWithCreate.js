@@ -1,8 +1,10 @@
 define([
+  "collections/metadataAnswers",
   "models/metadataAnswer",
   "views/metadataAnswerViewWithDelete",
   "views/metadataQuestionAndAnswersView"
 ], function (
+  MetadataAnswers,
   MetadataAnswer,
   MetadataAnswerViewWithDelete,
   MetadataQuestionAndAnswersView
@@ -13,6 +15,11 @@ return MetadataQuestionAndAnswersView.extend({
   itemView: MetadataAnswerViewWithDelete,
   events: {
     "blur .add_answer_form": "hideAddAnswerForm"
+  },
+  initialize: function(){
+    this.listenTo(this, "rendered", function(){
+      this.showAddAnswerForm();
+    });
   },
   deleteQuestion: function() {
     // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
@@ -26,10 +33,9 @@ return MetadataQuestionAndAnswersView.extend({
   },
   showAddAnswerForm: function(event) {
     this.formActive = true;
-    this.render();
     var that = this;
     setTimeout(function() {
-      that.$el.find("textarea").focus().keypress(function(e) {
+      that.$el.find("input").focus().keypress(function(e) {
         if (e.which === 13) {
           e.preventDefault();
           that.hideAddAnswerForm();
@@ -51,13 +57,15 @@ return MetadataQuestionAndAnswersView.extend({
         };
         var model = new MetadataAnswer(data);
         model.save().then(function() {
-          that.collection.fetch({
-            data: $.param({
-              zid: zid,
-              pmqid: that.model.get("pmqid")
-            }),
-            processData: true
-          });
+
+          if (!that.collection) {
+              that.collection = new MetadataAnswers([], {
+                zid: zid,
+                pmqid: that.model.get("pmqid")
+              });
+          } else {
+            that.collection.fetch();
+          }
           model.fetch();
           release();
         }, function() {
@@ -66,7 +74,7 @@ return MetadataQuestionAndAnswersView.extend({
         });
       }
       that.formActive = false;
-      that.render();
+      // that.render();
     });
   },
   allowCreate: true,

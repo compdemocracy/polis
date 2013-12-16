@@ -14,6 +14,11 @@ define([
     events: {
       "blur .add_question_form": "hideAddQuestionForm"
     },
+    initialize: function() {
+      this.listenTo(this, "rendered", function(){
+        this.showAddQuestionForm();
+      });
+    },
     hideAddQuestionForm: function() {
       var that = this;
       this.serialize(function(attrs, release){
@@ -30,25 +35,25 @@ define([
             //that.collection.add(model);
             that.collection.fetch({
               data: $.param({
+                pmqid: model.get("pmqid"),
                 zid: that.zid
               }),
               reset: true
             });
             that.formActive = false;
-            that.render();
+            // that.render();
           });
         } else {
           this.formActive = false;
-          this.render();
+          // this.render();
         }
       });
     },
     showAddQuestionForm: function(event) {
       this.formActive = true;
-      this.render();
       var that = this;
       setTimeout(function() {
-        that.$el.find("textarea").focus().keypress(function(e) {
+        that.$el.find("input").focus().keypress(function(e) {
           if (e.which === 13) {
             e.preventDefault();
             that.hideAddQuestionForm();

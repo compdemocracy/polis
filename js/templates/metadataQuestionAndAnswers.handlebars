@@ -1,4 +1,4 @@
-
+Question:
 <p class="questionText"> {{key}} </p>
 {{#if allowDelete}}
 	{{#button method="deleteQuestion" tag="a"}}
@@ -12,9 +12,10 @@
 	<li>
 {{#if allowCreate}}
 		<div class="add_answer_form">
-			Add answer here, ie. - "Male" or "NYC"
-			<form>
-			<textarea name="answerInput" placeholder="Metadata answer" ></textarea>
+			
+			<label for="answerInput"> Answer </label>
+			<form style="width: 90%">
+				<input name="answerInput" type="text" placeholder="Add answer here, ie. - 'Male' or 'NYC'"></input>
 			</form>
 		</div>
 	
