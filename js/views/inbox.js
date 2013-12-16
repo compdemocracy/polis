@@ -20,7 +20,11 @@ define([
         // :(  http://stackoverflow.com/questions/3272089/programmatically-selecting-text-in-an-input-field-on-ios-devices-mobile-safari
         setTimeout(function() {
           if (event.target) {
-            event.target.setSelectionRange(0,9999999);
+            if (event.target.setSelectionRange) {
+              event.target.setSelectionRange(0,9999999);
+            } else {
+              $(event.target).select();
+            }
           }
         },1);
       }
