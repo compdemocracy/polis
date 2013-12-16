@@ -11,18 +11,13 @@
 <ul class="nobullets">
 	<li>
 {{#if allowCreate}}
-	{{#if formActive}}
 		<div class="add_answer_form">
 			Add answer here, ie. - "Male" or "NYC"
 			<form>
 			<textarea name="answerInput" placeholder="Metadata answer" ></textarea>
 			</form>
 		</div>
-	{{else}}
-		{{#button method="showAddAnswerForm" tag="a" class="createAnswer makeCursorPointer"}}
-	    <i class="icon-plus"></i>&nbsp;Add an answer for participants to select
-	  {{/button}}
-	{{/if}}
+	
 {{/if}}
 	</li>
 </ul>
