@@ -26,7 +26,8 @@ var http = require('http'),
     httpProxy = require('http-proxy'),
     express = require('express'),
     app = express(),
-    squel = require('squel'),
+    sql = require("sql"),
+    squel = require("squel"),
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
     async = require('async'),
@@ -151,6 +152,55 @@ if (process.env.REDISCLOUD_URL) {
 } else {
     redisForMathResults = require('redis').createClient();
 }
+
+
+//first we define our tables
+var sql_conversations = sql.define({
+  name: 'conversations',
+  columns: [
+    "zid",
+    "topic",
+    "description",
+    "participant_count",
+    "is_anon",
+    "is_active",
+    "is_draft",
+    "is_public",
+    "email_domain",
+    "owner",
+    "created",
+    ]
+});
+var sql_votes = sql.define({
+  name: 'votes',
+  columns: [
+    "zid",
+    "tid",
+    "pid",
+    "created",
+    ]
+});
+var sql_comments = sql.define({
+  name: 'comments',
+  columns: [
+    "tid",
+    "zid",
+    "pid",
+    "created",
+    "txt",
+    ]
+});
+
+var sql_participant_metadata_answers = sql.define({
+  name: 'participant_metadata_answers',
+  columns: [
+    "pmaid",
+    "pmqid",
+    "zid",
+    "value",
+    "alive",
+    ]
+});
 
 
 function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
@@ -595,27 +645,6 @@ var prrrams = (function() {
 var need = prrrams.need;
 var want = prrrams.want;
 
-function whereOptional(squelQuery, P, name, nameOfSqlColumnName) {
-    if ("undefined" === typeof nameOfSqlColumnName) {
-        // assume same name if not provided
-        nameOfSqlColumnName = name;
-    }
-    if (P.hasOwnProperty(name)) {
-        squelQuery = squelQuery.where(nameOfSqlColumnName + ' = ?', P[name]);
-    }
-    return squelQuery;
-}
-function setOptional(squelQuery, P, name, nameOfSqlColumnName) {
-    if ("undefined" === typeof nameOfSqlColumnName) {
-        // assume same name if not provided
-        nameOfSqlColumnName = name;
-    }
-    if (P.hasOwnProperty(name)) {
-        squelQuery = squelQuery.set(nameOfSqlColumnName, P[name]);
-    }
-    return squelQuery;
-}
-
 var oneYear = 1000*60*60*24*365;
 function addCookies(res, token, uid) {
     if (domainOverride) {
@@ -769,16 +798,16 @@ function votesPost(res, pid, zid, tid, voteType) {
 }
 
 function votesGet(res, p) {
-    var q = squel.select()
-        .from("votes")
-        .where("zid = ?", p.zid);
+    var q = sql_votes.select(sql_votes.star())
+        .where(sql_votes.zid.equals(p.zid));
+
     if (!_.isUndefined(p.pid)) {
-        q = q.where("pid = ?", p.pid);
+        q = q.where(sql_votes.pid.equals(p.pid));
     }
     if (!_.isUndefined(p.tid)) {
-        q = q.where("tid = ?", p.tid);
+        q = q.where(sql_votes.tid.equals(p.tid));
     }
-    client.query(q.toString(), [], function(err, docs) {
+    client.query(q.toString(), function(err, docs) {
         if (err) { fail(res, 500, "polis_err_votes_get", err); return; }
         res.json(docs.rows);
     });
@@ -1099,12 +1128,11 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
         return callback(0);
     }
 
-    var q = squel.select()
-        .from("participant_metadata_answers")
-        .where("zid = ?", zid)
-        .where("pmaid IN ("+ answers.join(",") +")");
+    var q = "select * from participant_metadata_answers where zid = ($1) and pmaid in ("+
+        answers.join(",") + 
+        ");";
 
-    client.query(q.toString(), function(err, qa_results) {
+    client.query(q, function(err, qa_results) {
         if (err) { console.log("adsfasdfasd"); return callback(err);}
 
         qa_results = qa_results.rows;
@@ -1118,7 +1146,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
         async.map(
             answers, 
             function(x, cb) {
-                // squel.insert()
+                // ...insert()
                 //     .into("participant_metadata_choices")
                 //     .
                 client.query(
@@ -1546,25 +1574,6 @@ function(req, res) {
 
             generateHashedPassword(password, function(err, hashedPassword) {
                 if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
-                    // TODO update squel so we can use .returning
-                    //squel.useFlavour('postgres');
-                    // var query = squel.insert().into("users")
-                    //     /* .set("uid", default) */
-                    //     .set("username", username)
-                    //     .set("email", email)
-                    //     .set("pwhash", hashedPassword)
-                    //     .set("hname", hname)
-                    //     /* .set("created", default) */
-                    // ;
-                    // if (oinvite) {
-                    //     query = query.set("is_owner", true);
-                    //     query = query.set("oinvite", oinvite);
-                    // }
-                    // if (zinvite) {
-                    //     query = query.set("zinvite", zinvite)
-                    // }
-                    // query = query.returning("uid");
-
                     var query = "insert into users " +
                         "(username, email, pwhash, hname, zinvite, oinvite, is_owner) VALUES "+
                         "($1, $2, $3, $4, $5, $6, $7) "+
@@ -1629,21 +1638,33 @@ function(req, res) {
         }
     }
 
-    var query = squel.select().from('comments');
-    query = query.where("zid = ?", req.p.zid);
+
+    var q = sql_comments.select(sql_comments.star())
+        .where(
+            sql_comments.zid.equals(req.p.zid)
+        );
     if (!_.isUndefined(req.p.pid)) {
-        query = query.where("pid = ?", req.p.pid);
+        q = q.where(sql_comments.pid.equals(req.p.pid));
     }
     if (!_.isUndefined(req.p.not_pid)) {
-        query = query.where("pid != ?", req.p.not_pid);
+        q = q.where(sql_comments.pid.notEquals(req.p.not_pid));
     }
     if (!_.isUndefined(req.p.not_voted_by_pid)) {
         // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
         // Don't return comments the user has already voted on.
-        query = query.where( "tid NOT IN (SELECT tid FROM votes WHERE zid = ? AND pid = ?)", req.p.zid, req.p.not_voted_by_pid);
+        q = q.where(
+            sql_comments.tid.notIn(
+                sql_votes.subQuery().select(sql_votes.tid)
+                    .where(
+                        sql_votes.zid.equals(req.p.zid)
+                    ).and(
+                        sql_votes.pid.notEquals(req.p.not_voted_by_pid)
+                    )
+                )
+            );
     }
-    query = query.order('created', true);
-    query = query.limit(999); // TODO paginate
+    q = q.order(sql_comments.created);
+    q = q.limit(999); // TODO paginate
 
     //if (_.isNumber(req.p.not_pid)) {
         //query += " AND pid != ($"+ (i++) + ")";
@@ -1651,7 +1672,7 @@ function(req, res) {
     //}
     //
     //client.query("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
-    client.query(query.toString(), [], handleResult);
+    client.query(q.toString(), [], handleResult);
 }); // end GET /v3/comments
 
 
@@ -1743,13 +1764,17 @@ function(req, res) {
 
 
 function getVotesForZidPids(zid, pids, callback) {
-    var query = squel.select()
-        .from("votes")
-        .where("zid = ?", zid)
-        .where("vote = 1 OR vote = -1")
-        .where("pid IN (" + pids + ")");
 
-    client.query(query.toString(), [], function(err, results) {
+    var query = sql_votes.select(sql_votes.star())
+        .where(
+            sql_votes.zid.equals(zid)
+        ).and(
+            sql_votes.vote.notEquals(0) // ignore passes
+        ).and(
+            sql_votes.pid.in(pids)
+        );
+
+    client.query(query.toString(), function(err, results) {
         if (err) { return callback(err); }
         callback(null, results.rows);
     });
@@ -1804,11 +1829,11 @@ function(req, res) {
             commentIdCounts = commentIdCounts.slice(0, 10);
             var commentIdsOrdering = commentIdCounts.map(function(x) { return {tid: x[0]};});
             var commentIds = commentIdCounts.map(function(x) { return x[0];});
-            var queryForSelectedComments = squel.select()
-                .from("comments")
-                .where("zid = ?", zid)
-                .where("tid IN (" + commentIds.join(",") + ")");
-            client.query(queryForSelectedComments.toString(), [], function(err, results) {
+
+            var queryForSelectedComments = sql_comments.select(sql_comments.star())
+                .where(sql_comments.zid.equals(zid))
+                .and(sql_comments.tid.in(commentIds));
+            client.query(queryForSelectedComments.toString(), function(err, results) {
                 if (err) { fail(res, 500, "polis_err_get_selection_comments", err); return; }
                 var comments = results.rows;
                 // map the results onto the commentIds list, which has the right ordering
@@ -1906,21 +1931,37 @@ app.put('/v3/conversations/:zid',
     want('topic', getOptionalStringLimitLength(1000), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP),
 function(req, res){
-    var query = squel.update().table('conversations');
-    query = query.where("zid = ?", req.p.zid);
-    query = query.where("owner = ?", req.p.uid);
-    query = setOptional(query, req.p, 'is_active');
-    query = setOptional(query, req.p, 'is_anon');
-    query = setOptional(query, req.p, 'is_draft');
-    query = setOptional(query, req.p, 'is_public');
-    if (req.p.topic) {
-        query = query.set('topic', sqlEscape(req.p.topic));
+
+    var fields = {};
+    if (!_.isUndefined(req.p.is_active)) {
+        fields.is_active = req.p.is_active;
     }
-    if (req.p.description) {
-        query = query.set('description', sqlEscape(req.p.description));
+    if (!_.isUndefined(req.p.is_anon)) {
+        fields.is_anon = req.p.is_anon;
     }
+    if (!_.isUndefined(req.p.is_draft)) {
+        fields.is_draft = req.p.is_draft;
+    }
+    if (!_.isUndefined(req.p.is_public)) {
+        fields.is_public = req.p.is_public;
+    }
+    if (!_.isUndefined(req.p.topic)) {
+        fields.topic = req.p.topic;
+    }
+    if (!_.isUndefined(req.p.description)) {
+        fields.description = req.p.description;
+    }
+
+    var q = sql_conversations.update(
+            fields
+        )
+        .where(
+            sql_conversations.zid.equals(req.p.zid)
+        ).and(
+            sql_conversations.owner.equals(req.p.uid)
+        );
     client.query(
-        query.toString(),
+        q.toString(),
         function(err, result){
             if (err) {
                 fail(res, 500, "polis_err_update_conversation", err);
@@ -2130,15 +2171,17 @@ function(req, res) {
     
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
-        var query = squel.select().from('participant_metadata_answers');
+        var query = sql_participant_metadata_answers.select(sql_participant_metadata_answers.star())
+            .where(
+                sql_participant_metadata_answers.zid.equals(zid)
+            ).and(
+                sql_participant_metadata_answers.alive.equals(true)
+            );
 
-
-        query = query.where("zid = ?", zid);
-        query = query.where("alive = true");
         if (pmqid) {
-            query = query.where("pmqid = ?", pmqid);
+            query = query.where(sql_participant_metadata_answers.pmqid.equals(pmqid));
         }
-        client.query(query.toString(), [], function(err, result) {
+        client.query(query.toString(), function(err, result) {
             if (err) { fail(res, 500, "polis_err_get_participant_metadata_answers", err); return; }
             res.status(200).json(result.rows);
         });
@@ -2250,20 +2293,27 @@ function(req, res) {
 
     var participantIn = results && results.rows && _.pluck(results.rows, "zid") || null;
 
-    var query = squel.select().from('conversations');
-    var or_clauses = ["owner = " + req.p.uid];
+    var query = sql_conversations.select(sql_conversations.star())
+    var orClauses = sql_conversations.owner.equals(req.p.uid);
     if (participantIn.length) {
-        or_clauses.push("zid IN (" + participantIn.join(",") + ")");
+        orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
     }
-    query = query.where("("+ or_clauses.join(" OR ") + ")");
-    query = whereOptional(query, req.p, 'is_active');
-    query = whereOptional(query, req.p, 'is_draft');
-    query = whereOptional(query, req.p, 'zid');
+    query = query.where(orClauses);
+    // query = query.where("("+ or_clauses.join(" OR ") + ")");
+    if (!_.isUndefined(req.p.is_active)) {
+        query = query.and(sql_conversations.is_active.equals(req.p.is_active));
+    }
+    if (!_.isUndefined(req.p.is_draft)) {
+        query = query.and(sql_conversations.is_draft.equals(req.p.is_draft));
+    }
+    if (!_.isUndefined(req.p.zid)) {
+        query = query.and(sql_conversations.zid.equals(req.p.zid));
+    }
     //query = whereOptional(query, req.p, 'owner');
-    query = query.order('created', true);
+    query = query.order(sql_conversations.created);
     query = query.limit(999); // TODO paginate
 
-    client.query(query.toString(), [], function(err, result) {
+    client.query(query.toString(), function(err, result) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
 
