@@ -17,6 +17,12 @@ return MetadataQuestionAndAnswersView.extend({
     "blur .add_answer_form": "hideAddAnswerForm"
   },
   initialize: function(){
+    var zid = this.model.get("zid");
+    var pmqid = this.model.get("pmqid");
+    this.collection = new MetadataAnswers([], {
+      zid: zid,
+      pmqid: pmqid
+    });
     this.listenTo(this, "rendered", function(){
       this.showAddAnswerForm();
     });
@@ -45,28 +51,28 @@ return MetadataQuestionAndAnswersView.extend({
   },
   hideAddAnswerForm: function() {
     var that = this;
+    var zid = this.model.get("zid");
+    var pmqid = this.model.get("pmqid");
     this.serialize(function(attrs, release){
 
       // Make sure the form isn't empty.
       if (attrs.answerInput && attrs.answerInput.length) {
-        var zid = that.model.get("zid");
+       
         var data = {
           zid: zid,
-          pmqid: that.model.get("pmqid"),
+          pmqid: pmqid,
           value: attrs.answerInput
         };
         var model = new MetadataAnswer(data);
         model.save().then(function() {
-
-          if (!that.collection) {
-              that.collection = new MetadataAnswers([], {
-                zid: zid,
-                pmqid: that.model.get("pmqid")
-              });
-          } else {
-            that.collection.fetch();
-          }
-          model.fetch();
+          that.$el.find("input").val("");
+          that.collection.fetch({
+            data: $.param({
+              zid: zid,
+              pmqid: pmqid
+            }),
+            processData: true
+          });
           release();
         }, function() {
           release();

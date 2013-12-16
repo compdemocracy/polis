@@ -12,11 +12,17 @@ define([
     itemView: MetadataQuestionAndAnswersViewWithCreate,
     allowCreate: true,
     events: {
-      "blur .add_question_form": "hideAddQuestionForm"
+      // "blur .add_question_form": "hideAddQuestionForm",
+      "keypress input" : function(e) {
+        if (e.which === 13) {
+          e.preventDefault();
+          this.hideAddQuestionForm();
+        }
+      }
     },
     initialize: function() {
       this.listenTo(this, "rendered", function(){
-        this.showAddQuestionForm();
+        this.focusOnForm();
       });
     },
     hideAddQuestionForm: function() {
@@ -29,37 +35,29 @@ define([
             zid: that.zid,
             key: attrs.questionInput
           };
-          var model = new MetadataQuestion(data);
+          that.collection.create(data).then(function() {
+          // var model = new MetadataQuestion(data);
 
-          model.save().done(function() {
+          // model.save().done(function() {
+            that.$el.find("input").val("");
             //that.collection.add(model);
-            that.collection.fetch({
-              data: $.param({
-                pmqid: model.get("pmqid"),
-                zid: that.zid
-              }),
-              reset: true
-            });
-            that.formActive = false;
+        // that.collection.fetch({
+        //   data: $.param({
+        //     zid: that.zid
+        //   })
+        // });
+            // that.formActive = false;
             // that.render();
           });
-        } else {
-          this.formActive = false;
-          // this.render();
         }
+        //  else {
+        //   // this.formActive = false;
+        //   // this.render();
+        // }
       });
     },
-    showAddQuestionForm: function(event) {
-      this.formActive = true;
-      var that = this;
-      setTimeout(function() {
-        that.$el.find("input").focus().keypress(function(e) {
-          if (e.which === 13) {
-            e.preventDefault();
-            that.hideAddQuestionForm();
-          }
-        });
-      },0);
+    focusOnForm: function() {
+      this.$el.find("input").focus();
     }
 });
 });
