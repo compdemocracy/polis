@@ -17,6 +17,7 @@ define([  //begin dependencies
   "views/landing-page",
   "views/passwordResetInitView",
   "views/passwordResetView",
+  "views/share-link-view",
   "util/polisStorage",
   "jquery"
 ], function (  //begin args
@@ -38,6 +39,7 @@ define([  //begin dependencies
     LandingPageView,
     PasswordResetInitView,
     PasswordResetView,
+    ShareLinkView,
     PolisStorage,
     $
 	) {  //end args, begin function block
@@ -45,6 +47,8 @@ define([  //begin dependencies
   function authenticated() {
     return PolisStorage.uid();
   }
+
+  
 
 	return Backbone.Router.extend({
     routes: {
@@ -81,6 +85,22 @@ define([  //begin dependencies
     deregister: function() {
       window.deregister();
     },
+    gotoShareView: function(conversationModel) {
+      var that = this;
+      var shareLinkView = new ShareLinkView({
+        model: conversationModel
+      });
+
+      shareLinkView.on("done", function() {
+        var zid = conversationModel.get("zid");
+        var zinvite = conversationModel.get("zinvites")[0];
+        var path = zid + (zinvite ? "/"+zinvite : "");
+        that.navigate(path, {trigger: true});
+      });
+
+      RootView.getInstance().setView(shareLinkView);
+    },
+
     inbox: function(filter){
       if (!authenticated()) { return this.bail(); }
       // TODO add to inboxview init
@@ -128,7 +148,6 @@ define([  //begin dependencies
       alert("failed to create new conversation");
       console.dir(err);
     }
-
     var that = this;
     conversationsCollection = new ConversationsCollection();
 
@@ -153,7 +172,8 @@ define([  //begin dependencies
       });
       that.listenTo(createConversationFormView, "all", function(eventName, data) {
         if (eventName === "done") {
-          that.navigate("inbox", {trigger: true});
+          that.gotoShareView(model);
+          // that.navigate("inbox", {trigger: true});
 //          that.inbox();
         }
       });
@@ -192,7 +212,8 @@ define([  //begin dependencies
     });
     that.listenTo(createConversationFormView, "all", function(eventName, data) {
       if (eventName === "done") {
-        that.navigate("inbox", {trigger: true});
+        that.gotoShareView(model);
+        // that.navigate("inbox", {trigger: true});
         // that.inbox();
       }
     });
