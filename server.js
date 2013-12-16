@@ -1133,7 +1133,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
         answers.join(",") + 
         ");";
 
-    client.query(q, function(err, qa_results) {
+    client.query(q, [zid], function(err, qa_results) {
         if (err) { console.log("adsfasdfasd"); return callback(err);}
 
         qa_results = qa_results.rows;
