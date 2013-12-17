@@ -12,18 +12,7 @@ define([
     itemView: MetadataQuestionAndAnswersViewWithCreate,
     allowCreate: true,
     events: {
-      // "blur .add_question_form": "hideAddQuestionForm",
-      "keypress input" : function(e) {
-        if (e.which === 13) {
-          e.preventDefault();
-          this.hideAddQuestionForm();
-        }
-      }
-    },
-    initialize: function() {
-      this.listenTo(this, "rendered", function(){
-        this.focusOnForm();
-      });
+      "blur .add_question_form": "hideAddQuestionForm"
     },
     hideAddQuestionForm: function() {
       var that = this;
@@ -35,29 +24,37 @@ define([
             zid: that.zid,
             key: attrs.questionInput
           };
-
           var model = new MetadataQuestion(data);
 
           model.save().done(function() {
-            that.$el.find("input").val("");
-
+            //that.collection.add(model);
             that.collection.fetch({
               data: $.param({
                 zid: that.zid
-              })
+              }),
+              reset: true
             });
-            // that.formActive = false;
-            // that.render();
+            that.formActive = false;
+            that.render();
           });
+        } else {
+          this.formActive = false;
+          this.render();
         }
-        //  else {
-        //   // this.formActive = false;
-        //   // this.render();
-        // }
       });
     },
-    focusOnForm: function() {
-      this.$el.find("input").focus();
+    showAddQuestionForm: function(event) {
+      this.formActive = true;
+      this.render();
+      var that = this;
+      setTimeout(function() {
+        that.$el.find("textarea").focus().keypress(function(e) {
+          if (e.which === 13) {
+            e.preventDefault();
+            that.hideAddQuestionForm();
+          }
+        });
+      },0);
     }
 });
 });
