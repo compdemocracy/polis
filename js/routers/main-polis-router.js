@@ -284,10 +284,8 @@ define([  //begin dependencies
         // Go to the conversation.
         that.doLaunchConversation(ptpt);
       }, function(err) {
-        that.conversationGatekeeper(zid, uid, zinvite).done(function() {
-          bbFetch(ptpt).done(function() {
-            that.doLaunchConversation(ptpt);
-          });
+        that.conversationGatekeeper(zid, uid, zinvite).done(function(ptptData) {
+          that.conversationView(zid, zinvite);
         });
       });
     }

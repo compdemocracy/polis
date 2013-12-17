@@ -33,6 +33,10 @@ define([
           var model = new MetadataQuestion(data);
 
           model.save().done(function() {
+
+            that.$el.find("input").val("");
+            that.$el.find("input").focus();
+
             //that.collection.add(model);
             that.collection.fetch({
               data: $.param({
@@ -46,14 +50,13 @@ define([
           this.render();
         }
       });
-    },
-    initialize: function(options) {
-      var that = this;
-      this.on("render", function() {
-        setTimeout(function() {
-          that.$el.find("input").focus();
-        },0);
-      });
     }
+    // initialize: function(options) {
+    //   var that = this;
+    //   this.on("render", function() {
+    //     setTimeout(function() {
+    //     },0);
+    //   });
+    // }
 });
 });

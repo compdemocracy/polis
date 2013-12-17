@@ -18,14 +18,16 @@ return MetadataQuestionAndAnswersView.extend({
         e.preventDefault();
         this.hideAddAnswerForm();
       }
-    },
-    "render": function() {
-      var that = this;
-      setTimeout(function() {
-        that.$el.find("input").focus();
-      },0);
     }
   },
+  // initialize: function() {
+  //   var that = this;
+  //   this.on("render", function() {
+  //     setTimeout(function() {
+  //       that.$el.find("input").focus();
+  //     },0);
+  //   });
+  // },
   deleteQuestion: function() {
     // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
     this.model.destroy();
@@ -36,13 +38,13 @@ return MetadataQuestionAndAnswersView.extend({
     //   console.dir(arguments);
     // });
   },
-  showAddAnswerForm: function(event) {
-    this.render();
-    var that = this;
-    setTimeout(function() {
-      that.$el.find("input").focus();
-    },0);
-  },
+  // showAddAnswerForm: function(event) {
+  //   this.render();
+  //   var that = this;
+  //   setTimeout(function() {
+  //     that.$el.find("input").focus();
+  //   },0);
+  // },
   hideAddAnswerForm: function() {
     var that = this;
     this.serialize(function(attrs, release){
@@ -57,6 +59,10 @@ return MetadataQuestionAndAnswersView.extend({
         };
         var model = new MetadataAnswer(data);
         model.save().then(function() {
+
+          that.$el.find("input").val("");
+          that.$el.find("input").focus();
+
           that.collection.fetch({
             data: $.param({
               zid: zid,
