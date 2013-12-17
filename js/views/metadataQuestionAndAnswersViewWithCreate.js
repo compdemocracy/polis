@@ -12,7 +12,19 @@ return MetadataQuestionAndAnswersView.extend({
   name: "metadataQuestionAndAnswersViewWithCreate",
   itemView: MetadataAnswerViewWithDelete,
   events: {
-    "blur .add_answer_form": "hideAddAnswerForm"
+    "blur .add_answer_form": "hideAddAnswerForm",
+    "keypress input" : function(e) {
+      if (e.which === 13) {
+        e.preventDefault();
+        this.hideAddAnswerForm();
+      }
+    },
+    "render": function() {
+      var that = this;
+      setTimeout(function() {
+        that.$el.find("input").focus();
+      },0);
+    }
   },
   deleteQuestion: function() {
     // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
@@ -25,16 +37,10 @@ return MetadataQuestionAndAnswersView.extend({
     // });
   },
   showAddAnswerForm: function(event) {
-    this.formActive = true;
     this.render();
     var that = this;
     setTimeout(function() {
-      that.$el.find("textarea").focus().keypress(function(e) {
-        if (e.which === 13) {
-          e.preventDefault();
-          that.hideAddAnswerForm();
-        }
-      });
+      that.$el.find("input").focus();
     },0);
   },
   hideAddAnswerForm: function() {
@@ -65,7 +71,6 @@ return MetadataQuestionAndAnswersView.extend({
           alert("failed");
         });
       }
-      that.formActive = false;
       that.render();
     });
   },

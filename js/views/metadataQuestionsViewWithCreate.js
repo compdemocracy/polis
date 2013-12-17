@@ -12,7 +12,13 @@ define([
     itemView: MetadataQuestionAndAnswersViewWithCreate,
     allowCreate: true,
     events: {
-      "blur .add_question_form": "hideAddQuestionForm"
+      "blur .add_question_form": "hideAddQuestionForm",
+      "keypress input": function(e) {
+        if (e.which === 13) {
+          e.preventDefault();
+          this.hideAddQuestionForm();
+        }
+      }
     },
     hideAddQuestionForm: function() {
       var that = this;
@@ -34,27 +40,20 @@ define([
               }),
               reset: true
             });
-            that.formActive = false;
             that.render();
           });
         } else {
-          this.formActive = false;
           this.render();
         }
       });
     },
-    showAddQuestionForm: function(event) {
-      this.formActive = true;
-      this.render();
+    initialize: function(options) {
       var that = this;
-      setTimeout(function() {
-        that.$el.find("textarea").focus().keypress(function(e) {
-          if (e.which === 13) {
-            e.preventDefault();
-            that.hideAddQuestionForm();
-          }
-        });
-      },0);
+      this.on("render", function() {
+        setTimeout(function() {
+          that.$el.find("input").focus();
+        },0);
+      });
     }
 });
 });
