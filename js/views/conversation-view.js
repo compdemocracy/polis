@@ -231,7 +231,7 @@ define([
       });
       that.$("#feedback_and_suggestions").popover({
         title: "Feedback & Suggestions",
-        content: "<p> During the beta period, you can email us directly with feedback, questions or requests.</p> <i class=\"icon-info-envelope\"></i> <a href=\"mailto:colinmegill@gmail.com?Subject=Polis%20feedback:%20inbox\" target=\"_blank\">info@polis.io </a>",
+        content: "<p> During the beta period, you can email us directly with feedback, questions or requests.</p> <i class=\"icon-info-envelope\"></i> <a href=\"mailto:colinmegill@gmail.com?Subject=Polis%20feedback:%20inbox\" target=\"_blank\">colinmegill@gmail.com </a>",
         html: true, //XSS risk, not important for now
         trigger: "click",
         placement: "bottom"
