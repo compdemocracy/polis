@@ -1659,7 +1659,7 @@ function(req, res) {
                     .where(
                         sql_votes.zid.equals(req.p.zid)
                     ).and(
-                        sql_votes.pid.notEquals(req.p.not_voted_by_pid)
+                        sql_votes.pid.equals(req.p.not_voted_by_pid)
                     )
                 )
             );
