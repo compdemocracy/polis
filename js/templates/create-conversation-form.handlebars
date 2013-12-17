@@ -29,7 +29,14 @@
 		<form class="well conversationsForm">
 			<input style="width: 90%" type="text" name="topic" placeholder="Topic - e.g. Computer upgrade planning" value="{{topic}}"/>
 			<textarea style="width: 90%" type="text" name="description" placeholder="Description - e.g. Our Windows XP laptop fleet is getting a bit long in the tooth. What should we do?" rows="5">{{description}}</textarea>
-			<button class="btn btn-large btn-success submitButton" name="formAction" type="submit" value="publish">Publish</button>
+
+		  <div class="checkbox">
+		    <label>
+		      <input type="checkbox" checked> Invite Only
+		    </label>
+		  </div>
+
+			<button class="btn btn-large btn-success submitButton" name="formAction" type="submit" value="publish">Create</button>
 			<input type="hidden" name="id" id="id" value="{{id}}"/>
 		</form>
 
