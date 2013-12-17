@@ -19,17 +19,18 @@ return MetadataQuestionAndAnswersView.extend({
   initialize: function(){
     var zid = this.model.get("zid");
     var pmqid = this.model.get("pmqid");
-    this.collection = new MetadataAnswers([], {
-      zid: zid,
-      pmqid: pmqid
-    });
-    this.collection.fetch({
-      data: $.param({
-        zid: zid,
-        pmqid: pmqid
-      }),
-      processData: true
-    });
+    this.collection = this.model.collection;
+    // this.collection = new MetadataAnswers([], {
+    //   zid: zid,
+    //   pmqid: pmqid
+    // });
+    // this.collection.fetch({
+    //   data: $.param({
+    //     zid: zid,
+    //     pmqid: pmqid
+    //   }),
+    //   processData: true
+    // });
     this.listenTo(this, "rendered", function(){
       this.showAddAnswerForm();
     });
