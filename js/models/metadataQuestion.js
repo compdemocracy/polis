@@ -13,18 +13,18 @@ return Model.extend({
         // required: false,
     },
     initialize: function() {
-        // this.listenTo(this, "sync", function() {
-        var zid = this.get("zid");
-        var pmqid = this.get("pmqid");
-        this.collection = new MetadataAnswersCollection([]);
-        this.collection.fetch({
-            data: $.param({
-                zid: zid,
-                pmqid: pmqid
-            }),
-            processData: true
-        });
-        // });
+        this.on("sync", function() {
+            var zid = this.get("zid");
+            var pmqid = this.get("pmqid");
+            this.collection = new MetadataAnswersCollection([]);
+            this.collection.fetch({
+                data: $.param({
+                    zid: zid,
+                    pmqid: pmqid
+                }),
+                processData: true
+            });
+        }, this);
     } // end initialize
   });
 });
