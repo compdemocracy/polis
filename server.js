@@ -1771,9 +1771,13 @@ function getVotesForZidPids(zid, pids, callback) {
             sql_votes.zid.equals(zid)
         ).and(
             sql_votes.vote.notEquals(0) // ignore passes
-        ).and(
+        );
+    // allow empty queries to return all votes.... (TODO think about scale!)
+    if (pids && pids.length) {
+        query = query.and(
             sql_votes.pid.in(pids)
         );
+    }
 
     client.query(query.toString(), function(err, results) {
         if (err) { return callback(err); }
@@ -1812,15 +1816,11 @@ function getCommentIdCounts(voteRecords) {
 // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
 app.get("/v3/selection",
     moveToBody,
-    need('users', getArrayOfIntNonEmpty, assignToP),
+    want('users', getArrayOfInt, assignToP),
     need('zid', getInt, assignToP),
 function(req, res) {
         var zid = req.p.zid;
-        var users = req.p.users;
-        if (_.isUndefined(users)) { 
-            res.json([]);
-            return;
-        }
+        var users = req.p.users || [];
         
         getVotesForZidPids(zid, users, function(err, voteRecords) {
             if (err) { fail(res, 500, "polis_err_get_selection", err); console.dir(results); return; }
