@@ -635,7 +635,7 @@ function upsertNode(updatedNodes, newClusters) {
       .on("click", onParticipantClicked)
       .attr("d", d3.svg.symbol().type("circle"))
       .classed("node", true)
-      .classed("enter", true)
+      // .classed("enter", true)
       .classed("ptpt", true)
       // .attr("r", chooseRadius)
       .attr("transform", chooseTransform)
