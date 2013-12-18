@@ -355,26 +355,18 @@ var colorNoVote = colorPass;
 var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
 
 function chooseFill(d) {
-
-
     if (selectedCluster !== false) {
         if (d.effects === -1) {  // pull
             return colorPull;
         } else if (d.effects === 1) { // push
             return colorPush;
-        } else if (d.effects === 0){ // pass
-            return colorPass;
-        } else {
-            return colorPass; // will have less alpha
-            // console.error(3289213);
-            // return "purple";
         }
+    }
+
+    if (isSelf(d)) {
+        return colorSelf;
     } else {
-        if (isSelf(d)) {
-            return colorSelf;
-        } else {
-            return colorNoVote;
-        }
+        return colorNoVote;
     }
 }
 function chooseStroke(d) {
@@ -645,7 +637,7 @@ function upsertNode(updatedNodes, newClusters) {
       .style("stroke-width", strokeWidth)
       .style("stroke", chooseStroke)
       .style("fill", chooseFill)
-      .style("fill-opacity", chooseAlpha)
+     // .style("fill-opacity", chooseAlpha)
       // .attr("transform", function(d) {
       //     return "translate(" + d.x + "," + d.y + ")";
       // })
@@ -657,10 +649,17 @@ function upsertNode(updatedNodes, newClusters) {
 
       // UPDATE
       // TODO Can we do this less frequently?
-      // circle.classed("node", true);
+      circle
+          .attr("d", chooseShape)
+          .attr("transform", chooseTransform)
+          .style("stroke-width", strokeWidth)
+          .style("stroke", chooseStroke)
+          .style("fill", chooseFill)
+      //    .style("fill-opacity", chooseAlpha)
+      ;
       // circle.classed("update", true)
       //   .attr("r", chooseRadius)
-      //   .style("fill", chooseFill);
+
 
   // visualization.selectAll(".ptpt")
   //       .transition()
@@ -799,15 +798,33 @@ function emphasizeParticipants(pids) {
         hash[pids[i]] = true;
     }
 
-    function chooseOpacity(d) {
+    function chooseStrokeWidth(d) {
+        // If emphasized, maintain fill, (no stroke needed)
+        if (hash[d.pid]) {
+            return 0;
+        }
+        return 2;
+    }
+    function chooseStroke(d) {
+        // If emphasized, maintain fill, (no stroke needed)
+        if (hash[d.pid]) {
+            return void 0; // undefined
+        }
+        return chooseFill(d);
+    }
+    function chooseFillOpacity(d) {
+        // If emphasized, maintain fill, (no stroke needed)
         if (hash[d.pid]) {
             return 1;
         }
-        return 0.3;
+        return 0;
     }
 
     visualization.selectAll(".ptpt")
-        .attr("opacity", chooseOpacity);
+        .attr("stroke", chooseStroke)
+        .attr("stroke-width", chooseStrokeWidth)
+        .attr("fill-opacity", chooseFillOpacity)
+    ;
 }
 
 return {
