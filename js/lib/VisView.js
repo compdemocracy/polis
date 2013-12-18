@@ -629,7 +629,9 @@ function upsertNode(updatedNodes, newClusters) {
 
   // ENTER
   circle
-    .enter().append("path")
+    .enter().append("path");
+
+  circle
       .on("click", onParticipantClicked)
       .attr("d", d3.svg.symbol().type("circle"))
       .classed("node", true)
