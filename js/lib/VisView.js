@@ -113,7 +113,7 @@ visualization = d3.select(el_selector)
       .attr(dimensions)
       // .attr("viewBox", "0 0 " + w + " " + h )
       .classed("visualization", true)
-      .on("click", resetSelection)
+      .on("click", selectBackground)
         .append("g")
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
 ;
@@ -209,7 +209,12 @@ function argMax(f, args) {
 }
 
 function setClusterActive(clusterId) {
-    var pids = clusters[clusterId];
+    var pids;
+    if (clusterId === false) {
+        pids = [];
+    } else {
+        pids = clusters[clusterId];
+    }
     selectedPids = pids;
     selectedCluster = clusterId;
     var promise = getCommentsForSelection(pids)
@@ -355,7 +360,7 @@ var colorNoVote = colorPass;
 var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
 
 function chooseFill(d) {
-    if (selectedCluster !== false) {
+    if (selectedTid >= 0) {
         if (d.effects === -1) {  // pull
             return colorPull;
         } else if (d.effects === 1) { // push
@@ -791,6 +796,22 @@ function resetSelection() {
   unhoverAll();
 }
 
+
+function selectBackground() {
+  selectedPids = [];
+  resetSelectedComment();
+  unhoverAll();
+
+  setClusterActive(false)
+    .then(
+        updateHulls,
+        updateHulls);
+
+  updateHullColors();
+}
+
+
+
 function emphasizeParticipants(pids) {
     console.log("pids", pids.length);
     var hash = []; // sparse-ish array
@@ -826,6 +847,8 @@ function emphasizeParticipants(pids) {
         .attr("fill-opacity", chooseFillOpacity)
     ;
 }
+
+setTimeout(selectBackground, 1);
 
 return {
     upsertNode: upsertNode,

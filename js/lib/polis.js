@@ -647,10 +647,13 @@ return function(params) {
     }
 
     function getCommentsForSelection(listOfUserIds) {
-        return polisGet(selectionPath, {
-            zid: zid,
-            users: listOfUserIds.join(",")
-        });
+        var params =  {
+            zid: zid
+        };
+        if (listOfUserIds && listOfUserIds.length) {
+            params.users = listOfUserIds.join(",");
+        }
+        return polisGet(selectionPath, params);
     }
 
     function getReactionsToComment(commentId) {
