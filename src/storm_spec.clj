@@ -47,11 +47,12 @@
         (assoc data conv-id new-value)))))
 
 ; This is a little bit of a hack. Need to get pca working on matrices with just a couple of elements still...
-(def init-matrix (->RatingMatrix ["p1" "p2" "p3"] ["c1" "c2" "c3"] [[1 1 0] [0 1 -1] [0 -1 1]]))
+;(def init-matrix (->RatingMatrix ["p1" "p2" "p3"] ["c1" "c2" "c3"] [[1 1 0] [0 1 -1] [0 -1 1]]))
+(def init-matrix (->RatingMatrix [] [] [[]]))
 
 (defbolt rating-matrix ["conv-id" "rating-matrix"] {:prepare true}
   [conf context collector]
-  (let [data (atom {})
+  (let [data (atom {})]
     (bolt (execute [tuple]
       (let [[conv-id reaction] (.getValues tuple)]
         (swap! data
@@ -69,7 +70,7 @@
         n-comps 2]
     (bolt (execute [tuple]
       (let [[conv-id rating-matrix] (.getValues tuple)]
-        (swap! data (data-updater #(powerit-pca rating-matrix n-comps :start-vectors %)) conv-id)
+        (swap! data (data-updater #(powerit-pca rating-matrix n-comps :start-vectors % :iters 5)) conv-id)
         (let [pcs (get @data conv-id)
               proj (pca-project rating-matrix pcs)]
           (emit-bolt! collector [conv-id pcs proj])))))))

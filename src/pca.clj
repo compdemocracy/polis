@@ -37,7 +37,8 @@
     (loop [data data curr-vec curr-vec]
       (if-let [row (first data)]
         (recur (rest data)
-               (ic.core/plus curr-vec (ic.core/mult (dot row start-vec) row)))
+               (ic.core/plus (tr/trace curr-vec)
+                             (tr/trace (ic.core/mult (dot row start-vec) row))))
         curr-vec))))
 
 
@@ -71,8 +72,10 @@
   (ic.core/matrix (mapv #(ic.core/minus % (proj-vec xs %)) data)))
 
 
-(defn mean-vector [data]
-  (ic.core/matrix (mapv ic.stats/mean (zip data))))
+(defn mean-vector [data] 
+  (if (= (first (ic.core/dim data)) 1)
+    (ic.core/matrix data)
+    (ic.core/matrix (mapv ic.stats/mean (zip (tr/trace data))))))
 
 
 (defn centered-data [data]
@@ -85,8 +88,9 @@
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
   (let [cntrd-data (centered-data data)
-        start-vectors (or start-vectors [])]
-    (loop [data' cntrd-data n-comps' n-comps pcs [] start-vectors start-vectors]
+        start-vectors (or start-vectors [])
+        data-dim (apply min (ic.core/dim cntrd-data))]
+    (loop [data' cntrd-data n-comps' (min n-comps data-dim) pcs [] start-vectors start-vectors]
       (let [pc (power-iteration data' iters (first start-vectors)) ; may eventually want to return eigenvals...
             pcs (conj pcs pc)]
         (if (= n-comps' 1)
@@ -94,6 +98,12 @@
           (let [data' (factor-matrix data' pc)
                 n-comps' (dec n-comps')]
             (recur data' n-comps' pcs (rest start-vectors))))))))
+
+
+(defn wrapped-pca [data n-comps & {:keys [iters start-vectors] :as kwargs}]
+  (let [[row-cnt col-cnt] (dim data)]
+    (case [(> row-cnt 1) (> col-cnt 1)]
+      [true true] (apply powerit-pca data n-comps kwargs)
 
 
 (defn pca-project [data pcs]
