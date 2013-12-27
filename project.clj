@@ -5,7 +5,8 @@
   ; faster run time in exchange for slower startup time
   :jvm-opts ^:replace []
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
-  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]]
+  :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]
+            [lein-environ "0.4.0"]]
   :git-dependencies [["https://github.com/Prismatic/hiphip.git" "master"]
                      ["alex-and-georges.debug-repl" "master"]]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
@@ -17,9 +18,14 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/math.numeric-tower "0.0.2"]
                  [storm "0.8.2"]
-                 [incanter "1.5.4"]]
+                 [incanter "1.5.4"]
+                 [com.novemberain/monger "1.5.0"]
+                 [org.postgresql/postgresql "9.2-1002-jdbc4"]
+                 [korma "0.3.0-RC5"]
+                 [environ "0.4.0"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.trace "0.7.6"]
                                   [criterium "0.4.2"]
-                                  [org.clojure/clojure "1.5.1"]]}}
+                                  [org.clojure/clojure "1.5.1"]]}
+             :env {:dev-mongolab-uri "db/mongo.db"}}
   :min-lein-version "2.3.0")
 

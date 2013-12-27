@@ -10,3 +10,7 @@ To get running, install leinengen 2.
 From there you should be able to do `lein deps` followed by `lein run -m storm-spec` and see things happening.
 For more information on using clojure/leiningen, see [the wiki page](https://github.com/metasoarous/polismath/wiki/Working-with-clojure).
 
+### External dependencies
+
+You'll also need mongo and postgresql installed.
+

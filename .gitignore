@@ -11,3 +11,4 @@ pom.xml.asc
 .lein-plugins
 .lein-repl-history
 *.swo
+db/
