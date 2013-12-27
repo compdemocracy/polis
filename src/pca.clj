@@ -100,10 +100,10 @@
             (recur data' n-comps' pcs (rest start-vectors))))))))
 
 
-(defn wrapped-pca [data n-comps & {:keys [iters start-vectors] :as kwargs}]
-  (let [[row-cnt col-cnt] (dim data)]
-    (case [(> row-cnt 1) (> col-cnt 1)]
-      [true true] (apply powerit-pca data n-comps kwargs)
+;(defn wrapped-pca [data n-comps & {:keys [iters start-vectors] :as kwargs}]
+  ;(let [[row-cnt col-cnt] (dim data)]
+    ;(case [(> row-cnt 1) (> col-cnt 1)]
+      ;[true true] (apply powerit-pca data n-comps kwargs)
 
 
 (defn pca-project [data pcs]
