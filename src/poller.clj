@@ -20,6 +20,12 @@
     (kdb/postgres settings)))
 
 
+(defmacro endlessly [interval & forms]
+  `(doseq [~'x (range)]
+     ~@forms
+     (Thread/sleep ~interval)))
+
+
 (defn -main []
   (let [poll-interval 1000
         db-url (env/env :database-url)
