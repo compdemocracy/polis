@@ -20,6 +20,22 @@
     (kdb/postgres settings)))
 
 
+(defn split-by-conv [votes]
+  (reduce
+    (fn [conv-map vote]
+      (let [conv-id (vote :zid)]
+        (assoc conv-map conv-id
+               (conj (get conv-map conv-id []) vote))))
+    {} votes))
+
+
+(defn poll [db-spec last-timestanp]
+  (kdb/with-db db-spec
+    (ko/select "votes"
+      (ko/where {:created [> last-timestanp]})
+      (ko/order :created :asc))))
+
+
 (defmacro endlessly [interval & forms]
   `(doseq [~'x (range)]
      ~@forms
@@ -28,12 +44,13 @@
 
 (defn -main []
   (let [poll-interval 1000
-        db-url (env/env :database-url)
-        pg (heroku-db-spec db-url)]
-    (doseq [x (kdb/with-db pg
-                (ko/select "votes"
-                  (ko/order :created :asc)
-                  (ko/limit 10)))]
-      (println x))))
+        pg-spec (heroku-db-spec (env/env :database-url))
+        last-timestanp (atom 1388285552490)]
+    (endlessly poll-interval
+      (let [new-votes (->> @last-timestanp
+                        (poll pg-spec)
+                        split-by-conv)]
+        (println "polling:" new-votes)
+        (swap! last-timestanp (fn [_] (:created (last new-votes))))))))
 
 
