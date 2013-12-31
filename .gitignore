@@ -13,3 +13,4 @@ pom.xml.asc
 *.swo
 db/
 .lein-env
+.nrepl-port
