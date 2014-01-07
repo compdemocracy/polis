@@ -124,7 +124,7 @@ var errorNotifications = (function() {
     setInterval(sendAll, 60*1000);
     return {
         add: function(token) {
-            if (!token || !token.length) {
+            if (!_.isString(token)) {
                 throw new Error("empty token for pushover");
             }
             errors.push(token); 
@@ -481,12 +481,14 @@ function notifyAirbrake(e) {
     if (!(e instanceof Error)) {
         e = new Error(e);
     }
+    var uniqueCodeToTrackFinish = Math.random();
+    console.log(uniqueCodeToTrackFinish + "airbrake call with error: " + e);
     airbrake.notify(e, function(err, url) {
         console.log(url);
       if (err) {
-        console.err("airbrake err " + err);
+        console.err(uniqueCodeToTrackFinish + "airbrake err " + err);
       } else {
-        console.log("airbrake ok");
+        console.log(uniqueCodeToTrackFinish + "airbrake ok");
       }
     });
 }
@@ -615,7 +617,11 @@ var prrrams = (function() {
                 try {
                     parsed = parserWhichThrowsOnParseFail(req.body[name]);
                 } catch (e) {
-                    next(connectError(400, "polis_err_param_parse_failed" + " " + name));
+                    var s = "polis_err_param_parse_failed" + " " + name;
+                    var err = connectError(400, s);
+                    notifyAirbrake(err);
+                    yell(s);
+                    next(err);
                     return;
                 }
                 assigner(req, name, parsed);
@@ -627,7 +633,11 @@ var prrrams = (function() {
                 next();
             } else {
                 console.dir(req);
-                next(connectError(400, "polis_err_param_missing" + " " + name));
+                var s = "polis_err_param_missing" + " " + name;
+                var err = connectError(400, s);
+                notifyAirbrake(err);
+                yell(s);
+                next(err);
             }
         };
         return f;
@@ -852,7 +862,8 @@ app.use(writeDefaultHead);
 app.use(express.cookieParser());
 app.use(express.bodyParser());
 app.use(function(err, req, res, next) {
-    if(!err) return next(); 
+    if(!err) return next();
+    console.log("error found in middleware");
     yell(err);
     notifyAirbrake(err);
     next(err);
