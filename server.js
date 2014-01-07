@@ -48,7 +48,6 @@ var http = require('http'),
     // ),
     Mailgun = require('mailgun').Mailgun,
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
-    airbrake = require('airbrake').createClient(process.env.AIRBRAKE_API_KEY),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
     SimpleCache = require("simple-lru-cache"),
     _ = require('underscore');
@@ -854,7 +853,6 @@ app.use(function(err, req, res, next) {
     yell(err);
     next(err);
 });
-app.use(airbrake.expressHandler());
 
 
 var whitelistedDomains = [
