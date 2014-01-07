@@ -55,7 +55,7 @@ var http = require('http'),
 
 app.disable('x-powered-by'); // save a whale
 
-airbrake.handleExceptions();
+// airbrake.handleExceptions();
 
 // sendgrid.send({
 //   to: 'm@bjorkegren.com',
@@ -124,9 +124,10 @@ var errorNotifications = (function() {
     setInterval(sendAll, 60*1000);
     return {
         add: function(token) {
-            if (!_.isString(token)) {
+            if (devMode && !_.isString(token)) {
                 throw new Error("empty token for pushover");
             }
+            console.error(token);
             errors.push(token); 
         },
     }
@@ -477,28 +478,11 @@ String.prototype.hashCode = function(){
     return hash;
 };
 
-function notifyAirbrake(e) {
-    if (!(e instanceof Error)) {
-        e = new Error(e);
-    }
-    var uniqueCodeToTrackFinish = Math.random();
-    console.log(uniqueCodeToTrackFinish + "airbrake call with error: " + e);
-    airbrake.notify(e, function(err, url) {
-        console.log(url);
-      if (err) {
-        console.err(uniqueCodeToTrackFinish + "airbrake err " + err);
-      } else {
-        console.log(uniqueCodeToTrackFinish + "airbrake ok");
-      }
-    });
-}
-
 function fail(res, httpCode, clientVisibleErrorString, err) {
     console.error(clientVisibleErrorString, err);
     res.writeHead(httpCode || 500);
     res.end(clientVisibleErrorString);
     yell(clientVisibleErrorString);
-    notifyAirbrake(err);
 }
 
 
@@ -619,7 +603,8 @@ var prrrams = (function() {
                 } catch (e) {
                     var s = "polis_err_param_parse_failed" + " " + name;
                     var err = connectError(400, s);
-                    notifyAirbrake(err);
+                    console.error(s);
+                    console.error(err);
                     yell(s);
                     next(err);
                     return;
@@ -635,7 +620,8 @@ var prrrams = (function() {
                 console.dir(req);
                 var s = "polis_err_param_missing" + " " + name;
                 var err = connectError(400, s);
-                notifyAirbrake(err);
+                console.error(s);
+                console.error(err);
                 yell(s);
                 next(err);
             }
@@ -701,6 +687,7 @@ var postgresParams = args[1];
 if (err) {
     console.error("failed to init db connections");
     console.error(err);
+    yell("failed_to_init_db_connections");
     return;
 }
 var collection = mongoParams.mongoCollectionOfEvents;
@@ -772,7 +759,7 @@ function getPidForParticipant(assigner, cache) {
             }
         }
         client.query("SELECT pid FROM participants WHERE zid = ($1) and uid = ($2);", [zid, uid], function(err, results) {
-            if (err) { notifyAirbrake("polis_err_get_pid_for_participant"); next(err); return }
+            if (err) { yell("polis_err_get_pid_for_participant"); next(err); return }
             var pid = -1;
             if (results && results.rows && results.rows.length) {
                 pid = results.rows[0].pid;
@@ -782,7 +769,7 @@ function getPidForParticipant(assigner, cache) {
                 finish(pid);
             } else {
                 var msg = "polis_err_get_pid_for_participant_missing";
-                notifyAirbrake(msg);
+                yell(msg);
                 console.log(zid);
                 console.log(uid);
                 console.dir(req.p);
@@ -865,7 +852,6 @@ app.use(function(err, req, res, next) {
     if(!err) return next();
     console.log("error found in middleware");
     yell(err);
-    notifyAirbrake(err);
     next(err);
 });
 app.use(airbrake.expressHandler());
@@ -954,7 +940,7 @@ function(req, res) {
                 if (err) { console.error(err); fail(res, 500, "Couldn't reset password.", err); return; }
                 res.status(200).json("Password reset successful.");
                 clearPwResetToken(pwresettoken, function(err) {
-                    if (err) {console.error(err); notifyAirbrake(err); console.error("polis_err_auth_pwresettoken_clear_fail"); }
+                    if (err) { yell(err); console.error("polis_err_auth_pwresettoken_clear_fail"); }
                 });
             });
         });
@@ -1684,6 +1670,7 @@ function(req, res) {
     //}
     //
     //client.query("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
+    console.log("mike", q.toString());
     client.query(q.toString(), [], handleResult);
 }); // end GET /v3/comments
 
@@ -2384,7 +2371,7 @@ function(req, res) {
 [req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft, req.p.is_public, req.p.is_anon], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
-                notifyAirbrake(err)
+                yell(err)
                 failWithRetryRequest(res);
             } else {
                 fail(res, 500, "polis_err_add_conversation", err);
@@ -2503,11 +2490,11 @@ function(req, res) {
             res.setHeader('Retry-After', 0);
             console.warn(57493875);
             res.status(500).end(57493875);
-            notifyAirbrake("polis_err_get_users_new");
+            yell("polis_err_get_users_new");
             return;
         }
         if (!result) {
-            notifyAirbrake("polis_fail_get_users_new");
+            yell("polis_fail_get_users_new");
             console.error(827982173);
             res.status(500).end(827982173);
         } else {

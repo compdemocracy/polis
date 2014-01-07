@@ -32,7 +32,6 @@
     "squel": "~1.1.3",
     "http-proxy": "~0.10.3",
     "pushover-notifications": "~0.1.5",
-    "airbrake": "~0.3.4",
     "mailgun": "~0.4.2",
     "sendgrid": "~0.4.4",
     "simple-lru-cache": "0.0.1",
