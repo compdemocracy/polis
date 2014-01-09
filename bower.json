@@ -5,7 +5,7 @@
     "requirejs": "~2.1",
     "underscore": "~1.5.2",
     "thorax": "~2.0",
-    "bootstrap": "2.3.2",
+    "bootstrap": "~3",
     "d3": "~3.3.3",
     "font-awesome": "~3.2.1",
     "lawnchair": "~0.6.3",
