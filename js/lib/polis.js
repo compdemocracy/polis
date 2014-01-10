@@ -74,6 +74,10 @@ return function(params) {
 
     var means = null; // TODO move clustering into a separate file
 
+    var BUCKETIZE_THRESH = 64;
+    var BUCKETIZE_ROWS = 8;
+    var BUCKETIZE_COLUMNS = 8;
+
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
     // Err... I guess discussions can be circular.
     //function discussionClient(params)
@@ -344,6 +348,59 @@ return function(params) {
         return promise;
     }
 
+    function Bucket(people) {
+        this.ppl = _.isArray(people) ? people : [];
+        this.data = {};
+        this.data.projection = [];
+    }
+    function average(items, getter) {
+        var avg = 0;
+        for (var i = 0; i < items.length; i++) {
+            avg += getter(items[i]);
+        }
+        return avg / items.length;
+    }
+    function getX(person) {
+        return person.data.projection[0];
+    }
+
+    function getY(person) {
+        return person.data.projection[1];
+    }
+    Bucket.prototype.update = function() {
+        this.data.projection[0] = average(this.ppl, getX);
+        this.data.projection[1] = average(this.ppl, getY);
+    };
+
+    function bucketize(people) {
+
+        return people.map(function(p) {
+            var b = new Bucket();
+            b.ppl.push(p);
+            b.update();
+            return b;
+        });
+    }
+    // function bucketize(people) {
+    //     function Bucket() {
+    //         this.people = [];
+    //     }
+    //     Bucket.prototype.add = function(person) {
+    //         this.people.push(person);
+    //     };
+    //     Bucket.prototype.
+    //     var cells = {};
+
+    //     if (people.length < BUCKETIZE_THRESH) {
+    //         return people.map(function(p) {
+    //             return [p];
+    //         });
+    //     }
+    //     for (var p in people) {
+    //         cells[
+    //     }
+    // }
+
     function clientSideBaseCluster(people, N) {
         if (!N) { alert("need N"); }
         if (!means) {
@@ -467,11 +524,12 @@ return function(params) {
                 participantCount = people.length;
                 //var myself = _.findWhere(people, {pid: getPid()});
                 //people = _.without(people, myself);
-                var clusters = clientSideBaseCluster(people, 3);
                 //people.push(myself);
                 if (!people) {
                     return $.Deferred().reject();
                 }
+                people = bucketize(people);
+                var clusters = clientSideBaseCluster(people, 3);
 
                 //var pcaComponents = parseTree(pcaData.pca_components);
 
