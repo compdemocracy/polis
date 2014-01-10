@@ -1,10 +1,8 @@
 <header>
     <div class="navbar navbar-inverse">
-      <div class="navbar-inner no-rounding">
-        <div class="container">
-
-          <a class="brand" href="#">Polis</a>
-          <ul class="nav pull-right">
+      <div class="no-rounding container">
+        <div class="container"><div class="navbar-header"><a class="navbar-brand" href="#">Polis</a></div>
+          <ul class="nav pull-right navbar-nav">
             <li>{{#link "settings" expand-tokens=true}}<i class="icon-signout"></i>&nbsp; Signout{{/link}}</li>
           </ul>
         </div>
@@ -14,20 +12,20 @@
 
 <section class="container">
 <div class="row">
-	<div class="span12">
-	{{#link "conversation/create" expand-tokens=true className="startNewConversation btn btn-large btn-success"}}<i class="icon-plus-sign-alt"></i> Start A New Conversation {{/link}}
-	</div>
+  <div class="col-sm-12 col-md-12">
+  {{#link "conversation/create" expand-tokens=true className="startNewConversation btn btn-large btn-success"}}<i class="icon-plus-sign-alt"></i> Start A New Conversation {{/link}}
+  </div>
 </div>
 
 <div class="row">
-    <div class="span6 offset3">
+    <div class="col-lg-offset-3 col-sm-6 col-md-6">
       {{#collection tag="ul" class="conversations"}}
         <li class="conversation">
               <h3> {{topic}} </h3>
               <p> {{{description}}} </p>
-              <input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly>
-              <div class="alert alert-info">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+              <input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly="" class="form-control">
+              <div class="alert alert-info alert-dismissable">
+                <button type="button" class="close" data-dismiss="alert">×</button>
                 <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
               </div>
               <span class="participantCount"> {{participant_count}}

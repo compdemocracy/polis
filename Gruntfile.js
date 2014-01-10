@@ -241,12 +241,12 @@ module.exports = function(grunt) {
         'originalbackbone': '../bower_components/backbone/backbone', // backbone before modifications
         'backbone': 'net/backbonePolis', // polis-specific backbone modifications
         'thorax': '../bower_components/thorax/thorax',
-        'bootstrap_alert': '../bower_components/bootstrap/js/bootstrap-alert',
-        'bootstrap_tab': '../bower_components/bootstrap/js/bootstrap-tab',
-        'bootstrap_tooltip': '../bower_components/bootstrap/js/bootstrap-tooltip',
-        'bootstrap_popover': '../bower_components/bootstrap/js/bootstrap-popover',
-        'bootstrap_button': '../bower_components/bootstrap/js/bootstrap-button',
-        'bootstrap_transition': '../bower_components/bootstrap/js/bootstrap-transition',
+        'bootstrap_alert': '../bower_components/bootstrap/js/alert',
+        'bootstrap_tab': '../bower_components/bootstrap/js/tab',
+        'bootstrap_tooltip': '../bower_components/bootstrap/js/tooltip',
+        'bootstrap_popover': '../bower_components/bootstrap/js/popover',
+        'bootstrap_button': '../bower_components/bootstrap/js/button',
+        'bootstrap_transition': '../bower_components/bootstrap/js/transition',
         // d3 is conditionally loaded from index
         // 'd3': '../bower_components/d3/d3',
         // 'r2d3': '../bower_components/r2d3/r2d3',

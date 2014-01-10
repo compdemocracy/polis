@@ -1,14 +1,14 @@
 <header>
 	<div class="navbar navbar-inverse">
-	  <div class="navbar-inner no-rounding">
-	  	<div class="container">
-	      <a class="brand" href="#">Polis</a>
+	  <div class="no-rounding container">
+	  	<div class="container"><div class="navbar-header"><a class="navbar-brand" href="#">Polis</a></div>
+	      
 
-	      <ul class="nav pull-right">
+	      <ul class="nav pull-right navbar-nav">
 		    	 <li>{{#link "settings" expand-tokens=true}}<i class="icon-signout"></i>Signout{{/link}}</li>
 		  	</ul>
-	     	<div class="nav-collapse collapse">
-					<ul class="nav">
+	     	<div class="collapse navbar-collapse">
+					<ul class="nav navbar-nav">
 			  		<li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
 					</ul>
 		  	</div>
@@ -20,52 +20,52 @@
 
 <section class="container">
 
-	<div class="span12" style="margin-bottom: 20px;">
+	<div class="col-sm-12 col-md-12" style="margin-bottom: 20px;">
 		<h4 style="display:inline">Create a conversation </h4>
 		<h5 style="display:inline; font-weight:100"><em>(all fields optional)</em></h5>
 	</div>
-	<div class="span6 createConversationForm">
+	<div class="createConversationForm col-sm-6 col-md-6">
 
 		<form class="well conversationsForm">
-			<input style="width: 90%" type="text" name="topic" placeholder="Topic - e.g. Computer upgrade planning" value="{{topic}}"/>
+			<input style="width: 90%" type="text" name="topic" placeholder="Topic - e.g. Computer upgrade planning" value="{{topic}}" class="form-control">
 			<textarea style="width: 90%" type="text" name="description" placeholder="Description - e.g. Our Windows XP laptop fleet is getting a bit long in the tooth. What should we do?" rows="5">{{description}}</textarea>
 
 		  <div class="checkbox">
 		    <label>
-		      <input type="checkbox" checked> Invite Only
+		      <input type="checkbox" checked=""> Invite Only
 		    </label>
 		  </div>
 
-			<button class="btn btn-large btn-success submitButton" name="formAction" type="submit" value="publish">Create</button>
-			<input type="hidden" name="id" id="id" value="{{id}}"/>
+			<button class="btn btn-success submitButton btn-lg" name="formAction" type="submit" value="publish">Create</button>
+			<input type="hidden" name="id" id="id" value="{{id}}" class="form-control">
 		</form>
 
 			{{!--
-			<div class="control-group">
+			<div class="form-group">
 			  <div class="controls">
-			  	<label for="anonymous" class="checkbox">
-			  		<input type="checkbox" id="anonymous" name="is_anon" data-toggle="checkbox" {{#if is_anon}}checked{{/if}}> Make this conversation anonymous -- this should grey out/disable the metadata box below.
-			  	</label>
+			  	<div class="checkbox"><label for="anonymous" class="">
+			  		<input type="checkbox" id="anonymous" name="is_anon" data-toggle="checkbox" {{#if="" is_anon}}checked{{="" if}}=""> Make this conversation anonymous -- this should grey out/disable the metadata box below.
+			  	</label></div>
 				</div>
 			</div>
 			--}}
 
 			{{!--
-			<div class="alert alert-info">
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
+			<div class="alert alert-info alert-dismissable">
+                <button type="button" class="close" data-dismiss="alert">×</button>
                 <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
               </div>
-			<input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly>
+			<input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly="" class="form-control">
               <div class="alert alert-info">
 			--}}
 
-			{{!-- <button class="btn" name="formAction" type="submit" value="draft">Save as Draft</button> --}}
+			{{!-- <button class="btn btn-default" name="formAction" type="submit" value="draft">Save as Draft</button> --}}
 
 		<div class="well" id="seedCommentsContainer">
 			<i class="icon-caret-right" id="seedCommentsCaret" style="margin-right: 10px;"></i> 
 			<h5 style="display:inline"> Add Starter Comments </h5>
 			<div style="display:none;" id="hiddenSeedCommentForm">
-				<div style="margin-top: 20px" class="alert alert-block alert-info">
+				<div style="margin-top: 20px" class="alert alert-info">
       		<p> Seed the conversation with comments for participants to react to. <i class="icon-info-sign"></i> <span style="cursor: pointer" id="seedCommentHelperTextButton"> Tell me more.</span></p>
       		<div style="display: none; margin-top: 20px" id="hiddenSeedCommentHelperText">
       		<p> Normally, there will be no comments in the conversation as your first participants enter. If you want to ensure that certain perspectives will be discussed, or at least reacted to, you can add them here one at a time. All participants will be able to agree, star, disagree, pass, or trash as usual. </p>
@@ -80,7 +80,7 @@
 			<i class="icon-caret-right" id="metadataCaret" style="margin-right: 10px;"></i>
 			<h5 style="display:inline"> Add Participant Metadata </h5>      
 			<div style="display:none;" id="hiddenMetadataForm">
-				<div style="margin-top: 20px" class="alert alert-block alert-info">
+				<div style="margin-top: 20px" class="alert alert-info">
 		     	<p> Ask participants about themselves. <i class="icon-info-sign"></i> <span id="metaDataHelperTextButton" style="cursor: pointer"> How do I use metadata? </span></p>
 		     	<div id="hiddenMetadataHelperText" style="display:none; margin-top: 20px">
 		     	<p> Starter comments can anticipate opinion groups by offering the perspectives of which you are already aware. Metadata, on the other hand, asks participants for <em> facts </em> about themselves when they first join the conversation. It reflects groups that are not based on opinion that you (1) already know exist, (2) want to control for and (3) want to filter based on. </p>
@@ -108,4 +108,4 @@
 
 
 
-</section>
+</div></section>

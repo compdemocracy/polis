@@ -1,18 +1,14 @@
-
 {{! ifNotEmbedded}}
 <header>
 	<div class="navbar navbar-inverse">
-	  <div class="navbar-inner no-rounding">
-	  	<div class="container">
-		  	<a class="btn btn-navbar" data-toggle="collapse" data-target=".nav-collapse">
+	  <div class="no-rounding container">
+	  	<div class="container"><div class="navbar-header"><a class="navbar-brand" href="#">Polis</a></div>
+		  	<a class="btn btn-navbar btn-default" data-toggle="collapse" data-target=".nav-collapse">
 	        <span class="icon-bar"></span>
 	        <span class="icon-bar"></span>
 	        <span class="icon-bar"></span>
 	      	</a>
-	      <a class="brand" href="#">Polis</a>
-
-
-	      <ul class="nav pull-right">
+	      <ul class="nav pull-right navbar-nav">
 	      	{{#if false}}
 	    	<li><a href="#"><span class="user">{{given_name}}</span><i class="icon-user"></i> </a></li>
 	    	{{/if}}
@@ -21,11 +17,11 @@
 	    	{{/if}}
 		  </ul>
 
-	      <div class="nav-collapse collapse">
-			<ul class="nav">
+	      <div class="collapse navbar-collapse">
+			<ul class="nav navbar-nav">
 			  <li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
 			  {{#if false}}
-			  	<li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="<p> Click the 'Intro &amp; Overview' tab to return to this tutorial at any time.</p>" data-html="true" data-bootstro-placement="bottom" data-bootstro-step="0" ><a href="#">Intro &amp; Overview</a></li>
+			  	<li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="&lt;p&gt; Click the 'Intro &amp; Overview' tab to return to this tutorial at any time.&lt;/p&gt;" data-html="true" data-bootstro-placement="bottom" data-bootstro-step="0"><a href="#">Intro &amp; Overview</a></li>
           			<li id="topic_toggle"><a href="" role="button">Topic</a> </li>
           			<li data-toggle="modal" data-target="#introduction_modal"><a href="#">Contact &amp; Feedback</a></li>
 			  {{/if}}
@@ -41,7 +37,7 @@
 
 <section class="container">
 <div class="row">
-  <div class="span6 offset3">
+  <div class="col-lg-offset-3 col-sm-6 col-md-6">
     <div class="well detailsBox">
 
 	{{#link "conversation/view/{{zid}}" expand-tokens=true class="btn btn-block btn-warning launchConversation"}}<i class="icon-rocket"></i> Launch Conversation {{/link}}
@@ -78,9 +74,9 @@
 	  <p> This conversation has been concluded. Participants are no longer able to vote, and can  </p>
 	}}
 
-	<input type="text" value="{{url_name}}" name="convoLink" readonly>
+	<input type="text" value="{{url_name}}" name="convoLink" readonly="" class="form-control">
 	
-    <input type="text" value="<iframe src='{{url_name}}'></iframe>" name="convoEmbed" readonly>
+    <input type="text" value="&lt;iframe src='{{url_name}}'&gt;&lt;/iframe&gt;" name="convoEmbed" readonly="" class="form-control">
 
 	</div> <!-- end well -->
 

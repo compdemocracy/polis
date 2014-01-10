@@ -1,26 +1,26 @@
 <div class="container">
 <div class="row">
-	<div class="span12 landingPageHeadline">
+	<div class="landingPageHeadline col-sm-12 col-md-12">
 		<h1 class="landingPagePolis"> polis </h1>
 		<h3 class="landingPageCommunication"> communication for groups </h3>
 	</div>
 </div>
 
 <div class="row landingBoxTop">
-	<div class="span4 landingBox">
+	<div class="landingBox col-sm-4 col-md-4">
 	<h4 class="formTextHeader"> Create New User: </h4>
-	<form > <!--rename style -->	
-		<input type="text" name="hname" placeholder="Full Name" />  	
-		<input type="text" name="email" placeholder="Email" />  	
-		<input type="text" name="username" placeholder="Username" />  	
-		<input type="password" name="password" placeholder="Password" />
+	<form role="form"> <!--rename style -->	
+		<input type="text" name="hname" placeholder="Full Name" class="form-control">  	
+		<input type="text" name="email" placeholder="Email" class="form-control">  	
+		<input type="text" name="username" placeholder="Username" class="form-control">  	
+		<input type="password" name="password" placeholder="Password" class="form-control">
   {{#if zinvite}} 	
-    <input type="hidden" name="zinvite" value="{{zinvite}}" />
+    <input type="hidden" name="zinvite" value="{{zinvite}}" class="form-control">
   {{else}}
-    <input type="text" name="oinvite" placeholder="Invite Code" />
+    <input type="text" name="oinvite" placeholder="Invite Code" class="form-control">
   {{/if}}
 		<p> </p>
-		<button type="submit" class="btn btn-large"> Create New User </button>
+		<button type="submit" class="btn btn-default btn-lg"> Create New User </button>
 	</form>
 	<p class="otherOptions1">{{#link "" expand-tokens=true}} Back {{/link}}</p>
   <p>{{#link "pwresetinit" expand-tokens=true}} Forgot your Password? {{/link}}</p>
