@@ -348,8 +348,9 @@ return function(params) {
         return promise;
     }
 
-    function Bucket(people) {
+    function Bucket(bid, people) {
         this.ppl = _.isArray(people) ? people : [];
+        this.bid = bid;
         this.data = {};
         this.data.projection = [];
     }
@@ -367,17 +368,29 @@ return function(params) {
     function getY(person) {
         return person.data.projection[1];
     }
+
+    Bucket.prototype.containsPid = function(pid) {
+        for (var i = 0; i < this.ppl.length; i++) {
+            if (this.ppl[i].pid === pid) {
+                return true;
+            }
+        }
+        return false;
+    };
     Bucket.prototype.update = function() {
         this.data.projection[0] = average(this.ppl, getX);
         this.data.projection[1] = average(this.ppl, getY);
+        if (this.containsPid(getPid())) {
+            this.containsSelf = true;
+        }
     };
-
     function bucketize(people) {
-
+        var bid = 0; // TODO expecting bid (Bucket id) to be set (or implicit in array index) in math worker
         return people.map(function(p) {
-            var b = new Bucket();
+            var b = new Bucket(bid);
             b.ppl.push(p);
             b.update();
+            bid += 1;
             return b;
         });
     }
@@ -401,17 +414,17 @@ return function(params) {
     //     }
     // }
 
-    function clientSideBaseCluster(people, N) {
+    function clientSideBaseCluster(things, N) {
         if (!N) { alert("need N"); }
         if (!means) {
-            means = shuffleWithSeed(people, 0.5);
+            means = shuffleWithSeed(things, 0.5);
             means = _.first(means, N);
-            means = means.map(function(person) { return _.clone(person.data.projection);});
+            means = means.map(function(thing) { return _.clone(thing.data.projection);});
         }
 
         var clusters = means.map(function() { return [];});
 
-        function getNearestMean(person) {
+        function getNearestMean(thing) {
             var best = Infinity;
             var bestMean = means[0];
             var bestIndex = -1;
@@ -419,8 +432,8 @@ return function(params) {
                 var m = means[mi];
                 var totalSquares = 0;
                 var temp;
-                for (var i = 0; i < person.data.projection.length; i++) {
-                    temp = person.data.projection[i] - m[i];
+                for (var i = 0; i < thing.data.projection.length; i++) {
+                    temp = thing.data.projection[i] - m[i];
                     totalSquares += temp*temp;
                 }
                 if (totalSquares < best) {
@@ -432,17 +445,17 @@ return function(params) {
             return bestIndex;
         }
 
-        function assignToCluster(person) {
-            var bestIndex = getNearestMean(person);
+        function assignToCluster(thing) {
+            var bestIndex = getNearestMean(thing);
             if (bestIndex === -1) {
                 console.log("bad bestIndex, check getNearestMean");
                 return;
             }
-            if (-1 !== clusters[bestIndex].indexOf(person)) {
+            if (-1 !== clusters[bestIndex].indexOf(thing)) {
                 return;
             }
-            clusters = _.without(clusters, person);
-            clusters[bestIndex].push(person);
+            clusters = _.without(clusters, thing);
+            clusters[bestIndex].push(thing);
         }
 
         function recenterCluster(i) {
@@ -450,13 +463,13 @@ return function(params) {
             if (cluster.length === 0) {
                 return;
             }
-            var person0 = cluster[0];
-            var dims = person0.data.projection.length;
+            var thing0 = cluster[0];
+            var dims = thing0.data.projection.length;
             var totals = Array.apply(null, new Array(dims)).map(Number.prototype.valueOf,0); // array of 0s
             for (var pi = 0; pi < cluster.length; pi++) {
-                var person = cluster[pi];
+                var thing = cluster[pi];
                 for (var d = 0; d < dims; d++) {
-                    totals[d] += person.data.projection[d];
+                    totals[d] += thing.data.projection[d];
                 }
             }
             var avg = totals.map(function(x) { return x / cluster.length;});
@@ -470,7 +483,7 @@ return function(params) {
         //}
 
         function iterate() {
-            _.each(people, assignToCluster);
+            _.each(things, assignToCluster);
             for (var i = 0; i < means.length; i++) {
                 recenterCluster(i);
             }
@@ -494,8 +507,8 @@ return function(params) {
         */
         // [[1,2,5],[4]]
         return clusters.map(function(cluster) {
-            return cluster.map(function(person) {
-                return person.pid;
+            return cluster.map(function(thing) {
+                return thing.bid;
             }).sort(function(a, b) {
                 // ascending
                 return a - b;

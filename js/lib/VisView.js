@@ -6,11 +6,17 @@ var VisView = function(params){
 
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
-var getPid = params.getPid;
 var getCommentsForSelection = params.getCommentsForSelection;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
 var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
+// var getPid = params.getPid;
+
+function getBid(d) {
+    return d.bid;
+}
+
+
 
 var clusterClickedCallbacks = $.Callbacks();
 
@@ -29,11 +35,12 @@ var d3Hulls;
 var d3CommentList;
 
 var selectedCluster = false;
-var selectedPids = [];
+var selectedBids = [];
 var selectedTid = -1;
 
 // number of votes by the participant who has voted the most.
 var maxVoteCount = 0;
+
 
 
 var updatesEnabled = true;
@@ -72,7 +79,11 @@ if (!isIE8) {
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
         function(d) {
             // use the email address as the html
-            return (getUserInfoByPid(d.pid)||{}).email;
+            return d.ppl.map(function(p) {
+                return p.pid;
+            }).map(getUserInfoByPid).map(function(user) {
+                return user.email;
+            }).join("<br/>");
         }
     );
 }
@@ -277,7 +288,7 @@ d3Hulls = _.times(9, function() {
 });
 
 function updateHulls() {
-    var pidToPerson = _.object(_.pluck(nodes, "pid"), nodes);
+    var bidToPerson = _.object(_.pluck(nodes, "bid"), nodes);
     bounds = [];
     hulls = clusters.map(function(cluster) {
         var top = Infinity;
@@ -285,8 +296,8 @@ function updateHulls() {
         var right = -Infinity;
         var left = Infinity;
         var temp = cluster.map(function(pid) {
-            var x = pidToPerson[pid].x;
-            var y = pidToPerson[pid].y;
+            var x = bidToPerson[pid].x;
+            var y = bidToPerson[pid].y;
             // update bounds
             top = Math.min(top, y);
             bottom = Math.max(bottom, y);
@@ -450,11 +461,14 @@ function chooseTransform(d) {
     //     }
     // }
     // scale = Math.max(0.02, scale);
-    return "translate(" + d.x + "," + d.y + ")";// scale(" + scale + ")";
+
+    var scale = d.ppl.length;
+    return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
+//    return "translate(" + d.x + "," + d.y + ")";// scale(" + scale + ")";
 }
 
 function isSelf(d) {
-    return d.pid === getPid();
+    return !!d.containsSelf;
 }
 
 function hashCode(s){
@@ -477,7 +491,7 @@ function hashCode(s){
 // });
 
 function key(d) {
-    return d.pid;
+    return d.bid;
 }
 
 
@@ -568,7 +582,7 @@ function upsertNode(updatedNodes, newClusters) {
     var scaleX = scales.x;
     var scaleY = scales.y;
 
-    var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, pid: node.pid }; });
+    var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, bid: node.bid }; });
 
     function sortWithSelfOnTop(a, b) {
         if (isSelf(a)) {
@@ -580,11 +594,11 @@ function upsertNode(updatedNodes, newClusters) {
         return key(a) - key(b);
     }
 
-    var pidToOldNode = _.indexBy(nodes, getPid);
+    var bidToOldNode = _.indexBy(nodes, getBid);
 
     for (var i = 0; i < updatedNodes.length; i++) {
         var node = updatedNodes[i];
-        var oldNode = pidToOldNode[node.pid];
+        var oldNode = bidToOldNode[node.bid];
         if (oldNode) {
             node.effects = oldNode.effects;
         }
@@ -594,7 +608,7 @@ function upsertNode(updatedNodes, newClusters) {
     console.log("number of people: " + nodes.length);
 
     oldpositions.forEach(function(oldNode) {
-        var newNode = _.findWhere(nodes, {pid: oldNode.pid});
+        var newNode = _.findWhere(nodes, {bid: oldNode.bid});
         if (!newNode) {
             console.error("not sure why a node would dissapear");
             return;
@@ -622,6 +636,7 @@ function upsertNode(updatedNodes, newClusters) {
         window.temp = nodes[0];
     }
 
+// TODO use key to guarantee unique items
 
   var update = visualization.selectAll("g")
       .data(nodes);
@@ -674,16 +689,19 @@ function selectComment(tid) {
         }
         for (i = 0; i < nodes.length; i++) {
             var node = nodes[i];
+            // for (var p = 0; p < node.ppl.length; p++) {
 
-            var reaction = userToReaction[node.pid];
-            if (reaction) {
-                node.effects = reaction.vote;
-                if (undefined === node.effects) {
-                    node.effects = "blabla";
+                // TODO_MAXDOTS count up the reactions of each type for each user (instead of just ppl[0])
+                var reaction = userToReaction[node.ppl[0].pid];
+                if (reaction) {
+                    node.effects = reaction.vote;
+                    if (undefined === node.effects) {
+                        node.effects = "blabla";
+                    }
+                } else {
+                    delete node.effects;
                 }
-            } else {
-                delete node.effects;
-            }
+            // }
         }
         visualization.selectAll("g")
           .attr("transform", chooseTransform)
@@ -779,14 +797,14 @@ function resetSelection() {
   selectedCluster = false;
   // visualization.transition().duration(750).attr("transform", "");
   renderComments([]);
-  selectedPids = [];
+  selectedBids = [];
   resetSelectedComment();
   unhoverAll();
 }
 
 
 function selectBackground() {
-  selectedPids = [];
+  selectedBids = [];
   resetSelectedComment();
   unhoverAll();
 
@@ -799,7 +817,7 @@ function selectBackground() {
 }
 
 
-
+// TODO account for Buckets
 function emphasizeParticipants(pids) {
     console.log("pids", pids.length);
     var hash = []; // sparse-ish array
