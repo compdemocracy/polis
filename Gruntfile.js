@@ -247,6 +247,8 @@ module.exports = function(grunt) {
         'bootstrap_popover': '../bower_components/bootstrap/js/popover',
         'bootstrap_button': '../bower_components/bootstrap/js/button',
         'bootstrap_transition': '../bower_components/bootstrap/js/transition',
+        'bootstrap_collapse': '../bower_components/bootstrap/js/collapse',
+        'bootstrap_dropdown': '../bower_components/bootstrap/js/dropdown',
         // d3 is conditionally loaded from index
         // 'd3': '../bower_components/d3/d3',
         // 'r2d3': '../bower_components/r2d3/r2d3',

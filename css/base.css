@@ -1,13 +1,14 @@
 body {
-	font-family: "brandon-grotesque", sans-serif;
+  font-family: "brandon-grotesque", sans-serif;
+  padding-top: 70px;
 }
 
 /* Helpers */
 
 .no-rounding {
-	-webkit-border-radius: 0px;
-	-moz-border-radius: 0px;
-	border-radius: 0px;
+  -webkit-border-radius: 0px;
+  -moz-border-radius: 0px;
+  border-radius: 0px;
 }
 
 .block {
@@ -69,42 +70,42 @@ header .navbar .user { margin-right: 15px; }
 
 .launchConversation { margin-bottom: 13px; }
 .deleteConversation { margin-top: 30px; }
-.concludeButton { margin-top: 40px;	margin-bottom: 40px; background-color: #2980b9;	color: white; }
-.concludeButton:hover {	background-color: #3498db; }
+.concludeButton { margin-top: 40px; margin-bottom: 40px; background-color: #2980b9; color: white; }
+.concludeButton:hover { background-color: #3498db; }
 .detailsBox input { width: 97%; color: #34495e; }
 
 /* Conversation create - and everything concerned with metadata */
 
 .makeCursorPointer {
-  cursor: pointer;	
+  cursor: pointer;  
 }
 .addNewMetadataButton {
-	margin-top: 25px;
-	margin-bottom: 30px;
-	font-size: 13.5px;
+  margin-top: 25px;
+  margin-bottom: 30px;
+  font-size: 13.5px;
 }
 .removeUnderlinedLink:hover {
-	text-decoration: none;
+  text-decoration: none;
 }
 .createAnswer{
-	padding-left: ;
+  padding-left: ;
 }
 .createAnswer:hover{
-	text-decoration: none;
+  text-decoration: none;
 }
 [data-view-name="metadataQuestionsViewWithCreate"] {
 
 }
 [data-view-name="metadataQuestionAndAnswersViewWithCreate"] {
-	margin-bottom: 30px	;
+  margin-bottom: 30px ;
 }
 
 [data-view-name="metadataAnswerViewWithDelete"] {
-	margin-left: 20px;
+  margin-left: 20px;
 }
 .questionText { /* a medium weight / bolder brandon */
-	font-weight: 500;
-	display: inline;
+  font-weight: 500;
+  display: inline;
 }
 .questionAnswer {
   font-weight: 400;
@@ -121,17 +122,17 @@ header .navbar .user { margin-right: 15px; }
 /* conversationGatekeper.handlebars */
 
 .gatekeeperHeader {
-	margin-bottom: 15px;
-	font-weight: 400;
-	line-height: 1.3;
+  margin-bottom: 15px;
+  font-weight: 400;
+  line-height: 1.3;
 }
 
 .gatekeeperButton {
-	margin-top: 15px;
+  margin-top: 15px;
 }
 
 .metadataCheckbox {
-	margin-left: 20px;
+  margin-left: 20px;
 }
 
 .rel {
@@ -159,7 +160,7 @@ header .navbar .user { margin-right: 15px; }
 
 @media only screen and (max-width : 640px) {
 
-	.navbar .brand { display: none; }
+  .navbar .brand { display: none; }
 
 }
 

@@ -9,7 +9,9 @@ require([
   "bootstrap_tooltip",
   "bootstrap_button",
   "bootstrap_popover",
-  "bootstrap_transition"
+  "bootstrap_transition",
+  "bootstrap_collapse",
+  "bootstrap_dropdown"
 ], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
 
   _.mixin({
