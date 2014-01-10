@@ -328,8 +328,7 @@ force.on("tick", function(e) {
           o.y += (o.data.targetY - o.y) * k;
       });
 
-      visualization
-        .selectAll(".ptpt")
+      visualization.selectAll("g")
         .attr("transform", chooseTransform);
 
     updateHulls();
@@ -624,48 +623,32 @@ function upsertNode(updatedNodes, newClusters) {
     }
 
 
-  var circle = visualization.selectAll(".ptpt")
+  var update = visualization.selectAll("g")
       .data(nodes);
 
   // ENTER
-  circle
-    .enter().append("path");
-
-  circle
-      .on("click", onParticipantClicked)
-      .attr("d", d3.svg.symbol().type("circle"))
-      .classed("node", true)
-      // .classed("enter", true)
+  var enter = update.enter();
+  enter
+    .append("g")
       .classed("ptpt", true)
-      // .attr("r", chooseRadius)
-      .attr("transform", chooseTransform)
-      // .attr("r", chooseRadius)
-      .attr("d", chooseShape)
-      .style("stroke-width", strokeWidth)
-      .style("stroke", chooseStroke)
-      .style("fill", chooseFill)
-     // .style("fill-opacity", chooseAlpha)
-      // .attr("transform", function(d) {
-      //     return "translate(" + d.x + "," + d.y + ")";
-      // })
+      .classed("node", true)
+      .on("click", onParticipantClicked)
       .on("mouseover", showTip)
       .on("mouseout", hideTip)
-      ;
+      .append("path")
+        .attr("d", d3.svg.symbol().type("circle"))
+    ;
 
-
-
-      // UPDATE
-      // TODO Can we do this less frequently?
-      circle
+  update
+      .attr("transform", chooseTransform)
+      .selectAll("path")
           .attr("d", chooseShape)
-          .attr("transform", chooseTransform)
           .style("stroke-width", strokeWidth)
           .style("stroke", chooseStroke)
           .style("fill", chooseFill)
-      //    .style("fill-opacity", chooseAlpha)
       ;
-      // circle.classed("update", true)
-      //   .attr("r", chooseRadius)
+
+
 
 
   // visualization.selectAll(".ptpt")
@@ -702,14 +685,15 @@ function selectComment(tid) {
                 delete node.effects;
             }
         }
-        visualization.selectAll(".ptpt")
-          .style("fill", chooseFill)
-          .style("stroke", chooseStroke)
-          .style("fill-opacity", chooseAlpha)
-          // .attr("r", chooseRadius)
-          .attr("d", chooseShape)
+        visualization.selectAll("g")
           .attr("transform", chooseTransform)
-        ;
+          .selectAll("path")
+              .style("fill", chooseFill)
+              .style("stroke", chooseStroke)
+              .style("fill-opacity", chooseAlpha)
+              // .attr("r", chooseRadius)
+              .attr("d", chooseShape)
+          ;
     }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
     });
@@ -774,13 +758,15 @@ function unhoverAll() {
 }
 
 function updateNodes() {
-  visualization.selectAll(".ptpt")
-    .style("stroke", chooseStroke)
-    .style("fill", chooseFill)
-    .style("fill-opacity", chooseAlpha)
-    // .attr("r", chooseRadius)
-    .attr("d", chooseShape)
-    .attr("transform", chooseTransform);
+  visualization.selectAll("g")
+    .attr("transform", chooseTransform)
+    .selectAll("path")
+        .style("stroke", chooseStroke)
+        .style("fill", chooseFill)
+        .style("fill-opacity", chooseAlpha)
+        // .attr("r", chooseRadius)
+        .attr("d", chooseShape)
+    ;
 }
 
 function resetSelectedComment() {
@@ -843,7 +829,8 @@ function emphasizeParticipants(pids) {
         return 0;
     }
 
-    visualization.selectAll(".ptpt")
+    visualization.selectAll("g")
+      .selectAll("path")
         .attr("stroke", chooseStroke)
         .attr("stroke-width", chooseStrokeWidth)
         .attr("fill-opacity", chooseFillOpacity)
