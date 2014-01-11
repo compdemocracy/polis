@@ -341,7 +341,7 @@ force.on("tick", function(e) {
       });
 
       visualization.selectAll("g")
-        .attr("transform", chooseTransform);
+        .attr("transform", chooseTransformForRoots);
 
     updateHulls();
 });
@@ -370,14 +370,31 @@ var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
 var colorNoVote = colorPass;
 var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
 
-function chooseFill(d) {
+
+function chooseDisplayForCircle(d) {
+    // Hide the circle so we can show the up/down arrows
     if (selectedTid >= 0) {
-        if (d.effects === -1) {  // pull
-            return colorPull;
-        } else if (d.effects === 1) { // push
-            return colorPush;
-        }
+        return "none";
     }
+    return "inherit";
+}
+
+function chooseDisplayForArrows(d) {
+    // Hide the circle so we can show the up/down arrows
+    if (selectedTid >= 0) {
+        return "inherit";
+    }
+    return "none";
+}
+
+function chooseFill(d) {
+    // if (selectedTid >= 0) {
+    //     if (d.effects === -1) {  // pull
+    //         return colorPull;
+    //     } else if (d.effects === 1) { // push
+    //         return colorPush;
+    //     }
+    // }
 
     if (isSelf(d)) {
         return colorSelf;
@@ -401,11 +418,11 @@ function shouldShowVoteIcons() {
 
 function chooseAlpha(d) {
     if (shouldShowVoteIcons()) {
-        if (d.effects === undefined) {
-            // no-vote
-            // This should help differentiate a pass from a no-vote.
-            return 0.5;
-        }
+        // if (d.effects === undefined) {
+        //     // no-vote
+        //     // This should help differentiate a pass from a no-vote.
+        //     return 0.5;
+        // }
         // pass still gets full alpha
     } else {
         if (!isSelf(d)) {
@@ -444,30 +461,30 @@ function chooseShape(d) {
     }
 }
 
-function chooseTransform(d) {
-    // var scale = 1;
-    // if (isSelf(d) && !shouldShowVoteIcons()) {
-    //     scale = 1.2;
-    // }
-    // else {
-    //     var voteCount = getTotalVotesByPidSync(d.pid);
-    //     maxVoteCount = Math.max(voteCount, maxVoteCount);
-    //     var ratio = (voteCount + 1) / (maxVoteCount + 1);
-    //     scale *= ratio;
-    //     if (shouldShowVoteIcons()) {
-    //         if (d.effects === undefined) {
-    //             // smaller if no vote
-    //             scale = scale * 0.6;
-    //         }
-    //     }
-    // }
-    // scale = Math.max(0.02, scale);
 
-    var scale = Math.sqrt(d.ppl.length);
-    scale /= 1.2;
-    return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
-//    return "translate(" + d.x + "," + d.y + ")";// scale(" + scale + ")";
+function chooseTransformForRoots(d) {
+   return "translate(" + d.x + "," + d.y + ")";
 }
+
+var offsetFactor = 4.9;
+function chooseTransformUpArrow(d) {
+    var scale = Math.sqrt(d.ups);
+    var yOffset = -offsetFactor * scale;
+    return "translate(0," + yOffset + ") scale(" + scale + ")";
+}
+
+function chooseTransformDownArrow(d) {
+    var scale = Math.sqrt(d.downs);
+    var yOffset = offsetFactor * scale;
+    return "translate(0," + yOffset + ") scale(" + scale + ")";
+}
+
+function chooseTransformCircle(d) {
+    var scale = Math.sqrt(d.ppl.length) / 1.2;
+    return "scale(" + scale + ")";
+}
+
+
 
 function isSelf(d) {
     return !!d.containsSelf;
@@ -633,25 +650,41 @@ function upsertNode(updatedNodes, newClusters) {
 
   // ENTER
   var enter = update.enter();
-  enter
+  var g = enter
     .append("g")
       .classed("ptpt", true)
       .classed("node", true)
       .on("click", onParticipantClicked)
       .on("mouseover", showTip)
       .on("mouseout", hideTip)
-      .append("path")
-        .attr("d", d3.svg.symbol().type("circle"))
-    ;
+  ;
 
-  update
-      .attr("transform", chooseTransform)
-      .selectAll("path")
-          .attr("d", chooseShape)
-          .style("stroke-width", strokeWidth)
-          .style("stroke", chooseStroke)
-          .style("fill", chooseFill)
-      ;
+  var upArrowEnter = g
+      .append("path")
+        .classed("up", true)
+        .attr("d", d3.svg.symbol().type("triangle-up"))
+  ;
+  var downArrowEnter = g
+      .append("path")
+        .classed("down", true)
+        .attr("d", d3.svg.symbol().type("triangle-down"))
+  ;
+  var circleEnter = g
+      .append("path")
+        .classed("circle", true)
+        .attr("d", d3.svg.symbol().type("circle"))
+  ;
+
+  updateNodes();
+
+  // update
+  //     .attr("transform", chooseTransform)
+  //     .selectAll("path")
+  //         .attr("d", chooseShape)
+  //         .style("stroke-width", strokeWidth)
+  //         .style("stroke", chooseStroke)
+  //         .style("fill", chooseFill)
+  //     ;
 
 
 
@@ -679,28 +712,30 @@ function selectComment(tid) {
         }
         for (i = 0; i < nodes.length; i++) {
             var node = nodes[i];
-            // for (var p = 0; p < node.ppl.length; p++) {
+            node.ups = 0;
+            node.downs = 0;
+            for (var p = 0; p < node.ppl.length; p++) {
 
                 // TODO_MAXDOTS count up the reactions of each type for each user (instead of just ppl[0])
-                var reaction = userToReaction[node.ppl[0].pid];
+                var reaction = userToReaction[node.ppl[p].pid];
                 if (reaction) {
-                    node.effects = reaction.vote;
-                    if (undefined === node.effects) {
-                        node.effects = "blabla";
+                    if (reaction.vote == -1) {
+                        node.ups += 1;
+                    } else if (reaction.vote == 1) {
+                        node.downs += 1;
                     }
-                } else {
-                    delete node.effects;
                 }
-            // }
+            }
         }
-        visualization.selectAll("g")
-          .attr("transform", chooseTransform)
-          .selectAll("path")
-              .style("fill", chooseFill)
-              .style("stroke", chooseStroke)
-              .style("fill-opacity", chooseAlpha)
-              // .attr("r", chooseRadius)
-              .attr("d", chooseShape)
+        updateNodes();
+        // visualization.selectAll("g")
+        //   .attr("transform", chooseTransform)
+        //   .selectAll("path")
+        //       .style("fill", chooseFill)
+        //       .style("stroke", chooseStroke)
+        //       .style("fill-opacity", chooseAlpha)
+        //       // .attr("r", chooseRadius)
+        //       .attr("d", chooseShape)
           ;
     }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
@@ -758,23 +793,46 @@ function unhoverAll() {
     d3CommentList
       .style("background-color", chooseCommentFill);
   }
-  for (var i = 0; i < nodes.length; i++) {
-      var node = nodes[i];
-      delete node.effects;
-  }
+  // for (var i = 0; i < nodes.length; i++) {
+  //     var node = nodes[i];
+  //     node.ups = 0
+  // }
   updateNodes();
 }
 
 function updateNodes() {
-  visualization.selectAll("g")
-    .attr("transform", chooseTransform)
-    .selectAll("path")
-        .style("stroke", chooseStroke)
-        .style("fill", chooseFill)
-        .style("fill-opacity", chooseAlpha)
-        // .attr("r", chooseRadius)
-        .attr("d", chooseShape)
-    ;
+  var update = visualization.selectAll("g")
+  var upArrowUpdate = update.selectAll(".up")
+      .attr("transform", chooseTransformUpArrow)
+      .style("stroke-width", strokeWidth)
+      .style("stroke", chooseStroke)
+      .style("fill", colorPull)
+      .style("display", chooseDisplayForArrows)
+  ;
+  var downArrowUpdate = update.selectAll(".down")
+      .attr("transform", chooseTransformDownArrow)
+      .style("stroke-width", strokeWidth)
+      .style("stroke", chooseStroke)
+      .style("fill", colorPush)
+      .style("display", chooseDisplayForArrows)
+  ;
+  var upCircleUpdate = update.selectAll(".circle")
+      .attr("transform", chooseTransformCircle)
+      .style("stroke-width", strokeWidth)
+      .style("stroke", chooseStroke)
+      .style("fill", chooseFill)
+      .style("display", chooseDisplayForCircle)
+  ;
+
+  // visualization.selectAll("g")
+  //   .attr("transform", chooseTransform)
+  //   .selectAll("path")
+  //       .style("stroke", chooseStroke)
+  //       .style("fill", chooseFill)
+  //       .style("fill-opacity", chooseAlpha)
+  //       // .attr("r", chooseRadius)
+  //       .attr("d", chooseShape)
+  //   ;
 }
 
 function resetSelectedComment() {
