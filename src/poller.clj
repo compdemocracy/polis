@@ -47,10 +47,9 @@
         pg-spec (heroku-db-spec (env/env :database-url))
         last-timestanp (atom 1388285552490)]
     (endlessly poll-interval
-      (let [new-votes (->> @last-timestanp
-                        (poll pg-spec)
-                        split-by-conv)]
-        (println "polling:" new-votes)
+      (let [new-votes (poll pg-spec @last-timestanp)
+            split-votes (split-by-conv new-votes)]
+        (println "polling:" split-votes)
         (swap! last-timestanp (fn [_] (:created (last new-votes))))))))
 
 
