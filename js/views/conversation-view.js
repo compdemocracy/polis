@@ -17,6 +17,7 @@ define([
   "collections/results",
   "p",
   "util/polisStorage",
+  "util/utils",
   "VisView",
   "polis"
   ], function (
@@ -38,6 +39,7 @@ define([
     ResultsCollection,
     p,
     PolisStorage,
+    Utils,
     VisView,
     ServerClient
     ) {
@@ -107,6 +109,7 @@ define([
             getTotalVotesByPidSync: serverClient.getTotalVotesByPidSync,
             w: w,
             h: h,
+            computeXySpans: Utils.computeXySpans,
             el_queryResultSelector: "#query_results_div",
             el: "#visualization_div"
         });

@@ -10,6 +10,7 @@ var getCommentsForSelection = params.getCommentsForSelection;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
 var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
+var computeXySpans = params.computeXySpans;
 // var getPid = params.getPid;
 
 function getBid(d) {
@@ -462,7 +463,7 @@ function chooseTransform(d) {
     // }
     // scale = Math.max(0.02, scale);
 
-    var scale = d.ppl.length;
+    var scale = Math.sqrt(d.ppl.length);
     return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
 //    return "translate(" + d.x + "," + d.y + ")";// scale(" + scale + ")";
 }
@@ -558,19 +559,7 @@ function upsertNode(updatedNodes, newClusters) {
     var maxNodeRadius = 10 + 5;
 
   function createScales(updatedNodes) {
-    var spans = {
-        x: { min: Infinity, max: -Infinity },
-        y: { min: Infinity, max: -Infinity }
-    };
-    for (var i = 0; i < updatedNodes.length; i++) {
-        if (updatedNodes[i].data && updatedNodes[i].data.projection) {
-            spans.x.min = Math.min(spans.x.min, updatedNodes[i].data.projection[0]);
-            spans.x.max = Math.max(spans.x.max, updatedNodes[i].data.projection[0]);
-            spans.y.min = Math.min(spans.y.min, updatedNodes[i].data.projection[1]);
-            spans.y.max = Math.max(spans.y.max, updatedNodes[i].data.projection[1]);
-        }
-    }
-
+    var spans = computeXySpans(updatedNodes);
     var border = maxNodeRadius + w / 50;
     return {
         x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]),

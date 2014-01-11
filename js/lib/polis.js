@@ -1,6 +1,8 @@
 define([
+    "util/utils",
     "util/shuffleWithSeed"
 ], function(
+    Utils,
     shuffleWithSeed
 ) {
 
@@ -385,14 +387,48 @@ return function(params) {
         }
     };
     function bucketize(people) {
-        var bid = 0; // TODO expecting bid (Bucket id) to be set (or implicit in array index) in math worker
-        return people.map(function(p) {
-            var b = new Bucket(bid);
-            b.ppl.push(p);
-            b.update();
-            bid += 1;
-            return b;
+        var spans = Utils.computeXySpans(people);
+        var rows = 8;
+        var columns = 8;
+        var bid = 0; // assign a unique bid to each Bucket
+
+        var scales = {
+            x: d3.scale.linear().range([0, columns - 1]).domain([spans.x.min, spans.x.max]),
+            y: d3.scale.linear().range([0, rows - 1]).domain([spans.y.min, spans.y.max])
+        };
+        function emptyColumn() {
+            return new DA(function() {
+                return new Bucket(bid++);
+            });
+        }
+        var grid = new DA(emptyColumn);
+        _.each(people, function(person) {
+            var column = Math.floor(scales.x(person.data.projection[0]));
+            var row = Math.floor(scales.y(person.data.projection[1]));
+            grid.g(row).g(column).ppl.push(person);
         });
+        var buckets = [];
+        for (var row = 0; row < rows; row++) {
+            for (var col = 0; col < columns; col++) {
+                var bucket = grid.g(row).g(col);
+                bucket.update();
+                buckets.push(bucket);
+            }
+        }
+        buckets = _.filter(buckets, function(b) {
+            return !!b.ppl.length;
+        });
+        return buckets;
+
+
+        // var bid = 0; // TODO expecting bid (Bucket id) to be set (or implicit in array index) in math worker
+        // return people.map(function(p) {
+        //     var b = new Bucket(bid);
+        //     b.ppl.push(p);
+        //     b.update();
+        //     bid += 1;
+        //     return b;
+        // });
     }
     // function bucketize(people) {
     //     function Bucket() {
@@ -541,6 +577,13 @@ return function(params) {
                 if (!people) {
                     return $.Deferred().reject();
                 }
+                people = _.filter(people, function(p) {
+                    var pidOk = p.pid > 0;
+                    if (!pidOk) {
+                        console.error("Got bad pid!");
+                    }
+                    return pidOk;
+                });
                 people = bucketize(people);
                 var clusters = clientSideBaseCluster(people, 3);
 
