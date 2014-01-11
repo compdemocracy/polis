@@ -464,6 +464,7 @@ function chooseTransform(d) {
     // scale = Math.max(0.02, scale);
 
     var scale = Math.sqrt(d.ppl.length);
+    scale /= 1.2;
     return "translate(" + d.x + "," + d.y + ") scale(" + scale + ")";
 //    return "translate(" + d.x + "," + d.y + ")";// scale(" + scale + ")";
 }
