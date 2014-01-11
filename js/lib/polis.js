@@ -488,7 +488,9 @@ return function(params) {
             if (-1 !== clusters[bestIndex].indexOf(thing)) {
                 return;
             }
-            clusters = _.without(clusters, thing);
+            for (var i = 0; i < clusters.length; i++) {
+                clusters[i] = _.without(clusters[i], thing);
+            }
             clusters[bestIndex].push(thing);
         }
 
