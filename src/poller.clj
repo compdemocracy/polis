@@ -20,6 +20,12 @@
     (kdb/postgres settings)))
 
 
+(defn mongo-db [env-vars]
+  (let [params  {}
+        con     (mg/connect params)]
+    (mg/get-db con "polismath")))
+
+
 (defn split-by-conv [votes]
   (reduce
     (fn [conv-map vote]
@@ -44,8 +50,9 @@
 
 (defn -main []
   (let [poll-interval 1000
-        pg-spec (heroku-db-spec (env/env :database-url))
-        last-timestanp (atom 1388285552490)]
+        pg-spec         (heroku-db-spec (env/env :database-url))
+        mg-db           (mongo-db env/env)
+        last-timestanp  (atom 1388285552490)]
     (endlessly poll-interval
       (let [new-votes (poll pg-spec @last-timestanp)
             split-votes (split-by-conv new-votes)]
