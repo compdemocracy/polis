@@ -386,10 +386,8 @@ return function(params) {
             this.containsSelf = true;
         }
     };
-    function bucketize(people) {
+    function bucketize(people, rows, columns) {
         var spans = Utils.computeXySpans(people);
-        var rows = 8;
-        var columns = 8;
         var bid = 0; // assign a unique bid to each Bucket
 
         var scales = {
@@ -584,7 +582,7 @@ return function(params) {
                     }
                     return pidOk;
                 });
-                people = bucketize(people);
+                people = bucketize(people, 9, 9);
                 var clusters = clientSideBaseCluster(people, 3);
 
                 //var pcaComponents = parseTree(pcaData.pca_components);
