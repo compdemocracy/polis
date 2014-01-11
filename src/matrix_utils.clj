@@ -1,4 +1,5 @@
-(ns matrix-utils)
+(ns matrix-utils
+  (:use utils clj-time.coerce clj-time.local))
 
 
 (defrecord RatingMatrix [ptpts cmts matrix])
@@ -35,8 +36,8 @@
   (let [n-reactions (or n-reactions (* n-convs n-ptpts n-cmts))]
     (letfn [(generator [wrapper-fn range]
               (take n-reactions (repeatedly #(wrapper-fn (rand-int range)))))]
-      (mapv list
-        (generator identity n-convs) 
+      (map list
+        (generator identity n-convs)
         (generator #(str "p" %) n-ptpts)
         (generator #(str "c" %) n-cmts)
         (generator #(- % 1) 3)))))
