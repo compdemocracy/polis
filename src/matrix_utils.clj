@@ -43,3 +43,15 @@
         (generator #(- % 1) 3)))))
 
 
+(defn random-poll [db-spec last-timestamp]
+  (letfn [(rand-timestamp []
+            (+ last-timestamp
+               (rand-int (- (to-long (local-now)) last-timestamp))))]
+    (sort-by :created
+      (map (fn [rxn]
+             (->>> rxn
+              (apply #(hash-map :zid %1 :pid %2 :tid %3 :vote %4) _)
+              (assoc _ :created (rand-timestamp))))
+         (random-reactions 4 4 :n-convs 3)))))
+
+
