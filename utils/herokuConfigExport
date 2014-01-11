@@ -3,4 +3,4 @@
 # usage (unsafe!)
 #  eval `./bin/herokuConfigExport`
 
-heroku config --app polisapp | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /"
+heroku config --app polisapp | grep -i database | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /"
