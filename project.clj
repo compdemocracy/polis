@@ -22,6 +22,7 @@
                  [com.novemberain/monger "1.5.0"]
                  [org.postgresql/postgresql "9.2-1002-jdbc4"]
                  [korma "0.3.0-RC5"]
+                 [clj-time "0.6.0"]
                  [environ "0.4.0"]]
   :profiles {:dev {:dependencies [[org.clojure/tools.trace "0.7.6"]
                                   [criterium "0.4.2"]
