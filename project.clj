@@ -20,7 +20,7 @@
                  [storm "0.8.2"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "1.5.0"]
-                 [org.postgresql/postgresql "9.2-1002-jdbc4"]
+                 [org.postgresql/postgresql "9.2-1004-jdbc4"]
                  [korma "0.3.0-RC5"]
                  [clj-time "0.6.0"]
                  [environ "0.4.0"]]
