@@ -215,7 +215,7 @@ define([
 
       });
       that.$("#commentFormTab").tooltip({
-        title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react.",
+        title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
         placement: "top",
         delay: { show: 300, hide: 200 },
         container: "body"
