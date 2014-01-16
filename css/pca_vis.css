@@ -29,7 +29,7 @@
   background-color: #FFFBE8;
 }
 .visualization {
-  border: 1px dotted lightgray;
+  border: none;
   background: white;
   -moz-user-select: none;
   -khtml-user-select: none;
