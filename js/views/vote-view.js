@@ -81,7 +81,7 @@ define([
         title: "This comment represents my opinion",
         placement: "right",
         delay: { show: 500, hide: 0 },
-        container: 'body'
+        container: "body"
       });
       this.$("#disagreeButton").tooltip({
         title: "This comment does not represent my opinion",
@@ -97,7 +97,7 @@ define([
         title: "'Critical point', or 'central to my worldview'",
         placement: "right",
         delay: { show: 500, hide: 0 },
-        container: 'body'
+        container: "body"
       });
       this.$("#trashButton").tooltip({
         title: "This comment is irrelevant and/or abusive",
