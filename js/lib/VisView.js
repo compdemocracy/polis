@@ -403,7 +403,7 @@ function chooseFill(d) {
     }
 }
 function chooseStroke(d) {
-    if (selectedCluster !== false) {
+    if (commentIsSelected()) {
 
     } else {
         if (isSelf(d)) {
@@ -412,12 +412,12 @@ function chooseStroke(d) {
     }
 }
 
-function shouldShowVoteIcons() {
+function commentIsSelected() {
     return selectedTid >= 0;
 }
 
 function chooseAlpha(d) {
-    if (shouldShowVoteIcons()) {
+    if (commentIsSelected()) {
         // if (d.effects === undefined) {
         //     // no-vote
         //     // This should help differentiate a pass from a no-vote.
@@ -438,7 +438,7 @@ function chooseAlpha(d) {
 }
 
 function chooseShape(d) {
-    if (shouldShowVoteIcons()) {
+    if (commentIsSelected()) {
         if (d.effects === -1) {
             // pull
             return d3.svg.symbol().type("triangle-up")(d);
