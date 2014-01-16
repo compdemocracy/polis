@@ -467,20 +467,21 @@ function chooseTransformForRoots(d) {
 }
 
 var offsetFactor = 4.9;
+var scaleFactor = 0.7;
 function chooseTransformUpArrow(d) {
-    var scale = Math.sqrt(d.ups);
+    var scale = Math.sqrt(d.ups) * scaleFactor;
     var yOffset = -offsetFactor * scale;
     return "translate(0," + yOffset + ") scale(" + scale + ")";
 }
 
 function chooseTransformDownArrow(d) {
-    var scale = Math.sqrt(d.downs);
+    var scale = Math.sqrt(d.downs) * scaleFactor;
     var yOffset = offsetFactor * scale;
     return "translate(0," + yOffset + ") scale(" + scale + ")";
 }
 
 function chooseTransformCircle(d) {
-    var scale = Math.sqrt(d.ppl.length) / 1.2;
+    var scale = Math.sqrt(d.ppl.length) * scaleFactor;
     return "scale(" + scale + ")";
 }
 
