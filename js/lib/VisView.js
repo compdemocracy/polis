@@ -720,9 +720,9 @@ function selectComment(tid) {
                 // TODO_MAXDOTS count up the reactions of each type for each user (instead of just ppl[0])
                 var reaction = userToReaction[node.ppl[p].pid];
                 if (reaction) {
-                    if (reaction.vote == -1) {
+                    if (reaction.vote === -1) {
                         node.ups += 1;
-                    } else if (reaction.vote == 1) {
+                    } else if (reaction.vote === 1) {
                         node.downs += 1;
                     }
                 }
@@ -737,7 +737,7 @@ function selectComment(tid) {
         //       .style("fill-opacity", chooseAlpha)
         //       // .attr("r", chooseRadius)
         //       .attr("d", chooseShape)
-          ;
+         // ;
     }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
     });
@@ -802,7 +802,7 @@ function unhoverAll() {
 }
 
 function updateNodes() {
-  var update = visualization.selectAll("g")
+  var update = visualization.selectAll("g");
   var upArrowUpdate = update.selectAll(".up")
       .attr("transform", chooseTransformUpArrow)
       .style("stroke-width", strokeWidth)
