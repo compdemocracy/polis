@@ -210,19 +210,22 @@ define([
       that.$("#commentViewTab").tooltip({
         title: "Start here - read and react to comments submitted by others.",
         placement: "top",
-        delay: { show: 300, hide: 200 }
+        delay: { show: 300, hide: 200 },
+        container: "body"
 
       });
       that.$("#commentFormTab").tooltip({
         title: "If your ideas aren't already represented, submit your own comment. Other participants will be able to react.",
         placement: "top",
-        delay: { show: 300, hide: 200 }
+        delay: { show: 300, hide: 200 },
+        container: "body"
 
       });
       that.$("#analyzeTab").tooltip({
         title: "Filters! Click on the \"analyze\" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top",
-        delay: { show: 300, hide: 200 }
+        delay: { show: 300, hide: 200 },
+        container: "body"
 
       });
       that.$("#how_do_i_use").popover({
@@ -251,8 +254,8 @@ define([
 
       $(window).resize(initPcaVis);
 
-  }); // end listenTo "rendered"
-  }, 0);
+  }, 0); // end listenTo "rendered"
+  });
 
   } // end initialize
   });

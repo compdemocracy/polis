@@ -9,7 +9,8 @@ module.exports = function(grunt) {
         output: {
           js: 'public/js',
           css: 'public/css',
-          font: 'public/font'
+          font: 'public/font',
+          templates: 'public/templates'
         },
         js: 'js',
         css: 'css',
@@ -161,7 +162,7 @@ module.exports = function(grunt) {
     watch: {
       handlebars: {
         files: ['js/templates/**/*'], //when any of these files change
-        tasks: ['templates']          //these tasks are run.
+        tasks: ['templates', 'scripts:development']          //these tasks are run.
       },
       scripts: {
         files: ['js/**/*.js'],

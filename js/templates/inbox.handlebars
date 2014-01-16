@@ -11,67 +11,48 @@
     </div>
     <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
-        <li><a href="#">Home</a></li>
         <li class="active">{{#link "inbox" expand-tokens=true}}Conversations{{/link}}</li>
-        <li><a href="#contact">Contact</a></li>
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown">Dropdown <b class="caret"></b></a>
-          <ul class="dropdown-menu">
-            <li><a href="#">Action</a></li>
-            <li><a href="#">Another action</a></li>
-            <li><a href="#">Something else here</a></li>
-            <li class="divider"></li>
-            <li class="dropdown-header">Nav header</li>
-            <li><a href="#">Separated link</a></li>
-            <li><a href="#">One more separated link</a></li>
-          </ul>
-        </li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
-        <li><a href="../navbar/">Default</a></li>
+        <li><a href="http://about-polis.herokuapp.com">About</a></li>
+        <li><a href="#contact">Contact</a></li>
         <li>{{#link "settings" expand-tokens=true}}<i class="icon-signout"></i>&nbsp; Signout{{/link}}</li>
-        <li class="active"><a href="./">Fixed top</a></li>
       </ul>
     </div><!--/.nav-collapse -->
   </div>
 </div>
 
-
-
-
-
-
-
-
-<section class="container">
-<div class="row">
-  <div class="col-sm-12 col-md-12">
-  {{#link "conversation/create" expand-tokens=true className="startNewConversation btn btn-large btn-success"}}<i class="icon-plus-sign-alt"></i> Start A New Conversation {{/link}}
+  <div style=" width: 100%; margin:auto; position: fixed; z-index: 1010;">
+    {{#link "conversation/create" expand-tokens=true className="startNewConversation btn btn-large btn-success"}}<i class="icon-plus-sign-alt"></i> Start A New Conversation {{/link}}
   </div>
-</div>
 
+
+<section class="container" style="padding-top: 65px"> <!-- padding to take care of above fixed button -->
 <div class="row">
-    <div class="col-lg-offset-3 col-sm-6 col-md-6">
-      {{#collection tag="ul" class="conversations"}}
-
-        <li class="conversation">
-              <h3> {{topic}} </h3>
-              <p> {{{description}}} </p>
-              <input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly="" class="form-control">
-              <div class="alert alert-info alert-dismissable">
+    <div class="col-sm-12">
+      {{#collection tag="ul" class="conversations" style="list-style: none"}}
+          <li class="row" style="border-bottom: 1px solid lightgrey; padding-bottom: 10px">
+              <div class="col-sm-5">
+                <h5>{{topic}}</h5>
+                <p>{{{description}}}</p>
+              </div>
+              <div class="col-sm-1">
+                <p><span class="badge" style="font-weight: 100; color: white">{{participant_count}} <i class="icon-user"></i></span><p>
+                <img src="http://upload.wikimedia.org/wikipedia/commons/8/81/Sparkline_dowjones_new.svg" style="width:100%">
+                <!--http://benjchristensen.com/2011/08/08/simple-sparkline-using-svg-path-and-d3-js/ -->
+              </div>
+              <div class="col-sm-4">
+                <input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly="" class="form-control">
+                <!-- <div class="alert alert-info alert-dismissable">
                 <button type="button" class="close" data-dismiss="alert">×</button>
                 <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
+                </div> -->
               </div>
-              <span class="participantCount"> {{participant_count}}
-                <i class="icon-user"></i>
-                <span class="indicator {{#if is_active}}active{{/if}}"><i class="icon-circle"></i></span>
-              </span>
-
-              <ul class="actions actionsDetailsView">
-                <li><a href="{{url_name}}"><i class="icon-rocket"></i>&nbsp;Launch Conversation</a></li>
-              </ul>
-
-        </li>
+              <div class="col-sm-2">
+                <p><a href="{{url_name}}" class="btn btn-default btn-large"><i class="icon-rocket"></i>&nbsp;Launch Conversation</a></li></p>
+              </div>
+          </li>
+        </div>
       {{else}}
         <p>You currently have no conversations in your inbox. If this is an error, please <a href="mailto:colinmegill@gmail.com?Subject=Polis%20feedback:%20inbox" target="_blank"> let us know. </a> <i class="icon-envelope-alt"></i></p>
       {{/collection}}

@@ -19,21 +19,11 @@ body {
   width: 100%;
 }
 
-/* Navigation */
-
-header .navbar .user { margin-right: 15px; }
 
 
-/* Bootstrap Overrides */
+/* Start New Conversation Button*/
 
-.controls > .radio:first-child, .controls > .checkbox:first-child { padding-top: 0px; }
-.nav-pills { margin-top: 10px;}
-.nav-pills > .active > a { background: #2980B9;}
-.navbar-inverse .brand { border: 0px; text-decoration: none; font-weight: 400px; }
-.navbar-inverse .nav > li.active > a:hover { padding-left: 20px; }
-.navbar .btn-navbar { float: left; }
 .startNewConversation { margin: 0px auto; display: block; position: relative; width: 230px; margin-bottom: 20px }
-.startNewConversation i { margin-right: 10px; }
 
 /* Custom Confirm Dialog */
 
@@ -43,36 +33,6 @@ header .navbar .user { margin-right: 15px; }
 .konfirm-dialog .btn-danger { display: inline-block; width: 100px;}
 .konfirm-dialog .btn-success { margin-left: 10px; display: inline-block; width: 100px;}
 
-/* Conversations */
-
-.conversations { list-style-type: none; margin: 0px; padding: 0px; }
-.conversations li.conversation { position: relative; background: #ECF0F1; color: #34495e; margin: 0px 0px 20px 0px; display: block; padding: 20px 20px 50px 20px; border-radius: 5px; }
-.conversations li.conversation ul.actions { list-style-type: none; margin: 0px; padding: 0px; position: absolute; bottom: 0px; left: 0px; width: 100%;}
-.conversations li.conversation ul.actions li { display: block; float: left; width: 50%; background: #34495E; }
-.conversations li.conversation ul.actions li:first-child { border-radius: 0px 0px 0px 5px; }
-.conversations li.conversation ul.actions li:last-child { border-radius: 0px 0px 5px 0px; }
-.conversations li.conversation ul.actionsDetailsView li:first-child { width: 100%; border-radius: 0px 0px 5px 5px;}
-.conversations li.conversation ul.actions li:hover { background: #2C3E50; }
-.conversations li.conversation ul.actions li a { cursor: pointer; display: block; padding: 10px; text-decoration: none; color: white; font-weight: bold; text-align: center;}
-.conversations li.conversation ul.actions li a i { margin-right: 5px; }
-.conversations li.conversation input { width: 97%; color: #34495e; }
-.conversations li.conversation h3 { font-size: 18px; line-height: 18px; clear: both; margin-top: 40px;}
-
-.status { position: absolute; top: 18px; left: 20px; }
-.status p { font-size: 12px; font-weight: bold; padding: 2px 5px; border: 1px solid #ccc; border-radius: 2px;}
-.participantCount { position: absolute; top: 20px; right: 20px;}
-.participantCount .indicator { color: #C0392B; margin-left: 10px;}
-.participantCount .indicator.active { color: #27AE60;}
-
-.share { display: inline; margin-right: 10px;}
-
-/* Conversation Details & Conversation Summary */
-
-.launchConversation { margin-bottom: 13px; }
-.deleteConversation { margin-top: 30px; }
-.concludeButton { margin-top: 40px; margin-bottom: 40px; background-color: #2980b9; color: white; }
-.concludeButton:hover { background-color: #3498db; }
-.detailsBox input { width: 97%; color: #34495e; }
 
 /* Conversation create - and everything concerned with metadata */
 
@@ -154,24 +114,4 @@ header .navbar .user { margin-right: 15px; }
     border-top: 1px solid #888;
     margin-top: 10px;
     padding-top: 15px;
-}
-
-/* Mobile Only */
-
-@media only screen and (max-width : 640px) {
-
-  .navbar .brand { display: none; }
-
-}
-
-/* get rid of bootstrap's gutters on mobile */
-
-@media (max-width: 767px) {
-
-  .navbar-fixed-top,
-  .navbar-fixed-bottom,
-  .navbar-static-top {
-    margin-right: 0;
-    margin-left: 0;
-  }
 }

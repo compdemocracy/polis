@@ -1,19 +1,9 @@
+
+
 .conversationViewHeadline {
-    background-color: rgb(245,245,245);
-    margin-bottom: 20px;
+  border-bottom: 
 }
 
-.conversationViewHeadline h1 {
-    font-weight: 100;
-    padding: 20px 4% 20px 4%;
-    margin-top: -20px;
-}
-
-.conversationViewHeadline h5 {
-  font-weight: 400;
-  text-transform: none;
-  padding: 0px 4% 20px 4%;
-}
 #making_meaning_of_viz {
   display: inline;
 }
@@ -66,18 +56,12 @@ svg {
 
 /* Comment Input Form */
 
-#comment_form {
-  max-width: 900px;
-  margin: 0px;
-  margin-bottom: 20px;
-}
 #comment_form_textarea{
-    margin-bottom: 10px;
-    width: 94%;
+    margin-top: 20px;
     white-space: pre-wrap;
     resize: none;
-    font-size: 14px;
 }
+ 
 
 .big_button, #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     background-color: #F5F5F5;
@@ -130,21 +114,12 @@ svg {
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 15px;
   }
-  .conversationViewHeadline h1 {
-    width: 70%;
-  }
-  .conversationViewHeadline h5 {
-    width: 40%;
-  }
 }
 
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
 @media (min-width: 1024px) and (max-width: 1199px) {
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 10px;
-  }
-  .conversationViewHeadline h5 {
-    width: 49%;
   }
   .row-fluid .t-span6 {
     width: 48.61878453038674%;
@@ -154,9 +129,7 @@ svg {
 
 /* BIG PHONE to LITTLE tablet */
 @media only screen and (min-width : 768px) and (max-width : 1024px) {
-  body {
-    padding-top: 0px;
-  }
+
   #comment_shower {
     margin-top: 20px;
   }
@@ -199,9 +172,3 @@ svg {
   }
 }
 
-@media (max-width: 767px) {
-  body {
-    padding-right: 10px;
-    padding-left: 10px;
-  }
-}
