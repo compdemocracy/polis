@@ -1,3 +1,7 @@
+#analyze .btn-group {
+  margin-top: 20px
+}
+
 #visualization_div {
   margin-top: 100px;
   position: relative;

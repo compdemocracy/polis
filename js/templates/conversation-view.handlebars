@@ -31,11 +31,11 @@
     <h1> {{topic}} </h1>
     <h5> {{description}} </h5>  
   </div>
-  <div class="col-sm-6 alert alert-info alert-dismissable">
+<!--  <div class="col-sm-6 alert alert-info alert-dismissable">
     <button type="button" class="close" data-dismiss="alert">×</button>
     <h4> Welcome</h4>
     <p> The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis is currently in beta - your <span class="popover_helper_class" id="feedback_and_suggestions"> feedback and suggestions</span> are welcome as we work to improve the overall experience of the application. <i class="icon-info-sign"></i> <span class="popover_helper_class" id="how_do_i_use">How do I use Polis?</span></p>
-  </div>
+  </div> -->
 </div>
 
 <div class="row">
@@ -66,6 +66,14 @@
         {{view commentForm}}
       </div>
       <div class="tab-pane" id="analyze">
+        <div class="btn-group" data-toggle="buttons">
+          <label class="btn btn-primary">
+            <input type="radio" name="options" id="option1"> Comments
+          </label>
+          <label class="btn btn-primary">
+            <input type="radio" name="options" id="option2"> Metadata
+          </label>
+        </div>
         {{view metadataQuestionsView}}
       </div>
     </div>
