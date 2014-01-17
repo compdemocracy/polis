@@ -209,7 +209,7 @@ define([
 
       $("#visualization_div").affix({
         offset: {
-          top: 190
+          top: 380 //will be set dynamically
         }
       });
       that.$("#commentViewTab").tooltip({
