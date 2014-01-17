@@ -207,6 +207,11 @@ define([
 
       scrollTopOnFirstShow();
 
+      $("#visualization_div").affix({
+        offset: {
+          top: 190
+        }
+      });
       that.$("#commentViewTab").tooltip({
         title: "Start here - read and react to comments submitted by others.",
         placement: "top",
@@ -242,13 +247,7 @@ define([
         trigger: "click",
         placement: "bottom"
       });
-      that.$("#making_meaning_of_viz").popover({
-        title: "How do I make meaning of the visualization?",
-        content: "<ol><li> Each dot represents a person. The blue dot represents you. You will see the dots move around the visualization as you and other participants vote. Hover over a dot to find out who it is.</li><li> Dots that are closer together voted similarly. Dots that are furter apart voted differently.</li><li> Shaded areas represent groups. Click on a shaded area to bring up comments that had the highest consensus amongst that group. Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. </li> <li> Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment remain a grey dot. </li> <li> Use the \"analyze\" tab to filter participants using metadata.</li></ol>",
-        html: true, //XSS risk, not important for now
-        trigger: "click",
-        placement: "top"
-      });
+
 
       initPcaVis(serverClient);
 

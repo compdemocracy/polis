@@ -1,10 +1,13 @@
-#analyze .btn-group {
+#analyze .nav-pills {
   margin-top: 20px
+}
+
+#analyze #accordion {
+  margin-top: 20px;
 }
 
 #visualization_div {
   margin-top: 100px;
-  position: relative;
   margin-left: 10px;
   width: 70%;
 }
@@ -16,6 +19,7 @@
 .query_results {
   margin-left: 0px;
   list-style: none;
+  padding-left:0px;
 }
 
 .query_result_item {

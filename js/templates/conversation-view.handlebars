@@ -39,7 +39,7 @@
 </div>
 
 <div class="row">
-  <div class="t-span6 col-sm-4 col-md-4">
+  <div class="t-span6 col-xs-12 col-sm-6 col-md-5 col-lg-4">
   <div class="tabbable"> <!-- Only required for left/right tabs -->
     <ul class="nav nav-tabs">
       <li class="active">
@@ -66,34 +66,28 @@
         {{view commentForm}}
       </div>
       <div class="tab-pane" id="analyze">
-        <div class="btn-group" data-toggle="buttons">
-          <label class="btn btn-primary">
-            <input type="radio" name="options" id="option1"> Comments
-          </label>
-          <label class="btn btn-primary">
-            <input type="radio" name="options" id="option2"> Metadata
-          </label>
-        </div>
+      <ul class="nav nav-pills nav-justified">
+        <li class="active"><a >Comments</a></li>
+        <li><a href="">Metadata</a></li>
+      </ul>
         {{view metadataQuestionsView}}
+        <div id="query_results_div">
+        </div> <!-- query results div -->
+
+        
       </div>
     </div>
   </div> <!-- tabbable -->
   </div> <!-- span 4 -->
 
-  <div class="t-span6 col-sm-8 col-md-8">
-    <div id="visualization_div" class="row">
+  <div class="t-span6 col-xs-12 col-sm-6 col-md-7 col-lg-8">
+    <div id="visualization_div">
     </div> <!-- visualization div -->
-    <div id="query_results_div">
-    </div> <!-- query results div -->
     {{!--
         <div>
           {{view resultsView}}
         </div>
     --}}
-    <div class="alert alert-info alert-dismissable" style="margin-top:20px">
-      <button type="button" class="close" data-dismiss="alert">×</button>
-      <i class="icon-info-sign"></i> <p class="popover_helper_class" id="making_meaning_of_viz"> How do I make meaning of the visualization?</p>
-    </div> <!-- viz meaning alert block -->
   </div> <!-- span 8 -->
 </div> <!-- row -->
 </section>

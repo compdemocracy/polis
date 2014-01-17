@@ -11,7 +11,8 @@ require([
   "bootstrap_popover",
   "bootstrap_transition",
   "bootstrap_collapse",
-  "bootstrap_dropdown"
+  "bootstrap_dropdown",
+  "bootstrap_affix"
 ], function ($, Backbone, RootView, MainPolisRouter, PolisStorage) {
 
   _.mixin({
