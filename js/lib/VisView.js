@@ -437,52 +437,51 @@ function chooseAlpha(d) {
     return 1;
 }
 
-function chooseShape(d) {
-    if (commentIsSelected()) {
-        if (d.effects === -1) {
-            // pull
-            return d3.svg.symbol().type("triangle-up")(d);
-        } else if (d.effects === 1) {
-            // push
-            return d3.svg.symbol().type("triangle-down")(d);
-        } else if (d.effects === 0){
-            // pass
-            return d3.svg.symbol().type("circle")(d);
-        } else {
-            // no vote
-            return d3.svg.symbol().type("circle")(d);
-        }
-    } else {
-        // if (isSelf(d)) {
-            return d3.svg.symbol().type("circle")(d);
-        // } else {
-            // return d3.svg.symbol().type("circle");
-        // }
-    }
-}
-
 
 function chooseTransformForRoots(d) {
    return "translate(" + d.x + "," + d.y + ")";
 }
 
 var offsetFactor = 4.9;
-var scaleFactor = 0.7;
-function chooseTransformUpArrow(d) {
-    var scale = Math.sqrt(d.ups) * scaleFactor;
-    var yOffset = -offsetFactor * scale;
-    return "translate(0," + yOffset + ") scale(" + scale + ")";
+// function chooseTransformUpArrow(d) {
+//     var scale = Math.sqrt(d.ups) * scaleFactor;
+//     var yOffset = -offsetFactor * scale;
+//     return "translate(0," + yOffset + ") scale(" + scale + ")";
+// }
+
+var scaleFactor = 6;
+function makeArrowPoints(scale, shouldFlipY) {
+    var left = -scaleFactor * scale;
+    var right = scaleFactor * scale;
+    // equilateral triangle
+    var top = Math.sqrt(3 * right * right);
+    var bottom = 0;
+    if (shouldFlipY) {
+        top *= -1;
+    }
+    var leftBottom = left + "," + bottom;
+    var rightBottom = right + "," + bottom;
+    var center = "0," + top;
+    return leftBottom + " " + rightBottom + " " + center;
 }
 
-function chooseTransformDownArrow(d) {
-    var scale = Math.sqrt(d.downs) * scaleFactor;
-    var yOffset = offsetFactor * scale;
-    return "translate(0," + yOffset + ") scale(" + scale + ")";
+function chooseUpArrowPath(d) {
+    var scale = Math.sqrt(d.ups || 0);
+    return makeArrowPoints(scale, true);
 }
 
-function chooseTransformCircle(d) {
-    var scale = Math.sqrt(d.ppl.length) * scaleFactor;
-    return "scale(" + scale + ")";
+
+// function chooseTransformDownArrow(d) {
+//     var scale = Math.sqrt(d.downs) * scaleFactor;
+//     var yOffset = offsetFactor * scale;
+//     return "translate(0," + yOffset + ") scale(" + scale + ")";
+// }
+function chooseDownArrowPath(d) {
+    var scale = Math.sqrt(d.downs || 0);
+    return makeArrowPoints(scale, false);
+}
+function chooseCircleRadius(d) {
+    return Math.sqrt(d.ppl.length) * scaleFactor * 0.7;
 }
 
 
@@ -661,19 +660,21 @@ function upsertNode(updatedNodes, newClusters) {
   ;
 
   var upArrowEnter = g
-      .append("path")
+      .append("polygon")
         .classed("up", true)
-        .attr("d", d3.svg.symbol().type("triangle-up"))
   ;
+
+
+
   var downArrowEnter = g
-      .append("path")
+      .append("polygon")
         .classed("down", true)
-        .attr("d", d3.svg.symbol().type("triangle-down"))
   ;
   var circleEnter = g
-      .append("path")
+      .append("circle")
         .classed("circle", true)
-        .attr("d", d3.svg.symbol().type("circle"))
+        .attr("cx", 0)
+        .attr("cy", 0)
   ;
 
   updateNodes();
@@ -804,21 +805,22 @@ function unhoverAll() {
 function updateNodes() {
   var update = visualization.selectAll("g");
   var upArrowUpdate = update.selectAll(".up")
-      .attr("transform", chooseTransformUpArrow)
+      .attr("points", chooseUpArrowPath)
       .style("stroke-width", strokeWidth)
       .style("stroke", chooseStroke)
       .style("fill", colorPull)
       .style("display", chooseDisplayForArrows)
   ;
+
   var downArrowUpdate = update.selectAll(".down")
-      .attr("transform", chooseTransformDownArrow)
+      .attr("points", chooseDownArrowPath)
       .style("stroke-width", strokeWidth)
       .style("stroke", chooseStroke)
       .style("fill", colorPush)
       .style("display", chooseDisplayForArrows)
   ;
   var upCircleUpdate = update.selectAll(".circle")
-      .attr("transform", chooseTransformCircle)
+      .attr("r", chooseCircleRadius)
       .style("stroke-width", strokeWidth)
       .style("stroke", chooseStroke)
       .style("fill", chooseFill)
