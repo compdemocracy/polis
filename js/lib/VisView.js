@@ -131,17 +131,13 @@ $(el_selector)
     "</defs>" +
     "</svg>")
   ;
-  
+
   setTimeout(function() {
-      $(el_selector).append("<div id='helpTextBox' class='unselectable'>" +
-        // "The blue dot is you  [x]" +
-        "</div>")
+      $(el_selector).append(
+        "<div id='helpTextBox' class='unselectable'>" +
+            "<span id='helpTextMessage'></span>" +
+        "<button type='button' class='close' aria-hidden='true'>&times;</button></div>")
       .on("click", onHelpTextClicked);
-      // console.log('register click handler');
-      // setTimeout(function() {
-      //    $("#helpTextBox").on("click", onHelpTextClicked);
-          // $("#helpTextBox").click(onHelpTextClicked);
-      // }, 100);
     }, 100);
 
 //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
@@ -375,7 +371,7 @@ force.on("tick", function(e) {
 
 
     var selfNode = _.filter(nodes, isSelf)[0];
-    displayHelpItem("The blue dot is you  [x]", selfNode);
+    displayHelpItem("The blue dot is you", selfNode);
 
 });
 
