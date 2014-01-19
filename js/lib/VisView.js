@@ -373,7 +373,7 @@ force.on("tick", function(e) {
 
 
     var selfNode = _.filter(nodes, isSelf)[0];
-    displayHelpItem("The blue dot is you", selfNode);
+    displayHelpItem("Each dot represents a person. The blue dot represents you. Try hovering!", selfNode);
 
 });
 
