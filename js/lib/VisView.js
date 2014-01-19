@@ -115,10 +115,38 @@ if (isIE8) {
 }
 
 
+
+
+$(el_selector)
+  .append("<svg>" +
+    "<defs>" +
+        "<marker id='Triangle'" +
+                "viewBox='0 0 10 10'" +
+                "refX='1' refY='5'" +
+                "markerWidth='6'" +
+                "markerHeight='6'" +
+                "orient='auto'>" +
+            "<path d='M 0 0 L 10 5 L 0 10 z' />" +
+        "</marker>" +
+    "</defs>" +
+    "</svg>")
+  ;
+  
+  setTimeout(function() {
+      $(el_selector).append("<div id='helpTextBox' class='unselectable'>" +
+        // "The blue dot is you  [x]" +
+        "</div>")
+      .on("click", onHelpTextClicked);
+      // console.log('register click handler');
+      // setTimeout(function() {
+      //    $("#helpTextBox").on("click", onHelpTextClicked);
+          // $("#helpTextBox").click(onHelpTextClicked);
+      // }, 100);
+    }, 100);
+
 //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
 //to connect viz to responsive layout if desired
-visualization = d3.select(el_selector)
-    .append("svg")
+visualization = d3.select(el_selector).select("svg")
       .call( tip || function(){} ) /* initialize d3-tip */
       // .attr("width", "100%")
       // .attr("height", "100%")
@@ -344,6 +372,11 @@ force.on("tick", function(e) {
         .attr("transform", chooseTransformForRoots);
 
     updateHulls();
+
+
+    var selfNode = _.filter(nodes, isSelf)[0];
+    displayHelpItem("The blue dot is you  [x]", selfNode);
+
 });
 
 window.P.stop = function() {
@@ -670,12 +703,20 @@ function upsertNode(updatedNodes, newClusters) {
       .append("polygon")
         .classed("down", true)
   ;
+
   var circleEnter = g
       .append("circle")
         .classed("circle", true)
         .attr("cx", 0)
         .attr("cy", 0)
   ;
+
+  g.filter(isSelf)
+    .classed("selfDot", true)
+  ;
+
+  visualization.append("polyline")
+    .classed("helpArrow", true);
 
   updateNodes();
 
@@ -826,6 +867,9 @@ function updateNodes() {
       .style("fill", chooseFill)
       .style("display", chooseDisplayForCircle)
   ;
+  
+  var selfNode = _.filter(nodes, isSelf)[0];
+  // displayHelpItem("foo", selfNode);
 
   // visualization.selectAll("g")
   //   .attr("transform", chooseTransform)

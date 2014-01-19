@@ -1,3 +1,29 @@
+#helpTextBox {
+  background-color: black;
+  position: relative;
+  left: 50px;
+  width:  80%;
+  top: -50px;
+  border-radius: 5px;
+  color: white;
+  text-align: center;
+  font-size: 30px;
+  padding: 10px;
+}
+
+*.unselectable {
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+
+  /*
+   Introduced in IE 10.
+   See http://ie.microsoft.com/testdrive/HTML5/msUserSelect/
+  */
+  -ms-user-select: none;
+  user-select: none;
+}
+
 .affix {
   position: fixed;
   top: 51px;
