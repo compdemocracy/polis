@@ -20,6 +20,8 @@ function getBid(d) {
 
 
 var clusterClickedCallbacks = $.Callbacks();
+var onSelfAppearsCallbacks = $.Callbacks();
+var selfHasAppeared = false;
 
 // The h and w values should be locked at a 1:2 ratio of h to w
 var h;
@@ -865,6 +867,11 @@ function updateNodes() {
   ;
   
   var selfNode = _.filter(nodes, isSelf)[0];
+  if (selfNode && !selfHasAppeared) {
+    selfHasAppeared = true;
+    onSelfAppearsCallbacks.fire();
+  }
+
   // displayHelpItem("foo", selfNode);
 
   // visualization.selectAll("g")
@@ -946,12 +953,59 @@ function emphasizeParticipants(pids) {
     ;
 }
 
+
+// MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
+
+function displayHelpItem(txt, d) {
+
+    var baseShouldIntersectEdge = true;
+    var ratio = 0.8;
+    var strokeWidth = 3;
+
+    var baseX = w/3;
+    var baseY = h - (baseShouldIntersectEdge ? strokeWidth : 0);
+    var tipX = d.x;
+    var tipY = d.y;
+    var dx = tipX - baseX;
+    var dy = tipY - baseY;
+    tipX = baseX + dx*ratio;
+    tipY = baseY + dy*ratio;
+
+    if (d) {
+        visualization.selectAll(".helpArrow")
+            .attr("points", baseX + "," + baseY + " " + tipX + "," + tipY)
+            .attr("fill", "none")
+            .attr("stroke", "black")
+            .attr("stroke-width", strokeWidth)
+            .attr("marker-end", "url(#Triangle)");
+    }
+
+    $(".helpArrow").show();
+    $("#helpTextBox").show();
+    $("#helpTextMessage").text(txt);
+}
+
+function onHelpTextClicked() {
+    $(".helpArrow").remove();
+    $("#helpTextBox").remove();
+}
+
+
+window.foo = displayHelpItem;
+
+// displayHelpItem("foo");
+
+function emphasizeParticipants2(pids) {
+}
+
+
 setTimeout(selectBackground, 1);
 
 return {
     upsertNode: upsertNode,
+    onSelfAppears: onSelfAppearsCallbacks.add,
     addClusterTappedListener: clusterClickedCallbacks.add,
-    emphasizeParticipants: emphasizeParticipants
+    emphasizeParticipants: emphasizeParticipants2
 };
 
 };
