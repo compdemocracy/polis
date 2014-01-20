@@ -62,8 +62,14 @@ return function(params) {
     var projectionPeopleCache;
     var clustersCache;
 
+    var votesByMe = params.votesByMe;
+
+    var pcX = {};
+    var pcY = {};
     var participantCount = 0;
     var userInfoCache = [];
+
+    var pollingScheduledCallbacks = [];
 
     var tokenStore = params.tokenStore;
     var uidStore = params.uidStore;
@@ -386,9 +392,9 @@ return function(params) {
             this.containsSelf = true;
         }
     };
-    function bucketize(people, rows, columns) {
+    function bucketize(people, rows, columns, firstBid) {
         var spans = Utils.computeXySpans(people);
-        var bid = 0; // assign a unique bid to each Bucket
+        var bid = firstBid; // assign a unique bid to each Bucket
 
         var scales = {
             x: d3.scale.linear().range([0, columns - 1]).domain([spans.x.min, spans.x.max]),
@@ -578,33 +584,27 @@ return function(params) {
                     return $.Deferred().reject();
                 }
                 people = _.filter(people, function(p) {
-                    var pidOk = p.pid > 0;
+                    var pidOk = p.pid >= 0;
                     if (!pidOk) {
                         console.error("Got bad pid!");
                     }
                     return pidOk;
                 });
-                people = bucketize(people, 9, 9);
+                // remove self, will add after bucketizing
+                var myPid = getPid();
+                people = _.filter(people, function(p) {
+                    return p.pid !== myPid;
+                });
+                people = bucketize(people, 9, 9, 1);
+
                 var clusters = clientSideBaseCluster(people, 3);
 
-                //var pcaComponents = parseTree(pcaData.pca_components);
 
-                //for (var i = 0; i < people.length; i++) {
-                    //var person = people[i];
 
-                    /*
-                    if (isPersonNode(person)) {
-                        if (Math.random() < 0.05) {
-                            person.data.projection[0] += 0.01*(Math.random()-0.5);
-                            person.data.projection[1] += 0.01*(Math.random()-0.5);
-                        }
-                    }
-                    */
-
-                    //personUpdateCallbacks.fire(person);
-                //}
                 projectionPeopleCache = people;
                 clustersCache = clusters;
+
+                people = withProjectedSelf(people);
                 sendUpdatedVisData(people, clusters);
                 return $.Deferred().resolve();
             },
@@ -613,8 +613,15 @@ return function(params) {
             });
     }
 
+    function withProjectedSelf(people) {
+        people = people || [];
+        people = _.clone(people); // shallow copy
+        people.unshift(bucketize([projectSelf()], 1, 1, 0)[0]);
+        return people;
+    }
+
     function sendUpdatedVisData(people, clusters) {
-        personUpdateCallbacks.fire(people, clusters);
+        personUpdateCallbacks.fire(people || [], clusters || []);
     }
 
     function authenticated() {
@@ -648,13 +655,25 @@ return function(params) {
 
     function parseFormat2(obj) {
         // Normalize to [-1,1]
-        function normalize(projectionDimension) {
-            return projectionDimension / 20;
-        }
+        // function normalize(projectionDimension) {
+        //     return projectionDimension / 20;
+        // }
 
         if (obj.pca && obj.pca.cluster_tree) {
             console.warn("got old PCA format");
             return;
+        }
+
+        pcX = {};
+        pcY = {};
+        var comps = obj.pca.som_comps;
+        var pc1 = comps.pc1;
+        var pc2 = comps.pc2;
+        var tids = comps.comment_id;
+        for (var t = 0; t < tids.length; t++) {
+            var tid = Number(tids[t]);
+            pcX[tid] = pc1[t];
+            pcY[tid] = pc2[t];
         }
 
         var nodes = [];
@@ -665,26 +684,11 @@ return function(params) {
                     projection: [
                         obj.pca.projs.pc1[i],
                         obj.pca.projs.pc2[i]
-                    ].map(normalize)
+                    ]
                 }
             });
         }
         return nodes;
-    }
-    function parseTree(treeObject) {
-        var tree = Arboreal.parse(treeObject, "children");
-
-        // Normalize to [-1,1]
-        function normalize(projectionDimension) {
-            return projectionDimension / 6;
-        }
-        tree.traverseDown(function(n) {
-            if (n.data.projection) {
-                n.data.projection = n.data.projection.map(normalize);
-            }
-        });
-
-        return tree.toArray();
     }
 
     function getAllUserInfo() {
@@ -715,6 +719,8 @@ return function(params) {
             zid: zid
         });
     }
+
+
 
     function getCommentsForProjection(params) {
         var ascending = params.sort > 0;
@@ -844,6 +850,31 @@ return function(params) {
         return [];
     }
 
+    function projectSelf() {
+        var x = 0;
+        var y = 0;
+        votesByMe.each(function(v) {
+            var vote = v.get("vote");
+            var tid = v.get("tid");
+            x += vote * (pcX[tid] || 0);
+            y += vote * (pcY[tid] || 0);
+        });
+
+        return {
+            pid : getPid(),
+            data: {
+                projection: [
+                    x,
+                    y
+                ]
+            }
+        };
+    }
+    function updateMyProjection() {
+        console.log("updateMyProjection");
+        var people = withProjectedSelf(projectionPeopleCache);
+        sendUpdatedVisData(people, clustersCache);
+    }
 
     // Doesn't scale obviously
     // DD<pid, Array<index:tid, values:vote>>
@@ -867,10 +898,18 @@ return function(params) {
         return arrayPidToArrayTidToVote.g(pid).length;
     }
 
+    function addPollingScheduledCallback(f) {
+        pollingScheduledCallbacks.push(f);
+    }
+
     function poll() {
+      _.each(pollingScheduledCallbacks, function(f) {
+        f();
+      });
       var pcaPromise = fetchPca();
       pcaPromise.done(getLatestVotes);
       pcaPromise.done(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded);
+      pcaPromise.done(updateMyProjection);
     }
 
     // doJoinConversation(zinvite).then(
@@ -921,7 +960,11 @@ return function(params) {
         createConversation: createConversation,
         getConversations: getConversations,
 
+        updateMyProjection: updateMyProjection,
+
         startPolling: startPolling,
+        // simple way to centralize polling actions, and ensure they happen near each-other (to save battery)
+        addPollingScheduledCallback: addPollingScheduledCallback,
 
         submitFeedback: submitFeedback,
         submitComment: submitComment

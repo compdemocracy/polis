@@ -1,6 +1,7 @@
 define(["model"], function (Model) {
   return Model.extend({
     name: "vote",
+    idAttribute: "tid", // assumes it is used in a context where zid=current conversation and pid=self
     defaults: {
       commentText: "",
       tid: undefined, // commenTTTT id... must be provided by the view, because multiple are sent over at a time...

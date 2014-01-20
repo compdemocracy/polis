@@ -65,6 +65,17 @@ define([
          window.scrollTo(0, $("#visualization_div").offset().top);
       }
   },
+  updateVotesByMeCollection: function() {
+    console.log("votesByMe.fetch");
+    this.votesByMe.fetch({
+      data: $.param({
+        zid: this.zid,
+        pid: this.pid
+      }),
+      reset: false
+    });
+  },
+
   initialize: function() {
     var that = this;
     var vis;
@@ -87,6 +98,7 @@ define([
     function onClusterTapped() {
         that.onClusterTapped();
     }
+
 
     function initPcaVis(serverClient) {
         var w = $("#visualization_div").width();
@@ -126,11 +138,17 @@ define([
     });
 
 
+    this.votesByMe = new VotesCollection({
+      zid: zid,
+      pid: pid
+    });
+
     var serverClient = that.serverClient = new ServerClient({
       zid: zid,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
       pid: pid,
+      votesByMe: this.votesByMe,
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,
@@ -140,6 +158,9 @@ define([
       logger: console
     });
 
+      this.serverClient.addPollingScheduledCallback(function() {
+        that.updateVotesByMeCollection();
+      });
       this.serverClient.startPolling();
       /* child views */
 
@@ -165,6 +186,8 @@ define([
 
       this.commentView = new CommentView({
         serverClient: serverClient,
+        votesByMe: this.votesByMe,
+        pid: pid,
         zid: zid
       });
 
@@ -185,6 +208,17 @@ define([
         collection: resultsCollection
       });
 
+      // this.votesByMe.on("all", function(x) {
+      //   console.log("votesByMe.all", x);
+      // });
+      this.votesByMe.on("change", function() {
+        console.log("votesByMe.change");
+        serverClient.updateMyProjection(that.votesByMe);
+      });
+      this.votesByMe.on("add", function() {
+        console.log("votesByMe.add");
+        serverClient.updateMyProjection(that.votesByMe);
+      });
       this.commentForm.on("commentSubmitted", function() {
         $("#commentViewTab").tab("show");
       });

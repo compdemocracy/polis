@@ -12,8 +12,11 @@ define([
         this.$(".starbutton").html("<i class='icon-star'></i>");
       }
     },
-  initialize: function() {
+  initialize: function(options) {
     var serverClient = this.serverClient;
+    var votesByMe = this.votesByMe;
+    var zid = this.zid;
+    var pid = this.pid;
     console.dir(serverClient);
     var that = this;
     var waitingForComments = true;
@@ -44,27 +47,57 @@ define([
         alert("error sending vote " + JSON.stringify(err));
     }
     this.participantAgreed = function(e) {
-      serverClient.agree(this.model.get("tid"))
+      var tid = this.model.get("tid");
+      votesByMe.add({
+        vote: -1,
+        zid: zid,
+        pid: pid,
+        tid: tid
+      });
+      serverClient.agree(tid)
           .done(showNext)
           .fail(onFail);
     };
-    this.participantDisagreed = function(tid) {
-      serverClient.disagree(this.model.get("tid"))
+    this.participantDisagreed = function() {
+      var tid = this.model.get("tid");
+      votesByMe.add({
+        vote: 1,
+        zid: zid,
+        pid: pid,
+        tid: tid
+      });
+      serverClient.disagree(tid)
           .done(showNext)
           .fail(onFail);
     };
-    this.participantPassed = function(tid) {
-      serverClient.pass(this.model.get("tid"))
+    this.participantPassed = function() {
+      var tid = this.model.get("tid");
+      votesByMe.add({
+        vote: 0,
+        zid: zid,
+        pid: pid,
+        tid: tid
+      });
+      serverClient.pass(tid)
           .done(showNext)
           .fail(onFail);
     };
-    this.participantStarred = function(tid) {
-      $.when(serverClient.star(this.model.get("tid")), serverClient.agree(this.model.get("tid")))
+    this.participantStarred = function() {
+      var tid = this.model.get("tid");
+      votesByMe.add({
+        participantStarred: true,
+        vote: -1,
+        zid: zid,
+        pid: pid,
+        tid: tid
+      });
+      $.when(serverClient.star(tid), serverClient.agree(tid))
           .done(showNext)
           .fail(onFail);
     };
-    this.participantTrashed = function(tid) {
-      serverClient.trash(this.model.get("tid"))
+    this.participantTrashed = function() {
+      var tid = this.model.get("tid");
+      serverClient.trash(tid)
           .done(showNext)
           .fail(onFail);
     };
