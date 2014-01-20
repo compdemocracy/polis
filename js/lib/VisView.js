@@ -29,7 +29,6 @@ var w;
 var nodes = [];
 var clusters = [];
 var hulls = [];
-var bounds = []; // Bounding rectangles for each hull
 var visualization;
 //var g; // top level svg group within the vis that gets translated/scaled on zoom
 var force;
@@ -316,7 +315,6 @@ d3Hulls = _.times(9, function() {
 
 function updateHulls() {
     var bidToPerson = _.object(_.pluck(nodes, "bid"), nodes);
-    bounds = [];
     hulls = clusters.map(function(cluster) {
         var top = Infinity;
         var bottom = -Infinity;
@@ -325,17 +323,9 @@ function updateHulls() {
         var temp = cluster.map(function(pid) {
             var x = bidToPerson[pid].x;
             var y = bidToPerson[pid].y;
-            // update bounds
-            top = Math.min(top, y);
-            bottom = Math.max(bottom, y);
-            left = Math.min(left, x);
-            right = Math.max(right, x);
             return [x, y];
         });
-        // emulating this: https://github.com/mbostock/d3/wiki/Geo-Paths#wiki-bounds
-        var b = [[left, bottom], [right, top]];
 
-        bounds.push(b);
         return temp;
     });
 
