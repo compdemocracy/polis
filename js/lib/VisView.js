@@ -615,12 +615,12 @@ function upsertNode(updatedNodes, newClusters) {
 
     function sortWithSelfOnTop(a, b) {
         // if (isSelf(a)) {
-        //     return 1;
-        // }
-        // if (isSelf(b)) {
         //     return -1;
         // }
-        return key(a) - key(b);
+        // if (isSelf(b)) {
+        //     return 1;
+        // }
+        return key(b) - key(a);
     }
 
     var bidToOldNode = _.indexBy(nodes, getBid);
@@ -668,7 +668,11 @@ function upsertNode(updatedNodes, newClusters) {
 // TODO use key to guarantee unique items
 
   var update = visualization.selectAll("g")
-      .data(nodes);
+      .data(nodes, key)
+      .sort(sortWithSelfOnTop);
+
+  // var exit = update.exit();
+  // exit.remove();
 
   // ENTER
   var enter = update.enter();
