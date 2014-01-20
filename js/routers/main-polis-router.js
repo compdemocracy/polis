@@ -52,6 +52,7 @@ define([  //begin dependencies
 
 	return Backbone.Router.extend({
     routes: {
+      "demo/:id": "demoConversation",
       "homepage": "homepageView",
       "conversation/create": "createConversation",
       "conversation/edit/:id": "editConversation",
@@ -241,7 +242,7 @@ define([  //begin dependencies
     if (!authenticated()) { return this.bail(); }
     var zid = ptptModel.get("zid");
     var pid = ptptModel.get("pid");
-
+    
     // Assumes you have a pid already.
     var model = new ConversationModel({
         zid: zid
@@ -258,6 +259,16 @@ define([  //begin dependencies
     });
   },
 
+  demoConversation: function(zid) {
+    var ptpt = new ParticipantModel({
+      zid: zid,
+      pid: -123 // DEMO_MODE
+    });
+
+    // NOTE: not posting the model
+
+    this.doLaunchConversation(ptpt);
+  },
   conversationView: function(zid, zinvite) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
     if (!zinvite && !authenticated()) { return this.bail(); }
 

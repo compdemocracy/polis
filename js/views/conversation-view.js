@@ -67,6 +67,11 @@ define([
   },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
+
+    if (this.pid < 0) {
+      // DEMO_MODE
+      return;
+    }
     this.votesByMe.fetch({
       data: $.param({
         zid: this.zid,
@@ -110,7 +115,7 @@ define([
         vis = new VisView({
             getPid: function() {
               if (!_.isId(pid)) {
-                alert("bad pid: " + pid);
+//                alert("bad pid: " + pid);
               }
               return pid;
             },

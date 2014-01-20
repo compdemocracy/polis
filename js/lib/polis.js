@@ -204,7 +204,10 @@ return function(params) {
             console.error("missing tid");
             console.error(params);
         }
-
+        // DEMO_MODE
+        if (getPid() < 0) {
+            return $.Deferred().resolve();
+        }
         return polisPost(votesPath, $.extend({}, params, {
                 // server will find the pid
                 zid: zid
@@ -584,11 +587,11 @@ return function(params) {
                     return $.Deferred().reject();
                 }
                 people = _.filter(people, function(p) {
-                    var pidOk = p.pid >= 0;
-                    if (!pidOk) {
-                        console.error("Got bad pid!");
-                    }
-                    return pidOk;
+                    // var pidOk = p.pid >= 0;
+                    // if (!pidOk) {
+                    //     console.error("Got bad pid!");
+                    // }
+                    return true;
                 });
                 // remove self, will add after bucketizing
                 var myPid = getPid();
@@ -797,7 +800,7 @@ return function(params) {
 
     function getPid() {
         if (!_.isId(pid)) {
-            alert("bad pid: " + pid);
+       //     alert("bad pid: " + pid);
         }
         return pid;
     }
