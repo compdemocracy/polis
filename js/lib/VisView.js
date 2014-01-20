@@ -136,7 +136,7 @@ $(el_selector)
 
   setTimeout(function() {
       $(el_selector).append(
-        "<div id='helpTextBox' class='unselectable'>" +
+        "<div id='helpTextBox' class='unselectable hidden'>" +
             "<span id='helpTextMessage'></span>" +
         "<button type='button' class='close' aria-hidden='true'>&times;</button></div>")
       .on("click", onHelpTextClicked);
@@ -156,6 +156,16 @@ visualization = d3.select(el_selector).select("svg")
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
 ;
 
+
+visualization.append("polyline")
+    .classed("helpArrow", true)
+    .style("display", "none")
+    ;
+
+ setTimeout(function() {
+    var selfNode = _.filter(nodes, isSelf)[0];
+    displayHelpItem("Each dot represents a person. The blue dot represents you. Try hovering!", selfNode);
+}, 3000);
 
 // function zoom() {
 //   // TODO what is event?
@@ -361,11 +371,6 @@ force.on("tick", function(e) {
         .attr("transform", chooseTransformForRoots);
 
     updateHulls();
-
-
-    var selfNode = _.filter(nodes, isSelf)[0];
-    displayHelpItem("Each dot represents a person. The blue dot represents you. Try hovering!", selfNode);
-
 });
 
 window.P.stop = function() {
@@ -708,8 +713,6 @@ function upsertNode(updatedNodes, newClusters) {
     .classed("selfDot", true)
   ;
 
-  visualization.append("polyline")
-    .classed("helpArrow", true);
 
   updateNodes();
 
@@ -968,6 +971,7 @@ function displayHelpItem(txt, d) {
 
     if (d) {
         visualization.selectAll(".helpArrow")
+            .style("display", "block")
             .attr("points", baseX + "," + baseY + " " + tipX + "," + tipY)
             .attr("fill", "none")
             .attr("stroke", "black")
@@ -975,18 +979,20 @@ function displayHelpItem(txt, d) {
             .attr("marker-end", "url(#Triangle)");
     }
 
-    $(".helpArrow").show();
-    $("#helpTextBox").show();
+    // $(".helpArrow").removeClass("hidden");
+    $("#helpTextBox").removeClass("hidden");
     $("#helpTextMessage").text(txt);
 }
 
 function onHelpTextClicked() {
-    $(".helpArrow").remove();
-    $("#helpTextBox").remove();
+    visualization.selectAll(".helpArrow")
+        .style("display", "none");
+    // $(".helpArrow").addClass("hidden");
+    $("#helpTextBox").addClass("hidden");
 }
 
 
-window.foo = displayHelpItem;
+// window.foo = displayHelpItem;
 
 // displayHelpItem("foo");
 
