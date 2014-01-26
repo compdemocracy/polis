@@ -52,7 +52,6 @@ define([  //begin dependencies
 
 	return Backbone.Router.extend({
     routes: {
-      "demo/:id": "demoConversation",
       "homepage": "homepageView",
       "conversation/create": "createConversation",
       "conversation/edit/:id": "editConversation",
@@ -70,6 +69,7 @@ define([  //begin dependencies
       this.route(/([0-9]+)/, "conversationView");  // zid
       this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
       this.route(/^pwreset\/(.*)/, "pwReset");
+      this.route(/^demo\/(.*)/, "demoConversation");
     },
     bail: function() {
       this.navigate("/", {trigger: true});
@@ -239,7 +239,6 @@ define([  //begin dependencies
   },
 
   doLaunchConversation: function(ptptModel) {
-    if (!authenticated()) { return this.bail(); }
     var zid = ptptModel.get("zid");
     var pid = ptptModel.get("pid");
     
