@@ -138,10 +138,7 @@ define([
     });
 
 
-    this.votesByMe = new VotesCollection({
-      zid: zid,
-      pid: pid
-    });
+    this.votesByMe = new VotesCollection();
 
     var serverClient = that.serverClient = new ServerClient({
       zid: zid,
