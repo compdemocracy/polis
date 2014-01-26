@@ -416,13 +416,23 @@ function needOr(condition, primary, alternative) {
 }
 
 // input token from body or query, and populate req.body.u with userid.
-function auth(assigner) {
+function authOptional(assigner) {
+    return auth(assigner, true);
+}
+function auth(assigner, isOptional) {
     return function(req, res, next) {
         //var token = req.body.token;
         var token = req.cookies.token;
         console.log("token from cookie");
         console.dir(req.cookies);
-        if (!token) { next(connectError(400, "polis_err_auth_token_not_supplied")); return; }
+        if (!token) {
+            if (isOptional) {
+                next();
+            } else {
+                next(connectError(400, "polis_err_auth_token_not_supplied"));
+            }
+            return;
+        }
         //if (req.body.uid) { next(400); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
         getUserInfoForSessionToken(token, res, function(err, uid) {
 
@@ -1299,7 +1309,7 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
 
 app.get("/v3/participants",
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     want('pid', getInt, assignToP),
     need('zid', getInt, assignToP),
     // need('uid', getInt, assignToP), // requester
@@ -1615,7 +1625,7 @@ app.post("/v2/feedback",
 
 app.get("/v3/comments",
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     need('zid', getInt, assignToP),
     want('pid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
@@ -2258,9 +2268,10 @@ app.post('/v3/metadata/new',
 function(req, res) {
 });
 
+
 app.get('/v3/conversations/:zid',
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     want('zid', getInt, assignToP),
 function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1);', [req.p.zid], function(err, results) {
