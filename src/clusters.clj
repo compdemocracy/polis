@@ -17,12 +17,15 @@
 
 
 (defn clst-append [clst item]
+  "Append an item to a cluster"
   (assoc clst
          :members (conj (:members clst) (first item))
          :positions (conj (:positions clst) (last item))))
 
 
 (defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
+  "Determines whether clusterings are within tolerance by measuring distances between
+  centers. Note that cluster centers here must be vectors and not NDArrays"
   (letfn [(cntrs [clsts] (sort (map :center clsts)))]
     (every?
       (fn [[x y]]
@@ -31,6 +34,7 @@
 
 
 (defn cleared-clusters [clusters]
+  "Clears a cluster's members so that new ones can be assoced on a new clustering step"
   (into {} (map #(vector (:id %) (assoc % :members [])) clusters)))
 
 
@@ -44,10 +48,8 @@
       (fn [new-clusters item]
         (let [[clst-id clst] (apply min-key
                        (fn [[clst-id clst]]
-                         ;(debug-repl)
                          (distance (last item) (:center clst)))
                        new-clusters)]
-          ;(debug-repl)
           (assoc new-clusters clst-id
             (clst-append clst item))))
       ; Using a dict version of the blank clusters for better indexing
@@ -62,6 +64,7 @@
  
 ; Each cluster should have the shape {:ids :members :center}
 (defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
+  "Performs a k-means clustering."
   (let [data-iter (zip (:ptpts data) (matrix (:matrix data)))]
     (loop [clusters (or last-clusters (init-clusters data k))
            iter max-iters]
@@ -70,17 +73,5 @@
         (if (or (= iter 0) (same-clustering? clusters new-clusters))
           new-clusters
           (recur new-clusters (dec iter)))))))
-
-
-(def play-data
-  {:ptpts  ["a" "b" "c"]
-   :cmts   ["x" "y" "z"]
-   :matrix [[1 2 3] [4 2 3] [1 2 0]]})
-
-(def clst (init-clusters play-data 2))
-(def clst (kmeans play-data 2))
-
-(defn -main []
-  (println clst))
 
 
