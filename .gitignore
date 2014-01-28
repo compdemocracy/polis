@@ -13,3 +13,4 @@ pom.xml.asc
 *.swo
 .lein-env
 .nrepl-port
+scratch
