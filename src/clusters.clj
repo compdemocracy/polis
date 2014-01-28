@@ -67,7 +67,7 @@
            iter max-iters]
       ; make sure we don't use clusters where k < k
       (let [new-clusters (cluster-step data-iter k clusters)]
-        (if (or (= iter 0) (same-clustering? )
+        (if (= iter 0)
         ;(if (or (= iter 0) (same-clustering? new-clusters clusters))
           new-clusters
           (recur new-clusters (dec iter)))))))
