@@ -1,0 +1,77 @@
+(ns clusters
+  (:refer-clojure :exclude [* - + == /])
+  (:use utils)
+  (:use clojure.core.matrix)
+  (:use clojure.core.matrix.stats)
+  (:use clojure.core.matrix.operators))
+
+(set-current-implementation :vectorz)
+
+
+(defn init-clusters [data k]
+  "Effectively random initial clusters for initializing a new kmeans comp"
+  (letfn [(part [coll] (partition k k [] coll))]
+    (map-indexed (fn [id [members positions]]
+           {:id id :members members :center (mean positions)})
+      (zip (part (:ptpts data)) (part (matrix (:matrix data)))))))
+
+
+(defn clst-append [clst item]
+  "Append an item to a cluster"
+  (assoc clst
+         :members (conj (:members clst) (first item))
+         :positions (conj (:positions clst) (last item))))
+
+
+(defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
+  "Determines whether clusterings are within tolerance by measuring distances between
+  centers. Note that cluster centers here must be vectors and not NDArrays"
+  (letfn [(cntrs [clsts] (sort (map :center clsts)))]
+    (every?
+      (fn [[x y]]
+        (< (distance x y) threshold))
+      (zip (cntrs clsts1) (cntrs clsts2)))))
+
+
+(defn cleared-clusters [clusters]
+  "Clears a cluster's members so that new ones can be assoced on a new clustering step"
+  (into {} (map #(vector (:id %) (assoc % :members [])) clusters)))
+
+
+(defn cluster-step [data-iter k clusters]
+  "Performs one step of an interative K-means:
+  data-iter: pairs of (pid ptpt-row)
+  clusters: array of clusters"
+  (->> data-iter
+    ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
+    (reduce
+      (fn [new-clusters item]
+        (let [[clst-id clst] (apply min-key
+                       (fn [[clst-id clst]]
+                         (distance (last item) (:center clst)))
+                       new-clusters)]
+          (assoc new-clusters clst-id
+            (clst-append clst item))))
+      ; Using a dict version of the blank clusters for better indexing
+      (cleared-clusters clusters))
+    vals
+    ; Apply mean to get updated centers
+    (map #(-> (assoc % :center (mean (:positions %)))
+            (dissoc :positions)))
+    ; Filter out clusters that don't hvae any members (should maybe log on verbose?)
+    (filter #(> (count (:members %)) 0))))
+
+ 
+; Each cluster should have the shape {:ids :members :center}
+(defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
+  "Performs a k-means clustering."
+  (let [data-iter (zip (:ptpts data) (matrix (:matrix data)))]
+    (loop [clusters (or last-clusters (init-clusters data k))
+           iter max-iters]
+      ; make sure we don't use clusters where k < k
+      (let [new-clusters (cluster-step data-iter k clusters)]
+        (if (or (= iter 0) (same-clustering? clusters new-clusters))
+          new-clusters
+          (recur new-clusters (dec iter)))))))
+
+

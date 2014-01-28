@@ -16,3 +16,4 @@ db/
 .nrepl-port
 .lein-git-deps
 scratch
+.lein-git-deps
