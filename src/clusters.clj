@@ -13,7 +13,7 @@
   (letfn [(part [coll] (partition k k [] coll))]
     (map-indexed (fn [id [members positions]]
            {:id id :members members :center (mean positions)})
-      (zip (part (:ptpts data)) (part (:matrix data))))))
+      (zip (part (:ptpts data)) (part (matrix (:matrix data)))))))
 
 
 (defn clst-append [clst item]
@@ -67,8 +67,7 @@
            iter max-iters]
       ; make sure we don't use clusters where k < k
       (let [new-clusters (cluster-step data-iter k clusters)]
-        ;(if (= iter 0)
-        (if (or (= iter 0) (same-clustering? new-clusters clusters))
+        (if (or (= iter 0) (same-clustering? clusters new-clusters))
           new-clusters
           (recur new-clusters (dec iter)))))))
 
@@ -76,7 +75,7 @@
 (def play-data
   {:ptpts  ["a" "b" "c"]
    :cmts   ["x" "y" "z"]
-   :matrix (matrix [[1 2 3] [4 2 3] [1 2 0]])})
+   :matrix [[1 2 3] [4 2 3] [1 2 0]]})
 
 (def clst (init-clusters play-data 2))
 (def clst (kmeans play-data 2))
