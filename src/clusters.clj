@@ -22,11 +22,11 @@
          :positions (conj (:positions clst) (last item))))
 
 
-; XXX - needs to be fixed...
-(defn same-clustering? [clsts1 clsts2 & [threshold]]
-  (let [cntrs #(sort (map :center %))]
-    (every? identity
-      #(< (distance %1 %2) threshold)
+(defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
+  (letfn [(cntrs [clsts] (sort (map :center clsts)))]
+    (every?
+      (fn [[x y]]
+        (< (distance x y) threshold))
       (zip (cntrs clsts1) (cntrs clsts2)))))
 
 
@@ -67,8 +67,8 @@
            iter max-iters]
       ; make sure we don't use clusters where k < k
       (let [new-clusters (cluster-step data-iter k clusters)]
-        (if (= iter 0)
-        ;(if (or (= iter 0) (same-clustering? new-clusters clusters))
+        ;(if (= iter 0)
+        (if (or (= iter 0) (same-clustering? new-clusters clusters))
           new-clusters
           (recur new-clusters (dec iter)))))))
 
@@ -76,7 +76,7 @@
 (def play-data
   {:ptpts  ["a" "b" "c"]
    :cmts   ["x" "y" "z"]
-   :matrix [[1 2 3] [4 2 3] [1 2 0]]})
+   :matrix (matrix [[1 2 3] [4 2 3] [1 2 0]])})
 
 (def clst (init-clusters play-data 2))
 (def clst (kmeans play-data 2))
