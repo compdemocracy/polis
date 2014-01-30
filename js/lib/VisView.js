@@ -137,8 +137,9 @@ $(el_selector)
   setTimeout(function() {
       $(el_selector).append(
         "<div id='helpTextBox' class='unselectable hidden'>" +
+            "<button type='button' class='close' aria-hidden='true'>&times;</button>" +
             "<span id='helpTextMessage'></span>" +
-        "<button type='button' class='close' aria-hidden='true'>&times;</button></div>")
+            "</div>")
       .on("click", onHelpTextClicked);
     }, 100);
 
@@ -164,7 +165,7 @@ visualization.append("polyline")
 
  setTimeout(function() {
     var selfNode = _.filter(nodes, isSelf)[0];
-    displayHelpItem("Each dot represents a person. The blue dot represents you. Try hovering!", selfNode);
+    displayHelpItem("Each dot represents a person or group of people. The blue dot represents you. Try hovering!", selfNode);
 }, 3000);
 
 // function zoom() {
@@ -268,7 +269,7 @@ function setClusterActive(clusterId) {
     var promise = getCommentsForSelection(pids)
       .pipe( // getCommentsForSelection with clusters array (of pids)
         renderComments,                                 // !! this is tightly coupled.
-                                                        // !! it makes sense to keep this in the view because
+                            // !! it makes sense to keep this in the view because
                                                         // !! we have to come BACK to the viz from the
                                                         // !! backbonified list, then. Not worth it?
         function(err) {
@@ -295,6 +296,7 @@ function updateHullColors() {
 }
 
 function onClusterClicked(d) {
+    $("#analyzeTab").tab("show");
     if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
     } else {

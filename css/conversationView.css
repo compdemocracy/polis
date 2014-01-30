@@ -1,14 +1,12 @@
 #helpTextBox {
-  background-color: black;
-  position: relative;
-  left: 50px;
-  width:  80%;
-  top: -10px;
-  border-radius: 5px;
-  color: white;
-  text-align: center;
-  font-size: 30px;
-  padding: 10px;
+background-color: rgb(119, 119, 119);
+position: relative;
+top: -5px;
+border-radius: 3px;
+color: white;
+text-align: center;
+padding: 10px;
+font-weight: 100;
 }
 
 *.unselectable {

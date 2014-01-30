@@ -127,7 +127,7 @@ define([
             w: w,
             h: h,
             computeXySpans: Utils.computeXySpans,
-            el_queryResultSelector: "#query_results_div",
+            el_queryResultSelector: ".query_results_div",
             el: "#visualization_div"
         });
         vis.addClusterTappedListener(onClusterTapped);
@@ -245,7 +245,7 @@ define([
 
       $("#visualization_div").affix({
         offset: {
-          top: 380 //will be set dynamically
+          top: 150 //will be set dynamically
         }
       });
       that.$("#commentViewTab").tooltip({
