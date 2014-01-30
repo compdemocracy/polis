@@ -2274,14 +2274,24 @@ app.get('/v3/conversations/:zid',
     authOptional(assignToP),
     want('zid', getInt, assignToP),
 function(req, res) {
-    client.query('SELECT * FROM conversations WHERE zid = ($1);', [req.p.zid], function(err, results) {
+    var zid = req.p.zid;
+    client.query('SELECT * FROM conversations WHERE zid = ($1);', [zid], function(err, results) {
         if (err) { fail(res, 500, "polis_err_get_conversation_by_zid", err); return; }
         if (!results || !results.rows || !results.rows.length) {
             fail(res, 404, "polis_err_no_such_conversation", new Error("polis_err_no_such_conversation"));
             return;
-        } else {
-            res.status(200).json(results.rows[0]);
         }
+        var conv = results.rows[0];
+        client.query('SELECT * from participant_metadata_questions where zid = ($1);', [zid], function(err, metadataResults) {
+            if (err) { fail(res, 500, "polis_err_get_conversation_metadata_by_zid", err); return; }
+            if (!metadataResults || !metadataResults.rows || !metadataResults.rows.length) {
+                // return the conversation data without adding any metadata stuff
+                res.status(200).json(conv);
+            } else {
+                conv.hasMetadata = true;
+                res.status(200).json(conv);
+            }
+        });
     });
 });
 
