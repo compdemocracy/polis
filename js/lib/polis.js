@@ -165,6 +165,11 @@ return function(params) {
     }
 
     function submitComment(model) {
+        // DEMO_MODE
+        if (getPid() < 0) {
+            return $.Deferred().resolve();
+        }
+
         model = $.extend(model, {
             // server will find the pid
             zid: zid
