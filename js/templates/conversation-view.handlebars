@@ -66,10 +66,12 @@
         {{view commentForm}}
       </div>
       <div class="tab-pane" id="analyze">
+      {{#if hasMetadata}}
       <ul class="nav nav-pills nav-justified">
         <li class="active"><a >Comments</a></li>
         <li><a href="">Metadata</a></li>
       </ul>
+      {{/if}}
         {{view metadataQuestionsView}}
         <div class="query_results_div" class="hidden-xs">
         </div> <!-- query results div -->        
