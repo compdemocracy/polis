@@ -170,7 +170,7 @@ overlay_layer.append("polyline")
 
  setTimeout(function() {
     var selfNode = _.filter(nodes, isSelf)[0];
-    displayHelpItem("The dots are people. The blue dot is you. Try hovering!", selfNode);
+    displayHelpItem("Dots represent people. The blue dot is you.</br> Try hovering!", selfNode);
 }, 3000);
 
 // function zoom() {
