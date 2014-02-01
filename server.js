@@ -2282,7 +2282,7 @@ function(req, res) {
             return;
         }
         var conv = results.rows[0];
-        client.query('SELECT * from participant_metadata_questions where zid = ($1);', [zid], function(err, metadataResults) {
+        client.query('SELECT * from participant_metadata_questions where zid = ($1)', [zid], function(err, metadataResults) {
             if (err) { fail(res, 500, "polis_err_get_conversation_metadata_by_zid", err); return; }
             if (!metadataResults || !metadataResults.rows || !metadataResults.rows.length) {
                 // return the conversation data without adding any metadata stuff
