@@ -591,11 +591,11 @@ function upsertNode(updatedNodes, newClusters) {
 
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
-        for (var i = 0; i < cluster.length; i++) {
-            bidToKid[cluster[i]] = c;
+        for (var b = 0; b < cluster.length; b++) {
+            bidToKid[cluster[b]] = c;
         }
-    }    
-
+    }
+    
     readyToReselectComment.done(function() {
         if (selectedTid >= 0) {
             selectComment(selectedTid);
