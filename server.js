@@ -1547,9 +1547,9 @@ function(req, res) {
     var zinvite = req.p.zinvite;
 
   // Check for an invite code
-  if (!oinvite && !zinvite) {
-    fail(res, 982748723, "polis_err_missing_invite", 403);
-  }
+  // if (!oinvite && !zinvite) {
+  //   fail(res, 982748723, "polis_err_missing_invite", 403);
+  // }
   if (oinvite) {
     oinviteExists(oinvite, function(err, ok) {
       if (err) { fail(res, 500, "polis_err_reg_oinvite", err); return; }
