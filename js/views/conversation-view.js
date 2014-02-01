@@ -105,7 +105,7 @@ define([
     }
 
 
-    function initPcaVis(serverClient) {
+    function initPcaVis() {
         var w = $("#visualization_div").width();
         var h = w/2;
         $("#visualization_div").height(h);
@@ -285,9 +285,9 @@ define([
       });
 
 
-      initPcaVis(serverClient);
+      initPcaVis();
 
-      $(window).resize(initPcaVis);
+      $(window).resize(_.throttle(initPcaVis, 100));
 
   }, 0); // end listenTo "rendered"
   });
