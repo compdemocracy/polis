@@ -1,12 +1,28 @@
+.helpArrow {
+  fill: #222;
+}
+.helpArrowLine {
+  stroke: #222;
+  stroke-width: 2px;
+}
+
 #helpTextBox {
-background-color: rgb(119, 119, 119);
-position: relative;
-top: -5px;
-border-radius: 3px;
-color: white;
-text-align: center;
-padding: 10px;
-font-weight: 100;
+
+margin-left:auto;
+margin-right:auto;
+max-width:70%;
+min-width: 280px;
+
+  background-color: rgb(235, 235, 235);
+  /*position: relative;*/
+  /*top: -5px;*/
+  border-radius: 3px;
+  border-style: solid;
+  /* color: white; */
+  /* text-align: center; */
+  padding: 10px;
+  border-width: 1px;
+  border-color: #333;
 }
 
 *.unselectable {
@@ -61,6 +77,7 @@ font-weight: 100;
 
 svg {
   border: none;
+  display: block; /* prevent weird margins under vis */
 }
 
 /* Comment Shower */

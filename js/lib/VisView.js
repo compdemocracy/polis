@@ -31,6 +31,8 @@ var nodes = [];
 var clusters = [];
 var hulls = [];
 var visualization;
+var main_layer;
+var overlay_layer;
 //var g; // top level svg group within the vis that gets translated/scaled on zoom
 var force;
 var queryResults;
@@ -122,11 +124,11 @@ if (isIE8) {
 $(el_selector)
   .append("<svg>" +
     "<defs>" +
-        "<marker id='Triangle'" +
+        "<marker class='helpArrow' id='ArrowTip'" +
                 "viewBox='0 0 10 10'" +
                 "refX='1' refY='5'" +
-                "markerWidth='6'" +
-                "markerHeight='6'" +
+                "markerWidth='5'" +
+                "markerHeight='5'" +
                 "orient='auto'>" +
             "<path d='M 0 0 L 10 5 L 0 10 z' />" +
         "</marker>" +
@@ -157,9 +159,12 @@ visualization = d3.select(el_selector).select("svg")
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
 ;
 
+main_layer = visualization.append("g");
+overlay_layer = visualization.append("g");
 
-visualization.append("polyline")
+overlay_layer.append("polyline")
     .classed("helpArrow", true)
+    .classed("helpArrowLine", true)
     .style("display", "none")
     ;
 
@@ -280,7 +285,7 @@ function setClusterActive(clusterId) {
       ;
     
     // duplicated at 938457938475438975
-    visualization.selectAll(".active").classed("active", false);
+    main_layer.selectAll(".active").classed("active", false);
 
     // d3.select(this)
     //     .style("fill","lightgreen")
@@ -320,7 +325,7 @@ function onClusterClicked(d) {
 }
 
 d3Hulls = _.times(9, function() {
-    return visualization.append("path")
+    return main_layer.append("path")
         .classed("hull", true)
         .on("click", onClusterClicked)  //selection-results:1 handle the click event
     ;
@@ -369,7 +374,7 @@ force.on("tick", function(e) {
           o.y += (o.data.targetY - o.y) * k;
       });
 
-      visualization.selectAll("g")
+      main_layer.selectAll("g")
         .attr("transform", chooseTransformForRoots);
 
     updateHulls();
@@ -674,7 +679,7 @@ function upsertNode(updatedNodes, newClusters) {
 
 // TODO use key to guarantee unique items
 
-  var update = visualization.selectAll("g")
+  var update = main_layer.selectAll("g")
       .data(nodes, key)
       .sort(sortWithSelfOnTop);
 
@@ -945,7 +950,7 @@ function emphasizeParticipants(pids) {
         return 0;
     }
 
-    visualization.selectAll("g")
+    main_layer.selectAll("g")
       .selectAll("path")
         .attr("stroke", chooseStroke)
         .attr("stroke-width", chooseStrokeWidth)
@@ -961,9 +966,10 @@ function displayHelpItem(txt, d) {
     var baseShouldIntersectEdge = true;
     var ratio = 0.8;
     var strokeWidth = 3;
+    var extraY = -strokeWidth; // extend past the edge so it's flush (so you don't see the square base of the arrow)
 
     var baseX = w/3;
-    var baseY = h - (baseShouldIntersectEdge ? strokeWidth : 0);
+    var baseY = h - (baseShouldIntersectEdge ? extraY : 0);
     var tipX = d.x;
     var tipY = d.y;
     var dx = tipX - baseX;
@@ -972,13 +978,10 @@ function displayHelpItem(txt, d) {
     tipY = baseY + dy*ratio;
 
     if (d) {
-        visualization.selectAll(".helpArrow")
+        overlay_layer.selectAll(".helpArrow")
             .style("display", "block")
             .attr("points", baseX + "," + baseY + " " + tipX + "," + tipY)
-            .attr("fill", "none")
-            .attr("stroke", "black")
-            .attr("stroke-width", strokeWidth)
-            .attr("marker-end", "url(#Triangle)");
+            .attr("marker-end", "url(#ArrowTip)");
     }
 
     // $(".helpArrow").removeClass("hidden");
@@ -987,7 +990,7 @@ function displayHelpItem(txt, d) {
 }
 
 function onHelpTextClicked() {
-    visualization.selectAll(".helpArrow")
+    overlay_layer.selectAll(".helpArrow")
         .style("display", "none");
     // $(".helpArrow").addClass("hidden");
     $("#helpTextBox").addClass("hidden");
