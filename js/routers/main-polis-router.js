@@ -76,8 +76,13 @@ define([  //begin dependencies
     },
     landingPageView: function() {
       if (!authenticated()) {
-        var landingPageView = new LandingPageView();
-        RootView.getInstance().setView(landingPageView);
+        // RootView.getInstance().setView(new LandingPageView());
+        RootView.getInstance().setView(new CreateUserFormView({
+          model : new Backbone.Model({
+            // zinvite: zinvite,
+            create: true
+          })
+        }));
       } else {
         // this.inbox();
         this.navigate("inbox", {trigger: true});
