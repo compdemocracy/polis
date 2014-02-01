@@ -46,7 +46,7 @@ var selectedTid = -1;
 // number of votes by the participant who has voted the most.
 var maxVoteCount = 0;
 
-
+var bidToKid = {};
 
 var updatesEnabled = true;
 
@@ -302,12 +302,15 @@ function updateHullColors() {
 
 function onClusterClicked(d) {
     $("#analyzeTab").tab("show");
-    if (selectedCluster === d.hullId) {                 // if the cluster/hull just selected was already selected...
+    return handleOnClusterClicked(d.hullId);
+}
+function handleOnClusterClicked(hullId) {
+    if (selectedCluster === hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
     } else {
         resetSelectedComment();
         unhoverAll();
-        setClusterActive(d.hullId)
+        setClusterActive(hullId)
             .then(
                 updateHulls,
                 updateHulls);
@@ -586,6 +589,13 @@ function upsertNode(updatedNodes, newClusters) {
         clusters = newClusters;
     }
 
+    for (var c = 0; c < clusters.length; c++) {
+        var cluster = clusters[c];
+        for (var i = 0; i < cluster.length; i++) {
+            bidToKid[cluster[i]] = c;
+        }
+    }    
+
     readyToReselectComment.done(function() {
         if (selectedTid >= 0) {
             selectComment(selectedTid);
@@ -827,9 +837,14 @@ function renderComments(comments) {
 
 
 function onParticipantClicked(d) {
-    d3.event.stopPropagation();
-    d3.event.preventDefault(); // prevent flashing on iOS
+    // alert(1);
+    // d3.event.stopPropagation();
+    // d3.event.preventDefault(); // prevent flashing on iOS
   // alert(getUserInfoByPid(d.pid).hname)
+  var kid = bidToKid[d.bid];
+  if (_.isNumber(kid)) {
+      handleOnClusterClicked(kid);
+  }
 }
 
 function unhoverAll() {
