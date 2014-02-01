@@ -67,7 +67,7 @@ if (isIE8) {
 
 
 // Tunables
-var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 7]).domain([350, 800]).clamp(true);
+var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
 
@@ -478,15 +478,14 @@ function chooseTransformForRoots(d) {
 
 var offsetFactor = 4.9;
 // function chooseTransformUpArrow(d) {
-//     var scale = Math.sqrt(d.ups) * scaleFactor;
+//     var scale = Math.sqrt(d.ups) * baseNodeRadius;
 //     var yOffset = -offsetFactor * scale;
 //     return "translate(0," + yOffset + ") scale(" + scale + ")";
 // }
 
-var scaleFactor = 6;
 function makeArrowPoints(scale, shouldFlipY) {
-    var left = -scaleFactor * scale;
-    var right = scaleFactor * scale;
+    var left = -baseNodeRadius * scale;
+    var right = baseNodeRadius * scale;
     // equilateral triangle
     var top = Math.sqrt(3 * right * right);
     var bottom = 0;
@@ -506,7 +505,7 @@ function chooseUpArrowPath(d) {
 
 
 // function chooseTransformDownArrow(d) {
-//     var scale = Math.sqrt(d.downs) * scaleFactor;
+//     var scale = Math.sqrt(d.downs) * baseNodeRadius;
 //     var yOffset = offsetFactor * scale;
 //     return "translate(0," + yOffset + ") scale(" + scale + ")";
 // }
@@ -515,7 +514,7 @@ function chooseDownArrowPath(d) {
     return makeArrowPoints(scale, false);
 }
 function chooseCircleRadius(d) {
-    return Math.sqrt(d.ppl.length) * scaleFactor * 0.7;
+    return Math.sqrt(d.ppl.length) * baseNodeRadius * 0.8;
 }
 
 
