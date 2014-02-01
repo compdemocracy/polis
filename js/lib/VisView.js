@@ -960,7 +960,7 @@ function emphasizeParticipants(pids) {
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
-function displayHelpItem(txt, d) {
+function displayHelpItem(content, d) {
 
     var baseShouldIntersectEdge = true;
     var ratio = 0.8;
@@ -985,7 +985,7 @@ function displayHelpItem(txt, d) {
 
     // $(".helpArrow").removeClass("hidden");
     $("#helpTextBox").removeClass("hidden");
-    $("#helpTextMessage").text(txt);
+    $("#helpTextMessage").html(content);
 }
 
 function onHelpTextClicked() {
