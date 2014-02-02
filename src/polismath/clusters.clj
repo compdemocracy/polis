@@ -1,9 +1,9 @@
-(ns clusters
+(ns polismath.clusters
   (:refer-clojure :exclude [* - + == /])
-  (:use utils)
-  (:use clojure.core.matrix)
-  (:use clojure.core.matrix.stats)
-  (:use clojure.core.matrix.operators))
+  (:use polismath.utils
+        clojure.core.matrix
+        clojure.core.matrix.stats
+        clojure.core.matrix.operators))
 
 (set-current-implementation :vectorz)
 

@@ -1,5 +1,7 @@
-(ns matrix-utils
-  (:use utils clj-time.coerce clj-time.local))
+(ns polismath.matrix-utils
+  (:use polismath.utils
+        clj-time.coerce
+        clj-time.local))
 
 
 (defrecord RatingMatrix [ptpts cmts matrix])

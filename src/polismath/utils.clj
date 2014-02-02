@@ -1,4 +1,4 @@
-(ns utils)
+(ns polismath.utils)
 
 (defn zip [& xss]
   ;;should we redo this like the with-indices below, using a map?

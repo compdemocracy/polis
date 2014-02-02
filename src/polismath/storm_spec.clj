@@ -1,9 +1,9 @@
-(ns storm-spec
+(ns polismath.storm-spec
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [incanter.core :as ic.core])
   (:use [backtype.storm clojure config]
-        matrix-utils
-        pca
+        polismath.matrix-utils
+        polismath.pca
         [clojure.data.json :as json])
   (:gen-class))
 

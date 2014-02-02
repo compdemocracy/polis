@@ -1,3 +1,5 @@
+(ns polismath.conversation
+  (:use polismath.utils))
 
 (defn partial-pca
   [rating-matrix pca indices & {:keys [iters learning-rate]

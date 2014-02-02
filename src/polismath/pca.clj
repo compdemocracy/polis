@@ -1,10 +1,10 @@
-(ns pca
+(ns polismath.pca
   (:refer-clojure :exclude [* - + == /])
-  (:use utils)
-  (:use clojure.core.matrix)
-  (:use clojure.core.matrix.stats)
-  (:use clojure.core.matrix.operators)
-  (:use utils matrix-utils))
+  (:use polismath.utils
+        polismath.matrix-utils
+        clojure.core.matrix 
+        clojure.core.matrix.stats
+        clojure.core.matrix.operators))
 
 (set-current-implementation :vectorz)
 

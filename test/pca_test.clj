@@ -1,8 +1,8 @@
 (ns pca-test
   (:require [clojure.test :refer :all]
-            [matrix-utils :refer :all]
+            [polismath.matrix-utils :refer :all]
             [incanter.core :refer :all]
-            [pca :refer :all]))
+            [polismath.pca :refer :all]))
 
 
 (defn almost-equal? [xs ys & {:keys [tol] :or {tol 1e-2}}]

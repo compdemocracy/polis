@@ -1,5 +1,6 @@
 (defproject polis-storm "0.1.0-SNAPSHOT"
   :source-paths ["src/"
+                 "src/polismath/"
                  ".lein-git-deps/debug-repl/src/"]
   ;:aot :all
   ; faster run time in exchange for slower startup time

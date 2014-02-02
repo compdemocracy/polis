@@ -1,6 +1,6 @@
 (ns matrix-utils-test
   (:require [clojure.test :refer :all]
-            [matrix-utils :refer :all]))
+            [polismath.matrix-utils :refer :all]))
 
 (def reactions [
    '("p1" "c1"  0)

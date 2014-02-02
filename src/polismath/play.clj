@@ -1,11 +1,11 @@
-(ns play)
+(ns polismath.play)
 
 (use 'clojure.data.csv
      'clojure.java.io
-     'pca
+     'polismath.pca
      'criterium.core
-     'utils
-     'matrix-utils)
+     'polismath.utils
+     'polismath.matrix-utils)
 
 (require '(incanter
             [core :as ic.core]
