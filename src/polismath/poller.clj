@@ -1,5 +1,6 @@
 (ns polismath.poller
-  (:use polismath.matrix-utils polismath.pca)
+  (:use polismath.matrix-utils
+        polismath.pca)
   (:require [korma.db :as kdb]
             [korma.core :as ko]
             [clojure.java.jdbc :as sql]
