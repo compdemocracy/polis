@@ -1,6 +1,6 @@
 (ns pca-test
   (:require [clojure.test :refer :all]
-            [polismath.matrix-utils :refer :all]
+            [polismath.named-matrix :refer :all]
             [incanter.core :refer :all]
             [polismath.pca :refer :all]))
 

@@ -1,7 +1,6 @@
 (ns polismath.pca
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
-        polismath.matrix-utils
         clojure.core.matrix 
         clojure.core.matrix.stats
         clojure.core.matrix.operators))
