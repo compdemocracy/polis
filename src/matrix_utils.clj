@@ -32,6 +32,25 @@
       rating-matrix)))
 
 
+(defn row-subset [rating-matrix row-indices]
+  (->RatingMatrix
+    (filter-by-index (:ptpts rating-matrix) row-indices)
+    (:cmts rating-matrix)
+    (filter-by-index (:matrix rating-matrix) row-indices)))
+
+
+(defn rowname-subset [rating-matrix row-names]
+  (->> row-names
+    (map #(.indexOf (:ptpts rating-matrix) %))
+    (row-subset rating-matrix)))
+
+
+(defn inv-rowname-subset [rating-matrix row-names]
+  (row-subset rating-matrix
+    (remove (set (map #(.indexOf (:ptpts rating-matrix) %) row-names))
+      (range (count (:ptpts rating-matrix))))))
+
+
 (defn random-reactions [n-ptpts n-cmts & {:keys [n-reactions n-convs] :or {n-convs 1}}]
   (let [n-reactions (or n-reactions (* n-convs n-ptpts n-cmts))]
     (letfn [(generator [wrapper-fn range]

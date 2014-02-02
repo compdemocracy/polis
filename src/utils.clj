@@ -1,6 +1,7 @@
 (ns utils)
 
 (defn zip [& xss]
+  ;;should we redo this like the with-indices below, using a map?
   (if (> (count xss) 1)
     (partition (count xss) (apply interleave xss))
     xss))
@@ -25,5 +26,15 @@
 
 (defmacro ->>> [init & forms]
   (convert-forms init forms))
+
+
+(defn with-indices [coll]
+  (map #(vector %1 %2) (range) coll))
+
+
+(defn filter-by-index [coll idxs] 
+  (->> (with-indices coll)
+    (filter #((set idxs) (first %)))
+    (map second)))
 
 
