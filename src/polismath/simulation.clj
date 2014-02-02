@@ -26,3 +26,13 @@
          (random-reactions 4 4 :n-convs 3)))))
 
 
+(defn make-reaction-gen [n-convs start-n]
+  "This function creates an infinite sequence of reations which models an increasing number of comments and
+  people over time, over some number of conversations n-convs. The start-n argument sets the initial number of
+  ptpts and cmts per conversation."
+  ; I <3 clojure...
+  (mapcat
+    #(random-reactions % % :n-convs n-convs)
+    (map #(+ % start-n) (range))))
+
+
