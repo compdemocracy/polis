@@ -37,6 +37,8 @@
 
 ; This is a little bit of a hack. Need to get pca working on matrices with just a couple of elements still...
 ;(def init-matrix (->RatingMatrix ["p1" "p2" "p3"] ["c1" "c2" "c3"] [[1 1 0] [0 1 -1] [0 -1 1]]))
+; this might actually be really bad for structural sharing (keeping a head around); don't understand all of
+; the intricacies of structural sharing though
 (def init-matrix (->RatingMatrix [] [] [[]]))
 
 (defbolt rating-matrix ["conv-id" "rating-matrix"] {:prepare true}
