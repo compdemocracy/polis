@@ -11,6 +11,14 @@ To get running, install leinengen 2.
 From there, all clojure dependencies can be installed using `lein deps`.
 You'll also need mongodb and postgresql (client) installed.
 
+## Coding Style
+
+* Emphasis on pure functions wherever possible
+* When impurity is necessary, try to extract as much of the desired functionality as possible into smaller pure functions (this facilitates testing, clarity, and modularity)
+* Affix `*` to the end of names of impure functions (particularly anything random)
+* Affix `!` to the end of names of functions that specifically change something state
+* For now, let's prefer maps over records unless we realize there is a really good reason we should go the other direction (reduces complexity until it doesn't...)
+
 ## Storm
 
 Storm can be run by executing `lein run -m storm-spec`.
