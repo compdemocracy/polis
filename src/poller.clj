@@ -35,28 +35,6 @@
     {} votes))
 
 
-(defn conversation [rating-matrix ptpt-pca ptpt-clusters]
-  {:rating-matrix rating-matrix
-   :ptpt-pca      ptpt-pca
-   :ptpt-clusters ptpt-clusters
-   :update
-     (fn [votes & {:keys [n-comps pca-iters] :or {n-comps 2
-                                                  pca-iters 10
-                                                  cluster-iters 10}}]
-       (let [rating-matrix (update-rating-matrix rating-matrix
-                             (map #(map % [:pid :tid :vote]) votes))
-             ptpt-pca      (powerit-pca rating-matrix n-comps
-                                        :start-vectors ptpt-pca
-                                        :iters pca-iters)
-             ptpt-proj     (pca-project rating-matrix ptpt-pca)
-             ptpt-clusters {}]
-         (conversation rating-matrix ptpt-pca ptpt-clusters)))
-   :partial-update
-     (fn [votes & {:keys [iters learning-rate] :or {iters 10
-                                                    learning-rate 0.01}}]
-       '(let [_ _] _))})
-
-
 (defn poll [db-spec last-timestanp]
   (kdb/with-db db-spec
     (ko/select "votes"
