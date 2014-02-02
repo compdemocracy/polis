@@ -264,20 +264,20 @@ function makeSessionToken() {
 }
 
 
-var userTokenCache = new SimpleCache({
-    maxSize: 9000,
-});
+// var userTokenCache = new SimpleCache({
+//     maxSize: 9000,
+// });
 
 function getUserInfoForSessionToken(sessionToken, res, cb) {
-    var uid = userTokenCache.get();
-    if (uid) {
-        cb(null, uid);
-        return;
-    }
+    // var uid = userTokenCache.get();
+    // if (uid) {
+    //     cb(null, uid);
+    //     return;
+    // }
     redisForAuth.get(sessionToken, function(errGetToken, uid) {
         if (errGetToken) { console.error("token_fetch_error"); cb(500); return; }
         if (!uid) { console.error("token_expired_or_missing"); cb(403); return; }
-        userTokenCache.set(sessionToken, uid);
+        // userTokenCache.set(sessionToken, uid);
         cb(null, uid);
     });
 }
