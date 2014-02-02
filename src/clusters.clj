@@ -75,3 +75,20 @@
           (recur new-clusters (dec iter)))))))
 
 
+
+(defn conv-repness [data clusters]
+  (map
+    (let [row-names (:members clusters)
+          in-part (rowname-subset data row-names)
+          out-part (inv-rowname-subset data row-names)]
+      (repness in-part out-part))))
+
+
+;(def repness [in-part out-part]
+  ;(let [in-mat (:matrix in-part)
+        ;out-mat (:matrix out-part)]
+    ;(map-indexed
+      ;(fn [i col-name]
+        ;(
+
+
