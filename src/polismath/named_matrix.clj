@@ -11,11 +11,11 @@
     {:rows rows :cols cols :matrix matrix}))
 
 
-(defn update-nmat [nmat new-reactions]
+(defn update-nmat [nmat values]
   "This is a recursive function for taking new reactions and inserting them into the rating matrix."
   ; be careful about first v last wrt spout order; want to make sure the last thing in overrides
   ; anything earlier... If there are new reaactions, proceed
-  (if-let [[rown coln val] (first new-reactions)]
+  (if-let [[rown coln value] (first values)]
     ; Long series of let assignments leading up to the recursive call
     (let [{:keys [rows cols matrix]} nmat
           [row-index col-index] (map 
@@ -30,8 +30,8 @@
           ; us -1 if the item is not in the collection)
           indices (mapv (fn [xs i] (if (= -1 i) (- (count xs) 1) i))
                         [rows cols] [row-index col-index])
-          matrix (assoc-in matrix indices val)]
-      (recur (assoc nmat :rows rows :cols cols :matrix matrix) (rest new-reactions)))
+          matrix (assoc-in matrix indices value)]
+      (recur (assoc nmat :rows rows :cols cols :matrix matrix) (rest values)))
     ; else nothing to add; return matrix as is
     nmat))
 
