@@ -13,7 +13,7 @@
   (letfn [(part [coll] (partition k k [] coll))]
     (map-indexed (fn [id [members positions]]
            {:id id :members members :center (mean positions)})
-      (zip (part (:ptpts data)) (part (matrix (:matrix data)))))))
+      (zip (part (:rows data)) (part (matrix (:matrix data)))))))
 
 
 (defn clst-append [clst item]
@@ -65,7 +65,7 @@
 ; Each cluster should have the shape {:ids :members :center}
 (defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   "Performs a k-means clustering."
-  (let [data-iter (zip (:ptpts data) (matrix (:matrix data)))]
+  (let [data-iter (zip (:rows data) (matrix (:matrix data)))]
     (loop [clusters (or last-clusters (init-clusters data k))
            iter max-iters]
       ; make sure we don't use clusters where k < k
