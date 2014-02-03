@@ -1,5 +1,6 @@
 (ns polismath.poller
   (:use polismath.matrix-utils
+        polismath.utils
         polismath.pca)
   (:require [korma.db :as kdb]
             [korma.core :as ko]
@@ -41,12 +42,6 @@
     (ko/select "votes"
       (ko/where {:created [> last-timestanp]})
       (ko/order :created :asc))))
-
-
-(defmacro endlessly [interval & forms]
-  `(doseq [~'x (range)]
-     ~@forms
-     (Thread/sleep ~interval)))
 
 
 (defn -main []

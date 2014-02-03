@@ -28,6 +28,12 @@
   (convert-forms init forms))
 
 
+(defmacro endlessly [interval & forms]
+  `(doseq [~'x (range)]
+     ~@forms
+     (Thread/sleep ~interval)))
+
+
 (defn with-indices [coll]
   (map #(vector %1 %2) (range) coll))
 
