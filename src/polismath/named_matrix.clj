@@ -12,28 +12,23 @@
 
 
 (defn update-nmat [nmat values]
-  "This is a recursive function for taking new reactions and inserting them into the rating matrix."
-  ; be careful about first v last wrt spout order; want to make sure the last thing in overrides
-  ; anything earlier... If there are new reaactions, proceed
-  (if-let [[rown coln value] (first values)]
-    ; Long series of let assignments leading up to the recursive call
-    (let [{:keys [rows cols matrix]} nmat
-          [row-index col-index] (map 
-                                   #(.indexOf %1 %2)
-                                   [rows cols] [rown coln])
-          [rows cols] (map (fn [xs x i] (if (= -1 i) (conj xs x) xs))
-                            [rows cols] [rown coln] [row-index col-index])
-          ; If necessary, insert new columns and/or rows of zeros
-          matrix (if (= -1 col-index) (mapv #(conj % 0) matrix) matrix)
-          matrix (if (> (count rows) (count matrix)) (conj matrix (into [] (repeat (count cols) 0))) matrix)
-          ; Get the indices of the matrix position to be updated (note that .indexOf above gives
-          ; us -1 if the item is not in the collection)
-          indices (mapv (fn [xs i] (if (= -1 i) (- (count xs) 1) i))
-                        [rows cols] [row-index col-index])
-          matrix (assoc-in matrix indices value)]
-      (recur (assoc nmat :rows rows :cols cols :matrix matrix) (rest values)))
-    ; else nothing to add; return matrix as is
-    nmat))
+  "This takes (rowname, colname, value) pairs and inserts them into a named matrix, adding rows and columns
+  if necessary."
+  (reduce
+    (fn [{:keys [rows cols matrix] :as nmat} [row col value]]
+      (let [[row-index col-index] (map #(.indexOf %1 %2) [rows cols] [row col])
+            [rows cols] (map (fn [xs x i] (if (= -1 i) (conj xs x) xs))
+                          [rows cols] [row col] [row-index col-index])
+            ; If necessary, insert new columns and/or rows of zeros
+            matrix (if (= -1 col-index) (mapv #(conj % 0) matrix) matrix)
+            matrix (if (> (count rows) (count matrix)) (conj matrix (into [] (repeat (count cols) 0))) matrix)
+            ; Get the indices of the matrix position to be updated (note that .indexOf above gives
+            ; us -1 if the item is not in the collection)
+            indices (mapv (fn [xs i] (if (= -1 i) (- (count xs) 1) i))
+                          [rows cols] [row-index col-index])
+            matrix (assoc-in matrix indices value)]
+      (assoc nmat :rows rows :cols cols :matrix matrix)))
+    nmat values))
 
 
 (defn row-subset [nmat row-indices]
