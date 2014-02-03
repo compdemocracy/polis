@@ -22,12 +22,11 @@
             ; If necessary, insert new columns and/or rows of zeros
             matrix (if (= -1 col-index) (mapv #(conj % 0) matrix) matrix)
             matrix (if (> (count rows) (count matrix)) (conj matrix (into [] (repeat (count cols) 0))) matrix)
-            ; Get the indices of the matrix position to be updated (note that .indexOf above gives
-            ; us -1 if the item is not in the collection)
+            ; Get indices of matrix position to be updated (note .indexOf above gives -1 if item not in coll)
             indices (mapv (fn [xs i] (if (= -1 i) (- (count xs) 1) i))
                           [rows cols] [row-index col-index])
             matrix (assoc-in matrix indices value)]
-      (assoc nmat :rows rows :cols cols :matrix matrix)))
+        (assoc nmat :rows rows :cols cols :matrix matrix)))
     nmat values))
 
 
