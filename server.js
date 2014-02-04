@@ -986,9 +986,12 @@ function getUidByEmail(email, callback) {
 
 
 function clearCookies(req, res) {
+    console.log("before clear req: " + req.cookies);
+    console.log("before clear res: " + res.cookies);
     for (var cookieName in req.cookies) {
         res.clearCookie(cookieName, {path: "/"});
     }
+    console.log("after clear res: " + res.cookies);
     // cookieNames.forEach(function(name) {
     //     res.clearCookie(name, {path: "/"});
     // });
@@ -998,9 +1001,13 @@ app.post("/v3/auth/deregister",
 function(req, res) {
     var token = req.cookies.token;
 
+    console.dir(req);
+
     // clear cookies regardless of auth status
     clearCookies(req, res);
 
+    console.dir(res);
+    
     function finish() {
         res.status(200).end();
     }
