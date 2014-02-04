@@ -1005,6 +1005,9 @@ function clearCookies(req, res) {
     for (var cookieName in req.cookies) {
         res.clearCookie(cookieName, {path: "/", domain: "polis.io"});
     }
+    for (var cookieName in req.cookies) {
+        res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+    }
     // for (var cookieName in req.cookies) {
     //     res.clearCookie(cookieName, {path: "/"});
     // }
