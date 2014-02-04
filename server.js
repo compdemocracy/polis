@@ -659,21 +659,28 @@ var COOKIES = {
 var oneYear = 1000*60*60*24*365;
 function addCookies(res, token, uid) {
     if (domainOverride) {
-        res.cookie(COOKIES.TOKEN, token, {});
-        res.cookie(COOKIES.UID, uid, {});
+        res.cookie(COOKIES.TOKEN, token, {
+            path: '/',
+            httpOnly: true,
+            maxAge: oneYear,
+        });
+        res.cookie(COOKIES.UID, uid, {
+            path: '/',
+            maxAge: oneYear,         
+        });
     } else {
         res.cookie(COOKIES.TOKEN, token, {
             path: '/',
             httpOnly: true,
             maxAge: oneYear,
-            // domain: 'polis.io',
+            domain: 'polis.io',
             // secure: true, // TODO need HTTPS
         });
         res.cookie(COOKIES.UID, uid, {
             path: '/',
             // httpOnly: true, (client JS needs to see something to know it's signed in)
             maxAge: oneYear,
-            // domain: 'polis.io',
+            domain: 'polis.io',
             // secure: true, // TODO need HTTPS
         });
     }
@@ -996,11 +1003,11 @@ function clearCookies(req, res) {
     // res.cookies = {};
     // res.signedCookies = {};
     for (var cookieName in req.cookies) {
-        res.clearCookie(cookieName, {path: "/"});
+        res.clearCookie(cookieName, {path: "/", domain: "polis.io"});
     }
-    for (var cookieName in req.cookies) {
-        res.clearCookie(cookieName, {path: "/"});
-    }
+    // for (var cookieName in req.cookies) {
+    //     res.clearCookie(cookieName, {path: "/"});
+    // }
     console.log("after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
     // cookieNames.forEach(function(name) {
     //     res.clearCookie(name, {path: "/"});
