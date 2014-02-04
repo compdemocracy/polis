@@ -157,7 +157,7 @@ var store = (function() {
         //reactionsByMe: makeAccessor("p_reactions_by_me"), // TODO use a real db
         email: makeAccessor("email").get,
         //username: makeAccessor("p_username"),
-        uid: asNumber(makeAccessor("uid").get)
+        uid: asNumber(makeAccessor("uid2").get)
         //token: makeAccessor("p_authToken")
     };
     return x;
