@@ -673,14 +673,14 @@ function addCookies(res, token, uid) {
             path: '/',
             httpOnly: true,
             maxAge: oneYear,
-            domain: 'polis.io',
+            domain: '.polis.io',
             // secure: true, // TODO need HTTPS
         });
         res.cookie(COOKIES.UID, uid, {
             path: '/',
             // httpOnly: true, (client JS needs to see something to know it's signed in)
             maxAge: oneYear,
-            domain: 'polis.io',
+            domain: '.polis.io',
             // secure: true, // TODO need HTTPS
         });
     }
@@ -1011,7 +1011,13 @@ function clearCookies(req, res) {
             res.clearCookie(cookieName, {path: "/", domain: "polis.io"});
         }
         for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
+        }
+        for (var cookieName in req.cookies) {
             res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+        }
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: ".www.polis.io"});
         }
     }
     // for (var cookieName in req.cookies) {
