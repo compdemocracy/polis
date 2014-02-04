@@ -683,21 +683,6 @@ function addCookies(res, token, uid) {
             domain: '.polis.io',
             // secure: true, // TODO need HTTPS
         });
-
-        res.cookie(COOKIES.TOKEN, token, {
-            path: '/',
-            httpOnly: true,
-            maxAge: oneYear,
-            domain: 'www.polis.io',
-            // secure: true, // TODO need HTTPS
-        });
-        res.cookie(COOKIES.UID, uid, {
-            path: '/',
-            // httpOnly: true, (client JS needs to see something to know it's signed in)
-            maxAge: oneYear,
-            domain: 'www.polis.io',
-            // secure: true, // TODO need HTTPS
-        });
     }
 }
 
@@ -1013,29 +998,16 @@ function getUidByEmail(email, callback) {
 
 
 function clearCookies(req, res) {
-    console.log("before clear req: " + JSON.stringify(req.cookies));
-    console.log("before clear res: " + JSON.stringify(res.cookies));
-    // res.cookies = {};
-    // res.signedCookies = {};
-    // if (domainOverride) {
-    //     for (var cookieName in req.cookies) {
-    //         res.clearCookie(cookieName, {path: "/"});
-    //     }
-    // } else {       
-    //     for (var cookieName in req.cookies) {
-    //         res.clearCookie(cookieName, {path: "/", domain: "polis.io"});
-    //     }
-    //     for (var cookieName in req.cookies) {
-    //         res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
-    //     }
-    //     for (var cookieName in req.cookies) {
-    //         res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
-    //     }
-    //     for (var cookieName in req.cookies) {
-    //         res.clearCookie(cookieName, {path: "/", domain: ".www.polis.io"});
-    //     }
-    // }
-    addCookies(res, "", "");
+    if (domainOverride) {
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/"});
+        }
+    } else {       
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
+        }
+    }
+    // addCookies(res, "", "");
     // for (var cookieName in req.cookies) {
     //     res.clearCookie(cookieName, {path: "/"});
     // }
