@@ -1503,13 +1503,15 @@ app.post("/v3/auth/login",
     want('email', getEmail, assignToP),
 function(req, res) {
     var password = req.p.password;
-    var username = req.p.username;
-    var email = req.p.email;
+    var username = req.p.username || "";
+    var email = req.p.email || "";
+    username = username.toLowerCase();
+    email = email.toLowerCase();
     var handles = [];
     if (username) { handles.push({username: username}); }
     if (email) { handles.push({email: email}); }
     if (!_.isString(password)) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
-    client.query("SELECT * FROM users WHERE username = ($1) OR email = ($2);", [username, email], function(err, docs) {
+    client.query("SELECT * FROM users WHERE LOWER(username) = ($1) OR LOWER(email) = ($2);", [username, email], function(err, docs) {
         docs = docs.rows;
         if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); return; }
         if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); return; }
