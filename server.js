@@ -993,11 +993,15 @@ function getUidByEmail(email, callback) {
 function clearCookies(req, res) {
     console.log("before clear req: " + JSON.stringify(req.cookies));
     console.log("before clear res: " + JSON.stringify(res.cookies));
-    res.cookies = {};
-    res.signedCookies = {};
-    // for (var cookieName in req.cookies) {
-        // res.clearCookie(cookieName, {path: "/"});
-    // }
+    // res.cookies = {};
+    // res.signedCookies = {};
+    for (var cookieName in req.cookies) {
+        res.clearCookie(cookieName, {path: "/"});
+    }
+    for (var cookieName in req.cookies) {
+        res.clearCookie(cookieName, {path: "/"});
+    }
+    console.log("after clear res: " + JSON.stringify(res.cookies));
     console.log("after clear res: " + JSON.stringify(res.cookies));
     // cookieNames.forEach(function(name) {
     //     res.clearCookie(name, {path: "/"});
