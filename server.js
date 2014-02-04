@@ -1002,7 +1002,7 @@ function clearCookies(req, res) {
     console.log("before clear res: " + JSON.stringify(res.cookies));
     // res.cookies = {};
     // res.signedCookies = {};
-    if (DOMAIN_OVERRIDE) {
+    if (domainOverride) {
         for (var cookieName in req.cookies) {
             res.clearCookie(cookieName, {path: "/"});
         }
