@@ -1002,11 +1002,17 @@ function clearCookies(req, res) {
     console.log("before clear res: " + JSON.stringify(res.cookies));
     // res.cookies = {};
     // res.signedCookies = {};
-    for (var cookieName in req.cookies) {
-        res.clearCookie(cookieName, {path: "/", domain: "polis.io"});
-    }
-    for (var cookieName in req.cookies) {
-        res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+    if (DOMAIN_OVERRIDE) {
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/"});
+        }
+    } else {       
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: "polis.io"});
+        }
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+        }
     }
     // for (var cookieName in req.cookies) {
     //     res.clearCookie(cookieName, {path: "/"});
