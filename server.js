@@ -651,20 +651,25 @@ var prrrams = (function() {
 var need = prrrams.need;
 var want = prrrams.want;
 
+var COOKIES = {
+    TOKEN : 'token',
+    UID : 'uid',
+};
+
 var oneYear = 1000*60*60*24*365;
 function addCookies(res, token, uid) {
     if (domainOverride) {
-        res.cookie('token', token, {});
-        res.cookie('uid', uid, {});
+        res.cookie(COOKIES.TOKEN, token, {});
+        res.cookie(COOKIES.UID, uid, {});
     } else {
-        res.cookie('token', token, {
+        res.cookie(COOKIES.TOKEN, token, {
             path: '/',
             httpOnly: true,
             maxAge: oneYear,
             // domain: 'polis.io',
             // secure: true, // TODO need HTTPS
         });
-        res.cookie('uid', uid, {
+        res.cookie(COOKIES.UID, uid, {
             path: '/',
             // httpOnly: true, (client JS needs to see something to know it's signed in)
             maxAge: oneYear,
@@ -988,9 +993,11 @@ function getUidByEmail(email, callback) {
 function clearCookies(req, res) {
     console.log("before clear req: " + req.cookies);
     console.log("before clear res: " + res.cookies);
-    for (var cookieName in req.cookies) {
-        res.clearCookie(cookieName, {path: "/"});
-    }
+    res.cookies = {};
+    res.signedCookies = {};
+    // for (var cookieName in req.cookies) {
+        // res.clearCookie(cookieName, {path: "/"});
+    // }
     console.log("after clear res: " + res.cookies);
     // cookieNames.forEach(function(name) {
     //     res.clearCookie(name, {path: "/"});
@@ -1006,7 +1013,7 @@ function(req, res) {
     // clear cookies regardless of auth status
     clearCookies(req, res);
 
-    console.dir(res);
+    console.dir(req);
     
     function finish() {
         res.status(200).end();
@@ -1506,6 +1513,7 @@ function(req, res) {
                     email: email,
                     token: token
                 };
+                clearCookies(req, res);
                 addCookies(res, token, uid);
                 res.json(response_data);
             }); // startSession
@@ -1599,6 +1607,7 @@ function(req, res) {
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(err,token) {
                             if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
+                            clearCookies(req, res);
                             addCookies(res, token, uid);
                             res.json({
                                 uid: uid,
