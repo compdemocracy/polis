@@ -1001,8 +1001,7 @@ function clearCookies(req, res) {
     for (var cookieName in req.cookies) {
         res.clearCookie(cookieName, {path: "/"});
     }
-    console.log("after clear res: " + JSON.stringify(res.cookies));
-    console.log("after clear res: " + JSON.stringify(res.cookies));
+    console.log("after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
     // cookieNames.forEach(function(name) {
     //     res.clearCookie(name, {path: "/"});
     // });
