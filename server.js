@@ -422,7 +422,7 @@ function authOptional(assigner) {
 function auth(assigner, isOptional) {
     return function(req, res, next) {
         //var token = req.body.token;
-        var token = req.cookies.token;
+        var token = req.cookies[COOKIES.TOKEN];
         console.log("token from cookie");
         console.dir(req.cookies);
         if (!token) {
@@ -439,9 +439,6 @@ function auth(assigner, isOptional) {
     console.log("got uid");
         console.log(uid);
             if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
-             // don't want to pass the token around
-            if (req.body) { delete req.body.token; }
-            if (req.query) { delete req.query.token; }
 
             if ( req.body.uid && req.body.uid !== uid) {
                 next(connectError(400, "polis_err_auth_mismatch_uid"));
@@ -652,8 +649,8 @@ var need = prrrams.need;
 var want = prrrams.want;
 
 var COOKIES = {
-    TOKEN : 'token',
-    UID : 'uid',
+    TOKEN : 'token2',
+    UID : 'uid2',
 };
 
 var oneYear = 1000*60*60*24*365;
@@ -1005,6 +1002,9 @@ function clearCookies(req, res) {
     } else {       
         for (var cookieName in req.cookies) {
             res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
+        }     
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
         }
     }
     // addCookies(res, "", "");
