@@ -173,8 +173,7 @@ overlay_layer.append("polyline")
     ;
 
  setTimeout(function() {
-    var selfNode = _.filter(nodes, isSelf)[0];
-    displayHelpItem("Dots represent people. The blue dot is you.</br> Try hovering!", selfNode);
+    displayHelpItem("Dots represent people. The blue dot is you.</br> Try hovering!");
 }, 3000);
 
 // function zoom() {
@@ -896,7 +895,7 @@ function updateNodes() {
     onSelfAppearsCallbacks.fire();
   }
 
-  // displayHelpItem("foo", selfNode);
+  // displayHelpItem("foo");
 
   // visualization.selectAll("g")
   //   .attr("transform", chooseTransform)
@@ -979,18 +978,24 @@ function emphasizeParticipants(pids) {
 
 
 function updateHelpArrow() {
+    var selfNode = _.filter(nodes, isSelf)[0];
+    if (!selfNode) {
+        return;
+    }
+    var x = selfNode.x;
+    var y = selfNode.y;
     var baseShouldIntersectEdge = true;
     var helpArrowStrokeWidth = 3;
+    var extraY = -helpArrowStrokeWidth; // extend past the edge so it's flush (so you don't see the square base of the arrow)
     var baseX = w/3;
     var baseY = h - (baseShouldIntersectEdge ? extraY : 0);
-    var tipX = d.x;
-    var tipY = d.y;
+    var tipX = x;
+    var tipY = y;
     var dx = tipX - baseX;
     var dy = tipY - baseY;
-    var ratio = 0.8;
+    var ratio = 0.9;
     tipX = baseX + dx*ratio;
     tipY = baseY + dy*ratio;
-    var extraY = -helpArrowStrokeWidth; // extend past the edge so it's flush (so you don't see the square base of the arrow)
     overlay_layer.selectAll(".helpArrow")
         .attr("points", baseX + "," + baseY + " " + tipX + "," + tipY)
     ;
@@ -998,16 +1003,11 @@ function updateHelpArrow() {
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
-function displayHelpItem(content, d) {
-
-
-
-    if (d) {
-        overlay_layer.selectAll(".helpArrow")
-            .style("display", "block")
-            .attr("marker-end", "url(#ArrowTip)");
-        updateHelpArrow();
-    }
+function displayHelpItem(content) {
+    overlay_layer.selectAll(".helpArrow")
+        .style("display", "block")
+        .attr("marker-end", "url(#ArrowTip)");
+    updateHelpArrow();
 
     // $(".helpArrow").removeClass("hidden");
     $("#helpTextBox").removeClass("hidden");
