@@ -222,7 +222,7 @@ define([
         serverClient.updateMyProjection(that.votesByMe);
       });
       this.commentForm.on("commentSubmitted", function() {
-        $("#commentViewTab").tab("show");
+        // $("#commentViewTab").tab("show");
       });
 
       /* tooltips */

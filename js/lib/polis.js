@@ -592,28 +592,37 @@ return function(params) {
                     return $.Deferred().reject();
                 }
                 people = _.filter(people, function(p) {
-                    // var pidOk = p.pid >= 0;
-                    // if (!pidOk) {
-                    //     console.error("Got bad pid!");
-                    // }
-                    return true;
+                    var pidOk = p.pid >= 0;
+                    if (!pidOk) {
+                        console.error("Got bad pid!");
+                    }
+                    return pidOk;
                 });
                 // remove self, will add after bucketizing
                 var myPid = getPid();
-                people = _.filter(people, function(p) {
-                    return p.pid !== myPid;
-                });
-                people = bucketize(people, 9, 9, 1);
+                var buckets = bucketize(people, 9, 9, 1);
+                for (var b = 0; b < buckets.length; b++) {
+                    var bucket = buckets[b];
+                    if (bucket.containsSelf) {
+                        bucket.ppl = _.filter(bucket.ppl, function(person) {
+                            return person.pid != myPid;
+                        });
+                        delete bucket.containsSelf
+                    }
+                }
+                // people = _.filter(people, function(p) {
+                //     return p.pid !== myPid;
+                // });
 
-                var clusters = clientSideBaseCluster(people, 3);
+                var clusters = clientSideBaseCluster(buckets, 3);
 
 
 
-                projectionPeopleCache = people;
+                projectionPeopleCache = buckets;
                 clustersCache = clusters;
 
-                people = withProjectedSelf(people);
-                sendUpdatedVisData(people, clusters);
+                buckets = withProjectedSelf(buckets);
+                sendUpdatedVisData(buckets, clusters);
                 return $.Deferred().resolve();
             },
             function(err) {
