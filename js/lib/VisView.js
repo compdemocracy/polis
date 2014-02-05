@@ -756,6 +756,7 @@ function upsertNode(updatedNodes, newClusters) {
   //         .duration(500);
 
   updateHulls();
+  updateHelpArrow();
 }
 
 function selectComment(tid) {
@@ -977,29 +978,35 @@ function emphasizeParticipants(pids) {
 }
 
 
-// MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
-
-function displayHelpItem(content, d) {
-
+function updateHelpArrow() {
     var baseShouldIntersectEdge = true;
-    var ratio = 0.8;
-    var strokeWidth = 3;
-    var extraY = -strokeWidth; // extend past the edge so it's flush (so you don't see the square base of the arrow)
-
+    var helpArrowStrokeWidth = 3;
     var baseX = w/3;
     var baseY = h - (baseShouldIntersectEdge ? extraY : 0);
     var tipX = d.x;
     var tipY = d.y;
     var dx = tipX - baseX;
     var dy = tipY - baseY;
+    var ratio = 0.8;
     tipX = baseX + dx*ratio;
     tipY = baseY + dy*ratio;
+    var extraY = -helpArrowStrokeWidth; // extend past the edge so it's flush (so you don't see the square base of the arrow)
+    overlay_layer.selectAll(".helpArrow")
+        .attr("points", baseX + "," + baseY + " " + tipX + "," + tipY)
+    ;
+}
+
+// MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
+
+function displayHelpItem(content, d) {
+
+
 
     if (d) {
         overlay_layer.selectAll(".helpArrow")
             .style("display", "block")
-            .attr("points", baseX + "," + baseY + " " + tipX + "," + tipY)
             .attr("marker-end", "url(#ArrowTip)");
+        updateHelpArrow();
     }
 
     // $(".helpArrow").removeClass("hidden");
