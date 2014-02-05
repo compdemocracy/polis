@@ -402,6 +402,7 @@ force.on("tick", function(e) {
         .attr("transform", chooseTransformForRoots);
 
     updateHulls();
+    updateHelpArrow();
 });
 
 window.P.stop = function() {
