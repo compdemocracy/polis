@@ -1496,28 +1496,28 @@ app.post("/v3/beta",
 
 app.post("/v3/auth/login",
     need('password', getOptionalStringLimitLength(999), assignToP),
-    want('username', getOptionalStringLimitLength(999), assignToP),
     want('email', getEmail, assignToP),
 function(req, res) {
     var password = req.p.password;
-    var username = req.p.username || "";
     var email = req.p.email || "";
-    username = username.toLowerCase();
     email = email.toLowerCase();
     if (!_.isString(password) || password.length == 0) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
-    client.query("SELECT * FROM users WHERE LOWER(username) = ($1) OR LOWER(email) = ($2);", [username, email], function(err, docs) {
+    client.query("SELECT * FROM users WHERE LOWER(email) = ($1);", [email], function(err, docs) {
         docs = docs.rows;
         if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); console.error("polis_err_login_unknown_user_or_password_err"); return; }
         if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_noresults"); return; }
         var hashedPassword  = docs[0].pwhash;
         var uid = docs[0].uid;
 
+        console.log("email", email);
+        console.log("password", password);
+        console.log("pw, hashed", password, hashedPassword);
         bcrypt.compare(password, hashedPassword, function(errCompare, result) {
+            console.log("errCompare, result", errCompare, result);
             if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
             
             startSession(uid, function(errSess, token) {
                 var response_data = {
-                    username: username,
                     uid: uid,
                     email: email,
                     token: token
@@ -1555,14 +1555,12 @@ function zinviteExists(zinvite, callback) {
 
 app.post("/v3/auth/new",
     want('anon', getBool, assignToP),
-    want('username', getOptionalStringLimitLength(999), assignToP),
     want('password', getPassword, assignToP),
     want('email', getOptionalStringLimitLength(999), assignToP),
     want('hname', getOptionalStringLimitLength(999), assignToP),
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
-    var username = req.p.username;
     var hname = req.p.hname;
     var password = req.p.password;
     var email = req.p.email;
@@ -1604,11 +1602,11 @@ function(req, res) {
             generateHashedPassword(password, function(err, hashedPassword) {
                 if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
                     var query = "insert into users " +
-                        "(username, email, pwhash, hname, zinvite, oinvite, is_owner) VALUES "+
+                        "(email, pwhash, hname, zinvite, oinvite, is_owner) VALUES "+
                         "($1, $2, $3, $4, $5, $6, $7) "+
                         "returning uid;";
                     var vals = 
-                        [username, email, hashedPassword, hname, zinvite||null, oinvite||null, !!oinvite];
+                        [email, hashedPassword, hname, zinvite||null, oinvite||null, !!oinvite];
 
                     client.query(query, vals, function(err, result) {
                         if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
@@ -1619,7 +1617,6 @@ function(req, res) {
                             res.json({
                                 uid: uid,
                                 hname: hname,
-                                username: username,
                                 email: email,
                                 token: token
                             });
