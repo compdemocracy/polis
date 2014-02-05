@@ -983,7 +983,8 @@ function(req, res) {
 });
 
 function getUidByEmail(email, callback) {
-    client.query("SELECT uid FROM users where email = ($1);", [email], function(err, results) {
+    email = email.toLowerCase();
+    client.query("SELECT uid FROM users where LOWER(email) = ($1);", [email], function(err, results) {
         if (err) { return callback(err); }
         if (!results || !results.rows || !results.rows.length) {
             return callback(1);
