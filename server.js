@@ -402,7 +402,7 @@ function connectToPostgres(callback) {
 
 
 function hasToken(req) {
-    return !!req.cookies.token;
+    return !!req.cookies[COOKIES.TOKEN];
 }
 
 function needOr(condition, primary, alternative) {
@@ -1020,15 +1020,11 @@ function clearCookies(req, res) {
 
 app.post("/v3/auth/deregister",
 function(req, res) {
-    var token = req.cookies.token;
-
-    console.dir(req);
+    var token = req.cookies[COOKIES.TOKEN];
 
     // clear cookies regardless of auth status
     clearCookies(req, res);
 
-    console.dir(req);
-    
     function finish() {
         res.status(200).end();
     }
@@ -1508,19 +1504,16 @@ function(req, res) {
     var email = req.p.email || "";
     username = username.toLowerCase();
     email = email.toLowerCase();
-    var handles = [];
-    if (username) { handles.push({username: username}); }
-    if (email) { handles.push({email: email}); }
-    if (!_.isString(password)) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
+    if (!_.isString(password) || password.length == 0) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
     client.query("SELECT * FROM users WHERE LOWER(username) = ($1) OR LOWER(email) = ($2);", [username, email], function(err, docs) {
         docs = docs.rows;
-        if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); return; }
-        if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); return; }
+        if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); console.error("polis_err_login_unknown_user_or_password_err"); return; }
+        if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_noresults"); return; }
         var hashedPassword  = docs[0].pwhash;
         var uid = docs[0].uid;
 
         bcrypt.compare(password, hashedPassword, function(errCompare, result) {
-            if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); return; }
+            if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
             
             startSession(uid, function(errSess, token) {
                 var response_data = {
@@ -1529,7 +1522,6 @@ function(req, res) {
                     email: email,
                     token: token
                 };
-                clearCookies(req, res);
                 addCookies(res, token, uid);
                 res.json(response_data);
             }); // startSession
@@ -1623,7 +1615,6 @@ function(req, res) {
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(err,token) {
                             if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
-                            clearCookies(req, res);
                             addCookies(res, token, uid);
                             res.json({
                                 uid: uid,
