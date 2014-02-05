@@ -83,16 +83,30 @@ if (!isIE8) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
         function(d) {
-            // use the email address as the html
-            return d.ppl.map(function(p) {
-                return p.pid;
-            }).map(getUserInfoByPid).map(function(user) {
-                if (!user.email && isSelf(d)) {
-                    // needed for demo mode
-                    return "This is you";
-                }
-                return user.email;
-            }).join("<br/>");
+            d.getPeople().then(function(people) {
+                // use the email address as the html
+                var html = people.map(function(p) {
+                    return p.pid;
+                }).map(getUserInfoByPid).map(function(user) {
+                    if (!user) {
+                        console.warn("missing user info");
+                        return "";
+                    }
+                    if (!user.email && isSelf(d)) {
+                        // needed for demo mode
+                        return "This is you";
+                    }
+                    return user.email;
+                }).join("<br/>");
+                setTimeout(function() {
+                    $("#tipContents").html(html);
+                }, 10);
+            });
+            var oldHtml = $("#tipContents").html();
+            if (oldHtml) {
+                return oldHtml;
+            }
+            return "<div id='tipContents'></div>";
         }
     );
 }
@@ -520,7 +534,7 @@ function chooseDownArrowPath(d) {
     return makeArrowPoints(scale, false);
 }
 function chooseCircleRadius(d) {
-    return Math.sqrt(d.ppl.length) * baseNodeRadius * 0.8;
+    return Math.sqrt(d.count) * baseNodeRadius * 0.8;
 }
 
 

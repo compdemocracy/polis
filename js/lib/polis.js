@@ -399,7 +399,15 @@ return function(params) {
         if (this.containsPid(getPid())) {
             this.containsSelf = true;
         }
+        this.count = this.ppl.length;
     };
+    Bucket.prototype.getPeople = function() {
+        // return getUserInfoByBid(this.bid);
+        // TODO make service call instead.
+        var dfd = $.Deferred();
+        dfd.resolve(this.ppl);
+        return dfd.promise();
+    }
     function bucketize(people, rows, columns, firstBid) {
         var spans = Utils.computeXySpans(people);
         var bid = firstBid; // assign a unique bid to each Bucket
@@ -601,15 +609,14 @@ return function(params) {
                 // remove self, will add after bucketizing
                 var myPid = getPid();
                 var buckets = bucketize(people, 9, 9, 1);
-                for (var b = 0; b < buckets.length; b++) {
-                    var bucket = buckets[b];
+                _.each(buckets, function(bucket) {
                     if (bucket.containsSelf) {
                         bucket.ppl = _.filter(bucket.ppl, function(person) {
-                            return person.pid != myPid;
+                            return person.pid !== myPid;
                         });
-                        delete bucket.containsSelf
+                        delete bucket.containsSelf;
                     }
-                }
+                });
                 // people = _.filter(people, function(p) {
                 //     return p.pid !== myPid;
                 // });
