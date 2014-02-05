@@ -1,9 +1,10 @@
+
 {{#if disabled}}
-  <div class="off makeCursorHand big_button w100 questionAnswer nobullets">
+  <li class="makeCursorPointer questionAnswer nobullets list-group-item">
     <i class="icon-eye-close gray_out"></i><span class="questionAnswerFilterLabel">{{value}}</span>
-  </div>
+  </li>
 {{else}}
-  <div class="on makeCursorHand big_button w100 questionAnswer nobullets">
+  <li class="makeCursorPointer questionAnswer nobullets list-group-item">
     <i class="icon-eye-open"></i><span class="questionAnswerFilterLabel">{{value}}</span>
-  </div>
+  </li>
 {{/if}}
