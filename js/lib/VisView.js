@@ -87,6 +87,10 @@ if (!isIE8) {
             return d.ppl.map(function(p) {
                 return p.pid;
             }).map(getUserInfoByPid).map(function(user) {
+                if (!user.email && isSelf(d)) {
+                    // needed for demo mode
+                    return "This is you";
+                }
                 return user.email;
             }).join("<br/>");
         }
