@@ -61,10 +61,10 @@
 
 		<div class="well" id="seedCommentsContainer">
 			<i class="icon-caret-right" id="seedCommentsCaret" style="margin-right: 10px;"></i> 
-			<h5 style="display:inline"> Add Starter Comments </h5>
+			<h5 style="display:inline"> Add Comments for Participants to React To </h5>
 			<div style="display:none;" id="hiddenSeedCommentForm">
 				<div style="margin-top: 20px" class="alert alert-info">
-      		<p> Seed the conversation with comments for participants to react to. <i class="icon-info-sign"></i> <span style="cursor: pointer" id="seedCommentHelperTextButton"> Tell me more.</span></p>
+      		<p> Optionally add comments for participants to react to when the conversation begins. <i class="icon-info-sign"></i> <span style="cursor: pointer" id="seedCommentHelperTextButton"> Tell me more.</span></p>
       		<div style="display: none; margin-top: 20px" id="hiddenSeedCommentHelperText">
       		<p> Normally, there will be no comments in the conversation as your first participants enter. If you want to ensure that certain perspectives will be discussed, or at least reacted to, you can add them here one at a time. All participants will be able to agree, star, disagree, pass, or trash as usual. </p>
       		<p> Normally, a comment submitted by a participant will be automatically 'agreed' to by the participant who submits it. Comments you add here are free from this constraint - you are free to play devil's advocate and add opposing views, then vote on your preference when you enter the conversation. You might use this to convert a long email chain to a Polis conversation - ie., extract the key comments, add them here, and send the link back out to the chain to get their reactions. </p>
@@ -76,14 +76,15 @@
 				
 		<div class="well" id="metadataFormContainer">
 			<i class="icon-caret-right" id="metadataCaret" style="margin-right: 10px;"></i>
-			<h5 style="display:inline"> Add Participant Metadata </h5>      
+			<h5 style="display:inline"> Ask Participants About Themselves </h5>      
 			<div style="display:none;" id="hiddenMetadataForm">
 				<div style="margin-top: 20px" class="alert alert-info">
-		     	<p> Ask participants about themselves. <i class="icon-info-sign"></i> <span id="metaDataHelperTextButton" style="cursor: pointer"> How do I use metadata? </span></p>
+		     	<p> Ask participants about themselves <i class="icon-info-sign"></i> <span id="metaDataHelperTextButton" style="cursor: pointer"> Tell me more. </span></p>
 		     	<div id="hiddenMetadataHelperText" style="display:none; margin-top: 20px">
-		     	<p> Starter comments can anticipate opinion groups by offering the perspectives of which you are already aware. Metadata, on the other hand, asks participants for <em> facts </em> about themselves when they first join the conversation. It reflects groups that are not based on opinion that you (1) already know exist, (2) want to control for and (3) want to filter based on. </p>
-		     	<p> Metadata is completely flexible, and you must define both the questions and answers. You can define qualitative categories such as "What office do you work out of?" with answers such as "New York", "LA", "Boston", "No office - remote contractor". You can also define binary questions such as "Have you ever lived without healthcare?", but must manually create the answers "Yes" and "No". You can also create quantitative scales, where a question such as "How many times do you check email per day?" might have answers such as "1-2", "3-5", "5+". </p>
-		     	<p> When participants enter the conversation, they will be asked to check boxes, and will be able to check as many as apply to them (answers to questions are not mutually exclusive). During the conversation, click the 'Analyze' tab to filter participants in the visualization by metadata. All participants are shown by default. By clicking on "Boston", as per the example above, the icon will turn to grey and participants who chose that answer will fade out, making it easier to identify patterns of agreement and disagreement in those participants who remain. </p>
+
+		     	<p> Asks participants for facts about themselves when they first join the conversation, then use that information to filter them later. </p>
+		     	<p> Create any kind of question you like. You must define both the questions and the answers. You can define qualitative categories such as "What office do you work out of?" with answers such as "New York", "LA", "Boston", "No office - remote contractor". You can also define binary questions such as "Have you ever lived without healthcare?", but must manually create the answers "Yes" and "No". You can also create quantitative scales, where a question such as "How many times do you check email per day?" might have answers such as "1-2", "3-5", "5+". </p>
+		     	<p> When participants enter the conversation, they will be asked to check boxes, and will be able to check as many as apply to them (answers to questions are not mutually exclusive). During the conversation, click the 'Analyze' tab to filter participants in the visualization. </p>
 		     	</div>
 		   	</div>
 				{{view metadataQuestionsViewWithCreate}}

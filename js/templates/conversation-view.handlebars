@@ -66,17 +66,27 @@
         {{view commentForm}}
       </div>
       <div class="tab-pane" id="analyze">
-      {{#if hasMetadata}}
-      <ul class="nav nav-pills nav-justified">
-        <li class="active"><a >Comments</a></li>
-        <li><a href="">Metadata</a></li>
-      </ul>
-      {{/if}}
-        {{view metadataQuestionsView}}
-        <div class="query_results_div" class="hidden-xs">
-        </div> <!-- query results div -->        
-      </div>
-    </div>
+      <!-- BEGIN PILLS -->
+        <div class="tabbable">
+          {{#if hasMetadata}}
+          <ul class="nav nav-pills nav-justified">
+            <li class="active"><a href="#query_results_hiddenxs" id="query_results_pill" data-toggle="tab">Comments</a></li>
+            <li><a href="#metadata_eyes" id="metadata_pill" data-toggle="tab">Participant Info</a></li>
+          </ul>
+          {{/if}}
+          <div class="tab-content">
+            <div class="tab-pane" id="query_results_hiddenxs">
+              <div class="query_results_div" class="hidden-xs">
+              </div> <!-- query results div -->
+            </div>
+            <div class="tab-pane" id="metadata_eyes">
+              <p> All participants are shown by default. By clicking on "Boston", as per the example above, the icon will turn to grey and participants who chose that answer will fade out, making it easier to identify patterns of agreement and disagreement in those participants who remain. </p>
+              {{view metadataQuestionsView}}
+            </div>
+          </div>      
+        </div> <!-- END PILLS -->
+      </div> <!-- analyze tab pane -->
+    </div> <!-- tab content -->
   </div> <!-- tabbable -->
   </div> <!-- span 4 -->
 
