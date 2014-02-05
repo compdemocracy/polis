@@ -88,14 +88,19 @@ if (!isIE8) {
                 // use the email address as the html
                 var html = people.map(function(p) {
                     return p.pid;
-                }).map(getUserInfoByPid).map(function(user) {
+                })
+                .map(function(pid) {
+                    if (isSelf(d)) {
+                        return {
+                            email: "This is you" // needed for demo mode
+                        };
+                    }
+                    return getUserInfoByPid(pid);
+                })
+                .map(function(user) {
                     if (!user) {
                         console.warn("missing user info");
                         return "";
-                    }
-                    if (!user.email && isSelf(d)) {
-                        // needed for demo mode
-                        return "This is you";
                     }
                     return user.email;
                 }).join("<br/>");
