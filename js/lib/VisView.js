@@ -777,28 +777,31 @@ function selectComment(tid) {
 
     getReactionsToComment(tid)
       // .done(unhoverAll)
-      .then(function(reactions) {
-        var userToReaction = {};
+      .then(function(votes) {
+        var bidToVote = {};
         var i;
-        for (i = 0; i < reactions.length; i++) {
-            userToReaction[reactions[i].pid] = reactions[i];
+        for (i = 0; i < votes.length; i++) {
+            bidToVote[votes[i].bid] = votes[i];
         }
         for (i = 0; i < nodes.length; i++) {
             var node = nodes[i];
-            node.ups = 0;
-            node.downs = 0;
-            for (var p = 0; p < node.ppl.length; p++) {
+            var bucket = bidToVote[node.bid];
+            if (!bucket) { break; }
+            node.ups = bucket.agrees;
+            node.downs = bucket.disagrees;
 
-                // TODO_MAXDOTS count up the reactions of each type for each user (instead of just ppl[0])
-                var reaction = userToReaction[node.ppl[p].pid];
-                if (reaction) {
-                    if (reaction.vote === -1) {
-                        node.ups += 1;
-                    } else if (reaction.vote === 1) {
-                        node.downs += 1;
-                    }
-                }
-            }
+            // for (var p = 0; p < node.ppl.length; p++) {
+
+            //     // TODO_MAXDOTS count up the votes of each type for each user (instead of just ppl[0])
+            //     var reaction = bidToVote[node.ppl[p].pid];
+            //     if (reaction) {
+            //         if (reaction.vote === -1) {
+            //             node.ups += 1;
+            //         } else if (reaction.vote === 1) {
+            //             node.downs += 1;
+            //         }
+            //     }
+            // }
         }
         updateNodes();
         // visualization.selectAll("g")

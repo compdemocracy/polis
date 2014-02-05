@@ -407,7 +407,7 @@ return function(params) {
         var dfd = $.Deferred();
         dfd.resolve(this.ppl);
         return dfd.promise();
-    }
+    };
     function bucketize(people, rows, columns, firstBid) {
         var spans = Utils.computeXySpans(people);
         var bid = firstBid; // assign a unique bid to each Bucket
@@ -804,6 +804,40 @@ return function(params) {
         return polisGet(votesPath, {
             zid: zid,
             tid: commentId
+        }).then(function(otherVotes) {
+            var myVotes = votesByMe.filter(function() { return true; });
+            // this code will probably move to the math worker.
+            var userToVote = {};
+            var i;
+            for (i = 0; i < otherVotes.length; i++) {
+                userToVote[otherVotes[i].pid] = otherVotes[i];
+            }
+            // Splice my votes in for self group.
+            otherVotes.unshift({
+                bid: 0,
+                ppl: [getPid()],
+                agrees: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.pull; }),
+                disagrees: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.push; })
+            });
+            // TODO reduce vote count for the bucket self is in.
+            return _.map(projectionPeopleCache, function(bucket) {
+                var counters = {
+                    bid: bucket.bid,
+                    agrees: 0,
+                    disagrees: 0
+                };
+                _.each(bucket.ppl, function(person) {
+                    var vote = userToVote[person.pid];
+                    if (!vote) { return; }
+                    if (vote.vote === polisTypes.reactions.push) {
+                        counters.disagrees += 1;
+                    } else if (vote.vote === polisTypes.reactions.pull) {
+                        counters.agrees += 1;
+                    }
+                });
+                return counters;
+            });
+
         });
     }
 
