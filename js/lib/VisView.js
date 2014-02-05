@@ -79,6 +79,7 @@ $(el_selector).html("");
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 var tip = null;
+var tipPreviousTarget = null; // Sorry God!
 if (!isIE8) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
@@ -102,10 +103,13 @@ if (!isIE8) {
                     $("#tipContents").html(html);
                 }, 10);
             });
-            var oldHtml = $("#tipContents").html();
-            if (oldHtml) {
-                return oldHtml;
+            if (d === tipPreviousTarget) {
+                var oldHtml = $("#tipContents").html();
+                if (oldHtml) {
+                    return oldHtml;
+                }
             }
+            tipPreviousTarget = d;
             return "<div id='tipContents'></div>";
         }
     );
