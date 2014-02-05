@@ -590,21 +590,21 @@ function upsertNode(updatedNodes, newClusters) {
 
 
     // migrate an existing cluster selection to the new similar cluster
-    var readyToReselectComment = $.Deferred().resolve();
-    if (selectedCluster !== false) {
+    // var readyToReselectComment = $.Deferred().resolve();
+    // if (selectedCluster !== false) {
 
-        var currentSelectedCluster = clusters[selectedCluster];
+    //     var currentSelectedCluster = clusters[selectedCluster];
 
-        var nearestCluster = argMax(
-            _.partial(clusterSimilarity, currentSelectedCluster),
-            newClusters);
+    //     var nearestCluster = argMax(
+    //         _.partial(clusterSimilarity, currentSelectedCluster),
+    //         newClusters);
 
-        var nearestClusterId = newClusters.indexOf(nearestCluster);
+    //     var nearestClusterId = newClusters.indexOf(nearestCluster);
+    //     clusters = newClusters;
+    //     readyToReselectComment = setClusterActive(nearestClusterId);
+    // } else {
         clusters = newClusters;
-        readyToReselectComment = setClusterActive(nearestClusterId);
-    } else {
-        clusters = newClusters;
-    }
+    // }
 
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
@@ -613,11 +613,11 @@ function upsertNode(updatedNodes, newClusters) {
         }
     }
     
-    readyToReselectComment.done(function() {
-        if (selectedTid >= 0) {
-            selectComment(selectedTid);
-        }
-    });
+    // readyToReselectComment.done(function() {
+    //     if (selectedTid >= 0) {
+    //         selectComment(selectedTid);
+    //     }
+    // });
 
 
     function computeTarget(d) {
