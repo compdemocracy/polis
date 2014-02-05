@@ -1603,10 +1603,10 @@ function(req, res) {
                 if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
                     var query = "insert into users " +
                         "(email, pwhash, hname, zinvite, oinvite, is_owner) VALUES "+
-                        "($1, $2, $3, $4, $5, $6, $7) "+
+                        "($1, $2, $3, $4, $5, $6) "+
                         "returning uid;";
                     var vals = 
-                        [email, hashedPassword, hname, zinvite||null, oinvite||null, !!oinvite];
+                        [email, hashedPassword, hname, zinvite||null, oinvite||null, true];
 
                     client.query(query, vals, function(err, result) {
                         if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
@@ -1618,7 +1618,7 @@ function(req, res) {
                                 uid: uid,
                                 hname: hname,
                                 email: email,
-                                token: token
+                                // token: token
                             });
                         }); // end startSession
                     }); // end insert user
@@ -1815,6 +1815,7 @@ function getVotesForZidPids(zid, pids, callback) {
 function getCommentIdCounts(voteRecords) {
     var votes = voteRecords;
     var commentIdCountMap = {};
+    // TODO account for duplicate votes (where the current value is 
     for (var i = 0; i < votes.length; i++) {
         var vote = votes[i];
         var count = commentIdCountMap[vote.tid];
