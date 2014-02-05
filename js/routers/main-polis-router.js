@@ -76,13 +76,16 @@ define([  //begin dependencies
     },
     landingPageView: function() {
       if (!authenticated()) {
+
+        this.navigate("user/create", {trigger: true});
+
         // RootView.getInstance().setView(new LandingPageView());
-        RootView.getInstance().setView(new CreateUserFormView({
-          model : new Backbone.Model({
-            // zinvite: zinvite,
-            create: true
-          })
-        }));
+        // RootView.getInstance().setView(new CreateUserFormView({
+        //   model : new Backbone.Model({
+        //     // zinvite: zinvite,
+        //     create: true
+        //   })
+        // }));
       } else {
         // this.inbox();
         this.navigate("inbox", {trigger: true});
