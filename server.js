@@ -2382,13 +2382,14 @@ function(req, res) {
 
 
 function isUserAllowedToCreateConversations(uid, callback) {
-    client.query("select is_owner from users where uid = ($1);", [uid], function(err, results) {
-        if (err) { return callback(err); }
-        if (!results || !results.rows || !results.rows.length) {
-            return callback(1);
-        }
-        callback(null, results.rows[0].is_owner);
-    });
+    callback(null, true);
+    // client.query("select is_owner from users where uid = ($1);", [uid], function(err, results) {
+    //     if (err) { return callback(err); }
+    //     if (!results || !results.rows || !results.rows.length) {
+    //         return callback(1);
+    //     }
+    //     callback(null, results.rows[0].is_owner);
+    // });
 }
 
 // TODO check to see if ptpt has answered necessary metadata questions.
