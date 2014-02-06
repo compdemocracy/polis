@@ -14,7 +14,6 @@ define([
     // var lookingAtCommentsOverallCb = $.Callbacks();
     // var lookingAtCommentsForHull = false;
     var userVotedCb = $.Callbacks();
-alert(0);
     eb.on(eb.exit, cleanup);
     eb.on(eb.vote, userVotedCb.fire);
    // eb.on(eb.vote, function() {

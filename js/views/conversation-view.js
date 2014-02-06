@@ -282,11 +282,11 @@ define([
       });
 
       setTimeout(function(){
-        $commentViewPopover.popover("show")
+        $commentViewPopover.popover("show");
         $("#commentViewPopoverButton").click(function(){
-          $commentViewPopover.popover("hide")
-        })
-      },1000)
+          $commentViewPopover.popover("hide");
+        });
+      },1000);
 
       initPcaVis();
 
