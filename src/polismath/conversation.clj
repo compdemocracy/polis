@@ -1,17 +1,10 @@
 (ns polismath.conversation
-  (:use polismath.utils))
-
-(defn partial-pca
-  [rating-matrix pca indices & {:keys [iters learning-rate]
-                                :or {iters 10 learning-rate 0.01}}]
-  (let [rating-subset (row-subset rating-matrix indices)
-        patial-pca (powerit-pca rating-subset n-comps
-                     :start-vectors pca
-                     :iters pca-iters)
-        forget-rate (- 1 learning-rate)
-        partial-update (fn [key] (+ (* forget-rate (pca key)) (partial-pca key)))]
-    {:center (partial-update :center)
-     :pcs (partial-udpate :pcs)}))
+  (:require [plumbing.core :as plmb]
+            [plumbing.graph :as graph])
+  (:use polismath.utils
+        polismath.pca
+        polismath.clusters
+        polismath.named-matrix))
 
 ; conv - should have
 ;   * last-updated
@@ -25,19 +18,39 @@
 ;   * rating matrix
 ;   * base-cluster-full [ptpt to base mpa]
 
-(defn update-conv [conv votes & {:keys [n-comps   pca-iters    cluster-iters    base-k     group-k  ]
-                                 :or   {n-comps 2 pca-iters 10 cluster-iters 10 base-k 100 group-k 3}}]
-  (let [{:keys [last-updated pca base-clusters group-clusters repness]} conv
-        rating-matrix (update-rating-matrix rating-matrix
-                        (map #(map % [:pid :tid :vote]) votes))
-        pca           (powerit-pca rating-matrix n-comps
-                                   :start-vectors pca
-                                   :iters pca-iters)
-        base-clusters (kmeans rating-matrix base-k last-clusters base-clusters)
-        group-clusters (kmeans rating-matrix group-k last-clusters group-clusters)
-        ptpt-proj     (pca-project rating-matrix ptpt-pca)
-        ptpt-clusters {}]
-    (conversation rating-matrix ptpt-pca ptpt-clusters)))
+
+
+(def base-conv-update-graph
+  {:opts'       (plmb/fnk [opts]
+                  "Merge in opts with the following defaults"
+                  (merge opts {:n-comps 2
+                               :pca-iters 10
+                               :cluster-iters 10
+                               :base-k 100
+                               :group-k 3}))
+   :rating-mat  (plmb/fnk [conv votes]
+                  (update-nmat (:rating-mat conv)
+                    (map #(map % [:pid :tid :vote]) votes)))})
+
+
+(def small-conv-update-graph
+  (merge base-conv-update-graph
+    {:mat   (plmb/fnk [rating-mat]
+              (map (fn [row] (map #(if (nil? %) 0 %) row))
+                (:matrix rating-mat)))
+     :pca   (plmb/fnk [conv mat opts']
+              (wrapped-pca mat (:n-comps opts')
+                           :start-vectors (:pca conv)
+                           :iters (:pca-iters conv)))
+     :proj  (plmb/fnk [mat pca]
+              (pca-project mat pca))
+     :group-clusters
+            (plmb/fnk [conv rating-mat mat opts']
+              (kmeans (assoc rating-mat :matrix mat :cols (map #(str "pc" %) (:n-comps opts')))
+                (:group-k opts')
+                :last-clusters (:group-clusters conv)
+                :cluster-iters (:cluster-iters opts')))
+                      }))
 
 
 ;(defn format-conv [conv]
