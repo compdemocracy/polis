@@ -39,6 +39,8 @@
       (testing "1x2"
         (is (right-shape [[1 0]])))
       (testing "2x1"
-        (is (right-shape [[1 0]]))))))
+        (is (right-shape [[1] [0]])))
+      (testing "2x2"
+        (is (right-shape [[1 0] [-1 1]]))))))
 
 
