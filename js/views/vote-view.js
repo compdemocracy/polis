@@ -46,6 +46,9 @@ define([
     function onFail(err) {
         alert("error sending vote " + JSON.stringify(err));
     }
+    this.onVote = function() {
+      this.trigger("vote");
+    };
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");
       votesByMe.add({
@@ -57,6 +60,7 @@ define([
       serverClient.agree(tid)
           .done(showNext)
           .fail(onFail);
+      this.onVote();
     };
     this.participantDisagreed = function() {
       var tid = this.model.get("tid");
@@ -69,6 +73,7 @@ define([
       serverClient.disagree(tid)
           .done(showNext)
           .fail(onFail);
+      this.onVote();
     };
     this.participantPassed = function() {
       var tid = this.model.get("tid");
@@ -81,6 +86,7 @@ define([
       serverClient.pass(tid)
           .done(showNext)
           .fail(onFail);
+      this.onVote();
     };
     this.participantStarred = function() {
       var tid = this.model.get("tid");

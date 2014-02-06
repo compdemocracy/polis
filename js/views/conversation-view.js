@@ -19,6 +19,7 @@ define([
   "util/polisStorage",
   "util/utils",
   "VisView",
+  "controllers/tutorialController",
   "polis"
   ], function (
     View,
@@ -41,6 +42,7 @@ define([
     PolisStorage,
     Utils,
     VisView,
+    TutorialController,
     ServerClient
     ) {
   return View.extend({
@@ -87,6 +89,8 @@ define([
     var zid = this.zid = this.model.get("zid");
     var pid = this.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
+
+    this.tutorialController = new TutorialController();
 
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: zid
@@ -194,6 +198,7 @@ define([
         pid: pid,
         zid: zid
       });
+      this.commentView.on("vote", this.tutorialController.onVote);
 
       this.commentsByMe = new CommentsCollection({
         zid: zid,
