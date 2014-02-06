@@ -1,7 +1,8 @@
 (ns pca-test
   (:require [clojure.test :refer :all]
             [polismath.named-matrix :refer :all]
-            [incanter.core :refer :all]
+            [clojure.math.numeric-tower :refer :all]
+            [clojure.core.matrix :as m]
             [polismath.pca :refer :all]))
 
 
@@ -11,7 +12,7 @@
 
 (deftest powerit
   (testing "Should generally work"
-    (let [data (matrix [[ 1 0  0  ]
+    (let [data (m/matrix [[ 1 0  0  ]
                         [-1 1  0.1]
                         [ 0 1  0.1]
                         [ 0 1 -0.1]])
@@ -26,4 +27,18 @@
 
       (testing "from scratch"
                (is (almost-equal? (pc-from-start [1 1]) expected))))))
+
+
+(deftest wrapped-pca-test
+  (letfn [(right-shape [data]
+            (let [res (wrapped-pca (m/matrix data) 2)]
+              (and (:center res) (:comps res))))]
+    (testing "Should not fail and have the right shape for for"
+      (testing "1x1"
+        (is (right-shape [[1]])))
+      (testing "1x2"
+        (is (right-shape [[1 0]])))
+      (testing "2x1"
+        (is (right-shape [[1 0]]))))))
+
 
