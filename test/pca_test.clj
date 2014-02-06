@@ -21,19 +21,19 @@
 
       (testing "from scratch"
                (is (= true (almost-equal? (pc-from-start nil) expected))))
-
       (testing "from scratch"
                (is (almost-equal? (pc-from-start [1 1 1]) expected)))
-
       (testing "from scratch"
-               (is (almost-equal? (pc-from-start [1 1]) expected))))))
+               (is (almost-equal? (pc-from-start [1 1]) expected)))))
+
+         )
 
 
 (deftest wrapped-pca-test
-  (letfn [(right-shape [data]
-            (let [res (wrapped-pca (m/matrix data) 2)]
-              (and (:center res) (:comps res))))]
-    (testing "Should not fail and have the right shape for for"
+  (testing "Should not fail and have the right shape for for"
+    (letfn [(right-shape [data]
+              (let [res (wrapped-pca (m/matrix data) 2)]
+                (and (:center res) (:comps res))))]
       (testing "1x1"
         (is (right-shape [[1]])))
       (testing "1x2"
@@ -41,6 +41,15 @@
       (testing "2x1"
         (is (right-shape [[1] [0]])))
       (testing "2x2"
-        (is (right-shape [[1 0] [-1 1]]))))))
+        (is (right-shape [[1 0] [-1 1]])))))
+
+  (testing "when initital start value is a zero eigenvector"
+    (let [data (m/matrix [[1 -1  1 -1]
+                          [0 0 -1  1]
+                          [1 1 -1  0]])]
+      (testing "should try another eigenvector"
+        (is (not (almost-equal?
+                   (wrapped-pca data 2)
+                   [0 0 0 0]))))))
 
 
