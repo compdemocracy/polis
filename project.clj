@@ -16,6 +16,7 @@
                  [net.mikera/core.matrix.stats "0.3.0"]
                  [net.mikera/vectorz-clj "0.19.0"]
                  [org.clojure/data.csv "0.1.2"]
+                 [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.1"]
                  [storm "0.8.2"]
                  [incanter "1.5.4"]
