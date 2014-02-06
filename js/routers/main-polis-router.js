@@ -1,4 +1,5 @@
 define([  //begin dependencies
+  "eventBus",
   "views/root",
   "backbone",
   "models/conversation",
@@ -21,6 +22,7 @@ define([  //begin dependencies
   "util/polisStorage",
   "jquery"
 ], function (  //begin args
+    eb,
 		RootView,
 		Backbone,
 		ConversationModel,
@@ -50,7 +52,7 @@ define([  //begin dependencies
 
   
 
-	return Backbone.Router.extend({
+	var polisRouter = Backbone.Router.extend({
     routes: {
       "homepage": "homepageView",
       "conversation/create": "createConversation",
@@ -383,4 +385,11 @@ define([  //begin dependencies
     RootView.getInstance().setView(loginFormView);
   }
   });
+ var originalNavigate = polisRouter.navigate;
+ polisRouter.navigate = function() {
+  alert("triggering exit");
+  eb.trigger(eb.exit);
+  originalNavigate.apply(polisRouter, arguments);
+ };
+ return polisRouter;
 });

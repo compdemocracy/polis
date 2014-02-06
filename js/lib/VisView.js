@@ -195,9 +195,6 @@ overlay_layer.append("polyline")
     .style("display", "none")
     ;
 
- setTimeout(function() {
-    displayHelpItem("Dots represent people. The blue dot is you.</br>");
-}, 3000);
 
 // function zoom() {
 //   // TODO what is event?
@@ -1063,6 +1060,7 @@ return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     addClusterTappedListener: clusterClickedCallbacks.add,
+    dipsplayBlueDotHelpItem: displayHelpItem,
     emphasizeParticipants: emphasizeParticipants2
 };
 

@@ -1,9 +1,12 @@
 define([
+  "eventBus",
   "jquery"
 ], function (
+  eb,
   $
 ) {
   return function() {
+
     // var onlyYouAreVisible = false;
     // var thereAreHulls = false;
     // var thereAreBuckets = false;
@@ -11,6 +14,22 @@ define([
     // var lookingAtCommentsOverallCb = $.Callbacks();
     // var lookingAtCommentsForHull = false;
     var userVotedCb = $.Callbacks();
+alert(0);
+    eb.on(eb.exit, cleanup);
+    eb.on(eb.vote, userVotedCb.fire);
+   // eb.on(eb.vote, function() {
+    //  alert(1);
+    //});
+    //    eb.on(eb.exit, function() {
+    //  alert(2);
+    //});
+    function cleanup() {
+      eb.off(eb.exit, cleanup);
+      eb.off(eb.vote, onVote);
+    }
+
+    var hintHandlers = {
+    };
 
     var shown = {
       blueDot: false,
@@ -36,10 +55,17 @@ define([
     // userVotedCb.add(function() { userHasVoted = true; });
     // userVotedCb.add(showBlueDotHint);
     userVotedCb.add(function() {
-      alert("user voted");
+      if (hintHandlers.blueDot) {
+        hintHandlers.blueDot("Dots represent people. The blue dot is you.</br>");
+      }
     });
+
+    function setHintHandler(name, f) {
+      hintHandlers[name] = f;
+    }
+
     return {
-      onVote: userVotedCb.fire
+      setHandler: setHintHandler
     };
   };
 });

@@ -1,9 +1,10 @@
 define([
+  "eventBus",
   "view",
   "templates/vote-view",
   "models/comment",
   "polis"
-], function (View, template, CommentModel, serverClient) {
+], function (eb, View, template, CommentModel, serverClient) {
   return View.extend({
     name: "vote-view",
     template: template,
@@ -13,6 +14,11 @@ define([
       }
     },
   initialize: function(options) {
+    eb.on("exit", cleanup);
+    function cleanup() {
+      eb.off("exit", cleanup);
+    }
+
     var serverClient = this.serverClient;
     var votesByMe = this.votesByMe;
     var zid = this.zid;
@@ -47,7 +53,7 @@ define([
         alert("error sending vote " + JSON.stringify(err));
     }
     this.onVote = function() {
-      this.trigger("vote");
+      eb.trigger(eb.vote);
     };
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");

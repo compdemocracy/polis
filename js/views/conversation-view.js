@@ -91,7 +91,6 @@ define([
     var zinvite = this.zinvite = this.model.get("zinvite");
 
     this.tutorialController = new TutorialController();
-
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: zid
     });
@@ -103,11 +102,9 @@ define([
 
     // HTTP PATCH - model.save({patch: true})
 
-
     function onClusterTapped() {
         that.onClusterTapped();
     }
-
 
     function initPcaVis() {
         var w = $("#visualization_div").width();
@@ -136,6 +133,7 @@ define([
         });
         vis.addClusterTappedListener(onClusterTapped);
         serverClient.addPersonUpdateListener(vis.upsertNode);
+        that.tutorialController.setHandler("blueDot", vis.dipsplayBlueDotHelpItem);
     }
 
     // just a quick hack for now.
@@ -198,7 +196,7 @@ define([
         pid: pid,
         zid: zid
       });
-      this.commentView.on("vote", this.tutorialController.onVote);
+      // this.commentView.on("vote", this.tutorialController.onVote);
 
       this.commentsByMe = new CommentsCollection({
         zid: zid,
