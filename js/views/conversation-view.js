@@ -181,6 +181,8 @@ define([
           });
       });
 
+
+
       this.changeVotes = new ChangeVotesView({
         serverClient: serverClient,
         zid: zid
@@ -237,7 +239,6 @@ define([
       });
       this.commentForm.updateCollection();
 
-
     this.listenTo(this, "rendered", function(){
       setTimeout(function() {
 
@@ -269,21 +270,20 @@ define([
         container: "body"
 
       });
-      that.$("#how_do_i_use").popover({
-        title: "How do I use Polis?",
-        content: "<ol> <li> Read & react to what others have said.</li><li> Write comments for others to react to.</li> <li> Watch the visualization change in real-time as you and others react.</li><li> Optionally, explore the visualization to learn more about what brought the groups together and what is differentiating them.</li>  <li> Hover over the menu items and buttons to learn about them (mobile: press and hold). </li>  </ol>",
+      var $commentViewPopover = that.$("#commentView").popover({
+        title: "START HERE",
+        content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='margin-top:20px'> Ok, got it! </button>",
         html: true, //XSS risk, not important for now
-        trigger: "click",
-        placement: "bottom"
-      });
-      that.$("#feedback_and_suggestions").popover({
-        title: "Feedback & Suggestions",
-        content: "<p> During the beta period, you can email us directly with feedback, questions or requests.</p> <i class=\"icon-info-envelope\"></i> <a href=\"mailto:colinmegill@gmail.com?Subject=Polis%20feedback:%20inbox\" target=\"_blank\">colinmegill@gmail.com </a>",
-        html: true, //XSS risk, not important for now
-        trigger: "click",
+        trigger: "manual",
         placement: "bottom"
       });
 
+      setTimeout(function(){
+        $commentViewPopover.popover("show")
+        $("#commentViewPopoverButton").click(function(){
+          $commentViewPopover.popover("hide")
+        })
+      },1000)
 
       initPcaVis();
 

@@ -196,7 +196,7 @@ overlay_layer.append("polyline")
     ;
 
  setTimeout(function() {
-    displayHelpItem("Dots represent people. The blue dot is you.</br> Try hovering!");
+    displayHelpItem("Dots represent people. The blue dot is you.</br>");
 }, 3000);
 
 // function zoom() {
