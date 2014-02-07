@@ -1,23 +1,37 @@
 var gulp = require('gulp');
 var browserify = require('gulp-browserify');
-var gutil = require('gulp-util');
-
 var concat = require('gulp-concat');  
+var gutil = require('gulp-util');
+var handlebars = require('gulp-handlebars');
 // var styl = require('gulp-styl');  
 // var refresh = require('gulp-livereload');  
 // var lr = require('tiny-lr');  
 // var server = lr();
 
 
+gulp.task('templates', function(){
+  gulp.src(['templates/*.hbs', 'templates/*.handlebars'])
+    .pipe(handlebars({
+      outputType: 'bare'
+     }))
 
-gulp.task('scripts', function() {
+    // .pipe(declare({
+    //   namespace: 'MyApp.templates'
+    // }))
+    // .pipe(concat('templates.js'))
+    .pipe(gulp.dest('js/tmpl'));
+});
+
+gulp.task('scripts', ['templates'], function() {
     // Single entry point to browserify
     gulp.src('js/main.js')
         .pipe(browserify({
           insertGlobals : true,
           debug : false, //!gulp.env.production
- 'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
+          transform: ['hbsfy'],
           shim : {
+
+ //TODO 'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
 
         // d3 is conditionally loaded from index
         // 'd3': '../bower_components/d3/d3',
@@ -49,41 +63,48 @@ gulp.task('scripts', function() {
             },
             thorax: {
               path: 'bower_components/thorax/thorax',
-              exports: 'Thorax',
               depends: { handlebars: 'Handlebars', backbone: 'Backbone' },             
+              exports: 'Thorax',
             },
             bootstrap_alert: {  //all bootstrap files need to be added to the dependency array of js/main.js
               path: 'bower_components/bootstrap/js/alert',
+              exports: null,
             },
             bootstrap_tab: {
               path : 'bower_components/bootstrap/js/tab',
+              exports: null,
             },
             bootstrap_popover: {
               path: 'bower_components/bootstrap/js/popover',
+              exports: null,
             },
             bootstrap_collapse: {
               path: 'bower_components/bootstrap/js/collapse',
+              exports: null,
             },
             bootstrap_dropdown: {
               path: 'bower_components/bootstrap/js/dropdown',
+              exports: null,
             },
             bootstrap_affix: {
               path: 'bower_components/bootstrap/js/affix',
+              exports: null,
             },
             d3tooltips: {
               path: 'bower_components/d3-tip/index',
+              exports: null,
             },
             bootstrap_tooltip: {
               path: 'bower_components/bootstrap/js/tooltip',
+              exports: null,
             },
             bootstrap_button: { 
               path: 'bower_components/bootstrap/js/button',
+              exports: null,
             },
             bootstrap_transition: {
               path: 'bower_components/bootstrap/js/transition',
-            },
-            polis: {
-              path: 'js/lib/polis',
+              exports: null,
             },
             VisView: {
               path: 'js/lib/VisView',
