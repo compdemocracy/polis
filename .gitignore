@@ -3,3 +3,4 @@ bower_components
 public
 .DS_Store
 *.log
+js/tmpl/
