@@ -1,14 +1,8 @@
-define([
-  "views/metadataAnswerView",
-  "templates/metadataQuestionAndAnswers",
-  "thorax"
-], function (
-  MetadataAnswerView,
-  template,
-  Thorax
-) {
+var MetadataAnswerView = require("./views/metadataAnswerView");
+var template = require("./templates/metadataQuestionAndAnswers");
+var Thorax = require("./thorax");
 
-return Thorax.CollectionView.extend({
+module.exports = Thorax.CollectionView.extend({
   name: "metadataQuestionAndAnswersView",
   template: template,
   itemView: MetadataAnswerView,
@@ -19,6 +13,4 @@ return Thorax.CollectionView.extend({
       this.collection = options.model.collection; // answers collection
       this.zid = options.zid;
   }
-});
-
 });

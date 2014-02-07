@@ -1,14 +1,7 @@
-define([
-  "templates/metadataAnswerChecked",
-  "views/metadataAnswerView"
-], function (
-  template,
-  MetadataAnswerView
-) {
+var template = require("./templates/metadataAnswerChecked");
+var MetadataAnswerView = require("./views/metadataAnswerView");
 
-return MetadataAnswerView.extend({
+modules.exports = MetadataAnswerView.extend({
   name: "metadataAnswerViewChecked",
   template: template
-});
-
 });

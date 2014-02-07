@@ -1,16 +1,9 @@
-define([
-  "views/metadataAnswerFilterView",
-  "templates/metadataQuestionAndAnswersFilter",
-  "underscore",
-  "thorax"
-], function (
-  MetadataAnswerFilterView,
-  template,
-  _,
-  Thorax
-) {
+var MetadataAnswerFilterView = require("./views/metadataAnswerFilterView");
+var template = require("./templates/metadataQuestionAndAnswersFilter");
+var _ = require("./underscore");
+var Thorax = require("./thorax");
 
-return Thorax.CollectionView.extend({
+module.exports = Thorax.CollectionView.extend({
   name: "metadataQuestionAndAnswersFilterView",
   tagName: "li",
   className: "questionText",
@@ -28,6 +21,4 @@ return Thorax.CollectionView.extend({
       });
       this.zid = options.zid;
   }
-});
-
 });

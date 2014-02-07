@@ -1,14 +1,8 @@
-define([
-  "models/metadataAnswer",
-  "views/metadataAnswerViewWithDelete",
-  "views/metadataQuestionAndAnswersView"
-], function (
-  MetadataAnswer,
-  MetadataAnswerViewWithDelete,
-  MetadataQuestionAndAnswersView
-) {
+var MetadataAnswer = require("./models/metadataAnswer");
+var MetadataAnswerViewWithDelete = require("./views/metadataAnswerViewWithDelete");
+var MetadataQuestionAndAnswersView = require("./views/metadataQuestionAndAnswersView");
 
-return MetadataQuestionAndAnswersView.extend({
+module.exports = MetadataQuestionAndAnswersView.extend({
   name: "metadataQuestionAndAnswersViewWithCreate",
   itemView: MetadataAnswerViewWithDelete,
   events: {
@@ -20,31 +14,10 @@ return MetadataQuestionAndAnswersView.extend({
       }
     }
   },
-  // initialize: function() {
-  //   var that = this;
-  //   this.on("render", function() {
-  //     setTimeout(function() {
-  //       that.$el.find("input").focus();
-  //     },0);
-  //   });
-  // },
   deleteQuestion: function() {
     // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
     this.model.destroy();
-    // .then(function() {
-    //   // ok
-    // }, function(err) {
-    //   alert("couldn't delete question");
-    //   console.dir(arguments);
-    // });
   },
-  // showAddAnswerForm: function(event) {
-  //   this.render();
-  //   var that = this;
-  //   setTimeout(function() {
-  //     that.$el.find("input").focus();
-  //   },0);
-  // },
   hideAddAnswerForm: function() {
     var that = this;
     this.serialize(function(attrs, release){
@@ -82,6 +55,4 @@ return MetadataQuestionAndAnswersView.extend({
   },
   allowCreate: true,
   allowDelete: true
-});
-
 });

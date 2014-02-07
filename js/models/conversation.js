@@ -1,5 +1,6 @@
-define(["model"], function (Model) {
-  return Model.extend({
+var Model = require("./model");
+
+module.exports = Model.extend({
     name: "conversation",
     path: "conversations",
     idAttribute: "zid",
@@ -45,4 +46,3 @@ define(["model"], function (Model) {
 
 
   });
-});

@@ -1,5 +1,6 @@
-define(["model"], function (Model) {
-  return Model.extend({
+var Model = require("./model");
+
+module.exports = Model.extend({
     name: "vote",
     idAttribute: "tid", // assumes it is used in a context where zid=current conversation and pid=self
     defaults: {
@@ -11,4 +12,3 @@ define(["model"], function (Model) {
       participantStarred: false
     }
   });
-});

@@ -1,12 +1,7 @@
-define([
-    "util/utils",
-    "util/shuffleWithSeed"
-], function(
-    Utils,
-    shuffleWithSeed
-) {
+var Utils = require("./util/utils")
+var shuffleWithSeed = require("./util/shuffleWithSeed");
 
-return function(params) {
+module.exports = function(params) {
 
     var polisTypes = {
         reactions: {
@@ -1028,4 +1023,3 @@ return function(params) {
         submitComment: submitComment
     };
 };
-});

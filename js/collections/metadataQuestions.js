@@ -1,11 +1,7 @@
-define([
-    "collection",
-    "models/metadataQuestion"
-], function (
-    Collection,
-    MetadataQuestion
-) {
-  return Collection.extend({
+var Collection = require("./collection");
+var MetadataQuestion = require("./models/metadataQuestion");
+
+module.exports = Collection.extend({
     name: "metadata/questions",
     url: "metadata/questions",
     initialize: function(models, options) {
@@ -13,4 +9,3 @@ define([
     },
     model: MetadataQuestion
   });
-});

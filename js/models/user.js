@@ -1,5 +1,6 @@
-define(["model"], function (Model) {
-  return Model.extend({
+var Model = require("./model");
+
+module.exports = Model.extend({
     name: "user",
     defaults: {
       uid: undefined,  // user id
@@ -9,4 +10,3 @@ define(["model"], function (Model) {
       email: ""
     }
   });
-});

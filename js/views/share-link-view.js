@@ -1,9 +1,8 @@
-define([
-  "view",
-  "templates/share-link-view",
-  "models/conversation"
-], function (View, template, ConversationModel) {
-  return View.extend({
+var View = require("./view");
+var template = require("./templates/share-link-view");
+var ConversationModel = require("./models/conversation");
+
+module.exports = View.extend({
     name: "shareLinkView",
     template: template,
     model: ConversationModel,
@@ -25,4 +24,3 @@ define([
       }
     }
   });
-});

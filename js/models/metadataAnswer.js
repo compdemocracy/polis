@@ -1,7 +1,6 @@
-define([
-    "model"
-], function (Model) {
-  return Model.extend({
+var Model = require("./model");
+
+module.exports = Model.extend({
     name: "metadataAnswers",
     urlRoot: "metadata/answers",
     idAttribute: "pmaid",
@@ -13,7 +12,3 @@ define([
         // checked: "checked", // TODO would be nice to use a boolean and have the template say "checked"
     }
   });
-});
-
-
-

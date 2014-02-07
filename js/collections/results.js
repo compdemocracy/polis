@@ -1,5 +1,5 @@
-define(["collection"], function (Collection) {
-  return Collection.extend({
-    name: "results"
-  });
+var Collection = require("./collection");
+
+module.exports = Collection.extend({
+  name: "results"
 });

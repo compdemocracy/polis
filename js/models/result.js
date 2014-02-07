@@ -1,7 +1,7 @@
-define(["model"], function (Model) {
-  return Model.extend({
+var Model = require("./model");
+
+module.exports = Model.extend({
     name: "result",
     defaults: {
     }
-  });
 });

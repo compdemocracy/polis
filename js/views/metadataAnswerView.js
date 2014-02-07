@@ -1,12 +1,7 @@
-define([
-  "templates/metadataAnswer",
-  "view"
-], function (
-  template,
-  View
-) {
+var template = require("./templates/metadataAnswer");
+var View = require("./view");
 
-return View.extend({
+modules.exports = View.extend({
   name: "metadataAnswerView",
   template: template,
   allowDelete: false,
@@ -14,6 +9,4 @@ return View.extend({
       this.model = options.model;
       this.zid = options.zid;
   }
-});
-
 });

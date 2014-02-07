@@ -1,5 +1,6 @@
-define(["model"], function (Model) {
-  return Model.extend({
+var Model = require("./model");
+
+module.exports = Model.extend({
     name: "participant",
     url: "participants",
     defaults: {
@@ -8,4 +9,3 @@ define(["model"], function (Model) {
       zid: undefined  // converzationz id
 		}
   });
-});

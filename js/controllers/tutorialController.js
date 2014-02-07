@@ -1,11 +1,7 @@
-define([
-  "eventBus",
-  "jquery"
-], function (
-  eb,
-  $
-) {
-  return function() {
+var eb = require("./eventBus");
+var $ = require("jquery");
+
+module.exports = function() {
 
     // var onlyYouAreVisible = false;
     // var thereAreHulls = false;

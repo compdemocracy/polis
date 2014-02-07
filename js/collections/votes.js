@@ -1,7 +1,8 @@
-define(["collection", "models/vote"], function (Collection, Vote) {
-  return Collection.extend({
+var Collection = require("./collection");
+var Vote = require("./models/vote");
+
+module.exports = Collection.extend({
     name: "votes",
     url: "votes",
     model: Vote
   });
-});

@@ -1,14 +1,8 @@
-define([
-  "templates/metadataAnswerWithDelete",
-  "net/bbDestroy",
-  "view"
-], function (
-  template,
-  bbDestroy,
-  View
-) {
+var template = require("./templates/metadataAnswerWithDelete");
+var bbDestroy = require("./net/bbDestroy");
+var View = require("./view");
 
-return View.extend({
+modules.exports = View.extend({
   name: "metadataAnswerViewWithDelete",
   template: template,
   allowDelete: true,
@@ -25,6 +19,4 @@ return View.extend({
       this.model = options.model;
       this.zid = options.zid;
   }
-});
-
 });
