@@ -1,5 +1,3 @@
-define(["thorax"], function (Thorax) {
-  return Thorax.LayoutView.extend({
+var Thorax = require("thorax");
 
-  });
-});
+modules.exports = Thorax.LayoutView.extend({});

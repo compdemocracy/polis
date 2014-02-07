@@ -1,66 +1,30 @@
-define([
-  "view",
-  "templates/conversation-view",
-  "views/vote-view",
-  "views/comment-form",
-  "views/change-votes",
-  "views/metadataQuestionsFilterView", // analyze view
-  "views/results-view", //results view
-  "models/vote",
-  "models/participant",
-  "models/conversation",
-  "models/comment",
-  "models/user",
-  "collections/comments",
-  "collections/votes",
-  "collections/metadataQuestions",
-  "collections/results",
-  "p",
-  "util/polisStorage",
-  "util/utils",
-  "VisView",
-  "controllers/tutorialController",
-  "polis"
-  ], function (
-    View,
-    template,
-    CommentView,
-    CommentFormView,
-    ChangeVotesView,
-    MetadataQuestionsFilterView,
-    ResultsView,
-    VoteModel,
-    ParticipantModel,
-    ConversationModel,
-    CommentModel,
-    UserModel,
-    CommentsCollection,
-    VotesCollection,
-    MetadataQuestionsCollection,
-    ResultsCollection,
-    p,
-    PolisStorage,
-    Utils,
-    VisView,
-    TutorialController,
-    ServerClient
-    ) {
-  return View.extend({
-    name: "conversation-view",
-    template: template,
-    events: {
-    // "click #commentViewTab": function(e) {
-    //   e.preventDefault();
-    //   $(e.target).tab("show");
-    // },
-    // "click #commentFormTab": function(e) {
-    //   e.preventDefault();
-    //   $(e.target).tab("show");
-    // },
-    // "click #analyzeTab": function(e) {
-    //   e.preventDefault();
-    //   $(e.target).tab("show");
-    // }
+var View = reqiure('./view');
+var template = require('./templates/conversation-view');
+var CommentView = require('./views/vote-view');
+var CommentFormView = require("./views/comment-form")
+var ChangeVotesView = require("./views");
+var MetadataQuestionsFilterView = require("./views/metadataQuestionsFilterView");
+var ResultsView = require("./views/results-view");
+var VoteModel = require("./models/vote");
+var ParticipantModel = require("./models/participant");
+var ConversationModel = require("./models/conversation");
+var CommentModel = require("./models/comment");
+var UserModel = require("./models/user");
+var CommentsCollection = require("./collections/comments");
+var VotesCollection = reqiure("./collections/votes");
+var MetadataQuestionsCollection = require("./collections/metadataQuestions");
+var ResultsCollection = require("./collections/results");
+var p = require("./p");
+var PolisStorage = require("./util/polisStorage");
+var Utils = require("./util/utils");
+var VisView = require("./VisView");
+var TutorialController = require("./controllers/tutorialController");
+var ServerClient = require("./polis");
+
+module.exports =  View.extend({
+  name: "conversation-view",
+  template: template,
+  events: {
   },
   onClusterTapped : function() {
       if (window.isMobile()) {
@@ -69,7 +33,6 @@ define([
   },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
-
     if (this.pid < 0) {
       // DEMO_MODE
       return;
@@ -82,7 +45,6 @@ define([
       reset: false
     });
   },
-
   initialize: function() {
     var that = this;
     var vis;
@@ -296,5 +258,4 @@ define([
   });
 
   } // end initialize
-  });
 });

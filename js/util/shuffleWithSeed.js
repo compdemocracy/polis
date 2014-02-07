@@ -1,8 +1,6 @@
-define([
-  "util/randomWithSeed"
-], function (RandomWithSeed) {
+var RandomWithSeed = require("./util/randomWithSeed");
 
-return function(array, seed) {
+module.exports = function(array, seed) {
     var seq = new RandomWithSeed(seed);
     if (seed === null) {
         seq = Math.random;
@@ -16,5 +14,3 @@ return function(array, seed) {
     });
     return shuffled;
 };
-
-});

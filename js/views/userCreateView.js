@@ -1,15 +1,9 @@
-define([
-  "view",
-  "templates/userCreate",
-  "util/polisStorage",
-  "jquery"
-], function (
-  View,
-  template,
-  PolisStorage,
-  $
-) {
-  return View.extend({
+var View = require("./view");
+var template = require("./templates/userCreate");
+var PolisStorage = require("./util/polisStorage");
+var $ = require("jquery");
+
+modules.exports = View.extend({
     name: "userCreateView",
     template: template,
     events: {
@@ -63,4 +57,3 @@ define([
       this.options = options;
     }
   });
-});

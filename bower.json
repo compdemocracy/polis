@@ -2,14 +2,12 @@
   "name": "dashboard-require",
   "version": "0.0.0",
   "dependencies": {
-    "requirejs": "~2.1",
     "underscore": "~1.5.2",
     "thorax": "~2.0",
     "bootstrap": "~3",
     "d3": "~3.3.3",
     "font-awesome": "~3.2.1",
     "lawnchair": "~0.6.3",
-    "almond": "~0.2.6",
     "d3-tip": "~0.6.1",
     "r2d3": "~0.2.0"
   }

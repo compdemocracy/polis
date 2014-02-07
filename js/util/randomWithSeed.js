@@ -1,5 +1,4 @@
-define(function() {
-	return function(x) {
+module.exports = function(x) {
     return function(min, max) {
         if (max === null || max === void 0) {
             max = min;
@@ -9,5 +8,4 @@ define(function() {
             // dave-scotese http://stackoverflow.com/questions/521295/javascript-random-seeds
             (x = Number("0."+Math.sin(x).toString().substr(6))) * (max - min + 1));
     };
-  };
-});
+};

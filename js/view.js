@@ -1,5 +1,3 @@
-define(["thorax"], function (Thorax) {
-  return Thorax.View.extend({
+var Thorax = require("thorax");
 
-  });
-});
+modules.exports = Thorax.View.extend({});

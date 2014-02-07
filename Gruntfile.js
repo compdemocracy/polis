@@ -256,8 +256,6 @@ module.exports = function(grunt) {
         // 'r2d3': '../bower_components/r2d3/r2d3',
         'lawnchair': '../bower_components/lawnchair/src/Lawnchair',
         // 'app': 'lib/App',
-        'Konfirm': 'lib/konfirm',
-        'anystretch': 'lib/anystretch',
         'p': 'lib/p',
         'polis': 'lib/polis',
         'VisView': 'lib/VisView',

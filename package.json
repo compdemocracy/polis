@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "dependencies": {
     "simple-lru-cache": "0.0.1",
-    "faker": "0.0.6"
+    "faker": "0.0.6",
+    "jquery": "~2.1.0"
   },
   "devDependencies": {
     "grunt-contrib-connect": "0.1.1",

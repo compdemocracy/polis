@@ -1,5 +1,3 @@
-define(["thorax"], function (Thorax) {
-  return Thorax.Collection.extend({
+var Thorax = require("thorax");
 
-  });
-});
+modules.exports = Thorax.Collection.extend({})

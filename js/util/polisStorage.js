@@ -1,6 +1,3 @@
-define([], function() {
-
-
 var store = (function() {
     // Using cookies because IE can have crazy security settings that make localStorage off-limits.
     // We may want
@@ -149,7 +146,7 @@ var store = (function() {
     // };
 
 
-    var x = {
+module.exports = {
         // pids: asNumber(makeCookieValueGetterForKeyWithSuffix("p")) // p for pid, expecting keys like 314p=2; 451p=12
         // pid: pidRamStore,
         // clearAll: clearAll,
@@ -160,5 +157,3 @@ var store = (function() {
         uid: asNumber(makeAccessor("uid2").get)
         //token: makeAccessor("p_authToken")
     };
-    return x;
-}); //();

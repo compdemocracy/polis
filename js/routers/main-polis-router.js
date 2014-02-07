@@ -1,153 +1,113 @@
-define([  //begin dependencies
-  "eventBus",
-  "views/root",
-  "backbone",
-  "models/conversation",
-  "models/participant",
-  "net/bbFetch",
-  "collections/conversations",
-  "views/inbox",
-  "views/homepage",
-  "views/create-conversation-form",
-  "views/conversation-details",
-  "views/conversationGatekeeperView",
-  "views/conversationGatekeeperViewCreateUser",
-  "views/conversation-view",
-  "views/create-user-form",
-  "views/login-form",
-  "views/landing-page",
-  "views/passwordResetInitView",
-  "views/passwordResetView",
-  "views/share-link-view",
-  "util/polisStorage",
-  "jquery"
-], function (  //begin args
-    eb,
-		RootView,
-		Backbone,
-		ConversationModel,
-    ParticipantModel,
-    bbFetch,
-		ConversationsCollection,
-		InboxView,
-		HomepageView,
-		CreateConversationFormView,
-		ConversationDetailsView,
-    ConversationGatekeeperView,
-    ConversationGatekeeperViewCreateUser,
-		ConversationView,
-		CreateUserFormView,
-    LoginFormView,
-    LandingPageView,
-    PasswordResetInitView,
-    PasswordResetView,
-    ShareLinkView,
-    PolisStorage,
-    $
-	) {  //end args, begin function block
+var eb = require("eventBus");
+var RootView = require("views/root");
+var Backbone = require("backbone");
+var ConversationModel = require("models/conversation");
+var ParticipantModel = require("models/participant");
+var bbFetch = require("net/bbFetch");
+var ConversationsCollection = require("collections/conversation");
+var InboxView = require("views/inbox");
+var HomepageView = require("views/homepage");
+var CreateConversationFormView = require("views/create-conversation-form");
+var ConversationDetailsView = require("views/conversation-details");
+var ConversationGatekeeperView = require("views/conversationGatekeeperView");
+var ConversationGatekeeperViewCreateUser = require("views/conversationGatekeeperViewCreateUser");
+var ConversationView = require("views/conversation-view");
+var CreateUserFormView = require("views/create-user-form");
+var LoginFormView = require("login-form");
+var LandingPageView = require("landing-page");
+var PasswordResetView = require("views/passwordResetView");
+var ShareLinkView = require("views/share-link-view");
+var PolisStorage = require("util/polisStorage");
+var $ = require("jquery");
 
-  function authenticated() {
-    return PolisStorage.uid();
-  }
+function authenticated() {
+  return PolisStorage.uid();
+}
 
-  
-
-	var polisRouter = Backbone.Router.extend({
-    routes: {
-      "homepage": "homepageView",
-      "conversation/create": "createConversation",
-      "conversation/edit/:id": "editConversation",
-      "conversation/details/:id": "conversationDetails",
-      "conversation/view/:id(/:zinvite)": "conversationView",
-      "user/create": "createUser",
-      "user/login":"login",
-      "settings": "deregister",
-      "inbox(/:filter)": "inbox",
-      "pwresetinit" : "pwResetInit",
-      "": "landingPageView"
-      // see others in the initialize method
-    },
-    initialize: function(options) {
-      this.route(/([0-9]+)/, "conversationView");  // zid
-      this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
-      this.route(/^pwreset\/(.*)/, "pwReset");
-      this.route(/^demo\/(.*)/, "demoConversation");
-    },
-    bail: function() {
-      this.navigate("/", {trigger: true});
-    },
-    landingPageView: function() {
-      if (!authenticated()) {
-
-        this.navigate("user/create", {trigger: true});
-
-        // RootView.getInstance().setView(new LandingPageView());
-        // RootView.getInstance().setView(new CreateUserFormView({
-        //   model : new Backbone.Model({
-        //     // zinvite: zinvite,
-        //     create: true
-        //   })
-        // }));
-      } else {
-        // this.inbox();
-        this.navigate("inbox", {trigger: true});
+var polisRouter = Backbone.Router.extend({
+  routes: {
+    "homepage": "homepageView",
+    "conversation/create": "createConversation",
+    "conversation/view/:id(/:zinvite)": "conversationView",
+    "user/create": "createUser",
+    "user/login":"login",
+    "settings": "deregister",
+    "inbox(/:filter)": "inbox",
+    "pwresetinit" : "pwResetInit",
+    "": "landingPageView"
+    // see others in the initialize method
+  },
+  initialize: function(options) {
+    this.route(/([0-9]+)/, "conversationView");  // zid
+    this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
+    this.route(/^pwreset\/(.*)/, "pwReset");
+    this.route(/^demo\/(.*)/, "demoConversation");
+  },
+  bail: function() {
+    this.navigate("/", {trigger: true});
+  },
+  landingPageView: function() {
+    if (!authenticated()) {
+      this.navigate("user/create", {trigger: true});
+      // RootView.getInstance().setView(new LandingPageView());
+      // RootView.getInstance().setView(new CreateUserFormView({
+      //   model : new Backbone.Model({
+      //     // zinvite: zinvite,
+      //     create: true
+      //   })
+      // }));
+    } else {
+      // this.inbox();
+      this.navigate("inbox", {trigger: true});
+    }
+  },
+  deregister: function() {
+    window.deregister();
+  },
+  gotoShareView: function(conversationModel) {
+    var that = this;
+    var shareLinkView = new ShareLinkView({
+      model: conversationModel
+    });
+    shareLinkView.on("done", function() {
+      var zid = conversationModel.get("zid");
+      var zinvite = conversationModel.get("zinvites")[0];
+      var path = zid + (zinvite ? "/"+zinvite : "");
+      that.navigate(path, {trigger: true});
+    });
+    RootView.getInstance().setView(shareLinkView);
+  },
+  inbox: function(filter){
+    if (!authenticated()) { return this.bail(); }
+    // TODO add to inboxview init
+    // conversationsCollection.fetch({
+    //     data: $.param({
+    //         is_active: false,
+    //         is_draft: false,
+    //     }),
+    //     processData: true,
+    // });
+    var filterAttrs = {};
+    if (filter) {
+      switch(filter) {
+        case "closed":
+          filterAttrs.is_active = false;
+          filterAttrs.is_draft = false;
+        break;
+        case "active":
+          filterAttrs.is_active = true;
+        break;
+        default:
+          filterAttrs.is_active = true;
+        break;
       }
-    },
-    deregister: function() {
-      window.deregister();
-    },
-    gotoShareView: function(conversationModel) {
-      var that = this;
-      var shareLinkView = new ShareLinkView({
-        model: conversationModel
-      });
-
-      shareLinkView.on("done", function() {
-        var zid = conversationModel.get("zid");
-        var zinvite = conversationModel.get("zinvites")[0];
-        var path = zid + (zinvite ? "/"+zinvite : "");
-        that.navigate(path, {trigger: true});
-      });
-
-      RootView.getInstance().setView(shareLinkView);
-    },
-
-    inbox: function(filter){
-      if (!authenticated()) { return this.bail(); }
-      // TODO add to inboxview init
-
-        // conversationsCollection.fetch({
-        //     data: $.param({
-        //         is_active: false,
-        //         is_draft: false,
-        //     }),
-        //     processData: true,
-        // });
-      var filterAttrs = {};
-      if (filter) {
-        switch(filter) {
-          case "closed":
-            filterAttrs.is_active = false;
-            filterAttrs.is_draft = false;
-          break;
-          case "active":
-            filterAttrs.is_active = true;
-  //          filterAttrs.is_draft = false;
-          break;
-          default:
-            filterAttrs.is_active = true;
-  //          filterAttrs.is_draft = false;
-          break;
-        }
-      }
-
-
-      var conversationsCollection = new ConversationsCollection();
-      // Let the InboxView filter the conversationsCollection.
-      var inboxView = new InboxView($.extend(filterAttrs, {
-        collection: conversationsCollection
-      }));
-      RootView.getInstance().setView(inboxView);
+    }
+    var conversationsCollection = new ConversationsCollection();
+    // Let the InboxView filter the conversationsCollection.
+    var inboxView = new InboxView($.extend(filterAttrs, {
+      collection: conversationsCollection
+    }));
+    RootView.getInstance().setView(inboxView);
   },
   homepageView: function(){
     var homepage = new HomepageView();
@@ -185,7 +145,7 @@ define([  //begin dependencies
         if (eventName === "done") {
           that.gotoShareView(model);
           // that.navigate("inbox", {trigger: true});
-//          that.inbox();
+          //that.inbox();
         }
       });
       RootView.getInstance().setView(createConversationFormView);
@@ -209,45 +169,6 @@ define([  //begin dependencies
       });
     }).fail(onFail);
   },
-  editConversation: function(id) {
-    if (!authenticated()) { return this.bail(); }
-
-    var that = this;
-    var conversationsCollection = new ConversationsCollection();
-    conversationsCollection.fetch();
-    var model = conversationsCollection.get(id);
-    var createConversationFormView = new CreateConversationFormView({
-      model: model,
-      collection: conversationsCollection,
-      edit: true
-    });
-    that.listenTo(createConversationFormView, "all", function(eventName, data) {
-      if (eventName === "done") {
-        that.gotoShareView(model);
-        // that.navigate("inbox", {trigger: true});
-        // that.inbox();
-      }
-    });
-    createConversationFormView.populate(model.attributes);
-    RootView.getInstance().setView(createConversationFormView);
-    $("[data-toggle='checkbox']").each(function () {
-      var $checkbox = $(this);
-      $checkbox.checkbox();
-    });
-  },
-  conversationDetails: function(id){
-    if (!authenticated()) { return this.bail(); }
-
-    var conversationsCollection = new ConversationsCollection();
-    conversationsCollection.fetch();
-    var model = conversationsCollection.get(id);
-    var detailsView = new ConversationDetailsView({
-      collection: conversationsCollection,
-      model: model
-    });
-    RootView.getInstance().setView(detailsView);
-  },
-
   doLaunchConversation: function(ptptModel) {
     var zid = ptptModel.get("zid");
     var pid = ptptModel.get("pid");
@@ -267,7 +188,6 @@ define([  //begin dependencies
       setTimeout(function() { that.conversationView(zid); }, 5000); // retry
     });
   },
-
   demoConversation: function(zid) {
     var ptpt = new ParticipantModel({
       zid: zid,
@@ -391,5 +311,5 @@ define([  //begin dependencies
   eb.trigger(eb.exit);
   originalNavigate.apply(polisRouter, arguments);
  };
- return polisRouter;
-});
+
+ module.exports = polisRouter;

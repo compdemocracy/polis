@@ -1,23 +1,13 @@
-define([
-  "view",
-  "templates/create-conversation-form",
-  "collections/comments",
-  "views/comment-form-seed",
-  "models/conversation",
-  "views/metadataQuestionsViewWithCreate",
-  "collections/MetadataQuestions",
-  "util/polisStorage"
-], function (
-  View,
-  template,
-  CommentsCollection,
-  CommentFormSeedView,
-  ConversationModel,
-  MetadataQuestionsViewWithCreate,
-  MetadataQuestionCollection,
-  PolisStorage
-) {
-  return View.extend({
+var View = require("./view");
+var template = require("./templates/create-conversation-form");
+var CommentsCollection = require("./collections/comments");
+var CommentFormSeedView = require("./views/comment-form-seed");
+var ConversationModel = require("./models/conversation");
+var MetadataQuestionsViewWithCreate = require("./views/metadataQuestionsViewWithCreate");
+var MetadataQuestionCollection = require("./collections/MetadataQuestions");
+var PolisStorage = require("./util/polisStorage");
+
+module.exports = View.extend({
     name: "create-conversation-form",
     template: template,
     events: {
@@ -162,16 +152,5 @@ define([
           return false;
         }
       });
-    },
-    saveDraft: function(){
-      var that = this;
-//      var model = this.collection.get(this.id)
-      this.model.save().then(function(data) {
-        alert("draft saved!");
-        that.trigger("done");
-      }, function(err) {
-        alert("saveDraft failed");
-      });
     }
   });
-});

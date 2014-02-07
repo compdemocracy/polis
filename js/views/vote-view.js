@@ -1,11 +1,10 @@
-define([
-  "eventBus",
-  "view",
-  "templates/vote-view",
-  "models/comment",
-  "polis"
-], function (eb, View, template, CommentModel, serverClient) {
-  return View.extend({
+var eb = require("./eventBus");
+var View = require("./view");
+var template = require("./templates/vote-view");
+var CommentModel = require("./models/comment");
+var serverClient = require("./polis");
+
+module.exports = View.extend({
     name: "vote-view",
     template: template,
     events: {
@@ -18,7 +17,6 @@ define([
     function cleanup() {
       eb.off("exit", cleanup);
     }
-
     var serverClient = this.serverClient;
     var votesByMe = this.votesByMe;
     var zid = this.zid;
@@ -152,4 +150,3 @@ define([
     });
   }
   });
-});

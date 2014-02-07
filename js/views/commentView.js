@@ -1,12 +1,8 @@
-define([
-  "view",
-  "templates/commentView",
-  "models/comment"
-], function (View, template, CommentModel) {
+var View = require("./view"); 
+var template = require("./templates/commentView");
+var CommentModel = require("./models/comment");
 
-	return View.extend({
-		name: "commentView",
-		template: template
-	});
-
+modules.exports = View.extend({
+	name: "commentView",
+	template: template
 });

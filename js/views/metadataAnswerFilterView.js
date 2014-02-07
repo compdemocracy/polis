@@ -1,12 +1,7 @@
-define([
-  "templates/metadataAnswerFilter",
-  "view"
-], function (
-  template,
-  View
-) {
+var template = require("./templates/metadataAnswerFilter");
+var View = require("./view");
 
-return View.extend({
+module.exports = View.extend({
   name: "metadataAnswerFilterView",
   template: template,
   tagName: "li",
@@ -28,8 +23,4 @@ return View.extend({
     this.model = options.model;
     this.zid = options.zid;
     this.model.set("disabled", false);
-
-  }
-});
-
-});
+}

@@ -1,12 +1,7 @@
-define([
-  "templates/userCreate",
-  "views/create-user-form"
-], function (
-  template,
-  CreateUserFormView
-) {
-  return CreateUserFormView.extend({
-    name: "conversationGatekeeperViewCreateUser",
-    template: template
-  });
+var template = require("./templates/userCreate");
+var CreateUserFormView = require("./views/create-user-form");
+
+modules.export = CreateUserFormView.extend({
+  name: "conversationGatekeeperViewCreateUser",
+  template: template
 });
