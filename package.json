@@ -13,6 +13,9 @@
     "bower": "~0.10",
     "matchdep": "~0.1.2",
     "assemble-less": "~0.5.3"
+    "gulp": "~3.5.2",
+    "gulp-util": "~2.2.14",
+    "gulp-browserify": "~0.4.2"
   },
   "scripts": {
     "start": "node ./node_modules/.bin/grunt",
