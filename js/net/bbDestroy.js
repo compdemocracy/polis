@@ -10,3 +10,5 @@ function bbDestroy(o, opt){
     o.destroy(makeOpt(o, opt, dfd));
     return dfd.promise();
 }
+
+module.exports = bbDestroy;

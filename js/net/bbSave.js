@@ -12,3 +12,5 @@ function bbSave(o, opt){
     }
     return dfd.promise();
 }
+
+module.exports = bbSave;

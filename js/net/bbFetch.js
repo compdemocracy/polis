@@ -10,3 +10,5 @@ function bbFetch(o, opt){
     o.fetch(makeOpt(o, opt, dfd));
     return dfd.promise();
 }
+
+module.exports = bbFetch;

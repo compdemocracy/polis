@@ -27,9 +27,9 @@ module.exports =  View.extend({
   events: {
   },
   onClusterTapped : function() {
-      if (window.isMobile()) {
-         window.scrollTo(0, $("#visualization_div").offset().top);
-      }
+      // if (window.isMobile()) {
+      //    window.scrollTo(0, $("#visualization_div").offset().top);
+      // }
   },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
