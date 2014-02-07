@@ -94,23 +94,20 @@ if (!isIE8) {
             d.getPeople().then(function(people) {
                 // use the email address as the html
                 var html = people.map(function(p) {
-                    return p.pid;
-                })
-                .map(function(pid) {
                     if (isSelf(d)) {
                         var hint = selfDotTooltipShow ? selfDotHintText : "";
                         return {
                             email: hint
                         };
                     }
-                    return getUserInfoByPid(pid);
+                    return p;
                 })
-                .map(function(user) {
-                    if (!user) {
+                .map(function(p) {
+                    if (!p) {
                         console.warn("missing user info");
                         return "";
                     }
-                    return user.email;
+                    return p.email;
                 }).join("<br/>");
                 setTimeout(function() {
                     $("#tipContents").html(html);
@@ -439,12 +436,12 @@ force.on("tick", function(e) {
       var k = 0.1 * e.alpha;
       //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
       nodes.forEach(function(o) {
-          //o.x = o.data.targetX;
-          //o.y = o.data.targetY;
+          //o.x = o.targetX;
+          //o.y = o.targetY;
           if (!o.x) { o.x = w/2; }
-          if (!o.y) { o.y = h/2; }
-          o.x += (o.data.targetX - o.x) * k;
-          o.y += (o.data.targetY - o.y) * k;
+          if (!o.y) { o.y = h/2; }  
+          o.x += (o.targetX - o.x) * k;
+          o.y += (o.targetY - o.y) * k;
       });
 
       main_layer.selectAll("g")
@@ -617,20 +614,6 @@ function key(d) {
     return d.bid;
 }
 
-
-// function hasChanged(n1, n2) {
-//     //return !_.isEqual(n1.data.projection, n2.data.projection);
-//     var p1 = n1.data.projection;
-//     var p2 = n2.data.projection;
-//     for (var i = 0; i < p1.length; i++) {
-//         if (Math.abs(p1[i] - p2[i]) > 0.01) {
-//             return true;
-//         }
-//     }
-//     return false;
-// }
-
-
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters) {
     console.log("upsert");
@@ -676,8 +659,8 @@ function upsertNode(updatedNodes, newClusters) {
             //return;
         //}
 
-        d.x = d.data.targetX = scaleX(d.data.projection[0]);
-        d.y = d.data.targetY = scaleY(d.data.projection[1]);
+        d.x = d.targetX = scaleX(d.proj.x);
+        d.y = d.targetY = scaleY(d.proj.y);
         return d;
     }
 
@@ -746,7 +729,7 @@ function upsertNode(updatedNodes, newClusters) {
             console.dir(window.temp);
             console.dir(nodes[0]);
         }
-        if (!_.isEqual(window.temp.data.projection, nodes[0].data.projection)) {
+        if (!_.isEqual(window.temp.proj, nodes[0].proj)) {
             console.log("changed projection");
             console.dir(window.temp);
             console.dir(nodes[0]);

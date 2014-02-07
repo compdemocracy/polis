@@ -376,11 +376,26 @@ module.exports = function(params) {
         return promise;
     }
 
-    function Bucket(bid, people) {
-        this.ppl = _.isArray(people) ? people : [];
-        this.bid = bid;
-        this.data = {};
-        this.data.projection = [];
+    function Bucket() {
+        if (_.isNumber(arguments[0])) {
+            var bid = arguments[0];
+            var people = arguments[1];
+            this.ppl = _.isArray(people) ? people : [];
+            this.bid = bid;
+            this.proj = {
+                x: 0,
+                y: 0
+            };
+        } else {
+            var o = arguments[0];
+            this.bid = o.bid;
+            this.proj = o.proj;
+            this.count = o.count;
+            if (o.containsSelf) {
+                this.containsSelf = true;
+            }
+        }
+
     }
     function average(items, getter) {
         var avg = 0;
@@ -390,14 +405,18 @@ module.exports = function(params) {
         return avg / items.length;
     }
     function getX(person) {
-        return person.data.projection[0];
+        return person.proj.x;
     }
 
     function getY(person) {
-        return person.data.projection[1];
+        return person.proj.y;
     }
 
     Bucket.prototype.containsPid = function(pid) {
+        if (!this.ppl) {
+            // TODO dfd
+            return false;
+        }
         for (var i = 0; i < this.ppl.length; i++) {
             if (this.ppl[i].pid === pid) {
                 return true;
@@ -406,8 +425,12 @@ module.exports = function(params) {
         return false;
     };
     Bucket.prototype.update = function() {
-        this.data.projection[0] = average(this.ppl, getX);
-        this.data.projection[1] = average(this.ppl, getY);
+        if (!this.ppl) {
+            // TODO remove update method?
+            return;
+        }
+        this.proj.x = average(this.ppl, getX);
+        this.proj.y = average(this.ppl, getY);
         this.count = this.ppl.length;
         if (this.containsPid(getPid())) {
             this.containsSelf = true;
@@ -426,40 +449,28 @@ module.exports = function(params) {
         // return getUserInfoByBid(this.bid);
         // TODO make service call instead.
         var dfd = $.Deferred();
-        dfd.resolve(this.ppl);
+        if (this.ppl) {
+            dfd.resolve(this.ppl);
+        } else {
+            dfd.resolve([{
+                pid: 123,
+                email: "person1@att.net"
+            }, {
+                pid: 234,
+                email: "person2@att.net"
+            }]);
+        }
         return dfd.promise();
     };
-    function bucketize(people, rows, columns, firstBid) {
-        var spans = Utils.computeXySpans(people);
-        var bid = firstBid; // assign a unique bid to each Bucket
-
-        var scales = {
-            x: d3.scale.linear().range([0, columns - 1]).domain([spans.x.min, spans.x.max]),
-            y: d3.scale.linear().range([0, rows - 1]).domain([spans.y.min, spans.y.max])
-        };
-        function emptyColumn() {
-            return new DA(function() {
-                return new Bucket(bid++);
-            });
-        }
-        var grid = new DA(emptyColumn);
-        _.each(people, function(person) {
-            var column = Math.floor(scales.x(person.data.projection[0]));
-            var row = Math.floor(scales.y(person.data.projection[1]));
-            grid.g(row).g(column).ppl.push(person);
+    function bucketizeSelf(self, selfDotBid) {
+        var bucket = new Bucket({
+            containsSelf: true,
+            proj: self.proj,
+            count: 1,
+            bid: selfDotBid
         });
-        var buckets = [];
-        for (var row = 0; row < rows; row++) {
-            for (var col = 0; col < columns; col++) {
-                var bucket = grid.g(row).g(col);
-                bucket.update();
-                buckets.push(bucket);
-            }
-        }
-        buckets = _.filter(buckets, function(b) {
-            return !!b.ppl.length;
-        });
-        return buckets;
+        return bucket;
+    }
 
 
         // var bid = 0; // TODO expecting bid (Bucket id) to be set (or implicit in array index) in math worker
@@ -470,7 +481,7 @@ module.exports = function(params) {
         //     bid += 1;
         //     return b;
         // });
-    }
+    // }
     // function bucketize(people) {
     //     function Bucket() {
     //         this.people = [];
@@ -491,109 +502,110 @@ module.exports = function(params) {
     //     }
     // }
 
-    function clientSideBaseCluster(things, N) {
-        if (!N) { alert("need N"); }
-        if (!means) {
-            means = shuffleWithSeed(things, 0.5);
-            means = _.first(means, N);
-            means = means.map(function(thing) { return _.clone(thing.data.projection);});
-        }
-
-        var clusters = means.map(function() { return [];});
-
-        function getNearestMean(thing) {
-            var best = Infinity;
-            var bestMean = means[0];
-            var bestIndex = -1;
-            for (var mi = 0; mi < means.length; mi++) {
-                var m = means[mi];
-                var totalSquares = 0;
-                var temp;
-                for (var i = 0; i < thing.data.projection.length; i++) {
-                    temp = thing.data.projection[i] - m[i];
-                    totalSquares += temp*temp;
-                }
-                if (totalSquares < best) {
-                    best = totalSquares;
-                    bestMean = m;
-                    bestIndex = mi;
-                }
-            }
-            return bestIndex;
-        }
-
-        function assignToCluster(thing) {
-            var bestIndex = getNearestMean(thing);
-            if (bestIndex === -1) {
-                console.log("bad bestIndex, check getNearestMean");
-                return;
-            }
-            if (-1 !== clusters[bestIndex].indexOf(thing)) {
-                return;
-            }
-            for (var i = 0; i < clusters.length; i++) {
-                clusters[i] = _.without(clusters[i], thing);
-            }
-            clusters[bestIndex].push(thing);
-        }
-
-        function recenterCluster(i) {
-            var cluster = clusters[i];
-            if (cluster.length === 0) {
-                return;
-            }
-            var thing0 = cluster[0];
-            var dims = thing0.data.projection.length;
-            var totals = Array.apply(null, new Array(dims)).map(Number.prototype.valueOf,0); // array of 0s
-            for (var pi = 0; pi < cluster.length; pi++) {
-                var thing = cluster[pi];
-                for (var d = 0; d < dims; d++) {
-                    totals[d] += thing.data.projection[d];
-                }
-            }
-            var avg = totals.map(function(x) { return x / cluster.length;});
-            means[i] = avg;
-        }
-
-        //function findClusterVariance(i) {
-            //var cluster = clusters[i];
-            //for (var pi = 0; pi < clusters.length; pi++) {
-            //}
-        //}
-
-        function iterate() {
-            _.each(things, assignToCluster);
-            for (var i = 0; i < means.length; i++) {
-                recenterCluster(i);
-            }
-        }
-
-        _.times(9, iterate);
-        /*
-        var i = 0;
-        return means.map(function(proj) {
-            var representative = {
-                pid: -1,
-         //       variance: variances[i];
-                data: {
-                    projection: proj,
-                    participants: clusters[i]
-                }
-            };
-            i += 1;
-            return representative;
-        });
-        */
-        // [[1,2,5],[4]]
-        return clusters.map(function(cluster) {
-            return cluster.map(function(thing) {
-                return thing.bid;
-            }).sort(function(a, b) {
-                // ascending
-                return a - b;
-            });
-        });
+function clientSideBaseCluster(things, N) {
+    if (!N) { alert("need N"); }
+    if (!means) {
+        means = shuffleWithSeed(things, 0.5);
+        means = _.first(means, N);
+        means = means.map(function(thing) { return _.pick(thing, "x", "y");});
     }
+
+    var clusters = means.map(function() { return [];});
+
+    function getNearestMean(thing) {
+        var best = Infinity;
+        var bestMean = means[0];
+        var bestIndex = -1;
+        for (var mi = 0; mi < means.length; mi++) {
+            var m = means[mi];
+            var totalSquares = 0;
+            var dx = thing.x - m.x;
+            var dy = thing.y - m.y;
+            totalSquares += dx*dx + dy+dy;
+            if (totalSquares < best) {
+                best = totalSquares;
+                bestMean = m;
+                bestIndex = mi;
+            }
+        }
+        return bestIndex;
+    }
+
+    function assignToCluster(thing) {
+        var bestIndex = getNearestMean(thing);
+        if (bestIndex === -1) {
+            console.log("bad bestIndex, check getNearestMean");
+            return;
+        }
+        if (-1 !== clusters[bestIndex].indexOf(thing)) {
+            return;
+        }
+        for (var i = 0; i < clusters.length; i++) {
+            clusters[i] = _.without(clusters[i], thing);
+        }
+        clusters[bestIndex].push(thing);
+    }
+
+    function recenterCluster(i) {
+        var cluster = clusters[i];
+        if (!cluster.length) {
+            return;
+        }
+        var totals = {
+            x: 0,
+            y: 0
+        };
+        for (var pi = 0; pi < cluster.length; pi++) {
+            var thing = cluster[pi];
+            totals.x += thing.x;
+            totals.y += thing.y;
+        }
+        var avg = {
+            x: totals.x / cluster.length,
+            y: totals.y / cluster.length
+        };
+        means[i] = avg;
+    }
+
+    //function findClusterVariance(i) {
+        //var cluster = clusters[i];
+        //for (var pi = 0; pi < clusters.length; pi++) {
+        //}
+    //}
+
+    function iterate() {
+        _.each(things, assignToCluster);
+        for (var i = 0; i < means.length; i++) {
+            recenterCluster(i);
+        }
+    }
+
+    _.times(9, iterate);
+    /*
+    var i = 0;
+    return means.map(function(proj) {
+        var representative = {
+            pid: -1,
+     //       variance: variances[i];
+            data: {
+                projection: proj,
+                participants: clusters[i]
+            }
+        };
+        i += 1;
+        return representative;
+    });
+    */
+    // [[1,2,5],[4]]
+    return clusters.map(function(cluster) {
+        return cluster.map(function(thing) {
+            return thing.bid;
+        }).sort(function(a, b) {
+            // ascending
+            return a - b;
+        });
+    });
+}
 
     function fetchPca() {
         return polisGet(pcaPath, {
@@ -606,45 +618,43 @@ module.exports = function(params) {
                 }
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
+                var buckets = arraysToObjects(pcaData.buckets);
 
                 // TODO we should include the vectors for each comment (with the comments?)
                 ///commentVectors = pcaData.commentVectors;
 
                 // TODO this is not runnable, just a rough idea. (data isn't structured like this)
                 ///var people = pcaData.people;
-                var people = parseFormat2(pcaData);
-                participantCount = people.length;
+
+                participantCount = _.reduce(buckets.count, function(memo, count) { return memo+count;}, 0);
+
                 //var myself = _.findWhere(people, {pid: getPid()});
                 //people = _.without(people, myself);
                 //people.push(myself);
-                if (!people) {
-                    return $.Deferred().reject();
-                }
-                people = _.filter(people, function(p) {
-                    var pidOk = p.pid >= 0;
-                    if (!pidOk) {
-                        console.error("Got bad pid!");
-                    }
-                    return pidOk;
-                });
+
+ 
                 // remove self, will add after bucketizing
                 var myPid = getPid();
-                var buckets = bucketize(people, 9, 9, 1);
-                _.each(buckets, function(bucket) {
-                    if (bucket.containsSelf) {
-                        bucket.ppl = _.filter(bucket.ppl, function(person) {
-                            return person.pid !== myPid;
-                        });
-                        delete bucket.containsSelf;
-                    }
-                });
+
                 // people = _.filter(people, function(p) {
                 //     return p.pid !== myPid;
                 // });
 
                 var clusters = clientSideBaseCluster(buckets, 3);
 
-
+                // mutate - move x and y into a proj sub-object, so the vis can animate x and y
+                _.each(buckets, function(b) {
+                    b.proj = {
+                        x: b.x,
+                        y: b.y
+                    };
+                    delete b.x;
+                    delete b.y;
+                });
+                // Convert to Bucket objects.
+                buckets = _.map(buckets, function(b) {
+                    return new Bucket(b);
+                });
 
                 projectionPeopleCache = buckets;
                 clustersCache = clusters;
@@ -658,10 +668,31 @@ module.exports = function(params) {
             });
     }
 
+    function arraysToObjects(objWithArraysAsProperties) {
+        var objects = [];
+        var len = -1;
+        for (var k in objWithArraysAsProperties) {
+            var nextLen = objWithArraysAsProperties[k].length;
+            if (len !== -1 && len !== nextLen) {
+                console.error("mismatched lengths");
+            }
+            len = nextLen;
+        }
+        for (var i = 0; i < len; i++) {
+            var o = {};
+            for (var key in objWithArraysAsProperties) {
+                o[key] = objWithArraysAsProperties[key][i];
+            }
+            objects.push(o);
+        }
+        return objects;
+    }
+
     function withProjectedSelf(people) {
         people = people || [];
         people = _.clone(people); // shallow copy
-        people.unshift(bucketize([projectSelf()], 1, 1, 0)[0]);
+
+        people.unshift(bucketizeSelf(projectSelf(), 0));
         // remove empty buckets
         people = _.filter(people, function(bucket) {
             return bucket.count > 0;
@@ -944,11 +975,9 @@ module.exports = function(params) {
         return {
             pid : getPid(),
             isBlueDot: true,
-            data: {
-                projection: [
-                    x,
-                    y
-                ]
+            proj: {
+                x: x,
+                y: y
             }
         };
     }
