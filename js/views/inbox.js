@@ -1,7 +1,8 @@
 var View = require("../view");
-var template = require("../templates/inbox");
+var template = require("../tmpl/inbox");
 
-modules.exports = View.extend({
+
+module.exports = View.extend({
   name: "inbox",
   template: template,
   initialize: function(options) {

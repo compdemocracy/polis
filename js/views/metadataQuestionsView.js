@@ -1,8 +1,9 @@
 var MetadataQuestionAndAnswersView = require("../views/metadataQuestionAndAnswersView");
-var template = require("../templates/metadataQuestions");
-var Thorax = require("../thorax");
+var template = require("../tmpl/metadataQuestions");
+var Thorax = require("thorax");
 
-modules.exports = Thorax.CollectionView.extend({
+
+module.exports = Thorax.CollectionView.extend({
     name: "metadataQuestionsView",
     template: template,
     itemView: MetadataQuestionAndAnswersView,

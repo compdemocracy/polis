@@ -1,3 +1,4 @@
 var Thorax = require("thorax");
 
-modules.exports = Thorax.View.extend({});
+
+module.exports = Thorax.View.extend({});

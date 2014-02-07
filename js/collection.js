@@ -1,3 +1,4 @@
 var Thorax = require("thorax");
 
-modules.exports = Thorax.Collection.extend({})
+
+module.exports = Thorax.Collection.extend({})

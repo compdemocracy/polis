@@ -42,5 +42,3 @@ Backbone.ajax = function(url, options) {
     return originalAjax(url, $.extend(true, options, request));
 };
 
-module.exports = Backbone;
-

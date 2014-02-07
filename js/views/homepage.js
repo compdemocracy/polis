@@ -1,7 +1,8 @@
 var View = require("../view");
-var template = require("../templates/homepage");
+var template = require("../tmpl/homepage");
 
-modules.exports = View.extend({
+
+module.exports = View.extend({
   name: "homepage",
   template: template,
   events: {

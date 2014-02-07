@@ -1,4 +1,4 @@
-var template = require("../templates/metadataAnswerFilter");
+var template = require("../tmpl/metadataAnswerFilter");
 var View = require("../view");
 
 module.exports = View.extend({
@@ -23,4 +23,5 @@ module.exports = View.extend({
     this.model = options.model;
     this.zid = options.zid;
     this.model.set("disabled", false);
-}
+  }
+});

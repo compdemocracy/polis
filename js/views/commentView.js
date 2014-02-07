@@ -1,8 +1,9 @@
 var View = require("../view"); 
-var template = require("../templates/commentView");
+var template = require("../tmpl/commentView");
 var CommentModel = require("../models/comment");
 
-modules.exports = View.extend({
+
+module.exports = View.extend({
 	name: "commentView",
 	template: template
 });

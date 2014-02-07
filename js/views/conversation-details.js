@@ -1,5 +1,5 @@
 var View = require("../view");
-var template = require("../templates/conversation-details");
+var template = require("../tmpl/conversation-details");
 var InboxView = require("../views/inbox");
 
 module.exports = View.extend({

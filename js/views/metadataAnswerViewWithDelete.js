@@ -1,8 +1,9 @@
-var template = require("../templates/metadataAnswerWithDelete");
+var template = require("../tmpl/metadataAnswerWithDelete");
 var bbDestroy = require("../net/bbDestroy");
 var View = require("../view");
 
-modules.exports = View.extend({
+
+module.exports = View.extend({
   name: "metadataAnswerViewWithDelete",
   template: template,
   allowDelete: true,

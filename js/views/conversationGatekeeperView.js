@@ -1,4 +1,4 @@
-var template = require("../templates/conversationGatekeeper");
+var template = require("../tmpl/conversationGatekeeper");
 //var UserCreateView = require(".views/userCreateView");
 var MetadataQuestionsView = require("../views/metadataQuestionsView");
 var MetadataQuestionCollection = require("../collections/MetadataQuestions");

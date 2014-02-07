@@ -1,7 +1,8 @@
-var template = require("../templates/metadataAnswer");
+var template = require("../tmpl/metadataAnswer");
 var View = require("../view");
 
-modules.exports = View.extend({
+
+module.exports = View.extend({
   name: "metadataAnswerView",
   template: template,
   allowDelete: false,

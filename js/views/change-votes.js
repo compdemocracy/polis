@@ -1,5 +1,5 @@
 var View = require("../view");
-var template = require("../templates/change-votes");
+var template = require("../tmpl/change-votes");
 
 module.exports = View.extend({
   name: "change-votes",

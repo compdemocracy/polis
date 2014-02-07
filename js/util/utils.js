@@ -1,6 +1,7 @@
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
-module.exports = function(points) {
+module.exports = {
+  computeXySpans: function(points) {
     var spans = {
       x: { min: Infinity, max: -Infinity },
       y: { min: Infinity, max: -Infinity }
@@ -14,4 +15,5 @@ module.exports = function(points) {
       }
     }
     return spans;
+  }
 };

@@ -3,6 +3,7 @@ var Backbone = require("backbone");
 var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
 var PolisStorage = require("./util/polisStorage");
+var Handlebars = require("handlebars");
 
 // These are required here to ensure they are included in the build.
 var bootstrapAlert = require("bootstrap_alert");
@@ -14,6 +15,23 @@ var bootstrapTransition = require("bootstrap_transition");
 var bootstrapCollapse = require("bootstrap_collapse");
 var bootstrapDropdown = require("bootstrap_dropdown");
 var bootstrapAffix = require("bootstrap_affix");
+
+
+function ifDefined(context, options) {
+  return "undefined" !== typeof context ? options.fn(this) : "";
+}
+Handlebars.registerHelper("ifDefined", ifDefined);
+
+function ifEmbedded(arg0) {
+  return window.top !== window ? arg0.fn(this) : "";
+}
+Handlebars.registerHelper("ifEmbedded", ifEmbedded);
+
+function ifNotEmbedded(arg0) {
+  return window.top === window ? arg0.fn(this) : "";
+}
+Handlebars.registerHelper("ifNotEmbedded", ifNotEmbedded);
+
 
 _.mixin({
     isId: function(n) {

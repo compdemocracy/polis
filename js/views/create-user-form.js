@@ -1,5 +1,5 @@
 var View = require("../view");
-var template = require("../templates/create-user-form");
+var template = require("../tmpl/create-user-form");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 
@@ -37,7 +37,7 @@ var $ = require("jquery");
         urlPrefix = "http://localhost:5000/";
       }
     },
-    function createUser(event) {
+    createUser: function(event) {
     var that = this;
     event.preventDefault();
     this.serialize(function(attrs, release){
@@ -64,7 +64,7 @@ var $ = require("jquery");
       });
     });
   },
-  function signIn(event) {
+  signIn: function(event) {
     var that = this;
     event.preventDefault();
     this.serialize(function(attrs, release){

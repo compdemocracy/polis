@@ -1,5 +1,5 @@
 var _ = require("underscore");
-var Backbone = require("Backbone")
+var Backbone = require("backbone")
 
 var bus = _.extend({}, Backbone.Events);
 bus.vote = "vote";

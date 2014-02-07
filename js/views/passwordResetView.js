@@ -1,8 +1,9 @@
 var View = require("../view");
-var template = require("../templates/passwordResetForm");
+var template = require("../tmpl/passwordResetForm");
 var $ = require("jquery");
 
-modules.exports = View.extend({
+
+module.exports = View.extend({
   name: "passwordResetForm",
   template: template,
   events: {

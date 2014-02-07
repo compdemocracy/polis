@@ -1,5 +1,5 @@
 var View = require("../view");
-var template = require("../templates/comment-form-seed");
+var template = require("../tmpl/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
 

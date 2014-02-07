@@ -48,8 +48,6 @@ var maxVoteCount = 0;
 
 var bidToKid = {};
 
-var updatesEnabled = true;
-
 var isIE8 = navigator.userAgent.match(/MSIE 8/);
 
 if (isIE8) {
@@ -407,13 +405,6 @@ force.on("tick", function(e) {
     updateHelpArrow();
 });
 
-window.P.stop = function() {
-    if (window.P.stop) {
-        window.P.stop();
-    }
-    updatesEnabled = false;
-};
-
 // function chooseRadius(d) {
 //   var r = baseNodeRadius;
 //     if (isSelf(d)){
@@ -589,9 +580,6 @@ function key(d) {
 
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters) {
-    if (!updatesEnabled) {
-        return;
-    }
     console.log("upsert");
     //nodes.set(node.pid, node);
 

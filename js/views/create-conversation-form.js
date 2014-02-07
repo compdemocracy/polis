@@ -1,5 +1,5 @@
 var View = require("../view");
-var template = require("../templates/create-conversation-form");
+var template = require("../tmpl/create-conversation-form");
 var CommentsCollection = require("../collections/comments");
 var CommentFormSeedView = require("../views/comment-form-seed");
 var ConversationModel = require("../models/conversation");

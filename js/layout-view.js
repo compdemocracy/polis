@@ -1,3 +1,4 @@
 var Thorax = require("thorax");
 
-modules.exports = Thorax.LayoutView.extend({});
+
+module.exports = Thorax.LayoutView.extend({});

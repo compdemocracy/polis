@@ -1,5 +1,5 @@
 var View = require("../view");
-var template = require("../templates/landing-page");
+var template = require("../tmpl/landing-page");
 
 module.exports = View.extend({
   name: "landingPage",

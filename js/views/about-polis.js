@@ -1,5 +1,5 @@
 var View = require("../view");
-var template = require("../templates/aboutPolis");
+var template = require("../tmpl/aboutPolis");
 
 module.exports = View.extend({
   name: "aboutPolis",

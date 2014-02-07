@@ -1,7 +1,8 @@
-var template = require("../templates/metadataAnswerChecked");
+var template = require("../tmpl/metadataAnswerChecked");
 var MetadataAnswerView = require("../views/metadataAnswerView");
 
-modules.exports = MetadataAnswerView.extend({
+
+module.exports = MetadataAnswerView.extend({
   name: "metadataAnswerViewChecked",
   template: template
 });

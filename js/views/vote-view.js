@@ -1,8 +1,8 @@
 var eb = require("../eventBus");
 var View = require("../view");
-var template = require("../templates/vote-view");
+var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
-var serverClient = require("../polis");
+var serverClient = require("../lib/polis");
 
 module.exports = View.extend({
     name: "vote-view",
