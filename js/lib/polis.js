@@ -1,5 +1,5 @@
-var Utils = require("./util/utils")
-var shuffleWithSeed = require("./util/shuffleWithSeed");
+var Utils = require("../util/utils")
+var shuffleWithSeed = require("../util/shuffleWithSeed");
 
 module.exports = function(params) {
 

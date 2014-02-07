@@ -1,7 +1,7 @@
-var MetadataAnswerFilterView = require("./views/metadataAnswerFilterView");
-var template = require("./templates/metadataQuestionAndAnswersFilter");
-var _ = require("./underscore");
-var Thorax = require("./thorax");
+var MetadataAnswerFilterView = require("../views/metadataAnswerFilterView");
+var template = require("../templates/metadataQuestionAndAnswersFilter");
+var _ = require("../underscore");
+var Thorax = require("../thorax");
 
 module.exports = Thorax.CollectionView.extend({
   name: "metadataQuestionAndAnswersFilterView",

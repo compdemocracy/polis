@@ -1,5 +1,5 @@
-var View = require("./view");
-var template = require("./templates/passwordResetInitForm");
+var View = require("../view");
+var template = require("../templates/passwordResetInitForm");
 
 modules.exports = View.extend({
   name: "passwordResetInitForm",

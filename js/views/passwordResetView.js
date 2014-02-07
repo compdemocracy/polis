@@ -1,5 +1,5 @@
-var View = require("./view");
-var template = require("./templates/passwordResetForm");
+var View = require("../view");
+var template = require("../templates/passwordResetForm");
 var $ = require("jquery");
 
 modules.exports = View.extend({

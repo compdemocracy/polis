@@ -1,6 +1,6 @@
-var View = require("./view");
-var template = require("./templates/login-form");
-var PolisStorage = require("./util/polisStorage");
+var View = require("../view");
+var template = require("../templates/login-form");
+var PolisStorage = require("../util/polisStorage");
 
 module.exports = View.extend({
   name: "login-form",

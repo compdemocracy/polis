@@ -1,5 +1,5 @@
-var template = require("./templates/metadataAnswer");
-var View = require("./view");
+var template = require("../templates/metadataAnswer");
+var View = require("../view");
 
 modules.exports = View.extend({
   name: "metadataAnswerView",

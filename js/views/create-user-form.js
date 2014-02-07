@@ -1,6 +1,6 @@
-var View = require("./view");
-var template = require("./templates/create-user-form");
-var PolisStorage = require("./util/polisStorage");
+var View = require("../view");
+var template = require("../templates/create-user-form");
+var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 
   module.exports = View.extend({

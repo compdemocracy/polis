@@ -1,9 +1,9 @@
-var template = require("./templates/conversationGatekeeper");
-//var UserCreateView = require("views/userCreateView");
-var MetadataQuestionsView = require("./views/metadataQuestionsView");
-var MetadataQuestionCollection = require("./collections/MetadataQuestions");
-var PolisStorage = require("./util/polisStorage");
-var View = require("./view");
+var template = require("../templates/conversationGatekeeper");
+//var UserCreateView = require(".views/userCreateView");
+var MetadataQuestionsView = require("../views/metadataQuestionsView");
+var MetadataQuestionCollection = require("../collections/MetadataQuestions");
+var PolisStorage = require("../util/polisStorage");
+var View = require("../view");
 
 module.exports = View.extend({
   name: "conversationGatekeeper",

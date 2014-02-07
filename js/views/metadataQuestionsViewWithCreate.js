@@ -1,6 +1,6 @@
-var MetadataQuestion = require("./models/metadataQuestion");
-var MetadataQuestionAndAnswersViewWithCreate = require("./views/metadataQuestionAndAnswersViewWithCreate");
-var MetadataQuestionsView = require("./views/metadataQuestionsView");
+var MetadataQuestion = require("../models/metadataQuestion");
+var MetadataQuestionAndAnswersViewWithCreate = require("../views/metadataQuestionAndAnswersViewWithCreate");
+var MetadataQuestionsView = require("../views/metadataQuestionsView");
 
 module.exports = MetadataQuestionsView.extend({
   name: "metadataQuestionsViewWithCreate",

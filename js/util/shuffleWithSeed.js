@@ -1,4 +1,4 @@
-var RandomWithSeed = require("./util/randomWithSeed");
+var RandomWithSeed = require("../util/randomWithSeed");
 
 module.exports = function(array, seed) {
     var seq = new RandomWithSeed(seed);

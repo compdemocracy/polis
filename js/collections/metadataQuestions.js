@@ -1,5 +1,5 @@
-var Collection = require("./collection");
-var MetadataQuestion = require("./models/metadataQuestion");
+var Collection = require("../collection");
+var MetadataQuestion = require("../models/metadataQuestion");
 
 module.exports = Collection.extend({
     name: "metadata/questions",

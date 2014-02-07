@@ -1,11 +1,11 @@
-var View = require("./view");
-var template = require("./templates/create-conversation-form");
-var CommentsCollection = require("./collections/comments");
-var CommentFormSeedView = require("./views/comment-form-seed");
-var ConversationModel = require("./models/conversation");
-var MetadataQuestionsViewWithCreate = require("./views/metadataQuestionsViewWithCreate");
-var MetadataQuestionCollection = require("./collections/MetadataQuestions");
-var PolisStorage = require("./util/polisStorage");
+var View = require("../view");
+var template = require("../templates/create-conversation-form");
+var CommentsCollection = require("../collections/comments");
+var CommentFormSeedView = require("../views/comment-form-seed");
+var ConversationModel = require("../models/conversation");
+var MetadataQuestionsViewWithCreate = require("../views/metadataQuestionsViewWithCreate");
+var MetadataQuestionCollection = require("../collections/MetadataQuestions");
+var PolisStorage = require("../util/polisStorage");
 
 module.exports = View.extend({
     name: "create-conversation-form",

@@ -1,6 +1,6 @@
-var View = require("./view");
-var template = require("./templates/conversation-details");
-var InboxView = require("./views/inbox");
+var View = require("../view");
+var template = require("../templates/conversation-details");
+var InboxView = require("../views/inbox");
 
 module.exports = View.extend({
   name: "conversation-details",

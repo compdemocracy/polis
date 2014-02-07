@@ -1,6 +1,6 @@
-var template = require("./templates/metadataAnswerWithDelete");
-var bbDestroy = require("./net/bbDestroy");
-var View = require("./view");
+var template = require("../templates/metadataAnswerWithDelete");
+var bbDestroy = require("../net/bbDestroy");
+var View = require("../view");
 
 modules.exports = View.extend({
   name: "metadataAnswerViewWithDelete",

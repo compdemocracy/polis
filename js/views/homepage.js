@@ -1,5 +1,5 @@
-var View = require("./view");
-var template = require("./templates/homepage");
+var View = require("../view");
+var template = require("../templates/homepage");
 
 modules.exports = View.extend({
   name: "homepage",

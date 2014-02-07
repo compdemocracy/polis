@@ -1,4 +1,4 @@
-var Model = require("./model");
+var Model = require("../model");
 
 module.exports = Model.extend({
     name: "participant",

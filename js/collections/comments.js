@@ -1,5 +1,5 @@
-var Collection = require("./collection");
-var Comment = require("./models/comment");
+var Collection = require("../collection");
+var Comment = require("../models/comment");
 
 module.exports = Collection.extend({
     name: "comments",

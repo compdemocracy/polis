@@ -1,5 +1,5 @@
-var MetadataAnswersCollection = require("./collections/metadataAnswers");
-var Model = require("./model");
+var MetadataAnswersCollection = require("../collections/metadataAnswers");
+var Model = require("../model");
 
 module.exports = Model.extend({
     name: "metadata/key",

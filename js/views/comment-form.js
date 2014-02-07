@@ -1,7 +1,7 @@
-var View = require("./view");
-var template = require("./templates/comment-form");
-var CommentModel = require("./models/comment");
-var CommentView = require("./views/commentView");
+var View = require("../view");
+var template = require("../templates/comment-form");
+var CommentModel = require("../models/comment");
+var CommentView = require("../views/commentView");
 
 modules.exports = Thorax.CollectionView.extend({
   name: "comment-form",

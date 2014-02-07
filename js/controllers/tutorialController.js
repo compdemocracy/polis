@@ -1,4 +1,4 @@
-var eb = require("./eventBus");
+var eb = require("../eventBus");
 var $ = require("jquery");
 
 module.exports = function() {

@@ -1,6 +1,6 @@
-var View = require("./view");
-var template = require("./templates/share-link-view");
-var ConversationModel = require("./models/conversation");
+var View = require("../view");
+var template = require("../templates/share-link-view");
+var ConversationModel = require("../models/conversation");
 
 module.exports = View.extend({
     name: "shareLinkView",

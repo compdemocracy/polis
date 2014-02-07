@@ -1,5 +1,5 @@
-var LayoutView = require("./layout-view");
-var rootTemplate = require("./templates/root");
+var LayoutView = require("../layout-view");
+var rootTemplate = require("../templates/root");
 
 var RootView = LayoutView.extend({
   name: "root",
