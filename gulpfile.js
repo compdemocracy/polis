@@ -62,9 +62,15 @@ gulp.task('fontawesome', function() {
 gulp.task('index', function() {
   var s = gulp.src('index.html');
   if (devMode) {
-    s = s.pipe(template({basepath: ''}))
+    s = s.pipe(template({
+      basepath: '',
+      d3Filename: 'd3.js',
+    }))
   } else {
-    s = s.pipe(template({basepath: 'https://s3.amazonaws.com/www.polis.io'}))
+    s = s.pipe(template({
+      basepath: 'https://s3.amazonaws.com/www.polis.io',
+      d3Filename: 'd3.min.js',
+    }));
   }
   return s.pipe(gulp.dest(destRoot));
 });
@@ -239,6 +245,20 @@ gulp.task("scriptsOther", function() {
     files.push('bower_components/d3/d3.min.js');
   }
   var s = gulp.src(files);
+  if (!devMode) {
+    s = s
+      .pipe(uglify())
+      .pipe(gzip())
+      .pipe(rename(function (path) {
+        // path.dirname += "/ciao";
+        // path.basename += "-goodbye";
+        // path.extname = ".md"
+
+        // remove .gz extension
+        var ext = path.extname;
+        path.extname = ext.substr(0, ext.length- ".gz".length);
+      }));
+  }
   return s.pipe(gulp.dest(destRoot + "/js"));
 });
 
@@ -266,5 +286,6 @@ gulp.task('default', [
 gulp.task('dist', [
   "configureForProduction",
   "common",
+  "connect",
   ], function(){
 });
