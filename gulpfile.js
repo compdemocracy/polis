@@ -48,7 +48,7 @@ gulp.task('less', function(){
       // .pipe(combineCSS({
       //   selectorLimit: 4080
       // }))
-      .pipe(gulpif(!devMode, concat("polis.css")))
+      .pipe(concat("polis.css"))
       .pipe(gulp.dest(destRoot + '/css'))
 });
 
@@ -214,13 +214,13 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
           },
         },
       }))
-      .pipe(gulpif(!devMode, concat('polis.js')))
-      .pipe(gulpif(!devMode, uglify()));
+      .pipe(concat('polis.js'))
       if (!devMode) {
         s = s
+          .pipe(uglify())
           .pipe(gzip())
-          .pipe(rename('polis.js'));
       }
+      s = s.pipe(rename('polis.js'));
       return s.pipe(gulp.dest(destRoot + "/js"));
 });
 
@@ -239,8 +239,8 @@ gulp.task('common', [
 });
 
 gulp.task('default', [
-  "connect",
   "common",
+  "connect",
   ], function(){
 });
 
