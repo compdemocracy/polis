@@ -25,7 +25,7 @@ var hbsfy = require("hbsfy").configure({
 
 
 var useJsHint = false;
-var destRoot = __dirname + "/public2";
+var destRoot = __dirname + "/devel";
 var devMode = true;
 
 gulp.task('connect', connect.server({
