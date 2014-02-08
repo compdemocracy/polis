@@ -2,13 +2,16 @@ var gulp = require('gulp');
 var browserify = require('gulp-browserify');
 var concat = require('gulp-concat'); 
 var uglify = require('gulp-uglify')
+var rename = require('gulp-rename');
 var connect = require('gulp-connect'); 
 var less = require('gulp-less');
 var clean = require('gulp-clean');
 var jshint = require('gulp-jshint');
 var gzip = require('gulp-gzip');
+var template = require('gulp-template');
 var path = require('path');
 var combineCSS = require('combine-css');
+var gulpif = require('gulp-if');
 var gutil = require('gulp-util');
 var handlebars = require('gulp-handlebars');
 // var styl = require('gulp-styl');  
@@ -20,8 +23,13 @@ var hbsfy = require("hbsfy").configure({
   extensions: ["handlebars"]
 });
 
+
+var useJsHint = false;
+var destRoot = __dirname + "/public2";
+var devMode = true;
+
 gulp.task('connect', connect.server({
-  root: __dirname + '/public',
+  root: destRoot,
   port: 8000,
   livereload: true,
   // open: {
@@ -30,7 +38,7 @@ gulp.task('connect', connect.server({
 }));
 
 gulp.task('cleancss', function(){
-  gulp.src('./public/css', {read: false})
+  gulp.src(destRoot + '/css', {read: false})
       .pipe(clean())
 })
 
@@ -40,7 +48,22 @@ gulp.task('less', function(){
       // .pipe(combineCSS({
       //   selectorLimit: 4080
       // }))
-      .pipe(gulp.dest('./public/css'))
+      .pipe(gulpif(!devMode, concat("polis.css")))
+      .pipe(gulp.dest(destRoot + '/css'))
+});
+
+gulp.task('fontawesome', function() {
+  gulp.src('bower_components/font-awesome/font/**/*')
+    .pipe(gulp.dest(destRoot + "/font"));
+});
+gulp.task('index', function() {
+  var s = gulp.src('index.html');
+  if (devMode) {
+    s = s.pipe(template({basepath: ''}))
+  } else {
+    s = s.pipe(template({basepath: 'https://s3.amazonaws.com/www.polis.io'}))
+  }
+  return s.pipe(gulp.dest(destRoot));
 });
 
 gulp.task('templates', function(){
@@ -54,13 +77,57 @@ gulp.task('templates', function(){
 
 gulp.task('jshint', function(){
   gulp.src('js/**/*.js')
-      .pipe(jshint())
+      .pipe(gulpif(useJsHint, jshint(
+
+      {
+         // reporter: 'jslint',
+          curly: true, // require if,else blocks to have {}
+          eqeqeq: true,
+          trailing: true, // no trailing whitespace allowed
+          // immed: true,
+          // latedef: true,
+          // newcap: true,
+          // noarg: true,
+          // sub: true,
+          // undef: true,
+        //  unused: true,
+          quotmark: "double",
+         // plusplus: true, // no ++ or --
+        //  nonew: true,
+          noarg: true, // no arguments.caller and arguments.callee (allow for optimizations)
+          newcap: true, // constructors must be capitalized
+        //  latedef: "nofunc",
+         // indent: 2,
+          immed: true,
+//          forin: true, require hasOwnProperty checks
+          boss: true,
+//          debug: true, // uncomment temporarily when you want to allow debugger; statements.
+          // browser: true,
+          es3: true,          
+          globals: {
+            d3: true,
+            jQuery: true,
+            console: true,
+            require: true,
+            define: true,
+            requirejs: true,
+            describe: true,
+            expect: true,
+            module: true,
+            // it: true
+          },
+          // relax: eventually we should get rid of these
+            //expr: true,
+           // loopfunc: true,
+            //shadow: true,        
+        }
+        )))
       .pipe(jshint.reporter('default'))
 })
 
 gulp.task('scripts', ['templates', 'jshint'], function() {
   // Single entry point to browserify
-  gulp.src('js/main.js')
+  var s = gulp.src('js/main.js')
       .pipe(browserify({
         insertGlobals : true,
         debug : false, //!gulp.env.production
@@ -147,21 +214,38 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
           },
         },
       }))
-      .pipe(gulp.dest('./public/js'))
+      .pipe(gulpif(!devMode, concat('polis.js')))
+      .pipe(gulpif(!devMode, uglify()));
+      if (!devMode) {
+        s = s
+          .pipe(gzip())
+          .pipe(rename('polis.js'));
+      }
+      return s.pipe(gulp.dest(destRoot + "/js"));
 });
 
-gulp.task('squish', ['scripts'], function(){
-  gulp.src("public/js/**/*.js")
-      .pipe(concat('all.js'))
-      .pipe(uglify())
-      .pipe(gzip())
-      .pipe(gulp.dest("public/FOOdist"))
+
+gulp.task("configureForProduction", function() {
+  destRoot = "./dist";
+  devMode = false;
 });
 
-gulp.task('default', ["connect", "scripts", "less", "squish"], function(){
-  // place code for your default task here
+gulp.task('common', [
+  "scripts",
+  "less",
+  "fontawesome",
+  "index",
+  ], function(){
 });
 
-gulp.task('deploy', ["scripts", "less", "squish"], function(){
-  
-})
+gulp.task('default', [
+  "connect",
+  "common",
+  ], function(){
+});
+
+gulp.task('dist', [
+  "configureForProduction",
+  "common",
+  ], function(){
+});

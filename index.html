@@ -5,11 +5,7 @@
     <title>Polis</title>
     <script type="text/javascript" src="//use.typekit.net/wzs2fuq.js"></script>
     <script type="text/javascript">try{Typekit.load();}catch(e){}</script>
-    <link rel="stylesheet" type="text/css" href="/css/lib/polis_main.css">
-    <link rel="stylesheet" type="text/css" href="/css/pca_vis.css">
-    <link rel="stylesheet" type="text/css" href="/css/base.css">
-    <link rel="stylesheet" type="text/css" href="/css/conversationView.css">
-    <link rel="stylesheet" type="text/css" href="/css/landingPage.css">
+    <link rel="stylesheet" type="text/css" href="<%= basepath %>/css/polis.css">
     <meta name="viewport" content="width=device-width, initial-scale=1;">
   </head>
   <body>
@@ -66,10 +62,10 @@
 
 })(null); // to define a fallback function, replace null with the name of the function (ex: alert)
 </script>
-<script src="/js/r2d3.js" charset="utf-8"></script>
+<script src="<%= basepath %>/js/r2d3.js" charset="utf-8"></script>
 <![endif]-->
 <!--[if gte IE 9]><!-->
-<script src="/js/d3.js"></script>
+<script src="<%= basepath %>/js/d3.js"></script>
 <!--<![endif]-->
 
     <script>
@@ -78,7 +74,7 @@
 // }
     </script>
 
-    <script data-main="js/main" src="/js/require.js"></script>
+    <script src="<%= basepath %>/js/polis.js"></script>
 
   </body>
 </html>
