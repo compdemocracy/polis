@@ -163,5 +163,5 @@ gulp.task('default', ["connect", "scripts", "less", "squish"], function(){
 });
 
 gulp.task('deploy', ["scripts", "less", "squish"], function(){
-
+  
 })

@@ -16,7 +16,11 @@
     "gulp-clean": "~0.2.4",
     "gulp-jshint": "~1.4.0",
     "gulp-uglify": "~0.2.0",
-    "gulp-gzip": "0.0.4"
+    "gulp-gzip": "0.0.4",
+    "d3": "~3.4.1",
+    "underscore": "~1.5.2",
+    "thorax": "~2.2.1",
+    "backbone": "~1.1.0"
   },
   "devDependencies": {
     "thorax-inspector": "0.2.4",
