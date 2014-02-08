@@ -42,8 +42,11 @@ gulp.task('cleancss', function(){
       .pipe(clean())
 })
 
+
 gulp.task('less', function(){
-  gulp.src(['css/**/*.less'])
+  gulp.src([
+    "css/polis_main.less",
+    ])
       .pipe(less())
       // .pipe(combineCSS({
       //   selectorLimit: 4080
@@ -215,6 +218,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
         },
       }))
       .pipe(concat('polis.js'))
+  // TODO      .pipe(header("copyright Polis... (except that libs are mixed in)
       if (!devMode) {
         s = s
           .pipe(uglify())
@@ -224,6 +228,20 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
       return s.pipe(gulp.dest(destRoot + "/js"));
 });
 
+// for big infrequently changing scripts that we don't want to concatenate
+// on each dev build.
+gulp.task("scriptsOther", function() {
+
+  var files = [];
+  if (devMode) {
+    files.push('bower_components/d3/d3.js');
+  } else {
+    files.push('bower_components/d3/d3.min.js');
+  }
+  var s = gulp.src(files);
+  return s.pipe(gulp.dest(destRoot + "/js"));
+});
+
 
 gulp.task("configureForProduction", function() {
   destRoot = "./dist";
@@ -231,6 +249,7 @@ gulp.task("configureForProduction", function() {
 });
 
 gulp.task('common', [
+  "scriptsOther",
   "scripts",
   "less",
   "fontawesome",
