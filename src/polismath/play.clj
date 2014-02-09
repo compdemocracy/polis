@@ -3,6 +3,7 @@
             [plumbing.graph :as graph])
   (:use clojure.data.csv
         clojure.java.io
+        clojure.pprint
         criterium.core
         polismath.conversation
         polismath.pca
@@ -27,7 +28,7 @@
                                      {:pid 'd :tid 'y :vote 1}
                                      ]}))
 
-(println results)
+(pprint results)
 
 (defn -main []
   (println "Running main"))
