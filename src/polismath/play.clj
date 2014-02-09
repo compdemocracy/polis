@@ -1,4 +1,6 @@
 (ns polismath.play
+  (:require [plumbing.core :as plmb]
+            [plumbing.graph :as graph])
   (:use clojure.data.csv
         clojure.java.io
         criterium.core
@@ -15,6 +17,8 @@
                     [1 1 -1  0]]})
 
 (def conv {:rating-mat nmat})
+
+(def small-conv-update (graph/eager-compile small-conv-update-graph))
 
 (def results (small-conv-update {:conv conv :opts {}
                              :votes [
