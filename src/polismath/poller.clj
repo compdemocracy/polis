@@ -1,5 +1,5 @@
 (ns polismath.poller
-  (:use polismath.matrix-utils
+  (:use polismath.named-matrix
         polismath.utils
         polismath.pca)
   (:require [korma.db :as kdb]
