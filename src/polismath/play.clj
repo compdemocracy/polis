@@ -1,6 +1,9 @@
 (ns polismath.play
+  (:require [plumbing.core :as plmb]
+            [plumbing.graph :as graph])
   (:use clojure.data.csv
         clojure.java.io
+        clojure.pprint
         criterium.core
         polismath.conversation
         polismath.pca
@@ -16,6 +19,8 @@
 
 (def conv {:rating-mat nmat})
 
+(def small-conv-update (graph/eager-compile small-conv-update-graph))
+
 (def results (small-conv-update {:conv conv :opts {}
                              :votes [
                                      {:pid 'a :tid 'x :vote 1}
@@ -23,7 +28,7 @@
                                      {:pid 'd :tid 'y :vote 1}
                                      ]}))
 
-(println results)
+(pprint results)
 
 (defn -main []
   (println "Running main"))
