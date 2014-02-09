@@ -19,7 +19,6 @@
 ;   * base-cluster-full [ptpt to base mpa]
 
 
-
 (def base-conv-update-graph
   {:opts'       (plmb/fnk [opts]
                   "Merge in opts with the following defaults"
@@ -36,6 +35,7 @@
 (def small-conv-update-graph
   (merge base-conv-update-graph
     {:mat   (plmb/fnk [rating-mat]
+              "swap nils for zeros"
               (map (fn [row] (map #(if (nil? %) 0 %) row))
                 (:matrix rating-mat)))
      :pca   (plmb/fnk [conv mat opts']
@@ -50,16 +50,28 @@
                 (:group-k opts')
                 :last-clusters (:group-clusters conv)
                 :cluster-iters (:cluster-iters opts')))
+     ;:repness
+            ;(plmb/fnk [...]
+                      ;(...))
                       }))
 
 
-;(defn format-conv [conv]
-  ;(letfn [(frmt [conv' cmpnt f]
-            ;(assoc conv cmpnt (f (conv cmpnt))))]
-  ;(-> conv
-    ;(frmt :pca #(hash-map :center (:center pca)
-                ;:pcs (:pcs pca))
-  ;{:last-updated (conv :last-updated)
-   ;:base-clusters (
+(defn partial-pca
+  [rating-matrix pca indices & {:keys [n-comps iters learning-rate]
+                                :or {n-comps 2 iters 10 learning-rate 0.01}}]
+  "This function takes in the rating matrix, the current pca and a set of row indices and
+  computes the partial pca off of those, returning a lambda that will take the latest PCA 
+  and make the update on that in case there have been other mini batch updates since started"
+  (let [rating-subset (row-subset rating-matrix indices)
+        patial-pca (powerit-pca rating-subset n-comps
+                     :start-vectors (:comps pca)
+                     :iters iters)
+        forget-rate (- 1 learning-rate)]
+    (fn [pca']
+      "Actual updater lambda"
+      (plmb/map-vals #(+ (* forget-rate %1) (* learning-rate %2)) pca' patial-pca))))
+
+
+(def small-conv-update (graph/eager-compile small-conv-update-graph))
 
 
