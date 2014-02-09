@@ -1,5 +1,6 @@
 (ns polismath.simulation
-  (:use clj-time.coerce
+  (:use polismath.utils
+        clj-time.coerce
         clj-time.local))
 
 
