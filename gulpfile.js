@@ -48,9 +48,6 @@ gulp.task('less', function(){
     "css/polis_main.less",
     ])
       .pipe(less())
-      // .pipe(combineCSS({
-      //   selectorLimit: 4080
-      // }))
       .pipe(concat("polis.css"))
       .pipe(gulp.dest(destRoot + '/css'))
 });
