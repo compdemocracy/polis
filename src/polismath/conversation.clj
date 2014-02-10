@@ -50,10 +50,9 @@
                 (:group-k opts')
                 :last-clusters (:group-clusters conv)
                 :cluster-iters (:cluster-iters opts')))
-     ;:repness
-            ;(plmb/fnk [...]
-                      ;(...))
-                      }))
+     :repness
+            (plmb/fnk [rating-mat group-clusters]
+              (conv-repness rating-mat group-clusters))}))
 
 
 (defn partial-pca

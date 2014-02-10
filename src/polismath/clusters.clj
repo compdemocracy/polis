@@ -1,6 +1,7 @@
 (ns polismath.clusters
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
+        polismath.named-matrix
         clojure.core.matrix
         clojure.core.matrix.stats
         clojure.core.matrix.operators))
@@ -62,7 +63,7 @@
     (filter #(> (count (:members %)) 0))))
 
  
-; Each cluster should have the shape {:ids :members :center}
+; Each cluster should have the shape {:id :members :center}
 (defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   "Performs a k-means clustering."
   (let [data-iter (zip (:rows data) (matrix (:matrix data)))]
@@ -75,20 +76,30 @@
           (recur new-clusters (dec iter)))))))
 
 
+(defn repness [in-part out-part]
+  (letfn [(frac-up [votes]
+            (let [[up not-up]
+                    (reduce
+                      (fn [counts vote]
+                        (case vote
+                          1       (assoc counts 0 (inc (first counts)))
+                          (0 -1)  (assoc counts 1 (inc (second counts)))
+                          nil     counts))
+                      [1 1] votes)]
+              (/ up not-up)))]
+    (let [in-cols  (columns (:matrix in-part))
+          out-cols (columns (:matrix out-part))]
+      (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
+
 
 (defn conv-repness [data clusters]
   (map
-    (let [row-names (:members clusters)
-          in-part (rowname-subset data row-names)
-          out-part (inv-rowname-subset data row-names)]
-      (repness in-part out-part))))
-
-
-;(def repness [in-part out-part]
-  ;(let [in-mat (:matrix in-part)
-        ;out-mat (:matrix out-part)]
-    ;(map-indexed
-      ;(fn [i col-name]
-        ;(
+    (fn [cluster]
+      (let [row-names (:members cluster)
+            in-part  (rowname-subset     data row-names)
+            out-part (inv-rowname-subset data row-names)]
+        {:id      (:id cluster)
+         :repness (repness in-part out-part)}))
+    clusters))
 
 
