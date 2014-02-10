@@ -93,7 +93,6 @@ module.exports =  View.extend({
             el: "#visualization_div"
         });
         vis.addClusterTappedListener(onClusterTapped);
-        serverClient.addPersonUpdateListener(vis.upsertNode);
         that.tutorialController.setHandler("blueDot", vis.dipsplayBlueDotHelpItem);
     }
 
@@ -121,6 +120,10 @@ module.exports =  View.extend({
       domain: /localhost/.test(document.domain) ? "localhost:5000" : "www.polis.io",
       basePath: "",
       logger: console
+    });
+    
+    serverClient.addPersonUpdateListener(function() {
+      vis.upsertNode.apply(vis, arguments);
     });
 
       this.serverClient.addPollingScheduledCallback(function() {
