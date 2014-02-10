@@ -42,14 +42,14 @@
               (wrapped-pca mat (:n-comps opts')
                            :start-vectors (:pca conv)
                            :iters (:pca-iters conv)))
-     :proj  (plmb/fnk [mat pca]
-              (pca-project mat pca))
      :group-clusters
             (plmb/fnk [conv rating-mat mat opts']
-              (kmeans (assoc rating-mat :matrix mat :cols (map #(str "pc" %) (:n-comps opts')))
+              (kmeans (assoc rating-mat :matrix mat)
                 (:group-k opts')
                 :last-clusters (:group-clusters conv)
                 :cluster-iters (:cluster-iters opts')))
+     :proj  (plmb/fnk [mat pca]
+              (pca-project mat pca))
      :repness
             (plmb/fnk [rating-mat group-clusters]
               (conv-repness rating-mat group-clusters))}))
