@@ -31,12 +31,6 @@ var $ = require("jquery");
         //})
       }
     },
-    initialize: function(){
-      var urlPrefix = "https://www.polis.io/";
-      if (-1 === document.domain.indexOf(".polis.io")) {
-        urlPrefix = "http://localhost:5000/";
-      }
-    },
     createUser: function(event) {
     var that = this;
     event.preventDefault();
@@ -47,7 +41,7 @@ var $ = require("jquery");
           attrs.zinvite = zinvite;
         }
       $.ajax({
-        url: urlPrefix + "v3/auth/new",
+        url: that.urlPrefix + "v3/auth/new",
         type: "POST",
         dataType: "json",
         xhrFields: {
@@ -69,7 +63,7 @@ var $ = require("jquery");
     event.preventDefault();
     this.serialize(function(attrs, release){
       $.ajax({
-        url: urlPrefix + "v3/auth/login",
+        url: that.urlPrefix + "v3/auth/login",
         type: "POST",
         dataType: "json",
         xhrFields: {
@@ -95,8 +89,9 @@ var $ = require("jquery");
   },
   initialize: function(options) {
     this.model = options.model;
-    this.listenTo(this, "rendered", function(){
-      this.$("#conductor").anystretch("img/conductor.jpeg");
-    });
+    this.urlPrefix = "https://www.polis.io/";
+    if (-1 === document.domain.indexOf(".polis.io")) {
+      this.urlPrefix = "http://localhost:5000/";
+    }
   }
 });
