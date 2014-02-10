@@ -391,10 +391,19 @@ module.exports = function(params) {
     Bucket.prototype.update = function() {
         this.data.projection[0] = average(this.ppl, getX);
         this.data.projection[1] = average(this.ppl, getY);
+        this.count = this.ppl.length;
         if (this.containsPid(getPid())) {
             this.containsSelf = true;
+            // Decrease the size of the bucket which contains self...
+            this.count -= 1;
+            for (var i = 0; i < this.ppl.length; i++) {
+                if (this.ppl[i].isBlueDot) {
+                    // ... but if this is the blue dot, we don't want it to have a zero count.
+                    this.count += 1;
+                    break;
+                }
+            }
         }
-        this.count = this.ppl.length;
     };
     Bucket.prototype.getPeople = function() {
         // return getUserInfoByBid(this.bid);
@@ -915,6 +924,7 @@ module.exports = function(params) {
 
         return {
             pid : getPid(),
+            isBlueDot: true,
             data: {
                 projection: [
                     x,
