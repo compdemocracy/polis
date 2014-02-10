@@ -11,7 +11,7 @@
   :git-dependencies [["https://github.com/Prismatic/hiphip.git" "master"]
                      ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
-                 [org.clojure/data.json "0.2.2"]
+                 [cheshire "5.3.1"]
                  [net.mikera/core.matrix "0.19.0"]
                  [net.mikera/core.matrix.stats "0.3.0"]
                  [net.mikera/vectorz-clj "0.19.0"]
