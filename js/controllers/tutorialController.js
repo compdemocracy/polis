@@ -9,9 +9,13 @@ module.exports = function() {
     // var lookingAtCommentsOverall = false;
     // var lookingAtCommentsOverallCb = $.Callbacks();
     // var lookingAtCommentsForHull = false;
-    var userVotedCb = $.Callbacks();
+    // var userVotedCb = $.Callbacks();
     eb.on(eb.exit, cleanup);
-    eb.on(eb.vote, userVotedCb.fire);
+    eb.on(eb.vote, function() {
+      if (hintHandlers.blueDot) {
+        hintHandlers.blueDot("Dots represent people. The blue dot is you.</br>");
+      }
+    });
    // eb.on(eb.vote, function() {
     //  alert(1);
     //});
@@ -23,6 +27,7 @@ module.exports = function() {
       eb.off(eb.vote, onVote);
     }
 
+    // mapping from hint name to a single function which shows the hint.
     var hintHandlers = {
     };
 
@@ -49,11 +54,7 @@ module.exports = function() {
     // }
     // userVotedCb.add(function() { userHasVoted = true; });
     // userVotedCb.add(showBlueDotHint);
-    userVotedCb.add(function() {
-      if (hintHandlers.blueDot) {
-        hintHandlers.blueDot("Dots represent people. The blue dot is you.</br>");
-      }
-    });
+    // userVotedCb.add();
 
     function setHintHandler(name, f) {
       hintHandlers[name] = f;
