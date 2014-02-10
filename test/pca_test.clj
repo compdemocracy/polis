@@ -1,8 +1,9 @@
 (ns pca-test
   (:require [clojure.test :refer :all]
-            [matrix-utils :refer :all]
-            [incanter.core :refer :all]
-            [pca :refer :all]))
+            [polismath.named-matrix :refer :all]
+            [clojure.math.numeric-tower :refer :all]
+            [clojure.core.matrix :as m]
+            [polismath.pca :refer :all]))
 
 
 (defn almost-equal? [xs ys & {:keys [tol] :or {tol 1e-2}}]
@@ -11,7 +12,7 @@
 
 (deftest powerit
   (testing "Should generally work"
-    (let [data (matrix [[ 1 0  0  ]
+    (let [data (m/matrix [[ 1 0  0  ]
                         [-1 1  0.1]
                         [ 0 1  0.1]
                         [ 0 1 -0.1]])
@@ -20,10 +21,35 @@
 
       (testing "from scratch"
                (is (= true (almost-equal? (pc-from-start nil) expected))))
-
       (testing "from scratch"
                (is (almost-equal? (pc-from-start [1 1 1]) expected)))
-
       (testing "from scratch"
-               (is (almost-equal? (pc-from-start [1 1]) expected))))))
+               (is (almost-equal? (pc-from-start [1 1]) expected)))))
+
+         )
+
+
+(deftest wrapped-pca-test
+  (testing "Should not fail and have the right shape for for"
+    (letfn [(right-shape [data]
+              (let [res (wrapped-pca (m/matrix data) 2)]
+                (and (:center res) (:comps res))))]
+      (testing "1x1"
+        (is (right-shape [[1]])))
+      (testing "1x2"
+        (is (right-shape [[1 0]])))
+      (testing "2x1"
+        (is (right-shape [[1] [0]])))
+      (testing "2x2"
+        (is (right-shape [[1 0] [-1 1]])))))
+
+  (testing "when initital start value is a zero eigenvector"
+    (let [data (m/matrix [[1 -1  1 -1]
+                          [0 0 -1  1]
+                          [1 1 -1  0]])]
+      (testing "should try another eigenvector"
+        (is (not (almost-equal?
+                   (wrapped-pca data 2)
+                   [0 0 0 0]))))))
+
 

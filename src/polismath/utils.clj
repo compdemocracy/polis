@@ -1,4 +1,4 @@
-(ns utils)
+(ns polismath.utils)
 
 (defn zip [& xss]
   ;;should we redo this like the with-indices below, using a map?
@@ -26,6 +26,12 @@
 
 (defmacro ->>> [init & forms]
   (convert-forms init forms))
+
+
+(defmacro endlessly [interval & forms]
+  `(doseq [~'x (range)]
+     ~@forms
+     (Thread/sleep ~interval)))
 
 
 (defn with-indices [coll]

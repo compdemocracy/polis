@@ -1,22 +1,11 @@
-(ns storm-spec
+(ns polismath.storm-spec
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [incanter.core :as ic.core])
   (:use [backtype.storm clojure config]
-        matrix-utils
-        pca
-        [clojure.data.json :as json])
+        polismath.matrix-utils
+        polismath.pca
+        polismath.simulation)
   (:gen-class))
-
-
-
-(defn make-reaction-gen [n-convs start-n]
-  "This function creates an infinite sequence of reations which models an increasing number of comments and
-  people over time, over some number of conversations n-convs. The start-n argument sets the initial number of
-  ptpts and cmts per conversation."
-  ; I <3 clojure...
-  (mapcat
-    #(random-reactions % % :n-convs n-convs)
-    (map #(+ % start-n) (range))))
 
 
 (defspout reaction-spout ["conv-id" "reaction"] {:prepare true}
@@ -48,7 +37,9 @@
 
 ; This is a little bit of a hack. Need to get pca working on matrices with just a couple of elements still...
 ;(def init-matrix (->RatingMatrix ["p1" "p2" "p3"] ["c1" "c2" "c3"] [[1 1 0] [0 1 -1] [0 -1 1]]))
-(def init-matrix (->RatingMatrix [] [] [[]]))
+; this might actually be really bad for structural sharing (keeping a head around); don't understand all of
+; the intricacies of structural sharing though
+(def init-matrix (named-matrix))
 
 (defbolt rating-matrix ["conv-id" "rating-matrix"] {:prepare true}
   [conf context collector]
@@ -56,7 +47,7 @@
     (bolt (execute [tuple]
       (let [[conv-id reaction] (.getValues tuple)]
         (swap! data
-               (data-updater #(update-rating-matrix % [reaction]) #(identity init-matrix))
+               (data-updater #(update-nmat % [reaction]) #(identity init-matrix))
                conv-id)
         (emit-bolt! collector
                     [conv-id (ic.core/matrix (:matrix (get @data conv-id)))]
