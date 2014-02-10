@@ -1013,7 +1013,9 @@ module.exports = function(params) {
         addPersonUpdateListener: function() {
             personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
             if (projectionPeopleCache && clustersCache) {
-                sendUpdatedVisData(projectionPeopleCache, clustersCache);
+
+                var buckets = withProjectedSelf(projectionPeopleCache);
+                sendUpdatedVisData(buckets, clustersCache);
             }
         },
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
