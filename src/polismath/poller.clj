@@ -1,6 +1,6 @@
 (ns polismath.poller
-  (:use 
-        clojure.pprint
+  (:use clojure.pprint
+        polismath.conversation
         polismath.named-matrix
         polismath.utils
         polismath.pca)
@@ -82,18 +82,23 @@
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
         mg-db           (mongo-db env/env)
-        last-timestamp  (atom 1388285552490)]
+        last-timestamp  (atom 1388285552490)
+        conversations   (atom {})]
     (endlessly poll-interval
       (let [new-votes (poll pg-spec @last-timestamp)
-            split-votes (split-by-conv new-votes)
-            ; results (small-conv-update {
-                      ; :conv conv 
-                      ; :opts {}
-                             ; :votes (get split-votes 451)})
-            ]
-        (println "polling:" split-votes)
+            split-votes (split-by-conv new-votes)]
+        ;(println "polling:" split-votes)
+        (doseq [[zid votes] split-votes]
+          (swap! conversations
+            (fn [convs]
+              (assoc convs zid
+                (small-conv-update {:conv (or (convs zid)
+                                            {:rating-mat (named-matrix)})
+                                    :votes votes
+                                    :opts {}}))))
+          ;(upsert-results pg-spec 1001 1 "foo")
+          (pprint (@conversations zid)))
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
-        ; (upsert-results pg-spec 1001 1 "foo")
         ))))
 
 
