@@ -94,6 +94,7 @@ module.exports =  View.extend({
         });
         vis.addClusterTappedListener(onClusterTapped);
         that.tutorialController.setHandler("blueDot", vis.dipsplayBlueDotHelpItem);
+        that.tutorialController.setHandler("foo", function(){alert('foo is called')})
     }
 
     // just a quick hack for now.
@@ -236,8 +237,16 @@ module.exports =  View.extend({
       });
       var $commentViewPopover = that.$("#commentView").popover({
         title: "START HERE",
-        content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='margin-top:20px'> Ok, got it! </button>",
+        content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='margin-top:20px'> Ok, got it </button>",
         html: true, //XSS risk, not important for now
+        trigger: "manual",
+        placement: "bottom"
+      });
+
+      var $blueDotPopover = that.$("VisView").popover({
+        title: "DOTS ARE PEOPLE",
+        content: "Dots represent people. The blue dot represents you.<button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='margin-top:20px'> Ok, got it </button>",
+        html: true,
         trigger: "manual",
         placement: "bottom"
       });

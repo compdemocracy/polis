@@ -1024,16 +1024,16 @@ function updateHelpArrow() {
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
-function displayHelpItem(content) {
-    overlay_layer.selectAll(".helpArrow")
-        .style("display", "block")
-        .attr("marker-end", "url(#ArrowTip)");
-    updateHelpArrow();
+// function displayHelpItem(content) {
+//     overlay_layer.selectAll(".helpArrow")
+//         .style("display", "block")
+//         .attr("marker-end", "url(#ArrowTip)");
+//     updateHelpArrow();
 
-    // $(".helpArrow").removeClass("hidden");
-    $("#helpTextBox").removeClass("hidden");
-    $("#helpTextMessage").html(content);
-}
+//     // $(".helpArrow").removeClass("hidden");
+//     $("#helpTextBox").removeClass("hidden");
+//     $("#helpTextMessage").html(content);
+// }
 
 function onHelpTextClicked() {
     overlay_layer.selectAll(".helpArrow")
@@ -1057,7 +1057,7 @@ return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     addClusterTappedListener: clusterClickedCallbacks.add,
-    dipsplayBlueDotHelpItem: displayHelpItem,
+    // dipsplayBlueDotHelpItem: displayHelpItem,
     emphasizeParticipants: emphasizeParticipants2
 };
 
