@@ -824,14 +824,26 @@ function selectComment(tid) {
         console.error("failed to get reactions to comment: " + d.tid);
     });
     d3CommentList
-        .style("background-color", chooseCommentFill);
+        .style("background-color", chooseCommentFill)
+        .style("color", chooseCommentTextColor);
+
 }
 
+// TODO move this stuff out into a backbone view.
 function chooseCommentFill(d) {
     if (selectedTid === d.tid) {
-        return "#FFFBE8";
+        return "#428bca";
     } else {
-        return "rgba(0,0,0,0)";
+        // return nothing since we want the hover class to be able to set
+        return;
+    }
+}
+
+function chooseCommentTextColor(d) {
+    if (selectedTid === d.tid) {
+        return "white";
+    } else {
+        return "black";
     }
 }
 
@@ -853,8 +865,15 @@ function renderComments(comments) {
         .append("li")
         .classed("query_result_item", true)
         .style("background-color", chooseCommentFill)
+        .style("color", chooseCommentTextColor)
         .on("click", function(d) {
             selectComment(d.tid);
+        })
+        .on("mouseover", function() {
+            d3.select(this).classed("hover", true);
+        })
+        .on("mouseout", function() {
+            d3.select(this).classed("hover", false);
         })
         .text(function(d) { return d.txt; });
 
@@ -879,7 +898,9 @@ function unhoverAll() {
   console.log("unhoverAll");
   if (d3CommentList) {
     d3CommentList
-      .style("background-color", chooseCommentFill);
+      .style("background-color", chooseCommentFill)
+      .style("color", chooseCommentTextColor);
+
   }
   // for (var i = 0; i < nodes.length; i++) {
   //     var node = nodes[i];
