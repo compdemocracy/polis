@@ -109,7 +109,7 @@ module.exports =  View.extend({
         setTimeout(function(){
           that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
             title: "COMMENTS FOR THIS GROUP",
-            content: "Click on a comment to see which participants agreed with it (green/up) and which participants disagreed (red/down). Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+            content: "Clicking on a shaded area will show you Click on a comment to see which participants agreed with it (green/up) and which participants disagreed (red/down). Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
             html: true,
             trigger: "manual",
             placement: "bottom" 
@@ -121,7 +121,7 @@ module.exports =  View.extend({
           })      
         },1500)
       }) 
-    } 
+    }  
 
     // just a quick hack for now.
     // we may need to look into something more general
