@@ -30,7 +30,7 @@
   "Effectively random initial clusters for initializing a new kmeans comp"
   (take k
     (map-indexed
-      (fn [id position] {:id id :members [] :center position})
+      (fn [id position] {:id id :members [] :center (matrix position)})
       (distinct (rows (:matrix data))))))
 
 
@@ -63,13 +63,22 @@
     ; Filter out clusters that don't hvae any members (should maybe log on verbose?)
     (filter #(> (count (:members %)) 0))))
 
+
+(defn recenter-clusters [data clusters]
+  (map
+    (fn [cluster]
+      (assoc cluster :center (mean (matrix (:matrix (rowname-subset data (:members cluster)))))))
+    clusters))
+
  
 ; Each cluster should have the shape {:id :members :center}
 (defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   "Performs a k-means clustering."
-  (let [data-iter (zip (:rows data) (matrix (:matrix data)))]
-    (loop [clusters (or last-clusters (init-clusters data k))
-           iter max-iters]
+  (let [data-iter (zip (:rows data) (matrix (:matrix data)))
+        clusters  (if last-clusters
+                    (recenter-clusters data last-clusters)
+                    (init-clusters data k))]
+    (loop [clusters clusters iter max-iters]
       ; make sure we don't use clusters where k < k
       (let [new-clusters (cluster-step data-iter k clusters)]
         (if (or (= iter 0) (same-clustering? clusters new-clusters))
