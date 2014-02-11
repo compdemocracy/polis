@@ -1,4 +1,3 @@
-var eb = require("../eventBus");
 var RootView = require("../views/root");
 var Backbone = require("backbone");
 var ConversationModel = require("../models/conversation");
@@ -305,11 +304,5 @@ var polisRouter = Backbone.Router.extend({
     RootView.getInstance().setView(loginFormView);
   }
   });
- var originalNavigate = polisRouter.navigate;
- polisRouter.navigate = function() {
-  alert("triggering exit");
-  eb.trigger(eb.exit);
-  originalNavigate.apply(polisRouter, arguments);
- };
 
  module.exports = polisRouter;

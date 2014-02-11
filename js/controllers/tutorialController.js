@@ -10,12 +10,13 @@ module.exports = function() {
     // var lookingAtCommentsOverallCb = $.Callbacks();
     // var lookingAtCommentsForHull = false;
     // var userVotedCb = $.Callbacks();
-    eb.on(eb.exit, cleanup);
-    eb.on(eb.vote, function() {
+    eb.on(eb.exitConv, cleanup);
+    eb.on(eb.vote, onVote);
+    function onVote() {
       if (hintHandlers.blueDot) {
         hintHandlers.blueDot("Dots represent people. The blue dot is you.</br>");
       }
-    });
+    }
    // eb.on(eb.vote, function() {
     //  alert(1);
     //});
@@ -23,7 +24,7 @@ module.exports = function() {
     //  alert(2);
     //});
     function cleanup() {
-      eb.off(eb.exit, cleanup);
+      eb.off(eb.exitConv, cleanup);
       eb.off(eb.vote, onVote);
     }
 

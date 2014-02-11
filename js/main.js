@@ -1,4 +1,5 @@
 var $ = require("jquery");
+var eb = require("./eventBus");
 var Backbone = require("backbone");
 var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
@@ -56,7 +57,17 @@ initialize(function(next) {
     // and initialize all routers here, the callback
     // `next` is provided in case the operations
     // needed are aysynchronous
-    new MainPolisRouter();
+    var router = new MainPolisRouter();
+
+    // set up the "exitConv" event
+    var currentRoute;
+    router.on("route", function(route, params) {
+      console.log("route changed from: " + currentRoute+ " to: " + route);
+      if (currentRoute === "conversationView") {
+        eb.trigger(eb.exitConv);
+      }
+      currentRoute = route;
+    });
 
     next();
 });

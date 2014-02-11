@@ -13,9 +13,10 @@ module.exports = View.extend({
       }
     },
   initialize: function(options) {
-    eb.on("exit", cleanup);
+      eb.on(eb.exitConv, cleanup);
     function cleanup() {
-      eb.off("exit", cleanup);
+      //alert('cleanup');
+      eb.off(eb.exitConv, cleanup);
     }
     var serverClient = this.serverClient;
     var votesByMe = this.votesByMe;
