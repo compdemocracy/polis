@@ -9,6 +9,7 @@ var clean = require('gulp-clean');
 var jshint = require('gulp-jshint');
 var gzip = require('gulp-gzip');
 var template = require('gulp-template');
+var watch = require('gulp-watch');
 var path = require('path');
 var combineCSS = require('combine-css');
 var gulpif = require('gulp-if');
@@ -271,18 +272,37 @@ gulp.task('common', [
   "less",
   "fontawesome",
   "index",
-  ], function(){
+  ], function() {
 });
 
-gulp.task('default', [
+gulp.task('dev', [
   "common",
-  "connect",
   ], function(){
 });
 
 gulp.task('dist', [
   "configureForProduction",
   "common",
-  "connect",
   ], function(){
 });
+
+gulp.task("watchForDev", [
+  "connect",
+  ], function() {
+    gulp.watch([
+      "js/**",
+      "!js/tmpl/**", // These are genterated, so don't watch!
+      "css/**",
+      "*.html",
+    ], function(e) {
+      console.log("watch saw: " + e.path + " " + e.type);
+      gulp.run("dev");
+    });
+});
+
+gulp.task('default', [
+  "watchForDev",
+  ], function() {
+});
+
+

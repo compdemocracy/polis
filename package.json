@@ -34,7 +34,8 @@
     "gulp-util": "~2.2.14",
     "gulp-browserify": "~0.4.2",
     "gulp-concat": "~2.1.7",
-    "gulp-connect": "~0.3.0"
+    "gulp-connect": "~0.3.0",
+    "gulp-watch": "~0.5.0"
   },
   "scripts": {
     "start": "node ./node_modules/.bin/grunt",
