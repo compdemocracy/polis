@@ -1,4 +1,4 @@
-(ns matrix-utils-test
+(ns named-matrix-test
   (:require [clojure.test :refer :all]
             [polismath.named-matrix :refer :all]))
 
