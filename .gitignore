@@ -4,3 +4,5 @@ public
 .DS_Store
 *.log
 js/tmpl/
+dist
+devel
