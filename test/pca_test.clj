@@ -24,9 +24,7 @@
       (testing "from scratch"
                (is (almost-equal? (pc-from-start [1 1 1]) expected)))
       (testing "from scratch"
-               (is (almost-equal? (pc-from-start [1 1]) expected)))))
-
-         )
+               (is (almost-equal? (pc-from-start [1 1]) expected))))))
 
 
 (deftest wrapped-pca-test
@@ -45,11 +43,11 @@
 
   (testing "when initital start value is a zero eigenvector"
     (let [data (m/matrix [[1 -1  1 -1]
-                          [0 0 -1  1]
-                          [1 1 -1  0]])]
+                          [0  0 -1  1]
+                          [1  1 -1  0]])]
       (testing "should try another eigenvector"
         (is (not (almost-equal?
                    (wrapped-pca data 2)
-                   [0 0 0 0]))))))
+                   [0 0 0 0])))))))
 
 
