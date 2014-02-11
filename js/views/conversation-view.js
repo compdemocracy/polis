@@ -121,10 +121,7 @@ module.exports =  View.extend({
       basePath: "",
       logger: console
     });
-    
-    serverClient.addPersonUpdateListener(function() {
-      vis.upsertNode.apply(vis, arguments);
-    });
+
 
       this.serverClient.addPollingScheduledCallback(function() {
         that.updateVotesByMeCollection();
@@ -253,6 +250,10 @@ module.exports =  View.extend({
       },1000);
 
       initPcaVis();
+      
+      serverClient.addPersonUpdateListener(function() {
+          vis.upsertNode.apply(vis, arguments);
+      });
 
       $(window).resize(_.throttle(initPcaVis, 100));
 

@@ -46,6 +46,8 @@ var selectedTid = -1;
 // number of votes by the participant who has voted the most.
 var maxVoteCount = 0;
 
+var eps = 0.000000001;
+
 var bidToKid = {};
 
 var isIE8 = navigator.userAgent.match(/MSIE 8/);
@@ -362,10 +364,17 @@ function updateHulls() {
         var bottom = -Infinity;
         var right = -Infinity;
         var left = Infinity;
-        var temp = cluster.map(function(pid) {
+        var temp = _.map(cluster, function(pid) {
+            if (!bidToPerson[pid]) {
+                return null;
+            }
             var x = bidToPerson[pid].x;
             var y = bidToPerson[pid].y;
             return [x, y];
+        });
+        temp = _.filter(temp, function(xy) {
+            // filter out nulls
+            return !!xy;
         });
 
         return temp;
@@ -635,8 +644,8 @@ function upsertNode(updatedNodes, newClusters) {
     var spans = computeXySpans(updatedNodes);
     var border = maxNodeRadius + w / 50;
     return {
-        x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min, spans.x.max]),
-        y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min, spans.y.max])
+        x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
+        y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
     };
   }
     // TODO pass all nodes, not just updated nodes, to createScales.

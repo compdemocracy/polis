@@ -54,8 +54,8 @@ module.exports = function(params) {
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
 
-    var projectionPeopleCache;
-    var clustersCache;
+    var projectionPeopleCache = [];
+    var clustersCache = [];
 
     var votesByMe = params.votesByMe;
 
@@ -645,6 +645,10 @@ module.exports = function(params) {
         people = people || [];
         people = _.clone(people); // shallow copy
         people.unshift(bucketize([projectSelf()], 1, 1, 0)[0]);
+        // remove empty buckets
+        people = _.filter(people, function(bucket) {
+            return bucket.count > 0;
+        });
         return people;
     }
 
@@ -1012,11 +1016,9 @@ module.exports = function(params) {
         removePersonUpdateListener: personUpdateCallbacks.remove,
         addPersonUpdateListener: function() {
             personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
-            if (projectionPeopleCache && clustersCache) {
 
-                var buckets = withProjectedSelf(projectionPeopleCache);
-                sendUpdatedVisData(buckets, clustersCache);
-            }
+            var buckets = withProjectedSelf(projectionPeopleCache);
+            sendUpdatedVisData(buckets, clustersCache);
         },
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
