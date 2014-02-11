@@ -48,6 +48,7 @@ var selectedTid = -1;
 var maxVoteCount = 0;
 
 var eps = 0.000000001;
+var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 var bidToKid = {};
 
@@ -295,7 +296,13 @@ function setClusterActive(clusterId) {
     }
     selectedPids = pids;
     selectedCluster = clusterId;
-    var promise = getCommentsForSelection(pids)
+    var promise;
+    if (pids.length || SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED) {
+        promise = getCommentsForSelection(pids);
+    } else {
+        promise = $.Deferred().resolve([]);
+    }
+    promise
       .pipe( // getCommentsForSelection with clusters array (of pids)
         renderComments,                                 // !! this is tightly coupled.
                             // !! it makes sense to keep this in the view because
@@ -970,9 +977,10 @@ function resetSelection() {
 
 
 function selectBackground() {
-  selectedBids = [];
-  resetSelectedComment();
-  unhoverAll();
+  resetSelection();
+  // selectedBids = [];
+  // resetSelectedComment();
+  // unhoverAll();
 
   setClusterActive(false)
     .then(
