@@ -38,19 +38,19 @@
                                         ]}))
 
 (pprint results)
-(pprint results2)
 
 (add-encoder mikera.vectorz.Vector
              (fn [v jsonGenerator]
                (encode-seq (into-array v) jsonGenerator)))
 
-; CAREFUL - make sure we don't lose dimentions of the N-Dimensional array.
+; CAREFUL - make sure we don't lose dimensions of the N-Dimensional array.
 (add-encoder clojure.core.matrix.impl.ndarray.NDArray
              (fn [v jsonGenerator]
                (encode-seq (into-array v) jsonGenerator)))
 
+(pprint (prep-for-uploading results2))
 
-(pprint (generate-string results))
+(pprint (generate-string (prep-for-uploading results2)))
 
 
 (defn -main []
