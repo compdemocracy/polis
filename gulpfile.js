@@ -32,7 +32,7 @@ var devMode = true;
 gulp.task('connect', connect.server({
   root: destRoot,
   port: 8000,
-  livereload: true,
+  // livereload: true,
   // open: {
   //   browser: 'chrome' // if not working OS X browser: 'Google Chrome'
   // }
@@ -273,6 +273,9 @@ gulp.task('common', [
   "fontawesome",
   "index",
   ], function() {
+    // if (devMode) {
+    //   connect.reload();
+    // }
 });
 
 gulp.task('dev', [
