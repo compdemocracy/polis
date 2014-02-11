@@ -21,12 +21,17 @@ module.exports = function() {
         console.log('onvote called, votecounter at: ' + voteCounter)
 
         switch (voteCounter) {
-          case 1:
+          case 3:
+            // Waiting until third comment so that the user knows
+            // that the comment in the Read and React pane has changed.
+            // Otherwise they may be looking at the help text when
+            // the comment changes, and then not realize that the comments
+            // in the Read & React pane change.
             if(hintHandlers.blueDot) {
               hintHandlers.blueDot();
             }
             break;
-          case 5:
+          case 6:
             if(hintHandlers.shadedGroup){
               hintHandlers.shadedGroup();
             }            
