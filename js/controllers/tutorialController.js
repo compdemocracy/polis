@@ -27,14 +27,16 @@ module.exports = function() {
             // Otherwise they may be looking at the help text when
             // the comment changes, and then not realize that the comments
             // in the Read & React pane change.
-            if(hintHandlers.blueDot) {
+            if(hintHandlers.blueDot && !shown.blueDot) {
               hintHandlers.blueDot();
+              shown.blueDot = true;
             }
             break;
           case 6:
-            if(hintHandlers.shadedGroup){
+            if(hintHandlers.shadedGroup && !shown.shadedGroup){
               hintHandlers.shadedGroup();
-            }            
+              shown.shadedGroup = true;
+            }
             break;
           default:
             break;
@@ -42,8 +44,9 @@ module.exports = function() {
     }
 
     function analyzeViewPopover() {
-      if(hintHandlers.analyzePopover){
+      if(hintHandlers.analyzePopover && !shown.analyzePopover){
         hintHandlers.analyzePopover();
+        shown.analyzePopover = true;
       }
     }
 
@@ -57,8 +60,9 @@ module.exports = function() {
     };
 
     var shown = {
+      analyzePopover: false,
       blueDot: false,
-      commentsForHull: false
+      shadedGroup: false
     };
 
     function setHintHandler(name, f) {
