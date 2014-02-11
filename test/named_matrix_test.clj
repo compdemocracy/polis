@@ -89,3 +89,16 @@
             "there new participants should be in rows")))))
 
 
+(deftest matrix-subsetting-test
+  (testing "by row"
+    (let [submat (named-matrix ["p1" "p2"] ["c1" "c2" "c3"]
+                    [[ 0 1 0]
+                     [-1 1 1]])]
+      (testing "using rowname-subset"
+        (is (= (rowname-subset real-nmat ["p1" "p2"]) submat)))
+      (testing "using row-subset"
+        (is (= (row-subset real-nmat [0 1]) submat)))
+      (testing "using inv-rowname-subset"
+        (is (= (inv-rowname-subset real-nmat ["p3"]) submat))))))
+
+
