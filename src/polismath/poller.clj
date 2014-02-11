@@ -93,8 +93,7 @@
             ]
         (println "polling:" split-votes)
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
-        ; want to upsert, using try-catch instead. try 
-        (upsert-results pg-spec 1001 1 "foo")
+        ; (upsert-results pg-spec 1001 1 "foo")
         ))))
 
 
