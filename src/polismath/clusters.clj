@@ -9,19 +9,29 @@
 (set-current-implementation :vectorz)
 
 
-(defn init-clusters [data k]
-  "Effectively random initial clusters for initializing a new kmeans comp"
-  (letfn [(part [coll] (partition k k [] coll))]
-    (map-indexed (fn [id [members positions]]
-           {:id id :members members :center (mean positions)})
-      (zip (part (:rows data)) (part (matrix (:matrix data)))))))
-
-
 (defn clst-append [clst item]
-  "Append an item to a cluster"
+  "Append an item to a cluster, where item is a (mem_id, vector) pair"
   (assoc clst
          :members (conj (:members clst) (first item))
          :positions (conj (:positions clst) (last item))))
+
+
+(defn add-to-closest [clusts item]
+  "Find the closest cluster and append item (mem_id, vector) to it"
+  (let [[clst-id clst] (apply min-key
+                         (fn [[clst-id clst]]
+                           (distance (last item) (:center clst)))
+                           clusts)]
+    (assoc clusts clst-id
+      (clst-append clst item))))
+
+
+(defn init-clusters [data k]
+  "Effectively random initial clusters for initializing a new kmeans comp"
+  (take k
+    (map-indexed
+      (fn [id position] {:id id :members [] :center position})
+      (distinct (rows (:matrix data))))))
 
 
 (defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
@@ -45,16 +55,7 @@
   clusters: array of clusters"
   (->> data-iter
     ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
-    (reduce
-      (fn [new-clusters item]
-        (let [[clst-id clst] (apply min-key
-                       (fn [[clst-id clst]]
-                         (distance (last item) (:center clst)))
-                       new-clusters)]
-          (assoc new-clusters clst-id
-            (clst-append clst item))))
-      ; Using a dict version of the blank clusters for better indexing
-      (cleared-clusters clusters))
+    (reduce add-to-closest (cleared-clusters clusters))
     vals
     ; Apply mean to get updated centers
     (map #(-> (assoc % :center (mean (:positions %)))
