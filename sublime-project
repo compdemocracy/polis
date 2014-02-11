@@ -1,0 +1,30 @@
+{
+    "see docs here": "http://sublimetext.info/docs/en/reference/build_systems.html",
+
+    "folders":
+    [
+        {
+            "path": "artifacts",
+            "folder_exclude_patterns": [
+                "js/tmpl",
+                "public",
+                "dist",
+                "devel",
+                "node_modules",
+                "bower_components"
+                ]
+        }
+    ],
+    "settings":
+    {
+        "tab_size": 2,
+        "translate_tabs_to_spaces": true
+    },
+    "build_systems":
+    [
+        {
+            "name": "List (for demo purposes)",
+            "cmd": ["ls"]
+        }
+    ]
+}
