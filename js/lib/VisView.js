@@ -182,10 +182,10 @@ visualization = d3.select(el_selector).select("svg")
       .attr(dimensions)
       // .attr("viewBox", "0 0 " + w + " " + h )
       .classed("visualization", true)
-      .on("click", selectBackground)
         .append("g")
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
 ;
+$(el_selector).on("click", selectBackground);
 
 main_layer = visualization.append("g");
 overlay_layer = visualization.append("g");
