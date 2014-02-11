@@ -68,34 +68,57 @@ module.exports =  View.extend({
     }
 
     function initPcaVis() {
-        var w = $("#visualization_div").width();
-        var h = w/2;
-        $("#visualization_div").height(h);
-        if (vis) {
-            serverClient.removePersonUpdateListener(vis.upsertNode);
-        }
-        vis = new VisView({
-            getPid: function() {
-              if (!_.isId(pid)) {
-//                alert("bad pid: " + pid);
-              }
-              return pid;
-            },
-            getCommentsForProjection: serverClient.getCommentsForProjection,
-            getCommentsForSelection: serverClient.getCommentsForSelection,
-            getReactionsToComment: serverClient.getReactionsToComment,
-            getUserInfoByPid: serverClient.getUserInfoByPidSync,
-            getTotalVotesByPidSync: serverClient.getTotalVotesByPidSync,
-            w: w,
-            h: h,
-            computeXySpans: Utils.computeXySpans,
-            el_queryResultSelector: ".query_results_div",
-            el: "#visualization_div"
+      var w = $("#visualization_div").width();
+      var h = w/2;
+      $("#visualization_div").height(h);
+      if (vis) {
+          serverClient.removePersonUpdateListener(vis.upsertNode);
+      }
+      vis = new VisView({
+          getPid: function() {
+            if (!_.isId(pid)) {
+//              alert("bad pid: " + pid);
+            }
+            return pid;
+          },
+          getCommentsForProjection: serverClient.getCommentsForProjection,
+          getCommentsForSelection: serverClient.getCommentsForSelection,
+          getReactionsToComment: serverClient.getReactionsToComment,
+          getUserInfoByPid: serverClient.getUserInfoByPidSync,
+          getTotalVotesByPidSync: serverClient.getTotalVotesByPidSync,
+          w: w,
+          h: h,
+          computeXySpans: Utils.computeXySpans,
+          el_queryResultSelector: ".query_results_div",
+          el: "#visualization_div"
+      });
+      vis.addClusterTappedListener(onClusterTapped);
+      that.tutorialController.setHandler("blueDot", function(){
+        that.$blueDotPopover.popover("show");
+        $('#blueDotPopoverButton').click(function(){
+          that.$blueDotPopover.popover("hide");
+        })
+      });
+      that.tutorialController.setHandler("shadedGroup", function(){
+        that.$shadedGroupPopover.popover("show");
+        $('shadedGroupPopoverButton').click(function(){
+          that.$shadedGroupPopover.popover("hide");
         });
-        vis.addClusterTappedListener(onClusterTapped);
-        that.tutorialController.setHandler("blueDot", vis.dipsplayBlueDotHelpItem);
-        that.tutorialController.setHandler("foo", function(){alert('foo is called')})
-    }
+      });
+      that.tutorialController.setHandler("analyzePopover", function(){
+        setTimeout(function(){
+          that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
+            title: "COMMENTS FOR THIS GROUP",
+            content: "Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment disappear",
+            html: true,
+            trigger: "manual",
+            placement: "bottom"
+          });
+          that.$('.query_results > li').first().trigger('click');
+          that.$analyzeViewPopover.popover("show");      
+        },1500)
+      }) 
+    } 
 
     // just a quick hack for now.
     // we may need to look into something more general
@@ -235,26 +258,34 @@ module.exports =  View.extend({
         container: "body"
 
       });
-      var $commentViewPopover = that.$("#commentView").popover({
+      that.$commentViewPopover = that.$("#commentView").popover({
         title: "START HERE",
-        content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='margin-top:20px'> Ok, got it </button>",
+        content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
         html: true, //XSS risk, not important for now
         trigger: "manual",
         placement: "bottom"
       });
 
-      var $blueDotPopover = that.$("VisView").popover({
+      that.$blueDotPopover = that.$("#visualization_div").popover({
         title: "DOTS ARE PEOPLE",
-        content: "Dots represent people. The blue dot represents you.<button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='margin-top:20px'> Ok, got it </button>",
+        content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently.<button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
         html: true,
         trigger: "manual",
         placement: "bottom"
       });
 
+      that.$shadedGroupPopover = that.$("#visualization_div").popover({
+        title: "CLICK ON GROUPS",
+        conent: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+        html: true, 
+        trigger: "manual",
+        placement: "bottom"
+      })
+
       setTimeout(function(){
-        $commentViewPopover.popover("show");
+        that.$commentViewPopover.popover("show");
         $("#commentViewPopoverButton").click(function(){
-          $commentViewPopover.popover("hide");
+          that.$commentViewPopover.popover("hide");
         });
       },1000);
 

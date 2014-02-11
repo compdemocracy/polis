@@ -10,19 +10,41 @@ module.exports = function() {
     // var lookingAtCommentsOverallCb = $.Callbacks();
     // var lookingAtCommentsForHull = false;
     // var userVotedCb = $.Callbacks();
+    var voteCounter = 0;
+
     eb.on(eb.exitConv, cleanup);
     eb.on(eb.vote, onVote);
+    eb.on(eb.clusterClicked, analyzeViewPopover)
+
     function onVote() {
-      if (hintHandlers.blueDot) {
-        hintHandlers.blueDot("Dots represent people. The blue dot is you.</br>");
+        voteCounter++;
+        console.log('onvote called, votecounter at: ' + voteCounter)
+
+        switch (voteCounter) {
+          case 1:
+            if(hintHandlers.blueDot) {
+              hintHandlers.blueDot();
+            }
+            break;
+          case 5:
+            if(hintHandlers.shadedGroup){
+              hintHandlers.shadedGroup();
+            }            
+            break;
+          default:
+            break;
+        }
+      // if (hintHandlers.blueDot) {
+      //   hintHandlers.blueDot("Dots represent people. The blue dot is you.</br>");
+      // }
+    }
+
+    function analyzeViewPopover() {
+      if(hintHandlers.analyzePopover){
+        hintHandlers.analyzePopover();
       }
     }
-   // eb.on(eb.vote, function() {
-    //  alert(1);
-    //});
-    //    eb.on(eb.exit, function() {
-    //  alert(2);
-    //});
+
     function cleanup() {
       eb.off(eb.exitConv, cleanup);
       eb.off(eb.vote, onVote);
@@ -36,26 +58,6 @@ module.exports = function() {
       blueDot: false,
       commentsForHull: false
     };
-
-    // $.get("/tutorialState").then(function(data) {
-    //   shown = $.extend(shown, data);
-    //   start();
-    //  });
-
-
-    // function onCommentsOverallShown(el) {
-    //   lookingAtCommentsOverall = true;
-    //   lookingAtCommentsOverallCb.fire(el);
-    // }
-
-    // function showBlueDotHint() {
-    //   if (!onlyYouAreVisible) {
-    //     params.showBlueDotHint();
-    //   }
-    // }
-    // userVotedCb.add(function() { userHasVoted = true; });
-    // userVotedCb.add(showBlueDotHint);
-    // userVotedCb.add();
 
     function setHintHandler(name, f) {
       hintHandlers[name] = f;

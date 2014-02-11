@@ -1,3 +1,4 @@
+var eb = require("../eventBus");
 
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
@@ -325,8 +326,10 @@ function updateHullColors() {
 
 function onClusterClicked(d) {
     $("#analyzeTab").tab("show");
+    eb.trigger("clusterClicked");
     return handleOnClusterClicked(d.hullId);
 }
+
 function handleOnClusterClicked(hullId) {
     if (selectedCluster === hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
@@ -1042,9 +1045,7 @@ function onHelpTextClicked() {
     $("#helpTextBox").addClass("hidden");
 }
 
-
 // window.foo = displayHelpItem;
-
 // displayHelpItem("foo");
 
 function emphasizeParticipants2(pids) {
@@ -1058,7 +1059,7 @@ return {
     onSelfAppears: onSelfAppearsCallbacks.add,
     addClusterTappedListener: clusterClickedCallbacks.add,
     // dipsplayBlueDotHelpItem: displayHelpItem,
-    emphasizeParticipants: emphasizeParticipants2
+    emphasizeParticipants: emphasizeParticipants2,
 };
 
 };
