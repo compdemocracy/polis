@@ -23,12 +23,13 @@
   "Base of all conversation updates; handles default update opts and does named matrix updating"
   {:opts'       (plmb/fnk [opts]
                   "Merge in opts with the following defaults"
-                  (merge opts {:n-comps 2
-                               :pca-iters 10
-                               :base-iters 10
-                               :base-k 100
-                               :group-iters 10
-                               :group-k 3}))
+                  (merge {:n-comps 2
+                          :pca-iters 10
+                          :base-iters 10
+                          :base-k 100
+                          :group-iters 10
+                          :group-k 3}
+                    opts))
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
                     (map #(map % [:pid :tid :vote]) votes)))})
