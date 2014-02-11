@@ -58,7 +58,7 @@
               (conv-repness rating-mat group-clusters))}))
 
 
-(def med-conv-update-graph1
+(def med-conv-update-graph
   "For computing small conversation updates (those with need of base clustering)"
   (merge small-conv-update-graph
     {:base-clusters
@@ -94,5 +94,6 @@
 
 
 (def small-conv-update (graph/eager-compile small-conv-update-graph))
+(def med-conv-update (graph/eager-compile med-conv-update-graph))
 
 
