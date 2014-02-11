@@ -34,9 +34,6 @@ module.exports = function() {
           default:
             break;
         }
-      // if (hintHandlers.blueDot) {
-      //   hintHandlers.blueDot("Dots represent people. The blue dot is you.</br>");
-      // }
     }
 
     function analyzeViewPopover() {

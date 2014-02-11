@@ -101,7 +101,7 @@ module.exports =  View.extend({
       });
       that.tutorialController.setHandler("shadedGroup", function(){
         that.$shadedGroupPopover.popover("show");
-        $('shadedGroupPopoverButton').click(function(){
+        $('#shadedGroupPopoverButton').click(function(){
           that.$shadedGroupPopover.popover("hide");
         });
       });
@@ -109,13 +109,16 @@ module.exports =  View.extend({
         setTimeout(function(){
           that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
             title: "COMMENTS FOR THIS GROUP",
-            content: "Click on a comment to see patterns of agreement and disagreement for the selected comment across the whole conversation. Participants who agreed with a selected comment are represented as a green up arrow. Participants who disagreed are represented as a red down arrow. Participants who haven't reacted to the selected comment disappear",
+            content: "Click on a comment to see which participants agreed with it (green/up) and which participants disagreed (red/down). Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
             html: true,
             trigger: "manual",
-            placement: "bottom"
+            placement: "bottom" 
           });
           that.$('.query_results > li').first().trigger('click');
-          that.$analyzeViewPopover.popover("show");      
+          that.$analyzeViewPopover.popover("show");
+          that.$('#analyzeViewPopoverButton').click(function(){
+            that.$analyzeViewPopover.popover("hide");
+          })      
         },1500)
       }) 
     } 
