@@ -1,4 +1,5 @@
 var gulp = require('gulp');
+var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
 var concat = require('gulp-concat'); 
 var uglify = require('gulp-uglify')
@@ -23,7 +24,7 @@ var header = require('gulp-header');
 var hbsfy = require("hbsfy").configure({
   extensions: ["handlebars"]
 });
-
+var fs = require('fs');
 
 var useJsHint = false;
 var destRoot = __dirname + "/devel";
@@ -46,7 +47,7 @@ gulp.task('cleancss', function(){
 
 gulp.task('less', function(){
   gulp.src([
-    "css/polis_main.less",
+    devMode ? "css/polis_main_devel.less" : "css/polis_main_dist.less",
     ])
       .pipe(less())
       .pipe(concat("polis.css"))
@@ -301,6 +302,37 @@ gulp.task("watchForDev", [
       console.log("watch saw: " + e.path + " " + e.type);
       gulp.run("dev");
     });
+});
+
+
+
+gulp.task('deploy', [
+  // "dist"
+  "configureForProduction",
+  ], function() {
+
+    var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
+
+    gulp.src([
+      destRoot + '/**',
+      '!' + destRoot + '/js/**',
+      ], {read: false}).pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+        }
+      }));
+
+    gulp.src([
+      destRoot + '/**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
+      ], {read: false}).pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+          'Content-Encoding': 'gzip',
+        }
+      }));
+
 });
 
 gulp.task('default', [

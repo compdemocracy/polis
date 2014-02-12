@@ -28,6 +28,7 @@
     "gulp-less": "~1.2.1",
     "gulp-minify-css": "~0.3.0",
     "gulp-rename": "~1.0.0",
+    "gulp-s3": "git://github.com/mbjorkegren/gulp-s3",
     "gulp-template": "~0.1.1",
     "gulp-uglify": "~0.2.0",
     "gulp-util": "~2.2.14",
