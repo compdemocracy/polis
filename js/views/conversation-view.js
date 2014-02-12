@@ -15,6 +15,7 @@ var VotesCollection = require("../collections/votes");
 var MetadataQuestionsCollection = require("../collections/metadataQuestions");
 var ResultsCollection = require("../collections/results");
 var PolisStorage = require("../util/polisStorage");
+var popoverEach = require("../util/popoverEach");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var TutorialController = require("../controllers/tutorialController");
@@ -245,6 +246,11 @@ module.exports =  View.extend({
           processData: true
       });
       this.commentForm.updateCollection();
+
+    // Clicking on the background dismisses the popovers.
+    this.$el.on("click", function() {
+      popoverEach("destroy");
+    });
 
     this.listenTo(this, "rendered", function(){
       setTimeout(function() {

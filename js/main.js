@@ -5,6 +5,7 @@ var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
 var PolisStorage = require("./util/polisStorage");
 var Handlebars = require("handlebars");
+var _ = require("underscore");
 
 // These are required here to ensure they are included in the build.
 var bootstrapAlert = require("bootstrap_alert");
@@ -16,6 +17,9 @@ var bootstrapTransition = require("bootstrap_transition");
 var bootstrapCollapse = require("bootstrap_collapse");
 var bootstrapDropdown = require("bootstrap_dropdown");
 var bootstrapAffix = require("bootstrap_affix");
+
+// Call this here so it gets initialized early.
+var popoverEach = require("./util/popoverEach");
 
 
 function ifDefined(context, options) {
@@ -32,7 +36,6 @@ function ifNotEmbedded(arg0) {
   return window.top === window ? arg0.fn(this) : "";
 }
 Handlebars.registerHelper("ifNotEmbedded", ifNotEmbedded);
-
 
 _.mixin({
     isId: function(n) {
