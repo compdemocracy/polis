@@ -51,8 +51,9 @@ module.exports = View.extend({
     function onFail(err) {
         alert("error sending vote " + JSON.stringify(err));
     }
-    this.onVote = function() {
+    function onVote() {
       eb.trigger(eb.vote);
+      showNext();
     };
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");
@@ -63,9 +64,8 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.agree(tid)
-          .done(showNext)
+          .done(onVote)
           .fail(onFail);
-      this.onVote();
     };
     this.participantDisagreed = function() {
       var tid = this.model.get("tid");
@@ -76,9 +76,8 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.disagree(tid)
-          .done(showNext)
+          .done(onVote)
           .fail(onFail);
-      this.onVote();
     };
     this.participantPassed = function() {
       var tid = this.model.get("tid");
@@ -89,9 +88,8 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.pass(tid)
-          .done(showNext)
+          .done(onVote)
           .fail(onFail);
-      this.onVote();
     };
     this.participantStarred = function() {
       var tid = this.model.get("tid");
