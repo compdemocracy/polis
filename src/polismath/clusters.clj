@@ -94,7 +94,7 @@
                         (case vote
                           1       (assoc counts 0 (inc (first counts)))
                           (0 -1)  (assoc counts 1 (inc (second counts)))
-                          nil     counts))
+                                  counts))
                       [1 1] votes)]
               (/ up not-up)))]
     (let [in-cols  (columns (:matrix in-part))

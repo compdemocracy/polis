@@ -56,7 +56,8 @@
               (pca-project mat pca))
      :repness
             (plmb/fnk [rating-mat group-clusters]
-              (conv-repness rating-mat group-clusters))}))
+              (if (> (count group-clusters) 1)
+                (conv-repness rating-mat group-clusters)))}))
 
 
 (def med-conv-update-graph
