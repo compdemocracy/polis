@@ -739,6 +739,7 @@ function upsertNode(updatedNodes, newClusters) {
       .on("click", onParticipantClicked)
       .on("mouseover", showTip)
       .on("mouseout", hideTip)
+      .call(force.drag)
   ;
 
   var upArrowEnter = g
