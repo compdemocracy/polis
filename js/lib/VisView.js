@@ -52,6 +52,9 @@ var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 var bidToKid = {};
 
+var ALWAYS_SHOW_SELF_DOT_HINT = false;
+var selfDotHintText = "This is you";
+
 var isIE8 = navigator.userAgent.match(/MSIE 8/);
 
 if (isIE8) {
@@ -93,8 +96,9 @@ if (!isIE8) {
                 })
                 .map(function(pid) {
                     if (isSelf(d)) {
+                        var hint = ALWAYS_SHOW_SELF_DOT_HINT ? "" : selfDotHintText;
                         return {
-                            email: "This is you" // needed for demo mode
+                            email: hint
                         };
                     }
                     return getUserInfoByPid(pid);
@@ -756,9 +760,15 @@ function upsertNode(updatedNodes, newClusters) {
         .attr("cy", 0)
   ;
 
-  g.filter(isSelf)
-    .classed("selfDot", true)
-  ;
+  var self = g.filter(isSelf);
+  self.classed("selfDot", true);
+
+  if (ALWAYS_SHOW_SELF_DOT_HINT) {
+    self.append("text")
+      .text(selfDotHintText)
+      .attr("text-anchor", "middle")
+      .attr("transform", "translate(0, -10)");
+  }
 
 
   updateNodes();
