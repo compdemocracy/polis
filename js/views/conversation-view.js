@@ -93,6 +93,10 @@ module.exports =  View.extend({
           el: "#visualization_div"
       });
       vis.addClusterTappedListener(onClusterTapped);
+      serverClient.addPersonUpdateListener(function() {
+        vis.upsertNode.apply(vis, arguments);
+      });
+
       that.tutorialController.setHandler("blueDot", function(){
         that.$blueDotPopover = that.$("#visualization_div").popover({
           title: "DOTS ARE PEOPLE",
@@ -290,10 +294,6 @@ module.exports =  View.extend({
 
       initPcaVis();
       
-      serverClient.addPersonUpdateListener(function() {
-          vis.upsertNode.apply(vis, arguments);
-      });
-
       $(window).resize(_.throttle(initPcaVis, 100));
 
   }, 0); // end listenTo "rendered"
