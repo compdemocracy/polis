@@ -94,15 +94,27 @@ module.exports =  View.extend({
       });
       vis.addClusterTappedListener(onClusterTapped);
       that.tutorialController.setHandler("blueDot", function(){
-        that.$blueDotPopover.popover("show");
+        that.$blueDotPopover = that.$("#visualization_div").popover({
+          title: "DOTS ARE PEOPLE",
+          content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+          html: true,
+          trigger: "manual",
+          placement: "bottom"
+        }).popover("show");
         $('#blueDotPopoverButton').click(function(){
-          that.$blueDotPopover.popover("hide");
-        })
+          that.$blueDotPopover.popover("destroy");
+        });
       });
       that.tutorialController.setHandler("shadedGroup", function(){
-        that.$shadedGroupPopover.popover("show");
+        that.$shadedGroupPopover = that.$("#visualization_div").popover({
+          title: "CLICK ON GROUPS",
+          content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+          html: true, 
+          trigger: "manual",
+          placement: "bottom"
+        }).popover("show");
         $('#shadedGroupPopoverButton').click(function(){
-          that.$shadedGroupPopover.popover("hide");
+          that.$shadedGroupPopover.popover("destroy");
         });
       });
       that.tutorialController.setHandler("analyzePopover", function(){
@@ -112,12 +124,12 @@ module.exports =  View.extend({
             content: "Clicking on a shaded area will show you Click on a comment to see which participants agreed with it (green/up) and which participants disagreed (red/down). Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
             html: true,
             trigger: "manual",
-            placement: "bottom" 
+            placement: "bottom"  
           });
           that.$('.query_results > li').first().trigger('click');
           that.$analyzeViewPopover.popover("show");
           that.$('#analyzeViewPopoverButton').click(function(){
-            that.$analyzeViewPopover.popover("hide");
+            that.$analyzeViewPopover.popover("destroy");
           })      
         },1500)
       }) 
@@ -269,26 +281,10 @@ module.exports =  View.extend({
         placement: "bottom"
       });
 
-      that.$blueDotPopover = that.$("#visualization_div").popover({
-        title: "DOTS ARE PEOPLE",
-        content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently.<button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
-        html: true,
-        trigger: "manual",
-        placement: "bottom"
-      });
-
-      that.$shadedGroupPopover = that.$("#visualization_div").popover({
-        title: "CLICK ON GROUPS",
-        conent: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
-        html: true, 
-        trigger: "manual",
-        placement: "bottom"
-      })
-
       setTimeout(function(){
         that.$commentViewPopover.popover("show");
         $("#commentViewPopoverButton").click(function(){
-          that.$commentViewPopover.popover("hide");
+          that.$commentViewPopover.popover("destroy");
         });
       },1000);
 
