@@ -304,6 +304,7 @@ gulp.task("watchForDev", [
 });
 
 gulp.task('default', [
+  "dev",
   "watchForDev",
   ], function() {
 });
