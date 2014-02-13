@@ -27,7 +27,11 @@ module.exports =  View.extend({
   template: template,
   events: {
   },
+  destroyPopovers: function() {
+    popoverEach("destroy");
+  },
   onClusterTapped : function() {
+    this.destroyPopovers();
       // if (window.isMobile()) {
       //    window.scrollTo(0, $("#visualization_div").offset().top);
       // }
@@ -249,7 +253,7 @@ module.exports =  View.extend({
 
     // Clicking on the background dismisses the popovers.
     this.$el.on("click", function() {
-      popoverEach("destroy");
+      that.destroyPopovers();
     });
 
     eb.on("clusterClicked", onClusterTapped);
