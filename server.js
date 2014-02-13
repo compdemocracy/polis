@@ -877,6 +877,8 @@ app.use(function(err, req, res, next) {
 var whitelistedDomains = [
   "http://beta7816238476123.polis.io",
   "https://beta7816238476123.polis.io",  
+  "http://about.polis.io",
+  "https://about.polis.io",  
   "http://www.polis.io",
   "https://www.polis.io",  
   "http://polis.io",
