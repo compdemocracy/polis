@@ -357,6 +357,7 @@ gulp.task('deployAboutPage', [
     gulp.src([
       root + "/index.html",
       root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
+      root + "/**/node_modules/underscore/underscore-min.js", // ** to preserve path 
       root + "/snowcity*.jpg",
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
