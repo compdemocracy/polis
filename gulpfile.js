@@ -58,7 +58,14 @@ gulp.task('fontawesome', function() {
   gulp.src('bower_components/font-awesome/font/**/*')
     .pipe(gulp.dest(destRoot + "/font"));
 });
-gulp.task('index', function() {
+// TODO remove
+gulp.task('sparklines', function() {
+  var s = gulp.src('sparklines.svg')
+    .pipe(gulp.dest(destRoot));
+});
+gulp.task('index', [
+  'sparklines',
+], function() {
   var s = gulp.src('index.html');
   if (devMode) {
     s = s.pipe(template({
@@ -350,6 +357,7 @@ gulp.task('deployAboutPage', [
     gulp.src([
       root + "/index.html",
       root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
+      root + "/sparklines.svg",
       root + "/snowcity.JPG",
       // './about/**',
       // '!' + root + '/*.jpeg',
