@@ -21,7 +21,6 @@ function getBid(d) {
 
 
 
-var clusterClickedCallbacks = $.Callbacks();
 var onSelfAppearsCallbacks = $.Callbacks();
 var selfHasAppeared = false;
 
@@ -67,7 +66,6 @@ if (isIE8) {
         "</center></div>");
     return {
         upsertNode: function() {},
-        addClusterTappedListener: function() {},
         emphasizeParticipants: function() {}
     };
 }
@@ -1128,7 +1126,6 @@ setTimeout(selectBackground, 1);
 return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
-    addClusterTappedListener: clusterClickedCallbacks.add,
     deselect: selectBackground,
     // dipsplayBlueDotHelpItem: displayHelpItem,
     emphasizeParticipants: emphasizeParticipants2,

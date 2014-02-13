@@ -1,3 +1,4 @@
+var eb = require("../eventBus");
 var View = require('../view');
 var template = require('../tmpl/conversation-view');
 var CommentView = require('../views/vote-view');
@@ -93,7 +94,6 @@ module.exports =  View.extend({
           el_queryResultSelector: ".query_results_div",
           el: "#visualization_div"
       });
-      vis.addClusterTappedListener(onClusterTapped);
       serverClient.addPersonUpdateListener(function() {
         vis.upsertNode.apply(vis, arguments);
       });
@@ -251,6 +251,8 @@ module.exports =  View.extend({
     this.$el.on("click", function() {
       popoverEach("destroy");
     });
+
+    eb.on("clusterClicked", onClusterTapped);
 
     this.listenTo(this, "rendered", function(){
       setTimeout(function() {
