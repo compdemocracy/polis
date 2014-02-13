@@ -1112,6 +1112,7 @@ return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     addClusterTappedListener: clusterClickedCallbacks.add,
+    deselect: selectBackground,
     // dipsplayBlueDotHelpItem: displayHelpItem,
     emphasizeParticipants: emphasizeParticipants2,
 };

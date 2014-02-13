@@ -262,20 +262,26 @@ module.exports =  View.extend({
           top: 150 //will be set dynamically
         }
       });
+      function deselectHulls() {
+        vis.deselect();
+      }
       that.$("#commentViewTab").tooltip({
         title: "Start here - read and react to comments submitted by others.",
         placement: "top",
         delay: { show: 300, hide: 200 },
         container: "body"
 
-      });
+      })
+      .on("click", deselectHulls);
+
       that.$("#commentFormTab").tooltip({
         title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
         placement: "top",
         delay: { show: 300, hide: 200 },
         container: "body"
+      })
+      .on("click", deselectHulls);
 
-      });
       that.$("#analyzeTab").tooltip({
         title: "Filters! Click on the \"analyze\" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top",
