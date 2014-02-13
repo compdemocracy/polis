@@ -160,6 +160,11 @@ module.exports = function(params) {
     }
 
     function submitComment(model) {
+
+
+        // CAUTION - possibly dead code, comments are submitted through backbone
+
+
         // DEMO_MODE
         if (getPid() < 0) {
             return $.Deferred().resolve();
@@ -281,7 +286,7 @@ module.exports = function(params) {
         if (getPid() < 0) {
             return $.Deferred().resolve();
         }
-        
+
         return polisPost(starsPath, $.extend({}, params, {
                 zid: zid
             })

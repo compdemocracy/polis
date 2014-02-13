@@ -24,6 +24,14 @@ module.exports = Thorax.CollectionView.extend({
     var that = this; //that = the view
     attrs.pid = this.pid;
     attrs.zid = this.zid;
+
+    // DEMO_MODE
+    if (this.pid < 0) {
+      that.trigger("commentSubmitted");
+      that.updateCollection();
+      return;
+    }
+
     var comment = new CommentModel(attrs);
     comment.save().then(function() {
       that.trigger("commentSubmitted"); // view.trigger
