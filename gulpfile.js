@@ -312,7 +312,9 @@ gulp.task('deploy', [
   ], function() {
 
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
+    creds.bucket = "www.polis.io";
 
+    // Files without Gzip
     gulp.src([
       destRoot + '/**',
       '!' + destRoot + '/js/**',
@@ -323,6 +325,7 @@ gulp.task('deploy', [
         }
       }));
 
+    // Gzipped Files
     gulp.src([
       destRoot + '/**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
       ], {read: false}).pipe(s3(creds, {
@@ -334,6 +337,45 @@ gulp.task('deploy', [
       }));
 
 });
+
+
+// For now, you'll have to copy the assets from the other repo into the "about" directory
+gulp.task('deployAboutPage', [
+  ], function() {
+
+    var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
+    creds.bucket = "about.polis.io";
+    
+    var root = "../about-polis";
+    gulp.src([
+      root + "/index.html",
+      root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
+      root + "/snowcity.JPG",
+      // './about/**',
+      // '!' + root + '/*.jpeg',
+      // '!' + root + '/*.jpg',
+      // '!' + root + '/*.png',
+      ], {read: false}).pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+        }
+      }));
+
+    // gulp.src([
+    //   // root + '/*.jpeg',
+    //   // root + '/*.jpg',
+    //   // root + '/*.png',
+    //   ], {read: false}).pipe(s3(creds, {
+    //     delay: 1000,
+    //     headers: {
+    //       'x-amz-acl': 'public-read',
+    //       'Content-Encoding': 'gzip',
+    //     }
+    //   }));
+
+});
+
 
 gulp.task('default', [
   "dev",
