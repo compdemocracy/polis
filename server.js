@@ -2650,10 +2650,21 @@ function proxy(req, res) {
     //     // });
     //     getStaticFile("./unsupportedBrowser.html", res);
     // } else {
+
+
+        var hostname = process.env.STATIC_FILES_HOST;
+        var port = process.env.STATIC_FILES_PORT;
+
+        // Proxy to another bucket for about.polis.io
+        var origin = req.get("Origin");
+        console.log(origin);
+        if (/about.polis.io/.exec(origin)) {
+            hostname = process.env.STATIC_FILES_ABOUTPAGE_HOST;
+        }
         routingProxy.proxyRequest(req, res, {
 
-            host: process.env.STATIC_FILES_HOST,
-            port: process.env.STATIC_FILES_PORT,
+            host: hostname,
+            port: port,
         });
     // }
 }
