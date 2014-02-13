@@ -281,7 +281,8 @@ var polisRouter = Backbone.Router.extend({
   },
   createUser: function(){
     var that = this;
-    this.doCreateUser().done(function() {
+    this.doLogin(true).done(function() {
+    // this.doCreateUser().done(function() {
       that.navigate("inbox", {trigger: true});
       // that.inbox();
     });
@@ -296,16 +297,20 @@ var polisRouter = Backbone.Router.extend({
     var view = new PasswordResetInitView();
     RootView.getInstance().setView(view);
   },
-  doLogin: function() {
+  doLogin: function(create) {
     var dfd = $.Deferred();
     var gatekeeperView = new ConversationGatekeeperViewCreateUser({
+      model: new Backbone.Model({
+        create: create
+      })
     });
-    gatekeeperView.on("done", dfd.resolve);
+    gatekeeperView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
     return dfd.promise();
   },
   login: function(zid){
-    this.doLogin().done(function() {
+    var that = this;
+    this.doLogin(false).done(function() {
       if (zid) {
         // Redirect to a specific conversation after the user signs in.
         // TODO think - do we want to use this route for this scenario, it's probably handled by the other gatekeeper functions.
