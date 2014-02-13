@@ -31,8 +31,15 @@ var $ = require("jquery");
         //})
       }
     },
+    onFail: function(message) {
+      $('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">"+message+"</div>");
+    },
+    clearFailMessage: function() {
+      $('#errorDiv').html("");
+    },
     createUser: function(event) {
     var that = this;
+    that.clearFailMessage();
     event.preventDefault();
     this.serialize(function(attrs, release){
         // Incorporate options, like zinvite.
@@ -40,6 +47,12 @@ var $ = require("jquery");
         if (zinvite) {
           attrs.zinvite = zinvite;
         }
+      if (!attrs.email || !/.@./.exec(attrs.email)) {
+        return that.onFail("Email is missing \"@\"");
+      }
+      if (!attrs.password || attrs.password.length < 8) {
+        return that.onFail("Password must be 8 or more characters.");
+      }
       $.ajax({
         url: that.urlPrefix + "v3/auth/new",
         type: "POST",
@@ -53,13 +66,14 @@ var $ = require("jquery");
         that.trigger("authenticated");
         release();
       }, function(err) {
-          alert("login was unsuccessful");
+          that.onFail("login was unsuccessful");
           release();
       });
     });
   },
   signIn: function(event) {
     var that = this;
+    that.clearFailMessage();
     event.preventDefault();
     this.serialize(function(attrs, release){
       $.ajax({
@@ -76,7 +90,7 @@ var $ = require("jquery");
         that.trigger("authenticated");
       }, function(err) {
           release();
-          alert("login was unsuccessful");
+          that.onFail("login was unsuccessful");
       });
     });
   },
