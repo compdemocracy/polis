@@ -167,6 +167,22 @@ $(el_selector)
                 "orient='auto'>" +
             "<path d='M 0 0 L 10 5 L 0 10 z' />" +
         "</marker>" +
+
+        // "<filter id='dropshadow' height='130%'>" +
+        //   "<feGaussianBlur in='SourceAlpha' stdDeviation='3'/> <!-- stdDeviation is how much to blur -->" +
+        //   "<feOffset dx='2' dy='2' result='offsetblur'/> <!-- how much to offset -->" +
+        //   "<feMerge> " +
+        //     "<feMergeNode/> <!-- this contains the offset blurred image -->" +
+        //     "<feMergeNode in='SourceGraphic'/> <!-- this contains the element that the filter is applied to -->" +
+        //   "</feMerge>" +
+        // "</filter>" +
+
+        "<filter id='hullFilter'>" +
+          "<feMorphology radius='10' operator='erode'/>" +          
+          "<feGaussianBlur stdDeviation='20'/> <!-- stdDeviation is how much to blur -->" +
+          // "<feMorphology radius='10' in='SourceAlpha' out='edge' operator='dilate'/>" +
+        "</filter>" +
+
     "</defs>" +
     "</svg>")
   ;
@@ -410,6 +426,7 @@ function updateHulls() {
     updateHullColors();
 }
 
+var updateHullsThrottled = _.throttle(updateHulls, 333); // 333ms -> 3 fps
 force.on("tick", function(e) {
       // Push nodes toward their designated focus.
       var k = 0.1 * e.alpha;
@@ -426,7 +443,7 @@ force.on("tick", function(e) {
       main_layer.selectAll("g")
         .attr("transform", chooseTransformForRoots);
 
-    updateHulls();
+    updateHullsThrottled();
     updateHelpArrow();
 });
 
