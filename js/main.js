@@ -49,9 +49,10 @@ if (!window.location.hostname.match(/polis/)) {
 
 // debug convenience function for deregistering.
 window.deregister = function() {
+    // relying on server to clear cookies
     return $.post("/v3/auth/deregister", {}).always(function() {
-      // relying on server to clear cookies
-      Backbone.history.navigate("/", {trigger: true});
+      window.location = "https://about.polis.io";
+      // Backbone.history.navigate("/", {trigger: true});
     });
 };
 
