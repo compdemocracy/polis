@@ -24,16 +24,21 @@
 	</div>
 	<div class="createConversationForm col-sm-6 col-md-6">
 
-		<form class="well conversationsForm">
-			<input style="width: 90%" type="text" name="topic" placeholder="Topic - e.g. Computer upgrade planning" value="{{topic}}" class="form-control">
-			<textarea style="width: 90%" type="text" class="form-control" name="description" placeholder="Description - e.g. Our Windows XP laptop fleet is getting a bit long in the tooth. What should we do?" rows="5">{{description}}</textarea>
-
+		<form class="well conversationsForm" role="form">
+			<div class="control-group">
+				<label for="topic"> Topic </label>
+				<input style="width: 90%" id="topic" type="text" name="topic" placeholder="Topic - e.g. Legalization" value="{{topic}}" class="form-control">	
+			</div>
+			<div class="control-group">
+				<label for="description"> Description & Question</label>
+				<textarea style="width: 90%" type="text" class="form-control" name="description" placeholder="Description & Question - e.g. Washington and other US states are legalizing, or at least decriminalizing, marijuana. Should this trend continue? Should it stop at marijuana, or should legalization extend to other presently illegal drugs as well?" rows="7">{{description}}</textarea>
+			</div>
+			
 		  <div class="checkbox">
 		    <label>
 		      <input type="checkbox" checked=""> Invite Only
 		    </label>
 		  </div>
-
 			<button class="btn btn-success submitButton btn-lg" name="formAction" type="submit" value="publish">Create</button>
 			<input type="hidden" name="id" id="id" value="{{id}}" class="form-control">
 		</form>
