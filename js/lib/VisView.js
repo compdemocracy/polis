@@ -168,16 +168,16 @@ $(el_selector)
             "<path d='M 0 0 L 10 5 L 0 10 z' />" +
         "</marker>" +
 
-        // "<filter id='dropshadow' height='130%'>" +
-        //   "<feGaussianBlur in='SourceAlpha' stdDeviation='3'/> <!-- stdDeviation is how much to blur -->" +
-        //   "<feOffset dx='2' dy='2' result='offsetblur'/> <!-- how much to offset -->" +
-        //   "<feMerge> " +
-        //     "<feMergeNode/> <!-- this contains the offset blurred image -->" +
-        //     "<feMergeNode in='SourceGraphic'/> <!-- this contains the element that the filter is applied to -->" +
-        //   "</feMerge>" +
-        // "</filter>" +
+        "<filter id='shadowFilter' height='130%' width='130%'>" +
+          "<feGaussianBlur in='SourceAlpha' stdDeviation='1'/> <!-- stdDeviation is how much to blur -->" +
+          "<feOffset dx='1' dy='1' result='offsetblur'/> <!-- how much to offset -->" +
+          "<feMerge> " +
+            "<feMergeNode/> <!-- this contains the offset blurred image -->" +
+            "<feMergeNode in='SourceGraphic'/> <!-- this contains the element that the filter is applied to -->" +
+          "</feMerge>" +
+        "</filter>" +
 
-        "<filter id='hullFilter'>" +
+        "<filter id='ghostFilter'>" +
           "<feMorphology radius='10' operator='erode'/>" +          
           "<feGaussianBlur stdDeviation='20'/> <!-- stdDeviation is how much to blur -->" +
           // "<feMorphology radius='10' in='SourceAlpha' out='edge' operator='dilate'/>" +
