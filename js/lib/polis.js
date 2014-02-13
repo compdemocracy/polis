@@ -251,6 +251,12 @@ module.exports = function(params) {
 
     function trash(tid) {
         clearComment(tid, "trash");
+
+        // DEMO_MODE
+        if (getPid() < 0) {
+            return $.Deferred().resolve();
+        }
+
         return polisPost(trashesPath, {
             tid: tid,
             trashed: 1,
@@ -270,6 +276,12 @@ module.exports = function(params) {
             console.error("missing star type");
             console.error(params);
         }
+
+        // DEMO_MODE
+        if (getPid() < 0) {
+            return $.Deferred().resolve();
+        }
+        
         return polisPost(starsPath, $.extend({}, params, {
                 zid: zid
             })
