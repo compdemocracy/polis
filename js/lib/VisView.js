@@ -424,7 +424,8 @@ function updateHulls() {
     updateHullColors();
 }
 
-var updateHullsThrottled = _.throttle(updateHulls, 333); // 333ms -> 3 fps
+var hullFps = 20;
+var updateHullsThrottled = _.throttle(updateHulls, 1000/hullFps);
 force.on("tick", function(e) {
       // Push nodes toward their designated focus.
       var k = 0.1 * e.alpha;
