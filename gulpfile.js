@@ -357,31 +357,13 @@ gulp.task('deployAboutPage', [
     gulp.src([
       root + "/index.html",
       root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
-      root + "/sparklines.svg",
-      root + "/snowcity.JPG",
-      // './about/**',
-      // '!' + root + '/*.jpeg',
-      // '!' + root + '/*.jpg',
-      // '!' + root + '/*.png',
+      root + "/snowcity*.jpg",
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
         }
       }));
-
-    // gulp.src([
-    //   // root + '/*.jpeg',
-    //   // root + '/*.jpg',
-    //   // root + '/*.png',
-    //   ], {read: false}).pipe(s3(creds, {
-    //     delay: 1000,
-    //     headers: {
-    //       'x-amz-acl': 'public-read',
-    //       'Content-Encoding': 'gzip',
-    //     }
-    //   }));
-
 });
 
 
