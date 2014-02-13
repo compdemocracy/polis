@@ -52,7 +52,9 @@ var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 var bidToKid = {};
 
-var ALWAYS_SHOW_SELF_DOT_HINT = false;
+var SELF_DOT_SHOW_INITIALLY = true;
+var selfDotTooltipShow = !SELF_DOT_SHOW_INITIALLY;
+var SELF_DOT_HINT_HIDE_AFTER_DELAY = 10*1000;
 var selfDotHintText = "This is you";
 
 var isIE8 = navigator.userAgent.match(/MSIE 8/);
@@ -96,7 +98,7 @@ if (!isIE8) {
                 })
                 .map(function(pid) {
                     if (isSelf(d)) {
-                        var hint = ALWAYS_SHOW_SELF_DOT_HINT ? "" : selfDotHintText;
+                        var hint = selfDotTooltipShow ? selfDotHintText : "";
                         return {
                             email: hint
                         };
@@ -764,11 +766,23 @@ function upsertNode(updatedNodes, newClusters) {
   var self = g.filter(isSelf);
   self.classed("selfDot", true);
 
-  if (ALWAYS_SHOW_SELF_DOT_HINT) {
-    self.append("text")
+  if (SELF_DOT_SHOW_INITIALLY) {
+    selfDotTooltipShow = false; // no tooltip
+
+    var txt = self.append("text")
       .text(selfDotHintText)
       .attr("text-anchor", "middle")
       .attr("transform", "translate(0, -10)");
+    if (SELF_DOT_HINT_HIDE_AFTER_DELAY) {
+      txt.transition(200)
+          .delay(SELF_DOT_HINT_HIDE_AFTER_DELAY)
+          .style("opacity", 0)
+          .each("end", function() {
+            selfDotTooltipShow = true;
+            // need to remove the tooltip so it doesn't eat hover events
+            d3.select(this).remove();
+          });
+    }
   }
 
 
