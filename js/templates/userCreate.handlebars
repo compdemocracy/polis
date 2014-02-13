@@ -2,25 +2,43 @@
 <div class="row">
   <div class="col-lg-offset-4 col-sm-4 col-md-4">
     <h1>Welcome to Polis</h1>
+    <p>This conversation was started by {{ownername}}</p>
   {{#if create}}
     <p> To participate in this conversation, you'll need to create a Polis account. </p>
-    <h4 class="formTextHeader"> Create New Account: </h4>
-    <form>
-      <input type="text" name="hname" placeholder="Full Name" class="form-control">
-      <input type="text" name="email" placeholder="Email" class="form-control">
-      <input type="password" name="password" placeholder="Password" class="form-control">
-      <button type="submit" class="btn btn-default btn-lg"> Create New Account </button>
+    
+    <form role="form" class="well">
+      <div class="form-group">
+        <label for="gatekeeperNameCreate">Email</label>
+        <input type="text" name="hname" placeholder="Full Name" id="gatekeeperNameCreate" class="form-control">
+      </div>
+      <div class="form-group">
+        <label for="gatekeeperEmailCreate">Email</label>
+        <input type="text" name="email" placeholder="Email" id="gatekeeperEmailCreate" class="form-control">
+      </div>
+      <div class="form-group"> 
+        <label for="gatekeeperPasswordCreate">Password</label>
+        <input type="password" name="password" placeholder="Password" id="gatekeeperPasswordCreate" class="form-control">
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg"> Create New Account </button>
     </form>
-
   {{else}}
     <p> To participate in this conversation, you'll need to sign in with a Polis account. </p>
-    <h4 class="formTextHeader"> Sign in: </h4>
-    <form>
-      <input type="text" name="email" placeholder="Email" class="form-control">
-      <input type="password" name="password" placeholder="Password" class="form-control">
-      <button type="submit" class="btn btn-default btn-lg"> Sign In </button>
+    
+    <form role="form" class="well">
+      <div class="form-group">
+        <label for="gatekeeperLoginEmail">Email</label>
+        <input type="text" name="email" placeholder="Email" id="gatekeeperLoginEmail" class="form-control">  
+      </div>
+      <div class="form-group"> 
+        <label for="gatekeeperLoginPassword">Password</label>
+        <input type="password" name="password" placeholder="Password" id="gatekeeperLoginPassword" class="form-control">  
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg"> Sign In </button>
+      <div style="margin-top:10px;">{{#link "pwresetinit" expand-tokens=true}} Forgot your Password? {{/link}}</div>
     </form>
-    <p>{{#link "pwresetinit" expand-tokens=true}} Forgot your Password? {{/link}}</p>
+    
+
+
   {{/if}}
     <div class="rel">
       <span class="alternateRegOr">OR</span>

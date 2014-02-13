@@ -752,8 +752,6 @@ module.exports = function(params) {
         });
     }
 
-
-
     function getCommentsForProjection(params) {
         var ascending = params.sort > 0;
         var count = params.count;

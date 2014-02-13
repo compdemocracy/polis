@@ -208,7 +208,7 @@ var polisRouter = Backbone.Router.extend({
         console.log("trying to load conversation, but no auth");
         // Not signed in.
         // Or not registered.
-        this.doCreateUserFromGatekeeper(zinvite).done(function() {
+        this.doCreateUserFromGatekeeper(zid, zinvite).done(function() {
           // Try again, should be ready now.
           that.conversationView(zid, zinvite);
         });
@@ -246,17 +246,24 @@ var polisRouter = Backbone.Router.extend({
     RootView.getInstance().setView(gatekeeperView);
     return dfd.promise();
   },
-  doCreateUserFromGatekeeper: function(zinvite) {
+  doCreateUserFromGatekeeper: function(zid, zinvite) {
     var dfd = $.Deferred();
 
-    var createUserFormView = new ConversationGatekeeperViewCreateUser({
-      model : new Backbone.Model({
+    var model = new ConversationModel({
         zinvite: zinvite,
-        create: true
-      })
+        zid: zid,
+        create: true, // do we need this?
     });
-    createUserFormView.on("authenticated", dfd.resolve);
-    RootView.getInstance().setView(createUserFormView);
+    bbFetch(model).then(function() {
+      var createUserFormView = new ConversationGatekeeperViewCreateUser({
+        model : model
+      });
+      createUserFormView.on("authenticated", dfd.resolve);
+      RootView.getInstance().setView(createUserFormView);
+    },function(e) {
+      console.error("error loading conversation model", e);
+      setTimeout(function() { that.conversationView(zid); }, 5000); // retry
+    });
     return dfd.promise();
   },
   doCreateUser: function(zinvite){
