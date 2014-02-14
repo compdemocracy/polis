@@ -1,1 +1,1 @@
-worker: lein run -m polismath.poller
+worker: lein with-profile production trampoline run -m polismath.poller
