@@ -831,10 +831,6 @@ module.exports = function(params) {
             var myVotes = votesByMe.filter(function() { return true; });
             // this code will probably move to the math worker.
             var userToVote = {};
-            var i;
-            for (i = 0; i < otherVotes.length; i++) {
-                userToVote[otherVotes[i].pid] = otherVotes[i];
-            }
             // Splice my votes in for self group.
             otherVotes.unshift({
                 bid: 0,
@@ -842,6 +838,10 @@ module.exports = function(params) {
                 agrees: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.pull; }),
                 disagrees: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.push; })
             });
+            var i;
+            for (i = 0; i < otherVotes.length; i++) {
+                userToVote[otherVotes[i].pid] = otherVotes[i];
+            }
             // TODO reduce vote count for the bucket self is in.
             return _.map(projectionPeopleCache, function(bucket) {
                 var counters = {

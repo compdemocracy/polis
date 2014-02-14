@@ -171,6 +171,9 @@ $(el_selector)
         "<filter id='shadowFilter' height='130%' width='130%'>" +
           "<feGaussianBlur in='SourceAlpha' stdDeviation='1'/> <!-- stdDeviation is how much to blur -->" +
           "<feOffset dx='1' dy='1' result='offsetblur'/> <!-- how much to offset -->" +
+          // "<feComponentTransfer xmlns='http://www.w3.org/2000/svg'>" +
+          //   "<feFuncA type='linear' slope='1'/>" +
+          // "</feComponentTransfer>" +
           "<feMerge> " +
             "<feMergeNode/> <!-- this contains the offset blurred image -->" +
             "<feMergeNode in='SourceGraphic'/> <!-- this contains the element that the filter is applied to -->" +
@@ -466,7 +469,9 @@ var colorPush = "#e74c3c"; // ALIZARIN
 var colorPass = "#BDC3C7"; // SILVER
 var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
 var colorNoVote = colorPass;
-var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
+// var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
+// var colorPullOutline = d3.rgb(colorPull).darker().toString();
+// var colorPushOutline = d3.rgb(colorPush).darker().toString();
 
 
 function chooseDisplayForCircle(d) {
@@ -775,12 +780,16 @@ function upsertNode(updatedNodes, newClusters) {
     .classed("bktv", true)
     .style("fill", colorPull)
     .style("fill-opacity", opacityOuter)
+    // .style("stroke", colorPullOutline)
+    // .style("stroke-width", 1)
     ;
   var downArrowEnter = g.append("polygon")
     .classed("down", true)
     .classed("bktv", true)
     .style("fill", colorPush)
     .style("fill-opacity", opacityOuter)
+    // .style("stroke", colorPushOutline)
+    // .style("stroke-width", 1)
     ;
   var circleEnter = g.append("circle")
     .classed("circle", true)
@@ -789,6 +798,8 @@ function upsertNode(updatedNodes, newClusters) {
     .attr("cy", 0)
     .style("fill-opacity", opacityOuter)
     .style("fill", colorPass)
+    // .style("stroke", colorSelfOutline)
+    // .style("stroke-width", 1)
     ;
 
   // INNER SCALE-CHANGING SHAPES
@@ -872,9 +883,13 @@ function selectComment(tid) {
         for (i = 0; i < nodes.length; i++) {
             var node = nodes[i];
             var bucket = bidToVote[node.bid];
-            if (!bucket) { break; }
-            node.ups = bucket.agrees;
-            node.downs = bucket.disagrees;
+            if (bucket) {
+                node.ups = bucket.agrees;
+                node.downs = bucket.disagrees;
+            } else {
+                node.ups = 0;
+                node.downs = 0;
+            }
 
             // for (var p = 0; p < node.ppl.length; p++) {
 
@@ -1180,10 +1195,6 @@ function onHelpTextClicked() {
 
 // window.foo = displayHelpItem;
 // displayHelpItem("foo");
-
-function emphasizeParticipants2(pids) {
-}
-
 
 setTimeout(selectBackground, 1);
 

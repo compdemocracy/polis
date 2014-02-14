@@ -37,6 +37,11 @@ function ifNotEmbedded(arg0) {
 }
 Handlebars.registerHelper("ifNotEmbedded", ifNotEmbedded);
 
+
+
+
+
+
 _.mixin({
     isId: function(n) {
       return n >= 0;
