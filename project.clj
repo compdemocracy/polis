@@ -27,9 +27,23 @@
                  [clj-time "0.6.0"]
                  [prismatic/plumbing "0.2.0"]
                  [environ "0.4.0"]]
-  :profiles {:dev {:dependencies [[org.clojure/tools.trace "0.7.6"]
-                                  [criterium "0.4.2"]
-                                  [org.clojure/clojure "1.5.1"]]}
-             :env {:dev-mongolab-uri "db/mongo.db"}}
-  :min-lein-version "2.3.0")
+  :min-lein-version "2.3.0"
+  
+  :profiles {
+    :dev {
+      :dependencies [
+        [org.clojure/tools.trace "0.7.6"]
+        [criterium "0.4.2"]
+        [org.clojure/clojure "1.5.1"]]
+      :env {
+        :dev-mongolab-uri "db/mongo.db"}}
+    :production {
+      :dependencies [
+        [org.clojure/tools.trace "0.7.6"]
+        [criterium "0.4.2"]
+        [org.clojure/clojure "1.5.1"]]
+      :env {
+        :dev-mongolab-uri "db/mongo.db"}}}
+
+)
 
