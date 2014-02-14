@@ -7,7 +7,6 @@
   (:use clojure.data.csv
         clojure.java.io
         clojure.pprint
-        criterium.core
         polismath.conversation
         polismath.clusters
         polismath.pca
