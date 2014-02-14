@@ -9,8 +9,9 @@
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
   :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]
             [lein-environ "0.4.0"]]
-  :git-dependencies [["https://github.com/Prismatic/hiphip.git" "master"]
-                     ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
+  :git-dependencies [
+    ["https://github.com/Prismatic/hiphip.git" "master"]
+  ]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
                  [cheshire "5.3.1"]
                  [net.mikera/core.matrix "0.19.0"]
@@ -34,16 +35,24 @@
       :dependencies [
         [org.clojure/tools.trace "0.7.6"]
         [criterium "0.4.2"]
-        [org.clojure/clojure "1.5.1"]]
+        [org.clojure/clojure "1.5.1"]
+      ]
+      :git-dependencies [
+        ["https://github.com/GeorgeJahad/debug-repl.git" "master"]
+      ]
       :env {
-        :dev-mongolab-uri "db/mongo.db"}}
+        :dev-mongolab-uri "db/mongo.db"}
+      }
     :production {
       :dependencies [
         [org.clojure/tools.trace "0.7.6"]
         [criterium "0.4.2"]
-        [org.clojure/clojure "1.5.1"]]
+        [org.clojure/clojure "1.5.1"]
+      ]
       :env {
-        :dev-mongolab-uri "db/mongo.db"}}}
-
+        :dev-mongolab-uri "db/mongo.db"
+      }
+    }
+  }
 )
 
