@@ -82,7 +82,7 @@
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
         mg-db           (mongo-db env/env)
-        last-timestamp  (atom 1388285552490)
+        last-timestamp  (atom 0)
         conversations   (atom {})]
     (endlessly poll-interval
       (let [new-votes (poll pg-spec @last-timestamp)
@@ -92,12 +92,21 @@
           (swap! conversations
             (fn [convs]
               (assoc convs zid
-                (small-conv-update {:conv (or (convs zid)
+                  (small-conv-update {:conv (or (convs zid)
                                             {:rating-mat (named-matrix)})
                                     :votes votes
-                                    :opts {}}))))
+                                    :opts {}})
+              )))
           ;(upsert-results pg-spec 1001 1 "foo")
-          (pprint (@conversations zid)))
+          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
+          (println "zid: " zid)
+          (println "time: " (System/currentTimeMillis))
+          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
+          (println (@conversations zid)))
+          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
+          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
+          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
+          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
         ))))
 
