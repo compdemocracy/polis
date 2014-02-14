@@ -476,7 +476,9 @@ var colorNoVote = colorPass;
 
 function chooseDisplayForCircle(d) {
     // Hide the circle so we can show the up/down arrows
-    if (selectedTid >= 0) {
+    if (selectedTid >= 0 &&
+        !isSelf(d) // for now, always show circle - TODO fix up/down arrow for blue dot
+        ) {
         return "none";
     }
     return "inherit";
@@ -797,7 +799,7 @@ function upsertNode(updatedNodes, newClusters) {
     .attr("cx", 0)
     .attr("cy", 0)
     .style("fill-opacity", opacityOuter)
-    .style("fill", colorPass)
+    .style("fill", chooseFill)
     // .style("stroke", colorSelfOutline)
     // .style("stroke-width", 1)
     ;
@@ -818,7 +820,7 @@ function upsertNode(updatedNodes, newClusters) {
   var circleEnterInner = g.append("circle")
     .classed("circle", true)
     .classed("bktvi", true)
-    .style("fill", colorPass)
+    .style("fill", chooseFill)
     ;
 
   var self = g.filter(isSelf);
