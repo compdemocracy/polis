@@ -1,4 +1,4 @@
-(defproject polis-storm "0.1.0-SNAPSHOT"
+(defproject polis-math "0.1.0-SNAPSHOT"
   :source-paths ["src/"
                  "src/polismath/"
                  ".lein-git-deps/debug-repl/src/"]
@@ -20,7 +20,7 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.1"]
-                 [storm "0.8.2"]
+                 ; [storm "0.8.2"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "1.5.0"]
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
