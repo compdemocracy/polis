@@ -826,26 +826,6 @@ function upsertNode(updatedNodes, newClusters) {
   var self = g.filter(isSelf);
   self.classed("selfDot", true);
 
-  if (SELF_DOT_SHOW_INITIALLY) {
-    selfDotTooltipShow = false; // no tooltip
-
-    var txt = self.append("text")
-      .text(selfDotHintText)
-      .attr("text-anchor", "middle")
-      .attr("transform", "translate(0, -10)");
-    if (SELF_DOT_HINT_HIDE_AFTER_DELAY) {
-      txt.transition(200)
-          .delay(SELF_DOT_HINT_HIDE_AFTER_DELAY)
-          .style("opacity", 0)
-          .each("end", function() {
-            selfDotTooltipShow = true;
-            // need to remove the tooltip so it doesn't eat hover events
-            d3.select(this).remove();
-          });
-    }
-  }
-
-
   updateNodes();
 
   // update
@@ -1050,6 +1030,8 @@ function updateNodes() {
   if (selfNode && !selfHasAppeared) {
     selfHasAppeared = true;
     onSelfAppearsCallbacks.fire();
+
+    setupBlueDotHelpText(update.select(".selfDot"));
   }
 
   // displayHelpItem("foo");
@@ -1198,7 +1180,30 @@ function onHelpTextClicked() {
 // window.foo = displayHelpItem;
 // displayHelpItem("foo");
 
-setTimeout(selectBackground, 1);
+
+function setupBlueDotHelpText(self) {
+    if (SELF_DOT_SHOW_INITIALLY) {
+        selfDotTooltipShow = false; // no tooltip
+
+        var txt = self.append("text")
+            .text(selfDotHintText)
+            .attr("text-anchor", "middle")
+            .attr("transform", "translate(0, -10)");
+        if (SELF_DOT_HINT_HIDE_AFTER_DELAY) {
+          txt.transition(200)
+            .delay(SELF_DOT_HINT_HIDE_AFTER_DELAY)
+            .style("opacity", 0)
+            .each("end", function() {
+              selfDotTooltipShow = true;
+              // need to remove the tooltip so it doesn't eat hover events
+              d3.select(this).remove();
+            });
+        }
+    }
+}
+
+
+// setTimeout(selectBackground, 1);
 
 return {
     upsertNode: upsertNode,
