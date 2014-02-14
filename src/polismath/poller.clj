@@ -92,22 +92,17 @@
           (swap! conversations
             (fn [convs]
               (assoc convs zid
-                  (small-conv-update {:conv (or (convs zid)
+                  (try
+                    (small-conv-update {:conv (or (convs zid)
                                             {:rating-mat (named-matrix)})
                                     :votes votes
                                     :opts {}})
-              )))
+                      (catch Exception e (println "exception when processing zid: " zid))))))
+              
           ;(upsert-results pg-spec 1001 1 "foo")
-          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
           (println "zid: " zid)
           (println "time: " (System/currentTimeMillis))
-          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
-          (println (@conversations zid)))
-          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
-          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
-          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
-          (println "\n\n\n\n\n\n\n\n\n\n\n\n")
+          (println "\n\n")
+          (println (@conversations zid))
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
-        ))))
-
-
+      )))))
