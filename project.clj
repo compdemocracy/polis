@@ -18,6 +18,7 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.1"]
+                 [bigml/sampling "2.1.0"]
                  [storm "0.8.2"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "1.5.0"]

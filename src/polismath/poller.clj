@@ -92,10 +92,7 @@
           (swap! conversations
             (fn [convs]
               (assoc convs zid
-                (small-conv-update {:conv (or (convs zid)
-                                            {:rating-mat (named-matrix)})
-                                    :votes votes
-                                    :opts {}}))))
+                (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes))))
           ;(upsert-results pg-spec 1001 1 "foo")
           (pprint (@conversations zid)))
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
