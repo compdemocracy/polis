@@ -8,7 +8,6 @@
 
 (set-current-implementation :vectorz)
 (require '[clojure.tools.trace :as tr])
-(use 'alex-and-georges.debug-repl)
 
 (set! *unchecked-math* true)
 
