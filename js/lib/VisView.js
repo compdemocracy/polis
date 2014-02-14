@@ -50,6 +50,7 @@ var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 var bidToKid = {};
+var bidToBucket = {};
 
 var SELF_DOT_SHOW_INITIALLY = true;
 var selfDotTooltipShow = !SELF_DOT_SHOW_INITIALLY;
@@ -70,6 +71,7 @@ if (isIE8) {
     };
 }
 
+var pidToBid = {};
 
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
@@ -391,18 +393,18 @@ d3Hulls = _.times(9, function() {
 });
 
 function updateHulls() {
-    var bidToPerson = _.object(_.pluck(nodes, "bid"), nodes);
+    bidToBucket = _.object(_.pluck(nodes, "bid"), nodes);
     hulls = clusters.map(function(cluster) {
         var top = Infinity;
         var bottom = -Infinity;
         var right = -Infinity;
         var left = Infinity;
-        var temp = _.map(cluster, function(pid) {
-            if (!bidToPerson[pid]) {
+        var temp = _.map(cluster, function(bid) {
+            if (!bidToBucket[bid]) {
                 return null;
             }
-            var x = bidToPerson[pid].x;
-            var y = bidToPerson[pid].y;
+            var x = bidToBucket[bid].x;
+            var y = bidToBucket[bid].y;
             return [x, y];
         });
         temp = _.filter(temp, function(xy) {
@@ -708,6 +710,9 @@ function upsertNode(updatedNodes, newClusters) {
         if (oldNode) {
             node.effects = oldNode.effects;
         }
+        _.each(node.ppl, function(p) {
+            pidToBid[p.pid] = node.bid;
+        });
     }
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
@@ -763,24 +768,47 @@ function upsertNode(updatedNodes, newClusters) {
       .call(force.drag)
   ;
 
-  var upArrowEnter = g
-      .append("polygon")
-        .classed("up", true)
-  ;
+  // OUTER TRANSLUCENT SHAPES
+  var opacityOuter = 0.2;
+  var upArrowEnter = g.append("polygon") 
+    .classed("up", true)
+    .classed("bktv", true)
+    .style("fill", colorPull)
+    .style("fill-opacity", opacityOuter)
+    ;
+  var downArrowEnter = g.append("polygon")
+    .classed("down", true)
+    .classed("bktv", true)
+    .style("fill", colorPush)
+    .style("fill-opacity", opacityOuter)
+    ;
+  var circleEnter = g.append("circle")
+    .classed("circle", true)
+    .classed("bktv", true)
+    .attr("cx", 0)
+    .attr("cy", 0)
+    .style("fill-opacity", opacityOuter)
+    .style("fill", colorPass)
+    ;
 
+  // INNER SCALE-CHANGING SHAPES
+  var upArrowEnterInner = g.append("polygon")
+    .classed("up", true)
+    .classed("bktvi", true)
+    .style("fill", colorPull)
+    ;
 
+  var downArrowEnterInner = g.append("polygon")
+    .classed("down", true)
+    .classed("bktvi", true)
+    .style("fill", colorPush)
+    ;
 
-  var downArrowEnter = g
-      .append("polygon")
-        .classed("down", true)
-  ;
-
-  var circleEnter = g
-      .append("circle")
-        .classed("circle", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-  ;
+  var circleEnterInner = g.append("circle")
+    .classed("circle", true)
+    .classed("bktvi", true)
+    .style("fill", colorPass)
+    ;
 
   var self = g.filter(isSelf);
   self.classed("selfDot", true);
@@ -962,28 +990,44 @@ function unhoverAll() {
 
 function updateNodes() {
   var update = visualization.selectAll("g");
-  var upArrowUpdate = update.selectAll(".up")
-      .attr("points", chooseUpArrowPath)
-      .style("stroke-width", strokeWidth)
-      .style("stroke", chooseStroke)
-      .style("fill", colorPull)
-      .style("display", chooseDisplayForArrows)
-  ;
 
-  var downArrowUpdate = update.selectAll(".down")
-      .attr("points", chooseDownArrowPath)
-      .style("stroke-width", strokeWidth)
-      .style("stroke", chooseStroke)
-      .style("fill", colorPush)
+              var commonUpdate = update.selectAll(".node > .bktv")
+                  ;
+              var commonUpdateInner = update.selectAll(".node > .bktvi")
+                  // .style("stroke-width", strokeWidth)
+                  // .style("stroke", chooseStroke)
+                  // .style("transform", "scale(0.5)")
+                  ;
+
+  var upArrowUpdate = update.selectAll(".up.bktv")
       .style("display", chooseDisplayForArrows)
-  ;
-  var upCircleUpdate = update.selectAll(".circle")
-      .attr("r", chooseCircleRadius)
-      .style("stroke-width", strokeWidth)
-      .style("stroke", chooseStroke)
-      .style("fill", chooseFill)
+      .attr("points", chooseUpArrowPath)
+      // .style("fill", colorPull)
+      ;
+  var upArrowUpdateInner = update.selectAll(".up.bktvi")
+      .style("display", chooseDisplayForArrows)
+      .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
+      ;
+
+  var downArrowUpdate = update.selectAll(".down.bktv")
+      .style("display", chooseDisplayForArrows)
+      .attr("points", chooseDownArrowPath)
+      // .style("fill", colorPush)
+      ;
+  var downArrowUpdateInner = update.selectAll(".down.bktvi")
+      .style("display", chooseDisplayForArrows)
+      .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
+      ;
+
+  var upCircleUpdate = update.selectAll(".circle.bktv")
       .style("display", chooseDisplayForCircle)
-  ;
+      .attr("r", chooseCircleRadius)
+      // .style("fill", chooseFill)
+      ;
+  var upCircleUpdateInner = update.selectAll(".circle.bktvi")
+      .style("display", chooseDisplayForCircle)
+      .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
+      ;
   
   var selfNode = _.filter(nodes, isSelf)[0];
   if (selfNode && !selfHasAppeared) {
@@ -1040,36 +1084,52 @@ function emphasizeParticipants(pids) {
     console.log("pids", pids.length);
     var hash = []; // sparse-ish array
     for (var i = 0; i < pids.length; i++) {
-        hash[pids[i]] = true;
+        var bid = pidToBid[pids[i]];
+        hash[bid] |= 0; // init
+        hash[bid] += 1; // count the person
     }
 
     function chooseStrokeWidth(d) {
         // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.pid]) {
+        if (hash[d.bid]) {
             return 0;
         }
         return 2;
     }
     function chooseStroke(d) {
         // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.pid]) {
+        if (hash[d.bid]) {
             return void 0; // undefined
         }
         return chooseFill(d);
     }
     function chooseFillOpacity(d) {
         // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.pid]) {
+        if (hash[d.bid] >= 2) {
             return 1;
         }
-        return 0;
+        return 0.2;
     }
 
-    main_layer.selectAll("g")
-      .selectAll("path")
-        .attr("stroke", chooseStroke)
-        .attr("stroke-width", chooseStrokeWidth)
-        .attr("fill-opacity", chooseFillOpacity)
+    function chooseTransformSubset(d) {
+        var bid = d.bid;
+        var bucket = bidToBucket[bid];
+        var ppl = bucket && bucket.ppl;
+        var total = ppl ? ppl.length : 0;
+        var active = hash[bid] || 0;
+        var ratio = active/total;
+        if (ratio > 0.99) {
+            return;
+        } else {
+            return "scale(" + ratio + ")";
+        }
+    }
+
+    visualization.selectAll(".bktvi")
+        // .attr("stroke", chooseStroke)
+        .attr("transform", chooseTransformSubset)
+        // .attr("stroke-width", chooseStrokeWidth)
+        // .attr("fill-opacity", chooseFillOpacity)
     ;
 }
 
@@ -1132,7 +1192,7 @@ return {
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
     // dipsplayBlueDotHelpItem: displayHelpItem,
-    emphasizeParticipants: emphasizeParticipants2,
+    emphasizeParticipants: emphasizeParticipants,
 };
 
 };
