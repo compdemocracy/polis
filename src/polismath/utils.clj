@@ -44,6 +44,12 @@
     (map second)))
 
 
+(defn apply-kwargs [f & args]
+  "Takes a function f, any number of regular args, and a final kw-args argument which will be
+  splatted in as a final argument"
+  (apply (apply partial f (butlast args)) (apply concat (last args))))
+
+
 ; apply each function to the result of the previous
 (defn snowball [obj fns] (reduce #(%2 %1) obj fns))
 

@@ -98,7 +98,7 @@
     [n-rows 1]
       {:center (matrix [0])
        :comps  (matrix [1])}
-    :else (apply powerit-pca data n-comps kwargs)))
+    :else (apply-kwargs powerit-pca data n-comps kwargs)))
 
 
 (defn pca-project [data {:keys [comps center]}]
