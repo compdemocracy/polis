@@ -24,7 +24,7 @@
     (kdb/postgres settings)))
 
 
-(defn mongo-db [env-vars]
+(defn mongo-db [mongo-url]
   (let [params  {}
         con     (mg/connect params)]
     (mg/get-db con "polismath")))
@@ -81,7 +81,7 @@
 (defn -main []
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
-        mg-db           (mongo-db env/env)
+        mg-db           (mongo-db (env/env :mongo-url))
         last-timestamp  (atom 0)
         conversations   (atom {})]
     (endlessly poll-interval

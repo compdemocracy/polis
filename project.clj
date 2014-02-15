@@ -41,8 +41,9 @@
         ["https://github.com/GeorgeJahad/debug-repl.git" "master"]
       ]
       :env {
-        :dev-mongolab-uri "db/mongo.db"}
+        :mongo-url "db/mongo.db"
       }
+    }
     :production {
       :dependencies [
         [org.clojure/tools.trace "0.7.6"]
@@ -50,7 +51,6 @@
         [org.clojure/clojure "1.5.1"]
       ]
       :env {
-        :dev-mongolab-uri "db/mongo.db"
       }
     }
   }
