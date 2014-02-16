@@ -21,6 +21,7 @@
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.1"]
                  ; [storm "0.8.2"]
+                 [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "1.5.0"]
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]

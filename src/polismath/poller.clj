@@ -132,11 +132,8 @@
               (fn [convs]
                 (assoc convs zid
                     (try
-                      (small-conv-update {:conv (or (convs zid)
-                                              {:rating-mat (named-matrix)})
-                                      :votes votes
-                                      :opts {}})
-                        (catch Exception e (println "exception when processing zid: " zid))))))
+                      (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)
+                      (catch Exception e (println "exception when processing zid: " zid))))))
                 
             ;(upsert-results pg-spec 1001 1 "foo")
             (println "zid: " zid)
