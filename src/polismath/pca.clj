@@ -60,7 +60,17 @@
 (defn factor-matrix [data xs]
   "As in the Gram-Shmidt process; we can 'factor out' the vector xs from all the vectors in data,
   such that there is no remaining variance in the xs direction within the data."
-  (matrix (mapv #(- % (proj-vec xs %)) data)))
+  ; If we have a zero eigenvector, it's safe to just assume that 0 should remain the matrix
+  (if (#{0 0.0} (dot xs xs))
+    data
+    ; Fucking weird... sometimes getting this "can't convert to persistent vector array: inconcsistent shape"
+    ; error when we don't do the into [] here. Should need to though. Will have to figure out if there is some
+    ; better solution
+    (matrix (mapv #(into [] (- % (proj-vec xs %))) data))))
+
+
+(defn rand-starting-vec [data]
+  (matrix (for [x (range (dimension-count data 1))] (rand))))
 
 
 ; Will eventually also want to add last-pcs
@@ -75,9 +85,7 @@
      :comps
         (loop [data' cntrd-data n-comps' (min n-comps data-dim) pcs [] start-vectors start-vectors]
           ; may eventually want to return eigenvals...
-          ;(debug-repl)
-          (let [start-vector (or (first start-vectors)
-                                 (matrix (for [x (range (dimension-count data' 1))] (rand))))
+          (let [start-vector (or (first start-vectors) (rand-starting-vec data))
                 pc (power-iteration data' iters start-vector)
                 pcs (conj pcs pc)]
             (if (= n-comps' 1)
@@ -88,7 +96,7 @@
 
 
 (defn wrapped-pca [data n-comps & {:keys [iters start-vectors] :as kwargs}]
-  ; gracefully handle all of the weird cases
+  "This function gracefully handles weird edge cases inherent in the messiness of real world data"
   (match (map (partial dimension-count data) [0 1])
     [1 n-cols]
       {:center (matrix (repeatv n-comps 0))
@@ -97,7 +105,12 @@
     [n-rows 1]
       {:center (matrix [0])
        :comps  (matrix [1])}
-    :else (apply-kwargs powerit-pca data n-comps kwargs)))
+    :else
+      (apply-kwargs powerit-pca data n-comps
+                    (assoc kwargs :start-vectors
+                      (if start-vectors
+                        (map #(if (every? #{0 0.0} %) nil %) start-vectors)
+                        nil)))))
 
 
 (defn pca-project [data {:keys [comps center]}]
