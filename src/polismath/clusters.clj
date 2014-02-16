@@ -99,7 +99,7 @@
               (/ up not-up)))]
     (let [in-cols  (columns (:matrix in-part))
           out-cols (columns (:matrix out-part))]
-      (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
+      (map #(double (/ (frac-up %1) (frac-up %2))) in-cols out-cols))))
 
 
 (defn conv-repness [data clusters]
