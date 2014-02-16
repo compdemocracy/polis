@@ -14,9 +14,7 @@
             [monger.collection :as mgcol]
             [environ.core :as env]))
 
-;(use 'alex-and-georges.debug-repl)
 
-(println "launching poller " (System/currentTimeMillis))
 
 (defn heroku-db-spec [db-uri]
   (let [[_ user password host port db] (re-matches #"postgres://(?:(.+):(.*)@)?([^:]+)(?::(\d+))?/(.+)" db-uri)
@@ -28,7 +26,6 @@
                   :ssl true
                   :sslfactory "org.postgresql.ssl.NonValidatingFactory"}]
     (kdb/postgres settings)))
-
 
 
 (defn split-by-conv [votes]
@@ -43,6 +40,7 @@
 (defn mongo-connect! [mongo-url]
   (monger.core/connect-via-uri! mongo-url))
 
+
 (defn mongo-upsert-results [zid timestamp new-results ]
   (monger.collection/update "polismath_test1248124"
     {
@@ -56,39 +54,6 @@
     }
     :multi false
     :upsert true))
-
-
-; (defn post-results [db-spec zid last-timestamp results-json]
-;   (kdb/with-db db-spec
-;     (ko/update "math_results_dev01"
-;       (ko/set-fields {
-;         :data results-json
-;         :last_timestamp last-timestamp })
-;       (ko/where {
-;         :zid [= zid]
-;         :last_timestamp [< last-timestamp] }))))
-
-; (defn post-results-raw [db-spec zid last-timestamp results-json]
-;   (kdb/with-db db-spec
-;     (ko/exec-raw [
-;       "UPDATE math_results_dev01 SET data = ?, last_timestamp = ? WHERE zid = ? RETURNING zid"
-;       [results-json last-timestamp zid]
-;       :results])))
-
-
-; (defn post-results-insert [db-spec zid last-timestamp results-json]
-;   (kdb/with-db db-spec
-;     (ko/insert "math_results_dev01"
-;       (ko/values {
-;         :data results-json
-;         :last_timestamp last-timestamp
-;         :zid zid}))))
-
-; (defn upsert-results [db-spec zid last-timestamp results-json]
-;   (try
-;     (post-results-insert db-spec 1001 0 results-json)
-;     (catch Exception e
-;       (post-results db-spec 1001 1 results-json))))
 
 
 (defn poll [db-spec last-timestamp]
@@ -114,9 +79,8 @@
 
 
 
-
-
 (defn -main []
+  (println "launching poller " (System/currentTimeMillis))
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
         mg-db           (mongo-connect! (env/env :mongo-url))
@@ -135,12 +99,10 @@
                       (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)
                       (catch Exception e (println "exception when processing zid: " zid))))))
                 
-            ;(upsert-results pg-spec 1001 1 "foo")
             (println "zid: " zid)
             (println "time: " (System/currentTimeMillis))
             (println "\n\n")
             (println (generate-string (prep-for-uploading (@conversations zid))))
-            ; (debug-repl)
             (println 
               (mongo-upsert-results
                 zid
