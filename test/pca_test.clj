@@ -41,13 +41,22 @@
       (testing "2x2"
         (is (right-shape [[1 0] [-1 1]])))))
 
-  (testing "when initital start value is a zero eigenvector"
-    (let [data (m/matrix [[1 -1  1 -1]
-                          [0  0 -1  1]
-                          [1  1 -1  0]])]
-      (testing "should try another eigenvector"
-        (is (not (almost-equal?
-                   (wrapped-pca data 2)
-                   [0 0 0 0])))))))
+  (testing "zero matrices"
+    (let [data (m/matrix [[1 -1 0]
+                          [1 -1 0]
+                          [1 -1 0]])]
+      ; need to test not only that we get something sensible here, but also that if 0 vectors are returned,
+      ; that our wrapped-pca still be able to start up again
+      (is (almost-equal?  [0 0 0] (first (:comps (wrapped-pca data 2)))))
+      (is (almost-equal?  [0 0 0] (second (:comps (wrapped-pca data 2)))))))
 
+  (testing "zero start-vectors"
+    (let [data (m/matrix [[1  0 0]
+                          [0 -1 1]
+                          [1  1 0]])
+          zero-vec (m/matrix [0 0 0])
+          zero-vecs [zero-vec zero-vec]
+          comps (:comps (wrapped-pca data 2 :start-vectors zero-vecs))]
+      (is (not (almost-equal? zero-vec (first comps))))
+      (is (not (almost-equal? zero-vec (second comps)))))))
 
