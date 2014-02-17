@@ -880,7 +880,8 @@ var whitelistedDomains = [
   "http://about.polis.io",
   "https://about.polis.io",  
   "http://www.polis.io",
-  "https://www.polis.io",  
+  "https://www.polis.io",
+  "http://bonn83np5g4s6k2am.herokuapp.com/",
   "http://polis.io",
   "https://polis.io",
 ];
