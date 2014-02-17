@@ -97,7 +97,10 @@
                 (assoc convs zid
                     (try
                       (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)
-                      (catch Exception e (println "exception when processing zid: " zid))))))
+                      (catch Exception e
+                        (do
+                          (println "exception when processing zid: " zid)
+                          (.printStackTrace e)))))))
                 
             (println "zid: " zid)
             (println "time: " (System/currentTimeMillis))
