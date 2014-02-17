@@ -17,3 +17,4 @@ db/
 .lein-git-deps
 scratch
 .lein-git-deps
+src/polismath/play.clj

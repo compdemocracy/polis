@@ -97,18 +97,28 @@
                 (assoc convs zid
                     (try
                       (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)
-                      (catch Exception e (println "exception when processing zid: " zid))))))
+                      (catch Exception e
+                        (do
+                          (println "exception when processing zid: " zid)
+                          (.printStackTrace e)))))))
                 
             (println "zid: " zid)
             (println "time: " (System/currentTimeMillis))
             (println "\n\n")
-            (println (generate-string (prep-for-uploading (@conversations zid))))
-            (println 
-              (mongo-upsert-results
-                zid
-                lastVoteTimestamp
-                (generate-string
-                  (prep-for-uploading
-                    (@conversations zid)))))
+            (let [
+              ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
+              ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
+              json (generate-string (prep-for-uploading (@conversations zid)))
+              obj (parse-string json)] 
+
+              (println json)
+              ; (debug-repl)
+              (println 
+                (mongo-upsert-results
+                  zid
+                  lastVoteTimestamp
+                  obj)))
+
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
+
       ))))))
