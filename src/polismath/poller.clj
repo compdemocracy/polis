@@ -87,8 +87,8 @@
         last-timestamp  (atom 0)
         conversations   (atom {})]
     (endlessly poll-interval
-      (let [foo (println "poll > " @last-timestamp)
-            new-votes (poll pg-spec @last-timestamp)
+      (println "poll >" @last-timestamp)
+      (let [new-votes (poll pg-spec @last-timestamp)
             split-votes (split-by-conv new-votes)]
         (doseq [[zid votes] split-votes]
           (let [lastVoteTimestamp (:created (last votes))]
