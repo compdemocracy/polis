@@ -46,8 +46,8 @@
                 (:matrix rating-mat)))
      :pca   (plmb/fnk [conv mat opts']
               (wrapped-pca mat (:n-comps opts')
-                           :start-vectors (:pca conv)
-                           :iters (:pca-iters conv)))
+                           :start-vectors (get-in conv [:pca :comps])
+                           :iters (:pca-iters opts')))
      :group-clusters
             (plmb/fnk [conv rating-mat mat opts']
               (kmeans (assoc rating-mat :matrix mat)
