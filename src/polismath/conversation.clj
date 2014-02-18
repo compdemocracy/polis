@@ -145,9 +145,9 @@
         n-ptpts (count (distinct (into ptpts (map :pid votes))))]
     ; dispatch to the appropriate function
     ((cond
-       (< n-ptpts 100)   small-conv-update
+;       (< n-ptpts 100)   small-conv-update
        (< n-ptpts 1000)  med-conv-update
-       (< n-ptpts 1500)  med-conv-update2
+ ;      (< n-ptpts 1500)  med-conv-update2
        :else             large-conv-update)
           {:conv conv :votes votes :opts opts})))
 
