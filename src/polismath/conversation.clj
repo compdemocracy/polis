@@ -76,9 +76,10 @@
      :group-clusters
             (plmb/fnk [conv rating-mat proj opts']
               (kmeans (assoc rating-mat :matrix proj)
-                (:grop-k opts')
+                (:group-k opts')
                 :last-clusters (:group-clusters conv)
                 :cluster-iters (:group-iters opts')))}))
+
 
 
 (def med-conv-update-graph2
