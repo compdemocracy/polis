@@ -388,7 +388,7 @@ module.exports = function(params) {
             };
         } else {
             var o = arguments[0];
-            this.bid = o.bid;
+            this.bid = o.id;
             this.proj = o.proj;
             this.count = o.count;
             if (o.containsSelf) {
@@ -618,7 +618,7 @@ function clientSideBaseCluster(things, N) {
                 }
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
-                var buckets = arraysToObjects(pcaData.buckets);
+                var buckets = arraysToObjects(pcaData["base-clusters"]);
 
                 // TODO we should include the vectors for each comment (with the comments?)
                 ///commentVectors = pcaData.commentVectors;
@@ -626,7 +626,7 @@ function clientSideBaseCluster(things, N) {
                 // TODO this is not runnable, just a rough idea. (data isn't structured like this)
                 ///var people = pcaData.people;
 
-                participantCount = _.reduce(buckets.count, function(memo, count) { return memo+count;}, 0);
+                participantCount = _.reduce(buckets, function(memo, b) { return memo + b.count;}, 0);
 
                 //var myself = _.findWhere(people, {pid: getPid()});
                 //people = _.without(people, myself);
@@ -640,7 +640,11 @@ function clientSideBaseCluster(things, N) {
                 //     return p.pid !== myPid;
                 // });
 
-                var clusters = clientSideBaseCluster(buckets, 3);
+                var clusters = pcaData["group-clusters"];
+                clusters = _.map(clusters, function(c) {
+                    // we just need the members
+                    return c.members;
+                });
 
                 // mutate - move x and y into a proj sub-object, so the vis can animate x and y
                 _.each(buckets, function(b) {
@@ -651,6 +655,9 @@ function clientSideBaseCluster(things, N) {
                     delete b.x;
                     delete b.y;
                 });
+
+
+
                 // Convert to Bucket objects.
                 buckets = _.map(buckets, function(b) {
                     return new Bucket(b);
