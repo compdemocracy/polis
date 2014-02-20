@@ -28,7 +28,7 @@
                   (merge {:n-comps 2
                           :pca-iters 10
                           :base-iters 10
-                          :base-k 100
+                          :base-k 50
                           :group-iters 10
                           :group-k 3}
                     opts))
