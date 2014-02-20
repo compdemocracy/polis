@@ -16,8 +16,8 @@
               (take n-votes (repeatedly #(wrapper-fn (rand-int range)))))]
       (map #(hash-map :zid %1 :pid %2 :tid %3 :vote %4)
         (generator identity n-convs)
-        (generator #(str "p" %) n-ptpts)
-        (generator #(str "c" %) n-cmts)
+        (generator identity n-ptpts)
+        (generator identity n-cmts)
         (generator #(- % 1) 3)))))
 
 
