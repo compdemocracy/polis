@@ -1,6 +1,6 @@
 (ns polismath.clusters
   (:refer-clojure :exclude [* - + == /])
-;  (:require [clojure.tools.trace :as tr])
+  (:require [clojure.tools.trace :as tr])
   (:use polismath.utils
         polismath.named-matrix
         clojure.core.matrix
@@ -103,18 +103,22 @@
       (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
 
 
-(defn conv-repness [data clusters]
+(defn conv-repness [data group-clusters base-clusters]
   (map
-    (fn [cluster]
+    (fn [group-cluster]
       (let [
-            row-names (:members cluster)
-            in-part  (rowname-subset     data row-names)
-            out-part (inv-rowname-subset data row-names)
+            bids (:members group-cluster)
+            bids-set (set bids)
+            bucket-is-in-bids (fn [bucket] (contains? bids-set (:id bucket)))
+            pids (apply concat (map :members (filter bucket-is-in-bids base-clusters )))
+            
+            in-part  (rowname-subset data pids)
+            out-part (inv-rowname-subset data pids)
             ]
-        {:id      (:id cluster)
+        {:id      (:id group-cluster)
          :repness (repness in-part out-part)
          }
-        )) clusters))
+        )) group-clusters))
 
 (defn xy-clusters-to-nmat [clusters]
   (let [nmat (named-matrix)]

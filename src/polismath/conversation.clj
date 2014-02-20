@@ -198,15 +198,19 @@
                    :else 6
                   ))
 
-        group-clusters 
-        (kmeans (xy-clusters-to-nmat2 base-clusters)
-                group-k
-                :last-clusters (:group-clusters conv)
-                :cluster-iters (:group-iters opts'))
+        group-clusters
+          (kmeans
+            (xy-clusters-to-nmat2 base-clusters)
+            group-k
+            :last-clusters (:group-clusters conv)
+            :cluster-iters (:group-iters opts'))
 
         repness 
              (if (> (count group-clusters) 1)
-                (conv-repness rating-mat group-clusters))
+               (conv-repness
+                rating-mat
+                group-clusters
+                base-clusters))
         ]
     {
          :rating-mat rating-mat

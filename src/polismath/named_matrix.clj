@@ -1,4 +1,9 @@
 (ns polismath.named-matrix
+  
+  (:require
+   [clojure.core.matrix :as matrix]
+   [clojure.tools.trace :as tr]
+   )
   (:use polismath.utils))
 
 
@@ -30,10 +35,24 @@
     nmat values))
 
 
+(defn get-matrix-row [m row]
+  (or
+   (matrix/get-row m row) ; if it's core.matrix
+   (get m row) ; if it's a vector of vectors
+   ))
+
+
 (defn row-subset [nmat row-indices]
-  (assoc nmat 
-    :rows (filter-by-index (:rows nmat) row-indices)
-    :matrix (filter-by-index (:matrix nmat) row-indices)))
+  (letfn [
+    (row-for-index [index]
+      (get-matrix-row (:matrix nmat) index))]
+
+    (assoc nmat
+ ;     :rows (into [] (intersection (set row-indices) (set (:rows nmat))))
+      :rows (filter (set row-indices) (:rows nmat))
+      :matrix (map row-for-index row-indices)
+        )
+      ))
 
 
 (defn rowname-subset [nmat row-names]
