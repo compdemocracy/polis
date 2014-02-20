@@ -227,14 +227,16 @@ module.exports =  View.extend({
       // this.votesByMe.on("all", function(x) {
       //   console.log("votesByMe.all", x);
       // });
-      this.votesByMe.on("change", function() {
-        console.log("votesByMe.change");
-        serverClient.updateMyProjection(that.votesByMe);
-      });
-      this.votesByMe.on("add", function() {
+      // this.votesByMe.on("change", function() {
+      //   console.log("votesByMe.change");
+      //   serverClient.updateMyProjection(that.votesByMe);
+      // });
+      var updateMyProjectionAfterAddingVote = _.throttle(function() {
         console.log("votesByMe.add");
         serverClient.updateMyProjection(that.votesByMe);
-      });
+      }, 200);
+      this.votesByMe.on("add", updateMyProjectionAfterAddingVote);
+
       this.commentForm.on("commentSubmitted", function() {
         // $("#commentViewTab").tab("show");
       });
