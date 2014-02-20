@@ -78,7 +78,6 @@
         vote-rate (:vote-rate opts)]
     (endlessly (:poll-interval opts)
       (let [new-votes (take vote-rate @simulator)
-            blah (println new-votes)
             split-votes (split-by-conv new-votes)]
         (swap! simulator #(drop vote-rate %))
         (doseq [[zid votes] split-votes]
@@ -104,6 +103,6 @@
     ]
   (println "\n\n\n\n\n\n foo \n\n\n\n\n\n" a "\n\n\n bar\n\n")
   (flush)  
-  (conv-update2 a (random-votes 5 5) {})
+  (println (conv-update2 a (random-votes 5 5) {}))
   (println "\n\n done \n\n")
   )

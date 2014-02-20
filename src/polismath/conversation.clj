@@ -2,7 +2,7 @@
   (:require [plumbing.core :as plmb]
             [plumbing.graph :as graph]
             [clojure.core.matrix :as matrix]
-            [clojure.tools.trace :as tr]
+;            [clojure.tools.trace :as tr]
             [bigml.sampling.simple :as sampling])
   (:use polismath.utils
         polismath.pca
@@ -183,7 +183,7 @@
 
 
         base-clusters 
-              (kmeans (assoc rating-mat :matrix (tr/trace proj))
+              (kmeans (assoc rating-mat :matrix proj)
                 (:base-k opts')
                 :last-clusters (:base-clusters conv)
                 :cluster-iters (:base-iters opts'))
@@ -198,8 +198,6 @@
                    :else 6
                   ))
 
-        foo (println "group-k" group-k)
-        
         group-clusters 
         (kmeans (xy-clusters-to-nmat2 base-clusters)
                 group-k
