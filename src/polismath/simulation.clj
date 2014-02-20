@@ -98,3 +98,12 @@
       true              (endlessly-sim options))))
 
 
+
+(let [
+      a (conv-update2 {:rating-mat (named-matrix)} (random-votes 10 10) {})
+    ]
+  (println "\n\n\n\n\n\n foo \n\n\n\n\n\n" a "\n\n\n bar\n\n")
+  (flush)  
+  (conv-update2 a (random-votes 5 5) {})
+  (println "\n\n done \n\n")
+  )
