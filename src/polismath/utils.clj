@@ -53,7 +53,9 @@
 ; apply each function to the result of the previous
 (defn snowball [obj fns] (reduce #(%2 %1) obj fns))
 
-(defn prep-for-uploading [results]
+
+
+(defn prep-for-uploading-to-client [results]
   (let [proj (get results :proj)
         base-clusters (get results :base-clusters)]
     (snowball
@@ -74,4 +76,10 @@
         #(assoc-in %1 [:base-clusters "members"] (map :members base-clusters))
         #(assoc-in %1 [:base-clusters "count"] (map (fn [c] (count (:members c))) base-clusters))        
 
+        ; REFORMAT REPNESS
+        ; make the array position of each cluster imply the cluster id
+        #(assoc %1 :repness (map :repness (sort-by :id (:repness %1))))
+
+
+        
         ])))

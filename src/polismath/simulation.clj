@@ -99,10 +99,11 @@
 
 
 (let [
-      a (conv-update2 {:rating-mat (named-matrix)} (random-votes 10 10) {})
+      a (conv-update2 {:rating-mat (named-matrix)} (random-votes 600 10) {})
+      b (conv-update2 a (random-votes 5 5) {})
     ]
-  (println "\n\n\n\n\n\n foo \n\n\n\n\n\n" a "\n\n\n bar\n\n")
-  (flush)  
-  (println (conv-update2 a (random-votes 5 5) {}))
-  (println "\n\n done \n\n")
+  (print b)
+                                        ;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
+;  (pprint (group-by :id (:base-clusters b)))
+;  (pprint (map :members (sort-by :id (:base-clusters b))))  
   )

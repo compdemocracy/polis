@@ -106,7 +106,9 @@
             (let [
               ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
               ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
-              json (generate-string (prep-for-uploading (@conversations zid)))
+                  json (generate-string
+                        (prep-for-uploading-to-client
+                         (@conversations zid)))
               obj (parse-string json)] 
 
               (println json)

@@ -163,30 +163,28 @@
                   :group-iters 10
                   :group-k 3)
         
-;        ptpts   (:row (:rating-mat conv))
-
-;        n-ptpts (count (distinct (into ptpts (map :pid votes))))
-
         rating-mat (update-nmat
                     (:rating-mat conv)
                     (map #(map % [:pid :tid :vote]) votes))
         
-        ;swap nils for zeros - most things need the 0s, but repness needs the nils
-        mat (map (fn [row] (map #(if (nil? %) 0 %) row))
+        ;swap nils for zeros -
+        ; most things need the 0s, but repness needs the nils
+        mat-w-zeros (map (fn [row] (map #(if (nil? %) 0 %) row))
                  (:matrix rating-mat))
                  
-        pca (wrapped-pca mat (:n-comps opts')
+        pca (wrapped-pca mat-w-zeros (:n-comps opts')
                            :start-vectors (get-in conv [:pca :comps])
                            :iters (:pca-iters opts'))
         
-        proj (pca-project mat pca)
+        proj (pca-project mat-w-zeros pca)
 
 
         base-clusters 
-              (kmeans (assoc rating-mat :matrix proj)
+          (sort-by :id
+            (kmeans (assoc rating-mat :matrix proj)
                 (:base-k opts')
                 :last-clusters (:base-clusters conv)
-                :cluster-iters (:base-iters opts'))
+                :cluster-iters (:base-iters opts')))
 
         group-k (let [len (count base-clusters)]
                   (cond
@@ -199,25 +197,32 @@
                   ))
 
         group-clusters
+         (sort-by :id
           (kmeans
             (xy-clusters-to-nmat2 base-clusters)
             group-k
             :last-clusters (:group-clusters conv)
-            :cluster-iters (:group-iters opts'))
+            :cluster-iters (:group-iters opts')))
 
-        repness 
+        repness
+           (sort-by :id
              (if (> (count group-clusters) 1)
                (conv-repness
                 rating-mat
                 group-clusters
-                base-clusters))
+                base-clusters)))
+        
+        bid-to-pid
+          (map :members(sort-by :id (:base-clusters base-clusters)))
+        
         ]
     {
          :rating-mat rating-mat
-         :mat mat
+         :mat mat-w-zeros
          :pca pca
          :proj proj
          :base-clusters base-clusters
+         :bid-to-pid bid-to-pid
          :group-clusters group-clusters
          :repness repness
          }))
