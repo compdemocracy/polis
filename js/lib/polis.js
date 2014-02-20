@@ -632,6 +632,10 @@ function clientSideBaseCluster(things, N) {
                 //people = _.without(people, myself);
                 //people.push(myself);
 
+
+                pcX = pcaData.pca.comps[0];
+                pcY = pcaData.pca.comps[1];
+                // TODO get offsets for x and y
  
                 // remove self, will add after bucketizing
                 var myPid = getPid();
@@ -738,44 +742,6 @@ function clientSideBaseCluster(things, N) {
     // helper for copy-and-pasted mongo documents
     function ObjectId(s) {
         return s;
-    }
-
-    function parseFormat2(obj) {
-        // Normalize to [-1,1]
-        // function normalize(projectionDimension) {
-        //     return projectionDimension / 20;
-        // }
-
-        if (obj.pca && obj.pca.cluster_tree) {
-            console.warn("got old PCA format");
-            return;
-        }
-
-        pcX = {};
-        pcY = {};
-        var comps = obj.pca.som_comps;
-        var pc1 = comps.pc1;
-        var pc2 = comps.pc2;
-        var tids = comps.comment_id;
-        for (var t = 0; t < tids.length; t++) {
-            var tid = Number(tids[t]);
-            pcX[tid] = pc1[t];
-            pcY[tid] = pc2[t];
-        }
-
-        var nodes = [];
-        for (var i = 0; i < obj.pca.projs.pc1.length; i++) {
-            nodes.push({
-                pid: Number(obj.pca.projs.ptpt_id[i]), // this can be removed/changed to ptpt_id once we are on an integer id system
-                data: {
-                    projection: [
-                        obj.pca.projs.pc1[i],
-                        obj.pca.projs.pc2[i]
-                    ]
-                }
-            });
-        }
-        return nodes;
     }
 
     function getAllUserInfo() {
