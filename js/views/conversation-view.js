@@ -88,7 +88,7 @@ module.exports =  View.extend({
             return pid;
           },
           getCommentsForProjection: serverClient.getCommentsForProjection,
-          getCommentsForSelection: serverClient.getCommentsForSelection,
+          getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
           getUserInfoByPid: serverClient.getUserInfoByPidSync,
           getTotalVotesByPidSync: serverClient.getTotalVotesByPidSync,

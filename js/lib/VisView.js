@@ -7,7 +7,7 @@ var VisView = function(params){
 
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
-var getCommentsForSelection = params.getCommentsForSelection;
+var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
 var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
@@ -311,19 +311,16 @@ function argMax(f, args) {
 
 function setClusterActive(clusterId) {
     var pids;
+    var promise;
     if (clusterId === false) {
         pids = [];
+        promise = $.Deferred().resolve([]);
     } else {
         pids = clusters[clusterId];
+        promise = getCommentsForGroup(clusterId);
     }
-    selectedPids = pids;
     selectedCluster = clusterId;
-    var promise;
-    if (pids.length || SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED) {
-        promise = getCommentsForSelection(pids);
-    } else {
-        promise = $.Deferred().resolve([]);
-    }
+
     promise
       .pipe( // getCommentsForSelection with clusters array (of pids)
         renderComments,                                 // !! this is tightly coupled.

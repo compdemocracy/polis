@@ -61,6 +61,7 @@ module.exports = function(params) {
 
     var pcX = {};
     var pcY = {};
+    var repness = {}; // gid -> tid -> representativeness (bigger is more representative)
     var participantCount = 0;
     var userInfoCache = [];
 
@@ -637,6 +638,8 @@ function clientSideBaseCluster(things, N) {
                 pcY = pcaData.pca.comps[1];
                 // TODO get offsets for x and y
  
+                repness = pcaData.repness;
+
                 // remove self, will add after bucketizing
                 var myPid = getPid();
 
@@ -817,15 +820,32 @@ function clientSideBaseCluster(things, N) {
         return polisGet(commentsPath, params);
     }
 
-    function getCommentsForSelection(listOfUserIds) {
-        var params =  {
-            zid: zid
-        };
-        if (listOfUserIds && listOfUserIds.length) {
-            params.users = listOfUserIds.join(",");
+    function getCommentsForGroup(gid, max) {
+        var tidToR = repness[gid];
+        var pairs = _.map(tidToR, function(repness, tid) {
+            return [repness, tid];
+        });
+        pairs = pairs.sort(function(a, b) {return b[0] - a[0];});
+        if (_.isNumber(max)) {
+            pairs = pairs.slice(0, max);
         }
-        return polisGet(selectionPath, params);
+        var tids = _.map(pairs, function(p) {
+            return p[1];
+        });
+        return getComments({
+            tids: tids
+        }).pipe(function(comments) {
+            comments = _.map(comments, function(c) {
+                c.repness = tidToR[c.tid];
+                return c;
+            });
+            comments = comments.sort(function(a, b) {
+                return b.repness - a.repness;
+            });
+            return comments;
+        });
     }
+
 
     function getReactionsToComment(commentId) {
         return polisGet(votesPath, {
@@ -1012,7 +1032,7 @@ function clientSideBaseCluster(things, N) {
         authenticated: authenticated,
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
-        getCommentsForSelection: getCommentsForSelection,
+        getCommentsForGroup: getCommentsForGroup,
         getReactionsToComment: getReactionsToComment,
         getUserInfoByPid: getUserInfoByPid,
         getUserInfoByPidSync: getUserInfoByPidSync,
