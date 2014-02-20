@@ -47,11 +47,7 @@
       :zid zid
       ; "$gt" 92839182312
     } 
-    {
-      "zid" zid
-      "lastVoteTimestamp" timestamp
-      "data" new-results
-    }
+    new-results
     :multi false
     :upsert true))
 
@@ -113,11 +109,13 @@
 
               (println json)
               ; (debug-repl)
-              (println 
-                (mongo-upsert-results
-                  zid
-                  lastVoteTimestamp
-                  obj)))
+              (println
+               (mongo-upsert-results
+                zid
+                lastVoteTimestamp
+                (assoc obj
+                 "lastVoteTimestamp" lastVoteTimestamp
+                 "zid" zid))))
 
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
 

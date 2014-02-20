@@ -54,12 +54,24 @@
 (defn snowball [obj fns] (reduce #(%2 %1) obj fns))
 
 (defn prep-for-uploading [results]
-  (let [proj (get results :proj)]
+  (let [proj (get results :proj)
+        base-clusters (get results :base-clusters)]
     (snowball
       results
       [
         #(dissoc %1 :mat :rating-mat :opts') ;remove things we don't want to publish
+
+        ; REFORMAT PROJECTION
         #(dissoc %1 :proj) ; remove the original projection - we'll replace it
         #(assoc-in %1 [:proj :x] (map first proj))  ; create an array of x values
         #(assoc-in %1 [:proj :y] (map second proj)) ; create an array of y values
-      ])))
+
+        ; REFORMAT BASE CLUSTERS
+        #(dissoc %1 :base-clusters)
+        #(assoc-in %1 [:base-clusters "x"] (map (fn [x] (first (:center x))) base-clusters))
+        #(assoc-in %1 [:base-clusters "y"] (map (fn [x] (second (:center x))) base-clusters))
+        #(assoc-in %1 [:base-clusters "id"] (map :id base-clusters))
+        #(assoc-in %1 [:base-clusters "members"] (map :members base-clusters))
+        #(assoc-in %1 [:base-clusters "count"] (map (fn [c] (count (:members c))) base-clusters))        
+
+        ])))
