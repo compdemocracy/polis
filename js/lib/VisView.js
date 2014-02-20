@@ -49,7 +49,7 @@ var maxVoteCount = 0;
 var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
-var bidToKid = {};
+var bidToGid = {};
 var bidToBucket = {};
 
 var SELF_DOT_SHOW_INITIALLY = true;
@@ -657,7 +657,7 @@ function upsertNode(updatedNodes, newClusters) {
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
         for (var b = 0; b < cluster.length; b++) {
-            bidToKid[cluster[b]] = c;
+            bidToGid[cluster[b]] = c;
         }
     }
     
@@ -964,9 +964,9 @@ function onParticipantClicked(d) {
     // d3.event.stopPropagation();
     // d3.event.preventDefault(); // prevent flashing on iOS
   // alert(getUserInfoByPid(d.pid).hname)
-  var kid = bidToKid[d.bid];
-  if (_.isNumber(kid)) {
-      handleOnClusterClicked(kid);
+  var gid = bidToGid[d.bid];
+  if (_.isNumber(gid)) {
+      handleOnClusterClicked(gid);
   }
 }
 
