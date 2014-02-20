@@ -2,6 +2,7 @@
   (:require [plumbing.core :as plmb]
             [plumbing.graph :as graph]
             [clojure.core.matrix :as matrix]
+            [clojure.tools.trace :as tr]
             [bigml.sampling.simple :as sampling])
   (:use polismath.utils
         polismath.pca
@@ -74,11 +75,11 @@
      :proj  (plmb/fnk [base-clusters pca]
               (pca-project (map :center base-clusters) pca))
      :group-clusters
-            (plmb/fnk [conv rating-mat proj opts']
-              (kmeans (assoc rating-mat :matrix proj)
-                (:group-k opts')
+        (plmb/fnk [conv rating-mat base-clusters opts']
+          (kmeans (xy-clusters-to-nmat2 base-clusters) (:group-k opts')
                 :last-clusters (:group-clusters conv)
-                :cluster-iters (:group-iters opts')))}))
+                :cluster-iters (:group-iters opts'))
+      )}))
 
 
 
@@ -146,9 +147,75 @@
     ; dispatch to the appropriate function
     ((cond
 ;       (< n-ptpts 100)   small-conv-update
-       (< n-ptpts 1000)  med-conv-update
- ;      (< n-ptpts 1500)  med-conv-update2
+;       (< n-ptpts 1000)  med-conv-update
+      (< n-ptpts 1500)  med-conv-update2
        :else             large-conv-update)
           {:conv conv :votes votes :opts opts})))
 
 
+(defn conv-update2 [conv votes opts]
+  (let [
+        opts'   (assoc (or opts {})
+                  :n-comps 2
+                  :pca-iters 10
+                  :base-iters 10
+                  :base-k 50
+                  :group-iters 10
+                  :group-k 3)
+        
+;        ptpts   (:row (:rating-mat conv))
+
+;        n-ptpts (count (distinct (into ptpts (map :pid votes))))
+
+        rating-mat (update-nmat
+                    (:rating-mat conv)
+                    (map #(map % [:pid :tid :vote]) votes))
+        
+        ;swap nils for zeros - most things need the 0s, but repness needs the nils
+        mat (map (fn [row] (map #(if (nil? %) 0 %) row))
+                 (:matrix rating-mat))
+                 
+        pca (wrapped-pca mat (:n-comps opts')
+                           :start-vectors (get-in conv [:pca :comps])
+                           :iters (:pca-iters opts'))
+        
+        proj (pca-project mat pca)
+
+
+        base-clusters 
+              (kmeans (assoc rating-mat :matrix (tr/trace proj))
+                (:base-k opts')
+                :last-clusters (:base-clusters conv)
+                :cluster-iters (:base-iters opts'))
+
+        group-k (let [len (count base-clusters)]
+                  (cond
+                   (< len 3) 1
+                   (< len 5) 2
+                   (< len 7) 3
+                   (< len 15) 4
+                   (< len 30) 5
+                   :else 6
+                  ))
+
+        foo (println "group-k" group-k)
+        
+        group-clusters 
+        (kmeans (xy-clusters-to-nmat2 base-clusters)
+                group-k
+                :last-clusters (:group-clusters conv)
+                :cluster-iters (:group-iters opts'))
+
+        repness 
+             (if (> (count group-clusters) 1)
+                (conv-repness rating-mat group-clusters))
+        ]
+    {
+         :rating-mat rating-mat
+         :mat mat
+         :pca pca
+         :proj proj
+         :base-clusters base-clusters
+         :group-clusters group-clusters
+         :repness repness
+         }))

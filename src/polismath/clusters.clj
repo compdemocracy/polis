@@ -1,5 +1,6 @@
 (ns polismath.clusters
   (:refer-clojure :exclude [* - + == /])
+  (:require [clojure.tools.trace :as tr])
   (:use polismath.utils
         polismath.named-matrix
         clojure.core.matrix
@@ -28,6 +29,7 @@
 
 (defn init-clusters [data k]
   "Effectively random initial clusters for initializing a new kmeans comp"
+  (println "init-clusters " data k)
   (take k
     (map-indexed
       (fn [id position] {:id id :members [] :center (matrix position)})
@@ -72,7 +74,7 @@
 
  
 ; Each cluster should have the shape {:id :members :center}
-(defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
+(tr/deftrace kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   "Performs a k-means clustering."
   (let [data-iter (zip (:rows data) (matrix (:matrix data)))
         clusters  (if last-clusters
@@ -86,7 +88,8 @@
           (recur new-clusters (dec iter)))))))
 
 
-(defn repness [in-part out-part]
+(tr/deftrace repness [in-part out-part]
+  (println "repness")
   (letfn [(frac-up [votes]
             (let [[up not-up]
                     (reduce
@@ -102,14 +105,49 @@
       (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
 
 
-(defn conv-repness [data clusters]
+(tr/deftrace conv-repness [data clusters]
+  (println "12345 " data clusters)
   (map
     (fn [cluster]
-      (let [row-names (:members cluster)
-            in-part  (rowname-subset     data row-names)
-            out-part (inv-rowname-subset data row-names)]
-        {:id      (:id cluster)
-         :repness (repness in-part out-part)}))
+      (let [
+            abc (println "1")
+            row-names (:members cluster)
+            ab2 (println "2" row-names)            
+            in-part  (tr/trace "rowname-subset" (rowname-subset     data row-names))
+            ab3 (println "3")            
+            out-part (tr/trace "inv" (inv-rowname-subset data row-names))
+            ab4 (println "4")
+            ]
+        
+        (do (println "100") (flush)
+            {:id      (:id cluster)
+             ;:repness (repness in-part out-part)
+             }
+            )))
     clusters))
+
+(defn xy-clusters-to-nmat [clusters]
+  (println "xy-clusters-to-nmat " clusters)
+  (let [nmat (named-matrix)]
+    (update-nmat
+     nmat
+     (tr/trace (apply concat ; flatten the list of lists below
+      (mapv
+       (fn [cluster]
+         (let [center (:center cluster)
+               id (:id cluster)]
+           ; Return some values that we can feed to update-nmat
+           [[id :x (first center)]
+            [id :y (second center)]]
+           ))
+       clusters
+       ))))))
+
+(defn xy-clusters-to-nmat2 [clusters]
+  (println "xy-clusters-to-nmat2 " clusters)
+  (named-matrix
+   (map :id clusters) ; row names
+   [:x :y] ; column names
+   (matrix (map :center clusters))))
 
 
