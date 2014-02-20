@@ -418,13 +418,33 @@ function updateHulls() {
     function makeHullShape(stuff) {
         return "M" + stuff.join("L") + "Z";
     }
+
+    // hulls don't render when there's only one point
+    // so make a nearby neighbor
+    function makeDummyNeighbor(point) {
+        return [
+            point
+        ];
+    }
     // update hulls
     for (var i = 0; i < hulls.length; i++) {
         var d3Hull = d3Hulls[i];
         var hull = hulls[i];
-        var stuff = d3.geom.hull(hull);
-        stuff.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
-        d3Hull.datum(stuff).attr("d", makeHullShape(stuff));
+        if (hull.length == 1) {
+            hull.push([
+                hull[0][0] + 0.01,
+                hull[0][1] + 0.01
+                ]);
+        }
+        if (hull.length == 2) {
+            hull.push([
+                hull[0][0] + 0.01,
+                hull[0][1] - 0.01 // NOTE subtracting so they're not inline
+                ]);
+        }
+        var points = d3.geom.hull(hull);
+        points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
+        d3Hull.datum(points).attr("d", makeHullShape(points));
     }
     updateHullColors();
 }
