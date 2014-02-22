@@ -155,13 +155,13 @@
 
 (defn conv-update2 [conv votes opts]
   (let [
-        opts'   (assoc (or opts {})
-                  :n-comps 2
-                  :pca-iters 10
-                  :base-iters 10
-                  :base-k 50
-                  :group-iters 10
-                  :group-k 3)
+        opts'   (merge {:n-comps 2
+                          :pca-iters 10
+                          :base-iters 10
+                          :base-k 50
+                          :group-iters 10
+                          :group-k 3}
+                    opts)
         
         rating-mat (update-nmat
                     (:rating-mat conv)
