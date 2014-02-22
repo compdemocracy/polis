@@ -9,6 +9,18 @@
         polismath.clusters
         polismath.named-matrix))
 
+
+(defn choose-group-k [base-clusters]
+  (let [len (count base-clusters)]
+                  (cond
+                   (< len 3) 1
+                   (< len 5) 2
+                   (< len 7) 3
+                   (< len 15) 4
+                   (< len 30) 5
+                   :else 6
+                  )))
+
 ; conv - should have
 ;   * last-updated
 ;   * pca
@@ -153,7 +165,7 @@
           {:conv conv :votes votes :opts opts})))
 
 
-(defn conv-update2 [conv votes opts]
+(defn conv-update2 [conv votes]
   (let [
         opts'   (merge {:n-comps 2
                           :pca-iters 10
@@ -161,7 +173,7 @@
                           :base-k 50
                           :group-iters 10
                           :group-k 3}
-                    opts)
+                    (:opts conv))
         
         rating-mat (update-nmat
                     (:rating-mat conv)
@@ -186,15 +198,7 @@
                 :last-clusters (:base-clusters conv)
                 :cluster-iters (:base-iters opts')))
 
-        group-k (let [len (count base-clusters)]
-                  (cond
-                   (< len 3) 1
-                   (< len 5) 2
-                   (< len 7) 3
-                   (< len 15) 4
-                   (< len 30) 5
-                   :else 6
-                  ))
+        group-k (choose-group-k base-clusters)
 
         group-clusters
          (sort-by :id
@@ -217,6 +221,7 @@
         
         ]
     {
+         :opts opts'
          :rating-mat rating-mat
          :mat mat-w-zeros
          :pca pca
@@ -226,3 +231,75 @@
          :group-clusters group-clusters
          :repness repness
          }))
+
+
+
+
+(def conv-update-graph-ok
+  "Base of all conversation updates; handles default update opts and does named matrix updating"
+  {:opts'       (plmb/fnk [opts]
+                  "Merge in opts with the following defaults"
+                  (merge {:n-comps 2
+                          :pca-iters 10
+                          :base-iters 10
+                          :base-k 50
+                          :group-iters 10
+                          :group-k 3}
+                    opts))
+   :rating-mat  (plmb/fnk [conv votes]
+                  (update-nmat (:rating-mat conv)
+                               (map #(map % [:pid :tid :vote]) votes)))
+   :mat   (plmb/fnk [rating-mat]
+              "swap nils for zeros - most things need the 0s, but repness needs the nils"
+              (map (fn [row] (map #(if (nil? %) 0 %) row))
+                (:matrix rating-mat)))
+    :pca   (plmb/fnk [conv mat opts']
+              (wrapped-pca mat (:n-comps opts')
+                           :start-vectors (get-in conv [:pca :comps])
+                           :iters (:pca-iters opts')))
+    :proj  (plmb/fnk [mat pca]
+                     (pca-project mat pca))
+   
+   :base-clusters
+          (plmb/fnk [conv rating-mat proj opts']
+           (sort-by :id
+            (kmeans (assoc rating-mat :matrix proj)
+                (:base-k opts')
+                :last-clusters (:base-clusters conv)
+                :cluster-iters (:base-iters opts'))))
+
+    :group-clusters
+        (plmb/fnk [conv rating-mat base-clusters opts']
+          (sort-by :id
+          (kmeans
+            (xy-clusters-to-nmat2 base-clusters)
+            (choose-group-k base-clusters)
+            :last-clusters (:group-clusters conv)
+            :cluster-iters (:group-iters opts'))))
+   
+    :repness
+          (plmb/fnk [rating-mat group-clusters base-clusters]
+            (sort-by :id
+             (if (> (count group-clusters) 1)
+               (conv-repness
+                rating-mat
+                group-clusters
+                base-clusters))))
+   
+   :bid-to-pid
+           (plmb/fnk [base-clusters]
+             (map :members(sort-by :id (:base-clusters base-clusters))))
+
+   })
+
+
+(def conv-update-ok (graph/eager-compile conv-update-graph-ok))
+
+
+(defn conv-update3 [conv votes & {:keys [med-cutoff large-cutoff]
+                                 :or {med-cutoff 100 large-cutoff 1000}
+                                 :as opts}]
+  (let [ptpts   (:row (:rating-mat conv))
+        n-ptpts (count (distinct (into ptpts (map :pid votes))))]
+    (conv-update-ok
+          {:conv conv :votes votes :opts opts})))
