@@ -99,8 +99,8 @@
 
 
 (let [
-      a (conv-update3 {:rating-mat (named-matrix)} (random-votes 600 10))
-      b (conv-update3 a (random-votes 5 5))
+      a (conv-update {:rating-mat (named-matrix)} (random-votes 600 10))
+      b (conv-update a (random-votes 5 5))
     ]
   (print b)
                                         ;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
