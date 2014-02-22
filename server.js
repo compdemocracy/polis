@@ -1650,6 +1650,7 @@ app.get("/v3/comments",
     moveToBody,
     authOptional(assignToP),
     need('zid', getInt, assignToP),
+    want('tids', getArrayOfInt, assignToP),
     want('pid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
     want('not_voted_by_pid', getInt, assignToP),
@@ -1674,6 +1675,9 @@ function(req, res) {
         );
     if (!_.isUndefined(req.p.pid)) {
         q = q.where(sql_comments.pid.equals(req.p.pid));
+    }
+    if (!_.isUndefined(req.p.tids)) {
+        q = q.where(sql_comments.tid.in(req.p.tids));
     }
     if (!_.isUndefined(req.p.not_pid)) {
         q = q.where(sql_comments.pid.notEquals(req.p.not_pid));
