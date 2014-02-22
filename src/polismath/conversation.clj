@@ -42,8 +42,7 @@
                           :pca-iters 10
                           :base-iters 10
                           :base-k 50
-                          :group-iters 10
-                          :group-k 3}
+                          :group-iters 10}
                     opts))
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
@@ -61,51 +60,39 @@
               (wrapped-pca mat (:n-comps opts')
                            :start-vectors (get-in conv [:pca :comps])
                            :iters (:pca-iters opts')))
-     :group-clusters
-            (plmb/fnk [conv rating-mat mat opts']
-              (kmeans (assoc rating-mat :matrix mat)
-                (:group-k opts')
-                :last-clusters (:group-clusters conv)
-                :cluster-iters (:group-iters opts')))
      :proj  (plmb/fnk [mat pca]
-              (pca-project mat pca))
-     :repness
-            (plmb/fnk [rating-mat group-clusters]
-              (if (> (count group-clusters) 1)
-                (conv-repness rating-mat group-clusters)))}))
+                      (pca-project mat pca))
 
-
-(def med-conv-update-graph
-  "For computing small conversation updates (those with need of base clustering)"
-  (merge small-conv-update-graph
-    {:base-clusters
-            (plmb/fnk [conv rating-mat mat opts']
-              (kmeans (assoc rating-mat :matrix mat)
+   :base-clusters
+          (plmb/fnk [conv rating-mat proj opts']
+           (sort-by :id
+            (kmeans (assoc rating-mat :matrix proj)
                 (:base-k opts')
                 :last-clusters (:base-clusters conv)
-                :cluster-iters (:base-iters opts')))
-     :proj  (plmb/fnk [base-clusters pca]
-              (pca-project (map :center base-clusters) pca))
-     :group-clusters
+                :cluster-iters (:base-iters opts'))))
+     
+    :group-clusters
         (plmb/fnk [conv rating-mat base-clusters opts']
-          (kmeans (xy-clusters-to-nmat2 base-clusters) (:group-k opts')
-                :last-clusters (:group-clusters conv)
-                :cluster-iters (:group-iters opts'))
-      )}))
+          (sort-by :id
+          (kmeans
+            (xy-clusters-to-nmat2 base-clusters)
+            (choose-group-k base-clusters)
+            :last-clusters (:group-clusters conv)
+            :cluster-iters (:group-iters opts'))))
 
+     :repness
+          (plmb/fnk [rating-mat group-clusters base-clusters]
+            (sort-by :id
+             (if (> (count group-clusters) 1)
+               (conv-repness
+                rating-mat
+                group-clusters
+                base-clusters))))
 
-
-(def med-conv-update-graph2
-  "For computing small conversation updates (those with need of base clustering). This
-  differs from the primary med update graph in that the pca projection happens before the
-  base clustering."
-  (merge med-conv-update-graph
-    {:proj  (plmb/fnk [mat pca]
-              (pca-project mat pca))
-     :base-clusters
-            (plmb/fnk [conv rating-mat proj opts' :as args]
-              ; slick code reusability
-              ((med-conv-update-graph :base-clusters) (assoc args :mat proj)))}))
+   :bid-to-pid
+           (plmb/fnk [base-clusters]
+             (map :members(sort-by :id (:base-clusters base-clusters))))
+     }))
 
 
 (defn partial-pca
@@ -134,7 +121,7 @@
 
 
 (def large-conv-update-graph
-  (merge med-conv-update-graph2
+  (merge small-conv-update-graph
     {:pca (plmb/fnk [conv mat opts']
             (let [n-ptpts (matrix/dimension-count mat 0)
                   sample-size (sample-size n-ptpts)]
@@ -146,8 +133,6 @@
 
 
 (def small-conv-update (graph/eager-compile small-conv-update-graph))
-(def med-conv-update (graph/eager-compile med-conv-update-graph))
-(def med-conv-update2 (graph/eager-compile med-conv-update-graph2))
 (def large-conv-update (graph/eager-compile large-conv-update-graph))
 
 
@@ -158,10 +143,8 @@
         n-ptpts (count (distinct (into ptpts (map :pid votes))))]
     ; dispatch to the appropriate function
     ((cond
-;       (< n-ptpts 100)   small-conv-update
-;       (< n-ptpts 1000)  med-conv-update
-      (< n-ptpts 1500)  med-conv-update2
-       :else             large-conv-update)
+       (> n-ptpts 1500)   large-conv-update
+       :else             small-conv-update)
           {:conv conv :votes votes :opts opts})))
 
 
@@ -243,8 +226,7 @@
                           :pca-iters 10
                           :base-iters 10
                           :base-k 50
-                          :group-iters 10
-                          :group-k 3}
+                          :group-iters 10}
                     opts))
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
