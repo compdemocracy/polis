@@ -63,7 +63,7 @@
      :proj  (plmb/fnk [mat pca]
                       (pca-project mat pca))
 
-   :base-clusters
+     :base-clusters
           (plmb/fnk [conv rating-mat proj opts']
            (sort-by :id
             (kmeans (assoc rating-mat :matrix proj)
@@ -71,7 +71,7 @@
                 :last-clusters (:base-clusters conv)
                 :cluster-iters (:base-iters opts'))))
      
-    :group-clusters
+     :group-clusters
         (plmb/fnk [conv rating-mat base-clusters opts']
           (sort-by :id
           (kmeans
@@ -89,7 +89,7 @@
                 group-clusters
                 base-clusters))))
 
-   :bid-to-pid
+     :bid-to-pid
            (plmb/fnk [base-clusters]
              (map :members(sort-by :id (:base-clusters base-clusters))))
      }))
