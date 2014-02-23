@@ -119,23 +119,20 @@
      ;;;           :disagree [3 0 0 1 0 23 0 ]}
      ;;; where the indices in the arrays are bids
      :votes-base
-     (plmb/fnk [bid-to-pid rating-mat]
-               (let [mat (:matrix rating-mat)
-                     tids (:cols rating-mat)
-                     o {}]
-                 ; for each tid
-                 (reduce
-                  (fn [o entry]
-                    (assoc o (:tid entry) (dissoc entry :tid)))
-                  {}                  
-                  (map
-                   (fn [tid]
-                     {:tid tid
-                                  ;;; for each pid within the bucket
-                      :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid) ; A for Agree
-                      :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid) ; D for Disagree
-                      }) tids))))
-
+     (plmb/fnk
+      [bid-to-pid rating-mat]
+      (let [tids (:cols rating-mat)]
+        (reduce
+         (fn [o entry]
+           (assoc o (:tid entry) (dissoc entry :tid)))
+         {}                  
+         (map
+          (fn [tid]
+            {:tid tid
+             :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid) ; A for Agree
+             :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid) ; D for Disagree
+             }) tids))))
+     
      }))
 
 
