@@ -1,5 +1,11 @@
 (ns polismath.utils)
 
+(defn agree? [n]
+  (< n 0))
+
+(defn disagree? [n]
+  (> n 0))
+
 (defn zip [& xss]
   ;;should we redo this like the with-indices below, using a map?
   (if (> (count xss) 1)

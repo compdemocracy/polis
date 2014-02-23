@@ -2,7 +2,8 @@
   (:require [plumbing.core :as plmb]
             [plumbing.graph :as graph]
             [clojure.core.matrix :as matrix]
-;            [clojure.tools.trace :as tr]
+            [clojure.tools.trace :as tr]
+            [clojure.math.numeric-tower :as math]
             [bigml.sampling.simple :as sampling])
   (:use polismath.utils
         polismath.pca
@@ -20,6 +21,26 @@
                    (< len 30) 5
                    :else 6
                   )))
+
+(defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
+  (let [idx (.indexOf (:cols rating-mat) tid)
+        pid-to-row (zipmap (:rows rating-mat) (range (count (:rows rating-mat))))]
+    (if (< idx 0)
+      []
+      (map ; for each bucket
+       (fn [pids]
+         (let [person-rows (:matrix rating-mat)]
+           (math/abs
+            (reduce ; add up the votes within the group for the given tid
+             +
+             0
+             (filter ; remove votes you don't want to count
+              filter-cond
+              (map ; get a list of votes for the tid from each person
+                                        ; in the group
+               (fn [pid] (get (get person-rows (pid-to-row pid)) idx))
+               pids))))))
+       bid-to-pid))))
 
 ; conv - should have
 ;   * last-updated
@@ -91,8 +112,33 @@
 
      :bid-to-pid
            (plmb/fnk [base-clusters]
-             (map :members(sort-by :id (:base-clusters base-clusters))))
+                     (map :members (sort-by :id base-clusters)))
+     
+     ;;; returns {tid {
+     ;;;           :agree [0 4 2 0 6 0 0 1]
+     ;;;           :disagree [3 0 0 1 0 23 0 ]}
+     ;;; where the indices in the arrays are bids
+     :votes-base
+     (plmb/fnk [bid-to-pid rating-mat]
+               (let [mat (:matrix rating-mat)
+                     tids (:cols rating-mat)
+                     o {}]
+                 ; for each tid
+                 (reduce
+                  (fn [o entry]
+                    (assoc o (:tid entry) (dissoc entry :tid)))
+                  {}                  
+                  (map
+                   (fn [tid]
+                     {:tid tid
+                                  ;;; for each pid within the bucket
+                      :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid) ; A for Agree
+                      :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid) ; D for Disagree
+                      }) tids))))
+
      }))
+
+
 
 
 (defn partial-pca
