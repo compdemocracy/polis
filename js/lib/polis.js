@@ -62,6 +62,7 @@ module.exports = function(params) {
     var pcX = {};
     var pcY = {};
     var repness = {}; // gid -> tid -> representativeness (bigger is more representative)
+    var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
     var participantCount = 0;
     var userInfoCache = [];
 
@@ -640,6 +641,8 @@ function clientSideBaseCluster(things, N) {
  
                 repness = pcaData.repness;
 
+                votesForTidBid = pcaData["votes-base"];
+
                 // remove self, will add after bucketizing
                 var myPid = getPid();
 
@@ -847,45 +850,20 @@ function clientSideBaseCluster(things, N) {
     }
 
 
-    function getReactionsToComment(commentId) {
-        return polisGet(votesPath, {
-            zid: zid,
-            tid: commentId
-        }).then(function(otherVotes) {
-            var myVotes = votesByMe.filter(function() { return true; });
-            // this code will probably move to the math worker.
-            var userToVote = {};
-            // Splice my votes in for self group.
-            otherVotes.unshift({
-                bid: 0,
-                ppl: [getPid()],
-                agrees: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.pull; }),
-                disagrees: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.push; })
-            });
-            var i;
-            for (i = 0; i < otherVotes.length; i++) {
-                userToVote[otherVotes[i].pid] = otherVotes[i];
-            }
-            // TODO reduce vote count for the bucket self is in.
-            return _.map(projectionPeopleCache, function(bucket) {
-                var counters = {
-                    bid: bucket.bid,
-                    agrees: 0,
-                    disagrees: 0
-                };
-                _.each(bucket.ppl, function(person) {
-                    var vote = userToVote[person.pid];
-                    if (!vote) { return; }
-                    if (vote.vote === polisTypes.reactions.push) {
-                        counters.disagrees += 1;
-                    } else if (vote.vote === polisTypes.reactions.pull) {
-                        counters.agrees += 1;
-                    }
-                });
-                return counters;
-            });
+    function getReactionsToComment(tid) {
+        var dfd = $.Deferred();
+        var buckets = votesForTidBid[tid];
+        // var myVotes = votesByMe.filter(function() { return true; });
 
-        });
+//         // Splice my votes in for self group.
+//         buckets["self"] = {
+//             bid: "self",
+// //            ppl: [getPid()],
+//             A: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.pull; }),
+//             D: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.push; })
+//         };
+        // TODO reduce vote count for the bucket self is in.
+        return dfd.resolve(buckets);
     }
 
     function createConversation(title, body) {

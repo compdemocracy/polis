@@ -857,21 +857,10 @@ function selectComment(tid) {
     getReactionsToComment(tid)
       // .done(unhoverAll)
       .then(function(votes) {
-        var bidToVote = {};
-        var i;
-        for (i = 0; i < votes.length; i++) {
-            bidToVote[votes[i].bid] = votes[i];
-        }
         for (i = 0; i < nodes.length; i++) {
             var node = nodes[i];
-            var bucket = bidToVote[node.bid];
-            if (bucket) {
-                node.ups = bucket.agrees;
-                node.downs = bucket.disagrees;
-            } else {
-                node.ups = 0;
-                node.downs = 0;
-            }
+            node.ups = votes.A[node.bid] || 0;
+            node.downs = votes.D[node.bid] || 0;
 
             // for (var p = 0; p < node.ppl.length; p++) {
 
