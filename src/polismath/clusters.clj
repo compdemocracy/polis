@@ -93,10 +93,11 @@
                     (reduce
                       (fn [counts vote]
                         (case vote
-                          1       (assoc counts 0 (inc (first counts)))
-                          (0 -1)  (assoc counts 1 (inc (second counts)))
+                          -1       (assoc counts 0 (inc (first counts)))
+                          (0 1)  (assoc counts 1 (inc (second counts)))
                                   counts))
-                      [1 1] votes)]
+                      [1 1] ; start counting from 1 to prevent division by zero (smoothing)
+                      votes)] 
               (/ up not-up)))]
     (let [in-cols  (columns (:matrix in-part))
           out-cols (columns (:matrix out-part))]
