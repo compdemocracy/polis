@@ -379,13 +379,14 @@ function handleOnClusterClicked(hullId) {
     }
 }
 
-d3Hulls = _.times(9, function() {
+d3Hulls = _.times(9, function(i) {
     return main_layer.append("path")
         .classed("hull", true)
         .classed("svgShadow", function() {
             return !/Firefox/.exec(navigator.userAgent);
         })
         .on("click", onClusterClicked)  //selection-results:1 handle the click event
+        .attr("gid", i)
     ;
 });
 
