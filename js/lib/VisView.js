@@ -942,7 +942,7 @@ function renderComments(comments) {
         .on("mouseout", function() {
             d3.select(this).classed("hover", false);
         })
-        .text(function(d) { return "G:" + d.gid + " R:" + d.repness + " " + d.txt; });
+        .text(function(d) { return d.txt; });
 
     d3CommentList.exit().remove();
     setTimeout(dfd.resolve, 4000);

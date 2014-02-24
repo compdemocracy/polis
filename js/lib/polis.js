@@ -885,11 +885,7 @@ function clientSideBaseCluster(things, N) {
             tids: tids
         }).pipe(function(comments) {
             comments = _.map(comments, function(c) {
-                // var a = tidToR[c.tid][0];
-                // var b = tidToR[c.tid][1];
-                // c.repness = a/b;
                 c.repness = tidToR[c.tid];
-                c.gid = gid;
                 return c;
             });
             comments = comments.sort(function(a, b) {
