@@ -317,7 +317,8 @@ function setClusterActive(clusterId) {
         promise = $.Deferred().resolve([]);
     } else {
         pids = clusters[clusterId];
-        promise = getCommentsForGroup(clusterId);
+        var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 3;
+        promise = getCommentsForGroup(clusterId, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW);
     }
     selectedCluster = clusterId;
 
@@ -941,7 +942,7 @@ function renderComments(comments) {
         .on("mouseout", function() {
             d3.select(this).classed("hover", false);
         })
-        .text(function(d) { return d.txt; });
+        .text(function(d) { return "G:" + d.gid + " R:" + d.repness + " " + d.txt; });
 
     d3CommentList.exit().remove();
     setTimeout(dfd.resolve, 4000);

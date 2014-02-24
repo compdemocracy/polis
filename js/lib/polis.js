@@ -609,6 +609,42 @@ function clientSideBaseCluster(things, N) {
     });
 }
 
+   
+ function computeRepness(clusters, votesForTidBid) {
+        var repness = {};
+        _.each(clusters, function(bids, gid) {
+            var inCluster = {};
+            _.each(bids, function(bid) {
+                inCluster[bid] = true;
+            });
+            repness[gid] = {};
+            _.each(votesForTidBid, function(bidToVote, tid) {
+                tid = Number(tid);
+                var inAgree = 1;
+                var inDisagree = 1;
+                var outAgree = 1;
+                var outDisagree = 1;
+                var len = bidToVote.A.length;
+                if (bidToVote.D.length !== len) {
+                    console.error('mismatch');
+                }
+                for (var bid = 0; bid < len; bid++) {
+                    if (inCluster[bid]) {
+                        inAgree += bidToVote.A[bid];
+                        inDisagree += bidToVote.D[bid];
+                    } else {
+                        outAgree += bidToVote.A[bid];
+                        outDisagree += bidToVote.D[bid];
+                    }
+                }
+                // var totalVotes = inAgree + inDisagree + outAgree + outDisagree;
+                var repnessValue = (inAgree / (inDisagree)) / (outAgree/(outDisagree));
+                repness[gid][tid] = repnessValue;
+            });
+        });
+        return repness;
+    }
+
     function fetchPca() {
         return polisGet(pcaPath, {
             lastVoteTimestamp: lastServerTokenForPCA,
@@ -639,7 +675,6 @@ function clientSideBaseCluster(things, N) {
                 pcY = pcaData.pca.comps[1];
                 // TODO get offsets for x and y
  
-                repness = pcaData.repness;
 
                 votesForTidBid = pcaData["votes-base"];
 
@@ -655,6 +690,8 @@ function clientSideBaseCluster(things, N) {
                     // we just need the members
                     return c.members;
                 });
+
+                repness = computeRepness(clusters, votesForTidBid);
 
                 // mutate - move x and y into a proj sub-object, so the vis can animate x and y
                 _.each(buckets, function(b) {
@@ -825,21 +862,34 @@ function clientSideBaseCluster(things, N) {
 
     function getCommentsForGroup(gid, max) {
         var tidToR = repness[gid];
-        var pairs = _.map(tidToR, function(repness, tid) {
-            return [repness, tid];
-        });
-        pairs = pairs.sort(function(a, b) {return b[0] - a[0];});
+        var tids;
         if (_.isNumber(max)) {
+            // keep the tids with the highest repness.
+            var pairs = _.map(tidToR, function(repness, tid) {
+                tid = Number(tid);
+                return [repness, tid];
+            });
+            pairs = pairs.sort(function(a, b) {return b[0] - a[0];});
             pairs = pairs.slice(0, max);
+            tids = _.map(pairs, function(p) {
+                return p[1];
+            });
+        } else {
+            // keep all tids
+            // (this impl is wasteful)
+            tids = _.map(tidToR, function(repness, tid) {
+                return Number(tid);
+            });
         }
-        var tids = _.map(pairs, function(p) {
-            return p[1];
-        });
         return getComments({
             tids: tids
         }).pipe(function(comments) {
             comments = _.map(comments, function(c) {
+                // var a = tidToR[c.tid][0];
+                // var b = tidToR[c.tid][1];
+                // c.repness = a/b;
                 c.repness = tidToR[c.tid];
+                c.gid = gid;
                 return c;
             });
             comments = comments.sort(function(a, b) {
