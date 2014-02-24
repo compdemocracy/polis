@@ -610,38 +610,38 @@ function clientSideBaseCluster(things, N) {
 }
 
    
- function computeRepness(clusters, votesForTidBid) {
+ function computeRepness(bidsFromGroup, votesForTidBid) {
         var repness = {};
-        _.each(clusters, function(bids, gid) {
-            var inCluster = {};
-            _.each(bids, function(bid) {
-                inCluster[bid] = true;
-            });
-            repness[gid] = {};
-            _.each(votesForTidBid, function(bidToVote, tid) {
-                tid = Number(tid);
-                var inAgree = 1;
-                var inDisagree = 1;
-                var outAgree = 1;
-                var outDisagree = 1;
-                var len = bidToVote.A.length;
-                if (bidToVote.D.length !== len) {
-                    console.error('mismatch');
-                }
-                for (var bid = 0; bid < len; bid++) {
-                    if (inCluster[bid]) {
-                        inAgree += bidToVote.A[bid];
-                        inDisagree += bidToVote.D[bid];
-                    } else {
-                        outAgree += bidToVote.A[bid];
-                        outDisagree += bidToVote.D[bid];
-                    }
-                }
-                // var totalVotes = inAgree + inDisagree + outAgree + outDisagree;
-                var repnessValue = (inAgree / (inDisagree)) / (outAgree/(outDisagree));
-                repness[gid][tid] = repnessValue;
-            });
+
+        var inCluster = {};
+        _.each(bidsFromGroup, function(bid) {
+            inCluster[bid] = true;
         });
+        repness = {};
+        _.each(votesForTidBid, function(bidToVote, tid) {
+            tid = Number(tid);
+            var inAgree = 1;
+            var inDisagree = 1;
+            var outAgree = 1;
+            var outDisagree = 1;
+            var len = bidToVote.A.length;
+            if (bidToVote.D.length !== len) {
+                console.error('mismatch');
+            }
+            for (var bid = 0; bid < len; bid++) {
+                if (inCluster[bid]) {
+                    inAgree += bidToVote.A[bid];
+                    inDisagree += bidToVote.D[bid];
+                } else {
+                    outAgree += bidToVote.A[bid];
+                    outDisagree += bidToVote.D[bid];
+                }
+            }
+            // var totalVotes = inAgree + inDisagree + outAgree + outDisagree;
+            var repnessValue = (inAgree / (inDisagree)) / (outAgree/(outDisagree));
+            repness[tid] = repnessValue;
+        });
+
         return repness;
     }
 
@@ -690,8 +690,6 @@ function clientSideBaseCluster(things, N) {
                     // we just need the members
                     return c.members;
                 });
-
-                repness = computeRepness(clusters, votesForTidBid);
 
                 // mutate - move x and y into a proj sub-object, so the vis can animate x and y
                 _.each(buckets, function(b) {
@@ -861,7 +859,7 @@ function clientSideBaseCluster(things, N) {
     }
 
     function getCommentsForGroup(gid, max) {
-        var tidToR = repness[gid];
+        var tidToR = computeRepness(clustersCache[gid], votesForTidBid);
         var tids;
         if (_.isNumber(max)) {
             // keep the tids with the highest repness.
