@@ -86,8 +86,9 @@ $(el_selector).html("");
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 var tip = null;
+var SHOW_TIP = false;
 var tipPreviousTarget = null; // Sorry God!
-if (!isIE8) {
+if (SHOW_TIP && !isIE8) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
         function(d) {
