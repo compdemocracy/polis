@@ -28,15 +28,6 @@
     (kdb/postgres settings)))
 
 
-(defn split-by-conv [votes]
-  (reduce
-    (fn [conv-map vote]
-      (let [conv-id (vote :zid)]
-        (assoc conv-map conv-id
-               (conj (get conv-map conv-id []) vote))))
-    {} votes))
-
-
 (defn mongo-connect! [mongo-url]
   (monger.core/connect-via-uri! mongo-url))
 
@@ -85,7 +76,7 @@
     (endlessly poll-interval
       (println "poll >" @last-timestamp)
       (let [new-votes (poll pg-spec @last-timestamp)
-            split-votes (split-by-conv new-votes)]
+            split-votes (group-by :zid new-votes)]
         (doseq [[zid votes] split-votes]
           (let [lastVoteTimestamp (:created (last votes))]
             (swap! conversations
