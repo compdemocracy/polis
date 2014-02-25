@@ -36,6 +36,7 @@ var http = require('http'),
     path = require('path'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
+    Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
     Pushover = require( 'pushover-notifications' ),
     pushoverInstance = new Pushover( {
         user: process.env['PUSHOVER_GROUP_POLIS_DEV'],
@@ -152,6 +153,11 @@ if (process.env.REDISCLOUD_URL) {
 } else {
     redisForMathResults = require('redis').createClient();
 }
+
+var intercom = new Intercom({
+  apiKey: process.env.INTERCOM_API_KEY,
+  appId: "nb5hla8s"
+});
 
 
 //first we define our tables
@@ -1622,6 +1628,22 @@ function(req, res) {
                                 hname: hname,
                                 email: email,
                                 // token: token
+                            });
+
+                            var params = {
+                                "email" : email,
+                                "name" : hname
+                            };
+                            intercom.createUser(params, function(err, res) {
+                                if (err) {
+                                    console.log(err);
+                                    console.error("polis_err_intercom_create_user_fail");
+                                    console.dir(params);
+                                    yell("polis_err_intercom_create_user_fail");
+                                    return;
+                                }
+                                console.log('intercom ok');
+                                console.dir(params);
                             });
                         }); // end startSession
                     }); // end insert user
