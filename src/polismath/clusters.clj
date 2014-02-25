@@ -86,7 +86,7 @@
           new-clusters
           (recur new-clusters (dec iter)))))))
 
-
+; NOTE - repness is calculated on the client
 (defn repness [in-part out-part]
   (letfn [(frac-up [votes]
             (let [[up not-up]
@@ -103,7 +103,7 @@
           out-cols (columns (:matrix out-part))]
       (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
 
-
+; NOTE - repness is calculated on the client
 (defn conv-repness [data group-clusters base-clusters]
   (map
     (fn [group-cluster]

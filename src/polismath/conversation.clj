@@ -101,15 +101,6 @@
             :last-clusters (:group-clusters conv)
             :cluster-iters (:group-iters opts'))))
 
-     :repness
-          (plmb/fnk [rating-mat group-clusters base-clusters]
-            (sort-by :id
-             (if (> (count group-clusters) 1)
-               (conv-repness
-                rating-mat
-                group-clusters
-                base-clusters))))
-
      :bid-to-pid
            (plmb/fnk [base-clusters]
                      (map :members (sort-by :id base-clusters)))
@@ -136,6 +127,22 @@
      }))
 
 
+
+
+
+(def unused-conv-targets
+  (merge
+   small-conv-update-graph
+   {
+    :repness     ; NOTE - repness is calculated on the client
+          (plmb/fnk [rating-mat group-clusters base-clusters]
+            (sort-by :id
+             (if (> (count group-clusters) 1)
+               (conv-repness
+                rating-mat
+                group-clusters
+                base-clusters))))
+    }))
 
 
 (defn partial-pca
