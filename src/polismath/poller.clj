@@ -76,8 +76,10 @@
     (endlessly poll-interval
       (println "poll >" @last-timestamp)
       (let [new-votes (poll pg-spec @last-timestamp)
-            split-votes (group-by :zid new-votes)]
-        (doseq [[zid votes] split-votes]
+            zid-to-votes (group-by :zid new-votes)
+            zid-votes (shuffle (into [] zid-to-votes))
+            ]
+        (doseq [[zid votes] zid-votes]
           (let [lastVoteTimestamp (:created (last votes))]
             (swap! conversations
               (fn [convs]
