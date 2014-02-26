@@ -1,6 +1,5 @@
 (ns polismath.simulation
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [polismath.poller :refer [split-by-conv]]
             [clojure.string :as string])
   (:use polismath.utils
         polismath.named-matrix
@@ -78,7 +77,7 @@
         vote-rate (:vote-rate opts)]
     (endlessly (:poll-interval opts)
       (let [new-votes (take vote-rate @simulator)
-            split-votes (split-by-conv new-votes)]
+            split-votes (group-by :zid new-votes)]
         (swap! simulator #(drop vote-rate %))
         (doseq [[zid votes] split-votes]
           (swap! conversations
