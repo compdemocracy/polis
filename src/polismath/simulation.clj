@@ -99,11 +99,16 @@
 
 
 (let [
-      a (conv-update {:rating-mat (named-matrix)} (random-votes 600 10))
-      b (conv-update a (random-votes 5 5))
+      a (time2 "conv-update  a  1000" (conv-update {:rating-mat (named-matrix)} (random-votes 600 10)))
+      b (time2 "conv-update  b  5000" (conv-update {:rating-mat (named-matrix)} (random-votes 5000 10)))
+      b2 (time2 "conv-update b2 5000*10+100*1" (conv-update b (random-votes 100 1)))
+      b3 (time2 "conv-update b3 5000*10+5000*10" (conv-update b2 (random-votes 5000 10)))            
     ]
-  (print b)
+  (println (keys a))
+  (println (keys b))
+  )
+
                                         ;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
 ;  (pprint (group-by :id (:base-clusters b)))
 ;  (pprint (map :members (sort-by :id (:base-clusters b))))  
-  )
+  

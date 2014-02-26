@@ -6,6 +6,13 @@
 (defn disagree? [n]
   (> n 0))
 
+(defmacro time2
+  [tag & expr]
+  `(let [start# (. System (nanoTime))
+         ret# ~@expr]
+     (println (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+     ret#))
+
 (defn zip [& xss]
   ;;should we redo this like the with-indices below, using a map?
   (if (> (count xss) 1)

@@ -72,38 +72,63 @@
 
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
-  (merge base-conv-update-graph
-    {:mat   (plmb/fnk [rating-mat]
-              "swap nils for zeros - most things need the 0s, but repness needs the nils"
-              (map (fn [row] (map #(if (nil? %) 0 %) row))
-                (:matrix rating-mat)))
-     :pca   (plmb/fnk [conv mat opts']
-              (wrapped-pca mat (:n-comps opts')
-                           :start-vectors (get-in conv [:pca :comps])
-                           :iters (:pca-iters opts')))
-     :proj  (plmb/fnk [mat pca]
-                      (pca-project mat pca))
+  (merge
+   base-conv-update-graph
+   {:mat
+    (plmb/fnk
+     [rating-mat]
+     "swap nils for zeros - most things need the 0s, but repness needs the nils"
+     (time2
+      "mat"
+      (map (fn [row] (map #(if (nil? %) 0 %) row))
+           (:matrix rating-mat))))
+    
+    :pca
+    (plmb/fnk
+     [conv mat opts']
+     (time2
+      "pca"
+      (wrapped-pca mat (:n-comps opts')
+                   :start-vectors (get-in conv [:pca :comps])
+                   :iters (:pca-iters opts'))))
+    :proj
+     (plmb/fnk
+      [mat pca]
+      (time2
+       "proj"
+       (pca-project mat pca)))
 
      :base-clusters
-          (plmb/fnk [conv rating-mat proj opts']
-           (sort-by :id
-            (kmeans (assoc rating-mat :matrix proj)
+     (plmb/fnk
+      [conv rating-mat proj opts']
+      (time2
+       "base-clusters"
+       (sort-by
+        :id
+        (kmeans (assoc rating-mat :matrix proj)
                 (:base-k opts')
                 :last-clusters (:base-clusters conv)
-                :cluster-iters (:base-iters opts'))))
+                :cluster-iters (:base-iters opts')))))
      
      :group-clusters
-        (plmb/fnk [conv rating-mat base-clusters opts']
-          (sort-by :id
-          (kmeans
-            (xy-clusters-to-nmat2 base-clusters)
-            (choose-group-k base-clusters)
-            :last-clusters (:group-clusters conv)
-            :cluster-iters (:group-iters opts'))))
+     (plmb/fnk
+      [conv rating-mat base-clusters opts']
+      (time2
+       "group-clusters"
+       (sort-by
+        :id
+        (kmeans
+         (xy-clusters-to-nmat2 base-clusters)
+         (choose-group-k base-clusters)
+         :last-clusters (:group-clusters conv)
+         :cluster-iters (:group-iters opts')))))
 
      :bid-to-pid
-           (plmb/fnk [base-clusters]
-                     (map :members (sort-by :id base-clusters)))
+     (plmb/fnk
+      [base-clusters]
+      (time2
+       "bid-to-pid"
+       (map :members (sort-by :id base-clusters))))
      
      ;;; returns {tid {
      ;;;           :agree [0 4 2 0 6 0 0 1]
@@ -112,17 +137,19 @@
      :votes-base
      (plmb/fnk
       [bid-to-pid rating-mat]
-      (let [tids (:cols rating-mat)]
-        (reduce
-         (fn [o entry]
-           (assoc o (:tid entry) (dissoc entry :tid)))
-         {}                  
-         (map
-          (fn [tid]
-            {:tid tid
-             :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid) ; A for Agree
-             :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid) ; D for Disagree
-             }) tids))))
+      (time2
+       "votes-base"
+       (let [tids (:cols rating-mat)]
+         (reduce
+          (fn [o entry]
+            (assoc o (:tid entry) (dissoc entry :tid)))
+          {}                  
+          (map
+           (fn [tid]
+             {:tid tid
+              :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid) ; A for Agree
+              :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid) ; D for Disagree
+              }) tids)))))
      
      }))
 
@@ -189,10 +216,10 @@
 (defn conv-update [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 1000}
                                  :as opts}]
-  (let [ptpts   (:row (:rating-mat conv))
-        n-ptpts (count (distinct (into ptpts (map :pid votes))))]
+  (let [ptpts   (time2 "ptpts" (:row (:rating-mat conv)))
+        n-ptpts (time2 "n-ptpts" (count (distinct (into ptpts (map :pid votes)))))]
     ; dispatch to the appropriate function
     ((cond
-       (> n-ptpts 1500)   large-conv-update
+       (> n-ptpts 9999999999)   large-conv-update
        :else             small-conv-update)
           {:conv conv :votes votes :opts opts})))
