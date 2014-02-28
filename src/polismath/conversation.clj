@@ -16,10 +16,8 @@
                   (cond
                    (< len 3) 1
                    (< len 5) 2
-                   (< len 7) 3
-                   (< len 15) 4
-                   (< len 30) 5
-                   :else 6
+                   (< len 99) 3
+                   :else 4
                   )))
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
