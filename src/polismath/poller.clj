@@ -67,12 +67,14 @@
                (encode-seq (into-array v) jsonGenerator)))
 
 
-(def poll-interval 1000)
-(def pg-spec         (heroku-db-spec (env/env :database-url)))
-(def mg-db           (mongo-connect! (env/env :mongo-url)))
+(def poll-interval   1000)
+(def pg-spec         (ref nil))
+(def mg-db           (ref nil))
 (def last-timestamp  (atom 0))
 (def conversations   (atom {})) ; generated artifacts
 (def pending-votes   (ref {})) ; zid -> votes
+
+
 
 (def dinner-bell (Object.))
 (def active-zids (ref #{}))
@@ -188,6 +190,10 @@
 (defn -main []
   (println "launching poller " (System/currentTimeMillis))
 
+  (dosync
+   (ref-set pg-spec  (heroku-db-spec (env/env :database-url)))
+   (ref-set mg-db (mongo-connect! (env/env :mongo-url))))
+  
   (let [threads (map #(Thread. %1)
                      (map make-worker-thread
                           (range 4)))]
@@ -197,9 +203,10 @@
 
   (endlessly poll-interval
       (println "poll >" @last-timestamp)
-      (let [new-votes (poll pg-spec @last-timestamp)
+      (let [new-votes (poll @pg-spec @last-timestamp)
             zid-to-votes (group-by :zid new-votes)
             zid-votes (into [] zid-to-votes)
+            
             ]
         (if (> (count zid-votes) 0)
           (do
