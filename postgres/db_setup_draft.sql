@@ -31,6 +31,14 @@ CREATE TABLE users(
     UNIQUE (uid)
 );
 
+CREATE TABLE apikeys(
+    uid INTEGER NOT NULL REFERENCES users(zid),
+    apikey VARCHAR(300) NOT NULL,
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (apikey)
+);
+
+
 --CREATE TABLE orgs (
     --oid SERIAL,
     --oname VARCHAR(999)
@@ -167,9 +175,11 @@ CREATE TABLE suzinvites (
     owner INTEGER NOT NULL REFERENCES users(uid),
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     xid VARCHAR(32) NOT NULL,
+    created BIGINT DEFAULT now_as_millis(),
     suzinvite VARCHAR(32), -- Be sure the URLs fit in Tweets.  pol.is/<xinvite>
     UNIQUE (suzinvite)
 );
+
 
 --CREATE TABLE permissions(
     --uid INTEGER NOT NULL REFERENCES users(uid),

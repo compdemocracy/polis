@@ -210,6 +210,15 @@ var sql_participant_metadata_answers = sql.define({
     ]
 });
 
+var sql_otzinvites = sql.define({
+  name: 'otzinvites',
+  columns: [
+    "otzinvite",
+    "zid",
+    "xid",
+    ]
+});
+
 
 function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
     var i;
@@ -553,6 +562,8 @@ function getOptionalStringLimitLength(limit) {
     };
 }
 
+
+
 function getBool(s) {
     if ("boolean" === typeof s) {
         return s;
@@ -574,6 +585,23 @@ function getInt(s) {
         throw "polis_fail_parse_int";
     }
     return x;
+}
+
+function getArrayOfString(a) {
+    if (_.isString(a)) {
+        a = a.split(',');
+    }
+    if (!_.isArray(a)) {
+        throw "polis_fail_parse_int_array";
+    }
+    return a;
+}
+
+function getArrayOfStringNonEmpty(a) {
+    if (!a || !a.length) {
+        throw "polis_fail_parse_string_array_empty";
+    }
+    return getArrayOfString(a);
 }
 
 function getArrayOfInt(a) {
@@ -760,6 +788,30 @@ function match(key, zid) {
     }
     return {$or: variants};
 }
+
+
+
+
+function authWithApiKey(assigner) {
+    return function(req, res, next) {
+        var header=req.headers['authorization']||'',          // get the header
+              token=header.split(/\s+/).pop()||'',            // and the encoded auth token
+              auth=new Buffer(token, 'base64').toString(),    // convert from base64
+              parts=auth.split(/:/),                          // split on colon
+              appid=parts[0], // not currently used
+              apikey=parts[1];
+        client.query("SELECT * FROM apikeys WHERE apikey = ($1);", [apikey], function(err, results) {
+            if (err) { next(err); }
+            if (!results || !results.rows || !results.rows.filter(function(row) {row.apikey === apikey;}).length) {
+                next("no_such_apikey");
+            }
+            next(null, row.uid);
+        });
+    };
+}
+
+
+
 
 var pidCache = new SimpleCache({
     maxSize: 9000,
@@ -1107,25 +1159,58 @@ function(req, res) {
     });
 });
 
-function createZinvite(zid, callback) {
+function generateOTZinvites(numTokens) {
+    var dfd = new $.Deferred();
+    generateToken(
+        12 * numTokens,
+        true, // For now, pseodorandom bytes are probably ok. Anticipating API call will generate lots of these at once, possibly draining the entropy pool. Revisit this if the otzinvites really need to be unguessable.
+        function(err, longStringOfTokens) {
+            if (err) {
+                dfd.reject("polis_err_creating_otzinvite");
+                return;
+            }
+            var otzinviteArray = longStringOfTokens.match(/.{1,12}/g);
+            dfd.resolve(otzinviteArray);
+        });
+    return dfd.promise();
+}
+
+function generateToken(len, pseudoRandomOk, callback) {
     // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
     // TODO if you want more readable tokens, see ReadableIds 
-    require('crypto').randomBytes(12, function(err, buf) {
+    var gen;
+    if (pseudoRandomOk) {
+        gen = require('crypto').pseudoRandomBytes;
+    } else {
+        gen = require('crypto').randomBytes;
+    }
+    gen(12, function(err, buf) {
         if (err) {
-            return callback("polis_err_creating_zinvite_invalid_conversation_or_owner");
+            return callback(err);
         }
 
-        var zinvite = buf.toString('base64')
+        var prettyToken = buf.toString('base64')
             .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
 
+        callback(0, prettyToken);
+    });  
+}
+
+function generateAndRegisterZinvite(zid, callback) {
+    generateToken(12, false, function(err, zinvite) {
+        if (err) {
+            return callback("polis_err_creating_zinvite");
+        }
         client.query('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [zid, zinvite], function(err, results) {
             if (err) {
-                return callback("polis_err_creating_zinvite");
+                return callback("polis_err_creating_zinvite_invalid_conversation_or_owner");
             }
             return callback(0, zinvite);
         });
-    });  
+    });
 }
+
+
 
 // Custom invite code generator, returns the code in the response
 app.get("/v3/oinvites/magicString9823742834/:note",
@@ -1157,7 +1242,7 @@ function(req, res) {
     client.query('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 500, "polis_err_creating_zinvite_invalid_conversation_or_owner", err); return; }
 
-        createZinvite(req.p.zid, function(err, zinvite) {
+        generateAndRegisterZinvite(req.p.zid, function(err, zinvite) {
             if (err) { fail(res, 500, "polis_err_creating_zinvite", err); return; }
             res.status(200).json({
                 zinvite: zinvite,
@@ -2551,7 +2636,7 @@ function(req, res) {
             res.status(200).json(data);
         }
         if (!req.p.is_public) {
-            createZinvite(zid, function(err, zinvite) {
+            generateAndRegisterZinvite(zid, function(err, zinvite) {
                 if (err) { fail(res, 500, "polis_err_zinvite_create", err); return; }
                 finish(zinvite);
             });
@@ -2709,6 +2794,37 @@ function(req, res) {
 });
 
 
+app.post("/v3/users/invite",
+    authWithApiKey(assignToP),
+    need('single_use_tokens', getBool),
+    need('zid', getInt, assignToP), 
+    need('xids', getArrayOfStringNonEmpty),
+function(req, res) {
+    var uid = req.p.uid;
+    var xids = req.p.xids;
+    var zid = req.p.zid;
+
+    // generate some tokens
+    // add them to a table paired with user_ids
+    // return URLs with those.
+    generateOTZinvites(xids.length).then(function(otzinviteArray) {
+        var pairs = _.zip(xids, otzinviteArray);
+
+        var valuesStatements = pairs.map(function(pair) {
+            var otzinvite = pair[1]; // TODO ensure these don't contain var
+            SQL xid = pair[0]; // TODO ensure these don't contain SQL
+            return "VALUES("+ otzinvite + "," + xid + "," + zid+")";
+        });
+        client.query("INSERT INTO otzinvites " + valuesStatements.join(",") + ";", [] function(err, results) {
+            // make urls and returns.
+        });
+    }, function(err) {
+        fail();
+    });
+
+    $.when(ot
+
+});
 
 
 
