@@ -959,7 +959,7 @@ function renderComments(comments) {
             return c.tid;
         });
         _.each(comments, function(c) {
-            results.data('owlCarousel').addItem("<div style='margin:4px' class='well'>" + c.txt + "</div>");
+            results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well'>" + c.txt + "</div>");
         });
     }
     function renderWithList() {
