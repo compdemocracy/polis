@@ -852,6 +852,11 @@ function upsertNode(updatedNodes, newClusters) {
 
   updateHulls();
   updateHelpArrow();
+
+  if (selectedTid >= 0) {
+    selectComment(selectedTid);
+  }
+
 }
 
 function selectComment(tid) {
