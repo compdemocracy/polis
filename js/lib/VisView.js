@@ -988,32 +988,32 @@ function updateNodes() {
                   // .style("transform", "scale(0.5)")
                   ;
 
-  var upArrowUpdate = update.selectAll(".up.bktv")
+  var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
       .style("display", chooseDisplayForArrows)
       .attr("points", chooseUpArrowPath)
       // .style("fill", colorPull)
       ;
-  var upArrowUpdateInner = update.selectAll(".up.bktvi")
+  var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
       .style("display", chooseDisplayForArrows)
       .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
       ;
 
-  var downArrowUpdate = update.selectAll(".down.bktv")
+  var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
       .style("display", chooseDisplayForArrows)
       .attr("points", chooseDownArrowPath)
       // .style("fill", colorPush)
       ;
-  var downArrowUpdateInner = update.selectAll(".down.bktvi")
+  var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
       .style("display", chooseDisplayForArrows)
       .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
       ;
 
-  var upCircleUpdate = update.selectAll(".circle.bktv")
+  var upCircleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
       .style("display", chooseDisplayForCircle)
       .attr("r", chooseCircleRadius)
       // .style("fill", chooseFill)
       ;
-  var upCircleUpdateInner = update.selectAll(".circle.bktvi")
+  var upCircleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
       .style("display", chooseDisplayForCircle)
       .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
       ;
