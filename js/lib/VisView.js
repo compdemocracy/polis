@@ -703,12 +703,12 @@ function upsertNode(updatedNodes, newClusters) {
     var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, bid: node.bid }; });
 
     function sortWithSelfOnTop(a, b) {
-        // if (isSelf(a)) {
-        //     return -1;
-        // }
-        // if (isSelf(b)) {
-        //     return 1;
-        // }
+        if (isSelf(a)) {
+            return 1;
+        }
+        if (isSelf(b)) {
+            return -1;
+        }
         return key(b) - key(a);
     }
 
