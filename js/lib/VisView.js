@@ -1,4 +1,5 @@
 var eb = require("../eventBus");
+var owl = require("owl");
 
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
@@ -234,9 +235,9 @@ strokeWidth = strokeWidthGivenVisWidth(w);
 baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
-queryResults = d3.select(el_queryResultSelector).html("")
-    .append("ol")
-    .classed("query_results", true);
+// queryResults = d3.select(el_queryResultSelector).html("")
+//     .append("ol")
+//     .classed("query_results", true);
 
 $(el_queryResultSelector).hide();
 
@@ -929,28 +930,53 @@ function renderComments(comments) {
     } else {
         $(el_queryResultSelector).hide();
     }
-    queryResults.html("");
-    d3CommentList = queryResults.selectAll("li")
-        .data(comments)
-        .sort(function(a,b) { return b.freq - a.freq; });
+    var results = $(el_queryResultSelector);
+    results.addClass("owl-carousel");
+    results.css('background-color', 'yellow');
+    // results.css('overflow', 'hidden');
 
-    d3CommentList.enter()
-        .append("li")
-        .classed("query_result_item", true)
-        .style("background-color", chooseCommentFill)
-        .style("color", chooseCommentTextColor)
-        .on("click", function(d) {
-            selectComment(d.tid);
-        })
-        .on("mouseover", function() {
-            d3.select(this).classed("hover", true);
-        })
-        .on("mouseout", function() {
-            d3.select(this).classed("hover", false);
-        })
-        .text(function(d) { return d.txt; });
+    if (results.data('owlCarousel')) {
+        results.data('owlCarousel').destroy();
+    }
+    results.owlCarousel({
+      items : 1, //3 items above 1000px browser width
+      // itemsDesktop : [1000,5], //5 items between 1000px and 901px
+      // itemsDesktopSmall : [900,3], // betweem 900px and 601px
+      // itemsTablet: [600,2], //2 items between 600 and 0
+      // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
+       // singleItem : true,
+       // autoHeight : true,
+       afterMove: (function() {return function() {
+            selectComment(indexToTid[this.currentItem]);
+        }}())
+    });
+    var indexToTid = _.map(comments, function(c) {
+        return c.tid;
+    });
+    _.each(comments, function(c) {
+        results.data('owlCarousel').addItem("<div>" + c.txt + "</div>");
+    });
+    // d3CommentList = queryResults.selectAll("li")
+    //     .data(comments)
+    //     .sort(function(a,b) { return b.freq - a.freq; });
 
-    d3CommentList.exit().remove();
+    // d3CommentList.enter()
+    //     .append("li")
+    //     .classed("query_result_item", true)
+    //     .style("background-color", chooseCommentFill)
+    //     .style("color", chooseCommentTextColor)
+    //     .on("click", function(d) {
+    //         selectComment(d.tid);
+    //     })
+    //     .on("mouseover", function() {
+    //         d3.select(this).classed("hover", true);
+    //     })
+    //     .on("mouseout", function() {
+    //         d3.select(this).classed("hover", false);
+    //     })
+    //     .text(function(d) { return d.txt; });
+
+    // d3CommentList.exit().remove();
     setTimeout(dfd.resolve, 4000);
     return dfd.promise();
 }

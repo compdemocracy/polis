@@ -222,6 +222,11 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             depends: { jquery: "jQuery" },
             exports: null,
           },
+          owl: {
+            path: 'bower_components/owlcarousel/owl-carousel/owl.carousel.min.js',
+            depends: { jquery: "jQuery" },
+            exports: null,
+          },
           VisView: {
             path: 'js/lib/VisView',
             depends: { d3tooltips: 'foo' }, // added to d3 object as d3.tip

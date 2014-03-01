@@ -303,7 +303,8 @@ module.exports =  View.extend({
 
       // Wait until the first comment is shown before showing the tooltip
       });
-      that.commentView.on("showComment", _.once(function() {      
+      that.commentView.on("showComment", _.once(function() {   
+         
         that.$commentViewPopover = that.$("#commentView").popover({
           title: "START HERE",
           content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",

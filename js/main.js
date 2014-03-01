@@ -17,6 +17,7 @@ var bootstrapTransition = require("bootstrap_transition");
 var bootstrapCollapse = require("bootstrap_collapse");
 var bootstrapDropdown = require("bootstrap_dropdown");
 var bootstrapAffix = require("bootstrap_affix");
+var owl = require("owl");
 
 // Call this here so it gets initialized early.
 var popoverEach = require("./util/popoverEach");
