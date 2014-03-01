@@ -235,9 +235,12 @@ strokeWidth = strokeWidthGivenVisWidth(w);
 baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
-// queryResults = d3.select(el_queryResultSelector).html("")
-//     .append("ol")
-//     .classed("query_results", true);
+var useCarousel = true;
+if (!useCarousel) {
+    queryResults = d3.select(el_queryResultSelector).html("")
+        .append("ol")
+        .classed("query_results", true);
+}
 
 $(el_queryResultSelector).hide();
 
@@ -922,7 +925,67 @@ function chooseCommentTextColor(d) {
 }
 
 function renderComments(comments) {
+    function renderWithCarousel() {
+        $(el_queryResultSelector).html("");
+        // $(el_queryResultSelector).css("overflow", "hidden");        
 
+        // $(el_queryResultSelector).append("<div id='smallWindow' style='width:90%'></div>");
+        $(el_queryResultSelector).append("<div id='smallWindow' style='left: 5%; width:90%'></div>");        
+
+        var results = $("#smallWindow");
+        results.addClass("owl-carousel");
+        // results.css('background-color', 'yellow');
+
+        if (results.data('owlCarousel')) {
+            results.data('owlCarousel').destroy();
+        }
+        results.owlCarousel({
+          items : 3, //3 items above 1000px browser width
+          // itemsDesktop : [1000,5], //5 items between 1000px and 901px
+          // itemsDesktopSmall : [900,3], // betweem 900px and 601px
+          // itemsTablet: [600,2], //2 items between 600 and 0
+          // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
+           singleItem : true,
+           // autoHeight : true,
+           afterMove: (function() {return function() {
+                var tid = indexToTid[this.currentItem];
+                setTimeout(function() {
+                    selectComment(tid);
+                }, 100);
+
+            }}())
+        });
+        var indexToTid = _.map(comments, function(c) {
+            return c.tid;
+        });
+        _.each(comments, function(c) {
+            results.data('owlCarousel').addItem("<div style='margin:4px' class='well'>" + c.txt + "</div>");
+        });
+    }
+    function renderWithList() {
+        queryResults.html("");    
+        d3CommentList = queryResults.selectAll("li")
+            .data(comments)
+            .sort(function(a,b) { return b.freq - a.freq; });
+
+        d3CommentList.enter()
+            .append("li")
+            .classed("query_result_item", true)
+            .style("background-color", chooseCommentFill)
+            .style("color", chooseCommentTextColor)
+            .on("click", function(d) {
+                selectComment(d.tid);
+            })
+            .on("mouseover", function() {
+                d3.select(this).classed("hover", true);
+            })
+            .on("mouseout", function() {
+                d3.select(this).classed("hover", false);
+            })
+            .text(function(d) { return d.txt; });
+
+        d3CommentList.exit().remove();
+    }
     var dfd = $.Deferred();
 
     if (comments.length) {
@@ -930,57 +993,11 @@ function renderComments(comments) {
     } else {
         $(el_queryResultSelector).hide();
     }
-    var results = $(el_queryResultSelector);
-    results.addClass("owl-carousel");
-    results.css('background-color', 'yellow');
-    // results.css('overflow', 'hidden');
-
-    if (results.data('owlCarousel')) {
-        results.data('owlCarousel').destroy();
+    if (useCarousel) {
+        renderWithCarousel();
+    } else {
+        renderWithList();
     }
-    results.owlCarousel({
-      items : 1, //3 items above 1000px browser width
-      // itemsDesktop : [1000,5], //5 items between 1000px and 901px
-      // itemsDesktopSmall : [900,3], // betweem 900px and 601px
-      // itemsTablet: [600,2], //2 items between 600 and 0
-      // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
-       // singleItem : true,
-       // autoHeight : true,
-       afterMove: (function() {return function() {
-            var tid = indexToTid[this.currentItem];
-            setTimeout(function() {
-                selectComment(tid);
-            }, 100);
-
-        }}())
-    });
-    var indexToTid = _.map(comments, function(c) {
-        return c.tid;
-    });
-    _.each(comments, function(c) {
-        results.data('owlCarousel').addItem("<div>" + c.txt + "</div>");
-    });
-    // d3CommentList = queryResults.selectAll("li")
-    //     .data(comments)
-    //     .sort(function(a,b) { return b.freq - a.freq; });
-
-    // d3CommentList.enter()
-    //     .append("li")
-    //     .classed("query_result_item", true)
-    //     .style("background-color", chooseCommentFill)
-    //     .style("color", chooseCommentTextColor)
-    //     .on("click", function(d) {
-    //         selectComment(d.tid);
-    //     })
-    //     .on("mouseover", function() {
-    //         d3.select(this).classed("hover", true);
-    //     })
-    //     .on("mouseout", function() {
-    //         d3.select(this).classed("hover", false);
-    //     })
-    //     .text(function(d) { return d.txt; });
-
-    // d3CommentList.exit().remove();
     setTimeout(dfd.resolve, 4000);
     return dfd.promise();
 }
