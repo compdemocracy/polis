@@ -20,6 +20,9 @@ module.exports = View.extend({
     }
     var serverClient = this.serverClient;
     var votesByMe = this.votesByMe;
+    var votesByMeFetched = $.Deferred();
+    votesByMe.on("sync", votesByMeFetched.resolve);
+    var is_public = this.is_public;
     var zid = this.zid;
     var pid = this.pid;
     console.dir(serverClient);
@@ -34,18 +37,41 @@ module.exports = View.extend({
     function showComment(model) {
       that.model = new CommentModel(model);
       that.render();
+      that.trigger("showComment");
       waitingForComments = false;
     }
     function showNext() {
       serverClient.getNextComment().then(
         showComment,
         function() {
-          waitingForComments = true;
-          pollForComments();
-          that.model = new CommentModel({
-            txt: "No comments to show..." // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
-          });
-          that.render();
+          votesByMeFetched.done(function() {
+            var userHasVoted = !!votesByMe.size();
+
+            waitingForComments = true;
+            pollForComments();
+            
+            var message1;
+            var message2;
+            if (userHasVoted) {
+              message1 = "You've voted on all the comments.";
+              message2 = "You can write your own by clicking the Write tab.";
+            } else {
+              message1 = "There aren't any comments yet.";
+              if (is_public) {
+                message2 =  "Get this conversation started by inviting more participants, or add your own comment in the 'write' tab.";
+              } else {
+                message2 =  "Get this conversation started by adding your own comment in the 'write' tab.";              
+              }
+            }
+
+            // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
+            that.model = new CommentModel({
+              empty: true,
+              txt1: message1,
+              txt2: message2
+            });         
+            that.render();
+        });
       });
     }
     function onFail(err) {

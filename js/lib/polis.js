@@ -156,7 +156,11 @@ module.exports = function(params) {
             index = _.shuffle(_.keys(commentsToVoteOn)).pop();
             dfd.resolve(commentsToVoteOn[index]);
         } else {
-            dfd.reject(null);
+            // return the number of votes user has done.
+            // This is useful to know if there are no
+            // comments because the user is done voting,
+            // or if there aren't any comments available yet.
+            dfd.reject(votesByMe.size());
         }
         return dfd.promise();
     }

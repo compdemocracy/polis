@@ -1,6 +1,15 @@
-<div id="comment_shower">
 
-      <p style="padding: 20px 20px 10px 20px; min-height: 100px"> {{txt}} </p>
+<div id="comment_shower">
+  {{#if empty}}
+    <div  style="margin: 20px;" class="alert alert-warning">
+      <strong>{{txt1}}</strong>
+      {{txt2}}
+    </div>
+  {{else}}
+  <!-- there is a comment to show -->
+    <p style="padding: 20px 20px 10px 20px; min-height: 100px"> {{txt}} </p>
+  {{/if}}
+</div>
 
   <div class="reactionButtons">
   {{#ifDefined tid}}

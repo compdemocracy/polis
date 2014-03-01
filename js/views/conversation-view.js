@@ -56,6 +56,7 @@ module.exports =  View.extend({
     var zid = this.zid = this.model.get("zid");
     var pid = this.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
+    var is_public = this.model.get("is_public");
 
     this.tutorialController = new TutorialController();
     var metadataCollection = new MetadataQuestionsCollection([], {
@@ -202,6 +203,7 @@ module.exports =  View.extend({
       this.commentView = new CommentView({
         serverClient: serverClient,
         votesByMe: this.votesByMe,
+        is_public: is_public,
         pid: pid,
         zid: zid
       });
@@ -273,14 +275,17 @@ module.exports =  View.extend({
       function deselectHulls() {
         vis.deselect();
       }
-      that.$("#commentViewTab").tooltip({
-        title: "Start here - read and react to comments submitted by others.",
-        placement: "top",
-        delay: { show: 300, hide: 200 },
-        container: "body"
 
-      })
-      .on("click", deselectHulls);
+      that.commentView.on("showComment", _.once(function() {
+        that.$("#commentViewTab").tooltip({
+          title: "Start here - read and react to comments submitted by others.",
+          placement: "top",
+          delay: { show: 300, hide: 200 },
+          container: "body"
+
+        })
+        .on("click", deselectHulls);
+      }));
 
       that.$("#commentFormTab").tooltip({
         title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
@@ -296,15 +301,18 @@ module.exports =  View.extend({
         delay: { show: 300, hide: 200 },
         container: "body"
 
+      // Wait until the first comment is shown before showing the tooltip
       });
-      that.$commentViewPopover = that.$("#commentView").popover({
-        title: "START HERE",
-        content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
-        html: true, //XSS risk, not important for now
-        trigger: "manual",
-        placement: "bottom"
-      });
-
+      that.commentView.on("showComment", _.once(function() {      
+        that.$commentViewPopover = that.$("#commentView").popover({
+          title: "START HERE",
+          content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+          html: true, //XSS risk, not important for now
+          trigger: "manual",
+          placement: "bottom"
+        });
+      }));
+      
       setTimeout(function(){
         that.$commentViewPopover.popover("show");
         $("#commentViewPopoverButton").click(function(){
