@@ -947,7 +947,11 @@ function renderComments(comments) {
        // singleItem : true,
        // autoHeight : true,
        afterMove: (function() {return function() {
-            selectComment(indexToTid[this.currentItem]);
+            var tid = indexToTid[this.currentItem];
+            setTimeout(function() {
+                selectComment(tid);
+            }, 100);
+
         }}())
     });
     var indexToTid = _.map(comments, function(c) {
