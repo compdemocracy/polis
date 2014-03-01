@@ -312,14 +312,14 @@ module.exports =  View.extend({
           trigger: "manual",
           placement: "bottom"
         });
+
+        setTimeout(function(){
+          that.$commentViewPopover.popover("show");
+          $("#commentViewPopoverButton").click(function(){
+            that.$commentViewPopover.popover("destroy");
+          });
+        },1000);
       }));
-      
-      setTimeout(function(){
-        that.$commentViewPopover.popover("show");
-        $("#commentViewPopoverButton").click(function(){
-          that.$commentViewPopover.popover("destroy");
-        });
-      },1000);
 
       initPcaVis();
       
