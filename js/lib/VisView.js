@@ -80,6 +80,10 @@ var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
 
+function useCarousel() {
+    return display.xs();
+}
+
 // Cached results of tunalbes - set during init
 var strokeWidth;
 var baseNodeRadius;
@@ -236,8 +240,7 @@ strokeWidth = strokeWidthGivenVisWidth(w);
 baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
-var useCarousel = true;
-if (!useCarousel) {
+if (!useCarousel()) {
     queryResults = d3.select(el_queryResultSelector).html("")
         .append("ol")
         .classed("query_results", true);
@@ -994,7 +997,7 @@ function renderComments(comments) {
     } else {
         $(el_queryResultSelector).hide();
     }
-    if (useCarousel) {
+    if (useCarousel()) {
         renderWithCarousel();
     } else {
         renderWithList();
