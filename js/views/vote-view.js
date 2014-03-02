@@ -30,7 +30,7 @@ module.exports = View.extend({
       if (waitingForComments) {
           serverClient.syncAllCommentsForCurrentStimulus();
       }
-    }
+    }      
     function showComment(model) {
       that.model = new CommentModel(model);
       that.render();
@@ -132,19 +132,34 @@ module.exports = View.extend({
       });
       this.$("#passButton").tooltip({
         title: "'No reaction', or 'I am unsure'",
-        placement: "left",
+        placement: "top",
         delay: { show: 500, hide: 0 }
       });
       this.$("#starButton").tooltip({
         title: "'Critical point', or 'central to my worldview'",
-        placement: "right",
+        placement: "top",
         delay: { show: 500, hide: 0 },
         container: "body"
       });
       this.$("#trashButton").tooltip({
         title: "This comment is irrelevant and/or abusive",
-        placement: "left",
+        placement: "top",
         delay: { show: 500, hide: 0 }
+      });
+
+      this.$("#otherButtonGroup").on("click", function(e) {
+        e.preventDefault()
+        console.dir(e.target);
+        if(e.target.id === "trashButton") {
+          console.log('trash')
+          that.participantTrashed()
+        } else if (e.target.id === "starButton") {
+          console.log('star')
+          that.participantStarred()
+        } else if (e.target.id === "passButton") {
+          console.log('pass')
+          that.participantPassed()
+        }
       });
     });
   }

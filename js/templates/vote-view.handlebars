@@ -1,46 +1,36 @@
 <div id="comment_shower">
-      <p> {{txt}} </p>
-    </div>
-    <div class="reactionButtons">
 
-    {{#ifDefined tid}}
+      <p style="padding: 20px 20px 10px 20px; min-height: 100px"> {{txt}} </p>
 
+  <div class="reactionButtons">
+  {{#ifDefined tid}}
+    <div class="btn-group btn-group-justified">
       <div class="btn-group">
         {{#button
           method="participantAgreed"
-          class="showerbtns btn btn-large commentButton margin_bottom_20"
+          class="btn btn-lg btn-default"
           id="agreeButton"
           type="button"
         }} Agree {{/button}}
-
-        {{#button
-          method="participantStarred"
-          class="showerbtns btn btn-large starbutton commentButton margin_bottom_20"
-          id="starButton"
-        }} <i class="icon-star-empty"></i> {{/button}}
       </div>
-
-      {{#button
-        method="participantTrashed"
-        class="showerbtns btn btn-large pull-right commentButton margin_bottom_20"
-        type="button"
-        id="trashButton"
-      }} <i class="icon-trash"></i> {{/button}}
-
-      {{#button
-        method="participantPassed"
-        id="passButton"
-        class="showerbtns btn btn-large pull-right commentButton margin_bottom_20"
-        type="button"
-      }} Pass {{/button}}
-
-      {{#button
-        method="participantDisagreed"
-        id="disagreeButton"
-        class="showerbtns btn btn-large pull-right commentButton margin_bottom_20"
-        type="button"
-      }} Disagree {{/button}}
-
-    {{/ifDefined}}
-
+      <div class="btn-group">
+        {{#button
+          method="participantDisagreed"
+          id="disagreeButton"
+          class="btn btn-lg btn-default"
+          type="button"
+        }} Disagree {{/button}}
+      </div>
+      <div class="btn-group" id="otherButtonGroup">
+        <button type="button" class="btn btn-lg btn-default dropdown-toggle" data-toggle="dropdown">
+          Other&nbsp;<i class="icon-angle-down" style="position: relative; top: 1px"></i>
+        </button>
+        <ul class="dropdown-menu">
+          <li><a href="#" id="starButton"><i class="icon-star"></i>&nbsp;Critically important point</a></li>
+          <li><a href="#" id="passButton">Pass</a></li>
+          <li><a href="#" id="trashButton"><i class="icon-trash"></i>&nbsp; Abusive or off topic</a></li>
+        </ul>
+      </div>
     </div>
+  {{/ifDefined}}
+</div>

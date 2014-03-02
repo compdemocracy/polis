@@ -48,6 +48,10 @@
 
 }
 
+#agreeButton, #disagreeButton {
+  border-right: 0px
+}
+
 .conversationViewHeadline {
   margin-bottom: 40px;
 }
@@ -83,24 +87,11 @@ svg {
 
 /* Comment Shower */
 
-#comment_shower {
-   max-height: 300px;
-   max-width: 900px;
-   overflow: auto;
-   margin-bottom: 20px;
-   text-align: justify;
- }
+
 #comment_shower p, #comment_shower h3 {
    font-size: 16px;
-   padding: 10px;
    font-weight: normal;
    line-height: normal;
-}
-#comment_shower_frame {
-  max-height: 500px;
-  max-width: 900px;
-}
-#comment_shower_frame:hover {
 }
 
 /* Comment Input Form */
@@ -109,18 +100,6 @@ svg {
     margin-top: 20px;
     white-space: pre-wrap;
     resize: none;
-}
- 
-
-.big_button, #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
-    background-color: #F5F5F5;
-    background-image: none;
-    color: rgb(87, 87, 87);
-    border-radius: 2px;
-    padding: 10px;
-    font-size: 14px;
-    outline: none;
-    border: none;
 }
 
 .margin_bottom_20 {
@@ -134,36 +113,18 @@ svg {
   padding-left: 10px;
 }
 
-#disagreeButton {
-  margin-right: 20px;
-}
-
-#passButton {
-   margin-right: 5%;
-}
-
 .icon-star {
   color: #f39c12;
 }
 
 /* Everything but mobile */
 @media (min-width: 767px) {
-  #starButton:hover, #starButton:focus, #starButton:active {
-    color: #f39c12;
-  }
-  #agreeButton:hover, #agreeButton:focus, #agreeButton:active {
-    color: #2ecc71;
-  }
-  #disagreeButton:hover, #disagreeButton:focus, #disagreeButton:active {
-    color: #e74c3c;
-  }
+
 }
 
 /* Large desktop */
 @media (min-width: 1200px) {
-  #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
-    padding: 10px 15px;
-  }
+
 }
 
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
@@ -183,8 +144,9 @@ svg {
   #comment_shower {
     margin-top: 20px;
   }
-  #visualization_buttons {
-    display: none;
+  .dropdown-menu {
+    right: 0;
+    left: auto;
   }
 }
 
@@ -199,30 +161,13 @@ svg {
   #comment_shower_frame {
     padding: 5px;
   }
-  #agreeButton, #disagreeButton, #passButton {
-    padding: 10px 10px;
-  }
-  #agreeButton {
-    margin-left: 2px;
-    font-family: "brandon-grotesque";
-  }
-  #passButton {
-    margin-right: 15px;
-    font-family: "brandon-grotesque";
-  }
-  #starButton, #trashButton{
-    padding: 10px 15px;
-  }
-  #disagreeButton {
-    margin-right: 15px;
-    font-family: "brandon-grotesque";
-  }
-  #trashButton {
-    margin-right: 2px;
-  }
   .nav-tabs > li > a {
     padding-left: 12px !important;
     padding-right: 12px !important;
+  }
+  .dropdown-menu {
+    right: 0;
+    left: auto;
   }
 }
 
