@@ -23,6 +23,11 @@ var VisView = require("../lib/VisView");
 var TutorialController = require("../controllers/tutorialController");
 var ServerClient = require("../lib/polis");
 
+
+var ANALYZE_TAB = "analyzeTab";
+var WRITE_TAB = "commentFormTab";
+var VOTE_TAB = "commentViewTab";
+
 function shouldShowVisUnderTabs() {
   return display.xs();
 }
@@ -41,12 +46,13 @@ module.exports =  View.extend({
   },
   onClusterTapped : function() {
     this.destroyPopovers();
+    var that = this;
       // if (window.isMobile()) {
       //    window.scrollTo(0, $("#visualization_div").offset().top);
       // }
   },
   onAnalyzeTabPopulated: function() {
-    this.$('li.query_result_item').first().trigger('click');
+    this.$('li.query_result_item').first().trigger('click');    
   },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
@@ -273,7 +279,7 @@ module.exports =  View.extend({
       this.votesByMe.on("add", updateMyProjectionAfterAddingVote);
 
       this.commentForm.on("commentSubmitted", function() {
-        // $("#commentViewTab").tab("show");
+        // $("#"+VOTE_TAB).tab("show");
       });
 
       /* tooltips */
@@ -312,12 +318,12 @@ module.exports =  View.extend({
 
       // Before shown
       $('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
-        if (e.target && e.target.id === "commentFormTab" && shouldHideVisWhenWriteTabShowing()) {
+        if (e.target && e.target.id === WRITE_TAB && shouldHideVisWhenWriteTabShowing()) {
           // When we're switching to the write tab, hide the vis.
           that.hideVis();
         }
          // previous tab
-        if (e.relatedTarget && e.relatedTarget.id == "commentFormTab") {
+        if (e.relatedTarget && e.relatedTarget.id === WRITE_TAB) {
           // When we're leaving the write tab, show the vis again.
           that.showVis();
         }
@@ -327,11 +333,15 @@ module.exports =  View.extend({
       $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
         console.log(e.target);
         // e.relatedTarget // previous tab
+        if(e.target && e.target.id === ANALYZE_TAB) {
+          console.log(123);
+          that.$('li.query_result_item').first().trigger('click');
+        }
       });
 
 
       that.commentView.on("showComment", _.once(function() {
-        that.$("#commentViewTab").tooltip({
+        that.$("#"+VOTE_TAB).tooltip({
           title: "Start here - read and react to comments submitted by others.",
           placement: "top",
           delay: { show: 300, hide: 200 },
@@ -341,7 +351,7 @@ module.exports =  View.extend({
         .on("click", deselectHulls);
       }));
 
-      that.$("#commentFormTab").tooltip({
+      that.$("#" + WRITE_TAB).tooltip({
         title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
         placement: "top",
         delay: { show: 300, hide: 200 },
@@ -349,7 +359,7 @@ module.exports =  View.extend({
       })
       .on("click", deselectHulls);
 
-      that.$("#analyzeTab").tooltip({
+      that.$("#"+ANALYZE_TAB).tooltip({
         title: "Filters! Click on the \"analyze\" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top",
         delay: { show: 300, hide: 200 },
