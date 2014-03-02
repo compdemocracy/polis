@@ -6,6 +6,7 @@ var MainPolisRouter = require("./routers/main-polis-router");
 var PolisStorage = require("./util/polisStorage");
 var Handlebars = require("handlebars");
 var _ = require("underscore");
+var display = require("./util/display");
 
 // These are required here to ensure they are included in the build.
 var bootstrapAlert = require("bootstrap_alert");
@@ -78,6 +79,8 @@ initialize(function(next) {
       }
       currentRoute = route;
     });
+
+    display.init();
 
     next();
 });

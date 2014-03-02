@@ -1,5 +1,6 @@
 var eb = require("../eventBus");
 var owl = require("owl");
+var display = require("../util/display");
 
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position

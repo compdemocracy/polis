@@ -4,6 +4,7 @@ var template = require('../tmpl/conversation-view');
 var CommentView = require('../views/vote-view');
 var CommentFormView = require("../views/comment-form")
 var ChangeVotesView = require("../views/change-votes");
+var display = require("../util/display");
 var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
@@ -21,6 +22,7 @@ var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var TutorialController = require("../controllers/tutorialController");
 var ServerClient = require("../lib/polis");
+
 
 module.exports =  View.extend({
   name: "conversation-view",
@@ -75,9 +77,19 @@ module.exports =  View.extend({
     }
 
     function initPcaVis() {
-      var w = $("#visualization_div").width();
+
+      var elSelector;
+      if (display.sm() || display.xs()) {
+        elSelector = "#visualization_div_under_tabs";
+        $("#visualization_div").html("").height(0);
+      } else {
+        elSelector = "#visualization_div";        
+        $("#visualization_div_under_tabs").html("").height(0);        
+      }
+
+      var w = $(elSelector).width();
       var h = w/2;
-      $("#visualization_div").height(h);
+      $(elSelector).height(h);
       if (vis) {
           serverClient.removePersonUpdateListener(vis.upsertNode);
       }
@@ -97,14 +109,14 @@ module.exports =  View.extend({
           h: h,
           computeXySpans: Utils.computeXySpans,
           el_queryResultSelector: ".query_results_div",
-          el: "#visualization_div"
+          el: elSelector
       });
       serverClient.addPersonUpdateListener(function() {
         vis.upsertNode.apply(vis, arguments);
       });
 
       that.tutorialController.setHandler("blueDot", function(){
-        that.$blueDotPopover = that.$("#visualization_div").popover({
+        that.$blueDotPopover = that.$(elSelector).popover({
           title: "DOTS ARE PEOPLE",
           content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
           html: true,
@@ -116,7 +128,7 @@ module.exports =  View.extend({
         });
       });
       that.tutorialController.setHandler("shadedGroup", function(){
-        that.$shadedGroupPopover = that.$("#visualization_div").popover({
+        that.$shadedGroupPopover = that.$(elSelector).popover({
           title: "CLICK ON GROUPS",
           content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
           html: true, 
@@ -267,11 +279,11 @@ module.exports =  View.extend({
 
       scrollTopOnFirstShow();
 
-      $("#visualization_div").affix({
-        offset: {
-          top: 150 //will be set dynamically
-        }
-      });
+      // $("#visualization_div").affix({
+      //   offset: {
+      //     top: 150 //will be set dynamically
+      //   }
+      // });
       function deselectHulls() {
         vis.deselect();
       }
