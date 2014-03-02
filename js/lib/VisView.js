@@ -965,8 +965,12 @@ function renderComments(comments) {
             return c.tid;
         });
         _.each(comments, function(c) {
-            results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well'>" + c.txt + "</div>");
+            results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well query_result_item'>" + c.txt + "</div>");
         });
+        // Auto-select the first comment.
+        if (comments.length) {
+            selectComment(comments[0].tid);
+        }
     }
     function renderWithList() {
         queryResults.html("");    
@@ -1005,6 +1009,7 @@ function renderComments(comments) {
         renderWithList();
     }
     setTimeout(dfd.resolve, 4000);
+    eb.trigger("queryResultsRendered");
     return dfd.promise();
 }
 

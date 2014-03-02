@@ -45,6 +45,9 @@ module.exports =  View.extend({
       //    window.scrollTo(0, $("#visualization_div").offset().top);
       // }
   },
+  onAnalyzeTabPopulated: function() {
+    this.$('li.query_result_item').first().trigger('click');
+  },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
     if (this.pid < 0) {
@@ -291,6 +294,7 @@ module.exports =  View.extend({
     });
 
     eb.on("clusterClicked", onClusterTapped);
+    eb.on("queryResultsRendered", _.bind(this.onAnalyzeTabPopulated, this));
 
     this.listenTo(this, "rendered", function(){
       setTimeout(function() {
