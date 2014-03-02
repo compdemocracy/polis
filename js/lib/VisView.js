@@ -9,6 +9,7 @@ var VisView = function(params){
 
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
+var el_carouselSelector = params.el_carouselSelector;
 var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
@@ -247,6 +248,7 @@ if (!useCarousel()) {
 }
 
 $(el_queryResultSelector).hide();
+// $(el_carouselSelector).hide();
 
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
@@ -930,11 +932,11 @@ function chooseCommentTextColor(d) {
 
 function renderComments(comments) {
     function renderWithCarousel() {
-        $(el_queryResultSelector).html("");
-        // $(el_queryResultSelector).css("overflow", "hidden");        
+        $(el_carouselSelector).html("");
+        // $(el_carouselSelector).css("overflow", "hidden");        
 
-        // $(el_queryResultSelector).append("<div id='smallWindow' style='width:90%'></div>");
-        $(el_queryResultSelector).append("<div id='smallWindow' style='left: 5%; width:90%'></div>");        
+        // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
+        $(el_carouselSelector).append("<div id='smallWindow' style='left: 5%; width:90%'></div>");        
 
         var results = $("#smallWindow");
         results.addClass("owl-carousel");

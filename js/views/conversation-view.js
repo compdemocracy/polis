@@ -126,6 +126,7 @@ module.exports =  View.extend({
           h: h,
           computeXySpans: Utils.computeXySpans,
           el_queryResultSelector: ".query_results_div",
+          el_carouselSelector: "#carousel",
           el: elSelector
       });
       serverClient.addPersonUpdateListener(function() {
