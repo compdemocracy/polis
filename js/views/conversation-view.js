@@ -23,6 +23,13 @@ var VisView = require("../lib/VisView");
 var TutorialController = require("../controllers/tutorialController");
 var ServerClient = require("../lib/polis");
 
+function shouldShowVisUnderTabs() {
+  return display.xs();
+}
+function shouldHideVisWhenWriteTabShowing() {
+  return shouldShowVisUnderTabs();
+}
+
 
 module.exports =  View.extend({
   name: "conversation-view",
@@ -52,6 +59,15 @@ module.exports =  View.extend({
       reset: false
     });
   },
+  hideVis: function() {
+    $("#visualization_div").css("display", "none");
+    $("#visualization_div_under_tabs").css("display", "none");
+  },
+  showVis: function() {
+    $("#visualization_div").css("display", "");
+    $("#visualization_div_under_tabs").css("display", "");
+  },
+
   initialize: function() {
     var that = this;
     var vis;
@@ -77,15 +93,16 @@ module.exports =  View.extend({
     }
 
     function initPcaVis() {
-
-      var elSelector;
-      if (display.sm() || display.xs()) {
+      if (shouldShowVisUnderTabs()) {
         elSelector = "#visualization_div_under_tabs";
         $("#visualization_div").html("").height(0);
+        // $("#visualization_div").parent().css("display", "none");
       } else {
-        elSelector = "#visualization_div";        
+        elSelector = "#visualization_div";   
+        // $("#visualization_div").parent().css("display", "");     
         $("#visualization_div_under_tabs").html("").height(0);        
       }
+      that.elSelector = elSelector;
 
       var w = $(elSelector).width();
       var h = w/2;
@@ -287,6 +304,26 @@ module.exports =  View.extend({
       function deselectHulls() {
         vis.deselect();
       }
+
+      // Before shown
+      $('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
+        if (e.target && e.target.id === "commentFormTab" && shouldHideVisWhenWriteTabShowing()) {
+          // When we're switching to the write tab, hide the vis.
+          that.hideVis();
+        }
+         // previous tab
+        if (e.relatedTarget && e.relatedTarget.id == "commentFormTab") {
+          // When we're leaving the write tab, show the vis again.
+          that.showVis();
+        }
+      });
+
+      // After shown
+      $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        console.log(e.target);
+        // e.relatedTarget // previous tab
+      });
+
 
       that.commentView.on("showComment", _.once(function() {
         that.$("#commentViewTab").tooltip({
