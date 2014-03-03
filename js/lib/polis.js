@@ -65,6 +65,7 @@ module.exports = function(params) {
     var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
     var participantCount = 0;
     var userInfoCache = [];
+    var bidToPid = [];
 
     var pollingScheduledCallbacks = [];
 
@@ -705,7 +706,8 @@ function clientSideBaseCluster(things, N) {
                     delete b.y;
                 });
 
-
+                bidToPid = pcaData["bid-to-pid"];
+                pidToBidCache = null;
 
                 // Convert to Bucket objects.
                 buckets = _.map(buckets, function(b) {
@@ -1023,6 +1025,24 @@ function clientSideBaseCluster(things, N) {
             }
         });
     }
+    function getPidToBidMapping(pids) {
+        var dfd = $.Deferred();
+
+        if (!pidToBidCache) {
+            pidToBidCache = {};
+            for (var bid = 0; bid < bidToPid.length; bid++) {
+                var memberPids = bidToPid[bid];
+                for (var i = 0; i < memberPids.length; i++) {
+                    var pid = memberPids[i];
+                    pidToBidCache[pid] = bid;
+                }
+            }
+        }
+
+        dfd.resolve(pidToBidCache, bidToPid);
+
+        return dfd.promise();
+    }
 
     function getTotalVotesByPidSync(pid) {
         return arrayPidToArrayTidToVote.g(pid).length;
@@ -1063,6 +1083,7 @@ function clientSideBaseCluster(things, N) {
         getUserInfoByPid: getUserInfoByPid,
         getUserInfoByPidSync: getUserInfoByPidSync,
         getTotalVotesByPidSync: getTotalVotesByPidSync,
+        getPidToBidMapping: getPidToBidMapping,
         disagree: disagree,
         agree: agree,
         pass: pass,

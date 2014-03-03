@@ -15,6 +15,7 @@ var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
 var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
 var computeXySpans = params.computeXySpans;
+var getPidToBidMapping = params.getPidToBidMapping;
 
 // var getPid = params.getPid;
 
@@ -73,8 +74,6 @@ if (isIE8) {
         emphasizeParticipants: function() {}
     };
 }
-
-var pidToBid = {};
 
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
@@ -738,9 +737,6 @@ function upsertNode(updatedNodes, newClusters) {
         if (oldNode) {
             node.effects = oldNode.effects;
         }
-        _.each(node.ppl, function(p) {
-            pidToBid[p.pid] = node.bid;
-        });
     }
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
@@ -820,7 +816,7 @@ function upsertNode(updatedNodes, newClusters) {
     .attr("cx", 0)
     .attr("cy", 0)
     .style("opacity", opacityOuter)
-    .style("fill", colorSelf)
+    .style("fill", chooseFill)
     .filter(isSelf)
         .style("fill", "rgba(0,0,0,0)")
         .style("stroke", colorSelf)
@@ -1151,54 +1147,56 @@ function selectBackground() {
 function emphasizeParticipants(pids) {
     console.log("pids", pids.length);
     var hash = []; // sparse-ish array
-    for (var i = 0; i < pids.length; i++) {
-        var bid = pidToBid[pids[i]];
-        hash[bid] |= 0; // init
-        hash[bid] += 1; // count the person
-    }
+    getPidToBidMapping().then(function(pidToBid, bidToPids) {
 
-    function chooseStrokeWidth(d) {
-        // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.bid]) {
-            return 0;
+        for (var i = 0; i < pids.length; i++) {
+            var bid = pidToBid[pids[i]];
+            hash[bid] |= 0; // init
+            hash[bid] += 1; // count the person
         }
-        return 2;
-    }
-    function chooseStroke(d) {
-        // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.bid]) {
-            return void 0; // undefined
-        }
-        return chooseFill(d);
-    }
-    function chooseFillOpacity(d) {
-        // If emphasized, maintain fill, (no stroke needed)
-        if (hash[d.bid] >= 2) {
-            return 1;
-        }
-        return 0.2;
-    }
 
-    function chooseTransformSubset(d) {
-        var bid = d.bid;
-        var bucket = bidToBucket[bid];
-        var ppl = bucket && bucket.ppl;
-        var total = ppl ? ppl.length : 0;
-        var active = hash[bid] || 0;
-        var ratio = active/total;
-        if (ratio > 0.99) {
-            return;
-        } else {
-            return "scale(" + ratio + ")";
+        function chooseStrokeWidth(d) {
+            // If emphasized, maintain fill, (no stroke needed)
+            if (hash[d.bid]) {
+                return 0;
+            }
+            return 2;
         }
-    }
+        function chooseStroke(d) {
+            // If emphasized, maintain fill, (no stroke needed)
+            if (hash[d.bid]) {
+                return void 0; // undefined
+            }
+            return chooseFill(d);
+        }
+        function chooseFillOpacity(d) {
+            // If emphasized, maintain fill, (no stroke needed)
+            if (hash[d.bid] >= 2) {
+                return 1;
+            }
+            return 0.2;
+        }
 
-    visualization.selectAll(".bktvi")
-        // .attr("stroke", chooseStroke)
-        .attr("transform", chooseTransformSubset)
-        // .attr("stroke-width", chooseStrokeWidth)
-        // .attr("fill-opacity", chooseFillOpacity)
-    ;
+        function chooseTransformSubset(d) {
+            var bid = d.bid;
+            var ppl = bidToPids[bid];
+            var total = ppl ? ppl.length : 0;
+            var active = hash[bid] || 0;
+            var ratio = active/total;
+            if (ratio > 0.99) {
+                return;
+            } else {
+                return "scale(" + ratio + ")";
+            }
+        }
+
+        visualization.selectAll(".bktvi")
+            // .attr("stroke", chooseStroke)
+            .attr("transform", chooseTransformSubset)
+            // .attr("stroke-width", chooseStrokeWidth)
+            // .attr("fill-opacity", chooseFillOpacity)
+        ;
+    });
 }
 
 
