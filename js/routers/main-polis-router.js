@@ -15,6 +15,7 @@ var CreateUserFormView = require("../views/create-user-form");
 var LoginFormView = require("../views/login-form");
 var LandingPageView = require("../views/landing-page");
 var PasswordResetView = require("../views/passwordResetView");
+var PasswordResetInitView = require("../views/passwordResetInitView");
 var ShareLinkView = require("../views/share-link-view");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
