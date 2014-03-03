@@ -9,7 +9,7 @@ module.exports = Model.extend({
         return this.urlRoot + "/" + this.id;
     },
     defaults: {
-      topic: "", // an empty topic will be shown as a localized date string
+      //topic: "", // an empty topic will be shown as a localized date string
       // topic: function() {
       //   return new Date(this.created).toString();
       // },

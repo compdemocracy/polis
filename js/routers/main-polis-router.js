@@ -72,7 +72,7 @@ var polisRouter = Backbone.Router.extend({
     shareLinkView.on("done", function() {
       var zid = conversationModel.get("zid");
       var zinvite = conversationModel.get("zinvites")[0];
-      var path = zid + (zinvite ? "/"+zinvite : "");
+      var path = zid + (zinvite ? "/" + zinvite : "");
       that.navigate(path, {trigger: true});
     });
     RootView.getInstance().setView(shareLinkView);
