@@ -1,5 +1,6 @@
 (ns polismath.clusters
   (:refer-clojure :exclude [* - + == /])
+  (:require [clojure.tools.trace :as tr])
   (:use polismath.utils
         polismath.named-matrix
         clojure.core.matrix
@@ -85,7 +86,7 @@
           new-clusters
           (recur new-clusters (dec iter)))))))
 
-
+; NOTE - repness is calculated on the client
 (defn repness [in-part out-part]
   "Computes the representativeness of each of the columns for the split defined by in-part out-part,
   each of which is a named-matrix of votes (with the same columns) which might contain nils."
@@ -95,25 +96,54 @@
                     (reduce
                       (fn [counts vote]
                         (case vote
-                          1       (assoc counts 0 (inc (first counts)))
-                          (0 -1)  (assoc counts 1 (inc (second counts)))
+                          -1       (assoc counts 0 (inc (first counts)))
+                          (0 1)  (assoc counts 1 (inc (second counts)))
                                   counts))
-                      ; Start with psuedocount of 1, 1
+                      ; Start with psuedocount of 1, 1 as a prior to prevent division by zero (smoothing)
                       [1 1] votes)]
               (/ up not-up)))]
     (let [in-cols  (columns (:matrix in-part))
           out-cols (columns (:matrix out-part))]
       (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
 
-
-(defn conv-repness [data clusters]
+; NOTE - repness is calculated on the client
+(defn conv-repness [data group-clusters base-clusters]
   (map
-    (fn [cluster]
-      (let [row-names (:members cluster)
-            in-part  (rowname-subset     data row-names)
-            out-part (inv-rowname-subset data row-names)]
-        {:id      (:id cluster)
-         :repness (repness in-part out-part)}))
-    clusters))
+    (fn [group-cluster]
+      (let [
+            bids (:members group-cluster)
+            bids-set (set bids)
+            bucket-is-in-bids (fn [bucket] (contains? bids-set (:id bucket)))
+            pids (apply concat (map :members (filter bucket-is-in-bids base-clusters )))
+            
+            in-part  (rowname-subset data pids)
+            out-part (inv-rowname-subset data pids)
+            ]
+        {:id      (:id group-cluster)
+         :repness (repness in-part out-part)
+         }
+        )) group-clusters))
+
+(defn xy-clusters-to-nmat [clusters]
+  (let [nmat (named-matrix)]
+    (update-nmat
+     nmat
+     (apply concat ; flatten the list of lists below
+      (mapv
+       (fn [cluster]
+         (let [center (:center cluster)
+               id (:id cluster)]
+           ; Return some values that we can feed to update-nmat
+           [[id :x (first center)]
+            [id :y (second center)]]
+           ))
+       clusters
+       )))))
+
+(defn xy-clusters-to-nmat2 [clusters]
+  (named-matrix
+   (map :id clusters) ; row names
+   [:x :y] ; column names
+   (matrix (map :center clusters))))
 
 

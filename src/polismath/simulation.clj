@@ -1,6 +1,5 @@
 (ns polismath.simulation
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [polismath.poller :refer [split-by-conv]]
             [clojure.string :as string])
   (:use polismath.utils
         polismath.named-matrix
@@ -16,8 +15,8 @@
               (take n-votes (repeatedly #(wrapper-fn (rand-int range)))))]
       (map #(hash-map :zid %1 :pid %2 :tid %3 :vote %4)
         (generator identity n-convs)
-        (generator #(str "p" %) n-ptpts)
-        (generator #(str "c" %) n-cmts)
+        (generator identity n-ptpts)
+        (generator identity n-cmts)
         (generator #(- % 1) 3)))))
 
 
@@ -78,8 +77,7 @@
         vote-rate (:vote-rate opts)]
     (endlessly (:poll-interval opts)
       (let [new-votes (take vote-rate @simulator)
-            blah (println new-votes)
-            split-votes (split-by-conv new-votes)]
+            split-votes (group-by :zid new-votes)]
         (swap! simulator #(drop vote-rate %))
         (doseq [[zid votes] split-votes]
           (swap! conversations
@@ -98,3 +96,18 @@
       true              (endlessly-sim options))))
 
 
+
+(let [
+      a (time2 "conv-update  a  1000" (conv-update {:rating-mat (named-matrix)} (random-votes 600 10)))
+      b (time2 "conv-update  b  5000" (conv-update {:rating-mat (named-matrix)} (random-votes 5000 10)))
+      b2 (time2 "conv-update b2 5000*10+100*1" (conv-update b (random-votes 100 1)))
+      b3 (time2 "conv-update b3 5000*10+5000*10" (conv-update b2 (random-votes 5000 10)))            
+    ]
+  (println (keys a))
+  (println (keys b))
+  )
+
+                                        ;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
+;  (pprint (group-by :id (:base-clusters b)))
+;  (pprint (map :members (sort-by :id (:base-clusters b))))  
+  
