@@ -90,8 +90,8 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.agree(tid)
-          .done(onVote)
           .fail(onFail);
+      onVote();
     };
     this.participantDisagreed = function() {
       var tid = this.model.get("tid");
@@ -102,8 +102,8 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.disagree(tid)
-          .done(onVote)
           .fail(onFail);
+      onVote();
     };
     this.participantPassed = function() {
       var tid = this.model.get("tid");
@@ -114,8 +114,8 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.pass(tid)
-          .done(onVote)
           .fail(onFail);
+      onVote();
     };
     this.participantStarred = function() {
       var tid = this.model.get("tid");
@@ -127,14 +127,14 @@ module.exports = View.extend({
         tid: tid
       });
       $.when(serverClient.star(tid), serverClient.agree(tid))
-          .done(showNext)
           .fail(onFail);
+      onVote();
     };
     this.participantTrashed = function() {
       var tid = this.model.get("tid");
       serverClient.trash(tid)
-          .done(showNext)
           .fail(onFail);
+      onVote();
     };
     showNext();
     serverClient.addCommentsAvailableListener(function() {
