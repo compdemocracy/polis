@@ -11,10 +11,11 @@ module.exports = function() {
     // var lookingAtCommentsForHull = false;
     // var userVotedCb = $.Callbacks();
     var voteCounter = 0;
+    var clusterHasBeenClicked = false;
 
     eb.on(eb.exitConv, cleanup);
     eb.on(eb.vote, onVote);
-    eb.on(eb.clusterClicked, analyzeViewPopover)
+    eb.on(eb.clusterClicked, onClusterClicked)
 
     function onVote() {
         voteCounter++;
@@ -33,7 +34,7 @@ module.exports = function() {
             }
             break;
           case 6:
-            if(hintHandlers.shadedGroup && !shown.shadedGroup){
+            if(hintHandlers.shadedGroup && !shown.shadedGroup && !clusterHasBeenClicked){
               hintHandlers.shadedGroup();
               shown.shadedGroup = true;
             }
@@ -43,7 +44,9 @@ module.exports = function() {
         }
     }
 
-    function analyzeViewPopover() {
+
+    function onClusterClicked() {
+      clusterHasBeenClicked = true;
       if(hintHandlers.analyzePopover && !shown.analyzePopover){
         hintHandlers.analyzePopover();
         shown.analyzePopover = true;
