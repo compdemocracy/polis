@@ -819,10 +819,11 @@ function upsertNode(updatedNodes, newClusters) {
     .classed("bktv", true)
     .attr("cx", 0)
     .attr("cy", 0)
-    .style("fill-opacity", opacityOuter)
-    .style("fill", chooseFill)
-    // .style("stroke", colorSelfOutline)
-    // .style("stroke-width", 1)
+    .style("fill", "rgba(0,0,0,0)")
+    .filter(isSelf)
+        .style("stroke", colorSelf)
+        .style("stroke-width", 1)
+        .style("opacity", opacityOuter)
     ;
 
   // INNER SCALE-CHANGING SHAPES
