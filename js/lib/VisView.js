@@ -1266,6 +1266,16 @@ function setupBlueDotHelpText(self) {
 }
 
 
+eb.on(eb.vote, function() {
+  var update = visualization.selectAll(".node").filter(isSelf);
+  update
+    .attr("opacity", 0)
+    .transition(10)
+      .delay(10)
+      .attr("opacity", 1);
+
+});
+
 // setTimeout(selectBackground, 1);
 
 return {

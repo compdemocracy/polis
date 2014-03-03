@@ -274,7 +274,9 @@ module.exports =  View.extend({
       // });
       var updateMyProjectionAfterAddingVote = _.throttle(function() {
         console.log("votesByMe.add");
-        serverClient.updateMyProjection(that.votesByMe);
+        setTimeout(function() {
+          serverClient.updateMyProjection(that.votesByMe);
+        }, 300); // wait a bit to let the dot blink before moving it.
       }, 200);
       this.votesByMe.on("add", updateMyProjectionAfterAddingVote);
 
