@@ -22,5 +22,17 @@ module.exports = View.extend({
           }
         }, 1);
       }
+    },
+    sendShareLinkToEmail: function(){
+      //https://www.dropbox.com/s/f8ed1vtpim28aej/Screenshot%202014-03-02%2023.29.31.png 
+      //owner was undefined on the client side, so going to server to make requests for that information and fire mailgun
+      //if oid is on the client side, can send that instead of zid
+      $.ajax({
+        type: "POST",
+        url: "/v3/sendCreatedLinkToEmail",
+        data: this.model.attributes.zid
+      }).done(function(){
+        console.log('sent!')
+      })
     }
   });

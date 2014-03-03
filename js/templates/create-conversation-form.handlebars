@@ -27,11 +27,11 @@
 		<form class="well conversationsForm" role="form">
 			<div class="control-group">
 				<label for="topic"> Topic </label>
-				<input style="width: 90%" id="topic" type="text" name="topic" placeholder="Topic - e.g. Legalization" value="{{topic}}" class="form-control">	
+				<input style="width: 90%" maxlength="35" id="topic" type="text" name="topic" placeholder="Topic - e.g. Legalization" value="{{topic}}" class="form-control">	
 			</div>
 			<div class="control-group">
 				<label for="description"> Description & Question</label>
-				<textarea style="width: 90%" type="text" class="form-control" name="description" placeholder="Description & Question - e.g. Washington and other US states are legalizing, or at least decriminalizing, marijuana. Should this trend continue? Should it stop at marijuana, or should legalization extend to other presently illegal drugs as well?" rows="7">{{description}}</textarea>
+				<textarea style="width: 90%" type="text" maxlength="300" class="form-control" name="description" placeholder="Description & Question - e.g. Washington and other US states are legalizing, or at least decriminalizing, marijuana. Should this trend continue? Should it stop at marijuana, or should legalization extend to other presently illegal drugs as well?" rows="7">{{description}}</textarea>
 			</div>
 			
 		  <div class="checkbox">
