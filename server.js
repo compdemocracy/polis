@@ -435,11 +435,11 @@ function auth(assigner, isOptional) {
             if (isOptional) {
                 next();
             } else {
-                next(connectError(400, "polis_err_auth_token_not_supplied"));
+                next(connectError(401, "polis_err_auth_token_not_supplied"));
             }
             return;
         }
-        //if (req.body.uid) { next(400); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
+        //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
         getUserInfoForSessionToken(token, res, function(err, uid) {
 
     console.log("got uid");
@@ -447,7 +447,7 @@ function auth(assigner, isOptional) {
             if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
 
             if ( req.body.uid && req.body.uid !== uid) {
-                next(connectError(400, "polis_err_auth_mismatch_uid"));
+                next(connectError(401, "polis_err_auth_mismatch_uid"));
                 return;
             }
             assigner(req, "uid", Number(uid));
