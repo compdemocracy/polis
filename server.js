@@ -1340,6 +1340,12 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
     });
 }
 
+function sendCreatedLinkToEmail(){
+
+    //todo move stuff out of the post sendConversationLinkToEmail POST and into functions 
+
+}
+
 app.get("/v3/participants",
     moveToBody,
     authOptional(assignToP),
@@ -2533,6 +2539,39 @@ function(req, res) {
             });
     }
 });
+
+app.post('/v3/sendCreatedLinkToEmail', 
+    auth(assignToP),
+function(req, res){
+    client.query("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
+        if (err) { fail(res, 500, "polis_err_get_email_db", err); return; }
+        console.log(results.rows[0].email)
+        var server = devMode ? "http://localhost:5000" : "https://www.pol.is";
+        var body = "" +
+            "Hi " + results.rows[0].hname + ",\n" +
+            "\n" +
+            "Here's the link to the conversation you just created \n" +
+            "\n" +
+            server + "/ TODO \n" +
+            "\n" +
+            "Thank you for using Polis\n";
+
+        mailgun.sendText(
+            'Polis Support <noreply@pol.is>',
+            [results.rows[0].email],
+            "Polis Password Reset",
+            body,
+            'noreply@polis.io', {},
+            function(err) {
+                if (err) {
+                    console.error('mailgun send error: ' + err);
+                    fail(res, 500, "mailgun_error", err);
+                }
+            }
+        );
+    })
+    res.status(200)
+})
 
 
 app.put('/v3/users',
