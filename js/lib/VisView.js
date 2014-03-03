@@ -914,9 +914,12 @@ function selectComment(tid) {
     }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
     });
-    d3CommentList
-        .style("background-color", chooseCommentFill)
-        .style("color", chooseCommentTextColor);
+
+    if (d3CommentList) {
+        d3CommentList
+            .style("background-color", chooseCommentFill)
+            .style("color", chooseCommentTextColor);
+    }
 
 }
 
