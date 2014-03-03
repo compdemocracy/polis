@@ -614,6 +614,14 @@ function chooseDownArrowPath(d) {
 function chooseCircleRadius(d) {
     return Math.sqrt(d.count) * baseNodeRadius * 0.8;
 }
+function chooseCircleRadiusOuter(d) {
+    var r = chooseCircleRadius(d);
+    if (isSelf(d)) {
+        r *= 2;
+    }
+    return r;
+}
+
 
 
 
@@ -1073,7 +1081,7 @@ function updateNodes() {
 
   var upCircleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
       .style("display", chooseDisplayForCircle)
-      .attr("r", chooseCircleRadius)
+      .attr("r", chooseCircleRadiusOuter)
       // .style("fill", chooseFill)
       ;
   var upCircleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
