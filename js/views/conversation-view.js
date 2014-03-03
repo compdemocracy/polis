@@ -52,7 +52,7 @@ module.exports =  View.extend({
       // }
   },
   onAnalyzeTabPopulated: function() {
-    this.$('li.query_result_item').first().trigger('click');    
+    $('li.query_result_item').first().trigger('click');
   },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
