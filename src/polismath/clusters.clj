@@ -51,7 +51,7 @@
 
 (defn cluster-step [data-iter k clusters]
   "Performs one step of an interative K-means:
-  data-iter: pairs of (pid ptpt-row)
+  data-iter: seq of pairs (id, position), eg (pid, person-rating-row)
   clusters: array of clusters"
   (->> data-iter
     ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
@@ -87,7 +87,10 @@
 
 
 (defn repness [in-part out-part]
+  "Computes the representativeness of each of the columns for the split defined by in-part out-part,
+  each of which is a named-matrix of votes (with the same columns) which might contain nils."
   (letfn [(frac-up [votes]
+            "Computes the fraction of votes in arg that are positive and not zero, negative or nil."
             (let [[up not-up]
                     (reduce
                       (fn [counts vote]
@@ -95,6 +98,7 @@
                           1       (assoc counts 0 (inc (first counts)))
                           (0 -1)  (assoc counts 1 (inc (second counts)))
                                   counts))
+                      ; Start with psuedocount of 1, 1
                       [1 1] votes)]
               (/ up not-up)))]
     (let [in-cols  (columns (:matrix in-part))

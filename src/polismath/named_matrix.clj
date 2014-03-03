@@ -4,7 +4,8 @@
 
 (defn named-matrix [& [rows cols matrix]]
   "Convenience function for creating a named matrix (nmat). Shape of named matrix is {:rows :cols :matrix}.
-  Might reimplement as a record in the future"
+  Values of :rows and :cols are in same order as corresponding values (votes) in matrix and thus let us find a
+  position within the matrix based on rowname and colname."
   (let [rows (or rows [])
         cols (or cols [])
         matrix (or matrix [[]])]
