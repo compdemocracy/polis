@@ -35,7 +35,7 @@
 
 
 (defn mongo-upsert-results [zid timestamp new-results ]
-  (monger.collection/update "polismath_test_feb18"
+  (monger.collection/update "polismath_test_mar02"
     {
       :zid zid
       ; "$gt" 92839182312
