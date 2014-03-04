@@ -298,9 +298,9 @@ module.exports =  View.extend({
       this.commentForm.updateCollection();
 
     // Clicking on the background dismisses the popovers.
-    // this.$el.on("click", function() {
-    //   that.destroyPopovers();
-    // });
+    this.$el.on("click", function() {
+      that.destroyPopovers();
+    });
 
     eb.on("clusterClicked", onClusterTapped);
     eb.on("queryResultsRendered", _.bind(this.onAnalyzeTabPopulated, this));
