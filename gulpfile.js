@@ -71,11 +71,13 @@ gulp.task('index', [
     s = s.pipe(template({
       basepath: '',
       d3Filename: 'd3.js',
+      r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       basepath: 'https://s3.amazonaws.com/www.polis.io',
       d3Filename: 'd3.min.js',
+      r2d3Filename: 'r2d3.min.js',
     }));
   }
   return s.pipe(gulp.dest(destRoot));
@@ -252,8 +254,10 @@ gulp.task("scriptsOther", function() {
   var files = [];
   if (devMode) {
     files.push('bower_components/d3/d3.js');
+    files.push('bower_components/r2d3/r2d3.js');
   } else {
     files.push('bower_components/d3/d3.min.js');
+    files.push('bower_components/r2d3/r2d3.min.js');
   }
   var s = gulp.src(files);
   if (!devMode) {
