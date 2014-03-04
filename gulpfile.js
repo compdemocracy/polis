@@ -150,6 +150,10 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
         debug : false, //!gulp.env.production
         // transform: ['hbsfy'],
         shim : {
+          jquery: {
+            path : devMode ? 'js/lib/jquery.js' : 'js/lib/jquery.min.js',
+            exports: '$',
+          },
           //TODO 'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
           handlebars: {
             path : 'bower_components/handlebars/handlebars.runtime.js', //original handlebars
