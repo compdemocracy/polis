@@ -44,7 +44,7 @@ module.exports = View.extend({
         }, function(err) {
           release();
           console.dir(arguments);
-          alert(err.responseText);
+          console.error(err.responseText);
         });
       });
     }

@@ -28,13 +28,13 @@ module.exports = View.extend({
           that.trigger("authenticated");
         }, function(err) {
             release();
-            alert("login was unsuccessful");
+            alert("Oops! Login was unsuccessful. Please check to make sure you are online, and that your username and password are correct.");
         });
       });
     },
     "invalid": function(errors){
       console.log("invalid form input" + errors[0].name);
-      console.log(errors);
+      console.error(errors);
      //_.each(errors, function(err){
         $("input[name=\""+errors[0].name+"\"]").closest("label").append(errors[0].message); // relationship between each input and error name
         //'input[name="firstName"]'

@@ -122,7 +122,7 @@ module.exports =  View.extend({
       vis = new VisView({
           getPid: function() {
             if (!_.isId(pid)) {
-//              alert("bad pid: " + pid);
+              //alert("bad pid: " + pid);
             }
             return pid;
           },
@@ -229,7 +229,7 @@ module.exports =  View.extend({
         serverClient.queryParticipantsByMetadata(enabledAnswers).then(
           vis.emphasizeParticipants,
           function(err) {
-            alert(err);
+            console.error(err);
           });
       });
 

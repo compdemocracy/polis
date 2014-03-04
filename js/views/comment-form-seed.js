@@ -27,8 +27,9 @@ module.exports = Thorax.CollectionView.extend({
     comment.save().then(function() {
       that.trigger("commentSubmitted"); // view.trigger
       that.updateCollection();
-    }, function() {
-      alert("failed to send");
+    }, function(err) {
+      console.error("failed to send comment");
+      console.error(err)
     });
   },
   updateCollection: function() {

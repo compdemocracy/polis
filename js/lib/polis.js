@@ -511,7 +511,7 @@ module.exports = function(params) {
     // }
 
 function clientSideBaseCluster(things, N) {
-    if (!N) { alert("need N"); }
+    if (!N) { console.error("need N"); }
     if (!means) {
         means = shuffleWithSeed(things, 0.5);
         means = _.first(means, N);
