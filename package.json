@@ -36,6 +36,7 @@
     "sendgrid": "~0.4.4",
     "simple-lru-cache": "0.0.1",
     "sql": "~0.34.0",
-    "intercom.io": "0.0.5"
+    "intercom.io": "0.0.5",
+    "es6-promise": "~0.1.1"
   }
 }

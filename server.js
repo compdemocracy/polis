@@ -24,6 +24,7 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
 var http = require('http'),
     httpProxy = require('http-proxy'),
+    Promise = require('es6-promise').Promise,
     express = require('express'),
     app = express(),
     sql = require("sql"),
@@ -1983,6 +1984,39 @@ function(req, res) {
     });
 });
 
+function verifyMetadataAnswersExistForEachQuestion(zid) {
+  var errorcode = "polis_err_missing_metadata_answers";
+  return new Promise(function(resolve, reject) {
+    client.query("select pmqid from participant_metadata_questions where zid = ($1);", [zid], function(err, results) {
+        if (err) {reject(err); return }
+        if (!results.rows || !results.rows.length) {
+            resolve();
+            return;
+        }
+        var pmqids = results.rows.map(function(row) { return Number(row.pmqid); });
+        client.query(
+            "select pmaid, pmqid from participant_metadata_answers where pmqid in ("+pmqids.join(",")+") and alive = TRUE and zid = ($1);",
+            [zid],
+            function(err, results) {
+                if (err) { reject(err); return }
+                if (!results.rows || !results.rows.length) {
+                    reject(errorcode);
+                    return;
+                }
+                var questions = _.reduce(pmqids, function(o, pmqid) { o[pmqid] = 1; return o; }, {});
+                results.rows.forEach(function(row) {
+                    delete questions[row.pmqid];
+                });
+                if (Object.keys(questions).length) {
+                    reject(errorcode);
+                } else {
+                    resolve();
+                }
+            });
+    });
+  });
+}
+
 app.put('/v3/conversations/:zid',
     moveToBody,
     auth(assignToP),
@@ -1993,7 +2027,15 @@ app.put('/v3/conversations/:zid',
     want('is_public', getBool, assignToP),
     want('topic', getOptionalStringLimitLength(1000), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP),
+    want('verifyMeta', getBool, assignToP),
 function(req, res){
+
+    var verifyMetaPromise;
+    if (req.p.verifyMeta) {
+        verifyMetaPromise = verifyMetadataAnswersExistForEachQuestion(req.p.zid);
+    } else {
+        verifyMetaPromise = Promise.resolve();
+    }
 
     var fields = {};
     if (!_.isUndefined(req.p.is_active)) {
@@ -2023,16 +2065,20 @@ function(req, res){
         ).and(
             sql_conversations.owner.equals(req.p.uid)
         );
-    client.query(
-        q.toString(),
-        function(err, result){
-            if (err) {
-                fail(res, 500, "polis_err_update_conversation", err);
-                return;
+    verifyMetaPromise.then(function() {
+        client.query(
+            q.toString(),
+            function(err, result){
+                if (err) {
+                    fail(res, 500, "polis_err_update_conversation", err);
+                    return;
+                }
+                res.status(200).json({});
             }
-            res.status(200).json({});
-        }
-    );
+        );
+    }, function(err) {
+        res.status(500).json(err);
+    });
 });
 
 app.delete('/v3/metadata/questions/:pmqid',
