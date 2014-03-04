@@ -15,6 +15,7 @@ module.exports = View.extend({
         $(event.target).select();
       },
       "click :submit": function(event) {
+        this.clearFailMessage();
         var formAction = $(event.target).val();
         $(event.target).parents("form:first").attr("data-action", formAction);
       },
@@ -43,15 +44,28 @@ module.exports = View.extend({
               break;
             }
           }
+          attrs.verifyMeta = true; // make sure there are answers for each question.
           this.model.save(attrs).then(function(data) {
             release();
             that.trigger("done");
           }, function(err) {
+            var err = err.responseJSON;
             release();
-            alert("unable to save");
+            if (err === "polis_err_missing_metadata_answers") {
+              that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
+            } else {
+              that.onFail("unable to save");
+            }
           });
         });
       }
+    },
+
+    onFail: function(message) {
+      $('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">"+message+"</div>");
+    },
+    clearFailMessage: function() {
+      $('#errorDiv').html("");
     },
     initialize: function(options) {
 
