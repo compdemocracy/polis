@@ -93,7 +93,7 @@ module.exports = function(params) {
         var dfd = $.Deferred();
         var params = {
             lastServerToken: (new Date(0)).getTime(),
-            not_pid: getPid(), // don't want to see own coments
+            // not_pid: getPid(), // don't want to see own coments
             not_voted_by_pid: getPid(),
             zid: zid
             //?
@@ -859,7 +859,7 @@ function clientSideBaseCluster(things, N) {
     function getComments(params) {
         params = $.extend({
             zid: zid,
-            not_pid: getPid() // don't want to see own coments
+            // not_pid: getPid() // don't want to see own coments
         }, params);
         return polisGet(commentsPath, params);
     }
