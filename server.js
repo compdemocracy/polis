@@ -2588,35 +2588,44 @@ function(req, res) {
 
 app.post('/v3/sendCreatedLinkToEmail', 
     auth(assignToP),
+    need('zid', getInt, assignToP),
 function(req, res){
+    console.log(req.p)
     client.query("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
         if (err) { fail(res, 500, "polis_err_get_email_db", err); return; }
-        console.log(results.rows[0].email)
-        var server = devMode ? "http://localhost:5000" : "https://www.pol.is";
-        var body = "" +
-            "Hi " + results.rows[0].hname + ",\n" +
-            "\n" +
-            "Here's the link to the conversation you just created \n" +
-            "\n" +
-            server + "/ TODO \n" +
-            "\n" +
-            "Thank you for using Polis\n";
-
-        mailgun.sendText(
-            'Polis Support <noreply@pol.is>',
-            [results.rows[0].email],
-            "Polis Password Reset",
-            body,
-            'noreply@polis.io', {},
-            function(err) {
-                if (err) {
-                    console.error('mailgun send error: ' + err);
-                    fail(res, 500, "mailgun_error", err);
+        var email = results.rows[0].email;
+        var fullname = results.rows[0].hname;
+        client.query("select * from zinvites where zid = $1", [req.p.zid], function(err, results){
+            var zinvite = results.rows[0].zinvite;
+            var server = devMode ? "http://localhost:5000" : "https://www.pol.is";
+            var createdLink = server + "/#"+ req.p.zid +"/"+ zinvite;
+            var body = "" +
+                "Hi " + fullname + ",\n" +
+                "\n" +
+                "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation: \n" +
+                "\n" +
+                createdLink + "\n" +
+                "\n" +
+                "With gratitude,\n" + 
+                "\n" + 
+                "The team at pol.is";
+    
+            mailgun.sendText(
+                'pol.is <noreply@pol.is>',
+                email,
+                "Link: " + createdLink,
+                body,
+                'noreply@polis.io', {},
+                function(err) {
+                    if (err) {
+                        console.error('mailgun send error: ' + err);
+                        fail(res, 500, "mailgun_error", err);
+                    }
+                    res.status(200).json({})
                 }
-            }
-        );
+            );
+        })
     })
-    res.status(200)
 })
 
 
