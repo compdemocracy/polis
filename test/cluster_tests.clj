@@ -3,6 +3,10 @@
             [polismath.named-matrix :refer :all]
             [polismath.clusters :refer :all]))
 
+(defn size-correct [clusters n]
+  (is (= n (count clusters))))
+
+
 (def real-nmat (named-matrix
   ["p1" "p2" "p3" "p4" "p5" "p6"]
   ["c1" "c2" "c3" "c4"]
@@ -12,10 +16,6 @@
    [ 1  0  1  0]
    [-1 -1  0  1]
    [-1  1  0  1]]))
-
-
-(defn size-correct [clusters n]
-  (is (= n (count clusters))))
 
 
 ; Initialization test
