@@ -66,6 +66,7 @@ module.exports = function(params) {
     var participantCount = 0;
     var userInfoCache = [];
     var bidToPid = [];
+    var pidToBidCache = null;
 
     var pollingScheduledCallbacks = [];
 
