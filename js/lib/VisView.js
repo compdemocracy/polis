@@ -749,7 +749,7 @@ function chooseDownArrowPath(d) {
 
 
 function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
-    scale = 1; // TODO !!!!!!!!!!!!!!!!!!!!!! stop setting to 1.
+    console.log(scale);
     var left = -baseNodeRadius * scale;
     var right = baseNodeRadius * scale;
     // equilateral triangle
@@ -762,7 +762,9 @@ function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
     right += originX;
     left += originX;
 
-    var f = Math.floor;
+    var f = function(x) {
+        return Math.floor(x*10)/10;
+    };
 
     var leftBottom = f(left) + " " + f(bottom);
     var rightBottom = f(right) + " " + f(bottom);
