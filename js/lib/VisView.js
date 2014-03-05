@@ -92,7 +92,7 @@ var colorNoVote = colorPass;
 // var colorPushOutline = d3.rgb(colorPush).darker().toString();
 
 function useCarousel() {
-    return display.xs();
+    return !isIE8 && display.xs();
 }
 
 // Cached results of tunalbes - set during init
