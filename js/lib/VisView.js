@@ -447,7 +447,9 @@ function setClusterActive(clusterId) {
       ;
     
     // duplicated at 938457938475438975
-    main_layer.selectAll(".active").classed("active", false);
+    if (!isIE8) {
+        main_layer.selectAll(".active").classed("active", false);
+    }
 
     // d3.select(this)
     //     .style("fill","lightgreen")
@@ -458,18 +460,21 @@ function setClusterActive(clusterId) {
 
 function updateHullColors() {
     if (selectedCluster !== false) {
-       d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
-       for (var i = 0; i < raphaelHulls.length; i++) {
-            if (i === selectedCluster) {
-              raphaelHulls[i]
-                .attr('fill', hull_selected_color)
-                .attr('stroke', hull_selected_color);
-            } else {
-              raphaelHulls[i]
-                .attr('fill', hull_unselected_color)
-                .attr('stroke', hull_unselected_color);
+       if (isIE8) {
+           for (var i = 0; i < raphaelHulls.length; i++) {
+                if (i === selectedCluster) {
+                  raphaelHulls[i]
+                    .attr('fill', hull_selected_color)
+                    .attr('stroke', hull_selected_color);
+                } else {
+                  raphaelHulls[i]
+                    .attr('fill', hull_unselected_color)
+                    .attr('stroke', hull_unselected_color);
+                }
             }
-        }
+       } else {
+           d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
+       }
     }
 }
 
@@ -515,7 +520,7 @@ if (isIE8) {
         .attr('stroke-linejoin','round')
         .attr('stroke', hull_unselected_color)
         .attr('stroke-linecap', 'round')
-        .mousedown(function(i) {
+        .click(function(i) {
             return function() {
                 return onClusterClicked({
                     hullId: i
@@ -574,7 +579,6 @@ function updateHulls() {
     }
     // update hulls
     for (var i = 0; i < hulls.length; i++) {
-        var d3Hull = d3Hulls[i];
         var hull = hulls[i];
         if (hull.length == 1) {
             hull.push([
@@ -591,11 +595,14 @@ function updateHulls() {
         var points = d3.geom.hull(hull);
         if (points.length) {
             points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
-            d3Hull.datum(points).attr("d", makeHullShape(points));
-
-            points.unshift();
-            var _transformed = Raphael.transformPath(makeHullShape(points), 'T0,0');
-            raphaelHulls[i].animate({path: _transformed}, 0);
+            if (isIE8) {
+                points.unshift();
+                var _transformed = Raphael.transformPath(makeHullShape(points), 'T0,0');
+                raphaelHulls[i].animate({path: _transformed}, 0);
+            } else {
+                var d3Hull = d3Hulls[i];
+                d3Hull.datum(points).attr("d", makeHullShape(points));
+            }
         }
     }
     updateHullColors();
@@ -624,11 +631,7 @@ force.on("tick", function(e) {
             var bucket = rNodes[i];
             var x = node.x;
             var y = node.y;
-
-            // console.log(x, y);
-            // bucket.set.transform("T" + x + ","  + y);
             bucket.transform(x, y);
-            // bucket.setUps(node.ups);
           }
       } else {
           main_layer.selectAll(groupTag)
@@ -1150,6 +1153,7 @@ function selectComment(tid) {
             //     }
             // }
         }
+        updateNodeVoteCounts();
         updateNodes();
         // visualization.selectAll(groupTag)
         //   .attr("transform", chooseTransform)
@@ -1305,6 +1309,18 @@ function unhoverAll() {
   updateNodes();
 }
 
+function updateNodeVoteCounts() {
+
+    if (isIE8) {
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var bucket = rNodes[i];
+            bucket.setUps(node.ups);
+            bucket.setDowns(node.downs);
+        }
+    }
+}
+
 function updateNodes() {
   
 
@@ -1321,8 +1337,7 @@ function updateNodes() {
         }
             
         bucket.scaleCircle(1); // sets the inner circle radius
-        bucket.setUps(node.ups);
-        bucket.setDowns(node.downs);
+
         if (shouldDisplayCircle(node)) {
             bucket.circle.show();
             bucket.circleOuter.show();
@@ -1407,7 +1422,10 @@ function resetSelectedComment() {
 
 function resetSelection() {
   console.log("resetSelection");
-  visualization.selectAll(".active").classed("active", false);
+  if (isIE8) {
+  } else {
+      visualization.selectAll(".active").classed("active", false);
+  }
   selectedCluster = false;
   // visualization.transition().duration(750).attr("transform", "");
   if (d3CommentList) {
@@ -1560,13 +1578,15 @@ function setupBlueDotHelpText(self) {
 
 
 eb.on(eb.vote, function() {
-  var update = visualization.selectAll(".node").filter(isSelf);
-  update
-    .attr("opacity", 0)
-    .transition(10)
-      .delay(10)
-      .attr("opacity", 1);
-
+    if (isIE8) {
+    } else {
+      var update = visualization.selectAll(".node").filter(isSelf);
+      update
+        .attr("opacity", 0)
+        .transition(10)
+          .delay(10)
+          .attr("opacity", 1);
+    }
 });
 
 // setTimeout(selectBackground, 1);
