@@ -78,9 +78,18 @@ var isIE8 = navigator.userAgent.match(/MSIE 8/);
 // }
 
 // Tunables
+
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
+var colorPull = "#2ecc71"; // EMERALD
+var colorPush = "#e74c3c"; // ALIZARIN
+var colorPass = "#BDC3C7"; // SILVER
+var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
+var colorNoVote = colorPass;
+// var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
+// var colorPullOutline = d3.rgb(colorPull).darker().toString();
+// var colorPushOutline = d3.rgb(colorPush).darker().toString();
 
 function useCarousel() {
     return display.xs();
@@ -159,11 +168,92 @@ if (isIE8) {
     };
 }
 
+var paper = new Raphael($(el_raphaelSelector)[0], dimensions.width, dimensions.height);
+
+var MAX_BUCKETS = 60;
+var rNodes = [];
+var rBuckets = [];
+
+function makeBucketParts(i) {
+    var circleOuter = paper.circle(0,0,0);
+    circleOuter.attr('fill', colorNoVote);
+    circleOuter.attr('fill-opacity', 0.2);
+    circleOuter.attr('stroke-width', 0);
+
+    var circle  = paper.circle(0,0,0);
+    circle.attr('fill', colorNoVote);
+    circle.attr('stroke-width', 0);
+
+    // colorSelf
+    var up = paper.path();
+    up.attr('fill', colorPull);
+    up.attr('stroke-width', 0);
+
+    var down = paper.path();
+    down.attr('fill', colorPush);
+    down.attr('stroke-width', 0);
 
 
+        // .toFront();
+    var set = paper.set();
+    set.push(circle);
+    set.push(circleOuter);
+    set.push(up);
+    set.push(down);
+    var bucket = {
+        radius: 0,
+        x: 0,
+        y: 0,
+        circle: circle,
+        circleOuter: circleOuter,
+        up: up,
+        down: down,
+        transform: function(x, y) {
+            this.x = x;
+            this.y = y;
+            this.set.transform("");
+            this.set.transform("T" + x + "," + y);
+
+            // this.circle.attr("cx", x);
+            // this.circle.attr("cy", y);
+
+            // this.circleOuter.attr("cx", x);
+            // this.circleOuter.attr("cy", y);
+
+        },
+        scaleCircle: function(s) {
+            this.circle.attr("r", this.radius * s);
+        },
+        setUps: function(ups) {
+            var path = chooseUpArrowPath2(ups, 0, 0);
+            var _transformed = Raphael.transformPath(path,
+                'T0,0'); // TODO needed?
+            this.up.animate({path: _transformed}, 0);
+        },
+
+        setDowns: function(downs) {
+            var path = chooseDownArrowPath2(downs, 0, 0);
+            var _transformed = Raphael.transformPath(path,
+                'T0,0'); // TODO needed?
+            this.down.animate({path: _transformed}, 0);
+        },
+        // arrowUp: arrowUp,
+        // arrowUpOuter: arrowUpOuter,
+        // arrowDown: arrowDown,
+        // arrowDownOuter: arrowDownOuter,        
+        set: set
+    };
+
+    return bucket;
+}
+
+for (var i = 0; i < MAX_BUCKETS; i++) {
+    var bucket = makeBucketParts();
+    rNodes.push(bucket);
+}
 
 $(el_selector)
-  .append("<svg>" +
+  .append("<svg xmlns='http://www.w3.org/2000/svg'>" +
     "<defs>" +
         "<marker class='helpArrow' id='ArrowTip'" +
                 "viewBox='0 0 10 10'" +
@@ -525,8 +615,8 @@ force.on("tick", function(e) {
 
         // console.log(x, y);
         // bucket.set.transform("T" + x + ","  + y);
-        bucket.setX(x);
-        bucket.setY(y);
+        bucket.transform(x, y);
+        // bucket.setUps(node.ups);
       }
 
 
@@ -544,14 +634,6 @@ force.on("tick", function(e) {
 //     }
 //     return r;
 // }
-var colorPull = "#2ecc71"; // EMERALD
-var colorPush = "#e74c3c"; // ALIZARIN
-var colorPass = "#BDC3C7"; // SILVER
-var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
-var colorNoVote = colorPass;
-// var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
-// var colorPullOutline = d3.rgb(colorPull).darker().toString();
-// var colorPushOutline = d3.rgb(colorPush).darker().toString();
 
 
 function chooseDisplayForCircle(d) {
@@ -664,6 +746,46 @@ function chooseDownArrowPath(d) {
     var scale = Math.sqrt(d.downs || 0);
     return makeArrowPoints(scale, false);
 }
+
+
+function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
+    scale = 1; // TODO !!!!!!!!!!!!!!!!!!!!!! stop setting to 1.
+    var left = -baseNodeRadius * scale;
+    var right = baseNodeRadius * scale;
+    // equilateral triangle
+    var top = Math.sqrt(3 * right * right);
+    if (shouldFlipY) {
+        top *= -1;
+    }
+    top += originY;
+    var bottom = originY;
+    right += originX;
+    left += originX;
+
+    var f = Math.floor;
+
+    var leftBottom = f(left) + " " + f(bottom);
+    var rightBottom = f(right) + " " + f(bottom);
+    var center = f(originX) + " " + f(top);
+    var s =  "M " + leftBottom + " L " + rightBottom + " L " + center + " L " + leftBottom + " Z";
+    return s;
+}
+
+function chooseUpArrowPath2(ups, originX, originY) {
+    var scale = Math.sqrt(ups || 0);
+    return makeArrowPoints2(scale, true, originX, originY);
+}
+
+function chooseDownArrowPath2(downs, originX, originY) {
+    var scale = Math.sqrt(downs || 0);
+    return makeArrowPoints2(scale, false, originX, originY);
+}
+
+
+
+
+
+
 function chooseCircleRadius(d) {
     return Math.sqrt(d.count) * baseNodeRadius * 0.8;
 }
@@ -1160,6 +1282,8 @@ function updateNodes() {
     bucket.radius = r;
     bucket.circleOuter.attr("r", r);
     bucket.scaleCircle(1); // sets the inner circle radius
+    bucket.setUps(node.ups);
+    bucket.setDowns(node.downs);
   }
   // displayHelpItem("foo");
 
