@@ -504,7 +504,7 @@ d3Hulls = _.times(9, function(i) {
     ;
 });
 var hull_unselected_color = '#f6f6f6';
-var hull_selected_color = '#99C3FF';
+var hull_selected_color = '#ebf3ff';
 raphaelHulls = _.times(9, function(i) {
     var hull = paper.path()
         .attr('fill', hull_unselected_color)
@@ -635,23 +635,30 @@ force.on("tick", function(e) {
 //     return r;
 // }
 
-
-function chooseDisplayForCircle(d) {
+function shouldDisplayCircle(d) {
     // Hide the circle so we can show the up/down arrows
     if (selectedTid >= 0 &&
         !isSelf(d) // for now, always show circle - TODO fix up/down arrow for blue dot
         ) {
-        return "none";
+        return false;
     }
-    return "inherit";
+    return true;
+}
+
+function chooseDisplayForCircle(d) {
+    return shouldDisplayCircle(d) ? "inherit" : "none";
+}
+
+function shouldDisplayArrows(d) {
+    // Hide the circle so we can show the up/down arrows
+    if (selectedTid >= 0) {
+        return true;
+    }
+    return false;
 }
 
 function chooseDisplayForArrows(d) {
-    // Hide the circle so we can show the up/down arrows
-    if (selectedTid >= 0) {
-        return "inherit";
-    }
-    return "none";
+    return shouldDisplayArrows(d) ? "inherit" : "none";
 }
 
 function chooseFill(d) {
@@ -749,7 +756,6 @@ function chooseDownArrowPath(d) {
 
 
 function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
-    console.log(scale);
     var left = -baseNodeRadius * scale;
     var right = baseNodeRadius * scale;
     // equilateral triangle
@@ -1286,6 +1292,38 @@ function updateNodes() {
     bucket.scaleCircle(1); // sets the inner circle radius
     bucket.setUps(node.ups);
     bucket.setDowns(node.downs);
+    if (shouldDisplayCircle(node)) {
+        bucket.circle.show();
+        bucket.circleOuter.show();
+    } else {
+        bucket.circle.hide();
+        bucket.circleOuter.hide();
+    }
+    if (shouldDisplayArrows(node)) {
+        bucket.up.show();
+        bucket.down.show();        
+    } else {
+        bucket.up.hide();
+        bucket.down.hide();
+    }
+    if (isSelf(node)) {
+        bucket.circle.attr("fill", colorSelf);
+
+        bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
+        bucket.circleOuter.attr("stroke", colorSelf);
+        bucket.circleOuter.attr("stroke-width", 1);
+        bucket.circleOuter.attr("opacity", 0.5);
+        bucket.circleOuter.attr("r", bucket.radius * 2);
+
+
+    } else {
+        bucket.circle.attr("fill", colorNoVote);
+        bucket.circleOuter.attr("fill", colorNoVote);
+        bucket.circleOuter.attr("stroke", colorSelf);
+        bucket.circleOuter.attr("stroke-width", 0);
+        bucket.circleOuter.attr("opacity", "");
+        bucket.circleOuter.attr("r", bucket.radius);        
+    }
   }
   // displayHelpItem("foo");
 
