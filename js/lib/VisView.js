@@ -350,13 +350,15 @@ $(el_queryResultSelector).hide();
 
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
-force = d3.layout.force()
-    .nodes(nodes)
-    .links([])
-    .friction(0.9) // more like viscosity [0,1], defaults to 0.9
-    .gravity(0)
-    .charge(charge) // slight overlap allowed
-    .size([w, h]);
+if (!isIE8) {
+    force = d3.layout.force()
+        .nodes(nodes)
+        .links([])
+        .friction(0.9) // more like viscosity [0,1], defaults to 0.9
+        .gravity(0)
+        .charge(charge) // slight overlap allowed
+        .size([w, h]);
+}
 
 // function zoomToHull(d){
 
@@ -601,10 +603,11 @@ function updateHulls() {
 
 var hullFps = 20;
 var updateHullsThrottled = _.throttle(updateHulls, 1000/hullFps);
+if (force) {
 force.on("tick", function(e) {
       // Push nodes toward their designated focus.
-      var k = 0.3 * e.alpha;
-      if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
+      var k = 0.1 * e.alpha;
+      // if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
       nodes.forEach(function(o) {
           //o.x = o.targetX;
           //o.y = o.targetY;
@@ -635,6 +638,7 @@ force.on("tick", function(e) {
 
     updateHullsThrottled();
 });
+}
 
 // function chooseRadius(d) {
 //   var r = baseNodeRadius;
@@ -948,7 +952,30 @@ function upsertNode(updatedNodes, newClusters) {
         newNode.y = oldNode.y;
     });
 
-    force.nodes(nodes, key).start();
+
+      if (isIE8) {
+        // don't do force layout, do that stuff here once.
+          nodes.forEach(function(o) {
+              o.x = o.targetX;
+              o.y = o.targetY;
+          });
+          for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var bucket = rNodes[i];
+            var x = node.x;
+            var y = node.y;
+
+            bucket.transform(x, y);
+          }
+          updateHulls();
+      } else {
+        force.nodes(nodes, key).start();        
+      }
+
+
+
+
+
 
     // simplify debugging by looking at a single node
     //nodes = nodes.slice(0, 1);
