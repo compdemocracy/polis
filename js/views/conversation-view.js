@@ -137,7 +137,8 @@ module.exports =  View.extend({
           computeXySpans: Utils.computeXySpans,
           el_queryResultSelector: ".query_results_div",
           el_carouselSelector: "#carousel",
-          el: elSelector
+          el: elSelector,
+          el_raphaelSelector: "#raphael_div",
       });
       serverClient.addPersonUpdateListener(function() {
         vis.upsertNode.apply(vis, arguments);

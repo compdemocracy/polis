@@ -1,6 +1,7 @@
 var eb = require("../eventBus");
 var owl = require("owl");
 var display = require("../util/display");
+var Raphael = require("raphael");
 
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
@@ -10,6 +11,7 @@ var VisView = function(params){
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
 var el_carouselSelector = params.el_carouselSelector;
+var el_raphaelSelector = params.el_raphaelSelector;
 var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
@@ -23,7 +25,7 @@ function getBid(d) {
     return d.bid;
 }
 
-
+var groupTag = "g";
 
 var onSelfAppearsCallbacks = $.Callbacks();
 var selfHasAppeared = false;
@@ -212,13 +214,13 @@ visualization = d3.select(el_selector).select("svg")
       .attr(dimensions)
       // .attr("viewBox", "0 0 " + w + " " + h )
       .classed("visualization", true)
-        .append("g")
+        .append(groupTag)
             // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
 ;
 $(el_selector).on("click", selectBackground);
 
-main_layer = visualization.append("g");
-overlay_layer = visualization.append("g");
+main_layer = visualization.append(groupTag);
+overlay_layer = visualization.append(groupTag);
 
 overlay_layer.append("polyline")
     .classed("helpArrow", true)
@@ -358,6 +360,17 @@ function setClusterActive(clusterId) {
 function updateHullColors() {
     if (selectedCluster !== false) {
        d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
+       for (var i = 0; i < raphaelHulls.length; i++) {
+            if (i === selectedCluster) {
+              raphaelHulls[i]
+                .attr('fill', hull_selected_color)
+                .attr('stroke', hull_selected_color);
+            } else {
+              raphaelHulls[i]
+                .attr('fill', hull_unselected_color)
+                .attr('stroke', hull_unselected_color);
+            }
+        }
     }
 }
 
@@ -399,6 +412,25 @@ d3Hulls = _.times(9, function(i) {
         .on("click", onClusterClicked)  //selection-results:1 handle the click event
         .attr("gid", i)
     ;
+});
+var hull_unselected_color = '#f6f6f6';
+var hull_selected_color = '#99C3FF';
+raphaelHulls = _.times(9, function(i) {
+    var hull = paper.path()
+        .attr('fill', hull_unselected_color)
+        .attr('stroke-width', 24)
+        .attr('stroke-linejoin','round')
+        .attr('stroke', hull_unselected_color)
+        .attr('stroke-linecap', 'round')
+        .mousedown(function(i) {
+            return function() {
+                return onClusterClicked({
+                    hullId: i
+                });
+            };}(i))
+        .toBack();
+
+        return hull;
 });
 
 function updateHulls() {
@@ -452,8 +484,14 @@ function updateHulls() {
                 ]);
         }
         var points = d3.geom.hull(hull);
-        points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
-        d3Hull.datum(points).attr("d", makeHullShape(points));
+        if (points.length) {
+            points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
+            d3Hull.datum(points).attr("d", makeHullShape(points));
+
+            points.unshift();
+            var _transformed = Raphael.transformPath(makeHullShape(points), 'T0,0');
+            raphaelHulls[i].animate({path: _transformed}, 0);
+        }
     }
     updateHullColors();
 }
@@ -473,8 +511,24 @@ force.on("tick", function(e) {
           o.y += (o.targetY - o.y) * k;
       });
 
-      main_layer.selectAll("g")
+      main_layer.selectAll(groupTag)
         .attr("transform", chooseTransformForRoots);
+
+
+
+
+      for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        var bucket = rNodes[i];
+        var x = node.x;
+        var y = node.y;
+
+        // console.log(x, y);
+        // bucket.set.transform("T" + x + ","  + y);
+        bucket.setX(x);
+        bucket.setY(y);
+      }
+
 
     updateHullsThrottled();
     updateHelpArrow();
@@ -773,7 +827,7 @@ function upsertNode(updatedNodes, newClusters) {
 
 // TODO use key to guarantee unique items
 
-  var update = main_layer.selectAll("g")
+  var update = main_layer.selectAll(groupTag)
       .data(nodes, key)
       .sort(sortWithSelfOnTop);
 
@@ -783,7 +837,7 @@ function upsertNode(updatedNodes, newClusters) {
   // ENTER
   var enter = update.enter();
   var g = enter
-    .append("g")
+    .append(groupTag)
       .classed("ptpt", true)
       .classed("node", true)
       .on("click", onParticipantClicked)
@@ -901,7 +955,7 @@ function selectComment(tid) {
             // }
         }
         updateNodes();
-        // visualization.selectAll("g")
+        // visualization.selectAll(groupTag)
         //   .attr("transform", chooseTransform)
         //   .selectAll("path")
         //       .style("fill", chooseFill)
@@ -1051,7 +1105,7 @@ function unhoverAll() {
 }
 
 function updateNodes() {
-  var update = visualization.selectAll("g");
+  var update = visualization.selectAll(groupTag);
 
               var commonUpdate = update.selectAll(".node > .bktv")
                   ;
@@ -1099,9 +1153,17 @@ function updateNodes() {
     setupBlueDotHelpText(update.select(".selfDot"));
   }
 
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    var bucket = rNodes[i];
+    var r = chooseCircleRadius(node);
+    bucket.radius = r;
+    bucket.circleOuter.attr("r", r);
+    bucket.scaleCircle(1); // sets the inner circle radius
+  }
   // displayHelpItem("foo");
 
-  // visualization.selectAll("g")
+  // visualization.selectAll(groupTag)
   //   .attr("transform", chooseTransform)
   //   .selectAll("path")
   //       .style("stroke", chooseStroke)
@@ -1110,6 +1172,7 @@ function updateNodes() {
   //       // .attr("r", chooseRadius)
   //       .attr("d", chooseShape)
   //   ;
+
 }
 
 function resetSelectedComment() {
@@ -1189,6 +1252,18 @@ function emphasizeParticipants(pids) {
                 return "scale(" + ratio + ")";
             }
         }
+        function chooseTransformSubsetRaphael(d) {
+            var bid = d.bid;
+            var ppl = bidToPids[bid];
+            var total = ppl ? ppl.length : 0;
+            var active = hash[bid] || 0;
+            var ratio = active/total;
+            if (ratio > 0.99 || total === 0) {
+                return 1;
+            } else {
+                return ratio;
+            }
+        }
 
         visualization.selectAll(".bktvi")
             // .attr("stroke", chooseStroke)
@@ -1196,6 +1271,14 @@ function emphasizeParticipants(pids) {
             // .attr("stroke-width", chooseStrokeWidth)
             // .attr("fill-opacity", chooseFillOpacity)
         ;
+
+        for (var j = 0; j < nodes.length; j++) {
+            var node = nodes[j];
+            var bucket = rNodes[j];
+            var s = chooseTransformSubsetRaphael(node);
+            bucket.scaleCircle(s);
+            // bucket.circle.scale(s, s)
+        }
     });
 }
 

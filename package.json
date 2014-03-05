@@ -10,7 +10,8 @@
     "jquery": "~1.11",
     "simple-lru-cache": "0.0.1",
     "thorax": "~2.2.1",
-    "underscore": "~1.5.2"
+    "underscore": "~1.5.2",
+    "raphael": "~2.1.0"
   },
   "devDependencies": {
     "assemble-less": "~0.5.3",
