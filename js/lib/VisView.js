@@ -159,16 +159,21 @@ var dimensions = {
     height: "100%"
 };
 
-if (isIE8) {
-    // R2D3 seems to have trouble with percent values.
-    // Hard-coding pixel values for now.
-    dimensions = {
-        width: "500px",
-        height: "300px"
-    };
-}
+// if (isIE8) {
+//     // R2D3 seems to have trouble with percent values.
+//     // Hard-coding pixel values for now.
+//     dimensions = {
+//         width: "500px",
+//         height: "300px"
+//     };
+// }
 
-var paper = new Raphael($(el_raphaelSelector)[0], dimensions.width, dimensions.height);
+
+var paper;
+if (isIE8) {
+    paper = new Raphael($(el_raphaelSelector)[0], dimensions.width, dimensions.height);
+    paper.clear();
+}
 
 var MAX_BUCKETS = 60;
 var rNodes = [];
@@ -247,44 +252,47 @@ function makeBucketParts(i) {
     return bucket;
 }
 
-for (var i = 0; i < MAX_BUCKETS; i++) {
-    var bucket = makeBucketParts();
-    rNodes.push(bucket);
+if (isIE8) {
+    for (var i = 0; i < MAX_BUCKETS; i++) {
+        var bucket = makeBucketParts();
+        rNodes.push(bucket);
+    }
+} else {
+
+    $(el_selector)
+      .append("<svg xmlns='http://www.w3.org/2000/svg'>" +
+        "<defs>" +
+            "<marker class='helpArrow' id='ArrowTip'" +
+                    "viewBox='0 0 10 10'" +
+                    "refX='1' refY='5'" +
+                    "markerWidth='5'" +
+                    "markerHeight='5'" +
+                    "orient='auto'>" +
+                "<path d='M 0 0 L 10 5 L 0 10 z' />" +
+            "</marker>" +
+
+            "<filter id='shadowFilter' height='130%' width='130%'>" +
+              "<feGaussianBlur in='SourceAlpha' stdDeviation='1'/> <!-- stdDeviation is how much to blur -->" +
+              "<feOffset dx='1' dy='1' result='offsetblur'/> <!-- how much to offset -->" +
+              // "<feComponentTransfer xmlns='http://www.w3.org/2000/svg'>" +
+              //   "<feFuncA type='linear' slope='1'/>" +
+              // "</feComponentTransfer>" +
+              "<feMerge> " +
+                "<feMergeNode/> <!-- this contains the offset blurred image -->" +
+                "<feMergeNode in='SourceGraphic'/> <!-- this contains the element that the filter is applied to -->" +
+              "</feMerge>" +
+            "</filter>" +
+
+            "<filter id='ghostFilter'>" +
+              "<feMorphology radius='10' operator='erode'/>" +          
+              "<feGaussianBlur stdDeviation='20'/> <!-- stdDeviation is how much to blur -->" +
+              // "<feMorphology radius='10' in='SourceAlpha' out='edge' operator='dilate'/>" +
+            "</filter>" +
+
+        "</defs>" +
+        "</svg>")
+      ;
 }
-
-$(el_selector)
-  .append("<svg xmlns='http://www.w3.org/2000/svg'>" +
-    "<defs>" +
-        "<marker class='helpArrow' id='ArrowTip'" +
-                "viewBox='0 0 10 10'" +
-                "refX='1' refY='5'" +
-                "markerWidth='5'" +
-                "markerHeight='5'" +
-                "orient='auto'>" +
-            "<path d='M 0 0 L 10 5 L 0 10 z' />" +
-        "</marker>" +
-
-        "<filter id='shadowFilter' height='130%' width='130%'>" +
-          "<feGaussianBlur in='SourceAlpha' stdDeviation='1'/> <!-- stdDeviation is how much to blur -->" +
-          "<feOffset dx='1' dy='1' result='offsetblur'/> <!-- how much to offset -->" +
-          // "<feComponentTransfer xmlns='http://www.w3.org/2000/svg'>" +
-          //   "<feFuncA type='linear' slope='1'/>" +
-          // "</feComponentTransfer>" +
-          "<feMerge> " +
-            "<feMergeNode/> <!-- this contains the offset blurred image -->" +
-            "<feMergeNode in='SourceGraphic'/> <!-- this contains the element that the filter is applied to -->" +
-          "</feMerge>" +
-        "</filter>" +
-
-        "<filter id='ghostFilter'>" +
-          "<feMorphology radius='10' operator='erode'/>" +          
-          "<feGaussianBlur stdDeviation='20'/> <!-- stdDeviation is how much to blur -->" +
-          // "<feMorphology radius='10' in='SourceAlpha' out='edge' operator='dilate'/>" +
-        "</filter>" +
-
-    "</defs>" +
-    "</svg>")
-  ;
 
   setTimeout(function() {
       $(el_selector).append(
@@ -295,28 +303,38 @@ $(el_selector)
       .on("click", onHelpTextClicked);
     }, 100);
 
-//create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
-//to connect viz to responsive layout if desired
-visualization = d3.select(el_selector).select("svg")
-      .call( tip || function(){} ) /* initialize d3-tip */
-      // .attr("width", "100%")
-      // .attr("height", "100%")
-      .attr(dimensions)
-      // .attr("viewBox", "0 0 " + w + " " + h )
-      .classed("visualization", true)
-        .append(groupTag)
-            // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
-;
-$(el_selector).on("click", selectBackground);
+if (isIE8) {
+    $(el_raphaelSelector).on("click", selectBackground);
+    w = $(el_raphaelSelector).width();
+    h = $(el_raphaelSelector).height();
 
-main_layer = visualization.append(groupTag);
-overlay_layer = visualization.append(groupTag);
-
-overlay_layer.append("polyline")
-    .classed("helpArrow", true)
-    .classed("helpArrowLine", true)
-    .style("display", "none")
+} else {
+    //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
+    //to connect viz to responsive layout if desired
+    visualization = d3.select(el_selector).select("svg")
+          .call( tip || function(){} ) /* initialize d3-tip */
+          // .attr("width", "100%")
+          // .attr("height", "100%")
+          .attr(dimensions)
+          // .attr("viewBox", "0 0 " + w + " " + h )
+          .classed("visualization", true)
+            .append(groupTag)
+                // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
     ;
+    $(el_selector).on("click", selectBackground);
+    main_layer = visualization.append(groupTag);
+    overlay_layer = visualization.append(groupTag);
+
+    overlay_layer.append("polyline")
+        .classed("helpArrow", true)
+        .classed("helpArrowLine", true)
+        .style("display", "none")
+        ;
+    w = $(el_selector).width();
+    h = $(el_selector).height();
+}
+
+
 
 
 // function zoom() {
@@ -325,8 +343,6 @@ overlay_layer.append("polyline")
 // }
 
 window.vis = visualization; // TODO why? may prevent GC
-w = $(el_selector).width();
-h = $(el_selector).height();
 
 strokeWidth = strokeWidthGivenVisWidth(w);
 baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
@@ -485,27 +501,21 @@ function handleOnClusterClicked(hullId) {
     }
 
     //zoomToHull.call(this, d);
-    if (d3.event.stopPropagation) {
-        d3.event.stopPropagation();
-    }
-    if (d3.event.preventDefault) {
-        d3.event.preventDefault(); // prevent flashing on iOS
+    if (d3 && d3.event) {
+        if (d3.event.stopPropagation) {
+            d3.event.stopPropagation();
+        }
+        if (d3.event.preventDefault) {
+            d3.event.preventDefault(); // prevent flashing on iOS
+        }
     }
 }
-
-d3Hulls = _.times(9, function(i) {
-    return main_layer.append("path")
-        .classed("hull", true)
-        .classed("svgShadow", function() {
-            return !/Firefox/.exec(navigator.userAgent);
-        })
-        .on("click", onClusterClicked)  //selection-results:1 handle the click event
-        .attr("gid", i)
-    ;
-});
 var hull_unselected_color = '#f6f6f6';
 var hull_selected_color = '#ebf3ff';
-raphaelHulls = _.times(9, function(i) {
+
+
+if (isIE8) {
+    raphaelHulls = _.times(9, function(i) {
     var hull = paper.path()
         .attr('fill', hull_unselected_color)
         .attr('stroke-width', 24)
@@ -521,7 +531,19 @@ raphaelHulls = _.times(9, function(i) {
         .toBack();
 
         return hull;
-});
+    });
+} else {
+    d3Hulls = _.times(9, function(i) {
+        return main_layer.append("path")
+            .classed("hull", true)
+            .classed("svgShadow", function() {
+                return !/Firefox/.exec(navigator.userAgent);
+            })
+            .on("click", onClusterClicked)  //selection-results:1 handle the click event
+            .attr("gid", i)
+        ;
+    });
+}
 
 function updateHulls() {
     bidToBucket = _.object(_.pluck(nodes, "bid"), nodes);
@@ -590,8 +612,8 @@ var hullFps = 20;
 var updateHullsThrottled = _.throttle(updateHulls, 1000/hullFps);
 force.on("tick", function(e) {
       // Push nodes toward their designated focus.
-      var k = 0.1 * e.alpha;
-      //if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
+      var k = 0.3 * e.alpha;
+      if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
       nodes.forEach(function(o) {
           //o.x = o.targetX;
           //o.y = o.targetY;
@@ -601,22 +623,22 @@ force.on("tick", function(e) {
           o.y += (o.targetY - o.y) * k;
       });
 
-      main_layer.selectAll(groupTag)
-        .attr("transform", chooseTransformForRoots);
 
+      if (isIE8) {
+          for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var bucket = rNodes[i];
+            var x = node.x;
+            var y = node.y;
 
-
-
-      for (var i = 0; i < nodes.length; i++) {
-        var node = nodes[i];
-        var bucket = rNodes[i];
-        var x = node.x;
-        var y = node.y;
-
-        // console.log(x, y);
-        // bucket.set.transform("T" + x + ","  + y);
-        bucket.transform(x, y);
-        // bucket.setUps(node.ups);
+            // console.log(x, y);
+            // bucket.set.transform("T" + x + ","  + y);
+            bucket.transform(x, y);
+            // bucket.setUps(node.ups);
+          }
+      } else {
+          main_layer.selectAll(groupTag)
+            .attr("transform", chooseTransformForRoots);
       }
 
 
@@ -955,82 +977,110 @@ function upsertNode(updatedNodes, newClusters) {
         window.temp = nodes[0];
     }
 
-// TODO use key to guarantee unique items
 
-  var update = main_layer.selectAll(groupTag)
-      .data(nodes, key)
-      .sort(sortWithSelfOnTop);
+  if (isIE8) {
+      for (var n = 0; n < nodes.length; n++) {
+        var node = nodes[n];
+        var bucket = rNodes[n];
+        if (isSelf(node)) {
+            bucket.circle.attr("fill", colorSelf);
 
-  // var exit = update.exit();
-  // exit.remove();
+            bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
+            bucket.circleOuter.attr("stroke", colorSelf);
+            bucket.circleOuter.attr("stroke-width", 1);
+            bucket.circleOuter.attr("opacity", 0.5);
+            bucket.circleOuter.attr("r", bucket.radius * 2);
 
-  // ENTER
-  var enter = update.enter();
-  var g = enter
-    .append(groupTag)
-      .classed("ptpt", true)
-      .classed("node", true)
-      .on("click", onParticipantClicked)
-      .on("mouseover", showTip)
-      .on("mouseout", hideTip)
-      .call(force.drag)
-  ;
 
-  // OUTER TRANSLUCENT SHAPES
-  var opacityOuter = 0.2;
-  var upArrowEnter = g.append("polygon") 
-    .classed("up", true)
-    .classed("bktv", true)
-    .style("fill", colorPull)
-    .style("fill-opacity", opacityOuter)
-    // .style("stroke", colorPullOutline)
-    // .style("stroke-width", 1)
-    ;
-  var downArrowEnter = g.append("polygon")
-    .classed("down", true)
-    .classed("bktv", true)
-    .style("fill", colorPush)
-    .style("fill-opacity", opacityOuter)
-    // .style("stroke", colorPushOutline)
-    // .style("stroke-width", 1)
-    ;
-  var circleEnter = g.append("circle")
-    .classed("circle", true)
-    .classed("bktv", true)
-    .attr("cx", 0)
-    .attr("cy", 0)
-    .style("opacity", opacityOuter)
-    .style("fill", chooseFill)
-    .filter(isSelf)
-        .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", colorSelf)
-        .style("stroke-width", 1)
-        .style("opacity", 0.5)
-    ;
+        } else {
+            bucket.circle.attr("fill", colorNoVote);
+            bucket.circleOuter.attr("fill", colorNoVote);
+            bucket.circleOuter.attr("stroke", colorSelf);
+            bucket.circleOuter.attr("stroke-width", 0);
+            bucket.circleOuter.attr("opacity", "");
+            bucket.circleOuter.attr("r", bucket.radius);        
+        }
+      }
+  } else {
 
-  // INNER SCALE-CHANGING SHAPES
-  var upArrowEnterInner = g.append("polygon")
-    .classed("up", true)
-    .classed("bktvi", true)
-    .style("fill", colorPull)
-    ;
+    // TODO use key to guarantee unique items
 
-  var downArrowEnterInner = g.append("polygon")
-    .classed("down", true)
-    .classed("bktvi", true)
-    .style("fill", colorPush)
-    ;
+      var update = main_layer.selectAll(groupTag)
+          .data(nodes, key)
+          .sort(sortWithSelfOnTop);
 
-  var circleEnterInner = g.append("circle")
-    .classed("circle", true)
-    .classed("bktvi", true)
-    .style("fill", chooseFill)
-    ;
+      // var exit = update.exit();
+      // exit.remove();
 
-  var self = g.filter(isSelf);
-  self.classed("selfDot", true);
+      // ENTER
+      var enter = update.enter();
+      var g = enter
+        .append(groupTag)
+          .classed("ptpt", true)
+          .classed("node", true)
+          .on("click", onParticipantClicked)
+          .on("mouseover", showTip)
+          .on("mouseout", hideTip)
+          .call(force.drag)
+      ;
 
+      // OUTER TRANSLUCENT SHAPES
+      var opacityOuter = 0.2;
+      var upArrowEnter = g.append("polygon") 
+        .classed("up", true)
+        .classed("bktv", true)
+        .style("fill", colorPull)
+        .style("fill-opacity", opacityOuter)
+        // .style("stroke", colorPullOutline)
+        // .style("stroke-width", 1)
+        ;
+      var downArrowEnter = g.append("polygon")
+        .classed("down", true)
+        .classed("bktv", true)
+        .style("fill", colorPush)
+        .style("fill-opacity", opacityOuter)
+        // .style("stroke", colorPushOutline)
+        // .style("stroke-width", 1)
+        ;
+      var circleEnter = g.append("circle")
+        .classed("circle", true)
+        .classed("bktv", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .style("opacity", opacityOuter)
+        .style("fill", chooseFill)
+        .filter(isSelf)
+            .style("fill", "rgba(0,0,0,0)")
+            .style("stroke", colorSelf)
+            .style("stroke-width", 1)
+            .style("opacity", 0.5)
+        ;
+
+      // INNER SCALE-CHANGING SHAPES
+      var upArrowEnterInner = g.append("polygon")
+        .classed("up", true)
+        .classed("bktvi", true)
+        .style("fill", colorPull)
+        ;
+
+      var downArrowEnterInner = g.append("polygon")
+        .classed("down", true)
+        .classed("bktvi", true)
+        .style("fill", colorPush)
+        ;
+
+      var circleEnterInner = g.append("circle")
+        .classed("circle", true)
+        .classed("bktvi", true)
+        .style("fill", chooseFill)
+        ;
+
+      var self = g.filter(isSelf);
+      self.classed("selfDot", true);
+
+  }
   updateNodes();
+
 
   // update
   //     .attr("transform", chooseTransform)
@@ -1235,7 +1285,40 @@ function unhoverAll() {
 }
 
 function updateNodes() {
-  var update = visualization.selectAll(groupTag);
+  
+
+  if (isIE8) {
+      for (var i = 0; i < nodes.length; i++) {
+        var node = nodes[i];
+        var bucket = rNodes[i];
+        var r = chooseCircleRadius(node);
+        bucket.radius = r;
+        if (isSelf(node)) {
+            bucket.circleOuter.attr("r", r*2);
+        } else {
+            bucket.circleOuter.attr("r", r);        
+        }
+            
+        bucket.scaleCircle(1); // sets the inner circle radius
+        bucket.setUps(node.ups);
+        bucket.setDowns(node.downs);
+        if (shouldDisplayCircle(node)) {
+            bucket.circle.show();
+            bucket.circleOuter.show();
+        } else {
+            bucket.circle.hide();
+            bucket.circleOuter.hide();
+        }
+        if (shouldDisplayArrows(node)) {
+            bucket.up.show();
+            bucket.down.show();        
+        } else {
+            bucket.up.hide();
+            bucket.down.hide();
+        }
+      }
+  } else {
+      var update = visualization.selectAll(groupTag);
 
               var commonUpdate = update.selectAll(".node > .bktv")
                   ;
@@ -1245,85 +1328,43 @@ function updateNodes() {
                   // .style("transform", "scale(0.5)")
                   ;
 
-  var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
-      .style("display", chooseDisplayForArrows)
-      .attr("points", chooseUpArrowPath)
-      // .style("fill", colorPull)
-      ;
-  var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
-      .style("display", chooseDisplayForArrows)
-      .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
-      ;
+      var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
+          .style("display", chooseDisplayForArrows)
+          .attr("points", chooseUpArrowPath)
+          // .style("fill", colorPull)
+          ;
+      var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
+          .style("display", chooseDisplayForArrows)
+          .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
+          ;
 
-  var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
-      .style("display", chooseDisplayForArrows)
-      .attr("points", chooseDownArrowPath)
-      // .style("fill", colorPush)
-      ;
-  var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
-      .style("display", chooseDisplayForArrows)
-      .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
-      ;
+      var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
+          .style("display", chooseDisplayForArrows)
+          .attr("points", chooseDownArrowPath)
+          // .style("fill", colorPush)
+          ;
+      var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
+          .style("display", chooseDisplayForArrows)
+          .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
+          ;
 
-  var upCircleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
-      .style("display", chooseDisplayForCircle)
-      .attr("r", chooseCircleRadiusOuter)
-      // .style("fill", chooseFill)
-      ;
-  var upCircleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
-      .style("display", chooseDisplayForCircle)
-      .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
-      ;
-  
-  var selfNode = _.filter(nodes, isSelf)[0];
-  if (selfNode && !selfHasAppeared) {
-    selfHasAppeared = true;
-    onSelfAppearsCallbacks.fire();
+      var upCircleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
+          .style("display", chooseDisplayForCircle)
+          .attr("r", chooseCircleRadiusOuter)
+          // .style("fill", chooseFill)
+          ;
+      var upCircleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
+          .style("display", chooseDisplayForCircle)
+          .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
+          ;
+      
+      var selfNode = _.filter(nodes, isSelf)[0];
+      if (selfNode && !selfHasAppeared) {
+        selfHasAppeared = true;
+        onSelfAppearsCallbacks.fire();
 
-    setupBlueDotHelpText(update.select(".selfDot"));
-  }
-
-  for (var i = 0; i < nodes.length; i++) {
-    var node = nodes[i];
-    var bucket = rNodes[i];
-    var r = chooseCircleRadius(node);
-    bucket.radius = r;
-    bucket.circleOuter.attr("r", r);
-    bucket.scaleCircle(1); // sets the inner circle radius
-    bucket.setUps(node.ups);
-    bucket.setDowns(node.downs);
-    if (shouldDisplayCircle(node)) {
-        bucket.circle.show();
-        bucket.circleOuter.show();
-    } else {
-        bucket.circle.hide();
-        bucket.circleOuter.hide();
-    }
-    if (shouldDisplayArrows(node)) {
-        bucket.up.show();
-        bucket.down.show();        
-    } else {
-        bucket.up.hide();
-        bucket.down.hide();
-    }
-    if (isSelf(node)) {
-        bucket.circle.attr("fill", colorSelf);
-
-        bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
-        bucket.circleOuter.attr("stroke", colorSelf);
-        bucket.circleOuter.attr("stroke-width", 1);
-        bucket.circleOuter.attr("opacity", 0.5);
-        bucket.circleOuter.attr("r", bucket.radius * 2);
-
-
-    } else {
-        bucket.circle.attr("fill", colorNoVote);
-        bucket.circleOuter.attr("fill", colorNoVote);
-        bucket.circleOuter.attr("stroke", colorSelf);
-        bucket.circleOuter.attr("stroke-width", 0);
-        bucket.circleOuter.attr("opacity", "");
-        bucket.circleOuter.attr("r", bucket.radius);        
-    }
+        setupBlueDotHelpText(update.select(".selfDot"));
+      }
   }
   // displayHelpItem("foo");
 
@@ -1429,19 +1470,22 @@ function emphasizeParticipants(pids) {
             }
         }
 
-        visualization.selectAll(".bktvi")
-            // .attr("stroke", chooseStroke)
-            .attr("transform", chooseTransformSubset)
-            // .attr("stroke-width", chooseStrokeWidth)
-            // .attr("fill-opacity", chooseFillOpacity)
-        ;
+        if (isIE8) {
+            for (var j = 0; j < nodes.length; j++) {
+                var node = nodes[j];
+                var bucket = rNodes[j];
+                var s = chooseTransformSubsetRaphael(node);
+                bucket.scaleCircle(s);
+                // bucket.circle.scale(s, s)
+            }
+        } else {
+            visualization.selectAll(".bktvi")
+                // .attr("stroke", chooseStroke)
+                .attr("transform", chooseTransformSubset)
+                // .attr("stroke-width", chooseStrokeWidth)
+                // .attr("fill-opacity", chooseFillOpacity)
+            ;
 
-        for (var j = 0; j < nodes.length; j++) {
-            var node = nodes[j];
-            var bucket = rNodes[j];
-            var s = chooseTransformSubsetRaphael(node);
-            bucket.scaleCircle(s);
-            // bucket.circle.scale(s, s)
         }
     });
 }
