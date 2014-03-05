@@ -294,15 +294,6 @@ if (isIE8) {
       ;
 }
 
-  setTimeout(function() {
-      $(el_selector).append(
-        "<div id='helpTextBox' class='unselectable hidden'>" +
-            "<button type='button' class='close' aria-hidden='true'>&times;</button>" +
-            "<span id='helpTextMessage'></span>" +
-            "</div>")
-      .on("click", onHelpTextClicked);
-    }, 100);
-
 if (isIE8) {
     $(el_raphaelSelector).on("click", selectBackground);
     w = $(el_raphaelSelector).width();
@@ -643,7 +634,6 @@ force.on("tick", function(e) {
 
 
     updateHullsThrottled();
-    updateHelpArrow();
 });
 
 // function chooseRadius(d) {
@@ -1102,7 +1092,6 @@ function upsertNode(updatedNodes, newClusters) {
   //         .duration(500);
 
   updateHulls();
-  updateHelpArrow();
 
   if (selectedTid >= 0) {
     selectComment(selectedTid);
@@ -1491,37 +1480,12 @@ function emphasizeParticipants(pids) {
 }
 
 
-function updateHelpArrow() {
-    var selfNode = _.filter(nodes, isSelf)[0];
-    if (!selfNode) {
-        return;
-    }
-    var x = selfNode.x;
-    var y = selfNode.y;
-    var baseShouldIntersectEdge = true;
-    var helpArrowStrokeWidth = 3;
-    var extraY = -helpArrowStrokeWidth; // extend past the edge so it's flush (so you don't see the square base of the arrow)
-    var baseX = w/3;
-    var baseY = h - (baseShouldIntersectEdge ? extraY : 0);
-    var tipX = x;
-    var tipY = y;
-    var dx = tipX - baseX;
-    var dy = tipY - baseY;
-    var ratio = 0.9;
-    tipX = baseX + dx*ratio;
-    tipY = baseY + dy*ratio;
-    overlay_layer.selectAll(".helpArrow")
-        .attr("points", baseX + "," + baseY + " " + tipX + "," + tipY)
-    ;
-}
-
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
 // function displayHelpItem(content) {
 //     overlay_layer.selectAll(".helpArrow")
 //         .style("display", "block")
 //         .attr("marker-end", "url(#ArrowTip)");
-//     updateHelpArrow();
 
 //     // $(".helpArrow").removeClass("hidden");
 //     $("#helpTextBox").removeClass("hidden");
