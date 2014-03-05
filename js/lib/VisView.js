@@ -63,17 +63,17 @@ var selfDotHintText = "This is you";
 
 var isIE8 = navigator.userAgent.match(/MSIE 8/);
 
-if (isIE8) {
-    $(el_selector).html(
-        "<div class='visualization' style='width:100%;height:100%;'><center>" +
-        "Apologies, the visualization is not available on IE 8.</br>" +
-        "Get the full experience on IE 10+, Chrome, Firefox, or on your iOS / Android browser.</br>" +
-        "</center></div>");
-    return {
-        upsertNode: function() {},
-        emphasizeParticipants: function() {}
-    };
-}
+// if (isIE8) {
+//     $(el_selector).html(
+//         "<div class='visualization' style='width:100%;height:100%;'><center>" +
+//         "Apologies, the visualization is not available on IE 8.</br>" +
+//         "Get the full experience on IE 10+, Chrome, Firefox, or on your iOS / Android browser.</br>" +
+//         "</center></div>");
+//     return {
+//         upsertNode: function() {},
+//         emphasizeParticipants: function() {}
+//     };
+// }
 
 // Tunables
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
