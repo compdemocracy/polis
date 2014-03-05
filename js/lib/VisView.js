@@ -340,9 +340,9 @@ baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
 if (!useCarousel()) {
-    queryResults = d3.select(el_queryResultSelector).html("")
+    queryResults = $(el_queryResultSelector).html("")
         .append("ol")
-        .classed("query_results", true);
+        .addClass("query_results");
 }
 
 $(el_queryResultSelector).hide();
@@ -1138,9 +1138,12 @@ function selectComment(tid) {
     });
 
     if (d3CommentList) {
-        d3CommentList
-            .style("background-color", chooseCommentFill)
-            .style("color", chooseCommentTextColor);
+        d3CommentList.children().each(function(i) {
+            var li = $(this);
+            var tid = li.data("tid");
+            li.css("background-color", chooseCommentFill({tid: tid}));
+            li.css("color", chooseCommentTextColor({tid: tid}));
+        });
     }
 
 }
@@ -1151,7 +1154,7 @@ function chooseCommentFill(d) {
         return "#428bca";
     } else {
         // return nothing since we want the hover class to be able to set
-        return;
+        return "";
     }
 }
 
@@ -1206,28 +1209,30 @@ function renderComments(comments) {
         }
     }
     function renderWithList() {
-        queryResults.html("");    
-        d3CommentList = queryResults.selectAll("li")
-            .data(comments)
-            .sort(function(a,b) { return b.freq - a.freq; });
-
-        d3CommentList.enter()
-            .append("li")
-            .classed("query_result_item", true)
-            .style("background-color", chooseCommentFill)
-            .style("color", chooseCommentTextColor)
-            .on("click", function(d) {
-                selectComment(d.tid);
-            })
-            .on("mouseover", function() {
-                d3.select(this).classed("hover", true);
-            })
-            .on("mouseout", function() {
-                d3.select(this).classed("hover", false);
-            })
-            .text(function(d) { return d.txt; });
-
-        d3CommentList.exit().remove();
+        function renderComment(c) {
+            return "<li class='query_result_item' style='background-color:" + chooseCommentFill(c) +
+             "; color:" + chooseCommentTextColor(c) + "'>" + c.txt + "</li>";
+        }
+        queryResults.html("");
+        comments.sort(function(a,b) { return b.freq - a.freq; });
+        d3CommentList = $("<ol class='query_results'>");
+        queryResults.append(d3CommentList);
+        _.each(comments, function(c) {
+            var v = $(renderComment(c));
+            d3CommentList.append(v);
+            v.on("click", (function(tid) {
+                return function() {
+                    selectComment(tid);
+                };
+                }(c.tid)));
+            v.on("mouseover", function() {
+                $(this).addClass("hover");
+            });
+            v.on("mouseout", function() {
+                $(this).removeClass("hover");
+            });
+            v.data("tid", c.tid);
+        });
     }
     var dfd = $.Deferred();
 
@@ -1262,8 +1267,8 @@ function unhoverAll() {
   console.log("unhoverAll");
   if (d3CommentList) {
     d3CommentList
-      .style("background-color", chooseCommentFill)
-      .style("color", chooseCommentTextColor);
+      .css("background-color", chooseCommentFill)
+      .css("color", chooseCommentTextColor);
 
   }
   // for (var i = 0; i < nodes.length; i++) {
@@ -1378,7 +1383,9 @@ function resetSelection() {
   visualization.selectAll(".active").classed("active", false);
   selectedCluster = false;
   // visualization.transition().duration(750).attr("transform", "");
-  renderComments([]);
+  if (d3CommentList) {
+    d3CommentList.html("");
+  }
   selectedBids = [];
   resetSelectedComment();
   unhoverAll();
