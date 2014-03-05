@@ -60,7 +60,7 @@ var $ = require("jquery");
         xhrFields: {
             withCredentials: true
         },
-        crossDomain: true,
+        // crossDomain: true,
         data: attrs
       }).then(function(data) {
         that.trigger("authenticated");
@@ -83,7 +83,7 @@ var $ = require("jquery");
         xhrFields: {
           withCredentials: true
         },
-        crossDomain: true,
+        // crossDomain: true,
         data: attrs
       }).then(function(data) {
         release();
