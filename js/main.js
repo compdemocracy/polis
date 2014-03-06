@@ -39,6 +39,20 @@ function ifNotEmbedded(arg0) {
 }
 Handlebars.registerHelper("ifNotEmbedded", ifNotEmbedded);
 
+function isIE8() {
+  return /MSIE 8.0/.exec(navigator.userAgent);
+}
+function ifIE8(arg0) {
+  return isIE8() ? arg0.fn(this) : "";
+}
+Handlebars.registerHelper("ifIE8", ifIE8);
+
+function ifNotIE8(arg0) {
+  return isIE8()  ? "" : arg0.fn(this);
+}
+Handlebars.registerHelper("ifNotIE8", ifNotIE8);
+
+
 
 
 

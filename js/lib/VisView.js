@@ -1030,7 +1030,7 @@ function upsertNode(updatedNodes, newClusters) {
           .on("click", onParticipantClicked)
           .on("mouseover", showTip)
           .on("mouseout", hideTip)
-          .call(force.drag)
+          // .call(force.drag)
       ;
 
       // OUTER TRANSLUCENT SHAPES
