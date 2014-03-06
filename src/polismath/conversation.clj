@@ -63,14 +63,21 @@
                     opts))
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
-                    (map #(map % [:pid :tid :vote]) votes)))})
+                               (map #(map % [:pid :tid :vote]) votes)))
+  :n (plmb/fnk [rating-mat]
+               "count the participants"
+               (count (:rows rating-mat)))
+
+   })
 
 
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
   (merge
    base-conv-update-graph
-   {:mat
+   {
+
+    :mat
     (plmb/fnk
      [rating-mat]
      "swap nils for zeros - most things need the 0s, but repness needs the nils"
