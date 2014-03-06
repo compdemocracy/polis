@@ -145,17 +145,17 @@ module.exports = View.extend({
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
     this.listenTo(this, "rendered", function(){
-      this.$("#agreeButton").tooltip({
-        title: "This comment represents my opinion",
-        placement: "right",
-        delay: { show: 500, hide: 0 },
-        container: "body"
-      });
-      this.$("#disagreeButton").tooltip({
-        title: "This comment does not represent my opinion",
-        placement: "top",
-        delay: { show: 500, hide: 0 }
-      });
+      // this.$("#agreeButton").tooltip({
+      //   title: "This comment represents my opinion",
+      //   placement: "right",
+      //   delay: { show: 500, hide: 0 },
+      //   container: "body"
+      // });
+      // this.$("#disagreeButton").tooltip({
+      //   title: "This comment does not represent my opinion",
+      //   placement: "top",
+      //   delay: { show: 500, hide: 0 }
+      // });
       this.$("#passButton").tooltip({
         title: "'No reaction', or 'I am unsure'",
         placement: "top",
