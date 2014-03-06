@@ -45,18 +45,24 @@
   -o-user-select: none;
 }
 .hull {
-  opacity: 0.2;
-  fill: lightgrey;
-  stroke: lightgrey;
-  stroke-width: 22px; /* note: probably overriden in VisView for intro animation */
+  fill: #f6f6f6;
+  stroke: #f6f6f6;
+  stroke-width: 22px;
+  stroke-linejoin: round;
+  z-index: 401;
+  cursor: pointer;
+}
+.hull_shadow {
+  fill: #d4d4d4;
+  stroke: #d4d4d4;
+  stroke-width: 24px;
   stroke-linejoin: round;
   z-index: 400;
-  cursor: pointer;
 }
 
 .active {
-  fill: #99C3FF;
-  stroke: #99C3FF;
+  fill: #ebf3ff;
+  stroke: #ebf3ff;
 }
 .ptpt {
   z-index: 500;

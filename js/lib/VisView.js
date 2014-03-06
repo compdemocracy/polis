@@ -508,19 +508,26 @@ function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
         });    
 }
 
-if (isIE8) {
-
-    raphaelHulls = makeRaphaelHulls(hull_unselected_color, 24);
-    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, 26, 1, 1);    
-
-} else {
-    d3Hulls = _.times(9, function(i) {
-        return main_layer.append("path")
-            .classed("hull", true)
+function makeD3Hulls(hullClass, translateX, translateY) {
+    return _.times(9, function(i) {
+        var hull = main_layer.append("path");
+        hull.classed(hullClass, true)
             .on("click", onClusterClicked)  //selection-results:1 handle the click event
-            .attr("gid", i)
-        ;
+            .attr("gid", i);
+
+        if (translateX || translateY) {
+            hull.attr("transform", "translate(1, 1)");
+        }
+        return hull;
     });
+}
+
+if (isIE8) {
+    raphaelHulls = makeRaphaelHulls(hull_unselected_color, 22);
+    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, 24, 1, 1);    
+} else {
+    d3HullShadows = makeD3Hulls("hull_shadow", 1, 1);    
+    d3Hulls = makeD3Hulls("hull");
 }
 
 function updateHulls() {
