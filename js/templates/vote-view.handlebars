@@ -20,7 +20,14 @@
           class="btn btn-lg btn-default"
           id="agreeButton"
           type="button"
-        }} <i class="icon-caret-up" style="color: #2ecc71;"></i>&nbsp;Agree {{/button}}
+        }} 
+        {{#ifIE8}}
+          &#x25B2";
+        {{/ifIE8}}
+        {{#ifNotIE8}}
+          <i class="icon-caret-up" style="color: #2ecc71;"></i>
+        {{/ifNotIE8}}
+        &nbsp;Agree {{/button}}
       </div>
       <div class="btn-group">
         {{#button
@@ -28,16 +35,34 @@
           id="disagreeButton"
           class="btn btn-lg btn-default"
           type="button"
-        }} <i class="icon-caret-down" style="color: #e74c3c; position: relative; top: 1px"></i>&nbsp;Disagree {{/button}}
+        }}
+        {{#ifIE8}}
+          &#x25B3";
+        {{/ifIE8}}
+        {{#ifNotIE8}}
+          <i class="icon-caret-down" style="color: #e74c3c; position: relative; top: 1px"></i>
+        {{/ifNotIE8}}
+        &nbsp;Disagree {{/button}}
       </div>
       <div class="btn-group" id="otherButtonGroup">
         <button type="button" class="btn btn-lg btn-default dropdown-toggle" data-toggle="dropdown">
           Other&nbsp;<i class="icon-angle-down" style="position: relative; top: 1px"></i>
         </button>
         <ul class="dropdown-menu">
-          <li><a href="#" id="starButton"><i class="icon-star"></i>&nbsp;Critically important point</a></li>
+          <li><a href="#" id="starButton">
+              {{#ifIE8}}
+                  &#x2605;
+              {{/ifIE8}}
+              {{#ifNotIE8}}
+                  <i class="icon-star"></i>
+              {{/ifNotIE8}}
+            &nbsp;Important comment</a></li>
           <li><a href="#" id="passButton">Pass</a></li>
-          <li><a href="#" id="trashButton"><i class="icon-trash"></i>&nbsp; Abusive or off topic</a></li>
+          <li><a href="#" id="trashButton">
+              {{#ifNotIE8}}            
+                <i class="icon-trash"></i>
+              {{/ifNotIE8}}
+            &nbsp; Abusive or off topic</a></li>
         </ul>
       </div>
     </div>

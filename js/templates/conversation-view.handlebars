@@ -45,17 +45,20 @@
     <ul class="nav nav-tabs">
       <li class="active">
         <a href="#commentView" id="commentViewTab" data-toggle="tab">
-          <i class="icon-align-justify"></i> Read &amp; React
+          {{#ifNotIE8}}<i class="icon-align-justify"></i>{{/ifNotIE8}} 
+          Read &amp; React
         </a>
       </li>
       <li>
         <a href="#commentForm" id="commentFormTab" data-toggle="tab">
-          <i class="icon-pencil"></i> Write
+          {{#ifNotIE8}}<i class="icon-pencil"></i>{{/ifNotIE8}}
+          Write
         </a>
       </li>
       <li>
         <a href="#analyze" id="analyzeTab" data-toggle="tab">
-          <i class="icon-coffee"></i> Analyze
+          {{#ifNotIE8}}<i class="icon-coffee"></i>{{/ifNotIE8}}
+          Analyze
         </a>
       </li>
     </ul>
