@@ -83,6 +83,7 @@ var isIE8 = navigator.userAgent.match(/MSIE 8/);
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
+var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([12, 22]).domain([350, 800]).clamp(true);
 var colorPull = "#2ecc71"; // EMERALD
 var colorPush = "#e74c3c"; // ALIZARIN
 var colorPass = "#BDC3C7"; // SILVER
@@ -482,6 +483,10 @@ function handleOnClusterClicked(hullId) {
 var hull_unselected_color = '#f6f6f6';
 var hull_selected_color   = '#ebf3ff';
 var hull_shadow_color     = '#d4d4d4';
+var hull_shadow_thickness = w > 550 ? 2 : 1;
+var hull_stoke_width = hullStrokeWidthGivenVisWidth(w);
+var hull_shadow_stroke_width = hull_stoke_width + hull_shadow_thickness;
+
 
 function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
     return _.times(9, function(i) {
@@ -508,11 +513,12 @@ function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
         });    
 }
 
-function makeD3Hulls(hullClass, translateX, translateY) {
+function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
     return _.times(9, function(i) {
         var hull = main_layer.append("path");
         hull.classed(hullClass, true)
             .on("click", onClusterClicked)  //selection-results:1 handle the click event
+            .style("stroke-width", strokeWidth)
             .attr("gid", i);
 
         if (translateX || translateY) {
@@ -523,11 +529,11 @@ function makeD3Hulls(hullClass, translateX, translateY) {
 }
 
 if (isIE8) {
-    raphaelHulls = makeRaphaelHulls(hull_unselected_color, 22);
-    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, 24, 1, 1);    
+    raphaelHulls = makeRaphaelHulls(hull_unselected_color, hull_stoke_width);
+    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);    
 } else {
-    d3HullShadows = makeD3Hulls("hull_shadow", 1, 1);    
-    d3Hulls = makeD3Hulls("hull");
+    d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);    
+    d3Hulls = makeD3Hulls("hull", hull_stoke_width);
 }
 
 function updateHulls() {
