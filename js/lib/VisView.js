@@ -607,14 +607,15 @@ function updateHulls() {
         var points = d3.geom.hull(hull);
         if (points.length) {
             points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
+            var shape = makeHullShape(points);
             if (isIE8) {
                 points.unshift();
-                var _transformed = Raphael.transformPath(makeHullShape(points), 'T0,0');
+                var _transformed = Raphael.transformPath(shape, 'T0,0');
                 raphaelHulls[i].animate({path: _transformed}, 0);
                 raphaelHullsShadow[i].animate({path: _transformed}, 0);
             } else {
                 var d3Hull = d3Hulls[i];
-                d3Hull.datum(points).attr("d", makeHullShape(points));
+                d3Hull.datum(points).attr("d", shape);
             }
         }
     }
