@@ -14,8 +14,6 @@
 (defn choose-group-k [base-clusters]
   (let [len (count base-clusters)]
                   (cond
-                   (< len 3) 1
-                   (< len 5) 2
                    (< len 99) 3
                    :else 4
                   )))
