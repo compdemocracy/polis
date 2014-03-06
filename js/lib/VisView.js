@@ -260,19 +260,7 @@ if (isIE8) {
 } else {
 
     $(el_selector)
-      .append("<svg xmlns='http://www.w3.org/2000/svg'>" +
-        "<defs>" +
-            "<marker class='helpArrow' id='ArrowTip'" +
-                    "viewBox='0 0 10 10'" +
-                    "refX='1' refY='5'" +
-                    "markerWidth='5'" +
-                    "markerHeight='5'" +
-                    "orient='auto'>" +
-                "<path d='M 0 0 L 10 5 L 0 10 z' />" +
-            "</marker>" +
-
-        "</defs>" +
-        "</svg>")
+      .append("<svg></svg>")
       ;
 }
 
