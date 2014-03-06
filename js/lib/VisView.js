@@ -271,24 +271,6 @@ if (isIE8) {
                 "<path d='M 0 0 L 10 5 L 0 10 z' />" +
             "</marker>" +
 
-            "<filter id='shadowFilter' height='130%' width='130%'>" +
-              "<feGaussianBlur in='SourceAlpha' stdDeviation='1'/> <!-- stdDeviation is how much to blur -->" +
-              "<feOffset dx='1' dy='1' result='offsetblur'/> <!-- how much to offset -->" +
-              // "<feComponentTransfer xmlns='http://www.w3.org/2000/svg'>" +
-              //   "<feFuncA type='linear' slope='1'/>" +
-              // "</feComponentTransfer>" +
-              "<feMerge> " +
-                "<feMergeNode/> <!-- this contains the offset blurred image -->" +
-                "<feMergeNode in='SourceGraphic'/> <!-- this contains the element that the filter is applied to -->" +
-              "</feMerge>" +
-            "</filter>" +
-
-            "<filter id='ghostFilter'>" +
-              "<feMorphology radius='10' operator='erode'/>" +          
-              "<feGaussianBlur stdDeviation='20'/> <!-- stdDeviation is how much to blur -->" +
-              // "<feMorphology radius='10' in='SourceAlpha' out='edge' operator='dilate'/>" +
-            "</filter>" +
-
         "</defs>" +
         "</svg>")
       ;
@@ -546,9 +528,6 @@ if (isIE8) {
     d3Hulls = _.times(9, function(i) {
         return main_layer.append("path")
             .classed("hull", true)
-            .classed("svgShadow", function() {
-                return !/Firefox/.exec(navigator.userAgent);
-            })
             .on("click", onClusterClicked)  //selection-results:1 handle the click event
             .attr("gid", i)
         ;
