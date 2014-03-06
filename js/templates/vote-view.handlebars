@@ -40,7 +40,10 @@
       </div>
       <div class="btn-group" id="otherButtonGroup">
         <button type="button" class="btn btn-lg btn-default dropdown-toggle" data-toggle="dropdown">
-          Other&nbsp;<i class="icon-angle-down" style="position: relative; top: 1px"></i>
+          Other&nbsp;
+          {{#ifNotIE8}}            
+            <i class="icon-angle-down" style="position: relative; top: 1px"></i>
+          {{/ifNotIE8}}
         </button>
         <ul class="dropdown-menu">
           <li><a href="#" id="starButton">

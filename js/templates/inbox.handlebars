@@ -16,14 +16,22 @@
       <ul class="nav navbar-nav navbar-right">
         <li><a href="http://about.polis.io">About</a></li>
         <li><a href="mailto:colinmegill@gmail.com?subject=Polis%20Feedback">Contact</a></li>
-        <li>{{#link "settings" expand-tokens=true}}<i class="icon-signout"></i>&nbsp; Signout{{/link}}</li>
+        <li>{{#link "settings" expand-tokens=true}}
+          {{#ifNotEmbedded}}
+          <i class="icon-signout"></i>
+          {{/ifNotEmbedded}}
+          &nbsp; Signout{{/link}}</li>
       </ul>
     </div><!--/.nav-collapse -->
   </div>
 </div>
 
   <div style=" width: 100%; margin:auto; position: fixed; z-index: 1010;">
-    {{#link "conversation/create" expand-tokens=true className="startNewConversation btn btn-large btn-success"}}<i class="icon-plus-sign-alt"></i> Start A New Conversation {{/link}}
+    {{#link "conversation/create" expand-tokens=true className="startNewConversation btn btn-large btn-success"}}
+    {{#ifNotEmbedded}}
+    <i class="icon-plus-sign-alt"></i>
+    {{/ifNotEmbedded}}
+    Start A New Conversation {{/link}}
   </div>
 
 
