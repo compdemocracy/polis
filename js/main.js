@@ -30,12 +30,14 @@ function ifDefined(context, options) {
 Handlebars.registerHelper("ifDefined", ifDefined);
 
 function ifEmbedded(arg0) {
-  return window.top !== window ? arg0.fn(this) : "";
+  // NOTE != instead of !== for IE8
+  return window.top != window ? arg0.fn(this) : "";
 }
 Handlebars.registerHelper("ifEmbedded", ifEmbedded);
 
 function ifNotEmbedded(arg0) {
-  return window.top === window ? arg0.fn(this) : "";
+  // NOTE == instead of === for IE
+  return window.top == window ? arg0.fn(this) : "";
 }
 Handlebars.registerHelper("ifNotEmbedded", ifNotEmbedded);
 
