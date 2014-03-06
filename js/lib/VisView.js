@@ -509,27 +509,39 @@ function handleOnClusterClicked(hullId) {
     }
 }
 var hull_unselected_color = '#f6f6f6';
-var hull_selected_color = '#ebf3ff';
+var hull_selected_color   = '#ebf3ff';
+var hull_shadow_color     = '#d4d4d4';
 
+function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
+    return _.times(9, function(i) {
+        var hull = paper.path()
+            .attr('fill', color)
+            .attr('stroke-width', strokeWidth)
+            .attr('stroke-linejoin','round')
+            .attr('stroke', color)
+            .attr('stroke-linecap', 'round')
+            .click(function(i) {
+                return function() {
+                    return onClusterClicked({
+                        hullId: i
+                    });
+                };}(i))
+            .toBack();
+
+            // translate the shadow
+            if (translateX || translateY) {
+                hull.translate(translateX||0, translateY||0);
+            }
+
+            return hull;
+        });    
+}
 
 if (isIE8) {
-    raphaelHulls = _.times(9, function(i) {
-    var hull = paper.path()
-        .attr('fill', hull_unselected_color)
-        .attr('stroke-width', 24)
-        .attr('stroke-linejoin','round')
-        .attr('stroke', hull_unselected_color)
-        .attr('stroke-linecap', 'round')
-        .click(function(i) {
-            return function() {
-                return onClusterClicked({
-                    hullId: i
-                });
-            };}(i))
-        .toBack();
 
-        return hull;
-    });
+    raphaelHulls = makeRaphaelHulls(hull_unselected_color, 24);
+    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, 26, 1, 1);    
+
 } else {
     d3Hulls = _.times(9, function(i) {
         return main_layer.append("path")
@@ -599,6 +611,7 @@ function updateHulls() {
                 points.unshift();
                 var _transformed = Raphael.transformPath(makeHullShape(points), 'T0,0');
                 raphaelHulls[i].animate({path: _transformed}, 0);
+                raphaelHullsShadow[i].animate({path: _transformed}, 0);
             } else {
                 var d3Hull = d3Hulls[i];
                 d3Hull.datum(points).attr("d", makeHullShape(points));
