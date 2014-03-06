@@ -614,8 +614,7 @@ function updateHulls() {
                 raphaelHulls[i].animate({path: _transformed}, 0);
                 raphaelHullsShadow[i].animate({path: _transformed}, 0);
             } else {
-                var d3Hull = d3Hulls[i];
-                d3Hull.datum(points).attr("d", shape);
+                d3Hulls[i].datum(points).attr("d", shape);
             }
         }
     }
