@@ -43,6 +43,7 @@ var overlay_layer;
 var force;
 var queryResults;
 var d3Hulls;
+var d3HullShadows;
 var d3CommentList;
 
 var selectedCluster = false;
@@ -582,6 +583,7 @@ function updateHulls() {
                 raphaelHullsShadow[i].animate({path: _transformed}, 0);
             } else {
                 d3Hulls[i].datum(points).attr("d", shape);
+                d3HullShadows[i].datum(points).attr("d", shape);
             }
         }
     }
