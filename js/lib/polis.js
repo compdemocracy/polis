@@ -684,13 +684,6 @@ function clientSideBaseCluster(things, N) {
 
                 votesForTidBid = pcaData["votes-base"];
 
-                // remove self, will add after bucketizing
-                var myPid = getPid();
-
-                // people = _.filter(people, function(p) {
-                //     return p.pid !== myPid;
-                // });
-
                 var clusters = pcaData["group-clusters"];
                 clusters = _.map(clusters, function(c) {
                     // we just need the members
@@ -708,12 +701,21 @@ function clientSideBaseCluster(things, N) {
                 });
 
                 bidToPid = pcaData["bid-to-pid"];
-                pidToBidCache = null;
+
+                pidToBidCache = {};
+                for (var bid = 0; bid < bidToPid.length; bid++) {
+                    var memberPids = bidToPid[bid];
+                    for (var i = 0; i < memberPids.length; i++) {
+                        var pid = memberPids[i];
+                        pidToBidCache[pid] = bid;
+                    }
+                }
 
                 // Convert to Bucket objects.
                 buckets = _.map(buckets, function(b) {
                     return new Bucket(b);
                 });
+                buckets = removeSelfFromBuckets(buckets);
 
                 projectionPeopleCache = buckets;
                 clustersCache = clusters;
@@ -725,6 +727,19 @@ function clientSideBaseCluster(things, N) {
             function(err) {
                 console.error("failed to get pca data");
             });
+    }
+
+    function removeSelfFromBuckets(buckets) {
+        var bid = pidToBidCache[getPid()];
+        return _.map(buckets, function(b) {
+            console.dir(b);
+            console.log(bid);
+            if (b.bid === bid) {
+                console.log(bid);
+                b.count -= 1;
+            }
+            return b;
+        });
     }
 
     function arraysToObjects(objWithArraysAsProperties) {
@@ -1028,17 +1043,6 @@ function clientSideBaseCluster(things, N) {
     }
     function getPidToBidMapping(pids) {
         var dfd = $.Deferred();
-
-        if (!pidToBidCache) {
-            pidToBidCache = {};
-            for (var bid = 0; bid < bidToPid.length; bid++) {
-                var memberPids = bidToPid[bid];
-                for (var i = 0; i < memberPids.length; i++) {
-                    var pid = memberPids[i];
-                    pidToBidCache[pid] = bid;
-                }
-            }
-        }
 
         dfd.resolve(pidToBidCache, bidToPid);
 
