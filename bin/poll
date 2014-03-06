@@ -1,0 +1,5 @@
+#!/bin/sh
+while [ 1 ]
+do
+    lein with-profile production trampoline run -m polismath.poller
+done
