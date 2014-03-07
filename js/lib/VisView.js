@@ -181,25 +181,33 @@ var MAX_BUCKETS = 60;
 var rNodes = [];
 var rBuckets = [];
 
+function makeParticipantClickHandler(raphaelEl, bid) {
+    return function(event) {
+        event.stopPropagation();
+        return onParticipantClicked(bid);
+    };
+}
 function makeBucketParts(i) {
     var circleOuter = paper.circle(0,0,0);
     circleOuter.attr('fill', colorNoVote);
     circleOuter.attr('fill-opacity', 0.2);
     circleOuter.attr('stroke-width', 0);
-
+    makeParticipantClickHandler(circleOuter, i);
     var circle  = paper.circle(0,0,0);
     circle.attr('fill', colorNoVote);
     circle.attr('stroke-width', 0);
+    makeParticipantClickHandler(circle, i);    
 
     // colorSelf
     var up = paper.path();
     up.attr('fill', colorPull);
     up.attr('stroke-width', 0);
+    makeParticipantClickHandler(up, i);
 
     var down = paper.path();
     down.attr('fill', colorPush);
     down.attr('stroke-width', 0);
-
+    makeParticipantClickHandler(down, i);
 
         // .toFront();
     var set = paper.set();
