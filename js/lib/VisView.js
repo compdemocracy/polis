@@ -431,24 +431,26 @@ function setClusterActive(clusterId) {
 }
 
 function updateHullColors() {
-    if (selectedCluster !== false) {
-       if (isIE8) {
-           for (var i = 0; i < raphaelHulls.length; i++) {
-                if (i === selectedCluster) {
-                  raphaelHulls[i]
-                    .attr('fill', hull_selected_color)
-                    .attr('stroke', hull_selected_color);
-                } else {
-                  raphaelHulls[i]
-                    .attr('fill', hull_unselected_color)
-                    .attr('stroke', hull_unselected_color);
-                }
+   if (isIE8) {
+       for (var i = 0; i < raphaelHulls.length; i++) {
+            console.log('updateHullColors', selectedCluster, i);
+            if (i === selectedCluster) {
+              raphaelHulls[i]
+                .attr('fill', hull_selected_color)
+                .attr('stroke', hull_selected_color);
+            } else {
+              raphaelHulls[i]
+                .attr('fill', hull_unselected_color)
+                .attr('stroke', hull_unselected_color);
             }
-       } else {
-           d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
-       }
-    }
+        }
+   } else {
+        if (selectedCluster !== false) {
+            d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
+        }
+   }
 }
+
 
 function onClusterClicked(d) {
     $("#analyzeTab").tab("show");
