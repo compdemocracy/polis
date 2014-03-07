@@ -311,14 +311,14 @@ strokeWidth = strokeWidthGivenVisWidth(w);
 baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
+queryResults = $(el_queryResultSelector).html("");
 if (!useCarousel()) {
-    queryResults = $(el_queryResultSelector).html("")
-        .append("ol")
-        .addClass("query_results");
+    $(el_carouselSelector).html("");
 }
+// } else {
+    // queryResults = $(el_queryResultSelector).html("");
 
 $(el_queryResultSelector).hide();
-// $(el_carouselSelector).hide();
 
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
