@@ -69,12 +69,12 @@ module.exports =  View.extend({
     });
   },
   hideVis: function() {
-    $("#visualization_div").css("display", "none");
-    $("#visualization_div_under_tabs").css("display", "none");
+    $("#visualization_div").hide();
+    $("#visualization_div_under_tabs").hide();
   },
   showVis: function() {
-    $("#visualization_div").css("display", "");
-    $("#visualization_div_under_tabs").css("display", "");
+    $("#visualization_div").show();
+    $("#visualization_div_under_tabs").show();
   },
 
   initialize: function() {
@@ -330,6 +330,12 @@ module.exports =  View.extend({
         if (e.relatedTarget && e.relatedTarget.id === WRITE_TAB) {
           // When we're leaving the write tab, show the vis again.
           that.showVis();
+        }
+        if(e.relatedTarget && e.relatedTarget.id === ANALYZE_TAB) {
+          that.$("#carousel").hide();
+        }
+        if(e.target && e.target.id === ANALYZE_TAB) {
+          that.$("#carousel").show();
         }
       });
 
