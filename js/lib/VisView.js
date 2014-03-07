@@ -1198,7 +1198,7 @@ function renderComments(comments) {
         // $(el_carouselSelector).css("overflow", "hidden");        
 
         // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
-        $(el_carouselSelector).append("<div id='smallWindow' style='left: 5%; width:90%'></div>");        
+        $(el_carouselSelector).append("<div id='smallWindow' style='left: 5%; width:80%'></div>");        
 
         var results = $("#smallWindow");
         results.addClass("owl-carousel");
