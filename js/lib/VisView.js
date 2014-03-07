@@ -499,7 +499,8 @@ function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
             .attr('stroke', color)
             .attr('stroke-linecap', 'round')
             .click(function(i) {
-                return function() {
+                return function(event) {
+                    event.stopPropagation();
                     return onClusterClicked({
                         hullId: i
                     });
