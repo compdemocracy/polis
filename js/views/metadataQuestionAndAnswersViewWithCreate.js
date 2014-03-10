@@ -32,6 +32,7 @@ module.exports = MetadataQuestionAndAnswersView.extend({
         };
         var model = new MetadataAnswer(data);
         model.save().then(function() {
+          release();
 
           that.$el.find("input").val("");
           that.$el.find("input").focus();
@@ -44,7 +45,6 @@ module.exports = MetadataQuestionAndAnswersView.extend({
             processData: true
           });
           model.fetch();
-          release();
         }, function() {
           release();
           alert("failed");

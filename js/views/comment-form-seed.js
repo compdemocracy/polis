@@ -12,9 +12,9 @@ module.exports = Thorax.CollectionView.extend({
       var that = this;
       e.preventDefault();
       this.serialize(function(attrs, release){
+        release();
         console.log(attrs);
         that.participantCommented(attrs);
-        release();
       });
       $("#comment_form_textarea").val(""); //use this.$
     }

@@ -63,11 +63,11 @@ var $ = require("jquery");
         // crossDomain: true,
         data: attrs
       }).then(function(data) {
-        that.trigger("authenticated");
         release();
+        that.trigger("authenticated");
       }, function(err) {
-          that.onFail("login was unsuccessful");
           release();
+          that.onFail("login was unsuccessful");
       });
     });
   },

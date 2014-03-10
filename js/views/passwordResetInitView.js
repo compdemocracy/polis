@@ -27,11 +27,11 @@ module.exports = View.extend({
           // crossDomain: true,
           data: attrs
         }).then(function(message) {
+          release();
           alert(message);
-          release();
         }, function(errmessage) {
-          alert(errmessage);
           release();
+          alert(errmessage);
         });
       });
     },

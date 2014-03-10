@@ -38,8 +38,8 @@ module.exports = View.extend({
           // reload the page to clear out the password from memory
           window.location = window.location.protocol + "//" + window.location.host + "/#user/login";
         }, function(errmessage) {
-          alert(errmessage);
           release();
+          alert(errmessage);
         });
       });
     }
