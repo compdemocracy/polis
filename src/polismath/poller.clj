@@ -87,7 +87,9 @@
                     (try
                       (do
                         (println "zid: " zid)
-                        (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes))
+                        (let [foo (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)]
+                          (pprint foo)
+                          foo))
                       (catch Exception e
                         (do
                           (println "exception when processing zid: " zid)
