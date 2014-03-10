@@ -18,6 +18,7 @@ var getUserInfoByPid = params.getUserInfoByPid;
 var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
+var isIE8 = params.isIE8;
 
 // var getPid = params.getPid;
 
@@ -64,7 +65,6 @@ var selfDotTooltipShow = !SELF_DOT_SHOW_INITIALLY;
 var SELF_DOT_HINT_HIDE_AFTER_DELAY = 10*1000;
 var selfDotHintText = "This is you";
 
-var isIE8 = navigator.userAgent.match(/MSIE 8/);
 
 // if (isIE8) {
 //     $(el_selector).html(

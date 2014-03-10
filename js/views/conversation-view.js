@@ -28,6 +28,8 @@ var ANALYZE_TAB = "analyzeTab";
 var WRITE_TAB = "commentFormTab";
 var VOTE_TAB = "commentViewTab";
 
+var isIE8 = navigator.userAgent.match(/MSIE 8/)
+
 function shouldShowVisUnderTabs() {
   return display.xs();
 }
@@ -126,6 +128,7 @@ module.exports =  View.extend({
             }
             return pid;
           },
+          isIE8: isIE8,
           getCommentsForProjection: serverClient.getCommentsForProjection,
           getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
@@ -397,7 +400,16 @@ module.exports =  View.extend({
 
       initPcaVis();
       
-      $(window).resize(_.throttle(initPcaVis, 100));
+
+      if (isIE8) {
+        // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
+        // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
+      } else {
+        $(window).resize(_.throttle(initPcaVis, 100));
+      }
+
+
+
 
   }, 0); // end listenTo "rendered"
   });
