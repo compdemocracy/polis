@@ -662,6 +662,11 @@ function clientSideBaseCluster(things, N) {
                 }
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
+                // Check for missing comps... TODO solve 
+                if (!pcaData.pca || !pcaData.pca.comps || !pcaData.pca.comps[0] || pcaData.pca.comps[1]) {
+                    console.error("missing comps");
+                    return $.Deferred().reject();
+                }
                 var buckets = arraysToObjects(pcaData["base-clusters"]);
 
                 // TODO we should include the vectors for each comment (with the comments?)
@@ -675,7 +680,6 @@ function clientSideBaseCluster(things, N) {
                 //var myself = _.findWhere(people, {pid: getPid()});
                 //people = _.without(people, myself);
                 //people.push(myself);
-
 
                 pcX = pcaData.pca.comps[0];
                 pcY = pcaData.pca.comps[1];
