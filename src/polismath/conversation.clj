@@ -63,7 +63,7 @@
                     opts))
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
-                               (map #(map % [:pid :tid :vote]) votes)))
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
   :n (plmb/fnk [rating-mat]
                "count the participants"
                (count (:rows rating-mat)))
