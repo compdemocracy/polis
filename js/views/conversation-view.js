@@ -86,9 +86,7 @@ module.exports =  View.extend({
     var pid = this.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
-    var registerForPersonUpdates = _.once(function() {
-      that.serverClient.addPersonUpdateListener(onPersonUpdate);
-    });
+
 
     this.tutorialController = new TutorialController();
     var metadataCollection = new MetadataQuestionsCollection([], {
@@ -127,6 +125,7 @@ module.exports =  View.extend({
       var w = $(elSelector).width();
       var h = w/2;
       $(elSelector).height(h);
+      that.serverClient.removePersonUpdateListener(onPersonUpdate);
       vis = new VisView({
           getPid: function() {
             if (!_.isId(pid)) {
@@ -150,7 +149,7 @@ module.exports =  View.extend({
           el_raphaelSelector: elSelector, //"#raphael_div",
       });
 
-      registerForPersonUpdates();
+      that.serverClient.addPersonUpdateListener(onPersonUpdate)
 
       that.tutorialController.setHandler("blueDot", function(){
         that.$blueDotPopover = that.$(elSelector).popover({
