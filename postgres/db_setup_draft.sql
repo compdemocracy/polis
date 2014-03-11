@@ -153,6 +153,22 @@ CREATE TABLE participants(
     UNIQUE (zid, uid) 
 );
 
+-- mapping between uid and (owner,eXternalID)
+CREATE TABLE xids (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    owner INTEGER NOT NULL REFERENCES users(uid),
+    xid VARCHAR(32) NOT NULL,
+    UNIQUE (owner, xid)
+);
+
+-- These records should contain enough to populate a record in the xids table (in conjunction with creating a user, which provides a uid)
+CREATE TABLE xinvites (
+    owner INTEGER NOT NULL REFERENCES users(uid),
+    zid INTEGER NOT NULL REFERENCES conversations(zid),
+    xid VARCHAR(32) NOT NULL,
+    xinvite VARCHAR(32), -- Be sure the URLs fit in Tweets.  pol.is/<xinvite>
+    UNIQUE (xinvite)
+);
 
 --CREATE TABLE permissions(
     --uid INTEGER NOT NULL REFERENCES users(uid),
