@@ -170,6 +170,15 @@ var dimensions = {
 //     };
 // }
 
+// Hard-code dimensions on IE8 so we don't have to reinitialize vis on every resize event.
+// (IE8 triggers a resize event every time a DOM element changes)
+if (isIE8) {
+    dimensions = {
+        width: "500px",
+        height: "300px"
+    };
+}
+
 
 var paper;
 if (isIE8) {
@@ -1002,23 +1011,30 @@ function upsertNode(updatedNodes, newClusters) {
         var bucket = rNodes[n];
         if (isSelf(node)) {
             bucket.circle.attr("fill", colorSelf);
-
-            bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
-            bucket.circleOuter.attr("stroke", colorSelf);
-            bucket.circleOuter.attr("stroke-width", 1);
-            bucket.circleOuter.attr("opacity", 0.5);
-            bucket.circleOuter.attr("r", bucket.radius * 2);
-
-
         } else {
             bucket.circle.attr("fill", colorNoVote);
-            bucket.circleOuter.attr("fill", colorNoVote);
-            bucket.circleOuter.attr("stroke", colorSelf);
-            bucket.circleOuter.attr("stroke-width", 0);
-            bucket.circleOuter.attr("opacity", "");
-            bucket.circleOuter.attr("r", bucket.radius);        
         }
       }
+      // postpone to speed up init
+      setTimeout(function() {
+          for (var n = 0; n < nodes.length; n++) {
+            var node = nodes[n];
+            var bucket = rNodes[n];
+            if (isSelf(node)) {
+                bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
+                bucket.circleOuter.attr("stroke", colorSelf);
+                bucket.circleOuter.attr("stroke-width", 1);
+                bucket.circleOuter.attr("opacity", 0.5);
+                bucket.circleOuter.attr("r", bucket.radius * 2);
+            } else {
+                bucket.circleOuter.attr("fill", colorNoVote);
+                bucket.circleOuter.attr("stroke", colorSelf);
+                bucket.circleOuter.attr("stroke-width", 0);
+                bucket.circleOuter.attr("opacity", "");
+                bucket.circleOuter.attr("r", bucket.radius);
+            }
+          }
+      }, 7500);
   } else {
 
     // TODO use key to guarantee unique items
