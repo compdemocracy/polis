@@ -122,7 +122,12 @@ module.exports =  View.extend({
       }
       that.elSelector = elSelector;
 
+
       var w = $(elSelector).width();
+      if (isIE8) {
+        w = 500;
+        $(elSelector).width(w);
+      }
       var h = w/2;
       $(elSelector).height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate);

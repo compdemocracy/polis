@@ -170,14 +170,6 @@ var dimensions = {
 //     };
 // }
 
-// Hard-code dimensions on IE8 so we don't have to reinitialize vis on every resize event.
-// (IE8 triggers a resize event every time a DOM element changes)
-if (isIE8) {
-    dimensions = {
-        width: "500px",
-        height: "300px"
-    };
-}
 
 
 var paper;
