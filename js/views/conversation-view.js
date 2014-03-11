@@ -412,7 +412,7 @@ module.exports =  View.extend({
         // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
         // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
        setTimeout(initPcaVis, 10); // give other UI elements a chance to load
-        document.body.onresize = _.debounce(initPcaVis, 1000)
+        // document.body.onresize = _.debounce(initPcaVis, 1000)
       } else {
         setTimeout(initPcaVis, 10); // give other UI elements a chance to load        
         $(window).resize(_.debounce(initPcaVis, 100));
