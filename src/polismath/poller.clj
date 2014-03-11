@@ -93,7 +93,9 @@
                       (catch Exception e
                         (do
                           (println "exception when processing zid: " zid)
-                          (.printStackTrace e)))))))
+                          (.printStackTrace e)
+                          (convs zid) ; put things back 
+                          ))))))
                 
             (println "zid: " zid)
             (println "time: " (System/currentTimeMillis))
