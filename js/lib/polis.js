@@ -663,7 +663,7 @@ function clientSideBaseCluster(things, N) {
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
                 // Check for missing comps... TODO solve 
-                if (!pcaData.pca || !pcaData.pca.comps || !pcaData.pca.comps[0] || pcaData.pca.comps[1]) {
+                if (!pcaData.pca || !pcaData.pca.comps || !pcaData.pca.comps[0] || !pcaData.pca.comps[1]) {
                     console.error("missing comps");
                     return $.Deferred().reject();
                 }

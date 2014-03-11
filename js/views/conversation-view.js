@@ -86,6 +86,9 @@ module.exports =  View.extend({
     var pid = this.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
+    var registerForPersonUpdates = _.once(function() {
+      that.serverClient.addPersonUpdateListener(onPersonUpdate);
+    });
 
     this.tutorialController = new TutorialController();
     var metadataCollection = new MetadataQuestionsCollection([], {
@@ -103,6 +106,12 @@ module.exports =  View.extend({
         that.onClusterTapped();
     }
 
+    function onPersonUpdate() {
+      if (vis) {
+        vis.upsertNode.apply(vis, arguments);
+      }
+    }
+
     function initPcaVis() {
       if (shouldShowVisUnderTabs()) {
         elSelector = "#visualization_div_under_tabs";
@@ -118,9 +127,6 @@ module.exports =  View.extend({
       var w = $(elSelector).width();
       var h = w/2;
       $(elSelector).height(h);
-      if (vis) {
-          serverClient.removePersonUpdateListener(vis.upsertNode);
-      }
       vis = new VisView({
           getPid: function() {
             if (!_.isId(pid)) {
@@ -143,9 +149,8 @@ module.exports =  View.extend({
           el: elSelector,
           el_raphaelSelector: elSelector, //"#raphael_div",
       });
-      serverClient.addPersonUpdateListener(function() {
-        vis.upsertNode.apply(vis, arguments);
-      });
+
+      registerForPersonUpdates();
 
       that.tutorialController.setHandler("blueDot", function(){
         that.$blueDotPopover = that.$(elSelector).popover({
@@ -320,7 +325,9 @@ module.exports =  View.extend({
       //   }
       // });
       function deselectHulls() {
-        vis.deselect();
+        if (vis) {
+          vis.deselect();
+        }
       }
 
       // Before shown
@@ -398,14 +405,17 @@ module.exports =  View.extend({
         },1000);
       }));
 
-      initPcaVis();
+
       
 
       if (isIE8) {
         // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
         // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
+       setTimeout(initPcaVis, 10); // give other UI elements a chance to load
+        document.body.onresize = _.debounce(initPcaVis, 1000)
       } else {
-        $(window).resize(_.throttle(initPcaVis, 100));
+        setTimeout(initPcaVis, 10); // give other UI elements a chance to load        
+        $(window).resize(_.debounce(initPcaVis, 100));
       }
 
 
