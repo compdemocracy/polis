@@ -177,6 +177,9 @@ module.exports =  View.extend({
       });
       that.tutorialController.setHandler("analyzePopover", function(){
         setTimeout(function(){
+          if (!that.$el) {
+            return;
+          }
           that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
             title: "COMMENTS FOR THIS GROUP",
             content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
