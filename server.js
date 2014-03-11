@@ -1022,6 +1022,12 @@ function clearCookies(req, res) {
         }     
         for (var cookieName in req.cookies) {
             res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+        }          
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: ".pol.is"});
+        }
+        for (var cookieName in req.cookies) {
+            res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
         }
     }
     // addCookies(res, "", "");
@@ -1320,7 +1326,7 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
     getUserInfoForUid(uid, function(err, userInfo) {
         if (err) { return callback(err);}
         if (!userInfo) { return callback('missing user info');}
-        var server = devMode ? "http://localhost:5000" : "https://www.polis.io";
+        var server = devMode ? "http://localhost:5000" : "https://pol.is";
         var body = "" +
             "Hi " + userInfo.hname + ",\n" +
             "\n" +
@@ -2603,7 +2609,7 @@ function(req, res){
         var fullname = results.rows[0].hname;
         client.query("select * from zinvites where zid = $1", [req.p.zid], function(err, results){
             var zinvite = results.rows[0].zinvite;
-            var server = devMode ? "http://localhost:5000" : "https://www.pol.is";
+            var server = devMode ? "http://localhost:5000" : "https://pol.is";
             var createdLink = server + "/#"+ req.p.zid +"/"+ zinvite;
             var body = "" +
                 "Hi " + fullname + ",\n" +
