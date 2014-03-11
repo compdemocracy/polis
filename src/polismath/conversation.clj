@@ -14,8 +14,6 @@
 (defn choose-group-k [base-clusters]
   (let [len (count base-clusters)]
                   (cond
-                   (< len 3) 1
-                   (< len 5) 2
                    (< len 99) 3
                    :else 4
                   )))
@@ -65,14 +63,21 @@
                     opts))
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
-                    (map #(map % [:pid :tid :vote]) votes)))})
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
+  :n (plmb/fnk [rating-mat]
+               "count the participants"
+               (count (:rows rating-mat)))
+
+   })
 
 
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
   (merge
    base-conv-update-graph
-   {:mat
+   {
+
+    :mat
     (plmb/fnk
      [rating-mat]
      "swap nils for zeros - most things need the 0s, but repness needs the nils"

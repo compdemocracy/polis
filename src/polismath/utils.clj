@@ -69,17 +69,16 @@
 
 
 (defn prep-for-uploading-to-client [results]
-  (let [proj (get results :proj)
-        base-clusters (get results :base-clusters)]
+  (let [base-clusters (get results :base-clusters)]
     (snowball
       results
       [
         #(dissoc %1 :mat :rating-mat :opts') ;remove things we don't want to publish
 
         ; REFORMAT PROJECTION
-        #(dissoc %1 :proj) ; remove the original projection - we'll replace it
-        #(assoc-in %1 [:proj :x] (map first proj))  ; create an array of x values
-        #(assoc-in %1 [:proj :y] (map second proj)) ; create an array of y values
+        #(dissoc %1 :proj) ; remove the original projection - we'll
+                           ; provide buckets/base-clusters instead
+
 
         ; REFORMAT BASE CLUSTERS
         #(dissoc %1 :base-clusters)
@@ -93,6 +92,4 @@
         ; make the array position of each cluster imply the cluster id
         #(assoc %1 :repness (map :repness (sort-by :id (:repness %1))))
 
-
-        
         ])))
