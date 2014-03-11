@@ -891,6 +891,12 @@ var whitelistedDomains = [
   "http://bonn83np5g4s6k2am.herokuapp.com/",
   "http://polis.io",
   "https://polis.io",
+  "http://pol.is",
+  "https://pol.is",
+  "http://api.pol.is", // TODO delete?
+  "https://api.pol.is",
+  "http://www.pol.is",
+  "https://www.pol.is",
 ];
 
 app.all("/v3/*", function(req, res, next) {
