@@ -180,9 +180,6 @@ if (isIE8) {
 var MAX_BUCKETS = 60;
 var rNodes = [];
 var rBuckets = [];
-var showCircles = true;
-var showArrows = false;
-var showMetadata = false;
 
 function makeBucketParts(i) {
     var circleOuter = paper.circle(0,0,0);
@@ -205,11 +202,11 @@ function makeBucketParts(i) {
 
 
         // .toFront();
-    // var set = paper.set();
-    // set.push(circle);
-    // set.push(circleOuter);
-    // set.push(up);
-    // set.push(down);
+    var set = paper.set();
+    set.push(circle);
+    set.push(circleOuter);
+    set.push(up);
+    set.push(down);
     var bucket = {
         radius: 0,
         x: 0,
@@ -221,24 +218,8 @@ function makeBucketParts(i) {
         transform: function(x, y) {
             this.x = x;
             this.y = y;
-        },
-        applyTransform: function() {
-            var x = this.x;
-            var y = this.y;
-            if (showCircles) {
-                this.circle.transform("");
-                this.circle.transform("T" + x + "," + y);
-            }
-            if (showCircles && showMetadata) {
-                this.circleOuter.transform("");
-                this.circleOuter.transform("T" + x + "," + y);
-            }
-            if (showArrows) {
-                this.up.transform("");
-                this.up.transform("T" + x + "," + y);
-                this.down.transform("");
-                this.down.transform("T" + x + "," + y);
-            }
+            this.set.transform("");
+            this.set.transform("T" + x + "," + y);
 
             // this.circle.attr("cx", x);
             // this.circle.attr("cy", y);
@@ -262,12 +243,12 @@ function makeBucketParts(i) {
             var _transformed = Raphael.transformPath(path,
                 'T0,0'); // TODO needed?
             this.down.animate({path: _transformed}, 0);
-        }
+        },
         // arrowUp: arrowUp,
         // arrowUpOuter: arrowUpOuter,
         // arrowDown: arrowDown,
         // arrowDownOuter: arrowDownOuter,        
-        // set: set
+        set: set
     };
 
     return bucket;
@@ -415,20 +396,9 @@ function setClusterActive(clusterId) {
     var pids;
     var promise;
     if (clusterId === false) {
-        showCircles = true;
-        showArrows = false;
-        bucket.circle.show();
-        bucket.up.hide();
-        bucket.down.hide();
-
         pids = [];
         promise = $.Deferred().resolve([]);
     } else {
-        showArrows = true;
-        showCircles = false;
-        bucket.circle.hide();
-        bucket.up.show();
-        bucket.down.show();
         pids = clusters[clusterId];
         var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 3;
         promise = getCommentsForGroup(clusterId, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW);
@@ -481,14 +451,6 @@ function updateHullColors() {
    }
 }
 
-function applyTransforms() {
-    if (isIE8) {
-        for (var i = 0; i < nodes.length; i++) {
-            var bucket = rNodes[i];
-            bucket.applyTransform();
-        }
-    }
-}
 
 function onClusterClicked(d) {
     $("#analyzeTab").tab("show");
@@ -502,7 +464,6 @@ function handleOnClusterClicked(hullId) {
     } else {
         resetSelectedComment();
         unhoverAll();
-        applyTransforms();
         setClusterActive(hullId)
             .then(
                 updateHulls,
@@ -669,7 +630,6 @@ force.on("tick", function(e) {
             var x = node.x;
             var y = node.y;
             bucket.transform(x, y);
-            bucket.applyTransform();
           }
       } else {
           main_layer.selectAll(groupTag)
@@ -1007,7 +967,6 @@ function upsertNode(updatedNodes, newClusters) {
             var y = node.y;
 
             bucket.transform(x, y);
-            bucket.applyTransform();
           }
           updateHulls();
       } else {
@@ -1044,20 +1003,20 @@ function upsertNode(updatedNodes, newClusters) {
         if (isSelf(node)) {
             bucket.circle.attr("fill", colorSelf);
 
-            // bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
-            // bucket.circleOuter.attr("stroke", colorSelf);
-            // bucket.circleOuter.attr("stroke-width", 1);
-            // bucket.circleOuter.attr("opacity", 0.5);
-            // bucket.circleOuter.attr("r", bucket.radius * 2);
+            bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
+            bucket.circleOuter.attr("stroke", colorSelf);
+            bucket.circleOuter.attr("stroke-width", 1);
+            bucket.circleOuter.attr("opacity", 0.5);
+            bucket.circleOuter.attr("r", bucket.radius * 2);
 
 
         } else {
             bucket.circle.attr("fill", colorNoVote);
-            // bucket.circleOuter.attr("fill", colorNoVote);
-            // bucket.circleOuter.attr("stroke", colorSelf);
-            // bucket.circleOuter.attr("stroke-width", 0);
-            // bucket.circleOuter.attr("opacity", "");
-            // bucket.circleOuter.attr("r", bucket.radius);        
+            bucket.circleOuter.attr("fill", colorNoVote);
+            bucket.circleOuter.attr("stroke", colorSelf);
+            bucket.circleOuter.attr("stroke-width", 0);
+            bucket.circleOuter.attr("opacity", "");
+            bucket.circleOuter.attr("r", bucket.radius);        
         }
       }
   } else {
@@ -1192,12 +1151,6 @@ function selectComment(tid) {
             //     }
             // }
         }
-        showArrows = true;
-        showCircles = false;
-        applyTransforms();
-        bucket.circle.hide();
-        bucket.up.show();
-        bucket.down.show();
         updateNodeVoteCounts();
         updateNodes();
         // visualization.selectAll(groupTag)
@@ -1385,10 +1338,10 @@ function updateNodes() {
 
         if (shouldDisplayCircle(node)) {
             bucket.circle.show();
-            // bucket.circleOuter.show();
+            bucket.circleOuter.show();
         } else {
             bucket.circle.hide();
-            // bucket.circleOuter.hide();
+            bucket.circleOuter.hide();
         }
         if (shouldDisplayArrows(node)) {
             bucket.up.show();
@@ -1471,13 +1424,7 @@ function resetSelection() {
   } else {
       visualization.selectAll(".active").classed("active", false);
   }
-  showCircles = true;
-  showArrows = false;
   selectedCluster = false;
-  bucket.circle.show();
-  bucket.up.hide();
-  bucket.down.hide();
-
   // visualization.transition().duration(750).attr("transform", "");
   if (d3CommentList) {
     d3CommentList.html("");
