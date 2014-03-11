@@ -46,11 +46,21 @@
         (is (= 2 (count (kmeans real-nmat 2 :last-clusters clusts))))))))
 
 (deftest edge-cases
-  (testing "k-means on n < k items gives n clusters"
-    (let [data (named-matrix
-                 ["p1" "p2"]
-                 ["c1" "c2" "c3"]
-                 [[ 0  1  0 ]
-                  [-1  1  0 ]])]
-      (size-correct (kmeans data 3) 2))))
+  (testing "k-means on n < k items"
+    (testing "gives n clusters"
+      (let [data (named-matrix
+                   ["p1" "p2"]
+                   ["c1" "c2" "c3"]
+                   [[ 0  1  0 ]
+                    [-1  1  0 ]])]
+        (size-correct (kmeans data 3) 2)))
+    (testing "gives n-1 clusters when precisely 2 items have identical positions"
+      (let [data (named-matrix
+                   ["p1" "p2" "p3"]
+                   ["c1" "c2" "c3"]
+                   [[ 0  1  0 ]
+                    [ 0  1  0 ]
+                    [-1  1  0 ]])]
+        (size-correct (kmeans data 3) 2)))))
+
 
