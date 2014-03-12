@@ -104,7 +104,7 @@ initialize(function(next) {
 function initialize(complete) {
     $(function() {
       Backbone.history.start({
-        pushState: false,
+        pushState: true,
         root: "/",
         silent: true
     });

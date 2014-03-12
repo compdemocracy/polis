@@ -18,7 +18,7 @@ module.exports = Model.extend({
       owner: undefined,
       participant_count: "",
       url_name: function(){
-        var s = "/#" + this.zid;
+        var s = "/" + this.zid;
         if (this.zinvites) {
           s += "/" + this.zinvites[0]; // TODO deal with multiple?
         }
