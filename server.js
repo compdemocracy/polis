@@ -677,14 +677,14 @@ function addCookies(res, token, uid) {
             path: '/',
             httpOnly: true,
             maxAge: oneYear,
-            domain: '.polis.io',
+            domain: '.pol.is',
             // secure: true, // TODO need HTTPS
         });
         res.cookie(COOKIES.UID, uid, {
             path: '/',
             // httpOnly: true, (client JS needs to see something to know it's signed in)
             maxAge: oneYear,
-            domain: '.polis.io',
+            domain: '.pol.is',
             // secure: true, // TODO need HTTPS
         });
     }
