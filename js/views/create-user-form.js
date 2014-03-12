@@ -103,8 +103,8 @@ var $ = require("jquery");
   },
   initialize: function(options) {
     this.model = options.model;
-    this.urlPrefix = "https://www.polis.io/";
-    if (-1 === document.domain.indexOf(".polis.io")) {
+    this.urlPrefix = "https://pol.is/";
+    if (-1 === document.domain.indexOf("pol.is")) {
       this.urlPrefix = "http://localhost:5000/";
     }
   }

@@ -10,8 +10,8 @@ Backbone.ajax = function(url, options) {
 	}
 
     var protocol = "//";
-    var firstPart = protocol + "www.polis.io/";
-    if (-1 === document.domain.indexOf(".polis.io")) {
+    var firstPart = protocol + "pol.is/";
+    if (-1 === document.domain.indexOf("pol.is")) {
         firstPart = protocol + "localhost:5000/";
     }
     var base_url = firstPart + api_version + "/";

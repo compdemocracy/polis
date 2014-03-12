@@ -75,7 +75,7 @@ gulp.task('index', [
     }))
   } else {
     s = s.pipe(template({
-      basepath: 'https://s3.amazonaws.com/www.polis.io',
+      basepath: 'https://s3.amazonaws.com/pol.is',
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
@@ -332,7 +332,7 @@ gulp.task('deploy', [
   ], function() {
 
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-    creds.bucket = "www.polis.io";
+    creds.bucket = "pol.is";
 
     // Files without Gzip
     gulp.src([

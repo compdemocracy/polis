@@ -222,7 +222,7 @@ module.exports =  View.extend({
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,
       protocol: /localhost/.test(document.domain) ? "http" : "https",
-      domain: /localhost/.test(document.domain) ? "localhost:5000" : "www.polis.io",
+      domain: /localhost/.test(document.domain) ? "localhost:5000" : "pol.is",
       basePath: "",
       logger: console
     });

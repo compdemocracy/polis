@@ -9,8 +9,8 @@ module.exports = View.extend({
     "submit form": function(event){
       var that = this;
       event.preventDefault();
-      var urlPrefix = "https://www.polis.io/";
-      if (-1 === document.domain.indexOf(".polis.io")) {
+      var urlPrefix = "https://pol.is/";
+      if (-1 === document.domain.indexOf("pol.is")) {
           urlPrefix = "http://localhost:5000/"; // TODO centralize the network config
       }
       this.serialize(function(attrs, release){
