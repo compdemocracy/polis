@@ -2780,11 +2780,15 @@ function getStaticFile(contentPath, res) {
 
 var routingProxy = new httpProxy.RoutingProxy();
 
+function addStaticFileHeaders(res) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', 0);
+}
+
 function proxy(req, res) {
     if (devMode) {
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', 0);
+        addStaticFileHeaders(res);
     }
     // if (/MSIE [^1]/.exec(req.headers['user-agent'])) { // older than 10
     //     // http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
@@ -2813,8 +2817,38 @@ function proxy(req, res) {
     // }
 }
 
+// TODO cache!
+function makeFileFetcher(url, contentType) {
+    return function fetchIndex(req, res) {
+        console.log("fetchIndex from " + url);
+        var hostname = process.env.STATIC_FILES_HOST;
+        http.get(url, function(proxyResponse) {
+            if (devMode) {
+                addStaticFileHeaders(res);
+            }
+            res.setHeader('Content-Type', contentType);
+            proxyResponse.on('data', function (chunk) {
+                res.write(chunk);
+            });
+            proxyResponse.on('end', function () {
+                res.end();
+            });
+        }).on("error", function(e) {
+            fail(res, 500, "polis_err_serving_index", new Error("polis_err_serving_index"));
+        });
+    };
+}
+
+// serve up index.html in response to anything starting with a number 
+var hostname = process.env.STATIC_FILES_HOST;
+var port = process.env.STATIC_FILES_PORT;
+app.get(/^\/[0-9]+.*/, makeFileFetcher("http://" + hostname + ":" + port + "/index.html", "text/html"));
+
 // proxy everything that isn't an API call
 app.get(/^\/[^(v3)]?.*/, proxy);
+
+
+
 
 app.listen(process.env.PORT);
 
