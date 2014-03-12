@@ -868,7 +868,18 @@ function redirectIfNotHttps(req, res, next) {
   return next();
 }
 
+function redirectIfWrongDomain(req, res, next) {
+  if(/www.polis.io/.test(req.headers.host)) {
+    res.writeHead(302, {
+        Location: "https://pol.is" + req.url
+    });
+    return res.end();
+  }
+  return next();
+}
+
 app.use(express.logger());
+app.use(redirectIfWrongDomain);
 app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
 app.use(express.cookieParser());
