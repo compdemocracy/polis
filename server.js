@@ -2842,9 +2842,19 @@ function makeFileFetcher(url, contentType) {
 // serve up index.html in response to anything starting with a number 
 var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
-app.get(/^\/[0-9]+.*/, makeFileFetcher("http://" + hostname + ":" + port + "/index.html", "text/html"));
+var fetchIndex = makeFileFetcher("http://" + hostname + ":" + port + "/index.html", "text/html");
 
-// proxy everything that isn't an API call
+app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
+// TODO consider putting static files on /static, and then using a catch-all to serve the index.
+app.get(/^\/conversation\/create.*/, fetchIndex);
+app.get(/^\/user\/create/, fetchIndex);
+app.get(/^\/user\/login/, fetchIndex);
+app.get(/^\/settings/, fetchIndex);
+app.get(/^\/inbox.*/, fetchIndex);
+app.get(/^\/pwresetinit/, fetchIndex);
+app.get(/^\/demo.*/, fetchIndex);
+
+// proxy everything else
 app.get(/^\/[^(v3)]?.*/, proxy);
 
 
