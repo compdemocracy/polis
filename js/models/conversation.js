@@ -27,7 +27,7 @@ module.exports = Model.extend({
       url_name_with_hostname: function() {
         // build the URL for the user to copy & paste
         var s = "";
-        if (/polis/.exec(document.location.hostname)) {
+        if (/pol.is/.exec(document.location.hostname)) {
           // production
           s += "https://";
         }
