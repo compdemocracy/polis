@@ -40,6 +40,7 @@ var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.route(/([0-9]+)/, "conversationView");  // zid
     this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
+    this.route(/^ot\/([0-9]+)\/(.*)/, "conversationViewWithSuzinvite"); // zid/suzinvite
     this.route(/^pwreset\/(.*)/, "pwReset");
     this.route(/^demo\/(.*)/, "demoConversation");
   },
@@ -143,6 +144,17 @@ var polisRouter = Backbone.Router.extend({
       });
       that.listenTo(createConversationFormView, "all", function(eventName, data) {
         if (eventName === "done") {
+          var suurls = data;
+            if (suurls) {
+            var suurlsCsv = ["xid, url"];
+            var len = suurls.xids.length;
+            var xids = suurls.xids;
+            var urls = suurls.urls;
+            for (var i = 0; i < len; i++) {
+              suurlsCsv.push(xids[i] + "," + urls[i]);
+            }
+            model.set("suurls", suurlsCsv);
+          }
           that.gotoShareView(model);
           // that.navigate("inbox", {trigger: true});
           //that.inbox();
@@ -198,10 +210,18 @@ var polisRouter = Backbone.Router.extend({
 
     this.doLaunchConversation(ptpt);
   },
-  conversationView: function(zid, zinvite) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
+  conversationViewWithSuzinvite: function(zid, suzinvite) {
+    return this.conversationView(zid, suzinvite, true);
+  },
+  conversationView: function(zid, zinvite, singleUse) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
     if (!zinvite && !authenticated()) { return this.bail(); }
 
     var that = this;
+
+    var suzinvite;
+    if (singleUse) {
+      suzinvite = zinvite;
+    }
 
     var uid = PolisStorage.uid();
 
@@ -209,10 +229,38 @@ var polisRouter = Backbone.Router.extend({
         console.log("trying to load conversation, but no auth");
         // Not signed in.
         // Or not registered.
-        this.doCreateUserFromGatekeeper(zid, zinvite).done(function() {
-          // Try again, should be ready now.
-          that.conversationView(zid, zinvite);
-        });
+
+        if (singleUse) {
+
+          $.ajax({
+            url: "/v3/joinWithSuzinvite",
+            type: "POST",
+            dataType: "json",
+            xhrFields: {
+                withCredentials: true
+            },
+            // crossDomain: true,
+            data: {
+              zid: zid,
+              suzinvite: suzinvite
+            }
+          }).then(function(data) {
+            that.conversationView(zid);
+          }, function(err) {
+            if (err.responseText === "polis_err_no_matching_suzinvite") {
+              alert("Sorry, this single-use URL has been used.");
+            } else {
+              that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
+                that.conversationView(zid);
+              });
+            }
+          });
+        } else {
+          this.doCreateUserFromGatekeeper(zid, zinvite, singleUse).done(function() {
+            // Try again, should be ready now.
+            that.conversationView(zid, zinvite);
+          });
+        }
     } else {
       // join conversation (may already have joined)
       var ptpt = new ParticipantModel({
@@ -236,25 +284,35 @@ var polisRouter = Backbone.Router.extend({
     // }
   },
   // assumes the user already exists.
-  conversationGatekeeper: function(zid, uid, zinvite) {
+  conversationGatekeeper: function(zid, uid, zinvite, singleUse) {
     var dfd = $.Deferred();
-    var gatekeeperView = new ConversationGatekeeperView({
+    var params = {
       zid: zid,
       uid: uid,
-      zinvite: zinvite
-    });
+    };
+    if (singleUse) {
+      params.suzinvite = zinvite
+    } else {
+      params.zinvite = zinvite;
+    }
+    var gatekeeperView = new ConversationGatekeeperView(params);
     gatekeeperView.on("done", dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
     return dfd.promise();
   },
-  doCreateUserFromGatekeeper: function(zid, zinvite) {
+  doCreateUserFromGatekeeper: function(zid, zinvite, singleUse) {
     var dfd = $.Deferred();
 
-    var model = new ConversationModel({
-        zinvite: zinvite,
+    var params = {
         zid: zid,
         create: true, // do we need this?
-    });
+    };
+    if (singleUse) {
+        params.suzinvite = zinvite;
+    } else {
+        params.zinvite = zinvite;
+    }
+    var model = new ConversationModel(params);
     bbFetch(model).then(function() {
       var createUserFormView = new ConversationGatekeeperViewCreateUser({
         model : model

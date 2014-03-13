@@ -44,18 +44,46 @@ module.exports = View.extend({
               break;
             }
           }
-          attrs.verifyMeta = true; // make sure there are answers for each question.
-          this.model.save(attrs).then(function(data) {
-            release();
-            that.trigger("done");
+          var xids = attrs.xidsTextarea;
+          if (xids && xids.length) {
+            xids = xids.split("\n");
+          }
+          delete attrs.xidsTextarea;
+
+          var readyToSubmit = !!xids ? 
+            $.ajax({
+              url: "/v3/users/invite",
+              type: "POST",
+              dataType: "json",
+              xhrFields: {
+                  withCredentials: true
+              },
+              // crossDomain: true,
+              data: {
+                xids: xids,
+                single_use_tokens: true,
+                zid: that.model.get("zid")
+              }
+            }) : 
+            $.Deferred().resolve();
+
+          readyToSubmit.then(function(suurls) {
+
+            attrs.verifyMeta = true; // make sure there are answers for each question.
+            that.model.save(attrs).then(function(data) {
+              release();
+              that.trigger("done", suurls);
+            }, function(err) {
+              var err = err.responseJSON;
+              release();
+              if (err === "polis_err_missing_metadata_answers") {
+                that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
+              } else {
+                that.onFail("unable to save");
+              }
+            });
           }, function(err) {
-            var err = err.responseJSON;
-            release();
-            if (err === "polis_err_missing_metadata_answers") {
-              that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
-            } else {
-              that.onFail("unable to save");
-            }
+            that.onFail("failed to create single-use URLs");
           });
         });
       }
@@ -107,9 +135,12 @@ module.exports = View.extend({
       var $seedCommentsContainer = this.$("#seedCommentsContainer");
       var $hiddenSeedCommentForm = this.$("#hiddenSeedCommentForm");
       var $metadataFormContainer = this.$("#metadataFormContainer");
+      var $xidsFormContainer = this.$("#xidsFormContainer");
       var $hiddenMetadataForm = this.$("#hiddenMetadataForm");
+      var $hiddenXidsForm = this.$("#hiddenXidsForm");
       var $seedCommentsCaret = this.$("#seedCommentsCaret");
       var $metadataCaret = this.$("#metadataCaret");
+      var $xidsCaret = this.$("#xidsCaret");
       var $metaDataHelperTextButton = this.$("#metaDataHelperTextButton");
       var $hiddenMetadataHelperText = this.$("#hiddenMetadataHelperText");
       var $seedCommentHelperTextButton = this.$("#seedCommentHelperTextButton");
@@ -133,6 +164,13 @@ module.exports = View.extend({
         $hiddenMetadataForm.show();
         $metadataFormContainer.css({"cursor": "default"});
 
+      });
+
+      $xidsFormContainer.css({"cursor": "pointer"});
+      $xidsFormContainer.click(function(){
+        $xidsCaret.removeClass("icon-caret-right").addClass("icon-caret-down");
+        $hiddenXidsForm.show();
+        $xidsFormContainer.css({"cursor": "default"});
       });
 
       $metaDataHelperTextButton.click(function(){

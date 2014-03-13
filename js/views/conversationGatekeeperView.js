@@ -29,8 +29,13 @@ module.exports = View.extend({
         attrs.answers = numbers;
         // Incorporate options, like zinvite.
         attrs = $.extend(that.options || {}, attrs);
+        var url = urlPrefix + "v3/participants";
+        if (this.options.suzinvite) {
+          url = urlPrefix + "v3/joinWithSuzinvite";
+        }
+
         $.ajax({
-          url: urlPrefix + "v3/participants",
+          url: url,
           type: "POST",
           dataType: "json",
           xhrFields: {
@@ -53,20 +58,29 @@ module.exports = View.extend({
     this.options = options;
     var zid = options.zid;
     var zinvite = options.zinvite;
+    var suzinvite = options.suzinvite;
+    var params = {
+      zid: zid,
+    };
+    if (options.zinvite) {
+      params.zinvite = options.zinvite;
+    }
+    if (options.suzinvite) {
+      params.suzinvite = options.suzinvite;
+    }
+
     this.metadataCollection = new MetadataQuestionCollection([], {
       zid: zid
     });
     this.metadataCollection.fetch({
-        data: $.param({
-            zid: zid,
-            zinvite: zinvite
-        }),
+        data: $.param(params),
         processData: true
     });
     this.metadataQuestionsView = new MetadataQuestionsView({
       collection: this.metadataCollection,
-      zid: zid,
-      zinvite: zinvite
+      zinvite: zinvite,
+      suzinvite: suzinvite,
+      zid: zid
     });
     // this.gatekeeperAuthView = new UserCreateView({
     //   zinvite: zinvite,
