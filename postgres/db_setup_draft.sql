@@ -161,13 +161,14 @@ CREATE TABLE xids (
     UNIQUE (owner, xid)
 );
 
+-- Single Use Invites
 -- These records should contain enough to populate a record in the xids table (in conjunction with creating a user, which provides a uid)
-CREATE TABLE xinvites (
+CREATE TABLE suzinvites (
     owner INTEGER NOT NULL REFERENCES users(uid),
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     xid VARCHAR(32) NOT NULL,
-    xinvite VARCHAR(32), -- Be sure the URLs fit in Tweets.  pol.is/<xinvite>
-    UNIQUE (xinvite)
+    suzinvite VARCHAR(32), -- Be sure the URLs fit in Tweets.  pol.is/<xinvite>
+    UNIQUE (suzinvite)
 );
 
 --CREATE TABLE permissions(
