@@ -126,7 +126,11 @@ module.exports = function(params) {
                     return _.contains(newIDs, ev.tid);
                 });
                 for (var i = 0; i < newComments.length; i++) {
-                    commentsToVoteOn[newComments[i].tid] = newComments[i];
+                    var tid = newComments[i].tid;
+                    var alreadyVotedOn = !!votesByMe.findWhere({tid: tid});
+                    if (!alreadyVotedOn) {
+                        commentsToVoteOn[tid] = newComments[i];
+                    }
                 }
                 var numComments = _.keys(commentsToVoteOn).length;
                 if (numComments) {
