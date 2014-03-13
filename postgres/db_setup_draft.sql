@@ -166,6 +166,7 @@ CREATE TABLE xids (
     uid INTEGER NOT NULL REFERENCES users(uid),
     owner INTEGER NOT NULL REFERENCES users(uid),
     xid VARCHAR(32) NOT NULL,
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE (owner, xid)
 );
 

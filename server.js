@@ -1159,20 +1159,31 @@ function(req, res) {
     });
 });
 
-function generateOTZinvites(numTokens) {
-    var dfd = new $.Deferred();
+function generateConversationURLPrefix() {
+    // not 1 or 0 since they look like "l" and "O"
+    return "" + _.random(2, 9);
+}
+
+function generateSUZinvites(numTokens) {
+  return new Promise(function(resolve, reject) {
     generateToken(
-        12 * numTokens,
+        31 * numTokens,
         true, // For now, pseodorandom bytes are probably ok. Anticipating API call will generate lots of these at once, possibly draining the entropy pool. Revisit this if the otzinvites really need to be unguessable.
         function(err, longStringOfTokens) {
             if (err) {
-                dfd.reject("polis_err_creating_otzinvite");
+                reject("polis_err_creating_otzinvite");
                 return;
             }
-            var otzinviteArray = longStringOfTokens.match(/.{1,12}/g);
-            dfd.resolve(otzinviteArray);
+            console.log(longStringOfTokens);
+            var otzinviteArray = longStringOfTokens.match(/.{1,31}/g);
+            otzinviteArray = otzinviteArray.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
+            otzinviteArray = otzinviteArray.map(function(suzinvite) {
+                return generateConversationURLPrefix() + suzinvite;
+            });
+            console.dir(otzinviteArray);
+            resolve(otzinviteArray);
         });
-    return dfd.promise();
+  });
 }
 
 function generateToken(len, pseudoRandomOk, callback) {
@@ -1184,7 +1195,7 @@ function generateToken(len, pseudoRandomOk, callback) {
     } else {
         gen = require('crypto').randomBytes;
     }
-    gen(12, function(err, buf) {
+    gen(len, function(err, buf) {
         if (err) {
             return callback(err);
         }
@@ -2794,36 +2805,50 @@ function(req, res) {
 });
 
 
+function generateSingleUseUrl(zid, suzinvite) {
+    return "https://pol.is/" + zid + "/" + suzinvite;
+}
+
 app.post("/v3/users/invite",
-    authWithApiKey(assignToP),
-    need('single_use_tokens', getBool),
+    // authWithApiKey(assignToP),
+    auth(assignToP),
+
+    need('single_use_tokens', getBool, assignToP),
     need('zid', getInt, assignToP), 
-    need('xids', getArrayOfStringNonEmpty),
+    need('xids', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
-    var uid = req.p.uid;
+    var owner = req.p.uid;
     var xids = req.p.xids;
     var zid = req.p.zid;
+
 
     // generate some tokens
     // add them to a table paired with user_ids
     // return URLs with those.
-    generateOTZinvites(xids.length).then(function(otzinviteArray) {
-        var pairs = _.zip(xids, otzinviteArray);
+    generateSUZinvites(xids.length).then(function(suzinviteArray) {
+        var pairs = _.zip(xids, suzinviteArray);
 
         var valuesStatements = pairs.map(function(pair) {
-            var otzinvite = pair[1]; // TODO ensure these don't contain var
-            SQL xid = pair[0]; // TODO ensure these don't contain SQL
-            return "VALUES("+ otzinvite + "," + xid + "," + zid+")";
+            var xid = client.escapeLiteral(pair[0]);
+            var suzinvite = client.escapeLiteral(pair[1]);
+            var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
+            console.log(statement);
+            return statement;
         });
-        client.query("INSERT INTO otzinvites " + valuesStatements.join(",") + ";", [] function(err, results) {
-            // make urls and returns.
+        var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
+        console.log(query);
+        client.query(query, [], function(err, results) {
+            if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
+            res.json({
+                urls: suzinviteArray.map(function(suzinvite) {
+                    return generateSingleUseUrl(zid, suzinvite);
+                }),
+                xids: xids,
+            });
         });
     }, function(err) {
-        fail();
+        fail(res, 500, "polis_err_generating_single_use_invites", err);
     });
-
-    $.when(ot
-
 });
 
 
