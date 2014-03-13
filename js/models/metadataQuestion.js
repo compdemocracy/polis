@@ -16,11 +16,15 @@ module.exports = Model.extend({
           zid: zid,
           pmqid: pmqid
       });
-      this.collection.fetch({
-          data: $.param({
+      var params = {
               zid: zid,
               pmqid: pmqid
-          }),
+          };
+      if (window.suzinvite) { // TODO do something better
+        params.suzinvite = window.suzinvite;
+      }
+      this.collection.fetch({
+          data: $.param(params),
           processData: true
       });
   } // end initialize

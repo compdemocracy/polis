@@ -211,6 +211,7 @@ var polisRouter = Backbone.Router.extend({
     this.doLaunchConversation(ptpt);
   },
   conversationViewWithSuzinvite: function(zid, suzinvite) {
+    window.suzinvite = suzinvite;
     return this.conversationView(zid, suzinvite, true);
   },
   conversationView: function(zid, zinvite, singleUse) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
