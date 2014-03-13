@@ -262,20 +262,60 @@ var polisRouter = Backbone.Router.extend({
           });
         }
     } else {
-      // join conversation (may already have joined)
-      var ptpt = new ParticipantModel({
+      var params = {
         zid: zid,
-        zinvite: zinvite
-      });
-      ptpt.save().then(function() {
-        // Participant record was created, or already existed.
-        // Go to the conversation.
-        that.doLaunchConversation(ptpt);
-      }, function(err) {
-        that.conversationGatekeeper(zid, uid, zinvite).done(function(ptptData) {
-          that.conversationView(zid, zinvite);
+      };
+      if (singleUse) {
+        params.suzinvite = suzinvite;
+      } else {
+        params.zinvite = zinvite;
+      }
+
+      if (singleUse) {
+        // join conversation (may already have joined)
+        var ptpt = new ParticipantModel(params);
+        ptpt.save().then(function() {
+          // Participant record was created, or already existed.
+          // Go to the conversation.
+          that.doLaunchConversation(ptpt);
+        }, function(err) {
+          $.ajax({
+            url: "/v3/joinWithSuzinvite",
+            type: "POST",
+            dataType: "json",
+            xhrFields: {
+                withCredentials: true
+            },
+            // crossDomain: true,
+            data: {
+              zid: zid,
+              suzinvite: suzinvite
+            }
+          }).then(function(data) {
+            that.conversationView(zid);
+          }, function(err) {
+            if (err.responseText === "polis_err_no_matching_suzinvite") {
+              alert("Sorry, this single-use URL has been used.");
+            } else {
+              that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
+                that.conversationView(zid);
+              });
+            }
+          });
         });
-      });
+      } else {
+        // join conversation (may already have joined)
+        var ptpt = new ParticipantModel(params);
+        ptpt.save().then(function() {
+          // Participant record was created, or already existed.
+          // Go to the conversation.
+          that.doLaunchConversation(ptpt);
+        }, function(err) {
+          that.conversationGatekeeper(zid, uid, zinvite).done(function(ptptData) {
+            that.conversationView(zid, zinvite);
+          });
+        });
+      }
     }
     //  else {
     //   // Found a pid for that zid.
