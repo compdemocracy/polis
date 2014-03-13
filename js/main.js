@@ -29,6 +29,11 @@ function ifDefined(context, options) {
 }
 Handlebars.registerHelper("ifDefined", ifDefined);
 
+function ifNotDefined(context, options) {
+  return "undefined" === typeof context ? options.fn(this) : "";
+}
+Handlebars.registerHelper("ifNotDefined", ifNotDefined);
+
 function ifEmbedded(arg0) {
   // NOTE != instead of !== for IE8
   return window.top != window ? arg0.fn(this) : "";
