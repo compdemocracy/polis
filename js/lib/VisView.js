@@ -1035,8 +1035,8 @@ function upsertNode(updatedNodes, newClusters) {
           .data(nodes, key)
           .sort(sortWithSelfOnTop);
 
-      // var exit = update.exit();
-      // exit.remove();
+      var exit = update.exit();
+      exit.remove();
 
       // ENTER
       var enter = update.enter();
