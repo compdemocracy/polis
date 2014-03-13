@@ -321,6 +321,14 @@ module.exports = function(params) {
         });
     }
 
+    function invite(xids) {
+        return polisPost("/v3/users/invite", {
+            single_use_tokens: true,
+            zid: zid,
+            xids: xids
+        });
+    }
+
     function polisPost(api, data) {
         return polisAjax(api, data, "POST");
     }
@@ -1101,6 +1109,7 @@ function clientSideBaseCluster(things, N) {
         unstar: unstar,
         //see: see,
         stories: stories,
+        invite: invite,
         queryParticipantsByMetadata: queryParticipantsByMetadata,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addInitReadyListener: initReadyCallbacks.add,
