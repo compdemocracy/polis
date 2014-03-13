@@ -1282,6 +1282,65 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
         }
     });
 }
+function checkSuzinviteCodeValidity(zid, suzinvite, callback) {
+    client.query('SELECT * FROM suzinvites WHERE zid = ($1) AND suzinvite = ($2);', [zid, suzinvite], function(err, results) {
+        if (err || !results || !results.rows || !results.rows.length) {
+            callback(1);
+        } else {
+            callback(null);// ok
+        }
+    });
+}
+
+function getOwner(zid) {
+    return new Promise(function(resolve, reject) {
+        client.query("SELECT owner FROM conversations where zid = ($1);", [zid], function(err, results) {
+            if (err || !results || !results.rows || !results.rows.length) {
+                reject("polis_err_no_conversation_for_zid");
+                return;
+            }
+            resolve(results.rows[0].owner);
+        });
+    });
+}
+
+function getSUZinviteInfo(suzinvite) {
+    return new Promise(function(resolve, reject) {
+        client.query('SELECT * FROM suzinvites WHERE suzinvite = ($1);', [suzinvite], function(err, results) {
+            if (err || !results || !results.rows || !results.rows.length) {
+                reject("polis_err_no_matching_suzinvite");
+                return;
+            }
+            resolve(results.rows[0]);
+        });
+    });
+}
+
+function deleteSuzinvite(suzinvite) {
+    return new Promise(function(resolve, reject) {
+        client.query("DELETE FROM suzinvites WHERE suzinvite = ($1);", [suzinvite], function(err, results) {
+            if (err) {
+                // resolve, but complain
+                yell("polis_err_removing_suzinvite");
+            }
+            resolve();
+        });
+    });
+}
+
+
+function createXidEntry(xid, owner, uid) {
+    return new Promise(function(resolve, reject) {
+        client.query("INSERT INTO xids (uid, owner, xid) VALUES ($1, $2, $3);", [uid, owner, xid], function(err, results) {
+            if (err) {
+                console.error(err);
+                reject("polis_err_adding_xid_entry");
+                return;
+            }
+            resolve();
+        });
+    });
+}
 
 function saveParticipantMetadataChoices(zid, pid, answers, callback) {
     // answers is a list of pmaid
@@ -1329,22 +1388,24 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
     });
 }
 
-function joinConversation(zid, uid, pmaid_answers, callback) {
-    client.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
-        if (err) {
-            console.log("failed to insert into participants");
-            console.dir(err);
-            return callback(err);
-        }
-        var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
-
-        saveParticipantMetadataChoices(zid, pid, pmaid_answers, function(err) {
+function joinConversation(zid, uid, pmaid_answers) {
+    return new Promise(function(resolve, reject) {
+        client.query("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
             if (err) {
-                console.log("failed to saveParticipantMetadataChoices");
+                console.log("failed to insert into participants");
                 console.dir(err);
-                return callback(err);
+                return reject(err);
             }
-            callback(err, pid);
+            var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
+
+            saveParticipantMetadataChoices(zid, pid, pmaid_answers, function(err) {
+                if (err) {
+                    console.log("failed to saveParticipantMetadataChoices");
+                    console.dir(err);
+                    return reject(err);
+                }
+                resolve(pid);
+            });
         });
     });
 }
@@ -1518,23 +1579,25 @@ function(req, res) {
 });
 
 
-function userHasAnsweredZeQuestions(zid, answers, callback) {
-    getAnswersForConversation(zid, function(err, available_answers) {
-        if (err) { callback(err); return;}
+function userHasAnsweredZeQuestions(zid, answers) {
+    return new Promise(function(resolve, reject) {
+        getAnswersForConversation(zid, function(err, available_answers) {
+            if (err) { reject(err); return;}
 
-        var q2a = _.indexBy(available_answers, 'pmqid');
-        var a2q = _.indexBy(available_answers, 'pmaid');
-        for (var i = 0; i < answers.length; i++) {
-            var pmqid = a2q[answers[i]].pmqid;
-            delete q2a[pmqid];
-        }
-        var remainingKeys = _.keys(q2a);
-        var missing = remainingKeys && remainingKeys.length > 0;
-        if (missing) {
-            return callback('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]);
-        } else {
-            return callback(0);
-        }
+            var q2a = _.indexBy(available_answers, 'pmqid');
+            var a2q = _.indexBy(available_answers, 'pmaid');
+            for (var i = 0; i < answers.length; i++) {
+                var pmqid = a2q[answers[i]].pmqid;
+                delete q2a[pmqid];
+            }
+            var remainingKeys = _.keys(q2a);
+            var missing = remainingKeys && remainingKeys.length > 0;
+            if (missing) {
+                return reject('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]);
+            } else {
+                return resolve();
+            }
+        });
     });
 }
 
@@ -1560,12 +1623,14 @@ function(req, res) {
         });
     }
     function onAllowed() {
-        userHasAnsweredZeQuestions(zid, answers, function(err) {
-            if (err) { fail(res, 500, "polis_err_fetching_answers", err); return; }
-            joinConversation(zid, uid, answers, function(err, pid) {
-                if (err) { fail(res, 500, "polis_err_add_participant", err); return; }
+        userHasAnsweredZeQuestions(zid, answers).then(function() {
+            joinConversation(zid, uid, answers).then(function(pid) {
                 finish(pid);
+            }, function(err) {
+                fail(res, 500, "polis_err_add_participant", err);
             });
+        }, function(err) {
+            fail(res, 500, "polis_err_fetching_answers", err);
         }); // end get is_public
     }
 
@@ -1689,6 +1754,98 @@ function zinviteExists(zinvite, callback) {
         "select zinvite from zinvites where zinvite = ($1);",
         [zinvite], 
         callback);
+}
+
+function createDummyUser() {
+    return new Promise(function(resolve, reject) {
+        client.query("INSERT INTO users (created) VALUES (default) RETURNING uid;",[], function(err, results) {
+            if (err || !results || !results.rows || !results.rows.length) {
+                console.error(err);
+                reject("polis_err_create_empty_user");
+                return;
+            }
+            resolve(results.rows[0].uid);
+        });
+    });
+}
+
+app.post("/v3/joinWithSuzinvite",
+    authOptional(assignToP),
+    want('suzinvite', getOptionalStringLimitLength(32), assignToP),
+    want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+function(req, res) {
+    var uid = req.p.uid;
+    var existingAuth = !!uid;
+    var suzinvite = req.p.suzinvite;
+    var answers = req.p.answers;
+
+    Promise.resolve(suzinvite)
+    .then(getSUZinviteInfo)
+    .then(function(suzinviteInfo) {
+      if (uid) {
+          return _.extend({uid: uid}, suzinviteInfo);
+      } else {
+          return createDummyUser().then(function(uid) {
+              // augment with suzinvite row
+              return _.extend({uid: uid}, suzinviteInfo);
+          });
+      }
+    })
+    .then(function(userWithSuzinviteRow) {
+        var zid = userWithSuzinviteRow.zid;
+        return userHasAnsweredZeQuestions(zid, answers).then(function() {
+            // looks good, pass through
+            return userWithSuzinviteRow;
+        });
+    })
+    .then(function(userWithSuzinviteRow) {
+      var uid = userWithSuzinviteRow.uid;
+      var zid = userWithSuzinviteRow.zid;
+      return joinConversation(zid, uid, answers).then(function(pid) {
+        return _.extend({pid: pid}, userWithSuzinviteRow);
+      });
+    })
+    .then(function(o) {
+      return createXidEntry(o.xid, o.owner, o.uid).then(function() {
+        return o;
+      });
+    })
+    .then(function(o) {
+      return deleteSuzinvite(suzinvite).then(function() {
+        return o;
+      });
+    })
+    .then(function(o) {
+        var uid = o.uid;
+        if (!existingAuth) {
+            return startSessionAndAddCookies(res, uid).then(function() {
+                return o;
+            });
+        }
+        return Promise.resolve(o);
+    })
+    .then(function(o) {
+        var pid = o.pid;
+        res.status(200).json({
+            pid: pid,
+        });
+    })
+    .catch(function(err) {
+      fail(res, 500, err, err);
+    });
+});
+
+function startSessionAndAddCookies(res, uid) {
+    return new Promise(function(resolve, reject) {
+        startSession(uid, function(err,token) {
+            if (err) {
+                reject("polis_err_reg_failed_to_start_session");
+                return;
+            }
+            addCookies(res, token, uid);
+            resolve();
+        });
+    });
 }
 
 app.post("/v3/auth/new",
@@ -2295,6 +2452,7 @@ app.get('/v3/metadata/questions',
     needOr(
         hasToken,
         auth(assignToP),
+        need('suzinvite', getOptionalStringLimitLength(32), assignToP),
         need('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -2302,9 +2460,12 @@ function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
+    var suzinvite = req.p.suzinvite;
 
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else if (suzinvite) {
+        checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
         isOwnerOrParticipant(zid, uid, doneChecking);
     }
@@ -2384,6 +2545,7 @@ app.get('/v3/metadata/answers',
     needOr(
         hasToken,
         auth(assignToP),
+        need('suzinvite', getOptionalStringLimitLength(32), assignToP),
         need('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     want('pmqid', getInt, assignToP),
@@ -2392,10 +2554,13 @@ function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
+    var suzinvite = req.p.suzinvite;
     var pmqid = req.p.pmqid;
 
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else if (suzinvite) {
+        checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
         isOwnerOrParticipant(zid, uid, doneChecking);
     }
@@ -2424,14 +2589,18 @@ app.get('/v3/metadata',
     auth(assignToP),
     need('zid', getInt, assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
+    want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var zinvite = req.p.zinvite;
+    var suzinvite = req.p.suzinvite;
 
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else if (suzinvite) {
+        checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
         isOwnerOrParticipant(zid, uid, doneChecking);
     }
@@ -2806,7 +2975,7 @@ function(req, res) {
 
 
 function generateSingleUseUrl(zid, suzinvite) {
-    return "https://pol.is/" + zid + "/" + suzinvite;
+    return "https://pol.is/ot/" + zid + "/" + suzinvite;
 }
 
 app.post("/v3/users/invite",
@@ -2989,6 +3158,7 @@ var port = process.env.STATIC_FILES_PORT;
 var fetchIndex = makeFileFetcher("http://" + hostname + ":" + port + "/index.html", "text/html");
 
 app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
+app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create.*/, fetchIndex);
 app.get(/^\/user\/create/, fetchIndex);
