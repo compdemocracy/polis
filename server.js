@@ -927,8 +927,11 @@ app.all("/v3/*", function(req, res, next) {
   // Remove unexpected fragment identifier
   host = host.replace(/#.*$/, "");
 
-  // remove trailing slash if needed
-  host = host.replace(/\/$/, "");
+  // Remove characters starting with the first slash following the double slash at the beginning.
+  var result = /^[^\/]*\/\/[^\/]*/.exec(host);
+  if (result && result[0]) {
+      host = result[0];
+  }
 
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
       console.log('not whitelisted');
