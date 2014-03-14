@@ -81,6 +81,7 @@ var selfDotHintText = "This is you";
 
 // Tunables
 
+var minNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true);
 var maxNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([10, 20]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
@@ -1022,7 +1023,7 @@ function upsertNode(updatedNodes, newClusters) {
             maxCount = count;
         }
     }
-    var minRad = 4;
+    var minRad = minNodeRadiusScaleForGivenVisWidth(w);
     var maxRad = maxNodeRadiusScaleForGivenVisWidth(w);
     bucketRadiusForCount = d3.scale.linear().range([minRad, maxRad]).domain([1, maxCount]).clamp(true);
 
