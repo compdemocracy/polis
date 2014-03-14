@@ -524,7 +524,7 @@ function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
         var hull = main_layer.append("path");
         hull.classed(hullClass, true)
             .on("click", onClusterClicked)  //selection-results:1 handle the click event
-            .style("stroke-width", strokeWidth)
+            // .style("stroke-width", strokeWidth)
             .attr("gid", i);
 
         if (translateX || translateY) {
@@ -582,7 +582,6 @@ function updateHulls() {
         var x = xyPair[0];
         var y = xyPair[1];
         var r = chooseCircleRadiusOuter(xyPair[2]);
-        var diagOffset = r * 0.707; // sqrt(0.5)
         var points = [];
         var theta = 0;
         var tau = 6.28318;
