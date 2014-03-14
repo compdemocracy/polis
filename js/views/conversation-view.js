@@ -23,12 +23,12 @@ var VisView = require("../lib/VisView");
 var TutorialController = require("../controllers/tutorialController");
 var ServerClient = require("../lib/polis");
 
-
+var VIS_SELECTOR = "#visualization_div";
 var ANALYZE_TAB = "analyzeTab";
 var WRITE_TAB = "commentFormTab";
 var VOTE_TAB = "commentViewTab";
 
-var isIE8 = navigator.userAgent.match(/MSIE 8/)
+var isIE8 = navigator.userAgent.match(/MSIE 8/);
 
 function shouldShowVisUnderTabs() {
   return display.xs();
@@ -72,11 +72,9 @@ module.exports =  View.extend({
   },
   hideVis: function() {
     $("#visualization_div").hide();
-    $("#visualization_div_under_tabs").hide();
   },
   showVis: function() {
     $("#visualization_div").show();
-    $("#visualization_div_under_tabs").show();
   },
 
   initialize: function() {
@@ -110,26 +108,34 @@ module.exports =  View.extend({
       }
     }
 
+
+    function moveVisToBottom() {
+      var $vis = that.$(VIS_SELECTOR).detach();
+      $("#vis_sibling_bottom").append($vis);
+      $vis.removeClass("nudgeLeft");
+    }
+
+    function moveVisAboveQueryResults() {
+      var $vis = that.$(VIS_SELECTOR).detach();
+      $vis.addClass("nudgeLeft");
+      $("#vis_sibling_above_tab_content").append($vis);
+    }
+
+
     function initPcaVis() {
-      if (shouldShowVisUnderTabs()) {
-        elSelector = "#visualization_div_under_tabs";
-        $("#visualization_div").html("").height(0);
-        // $("#visualization_div").parent().css("display", "none");
-      } else {
-        elSelector = "#visualization_div";   
-        // $("#visualization_div").parent().css("display", "");     
-        $("#visualization_div_under_tabs").html("").height(0);        
-      }
-      that.elSelector = elSelector;
+
+      $(VIS_SELECTOR).html("").height(0);
+      // $(VIS_SELECTOR).parent().css("display", "none");
 
 
-      var w = $(elSelector).width();
+
+      var w = $(VIS_SELECTOR).width();
       if (isIE8) {
         w = 500;
-        $(elSelector).width(w);
+        $(VIS_SELECTOR).width(w);
       }
       var h = w/2;
-      $(elSelector).height(h);
+      $(VIS_SELECTOR).height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate);
       vis = new VisView({
           getPid: function() {
@@ -150,14 +156,23 @@ module.exports =  View.extend({
           computeXySpans: Utils.computeXySpans,
           el_queryResultSelector: ".query_results_div",
           el_carouselSelector: "#carousel",
-          el: elSelector,
-          el_raphaelSelector: elSelector, //"#raphael_div",
+          el: VIS_SELECTOR,
+          el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
+
+
+
+      if (shouldShowVisUnderTabs()) {
+        // wait for layout
+        setTimeout(
+          moveVisToBottom,
+          10);
+      }
 
       that.serverClient.addPersonUpdateListener(onPersonUpdate)
 
       that.tutorialController.setHandler("blueDot", function(){
-        that.$blueDotPopover = that.$(elSelector).popover({
+        that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
           title: "DOTS ARE PEOPLE",
           content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
           html: true,
@@ -169,7 +184,7 @@ module.exports =  View.extend({
         });
       });
       that.tutorialController.setHandler("shadedGroup", function(){
-        that.$shadedGroupPopover = that.$(elSelector).popover({
+        that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
           title: "CLICK ON GROUPS",
           content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
           html: true, 
@@ -336,23 +351,32 @@ module.exports =  View.extend({
           vis.deselect();
         }
       }
-
       // Before shown
       $('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
-        if (e.target && e.target.id === WRITE_TAB && shouldHideVisWhenWriteTabShowing()) {
+        var to = e.target;
+        var from = e.relatedTarget;
+        if (to && to.id === WRITE_TAB && shouldHideVisWhenWriteTabShowing()) {
           // When we're switching to the write tab, hide the vis.
           that.hideVis();
         }
          // previous tab
-        if (e.relatedTarget && e.relatedTarget.id === WRITE_TAB) {
+        if (from && from.id === WRITE_TAB) {
           // When we're leaving the write tab, show the vis again.
           that.showVis();
         }
-        if(e.relatedTarget && e.relatedTarget.id === ANALYZE_TAB) {
+        if(from && from.id === ANALYZE_TAB) {
           that.$("#carousel").hide();
         }
-        if(e.target && e.target.id === ANALYZE_TAB) {
+        if(to && to.id === ANALYZE_TAB) {
+          if (shouldShowVisUnderTabs()) {
+            moveVisAboveQueryResults();
+          }
           that.$("#carousel").show();
+        }
+        if(to && to.id === VOTE_TAB) {
+          if (shouldShowVisUnderTabs()) {
+            moveVisToBottom();
+          }
         }
       });
 

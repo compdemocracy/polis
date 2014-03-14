@@ -66,7 +66,9 @@
         </a>
       </li>
     </ul>
-    <div id="visualization_div_under_tabs"></div>
+
+    <span id="vis_sibling_above_tab_content"></span>
+
     <div class="tab-content">
       <div class="tab-pane active" id="commentView">
         {{view commentView}}
@@ -102,10 +104,10 @@
   </div> <!-- tabbable -->
   </div> <!-- span 4 -->
 
-  <div class="t-span6 hidden-xs col-sm-6 col-md-7 col-lg-8">
-    <div id="visualization_div">
-    </div>
-  </div>
+  <span id="vis_sibling_bottom" class="t-span6 col-sm-6 col-md-7 col-lg-8">
+    <div id="visualization_div" class="vis_container"></div>
+  </span>
+
   <div id="raphael_div">
 
 <!--class='visible-xs'-->
