@@ -915,6 +915,7 @@ function chooseDownArrowPath2(downs, originX, originY) {
 
 
 
+// TODO this should probably inset along the normal of the lines connecting to the point in the hull.
 function getInsetTarget(d) {
     var gid = bidToGid[d.bid];
     var centroid = centroids[gid];
