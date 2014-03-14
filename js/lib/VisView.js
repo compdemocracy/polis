@@ -37,6 +37,7 @@ var w;
 var nodes = [];
 var clusters = [];
 var hulls = [];
+var centroids = [];
 var visualization;
 var main_layer;
 var overlay_layer;
@@ -83,7 +84,8 @@ var selfDotHintText = "This is you";
 var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
-var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([12, 22]).domain([350, 800]).clamp(true);
+var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
+
 var colorPull = "#2ecc71"; // EMERALD
 var colorPush = "#e74c3c"; // ALIZARIN
 var colorPass = "#BDC3C7"; // SILVER
@@ -548,12 +550,13 @@ function updateHulls() {
         var right = -Infinity;
         var left = Infinity;
         var temp = _.map(cluster, function(bid) {
-            if (!bidToBucket[bid]) {
+            var bucket = bidToBucket[bid];
+            if (!bucket) {
                 return null;
             }
-            var x = bidToBucket[bid].x;
-            var y = bidToBucket[bid].y;
-            return [x, y];
+            var x = bucket.x;
+            var y = bucket.y;
+            return [x, y, bucket]; // [x,y] point with bucket tacked on for convenience. Ugly, sorry.
         });
         temp = _.filter(temp, function(xy) {
             // filter out nulls
@@ -574,23 +577,64 @@ function updateHulls() {
             point
         ];
     }
+
+    function tesselatePoint(xyPair) {
+        var x = xyPair[0];
+        var y = xyPair[1];
+        var r = chooseCircleRadiusOuter(xyPair[2]);
+        var diagOffset = r * 0.707; // sqrt(0.5)
+        var points = [];
+        var theta = 0;
+        var tau = 6.28318;
+        var step = 0.261799; // pi/12
+        while (theta < tau) {
+            points.push([x + r*Math.cos(theta), y + r*Math.sin(theta)]);
+            theta += step;
+        }
+        return points;
+    }
+
     // update hulls
     for (var i = 0; i < hulls.length; i++) {
         var hull = hulls[i];
-        if (hull.length == 1) {
-            hull.push([
-                hull[0][0] + 0.01,
-                hull[0][1] + 0.01
-                ]);
-        }
-        if (hull.length == 2) {
-            hull.push([
-                hull[0][0] + 0.01,
-                hull[0][1] - 0.01 // NOTE subtracting so they're not inline
-                ]);
-        }
-        var points = d3.geom.hull(hull);
+        // if (hull.length == 1) {
+        //     hull.push([
+        //         hull[0][0] + 0.01,
+        //         hull[0][1] + 0.01
+        //         ]);
+        // }
+        // if (hull.length == 2) {
+        //     hull.push([
+        //         hull[0][0] + 0.01,
+        //         hull[0][1] - 0.01 // NOTE subtracting so they're not inline
+        //         ]);
+        // }
+
+
+        var hullPoints = d3.geom.hull(hull);
+        var centroid = computeCentroid(hullPoints);
+        centroids[i] = centroid;
+
+        // tesselate to provide a matching hull roundness near large buckets.        
+        var tessellatedPoints = [];
+        for (var p = 0; p < hull.length; p++) {
+            tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p]));
+        }        
+
+
+        // for (var pi = 0; pi < hullPoints.length; pi++) {
+        //     var p = hullPoints[pi];
+        //     // inset to prevent overlap caused by stroke width.
+        //     var dist = strokeWidth/2 + 5;
+        //     var inset = moveTowardsTarget(p[0], p[1], centroid.x, centroid.y, dist);
+        //     p[0] = inset.x;
+        //     p[1] = inset.y;
+        // }
+
+        // another pass through the hull generator, to remove interior tesselated points.
+        var points = d3.geom.hull(tessellatedPoints);
         if (points.length) {
+
             points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
             var shape = makeHullShape(points);
             if (isIE8) {
@@ -663,6 +707,45 @@ function shouldDisplayCircle(d) {
     return true;
 }
 
+function computeCentroid(points) {
+    // http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
+    var x = 0;
+    var y = 0;
+    var area = 0;
+    var end = points.length - 1;
+    for (var i = 0; i < end; i++) {
+        var xi = points[i][0];
+        var yi = points[i][1];
+        var xi1 = points[i+1][0];
+        var yi1 = points[i+1][1];
+        var foo = (xi*yi1 - xi1*yi);
+        x += (xi + xi1) * foo;
+        y += (yi + yi1) * foo;
+        area += foo;
+    }
+    area /= 2;
+    x /= (6*area);
+    y /= (6*area);
+    return {x: x, y: y};
+}
+
+function moveTowardsTarget(x, y, targetX, targetY, dist) {
+    // TODO optimize by saving dx,dy,d from distance function
+    var dx = targetX - x;
+    var dy = targetY - y;
+    var d = Math.sqrt(dx*dx + dy*dy);
+    var unitX = dx/d;
+    var unitY = dy/d;
+    dist = Math.min(dist, d);  // prevent overshooting the target
+    var newX = x + unitX*dist;
+    var newY = y + unitY*dist;
+    return {
+        x: newX,
+        y: newY,
+        d: d // can be useful
+    };
+}
+
 function chooseDisplayForCircle(d) {
     return shouldDisplayCircle(d) ? "inherit" : "none";
 }
@@ -691,6 +774,17 @@ function chooseFill(d) {
     if (isSelf(d)) {
         return colorSelf;
     } else {
+
+        // var gid = bidToGid[d.bid];
+        // if (gid === 0) {
+        //     return "rgba(255,0,0,0.2)";
+        // } else if (gid === 1) {
+        //     return "rgba(0,255,0,0.2)";
+        // } else if (gid === 2) {
+        //     return "rgba(0,0,255,0.2)";
+        // }
+        // return "#0CF";
+
         return colorNoVote;
     }
 }
@@ -731,7 +825,8 @@ function chooseAlpha(d) {
 
 
 function chooseTransformForRoots(d) {
-   return "translate(" + d.x + "," + d.y + ")";
+    var insetPoint = getInsetTarget(d);
+   return "translate(" + insetPoint.x + "," + insetPoint.y + ")";
 }
 
 var offsetFactor = 4.9;
@@ -741,15 +836,16 @@ var offsetFactor = 4.9;
 //     return "translate(0," + yOffset + ") scale(" + scale + ")";
 // }
 
-function makeArrowPoints(scale, shouldFlipY) {
+function makeArrowPoints(scale, yOffset, shouldFlipY) {
     var left = -baseNodeRadius * scale;
     var right = baseNodeRadius * scale;
     // equilateral triangle
+    var bottom = yOffset * baseNodeRadius;
     var top = Math.sqrt(3 * right * right);
-    var bottom = 0;
     if (shouldFlipY) {
         top *= -1;
     }
+    top += yOffset*baseNodeRadius;
     var leftBottom = left + "," + bottom;
     var rightBottom = right + "," + bottom;
     var center = "0," + top;
@@ -758,7 +854,13 @@ function makeArrowPoints(scale, shouldFlipY) {
 
 function chooseUpArrowPath(d) {
     var scale = Math.sqrt(d.ups || 0);
-    return makeArrowPoints(scale, true);
+
+    var scaleDowns = Math.sqrt(d.downs || 0);
+
+    var sum = scale + scaleDowns;
+    var yOffset = scale - sum/2;
+
+    return makeArrowPoints(scale, yOffset, true);
 }
 
 
@@ -769,7 +871,10 @@ function chooseUpArrowPath(d) {
 // }
 function chooseDownArrowPath(d) {
     var scale = Math.sqrt(d.downs || 0);
-    return makeArrowPoints(scale, false);
+    var scaleUps = Math.sqrt(d.ups || 0);
+    var sum = scale + scaleUps;
+    var yOffset = scaleUps - sum/2;
+    return makeArrowPoints(scale, yOffset, false);
 }
 
 
@@ -810,6 +915,18 @@ function chooseDownArrowPath2(downs, originX, originY) {
 
 
 
+function getInsetTarget(d) {
+    var gid = bidToGid[d.bid];
+    var centroid = centroids[gid];
+    if (!centroid) {
+        return {x: d.x, y: d.y};
+    }
+    // var radius = chooseCircleRadiusOuter(d);
+    // var inset = moveTowardsTarget(d.x, d.y, centroid.x, centroid.y, radius);
+    // // TODO reduce inset as it approaches the target.
+    // return inset;
+    return {x: d.x, y: d.y}
+}
 
 
 function chooseCircleRadius(d) {
@@ -902,6 +1019,7 @@ function upsertNode(updatedNodes, newClusters) {
         d.y = d.targetY = scaleY(d.proj.y);
         return d;
     }
+
 
 
     var maxNodeRadius = 10 + 5;
