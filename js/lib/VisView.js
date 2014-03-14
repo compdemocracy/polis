@@ -81,7 +81,7 @@ var selfDotHintText = "This is you";
 
 // Tunables
 
-var baseNodeRadiusScaleForGivenVisWidth = d3.scale.sqrt().range([3, 6]).domain([350, 800]).clamp(true);
+var maxNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([10, 20]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
 var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
@@ -101,7 +101,6 @@ function useCarousel() {
 
 // Cached results of tunalbes - set during init
 var strokeWidth;
-var baseNodeRadius;
 // Since initialize is called on resize, clear the old vis before setting up the new one.
 $(el_selector).html("");
 
@@ -311,7 +310,6 @@ if (isIE8) {
 window.vis = visualization; // TODO why? may prevent GC
 
 strokeWidth = strokeWidthGivenVisWidth(w);
-baseNodeRadius = baseNodeRadiusScaleForGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
 queryResults = $(el_queryResultSelector).html("");
@@ -696,17 +694,6 @@ force.on("tick", function(e) {
 });
 }
 
-// function chooseRadius(d) {
-//   var r = baseNodeRadius;
-//     if (isSelf(d)){
-//         return r += 2;
-//     }
-//     if (d.data && d.data.participants) {
-//         return r + d.data.participants.length * 5;
-//     }
-//     return r;
-// }
-
 function shouldDisplayCircle(d) {
     // Hide the circle so we can show the up/down arrows
     if (selectedTid >= 0 &&
@@ -840,22 +827,17 @@ function chooseTransformForRoots(d) {
 }
 
 var offsetFactor = 4.9;
-// function chooseTransformUpArrow(d) {
-//     var scale = Math.sqrt(d.ups) * baseNodeRadius;
-//     var yOffset = -offsetFactor * scale;
-//     return "translate(0," + yOffset + ") scale(" + scale + ")";
-// }
 
 function makeArrowPoints(scale, yOffset, shouldFlipY) {
-    var left = -baseNodeRadius * scale;
-    var right = baseNodeRadius * scale;
+    var left = -scale;
+    var right =  scale;
     // equilateral triangle
-    var bottom = yOffset * baseNodeRadius;
+    var bottom = yOffset;
     var top = Math.sqrt(3 * right * right);
     if (shouldFlipY) {
         top *= -1;
     }
-    top += yOffset*baseNodeRadius;
+    top += yOffset;
     var leftBottom = left + "," + bottom;
     var rightBottom = right + "," + bottom;
     var center = "0," + top;
@@ -863,9 +845,10 @@ function makeArrowPoints(scale, yOffset, shouldFlipY) {
 }
 
 function chooseUpArrowPath(d) {
-    var scale = Math.sqrt(d.ups || 0);
+    if (!d.ups) { return; }
+    var scale = bucketRadiusForCount(d.ups || 0);
 
-    var scaleDowns = Math.sqrt(d.downs || 0);
+    var scaleDowns = bucketRadiusForCount(d.downs || 0);
 
     var sum = scale + scaleDowns;
     var yOffset = scale - sum/2;
@@ -873,15 +856,10 @@ function chooseUpArrowPath(d) {
     return makeArrowPoints(scale, yOffset, true);
 }
 
-
-// function chooseTransformDownArrow(d) {
-//     var scale = Math.sqrt(d.downs) * baseNodeRadius;
-//     var yOffset = offsetFactor * scale;
-//     return "translate(0," + yOffset + ") scale(" + scale + ")";
-// }
 function chooseDownArrowPath(d) {
-    var scale = Math.sqrt(d.downs || 0);
-    var scaleUps = Math.sqrt(d.ups || 0);
+    if (!d.downs) { return; }
+    var scale = bucketRadiusForCount(d.downs || 0);
+    var scaleUps = bucketRadiusForCount(d.ups || 0);
     var sum = scale + scaleUps;
     var yOffset = scaleUps - sum/2;
     return makeArrowPoints(scale, yOffset, false);
@@ -889,8 +867,8 @@ function chooseDownArrowPath(d) {
 
 
 function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
-    var left = -baseNodeRadius * scale;
-    var right = baseNodeRadius * scale;
+    var left = -scale;
+    var right = scale;
     // equilateral triangle
     var top = Math.sqrt(3 * right * right);
     if (shouldFlipY) {
@@ -913,12 +891,14 @@ function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
 }
 
 function chooseUpArrowPath2(ups, originX, originY) {
-    var scale = Math.sqrt(ups || 0);
+    if (!ups) { return; }
+    var scale = bucketRadiusForCount(ups || 0);
     return makeArrowPoints2(scale, true, originX, originY);
 }
 
 function chooseDownArrowPath2(downs, originX, originY) {
-    var scale = Math.sqrt(downs || 0);
+    if (!downs) { return; }    
+    var scale = bucketRadiusForCount(downs || 0);
     return makeArrowPoints2(scale, false, originX, originY);
 }
 
@@ -941,7 +921,7 @@ function getInsetTarget(d) {
 
 
 function chooseCircleRadius(d) {
-    return Math.sqrt(d.count) * baseNodeRadius * 0.8;
+    return bucketRadiusForCount(d.count);
 }
 function chooseCircleRadiusOuter(d) {
     var r = chooseCircleRadius(d);
@@ -1032,9 +1012,21 @@ function upsertNode(updatedNodes, newClusters) {
     }
 
     // TODO don't throw this computation away
-    var maxRad = _.reduce(updatedNodes, function(max, node) {
-        return Math.max(max, chooseCircleRadiusOuter(node));
-    }, 0);
+    var maxCount = 0;
+    var biggestNode = null;
+    for (var i = 0; i < updatedNodes.length; i++ ){
+        var node = updatedNodes[i];
+        var count = node.count;
+        if (count > maxCount) {
+            biggestNode = node;
+            maxCount = count;
+        }
+    }
+    var minRad = 4;
+    var maxRad = maxNodeRadiusScaleForGivenVisWidth(w);
+    bucketRadiusForCount = d3.scale.linear().range([minRad, maxRad]).domain([1, maxCount]).clamp(true);
+
+
 
   function createScales(updatedNodes) {
     var spans = computeXySpans(updatedNodes);
