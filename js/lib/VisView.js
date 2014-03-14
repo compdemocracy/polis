@@ -81,7 +81,7 @@ var selfDotHintText = "This is you";
 
 // Tunables
 
-var baseNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([3, 7]).domain([350, 800]).clamp(true);
+var baseNodeRadiusScaleForGivenVisWidth = d3.scale.sqrt().range([3, 6]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
 var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
@@ -1021,13 +1021,14 @@ function upsertNode(updatedNodes, newClusters) {
         return d;
     }
 
-
-
-    var maxNodeRadius = 10 + 5;
+    // TODO don't throw this computation away
+    var maxRad = _.reduce(updatedNodes, function(max, node) {
+        return Math.max(max, chooseCircleRadiusOuter(node));
+    }, 0);
 
   function createScales(updatedNodes) {
     var spans = computeXySpans(updatedNodes);
-    var border = maxNodeRadius + w / 50;
+    var border = maxRad + strokeWidth + 15;
     return {
         x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
         y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
