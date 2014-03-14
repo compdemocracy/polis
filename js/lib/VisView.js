@@ -585,7 +585,9 @@ function updateHulls() {
         var points = [];
         var theta = 0;
         var tau = 6.28318;
-        var step = 0.261799; // pi/12
+        var step = isIE8 ?
+            0.7853 :  // pi/4  (less points since slow)
+            0.261799; // pi/12 (more points)
         while (theta < tau) {
             points.push([x + r*Math.cos(theta), y + r*Math.sin(theta)]);
             theta += step;
@@ -593,61 +595,70 @@ function updateHulls() {
         return points;
     }
 
-    // update hulls
-    for (var i = 0; i < hulls.length; i++) {
-        var hull = hulls[i];
-        // if (hull.length == 1) {
-        //     hull.push([
-        //         hull[0][0] + 0.01,
-        //         hull[0][1] + 0.01
-        //         ]);
-        // }
-        // if (hull.length == 2) {
-        //     hull.push([
-        //         hull[0][0] + 0.01,
-        //         hull[0][1] - 0.01 // NOTE subtracting so they're not inline
-        //         ]);
-        // }
+    function updateHull(i) {
+        var dfd = new $.Deferred();
+        setTimeout(function() {
+            var hull = hulls[i];
+            // if (hull.length == 1) {
+            //     hull.push([
+            //         hull[0][0] + 0.01,
+            //         hull[0][1] + 0.01
+            //         ]);
+            // }
+            // if (hull.length == 2) {
+            //     hull.push([
+            //         hull[0][0] + 0.01,
+            //         hull[0][1] - 0.01 // NOTE subtracting so they're not inline
+            //         ]);
+            // }
 
 
-        var hullPoints = d3.geom.hull(hull);
-        var centroid = computeCentroid(hullPoints);
-        centroids[i] = centroid;
+            var hullPoints = d3.geom.hull(hull);
+            var centroid = computeCentroid(hullPoints);
+            centroids[i] = centroid;
 
-        // tesselate to provide a matching hull roundness near large buckets.        
-        var tessellatedPoints = [];
-        for (var p = 0; p < hull.length; p++) {
-            tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p]));
-        }        
+            // tesselate to provide a matching hull roundness near large buckets.        
+            var tessellatedPoints = [];
+            for (var p = 0; p < hull.length; p++) {
+                tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p]));
+            }        
 
 
-        // for (var pi = 0; pi < hullPoints.length; pi++) {
-        //     var p = hullPoints[pi];
-        //     // inset to prevent overlap caused by stroke width.
-        //     var dist = strokeWidth/2 + 5;
-        //     var inset = moveTowardsTarget(p[0], p[1], centroid.x, centroid.y, dist);
-        //     p[0] = inset.x;
-        //     p[1] = inset.y;
-        // }
+            // for (var pi = 0; pi < hullPoints.length; pi++) {
+            //     var p = hullPoints[pi];
+            //     // inset to prevent overlap caused by stroke width.
+            //     var dist = strokeWidth/2 + 5;
+            //     var inset = moveTowardsTarget(p[0], p[1], centroid.x, centroid.y, dist);
+            //     p[0] = inset.x;
+            //     p[1] = inset.y;
+            // }
 
-        // another pass through the hull generator, to remove interior tesselated points.
-        var points = d3.geom.hull(tessellatedPoints);
-        if (points.length) {
+            // another pass through the hull generator, to remove interior tesselated points.
+            var points = d3.geom.hull(tessellatedPoints);
+            if (points.length) {
 
-            points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
-            var shape = makeHullShape(points);
-            if (isIE8) {
-                points.unshift();
-                var _transformed = Raphael.transformPath(shape, 'T0,0');
-                raphaelHulls[i].animate({path: _transformed}, 0);
-                raphaelHullsShadow[i].animate({path: _transformed}, 0);
-            } else {
-                d3Hulls[i].datum(points).attr("d", shape);
-                d3HullShadows[i].datum(points).attr("d", shape);
+                points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
+                var shape = makeHullShape(points);
+                if (isIE8) {
+                    points.unshift();
+                    var _transformed = Raphael.transformPath(shape, 'T0,0');
+                    raphaelHulls[i].animate({path: _transformed}, 0);
+                    raphaelHullsShadow[i].animate({path: _transformed}, 0);
+                } else {
+                    d3Hulls[i].datum(points).attr("d", shape);
+                    d3HullShadows[i].datum(points).attr("d", shape);
+                }
             }
-        }
+            dfd.resolve();
+        }, 0);
+        return dfd.promise();
     }
-    updateHullColors();
+
+    updateHullPromises = _.map(_.range(hulls.length), updateHull);
+
+
+    $.when.apply($, updateHullPromises).then(
+        updateHullColors);
 }
 
 var hullFps = 20;
