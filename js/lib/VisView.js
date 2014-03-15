@@ -1094,6 +1094,26 @@ function upsertNode(updatedNodes, newClusters) {
         window.temp = nodes[0];
     }
 
+    function setupRaphaelNode(n) {
+      // do each on a separate stack
+      setTimeout(function() {
+        var node = nodes[n];
+        var bucket = rNodes[n];
+        if (isSelf(node)) {
+            bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
+            bucket.circleOuter.attr("stroke", colorSelf);
+            bucket.circleOuter.attr("stroke-width", 1);
+            bucket.circleOuter.attr("opacity", 0.5);
+            bucket.circleOuter.attr("r", bucket.radius * 2);
+        } else {
+            bucket.circleOuter.attr("fill", colorNoVote);
+            bucket.circleOuter.attr("stroke", colorSelf);
+            bucket.circleOuter.attr("stroke-width", 0);
+            bucket.circleOuter.attr("opacity", "");
+            bucket.circleOuter.attr("r", bucket.radius);
+        }
+      }, 10);
+    }
 
   if (isIE8) {
       for (var n = 0; n < nodes.length; n++) {
@@ -1107,24 +1127,8 @@ function upsertNode(updatedNodes, newClusters) {
       }
       // postpone to speed up init
       setTimeout(function() {
-          for (var n = 0; n < nodes.length; n++) {
-            var node = nodes[n];
-            var bucket = rNodes[n];
-            if (isSelf(node)) {
-                bucket.circleOuter.attr("fill", "rgba(255,255,255,0)");
-                bucket.circleOuter.attr("stroke", colorSelf);
-                bucket.circleOuter.attr("stroke-width", 1);
-                bucket.circleOuter.attr("opacity", 0.5);
-                bucket.circleOuter.attr("r", bucket.radius * 2);
-            } else {
-                bucket.circleOuter.attr("fill", colorNoVote);
-                bucket.circleOuter.attr("stroke", colorSelf);
-                bucket.circleOuter.attr("stroke-width", 0);
-                bucket.circleOuter.attr("opacity", "");
-                bucket.circleOuter.attr("r", bucket.radius);
-            }
-          }
-      }, 7500);
+          _.map(_.range(nodes.length), setupRaphaelNode);
+      }, 1000);
   } else {
 
     // TODO use key to guarantee unique items
