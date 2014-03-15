@@ -1038,6 +1038,27 @@ app.get("/v3/math/pca",
         });
     });
 
+
+function getBidToPidMapping(zid, lastVoteTimestamp) {
+    return new Promise(function(resolve, reject) {
+        collectionOfBidToPidResults.find({$and :[
+            {zid: zid},
+            {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
+            ]}, function(err, cursor) {
+            if (err) { reject("polis_err_get_pca_results_find"); return; }
+            cursor.toArray( function(err, docs) {
+                if (err) { reject("polis_err_get_pca_results_find_toarray"); return; }
+                if (docs.length) {
+                    resolve(docs[0]);
+                } else {
+                    // Could actually be a 404, would require more work to determine that.
+                    reject();
+                }
+            });
+        });
+    });
+}
+
 // TODO doesn't scale, stop sending entire mapping.
 app.get("/v3/bidToPid",
     authOptional(assignToP),
@@ -1048,32 +1069,40 @@ function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
+
     // TODO check if owner/ptpt or public
 
-
-    var dataPromise = new Promise(function(resolve, reject) {
-        collectionOfBidToPidResults.find({$and :[
-            {zid: zid},
-            {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
-            ]}, function(err, cursor) {
-            if (err) { fail(res, 500, "polis_err_get_pca_results_find", err); return; }
-            cursor.toArray( function(err, docs) {
-                if (err) { fail(res, 500, "polis_err_get_pca_results_find_toarray", err); return; }
-                if (docs.length) {
-                    resolve(docs[0]);
-                } else {
-                    // Could actually be a 404, would require more work to determine that.
-                    reject();
-                }
-            });
+    getBidToPidMapping(zid, lastVoteTimestamp).then(function(doc) {
+        var b2p = doc.bidToPid;
+        
+        res.json({
+            bidToPid: b2p
         });
-    });
 
+    },function(err) {
+        res.status(304).end();
+    });
+});
+
+// TODO cache
+app.get("/v3/bid",
+    auth(assignToP),
+    moveToBody,
+    need('zid', getInt, assignToP),
+    want('lastVoteTimestamp', getInt, assignToP, 0),
+function(req, res) {
+    var uid = req.p.uid;
+    var zid = req.p.zid;
+    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+
+    // TODO check if owner/ptpt or public
+
+    var dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
     var pidPromise = getPidPromise(zid, uid);
+
     Promise.all([dataPromise, pidPromise]).then(function(items) {
         var b2p = items[0].bidToPid;
         var pid = items[1];
-
 
         var bid = null;
         for (var bid = 0; bid < b2p.length; bid++) {
@@ -1086,14 +1115,14 @@ function(req, res) {
         }
 
         res.json({
-            bidToPid: b2p,
             bid: bid // The user's current bid
         });
 
-    },function(err) {
+    }, function(err) {
         res.status(304).end();
     });
 });
+
 
 app.post("/v3/auth/password",
     need('pwresettoken', getOptionalStringLimitLength(1000), assignToP),
