@@ -26,7 +26,6 @@ module.exports = function(params) {
     var votesPath = "/v3/votes";
     var starsPath = "/v3/stars";
     var trashesPath = "/v3/trashes";
-    var votesByMePath = "/v3/votes/me";
     var commentsPath = "/v3/comments";
     var feedbackPath = "/v2/feedback";
 
