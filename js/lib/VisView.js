@@ -15,7 +15,6 @@ var el_raphaelSelector = params.el_raphaelSelector;
 var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
 var getUserInfoByPid = params.getUserInfoByPid;
-var getTotalVotesByPidSync = params.getTotalVotesByPidSync;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
@@ -51,9 +50,6 @@ var d3CommentList;
 var selectedCluster = false;
 var selectedBids = [];
 var selectedTid = -1;
-
-// number of votes by the participant who has voted the most.
-var maxVoteCount = 0;
 
 var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
@@ -798,27 +794,6 @@ function chooseStroke(d) {
 
 function commentIsSelected() {
     return selectedTid >= 0;
-}
-
-function chooseAlpha(d) {
-    if (commentIsSelected()) {
-        // if (d.effects === undefined) {
-        //     // no-vote
-        //     // This should help differentiate a pass from a no-vote.
-        //     return 0.5;
-        // }
-        // pass still gets full alpha
-    } else {
-        if (!isSelf(d)) {
-            var voteCount = getTotalVotesByPidSync(d.pid);
-            maxVoteCount = Math.max(voteCount, maxVoteCount);
-            var ratio = (voteCount + 1) / (maxVoteCount + 1);
-            scale = Math.max(0.3, ratio);
-            return ratio;
-        }
-    }
-    // isSelf or has voted on selected tid
-    return 1;
 }
 
 

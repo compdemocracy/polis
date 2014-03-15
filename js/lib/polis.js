@@ -49,7 +49,6 @@ module.exports = function(params) {
 
     var lastServerTokenForPCA = 0;
     var lastServerTokenForComments = 0;
-    var lastServerTokenForVotes = 0;
     var lastServerTokenForBid = 0;
     var lastServerTokenForBidToPid = 0;
 
@@ -1033,24 +1032,6 @@ function clientSideBaseCluster(things, N) {
         sendUpdatedVisData(people, clustersCache);
     }
 
-    // Doesn't scale obviously
-    // DD<pid, Array<index:tid, values:vote>>
-    var arrayPidToArrayTidToVote = new DA(emptyArray);
-
-    function getLatestVotes() {
-        return polisGet(votesPath, {
-            lastVoteTimestamp: lastServerTokenForVotes,
-            zid: zid
-        }).done(function(data) {
-            // assuming ordered by created, so clobbering old vote values
-            for (var i = 0; i < data.length; i++) {
-                var v = data[i];
-                arrayPidToArrayTidToVote.g(v.pid)[v.tid] = v.vote;
-                lastServerTokenForVotes = Math.max(v.created, lastServerTokenForVotes);
-            }
-        });
-    }
-
     function getPidToBidMappingFromCache() {
 
         if (lastServerTokenForBidToPid >= lastServerTokenForPCA) {
@@ -1111,10 +1092,6 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    function getTotalVotesByPidSync(pid) {
-        return arrayPidToArrayTidToVote.g(pid).length;
-    }
-
     function addPollingScheduledCallback(f) {
         pollingScheduledCallbacks.push(f);
     }
@@ -1149,7 +1126,6 @@ function clientSideBaseCluster(things, N) {
         getReactionsToComment: getReactionsToComment,
         getUserInfoByPid: getUserInfoByPid,
         getUserInfoByPidSync: getUserInfoByPidSync,
-        getTotalVotesByPidSync: getTotalVotesByPidSync,
         getPidToBidMapping: getPidToBidMappingFromCache,
         disagree: disagree,
         agree: agree,
