@@ -686,7 +686,7 @@ force.on("tick", function(e) {
             bucket.transform(x, y);
           }
       } else {
-          main_layer.selectAll(groupTag)
+          main_layer.selectAll(".node")
             .attr("transform", chooseTransformForRoots);
       }
 
@@ -1154,7 +1154,7 @@ function upsertNode(updatedNodes, newClusters) {
 
     // TODO use key to guarantee unique items
 
-      var update = main_layer.selectAll(groupTag)
+      var update = main_layer.selectAll(".ptpt")
           .data(nodes, key)
           .sort(sortWithSelfOnTop);
 
@@ -1227,6 +1227,42 @@ function upsertNode(updatedNodes, newClusters) {
       var self = g.filter(isSelf);
       self.classed("selfDot", true);
 
+
+      var r = chooseCircleRadius(biggestNode);
+      var legendCirclesG = main_layer.selectAll(".legendCircle").data([biggestNode]);
+      legendCirclesG.enter()
+        .append(groupTag)
+        .classed("legendCircle", true)
+        .attr("transform", "translate("+ (w-10) +","+ (h-10)+")");
+        ;
+
+      var legendCircles = legendCirclesG.selectAll("circle").data([biggestNode]);
+      legendCircles.enter().append("circle")
+        .style("fill", "rgba(0,0,0,0)")
+        .style("stroke", "#bbb")
+        .style("stroke-dasharray", "5,5")
+        .style("stroke-width", 1)
+
+      var legendText = legendCirclesG.selectAll("text").data([biggestNode]);
+      legendText.enter()
+        .append("text")
+            .attr("text-anchor", "end");
+
+    function labelText(d) {
+        return d.count + (d.count === 1 ? " person" : " people");
+    }
+
+    // update
+    legendCircles
+        .attr("cx", -(r+2))
+        .attr("cy", -r+2)
+        .attr("r", r)
+      ;
+    legendText
+        .text(labelText)
+        .attr("fill", "#bbb")
+        .attr("transform", "translate("+ (-(2*r + 10)) +",0)");
+
   }
   updateNodes();
 
@@ -1284,7 +1320,7 @@ function selectComment(tid) {
         }
         updateNodeVoteCounts();
         updateNodes();
-        // visualization.selectAll(groupTag)
+        // visualization.selectAll(".node")
         //   .attr("transform", chooseTransform)
         //   .selectAll("path")
         //       .style("fill", chooseFill)
@@ -1483,7 +1519,7 @@ function updateNodes() {
         }
       }
   } else {
-      var update = visualization.selectAll(groupTag);
+      var update = visualization.selectAll(".node");
 
               var commonUpdate = update.selectAll(".node > .bktv")
                   ;
@@ -1522,7 +1558,7 @@ function updateNodes() {
           .style("display", chooseDisplayForCircle)
           .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
           ;
-      
+
       var selfNode = _.filter(nodes, isSelf)[0];
       if (selfNode && !selfHasAppeared) {
         selfHasAppeared = true;
@@ -1533,7 +1569,7 @@ function updateNodes() {
   }
   // displayHelpItem("foo");
 
-  // visualization.selectAll(groupTag)
+  // visualization.selectAll(".node")
   //   .attr("transform", chooseTransform)
   //   .selectAll("path")
   //       .style("stroke", chooseStroke)
