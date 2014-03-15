@@ -35,6 +35,7 @@ module.exports = function(params) {
     var deregisterPath = "/v3/auth/deregister";
     var pcaPath = "/v3/math/pca";
     var bidToPidPath = "/v3/bidToPid";
+    var bidPath = "/v3/bid";
     var selectionPath = "/v3/selection";
 
     var conversationsPath = "/v3/conversations";
@@ -49,6 +50,7 @@ module.exports = function(params) {
     var lastServerTokenForPCA = 0;
     var lastServerTokenForComments = 0;
     var lastServerTokenForVotes = 0;
+    var lastServerTokenForBid = 0;
     var lastServerTokenForBidToPid = 0;
 
     var initReadyCallbacks = $.Callbacks();
@@ -724,7 +726,7 @@ function clientSideBaseCluster(things, N) {
                     return new Bucket(b);
                 });
 
-                return getPidToBidMapping().then(function() {
+                return updateBid().then(function() {
                     buckets = removeSelfFromBuckets(buckets);
 
                     projectionPeopleCache = buckets;
@@ -1049,12 +1051,17 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    function getPidToBidMappingFromCache() { 
-        return new Promise.resolve({
-            p2b: pidToBidCache,
-            b2p: bidToPid,
-            bid: bid,
-        });
+    function getPidToBidMappingFromCache() {
+
+        if (lastServerTokenForBidToPid >= lastServerTokenForPCA) {
+            return new Promise.resolve({
+                p2b: pidToBidCache,
+                b2p: bidToPid,
+                bid: bid,
+            });
+        } else {
+            return getPidToBidMapping();
+        }
     }
 
     function getPidToBidMapping() {
@@ -1066,12 +1073,10 @@ function clientSideBaseCluster(things, N) {
                 return {
                     p2b: pidToBidCache,
                     b2p: bidToPid,
-                    bid: bid,
                 };
             }
             lastServerTokenForBidToPid = data.lastVoteTimestamp;
             bidToPid = data.bidToPid;
-            bid = data.bid;
 
             var b2p = data.bidToPid;
             var p2b = {};
@@ -1086,9 +1091,23 @@ function clientSideBaseCluster(things, N) {
 
             return {
                 p2b: pidToBidCache,
-                b2p: bidToPid,
-                bid: bid
+                b2p: bidToPid
             };
+        });
+    }
+
+    function updateBid() {
+        return polisGet(bidPath, {
+            lastVoteTimestamp: lastServerTokenForBid, // use the same
+            zid: zid
+        }).then(function(data, textStatus, xhr) {
+            if (304 === xhr.status) {
+                // cached
+                return bid;
+            }
+            bid = data.bid;
+            lastServerTokenForBid = data.lastVoteTimestamp;
+            return bid;
         });
     }
 
