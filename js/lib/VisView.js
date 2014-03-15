@@ -1621,7 +1621,10 @@ function selectBackground() {
 function emphasizeParticipants(pids) {
     console.log("pids", pids.length);
     var hash = []; // sparse-ish array
-    getPidToBidMapping().then(function(pidToBid, bidToPids) {
+    getPidToBidMapping().then(function(o) {
+        var pidToBid = o.p2b;
+        var bidToPids = o.b2p;
+        //bid = o.bid;
 
         for (var i = 0; i < pids.length; i++) {
             var bid = pidToBid[pids[i]];

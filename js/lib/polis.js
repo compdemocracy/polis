@@ -34,6 +34,7 @@ module.exports = function(params) {
     var loginPath = "/v3/auth/login";
     var deregisterPath = "/v3/auth/deregister";
     var pcaPath = "/v3/math/pca";
+    var bidToPidPath = "/v3/bidToPid";
     var selectionPath = "/v3/selection";
 
     var conversationsPath = "/v3/conversations";
@@ -48,6 +49,7 @@ module.exports = function(params) {
     var lastServerTokenForPCA = 0;
     var lastServerTokenForComments = 0;
     var lastServerTokenForVotes = 0;
+    var lastServerTokenForBidToPid = 0;
 
     var initReadyCallbacks = $.Callbacks();
     var authStateChangeCallbacks = $.Callbacks();
@@ -67,6 +69,7 @@ module.exports = function(params) {
     var userInfoCache = [];
     var bidToPid = [];
     var pidToBidCache = null;
+    var bid;
 
     var pollingScheduledCallbacks = [];
 
@@ -716,29 +719,21 @@ function clientSideBaseCluster(things, N) {
                     delete b.y;
                 });
 
-                bidToPid = pcaData["bid-to-pid"];
-
-                pidToBidCache = {};
-                for (var bid = 0; bid < bidToPid.length; bid++) {
-                    var memberPids = bidToPid[bid];
-                    for (var i = 0; i < memberPids.length; i++) {
-                        var pid = memberPids[i];
-                        pidToBidCache[pid] = bid;
-                    }
-                }
-
                 // Convert to Bucket objects.
                 buckets = _.map(buckets, function(b) {
                     return new Bucket(b);
                 });
-                buckets = removeSelfFromBuckets(buckets);
 
-                projectionPeopleCache = buckets;
-                clustersCache = clusters;
+                return getPidToBidMapping().then(function() {
+                    buckets = removeSelfFromBuckets(buckets);
 
-                buckets = withProjectedSelf(buckets);
-                sendUpdatedVisData(buckets, clusters);
-                return $.Deferred().resolve();
+                    projectionPeopleCache = buckets;
+                    clustersCache = clusters;
+
+                    buckets = withProjectedSelf(buckets);
+                    sendUpdatedVisData(buckets, clusters);
+                    return null;
+                });
             },
             function(err) {
                 console.error("failed to get pca data");
@@ -746,12 +741,8 @@ function clientSideBaseCluster(things, N) {
     }
 
     function removeSelfFromBuckets(buckets) {
-        var bid = pidToBidCache[getPid()];
         return _.map(buckets, function(b) {
-            console.dir(b);
-            console.log(bid);
             if (b.bid === bid) {
-                console.log(bid);
                 b.count -= 1;
             }
             return b;
@@ -1057,12 +1048,48 @@ function clientSideBaseCluster(things, N) {
             }
         });
     }
-    function getPidToBidMapping(pids) {
-        var dfd = $.Deferred();
 
-        dfd.resolve(pidToBidCache, bidToPid);
+    function getPidToBidMappingFromCache() { 
+        return new Promise.resolve({
+            p2b: pidToBidCache,
+            b2p: bidToPid,
+            bid: bid,
+        });
+    }
 
-        return dfd.promise();
+    function getPidToBidMapping() {
+        return polisGet(bidToPidPath, {
+            lastVoteTimestamp: lastServerTokenForBidToPid, // use the same
+            zid: zid
+        }).then(function(data, textStatus, xhr) {
+            if (304 === xhr.status) {
+                return {
+                    p2b: pidToBidCache,
+                    b2p: bidToPid,
+                    bid: bid,
+                };
+            }
+            lastServerTokenForBidToPid = data.lastVoteTimestamp;
+            bidToPid = data.bidToPid;
+            bid = data.bid;
+
+            var b2p = data.bidToPid;
+            var p2b = {};
+            for (var bid = 0; bid < b2p.length; bid++) {
+                var memberPids = b2p[bid];
+                for (var i = 0; i < memberPids.length; i++) {
+                    var pid = memberPids[i];
+                    p2b[pid] = bid;
+                }
+            }
+            pidToBidCache = p2b;
+
+            return {
+                p2b: pidToBidCache,
+                b2p: bidToPid,
+                bid: bid
+            };
+        });
     }
 
     function getTotalVotesByPidSync(pid) {
@@ -1104,7 +1131,7 @@ function clientSideBaseCluster(things, N) {
         getUserInfoByPid: getUserInfoByPid,
         getUserInfoByPidSync: getUserInfoByPidSync,
         getTotalVotesByPidSync: getTotalVotesByPidSync,
-        getPidToBidMapping: getPidToBidMapping,
+        getPidToBidMapping: getPidToBidMappingFromCache,
         disagree: disagree,
         agree: agree,
         pass: pass,
