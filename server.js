@@ -393,12 +393,16 @@ mongo.connect(process.env.MONGO_URL, {
     db.collection('events', function(err, collection) {
     db.collection('stimuli', function(err, collectionOfStimuli) {
     db.collection('polismath_test_mar02', function(err, collectionOfPcaResults) {
+    db.collection('polismath_bidToPid_test_mar14', function(err, collectionOfBidToPidResults) {
+
         callback(null, {
             mongoCollectionOfEvents: collection,
             mongoCollectionOfUsers: collectionOfUsers,
             mongoCollectionOfStimuli: collectionOfStimuli,
             mongoCollectionOfPcaResults: collectionOfPcaResults,
+            mongoCollectionOfBidToPidResults: collectionOfBidToPidResults,
         });
+    });
     });
     });
     });
@@ -747,6 +751,7 @@ var collection = mongoParams.mongoCollectionOfEvents;
 var collectionOfUsers = mongoParams.mongoCollectionOfUsers;
 var collectionOfStimuli = mongoParams.mongoCollectionOfStimuli;
 var collectionOfPcaResults = mongoParams.mongoCollectionOfPcaResults;
+var collectionOfBidToPidResults = mongoParams.mongoCollectionOfBidToPidResults;
 
 var client = postgresParams.client;
 
@@ -1004,25 +1009,91 @@ app.all("/v3/*", function(req, res, next) {
 
 app.get("/v3/math/pca",
     moveToBody,
+    authOptional(assignToP),
     need('zid', getInt, assignToP),
     want('lastVoteTimestamp', getInt, assignToP, 0),
     function(req, res) {
-        collectionOfPcaResults.find({$and :[
-            {zid: req.p.zid},
-            {lastVoteTimestamp: {$gt: req.p.lastVoteTimestamp}},
+        // TODO check if owner/ptpt or public
+        var promise = new Promise(function(resolve, reject) {
+            collectionOfPcaResults.find({$and :[
+                {zid: req.p.zid},
+                {lastVoteTimestamp: {$gt: req.p.lastVoteTimestamp}},
+                ]}, function(err, cursor) {
+                if (err) { fail(res, 500, "polis_err_get_pca_results_find", err); return; }
+                cursor.toArray( function(err, docs) {
+                    if (err) { fail(res, 500, "polis_err_get_pca_results_find_toarray", err); return; }
+                    if (docs.length) {
+                        resolve(docs[0]);
+                    } else {
+                        // Could actually be a 404, would require more work to determine that.
+                        reject();
+                    }
+                });
+            });
+        });
+        promise.then(function(data) {
+            res.json(data);
+        }, function(err) {
+            res.status(304).end();
+        });
+    });
+
+// TODO doesn't scale, stop sending entire mapping.
+app.get("/v3/bidToPid",
+    authOptional(assignToP),
+    moveToBody,
+    need('zid', getInt, assignToP),
+    want('lastVoteTimestamp', getInt, assignToP, 0),
+function(req, res) {
+    var uid = req.p.uid;
+    var zid = req.p.zid;
+    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+    // TODO check if owner/ptpt or public
+
+
+    var dataPromise = new Promise(function(resolve, reject) {
+        collectionOfBidToPidResults.find({$and :[
+            {zid: zid},
+            {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
             ]}, function(err, cursor) {
             if (err) { fail(res, 500, "polis_err_get_pca_results_find", err); return; }
             cursor.toArray( function(err, docs) {
                 if (err) { fail(res, 500, "polis_err_get_pca_results_find_toarray", err); return; }
                 if (docs.length) {
-                    res.json(docs[0]);
+                    resolve(docs[0]);
                 } else {
                     // Could actually be a 404, would require more work to determine that.
-                    res.status(304).end();
+                    reject();
                 }
             });
         });
     });
+
+    var pidPromise = getPidPromise(zid, uid);
+    Promise.all([dataPromise, pidPromise]).then(function(items) {
+        var b2p = items[0].bidToPid;
+        var pid = items[1];
+
+
+        var bid = null;
+        for (var bid = 0; bid < b2p.length; bid++) {
+            var pids = b2p[bid];
+            var i = pids.indexOf(pid);
+            if (i !== -1) {
+                pid = pids[i];
+                break;
+            }
+        }
+
+        res.json({
+            bidToPid: b2p,
+            bid: bid // The user's current bid
+        });
+
+    },function(err) {
+        res.status(304).end();
+    });
+});
 
 app.post("/v3/auth/password",
     need('pwresettoken', getOptionalStringLimitLength(1000), assignToP),
@@ -1453,6 +1524,18 @@ function getPid(zid, uid, callback) {
         }
         callback(err, pid);
     });
+}
+// returns a pid of -1 if it's missing
+function getPidPromise(zid, uid) {
+    return new Promise(function(resolve, reject) {
+        client.query("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
+            if (err || !results || !results.rows || !results.rows.length) {
+                reject();
+                return;
+            }
+            resolve(results.rows[0].pid);
+        });
+    });        
 }
 
 function getAnswersForConversation(zid, callback) {
