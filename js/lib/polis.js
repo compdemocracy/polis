@@ -1096,13 +1096,16 @@ function clientSideBaseCluster(things, N) {
     }
 
     function poll() {
-      _.each(pollingScheduledCallbacks, function(f) {
-        f();
-      });
       var pcaPromise = fetchPca();
-      pcaPromise.done(getLatestVotes);
       pcaPromise.done(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded);
       pcaPromise.done(updateMyProjection);
+      pcaPromise.done(function() {
+        // TODO Trigger based on votes themselves incrementing, not waiting on the PCA.
+        // TODO Look into socket.io for notifying that the lastVoteTimestamp has changed.
+          _.each(pollingScheduledCallbacks, function(f) {
+            f();
+          });
+      });
     }
 
     // doJoinConversation(zinvite).then(
