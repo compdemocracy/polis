@@ -65,6 +65,9 @@
                (encode-seq (into-array v) jsonGenerator)))
 
 
+(defn new-conv []
+  {:rating-mat (named-matrix)})
+
 
 (defn -main []
   (println "launching poller " (System/currentTimeMillis))
@@ -83,25 +86,29 @@
           (let [lastVoteTimestamp (:created (last votes))]
             (swap! conversations
               (fn [convs]
-                (assoc convs zid
-                    (try
-                      (do
-                        (println "zid: " zid)
-                        (let [foo (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)]
-                          (pprint foo)
-                          foo))
-                      (catch Exception e
-                        (do
-                          (println "exception when processing zid: " zid)
-                          (.printStackTrace e)
-                          (convs zid) ; put things back 
-                          ))))))
+                (try
+                  (assoc convs zid
+                         (do
+                           (println "zid: " zid)
+                           (let [foo (conv-update (or (convs zid) (new-conv)) votes)]
+                             (pprint foo)
+                             foo)))
+                  (catch Exception e
+                    (do
+                      (println "exception when processing zid: " zid)
+                      (.printStackTrace e)
+                      @conversations ; put things back 
+                      )))))
+            
                 
             (println "zid: " zid)
             (println "time: " (System/currentTimeMillis))
             (println "\n\n")
 
-
+            (let [conv (@conversations zid)]
+              (if-not (nil? conv)
+                (do
+                  
             ; Upload pid mapping NOTE: uploading before primary
             ; results since client triggers resuest for pid mapping in
             ; response to a new primary math result, so there is race.
@@ -141,7 +148,8 @@
                 lastVoteTimestamp
                 (assoc obj
                  "lastVoteTimestamp" lastVoteTimestamp
-                 "zid" zid))))
+                 "zid" zid))))                  
+                  )))
             
 
 
