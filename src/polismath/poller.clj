@@ -32,8 +32,8 @@
   (monger.core/connect-via-uri! mongo-url))
 
 
-(defn mongo-upsert-results [zid timestamp new-results ]
-  (monger.collection/update "polismath_test_mar02"
+(defn mongo-upsert-results [collection-name zid timestamp new-results ]
+  (monger.collection/update collection-name
     {
       :zid zid
       ; "$gt" 92839182312
@@ -100,6 +100,30 @@
             (println "zid: " zid)
             (println "time: " (System/currentTimeMillis))
             (println "\n\n")
+
+
+            ; Upload pid mapping NOTE: uploading before primary
+            ; results since client triggers resuest for pid mapping in
+            ; response to a new primary math result, so there is race.
+            (let [
+              ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
+              ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
+                  json (generate-string
+                        (prep-for-uploading-bidToPid-mapping
+                         (@conversations zid)))
+              obj (parse-string json)] 
+
+              (println json)
+              (println
+               (mongo-upsert-results
+                "polismath_bidToPid_test_mar14"
+                zid
+                lastVoteTimestamp
+                (assoc obj
+                 "lastVoteTimestamp" lastVoteTimestamp
+                 "zid" zid))))
+            
+            ; Upload primary math results
             (let [
               ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
               ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
@@ -112,12 +136,16 @@
               ; (debug-repl)
               (println
                (mongo-upsert-results
+                "polismath_test_mar02"
                 zid
                 lastVoteTimestamp
                 (assoc obj
                  "lastVoteTimestamp" lastVoteTimestamp
                  "zid" zid))))
+            
 
+
+            
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
 
       ))))))

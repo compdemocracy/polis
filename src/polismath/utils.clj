@@ -67,6 +67,8 @@
 (defn snowball [obj fns] (reduce #(%2 %1) obj fns))
 
 
+(defn prep-for-uploading-bidToPid-mapping [results]
+  {"bidToPid" (:bid-to-pid results)})
 
 (defn prep-for-uploading-to-client [results]
   (let [base-clusters (get results :base-clusters)]
@@ -82,6 +84,7 @@
 
         ; REFORMAT BASE CLUSTERS
         #(dissoc %1 :base-clusters)
+        #(dissoc %1 :bid-to-pid)        
         #(assoc-in %1 [:base-clusters "x"] (map (fn [x] (first (:center x))) base-clusters))
         #(assoc-in %1 [:base-clusters "y"] (map (fn [x] (second (:center x))) base-clusters))
         #(assoc-in %1 [:base-clusters "id"] (map :id base-clusters))
