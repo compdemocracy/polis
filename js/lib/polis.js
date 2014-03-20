@@ -885,6 +885,10 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
+    function getFancyComments(options) {
+        return getComments(options);
+    }
+
     function getComments(params) {
         params = $.extend({
             zid: zid,
@@ -1135,6 +1139,7 @@ function clientSideBaseCluster(things, N) {
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForGroup: getCommentsForGroup,
+        getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,
         getUserInfoByPid: getUserInfoByPid,
         getUserInfoByPidSync: getUserInfoByPidSync,

@@ -247,6 +247,13 @@ module.exports =  View.extend({
       logger: console
     });
 
+    this.allCommentsCollection.fetch({
+      data: $.param({
+          zid: this.zid
+      }),
+      processData: true,
+      ajax: serverClient.getFancyComments
+    });
 
       this.serverClient.addPollingScheduledCallback(function() {
         that.updateVotesByMeCollection();
