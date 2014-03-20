@@ -3269,6 +3269,8 @@ var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
 var fetchIndex = makeFileFetcher("http://" + hostname + ":" + port + "/index.html", "text/html");
 
+
+
 app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
 app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
@@ -3279,6 +3281,26 @@ app.get(/^\/settings/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit/, fetchIndex);
 app.get(/^\/demo.*/, fetchIndex);
+app.get(/^\/professors/, makeFileFetcher("http://" + hostname + ":" + port + "/professors.html", "text/html"));
+app.get(/^\/pricing/, makeFileFetcher("http://" + hostname + ":" + port + "/pricing.html", "text/html"));
+app.get(/^\/company/, makeFileFetcher("http://" + hostname + ":" + port + "/company.html", "text/html"));
+app.get(/^\/api/, makeFileFetcher("http://" + hostname + ":" + port + "/api.html", "text/html"));
+app.get(/^\/administrations/, makeFileFetcher("http://" + hostname + ":" + port + "/administrations.html", "text/html"));
+
+var conditionalIndexFetcher = (function() {
+    var fetchLander = makeFileFetcher("http://" + hostname + ":" + port + "/lander.html", "text/html");
+    return function(req, res) {
+        if (hasToken(req)) {
+            // user is signed in, serve the app
+            return proxy(req, res);
+        } else {
+            // user not signed in, serve landing page
+            return fetchLander(req, res);
+        }
+    };
+}());
+
+app.get("/", conditionalIndexFetcher);
 
 // proxy everything else
 app.get(/^\/[^(v3)]?.*/, proxy);
