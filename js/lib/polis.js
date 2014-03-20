@@ -90,6 +90,10 @@ module.exports = function(params) {
     var BUCKETIZE_ROWS = 8;
     var BUCKETIZE_COLUMNS = 8;
 
+    function demoMode() {
+        return getPid() < 0;
+    }
+
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
     // Err... I guess discussions can be circular.
     //function discussionClient(params)
@@ -182,8 +186,7 @@ module.exports = function(params) {
         // CAUTION - possibly dead code, comments are submitted through backbone
 
 
-        // DEMO_MODE
-        if (getPid() < 0) {
+        if (demoMode()) {
             return $.Deferred().resolve();
         }
 
@@ -226,8 +229,7 @@ module.exports = function(params) {
             console.error("missing tid");
             console.error(params);
         }
-        // DEMO_MODE
-        if (getPid() < 0) {
+        if (demoMode()) {
             return $.Deferred().resolve();
         }
         return polisPost(votesPath, $.extend({}, params, {
@@ -274,8 +276,7 @@ module.exports = function(params) {
     function trash(tid) {
         clearComment(tid, "trash");
 
-        // DEMO_MODE
-        if (getPid() < 0) {
+        if (demoMode()) {
             return $.Deferred().resolve();
         }
 
@@ -1082,6 +1083,10 @@ function clientSideBaseCluster(things, N) {
     }
 
     function updateBid() {
+        if (demoMode()) {
+            bid = 0;
+            return $.Deferred().resolve(bid);
+        }
         return polisGet(bidPath, {
             lastVoteTimestamp: lastServerTokenForBid, // use the same
             zid: zid
