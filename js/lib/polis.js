@@ -59,7 +59,9 @@ module.exports = function(params) {
     var projectionPeopleCache = [];
     var clustersCache = [];
 
+    // collections
     var votesByMe = params.votesByMe;
+    var comments = params.comments;
 
     var pcX = {};
     var pcY = {};

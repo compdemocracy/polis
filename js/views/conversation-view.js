@@ -1,3 +1,4 @@
+var AnalyzeGlobalView = require("../views/analyze-global");
 var eb = require("../eventBus");
 var View = require('../view');
 var template = require('../tmpl/conversation-view');
@@ -226,12 +227,17 @@ module.exports =  View.extend({
 
     this.votesByMe = new VotesCollection();
 
+    this.allCommentsCollection = new CommentsCollection({
+      zid: zid
+    });
+
     var serverClient = that.serverClient = new ServerClient({
       zid: zid,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
       pid: pid,
       votesByMe: this.votesByMe,
+      comments: this.allCommentsCollection,
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,
@@ -294,6 +300,12 @@ module.exports =  View.extend({
         serverClient: serverClient,
         zid: zid,
         collection: resultsCollection
+      });
+
+
+      this.analyzeGlobalView = new AnalyzeGlobalView({
+        zid: zid,
+        collection: this.allCommentsCollection
       });
 
       // this.votesByMe.on("all", function(x) {
