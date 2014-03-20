@@ -660,6 +660,9 @@ function clientSideBaseCluster(things, N) {
             }
             // var totalVotes = inAgree + inDisagree + outAgree + outDisagree;
             var repnessValue = (inAgree / (inDisagree)) / (outAgree/(outDisagree));
+            // since inAgree was padded, remove padding and multiply again.            
+            // Agreement within the group is super important, so let's multiply it in there twice.
+            repnessValue *= inAgree - 1;
             repness[tid] = repnessValue;
         });
 
