@@ -3285,7 +3285,9 @@ app.get(/^\/professors/, makeFileFetcher("http://" + hostname + ":" + port + "/p
 app.get(/^\/pricing/, makeFileFetcher("http://" + hostname + ":" + port + "/pricing.html", "text/html"));
 app.get(/^\/company/, makeFileFetcher("http://" + hostname + ":" + port + "/company.html", "text/html"));
 app.get(/^\/api/, makeFileFetcher("http://" + hostname + ":" + port + "/api.html", "text/html"));
-app.get(/^\/administrations/, makeFileFetcher("http://" + hostname + ":" + port + "/administrations.html", "text/html"));
+app.get(/^\/politics/, makeFileFetcher("http://" + hostname + ":" + port + "/politics.html", "text/html"));
+app.get(/^\/marketers/, makeFileFetcher("http://" + hostname + ":" + port + "/marketers.html", "text/html"));
+
 
 var conditionalIndexFetcher = (function() {
     var fetchLander = makeFileFetcher("http://" + hostname + ":" + port + "/lander.html", "text/html");
