@@ -380,14 +380,28 @@ gulp.task('deployAboutPage', [
   ], function() {
 
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-    creds.bucket = "about.polis.io";
+    creds.bucket = "pol.is";
     
     var root = "../about-polis";
     gulp.src([
-      root + "/index.html",
+      root + "/lander.html",
+      root + "/marketers.html",
+      root + "/company.html",
+      root + "/pricing.html",
+      root + "/professors.html",
+      root + "/d3.js",
+      root + "/clusterforce.js",
+      root + "/api.html",
+      root + "/politics.html", 
+      root + "/about.css",
+      root + "/**/rainbow/**/*",
       root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
       root + "/**/node_modules/underscore/underscore-min.js", // ** to preserve path 
-      root + "/snowcity*.jpg",
+      root + "/**/landerImages/*",
+      root + "/**/bower_components/font-awesome/css/font-awesome.min.css",
+      root + "/**/bower_components/font-awesome/fonts/**",
+      root + "/**/bower_components/jquery/jquery.js",
+      root + "/**/bower_components/jquery/jquery.min.js"
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
