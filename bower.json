@@ -2,6 +2,7 @@
   "name": "dashboard-require",
   "version": "0.0.0",
   "dependencies": {
+    "backbone": "git://github.com/mbjorkegren/backbone#51d1455f751445c755491e2166d60a779e80bfe8",
     "underscore": "~1.5.2",
     "thorax": "~2.0",
     "bootstrap": "~3.1.1",
