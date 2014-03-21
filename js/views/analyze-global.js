@@ -49,6 +49,7 @@ module.exports = Thorax.CollectionView.extend({
     this.$("#carousel").show();
   },
   renderWithCarousel: function() {
+
     $(el_carouselSelector).html("");
     // $(el_carouselSelector).css("overflow", "hidden");        
 
@@ -73,14 +74,13 @@ module.exports = Thorax.CollectionView.extend({
        afterMove: (function() {return function() {
           var tid = indexToTid[this.currentItem];
           setTimeout(function() {
-              selectComment(tid);
+              eb.trigger(eb.commentSelected, tid);
           }, 100);
 
       }}())
     });
-    var indexToTid = this.collection.map(function(c) {
-      return c.tid;
-    });
+    var indexToTid = this.collection.pluck("tid");
+
     this.collection.each(function(c) {
       results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well query_result_item'>" + c.get("txt") + "</div>");
     });
