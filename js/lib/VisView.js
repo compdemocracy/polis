@@ -45,7 +45,6 @@ var force;
 var queryResults;
 var d3Hulls;
 var d3HullShadows;
-var d3CommentList;
 
 var selectedCluster = false;
 var selectedBids = [];
@@ -1315,16 +1314,6 @@ function selectComment(tid) {
     }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
     });
-
-    if (d3CommentList) {
-        d3CommentList.children().each(function(i) {
-            var li = $(this);
-            var tid = li.data("tid");
-            li.css("background-color", chooseCommentFill({tid: tid}));
-            li.css("color", chooseCommentTextColor({tid: tid}));
-        });
-    }
-
 }
 
 // TODO move this stuff out into a backbone view.
@@ -1337,13 +1326,6 @@ function chooseCommentFill(d) {
     }
 }
 
-function chooseCommentTextColor(d) {
-    if (selectedTid === d.tid) {
-        return "white";
-    } else {
-        return "black";
-    }
-}
 
 function renderComments(comments) {
     function renderWithCarousel() {
@@ -1387,32 +1369,6 @@ function renderComments(comments) {
             selectComment(comments[0].tid);
         }
     }
-    function renderWithList() {
-        function renderComment(c) {
-            return "<li class='query_result_item' style='background-color:" + chooseCommentFill(c) +
-             "; color:" + chooseCommentTextColor(c) + "'>" + c.txt + "</li>";
-        }
-        queryResults.html("");
-        comments.sort(function(a,b) { return b.freq - a.freq; });
-        d3CommentList = $("<ol class='query_results'>");
-        queryResults.append(d3CommentList);
-        _.each(comments, function(c) {
-            var v = $(renderComment(c));
-            d3CommentList.append(v);
-            v.on("click", (function(tid) {
-                return function() {
-                    selectComment(tid);
-                };
-                }(c.tid)));
-            v.on("mouseover", function() {
-                $(this).addClass("hover");
-            });
-            v.on("mouseout", function() {
-                $(this).removeClass("hover");
-            });
-            v.data("tid", c.tid);
-        });
-    }
     var dfd = $.Deferred();
 
     if (comments.length) {
@@ -1422,8 +1378,6 @@ function renderComments(comments) {
     }
     if (useCarousel()) {
         renderWithCarousel();
-    } else {
-        renderWithList();
     }
     setTimeout(dfd.resolve, 4000);
     eb.trigger("queryResultsRendered");
@@ -1443,17 +1397,6 @@ function onParticipantClicked(d) {
 }
 
 function unhoverAll() {
-  console.log("unhoverAll");
-  if (d3CommentList) {
-    d3CommentList
-      .css("background-color", chooseCommentFill)
-      .css("color", chooseCommentTextColor);
-
-  }
-  // for (var i = 0; i < nodes.length; i++) {
-  //     var node = nodes[i];
-  //     node.ups = 0
-  // }
   updateNodes();
 }
 
@@ -1577,9 +1520,6 @@ function resetSelection() {
   selectedCluster = false;
   eb.trigger(eb.clusterClicked, selectedCluster);
   // visualization.transition().duration(750).attr("transform", "");
-  if (d3CommentList) {
-    d3CommentList.html("");
-  }
   selectedBids = [];
   resetSelectedComment();
   unhoverAll();
