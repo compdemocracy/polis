@@ -110,6 +110,15 @@ module.exports =  View.extend({
     }
 
 
+    function configureGutters() {     
+      if (display.xs()) {
+        $("#controlTabs").addClass("no-gutter");
+      } else {
+        $("#controlTabs").removeClass("no-gutter");        
+      }
+    }
+
+
     function moveVisToBottom() {
       var $vis = that.$(VIS_SELECTOR).detach();
       $("#vis_sibling_bottom").append($vis);
@@ -472,7 +481,7 @@ module.exports =  View.extend({
 
 
       
-
+      configureGutters();
       if (isIE8) {
         // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
         // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
@@ -480,7 +489,10 @@ module.exports =  View.extend({
         // document.body.onresize = _.debounce(initPcaVis, 1000)
       } else {
         setTimeout(initPcaVis, 10); // give other UI elements a chance to load        
-        $(window).resize(_.debounce(initPcaVis, 100));
+        $(window).resize(_.debounce(function() {
+          configureGutters();
+          initPcaVis();
+        }, 100));
       }
 
 

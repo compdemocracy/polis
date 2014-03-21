@@ -87,5 +87,9 @@
   fill: brown;
 }
 
-
+/* http://stackoverflow.com/questions/16489307/how-to-remove-gutter-space-for-a-specific-div-only-bootstrap  */
+.row.no-gutter [class*='col-']:not(:first-child),.row.no-gutter [class*='col-']:not(:last-child) {
+  padding-right:0;
+  padding-left:0;
+}
 
