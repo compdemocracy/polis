@@ -303,7 +303,7 @@ module.exports =  View.extend({
 
       this.analyzeGlobalView = new AnalyzeGlobalView({
         fetcher: function() {
-          return that.serverClient.getFancyComments();
+          return that.serverClient.getFancyComments.apply(0, arguments);
         },
         zid: zid,
         collection: this.allCommentsCollection
