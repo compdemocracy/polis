@@ -227,9 +227,7 @@ module.exports =  View.extend({
 
     this.votesByMe = new VotesCollection();
 
-    this.allCommentsCollection = new CommentsCollection({
-      zid: zid
-    });
+    this.allCommentsCollection = new CommentsCollection();
 
     var serverClient = that.serverClient = new ServerClient({
       zid: zid,
@@ -247,13 +245,6 @@ module.exports =  View.extend({
       logger: console
     });
 
-    this.allCommentsCollection.fetch({
-      data: $.param({
-          zid: this.zid
-      }),
-      processData: true,
-      ajax: serverClient.getFancyComments
-    });
 
       this.serverClient.addPollingScheduledCallback(function() {
         that.updateVotesByMeCollection();
@@ -311,6 +302,9 @@ module.exports =  View.extend({
 
 
       this.analyzeGlobalView = new AnalyzeGlobalView({
+        fetcher: function() {
+          return that.serverClient.getFancyComments();
+        },
         zid: zid,
         collection: this.allCommentsCollection
       });

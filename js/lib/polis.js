@@ -56,6 +56,8 @@ module.exports = function(params) {
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
 
+    var votesForTidBidPromise = $.Deferred();
+
     var projectionPeopleCache = [];
     var clustersCache = [];
 
@@ -708,6 +710,7 @@ function clientSideBaseCluster(things, N) {
  
 
                 votesForTidBid = pcaData["votes-base"];
+                votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
 
                 var clusters = pcaData["group-clusters"];
                 clusters = _.map(clusters, function(c) {
@@ -885,8 +888,31 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
+    function sum(arrayOfNumbers) {
+        console.dir(arrayOfNumbers);
+        return _.reduce(arrayOfNumbers, function(total, x) { return total+x; }, 0);
+    }
+
     function getFancyComments(options) {
-        return getComments(options);
+        return $.when(getComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */) {
+            
+            var comments = args[0];
+            // don't need args[1], just used as a signal
+
+            // votesForTidBid should be defined since votesForTidBidPromise has resolved.
+            return _.map(comments, function(x) {
+                // Count the agrees and disagrees for each comment.
+                var bidToVote = votesForTidBid[x.tid];
+                if (bidToVote) {
+                    x.A = sum(bidToVote.A);
+                    x.D = sum(bidToVote.D);
+                } else {
+                    x.A = 0;
+                    x.D = 0;
+                }
+                return x;
+            });
+        });
     }
 
     function getComments(params) {

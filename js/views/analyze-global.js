@@ -10,11 +10,17 @@ module.exports = View.extend({
     events: {
     },
   initialize: function(options) {
+    this.fetcher = options.fetcher;
+    this.collection.comparator = function(a, b) {
+      return b.get("A") - a.get("A");
+    };
     this.collection.fetch({
-          data: $.param({
-              zid: this.zid
-          }),
-          processData: true
-      });
+      data: $.param({
+          zid: this.zid
+      }),
+      processData: true,
+      ajax: this.fetcher
+    });
+
   }
 });
