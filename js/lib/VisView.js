@@ -384,41 +384,14 @@ function argMax(f, args) {
 }
 
 function setClusterActive(clusterId) {
-    var pids;
-    var promise;
-    if (clusterId === false) {
-        pids = [];
-        promise = $.Deferred().resolve([]);
-    } else {
-        pids = clusters[clusterId];
-        var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 3;
-        promise = getCommentsForGroup(clusterId, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW);
-    }
     selectedCluster = clusterId;
 
-    promise
-      .pipe( // getCommentsForSelection with clusters array (of pids)
-        renderComments,                                 // !! this is tightly coupled.
-                            // !! it makes sense to keep this in the view because
-                                                        // !! we have to come BACK to the viz from the
-                                                        // !! backbonified list, then. Not worth it?
-        function(err) {
-          console.error(err);
-          resetSelection();
-        })
-      //.done(unhoverAll)
-      ;
-    
     // duplicated at 938457938475438975
     if (!isIE8) {
         main_layer.selectAll(".active").classed("active", false);
     }
-
-    // d3.select(this)
-    //     .style("fill","lightgreen")
-    //     .style("stroke","lightgreen");
-
-    return promise;
+    
+    return $.Deferred().resolve([]);
 }
 
 function updateHullColors() {
