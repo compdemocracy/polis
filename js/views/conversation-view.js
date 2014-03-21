@@ -55,7 +55,7 @@ module.exports =  View.extend({
       // }
   },
   onAnalyzeTabPopulated: function() {
-    $('li.query_result_item').first().trigger('click');
+    $('.query_result_item').first().trigger('click');
   },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
@@ -207,7 +207,7 @@ module.exports =  View.extend({
             trigger: "manual",
             placement: "bottom"  
           });
-          that.$('.query_results > li').first().trigger('click');
+          that.$('.query_result_item').first().trigger('click');
           that.$analyzeViewPopover.popover("show");
           that.$('#analyzeViewPopoverButton').click(function(){
             that.$analyzeViewPopover.popover("destroy");
@@ -250,7 +250,7 @@ module.exports =  View.extend({
         model.set("repness", tidToRepness[model.get("tid")]); // TODO quiet
       });
     };
-    
+
     this.allCommentsCollection.doFetch = function() {
       this.fetch({
         data: $.param({
@@ -420,8 +420,7 @@ module.exports =  View.extend({
         console.log(e.target);
         // e.relatedTarget // previous tab
         if(e.target && e.target.id === ANALYZE_TAB) {
-          console.log(123);
-          that.$('li.query_result_item').first().trigger('click');
+          $(".query_result_item").first().trigger("click");
         }
       });
 
