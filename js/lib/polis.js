@@ -923,7 +923,7 @@ function clientSideBaseCluster(things, N) {
         return polisGet(commentsPath, params);
     }
 
-    function getCommentsForGroup(gid, max) {
+    function getTidsForGroup(gid, max) {
         var tidToR = computeRepness(clustersCache[gid], votesForTidBid);
         var tids;
         if (_.isNumber(max)) {
@@ -944,9 +944,19 @@ function clientSideBaseCluster(things, N) {
                 return Number(tid);
             });
         }
-        return getComments({
+        return $.Deferred().resolve({
+            tidToR: tidToR,
             tids: tids
-        }).pipe(function(comments) {
+        });
+    }
+
+    function getCommentsForGroup(gid, max) {
+        var tidToR;
+        return getTidsForGroup(gid, max).then(function(o) {
+                tidToR = o.tidToR;
+                delete o.tidToR;
+                return getComments(o);
+            }).then(function(comments) {
             comments = _.map(comments, function(c) {
                 c.repness = tidToR[c.tid];
                 return c;
@@ -1165,6 +1175,7 @@ function clientSideBaseCluster(things, N) {
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForGroup: getCommentsForGroup,
+        getTidsForGroup: getTidsForGroup,
         getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,
         getUserInfoByPid: getUserInfoByPid,

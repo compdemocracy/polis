@@ -4,11 +4,19 @@ var template = require("../tmpl/analyze-global");
 var CommentModel = require("../models/comment");
 var Thorax = require("thorax");
 
+var sortRepness = function(a, b) {
+  return b.get("repness") - a.get("repness");
+};
+
+var sortMostAgrees = function(a, b) {
+  return b.get("repness") - a.get("repness");
+};
 
 module.exports = Thorax.CollectionView.extend({
     name: "analyze-global-view",
     template: template,
     itemView: AnalyzeCommentView,
+    visibleTids: null,
     events: {
       rendered: function() {
         var that = this;
@@ -21,19 +29,45 @@ module.exports = Thorax.CollectionView.extend({
         });
       }
     },
+    itemFilter: function(model, index) {
+      if (this.visibleTids && this.visibleTids.indexOf(model.get("tid")) === -1) {
+        return false;
+      }
+      return true;
+    },
   initialize: function(options) {
     var that = this;
 
+    var getTidsForGroup = options.getTidsForGroup;
+
     this.fetcher = options.fetcher;
-    this.collection.comparator = function(a, b) {
-      return b.get("A") - a.get("A");
-    };
+    this.collection.comparator = sortMostAgrees;
+    
     this.collection.fetch({
       data: $.param({
           zid: this.zid
       }),
       processData: true,
       ajax: this.fetcher
+    });
+
+    
+    eb.on(eb.clusterClicked, function(gid) {
+      if (gid === false) {
+        that.visibleTids = null;
+        that.updateFilter();
+        that.collection.comparator = sortMostAgrees;
+        that.collection.sort();        
+      } else {
+        var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 3;
+        getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
+          that.visibleTids = o.tids;
+          that.collection.updateRepness(o.tidToR);
+          that.updateFilter();
+          that.collection.comparator = sortRepness;
+          that.collection.sort();
+        });
+      }
     });
   }
 });

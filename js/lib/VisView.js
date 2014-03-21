@@ -452,7 +452,7 @@ function updateHullColors() {
 
 function onClusterClicked(d) {
     $("#analyzeTab").tab("show");
-    eb.trigger("clusterClicked");
+    eb.trigger(eb.clusterClicked, d.hullId);
     return handleOnClusterClicked(d.hullId);
 }
 
@@ -1571,6 +1571,7 @@ function resetSelection() {
       visualization.selectAll(".active").classed("active", false);
   }
   selectedCluster = false;
+  eb.trigger(eb.clusterClicked, selectedCluster);
   // visualization.transition().duration(750).attr("transform", "");
   if (d3CommentList) {
     d3CommentList.html("");

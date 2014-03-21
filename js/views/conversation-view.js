@@ -245,6 +245,11 @@ module.exports =  View.extend({
       logger: console
     });
 
+    this.allCommentsCollection.updateRepness = function(tidToRepness) {
+      this.each(function(model) {
+        model.set("repness", tidToRepness[model.get("tid")]); // TODO quiet
+      });
+    };
 
       this.serverClient.addPollingScheduledCallback(function() {
         that.updateVotesByMeCollection();
@@ -306,6 +311,9 @@ module.exports =  View.extend({
           return that.serverClient.getFancyComments.apply(0, arguments);
         },
         zid: zid,
+        getTidsForGroup: function() {
+          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+        },
         collection: this.allCommentsCollection
       });
 
