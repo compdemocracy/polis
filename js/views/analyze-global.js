@@ -81,8 +81,15 @@ module.exports = Thorax.CollectionView.extend({
     });
     var indexToTid = this.collection.pluck("tid");
 
-    this.collection.each(function(c) {
-      results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well query_result_item'>" + c.get("txt") + "</div>");
+    _.each(this.collection.first(3), function(c) {
+      results.data('owlCarousel').addItem(
+        "<div style='margin:10px; text-align:justify' class='well query_result_item'>" + 
+          "<p>" +
+            "Agrees: " + c.get("A") +
+            " Disagrees: " + c.get("D") +
+          "</p>" +
+          c.get("txt") +
+        "</div>");
     });
     // Auto-select the first comment.
     $(el_carouselSelector).find(".query_result_item").first().trigger("click");
