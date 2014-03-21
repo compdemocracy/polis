@@ -1274,6 +1274,10 @@ function upsertNode(updatedNodes, newClusters) {
 }
 
 function selectComment(tid) {
+    if (tid === false) {
+        resetSelectedComment();
+        return;
+    }
     selectedTid = tid;
 
     getReactionsToComment(tid)

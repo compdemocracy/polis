@@ -9,7 +9,7 @@ var sortRepness = function(a, b) {
 };
 
 var sortMostAgrees = function(a, b) {
-  return b.get("repness") - a.get("repness");
+  return b.get("A") - a.get("A");
 };
 
 module.exports = Thorax.CollectionView.extend({
@@ -43,12 +43,14 @@ module.exports = Thorax.CollectionView.extend({
     this.fetcher = options.fetcher;
     this.collection.comparator = sortMostAgrees;
     
-    this.collection.fetch({
-      data: $.param({
-          zid: this.zid
-      }),
-      processData: true,
-      ajax: this.fetcher
+    eb.on(eb.commentSelected, function(tid) {
+      that.collection.each(function(model) {
+        if (model.get("tid") === tid) {
+          model.set("selected", true);
+        } else {
+          model.set("selected", false);
+        }
+      });
     });
 
     

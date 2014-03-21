@@ -250,6 +250,18 @@ module.exports =  View.extend({
         model.set("repness", tidToRepness[model.get("tid")]); // TODO quiet
       });
     };
+    
+    this.allCommentsCollection.doFetch = function() {
+      this.fetch({
+        data: $.param({
+            zid: zid
+        }),
+        processData: true,
+        ajax: function() {
+          return that.serverClient.getFancyComments.apply(0, arguments);
+        }
+      });
+    };
 
       this.serverClient.addPollingScheduledCallback(function() {
         that.updateVotesByMeCollection();
@@ -307,9 +319,6 @@ module.exports =  View.extend({
 
 
       this.analyzeGlobalView = new AnalyzeGlobalView({
-        fetcher: function() {
-          return that.serverClient.getFancyComments.apply(0, arguments);
-        },
         zid: zid,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
@@ -395,6 +404,8 @@ module.exports =  View.extend({
           if (shouldShowVisUnderTabs()) {
             moveVisAboveQueryResults();
           }
+
+          that.allCommentsCollection.doFetch();
           that.$("#carousel").show();
         }
         if(to && to.id === VOTE_TAB) {
