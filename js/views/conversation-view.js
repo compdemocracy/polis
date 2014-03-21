@@ -309,6 +309,10 @@ module.exports =  View.extend({
         collection: this.allCommentsCollection
       });
 
+      eb.on(eb.commentSelected, function(tid) {
+        vis.selectComment(tid);
+      });
+
       // this.votesByMe.on("all", function(x) {
       //   console.log("votesByMe.all", x);
       // });

@@ -1742,6 +1742,7 @@ return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
+    selectComment: selectComment,
     // dipsplayBlueDotHelpItem: displayHelpItem,
     emphasizeParticipants: emphasizeParticipants,
 };
