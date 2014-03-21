@@ -155,7 +155,6 @@ module.exports =  View.extend({
           h: h,
           computeXySpans: Utils.computeXySpans,
           el_queryResultSelector: ".query_results_div",
-          el_carouselSelector: "#carousel",
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
@@ -320,6 +319,7 @@ module.exports =  View.extend({
 
       this.analyzeGlobalView = new AnalyzeGlobalView({
         zid: zid,
+        isIE8: isIE8,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },
@@ -398,7 +398,7 @@ module.exports =  View.extend({
           that.showVis();
         }
         if(from && from.id === ANALYZE_TAB) {
-          that.$("#carousel").hide();
+          that.analyzeGlobalView.hideCarousel();
         }
         if(to && to.id === ANALYZE_TAB) {
           if (shouldShowVisUnderTabs()) {
@@ -406,7 +406,7 @@ module.exports =  View.extend({
           }
 
           that.allCommentsCollection.doFetch();
-          that.$("#carousel").show();
+          that.analyzeGlobalView.showCarousel();
         }
         if(to && to.id === VOTE_TAB) {
           if (shouldShowVisUnderTabs()) {

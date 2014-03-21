@@ -10,7 +10,6 @@ var VisView = function(params){
 
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
-var el_carouselSelector = params.el_carouselSelector;
 var el_raphaelSelector = params.el_raphaelSelector;
 var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
@@ -91,9 +90,6 @@ var colorNoVote = colorPass;
 // var colorPullOutline = d3.rgb(colorPull).darker().toString();
 // var colorPushOutline = d3.rgb(colorPush).darker().toString();
 
-function useCarousel() {
-    return !isIE8 && display.xs();
-}
 
 // Cached results of tunalbes - set during init
 var strokeWidth;
@@ -309,9 +305,7 @@ strokeWidth = strokeWidthGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
 queryResults = $(el_queryResultSelector).html("");
-if (!useCarousel()) {
-    $(el_carouselSelector).html("");
-}
+
 // } else {
     // queryResults = $(el_queryResultSelector).html("");
 
@@ -1328,56 +1322,13 @@ function chooseCommentFill(d) {
 
 
 function renderComments(comments) {
-    function renderWithCarousel() {
-        $(el_carouselSelector).html("");
-        // $(el_carouselSelector).css("overflow", "hidden");        
-
-        // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
-        $(el_carouselSelector).append("<div id='smallWindow' style='left: 5%; width:80%'></div>");        
-
-        var results = $("#smallWindow");
-        results.addClass("owl-carousel");
-        // results.css('background-color', 'yellow');
-
-        if (results.data('owlCarousel')) {
-            results.data('owlCarousel').destroy();
-        }
-        results.owlCarousel({
-          items : 3, //3 items above 1000px browser width
-          // itemsDesktop : [1000,5], //5 items between 1000px and 901px
-          // itemsDesktopSmall : [900,3], // betweem 900px and 601px
-          // itemsTablet: [600,2], //2 items between 600 and 0
-          // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
-           singleItem : true,
-           // autoHeight : true,
-           afterMove: (function() {return function() {
-                var tid = indexToTid[this.currentItem];
-                setTimeout(function() {
-                    selectComment(tid);
-                }, 100);
-
-            }}())
-        });
-        var indexToTid = _.map(comments, function(c) {
-            return c.tid;
-        });
-        _.each(comments, function(c) {
-            results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well query_result_item'>" + c.txt + "</div>");
-        });
-        // Auto-select the first comment.
-        if (comments.length) {
-            selectComment(comments[0].tid);
-        }
-    }
+    
     var dfd = $.Deferred();
 
     if (comments.length) {
         $(el_queryResultSelector).show();
     } else {
         $(el_queryResultSelector).hide();
-    }
-    if (useCarousel()) {
-        renderWithCarousel();
     }
     setTimeout(dfd.resolve, 4000);
     eb.trigger("queryResultsRendered");

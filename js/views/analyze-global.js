@@ -1,4 +1,5 @@
 var AnalyzeCommentView = require("../views/analyze-comment");
+var display = require("../util/display");
 var eb = require("../eventBus");
 var template = require("../tmpl/analyze-global");
 var CommentModel = require("../models/comment");
@@ -11,6 +12,8 @@ var sortRepness = function(a, b) {
 var sortMostAgrees = function(a, b) {
   return b.get("A") - a.get("A");
 };
+
+var el_carouselSelector = "#carousel";
 
 module.exports = Thorax.CollectionView.extend({
     name: "analyze-global-view",
@@ -35,6 +38,55 @@ module.exports = Thorax.CollectionView.extend({
       }
       return true;
     },
+
+  useCarousel: function() {
+      return !this.isIE8 && display.xs();
+  },
+  hideCarousel: function() {
+    this.$("#carousel").hide();
+  },
+  showCarousel: function() {
+    this.$("#carousel").show();
+  },
+  renderWithCarousel: function() {
+    $(el_carouselSelector).html("");
+    // $(el_carouselSelector).css("overflow", "hidden");        
+
+    // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
+    $(el_carouselSelector).append("<div id='smallWindow' style='left: 5%; width:80%'></div>");        
+
+    var results = $("#smallWindow");
+    results.addClass("owl-carousel");
+    // results.css('background-color', 'yellow');
+
+    if (results.data('owlCarousel')) {
+      results.data('owlCarousel').destroy();
+    }
+    results.owlCarousel({
+      items : 3, //3 items above 1000px browser width
+      // itemsDesktop : [1000,5], //5 items between 1000px and 901px
+      // itemsDesktopSmall : [900,3], // betweem 900px and 601px
+      // itemsTablet: [600,2], //2 items between 600 and 0
+      // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
+       singleItem : true,
+       // autoHeight : true,
+       afterMove: (function() {return function() {
+          var tid = indexToTid[this.currentItem];
+          setTimeout(function() {
+              selectComment(tid);
+          }, 100);
+
+      }}())
+    });
+    var indexToTid = this.collection.map(function(c) {
+      return c.tid;
+    });
+    this.collection.each(function(c) {
+      results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well query_result_item'>" + c.get("txt") + "</div>");
+    });
+    // Auto-select the first comment.
+    $(el_carouselSelector).find(".query_result_item").first().trigger("click");
+  },
   initialize: function(options) {
     var that = this;
 
@@ -43,6 +95,10 @@ module.exports = Thorax.CollectionView.extend({
     this.fetcher = options.fetcher;
     this.collection.comparator = sortMostAgrees;
     
+    if (!this.useCarousel()) {
+      $(el_carouselSelector).html("");
+    }
+
     eb.on(eb.commentSelected, function(tid) {
       that.collection.each(function(model) {
         if (model.get("tid") === tid) {
@@ -55,6 +111,7 @@ module.exports = Thorax.CollectionView.extend({
 
     
     eb.on(eb.clusterClicked, function(gid) {
+      that.renderWithCarousel();
       if (gid === false) {
         that.visibleTids = null;
         that.updateFilter();
