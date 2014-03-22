@@ -86,7 +86,6 @@ module.exports =  View.extend({
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
 
-
     this.tutorialController = new TutorialController();
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: zid

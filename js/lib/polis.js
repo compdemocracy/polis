@@ -889,7 +889,6 @@ function clientSideBaseCluster(things, N) {
     }
 
     function sum(arrayOfNumbers) {
-        console.dir(arrayOfNumbers);
         return _.reduce(arrayOfNumbers, function(total, x) { return total+x; }, 0);
     }
 
