@@ -965,6 +965,8 @@ var whitelistedDomains = [
   "https://api.pol.is",
   "http://www.pol.is",
   "https://www.pol.is",
+  "http://preprod.pol.is",
+  "https://preprod.pol.is",
 ];
 
 app.all("/v3/*", function(req, res, next) {
