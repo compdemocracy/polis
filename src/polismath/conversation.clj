@@ -110,8 +110,10 @@
         :id
         (kmeans (assoc rating-mat :matrix proj)
                 (:base-k opts')
-                :last-clusters (:base-clusters conv)
-                :cluster-iters (:base-iters opts')))))
+                ; :last-clusters (:base-clusters conv)
+                ; :cluster-iters (:base-iters opts')
+
+                ))))
      
      :group-clusters
      (plmb/fnk
@@ -123,8 +125,9 @@
         (kmeans
          (xy-clusters-to-nmat2 base-clusters)
          (choose-group-k base-clusters)
-         :last-clusters (:group-clusters conv)
-         :cluster-iters (:group-iters opts')))))
+         ; :last-clusters (:group-clusters conv)
+         ; :cluster-iters (:group-iters opts')
+         ))))
 
      :bid-to-pid
      (plmb/fnk

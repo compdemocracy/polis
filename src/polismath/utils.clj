@@ -1,10 +1,13 @@
 (ns polismath.utils)
 
+
 (defn agree? [n]
   (< n 0))
 
+
 (defn disagree? [n]
   (> n 0))
+
 
 (defmacro time2
   [tag & expr]
@@ -13,11 +16,13 @@
      (println (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
 
+
 (defn zip [& xss]
   ;;should we redo this like the with-indices below, using a map?
   (if (> (count xss) 1)
     (partition (count xss) (apply interleave xss))
     xss))
+
 
 (defn replace-if-underscore [element val]
   (if (= element '_)
@@ -68,6 +73,10 @@
   (require '[clojure.tools.trace :as tr]))
 
 
+(defn prep-for-uploading-bidToPid-mapping [results]
+  {"bidToPid" (:bid-to-pid results)})
+
+
 (defn prep-for-uploading-to-client [results]
   (let [base-clusters (get results :base-clusters)]
     (snowball
@@ -76,12 +85,12 @@
         #(dissoc %1 :mat :rating-mat :opts') ;remove things we don't want to publish
 
         ; REFORMAT PROJECTION
-        #(dissoc %1 :proj) ; remove the original projection - we'll
-                           ; provide buckets/base-clusters instead
-
+        ; remove original projection - we'll provide buckets/base-clusters instead
+        #(dissoc %1 :proj)
 
         ; REFORMAT BASE CLUSTERS
         #(dissoc %1 :base-clusters)
+        #(dissoc %1 :bid-to-pid)        
         #(assoc-in %1 [:base-clusters "x"] (map (fn [x] (first (:center x))) base-clusters))
         #(assoc-in %1 [:base-clusters "y"] (map (fn [x] (second (:center x))) base-clusters))
         #(assoc-in %1 [:base-clusters "id"] (map :id base-clusters))
@@ -91,5 +100,6 @@
         ; REFORMAT REPNESS
         ; make the array position of each cluster imply the cluster id
         #(assoc %1 :repness (map :repness (sort-by :id (:repness %1))))
-
         ])))
+
+
