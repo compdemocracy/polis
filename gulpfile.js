@@ -76,7 +76,8 @@ gulp.task('index', [
     }))
   } else {
     s = s.pipe(template({
-      basepath: 'https://s3.amazonaws.com/pol.is',
+      //basepath: 'https://s3.amazonaws.com/pol.is',
+      basepath: '', // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
