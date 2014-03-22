@@ -1,3 +1,4 @@
+var _ = require('underscore');
 var gulp = require('gulp');
 var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
@@ -329,10 +330,24 @@ gulp.task("watchForDev", [
 gulp.task('deploy', [
   // "dist"
   "configureForProduction",
-  ], function() {
+], function() {
+  return deploy({
+      bucket: "pol.is"
+  });
+});
 
+gulp.task('preprod', [
+  // "dist"
+  "configureForProduction",
+], function() {
+  return deploy({
+      bucket: "preprod.pol.is"
+  });
+});
+ 
+function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-    creds.bucket = "pol.is";
+    creds = _.extend(creds, params);
 
     // Files without Gzip
     gulp.src([
@@ -356,7 +371,7 @@ gulp.task('deploy', [
         }
       }));
 
-});
+}
 
 
 // For now, you'll have to copy the assets from the other repo into the "about" directory
