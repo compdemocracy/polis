@@ -116,8 +116,7 @@
         ; count uniq data points to figure out how many clusters are possible
         possible-clusters (min k (count (distinct (rows (:matrix data)))))]
     (loop [clusters uniq-clusters]
-      ; Whatever th ecase here, we want to do one more recentering
-      (println "size" (count clusters))
+      ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters)]
         (if (> possible-clusters (count clusters))
           ; first find the most distal point, and the cluster to which it's closest
