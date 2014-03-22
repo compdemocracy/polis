@@ -24,24 +24,6 @@
     xss))
 
 
-(defn replace-if-underscore [element val]
-  (if (= element '_)
-    val
-    element))
-
-
-(defn replace-underscores [form val]
-  (map #(replace-if-underscore % val) form))
-
-
-(defn convert-forms [val [next-form & other-forms]]
-  (if (nil? next-form)
-    val
-    (let [next-val (gensym)]
-          `(let [~next-val ~(replace-underscores next-form val)]
-      ~(convert-forms next-val other-forms)))))
-
-
 (defmacro endlessly [interval & forms]
   `(doseq [~'x (range)]
      ~@forms
@@ -64,11 +46,8 @@
   (apply (apply partial f (butlast args)) (apply concat (last args))))
 
 
-; apply each function to the result of the previous
-(defn snowball [obj fns] (reduce #(%2 %1) obj fns))
-
-
 (defn use-debuggers []
+  "Handy debugging utility for loading in debugging namespaces"
   (require '[alex-and-georges.debug-repl :as dr])
   (require '[clojure.tools.trace :as tr]))
 
@@ -78,28 +57,27 @@
 
 
 (defn prep-for-uploading-to-client [results]
-  (let [base-clusters (get results :base-clusters)]
-    (snowball
-      results
-      [
-        #(dissoc %1 :mat :rating-mat :opts') ;remove things we don't want to publish
+  (let [base-clusters (:base-clusters results)
+        repness (:base-clusters results)]
+    (-> results
+      ; remove things we don't want to publish
+      (dissoc :mat :rating-mat :opts')
 
-        ; REFORMAT PROJECTION
-        ; remove original projection - we'll provide buckets/base-clusters instead
-        #(dissoc %1 :proj)
+      ; REFORMAT PROJECTION
+      ; remove original projection - we'll provide buckets/base-clusters instead
+      (dissoc :proj)
 
-        ; REFORMAT BASE CLUSTERS
-        #(dissoc %1 :base-clusters)
-        #(dissoc %1 :bid-to-pid)        
-        #(assoc-in %1 [:base-clusters "x"] (map (fn [x] (first (:center x))) base-clusters))
-        #(assoc-in %1 [:base-clusters "y"] (map (fn [x] (second (:center x))) base-clusters))
-        #(assoc-in %1 [:base-clusters "id"] (map :id base-clusters))
-        #(assoc-in %1 [:base-clusters "members"] (map :members base-clusters))
-        #(assoc-in %1 [:base-clusters "count"] (map (fn [c] (count (:members c))) base-clusters))        
+      ; REFORMAT BASE CLUSTERS
+      (dissoc :base-clusters)
+      (dissoc :bid-to-pid)
+      (assoc-in [:base-clusters "x"] (map (fn [x] (first (:center x))) base-clusters))
+      (assoc-in [:base-clusters "y"] (map (fn [x] (second (:center x))) base-clusters))
+      (assoc-in [:base-clusters "id"] (map :id base-clusters))
+      (assoc-in [:base-clusters "members"] (map :members base-clusters))
+      (assoc-in [:base-clusters "count"] (map (fn [c] (count (:members c))) base-clusters))
 
-        ; REFORMAT REPNESS
-        ; make the array position of each cluster imply the cluster id
-        #(assoc %1 :repness (map :repness (sort-by :id (:repness %1))))
-        ])))
+      ; REFORMAT REPNESS
+      ; make the array position of each cluster imply the cluster id
+      (assoc :repness (map :repness (sort-by :id repness))))))
 
 
