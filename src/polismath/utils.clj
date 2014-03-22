@@ -71,10 +71,10 @@
       (dissoc :base-clusters)
       (dissoc :bid-to-pid)
       (assoc-in [:base-clusters "x"] (map #(first (:center %)) base-clusters))
-      (assoc-in [:base-clusters "y"] (map #(second (:center x)) base-clusters))
+      (assoc-in [:base-clusters "y"] (map #(second (:center %)) base-clusters))
       (assoc-in [:base-clusters "id"] (map :id base-clusters))
       (assoc-in [:base-clusters "members"] (map :members base-clusters))
-      (assoc-in [:base-clusters "count"] (map #(count (:members c)) base-clusters))
+      (assoc-in [:base-clusters "count"] (map #(count (:members %)) base-clusters))
 
       ; REFORMAT REPNESS
       ; make the array position of each cluster imply the cluster id
