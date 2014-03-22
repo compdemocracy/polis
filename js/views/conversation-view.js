@@ -406,7 +406,7 @@ module.exports =  View.extend({
           that.showVis();
         }
         if(from && from.id === ANALYZE_TAB) {
-          that.analyzeGlobalView.hideCarousel();
+          // that.analyzeGlobalView.hideCarousel();
         }
         if(to && to.id === ANALYZE_TAB) {
           if (shouldShowVisUnderTabs()) {
@@ -414,7 +414,7 @@ module.exports =  View.extend({
           }
 
           that.allCommentsCollection.doFetch();
-          that.analyzeGlobalView.showCarousel();
+          // that.analyzeGlobalView.showCarousel();
         }
         if(to && to.id === VOTE_TAB) {
           if (shouldShowVisUnderTabs()) {
