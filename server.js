@@ -3248,7 +3248,6 @@ function proxy(req, res) {
 function makeFileFetcher(url, contentType) {
     return function fetchIndex(req, res) {
         console.log("fetchIndex from " + url);
-        var hostname = process.env.STATIC_FILES_HOST;
         http.get(url, function(proxyResponse) {
             if (devMode) {
                 addStaticFileHeaders(res);
