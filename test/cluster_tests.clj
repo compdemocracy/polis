@@ -4,6 +4,7 @@
             [polismath.clusters :refer :all]))
 
 (defn size-correct [clusters n]
+  ; XXX - really need to rewrite as macro
   (is (= n (count clusters))))
 
 
@@ -45,6 +46,20 @@
         ; basically just testing here that things don't break
         (is (= 2 (count (kmeans real-nmat 2 :last-clusters clusts))))))))
 
+(deftest growing-clusters
+  (let [data (named-matrix
+               ["p1" "p2" "p3" "p4" "p5"]
+               ["c1" "c2" "c3"]
+               [[ 1  1  1]
+                [ 1  1  0]
+                [-1 -1 -1]
+                [-1 -1  0]
+                [-1  1  0]])
+        last-clusts [{:id 1 :members ["p1" "p2"]} {:id 2 :members ["p3" "p4"]}]
+        clusts (kmeans data 3 :last-clusters last-clusts)]
+    (testing "should give the right number of clusters"
+      (size-correct clusts 3))))
+
 (deftest edge-cases
   (testing "k-means on n < k items"
     (testing "gives n clusters"
@@ -61,6 +76,31 @@
                    [[ 0  1  0 ]
                     [ 0  1  0 ]
                     [-1  1  0 ]])]
-        (size-correct (kmeans data 3) 2)))))
+        (size-correct (kmeans data 3) 2)
+        (testing "even when n lats-clusters have been specified"
+          (let [last-clusts [{:id 1 :members ["p1"]}
+                             {:id 2 :members ["p2"]}
+                             {:id 3 :members ["p3"]}]]
+            (size-correct (kmeans data 3 :last-clusters last-clusts) 2)))))))
+
+(deftest most-distal-test
+  (let [data (named-matrix
+               ["p1" "p2" "p3" "p4" "p5"]
+               ["c1" "c2" "c3"]
+               [[ 1  1  1]
+                [ 1  1  0]
+                [-1 -1 -1]
+                [-1 -1  0]
+                [-1  1  0]])
+        clusts [{:id 1 :members ["p1" "p2"]} {:id 2 :members ["p3" "p4" "p5"]}]
+        clusts (recenter-clusters data clusts)]
+    (testing "correct clst-id"
+      (is (= (:clst-id (most-distal data clusts)) 2)))
+    (testing "correct member id"
+      (is (= (:id (most-distal data clusts)) "p5")))
+    (testing "correct distance"
+      (is (< 
+            (- (:dist (most-distal data clusts)) 1.37436854)
+            0.0001)))))
 
 

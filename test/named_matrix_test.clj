@@ -102,3 +102,7 @@
         (is (= (inv-rowname-subset real-nmat ["p3"]) submat))))))
 
 
+(deftest get-row-by-name-test
+  (is (= (get-row-by-name real-nmat "p2") [-1 1 1])))
+
+

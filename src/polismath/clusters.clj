@@ -1,6 +1,5 @@
 (ns polismath.clusters
   (:refer-clojure :exclude [* - + == /])
-  (:require [clojure.tools.trace :as tr])
   (:use polismath.utils
         polismath.named-matrix
         clojure.core.matrix
@@ -22,7 +21,7 @@
   (let [[clst-id clst] (apply min-key
                          (fn [[clst-id clst]]
                            (distance (last item) (:center clst)))
-                           clusts)]
+                         clusts)]
     (assoc clusts clst-id
       (clst-append clst item))))
 
@@ -32,6 +31,7 @@
   (take k
     (map-indexed
       (fn [id position] {:id id :members [] :center (matrix position)})
+      ; Have to make sure we don't have identical cluster centers
       (distinct (rows (:matrix data))))))
 
 
@@ -66,10 +66,82 @@
 
 
 (defn recenter-clusters [data clusters]
+  "Replace cluster centers with a center computed from new positions"
   (map
-    (fn [cluster]
-      (assoc cluster :center (mean (matrix (:matrix (rowname-subset data (:members cluster)))))))
+    #(assoc % :center (mean (matrix (:matrix (rowname-subset data (:members %))))))
     clusters))
+
+
+(defn merge-clusters [clst1 clst2]
+  (let [new-id (:id (max-key #(count (:members %)) clst1 clst2))]
+    ; XXX - instead of using mean should really do a weighted thing that looks at # members
+    {:id new-id :members (into clst1 clst2) :center (mean (map :center [clst1 clst2]))}))
+
+
+(defn most-distal [data clusters]
+  "Finds the most distal point in all clusters"
+  (let [[dist clst-id id]
+          ; find the maximum dist, clst-id, mem-id triple
+          (apply max-key #(get % 0)
+            (map
+              (fn [mem]
+                ; Find the minimum distance, cluster-id pair, and add the member name to the end
+                (conj (apply min-key #(get % 0)
+                        (map
+                          #(vector (distance (get-row-by-name data mem) (:center %)) (:id %))
+                          clusters))
+                   mem))
+              (:rows data)))]
+    {:dist dist :clst-id clst-id :id id}))
+
+
+(defn uniqify-clusters [clusters]
+  (reduce-kv
+    (fn [clusters i clst]
+      (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
+        (if identical-clst
+          (assoc clusters i (merge-clusters identical-clst clst))
+          (conj clusters clst))))
+    [] clusters))
+
+
+(defn clean-start-clusters [data clusters k]
+  ;(debug-repl)
+  "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
+  in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
+  clustering given the latest set of data."
+  ; First recenter clusters (replace cluster center with a center computed from new positions)
+  (let [clusters (into [] (recenter-clusters data clusters))
+        ; next make sure we're not dealing with any clusters that are identical to eachother
+        uniq-clusters (uniqify-clusters clusters)
+        ; count uniq data points to figure out how many clusters are possible
+        possible-clusters (min k (count (distinct (rows (:matrix data)))))]
+    (println "possible" possible-clusters)
+    (loop [clusters uniq-clusters]
+      ; Whatever th ecase here, we want to do one more recentering
+      (println "size" (count clusters))
+      (let [clusters (recenter-clusters data clusters)]
+        (if (> possible-clusters (count clusters))
+          ; first find the most distal point, and the cluster to which it's closest
+          (let [outlier (most-distal data clusters)]
+            (if (> (:dist outlier) 0)
+              ; There is work to be done, so do it
+              (recur
+                (->
+                  ; first remove the most distal point from the cluster it was in;
+                  (map
+                    (fn [clst]
+                      (assoc clst :members
+                        (remove (set [(:id outlier)]) (:members clst))))
+                    clusters)
+                  ; next add a new cluster containing only said point.
+                  (conj {:id (inc (apply max (map :id clusters)))
+                         :members [(:id outlier)]
+                         :center (get-row-by-name data (:id outlier))})))
+              ; Else just return recentered clusters
+              clusters))
+          ; Else just return recentered clusters
+          clusters)))))
 
  
 ; Each cluster should have the shape {:id :members :center}
@@ -77,10 +149,9 @@
   "Performs a k-means clustering."
   (let [data-iter (zip (:rows data) (matrix (:matrix data)))
         clusters  (if last-clusters
-                    (recenter-clusters data last-clusters)
+                    (clean-start-clusters data last-clusters k)
                     (init-clusters data k))]
     (loop [clusters clusters iter max-iters]
-      ; make sure we don't use clusters where k < k
       (let [new-clusters (cluster-step data-iter k clusters)]
         (if (or (= iter 0) (same-clustering? clusters new-clusters))
           new-clusters
