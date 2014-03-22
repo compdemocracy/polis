@@ -969,6 +969,11 @@ var whitelistedDomains = [
   "https://preprod.pol.is",
 ];
 
+var whitelistedBuckets = {
+    "pol.is": true,
+    "preprod.pol.is": true,
+};
+
 app.all("/v3/*", function(req, res, next) {
  
   var host = "";
@@ -3214,6 +3219,11 @@ function addStaticFileHeaders(res) {
 }
 
 function proxy(req, res) {
+    var hostname = buildStaticHostname(req, res);
+    if (!hostname) {
+        fail(res, 500, "polis_err_serving_to_domain");
+        return;
+    }
     if (devMode) {
         addStaticFileHeaders(res);
     }
@@ -3227,7 +3237,6 @@ function proxy(req, res) {
     // } else {
 
 
-        var hostname = process.env.STATIC_FILES_HOST;
         var port = process.env.STATIC_FILES_PORT;
 
         // Proxy to another bucket for about.polis.io
@@ -3244,10 +3253,35 @@ function proxy(req, res) {
     // }
 }
 
+function buildStaticHostname(req, res) {
+    if (devMode) {
+        return process.env.STATIC_FILES_HOST;
+    } else {
+        var origin = req.headers.host;
+        if (!whitelistedBuckets[origin]) {
+            return;
+        }
+        return origin + "." + process.env.STATIC_FILES_HOST;
+    }
+}
+
 // TODO cache!
-function makeFileFetcher(url, contentType) {
-    return function fetchIndex(req, res) {
-        console.log("fetchIndex from " + url);
+function makeFileFetcher(hostname, port, path, contentType) {
+    return function(req, res) {
+        var hostname = buildStaticHostname(req, res);
+        if (!hostname) {
+            fail(res, 500, "polis_err_serving_to_domain");
+            return;
+        }
+        var url;
+        if (devMode) {
+            url = "http://" + hostname + ":" + port + path;
+        } else {
+            // pol.is.s3-website-us-east-1.amazonaws.com            
+            // preprod.pol.is.s3-website-us-east-1.amazonaws.com
+            url = "http://" + hostname + path; // TODO https
+        }
+        console.log("fetch file from " + url);
         http.get(url, function(proxyResponse) {
             if (devMode) {
                 addStaticFileHeaders(res);
@@ -3268,7 +3302,7 @@ function makeFileFetcher(url, contentType) {
 // serve up index.html in response to anything starting with a number 
 var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
-var fetchIndex = makeFileFetcher("http://" + hostname + ":" + port + "/index.html", "text/html");
+var fetchIndex = makeFileFetcher(hostname, port, "/index.html", "text/html");
 
 
 
@@ -3282,20 +3316,20 @@ app.get(/^\/settings/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit/, fetchIndex);
 app.get(/^\/demo.*/, fetchIndex);
-app.get(/^\/professors/, makeFileFetcher("http://" + hostname + ":" + port + "/professors.html", "text/html"));
-app.get(/^\/pricing/, makeFileFetcher("http://" + hostname + ":" + port + "/pricing.html", "text/html"));
-app.get(/^\/company/, makeFileFetcher("http://" + hostname + ":" + port + "/company.html", "text/html"));
-app.get(/^\/api/, makeFileFetcher("http://" + hostname + ":" + port + "/api.html", "text/html"));
-app.get(/^\/politics/, makeFileFetcher("http://" + hostname + ":" + port + "/politics.html", "text/html"));
-app.get(/^\/marketers/, makeFileFetcher("http://" + hostname + ":" + port + "/marketers.html", "text/html"));
+app.get(/^\/professors/, makeFileFetcher(hostname, port, "/professors.html", "text/html"));
+app.get(/^\/pricing/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
+app.get(/^\/company/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
+app.get(/^\/api/, makeFileFetcher(hostname, port, "/api.html", "text/html"));
+app.get(/^\/politics/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
+app.get(/^\/marketers/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
 
 
 var conditionalIndexFetcher = (function() {
-    var fetchLander = makeFileFetcher("http://" + hostname + ":" + port + "/lander.html", "text/html");
+    var fetchLander = makeFileFetcher(hostname, port, "/lander.html", "text/html");
     return function(req, res) {
         if (hasToken(req)) {
             // user is signed in, serve the app
-            return proxy(req, res);
+            return fetchIndex(req, res);
         } else {
             // user not signed in, serve landing page
             return fetchLander(req, res);
