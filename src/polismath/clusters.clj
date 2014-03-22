@@ -106,7 +106,6 @@
 
 
 (defn clean-start-clusters [data clusters k]
-  ;(debug-repl)
   "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
@@ -116,7 +115,6 @@
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
         possible-clusters (min k (count (distinct (rows (:matrix data)))))]
-    (println "possible" possible-clusters)
     (loop [clusters uniq-clusters]
       ; Whatever th ecase here, we want to do one more recentering
       (println "size" (count clusters))
@@ -157,6 +155,7 @@
           new-clusters
           (recur new-clusters (dec iter)))))))
 
+
 ; NOTE - repness is calculated on the client
 (defn repness [in-part out-part]
   "Computes the representativeness of each of the columns for the split defined by in-part out-part,
@@ -177,6 +176,7 @@
           out-cols (columns (:matrix out-part))]
       (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
 
+
 ; NOTE - repness is calculated on the client
 (defn conv-repness [data group-clusters base-clusters]
   (map
@@ -195,6 +195,7 @@
          }
         )) group-clusters))
 
+
 (defn xy-clusters-to-nmat [clusters]
   (let [nmat (named-matrix)]
     (update-nmat
@@ -210,6 +211,7 @@
            ))
        clusters
        )))))
+
 
 (defn xy-clusters-to-nmat2 [clusters]
   (named-matrix

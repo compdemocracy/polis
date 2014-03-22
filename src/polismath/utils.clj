@@ -37,10 +37,6 @@
       ~(convert-forms next-val other-forms)))))
 
 
-(defmacro ->>> [init & forms]
-  (convert-forms init forms))
-
-
 (defmacro endlessly [interval & forms]
   `(doseq [~'x (range)]
      ~@forms
@@ -66,6 +62,10 @@
 ; apply each function to the result of the previous
 (defn snowball [obj fns] (reduce #(%2 %1) obj fns))
 
+
+(defn use-debuggers []
+  (require '[alex-and-georges.debug-repl :as dr])
+  (require '[clojure.tools.trace :as tr]))
 
 
 (defn prep-for-uploading-to-client [results]
