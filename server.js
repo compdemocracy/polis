@@ -926,7 +926,7 @@ function redirectIfNotHttps(req, res, next) {
 }
 
 function redirectIfWrongDomain(req, res, next) {
-  if(/www.polis.io/.test(req.headers.host)) {
+  if(/polis.io/.test(req.headers.host)) {
     res.writeHead(302, {
         Location: "https://pol.is" + req.url
     });
