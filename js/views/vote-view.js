@@ -90,8 +90,7 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.agree(tid)
-          .fail(onFail);
-      onVote();
+          .then(onVote, onFail);
     };
     this.participantDisagreed = function() {
       var tid = this.model.get("tid");
@@ -102,8 +101,7 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.disagree(tid)
-          .fail(onFail);
-      onVote();
+          .then(onVote, onFail);
     };
     this.participantPassed = function() {
       var tid = this.model.get("tid");
@@ -114,8 +112,7 @@ module.exports = View.extend({
         tid: tid
       });
       serverClient.pass(tid)
-          .fail(onFail);
-      onVote();
+          .then(onVote, onFail);
     };
     this.participantStarred = function() {
       var tid = this.model.get("tid");
@@ -127,14 +124,12 @@ module.exports = View.extend({
         tid: tid
       });
       $.when(serverClient.star(tid), serverClient.agree(tid))
-          .fail(onFail);
-      onVote();
+          .then(onVote, onFail);
     };
     this.participantTrashed = function() {
       var tid = this.model.get("tid");
       serverClient.trash(tid)
-          .fail(onFail);
-      onVote();
+          .then(onVote, onFail);
     };
     showNext();
     serverClient.addCommentsAvailableListener(function() {
