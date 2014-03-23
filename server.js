@@ -972,6 +972,7 @@ var whitelistedDomains = [
 var whitelistedBuckets = {
     "pol.is": true,
     "preprod.pol.is": true,
+    "about.polis.io": true,
 };
 
 app.all("/v3/*", function(req, res, next) {
@@ -3260,6 +3261,9 @@ function buildStaticHostname(req, res) {
         var origin = req.headers.host;
         if (!whitelistedBuckets[origin]) {
             return;
+        }
+        if (/about.polis.io/.exec(origin)) {
+            return process.env.STATIC_FILES_ABOUTPAGE_HOST;
         }
         return origin + "." + process.env.STATIC_FILES_HOST;
     }
