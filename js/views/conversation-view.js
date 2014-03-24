@@ -254,7 +254,7 @@ module.exports =  View.extend({
 
     this.allCommentsCollection.updateRepness = function(tidToRepness) {
       this.each(function(model) {
-        model.set("repness", tidToRepness[model.get("tid")]); // TODO quiet
+        model.set("repness", tidToRepness[model.get("tid")], {silent: true});
       });
     };
 
