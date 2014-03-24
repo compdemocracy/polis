@@ -1152,7 +1152,7 @@ app.get("/v3/math/pca",
             });
         });
         promise.then(function(data) {
-            if (data) {
+            if (data && data.length) {
                 res.json(data);
             } else {
                 res.status(304).end();
