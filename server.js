@@ -1144,7 +1144,7 @@ app.get("/v3/math/pca",
                     if (err) {
                         reject("polis_err_get_pca_results_find_toarray");
                     } else if (!docs.length) {
-                        resolve([]);
+                        resolve(null);
                     } else {
                         resolve(docs[0]);
                     }
@@ -1152,7 +1152,7 @@ app.get("/v3/math/pca",
             });
         });
         promise.then(function(data) {
-            if (data && data.length) {
+            if (data) {
                 res.json(data);
             } else {
                 res.status(304).end();
