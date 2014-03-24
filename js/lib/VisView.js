@@ -427,7 +427,7 @@ function handleOnClusterClicked(hullId) {
       return resetSelection();
     } else {
         resetSelectedComment();
-        unhoverAll();
+        // unhoverAll();
         setClusterActive(hullId)
             .then(
                 updateHulls,
@@ -1454,7 +1454,7 @@ function resetSelection() {
   // visualization.transition().duration(750).attr("transform", "");
   selectedBids = [];
   resetSelectedComment();
-  unhoverAll();
+  // unhoverAll();
 }
 
 

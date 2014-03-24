@@ -134,6 +134,10 @@ module.exports = Thorax.CollectionView.extend({
           that.collection.sort();
         });
       }
+      var first = that.collection.first();
+      if (first) {
+        eb.trigger(eb.commentSelected, first.get("tid"));
+      }
     });
   }
 });
