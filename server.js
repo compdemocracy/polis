@@ -2254,10 +2254,10 @@ function(req, res) {
 }); // end GET /v3/comments
 
 
-
 function isDuplicateKey(err) {
     return err.code === 23505;
 }
+
 function failWithRetryRequest(res) {
     res.setHeader('Retry-After', 0);
     console.warn(57493875);
@@ -3356,12 +3356,6 @@ function proxy(req, res) {
 
         var port = process.env.STATIC_FILES_PORT;
 
-        // Proxy to another bucket for about.polis.io
-        var origin = req.get("Origin");
-        console.log(origin);
-        if (/about.polis.io/.exec(origin)) {
-            hostname = process.env.STATIC_FILES_ABOUTPAGE_HOST;
-        }
         routingProxy.proxyRequest(req, res, {
 
             host: hostname,
@@ -3430,20 +3424,20 @@ app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
 app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create.*/, fetchIndex);
-app.get(/^\/user\/create/, fetchIndex);
-app.get(/^\/user\/login/, fetchIndex);
-app.get(/^\/settings/, fetchIndex);
+app.get(/^\/user\/create$/, fetchIndex);
+app.get(/^\/user\/login$/, fetchIndex);
+app.get(/^\/settings$/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
-app.get(/^\/pwresetinit/, fetchIndex);
+app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo.*/, fetchIndex);
-app.get(/^\/professors/, makeFileFetcher(hostname, port, "/professors.html", "text/html"));
-app.get(/^\/pricing/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
-app.get(/^\/company/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
-app.get(/^\/api/, makeFileFetcher(hostname, port, "/api.html", "text/html"));
-app.get(/^\/politics/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
-app.get(/^\/marketers/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
+app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/professors.html", "text/html"));
+app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
+app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
+app.get(/^\/api$/, makeFileFetcher(hostname, port, "/api.html", "text/html"));
+app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
+app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
-app.get(/^\/about/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
+app.get(/^\/about$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
 
 
 var conditionalIndexFetcher = (function() {
