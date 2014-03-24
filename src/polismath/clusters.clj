@@ -75,7 +75,9 @@
 (defn merge-clusters [clst1 clst2]
   (let [new-id (:id (max-key #(count (:members %)) clst1 clst2))]
     ; XXX - instead of using mean should really do a weighted thing that looks at # members
-    {:id new-id :members (into clst1 clst2) :center (mean (map :center [clst1 clst2]))}))
+    {:id new-id
+     :members (into (:members clst1) (:members clst2))
+     :center (mean (map :center [clst1 clst2]))}))
 
 
 (defn most-distal [data clusters]
@@ -96,11 +98,11 @@
 
 
 (defn uniqify-clusters [clusters]
-  (reduce-kv
-    (fn [clusters i clst]
+  (reduce
+    (fn [clusters clst]
       (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
         (if identical-clst
-          (assoc clusters i (merge-clusters identical-clst clst))
+          (assoc clusters (.indexOf clusters identical-clst) (merge-clusters identical-clst clst))
           (conj clusters clst))))
     [] clusters))
 
