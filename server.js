@@ -22,7 +22,8 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
     //[process.env.APPLICATION_NAME,'Heroku']
 //);
 
-var http = require('http'),
+var dgram = require('dgram'),
+    http = require('http'),
     httpProxy = require('http-proxy'),
     Promise = require('es6-promise').Promise,
     express = require('express'),
@@ -38,6 +39,7 @@ var http = require('http'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
     Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
+    net = require('net'),
     Pushover = require( 'pushover-notifications' ),
     pushoverInstance = new Pushover( {
         user: process.env['PUSHOVER_GROUP_POLIS_DEV'],
@@ -105,6 +107,49 @@ function connectError(errorcode, message){
 var AUTH_FAILED = 'auth failed';
 var ALLOW_ANON = true;
 
+
+var metric = (function() {
+    var apikey = process.env.HOSTEDGRAPHITE_APIKEY;
+    return function(metricName, numberValue, optionalTimestampOverride) {
+        return new Promise(function(resolve, reject) {
+
+            var point = { 
+                dur: numberValue,
+                time : new Date(),
+            };
+            console.dir(point);
+            metricName = metricName.replace(/[^A-Za-z0-9\.]/g,"");
+            console.log(metricName);
+            // influx.writePoint(metricName, point, {}, function(err) {
+            //     if (err) { reject(err); return; }
+            //     resolve();
+            // });
+
+            var t = "";
+            if (!_.isUndefined(optionalTimestampOverride)) {
+                optionalTimestampOverride /= 1000; // graphite wants seconds
+                t = " " + optionalTimestampOverride;
+            }
+
+            var message = new Buffer(apikey + "." + metricName + " " + numberValue +"\n");
+            console.log(message.toString());
+            var socket = dgram.createSocket("udp4");
+            socket.send(message, 0, message.length, 2003, "carbon.hostedgraphite.com", function(err, bytes) {
+                socket.close();
+                if (err) {
+                    console.error("metric send failed " + err);
+                    reject(err);
+                } else {
+                    console.log("metric send ok");
+                    resolve();
+                }
+            });
+        });
+
+    };    
+}());
+
+metric("api.process.launch", 1);
 
 var errorNotifications = (function() {
     var errors = [];
@@ -505,10 +550,14 @@ String.prototype.hashCode = function(){
 };
 
 function fail(res, httpCode, clientVisibleErrorString, err) {
+    userFail(res, httpCode, clientVisibleErrorString, err);
+    yell(clientVisibleErrorString);
+}
+
+function userFail(res, httpCode, clientVisibleErrorString, err) {
     console.error(clientVisibleErrorString, err);
     res.writeHead(httpCode || 500);
     res.end(clientVisibleErrorString);
-    yell(clientVisibleErrorString);
 }
 
 
@@ -935,6 +984,65 @@ function redirectIfWrongDomain(req, res, next) {
   return next();
 }
 
+function meter(name) {
+    return function (req, res, next){
+        var start = Date.now();
+
+        setTimeout(function() {
+            metric(name + ".go", 1, start);
+        }, 1);
+
+        res.on('finish', function(){
+          var end = Date.now();
+          var duration = end - start;
+          var status = ".ok";
+          if (!res.statusCode || res.statusCode >= 500) {
+            status = ".fail";
+          } else if (res.statusCode >= 400) {
+            status = ".4xx";
+          }
+
+          setTimeout(function() {
+              metric(name + status, duration, end);
+          }, 1);
+        });
+
+        next();
+    };
+}
+
+// metered promise
+function MPromise(name, f) {
+    var p = new Promise(f);
+    var start = Date.now();
+    setTimeout(function() {
+        metric(name + ".go", 1, start);
+    }, 100);
+    p.then(function() {
+        var end = Date.now();
+        var duration = end - start;
+        setTimeout(function() {
+            metric(name + ".ok", duration, end);
+        }, 100);
+    }, function() {
+        var end = Date.now();
+        var duration = end - start;
+        setTimeout(function() {
+            metric(name + ".fail", duration, end);
+        }, 100);
+    });
+    return p;
+}
+
+
+// 2xx
+// 4xx
+// 5xx
+// logins
+// failed logins
+// forgot password
+
+app.use(meter("api.all"));
 app.use(express.logger());
 app.use(redirectIfWrongDomain);
 app.use(redirectIfNotHttps);
@@ -1016,39 +1124,47 @@ app.all("/v3/*", function(req, res, next) {
 });
 
 app.get("/v3/math/pca",
+    meter("api.math.pca.get"),
     moveToBody,
     authOptional(assignToP),
     need('zid', getInt, assignToP),
     want('lastVoteTimestamp', getInt, assignToP, 0),
     function(req, res) {
         // TODO check if owner/ptpt or public
-        var promise = new Promise(function(resolve, reject) {
+        var promise = new MPromise("db.math.pca.get", function(resolve, reject) {
             collectionOfPcaResults.find({$and :[
                 {zid: req.p.zid},
                 {lastVoteTimestamp: {$gt: req.p.lastVoteTimestamp}},
                 ]}, function(err, cursor) {
-                if (err) { fail(res, 500, "polis_err_get_pca_results_find", err); return; }
+                if (err) {
+                    reject("polis_err_get_pca_results_find");
+                    return;
+                }
                 cursor.toArray( function(err, docs) {
-                    if (err) { fail(res, 500, "polis_err_get_pca_results_find_toarray", err); return; }
-                    if (docs.length) {
-                        resolve(docs[0]);
+                    if (err) {
+                        reject("polis_err_get_pca_results_find_toarray");
+                    } else if (!docs.length) {
+                        resolve([]);
                     } else {
-                        // Could actually be a 404, would require more work to determine that.
-                        reject();
+                        resolve(docs[0]);
                     }
                 });
             });
         });
         promise.then(function(data) {
-            res.json(data);
+            if (data) {
+                res.json(data);
+            } else {
+                res.status(304).end();
+            }
         }, function(err) {
-            res.status(304).end();
+            fail(res, 500, err);
         });
     });
 
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("db.bidToPid.get", function(resolve, reject) {
         collectionOfBidToPidResults.find({$and :[
             {zid: zid},
             {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
