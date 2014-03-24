@@ -1181,32 +1181,40 @@ function upsertNode(updatedNodes, newClusters) {
         .attr("transform", "translate("+ (w-10) +","+ (h-10)+")");
         ;
 
-      var legendCircles = legendCirclesG.selectAll("circle").data([biggestNode]);
-      legendCircles.enter().append("circle")
-        .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", "#bbb")
-        .style("stroke-dasharray", "5,5")
-        .style("stroke-width", 1)
+      var USE_LEGEND_CIRCLES = false;
+      var legendCircles = !USE_LEGEND_CIRCLES ? false : legendCirclesG.selectAll("circle").data([biggestNode]);
+      if (legendCircles) {
+        legendCircles.enter().append("circle")
+          .style("fill", "rgba(0,0,0,0)")
+          .style("stroke", "#bbb")
+          .style("stroke-dasharray", "5,5")
+          .style("stroke-width", 1);
+      }
 
       var legendText = legendCirclesG.selectAll("text").data([biggestNode]);
-      legendText.enter()
-        .append("text")
-            .attr("text-anchor", "end");
+        legendText.enter()
+          .append("text")
+          .attr("text-anchor", "end");
 
-    function labelText(d) {
+      function labelText(d) {
         return d.count + (d.count === 1 ? " person" : " people");
-    }
+      }
 
     // update
-    legendCircles
-        .attr("cx", -(r+2))
-        .attr("cy", -r+2)
-        .attr("r", r)
-      ;
+    if (legendCircles) {
+        legendCircles
+            .attr("cx", -(r+2))
+            .attr("cy", -r+2)
+            .attr("r", r)
+          ;
+    }
+    var legendCircleCircumference = legendCircles ? 2*r : 0;
     legendText
         .text(labelText)
         .attr("fill", "#bbb")
-        .attr("transform", "translate("+ (-(2*r + 10)) +",0)");
+        .attr("transform", "translate("+ 
+            (-(legendCircleCircumference + 10)) +
+            ",0)");
 
   }
   updateNodes();
