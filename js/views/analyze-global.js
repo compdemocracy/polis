@@ -21,6 +21,13 @@ module.exports = Thorax.CollectionView.extend({
     itemView: AnalyzeCommentView,
     visibleTids: null,
     events: {
+      "rendered:collection": function() {
+        var first = this.collection.first();
+        if (first) {
+          eb.trigger(eb.commentSelected, first.get("tid"));
+        }
+        console.log('rendered:collection');
+      },
       rendered: function() {
         var that = this;
         var items = this.$(".query_result_item");
@@ -121,22 +128,18 @@ module.exports = Thorax.CollectionView.extend({
       that.renderWithCarousel();
       if (gid === false) {
         that.visibleTids = null;
-        that.updateFilter();
         that.collection.comparator = sortMostAgrees;
         that.collection.sort();        
+        that.updateFilter();
       } else {
         var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 3;
         getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
           that.visibleTids = o.tids;
           that.collection.updateRepness(o.tidToR);
-          that.updateFilter();
           that.collection.comparator = sortRepness;
           that.collection.sort();
+          that.updateFilter();
         });
-      }
-      var first = that.collection.first();
-      if (first) {
-        eb.trigger(eb.commentSelected, first.get("tid"));
       }
     });
   }
