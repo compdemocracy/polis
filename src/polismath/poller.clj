@@ -4,7 +4,8 @@
         polismath.conversation
         polismath.named-matrix
         polismath.utils
-        polismath.pca)
+        polismath.pca
+        polismath.metrics)
   (:require [korma.db :as kdb]
             [korma.core :as ko]
             [cheshire.core :refer :all]
@@ -14,6 +15,20 @@
             [monger.collection :as mgcol]
             [environ.core :as env]))
 
+
+(def metric (make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
+
+(defmacro meter
+  [metric-name & expr]
+  `(let [start# (System/currentTimeMillis)
+         ret# ~@expr
+         end# (System/currentTimeMillis)
+         duration# (- end# start#)]
+     (metric ~metric-name duration# end#)
+     (println (str end# " " ~metric-name " " duration# " millis"))
+     ret#))
+
+(metric "math.process.launch" 1)
 
 
 (defn heroku-db-spec [db-uri]
@@ -86,19 +101,28 @@
           (let [lastVoteTimestamp (:created (last votes))]
             (swap! conversations
               (fn [convs]
-                (try
-                  (assoc convs zid
-                         (do
-                           (println "zid: " zid)
-                           (let [foo (conv-update (or (convs zid) (new-conv)) votes)]
-                             (pprint foo)
-                             foo)))
+                (let [start (System/currentTimeMillis)]
+                  (try
+                    (metric "math.pca.compute.go" 1)
+                    (assoc convs zid
+                           (do
+                             (println "zid: " zid)
+                             (let [foo (conv-update (or (convs zid) (new-conv)) votes)
+                                   end (System/currentTimeMillis)
+                                   duration (- end start)]
+                               (metric "math.pca.compute.ok" duration)
+                               (pprint foo)
+                               foo)))
                   (catch Exception e
                     (do
                       (println "exception when processing zid: " zid)
                       (.printStackTrace e)
+                      
+                      (let [end (System/currentTimeMillis)
+                            duration (- end start)]
+                        (metric "math.pca.compute.fail" duration))
                       @conversations ; put things back 
-                      )))))
+                      ))))))
             
                 
             (println "zid: " zid)
@@ -122,13 +146,15 @@
 
               (println json)
               (println
-               (mongo-upsert-results
-                "polismath_bidToPid_test_mar14"
-                zid
-                lastVoteTimestamp
-                (assoc obj
-                 "lastVoteTimestamp" lastVoteTimestamp
-                 "zid" zid))))
+               (meter
+                "db.math.bidToPid.put"
+                (mongo-upsert-results
+                 "polismath_bidToPid_test_mar14"
+                 zid
+                 lastVoteTimestamp
+                 (assoc obj
+                   "lastVoteTimestamp" lastVoteTimestamp
+                   "zid" zid)))))
             
             ; Upload primary math results
             (let [
@@ -142,16 +168,19 @@
               (println json)
               ; (debug-repl)
               (println
-               (mongo-upsert-results
-                "polismath_test_mar02"
-                zid
-                lastVoteTimestamp
-                (assoc obj
-                 "lastVoteTimestamp" lastVoteTimestamp
-                 "zid" zid))))                  
-                  )))
+               (meter
+                "db.math.pca.put"
+                (mongo-upsert-results
+                 "polismath_test_mar02"
+                 zid
+                 lastVoteTimestamp
+                 (assoc obj
+                   "lastVoteTimestamp" lastVoteTimestamp
+                   "zid" zid)))))
+            )))
             
 
+            
 
             
         (swap! last-timestamp (fn [_] (:created (last new-votes))))
