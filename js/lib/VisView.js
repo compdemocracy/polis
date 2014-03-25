@@ -423,20 +423,19 @@ function onClusterClicked(d) {
 function handleOnClusterClicked(hullId) {
     if (selectedCluster === hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
-    } else {
+    }
 
     $("#analyzeTab").tab("show");
     eb.trigger(eb.clusterClicked, hullId);
 
-        resetSelectedComment();
-        // unhoverAll();
-        setClusterActive(hullId)
-            .then(
-                updateHulls,
-                updateHulls);
+    resetSelectedComment();
+    // unhoverAll();
+    setClusterActive(hullId)
+        .then(
+            updateHulls,
+            updateHulls);
 
-        updateHullColors();
-    }
+    updateHullColors();
 
     //zoomToHull.call(this, d);
     if (d3 && d3.event) {
