@@ -1251,8 +1251,9 @@ function upsertNode(updatedNodes, newClusters) {
 }
 
 function selectComment(tid) {
-    if (tid === false) {
+    if (!_.isNumber(tid)) {
         resetSelectedComment();
+        unhoverAll();
         return;
     }
     selectedTid = tid;

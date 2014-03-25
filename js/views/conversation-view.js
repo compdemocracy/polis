@@ -409,6 +409,7 @@ module.exports =  View.extend({
         }
         if(from && from.id === ANALYZE_TAB) {
           // that.analyzeGlobalView.hideCarousel();
+          that.analyzeGlobalView.deselectComments();
         }
         if(to && to.id === ANALYZE_TAB) {
           if (shouldShowVisUnderTabs()) {

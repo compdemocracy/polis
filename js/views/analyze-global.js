@@ -71,10 +71,10 @@ module.exports = Thorax.CollectionView.extend({
         if (_.isString(this.searchString)) {
           var tokens = this.searchString.split(/\s+/);
           // match all space separated word fragments
-          var txt = model.get("txt");
+          var txt = model.get("txt").toLowerCase();
           for (var i = 0; i < tokens.length; i++) {
-            var regex = new RegExp(tokens[i], "i");
-            if (null === txt.match(regex)) {
+            var token = tokens[i].toLowerCase();
+            if (txt.indexOf(token) === -1) {
               return false;
             }
           }
@@ -116,8 +116,12 @@ module.exports = Thorax.CollectionView.extend({
   },
   updateSearch: function(e) {
     this.searchString = e.target.value;
+    this.deselectComments();
     this.updateFilter();
     // this.selectFirst();
+  },
+  deselectComments: function() {
+    eb.trigger(eb.commentSelected, false);
   },
   renderWithCarousel: function() {
 
