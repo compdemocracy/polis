@@ -417,8 +417,6 @@ function updateHullColors() {
 
 
 function onClusterClicked(d) {
-    $("#analyzeTab").tab("show");
-    eb.trigger(eb.clusterClicked, d.hullId);
     return handleOnClusterClicked(d.hullId);
 }
 
@@ -426,6 +424,10 @@ function handleOnClusterClicked(hullId) {
     if (selectedCluster === hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
     } else {
+
+    $("#analyzeTab").tab("show");
+    eb.trigger(eb.clusterClicked, hullId);
+
         resetSelectedComment();
         // unhoverAll();
         setClusterActive(hullId)
