@@ -1198,7 +1198,9 @@ function upsertNode(updatedNodes, newClusters) {
           .attr("text-anchor", "end");
 
       function labelText(d) {
-        return d.count + (d.count === 1 ? " person" : " people");
+        // var count = d.count;
+        var count = nodes.length;
+        return count + (count === 1 ? " person" : " people");
       }
 
     // update
