@@ -19,6 +19,9 @@ var sortMostDisagrees = function(a, b) {
   return b.get("D") - a.get("D");
 };
 
+var sortMostStars = function(a, b) {
+  return b.get("stars") - a.get("stars");
+};
 var el_carouselSelector = "#carousel";
 
 module.exports = Thorax.CollectionView.extend({
