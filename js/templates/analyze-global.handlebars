@@ -1,31 +1,30 @@
-<form role="form" style="
-    margin-top: 20px;
-">
+
+<div id="analyzeHeader">
+  <form id="commentSearch" role="form" style="
+      margin-top: 20px;
+  ">
     <input type="text" class="form-control" id="commentSearchInput" placeholder="Search for comments">
   </form>
 
-<div style="
-    margin-top: 13px;
-    margin-bottom: 20px;
-            "><p class="" style="
-    font-weight: 500;
-    font-size: 12px;
-">SORT BY<button class="btn btn-xs btn-success" style="
-    margin-left: 10px;
-    position: relative;
-    top: -3px;
-"> # Agrees</button> 
-  <button class="btn btn-xs btn-danger" style="
-    position: relative;
-    top: -3px;
-"> # Disagrees </button> 
-  <button class="btn btn-xs btn-warning" style="
-    color: #FFFFFF;
-    position: relative;
-    top: -3px;
-"> # <i class="icon-star"></i></button> 
+  <div id="commentSort">
 
-</p></div> 
+    <span class="sort">SORT BY</span>
+    <span id="sortAgree" class="sort"># of Agrees </span> 
+    <span id="sortDisagree" class="sort"># of Disagrees </span> 
+    <span id="sortStar" class="sort"># of Stars</span> 
+</div> 
+
+  <div id="groupStats" style="display:none">
+    {{!-- <p>
+      {{numSelected}} people in the selected group.
+    </p> --}}
+    <p>
+      Comments that most represent the selected group
+    </p>
+    </h5>
+  </div>
+
+</div>
 
 <!--class='visible-xs'-->
 <div id="carousel" class="t-span6 col-xs-12 col-sm-6 col-md-7 col-lg-8 visible-xs" style="overflow:hidden">
