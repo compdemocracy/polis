@@ -121,12 +121,10 @@ module.exports =  View.extend({
     function moveVisToBottom() {
       var $vis = that.$(VIS_SELECTOR).detach();
       $("#vis_sibling_bottom").append($vis);
-      $vis.removeClass("nudgeLeft");
     }
 
     function moveVisAboveQueryResults() {
       var $vis = that.$(VIS_SELECTOR).detach();
-      $vis.addClass("nudgeLeft");
       $("#vis_sibling_above_tab_content").append($vis);
     }
 
