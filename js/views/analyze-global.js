@@ -33,6 +33,11 @@ module.exports = Thorax.CollectionView.extend({
       "click #sortStar": "sortStar",
       "click #sortAgree": "sortAgree",
       "click #sortDisagree": "sortDisagree",
+      "keyup input": "updateSearch",
+      "propertychange input": "updateSearch",
+      submit: function(e) {
+        e.preventDefault();
+      },
       "rendered:collection": function() {
         this.selectFirst();
         console.log('rendered:collection');
@@ -61,6 +66,20 @@ module.exports = Thorax.CollectionView.extend({
     itemFilter: function(model, index) {
       if (this.visibleTids && this.visibleTids.indexOf(model.get("tid")) === -1) {
         return false;
+      }
+      if (this.searchEnabled) {
+        if (_.isString(this.searchString)) {
+          var tokens = this.searchString.split(/\s+/);
+          // match all space separated word fragments
+          var txt = model.get("txt");
+          for (var i = 0; i < tokens.length; i++) {
+            var regex = new RegExp(tokens[i], "i");
+            if (null === txt.match(regex)) {
+              return false;
+            }
+          }
+          return true;
+        }
       }
       return true;
     },
@@ -94,6 +113,11 @@ module.exports = Thorax.CollectionView.extend({
   },
   showCarousel: function() {
     this.$("#carousel").show();
+  },
+  updateSearch: function(e) {
+    this.searchString = e.target.value;
+    this.updateFilter();
+    // this.selectFirst();
   },
   renderWithCarousel: function() {
 
