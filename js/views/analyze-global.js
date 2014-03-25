@@ -5,6 +5,9 @@ var template = require("../tmpl/analyze-global");
 var CommentModel = require("../models/comment");
 var Thorax = require("thorax");
 
+
+var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
+
 var sortRepness = function(a, b) {
   return b.get("repness") - a.get("repness");
 };
@@ -71,7 +74,7 @@ module.exports = Thorax.CollectionView.extend({
       results.data('owlCarousel').destroy();
     }
     results.owlCarousel({
-      items : 3, //3 items above 1000px browser width
+      items : NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW, //3 items above 1000px browser width
       // itemsDesktop : [1000,5], //5 items between 1000px and 901px
       // itemsDesktopSmall : [900,3], // betweem 900px and 601px
       // itemsTablet: [600,2], //2 items between 600 and 0
@@ -88,7 +91,7 @@ module.exports = Thorax.CollectionView.extend({
     });
     var indexToTid = this.collection.pluck("tid");
 
-    _.each(this.collection.first(3), function(c) {
+    _.each(this.collection.first(NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW), function(c) {
       results.data('owlCarousel').addItem(
         "<div style='margin:10px; text-align:justify' class='well query_result_item'>" + 
           "<p>" +
@@ -132,7 +135,6 @@ module.exports = Thorax.CollectionView.extend({
         that.collection.sort();        
         that.updateFilter();
       } else {
-        var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 3;
         getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
           that.visibleTids = o.tids;
           that.collection.updateRepness(o.tidToR);
