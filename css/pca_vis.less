@@ -1,3 +1,10 @@
+@color_agree: #2ecc71; // EMERALD
+@color_disagree: #e74c3c; // ALIZARIN
+@color_pass: #BDC3C7; // SILVER
+@color_self: #0CF; // blue like the dot on a map
+
+@color_selected_comment: #f7f7f7;
+
 #analyze .nav-pills {
   margin-top: 20px
 }
@@ -18,25 +25,31 @@
 
 .query_result_item {
     min-height: 50px;
-    padding: 4px;
-    padding-left: 10px;
-    padding-right: 10px;
+    // padding: 4px;
+    // padding-left: 10px;
+    // padding-right: 10px;
     cursor: pointer;
-    border-left: 2px solid #ACCFE1;
+    // border-left: 2px solid #ACCFE1;
     margin-top: 10px;
-    margin-left: 2px;
-    text-align: justify;
+    // margin-left: 2px;
+    // text-align: justify;
     width: 92%
 }
+
 .query_result_item.selected {
-  background-color: #428bca;
-  color: white;
+  background-color: @color_selected_comment;
 }
 
 .hover {
-  background-color: #ebf3ff;
+  background-color: @color_selected_comment;
 }
 
+.a {
+  color: @color_agree;
+}
+.d {
+  color: @color_disagree;
+}
 
 .active_result_item {
   background-color: #FFFBE8;
