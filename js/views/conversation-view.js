@@ -1,4 +1,5 @@
 var AnalyzeGlobalView = require("../views/analyze-global");
+var Backbone = require("backbone");
 var eb = require("../eventBus");
 var View = require('../view');
 var template = require('../tmpl/conversation-view');
@@ -256,8 +257,8 @@ module.exports =  View.extend({
       });
     };
 
-    this.allCommentsCollection.doFetch = function() {
-      this.fetch({
+    this.allCommentsCollection.doFetch = function(options) {
+      return Backbone.Collection.prototype.fetch.call(this, {
         data: $.param({
             zid: zid
         }),
