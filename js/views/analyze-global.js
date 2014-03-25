@@ -128,26 +128,28 @@ module.exports = Thorax.CollectionView.extend({
 
     
     eb.on(eb.clusterClicked, function(gid) {
-      if (gid === false) {
-        that.visibleTids = null;
-        that.collection.comparator = sortMostAgrees;
-        that.collection.sort();        
-        that.updateFilter();
-        if (that.useCarousel()) {
-          that.renderWithCarousel();
-        }
-      } else {
-        getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
-          that.visibleTids = o.tids;
-          that.collection.updateRepness(o.tidToR);
-          that.collection.comparator = sortRepness;
-          that.collection.sort();
+      that.collection.firstFetchPromise.then(function() {
+        if (gid === false) {
+          that.visibleTids = null;
+          that.collection.comparator = sortMostAgrees;
+          that.collection.sort();        
           that.updateFilter();
           if (that.useCarousel()) {
             that.renderWithCarousel();
           }
-        });
-      }
+        } else {
+          getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
+            that.visibleTids = o.tids;
+            that.collection.updateRepness(o.tidToR);
+            that.collection.comparator = sortRepness;
+            that.collection.sort();
+            that.updateFilter();
+            if (that.useCarousel()) {
+              that.renderWithCarousel();
+            }
+          });
+        }
+      });
     });
   }
 });

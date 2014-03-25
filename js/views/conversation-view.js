@@ -234,6 +234,7 @@ module.exports =  View.extend({
     this.votesByMe = new VotesCollection();
 
     this.allCommentsCollection = new CommentsCollection();
+    this.allCommentsCollection.firstFetchPromise = $.Deferred();
 
     var serverClient = that.serverClient = new ServerClient({
       zid: zid,
@@ -258,7 +259,7 @@ module.exports =  View.extend({
     };
 
     this.allCommentsCollection.doFetch = function(options) {
-      return Backbone.Collection.prototype.fetch.call(this, {
+      var promise = Backbone.Collection.prototype.fetch.call(this, {
         data: $.param({
             zid: zid
         }),
@@ -267,6 +268,8 @@ module.exports =  View.extend({
           return that.serverClient.getFancyComments.apply(0, arguments);
         }
       });
+      promise.then(this.firstFetchPromise.resolve);
+      return promise;
     };
 
       this.serverClient.addPollingScheduledCallback(function() {
