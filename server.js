@@ -3408,7 +3408,7 @@ function makeFileFetcher(hostname, port, path, contentType) {
                 res.end();
             });
         }).on("error", function(e) {
-            fail(res, 500, "polis_err_serving_index", new Error("polis_err_serving_index"));
+            fail(res, 500, "polis_err_serving_file", new Error("polis_err_serving_file"));
         });
     };
 }
