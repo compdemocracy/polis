@@ -421,7 +421,9 @@ module.exports =  View.extend({
             moveVisAboveQueryResults();
           }
 
-          that.allCommentsCollection.doFetch();
+          that.allCommentsCollection.doFetch().then(function() {
+            that.analyzeGlobalView.sortAgree();
+          });
           // that.analyzeGlobalView.showCarousel();
         }
         if(to && to.id === VOTE_TAB) {

@@ -116,6 +116,7 @@ module.exports = Thorax.CollectionView.extend({
   sortRepness: function(e) {
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
+    this.collection.sort();
   },
   useCarousel: function() {
       return !this.isIE8 && display.xs();
@@ -201,7 +202,7 @@ module.exports = Thorax.CollectionView.extend({
       });
     });
 
-    
+
     eb.on(eb.clusterClicked, function(gid) {
       that.collection.firstFetchPromise.then(function() {
         if (gid === false) {
