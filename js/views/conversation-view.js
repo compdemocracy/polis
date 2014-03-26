@@ -258,17 +258,22 @@ module.exports =  View.extend({
       });
     };
 
-    this.allCommentsCollection.doFetch = function(options) {
+    this.allCommentsCollection.doFetch = function() {
+      var thatCollection = this;
       var promise = Backbone.Collection.prototype.fetch.call(this, {
         data: $.param({
             zid: zid
         }),
         processData: true,
+        silent: true,
         ajax: function() {
           return that.serverClient.getFancyComments.apply(0, arguments);
         }
       });
       promise.then(this.firstFetchPromise.resolve);
+      promise.then(function() {
+        thatCollection.trigger("reset");
+      });
       return promise;
     };
 
