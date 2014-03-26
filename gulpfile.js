@@ -378,12 +378,26 @@ function deploy(params) {
 // For now, you'll have to copy the assets from the other repo into the "about" directory
 gulp.task('deployAboutPage', [
   ], function() {
+  return deployAboutPage({
+      bucket: "pol.is"
+  });
+});
+
+gulp.task('deployAboutPagePreprod', [
+  ], function() {
+  return deployAboutPage({
+      bucket: "preprod.pol.is"
+  });
+});
+
+function deployAboutPage(params) {
 
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-    creds.bucket = "pol.is";
+
+    creds = _.extend(creds, params);
     
     var root = "../about-polis";
-    gulp.src([
+    return gulp.src([
       root + "/lander.html",
       root + "/marketers.html",
       root + "/company.html",
@@ -400,15 +414,15 @@ gulp.task('deployAboutPage', [
       root + "/**/landerImages/*",
       root + "/**/bower_components/font-awesome/css/font-awesome.min.css",
       root + "/**/bower_components/font-awesome/fonts/**",
-      root + "/**/bower_components/jquery/jquery.js",
-      root + "/**/bower_components/jquery/jquery.min.js"
+      root + "/**/bower_components/jquery/dist/jquery.js",
+      root + "/**/bower_components/jquery/dist/jquery.min.js"
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
         }
       }));
-});
+}
 
 
 gulp.task('default', [
