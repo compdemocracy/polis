@@ -38,10 +38,10 @@ module.exports = Thorax.CollectionView.extend({
       submit: function(e) {
         e.preventDefault();
       },
-      "rendered:collection": function() {
-        this.selectFirst();
-        console.log('rendered:collection');
-      },
+      // "rendered:collection": function() {
+      //   this.selectFirst();
+      //   console.log('rendered:collection');
+      // },
       rendered: function() {
         var that = this;
         var items = this.$(".query_result_item");
