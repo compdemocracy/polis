@@ -204,6 +204,7 @@ module.exports = Thorax.CollectionView.extend({
           if (that.useCarousel()) {
             that.renderWithCarousel();
           }
+          that.selectFirst();
         } else {
           that.$("#commentSearch").hide();
           that.$("#commentSort").hide();
@@ -218,6 +219,7 @@ module.exports = Thorax.CollectionView.extend({
             if (that.useCarousel()) {
               that.renderWithCarousel();
             }
+            that.selectFirst();
           });
         }
       });
