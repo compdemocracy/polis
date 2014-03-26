@@ -64,12 +64,22 @@ module.exports = Thorax.CollectionView.extend({
       }
     },
     itemFilter: function(model, index) {
+      var searchString = this.searchString;
+      if (!_.isString(searchString) || /^\s*$/.exec(searchString)) {
+        return true;
+      }
+      searchString = searchString
+        .replace(/\s+/g, " ")
+        .replace(/\s+$/,"")
+        .replace(/^\s+/,"");
+
       if (this.visibleTids && this.visibleTids.indexOf(model.get("tid")) === -1) {
         return false;
       }
+      var isMatch = true;
       if (this.searchEnabled) {
-        if (_.isString(this.searchString)) {
-          var tokens = this.searchString.split(/\s+/);
+        if (_.isString(searchString)) {
+          var tokens = searchString.split(/\s+/);
           // match all space separated word fragments
           var txt = model.get("txt").toLowerCase();
           for (var i = 0; i < tokens.length; i++) {
@@ -87,13 +97,13 @@ module.exports = Thorax.CollectionView.extend({
             if (
               (!tokenPresent && !shouldNegateToken) ||
               (tokenPresent && shouldNegateToken)) {
-              return false;
+              isMatch = false;
+              break;
             }
           }
-          return true;
         }
       }
-      return true;
+      return isMatch;
     },
   searchEnabled: true,
   sortEnabled: true,
