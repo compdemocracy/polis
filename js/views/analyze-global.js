@@ -74,7 +74,19 @@ module.exports = Thorax.CollectionView.extend({
           var txt = model.get("txt").toLowerCase();
           for (var i = 0; i < tokens.length; i++) {
             var token = tokens[i].toLowerCase();
-            if (txt.indexOf(token) === -1) {
+
+            var shouldNegateToken = token[0] === "-";
+            if (shouldNegateToken) {
+              token = token.slice(1);
+            }
+            var tokenPresent = txt.indexOf(token) >= 0;
+            if (!token.length) {
+              // a "-" followed by nothing should not count as present.
+              tokenPresent = false;
+            }
+            if (
+              (!tokenPresent && !shouldNegateToken) ||
+              (tokenPresent && shouldNegateToken)) {
               return false;
             }
           }
