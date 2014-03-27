@@ -2,6 +2,10 @@ var eb = require("../eventBus");
 var metric = require("../util/metric");
 var Utils = require("../util/utils")
 var shuffleWithSeed = require("../util/shuffleWithSeed");
+var brain = require("brain");
+
+
+
 
 module.exports = function(params) {
 
@@ -63,9 +67,11 @@ module.exports = function(params) {
     var projectionPeopleCache = [];
     var clustersCache = [];
 
+    var tidSubsetForReprojection = [];
+
     // collections
     var votesByMe = params.votesByMe;
-    var comments = params.comments;
+    var allComments = params.comments;
 
     comments.on("add remove reset", function() {
         eb.trigger(eb.commentCount, this.length);
@@ -689,71 +695,71 @@ function clientSideBaseCluster(things, N) {
                 }
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
-                // Check for missing comps... TODO solve 
-                if (!pcaData.pca || !pcaData.pca.comps) {
-                    console.error("missing comps");
-                    return $.Deferred().reject();
-                }
-                var buckets = arraysToObjects(pcaData["base-clusters"]);
-
-                // TODO we should include the vectors for each comment (with the comments?)
-                ///commentVectors = pcaData.commentVectors;
-
-                // TODO this is not runnable, just a rough idea. (data isn't structured like this)
-                ///var people = pcaData.people;
-
-                participantCount = _.reduce(buckets, function(memo, b) { return memo + b.count;}, 0);
-                eb.trigger(eb.participantCount, participantCount);
-                if (_.isNumber(pcaData.voteCount)) {
-                    eb.trigger(eb.voteCount, pcaData.voteCount);
-                }
-
-                //var myself = _.findWhere(people, {pid: getPid()});
-                //people = _.without(people, myself);
-                //people.push(myself);
-
-                pcX = pcaData.pca.comps[0];
-                pcY = pcaData.pca.comps[1];
-                centerX = pcaData.pca.center[0] || 0;
-                centerY = pcaData.pca.center[1] || 0;
-
-                // in case of malformed PCs (seen on conversations with only one comment)
-                pcX = pcX || [];
-                pcY = pcY || [];
- 
-
-                votesForTidBid = pcaData["votes-base"];
-                votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
-
-                var clusters = pcaData["group-clusters"];
-                clusters = _.map(clusters, function(c) {
-                    // we just need the members
-                    return c.members;
-                });
-
-                // mutate - move x and y into a proj sub-object, so the vis can animate x and y
-                _.each(buckets, function(b) {
-                    b.proj = {
-                        x: b.x,
-                        y: b.y
-                    };
-                    delete b.x;
-                    delete b.y;
-                });
-
-                // Convert to Bucket objects.
-                buckets = _.map(buckets, function(b) {
-                    return new Bucket(b);
-                });
 
                 return updateBid().then(function() {
+
+                    // Check for missing comps... TODO solve 
+                    if (!pcaData.pca || !pcaData.pca.comps) {
+                        console.error("missing comps");
+                        return $.Deferred().reject();
+                    }
+                    var buckets = arraysToObjects(pcaData["base-clusters"]);
+
+                    // TODO we should include the vectors for each comment (with the comments?)
+                    ///commentVectors = pcaData.commentVectors;
+
+                    // TODO this is not runnable, just a rough idea. (data isn't structured like this)
+                    ///var people = pcaData.people;
+
+                    participantCount = _.reduce(buckets, function(memo, b) { return memo + b.count;}, 0);
+
+                    eb.trigger(eb.participantCount, participantCount);
+                    if (_.isNumber(pcaData.voteCount)) {
+                        eb.trigger(eb.voteCount, pcaData.voteCount);
+                    }
+                    //var myself = _.findWhere(people, {pid: getPid()});
+                    //people = _.without(people, myself);
+                    //people.push(myself);
+
+                    pcX = pcaData.pca.comps[0];
+                    pcY = pcaData.pca.comps[1];
+                    centerX = pcaData.pca.center[0] || 0;
+                    centerY = pcaData.pca.center[1] || 0;
+
+                    // in case of malformed PCs (seen on conversations with only one comment)
+                    pcX = pcX || [];
+                    pcY = pcY || [];
+
+                    votesForTidBid = pcaData["votes-base"];
+                    votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
+
+                    var clusters = pcaData["group-clusters"];
+                    clusters = _.map(clusters, function(c) {
+                        // we just need the members
+                        return c.members;
+                    });
+
+                    // mutate - move x and y into a proj sub-object, so the vis can animate x and y
+                    _.each(buckets, function(b) {
+                        b.proj = {
+                            x: b.x,
+                            y: b.y
+                        };
+                        delete b.x;
+                        delete b.y;
+                    });
+
+                    // Convert to Bucket objects.
+                    buckets = _.map(buckets, function(b) {
+                        return new Bucket(b);
+                    });
+
                     buckets = removeSelfFromBuckets(buckets);
 
                     projectionPeopleCache = buckets;
                     clustersCache = clusters;
 
-                    buckets = withProjectedSelf(buckets);
-                    sendUpdatedVisData(buckets, clusters);
+                    buckets = prepProjection(buckets);
                     return null;
                 });
             },
@@ -761,6 +767,8 @@ function clientSideBaseCluster(things, N) {
                 console.error("failed to get pca data");
             });
     }
+
+
 
     function removeSelfFromBuckets(buckets) {
         return _.map(buckets, function(b) {
@@ -1066,7 +1074,7 @@ function clientSideBaseCluster(things, N) {
     }
     function updateMyProjection() {
         console.log("updateMyProjection");
-        var people = withProjectedSelf(projectionPeopleCache);
+        var people = prepProjection(projectionPeopleCache);
         sendUpdatedVisData(people, clustersCache);
     }
 
@@ -1134,6 +1142,134 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
+    function setTidSubsetForReprojection(tids) {
+        tidSubsetForReprojection = tids;        
+    }
+
+    function reprojectForSubsetOfComments(projectionPeopleCache) {
+        if (!tidSubsetForReprojection.length ||  // nothing is selected, just show the original projection.
+            tidSubsetForReprojection.length === allComments.length // all comments are shown, so just show the original projection.
+        ) {
+            return projectionPeopleCache;
+        }
+        var tids = tidSubsetForReprojection;
+        var subset = _.pick(votesForTidBid, tids);
+        var comments = _.map(subset, function(o, tid) {
+            var votesFromEachBid = _.clone(o.D); // start with disagrees, since each disagree is a +1, and we want the projection to be oriented the same way as the original projection
+            var len = o.A.length;
+            for (var i = 0; i < len; i++) {
+                // since agrees are -1, we want to subtract for each.
+                votesFromEachBid[i] -= o.A[i];
+            }
+            return {
+                votes: votesFromEachBid,
+                tid: Number(tid)
+            };
+        });
+        var buckets = []; // index==bid, [voteForTidAt0, voteForTidAt1, ...]
+        var len = comments[0].votes.length;
+        var tids = _.map(_.pluck(comments, "tid"), function(tid) { return Number(tid);});
+        var tidToIndex = {};
+        _.each(comments, function(o) {
+            // Pack the subsets of tids into a dense array.
+            tidToIndex[o.tid] = tids.indexOf(o.tid);
+        });
+        for (var bid = 0; bid < len; bid++) {
+            buckets[bid] = [];
+            _.each(comments, function(o) {
+                var index = tidToIndex[o.tid];
+                buckets[bid][index] = o.votes[bid];
+            });
+        }
+
+        var trainingSet = _.map(buckets, function(b) {
+            return {
+                input: b,
+                output: b
+            };
+        });
+
+        var nn = new brain.NeuralNetwork({
+            hiddenLayers: [2]
+        });
+
+
+      nn.runInputLinear = function(input) {
+        this.outputs[0] = input;  // set output state of input layer
+
+        for (var layer = 1; layer <= this.outputLayer; layer++) {
+          for (var node = 0; node < this.sizes[layer]; node++) {
+            var weights = this.weights[layer][node];
+
+            var sum = this.biases[layer][node];
+            for (var k = 0; k < weights.length; k++) {
+              sum += weights[k] * input[k];
+            }
+            this.outputs[layer][node] = 0.25 * sum + 0.5;
+          }
+          var output = input = this.outputs[layer];
+        }
+        return output;
+      };
+
+      nn.runLinear = function(input) {
+        if (this.inputLookup) {
+          input = lookup.toArray(this.inputLookup, input);
+        }
+
+        var linearOutput = this.runInputLinear(input);
+
+        if (this.outputLookup) {
+          output = lookup.toHash(this.outputLookup, output);
+        }
+        return linearOutput;
+      };
+
+
+
+
+        nn.train(trainingSet, {
+            errorThresh: 0.004,
+            learningRate: 0.4,
+            iterations: 1001,
+            log: true,
+            logPeriod: 100
+        });
+
+
+        /// training done, now project each bucket
+
+        // var runDataSigmoid = []
+        // var runDataLinear = {};
+
+        // _.each(buckets, function(b){
+        //     var tid = b.tid;
+        //     var votes = b.votes;
+        //     var run = nn.run(votes);
+        //     runDataSigmoid.push(nn.outputs[1].slice(0)) // this line... ask colin.
+        // });
+
+        var runDataLinear = _.map(buckets, function(o, bid){
+            var votes = o;
+            var runLinear = nn.runLinear(votes)
+            return nn.outputs[1].slice(0);
+        });
+
+        console.log('The run was successful. Here are the values of the hidden layer for each run: ')
+        // console.dir(runDataSigmoid)
+        console.dir(runDataLinear);
+        reprojected = _.map(projectionPeopleCache, function(o, bid) {
+            o = _.clone(o);
+            o.proj = {
+                x: runDataLinear[bid][0],
+                y: runDataLinear[bid][1]
+            };
+            return o;
+        });
+
+        return reprojected;
+    }
+
     function addPollingScheduledCallback(f) {
         pollingScheduledCallbacks.push(f);
     }
@@ -1162,6 +1298,12 @@ function clientSideBaseCluster(things, N) {
         setInterval(poll, 5000);
     }
 
+    function prepProjection(buckets) {
+        buckets = reprojectForSubsetOfComments(buckets);
+        buckets = withProjectedSelf(buckets);
+        return buckets;
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
@@ -1179,6 +1321,7 @@ function clientSideBaseCluster(things, N) {
         unstar: unstar,
         stories: stories,
         invite: invite,
+        setTidSubsetForReprojection: setTidSubsetForReprojection,
         queryParticipantsByMetadata: queryParticipantsByMetadata,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addInitReadyListener: initReadyCallbacks.add,
@@ -1188,7 +1331,7 @@ function clientSideBaseCluster(things, N) {
         addPersonUpdateListener: function() {
             personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
 
-            var buckets = withProjectedSelf(projectionPeopleCache);
+            var buckets = prepProjection(projectionPeopleCache);
             sendUpdatedVisData(buckets, clustersCache);
         },
         addCommentsAvailableListener: commentsAvailableCallbacks.add,

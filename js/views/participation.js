@@ -248,6 +248,12 @@ module.exports =  ConversationView.extend({
         collection: this.allCommentsCollection
       }));
 
+      var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
+      this.analyzeGlobalView.on("searchChanged", function(o) {
+        serverClient.setTidSubsetForReprojection(o.tids);
+        doReproject();
+      });
+
       eb.on(eb.commentSelected, function(tid) {
         vis.selectComment(tid);
       });
