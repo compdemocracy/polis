@@ -28,7 +28,8 @@ module.exports = Thorax.CollectionView.extend({
     name: "analyze-global-view",
     template: template,
     itemView: AnalyzeCommentView,
-    visibleTids: null,
+    tidsForGroup: null,
+    visibleTids: [],
     events: {
       "click #sortStar": "sortStar",
       "click #sortAgree": "sortAgree",
@@ -65,7 +66,14 @@ module.exports = Thorax.CollectionView.extend({
     },
     itemFilter: function(model, index) {
       var searchString = this.searchString;
+      var tid = model.get("tid");
+      var hadTid= this.visibleTids.indexOf(tid) >= 0;
+
       if (!_.isString(searchString) || /^\s*$/.exec(searchString)) {
+        if (!hadTid) {
+          this.trigger("searchChanged", this.visibleTids);
+        }
+        this.visibleTids = _.union(this.visibleTids, [tid]);        
         return true;
       }
       searchString = searchString
@@ -73,7 +81,11 @@ module.exports = Thorax.CollectionView.extend({
         .replace(/\s+$/,"")
         .replace(/^\s+/,"");
 
-      if (this.visibleTids && this.visibleTids.indexOf(model.get("tid")) === -1) {
+      if (this.tidsForGroup && this.tidsForGroup.indexOf(tid) === -1) {
+        this.visibleTids = _.without(this.visibleTids, tid);
+        if (hadTid) {
+          this.trigger("searchChanged", this.visibleTids);
+        }
         return false;
       }
       var isMatch = true;
@@ -102,6 +114,21 @@ module.exports = Thorax.CollectionView.extend({
             }
           }
         }
+      }
+      var doTrigger = false;
+      if (isMatch) {
+        this.visibleTids = _.union(this.visibleTids, [model.get("tid")]);
+        if (!hadTid) {
+          doTrigger = true;
+        }
+      } else {
+        this.visibleTids = _.without(this.visibleTids, model.get("tid"));
+        if (hadTid) {
+          doTrigger = true;
+        }
+      }
+      if (doTrigger) {
+        this.trigger("searchChanged", this.visibleTids);
       }
       return isMatch;
     },
@@ -221,7 +248,7 @@ module.exports = Thorax.CollectionView.extend({
           that.$("#groupStats").hide();
           that.sortEnabled = true;
           that.searchEnabled = true;
-          that.visibleTids = null;
+          that.tidsForGroup = null;
           that.sortAgree();     
           that.updateFilter();
           if (that.useCarousel()) {
@@ -235,7 +262,7 @@ module.exports = Thorax.CollectionView.extend({
           that.sortEnabled = false;
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
-            that.visibleTids = o.tids;
+            that.tidsForGroup = o.tids;
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
             that.updateFilter();
