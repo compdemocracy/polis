@@ -3329,19 +3329,10 @@ function getStaticFile(contentPath, res) {
 
 var routingProxy = new httpProxy.RoutingProxy();
 
-function addNoCacheFileHeaders(res) {
+function addStaticFileHeaders(res) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', 0);
-}
-
-var CACHE_STATIC_FILES = false;
-function addStaticCacheFileHeaders(res) {
-    if (CACHE_STATIC_FILES) {
-        res.setHeader('Cache-Control', "public, max-age=7200"); // 2 hours in seconds. (2 hours is the minimum client TTL cloudflare allows)  https://support.cloudflare.com/hc/en-us/articles/200168276
-        res.setHeader('Pragma', ''); // clear the no-cache header (verify this works)
-        res.setHeader('Expires', new Date(Date.now() + 7200000).toUTCString()); // 2 hours
-    }
 }
 
 function proxy(req, res) {
@@ -3351,9 +3342,7 @@ function proxy(req, res) {
         return;
     }
     if (devMode) {
-        addNoCacheFileHeaders(res);
-    } else {
-        addStaticCacheFileHeaders(res);
+        addStaticFileHeaders(res);
     }
     // if (/MSIE [^1]/.exec(req.headers['user-agent'])) { // older than 10
     //     // http.get(process.env.STATIC_FILES_HOST + "/unsupportedBrowser.html", function(page) {
@@ -3409,9 +3398,7 @@ function makeFileFetcher(hostname, port, path, contentType) {
         console.log("fetch file from " + url);
         http.get(url, function(proxyResponse) {
             if (devMode) {
-                addNoCacheFileHeaders(res);
-            } else {
-                addStaticCacheFileHeaders(res);
+                addStaticFileHeaders(res);
             }
             res.setHeader('Content-Type', contentType);
             proxyResponse.on('data', function (chunk) {
