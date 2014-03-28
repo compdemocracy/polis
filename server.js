@@ -3413,12 +3413,23 @@ function makeFileFetcher(hostname, port, path, contentType) {
     };
 }
 
+function isUnsupportedBrowser(req) {
+    return /MSIE [89]/.test(req.headers['user-agent']);
+}
+
 // serve up index.html in response to anything starting with a number 
 var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
-var fetchIndex = makeFileFetcher(hostname, port, "/index.html", "text/html");
+var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", "text/html");
 
-
+var fetchIndex = function(req, res) {
+    var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html");
+    if (isUnsupportedBrowser(req)){
+        return fetchUnsupportedBrowserPage(req, res);
+    } else {
+        return doFetch(req, res);
+    }
+}
 
 app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
 app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
