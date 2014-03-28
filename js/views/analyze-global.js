@@ -69,6 +69,14 @@ module.exports = Thorax.CollectionView.extend({
       var tid = model.get("tid");
       var hadTid= this.visibleTids.indexOf(tid) >= 0;
 
+
+      if (this.tidsForGroup && this.tidsForGroup.indexOf(tid) === -1) {
+        this.visibleTids = _.without(this.visibleTids, tid);
+        if (hadTid) {
+          this.shouldNotifyForFilterChange = true;
+        }
+        return false;
+      }
       if (!_.isString(searchString) || /^\s*$/.exec(searchString)) {
         if (!hadTid) {
           this.trigger("searchChanged", this.visibleTids);
@@ -81,13 +89,6 @@ module.exports = Thorax.CollectionView.extend({
         .replace(/\s+$/,"")
         .replace(/^\s+/,"");
 
-      if (this.tidsForGroup && this.tidsForGroup.indexOf(tid) === -1) {
-        this.visibleTids = _.without(this.visibleTids, tid);
-        if (hadTid) {
-          this.trigger("searchChanged", this.visibleTids);
-        }
-        return false;
-      }
       var isMatch = true;
       if (this.searchEnabled) {
         if (_.isString(searchString)) {
