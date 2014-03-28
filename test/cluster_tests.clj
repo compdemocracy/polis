@@ -113,7 +113,7 @@
             (- (:dist (most-distal data clusts)) 1.37436854)
             0.0001)))))
 
-(use-debuggers)
+
 (deftest uniqify-clusters-test
   (let [last-clusts [{:id 1 :members ["p1"] :center [1 1  1]}
                      {:id 2 :members ["p2"] :center [1 1  1]}
