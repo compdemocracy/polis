@@ -1740,16 +1740,16 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
             "We have just received a password reset request for " + userInfo.email + "\n" +
             "\n" +
             "To reset your password, visit this url:\n" +
-            server + "/#pwreset/" + pwresettoken + "\n" +
+            server + "/pwreset/" + pwresettoken + "\n" +
             "\n" +
             "Thank you for using Polis\n";
 
         mailgun.sendText(
-            'Polis Support <noreply@polis.io>',
+            'Polis Support <mike@pol.is>',
             [userInfo.email],
             "Polis Password Reset",
             body,
-            'noreply@polis.io', {},
+            'mike@pol.is', {},
             function(err) {
                 if (err) {
                     console.error('mailgun send error: ' + err);
@@ -3443,6 +3443,7 @@ app.get(/^\/settings$/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo.*/, fetchIndex);
+app.get(/^\/pwreset.*/, fetchIndex);
 app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/professors.html", "text/html"));
 app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
 app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
