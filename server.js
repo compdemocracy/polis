@@ -2205,7 +2205,9 @@ function(req, res) {
         if (err) { fail(res, 500, "polis_err_get_comments", err); return; }
         if (docs.rows && docs.rows.length) {
             res.json(
-                docs.rows.map(function(row) { return _.pick(row, ["txt", "tid", "created"]); })
+                docs.rows
+                    .filter(function(row) { return row.velocity > 0; })
+                    .map(function(row) { return _.pick(row, ["txt", "tid", "created"]); })
             );
         } else {
             res.json([]);
