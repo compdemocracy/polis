@@ -407,6 +407,7 @@ function deployAboutPage(params) {
       root + "/clusterforce.js",
       root + "/api.html",
       root + "/politics.html", 
+      root + "/unsupportedBrowser.html",
       root + "/about.css",
       root + "/**/rainbow/**/*",
       root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
