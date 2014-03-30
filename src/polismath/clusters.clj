@@ -238,8 +238,8 @@
 
 (defn xy-clusters-to-nmat2 [clusters]
   (named-matrix
-   (map :id clusters) ; row names
-   [:x :y] ; column names
-   (matrix (map :center clusters))))
+    (map :id clusters) ; row names
+    [:x :y] ; column names
+    (matrix (map :center clusters))))
 
 
