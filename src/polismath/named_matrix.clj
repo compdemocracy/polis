@@ -44,6 +44,15 @@
     (row-subset nmat)))
 
 
+(defn safe-rowname-subset [nmat row-names]
+  "This version of rowname-subset filters out negative indices, so that if not all names in row-names
+  are in nmat, it just subsets to the rownames that are. Should scrap other one?"
+  (->> row-names
+    (map #(.indexOf (:rows nmat) %))
+    (filter #(>= % 0))
+    (row-subset nmat)))
+
+
 (defn get-row-by-name [nmat row-name]
   (matrix/get-row (:matrix nmat) (.indexOf (:rows nmat) row-name)))
 

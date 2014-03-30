@@ -72,6 +72,18 @@
     clusters))
 
 
+(defn safe-recenter-clusters [data clusters]
+  "Replace cluster centers with a center computed from new positions"
+  (remove nil?
+    (map
+      (fn [clst]
+        (let [rns (safe-rowname-subset data (:members clst))]
+          (if (empty? (:rows rns))
+            nil
+            (assoc clst :center (mean (matrix (:matrix rns)))))))
+      clusters)))
+
+
 (defn merge-clusters [clst1 clst2]
   (let [new-id (:id (max-key #(count (:members %)) clst1 clst2))]
     ; XXX - instead of using mean should really do a weighted thing that looks at # members
@@ -112,7 +124,7 @@
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
   ; First recenter clusters (replace cluster center with a center computed from new positions)
-  (let [clusters (into [] (recenter-clusters data clusters))
+  (let [clusters (into [] (safe-recenter-clusters data clusters))
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible

@@ -131,3 +131,25 @@
            (set (:members (merge-clusters clst1 clst2)))))))
 
 
+(let [last-clusters [{:members [1 2] :id 1}
+                     {:members [3 4] :id 2}]
+      data (named-matrix [1 2 3 4] [:x :y]
+             [[1.2   0.4]
+              [1.0   0.3]
+              [-0.2 -0.4]
+              [-0.7 -0.7]])
+      kmeanser (fn [new-data] (kmeans new-data 2 :last-clusters last-clusters))]
+
+  (deftest missing-some-members
+    (let [new-data (assoc data :rows [1 5 3 4])]
+      (is (kmeanser new-data))
+      (size-correct (kmeanser new-data) 2)))
+
+  (deftest missing-all-members
+    (let [new-data (assoc data :rows [6 5 3 4])]
+      (is (kmeanser new-data))
+      (size-correct (kmeanser new-data) 2))))
+
+(deftest missing-members
+  (missing-some-members)
+  (missing-all-members))
