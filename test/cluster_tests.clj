@@ -148,8 +148,16 @@
   (deftest missing-all-members
     (let [new-data (assoc data :rows [6 5 3 4])]
       (is (kmeanser new-data))
+      (size-correct (kmeanser new-data) 2)))
+
+  (deftest missing-all-members-global
+    (let [new-data (assoc data :rows [6 5 8 7])]
+      (is (kmeanser new-data))
       (size-correct (kmeanser new-data) 2))))
 
 (deftest missing-members
   (missing-some-members)
-  (missing-all-members))
+  (missing-all-members)
+  (missing-all-members-global))
+
+

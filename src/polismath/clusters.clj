@@ -74,14 +74,24 @@
 
 (defn safe-recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
-  (remove nil?
+  (as-> clusters clsts
+    ; map every cluster to the newly centered cluster or to nil if there are no members in data
     (map
       (fn [clst]
         (let [rns (safe-rowname-subset data (:members clst))]
           (if (empty? (:rows rns))
             nil
             (assoc clst :center (mean (matrix (:matrix rns)))))))
-      clusters)))
+      clsts)
+    ; Remove the nils, they break the math
+    (remove nil? clsts)
+    ; If nothing is left, make one great big cluster - so that things don't break in most-distal later
+    ; XXX - Should see if there is a cleaner place/way to handle this...
+    (if (empty? clsts)
+      [{:id (inc (apply max (map :id clusters)))
+        :members (:rows data)
+        :center (mean (matrix (:matrix data)))}]
+      clsts)))
 
 
 (defn merge-clusters [clst1 clst2]
