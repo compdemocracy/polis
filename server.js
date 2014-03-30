@@ -13,6 +13,10 @@
 
 */
 
+var importantZids = {
+    1: true,
+    1299: true,
+};
 
 console.log('redisAuth url ' +process.env.REDISTOGO_URL);
 console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
@@ -614,7 +618,23 @@ function getOptionalStringLimitLength(limit) {
         return s;
     };
 }
+function getStringLimitLength(min, max) {
+    return function(s) {
 
+        if (typeof s !== "string") {
+            throw "polis_fail_parse_string_missing";
+        }
+        if (s.length && s.length > max) {
+            throw "polis_fail_parse_string_too_long";
+        }
+        if (s.length && s.length < min) {
+            throw "polis_fail_parse_string_too_short";
+        }
+        // strip leading/trailing spaces
+        s = s.replace(/^ */,"").replace(/ *$/,"");
+        return s;
+    };
+}
 
 
 function getBool(s) {
@@ -1760,6 +1780,75 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
     });
 }
 
+
+
+
+function paramsToStringSortedByName(params) {
+    var pairs = _.pairs(params).sort(function(a, b) { return a[0] > b[0]; });
+    pairs = pairs.map(function(pair) { return pair.join("=");});
+    return pairs.join("&");
+}
+
+// // units are seconds
+// var expirationPolicies = {
+//     pwreset_created : 60 * 60 * 2,
+// };
+
+var HMAC_SIGNATURE_PARAM_NAME = "signature";
+
+function createHmacForQueryParams(path, params) {
+    path = path.replace(/\/$/,""); // trim trailing "/"
+    var s = path +"?"+paramsToStringSortedByName(params);
+    var hmac = crypto.createHmac("sha1", "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw");
+    hmac.setEncoding('hex');
+    hmac.write(s);
+    hmac.end();
+    var hash = hmac.read();
+    return hash;
+}
+
+function verifyHmacForQueryParams(path, params) {
+    return new Promise(function(resolve, reject) {
+        params = _.clone(params);
+        var hash = params[HMAC_SIGNATURE_PARAM_NAME];
+        delete params[HMAC_SIGNATURE_PARAM_NAME];
+        var correctHash = createHmacForQueryParams(path, params);
+        // To thwart timing attacks, add some randomness to the response time with setTimeout.
+        setTimeout(function() {
+            if (correctHash === hash) {
+                resolve();
+            } else {
+                reject();
+            }
+        });
+    });
+}
+
+function sendTextToEmail(uid, subject, body) {
+    return new Promise(function(resolve, reject) {
+        getUserInfoForUid(uid, function(err, userInfo) {
+            if (err) { return callback(err);}
+            if (!userInfo) { return callback('missing user info');}
+
+            mailgun.sendText(
+                'Polis <mike@pol.is>',
+                [userInfo.email],
+                subject,
+                body,
+                'mike@pol.is', {},
+                function(err) {
+                    if (err) {
+                        reject('mailgun send error: ' + err);
+                    }
+                    resolve();
+                }
+            );
+        });
+    });
+}
+
+
+
 function sendCreatedLinkToEmail(){
 
     //todo move stuff out of the post sendConversationLinkToEmail POST and into functions 
@@ -1948,9 +2037,6 @@ function(req, res) {
         var hashedPassword  = docs[0].pwhash;
         var uid = docs[0].uid;
 
-        console.log("email", email);
-        console.log("password", password);
-        console.log("pw, hashed", password, hashedPassword);
         bcrypt.compare(password, hashedPassword, function(errCompare, result) {
             console.log("errCompare, result", errCompare, result);
             if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
@@ -2266,11 +2352,80 @@ function failWithRetryRequest(res) {
     res.writeHead(500).send(57493875);
 }
 
+function sendCommentModerationEmail(uid, zid, tid, commentTxt) {
+
+    var server = devMode ? "http://localhost:5000" : "https://pol.is";
+    var params = {
+        zid: zid,
+        tid: tid
+    };
+    var path = "v3/mute";
+    params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+    var s = paramsToStringSortedByName(params);
+
+    var body = "" +
+        "\n" +
+        commentTxt + "\n" +
+
+        "\n" +
+        "- - - - - - - - - - - - - \n" +
+        "\n" +
+        "Click this URL to mute the comment:\n" +
+        "\n" +
+        server + "/"+path+"?" + s + "\n" +
+        "- - - - - - - - - - - - - \n" +        
+        "\n";
+
+    return sendTextToEmail(uid, "MOD:"+commentTxt.slice(0,100), body);
+}
+
+
+function muteComment(zid, tid) {
+    return new Promise(function(resolve, reject) {
+        client.query("UPDATE COMMENTS SET velocity=0 WHERE zid=($1) and tid=($2);", [zid, tid], function(err) {
+            if (err) {
+                reject();
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+// NOTE: using GET so it can be hit from an email URL.
+app.get("/v3/mute",
+    moveToBody,
+    // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
+    need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
+    need('zid', getInt, assignToP),
+    need('tid', getInt, assignToP),
+function(req, res) {
+    var tid = req.p.tid;
+    var zid = req.p.zid;
+    var params = {
+        zid: req.p.zid,
+        tid: req.p.tid,
+        signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
+    };
+    verifyHmacForQueryParams("v3/mute", params).then(function() {
+        muteComment(zid, tid).then(function() {
+            res.json("muted tid: "+tid+" zid:" + zid); // TODO might make sense to include the comment text.
+        }, function() {
+            fail(res, 500, "polis_err_mute_failed");
+        });
+    }, function() {
+        fail(res, 403, "polis_err_signature_mismatch");
+    }).catch(function(z) {console.log("mute z ", z);});
+});
+
 app.post("/v3/comments",
     auth(assignToP),
     need('zid', getInt, assignToP),
     need('txt', getOptionalStringLimitLength(1000), assignToP),
 function(req, res) {
+    var zid = req.p.zid;
+    var txt = req.p.txt;
+
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
         console.log(pid);
@@ -2282,6 +2437,12 @@ function(req, res) {
                 if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
                 docs = docs.rows;
                 var tid = docs && docs[0] && docs[0].tid;
+
+                if (importantZids[zid]) {
+                    // send to mike for moderation
+                    sendCommentModerationEmail(125, zid, tid, txt);
+                }
+
                 // Since the user posted it, we'll submit an auto-pull for that.
                 //var autopull = {
                     //zid: req.p.zid,
