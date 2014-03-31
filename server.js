@@ -2510,7 +2510,7 @@ function hasBadWords(txt) {
 app.post("/v3/comments",
     auth(assignToP),
     need('zid', getInt, assignToP),
-    need('txt', getOptionalStringLimitLength(1000), assignToP),
+    need('txt', getOptionalStringLimitLength(997), assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var txt = req.p.txt;
