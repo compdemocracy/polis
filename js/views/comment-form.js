@@ -32,6 +32,10 @@ module.exports = Thorax.CollectionView.extend({
       return;
     }
 
+    if (/^\s*$/.exec(attrs.txt)) {
+      alert("Comment is empty");
+    }
+
     var comment = new CommentModel(attrs);
     comment.save().then(function() {
       that.trigger("commentSubmitted"); // view.trigger
