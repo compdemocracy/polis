@@ -2051,27 +2051,16 @@ function(req, res) {
 }); // /v3/auth/login
 
 
-function sqlHasResults(query, params, callback) {
-    client.query(query, params, function(err, results) {
-        if (err) { return callback(err); }
-        if (!results || !results.rows || !results.rows.length) {
-            return callback(0, false);
-        }
-        callback(0, true);
+function sqlHasResults(query, params) {
+    return new Promise(function(resolve, reject) {
+        client.query(query, params, function(err, results) {
+            if (err) { return resolve(err); }
+            if (!results || !results.rows || !results.rows.length) {
+                return reject("polis_err_no_such_token");
+            }
+            resolve(results.rows[0]);
+        });
     });
-}
-
-function oinviteExists(oinvite, callback) {
-    sqlHasResults(
-        "select oinvite from oinvites where oinvite = ($1);",
-        [oinvite], 
-        callback);
-}
-function zinviteExists(zinvite, callback) {
-    sqlHasResults(
-        "select zinvite from zinvites where zinvite = ($1);",
-        [zinvite], 
-        callback);
 }
 
 function createDummyUser() {
@@ -2180,28 +2169,6 @@ function(req, res) {
     var oinvite = req.p.oinvite;
     var zinvite = req.p.zinvite;
 
-  // Check for an invite code
-  // if (!oinvite && !zinvite) {
-  //   fail(res, 982748723, "polis_err_missing_invite", 403);
-  // }
-  if (oinvite) {
-    oinviteExists(oinvite, function(err, ok) {
-      if (err) { fail(res, 500, "polis_err_reg_oinvite", err); return; }
-      if (!ok) { fail(res, 403, "polis_err_reg_unknown_oinvite", new Error("polis_err_reg_unknown_oinvite")); return; }
-      finishedValidatingInvite();
-   });
-  } else if (zinvite) {
-    zinviteExists(zinvite, function(err, ok) {
-      if (err) { fail(res, 500, "polis_err_reg_zinvite", err); return; }
-      if (!ok) { fail(res, 403, "polis_err_reg_unknown_zinvite", new Error("polis_err_reg_unknown_oinvite")); return; }
-      finishedValidatingInvite();
-    });
-  } else {
-    finishedValidatingInvite();
-  }
-
-
-  function finishedValidatingInvite() {
     if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
     if (!hname) { fail(res, 400, "polis_err_reg_need_name"); return; }
     if (!password) { fail(res, 400, "polis_err_reg_password"); return; }
@@ -2246,14 +2213,11 @@ function(req, res) {
                                     yell("polis_err_intercom_create_user_fail");
                                     return;
                                 }
-                                console.log('intercom ok');
-                                console.dir(params);
                             });
                         }); // end startSession
                     }); // end insert user
             }); // end generateHashedPassword
     }); // end find existing users
-  } // end finishedValidatingInvite
 }); // end /v3/auth/new
 
 
