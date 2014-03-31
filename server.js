@@ -13,11 +13,6 @@
 
 */
 
-var importantZids = {
-    1: true,
-    1299: true,
-};
-
 console.log('redisAuth url ' +process.env.REDISTOGO_URL);
 console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
@@ -26,7 +21,8 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
     //[process.env.APPLICATION_NAME,'Heroku']
 //);
 
-var dgram = require('dgram'),
+var badwords = require('badwords/object'),
+    dgram = require('dgram'),
     http = require('http'),
     httpProxy = require('http-proxy'),
     Promise = require('es6-promise').Promise,
@@ -2353,7 +2349,24 @@ function failWithRetryRequest(res) {
 }
 
 function sendCommentModerationEmail(uid, zid, tid, commentTxt) {
+    var body = "Muted comment:" +
+        "\n" +
+        commentTxt + "\n" +
 
+        "\n" +
+        "- - - - - - - - - - - - - \n" +
+        "\n" +
+        "Click this URL to unmute the comment:\n" +
+        "\n" +
+        createUnmuteUrl(zid, tid) + "\n" +
+        "- - - - - - - - - - - - - \n" +        
+        "\n";
+
+    return sendTextToEmail(uid, "UNMUTE? \""+commentTxt.slice(0,100), body);
+}
+
+
+function createMuteUrl(zid, tid) {
     var server = devMode ? "http://localhost:5000" : "https://pol.is";
     var params = {
         zid: zid,
@@ -2361,36 +2374,54 @@ function sendCommentModerationEmail(uid, zid, tid, commentTxt) {
     };
     var path = "v3/mute";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-    var s = paramsToStringSortedByName(params);
+    return server + "/"+path+"?" + paramsToStringSortedByName(params);
+}
 
-    var body = "" +
-        "\n" +
-        commentTxt + "\n" +
-
-        "\n" +
-        "- - - - - - - - - - - - - \n" +
-        "\n" +
-        "Click this URL to mute the comment:\n" +
-        "\n" +
-        server + "/"+path+"?" + s + "\n" +
-        "- - - - - - - - - - - - - \n" +        
-        "\n";
-
-    return sendTextToEmail(uid, "MOD:"+commentTxt.slice(0,100), body);
+function createUnmuteUrl(zid, tid) {
+    var server = devMode ? "http://localhost:5000" : "https://pol.is";
+    var params = {
+        zid: zid,
+        tid: tid
+    };
+    var path = "v3/unmute";
+    params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+    return server + "/"+path+"?" + paramsToStringSortedByName(params);
 }
 
 
-function muteComment(zid, tid) {
+function changeCommentVelocity(zid, tid, velocity) {
     return new Promise(function(resolve, reject) {
-        client.query("UPDATE COMMENTS SET velocity=0 WHERE zid=($1) and tid=($2);", [zid, tid], function(err) {
+        client.query("UPDATE COMMENTS SET velocity=($3) WHERE zid=($1) and tid=($2);", [zid, tid, velocity], function(err) {
             if (err) {
-                reject();
+                reject("polis_err_change_comment_velicity_failed");
             } else {
                 resolve();
             }
         });
     });
 }
+
+function muteComment(zid, tid) {
+    return changeCommentVelocity(zid, tid, 0);
+}
+function unmuteComment(zid, tid) {
+    return changeCommentVelocity(zid, tid, 1);
+}
+
+function getComment(zid, tid) {
+    return new Promise(function(resolve, reject) {
+        client.query("select * from comments where zid = ($1) and tid = ($2);", [zid, tid], function(err, results) {
+            if (err) {
+                reject(err);
+            } else if (!results || !results.rows || !results.rows.length) {
+                reject("polis_err_missing_comment");
+            } else {
+                resolve(results.rows[0]);
+            }
+        });
+    });
+}
+
 
 // NOTE: using GET so it can be hit from an email URL.
 app.get("/v3/mute",
@@ -2407,16 +2438,74 @@ function(req, res) {
         tid: req.p.tid,
         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
     };
-    verifyHmacForQueryParams("v3/mute", params).then(function() {
-        muteComment(zid, tid).then(function() {
-            res.json("muted tid: "+tid+" zid:" + zid); // TODO might make sense to include the comment text.
-        }, function() {
-            fail(res, 500, "polis_err_mute_failed");
-        });
-    }, function() {
+    console.log("mute", 1);
+    verifyHmacForQueryParams("v3/mute", params).catch(function() {
+    console.log("mute", 2);
+
         fail(res, 403, "polis_err_signature_mismatch");
-    }).catch(function(z) {console.log("mute z ", z);});
+    }).then(function() {
+    console.log("mute", 3);
+        return muteComment(zid, tid);
+    }).then(function() {
+    console.log("mute", 4);
+        return getComment(zid, tid);
+    }).then(function(c) {
+    console.log("mute", 5);
+        res.set('Content-Type', 'text/html');
+        res.send(
+            "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
+            "<p>" + c.txt + "</p>" +
+            "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
+        );
+    }).catch(function(err) {
+    console.log("mute", 6);
+        fail(res, 500, err);
+    });
 });
+
+// NOTE: using GET so it can be hit from an email URL.
+app.get("/v3/unmute",
+    moveToBody,
+    // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
+    need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
+    need('zid', getInt, assignToP),
+    need('tid', getInt, assignToP),
+function(req, res) {
+    var tid = req.p.tid;
+    var zid = req.p.zid;
+    var params = {
+        zid: req.p.zid,
+        tid: req.p.tid,
+        signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
+    };
+    verifyHmacForQueryParams("v3/unmute", params).catch(function() {
+        fail(res, 403, "polis_err_signature_mismatch");
+    }).then(function() {
+        return unmuteComment(zid, tid);
+    }).then(function() {
+        return getComment(zid, tid);
+    }).then(function(c) {
+        res.set('Content-Type', 'text/html');
+        res.send(
+            "<h1>unmuted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
+            "<p>" + c.txt + "</p>" +
+            "<a href=\"" + createMuteUrl(zid, tid) + "\">Mute this comment.</a>"
+        );
+    }).catch(function(err) {
+        fail(res, 500, err);
+    });
+});
+
+
+function hasBadWords(txt) {
+    var tokens = txt.split(" ");
+    for (var i = 0; i < tokens.length; i++) {
+        if (badwords[tokens[i]]) {
+            return true;
+        }
+    }
+    return false;
+}
 
 app.post("/v3/comments",
     auth(assignToP),
@@ -2428,17 +2517,18 @@ function(req, res) {
 
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
-        console.log(pid);
-        console.log(req.p.uid);
+ 
+        var bad = hasBadWords(txt);
+        var velocity = bad ? 0 : 1;
         client.query(
-            "INSERT INTO COMMENTS (tid, pid, zid, txt, created) VALUES (null, $1, $2, $3, default) RETURNING tid;",
-            [pid, req.p.zid, req.p.txt],
+            "INSERT INTO COMMENTS (tid, pid, zid, txt, velocity, created) VALUES (null, $1, $2, $3, $4, default) RETURNING tid;",
+            [pid, zid, txt, velocity],
             function(err, docs) {
                 if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
                 docs = docs.rows;
                 var tid = docs && docs[0] && docs[0].tid;
 
-                if (importantZids[zid]) {
+                if (bad) {
                     // send to mike for moderation
                     sendCommentModerationEmail(125, zid, tid, txt);
                 }
