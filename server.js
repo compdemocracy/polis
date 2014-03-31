@@ -1153,12 +1153,12 @@ app.get("/v3/math/pca",
                 {lastVoteTimestamp: {$gt: req.p.lastVoteTimestamp}},
                 ]}, function(err, cursor) {
                 if (err) {
-                    reject("polis_err_get_pca_results_find");
+                    reject(new Error("polis_err_get_pca_results_find"));
                     return;
                 }
                 cursor.toArray( function(err, docs) {
                     if (err) {
-                        reject("polis_err_get_pca_results_find_toarray");
+                        reject(new Error("polis_err_get_pca_results_find_toarray"));
                     } else if (!docs.length) {
                         resolve(null);
                     } else {
@@ -1185,14 +1185,14 @@ function getBidToPidMapping(zid, lastVoteTimestamp) {
             {zid: zid},
             {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
             ]}, function(err, cursor) {
-            if (err) { reject("polis_err_get_pca_results_find"); return; }
+            if (err) { reject(new Error("polis_err_get_pca_results_find")); return; }
             cursor.toArray( function(err, docs) {
-                if (err) { reject("polis_err_get_pca_results_find_toarray"); return; }
+                if (err) { reject(new Error("polis_err_get_pca_results_find_toarray")); return; }
                 if (docs.length) {
                     resolve(docs[0]);
                 } else {
                     // Could actually be a 404, would require more work to determine that.
-                    reject();
+                    reject(new Error("polis_err_get_pca_results_missing"));
                 }
             });
         });
@@ -1411,7 +1411,7 @@ function generateSUZinvites(numTokens) {
         true, // For now, pseodorandom bytes are probably ok. Anticipating API call will generate lots of these at once, possibly draining the entropy pool. Revisit this if the otzinvites really need to be unguessable.
         function(err, longStringOfTokens) {
             if (err) {
-                reject("polis_err_creating_otzinvite");
+                reject(new Error("polis_err_creating_otzinvite"));
                 return;
             }
             console.log(longStringOfTokens);
@@ -1536,7 +1536,7 @@ function getOwner(zid) {
     return new Promise(function(resolve, reject) {
         client.query("SELECT owner FROM conversations where zid = ($1);", [zid], function(err, results) {
             if (err || !results || !results.rows || !results.rows.length) {
-                reject("polis_err_no_conversation_for_zid");
+                reject(new Error("polis_err_no_conversation_for_zid"));
                 return;
             }
             resolve(results.rows[0].owner);
@@ -1547,9 +1547,9 @@ function getOwner(zid) {
 function getSUZinviteInfo(suzinvite) {
     return new Promise(function(resolve, reject) {
         client.query('SELECT * FROM suzinvites WHERE suzinvite = ($1);', [suzinvite], function(err, results) {
-            if (err || !results || !results.rows || !results.rows.length) {
-                reject("polis_err_no_matching_suzinvite");
-                return;
+            if (err) {return reject(err); }
+            if (!results || !results.rows || !results.rows.length) {
+                return reject(new Error("polis_err_no_matching_suzinvite"));
             }
             resolve(results.rows[0]);
         });
@@ -1574,7 +1574,7 @@ function createXidEntry(xid, owner, uid) {
         client.query("INSERT INTO xids (uid, owner, xid) VALUES ($1, $2, $3);", [uid, owner, xid], function(err, results) {
             if (err) {
                 console.error(err);
-                reject("polis_err_adding_xid_entry");
+                reject(new Error("polis_err_adding_xid_entry"));
                 return;
             }
             resolve();
@@ -1698,9 +1698,9 @@ function getPid(zid, uid, callback) {
 function getPidPromise(zid, uid) {
     return new Promise(function(resolve, reject) {
         client.query("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
-            if (err || !results || !results.rows || !results.rows.length) {
-                reject();
-                return;
+            if (err) {return reject(err);}
+            if (!results || !results.rows || !results.rows.length) {
+                return reject(new Error("polis_err_getPidPromise_failed"));
             }
             resolve(results.rows[0].pid);
         });
@@ -1834,7 +1834,8 @@ function sendTextToEmail(uid, subject, body) {
                 'mike@pol.is', {},
                 function(err) {
                     if (err) {
-                        reject('mailgun send error: ' + err);
+                        console.error('mailgun send error');
+                        return reject(err);
                     }
                     resolve();
                 }
@@ -1914,7 +1915,7 @@ function userHasAnsweredZeQuestions(zid, answers) {
             var remainingKeys = _.keys(q2a);
             var missing = remainingKeys && remainingKeys.length > 0;
             if (missing) {
-                return reject('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]);
+                return reject(new Error('polis_err_metadata_not_chosen_pmqid_' + remainingKeys[0]));
             } else {
                 return resolve();
             }
@@ -2056,7 +2057,7 @@ function sqlHasResults(query, params) {
         client.query(query, params, function(err, results) {
             if (err) { return resolve(err); }
             if (!results || !results.rows || !results.rows.length) {
-                return reject("polis_err_no_such_token");
+                return reject(new Error("polis_err_no_such_token"));
             }
             resolve(results.rows[0]);
         });
@@ -2068,7 +2069,7 @@ function createDummyUser() {
         client.query("INSERT INTO users (created) VALUES (default) RETURNING uid;",[], function(err, results) {
             if (err || !results || !results.rows || !results.rows.length) {
                 console.error(err);
-                reject("polis_err_create_empty_user");
+                reject(new Error("polis_err_create_empty_user"));
                 return;
             }
             resolve(results.rows[0].uid);
@@ -2146,7 +2147,7 @@ function startSessionAndAddCookies(res, uid) {
     return new Promise(function(resolve, reject) {
         startSession(uid, function(err,token) {
             if (err) {
-                reject("polis_err_reg_failed_to_start_session");
+                reject(new Error("polis_err_reg_failed_to_start_session"));
                 return;
             }
             addCookies(res, token, uid);
@@ -2357,7 +2358,7 @@ function changeCommentVelocity(zid, tid, velocity) {
     return new Promise(function(resolve, reject) {
         client.query("UPDATE COMMENTS SET velocity=($3) WHERE zid=($1) and tid=($2);", [zid, tid, velocity], function(err) {
             if (err) {
-                reject("polis_err_change_comment_velicity_failed");
+                reject(new Error("polis_err_change_comment_velicity_failed"));
             } else {
                 resolve();
             }
@@ -2378,7 +2379,7 @@ function getComment(zid, tid) {
             if (err) {
                 reject(err);
             } else if (!results || !results.rows || !results.rows.length) {
-                reject("polis_err_missing_comment");
+                reject(new Error("polis_err_missing_comment"));
             } else {
                 resolve(results.rows[0]);
             }
@@ -2732,7 +2733,7 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
             function(err, results) {
                 if (err) { reject(err); return }
                 if (!results.rows || !results.rows.length) {
-                    reject(errorcode);
+                    reject(new Error(errorcode));
                     return;
                 }
                 var questions = _.reduce(pmqids, function(o, pmqid) { o[pmqid] = 1; return o; }, {});
@@ -2740,7 +2741,7 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
                     delete questions[row.pmqid];
                 });
                 if (Object.keys(questions).length) {
-                    reject(errorcode);
+                    reject(new Error(errorcode));
                 } else {
                     resolve();
                 }
