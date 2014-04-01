@@ -3365,27 +3365,6 @@ function(req, res){
     })
 })
 
-
-app.put('/v3/users',
-    moveToBody,
-    auth(assignToP),
-    want('is_owner', getBool, assignToP),
-    want('oinvite', getOptionalStringLimitLength(999), assignToP),
-function(req, res) {
-    var uid = req.p.uid;
-    var is_owner = req.p.is_owner;
-    var oinvite = req.p.oinvite;
-
-    oinviteExists(oinvite, function(err, ok) {
-        if (err) { fail(res, 500, "polis_err_put_users_oinvite", err); return; }
-        if (!ok) { fail(res, 403, "polis_err_put_users_unknown_oinvite", new Error("polis_err_put_users_unknown_oinvite")); return; }
-        client.query('UPDATE users SET is_owner = ($1) where uid = ($2);', [is_owner, uid], function(err, results) {
-            if (err) { fail(res, 500, "polis_err_put_users_db", err); return; }
-            res.json({});
-        });
-    });
-});
-
 app.get('/v3/users/new',
 function(req, res) {
     // creating a user may fail, since we randomly generate the uid, and there may be collisions.
