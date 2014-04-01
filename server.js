@@ -483,8 +483,8 @@ function needAtLeastOne() {
                 callback(!err);
             });
         }
-        async.some(choices, tryChoice, function(atLestOneSucceeded) {
-            var allFailed = !atLestOneSucceeded;
+        async.some(choices, tryChoice, function(atLeastOneSucceeded) {
+            var allFailed = !atLeastOneSucceeded;
             console.log("mike needAtLeastOne allFailed " + allFailed);
             next(allFailed);
         });
@@ -1935,7 +1935,7 @@ function(req, res) {
                 fail(res, 500, "polis_err_add_participant", err);
             });
         }, function(err) {
-            fail(res, 500, "polis_err_fetching_answers", err);
+            userFail(res, 400, err.message, err);
         }); // end get is_public
     }
 
