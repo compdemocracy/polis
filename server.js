@@ -1823,8 +1823,8 @@ function verifyHmacForQueryParams(path, params) {
 function sendTextToEmail(uid, subject, body) {
     return new Promise(function(resolve, reject) {
         getUserInfoForUid(uid, function(err, userInfo) {
-            if (err) { return callback(err);}
-            if (!userInfo) { return callback('missing user info');}
+            if (err) { return reject(err);}
+            if (!userInfo) { return reject(new Error('missing user info'));}
 
             mailgun.sendText(
                 'Polis <mike@pol.is>',
