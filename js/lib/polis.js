@@ -685,7 +685,7 @@ function clientSideBaseCluster(things, N) {
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
                 // Check for missing comps... TODO solve 
-                if (!pcaData.pca || !pcaData.pca.comps || !pcaData.pca.comps[0] || !pcaData.pca.comps[1]) {
+                if (!pcaData.pca || !pcaData.pca.comps) {
                     console.error("missing comps");
                     return $.Deferred().reject();
                 }
@@ -705,7 +705,9 @@ function clientSideBaseCluster(things, N) {
 
                 pcX = pcaData.pca.comps[0];
                 pcY = pcaData.pca.comps[1];
-                // TODO get offsets for x and y
+                // in case of malformed PCs (seen on conversations with only one comment)
+                pcX |= [];
+                pcY |= [];
  
 
                 votesForTidBid = pcaData["votes-base"];
