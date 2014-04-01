@@ -1634,15 +1634,9 @@ function joinConversation(zid, uid, pmaid_answers) {
 }
 
 function isOwnerOrParticipant(zid, uid, callback) { 
-
-    if (true) {
-        callback(null); // TODO remove!
-        return;
-    }
-
     // TODO should be parallel.
     // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
-    getPid(zid, uid, function(err) {
+    getPid(zid, uid, function(err, pid) {
         if (err || pid < 0) {
             isConversationOwner(zid, uid, function(err) {
                 callback(err);
