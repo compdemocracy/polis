@@ -475,13 +475,17 @@ function needAtLeastOne() {
     var choices = Array.prototype.slice.call(arguments, 0);
 
     return function(req, res, next) {
+        console.log("mike needAtLeastOne running");
         function tryChoice(f) {
+            console.log("mike needAtLeastOne tryChoice");
             f(req, res, function(err) {
+                console.log("mike needAtLeastOne callback " + err);
                 return !err;
             });
         }
         async.some(choices, tryChoice, function(atLestOneSucceeded) {
             var allFailed = !atLestOneSucceeded;
+            console.log("mike needAtLeastOne allFailed " + allFailed);
             next(allFailed);
         });
     };
