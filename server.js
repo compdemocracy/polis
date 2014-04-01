@@ -476,11 +476,11 @@ function needAtLeastOne() {
 
     return function(req, res, next) {
         console.log("mike needAtLeastOne running");
-        function tryChoice(f) {
+        function tryChoice(f, callback) {
             console.log("mike needAtLeastOne tryChoice");
             f(req, res, function(err) {
                 console.log("mike needAtLeastOne callback " + err);
-                return !err;
+                callback(!err);
             });
         }
         async.some(choices, tryChoice, function(atLestOneSucceeded) {
