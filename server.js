@@ -241,6 +241,7 @@ var sql_comments = sql.define({
     "pid",
     "created",
     "txt",
+    "velocity",
     ]
 });
 
@@ -2261,6 +2262,7 @@ function(req, res) {
                 )
             );
     }
+    q = q.where(sql_comments.velocity.gt(0)); // filter muted comments
     q = q.order(sql_comments.created);
     q = q.limit(999); // TODO paginate
 
