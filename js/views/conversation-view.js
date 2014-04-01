@@ -255,16 +255,17 @@ module.exports =  View.extend({
       });
     };
 
-    this.allCommentsCollection.doFetch = function() {
+    this.allCommentsCollection.fetch = this.allCommentsCollection.doFetch = function() {
       var thatCollection = this;
+      var params = {
+        zid: zid
+      };
       var promise = Backbone.Collection.prototype.fetch.call(this, {
-        data: $.param({
-            zid: zid
-        }),
+        data: $.param(params),
         processData: true,
         silent: true,
         ajax: function() {
-          return that.serverClient.getFancyComments.apply(0, arguments);
+          return that.serverClient.getFancyComments(params);
         }
       });
       promise.then(this.firstFetchPromise.resolve);
