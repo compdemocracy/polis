@@ -2887,11 +2887,10 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 
 app.get('/v3/metadata/questions',
     moveToBody,
-    needAtLeastOne(
-        authOptional(assignToP),
-        want('suzinvite', getOptionalStringLimitLength(32), assignToP),
-        want('zinvite', getOptionalStringLimitLength(300), assignToP)),
+    authOptional(assignToP),
     need('zid', getInt, assignToP),
+    want('suzinvite', getOptionalStringLimitLength(32), assignToP),
+    want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
@@ -2904,7 +2903,13 @@ function(req, res) {
     } else if (suzinvite) {
         checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
-        isOwnerOrParticipant(zid, uid, doneChecking);
+        getConversationProperty(zid, "is_public", function(err, is_public) {
+            if (!err && is_public) {
+                doneChecking(false);
+            } else {
+                isOwnerOrParticipant(zid, uid, doneChecking);
+            }
+        });
     }
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
@@ -2979,12 +2984,11 @@ function(req, res) {
 
 app.get('/v3/metadata/answers',
     moveToBody,
-    needAtLeastOne(
-        authOptional(assignToP),
-        want('suzinvite', getOptionalStringLimitLength(32), assignToP),
-        want('zinvite', getOptionalStringLimitLength(300), assignToP)),
+    authOptional(assignToP),
     need('zid', getInt, assignToP),
     want('pmqid', getInt, assignToP),
+    want('suzinvite', getOptionalStringLimitLength(32), assignToP),
+    want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
@@ -2998,7 +3002,13 @@ function(req, res) {
     } else if (suzinvite) {
         checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
-        isOwnerOrParticipant(zid, uid, doneChecking);
+        getConversationProperty(zid, "is_public", function(err, is_public) {
+            if (!err && is_public) {
+                doneChecking(false);
+            } else {
+                isOwnerOrParticipant(zid, uid, doneChecking);
+            }
+        });
     }
     
     function doneChecking(err, foo) {
@@ -3038,7 +3048,13 @@ function(req, res) {
     } else if (suzinvite) {
         checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
-        isOwnerOrParticipant(zid, uid, doneChecking);
+        getConversationProperty(zid, "is_public", function(err, is_public) {
+            if (!err && is_public) {
+                doneChecking(false);
+            } else {
+                isOwnerOrParticipant(zid, uid, doneChecking);
+            }
+        });
     }
     function doneChecking(err) {
         if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
