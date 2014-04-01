@@ -243,7 +243,7 @@ module.exports = Thorax.CollectionView.extend({
 
     eb.on(eb.clusterClicked, function(gid) {
       that.collection.firstFetchPromise.then(function() {
-        if (gid === false) {
+        if (gid === -1) {
           that.$("#commentSearch").show();
           that.$("#commentSort").show();
           that.$("#groupStats").hide();

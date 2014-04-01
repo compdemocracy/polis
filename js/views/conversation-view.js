@@ -48,7 +48,7 @@ module.exports =  View.extend({
   destroyPopovers: function() {
     popoverEach("destroy");
   },
-  onClusterTapped : function() {
+  onClusterTapped : function(gid) {
     this.destroyPopovers();
     var that = this;
       // if (window.isMobile()) {

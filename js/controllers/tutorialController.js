@@ -45,11 +45,13 @@ module.exports = function() {
     }
 
 
-    function onClusterClicked() {
-      clusterHasBeenClicked = true;
-      if(hintHandlers.analyzePopover && !shown.analyzePopover){
-        hintHandlers.analyzePopover();
-        shown.analyzePopover = true;
+    function onClusterClicked(gid) {
+      if (gid >= 0) {
+        clusterHasBeenClicked = true;
+        if(hintHandlers.analyzePopover && !shown.analyzePopover){
+          hintHandlers.analyzePopover();
+          shown.analyzePopover = true;
+        }
       }
     }
 

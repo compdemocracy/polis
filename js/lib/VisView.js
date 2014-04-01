@@ -45,7 +45,7 @@ var queryResults;
 var d3Hulls;
 var d3HullShadows;
 
-var selectedCluster = false;
+var selectedCluster = -1;
 var selectedBids = [];
 var selectedTid = -1;
 
@@ -409,7 +409,7 @@ function updateHullColors() {
             }
         }
    } else {
-        if (selectedCluster !== false) {
+        if (selectedCluster >= 0) {
             d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
         }
    }
@@ -1453,7 +1453,7 @@ function resetSelection() {
   } else {
       visualization.selectAll(".active").classed("active", false);
   }
-  selectedCluster = false;
+  selectedCluster = -1;
   eb.trigger(eb.clusterClicked, selectedCluster);
   // visualization.transition().duration(750).attr("transform", "");
   selectedBids = [];
@@ -1463,17 +1463,16 @@ function resetSelection() {
 
 
 function selectBackground() {
-  resetSelection();
-  // selectedBids = [];
-  // resetSelectedComment();
-  // unhoverAll();
 
-  setClusterActive(false)
-    .then(
+  if (selectedCluster >= 0) {
+    resetSelection();
+    setClusterActive(-1)
+      .then(
         updateHulls,
         updateHulls);
 
-  updateHullColors();
+    updateHullColors();
+  }
 }
 
 
