@@ -418,9 +418,9 @@ module.exports =  View.extend({
           if (shouldShowVisUnderTabs()) {
             moveVisAboveQueryResults();
           }
-
           that.allCommentsCollection.doFetch().then(function() {
-            that.analyzeGlobalView.sortAgree();
+            // uses the current sort comparator
+            that.analyzeGlobalView.sort();
           });
           // that.analyzeGlobalView.showCarousel();
         }

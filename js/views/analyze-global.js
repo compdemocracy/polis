@@ -8,20 +8,38 @@ var Thorax = require("thorax");
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
-var sortRepness = function(a, b) {
-  return b.get("repness") - a.get("repness");
-};
+function bbCompare(propertyName, a, b) {
+  var x = b.get(propertyName) - a.get(propertyName);
+  return x;
+}
+function bbCompareAscending(propertyName, a, b) {
+  return -bbCompare(propertyName, a, b);
+}
+function compareTieBreaker(a, b) {
+  var x = bbCompare("stars", a, b);
+  x = x || bbCompareAscending("D", a, b);
+  x = x || a.get("txt").length - b.get("txt").length; // shorter comments first
+  x = x || (b.get("txt").toLowerCase() < a.get("txt").toLowerCase()) ? 1 : -1; // alphabetic
+  return x;
+}
+function sortRepness(a, b) {
+  var x = bbCompare("repness", a, b);
+  return x || compareTieBreaker(a, b);
+}
+function comparatorAgree(a, b) {
+  var x = bbCompare("A", a, b);
+  return x || compareTieBreaker(a, b);
+}
+function comparatorDisagree(a, b) {
+  var x = bbCompare("D", a, b);
+  return x || compareTieBreaker(a, b);
+}
 
-var sortMostAgrees = function(a, b) {
-  return b.get("A") - a.get("A");
-};
-var sortMostDisagrees = function(a, b) {
-  return b.get("D") - a.get("D");
-};
+function comparatorStars(a, b) {
+  var x = bbCompare("stars", a, b);
+  return x || compareTieBreaker(a, b);
+}
 
-var sortMostStars = function(a, b) {
-  return b.get("stars") - a.get("stars");
-};
 var el_carouselSelector = "#carousel";
 
 module.exports = Thorax.CollectionView.extend({
@@ -135,15 +153,18 @@ module.exports = Thorax.CollectionView.extend({
     },
   searchEnabled: true,
   sortEnabled: true,
-  sortAgree: function(e) {
-    this.collection.comparator = sortMostAgrees;
+  sort: function(e) {
     this.collection.sort();
+  },
+  sortAgree: function(e) {
+    this.collection.comparator = comparatorAgree;
+    this.sort();
     this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
-    this.collection.comparator = sortMostDisagrees;
-    this.collection.sort();
+    this.collection.comparator = comparatorDisagree;
+    this.sort();
     this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
@@ -154,7 +175,7 @@ module.exports = Thorax.CollectionView.extend({
   sortRepness: function(e) {
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
-    this.collection.sort();
+    this.sort();
   },
   useCarousel: function() {
       return !this.isIE8 && display.xs();
@@ -230,6 +251,8 @@ module.exports = Thorax.CollectionView.extend({
       $(el_carouselSelector).html("");
     }
 
+    this.collection.comparator = comparatorAgree;
+    
     eb.on(eb.commentSelected, function(tid) {
       that.collection.each(function(model) {
         if (model.get("tid") === tid) {
