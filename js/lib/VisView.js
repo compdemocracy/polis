@@ -13,7 +13,6 @@ var el_queryResultSelector = params.el_queryResultSelector;
 var el_raphaelSelector = params.el_raphaelSelector;
 var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
-var getUserInfoByPid = params.getUserInfoByPid;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
@@ -1325,7 +1324,6 @@ function onParticipantClicked(d) {
     // alert(1);
     // d3.event.stopPropagation();
     // d3.event.preventDefault(); // prevent flashing on iOS
-  // alert(getUserInfoByPid(d.pid).hname)
   var gid = bidToGid[d.bid];
   if (_.isNumber(gid)) {
       handleOnClusterClicked(gid);
