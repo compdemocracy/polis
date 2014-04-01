@@ -95,8 +95,6 @@ module.exports =  View.extend({
 
     var resultsCollection = new ResultsCollection();
 
-    window.m = metadataCollection;
-
     // HTTP PATCH - model.save({patch: true})
 
     function onClusterTapped() {
