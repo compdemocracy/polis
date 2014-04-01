@@ -156,7 +156,6 @@ module.exports =  View.extend({
           getCommentsForProjection: serverClient.getCommentsForProjection,
           getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
-          getUserInfoByPid: serverClient.getUserInfoByPidSync,
           getPidToBidMapping: serverClient.getPidToBidMapping,
           w: w,
           h: h,

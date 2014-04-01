@@ -70,7 +70,6 @@ module.exports = function(params) {
     var repness = {}; // gid -> tid -> representativeness (bigger is more representative)
     var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
     var participantCount = 0;
-    var userInfoCache = [];
     var bidToPid = [];
     var pidToBidCache = null;
     var bid;
@@ -823,35 +822,6 @@ function clientSideBaseCluster(things, N) {
         return s;
     }
 
-    function getAllUserInfo() {
-        return polisGet(participantsPath, {
-            zid: zid
-        });
-    }
-
-    function fetchUserInfoIfNeeded() {
-        if (participantCount > userInfoCache.length) {
-            updateUserInfoCache();
-        }
-    }
-
-    function updateUserInfoCache() {
-        getAllUserInfo().done(function(data) {
-            userInfoCache = data;
-        });
-    }
-
-    function getUserInfoByPidSync(pid) {
-        return userInfoCache[pid];
-    }
-
-    function getUserInfoByPid(pid) {
-        return polisGet(participantsPath, {
-            pid: pid,
-            zid: zid
-        });
-    }
-
     function getCommentsForProjection(params) {
         var ascending = params.sort > 0;
         var count = params.count;
@@ -1146,7 +1116,6 @@ function clientSideBaseCluster(things, N) {
 
     function poll() {
       var pcaPromise = fetchPca();
-      pcaPromise.done(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded);
       pcaPromise.done(updateMyProjection);
       pcaPromise.done(function() {
         // TODO Trigger based on votes themselves incrementing, not waiting on the PCA.
@@ -1177,8 +1146,6 @@ function clientSideBaseCluster(things, N) {
         getTidsForGroup: getTidsForGroup,
         getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,
-        getUserInfoByPid: getUserInfoByPid,
-        getUserInfoByPidSync: getUserInfoByPidSync,
         getPidToBidMapping: getPidToBidMappingFromCache,
         disagree: disagree,
         agree: agree,
