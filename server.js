@@ -471,13 +471,19 @@ function hasToken(req) {
     return !!req.cookies[COOKIES.TOKEN];
 }
 
-function needOr(condition, primary, alternative) {
+function needAtLeastOne() {
+    var choices = Array.prototype.slice.call(arguments, 0);
+
     return function(req, res, next) {
-        if (condition(req)) {
-            return primary(req, res, next);
-        } else {
-            return alternative(req, req, next);
+        function tryChoice(f) {
+            f(req, res, function(err) {
+                return !err;
+            });
         }
+        async.some(choices, tryChoice, function(atLestOneSucceeded) {
+            var allFailed = !atLestOneSucceeded;
+            next(allFailed);
+        });
     };
 }
 
@@ -2877,11 +2883,10 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 
 app.get('/v3/metadata/questions',
     moveToBody,
-    needOr(
-        hasToken,
-        auth(assignToP),
-        need('suzinvite', getOptionalStringLimitLength(32), assignToP),
-        need('zinvite', getOptionalStringLimitLength(300), assignToP)),
+    needAtLeastOne(
+        authOptional(assignToP),
+        want('suzinvite', getOptionalStringLimitLength(32), assignToP),
+        want('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
 function(req, res) {
@@ -2970,11 +2975,10 @@ function(req, res) {
 
 app.get('/v3/metadata/answers',
     moveToBody,
-    needOr(
-        hasToken,
-        auth(assignToP),
-        need('suzinvite', getOptionalStringLimitLength(32), assignToP),
-        need('zinvite', getOptionalStringLimitLength(300), assignToP)),
+    needAtLeastOne(
+        authOptional(assignToP),
+        want('suzinvite', getOptionalStringLimitLength(32), assignToP),
+        want('zinvite', getOptionalStringLimitLength(300), assignToP)),
     need('zid', getInt, assignToP),
     want('pmqid', getInt, assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
