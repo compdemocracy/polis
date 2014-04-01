@@ -706,8 +706,8 @@ function clientSideBaseCluster(things, N) {
                 pcX = pcaData.pca.comps[0];
                 pcY = pcaData.pca.comps[1];
                 // in case of malformed PCs (seen on conversations with only one comment)
-                pcX |= [];
-                pcY |= [];
+                pcX = pcX || [];
+                pcY = pcX || [];
  
 
                 votesForTidBid = pcaData["votes-base"];
