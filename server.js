@@ -3019,7 +3019,11 @@ function(req, res) {
         }
         client.query(query.toString(), function(err, result) {
             if (err) { fail(res, 500, "polis_err_get_participant_metadata_answers", err); return; }
-            res.status(200).json(result.rows);
+            var rows = result.rows.map(function(r) {
+                r.is_exclusive = true; // TODO fetch this info from the queston itself
+                return r;
+            });
+            res.status(200).json(rows);
         });
     }
 });
