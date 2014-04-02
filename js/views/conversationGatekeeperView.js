@@ -2,6 +2,7 @@ var template = require("../tmpl/conversationGatekeeper");
 //var UserCreateView = require(".views/userCreateView");
 var MetadataQuestionsView = require("../views/metadataQuestionsView");
 var MetadataQuestionCollection = require("../collections/MetadataQuestions");
+var MetadataQuestion = require("../models/metadataQuestion");
 var PolisStorage = require("../util/polisStorage");
 var View = require("../view");
 
@@ -69,7 +70,10 @@ module.exports = View.extend({
       params.suzinvite = options.suzinvite;
     }
 
+    var MetadataQuestionModelWithZinvite = MetadataQuestion.extend(params);
+
     this.metadataCollection = new MetadataQuestionCollection([], {
+      model: MetadataQuestionModelWithZinvite,
       zid: zid
     });
     this.metadataCollection.fetch({

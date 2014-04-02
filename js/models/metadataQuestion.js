@@ -20,8 +20,11 @@ module.exports = Model.extend({
               zid: zid,
               pmqid: pmqid
           };
-      if (window.suzinvite) { // TODO do something better
-        params.suzinvite = window.suzinvite;
+      if (this.suzinvite) {
+        params.suzinvite = this.suzinvite;
+      }
+      if (this.zinvite) {
+        params.zinvite = this.zinvite;
       }
       this.collection.fetch({
           data: $.param(params),
