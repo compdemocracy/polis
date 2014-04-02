@@ -19,7 +19,12 @@ module.exports = View.extend({
       }
       this.serialize(function(attrs, release){
         // pull out the for values for pmaid
-        var numbers = _.chain(attrs).keys().map(Number).filter(function(num) {
+
+        var numbers = _.chain(attrs)
+          .values()  // attrs is {pmqid: pmaid} or {pmqid: [pmaid]}. We only need to upload the pmaids.
+          .flatten() // when !is_exclusive, you can get an array of pmaid for each pmqid
+          .map(Number)
+          .filter(function(num) {
           return !_.isNaN(num) && _.isNumber(num);
         }).value();
         // delete them from the hash
