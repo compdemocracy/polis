@@ -3611,7 +3611,8 @@ function makeFileFetcher(hostname, port, path, contentType) {
 }
 
 function isUnsupportedBrowser(req) {
-    return /MSIE [89]/.test(req.headers['user-agent']);
+    return false;
+    //return /MSIE [89]/.test(req.headers['user-agent']);
 }
 
 // serve up index.html in response to anything starting with a number 
