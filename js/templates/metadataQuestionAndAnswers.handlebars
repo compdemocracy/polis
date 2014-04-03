@@ -1,7 +1,8 @@
 <div class="panel panel-default">
 
 <div class="panel-heading">
-	{{key}} {{#if required}} <span style="color:red">*</span>{{/if}}
+	{{#if required}} <span style="color:red">*</span>{{/if}}
+	{{key}}
 </div>
 {{#if allowDelete}}
 	{{#button method="deleteQuestion" tag="a"}}
