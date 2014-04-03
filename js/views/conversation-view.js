@@ -27,6 +27,7 @@ var ServerClient = require("../lib/polis");
 
 var VIS_SELECTOR = "#visualization_div";
 var ANALYZE_TAB = "analyzeTab";
+var METADATA_TAB = "metadata_pill";
 var WRITE_TAB = "commentFormTab";
 var VOTE_TAB = "commentViewTab";
 
@@ -288,12 +289,14 @@ module.exports =  View.extend({
       });
 
       this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-        console.log(enabledAnswers);
-        serverClient.queryParticipantsByMetadata(enabledAnswers).then(
-          vis.emphasizeParticipants,
-          function(err) {
-            console.error(err);
-          });
+        if (that.currentTab === METADATA_TAB) {
+          console.log(enabledAnswers);
+          serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+            vis.emphasizeParticipants,
+            function(err) {
+              console.error(err);
+            });
+        }
       });
 
 
@@ -401,6 +404,7 @@ module.exports =  View.extend({
       $('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
         var to = e.target;
         var from = e.relatedTarget;
+        that.currentTab = to.id;
         if (to && to.id === WRITE_TAB && shouldHideVisWhenWriteTabShowing()) {
           // When we're switching to the write tab, hide the vis.
           that.hideVis();
