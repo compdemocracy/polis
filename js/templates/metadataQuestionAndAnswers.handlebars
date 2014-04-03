@@ -1,15 +1,17 @@
-<div class="well">
+<div class="panel panel-default">
 
-<p class="questionText">
-	<h4>{{key}} {{#if required}} <span style="color:red">*</span>{{/if}}</h4>
-</p>
+<div class="panel-heading">
+	{{key}} {{#if required}} <span style="color:red">*</span>{{/if}}
+</div>
 {{#if allowDelete}}
 	{{#button method="deleteQuestion" tag="a"}}
 		 &nbsp;<i class="icon-remove"></i>
 	{{/button}}
 {{/if}}
 
+<ul class="list-group">
 {{collection}}
+</ul>
 
 {{#if allowCreate}}
 <ul class="nobullets">
