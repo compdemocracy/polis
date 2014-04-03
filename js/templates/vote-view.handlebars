@@ -17,7 +17,7 @@
       <div class="btn-group">
         {{#button
           method="participantAgreed"
-          class="btn btn-lg btn-default"
+          class="btn btn-lg btn-default btn-vote"
           id="agreeButton"
           type="button"
         }}
@@ -30,7 +30,7 @@
         {{#button
           method="participantDisagreed"
           id="disagreeButton"
-          class="btn btn-lg btn-default"
+          class="btn btn-lg btn-default btn-vote"
           type="button"
         }}
         {{#ifNotIE8}}
@@ -39,7 +39,7 @@
         &nbsp;Disagree {{/button}}
       </div>
       <div class="btn-group" id="otherButtonGroup">
-        <button type="button" class="btn btn-lg btn-default dropdown-toggle" data-toggle="dropdown">
+        <button type="button" class="btn btn-lg btn-default dropdown-toggle btn-vote" data-toggle="dropdown">
           Other&nbsp;
           {{#ifNotIE8}}            
             <i class="icon-angle-down" style="position: relative; top: 1px"></i>
