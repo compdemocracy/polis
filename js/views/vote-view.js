@@ -137,6 +137,24 @@ module.exports = View.extend({
         showNext();
       }
     });
+    
+    this.$el.on("click", function(e) {
+      e.preventDefault();
+      console.dir(e.target);
+      var id = e.target.id;
+      if (id === "agreeButton") {
+        that.participantAgreed();
+      } else if (id === "disagreeButton") {
+        that.participantDisagreed();
+      } else if(id === "trashButton") {
+        that.participantTrashed();
+      } else if (id === "starButton") {
+        that.participantStarred();
+      } else if (id === "passButton") {
+        that.participantPassed();
+      }
+    });
+
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
     this.listenTo(this, "rendered", function(){
@@ -168,20 +186,7 @@ module.exports = View.extend({
         delay: { show: 500, hide: 0 }
       });
 
-      this.$("#otherButtonGroup").on("click", function(e) {
-        e.preventDefault()
-        console.dir(e.target);
-        if(e.target.id === "trashButton") {
-          console.log('trash')
-          that.participantTrashed()
-        } else if (e.target.id === "starButton") {
-          console.log('star')
-          that.participantStarred()
-        } else if (e.target.id === "passButton") {
-          console.log('pass')
-          that.participantPassed()
-        }
-      });
+      
     });
   }
   });
