@@ -3,12 +3,12 @@
 <div class="panel-heading">
 	{{#if required}} <span style="color:red">*</span>{{/if}}
 	{{key}}
+	{{#if allowDelete}}
+		{{#button method="deleteQuestion" tag="a"}}
+			 &nbsp;<i class="icon-remove"></i>
+		{{/button}}
+	{{/if}}
 </div>
-{{#if allowDelete}}
-	{{#button method="deleteQuestion" tag="a"}}
-		 &nbsp;<i class="icon-remove"></i>
-	{{/button}}
-{{/if}}
 
 <ul class="list-group">
 {{collection}}
