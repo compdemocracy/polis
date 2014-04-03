@@ -3611,8 +3611,10 @@ function makeFileFetcher(hostname, port, path, contentType) {
 }
 
 function isUnsupportedBrowser(req) {
-    return false;
-    //return /MSIE [89]/.test(req.headers['user-agent']);
+    return /MSIE [234567]/.test(req.headers['user-agent']);
+}
+function browserSupportsPushState(req) {
+    return !/MSIE [23456789]/.test(req.headers['user-agent']);
 }
 
 // serve up index.html in response to anything starting with a number 
@@ -3623,7 +3625,20 @@ var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedB
 var fetchIndex = function(req, res) {
     var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html");
     if (isUnsupportedBrowser(req)){
+        
         return fetchUnsupportedBrowserPage(req, res);
+
+    } else if (!browserSupportsPushState(req) && 
+        req.path.length > 1 &&
+        !/^\/v3/.exec(req.path) // TODO probably better to create a list of client-side route regexes (whitelist), rather than trying to blacklist things like API calls.
+        ) {
+        
+        // Redirect to the same URL with the path behind the fragment "#"
+        res.writeHead(302, {
+            Location: "https://" + req.headers.host +"/#"+ req.path,
+        });
+
+        return res.end();
     } else {
         return doFetch(req, res);
     }
