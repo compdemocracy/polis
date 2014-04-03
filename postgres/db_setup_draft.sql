@@ -63,6 +63,7 @@ CREATE TABLE participant_metadata_questions (
     zid INTEGER REFERENCES conversations(zid),
     key VARCHAR(999), -- City, Office, Role, etc
     alive BOOLEAN  DEFAULT TRUE, -- !deleted
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE (zid, key), -- TODO index!
     UNIQUE (pmqid)
 );
@@ -73,6 +74,7 @@ CREATE TABLE participant_metadata_answers (
     zid INTEGER REFERENCES conversations(zid), -- for fast disk-local indexing
     value VARCHAR(999), -- Seattle, Office 23, Manager, etc
     alive BOOLEAN DEFAULT TRUE, -- !deleted
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE (pmqid, zid, value),
     UNIQUE (pmaid)
 );
@@ -83,6 +85,7 @@ CREATE TABLE participant_metadata_choices (
     pmqid INTEGER REFERENCES participant_metadata_questions(pmqid),
     pmaid INTEGER REFERENCES participant_metadata_answers(pmaid),
     alive BOOLEAN DEFAULT TRUE, -- !deleted
+    created BIGINT DEFAULT now_as_millis(),
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid),
     UNIQUE (zid, pid, pmqid, pmaid)
 );
