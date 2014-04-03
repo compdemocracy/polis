@@ -2914,8 +2914,12 @@ function(req, res) {
             //function(callback) { client.query("SELECT * FROM participant_metadata_choices WHERE alive = true AND zid = ($1);", [zid], callback) },
         ], function(err, result) {
             if (err) { fail(res, 500, "polis_err_get_participant_metadata_questions", err); return; }
-            var keys = result[0] && result[0].rows;
-            res.status(200).json(keys);
+            var rows = result[0] && result[0].rows;
+            rows = rows.map(function(r) {
+                r.required = true;
+                return r;
+            });
+            res.status(200).json(rows);
         });
     }
 });
