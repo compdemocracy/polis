@@ -33,10 +33,18 @@ module.exports = View.extend({
         });
         // add the pmaid values as answers
         attrs.answers = numbers;
-        // Incorporate options, like zinvite.
-        attrs = $.extend(that.options || {}, attrs);
+
+        var params = that.params;
+        if (params.zinvite) {
+          attrs.zinvite = params.zinvite;
+        }
+        if (params.suzinvite) {
+          attrs.suzinvite = params.suzinvite;
+        }
+        attrs.zid = params.zid;
+
         var url = urlPrefix + "v3/participants";
-        if (this.options.suzinvite) {
+        if (params.suzinvite) {
           url = urlPrefix + "v3/joinWithSuzinvite";
         }
 
@@ -62,6 +70,7 @@ module.exports = View.extend({
   },
   initialize: function(options) {
     this.options = options;
+    this.model = options.model;
     var zid = options.zid;
     var zinvite = options.zinvite;
     var suzinvite = options.suzinvite;
@@ -74,6 +83,7 @@ module.exports = View.extend({
     if (options.suzinvite) {
       params.suzinvite = options.suzinvite;
     }
+    this.params = params;
 
     var MetadataQuestionModelWithZinvite = MetadataQuestion.extend(params);
 

@@ -8,5 +8,9 @@ module.exports = Collection.extend({
       this.zid = options.zid;
       this.pmqid = options.pmqid;
   },
+  comparator: function(a, b) {
+    // ascending
+    return a.get("created") - b.get("created");
+  },
   model: MetadataAnswer
 });

@@ -7,5 +7,9 @@ module.exports = Collection.extend({
     initialize: function(models, options) {
         this.zid = options.zid;
     },
+    comparator: function(a, b) {
+      // ascending
+      return a.get("created") - b.get("created");
+    },
     model: MetadataQuestion
   });

@@ -323,9 +323,15 @@ var polisRouter = Backbone.Router.extend({
     } else {
       params.zinvite = zinvite;
     }
-    var gatekeeperView = new ConversationGatekeeperView(params);
-    gatekeeperView.on("done", dfd.resolve);
-    RootView.getInstance().setView(gatekeeperView);
+
+    var model = new ConversationModel(params);
+    bbFetch(model).then(function() {
+      params.model = model;
+      var gatekeeperView = new ConversationGatekeeperView(params);
+      gatekeeperView.on("done", dfd.resolve);
+      RootView.getInstance().setView(gatekeeperView);
+    }, dfd.reject);
+
     return dfd.promise();
   },
   doCreateUserFromGatekeeper: function(zid, zinvite, singleUse) {

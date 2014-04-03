@@ -1,5 +1,8 @@
-Question:
-<p class="questionText"> {{key}} </p>
+<div class="well">
+
+<p class="questionText">
+	<h4>{{key}} {{#if required}} <span style="color:red">*</span>{{/if}}</h4>
+</p>
 {{#if allowDelete}}
 	{{#button method="deleteQuestion" tag="a"}}
 		 &nbsp;<i class="icon-remove"></i>
@@ -8,15 +11,16 @@ Question:
 
 {{collection}}
 
+{{#if allowCreate}}
 <ul class="nobullets">
 	<li>
-{{#if allowCreate}}
 		<div class="add_answer_form">			
 			<form>
 				<input style="width: 50%; margin-top:10px" name="answerInput" type="text" placeholder="A choice, e.g., 'NYC' or 'Boston'"></input>
 			</form>
 		</div>
-	
-{{/if}}
 	</li>
 </ul>
+{{/if}}
+
+</div>
