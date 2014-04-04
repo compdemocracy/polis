@@ -260,18 +260,13 @@ module.exports = function(params) {
     }
 
 
-    // optionalSpecificSubStimulus (aka commentId)
-    function pass(optionalSpecificSubStimulus) {
-        var ev = {
-            vote: polisTypes.reactions.pass
-        };
-        if (optionalSpecificSubStimulus) {
-            ev.tid = optionalSpecificSubStimulus;
-        }
-        if (ev.tid) {
-            clearComment(ev.tid);
-        }
-        return react(ev);
+    function pass(tid) {
+
+        clearComment(tid);
+        return react({
+            vote: polisTypes.reactions.pass,
+            tid: tid
+        });
     }
 
     function trash(tid) {
