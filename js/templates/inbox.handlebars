@@ -14,8 +14,8 @@
         <li class="active">{{#link "inbox" expand-tokens=true}}Conversations{{/link}}</li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
-        <li><a href="http://about.polis.io">About</a></li>
-        <li><a href="mailto:colinmegill@gmail.com?subject=Polis%20Feedback">Contact</a></li>
+        <li><a href="https://pol.is/about">About</a></li>
+        <li><a href="mailto:colin@pol.is?subject=Polis%20Feedback">Contact</a></li>
         <li>{{#link "settings" expand-tokens=true}}
           {{#ifNotEmbedded}}
           <i class="icon-signout"></i>
@@ -31,7 +31,7 @@
     {{#ifNotEmbedded}}
     <i class="icon-plus-sign-alt"></i>
     {{/ifNotEmbedded}}
-    Start A New Conversation {{/link}}
+    New Conversation {{/link}}
   </div>
 
 
@@ -42,7 +42,7 @@
           <li class="row" style="border-bottom: 1px solid lightgrey; padding-bottom: 10px">
               <div class="col-sm-5">
                 <h5>{{topic}}</h5>
-                <p>{{{description}}}</p>
+                <i>{{description}}</i>
               </div>
               <div class="col-sm-1">
                 <p><span class="badge" style="font-weight: 100; color: white">{{participant_count}} <i class="icon-user"></i></span></p>

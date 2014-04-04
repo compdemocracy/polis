@@ -10,11 +10,9 @@ var VisView = function(params){
 
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
-var el_carouselSelector = params.el_carouselSelector;
 var el_raphaelSelector = params.el_raphaelSelector;
 var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
-var getUserInfoByPid = params.getUserInfoByPid;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
@@ -45,9 +43,8 @@ var force;
 var queryResults;
 var d3Hulls;
 var d3HullShadows;
-var d3CommentList;
 
-var selectedCluster = false;
+var selectedCluster = -1;
 var selectedBids = [];
 var selectedTid = -1;
 
@@ -92,9 +89,6 @@ var colorNoVote = colorPass;
 // var colorPullOutline = d3.rgb(colorPull).darker().toString();
 // var colorPushOutline = d3.rgb(colorPush).darker().toString();
 
-function useCarousel() {
-    return !isIE8 && display.xs();
-}
 
 // Cached results of tunalbes - set during init
 var strokeWidth;
@@ -310,9 +304,7 @@ strokeWidth = strokeWidthGivenVisWidth(w);
 charge = chargeForGivenVisWidth(w);
 
 queryResults = $(el_queryResultSelector).html("");
-if (!useCarousel()) {
-    $(el_carouselSelector).html("");
-}
+
 // } else {
     // queryResults = $(el_queryResultSelector).html("");
 
@@ -391,41 +383,14 @@ function argMax(f, args) {
 }
 
 function setClusterActive(clusterId) {
-    var pids;
-    var promise;
-    if (clusterId === false) {
-        pids = [];
-        promise = $.Deferred().resolve([]);
-    } else {
-        pids = clusters[clusterId];
-        var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 3;
-        promise = getCommentsForGroup(clusterId, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW);
-    }
     selectedCluster = clusterId;
 
-    promise
-      .pipe( // getCommentsForSelection with clusters array (of pids)
-        renderComments,                                 // !! this is tightly coupled.
-                            // !! it makes sense to keep this in the view because
-                                                        // !! we have to come BACK to the viz from the
-                                                        // !! backbonified list, then. Not worth it?
-        function(err) {
-          console.error(err);
-          resetSelection();
-        })
-      //.done(unhoverAll)
-      ;
-    
     // duplicated at 938457938475438975
     if (!isIE8) {
         main_layer.selectAll(".active").classed("active", false);
     }
-
-    // d3.select(this)
-    //     .style("fill","lightgreen")
-    //     .style("stroke","lightgreen");
-
-    return promise;
+    
+    return $.Deferred().resolve([]);
 }
 
 function updateHullColors() {
@@ -443,7 +408,7 @@ function updateHullColors() {
             }
         }
    } else {
-        if (selectedCluster !== false) {
+        if (selectedCluster >= 0) {
             d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
         }
    }
@@ -451,24 +416,25 @@ function updateHullColors() {
 
 
 function onClusterClicked(d) {
-    $("#analyzeTab").tab("show");
-    eb.trigger("clusterClicked");
     return handleOnClusterClicked(d.hullId);
 }
 
 function handleOnClusterClicked(hullId) {
     if (selectedCluster === hullId) {                 // if the cluster/hull just selected was already selected...
       return resetSelection();
-    } else {
-        resetSelectedComment();
-        unhoverAll();
-        setClusterActive(hullId)
-            .then(
-                updateHulls,
-                updateHulls);
-
-        updateHullColors();
     }
+
+    $("#analyzeTab").tab("show");
+    eb.trigger(eb.clusterClicked, hullId);
+
+    resetSelectedComment();
+    // unhoverAll();
+    setClusterActive(hullId)
+        .then(
+            updateHulls,
+            updateHulls);
+
+    updateHullColors();
 
     //zoomToHull.call(this, d);
     if (d3 && d3.event) {
@@ -1231,7 +1197,9 @@ function upsertNode(updatedNodes, newClusters) {
           .attr("text-anchor", "end");
 
       function labelText(d) {
-        return d.count + (d.count === 1 ? " person" : " people");
+        // var count = d.count;
+        var count = nodes.length;
+        return count + (count === 1 ? " person" : " people");
       }
 
     // update
@@ -1282,6 +1250,11 @@ function upsertNode(updatedNodes, newClusters) {
 }
 
 function selectComment(tid) {
+    if (!_.isNumber(tid)) {
+        resetSelectedComment();
+        unhoverAll();
+        return;
+    }
     selectedTid = tid;
 
     getReactionsToComment(tid)
@@ -1319,16 +1292,6 @@ function selectComment(tid) {
     }, function() {
         console.error("failed to get reactions to comment: " + d.tid);
     });
-
-    if (d3CommentList) {
-        d3CommentList.children().each(function(i) {
-            var li = $(this);
-            var tid = li.data("tid");
-            li.css("background-color", chooseCommentFill({tid: tid}));
-            li.css("color", chooseCommentTextColor({tid: tid}));
-        });
-    }
-
 }
 
 // TODO move this stuff out into a backbone view.
@@ -1341,93 +1304,15 @@ function chooseCommentFill(d) {
     }
 }
 
-function chooseCommentTextColor(d) {
-    if (selectedTid === d.tid) {
-        return "white";
-    } else {
-        return "black";
-    }
-}
 
 function renderComments(comments) {
-    function renderWithCarousel() {
-        $(el_carouselSelector).html("");
-        // $(el_carouselSelector).css("overflow", "hidden");        
-
-        // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
-        $(el_carouselSelector).append("<div id='smallWindow' style='left: 5%; width:80%'></div>");        
-
-        var results = $("#smallWindow");
-        results.addClass("owl-carousel");
-        // results.css('background-color', 'yellow');
-
-        if (results.data('owlCarousel')) {
-            results.data('owlCarousel').destroy();
-        }
-        results.owlCarousel({
-          items : 3, //3 items above 1000px browser width
-          // itemsDesktop : [1000,5], //5 items between 1000px and 901px
-          // itemsDesktopSmall : [900,3], // betweem 900px and 601px
-          // itemsTablet: [600,2], //2 items between 600 and 0
-          // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
-           singleItem : true,
-           // autoHeight : true,
-           afterMove: (function() {return function() {
-                var tid = indexToTid[this.currentItem];
-                setTimeout(function() {
-                    selectComment(tid);
-                }, 100);
-
-            }}())
-        });
-        var indexToTid = _.map(comments, function(c) {
-            return c.tid;
-        });
-        _.each(comments, function(c) {
-            results.data('owlCarousel').addItem("<div style='margin:10px; text-align:justify' class='well query_result_item'>" + c.txt + "</div>");
-        });
-        // Auto-select the first comment.
-        if (comments.length) {
-            selectComment(comments[0].tid);
-        }
-    }
-    function renderWithList() {
-        function renderComment(c) {
-            return "<li class='query_result_item' style='background-color:" + chooseCommentFill(c) +
-             "; color:" + chooseCommentTextColor(c) + "'>" + c.txt + "</li>";
-        }
-        queryResults.html("");
-        comments.sort(function(a,b) { return b.freq - a.freq; });
-        d3CommentList = $("<ol class='query_results'>");
-        queryResults.append(d3CommentList);
-        _.each(comments, function(c) {
-            var v = $(renderComment(c));
-            d3CommentList.append(v);
-            v.on("click", (function(tid) {
-                return function() {
-                    selectComment(tid);
-                };
-                }(c.tid)));
-            v.on("mouseover", function() {
-                $(this).addClass("hover");
-            });
-            v.on("mouseout", function() {
-                $(this).removeClass("hover");
-            });
-            v.data("tid", c.tid);
-        });
-    }
+    
     var dfd = $.Deferred();
 
     if (comments.length) {
         $(el_queryResultSelector).show();
     } else {
         $(el_queryResultSelector).hide();
-    }
-    if (useCarousel()) {
-        renderWithCarousel();
-    } else {
-        renderWithList();
     }
     setTimeout(dfd.resolve, 4000);
     eb.trigger("queryResultsRendered");
@@ -1439,7 +1324,6 @@ function onParticipantClicked(d) {
     // alert(1);
     // d3.event.stopPropagation();
     // d3.event.preventDefault(); // prevent flashing on iOS
-  // alert(getUserInfoByPid(d.pid).hname)
   var gid = bidToGid[d.bid];
   if (_.isNumber(gid)) {
       handleOnClusterClicked(gid);
@@ -1447,17 +1331,6 @@ function onParticipantClicked(d) {
 }
 
 function unhoverAll() {
-  console.log("unhoverAll");
-  if (d3CommentList) {
-    d3CommentList
-      .css("background-color", chooseCommentFill)
-      .css("color", chooseCommentTextColor);
-
-  }
-  // for (var i = 0; i < nodes.length; i++) {
-  //     var node = nodes[i];
-  //     node.ups = 0
-  // }
   updateNodes();
 }
 
@@ -1578,29 +1451,26 @@ function resetSelection() {
   } else {
       visualization.selectAll(".active").classed("active", false);
   }
-  selectedCluster = false;
+  selectedCluster = -1;
+  eb.trigger(eb.clusterClicked, selectedCluster);
   // visualization.transition().duration(750).attr("transform", "");
-  if (d3CommentList) {
-    d3CommentList.html("");
-  }
   selectedBids = [];
   resetSelectedComment();
-  unhoverAll();
+  // unhoverAll();
 }
 
 
 function selectBackground() {
-  resetSelection();
-  // selectedBids = [];
-  // resetSelectedComment();
-  // unhoverAll();
 
-  setClusterActive(false)
-    .then(
+  if (selectedCluster >= 0) {
+    resetSelection();
+    setClusterActive(-1)
+      .then(
         updateHulls,
         updateHulls);
 
-  updateHullColors();
+    updateHullColors();
+  }
 }
 
 
@@ -1750,6 +1620,7 @@ return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
+    selectComment: selectComment,
     // dipsplayBlueDotHelpItem: displayHelpItem,
     emphasizeParticipants: emphasizeParticipants,
 };

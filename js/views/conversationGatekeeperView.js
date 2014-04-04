@@ -2,6 +2,7 @@ var template = require("../tmpl/conversationGatekeeper");
 //var UserCreateView = require(".views/userCreateView");
 var MetadataQuestionsView = require("../views/metadataQuestionsView");
 var MetadataQuestionCollection = require("../collections/MetadataQuestions");
+var MetadataQuestion = require("../models/metadataQuestion");
 var PolisStorage = require("../util/polisStorage");
 var View = require("../view");
 
@@ -18,7 +19,12 @@ module.exports = View.extend({
       }
       this.serialize(function(attrs, release){
         // pull out the for values for pmaid
-        var numbers = _.chain(attrs).keys().map(Number).filter(function(num) {
+
+        var numbers = _.chain(attrs)
+          .values()  // attrs is {pmqid: pmaid} or {pmqid: [pmaid]}. We only need to upload the pmaids.
+          .flatten() // when !is_exclusive, you can get an array of pmaid for each pmqid
+          .map(Number)
+          .filter(function(num) {
           return !_.isNaN(num) && _.isNumber(num);
         }).value();
         // delete them from the hash
@@ -27,10 +33,18 @@ module.exports = View.extend({
         });
         // add the pmaid values as answers
         attrs.answers = numbers;
-        // Incorporate options, like zinvite.
-        attrs = $.extend(that.options || {}, attrs);
+
+        var params = that.params;
+        if (params.zinvite) {
+          attrs.zinvite = params.zinvite;
+        }
+        if (params.suzinvite) {
+          attrs.suzinvite = params.suzinvite;
+        }
+        attrs.zid = params.zid;
+
         var url = urlPrefix + "v3/participants";
-        if (this.options.suzinvite) {
+        if (params.suzinvite) {
           url = urlPrefix + "v3/joinWithSuzinvite";
         }
 
@@ -56,6 +70,7 @@ module.exports = View.extend({
   },
   initialize: function(options) {
     this.options = options;
+    this.model = options.model;
     var zid = options.zid;
     var zinvite = options.zinvite;
     var suzinvite = options.suzinvite;
@@ -68,8 +83,12 @@ module.exports = View.extend({
     if (options.suzinvite) {
       params.suzinvite = options.suzinvite;
     }
+    this.params = params;
+
+    var MetadataQuestionModelWithZinvite = MetadataQuestion.extend(params);
 
     this.metadataCollection = new MetadataQuestionCollection([], {
+      model: MetadataQuestionModelWithZinvite,
       zid: zid
     });
     this.metadataCollection.fetch({

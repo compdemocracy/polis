@@ -1,3 +1,4 @@
+var _ = require('underscore');
 var gulp = require('gulp');
 var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
@@ -75,7 +76,8 @@ gulp.task('index', [
     }))
   } else {
     s = s.pipe(template({
-      basepath: 'https://s3.amazonaws.com/pol.is',
+      //basepath: 'https://s3.amazonaws.com/pol.is',
+      basepath: '', // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
@@ -329,10 +331,24 @@ gulp.task("watchForDev", [
 gulp.task('deploy', [
   // "dist"
   "configureForProduction",
-  ], function() {
+], function() {
+  return deploy({
+      bucket: "pol.is"
+  });
+});
 
+gulp.task('preprod', [
+  // "dist"
+  "configureForProduction",
+], function() {
+  return deploy({
+      bucket: "preprod.pol.is"
+  });
+});
+ 
+function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-    creds.bucket = "pol.is";
+    creds = _.extend(creds, params);
 
     // Files without Gzip
     gulp.src([
@@ -356,29 +372,58 @@ gulp.task('deploy', [
         }
       }));
 
-});
+}
 
 
 // For now, you'll have to copy the assets from the other repo into the "about" directory
 gulp.task('deployAboutPage', [
   ], function() {
+  return deployAboutPage({
+      bucket: "pol.is"
+  });
+});
+
+gulp.task('deployAboutPagePreprod', [
+  ], function() {
+  return deployAboutPage({
+      bucket: "preprod.pol.is"
+  });
+});
+
+function deployAboutPage(params) {
 
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-    creds.bucket = "about.polis.io";
+
+    creds = _.extend(creds, params);
     
     var root = "../about-polis";
-    gulp.src([
-      root + "/index.html",
+    return gulp.src([
+      root + "/lander.html",
+      root + "/marketers.html",
+      root + "/company.html",
+      root + "/pricing.html",
+      root + "/professors.html",
+      root + "/d3.js",
+      root + "/clusterforce.js",
+      root + "/api.html",
+      root + "/politics.html", 
+      root + "/unsupportedBrowser.html",
+      root + "/about.css",
+      root + "/**/rainbow/**/*",
       root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
       root + "/**/node_modules/underscore/underscore-min.js", // ** to preserve path 
-      root + "/snowcity*.jpg",
+      root + "/**/landerImages/*",
+      root + "/**/bower_components/font-awesome/css/font-awesome.min.css",
+      root + "/**/bower_components/font-awesome/fonts/**",
+      root + "/**/bower_components/jquery/dist/jquery.js",
+      root + "/**/bower_components/jquery/dist/jquery.min.js"
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
         }
       }));
-});
+}
 
 
 gulp.task('default', [

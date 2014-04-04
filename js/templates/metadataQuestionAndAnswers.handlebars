@@ -1,22 +1,29 @@
-Question:
-<p class="questionText"> {{key}} </p>
-{{#if allowDelete}}
-	{{#button method="deleteQuestion" tag="a"}}
-		 &nbsp;<i class="icon-remove"></i>
-	{{/button}}
-{{/if}}
+<div class="panel panel-default">
 
+<div class="panel-heading">
+	{{#if required}} <span style="color:red">*</span>{{/if}}
+	{{key}}
+	{{#if allowDelete}}
+		{{#button method="deleteQuestion" tag="a"}}
+			 &nbsp;<i class="icon-remove"></i>
+		{{/button}}
+	{{/if}}
+</div>
+
+<ul class="list-group">
 {{collection}}
+</ul>
 
+{{#if allowCreate}}
 <ul class="nobullets">
 	<li>
-{{#if allowCreate}}
 		<div class="add_answer_form">			
 			<form>
 				<input style="width: 50%; margin-top:10px" name="answerInput" type="text" placeholder="A choice, e.g., 'NYC' or 'Boston'"></input>
 			</form>
 		</div>
-	
-{{/if}}
 	</li>
 </ul>
+{{/if}}
+
+</div>

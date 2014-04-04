@@ -129,10 +129,11 @@ var polisRouter = Backbone.Router.extend({
     });
 
     model.save().then(function(data) {
-      model.set("zid", data.zid);
+      var zid = data[0][0].zid;
+      model.set("zid", zid);
 
       var ptpt = new ParticipantModel({
-        zid: data.zid
+        zid: zid
       });
       return ptpt.save();
     }).then(function(ptptAttrs) {
@@ -165,21 +166,7 @@ var polisRouter = Backbone.Router.extend({
         var $checkbox = $(this);
         $checkbox.checkbox();
       });
-    }, function(err) {
-      // try with an oinvite
-      var oinvite = window.prompt("Please enter beta invite code:");
-      return $.ajax({
-        url: "/v3/users",
-        type: "PUT",
-        data: {
-          oinvite: oinvite,
-          is_owner: true
-        }
-      }).done(function() {
-        // Try again now that we should have permissions to create conversations.
-        that.createConversation();
-      });
-    }).fail(onFail);
+    }, onFail);
   },
   doLaunchConversation: function(ptptModel) {
     var zid = ptptModel.get("zid");
@@ -336,9 +323,15 @@ var polisRouter = Backbone.Router.extend({
     } else {
       params.zinvite = zinvite;
     }
-    var gatekeeperView = new ConversationGatekeeperView(params);
-    gatekeeperView.on("done", dfd.resolve);
-    RootView.getInstance().setView(gatekeeperView);
+
+    var model = new ConversationModel(params);
+    bbFetch(model).then(function() {
+      params.model = model;
+      var gatekeeperView = new ConversationGatekeeperView(params);
+      gatekeeperView.on("done", dfd.resolve);
+      RootView.getInstance().setView(gatekeeperView);
+    }, dfd.reject);
+
     return dfd.promise();
   },
   doCreateUserFromGatekeeper: function(zid, zinvite, singleUse) {

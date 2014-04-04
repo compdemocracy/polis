@@ -1,3 +1,10 @@
+@color_agree: #2ecc71; // EMERALD
+@color_disagree: #e74c3c; // ALIZARIN
+@color_pass: #BDC3C7; // SILVER
+@color_self: #0CF; // blue like the dot on a map
+@color_star: yellow; // TODO find right color
+@color_selected_comment: #f7f7f7;
+
 #analyze .nav-pills {
   margin-top: 20px
 }
@@ -18,21 +25,16 @@
 
 .query_result_item {
     min-height: 50px;
-    padding: 4px;
-    padding-left: 10px;
-    padding-right: 10px;
+    // padding: 4px;
+    // padding-left: 10px;
+    // padding-right: 10px;
     cursor: pointer;
-    border-left: 2px solid #ACCFE1;
+    // border-left: 2px solid #ACCFE1;
     margin-top: 10px;
-    margin-left: 2px;
-    text-align: justify;
+    // margin-left: 2px;
+    // text-align: justify;
     width: 92%
 }
-
-.hover {
-  background-color: #ebf3ff;
-}
-
 
 .active_result_item {
   background-color: #FFFBE8;
@@ -83,5 +85,9 @@
   fill: brown;
 }
 
-
+/* http://stackoverflow.com/questions/16489307/how-to-remove-gutter-space-for-a-specific-div-only-bootstrap  */
+.row.no-gutter [class*='col-']:not(:first-child),.row.no-gutter [class*='col-']:not(:last-child) {
+  padding-right:0;
+  padding-left:0;
+}
 

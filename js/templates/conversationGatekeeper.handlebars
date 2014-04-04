@@ -1,20 +1,32 @@
-<!--section>
+{{!
+<section>
 The conversation you are about to join requires that you create a Polis account.
 Your name and email address will be available to the conversation starter, and with other invitees to the conversation.
 Beyond that, we will not share this information with others.
 </section>
+}}
 
 <section>
 {{view gatekeeperAuthView}}
-</section-->
+</section>
 
-<section class="container">
+
+<section class="container" style="margin-bottom: 50px;">
 	<div class="row">
-		<div class="col-lg-offset-4 col-sm-4 col-md-4">
-			<h4 class="gatekeeperHeader">The conversation owner has requested that you provide the following information before joining:</h4>
+    <div class="col-lg-6 col-lg-offset-3 col-md-8 col-md-offset-2 col-sm-10 col-sm-offset-1 col-xs-12">
+      <h1>Welcome to Polis</h1>     
+      
+      {{#if ownername}}
+        <h4>This conversation was started by {{ownername}}</h4>
+      {{else}}
+        </br>
+      {{/if}} 
+			<h5 class="gatekeeperHeader">
+        Please start by answering these questions:
+      </h5>
 			<form>
-			   {{view metadataQuestionsView}}
-			   <button type="submit" class="btn gatekeeperButton btn-default btn-lg"> Join Conversation </button>
+			  {{view metadataQuestionsView}}
+			  <button type="submit" class="btn btn-lg btn-success btn-lg"> Next </button>
 			</form>
 		</div> <!-- span -->
 	</div> <!-- row -->

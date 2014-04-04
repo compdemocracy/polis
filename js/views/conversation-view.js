@@ -1,3 +1,5 @@
+var AnalyzeGlobalView = require("../views/analyze-global");
+var Backbone = require("backbone");
 var eb = require("../eventBus");
 var View = require('../view');
 var template = require('../tmpl/conversation-view');
@@ -25,10 +27,11 @@ var ServerClient = require("../lib/polis");
 
 var VIS_SELECTOR = "#visualization_div";
 var ANALYZE_TAB = "analyzeTab";
+var METADATA_TAB = "metadata_pill";
 var WRITE_TAB = "commentFormTab";
 var VOTE_TAB = "commentViewTab";
 
-var isIE8 = navigator.userAgent.match(/MSIE 8/);
+var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
 function shouldShowVisUnderTabs() {
   return display.xs();
@@ -46,7 +49,7 @@ module.exports =  View.extend({
   destroyPopovers: function() {
     popoverEach("destroy");
   },
-  onClusterTapped : function() {
+  onClusterTapped : function(gid) {
     this.destroyPopovers();
     var that = this;
       // if (window.isMobile()) {
@@ -54,7 +57,7 @@ module.exports =  View.extend({
       // }
   },
   onAnalyzeTabPopulated: function() {
-    $('li.query_result_item').first().trigger('click');
+    $('.query_result_item').first().trigger('click');
   },
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
@@ -85,7 +88,6 @@ module.exports =  View.extend({
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
 
-
     this.tutorialController = new TutorialController();
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: zid
@@ -93,8 +95,6 @@ module.exports =  View.extend({
 
 
     var resultsCollection = new ResultsCollection();
-
-    window.m = metadataCollection;
 
     // HTTP PATCH - model.save({patch: true})
 
@@ -109,15 +109,22 @@ module.exports =  View.extend({
     }
 
 
+    function configureGutters() {     
+      if (display.xs()) {
+        $("#controlTabs").addClass("no-gutter");
+      } else {
+        $("#controlTabs").removeClass("no-gutter");        
+      }
+    }
+
+
     function moveVisToBottom() {
       var $vis = that.$(VIS_SELECTOR).detach();
       $("#vis_sibling_bottom").append($vis);
-      $vis.removeClass("nudgeLeft");
     }
 
     function moveVisAboveQueryResults() {
       var $vis = that.$(VIS_SELECTOR).detach();
-      $vis.addClass("nudgeLeft");
       $("#vis_sibling_above_tab_content").append($vis);
     }
 
@@ -148,13 +155,11 @@ module.exports =  View.extend({
           getCommentsForProjection: serverClient.getCommentsForProjection,
           getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
-          getUserInfoByPid: serverClient.getUserInfoByPidSync,
           getPidToBidMapping: serverClient.getPidToBidMapping,
           w: w,
           h: h,
           computeXySpans: Utils.computeXySpans,
           el_queryResultSelector: ".query_results_div",
-          el_carouselSelector: "#carousel",
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
@@ -206,7 +211,7 @@ module.exports =  View.extend({
             trigger: "manual",
             placement: "bottom"  
           });
-          that.$('.query_results > li').first().trigger('click');
+          that.$('.query_result_item').first().trigger('click');
           that.$analyzeViewPopover.popover("show");
           that.$('#analyzeViewPopoverButton').click(function(){
             that.$analyzeViewPopover.popover("destroy");
@@ -226,12 +231,16 @@ module.exports =  View.extend({
 
     this.votesByMe = new VotesCollection();
 
+    this.allCommentsCollection = new CommentsCollection();
+    this.allCommentsCollection.firstFetchPromise = $.Deferred();
+
     var serverClient = that.serverClient = new ServerClient({
       zid: zid,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
       pid: pid,
       votesByMe: this.votesByMe,
+      comments: this.allCommentsCollection,
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,
@@ -241,6 +250,31 @@ module.exports =  View.extend({
       logger: console
     });
 
+    this.allCommentsCollection.updateRepness = function(tidToRepness) {
+      this.each(function(model) {
+        model.set("repness", tidToRepness[model.get("tid")], {silent: true});
+      });
+    };
+
+    this.allCommentsCollection.fetch = this.allCommentsCollection.doFetch = function() {
+      var thatCollection = this;
+      var params = {
+        zid: zid
+      };
+      var promise = Backbone.Collection.prototype.fetch.call(this, {
+        data: $.param(params),
+        processData: true,
+        silent: true,
+        ajax: function() {
+          return that.serverClient.getFancyComments(params);
+        }
+      });
+      promise.then(this.firstFetchPromise.resolve);
+      promise.then(function() {
+        thatCollection.trigger("reset");
+      });
+      return promise;
+    };
 
       this.serverClient.addPollingScheduledCallback(function() {
         that.updateVotesByMeCollection();
@@ -255,12 +289,14 @@ module.exports =  View.extend({
       });
 
       this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-        console.log(enabledAnswers);
-        serverClient.queryParticipantsByMetadata(enabledAnswers).then(
-          vis.emphasizeParticipants,
-          function(err) {
-            console.error(err);
-          });
+        if (that.currentTab === METADATA_TAB) {
+          console.log(enabledAnswers);
+          serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+            vis.emphasizeParticipants,
+            function(err) {
+              console.error(err);
+            });
+        }
       });
 
 
@@ -294,6 +330,20 @@ module.exports =  View.extend({
         serverClient: serverClient,
         zid: zid,
         collection: resultsCollection
+      });
+
+
+      this.analyzeGlobalView = new AnalyzeGlobalView({
+        zid: zid,
+        isIE8: isIE8,
+        getTidsForGroup: function() {
+          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+        },
+        collection: this.allCommentsCollection
+      });
+
+      eb.on(eb.commentSelected, function(tid) {
+        vis.selectComment(tid);
       });
 
       // this.votesByMe.on("all", function(x) {
@@ -354,6 +404,7 @@ module.exports =  View.extend({
       $('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
         var to = e.target;
         var from = e.relatedTarget;
+        that.currentTab = to.id;
         if (to && to.id === WRITE_TAB && shouldHideVisWhenWriteTabShowing()) {
           // When we're switching to the write tab, hide the vis.
           that.hideVis();
@@ -364,13 +415,18 @@ module.exports =  View.extend({
           that.showVis();
         }
         if(from && from.id === ANALYZE_TAB) {
-          that.$("#carousel").hide();
+          // that.analyzeGlobalView.hideCarousel();
+          that.analyzeGlobalView.deselectComments();
         }
         if(to && to.id === ANALYZE_TAB) {
           if (shouldShowVisUnderTabs()) {
             moveVisAboveQueryResults();
           }
-          that.$("#carousel").show();
+          that.allCommentsCollection.doFetch().then(function() {
+            // uses the current sort comparator
+            that.analyzeGlobalView.sort();
+          });
+          // that.analyzeGlobalView.showCarousel();
         }
         if(to && to.id === VOTE_TAB) {
           if (shouldShowVisUnderTabs()) {
@@ -384,8 +440,7 @@ module.exports =  View.extend({
         console.log(e.target);
         // e.relatedTarget // previous tab
         if(e.target && e.target.id === ANALYZE_TAB) {
-          console.log(123);
-          that.$('li.query_result_item').first().trigger('click');
+          $(".query_result_item").first().trigger("click");
         }
       });
 
@@ -437,7 +492,7 @@ module.exports =  View.extend({
 
 
       
-
+      configureGutters();
       if (isIE8) {
         // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
         // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
@@ -445,7 +500,10 @@ module.exports =  View.extend({
         // document.body.onresize = _.debounce(initPcaVis, 1000)
       } else {
         setTimeout(initPcaVis, 10); // give other UI elements a chance to load        
-        $(window).resize(_.debounce(initPcaVis, 100));
+        $(window).resize(_.debounce(function() {
+          configureGutters();
+          initPcaVis();
+        }, 100));
       }
 
 

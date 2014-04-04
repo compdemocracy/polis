@@ -15,31 +15,29 @@
   {{#ifDefined tid}}
     <div class="btn-group btn-group-justified">
       <div class="btn-group">
-        {{#button
-          method="participantAgreed"
-          class="btn btn-lg btn-default"
+        <button
+          class="btn btn-lg btn-default btn-vote"
           id="agreeButton"
           type="button"
-        }}
+        >
         {{#ifNotIE8}}
           <i class="icon-caret-up" style="color: #2ecc71;"></i>
         {{/ifNotIE8}}
-        &nbsp;Agree {{/button}}
+        &nbsp;Agree </button>
       </div>
       <div class="btn-group">
-        {{#button
-          method="participantDisagreed"
+        <button
           id="disagreeButton"
-          class="btn btn-lg btn-default"
+          class="btn btn-lg btn-default btn-vote"
           type="button"
-        }}
+        >
         {{#ifNotIE8}}
           <i class="icon-caret-down" style="color: #e74c3c; position: relative; top: 1px"></i>
         {{/ifNotIE8}}
-        &nbsp;Disagree {{/button}}
+        &nbsp;Disagree </button>
       </div>
       <div class="btn-group" id="otherButtonGroup">
-        <button type="button" class="btn btn-lg btn-default dropdown-toggle" data-toggle="dropdown">
+        <button type="button" class="btn btn-lg btn-default dropdown-toggle btn-vote" data-toggle="dropdown">
           Other&nbsp;
           {{#ifNotIE8}}            
             <i class="icon-angle-down" style="position: relative; top: 1px"></i>

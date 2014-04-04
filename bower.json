@@ -2,6 +2,7 @@
   "name": "dashboard-require",
   "version": "0.0.0",
   "dependencies": {
+    "backbone": "git://github.com/mbjorkegren/backbone#polis",
     "underscore": "~1.5.2",
     "thorax": "~2.0",
     "bootstrap": "~3.1.1",

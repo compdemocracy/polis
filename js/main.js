@@ -60,6 +60,16 @@ function ifNotIE8(arg0) {
 Handlebars.registerHelper("ifNotIE8", ifNotIE8);
 
 
+function useCarousel(arg0) {
+  return !isIE8() && display.xs();
+}
+Handlebars.registerHelper("useCarousel", function(arg0) {
+  return useCarousel(arg0) ? arg0.fn(this) : "";
+});
+Handlebars.registerHelper("notUseCarousel", function(arg0) {
+  return useCarousel(arg0) ? "" : arg0.fn(this);
+});
+
 
 
 

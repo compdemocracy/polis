@@ -1,0 +1,35 @@
+
+<div id="analyzeHeader" class="hidden-xs">
+  <form id="commentSearch" role="form" style="
+      margin-top: 20px;
+  ">
+    <input type="text" class="form-control" id="commentSearchInput" placeholder="Search for comments">
+  </form>
+
+  <div id="commentSort">
+
+    <span class="control">Sort by</span>
+    <span id="sortAgree" class="sort control"># of Agrees </span> 
+    <span id="sortDisagree" class="sort control"># of Disagrees </span> 
+    <span id="sortStar" class="sort control"># of Stars</span> 
+</div> 
+
+  <div id="groupStats" style="display:none">
+    {{!-- <p>
+      {{numSelected}} people in the selected group.
+    </p> --}}
+    <p>
+      Comments that most represent the selected group
+    </p>
+    </h5>
+  </div>
+
+</div>
+
+<!--class='visible-xs'-->
+<div id="carousel" class="t-span6 col-xs-12 col-sm-6 col-md-7 col-lg-8 visible-xs" style="overflow:hidden">
+</div>
+
+<div class="hidden-xs">
+{{collection}}
+</div>

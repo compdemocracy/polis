@@ -52,6 +52,20 @@
   border-right: 0px
 }
 
+.btn-vote {
+  // set this independently of the overall font size, since they're difficult to get right.
+  font-size: 20px;
+}
+
+.tab-conv {
+  // set this independently of the overall font size, since they're difficult to get right.  
+  font-size: 16px;
+}
+.control {
+  // set this independently of the overall font size, since they're difficult to get right.  
+  font-size: 16px;
+}
+
 .conversationViewHeadline {
   margin-bottom: 40px;
 }
@@ -91,7 +105,6 @@ svg {
 
 
 #comment_shower p, #comment_shower h3 {
-   font-size: 16px;
    font-weight: normal;
    line-height: normal;
 }
@@ -118,6 +131,56 @@ svg {
 .icon-star {
   color: #f39c12;
 }
+
+
+
+.query_result_item.selected {
+  background-color: @color_selected_comment;
+}
+
+.hover {
+  background-color: @color_selected_comment;
+}
+
+.a {
+  color: @color_agree;
+}
+.d {
+  color: @color_disagree;
+}
+
+
+.sort {
+  color: gray;
+  margin: 0px 10px 0px 10px;
+  padding-bottom: 4px;
+  cursor: pointer;
+}
+#sortAgree.sort.enabled {
+  color: @color_agree;
+  border-bottom: 1px solid @color_agree;
+}
+#sortDisagree.sort.enabled {
+  color: @color_disagree;
+  border-bottom: 1px solid @color_disagree;
+}
+#sortStar.sort.enabled {
+  color: @color_star;
+  border-bottom: 1px solid @color_star;
+}
+
+#analyzeHeader {
+  box-shadow: 0px 8px 10px -9px gray;
+  padding-bottom: 1px;
+  margin-bottom: 15px;
+}
+
+#commentSort, #groupStats {
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+
 
 /* Everything but mobile */
 @media (min-width: 767px) {
@@ -172,6 +235,7 @@ svg {
     left: auto;
   }
 }
+
 
 
 

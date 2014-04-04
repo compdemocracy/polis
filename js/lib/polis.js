@@ -56,17 +56,20 @@ module.exports = function(params) {
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
 
+    var votesForTidBidPromise = $.Deferred();
+
     var projectionPeopleCache = [];
     var clustersCache = [];
 
+    // collections
     var votesByMe = params.votesByMe;
+    var comments = params.comments;
 
     var pcX = {};
     var pcY = {};
     var repness = {}; // gid -> tid -> representativeness (bigger is more representative)
     var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
     var participantCount = 0;
-    var userInfoCache = [];
     var bidToPid = [];
     var pidToBidCache = null;
     var bid;
@@ -87,6 +90,10 @@ module.exports = function(params) {
     var BUCKETIZE_THRESH = 64;
     var BUCKETIZE_ROWS = 8;
     var BUCKETIZE_COLUMNS = 8;
+
+    function demoMode() {
+        return getPid() < 0;
+    }
 
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
     // Err... I guess discussions can be circular.
@@ -180,8 +187,7 @@ module.exports = function(params) {
         // CAUTION - possibly dead code, comments are submitted through backbone
 
 
-        // DEMO_MODE
-        if (getPid() < 0) {
+        if (demoMode()) {
             return $.Deferred().resolve();
         }
 
@@ -224,8 +230,7 @@ module.exports = function(params) {
             console.error("missing tid");
             console.error(params);
         }
-        // DEMO_MODE
-        if (getPid() < 0) {
+        if (demoMode()) {
             return $.Deferred().resolve();
         }
         return polisPost(votesPath, $.extend({}, params, {
@@ -243,37 +248,19 @@ module.exports = function(params) {
         });
     }
 
-    // optionalSpecificSubStimulus (aka commentId)
-    function see(optionalSpecificSubStimulus) {
-        var ev = {
-            vote: polisTypes.reactions.see
-        };
-        if (optionalSpecificSubStimulus) {
-            ev.tid = optionalSpecificSubStimulus;
-        }
-        return react(ev);
-    }
+    function pass(tid) {
 
-
-    // optionalSpecificSubStimulus (aka commentId)
-    function pass(optionalSpecificSubStimulus) {
-        var ev = {
-            vote: polisTypes.reactions.pass
-        };
-        if (optionalSpecificSubStimulus) {
-            ev.tid = optionalSpecificSubStimulus;
-        }
-        if (ev.tid) {
-            clearComment(ev.tid);
-        }
-        return react(ev);
+        clearComment(tid);
+        return react({
+            vote: polisTypes.reactions.pass,
+            tid: tid
+        });
     }
 
     function trash(tid) {
         clearComment(tid, "trash");
 
-        // DEMO_MODE
-        if (getPid() < 0) {
+        if (demoMode()) {
             return $.Deferred().resolve();
         }
 
@@ -660,6 +647,9 @@ function clientSideBaseCluster(things, N) {
             }
             // var totalVotes = inAgree + inDisagree + outAgree + outDisagree;
             var repnessValue = (inAgree / (inDisagree)) / (outAgree/(outDisagree));
+            // since inAgree was padded, remove padding and multiply again.            
+            // Agreement within the group is super important, so let's multiply it in there twice.
+            repnessValue *= inAgree - 1;
             repness[tid] = repnessValue;
         });
 
@@ -678,7 +668,7 @@ function clientSideBaseCluster(things, N) {
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
                 // Check for missing comps... TODO solve 
-                if (!pcaData.pca || !pcaData.pca.comps || !pcaData.pca.comps[0] || !pcaData.pca.comps[1]) {
+                if (!pcaData.pca || !pcaData.pca.comps) {
                     console.error("missing comps");
                     return $.Deferred().reject();
                 }
@@ -698,10 +688,13 @@ function clientSideBaseCluster(things, N) {
 
                 pcX = pcaData.pca.comps[0];
                 pcY = pcaData.pca.comps[1];
-                // TODO get offsets for x and y
+                // in case of malformed PCs (seen on conversations with only one comment)
+                pcX = pcX || [];
+                pcY = pcX || [];
  
 
                 votesForTidBid = pcaData["votes-base"];
+                votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
 
                 var clusters = pcaData["group-clusters"];
                 clusters = _.map(clusters, function(c) {
@@ -814,35 +807,6 @@ function clientSideBaseCluster(things, N) {
         return s;
     }
 
-    function getAllUserInfo() {
-        return polisGet(participantsPath, {
-            zid: zid
-        });
-    }
-
-    function fetchUserInfoIfNeeded() {
-        if (participantCount > userInfoCache.length) {
-            updateUserInfoCache();
-        }
-    }
-
-    function updateUserInfoCache() {
-        getAllUserInfo().done(function(data) {
-            userInfoCache = data;
-        });
-    }
-
-    function getUserInfoByPidSync(pid) {
-        return userInfoCache[pid];
-    }
-
-    function getUserInfoByPid(pid) {
-        return polisGet(participantsPath, {
-            pid: pid,
-            zid: zid
-        });
-    }
-
     function getCommentsForProjection(params) {
         var ascending = params.sort > 0;
         var count = params.count;
@@ -879,6 +843,32 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
+    function sum(arrayOfNumbers) {
+        return _.reduce(arrayOfNumbers, function(total, x) { return total+x; }, 0);
+    }
+
+    function getFancyComments(options) {
+        return $.when(getComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */) {
+            
+            var comments = args[0];
+            // don't need args[1], just used as a signal
+
+            // votesForTidBid should be defined since votesForTidBidPromise has resolved.
+            return _.map(comments, function(x) {
+                // Count the agrees and disagrees for each comment.
+                var bidToVote = votesForTidBid[x.tid];
+                if (bidToVote) {
+                    x.A = sum(bidToVote.A);
+                    x.D = sum(bidToVote.D);
+                } else {
+                    x.A = 0;
+                    x.D = 0;
+                }
+                return x;
+            });
+        });
+    }
+
     function getComments(params) {
         params = $.extend({
             zid: zid,
@@ -887,7 +877,7 @@ function clientSideBaseCluster(things, N) {
         return polisGet(commentsPath, params);
     }
 
-    function getCommentsForGroup(gid, max) {
+    function getTidsForGroup(gid, max) {
         var tidToR = computeRepness(clustersCache[gid], votesForTidBid);
         var tids;
         if (_.isNumber(max)) {
@@ -908,9 +898,19 @@ function clientSideBaseCluster(things, N) {
                 return Number(tid);
             });
         }
-        return getComments({
+        return $.Deferred().resolve({
+            tidToR: tidToR,
             tids: tids
-        }).pipe(function(comments) {
+        });
+    }
+
+    function getCommentsForGroup(gid, max) {
+        var tidToR;
+        return getTidsForGroup(gid, max).then(function(o) {
+                tidToR = o.tidToR;
+                delete o.tidToR;
+                return getComments(o);
+            }).then(function(comments) {
             comments = _.map(comments, function(c) {
                 c.repness = tidToR[c.tid];
                 return c;
@@ -1077,6 +1077,10 @@ function clientSideBaseCluster(things, N) {
     }
 
     function updateBid() {
+        if (demoMode()) {
+            bid = 0;
+            return $.Deferred().resolve(bid);
+        }
         return polisGet(bidPath, {
             lastVoteTimestamp: lastServerTokenForBid, // use the same
             zid: zid
@@ -1097,7 +1101,6 @@ function clientSideBaseCluster(things, N) {
 
     function poll() {
       var pcaPromise = fetchPca();
-      pcaPromise.done(fetchUserInfoIfNeeded, fetchUserInfoIfNeeded);
       pcaPromise.done(updateMyProjection);
       pcaPromise.done(function() {
         // TODO Trigger based on votes themselves incrementing, not waiting on the PCA.
@@ -1125,9 +1128,9 @@ function clientSideBaseCluster(things, N) {
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForGroup: getCommentsForGroup,
+        getTidsForGroup: getTidsForGroup,
+        getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,
-        getUserInfoByPid: getUserInfoByPid,
-        getUserInfoByPidSync: getUserInfoByPidSync,
         getPidToBidMapping: getPidToBidMappingFromCache,
         disagree: disagree,
         agree: agree,
@@ -1135,7 +1138,6 @@ function clientSideBaseCluster(things, N) {
         trash: trash,
         star: star,
         unstar: unstar,
-        //see: see,
         stories: stories,
         invite: invite,
         queryParticipantsByMetadata: queryParticipantsByMetadata,
