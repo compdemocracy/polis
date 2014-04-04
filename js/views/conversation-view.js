@@ -31,7 +31,7 @@ var METADATA_TAB = "metadata_pill";
 var WRITE_TAB = "commentFormTab";
 var VOTE_TAB = "commentViewTab";
 
-var isIE8 = navigator.userAgent.match(/MSIE 8/);
+var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
 function shouldShowVisUnderTabs() {
   return display.xs();
