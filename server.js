@@ -3671,6 +3671,13 @@ var conditionalIndexFetcher = (function() {
         if (hasToken(req)) {
             // user is signed in, serve the app
             return fetchIndex(req, res);
+        } else if (!browserSupportsPushState(req)) {
+            // TEMPORARY: Don't show the landing page.
+            // The problem is that /user/create redirects to #/user/create,
+            // which ends up here, and since there's no auth token yet,
+            // we would show the lander. One fix would be to serve up the auth page
+            // as a separate html file, and not rely on JS for the routing.
+            return fetchIndex(req, res);
         } else {
             // user not signed in, serve landing page
             return fetchLander(req, res);
