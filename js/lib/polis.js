@@ -248,18 +248,6 @@ module.exports = function(params) {
         });
     }
 
-    // optionalSpecificSubStimulus (aka commentId)
-    function see(optionalSpecificSubStimulus) {
-        var ev = {
-            vote: polisTypes.reactions.see
-        };
-        if (optionalSpecificSubStimulus) {
-            ev.tid = optionalSpecificSubStimulus;
-        }
-        return react(ev);
-    }
-
-
     function pass(tid) {
 
         clearComment(tid);
@@ -1150,7 +1138,6 @@ function clientSideBaseCluster(things, N) {
         trash: trash,
         star: star,
         unstar: unstar,
-        //see: see,
         stories: stories,
         invite: invite,
         queryParticipantsByMetadata: queryParticipantsByMetadata,
