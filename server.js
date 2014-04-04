@@ -1943,7 +1943,7 @@ function(req, res) {
                 checkZinviteCodeValidity(zid, zinvite, function(err) {
                     if (err) {
                         isConversationOwner(zid, uid, function(err) {
-                            if (err) { fail(res, 403, "polis_err_add_participant_bad_zinvide_code", err); return; }
+                            if (err) { fail(res, 403, "polis_err_add_participant_bad_zinvite_code", err); return; }
                             onAllowed();
                         });
                         return;
