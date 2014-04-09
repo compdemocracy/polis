@@ -1,3 +1,4 @@
+var eb = require("../eventBus");
 var Utils = require("../util/utils")
 var shuffleWithSeed = require("../util/shuffleWithSeed");
 
@@ -64,6 +65,10 @@ module.exports = function(params) {
     // collections
     var votesByMe = params.votesByMe;
     var comments = params.comments;
+
+    comments.on("add remove reset", function() {
+        eb.trigger(eb.commentCount, this.length);
+    });
 
     var pcX = {};
     var pcY = {};
@@ -681,6 +686,10 @@ function clientSideBaseCluster(things, N) {
                 ///var people = pcaData.people;
 
                 participantCount = _.reduce(buckets, function(memo, b) { return memo + b.count;}, 0);
+                eb.trigger(eb.participantCount, participantCount);
+                if (_.isNumber(pcaData.voteCount)) {
+                    eb.trigger(eb.voteCount, pcaData.voteCount);
+                }
 
                 //var myself = _.findWhere(people, {pid: getPid()});
                 //people = _.without(people, myself);

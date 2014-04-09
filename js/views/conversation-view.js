@@ -4,7 +4,8 @@ var eb = require("../eventBus");
 var View = require('../view');
 var template = require('../tmpl/conversation-view');
 var CommentView = require('../views/vote-view');
-var CommentFormView = require("../views/comment-form")
+var CommentFormView = require("../views/comment-form");
+var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ChangeVotesView = require("../views/change-votes");
 var display = require("../util/display");
 var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
@@ -87,6 +88,9 @@ module.exports =  View.extend({
     var pid = this.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
+
+
+    this.conversationStatsHeader = new ConversationStatsHeader();
 
     this.tutorialController = new TutorialController();
     var metadataCollection = new MetadataQuestionsCollection([], {
@@ -382,8 +386,8 @@ module.exports =  View.extend({
       that.destroyPopovers();
     });
 
-    eb.on("clusterClicked", onClusterTapped);
-    eb.on("queryResultsRendered", _.bind(this.onAnalyzeTabPopulated, this));
+    eb.on(eb.clusterClicked, onClusterTapped);
+    eb.on(eb.queryResultsRendered, _.bind(this.onAnalyzeTabPopulated, this));
 
     this.listenTo(this, "rendered", function(){
       setTimeout(function() {
