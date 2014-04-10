@@ -111,7 +111,6 @@
                                    end (System/currentTimeMillis)
                                    duration (- end start)]
                                (metric "math.pca.compute.ok" duration)
-                               (pprint foo)
                                foo)))
                   (catch Exception e
                     (do
@@ -142,11 +141,9 @@
                   json (generate-string
                         (prep-for-uploading-bidToPid-mapping
                          (@conversations zid)))
-              obj (parse-string json)] 
-
-              (println json)
-              (println
-               (meter
+                  obj (parse-string json)]
+              
+              (meter
                 "db.math.bidToPid.put"
                 (mongo-upsert-results
                  "polismath_bidToPid_april9"
@@ -154,7 +151,7 @@
                  lastVoteTimestamp
                  (assoc obj
                    "lastVoteTimestamp" lastVoteTimestamp
-                   "zid" zid)))))
+                   "zid" zid))))
             
             ; Upload primary math results
             (let [
@@ -164,20 +161,16 @@
                         (prep-for-uploading-to-client
                          (@conversations zid)))
               obj (parse-string json)] 
-
-              (println json)
-              ; (debug-repl)
-              (println
-               (meter
-                "db.math.pca.put"
-                (mongo-upsert-results
-                 "polismath_test_april9"
-                 zid
-                 lastVoteTimestamp
-                 (assoc obj
-                   "lastVoteTimestamp" lastVoteTimestamp
-                   "zid" zid)))))
-            )))
+              (meter
+               "db.math.pca.put"
+               (mongo-upsert-results
+                "polismath_test_april9"
+                zid
+                lastVoteTimestamp
+                (assoc obj
+                  "lastVoteTimestamp" lastVoteTimestamp
+                  "zid" zid)))
+              ))))
             
 
             
