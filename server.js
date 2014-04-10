@@ -3656,6 +3656,7 @@ app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo.*/, fetchIndex);
 app.get(/^\/pwreset.*/, fetchIndex);
+app.get(/^\/prototype.*/, fetchIndex);
 app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/professors.html", "text/html"));
 app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
 app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
