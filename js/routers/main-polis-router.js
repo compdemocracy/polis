@@ -12,6 +12,7 @@ var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
 var ConversationGatekeeperViewCreateUser = require("../views/conversationGatekeeperViewCreateUser");
 var ConversationView = require("../views/conversation-view");
 var CreateUserFormView = require("../views/create-user-form");
+var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
 var LandingPageView = require("../views/landing-page");
 var PasswordResetView = require("../views/passwordResetView");
@@ -34,6 +35,7 @@ var polisRouter = Backbone.Router.extend({
     "settings": "deregister",
     "inbox(/:filter)": "inbox",
     "pwresetinit" : "pwResetInit",
+    "prototype": "prototype",
     "": "landingPageView"
     // see others in the initialize method
   },
@@ -46,6 +48,10 @@ var polisRouter = Backbone.Router.extend({
   },
   bail: function() {
     this.navigate("/", {trigger: true});
+  },
+  prototype: function() {
+    var view = new EmptyView();
+    RootView.getInstance().setView(view);
   },
   landingPageView: function() {
     if (!authenticated()) {
