@@ -59,13 +59,20 @@
                           :base-iters 10
                           :base-k 50
                           :group-iters 10}
-                    opts))
+                         opts))
+   
+   :zid  (plmb/fnk [conv]
+                   (:zid conv))
+   
+   :lastVoteTimestamp  (plmb/fnk [votes]
+                  (:created (last votes)))
+   
    :rating-mat  (plmb/fnk [conv votes]
-                  (update-nmat (:rating-mat conv)
-                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
+                  (time2 "rating-mat" (update-nmat (:rating-mat conv)
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes))))
    :n           (plmb/fnk [rating-mat]
                   "count the participants"
-                  (count (:rows rating-mat)))})
+                  (time2 "n" (count (:rows rating-mat))))})
 
 
 (def small-conv-update-graph

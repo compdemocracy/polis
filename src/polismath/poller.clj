@@ -80,17 +80,88 @@
                (encode-seq (into-array v) jsonGenerator)))
 
 
-(defn new-conv []
-  {:rating-mat (named-matrix)})
 
+(def conversations (atom {})) ; Will contain zid -> agent(data)
+
+
+(defn make-math-updater [votes]
+  (fn [conv]
+    (let [start (System/currentTimeMillis)]
+        (do
+          (println "starting zid: " (:zid conv))
+          (println conv)
+          (let [foo (conv-update conv votes)
+                end (System/currentTimeMillis)
+                duration (- end start)]
+            (metric "math.pca.compute.ok" duration)
+            (println foo)
+            foo)))))
+
+(defn bid-to-pid-uploader [key iref old_conv conv]
+  (println "bid-to-pid-uploader " (:zid conv))
+  (println "bid-to-pid-uploader " conv)  
+            ; Upload pid mapping NOTE: uploading before primary
+            ; results since client triggers resuest for pid mapping in
+            ; response to a new primary math result, so there is race.
+  (let [
+              ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
+              ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
+        lastVoteTimestamp (conv :lastVoteTimestamp)
+        json (generate-string (prep-for-uploading-bidToPid-mapping conv))
+        obj (parse-string json)]
+    
+    (meter
+     "db.math.bidToPid.put"
+     (mongo-upsert-results
+      "polismath_bidToPid_april9"
+      (conv :zid)
+      (conv :lastVoteTimestamp)
+      obj))))
+
+(defn math-uploader [key iref old_conv conv]
+  (println "math-uploader " (:zid conv))
+  (println "math-uploader " conv)  
+                                        ; Upload primary math results
+  (let [
+              ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
+              ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
+        json (generate-string
+              (prep-for-uploading-to-client conv))
+        obj (parse-string json)] 
+    (meter
+     "db.math.pca.put"
+     (mongo-upsert-results
+      "polismath_test_april9"
+      (conv :zid)
+      (conv :lastVoteTimestamp)
+      obj))))
+
+
+(defn new-conv [zid lastVoteTimestamp]
+  {:rating-mat (named-matrix)
+   :zid zid
+   :lastVoteTimestamp lastVoteTimestamp})
+
+
+(defn init-conv-agent [zid]
+  (swap! conversations
+         (fn [cs]
+           (println "init-conv-agent" zid)
+           (assoc cs
+             zid
+             (agent (new-conv zid 0)))))
+  
+  (let [a (@conversations zid)]
+    (add-watch a :bid-to-pid-uploader-watch bid-to-pid-uploader)
+    (add-watch a :math-uploader-watch math-uploader)
+    a))
 
 (defn -main []
   (println "launching poller " (System/currentTimeMillis))
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
         mg-db           (mongo-connect! (env/env :mongo-url))
-        last-timestamp  (atom 0)
-        conversations   (atom {})]
+        last-timestamp  (atom 0)]
     (endlessly poll-interval
       (println "poll >" @last-timestamp)
       (let [new-votes (poll pg-spec @last-timestamp)
@@ -98,84 +169,33 @@
             zid-votes (shuffle (into [] zid-to-votes))
             ]
         (doseq [[zid votes] zid-votes]
-          (let [lastVoteTimestamp (:created (last votes))]
-            (swap! conversations
-              (fn [convs]
-                (let [start (System/currentTimeMillis)]
-                  (try
-                    (metric "math.pca.compute.go" 1)
-                    (assoc convs zid
-                           (do
-                             (println "zid: " zid)
-                             (let [foo (conv-update (or (convs zid) (new-conv)) votes)
-                                   end (System/currentTimeMillis)
-                                   duration (- end start)]
-                               (metric "math.pca.compute.ok" duration)
-                               foo)))
-                  (catch Exception e
-                    (do
-                      (println "exception when processing zid: " zid)
-                      (.printStackTrace e)
-                      
-                      (let [end (System/currentTimeMillis)
-                            duration (- end start)]
-                        (metric "math.pca.compute.fail" duration))
-                      @conversations ; put things back 
-                      ))))))
+          (let [
+                a (or (@conversations zid)
+                      (init-conv-agent zid))
+                ]
+
+            ;; Clear old errors.
+            (let [old-error  (agent-error a)]
+              (if (not (nil? old-error))
+                (do (println old-error)
+                    (println "AGENT ERROR!")
+                    (.printStackTrace old-error)
+                    (restart-agent a @a))))
             
-                
+            ;; Enqueue the votes on the agent for that conversation.            
+            (send a (make-math-updater votes))
+            
+            
             (println "zid: " zid)
             (println "time: " (System/currentTimeMillis))
             (println "\n\n")
-
-            (let [conv (@conversations zid)]
-              (if-not (nil? conv)
-                (do
-                  
-            ; Upload pid mapping NOTE: uploading before primary
-            ; results since client triggers resuest for pid mapping in
-            ; response to a new primary math result, so there is race.
-            (let [
-              ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
-              ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
-                  json (generate-string
-                        (prep-for-uploading-bidToPid-mapping
-                         (@conversations zid)))
-                  obj (parse-string json)]
-              
-              (meter
-                "db.math.bidToPid.put"
-                (mongo-upsert-results
-                 "polismath_bidToPid_april9"
-                 zid
-                 lastVoteTimestamp
-                 (assoc obj
-                   "lastVoteTimestamp" lastVoteTimestamp
-                   "zid" zid))))
-            
-            ; Upload primary math results
-            (let [
-              ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
-              ; This is a quick-n-dirty workaround for Monger's missing supoort for these types.
-                  json (generate-string
-                        (prep-for-uploading-to-client
-                         (@conversations zid)))
-              obj (parse-string json)] 
-              (meter
-               "db.math.pca.put"
-               (mongo-upsert-results
-                "polismath_test_april9"
-                zid
-                lastVoteTimestamp
-                (assoc obj
-                  "lastVoteTimestamp" lastVoteTimestamp
-                  "zid" zid)))
-              ))))
-            
-
-            
-
-            
-        (swap! last-timestamp (fn [_] (:created (last new-votes))))
-
-      ))))))
+            ))
+        
+        (swap! last-timestamp
+               (fn [_]
+                 (let [new-last-timestamp (:created (last new-votes))]
+                   (if (nil? new-last-timestamp)
+                     @last-timestamp
+                     new-last-timestamp)
+                   )))
+        ))))
