@@ -1080,7 +1080,6 @@ var whitelistedDomains = [
 
 var whitelistedBuckets = {
     "pol.is": "pol.is",
-    "www.pol.is": "pol.is",
     "preprod.pol.is": "preprod.pol.is",
     "about.polis.io": "about.polis.io",
 };
