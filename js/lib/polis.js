@@ -330,10 +330,19 @@ module.exports = function(params) {
     }
 
     function polisPost(api, data) {
+        setTimeout(function() {
+            metric("post", api);
+        });
         return polisAjax(api, data, "POST");
     }
 
     function polisGet(api, data) {
+        var shouldUploadMetric = [commentsPath, pcaPath].indexOf(api) < 0;
+        if (shouldUploadMetric) {
+            setTimeout(function() {
+                metric("get", api);
+            });
+        }
         return polisAjax(api, data, "GET");
     }
 
@@ -341,6 +350,7 @@ module.exports = function(params) {
         if (!_.isString(api)) {
             throw "api param should be a string";
         }
+
         var url = protocol + "://"+ domain + basePath + api;
 
         // Add the auth token if needed.
@@ -379,7 +389,11 @@ module.exports = function(params) {
                 data: JSON.stringify(data)
             }));
         }
+
         promise.fail( function(jqXHR, message, errorType) {
+
+            metric("ajaxError", api, jqXHR.status);
+
             logger.error("SEND ERROR");
             console.dir(arguments);
             if (403 === jqXHR.status) {

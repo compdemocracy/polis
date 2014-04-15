@@ -15,36 +15,37 @@ var CreateUserFormView = require("../views/create-user-form");
 var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
 var LandingPageView = require("../views/landing-page");
+var metric = require("../util/metric");
 var PasswordResetView = require("../views/passwordResetView");
 var PasswordResetInitView = require("../views/passwordResetInitView");
 var ShareLinkView = require("../views/share-link-view");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 
-function authenticated() {
-  return PolisStorage.uid();
-}
+function authenticated() { return PolisStorage.uid(); }
 
 var polisRouter = Backbone.Router.extend({
-  routes: {
-    "homepage": "homepageView",
-    "conversation/create": "createConversation",
-    "conversation/view/:id(/:zinvite)": "conversationView",
-    "user/create": "createUser",
-    "user/login":"login",
-    "settings": "deregister",
-    "inbox(/:filter)": "inbox",
-    "pwresetinit" : "pwResetInit",
-    "prototype": "prototype",
-    "": "landingPageView"
-    // see others in the initialize method
-  },
   initialize: function(options) {
-    this.route(/([0-9]+)/, "conversationView");  // zid
-    this.route(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
-    this.route(/^ot\/([0-9]+)\/(.*)/, "conversationViewWithSuzinvite"); // zid/suzinvite
-    this.route(/^pwreset\/(.*)/, "pwReset");
-    this.route(/^demo\/(.*)/, "demoConversation");
+    this.r("homepage", "homepageView");
+    this.r("conversation/create", "createConversation");
+    this.r("conversation/view/:id(/:zinvite)", "conversationView");
+    this.r("user/create", "createUser");
+    this.r("user/login", "login");
+    this.r("settings", "deregister");
+    this.r("inbox(/:filter)", "inbox");
+    this.r("pwresetinit", "pwResetInit");
+    this.r("prototype", "prototype");
+    this.r("", "landingPageView");
+
+    this.r(/([0-9]+)/, "conversationView");  // zid
+    this.r(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
+    this.r(/^ot\/([0-9]+)\/(.*)/, "conversationViewWithSuzinvite"); // zid/suzinvite
+    this.r(/^pwreset\/(.*)/, "pwReset");
+    this.r(/^demo\/(.*)/, "demoConversation");
+  },
+  r: function(pattern, methodToCall) {
+    metric("route", methodToCall);
+    this.route(pattern, methodToCall);
   },
   bail: function() {
     this.navigate("/", {trigger: true});
