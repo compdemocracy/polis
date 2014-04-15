@@ -1,7 +1,7 @@
 (ns polismath.poller
   (:use
         clj-logging-config.log4j   
-        clojure.pprint
+;        clojure.pprint
         clojure.core.matrix.impl.ndarray
         clojure.tools.logging 
         polismath.conversation
@@ -21,7 +21,13 @@
 
 (set-logger!)
 
-(info "Just a plain logging message")
+(info "poller launch")
+
+;; Ensure that logging is via an agent
+(def *allow-direct-logging* false)
+
+
+
 
 (def metric (make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
 
@@ -32,7 +38,7 @@
          end# (System/currentTimeMillis)
          duration# (- end# start#)]
      (metric ~metric-name duration# end#)
-     (println (str end# " " ~metric-name " " duration# " millis"))
+     (debug (str end# " " ~metric-name " " duration# " millis"))
      ret#))
 
 (metric "math.process.launch" 1)
@@ -72,7 +78,7 @@
         (ko/where {:created [> last-timestamp]})
         (ko/order :created :asc)))
     (catch Exception e (do
-        (println (str "polling failed " (.getMessage e)))
+        (error (str "polling failed " (.getMessage e)))
         []))))
 
 
@@ -105,15 +111,15 @@
               end (System/currentTimeMillis)
               duration (- end start)]
           (metric "math.pca.compute.ok" duration)
-          (println conv2)
+          (debug conv2)
           
           (if (> (:lastVoteTimestamp conv2) (:lastVoteTimestamp conv)) ; basic sanity check. else don't modify.
             conv2
             conv))))))
 
 (defn bid-to-pid-uploader [key iref old_conv conv]
-  (println "bid-to-pid-uploader " (:zid conv))
-  (println "bid-to-pid-uploader " conv)  
+  (info "bid-to-pid-uploader " (:zid conv))
+  (debug "bid-to-pid-uploader " conv)
             ; Upload pid mapping NOTE: uploading before primary
             ; results since client triggers resuest for pid mapping in
             ; response to a new primary math result, so there is race.
@@ -133,8 +139,8 @@
       obj))))
 
 (defn math-uploader [key iref old_conv conv]
-  (println "math-uploader " (:zid conv))
-  (println "math-uploader " conv)  
+  (info "math-uploader " (:zid conv))
+  (debug "math-uploader " conv)
                                         ; Upload primary math results
   (let [
               ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
@@ -160,7 +166,7 @@
 (defn init-conv-agent [zid]
   (swap! conversations
          (fn [cs]
-           (println "init-conv-agent" zid)
+           (info "init-conv-agent" zid)
            (assoc cs
              zid
              (agent (new-conv zid 0)))))
@@ -171,13 +177,13 @@
     a))
 
 (defn -main []
-  (println "launching poller " (System/currentTimeMillis))
+  (info "launching poller " (System/currentTimeMillis))
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
         mg-db           (mongo-connect! (env/env :mongo-url))
         last-timestamp  (atom 0)]
     (endlessly poll-interval
-      (println "poll >" @last-timestamp)
+      (info "poll >" @last-timestamp)
       (let [new-votes (poll pg-spec @last-timestamp)
             zid-to-votes (group-by :zid new-votes)
             zid-votes (shuffle (into [] zid-to-votes))
@@ -200,8 +206,8 @@
             ;; Clear old errors.
             (let [old-error  (agent-error a)]
               (if (not (nil? old-error))
-                (do (println old-error)
-                    (println "AGENT ERROR!")
+                (do (error old-error)
+                    (error "AGENT ERROR!")
                     (.printStackTrace old-error)
                     (restart-agent a @a))))
             
@@ -209,9 +215,9 @@
             (send a (make-math-updater zid))
             
             
-            (println "zid: " zid)
-            (println "time: " (System/currentTimeMillis))
-            (println "\n\n")
+            (info "zid: " zid)
+            (info "time: " (System/currentTimeMillis))
+            (info "\n\n")
             ))
         
         (swap! last-timestamp

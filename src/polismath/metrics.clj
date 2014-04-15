@@ -22,7 +22,7 @@
 (defn make-send [hostname port]
 	(let [send-socket (make-socket)]
           (fn [data]
-            (println "sending " data " to " hostname ":" port)
+            (error "sending " data " to " hostname ":" port)
             (send-data send-socket hostname port data))))
 
 (defn make-metric-sender [hostname port carbon-api-key]
@@ -31,11 +31,11 @@
     (fn
       ([name value optionalTimestampMillis]
          (let [s (str carbon-api-key "." name " " value " " (long (/ optionalTimestampMillis 1000)) "\n")]
-           (println s)
+           (debug s)
            (dosend s)))
       ([name value]
          (let [s (str carbon-api-key "." name " " value "\n")]
-           (println s)
+           (debug s)
            (dosend s))
          )
       )
