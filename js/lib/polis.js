@@ -1,4 +1,5 @@
 var eb = require("../eventBus");
+var metric = require("../util/metric");
 var Utils = require("../util/utils")
 var shuffleWithSeed = require("../util/shuffleWithSeed");
 
