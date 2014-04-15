@@ -1,6 +1,9 @@
 (ns polismath.poller
-  (:use clojure.pprint
+  (:use
+        clj-logging-config.log4j   
+        clojure.pprint
         clojure.core.matrix.impl.ndarray
+        clojure.tools.logging 
         polismath.conversation
         polismath.named-matrix
         polismath.utils
@@ -15,6 +18,10 @@
             [monger.collection :as mgcol]
             [environ.core :as env]))
 
+
+(set-logger!)
+
+(info "Just a plain logging message")
 
 (def metric (make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
 
