@@ -88,13 +88,6 @@ app.disable('x-powered-by'); // save a whale
 //     }
 // });
 
-var cookieNames = [
-    "token",
-    "uid",
-    "pids",
-    "email",
-    // also a cookie for each zid the user has a pid for... 314p=100; 451p=20;
-];
 
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
@@ -1321,14 +1314,7 @@ function clearCookies(req, res) {
             res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
         }
     }
-    // addCookies(res, "", "");
-    // for (var cookieName in req.cookies) {
-    //     res.clearCookie(cookieName, {path: "/"});
-    // }
     console.log("after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
-    // cookieNames.forEach(function(name) {
-    //     res.clearCookie(name, {path: "/"});
-    // });
 }
 
 app.post("/v3/auth/deregister",
