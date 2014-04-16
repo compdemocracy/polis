@@ -3677,6 +3677,7 @@ app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", "text/
 app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
 app.get(/^\/about$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
+app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
 
 
 var conditionalIndexFetcher = (function() {
