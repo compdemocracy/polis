@@ -731,6 +731,7 @@ var want = prrrams.want;
 var COOKIES = {
     TOKEN : 'token2',
     UID : 'uid2',
+    REFERRER : 'ref',
 };
 
 var oneYear = 1000*60*60*24*365;
@@ -2129,14 +2130,15 @@ app.post("/v3/auth/new",
     want('hname', getOptionalStringLimitLength(999), assignToP),
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
-    want('referrer', getOptionalStringLimitLength(999), assignToP),
+    want('organization', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
     var email = req.p.email;
     var oinvite = req.p.oinvite;
     var zinvite = req.p.zinvite;
-    var referrer = req.p.referrer;
+    var referrer = req.cookies[COOKIES.REFERRER];;
+    var organization = req.p.organization;
 
     if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
     if (!hname) { fail(res, 400, "polis_err_reg_need_name"); return; }
@@ -2177,6 +2179,9 @@ function(req, res) {
                             var customData = {};
                             if (referrer) {
                                 customData.referrer = referrer;
+                            }
+                            if (organization) {
+                                customData.org = organization;
                             }
                             if (_.keys(customData).length) {
                                 params["custom_data"] = customData;
