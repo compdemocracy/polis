@@ -403,6 +403,7 @@ function deployAboutPage(params) {
       root + "/company.html",
       root + "/pricing.html",
       root + "/professors.html",
+      root + "/try.html",
       root + "/d3.js",
       root + "/clusterforce.js",
       root + "/api.html",
