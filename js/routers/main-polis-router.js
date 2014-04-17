@@ -59,23 +59,27 @@ var polisRouter = Backbone.Router.extend({
     RootView.getInstance().setView(view);
   },
   upgradePlan: function(plan_id) {
+    var promise;
     if (!authenticated()) {
       window.planId = plan_id;
-      this.navigate("user/create", {trigger: true});
+      promise = this.doLogin();
     } else {
       if (_.isUndefined(plan_id) && !_.isUndefined(window.plan_id)) {
         plan_id = window.planId;
       }
-
+      promise = $.Deferred().resolve();
+    }
+    promise.then(function() {
       var userModel = new UserModel();
       bbFetch(userModel).then(function() {
         var view = new PlanUpgradeView({
           model: userModel,
-          plan_id: plan_id
+          plan_id: plan_id,
         });
         RootView.getInstance().setView(view);
       });
-    }
+    });
+
   },
   landingPageView: function() {
     if (!authenticated()) {
