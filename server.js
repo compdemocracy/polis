@@ -1045,8 +1045,8 @@ function logPostBody(req, res, next) {
     next();
 }
 app.use(meter("api.all"));
-app.use(express.logger());
 app.use(logPostBody);
+app.use(express.logger());
 app.use(redirectIfWrongDomain);
 app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
@@ -2248,17 +2248,34 @@ function(req, res) {
     var uid = req.p.uid;
     var plan = req.p.plan;
 
-    stripe.customers.createSubscription(stripeToken, {
-      plan: plan,
+    console.dir(req.p);
+
+
+    var prices = {
+        mike: 50,
+        individuals: 100 * 100,
+        sites: 1000 * 100,
+        orgs: 5000 * 100,
+    };
+
+    stripe.charges.create({
+      amount: prices[plan],
       currency: "usd",
-      description: "payinguser@example.com",
-      customer: uid,
+      card: stripeToken,
+      description: "first month",
+      metadata: {
+        the_plan: plan,
+        uid: uid,
+      },
+      // currency: "usd",
+      // description: "payinguser@example.com",
+      // customer: uid,
     }, function(err, charge) {
         if (err) {
             if (err.type === 'StripeCardError') {
-                return fail(res, 500, "polis_err_stripe_card_declined");
+                return fail(res, 500, "polis_err_stripe_card_declined", err);
             } else {
-                return fail(res, 500, "polis_err_stripe");
+                return fail(res, 500, "polis_err_stripe", err);
             }
         }
 
