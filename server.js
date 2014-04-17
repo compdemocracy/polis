@@ -54,6 +54,7 @@ var badwords = require('badwords/object'),
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
     SimpleCache = require("simple-lru-cache"),
+    stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
     _ = require('underscore');
 
 app.disable('x-powered-by'); // save a whale
@@ -1689,6 +1690,18 @@ function getUserInfoForUid(uid, callback) {
         callback(null, results.rows[0]);
     });
 }
+function getUserInfoForUid2(uid, callback) {
+    return new Promise(function(resolve, reject) {
+        client.query("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
+            if (err) { return reject(err); }
+            if (!results.rows || !results.rows.length) {
+                return reject(null);
+            }
+            resolve(results.rows[0]);
+        });
+    });
+}
+
 // function sendEmailToUser(uid, subject, bodyText, callback) {
 //     getEmailForUid(uid, function(err, email) {
 //         if (err) { return callback(err);}
@@ -2201,6 +2214,59 @@ function(req, res) {
     }); // end find existing users
 }); // end /v3/auth/new
 
+
+app.get("/v3/users",
+    auth(assignToP),
+function(req, res) {
+    var uid = req.p.uid;
+    getUserInfoForUid2(uid).then(function(info) {
+        res.json({
+            email: info.email,
+            hname: info.hname,
+        });
+    }, function(err) {
+        fail(res, 500, "polis_err_getting_user_info", err);
+    });
+});
+
+
+app.post("/charge",
+    auth(assignToP),
+    need('stripeToken', getOptionalStringLimitLength(999), assignToP),
+    need('stripeEmail', getOptionalStringLimitLength(999), assignToP),
+    need('plan', getOptionalStringLimitLength(999), assignToP),    
+function(req, res) {
+
+    var stripeToken = req.p.stripeToken;
+    var uid = req.p.uid;
+    var plan = req.p.plan;
+
+    stripe.customers.createSubscription(stripeToken, {
+      plan: plan,
+      currency: "usd",
+      description: "payinguser@example.com",
+      customer: uid,
+    }, function(err, charge) {
+        if (err) {
+            if (err.type === 'StripeCardError') {
+                return fail(res, 500, "polis_err_stripe_card_declined");
+            } else {
+                return fail(res, 500, "polis_err_stripe");
+            }
+        }
+
+        var protocol = devMode ? "http" : "https";
+
+        // Redirect to the same URL with the path behind the fragment "#"
+        res.writeHead(302, {
+            Location: protocol + "://" + req.headers.host +"/inbox",
+        });
+
+        return res.end();
+
+
+    });
+});
 
 app.post("/v2/feedback",
     auth(assignToP),
@@ -3660,6 +3726,7 @@ app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo.*/, fetchIndex);
 app.get(/^\/pwreset.*/, fetchIndex);
 app.get(/^\/prototype.*/, fetchIndex);
+app.get(/^\/plan.*/, fetchIndex);
 app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/professors.html", "text/html"));
 app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
 app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
