@@ -7,13 +7,11 @@ module.exports = View.extend({
   events: {
   },
   initialize: function(options){
-    // this.email = "foo@foo.com";
     this.plan_id = options.plan_id;
     this.plan_amount = 1;
     this.isPlanIndividuals = "individuals" === this.plan_id;
     this.isPlanSites = "sites" === this.plan_id;
     this.isPlanOrgs = "orgs" === this.plan_id;
-    this.isPlanMike = "mike" === this.plan_id;
     this.plan_name = {
       individuals: "Subscribe to \"Individual\" plan",
       sites: "Subscribe to \"Sites\" plan",
@@ -25,7 +23,6 @@ module.exports = View.extend({
       individuals: 100*100,
       sites: 1000*100,
       // orgs:
-      mike: 50
     }[this.plan_id];
 
     this.stripeKey = /localhost/.test(document.domain) ? "pk_test_LtZf0dmw98aL3BV3meSuvc8Q" : "pk_live_OqP5AaF2RnMKNgCiltF6VT6x";
