@@ -21,6 +21,13 @@ module.exports = View.extend({
       mike: "Subscribe to \"Mike\" plan",
     }[this.plan_id];
 
+    this.plan_amount = {
+      individuals: 100*100,
+      sites: 1000*100,
+      // orgs:
+      mike: 50
+    }[this.plan_id];
+
     this.stripeKey = /localhost/.test(document.domain) ? "pk_test_LtZf0dmw98aL3BV3meSuvc8Q" : "pk_live_OqP5AaF2RnMKNgCiltF6VT6x";
   }
 });
