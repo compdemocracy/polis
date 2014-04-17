@@ -1,0 +1,44 @@
+<p>plans!</p>
+
+
+
+
+</p>plan id: {{plan_id}}</p>
+
+{{#if isPlanIndividuals}}
+<p>
+  Individuals
+  <a href="/plan/upgrade/sites">Sites</a>
+  <a href="/plan/upgrade/orgs">Orgs</a>  
+</p>
+{{/if}}
+{{#if isPlanPages}}
+<p>
+  <a href="/plan/upgrade/individuals">Individual</a>
+  Sites
+  <a href="/plan/upgrade/orgs">Orgs</a>  
+</p>
+{{/if}}
+{{#if isPlanOrg}}
+<p>
+  <a href="/plan/upgrade/individuals">A</a>
+  <a href="/plan/upgrade/sites">Sites</a>
+  Orgs
+</p>
+{{/if}}
+
+<form action="/charge" method="POST">
+  <script
+    src="https://checkout.stripe.com/checkout.js" class="stripe-button"
+    data-key="pk_live_OqP5AaF2RnMKNgCiltF6VT6x"
+    data-image="/square-image.png"
+    data-name="Demo Site"
+    data-email="{{email}}"
+    data-description="{{plan_name}}"
+    data-panel-label="Subscribe Monthly"
+    data-amount="2000">
+  </script>
+</form>
+
+
+

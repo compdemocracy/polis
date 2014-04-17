@@ -19,7 +19,10 @@ var metric = require("../util/metric");
 var PasswordResetView = require("../views/passwordResetView");
 var PasswordResetInitView = require("../views/passwordResetInitView");
 var ShareLinkView = require("../views/share-link-view");
+var PlanUpgradeView = require("../views/plan-upgrade");
 var PolisStorage = require("../util/polisStorage");
+var UserModel = require("../models/user");
+var _ = require("underscore");
 var $ = require("jquery");
 
 function authenticated() { return PolisStorage.uid(); }
@@ -32,6 +35,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("settings", "deregister");
+    this.r("plan/upgrade(/:plan_id)", "upgradePlan");
     this.r("inbox(/:filter)", "inbox");
     this.r("pwresetinit", "pwResetInit");
     this.r("prototype", "prototype");
@@ -53,6 +57,25 @@ var polisRouter = Backbone.Router.extend({
   prototype: function() {
     var view = new EmptyView();
     RootView.getInstance().setView(view);
+  },
+  upgradePlan: function(plan_id) {
+    if (!authenticated()) {
+      window.planId = plan_id;
+      this.navigate("user/create", {trigger: true});
+    } else {
+      if (_.isUndefined(plan_id) && !_.isUndefined(window.plan_id)) {
+        plan_id = window.planId;
+      }
+
+      var userModel = new UserModel();
+      bbFetch(userModel).then(function() {
+        var view = new PlanUpgradeView({
+          model: userModel,
+          plan_id: plan_id
+        });
+        RootView.getInstance().setView(view);
+      });
+    }
   },
   landingPageView: function() {
     if (!authenticated()) {
