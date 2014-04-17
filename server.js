@@ -1038,8 +1038,15 @@ function MPromise(name, f) {
 // failed logins
 // forgot password
 
+function logPostBody(req, res, next) {
+    if (req.body) {
+        console.dir(req.body);
+    }
+    next();
+}
 app.use(meter("api.all"));
 app.use(express.logger());
+app.use(logPostBody);
 app.use(redirectIfWrongDomain);
 app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
