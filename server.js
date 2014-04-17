@@ -185,14 +185,14 @@ if (process.env.REDISTOGO_URL) {
     redisForAuth = require('redis').createClient();
 }
 
-var redisForMathResults;
-if (process.env.REDISCLOUD_URL) {
-    var rc   = url.parse(process.env.REDISCLOUD_URL);
-    var redisForMathResults= require("redis").createClient(rc.port, rc.hostname);
-    redisForMathResults.auth(rc.auth.split(":")[1]);
-} else {
-    redisForMathResults = require('redis').createClient();
-}
+// var redisForMathResults;
+// if (process.env.REDISCLOUD_URL) {
+//     var rc   = url.parse(process.env.REDISCLOUD_URL);
+//     var redisForMathResults= require("redis").createClient(rc.port, rc.hostname);
+//     redisForMathResults.auth(rc.auth.split(":")[1]);
+// } else {
+//     redisForMathResults = require('redis').createClient();
+// }
 
 var intercom = new Intercom({
   apiKey: process.env.INTERCOM_API_KEY,
