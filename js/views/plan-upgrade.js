@@ -9,7 +9,8 @@ module.exports = View.extend({
   initialize: function(options){
     // this.email = "foo@foo.com";
     this.plan_id = options.plan_id;
-    this.isPlanIndviduals = "individuals" === this.plan_id;
+    this.plan_amount = 1;
+    this.isPlanIndividuals = "individuals" === this.plan_id;
     this.isPlanSites = "sites" === this.plan_id;
     this.isPlanOrgs = "orgs" === this.plan_id;
     this.isPlanMike = "mike" === this.plan_id;

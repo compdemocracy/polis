@@ -42,14 +42,14 @@
   <script
     src="https://checkout.stripe.com/checkout.js" class="stripe-button"
     data-key="pk_live_OqP5AaF2RnMKNgCiltF6VT6x"
-    data-image="/square-image.png"
+    data-image="https://pol.is/img/logo.png"
     data-name="Demo Site"
     data-email="{{email}}"
     data-description="{{plan_name}}"
     data-panel-label="Subscribe Monthly"
-    data-amount="2000">
+    data-amount="{{plan_amount}}">
   </script>
-  <input name="plan" value="{{plan_id}}"></input>
+  <input type="hidden" name="plan" value="{{plan_id}}"></input>
 </form>
 
 
