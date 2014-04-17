@@ -1,49 +1,99 @@
-<p>plans!</p>
+{{#ifNotEmbedded}}
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span> 
+      </button>
+      {{#link "inbox" expand-tokens=true class="navbar-brand"}}Polis{{/link}}
+    </div>
+    <div class="navbar-collapse collapse">
+      <ul class="nav navbar-nav navbar-right">
+        <li><a href="https://pol.is/about">About</a></li>
+        <li><a href="mailto:colin@pol.is?subject=Polis%20Feedback">Contact</a></li>
+        <li>{{#link "settings" expand-tokens=true}}
+          {{#ifNotIE8}}
+          <i class="icon-signout"></i>
+          {{/ifNotIE8}}
+          &nbsp; Signout{{/link}}</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div>
+</div>
+
+<section class="container" style="margin-bottom: 50px;"> 
+<div class="row"> 
+<div class="col-md-6 col-md-offset-3">
+
+{{/ifNotEmbedded}}
+
+<h3>Subscription Plans</h3>
 
 
 
+    <table class="table options">
+      <thead>
+        <tr>
+          <th>Plan</th>
+          <th>Price</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="">
+          <td> Individual </td>
+          <td> $100 / month  </td>
+          <td> <a class="btn btn-success btn-xs" href="/plan/upgrade/individuals">Choose</a> </td>
+        </tr>
+        <tr class="">
+          <td> Site </td>
+          <td> $1000 / month  </td>
+          <td> <a class="btn btn-success btn-xs" href="/plan/upgrade/sites">Choose</a> </td>
+        </tr>
+        <tr class="">
+          <td> Org </td>
+          <td> <a href="mailto:colin@pol.is?Subject=Polis%20Organizational%20Pricing" target="_top"> Contact Us </a>  </td>
+          <td> </td>
+        </tr>
+        <tr>
+          <td style="font-size:14px"><em>For an overview of features,<br> see our <a href="https://pol.is/pricing"> pricing page.</a></em></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>    
 
-</p>plan id: {{plan_id}}</p>
+
 
 {{#if isPlanIndividuals}}
-<p>
-  Individual
-  <a href="/plan/upgrade/sites">Sites</a>
-  <a href="/plan/upgrade/orgs">Orgs</a>
-  <a href="/plan/upgrade/mike">Mike</a>   
+<p style="font-size: 14px">
+  <em> Individual Plan </em>
 </p>
 {{/if}}
-{{#if isPlanPages}}
-<p>
-  <a href="/plan/upgrade/individuals">Individual</a>
-  Sites
-  <a href="/plan/upgrade/orgs">Orgs</a>  
-  <a href="/plan/upgrade/mike">Mike</a> 
+{{#if isPlanSites}}
+<p style="font-size: 14px">
+  <em> Site Plan </em>
 </p>
 {{/if}}
-{{#if isPlanOrg}}
-<p>
-  <a href="/plan/upgrade/individuals">Individual</a>
-  <a href="/plan/upgrade/sites">Sites</a>
-  <a href="/plan/upgrade/mike">Mike</a> 
-  Orgs
-</p>
-{{/if}}
-{{#if isPlanMike}}
+
+{{!-- {{#if isPlanMike}}
 <p>
   <a href="/plan/upgrade/individuals">Individual</a>
   <a href="/plan/upgrade/sites">Sites</a>
   <a href="/plan/upgrade/orgs">Orgs</a>
   Mike
 </p>
-{{/if}}
+{{/if}} --}}
 
 <form action="/charge" method="POST">
   <script
     src="https://checkout.stripe.com/checkout.js" class="stripe-button"
     data-key="pk_live_OqP5AaF2RnMKNgCiltF6VT6x"
-    data-image="https://pol.is/img/logo.png"
-    data-name="Demo Site"
+    data-image="https://pol.is/landerImages/clusters.png"
+    data-name="pol.is"
     data-email="{{email}}"
     data-description="{{plan_name}}"
     data-panel-label="Subscribe Monthly"
@@ -53,4 +103,7 @@
 </form>
 
 
+</div>
+</div>
+</section>
 
