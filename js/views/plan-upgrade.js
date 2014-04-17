@@ -12,10 +12,12 @@ module.exports = View.extend({
     this.isPlanIndviduals = "individuals" === this.plan_id;
     this.isPlanSites = "sites" === this.plan_id;
     this.isPlanOrgs = "orgs" === this.plan_id;
+    this.isPlanMike = "mike" === this.plan_id;
     this.plan_name = {
       individuals: "Subscribe to \"Individual\" plan",
       sites: "Subscribe to \"Sites\" plan",
       orgs: "Subscribe to \"Orgs\" plan",
+      mike: "Subscribe to \"Mike\" plan",
     }[this.plan_id];
   }
 });

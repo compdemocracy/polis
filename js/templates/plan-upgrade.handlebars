@@ -7,9 +7,10 @@
 
 {{#if isPlanIndividuals}}
 <p>
-  Individuals
+  Individual
   <a href="/plan/upgrade/sites">Sites</a>
-  <a href="/plan/upgrade/orgs">Orgs</a>  
+  <a href="/plan/upgrade/orgs">Orgs</a>
+  <a href="/plan/upgrade/mike">Mike</a>   
 </p>
 {{/if}}
 {{#if isPlanPages}}
@@ -17,13 +18,23 @@
   <a href="/plan/upgrade/individuals">Individual</a>
   Sites
   <a href="/plan/upgrade/orgs">Orgs</a>  
+  <a href="/plan/upgrade/mike">Mike</a> 
 </p>
 {{/if}}
 {{#if isPlanOrg}}
 <p>
-  <a href="/plan/upgrade/individuals">A</a>
+  <a href="/plan/upgrade/individuals">Individual</a>
   <a href="/plan/upgrade/sites">Sites</a>
+  <a href="/plan/upgrade/mike">Mike</a> 
   Orgs
+</p>
+{{/if}}
+{{#if isPlanMike}}
+<p>
+  <a href="/plan/upgrade/individuals">Individual</a>
+  <a href="/plan/upgrade/sites">Sites</a>
+  <a href="/plan/upgrade/orgs">Orgs</a>
+  Mike
 </p>
 {{/if}}
 
@@ -38,6 +49,7 @@
     data-panel-label="Subscribe Monthly"
     data-amount="2000">
   </script>
+  <input name="plan" value="{{plan_id}}"></input>
 </form>
 
 
