@@ -24,6 +24,7 @@ module.exports = View.extend({
         event.preventDefault();
         var formAction = $(event.target).data("action");
         this.serialize(function(attrs, release) {
+          attrs.is_public = !attrs.is_not_public
           if(this.edit===true) {
             switch(formAction) {
               case "draft":

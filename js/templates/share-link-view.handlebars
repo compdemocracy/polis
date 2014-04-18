@@ -36,10 +36,11 @@
           type="button"
         }} Send this link to my email {{/button}}
 
-
-        <a href="https://twitter.com/share" class="twitter-share-button" data-url="{{url_name_with_production_hostname}}" data-text="{{tweet_text}}" data-size="large" data-count="none" data-hashtags="polis" data-dnt="true">Tweet</a>
-        <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
-
+        {{#if is_public}}
+          <a href="https://twitter.com/share" class="twitter-share-button" data-url="{{url_name_with_production_hostname}}" data-text="{{tweet_text}}" data-size="large" data-count="none" data-hashtags="polis" data-dnt="true">Tweet</a>
+          <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+        {{/if}}
+        
       </div>
           
     <!--<button style="margin-top: 20px" class="btn btn-large" id="okButton">Got it, take me to the conversation.</button> -->
