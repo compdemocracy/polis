@@ -2868,7 +2868,7 @@ function(req, res){
             sql_conversations.zid.equals(req.p.zid)
         ).and(
             sql_conversations.owner.equals(req.p.uid)
-        );
+        ).returning('*');
     verifyMetaPromise.then(function() {
         client.query(
             q.toString(),
@@ -2877,7 +2877,8 @@ function(req, res){
                     fail(res, 500, "polis_err_update_conversation", err);
                     return;
                 }
-                res.status(200).json({});
+                var conv = result && result.rows && result.rows[0];
+                res.status(200).json(conv);
             }
         );
     }, function(err) {
