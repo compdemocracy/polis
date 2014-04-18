@@ -35,6 +35,9 @@ module.exports = Model.extend({
         s += document.location.port ? (":" + document.location.port) : "";
         return s + this.url_name();
       },
+      url_name_with_production_hostname: function() {
+        return "https://pol.is" + this.url_name();
+      },
       is_anon: false,
       is_draft: false,
       is_active: false,

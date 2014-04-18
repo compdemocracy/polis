@@ -42,5 +42,13 @@ module.exports = View.extend({
       }).done(function(){
         console.log('sent!')
       })
+    },
+    initialize: function() {
+      this.tweet_text = "Join the conversation!";
+      // NOTE: showing the topic may result in people actually responsing with tweets instead of clicking the link.
+      // var topic = this.model.get("topic");
+      // if (topic) {
+      //   this.tweet_text = topic + " - " + this.tweet_text;
+      // }
     }
   });
