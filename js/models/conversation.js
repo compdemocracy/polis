@@ -19,7 +19,7 @@ module.exports = Model.extend({
       participant_count: "",
       url_name: function(){
         var s = "/" + this.zid;
-        if (this.zinvites) {
+        if (!this.is_public && this.zinvites) {
           s += "/" + this.zinvites[0]; // TODO deal with multiple?
         }
         return s;
