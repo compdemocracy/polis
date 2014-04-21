@@ -1,8 +1,9 @@
 var View = require("../view");
+var Handlebones = require("handlebones");
 var template = require("../tmpl/inbox");
 
 
-module.exports = View.extend({
+module.exports = Handlebones.View.extend({
   name: "inbox",
   template: template,
   initialize: function(options) {

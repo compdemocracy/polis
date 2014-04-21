@@ -180,6 +180,11 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             depends: { handlebars: 'Handlebars', backbone: 'Backbone' },             
             exports: 'Thorax',
           },
+          handlebones: {
+            path: 'bower_components/handlebones/handlebones',
+            depends: { handlebars: 'Handlebars', backbone: 'Backbone' },             
+            exports: 'Handlebones',
+          },
           bootstrap_alert: {  //all bootstrap files need to be added to the dependency array of js/main.js
             path: 'bower_components/bootstrap/js/alert',
             depends: { jquery: "jQuery" },
