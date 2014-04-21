@@ -3,19 +3,26 @@ var template = require("../tmpl/metadataQuestionAndAnswersFilter");
 var _ = require("underscore");
 var Thorax = require("thorax");
 
-module.exports = Thorax.CollectionView.extend({
+module.exports = Thorax.View.extend({
   name: "metadataQuestionAndAnswersFilterView",
-  tagName: "li",
-  className: "questionText",
+  // tagName: "li",
+  // className: "questionText",
   template: template,
-  itemView: MetadataAnswerFilterView,
   allowCreate: false,
   allowDelete: false,
+  itemViewForCollection: MetadataAnswerFilterView,
   initialize: function(options) {
       this.model = options.model; // question model
-      this.collection = options.model.collection; // answers collection
-      this.listenTo(this.collection, "change", function() {
-        var enabledAnswers = this.collection.filter(function(m) { return !m.get("disabled");});
+      this.answers = options.model.collection; // answers collection
+      
+      this.answersCollectionView = new Thorax.CollectionView({
+        itemView: this.itemViewForCollection,
+        collection: this.answers
+      });
+      // debugger;
+
+      this.listenTo(this.answers, "change", function() {
+        var enabledAnswers = this.answers.filter(function(m) { return !m.get("disabled");});
         enabledAnswers = _.map(enabledAnswers, function(answerModel) { return answerModel.get("pmaid");});
         this.model.set("enabledAnswers", enabledAnswers);
       });

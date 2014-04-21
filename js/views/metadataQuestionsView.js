@@ -3,13 +3,18 @@ var template = require("../tmpl/metadataQuestions");
 var Thorax = require("thorax");
 
 
-module.exports = Thorax.CollectionView.extend({
+module.exports = Thorax.View.extend({
     name: "metadataQuestionsView",
     template: template,
-    itemView: MetadataQuestionAndAnswersView,
     allowCreate: false,
+    itemViewForCollection: MetadataQuestionAndAnswersView, // may be overriden in subclass
+
     initialize: function(options) {
-      this.collection = options.collection; // questions collection
+      this.questions = options.collection; // questions collection
+      this.questionsCollectionView = new Thorax.CollectionView({
+        itemView: this.itemViewForCollection,
+        collection: this.questions
+      });
       this.zid = options.zid;
     }
 });

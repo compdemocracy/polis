@@ -97,6 +97,12 @@ module.exports =  View.extend({
         zid: zid
     });
 
+    metadataCollection.fetch({
+      data: $.param({
+        zid: zid
+      }),
+      processData: true
+    });
 
     var resultsCollection = new ResultsCollection();
 
@@ -373,12 +379,7 @@ module.exports =  View.extend({
       console.log("here are the views children:");
       console.dir(this.children);
 
-      metadataCollection.fetch({
-          data: $.param({
-              zid: zid
-          }),
-          processData: true
-      });
+   
       this.commentForm.updateCollection();
 
     // Clicking on the background dismisses the popovers.

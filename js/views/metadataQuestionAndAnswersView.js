@@ -2,15 +2,19 @@ var MetadataAnswerView = require("../views/metadataAnswerView");
 var template = require("../tmpl/metadataQuestionAndAnswers");
 var Thorax = require("thorax");
 
-module.exports = Thorax.CollectionView.extend({
+module.exports = Thorax.View.extend({
   name: "metadataQuestionAndAnswersView",
   template: template,
-  itemView: MetadataAnswerView,
   allowCreate: false,
   allowDelete: false,
+  itemViewForCollection: MetadataAnswerView,
   initialize: function(options) {
       this.model = options.model; // question model
-      this.collection = options.model.collection; // answers collection
+      this.answers = options.model.collection; // answers collection
+      this.answersCollectionView = new Thorax.CollectionView({
+        itemView: this.itemViewForCollection,
+        collection: this.answers
+      });
       this.zid = options.zid;
   }
 });
