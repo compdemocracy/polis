@@ -1,9 +1,11 @@
-var View = require("../view");
+var Handlebones = require("handlebones");
 var template = require("../tmpl/create-user-form");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 
-  module.exports = View.extend({
+var ModelView = Handlebones.ModelView;
+
+  module.exports = ModelView.extend({
     name: "create-user-form",
     template: template,
     gotoCreate: function() {
@@ -102,7 +104,7 @@ var $ = require("jquery");
     return errors;
   },
   initialize: function(options) {
-    this.model = options.model;
+    ModelView.prototype.initialize.call(this);
     this.urlPrefix = "https://pol.is/";
     if (-1 === document.domain.indexOf("pol.is")) {
       this.urlPrefix = "http://localhost:5000/";
