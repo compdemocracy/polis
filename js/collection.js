@@ -1,4 +1,4 @@
-var Thorax = require("thorax");
+var Backbone = require("backbone");
 
 
-module.exports = Thorax.Collection.extend({})
+module.exports = Backbone.Collection.extend({})

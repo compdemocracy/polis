@@ -1,9 +1,9 @@
 var MetadataAnswerFilterView = require("../views/metadataAnswerFilterView");
 var template = require("../tmpl/metadataQuestionAndAnswersFilter");
 var _ = require("underscore");
-var Thorax = require("thorax");
+var Handlebones = require("handlebones");
 
-module.exports = Thorax.View.extend({
+module.exports = Handlebones.View.extend({
   name: "metadataQuestionAndAnswersFilterView",
   // tagName: "li",
   // className: "questionText",
@@ -16,7 +16,7 @@ module.exports = Thorax.View.extend({
       this.answers = options.model.collection; // answers collection
       
       this.answersCollectionView = new Thorax.CollectionView({
-        itemView: this.itemViewForCollection,
+        modelView: this.itemViewForCollection,
         collection: this.answers
       });
       // debugger;

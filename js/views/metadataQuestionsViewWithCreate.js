@@ -4,7 +4,7 @@ var MetadataQuestionsView = require("../views/metadataQuestionsView");
 
 module.exports = MetadataQuestionsView.extend({
   name: "metadataQuestionsViewWithCreate",
-  itemView: MetadataQuestionAndAnswersViewWithCreate,
+  modelView: MetadataQuestionAndAnswersViewWithCreate,
   allowCreate: true,
   events: {
     "blur .add_question_form": "hideAddQuestionForm",

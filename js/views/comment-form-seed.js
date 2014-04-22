@@ -2,10 +2,11 @@ var View = require("../view");
 var template = require("../tmpl/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
+var Handlebones = require("handlebones");
 
-module.exports = Thorax.CollectionView.extend({
+module.exports = Handlebones.CollectionView.extend({
   name: "comment-form-seed",
-  itemView: CommentView,
+  modelView: CommentView,
   template: template,
     events: {
     "click #comment_button": function(e){

@@ -175,11 +175,6 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             path: 'bower_components/underscore/underscore',
             exports: '_',
           },
-          thorax: {
-            path: 'bower_components/thorax/thorax',
-            depends: { handlebars: 'Handlebars', backbone: 'Backbone' },             
-            exports: 'Thorax',
-          },
           handlebones: {
             path: 'bower_components/handlebones/handlebones',
             depends: { handlebars: 'Handlebars', backbone: 'Backbone' },             

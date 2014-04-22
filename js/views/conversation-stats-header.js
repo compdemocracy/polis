@@ -1,8 +1,8 @@
 var eb = require("../eventBus");
 var template = require("../tmpl/conversation-stats-header");
-var Thorax = require("thorax");
+var Handlebones = require("handlebones");
 
-module.exports = Thorax.View.extend({
+module.exports = Handlebones.View.extend({
   name: "conversation-stats-header-view",
   template: template,
   initialize: function(options) {

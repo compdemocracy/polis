@@ -74,7 +74,6 @@ Handlebars.registerHelper("notUseCarousel", function(arg0) {
 
 
 
-
 _.mixin({
     isId: function(n) {
       return n >= 0;

@@ -13,13 +13,13 @@
 	    	<li><a href="#"><span class="user">{{given_name}}</span><i class="icon-user"></i> </a></li>
 	    	{{/if}}
 	    	{{#if true}}
-	    		<li>{{#link "login" expand-tokens=true}} Sign In {{/link}}</li>
+	    		<li><a href="/login">Sign In</a></li>
 	    	{{/if}}
 		  </ul>
 
 	      <div class="collapse navbar-collapse">
 			<ul class="nav navbar-nav">
-			  <li>{{#link "inbox" class="active" expand-tokens=true}}Conversations{{/link}}</li>
+			  <li><a href="/inbox" class="active">Conversations</a></li>
 			  {{#if false}}
 			  	<li id="bootstro_starter" class="active bootstro" data-bootstro-title="Welcome" data-bootstro-content="&lt;p&gt; Click the 'Intro &amp; Overview' tab to return to this tutorial at any time.&lt;/p&gt;" data-html="true" data-bootstro-placement="bottom" data-bootstro-step="0"><a href="#">Intro &amp; Overview</a></li>
           			<li id="topic_toggle"><a href="" role="button">Topic</a> </li>
@@ -40,7 +40,7 @@
   <div class="col-lg-offset-3 col-sm-6 col-md-6">
     <div class="well detailsBox">
 
-	{{#link "conversation/view/{{zid}}" expand-tokens=true class="btn btn-block btn-warning launchConversation"}}<i class="icon-rocket"></i> Launch Conversation {{/link}}
+	<a href="/conversation/view/{{zid}}" class="btn btn-block btn-warning launchConversation"><i class="icon-rocket"></i> Launch Conversation</a>
 
 	<h3> {{topic}} </h3>
 	<blockquote> {{description}} </blockquote>

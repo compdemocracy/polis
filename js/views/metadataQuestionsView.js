@@ -1,9 +1,9 @@
 var MetadataQuestionAndAnswersView = require("../views/metadataQuestionAndAnswersView");
 var template = require("../tmpl/metadataQuestions");
-var Thorax = require("thorax");
+var Handlebones = require("handlebones");
 
 
-module.exports = Thorax.View.extend({
+module.exports = Handlebones.View.extend({
     name: "metadataQuestionsView",
     template: template,
     allowCreate: false,
@@ -11,8 +11,8 @@ module.exports = Thorax.View.extend({
 
     initialize: function(options) {
       this.questions = options.collection; // questions collection
-      this.questionsCollectionView = new Thorax.CollectionView({
-        itemView: this.itemViewForCollection,
+      this.questionsCollectionView = new Handlebones.CollectionView({
+        modelView: this.itemViewForCollection,
         collection: this.questions
       });
       this.zid = options.zid;

@@ -8,17 +8,17 @@
         <span class="icon-bar"></span>
         <span class="icon-bar"></span> 
       </button>
-      {{#link "inbox" expand-tokens=true class="navbar-brand"}}Polis{{/link}}
+      <a href="/inbox" class="navbar-brand">Polis</a>
     </div>
     <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="https://pol.is/about">About</a></li>
         <li><a href="mailto:colin@pol.is?subject=Polis%20Feedback">Contact</a></li>
-        <li>{{#link "settings" expand-tokens=true}}
+        <li><a href="/settings">
           {{#ifNotIE8}}
           <i class="icon-signout"></i>
           {{/ifNotIE8}}
-          &nbsp; Signout{{/link}}</li>
+          &nbsp; Signout</a></li>
       </ul>
     </div><!--/.nav-collapse -->
   </div>

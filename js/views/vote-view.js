@@ -12,19 +12,22 @@ module.exports = View.extend({
         this.$(".starbutton").html("<i class='icon-star'></i>");
       }
     },
+  context: function() {
+    return _.extend({}, this, this.model&&this.model.attributes);
+  },
   initialize: function(options) {
       eb.on(eb.exitConv, cleanup);
     function cleanup() {
       //alert('cleanup');
       eb.off(eb.exitConv, cleanup);
     }
-    var serverClient = this.serverClient;
-    var votesByMe = this.votesByMe;
+    var serverClient = options.serverClient;
+    var votesByMe = options.votesByMe;
     var votesByMeFetched = $.Deferred();
     votesByMe.on("sync", votesByMeFetched.resolve);
-    var is_public = this.is_public;
-    var zid = this.zid;
-    var pid = this.pid;
+    var is_public = options.is_public;
+    var zid = this.zid = options.zid;
+    var pid = this.pid = options.pid;
     console.dir(serverClient);
     var that = this;
     var waitingForComments = true;
@@ -33,7 +36,7 @@ module.exports = View.extend({
       if (waitingForComments) {
           serverClient.syncAllCommentsForCurrentStimulus();
       }
-    }      
+    }
     function showComment(model) {
       that.model = new CommentModel(model);
       that.render();

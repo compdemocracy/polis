@@ -2,6 +2,11 @@ var View = require("../view");
 var template = require("../tmpl/comment-form");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
+var Handlebones = require("handlebones");
+
+var CommentsByMeView = Handlebones.CollectionView.extend({
+  modelView: CommentView
+});
 
 function reject() {
   return $.Deferred().reject();
@@ -10,20 +15,23 @@ function resolve() {
   return $.Deferred().resolve();
 }
 
-module.exports = Thorax.CollectionView.extend({
+module.exports = Handlebones.View.extend({
   name: "comment-form",
-  itemView: CommentView,
   template: template,
+
+  context: function() {
+    return _.extend({}, this, this.model&&this.model.attributes);
+  },
   events: {
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();
-      this.serialize(function(attrs, release){
-        release();
-        console.log(attrs);
-        that.participantCommented(attrs).then(function() {
-          $("#comment_form_textarea").val(""); //use this.$
-        });
+      var textarea = this.$("#comment_form_textarea");
+      var txt = textarea.val();
+      that.participantCommented({
+        txt: txt
+      }).then(function() {
+        textarea.val("");
       });
     }
   },
@@ -70,5 +78,13 @@ module.exports = Thorax.CollectionView.extend({
         pid: this.pid
       })
     });
-  }
+  },
+  initialize: function(options) {
+    this.pid = options.pid;
+    this.zid = options.zid;
+    this.collection = options.collection;
+    this.commentsByMeView = this.addChild(new CommentsByMeView({
+      collection: options.collection
+    }));
+  },
 });

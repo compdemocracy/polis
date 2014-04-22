@@ -4,7 +4,7 @@ var MetadataQuestionAndAnswersView = require("../views/metadataQuestionAndAnswer
 
 module.exports = MetadataQuestionAndAnswersView.extend({
   name: "metadataQuestionAndAnswersViewWithCreate",
-  itemView: MetadataAnswerViewWithDelete,
+  modelView: MetadataAnswerViewWithDelete,
   events: {
     "blur .add_answer_form": "hideAddAnswerForm",
     "keypress input" : function(e) {

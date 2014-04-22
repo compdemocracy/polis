@@ -1,4 +1,4 @@
-var Thorax = require("thorax");
+var Handlebones = require("handlebones");
 
 
-module.exports = Thorax.View.extend({});
+module.exports = Handlebones.View.extend({});

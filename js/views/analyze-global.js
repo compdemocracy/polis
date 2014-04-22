@@ -3,7 +3,7 @@ var display = require("../util/display");
 var eb = require("../eventBus");
 var template = require("../tmpl/analyze-global");
 var CommentModel = require("../models/comment");
-var Thorax = require("thorax");
+var Handlebones = require("handlebones");
 
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
@@ -42,10 +42,10 @@ function comparatorStars(a, b) {
 
 var el_carouselSelector = "#carousel";
 
-module.exports = Thorax.CollectionView.extend({
+module.exports = Handlebones.CollectionView.extend({
     name: "analyze-global-view",
     template: template,
-    itemView: AnalyzeCommentView,
+    modelView: AnalyzeCommentView,
     tidsForGroup: null,
     visibleTids: [],
     events: {

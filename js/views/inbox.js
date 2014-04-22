@@ -1,7 +1,19 @@
 var View = require("../view");
+var Handlebars = require("handlebars");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/inbox");
+var inboxCollectionItemTemplate = require("../tmpl/inbox-item");
+var inboxEmptyTemplate = require("../tmpl/inbox-empty");
 
+var InboxCollectionView = Handlebones.CollectionView.extend({
+  modelView: Handlebones.ModelView.extend({
+    template: inboxCollectionItemTemplate
+  }),
+  emptyView: Handlebones.View.extend({
+    tagName: "p",
+    template: inboxEmptyTemplate
+  })
+});
 
 module.exports = Handlebones.View.extend({
   name: "inbox",
@@ -15,6 +27,9 @@ module.exports = Handlebones.View.extend({
       return -new Date(conversation.get("createdAt")).getTime();
     };
     this.collection.fetch(this.filters);
+    this.inboxCollectionView = this.addChild(new InboxCollectionView({
+      collection: options.collection
+    }));
   },
   events: {
     "mouseup input": function(event) {

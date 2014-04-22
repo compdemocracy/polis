@@ -25,6 +25,7 @@ var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var TutorialController = require("../controllers/tutorialController");
 var ServerClient = require("../lib/polis");
+var Handlebones = require("handlebones");
 
 var VIS_SELECTOR = "#visualization_div";
 var ANALYZE_TAB = "analyzeTab";
@@ -42,10 +43,13 @@ function shouldHideVisWhenWriteTabShowing() {
 }
 
 
-module.exports =  View.extend({
+module.exports =  Handlebones.View.extend({
   name: "conversation-view",
   template: template,
   events: {
+  },
+  context: function() {
+    return _.extend({}, this, this.model&&this.model.attributes);
   },
   destroyPopovers: function() {
     popoverEach("destroy");
@@ -81,11 +85,11 @@ module.exports =  View.extend({
     $("#visualization_div").show();
   },
 
-  initialize: function() {
+  initialize: function(options) {
     var that = this;
     var vis;
     var zid = this.zid = this.model.get("zid");
-    var pid = this.pid;
+    var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
 
@@ -316,13 +320,13 @@ module.exports =  View.extend({
         zid: zid
       });
 
-      this.commentView = new CommentView({
+      this.commentView = this.addChild(new CommentView({
         serverClient: serverClient,
         votesByMe: this.votesByMe,
         is_public: is_public,
         pid: pid,
         zid: zid
-      });
+      }));
       // this.commentView.on("vote", this.tutorialController.onVote);
 
       this.commentsByMe = new CommentsCollection({
@@ -330,27 +334,27 @@ module.exports =  View.extend({
         pid: pid
       });
 
-      this.commentForm = new CommentFormView({
+      this.commentForm = this.addChild(new CommentFormView({
         pid: pid,
         collection: this.commentsByMe,
         zid: zid
-      });
+      }));
 
-      this.resultsView = new ResultsView({
+      this.resultsView = this.addChild(new ResultsView({
         serverClient: serverClient,
         zid: zid,
         collection: resultsCollection
-      });
+      }));
 
 
-      this.analyzeGlobalView = new AnalyzeGlobalView({
+      this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
         zid: zid,
         isIE8: isIE8,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },
         collection: this.allCommentsCollection
-      });
+      }));
 
       eb.on(eb.commentSelected, function(tid) {
         vis.selectComment(tid);
@@ -516,6 +520,6 @@ module.exports =  View.extend({
 
   }, 0); // end listenTo "rendered"
   });
-
+  this.render();
   } // end initialize
 });
