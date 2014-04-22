@@ -1,12 +1,32 @@
-var View = require("../view");
 var template = require("../tmpl/share-link-view");
 var ConversationModel = require("../models/conversation");
+var Handlebones = require("handlebones");
 
-module.exports = View.extend({
+module.exports = Handlebones.ModelView.extend({
     name: "shareLinkView",
     template: template,
     model: ConversationModel,
     events: {
+      "click #sendShareLinkToEmailButton": function(){
+        //https://www.dropbox.com/s/f8ed1vtpim28aej/Screenshot%202014-03-02%2023.29.31.png 
+        //owner was undefined on the client side, so going to server to make requests for that information and fire mailgun
+        //if oid is on the client side, can send that instead of zid
+        var zid=this.model.attributes.zid;
+        $.ajax({
+          type: "POST",
+          dataType: "json",
+          xhrFields: {
+            withCredentials: true
+          },
+          crossDomain: true,
+          url: "/v3/sendCreatedLinkToEmail",
+          data: {
+            zid: zid
+          }
+        }).done(function(){
+          console.log('sent!')
+        })
+      },
       "click #okButton": function() {
         this.trigger("done");
       },
@@ -22,26 +42,6 @@ module.exports = View.extend({
           }
         }, 1);
       }
-    },
-    sendShareLinkToEmail: function(){
-      //https://www.dropbox.com/s/f8ed1vtpim28aej/Screenshot%202014-03-02%2023.29.31.png 
-      //owner was undefined on the client side, so going to server to make requests for that information and fire mailgun
-      //if oid is on the client side, can send that instead of zid
-      var zid=this.model.attributes.zid;
-      $.ajax({
-        type: "POST",
-        dataType: "json",
-        xhrFields: {
-          withCredentials: true
-        },
-        crossDomain: true,
-        url: "/v3/sendCreatedLinkToEmail",
-        data: {
-          zid: zid
-        }
-      }).done(function(){
-        console.log('sent!')
-      })
     },
     initialize: function() {
       this.tweet_text = "Join the conversation!";

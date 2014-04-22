@@ -28,13 +28,11 @@
           >
 
        
-        {{#button
-          method="sendShareLinkToEmail"
+        <button
+          id="sendShareLinkToEmailButton"
           class="btn btn-lg btn-default center-block"
           style="margin-top:20px"
-          id="sendShareLinkToEmailButton"
-          type="button"
-        }} Send this link to my email {{/button}}
+        > Send this link to my email</button>
 
         {{#if is_public}}
           <a href="https://twitter.com/share" class="twitter-share-button" data-url="{{url_name_with_production_hostname}}" data-text="{{tweet_text}}" data-size="large" data-count="none" data-hashtags="polis" data-dnt="true">Tweet</a>
