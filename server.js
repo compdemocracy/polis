@@ -2203,6 +2203,7 @@ function(req, res) {
                             if (organization) {
                                 customData.org = organization;
                             }
+                            customData.uid = uid;
                             if (_.keys(customData).length) {
                                 params["custom_data"] = customData;
                             }
