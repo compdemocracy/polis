@@ -10,11 +10,11 @@
 	<div class="landingBox col-sm-4 col-md-4">
 	<h4 class="formTextHeader"> Create New User: </h4>
 	<form role="form"> <!--rename style -->	
-		<input type="text" name="hname" placeholder="Full Name" class="form-control">  	
-		<input type="email" name="email" placeholder="Email" class="form-control">
-		<input type="password" name="password" placeholder="Password" class="form-control">
+		<input type="text" name="hname" id="hname" placeholder="Full Name" class="form-control">  	
+		<input type="email" name="email" id="email" placeholder="Email" class="form-control">
+		<input type="password" name="password" id="password" placeholder="Password" class="form-control">
   {{#if zinvite}} 	
-    <input type="hidden" name="zinvite" value="{{zinvite}}" class="form-control">
+    <input type="hidden" name="zinvite" id="zinvite" value="{{zinvite}}" class="form-control">
   {{/if}}
 		<p> </p>
 		<button type="submit" class="btn btn-default btn-lg"> Create New User </button>

@@ -14,6 +14,28 @@ module.exports = View.extend({
       "mouseup input": function(event) {
         $(event.target).select();
       },
+      "click #seedCommentsContainer": function() {
+        this.$("#seedCommentsCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#hiddenSeedCommentForm").show();
+        this.$("#seedCommentsCaret").css({"cursor": "default"});
+      },
+      "click #metadataFormContainer": function() {
+        this.$("#metadataCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#hiddenMetadataForm").show();
+        this.$("#metadataFormContainer").css({"cursor": "default"});
+      },
+      "click #metaDataHelperTextButton": function(){
+        this.$("#hiddenMetadataHelperText").toggle();
+      },
+      "click #xidsFormContainer": function(){
+        this.$("#xidsCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#hiddenXidsForm").show();
+        this.$("#xidsFormContainer").css({"cursor": "default"});
+      },
+      "click #seedCommentHelperTextButton": function(){
+        this.$("#hiddenSeedCommentHelperText").toggle();
+      },
+
       "click :submit": function(event) {
         this.clearFailMessage();
         var formAction = $(event.target).val();
@@ -23,69 +45,57 @@ module.exports = View.extend({
         var that = this;
         event.preventDefault();
         var formAction = $(event.target).data("action");
-        this.serialize(function(attrs, release) {
-          attrs.is_public = !attrs.is_not_public
-          if(this.edit===true) {
-            switch(formAction) {
-              case "draft":
-                attrs.is_draft = true;
-              break;
-              case "publish":
-                attrs.is_active = true;
-              break;
+
+        var elTopic = this.$("#topic");
+        var elDescription = this.$("#description");
+        var elXidsTextarea = this.$("#xidsTextarea");
+        var elIsNotPublic = this.$("#is_not_public");
+
+        var attrs = {
+          topic: elTopic.val(),
+          xidsTextarea: elXidsTextarea.val(),
+          description: elDescription.val(),
+          is_public: !elIsNotPublic.val(),
+        };
+
+        var xids = attrs.xidsTextarea;
+        if (xids && xids.length) {
+          xids = xids.split("\n");
+        }
+        delete attrs.xidsTextarea;
+
+        var readyToSubmit = !!xids ? 
+          $.ajax({
+            url: "/v3/users/invite",
+            type: "POST",
+            dataType: "json",
+            xhrFields: {
+                withCredentials: true
+            },
+            // crossDomain: true,
+            data: {
+              xids: xids,
+              single_use_tokens: true,
+              zid: that.model.get("zid")
             }
-          } else {
-            switch(formAction) {
-              case "draft":
-                attrs.is_draft = true;
-              break;
-              case "publish":
-                attrs.is_active = true;
-                attrs.is_draft = false;
-              break;
-            }
-          }
-          var xids = attrs.xidsTextarea;
-          if (xids && xids.length) {
-            xids = xids.split("\n");
-          }
-          delete attrs.xidsTextarea;
+          }) : 
+          $.Deferred().resolve();
 
-          var readyToSubmit = !!xids ? 
-            $.ajax({
-              url: "/v3/users/invite",
-              type: "POST",
-              dataType: "json",
-              xhrFields: {
-                  withCredentials: true
-              },
-              // crossDomain: true,
-              data: {
-                xids: xids,
-                single_use_tokens: true,
-                zid: that.model.get("zid")
-              }
-            }) : 
-            $.Deferred().resolve();
+        readyToSubmit.then(function(suurls) {
 
-          readyToSubmit.then(function(suurls) {
-
-            attrs.verifyMeta = true; // make sure there are answers for each question.
-            that.model.save(attrs).then(function(data) {
-              release();
-              that.trigger("done", suurls);
-            }, function(err) {
-              var err = err.responseJSON;
-              release();
-              if (err === "polis_err_missing_metadata_answers") {
-                that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
-              } else {
-                that.onFail("unable to save");
-              }
-            });
+          attrs.verifyMeta = true; // make sure there are answers for each question.
+          that.model.save(attrs).then(function(data) {
+            that.trigger("done", suurls);
           }, function(err) {
-            that.onFail("failed to create single-use URLs");
+            var err = err.responseJSON;
+            if (err === "polis_err_missing_metadata_answers") {
+              that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
+            } else {
+              that.onFail("unable to save");
+            }
           });
+        }, function(err) {
+          that.onFail("failed to create single-use URLs");
         });
       }
     },
@@ -126,60 +136,6 @@ module.exports = View.extend({
         pid: pid,
         collection: this.commentsByMe,
         zid: zid
-      });
-
-      this.listenTo(this, "rendered", this.setupInterface);
-
-    },
-    setupInterface: function(){
-
-      var $seedCommentsContainer = this.$("#seedCommentsContainer");
-      var $hiddenSeedCommentForm = this.$("#hiddenSeedCommentForm");
-      var $metadataFormContainer = this.$("#metadataFormContainer");
-      var $xidsFormContainer = this.$("#xidsFormContainer");
-      var $hiddenMetadataForm = this.$("#hiddenMetadataForm");
-      var $hiddenXidsForm = this.$("#hiddenXidsForm");
-      var $seedCommentsCaret = this.$("#seedCommentsCaret");
-      var $metadataCaret = this.$("#metadataCaret");
-      var $xidsCaret = this.$("#xidsCaret");
-      var $metaDataHelperTextButton = this.$("#metaDataHelperTextButton");
-      var $hiddenMetadataHelperText = this.$("#hiddenMetadataHelperText");
-      var $seedCommentHelperTextButton = this.$("#seedCommentHelperTextButton");
-      var $hiddenSeedCommentHelperText = this.$("#hiddenSeedCommentHelperText");
-
-      $seedCommentsContainer.css({"cursor": "pointer"});
-
-      $seedCommentsContainer.click(function(){
-        
-        $seedCommentsCaret.removeClass("icon-caret-right").addClass("icon-caret-down");
-        $hiddenSeedCommentForm.show();
-        $seedCommentsContainer.css({"cursor": "default"});
-
-      });
-
-      $metadataFormContainer.css({"cursor": "pointer"});
-
-      $metadataFormContainer.click(function(){
-        
-        $metadataCaret.removeClass("icon-caret-right").addClass("icon-caret-down");
-        $hiddenMetadataForm.show();
-        $metadataFormContainer.css({"cursor": "default"});
-
-      });
-
-      $xidsFormContainer.css({"cursor": "pointer"});
-      $xidsFormContainer.click(function(){
-        $xidsCaret.removeClass("icon-caret-right").addClass("icon-caret-down");
-        $hiddenXidsForm.show();
-        $xidsFormContainer.css({"cursor": "default"});
-      });
-
-      $metaDataHelperTextButton.click(function(){
-        $hiddenMetadataHelperText.toggle();
-      });
-
-      $seedCommentHelperTextButton.click(function(){
-        $hiddenSeedCommentHelperText.toggle();
       });
 
     },

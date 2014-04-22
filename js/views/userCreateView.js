@@ -54,6 +54,9 @@ module.exports = View.extend({
       }
       return errors;
     },
+    context: function() {
+      return _.extend(this.options, this);
+    },
     initialize: function(options) {
       this.options = options;
     }
