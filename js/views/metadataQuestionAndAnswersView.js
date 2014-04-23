@@ -19,10 +19,10 @@ module.exports = Handlebones.ModelView.extend({
   initialize: function(options) {
       // this.model = options.model; // question model
     Handlebones.ModelView.prototype.initialize.call(this);
-      this.answers = this.model.collection; // answers collection
-      this.answersCollectionView = this.addChild(new this.CollectionView({
-        collection: this.answers
-      }));
-      this.zid = options.zid;
+    this.answers = this.model.collection; // answers collection
+    this.answersCollectionView = this.addChild(new this.CollectionView({
+      collection: this.answers
+    }));
+    this.zid = options.zid;
   }
 });

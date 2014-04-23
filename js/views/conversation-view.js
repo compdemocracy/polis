@@ -296,11 +296,11 @@ module.exports =  Handlebones.View.extend({
       this.serverClient.startPolling();
       /* child views */
 
-      this.metadataQuestionsView = new MetadataQuestionsFilterView({
+      this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
         serverClient: serverClient,
         zid: zid,
         collection: metadataCollection
-      });
+      }));
 
       this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
         if (that.currentTab === METADATA_TAB) {

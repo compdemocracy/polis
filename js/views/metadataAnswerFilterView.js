@@ -19,6 +19,7 @@ module.exports = Handlebones.ModelView.extend({
   },
 
   initialize: function(options) {
+    Handlebones.ModelView.prototype.initialize.call(this);
     var that = this;
     this.model = options.model;
     this.zid = options.zid;

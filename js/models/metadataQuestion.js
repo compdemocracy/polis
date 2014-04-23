@@ -28,7 +28,10 @@ module.exports = Model.extend({
     });
   },
   initialize: function() {
-    this.on("change:pmqid", this.updateAnswers.bind(this));
+    // this.on("change:pmqid", this.updateAnswers.bind(this));
+    // this.on("sync", this.updateAnswers.bind(this));
+    this.on("add", this.updateAnswers.bind(this));
+    // this.on("change", this.updateAnswers.bind(this));
     this.collection = new MetadataAnswersCollection([], {
     });
   } // end initialize

@@ -2,16 +2,21 @@ var MetadataQuestionAndAnswersFilterView = require("../views/metadataQuestionAnd
 var template = require("../tmpl/metadataQuestionsFilter");
 var Handlebones = require("handlebones");
 
+
+var CV = Handlebones.CollectionView.extend({
+  // tagName: "li",
+  modelView: MetadataQuestionAndAnswersFilterView
+});
+
 module.exports = Handlebones.View.extend({
     name: "metadataQuestionsFilterView",
     template: template,
-    itemViewForCollection: MetadataQuestionAndAnswersFilterView,
     allowCreate: false,
+    CV: CV,
     initialize: function(options) {
       this.questions = options.collection; // questions collection
 
-      this.questionsCollectionView = this.addChild(new Handlebones.CollectionView({
-        modelView: this.itemViewForCollection,
+      this.questionsCollectionView = this.addChild(new this.CV({
         collection: this.questions
       }));
 

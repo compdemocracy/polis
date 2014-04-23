@@ -4,7 +4,7 @@ var MetadataQuestionAndAnswersView = require("../views/metadataQuestionAndAnswer
 var serialize = require("../util/serialize");
 
 
-var AnswersCollectionViewWithDelete = Handlebones.CollectionView.extend({
+var CV = Handlebones.CollectionView.extend({
   tagName: "ul",
   modelView: MetadataAnswerViewWithDelete
 });
@@ -12,7 +12,7 @@ var AnswersCollectionViewWithDelete = Handlebones.CollectionView.extend({
 
 module.exports = MetadataQuestionAndAnswersView.extend({
   name: "metadataQuestionAndAnswersViewWithCreate",
-  CollectionView: AnswersCollectionViewWithDelete,
+  CollectionView: CV,
   events: {
     "blur .add_answer_form": "hideAddAnswerForm",
     "keypress input" : function(e) {

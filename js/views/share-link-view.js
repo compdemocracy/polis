@@ -44,6 +44,7 @@ module.exports = Handlebones.ModelView.extend({
       }
     },
     initialize: function() {
+      Handlebones.ModelView.prototype.initialize.call(this);
       this.tweet_text = "Join the conversation!";
       // NOTE: showing the topic may result in people actually responsing with tweets instead of clicking the link.
       // var topic = this.model.get("topic");
