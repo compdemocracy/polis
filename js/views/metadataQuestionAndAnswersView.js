@@ -2,19 +2,29 @@ var MetadataAnswerView = require("../views/metadataAnswerView");
 var template = require("../tmpl/metadataQuestionAndAnswers");
 var Handlebones = require("handlebones");
 
-module.exports = Handlebones.View.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "metadataQuestionAndAnswersView",
   template: template,
   allowCreate: false,
   allowDelete: false,
-  itemViewForCollection: MetadataAnswerView,
+  // itemViewForCollection: MetadataAnswerView,
+
+    context: function() {
+      debugger;
+      return this;
+    },
+    render:function() {
+      debugger;
+    },
+
   initialize: function(options) {
-      this.model = options.model; // question model
-      this.answers = options.model.collection; // answers collection
-      this.answersCollectionView = new Handlebones.CollectionView({
-        modelView: this.itemViewForCollection,
+    debugger;
+      // this.model = options.model; // question model
+      this.answers = this.model.collection; // answers collection
+      this.answersCollectionView = this.addChild(new Handlebones.CollectionView({
+        modelView: MetadataAnswerView,
         collection: this.answers
-      });
+      }));
       this.zid = options.zid;
   }
 });

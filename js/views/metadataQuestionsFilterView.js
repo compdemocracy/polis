@@ -10,10 +10,10 @@ module.exports = Handlebones.View.extend({
     initialize: function(options) {
       this.questions = options.collection; // questions collection
 
-      this.questionsCollectionView = new Handlebones.CollectionView({
+      this.questionsCollectionView = this.addChild(new Handlebones.CollectionView({
         modelView: this.itemViewForCollection,
         collection: this.questions
-      });
+      }));
 
       this.query = {}; // pmqid -> [pmaid for each enabled answer]
       var notFirstRun = {}; // pmqid -> boolean

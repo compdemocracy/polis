@@ -15,10 +15,10 @@ module.exports = Handlebones.View.extend({
       this.model = options.model; // question model
       this.answers = options.model.collection; // answers collection
       
-      this.answersCollectionView = new Thorax.CollectionView({
+      this.answersCollectionView = this.addChild(new Handlebones.CollectionView({
         modelView: this.itemViewForCollection,
         collection: this.answers
-      });
+      }));
       // debugger;
 
       this.listenTo(this.answers, "change", function() {

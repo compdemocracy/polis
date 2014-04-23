@@ -1,7 +1,7 @@
+var Handlebones = require("handlebones");
 var template = require("../tmpl/metadataAnswerFilter");
-var View = require("../view");
 
-module.exports = View.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "metadataAnswerFilterView",
   template: template,
   tagName: "li",

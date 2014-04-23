@@ -12,11 +12,11 @@ module.exports = MetadataQuestionAndAnswersView.extend({
         e.preventDefault();
         this.hideAddAnswerForm();
       }
+    },
+    "click .deleteQuestion": function() {
+      // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
+      this.model.destroy();
     }
-  },
-  deleteQuestion: function() {
-    // TODO allow changing the metadata question. deleting the question is not ideal when they've entered a bunch of answers.
-    this.model.destroy();
   },
   hideAddAnswerForm: function() {
     var that = this;

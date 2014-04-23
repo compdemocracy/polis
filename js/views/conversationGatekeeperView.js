@@ -4,9 +4,9 @@ var MetadataQuestionsView = require("../views/metadataQuestionsView");
 var MetadataQuestionCollection = require("../collections/MetadataQuestions");
 var MetadataQuestion = require("../models/metadataQuestion");
 var PolisStorage = require("../util/polisStorage");
-var View = require("../view");
+var Handlebones = require("handlebones");
 
-module.exports = View.extend({
+module.exports = Handlebones.View.extend({
   name: "conversationGatekeeper",
   template: template,
   events: {
@@ -88,19 +88,19 @@ module.exports = View.extend({
     var MetadataQuestionModelWithZinvite = MetadataQuestion.extend(params);
 
     this.metadataCollection = new MetadataQuestionCollection([], {
-      model: MetadataQuestionModelWithZinvite,
+      // model: MetadataQuestionModelWithZinvite,
       zid: zid
     });
     this.metadataCollection.fetch({
         data: $.param(params),
         processData: true
     });
-    this.metadataQuestionsView = new MetadataQuestionsView({
+    this.metadataQuestionsView = this.addChild(new MetadataQuestionsView({
       collection: this.metadataCollection,
       zinvite: zinvite,
       suzinvite: suzinvite,
       zid: zid
-    });
+    }));
     // this.gatekeeperAuthView = new UserCreateView({
     //   zinvite: zinvite,
     // });
