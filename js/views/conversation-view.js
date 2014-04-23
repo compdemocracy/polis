@@ -394,7 +394,7 @@ module.exports =  Handlebones.View.extend({
     eb.on(eb.clusterClicked, onClusterTapped);
     eb.on(eb.queryResultsRendered, _.bind(this.onAnalyzeTabPopulated, this));
 
-    this.listenTo(this, "rendered", function(){
+    this.listenTo(this, "render", function(){
       setTimeout(function() {
 
       scrollTopOnFirstShow();

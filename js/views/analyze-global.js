@@ -42,10 +42,83 @@ function comparatorStars(a, b) {
 
 var el_carouselSelector = "#carousel";
 
-module.exports = Handlebones.CollectionView.extend({
+var AnalyzeCollectionView = Handlebones.CollectionView.extend({
+  modelView: AnalyzeCommentView,
+  itemFilter: function(model, index) {
+    var searchString = this.searchString;
+    var tid = model.get("tid");
+    var hadTid= this.visibleTids.indexOf(tid) >= 0;
+
+
+    if (this.tidsForGroup && this.tidsForGroup.indexOf(tid) === -1) {
+      this.visibleTids = _.without(this.visibleTids, tid);
+      if (hadTid) {
+        this.shouldNotifyForFilterChange = true;
+      }
+      return false;
+    }
+    if (!_.isString(searchString) || /^\s*$/.exec(searchString)) {
+      if (!hadTid) {
+        this.trigger("searchChanged", this.visibleTids);
+      }
+      this.visibleTids = _.union(this.visibleTids, [tid]);        
+      return true;
+    }
+    searchString = searchString
+      .replace(/\s+/g, " ")
+      .replace(/\s+$/,"")
+      .replace(/^\s+/,"");
+
+    var isMatch = true;
+    if (this.searchEnabled) {
+      if (_.isString(searchString)) {
+        var tokens = searchString.split(/\s+/);
+        // match all space separated word fragments
+        var txt = model.get("txt").toLowerCase();
+        for (var i = 0; i < tokens.length; i++) {
+          var token = tokens[i].toLowerCase();
+
+          var shouldNegateToken = token[0] === "-";
+          if (shouldNegateToken) {
+            token = token.slice(1);
+          }
+          var tokenPresent = txt.indexOf(token) >= 0;
+          if (!token.length) {
+            // a "-" followed by nothing should not count as present.
+            tokenPresent = false;
+          }
+          if (
+            (!tokenPresent && !shouldNegateToken) ||
+            (tokenPresent && shouldNegateToken)) {
+            isMatch = false;
+            break;
+          }
+        }
+      }
+    }
+    var doTrigger = false;
+    if (isMatch) {
+      this.visibleTids = _.union(this.visibleTids, [model.get("tid")]);
+      if (!hadTid) {
+        doTrigger = true;
+      }
+    } else {
+      this.visibleTids = _.without(this.visibleTids, model.get("tid"));
+      if (hadTid) {
+        doTrigger = true;
+      }
+    }
+    if (doTrigger) {
+      this.trigger("searchChanged", this.visibleTids);
+    }
+    return isMatch;
+  },
+});
+
+
+module.exports = Handlebones.View.extend({
     name: "analyze-global-view",
     template: template,
-    modelView: AnalyzeCommentView,
     tidsForGroup: null,
     visibleTids: [],
     events: {
@@ -81,75 +154,6 @@ module.exports = Handlebones.CollectionView.extend({
       if (first) {
         eb.trigger(eb.commentSelected, first.get("tid"));
       }
-    },
-    itemFilter: function(model, index) {
-      var searchString = this.searchString;
-      var tid = model.get("tid");
-      var hadTid= this.visibleTids.indexOf(tid) >= 0;
-
-
-      if (this.tidsForGroup && this.tidsForGroup.indexOf(tid) === -1) {
-        this.visibleTids = _.without(this.visibleTids, tid);
-        if (hadTid) {
-          this.shouldNotifyForFilterChange = true;
-        }
-        return false;
-      }
-      if (!_.isString(searchString) || /^\s*$/.exec(searchString)) {
-        if (!hadTid) {
-          this.trigger("searchChanged", this.visibleTids);
-        }
-        this.visibleTids = _.union(this.visibleTids, [tid]);        
-        return true;
-      }
-      searchString = searchString
-        .replace(/\s+/g, " ")
-        .replace(/\s+$/,"")
-        .replace(/^\s+/,"");
-
-      var isMatch = true;
-      if (this.searchEnabled) {
-        if (_.isString(searchString)) {
-          var tokens = searchString.split(/\s+/);
-          // match all space separated word fragments
-          var txt = model.get("txt").toLowerCase();
-          for (var i = 0; i < tokens.length; i++) {
-            var token = tokens[i].toLowerCase();
-
-            var shouldNegateToken = token[0] === "-";
-            if (shouldNegateToken) {
-              token = token.slice(1);
-            }
-            var tokenPresent = txt.indexOf(token) >= 0;
-            if (!token.length) {
-              // a "-" followed by nothing should not count as present.
-              tokenPresent = false;
-            }
-            if (
-              (!tokenPresent && !shouldNegateToken) ||
-              (tokenPresent && shouldNegateToken)) {
-              isMatch = false;
-              break;
-            }
-          }
-        }
-      }
-      var doTrigger = false;
-      if (isMatch) {
-        this.visibleTids = _.union(this.visibleTids, [model.get("tid")]);
-        if (!hadTid) {
-          doTrigger = true;
-        }
-      } else {
-        this.visibleTids = _.without(this.visibleTids, model.get("tid"));
-        if (hadTid) {
-          doTrigger = true;
-        }
-      }
-      if (doTrigger) {
-        this.trigger("searchChanged", this.visibleTids);
-      }
-      return isMatch;
     },
   searchEnabled: true,
   sortEnabled: true,
@@ -189,7 +193,7 @@ module.exports = Handlebones.CollectionView.extend({
   updateSearch: function(e) {
     this.searchString = e.target.value;
     this.deselectComments();
-    this.updateFilter();
+    this.analyzeCollectionView.updateModelFilter();
     // this.selectFirst();
   },
   deselectComments: function() {
@@ -243,6 +247,11 @@ module.exports = Handlebones.CollectionView.extend({
   },
   initialize: function(options) {
     var that = this;
+    this.collection = options.collection;
+
+    this.analyzeCollectionView = this.addChild(new AnalyzeCollectionView({
+      collection: this.collection
+    }));
 
     var getTidsForGroup = options.getTidsForGroup;
 
@@ -274,7 +283,7 @@ module.exports = Handlebones.CollectionView.extend({
           that.searchEnabled = true;
           that.tidsForGroup = null;
           that.sortAgree();     
-          that.updateFilter();
+          that.analyzeCollectionView.updateModelFilter();
           if (that.useCarousel()) {
             that.renderWithCarousel();
           }
@@ -289,7 +298,7 @@ module.exports = Handlebones.CollectionView.extend({
             that.tidsForGroup = o.tids;
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
-            that.updateFilter();
+            that.analyzeCollectionView.updateModelFilter();
             if (that.useCarousel()) {
               that.renderWithCarousel();
             }

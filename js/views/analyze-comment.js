@@ -1,9 +1,9 @@
 var eb = require("../eventBus");
-var View = require("../view");
+var Handlebones = require("handlebones");
 var template = require("../tmpl/analyze-comment");
 var CommentModel = require("../models/comment");
 
-module.exports = View.extend({
+module.exports = Handlebones.ModelView.extend({
     name: "analyze-comment-view",
     template: template,
     events: {

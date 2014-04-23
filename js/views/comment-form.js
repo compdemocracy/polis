@@ -30,8 +30,8 @@ module.exports = Handlebones.View.extend({
       serialize(this, function(attrs){
         that.participantCommented(attrs).then(function() {
           that.$("#comment_form_textarea").val("");
-        });
-      });
+        });      
+      });      
     }
   },
   participantCommented: function(attrs) {
