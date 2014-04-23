@@ -44,24 +44,27 @@ var el_carouselSelector = "#carousel";
 
 var AnalyzeCollectionView = Handlebones.CollectionView.extend({
   modelView: AnalyzeCommentView,
-  itemFilter: function(model, index) {
-    var searchString = this.searchString;
+  modelFilter: function(model, index) {
+    var searchString = this.parent.searchString;
+    var visibleTids = this.parent.visibleTids;
+    var tidsForGroup = this.parent.tidsForGroup;
+    var searchEnabled = this.parent.searchEnabled;
     var tid = model.get("tid");
-    var hadTid= this.visibleTids.indexOf(tid) >= 0;
+    var hadTid= visibleTids.indexOf(tid) >= 0;
 
 
-    if (this.tidsForGroup && this.tidsForGroup.indexOf(tid) === -1) {
-      this.visibleTids = _.without(this.visibleTids, tid);
+    if (tidsForGroup && tidsForGroup.indexOf(tid) === -1) {
+      visibleTids = _.without(visibleTids, tid);
       if (hadTid) {
-        this.shouldNotifyForFilterChange = true;
+        this.parent.shouldNotifyForFilterChange = true; // TODO needed?
       }
       return false;
     }
     if (!_.isString(searchString) || /^\s*$/.exec(searchString)) {
       if (!hadTid) {
-        this.trigger("searchChanged", this.visibleTids);
+        this.parent.trigger("searchChanged", visibleTids);
       }
-      this.visibleTids = _.union(this.visibleTids, [tid]);        
+      visibleTids = _.union(visibleTids, [tid]);
       return true;
     }
     searchString = searchString
@@ -70,7 +73,7 @@ var AnalyzeCollectionView = Handlebones.CollectionView.extend({
       .replace(/^\s+/,"");
 
     var isMatch = true;
-    if (this.searchEnabled) {
+    if (searchEnabled) {
       if (_.isString(searchString)) {
         var tokens = searchString.split(/\s+/);
         // match all space separated word fragments
@@ -98,18 +101,18 @@ var AnalyzeCollectionView = Handlebones.CollectionView.extend({
     }
     var doTrigger = false;
     if (isMatch) {
-      this.visibleTids = _.union(this.visibleTids, [model.get("tid")]);
+      visibleTids = _.union(visibleTids, [model.get("tid")]);
       if (!hadTid) {
         doTrigger = true;
       }
     } else {
-      this.visibleTids = _.without(this.visibleTids, model.get("tid"));
+      visibleTids = _.without(visibleTids, model.get("tid"));
       if (hadTid) {
         doTrigger = true;
       }
     }
     if (doTrigger) {
-      this.trigger("searchChanged", this.visibleTids);
+      this.parent.trigger("searchChanged", visibleTids);
     }
     return isMatch;
   },
