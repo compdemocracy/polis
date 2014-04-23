@@ -47,7 +47,6 @@ function serialize(view, callback, options) {
   var attributes = options.attributes || {};
 
   //callback has context of element
-  var view = this;
   var errors = [];
   eachNamedInput(view, options, function($element, i, name, type) {
     var value = getInputValue($element, type);

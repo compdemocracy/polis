@@ -115,20 +115,20 @@ module.exports = View.extend({
           }),
           processData: true
       });
-      this.metadataQuestionsViewWithCreate = new MetadataQuestionsViewWithCreate({
+      this.metadataQuestionsViewWithCreate = this.addChild(new MetadataQuestionsViewWithCreate({
         collection: metadataCollection,
         zid: zid
-      });
+      }));
 
       this.commentsByMe = new CommentsCollection({
         zid: zid
       });
 
-      this.commentForm = new CommentFormSeedView({
+      this.commentForm = this.addChild(new CommentFormSeedView({
         pid: pid,
         collection: this.commentsByMe,
         zid: zid
-      });
+      }));
 
     },
     "delete": function() {

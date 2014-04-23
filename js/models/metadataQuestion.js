@@ -9,26 +9,27 @@ module.exports = Model.extend({
       // key: "No metadata question was entered. This is the default value of the model.",
       // required: false,
   },
+  updateAnswers: function() {
+    var pmqid = this.get("pmqid");
+    var zid = this.get("zid");
+    var params = {
+      zid: zid,
+      pmqid: pmqid
+    };
+    if (this.suzinvite) {
+      params.suzinvite = this.suzinvite;
+    }
+    if (this.zinvite) {
+      params.zinvite = this.zinvite;
+    }
+    this.collection.fetch({
+      data: $.param(params),
+      processData: true
+    });
+  },
   initialize: function() {
-      var zid = this.get("zid");
-      var pmqid = this.get("pmqid");
-      this.collection = new MetadataAnswersCollection([], {
-          zid: zid,
-          pmqid: pmqid
-      });
-      var params = {
-              zid: zid,
-              pmqid: pmqid
-          };
-      if (this.suzinvite) {
-        params.suzinvite = this.suzinvite;
-      }
-      if (this.zinvite) {
-        params.zinvite = this.zinvite;
-      }
-      this.collection.fetch({
-          data: $.param(params),
-          processData: true
-      });
+    this.on("change:pmqid", this.updateAnswers.bind(this));
+    this.collection = new MetadataAnswersCollection([], {
+    });
   } // end initialize
 });

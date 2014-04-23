@@ -3,9 +3,16 @@ var MetadataAnswerViewWithDelete = require("../views/metadataAnswerViewWithDelet
 var MetadataQuestionAndAnswersView = require("../views/metadataQuestionAndAnswersView");
 var serialize = require("../util/serialize");
 
+
+var AnswersCollectionViewWithDelete = Handlebones.CollectionView.extend({
+  tagName: "ul",
+  modelView: MetadataAnswerViewWithDelete
+});
+
+
 module.exports = MetadataQuestionAndAnswersView.extend({
   name: "metadataQuestionAndAnswersViewWithCreate",
-  modelView: MetadataAnswerViewWithDelete,
+  CollectionView: AnswersCollectionViewWithDelete,
   events: {
     "blur .add_answer_form": "hideAddAnswerForm",
     "keypress input" : function(e) {
@@ -37,7 +44,7 @@ module.exports = MetadataQuestionAndAnswersView.extend({
           that.$el.find("input").val("");
           that.$el.find("input").focus();
 
-          that.collection.fetch({
+          that.answers.fetch({
             data: $.param({
               zid: zid,
               pmqid: that.model.get("pmqid")

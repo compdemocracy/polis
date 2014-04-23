@@ -3,7 +3,7 @@ var template = require("../tmpl/metadataQuestions");
 var Handlebones = require("handlebones");
 
 
-var QuestionsCollectionView = Handlebones.CollectionView.extend({
+var CV = Handlebones.CollectionView.extend({
   tagName: "ul",
   modelView: MetadataQuestionAndAnswersView
 });
@@ -12,12 +12,13 @@ var QuestionsCollectionView = Handlebones.CollectionView.extend({
 module.exports = Handlebones.View.extend({
     name: "metadataQuestionsView",
     template: template,
-    allowCreate: false,
+    allowCreate: true,
+    CollectionView: CV,
     // itemViewForCollection: MetadataQuestionAndAnswersView, // may be overriden in subclass
 
     initialize: function(options) {
       // this.questions = options.collection; // questions collection
-      this.questionsCollectionView = this.addChild(new QuestionsCollectionView({
+      this.questionsCollectionView = this.addChild(new this.CollectionView({
         // modelView: this.itemViewForCollection,
         collection: options.collection
       }));

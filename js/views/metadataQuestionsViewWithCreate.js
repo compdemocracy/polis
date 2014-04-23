@@ -3,10 +3,17 @@ var MetadataQuestionAndAnswersViewWithCreate = require("../views/metadataQuestio
 var MetadataQuestionsView = require("../views/metadataQuestionsView");
 var serialize = require("../util/serialize");
 
+
+var CV = Handlebones.CollectionView.extend({
+  tagName: "ul",
+  modelView: MetadataQuestionAndAnswersViewWithCreate
+});
+
+
 module.exports = MetadataQuestionsView.extend({
   name: "metadataQuestionsViewWithCreate",
-  modelView: MetadataQuestionAndAnswersViewWithCreate,
   allowCreate: true,
+  CollectionView: CV,
   events: {
     "blur .add_question_form": "hideAddQuestionForm",
     "keypress input": function(e) {
@@ -32,14 +39,14 @@ module.exports = MetadataQuestionsView.extend({
           //that.collection.add(model);
           that.collection.fetch({
             data: $.param({
-              zid: that.zid
+              zid: that.zid,
             }),
             reset: true
           });
-          that.render();
+          // that.render();
         });
       } else {
-        this.render();
+        // that.render();
       }
     });
   }
