@@ -5,8 +5,9 @@ var MetadataQuestionCollection = require("../collections/MetadataQuestions");
 var MetadataQuestion = require("../models/metadataQuestion");
 var PolisStorage = require("../util/polisStorage");
 var Handlebones = require("handlebones");
+var serialize = require("../util/serialize");
 
-module.exports = Handlebones.View.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "conversationGatekeeper",
   template: template,
   events: {
@@ -17,7 +18,7 @@ module.exports = Handlebones.View.extend({
       if (-1 === document.domain.indexOf("pol.is")) {
           urlPrefix = "http://localhost:5000/";
       }
-      this.serialize(function(attrs, release){
+      serialize(this, function(attrs){
         // pull out the for values for pmaid
 
         var numbers = _.chain(attrs)
@@ -58,10 +59,8 @@ module.exports = Handlebones.View.extend({
           // crossDomain: true,
           data: attrs
         }).then(function(data) {
-          release();
           that.trigger("done");
         }, function(err) {
-          release();
           console.dir(arguments);
           console.error(err.responseText);
         });
@@ -69,6 +68,7 @@ module.exports = Handlebones.View.extend({
     }
   },
   initialize: function(options) {
+    Handlebones.ModelView.prototype.initialize.call(this);
     this.options = options;
     this.model = options.model;
     var zid = options.zid;
