@@ -11,10 +11,10 @@ module.exports = Handlebones.View.extend({
 
     initialize: function(options) {
       this.questions = options.collection; // questions collection
-      this.questionsCollectionView = new Handlebones.CollectionView({
+      this.questionsCollectionView = this.addChild(new Handlebones.CollectionView({
         modelView: this.itemViewForCollection,
         collection: this.questions
-      });
+      }));
       this.zid = options.zid;
     }
 });
