@@ -1,6 +1,7 @@
 var View = require("../view");
 var template = require("../tmpl/passwordResetForm");
 var $ = require("jquery");
+var serialize = require("../util/serialize");
 
 
 module.exports = View.extend({
@@ -14,7 +15,7 @@ module.exports = View.extend({
       if (-1 === document.domain.indexOf("pol.is")) {
           urlPrefix = "http://localhost:5000/";
       }
-      this.serialize(function(attrs, release){
+      serialize(this, function(attrs){
         attrs.pwresettoken = that.pwresettoken;
         if(attrs.newPassword !== attrs.pw2){
           alert("Passwords must match.");
@@ -38,7 +39,6 @@ module.exports = View.extend({
           // reload the page to clear out the password from memory
           window.location = window.location.protocol + "//" + window.location.host + "/#user/login";
         }, function(errmessage) {
-          release();
           alert(errmessage);
         });
       });

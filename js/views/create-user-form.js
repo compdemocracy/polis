@@ -2,6 +2,7 @@ var Handlebones = require("handlebones");
 var template = require("../tmpl/create-user-form");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
+var serialize = require("../util/serialize");
 
 var ModelView = Handlebones.ModelView;
 
@@ -44,44 +45,32 @@ var ModelView = Handlebones.ModelView;
     that.clearFailMessage();
     event.preventDefault();
 
-    var elHname = $("#hname");
-    var elPassword = $("#password");
-    var elEmail = $("#email");
-    
-    var attrs = {
-      email: elEmail.val(),
-      hname: elHname.val(),
-      password: elPassword.val()
-    };
-
-    // Incorporate options, like zinvite.
-    var zinvite = that.model.get("zinvite");
-    if (zinvite) {
-      attrs.zinvite = zinvite;
-    }
-    if (!attrs.email || !/.@./.exec(attrs.email)) {
-      return that.onFail("Email is missing \"@\"");
-    }
-    if (!attrs.password || attrs.password.length < 8) {
-      return that.onFail("Password must be 8 or more characters.");
-    }
-    $.ajax({
-      url: that.urlPrefix + "v3/auth/new",
-      type: "POST",
-      dataType: "json",
-      xhrFields: {
-          withCredentials: true
-      },
-      // crossDomain: true,
-      data: attrs
-    }).then(function(data) {
-      elPassword.val("");
-      elHname.val("");
-      elEmail.val("");
-      that.trigger("authenticated");
-    }, function(err) {
-        elPassword.val("");
-        that.onFail("login was unsuccessful");
+    serialize(this, function(attrs){
+        // Incorporate options, like zinvite.
+        var zinvite = that.model.get("zinvite");
+        if (zinvite) {
+          attrs.zinvite = zinvite;
+        }
+      if (!attrs.email || !/.@./.exec(attrs.email)) {
+        return that.onFail("Email is missing \"@\"");
+      }
+      if (!attrs.password || attrs.password.length < 8) {
+        return that.onFail("Password must be 8 or more characters.");
+      }
+      $.ajax({
+        url: that.urlPrefix + "v3/auth/new",
+        type: "POST",
+        dataType: "json",
+        xhrFields: {
+            withCredentials: true
+        },
+        // crossDomain: true,
+        data: attrs
+      }).then(function(data) {
+        that.trigger("authenticated");
+      }, function(err) {
+          that.onFail("login was unsuccessful");
+      });
     });
   },
   signIn: function(event) {
@@ -89,30 +78,21 @@ var ModelView = Handlebones.ModelView;
     that.clearFailMessage();
     event.preventDefault();
     
-    var elPassword = $("#password");
-    var elEmail = $("#email");
-    
-    var attrs = {
-      email: elEmail.val(),
-      password: elPassword.val()
-    };
-
-    $.ajax({
-      url: that.urlPrefix + "v3/auth/login",
-      type: "POST",
-      dataType: "json",
-      xhrFields: {
-        withCredentials: true
-      },
-      // crossDomain: true,
-      data: attrs
-    }).then(function(data) {
-      elPassword.val("");
-      elEmail.val("");
-      that.trigger("authenticated");
-    }, function(err) {
-        elPassword.val("");
-        that.onFail("login was unsuccessful");
+    serialize(this, function(attrs){
+      $.ajax({
+        url: that.urlPrefix + "v3/auth/login",
+        type: "POST",
+        dataType: "json",
+        xhrFields: {
+          withCredentials: true
+        },
+        // crossDomain: true,
+        data: attrs
+      }).then(function(data) {
+        that.trigger("authenticated");
+      }, function(err) {
+          that.onFail("login was unsuccessful");
+      });
     });
   },
   validateInput: function(attrs){

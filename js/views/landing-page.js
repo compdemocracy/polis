@@ -1,5 +1,6 @@
 var View = require("../view");
 var template = require("../tmpl/landing-page");
+var serialize = require("../util/serialize");
 
 module.exports = View.extend({
   name: "landingPage",
@@ -12,7 +13,7 @@ module.exports = View.extend({
       if (-1 === document.domain.indexOf("pol.is")) {
           urlPrefix = "http://localhost:5000/";
       }
-      this.serialize(function(attrs, release){
+      serialize(this, function(attrs){
         $.ajax({
           url: urlPrefix + "v3/beta",
           type: "POST",
@@ -23,11 +24,9 @@ module.exports = View.extend({
           // crossDomain: true,
           data: attrs
         }).then(function(data) {
-          release();
           that.trigger("done");
           alert("Thank you, your request was recieved.");
         }, function(err) {
-          release();
           console.dir(arguments);
           alert(err.responseText);
         });

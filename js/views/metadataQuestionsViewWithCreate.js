@@ -1,6 +1,7 @@
 var MetadataQuestion = require("../models/metadataQuestion");
 var MetadataQuestionAndAnswersViewWithCreate = require("../views/metadataQuestionAndAnswersViewWithCreate");
 var MetadataQuestionsView = require("../views/metadataQuestionsView");
+var serialize = require("../util/serialize");
 
 module.exports = MetadataQuestionsView.extend({
   name: "metadataQuestionsViewWithCreate",
@@ -17,7 +18,7 @@ module.exports = MetadataQuestionsView.extend({
   },
   hideAddQuestionForm: function() {
     var that = this;
-    this.serialize(function(attrs, release){
+    serialize(this, function(attrs){
       // Make sure the form isn't empty.
       if (attrs.questionInput && attrs.questionInput.length) {
         var data = {

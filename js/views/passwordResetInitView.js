@@ -1,5 +1,6 @@
 var View = require("../view");
 var template = require("../tmpl/passwordResetInitForm");
+var serialize = require("../util/serialize");
 
 
 module.exports = View.extend({
@@ -12,7 +13,7 @@ module.exports = View.extend({
       if (-1 === document.domain.indexOf("pol.is")) {
           urlPrefix = "http://localhost:5000/";
       }
-      this.serialize(function(attrs, release){
+      serialize(this, function(attrs){
         if (!/.@./.test(attrs.email)) {
           alert("need email");
           return;
@@ -27,10 +28,8 @@ module.exports = View.extend({
           // crossDomain: true,
           data: attrs
         }).then(function(message) {
-          release();
           alert(message);
         }, function(errmessage) {
-          release();
           alert(errmessage);
         });
       });

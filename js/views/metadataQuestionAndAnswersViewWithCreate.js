@@ -1,6 +1,7 @@
 var MetadataAnswer = require("../models/metadataAnswer");
 var MetadataAnswerViewWithDelete = require("../views/metadataAnswerViewWithDelete");
 var MetadataQuestionAndAnswersView = require("../views/metadataQuestionAndAnswersView");
+var serialize = require("../util/serialize");
 
 module.exports = MetadataQuestionAndAnswersView.extend({
   name: "metadataQuestionAndAnswersViewWithCreate",
@@ -20,7 +21,7 @@ module.exports = MetadataQuestionAndAnswersView.extend({
   },
   hideAddAnswerForm: function() {
     var that = this;
-    this.serialize(function(attrs, release){
+    serialize(this, function(attrs){
 
       // Make sure the form isn't empty.
       if (attrs.answerInput && attrs.answerInput.length) {
@@ -32,7 +33,6 @@ module.exports = MetadataQuestionAndAnswersView.extend({
         };
         var model = new MetadataAnswer(data);
         model.save().then(function() {
-          release();
 
           that.$el.find("input").val("");
           that.$el.find("input").focus();
@@ -46,7 +46,6 @@ module.exports = MetadataQuestionAndAnswersView.extend({
           });
           model.fetch();
         }, function() {
-          release();
           alert("failed");
         });
       }

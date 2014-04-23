@@ -6,6 +6,7 @@ var ConversationModel = require("../models/conversation");
 var MetadataQuestionsViewWithCreate = require("../views/metadataQuestionsViewWithCreate");
 var MetadataQuestionCollection = require("../collections/MetadataQuestions");
 var PolisStorage = require("../util/polisStorage");
+var serialize = require("../util/serialize");
 
 module.exports = View.extend({
     name: "create-conversation-form",
@@ -46,56 +47,47 @@ module.exports = View.extend({
         event.preventDefault();
         var formAction = $(event.target).data("action");
 
-        var elTopic = this.$("#topic");
-        var elDescription = this.$("#description");
-        var elXidsTextarea = this.$("#xidsTextarea");
-        var elIsNotPublic = this.$("#is_not_public");
+        serialize(this, function(attrs) {
+          attrs.is_public = !attrs.is_not_public
+          var xids = attrs.xidsTextarea;
+          if (xids && xids.length) {
+            xids = xids.split("\n");
+          }
+          delete attrs.xidsTextarea;
 
-        var attrs = {
-          topic: elTopic.val(),
-          xidsTextarea: elXidsTextarea.val(),
-          description: elDescription.val(),
-          is_public: !elIsNotPublic.val(),
-        };
+          var readyToSubmit = !!xids ? 
+            $.ajax({
+              url: "/v3/users/invite",
+              type: "POST",
+              dataType: "json",
+              xhrFields: {
+                  withCredentials: true
+              },
+              // crossDomain: true,
+              data: {
+                xids: xids,
+                single_use_tokens: true,
+                zid: that.model.get("zid")
+              }
+            }) : 
+            $.Deferred().resolve();
 
-        var xids = attrs.xidsTextarea;
-        if (xids && xids.length) {
-          xids = xids.split("\n");
-        }
-        delete attrs.xidsTextarea;
+          readyToSubmit.then(function(suurls) {
 
-        var readyToSubmit = !!xids ? 
-          $.ajax({
-            url: "/v3/users/invite",
-            type: "POST",
-            dataType: "json",
-            xhrFields: {
-                withCredentials: true
-            },
-            // crossDomain: true,
-            data: {
-              xids: xids,
-              single_use_tokens: true,
-              zid: that.model.get("zid")
-            }
-          }) : 
-          $.Deferred().resolve();
-
-        readyToSubmit.then(function(suurls) {
-
-          attrs.verifyMeta = true; // make sure there are answers for each question.
-          that.model.save(attrs).then(function(data) {
-            that.trigger("done", suurls);
+            attrs.verifyMeta = true; // make sure there are answers for each question.
+            that.model.save(attrs).then(function(data) {
+              that.trigger("done", suurls);
+            }, function(err) {
+              var err = err.responseJSON;
+              if (err === "polis_err_missing_metadata_answers") {
+                that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
+              } else {
+                that.onFail("unable to save");
+              }
+            });
           }, function(err) {
-            var err = err.responseJSON;
-            if (err === "polis_err_missing_metadata_answers") {
-              that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
-            } else {
-              that.onFail("unable to save");
-            }
+            that.onFail("failed to create single-use URLs");
           });
-        }, function(err) {
-          that.onFail("failed to create single-use URLs");
         });
       }
     },

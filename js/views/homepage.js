@@ -1,5 +1,6 @@
 var View = require("../view");
 var template = require("../tmpl/homepage");
+var serialize = require("../util/serialize");
 
 
 module.exports = View.extend({
@@ -8,7 +9,7 @@ module.exports = View.extend({
   events: {
     "submit form": function(e){
       e.preventDefault();
-      this.serialize(function(attrs, release){
+      serialize(this, function(attrs){
         $.ajax({
           url: "/v3/beta/",
           type: "POST",
@@ -19,9 +20,9 @@ module.exports = View.extend({
           // crossDomain: true,
           data: attrs
         }).then(function() {
-          release();
+
         }, function() {
-          release();
+
         });
       });
     },

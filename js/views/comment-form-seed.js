@@ -3,6 +3,7 @@ var template = require("../tmpl/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
 var Handlebones = require("handlebones");
+var serialize = require("../util/serialize");
 
 module.exports = Handlebones.CollectionView.extend({
   name: "comment-form-seed",
@@ -12,9 +13,7 @@ module.exports = Handlebones.CollectionView.extend({
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();
-      this.serialize(function(attrs, release){
-        release();
-        console.log(attrs);
+      serialize(this, function(attrs){
         that.participantCommented(attrs);
       });
       $("#comment_form_textarea").val(""); //use this.$

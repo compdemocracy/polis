@@ -2,6 +2,7 @@ var View = require("../view");
 var template = require("../tmpl/userCreate");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
+var serialize = require("../util/serialize");
 
 
 module.exports = View.extend({

@@ -1,6 +1,7 @@
 var View = require("../view");
 var template = require("../tmpl/login-form");
 var PolisStorage = require("../util/polisStorage");
+var serialize = require("../util/serialize");
 
 module.exports = View.extend({
   name: "login-form",
@@ -13,7 +14,7 @@ module.exports = View.extend({
       if (-1 === document.domain.indexOf("pol.is")) {
           urlPrefix = "http://localhost:5000/"; // TODO centralize the network config
       }
-      this.serialize(function(attrs, release){
+      serialize(this, function(attrs){
         $.ajax({
           url: urlPrefix + "v3/auth/login",
           type: "POST",
@@ -24,10 +25,8 @@ module.exports = View.extend({
           // crossDomain: true,
           data: attrs
         }).then(function(data) {
-          release();
           that.trigger("authenticated");
         }, function(err) {
-            release();
             alert("Oops! Login was unsuccessful. Please check to make sure you are online, and that your username and password are correct.");
         });
       });
