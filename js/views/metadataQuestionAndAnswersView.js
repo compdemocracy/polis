@@ -2,7 +2,7 @@ var MetadataAnswerView = require("../views/metadataAnswerView");
 var template = require("../tmpl/metadataQuestionAndAnswers");
 var Handlebones = require("handlebones");
 
-module.exports = Handlebones.ModelView.extend({
+module.exports = Handlebones.View.extend({
   name: "metadataQuestionAndAnswersView",
   template: template,
   allowCreate: false,

@@ -88,7 +88,7 @@ module.exports = Handlebones.View.extend({
     var MetadataQuestionModelWithZinvite = MetadataQuestion.extend(params);
 
     this.metadataCollection = new MetadataQuestionCollection([], {
-      // model: MetadataQuestionModelWithZinvite,
+      model: MetadataQuestionModelWithZinvite,
       zid: zid
     });
     this.metadataCollection.fetch({
