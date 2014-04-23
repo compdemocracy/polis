@@ -960,6 +960,13 @@ function clientSideBaseCluster(things, N) {
 //             D: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.push; })
 //         };
         // TODO reduce vote count for the bucket self is in.
+        if (!buckets) {
+            console.warn("no votes found for tid: " + tid);
+            buckets = {
+                A:[],
+                D:[]
+            };
+        }
         return dfd.resolve(buckets);
     }
 
