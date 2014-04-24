@@ -12,7 +12,7 @@ var CV = Handlebones.CollectionView.extend({
 module.exports = Handlebones.View.extend({
     name: "metadataQuestionsView",
     template: template,
-    allowCreate: true,
+    allowCreate: false,
     CollectionView: CV,
     // itemViewForCollection: MetadataQuestionAndAnswersView, // may be overriden in subclass
 

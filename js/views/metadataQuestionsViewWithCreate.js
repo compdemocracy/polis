@@ -40,8 +40,8 @@ module.exports = MetadataQuestionsView.extend({
           that.collection.fetch({
             data: $.param({
               zid: that.zid,
-            }),
-            reset: true
+            })//,
+            // reset: true
           });
           // that.render();
         });

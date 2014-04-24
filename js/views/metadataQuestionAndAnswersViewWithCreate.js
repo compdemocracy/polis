@@ -51,7 +51,6 @@ module.exports = MetadataQuestionAndAnswersView.extend({
             }),
             processData: true
           });
-          model.fetch();
         }, function() {
           alert("failed");
         });
