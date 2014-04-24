@@ -4,6 +4,8 @@ var ConversationModel = require("../models/conversation");
 var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
+var FaqCollection = require("../collections/faqs");
+var FaqContent = require("../faqContent");
 var InboxView = require("../views/inbox");
 var HomepageView = require("../views/homepage");
 var CreateConversationFormView = require("../views/create-conversation-form");
@@ -20,6 +22,7 @@ var PasswordResetView = require("../views/passwordResetView");
 var PasswordResetInitView = require("../views/passwordResetInitView");
 var ShareLinkView = require("../views/share-link-view");
 var PlanUpgradeView = require("../views/plan-upgrade");
+var FaqView = require("../views/faq");
 var PolisStorage = require("../util/polisStorage");
 var UserModel = require("../models/user");
 var _ = require("underscore");
@@ -37,6 +40,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("settings", "deregister");
     this.r("plan/upgrade(/:plan_id)", "upgradePlan");
     this.r("inbox(/:filter)", "inbox");
+    this.r("faq", "faq");
     this.r("pwresetinit", "pwResetInit");
     this.r("prototype", "prototype");
     this.r("", "landingPageView");
@@ -422,7 +426,7 @@ var polisRouter = Backbone.Router.extend({
   },
   pwResetInit: function() {
     var view = new PasswordResetInitView();
-    RootView.getInstance().setView(view);
+    RootView.getInstance().setView(view );
   },
   doLogin: function(create) {
     var dfd = $.Deferred();
@@ -446,6 +450,11 @@ var polisRouter = Backbone.Router.extend({
         that.navigate("inbox", {trigger: true});
       }
     });
+  },
+  faq: function(){
+    var faqCollection = new FaqCollection(FaqContent)
+    var faqView = new FaqView({collection: faqCollection});
+    RootView.getInstance().setView(faqView);
   }
 });
 
