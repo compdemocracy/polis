@@ -17,9 +17,9 @@ function bbCompareAscending(propertyName, a, b) {
 }
 function compareTieBreaker(a, b) {
   var x = bbCompare("stars", a, b);
-  x = x || bbCompareAscending("D", a, b);
   x = x || a.get("txt").length - b.get("txt").length; // shorter comments first
-  x = x || (b.get("txt").toLowerCase() < a.get("txt").toLowerCase()) ? 1 : -1; // alphabetic
+  x = x || bbCompare("created", a, b);
+  // x = x || (b.get("txt").toLowerCase() < a.get("txt").toLowerCase()) ? 1 : -1; // alphabetic
   return x;
 }
 function sortRepness(a, b) {
@@ -28,10 +28,12 @@ function sortRepness(a, b) {
 }
 function comparatorAgree(a, b) {
   var x = bbCompare("A", a, b);
+  x = x || bbCompareAscending("D", a, b);
   return x || compareTieBreaker(a, b);
 }
 function comparatorDisagree(a, b) {
   var x = bbCompare("D", a, b);
+  x = x || bbCompareAscending("A", a, b);
   return x || compareTieBreaker(a, b);
 }
 
@@ -44,6 +46,7 @@ var el_carouselSelector = "#carousel";
 
 var AnalyzeCollectionView = Handlebones.CollectionView.extend({
   modelView: AnalyzeCommentView,
+  comparator: comparatorAgree,
   modelFilter: function(model, index) {
     var searchString = this.parent.searchString;
     var visibleTids = this.parent.visibleTids;
@@ -160,18 +163,15 @@ module.exports = Handlebones.View.extend({
     },
   searchEnabled: true,
   sortEnabled: true,
-  sort: function(e) {
-    this.collection.sort();
-  },
   sortAgree: function(e) {
     this.collection.comparator = comparatorAgree;
-    this.sort();
+    this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
     this.collection.comparator = comparatorDisagree;
-    this.sort();
+    this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
@@ -182,7 +182,7 @@ module.exports = Handlebones.View.extend({
   sortRepness: function(e) {
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
-    this.sort();
+    this.collection.sort();
   },
   useCarousel: function() {
       return !this.isIE8 && display.xs();
