@@ -1,4 +1,6 @@
-(ns polismath.utils)
+(ns polismath.utils
+  (:use
+   clojure.tools.logging))
 
 
 (defn agree? [n]
@@ -13,7 +15,7 @@
   [tag & expr]
   `(let [start# (. System (nanoTime))
          ret# ~@expr]
-     (println (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+     (debug (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
 
 

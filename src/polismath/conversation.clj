@@ -59,13 +59,20 @@
                           :base-iters 10
                           :base-k 50
                           :group-iters 10}
-                    opts))
+                         opts))
+   
+   :zid  (plmb/fnk [conv]
+                   (:zid conv))
+   
+   :lastVoteTimestamp  (plmb/fnk [votes]
+                  (:created (last votes)))
+   
    :rating-mat  (plmb/fnk [conv votes]
-                  (update-nmat (:rating-mat conv)
-                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
+                  (time2 "rating-mat" (update-nmat (:rating-mat conv)
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes))))
    :n           (plmb/fnk [rating-mat]
                   "count the participants"
-                  (count (:rows rating-mat)))})
+                  (time2 "n" (count (:rows rating-mat))))})
 
 
 (def small-conv-update-graph
@@ -93,7 +100,7 @@
                 (sort-by :id
                   (kmeans (assoc rating-mat :matrix proj)
                     (:base-k opts')
-                    :last-clusters (:base-clusters conv)
+;                    :last-clusters (:base-clusters conv)
                     :cluster-iters (:base-iters opts')))))
 
        :group-clusters
@@ -102,7 +109,7 @@
                 (sort-by :id
                   (kmeans (xy-clusters-to-nmat2 base-clusters)
                     (choose-group-k base-clusters)
-                    :last-clusters (:group-clusters conv)
+ ;                   :last-clusters (:group-clusters conv)
                     :cluster-iters (:group-iters opts')))))
 
        :bid-to-pid (plmb/fnk [base-clusters]
@@ -129,10 +136,6 @@
                              tids)))))
        ; End of large-update
        }))
-
-
-
-
 
 (def unused-conv-targets
   (merge

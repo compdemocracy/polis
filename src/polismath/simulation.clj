@@ -47,7 +47,7 @@
 
 
 (defn exit [status msg]
-    (println msg)
+    (warn msg)
     (System/exit status))
 
 
@@ -84,11 +84,11 @@
             (fn [convs]
               (assoc convs zid
                 (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes))))
-          (println \newline (@conversations zid)))))))
+          (debug \newline (@conversations zid)))))))
 
 
 (defn -main [& args]
-  (println "Starting simulations")
+  (debug "Starting simulations")
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
     (cond
       (:help options)   (exit 0 (usage summary))
@@ -104,11 +104,11 @@
       b2 (time2 "conv-update b2 5000*10+100*1" (conv-update b (random-votes 100 1)))
       b3 (time2 "conv-update b3 5000*10+5000*10" (conv-update b2 (random-votes 5000 10)))            
     ]
-  (println (keys a))
-  (println (keys b))
+  (debug (keys a))
+  (debug (keys b))
   ))
 
-                                        ;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
-;  (pprint (group-by :id (:base-clusters b)))
-;  (pprint (map :members (sort-by :id (:base-clusters b))))  
+                                        ;  (debug (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
+;  (debug (group-by :id (:base-clusters b)))
+;  (debug (map :members (sort-by :id (:base-clusters b))))
   
