@@ -72,10 +72,34 @@
     clusters))
 
 
+(defn safe-recenter-clusters [data clusters]
+  "Replace cluster centers with a center computed from new positions"
+  (as-> clusters clsts
+    ; map every cluster to the newly centered cluster or to nil if there are no members in data
+    (map
+      (fn [clst]
+        (let [rns (safe-rowname-subset data (:members clst))]
+          (if (empty? (:rows rns))
+            nil
+            (assoc clst :center (mean (matrix (:matrix rns)))))))
+      clsts)
+    ; Remove the nils, they break the math
+    (remove nil? clsts)
+    ; If nothing is left, make one great big cluster - so that things don't break in most-distal later
+    ; XXX - Should see if there is a cleaner place/way to handle this...
+    (if (empty? clsts)
+      [{:id (inc (apply max (map :id clusters)))
+        :members (:rows data)
+        :center (mean (matrix (:matrix data)))}]
+      clsts)))
+
+
 (defn merge-clusters [clst1 clst2]
   (let [new-id (:id (max-key #(count (:members %)) clst1 clst2))]
     ; XXX - instead of using mean should really do a weighted thing that looks at # members
-    {:id new-id :members (into clst1 clst2) :center (mean (map :center [clst1 clst2]))}))
+    {:id new-id
+     :members (into (:members clst1) (:members clst2))
+     :center (mean (map :center [clst1 clst2]))}))
 
 
 (defn most-distal [data clusters]
@@ -96,11 +120,11 @@
 
 
 (defn uniqify-clusters [clusters]
-  (reduce-kv
-    (fn [clusters i clst]
+  (reduce
+    (fn [clusters clst]
       (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
         (if identical-clst
-          (assoc clusters i (merge-clusters identical-clst clst))
+          (assoc clusters (.indexOf clusters identical-clst) (merge-clusters identical-clst clst))
           (conj clusters clst))))
     [] clusters))
 
@@ -110,14 +134,13 @@
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
   ; First recenter clusters (replace cluster center with a center computed from new positions)
-  (let [clusters (into [] (recenter-clusters data clusters))
+  (let [clusters (into [] (safe-recenter-clusters data clusters))
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
         possible-clusters (min k (count (distinct (rows (:matrix data)))))]
     (loop [clusters uniq-clusters]
-      ; Whatever th ecase here, we want to do one more recentering
-      (println "size" (count clusters))
+      ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters)]
         (if (> possible-clusters (count clusters))
           ; first find the most distal point, and the cluster to which it's closest
@@ -215,8 +238,8 @@
 
 (defn xy-clusters-to-nmat2 [clusters]
   (named-matrix
-   (map :id clusters) ; row names
-   [:x :y] ; column names
-   (matrix (map :center clusters))))
+    (map :id clusters) ; row names
+    [:x :y] ; column names
+    (matrix (map :center clusters))))
 
 

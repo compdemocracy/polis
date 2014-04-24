@@ -24,19 +24,18 @@
     (if (< idx 0)
       []
       (map ; for each bucket
-       (fn [pids]
-         (let [person-rows (:matrix rating-mat)]
-           (math/abs
-            (reduce ; add up the votes within the group for the given tid
-             +
-             0
-             (filter ; remove votes you don't want to count
-              filter-cond
-              (map ; get a list of votes for the tid from each person
-                                        ; in the group
-               (fn [pid] (get (get person-rows (pid-to-row pid)) idx))
-               pids))))))
-       bid-to-pid))))
+        (fn [pids]
+          (let [person-rows (:matrix rating-mat)]
+            (math/abs
+              ; add up the votes within the group for the given tid
+              (reduce + 0
+                ; reove votes you don't want to count
+                (filter filter-cond
+                  ; get a list of votes for the tid from each person in the group
+                  (map
+                    (fn [pid] (get (get person-rows (pid-to-row pid)) idx))
+                    pids))))))
+        bid-to-pid))))
 
 ; conv - should have
 ;   * last-updated
@@ -64,100 +63,72 @@
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
                                (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
-  :n (plmb/fnk [rating-mat]
-               "count the participants"
-               (count (:rows rating-mat)))
-
-   })
+   :n           (plmb/fnk [rating-mat]
+                  "count the participants"
+                  (count (:rows rating-mat)))})
 
 
 (def small-conv-update-graph
   "For computing small conversation updates (those without need for base clustering)"
   (merge
-   base-conv-update-graph
-   {
+     base-conv-update-graph
+     {:mat (plmb/fnk [rating-mat]
+             "swap nils for zeros - most things need the 0s, but repness needs the nils"
+             (time2 "mat"
+              (map (fn [row] (map #(if (nil? %) 0 %) row))
+                   (:matrix rating-mat))))
 
-    :mat
-    (plmb/fnk
-     [rating-mat]
-     "swap nils for zeros - most things need the 0s, but repness needs the nils"
-     (time2
-      "mat"
-      (map (fn [row] (map #(if (nil? %) 0 %) row))
-           (:matrix rating-mat))))
-    
-    :pca
-    (plmb/fnk
-     [conv mat opts']
-     (time2
-      "pca"
-      (wrapped-pca mat (:n-comps opts')
-                   :start-vectors (get-in conv [:pca :comps])
-                   :iters (:pca-iters opts'))))
-    :proj
-     (plmb/fnk
-      [mat pca]
-      (time2
-       "proj"
-       (pca-project mat pca)))
+      :pca (plmb/fnk [conv mat opts']
+             (time2 "pca"
+               (wrapped-pca mat (:n-comps opts')
+                            :start-vectors (get-in conv [:pca :comps])
+                            :iters (:pca-iters opts'))))
 
-     :base-clusters
-     (plmb/fnk
-      [conv rating-mat proj opts']
-      (time2
-       "base-clusters"
-       (sort-by
-        :id
-        (kmeans (assoc rating-mat :matrix proj)
-                (:base-k opts')
-                ; :last-clusters (:base-clusters conv)
-                ; :cluster-iters (:base-iters opts')
+      :proj (plmb/fnk [mat pca]
+              (time2 "proj" (pca-project mat pca)))
 
-                ))))
-     
-     :group-clusters
-     (plmb/fnk
-      [conv rating-mat base-clusters opts']
-      (time2
-       "group-clusters"
-       (sort-by
-        :id
-        (kmeans
-         (xy-clusters-to-nmat2 base-clusters)
-         (choose-group-k base-clusters)
-         ; :last-clusters (:group-clusters conv)
-         ; :cluster-iters (:group-iters opts')
-         ))))
+      :base-clusters
+            (plmb/fnk [conv rating-mat proj opts']
+              (time2 "base-clusters"
+                (sort-by :id
+                  (kmeans (assoc rating-mat :matrix proj)
+                    (:base-k opts')
+                    :last-clusters (:base-clusters conv)
+                    :cluster-iters (:base-iters opts')))))
 
-     :bid-to-pid
-     (plmb/fnk
-      [base-clusters]
-      (time2
-       "bid-to-pid"
-       (map :members (sort-by :id base-clusters))))
-     
-     ;;; returns {tid {
-     ;;;           :agree [0 4 2 0 6 0 0 1]
-     ;;;           :disagree [3 0 0 1 0 23 0 ]}
-     ;;; where the indices in the arrays are bids
-     :votes-base
-     (plmb/fnk
-      [bid-to-pid rating-mat]
-      (time2
-       "votes-base"
-       (let [tids (:cols rating-mat)]
-         (reduce
-          (fn [o entry]
-            (assoc o (:tid entry) (dissoc entry :tid)))
-          {}                  
-          (map
-           (fn [tid]
-             {:tid tid
-              :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid) ; A for Agree
-              :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid) ; D for Disagree
-              }) tids)))))
-     
-     }))
+       :group-clusters
+            (plmb/fnk [conv rating-mat base-clusters opts']
+              (time2 "group-clusters"
+                (sort-by :id
+                  (kmeans (xy-clusters-to-nmat2 base-clusters)
+                    (choose-group-k base-clusters)
+                    :last-clusters (:group-clusters conv)
+                    :cluster-iters (:group-iters opts')))))
+
+       :bid-to-pid (plmb/fnk [base-clusters]
+                     (time2 "bid-to-pid"
+                       (map :members (sort-by :id base-clusters))))
+
+       ;;; returns {tid {
+       ;;;           :agree [0 4 2 0 6 0 0 1]
+       ;;;           :disagree [3 0 0 1 0 23 0 ]}
+       ;;; where the indices in the arrays are bids
+       :votes-base (plmb/fnk [bid-to-pid rating-mat]
+                     (time2 "votes-base"
+                       (let [tids (:cols rating-mat)]
+                         (reduce
+                           (fn [o entry]
+                             (assoc o (:tid entry) (dissoc entry :tid)))
+                           {}
+                           (map
+                             (fn [tid]
+                               ; A for aggree; D for disagree
+                               {:tid tid
+                                :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
+                                :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)})
+                             tids)))))
+       ; End of large-update
+       }))
 
 
 
@@ -229,3 +200,5 @@
        (> n-ptpts 9999999999)   large-conv-update
        :else             small-conv-update)
           {:conv conv :votes votes :opts opts})))
+
+

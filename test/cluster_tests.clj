@@ -1,4 +1,5 @@
 (ns cluster-tests
+  (:use polismath.utils)
   (:require [clojure.test :refer :all]
             [polismath.named-matrix :refer :all]
             [polismath.clusters :refer :all]))
@@ -60,28 +61,37 @@
     (testing "should give the right number of clusters"
       (size-correct clusts 3))))
 
-(deftest edge-cases
-  (testing "k-means on n < k items"
-    (testing "gives n clusters"
-      (let [data (named-matrix
-                   ["p1" "p2"]
-                   ["c1" "c2" "c3"]
-                   [[ 0  1  0 ]
-                    [-1  1  0 ]])]
+
+(deftest less-than-k-test
+  (testing "k-means on n < k items gives n clusters"
+    (let [data (named-matrix
+                 ["p1" "p2"]
+                 ["c1" "c2" "c3"]
+                 [[ 0  1  0 ]
+                  [-1  1  0 ]])]
+      (size-correct (kmeans data 3) 2))))
+
+
+(let [data (named-matrix
+             ["p1" "p2" "p3"]
+             ["c1" "c2" "c3"]
+             [[ 0  1  0 ]
+              [ 0  1  0 ]
+              [-1  1  0 ]])]
+  (deftest identical-mem-pos-test
+    (testing "k-means gives n-1 clusters when precisely 2 items have identical positions"
         (size-correct (kmeans data 3) 2)))
-    (testing "gives n-1 clusters when precisely 2 items have identical positions"
-      (let [data (named-matrix
-                   ["p1" "p2" "p3"]
-                   ["c1" "c2" "c3"]
-                   [[ 0  1  0 ]
-                    [ 0  1  0 ]
-                    [-1  1  0 ]])]
-        (size-correct (kmeans data 3) 2)
-        (testing "even when n lats-clusters have been specified"
-          (let [last-clusts [{:id 1 :members ["p1"]}
-                             {:id 2 :members ["p2"]}
-                             {:id 3 :members ["p3"]}]]
-            (size-correct (kmeans data 3 :last-clusters last-clusts) 2)))))))
+
+  (deftest shrinking-test
+    (testing "k-means gives n-1 clusters even when n last-clusters have been specified
+             if two members have identical positions"
+      (let [last-clusts [{:id 1 :members ["p1"]}
+                         {:id 2 :members ["p2"]}
+                         {:id 3 :members ["p3"]}]]
+        (size-correct (kmeans data 3 :last-clusters last-clusts) 2)))))
+
+(deftest edge-cases (less-than-k-test) (identical-mem-pos-test) (shrinking-test))
+
 
 (deftest most-distal-test
   (let [data (named-matrix
@@ -102,5 +112,52 @@
       (is (< 
             (- (:dist (most-distal data clusts)) 1.37436854)
             0.0001)))))
+
+
+(deftest uniqify-clusters-test
+  (let [last-clusts [{:id 1 :members ["p1"] :center [1 1  1]}
+                     {:id 2 :members ["p2"] :center [1 1  1]}
+                     {:id 3 :members ["p3"] :center [1 0 -1]}]]
+    (testing "correct size"
+      (size-correct (uniqify-clusters last-clusts) 2))
+    (testing "correct members"
+      (is (some #{["p1" "p2"]} (map :members (uniqify-clusters last-clusts)))))))
+
+
+(deftest merge-clusters-test
+  (let [clst1 {:id 1 :center [1 1 1] :members ["a" "b"]}
+        clst2 {:id 2 :center [1 0 0] :members ["c" "d"]}]
+    (is (= #{"a" "b" "c" "d"}
+           (set (:members (merge-clusters clst1 clst2)))))))
+
+
+(let [last-clusters [{:members [1 2] :id 1}
+                     {:members [3 4] :id 2}]
+      data (named-matrix [1 2 3 4] [:x :y]
+             [[1.2   0.4]
+              [1.0   0.3]
+              [-0.2 -0.4]
+              [-0.7 -0.7]])
+      kmeanser (fn [new-data] (kmeans new-data 2 :last-clusters last-clusters))]
+
+  (deftest missing-some-members
+    (let [new-data (assoc data :rows [1 5 3 4])]
+      (is (kmeanser new-data))
+      (size-correct (kmeanser new-data) 2)))
+
+  (deftest missing-all-members
+    (let [new-data (assoc data :rows [6 5 3 4])]
+      (is (kmeanser new-data))
+      (size-correct (kmeanser new-data) 2)))
+
+  (deftest missing-all-members-global
+    (let [new-data (assoc data :rows [6 5 8 7])]
+      (is (kmeanser new-data))
+      (size-correct (kmeanser new-data) 2))))
+
+(deftest missing-members
+  (missing-some-members)
+  (missing-all-members)
+  (missing-all-members-global))
 
 

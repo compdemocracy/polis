@@ -33,14 +33,25 @@
 
 
 (defn row-subset [nmat row-indices]
+  "Returns a new named matrix which has been subset to the given row-indices"
   (assoc nmat
     :rows (filter-by-index (:rows nmat) row-indices)
     :matrix (filter-by-index (:matrix nmat) row-indices)))
 
 
 (defn rowname-subset [nmat row-names]
+  "Returns a new named matrix which has been subset based on the given row-names"
   (->> row-names
     (map #(.indexOf (:rows nmat) %))
+    (row-subset nmat)))
+
+
+(defn safe-rowname-subset [nmat row-names]
+  "This version of rowname-subset filters out negative indices, so that if not all names in row-names
+  are in nmat, it just subsets to the rownames that are. Should scrap other one?"
+  (->> row-names
+    (map #(.indexOf (:rows nmat) %))
+    (filter #(>= % 0))
     (row-subset nmat)))
 
 
@@ -49,6 +60,7 @@
 
 
 (defn inv-rowname-subset [nmat row-names]
+  "Returns named matrix which has been subset to all the rows not in row-names"
   (row-subset nmat
     (remove (set (map #(.indexOf (:rows nmat) %) row-names))
       (range (count (:rows nmat))))))
