@@ -103,7 +103,7 @@ var ModelView = Handlebones.ModelView;
     return errors;
   },
   initialize: function(options) {
-    ModelView.prototype.initialize.call(this);
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     // this.model = options.model;
     this.urlPrefix = "https://pol.is/";
     if (-1 === document.domain.indexOf("pol.is")) {

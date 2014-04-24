@@ -16,7 +16,7 @@ module.exports = Handlebones.ModelView.extend({
   allowDelete: false,
   CV: CV,
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.call(this);
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.model = options.model; // question model
     this.answers = options.model.collection; // answers collection
     

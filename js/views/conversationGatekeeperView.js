@@ -68,7 +68,7 @@ module.exports = Handlebones.ModelView.extend({
     }
   },
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.call(this);
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.options = options;
     this.model = options.model;
     var zid = options.zid;
