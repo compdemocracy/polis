@@ -12,7 +12,7 @@
 </div>
 
   <div class="reactionButtons">
-  {{#ifDefined tid}}
+  {{#unless empty}}
     <div class="btn-group btn-group-justified">
       <div class="btn-group">
         <button
@@ -58,5 +58,5 @@
         </ul>
       </div>
     </div>
-  {{/ifDefined}}
+  {{/unless}}
 </div>

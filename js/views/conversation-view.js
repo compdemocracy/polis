@@ -290,6 +290,7 @@ module.exports =  Handlebones.View.extend({
       return promise;
     };
 
+      this.updateVotesByMeCollection();
       this.serverClient.addPollingScheduledCallback(function() {
         that.updateVotesByMeCollection();
       });
@@ -322,6 +323,7 @@ module.exports =  Handlebones.View.extend({
 
       this.commentView = this.addChild(new CommentView({
         serverClient: serverClient,
+        model: new CommentModel(),
         votesByMe: this.votesByMe,
         is_public: is_public,
         pid: pid,

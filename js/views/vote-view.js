@@ -1,10 +1,10 @@
 var eb = require("../eventBus");
-var View = require("../view");
+var Handlebones = require("handlebones");
 var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
 var serverClient = require("../lib/polis");
 
-module.exports = View.extend({
+module.exports = Handlebones.ModelView.extend({
     name: "vote-view",
     template: template,
     events: {
@@ -16,6 +16,7 @@ module.exports = View.extend({
     return _.extend({}, this, this.model&&this.model.attributes);
   },
   initialize: function(options) {
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
       eb.on(eb.exitConv, cleanup);
     function cleanup() {
       //alert('cleanup');
@@ -38,7 +39,9 @@ module.exports = View.extend({
       }
     }
     function showComment(model) {
-      that.model = new CommentModel(model);
+      that.model.set(_.extend({
+        empty: false
+      }, model));
       that.render();
       that.trigger("showComment");
       waitingForComments = false;
@@ -68,7 +71,7 @@ module.exports = View.extend({
             }
 
             // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
-            that.model = new CommentModel({
+            that.model.set({
               empty: true,
               txt1: message1,
               txt2: message2
