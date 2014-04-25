@@ -434,8 +434,7 @@ module.exports =  Handlebones.View.extend({
             moveVisAboveQueryResults();
           }
           that.allCommentsCollection.doFetch().then(function() {
-            // uses the current sort comparator
-            that.analyzeGlobalView.sort();
+            that.analyzeGlobalView.sortAgree();
           });
           // that.analyzeGlobalView.showCarousel();
         }
