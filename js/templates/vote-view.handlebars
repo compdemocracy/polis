@@ -13,7 +13,6 @@
 
   <div class="reactionButtons">
   {{#unless empty}}
-    <div class="btn-group btn-group-justified">
       <div class="btn-group">
         <button
           class="btn btn-lg btn-default btn-vote"
@@ -24,39 +23,23 @@
           <i class="icon-caret-up" style="color: #2ecc71;"></i>
         {{/ifNotIE8}}
         &nbsp;Agree </button>
-      </div>
-      <div class="btn-group">
+
         <button
           id="disagreeButton"
           class="btn btn-lg btn-default btn-vote"
           type="button"
         >
         {{#ifNotIE8}}
-          <i class="icon-caret-down" style="color: #e74c3c; position: relative; top: 1px"></i>
+          <i class="icon-caret-down" style="color: #e74c3c"></i>
         {{/ifNotIE8}}
         &nbsp;Disagree </button>
-      </div>
-      <div class="btn-group" id="otherButtonGroup">
-        <button type="button" class="btn btn-lg btn-default dropdown-toggle btn-vote" data-toggle="dropdown">
-          Other&nbsp;
-          {{#ifNotIE8}}            
-            <i class="icon-angle-down" style="position: relative; top: 1px"></i>
-          {{/ifNotIE8}}
-        </button>
-        <ul class="dropdown-menu">
-          <li><a href="#" id="starButton">
-              {{#ifNotIE8}}
-                  <i class="icon-star"></i>
-              {{/ifNotIE8}}
-            &nbsp;Important comment</a></li>
-          <li><a href="#" id="passButton">Pass</a></li>
-          <li><a href="#" id="trashButton">
-              {{#ifNotIE8}}            
-                <i class="icon-trash"></i>
-              {{/ifNotIE8}}
-            &nbsp; Abusive or off topic</a></li>
-        </ul>
-      </div>
+
+        <button
+          id="passButton"
+          class="btn btn-lg btn-default btn-vote"
+          type="button"
+        >
+        <strong style="color:gray">~</strong> &nbsp;Pass/Junk </button>
     </div>
   {{/unless}}
 </div>
