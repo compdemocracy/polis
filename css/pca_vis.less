@@ -52,7 +52,7 @@
   stroke: #f6f6f6;
   stroke-width: 6px;
   stroke-linejoin: round;
-  z-index: 401;
+  z-index: 402;
   cursor: pointer;
 }
 .hull_shadow {
@@ -61,6 +61,23 @@
   stroke-width: 8px;
   stroke-linejoin: round;
   z-index: 400;
+}
+.hull_shadow.active {
+  fill: #f1f1f1;
+  stroke: #f1f1f1;
+}
+
+
+.hull_selection {
+  stroke: rgba(0,0,0,0);
+  stroke-width: 9px;
+  stroke-linejoin: round;
+  stroke-dasharray: 5px;
+  // stroke-dashoffset: 1px;
+  z-index: 401;
+}
+.hull_selection.active {
+  stroke: #6FBAFF;
 }
 
 .active {

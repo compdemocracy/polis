@@ -3,7 +3,7 @@ var template = require("../tmpl/metadataQuestionAndAnswers");
 var Handlebones = require("handlebones");
 
 var CV = Handlebones.CollectionView.extend({
-  tagName: "ul",
+  // tagName: "ul",
   modelView: MetadataAnswerView
 });
 

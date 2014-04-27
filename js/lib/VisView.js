@@ -42,6 +42,7 @@ var overlay_layer;
 var force;
 var queryResults;
 var d3Hulls;
+var d3HullSelections;
 var d3HullShadows;
 
 var selectedCluster = -1;
@@ -410,6 +411,8 @@ function updateHullColors() {
    } else {
         if (selectedCluster >= 0) {
             d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
+            d3.select(d3HullSelections[selectedCluster][0][0]).classed("active", true);            
+            d3.select(d3HullShadows[selectedCluster][0][0]).classed("active", true);
         }
    }
 }
@@ -450,9 +453,10 @@ var hull_unselected_color = '#f6f6f6';
 var hull_selected_color   = '#ebf3ff';
 var hull_shadow_color     = '#d4d4d4';
 var hull_shadow_thickness = w > 550 ? 2 : 1;
+var hull_seletion_thickness = w > 550 ? 2 : 1;
 var hull_stoke_width = hullStrokeWidthGivenVisWidth(w);
 var hull_shadow_stroke_width = hull_stoke_width + hull_shadow_thickness;
-
+var hull_selection_stroke_width = hull_shadow_stroke_width + hull_seletion_thickness;
 
 function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
     return _.times(9, function(i) {
@@ -500,6 +504,7 @@ if (isIE8) {
     raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);    
 } else {
     d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);    
+    d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);        
     d3Hulls = makeD3Hulls("hull", hull_stoke_width);
 }
 
@@ -607,6 +612,7 @@ function updateHulls() {
                     raphaelHullsShadow[i].animate({path: _transformed}, 0);
                 } else {
                     d3Hulls[i].datum(points).attr("d", shape);
+                    d3HullSelections[i].datum(points).attr("d", shape);
                     d3HullShadows[i].datum(points).attr("d", shape);
                 }
             }
