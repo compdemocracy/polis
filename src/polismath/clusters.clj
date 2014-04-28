@@ -1,4 +1,6 @@
 (ns polismath.clusters
+  (:require [toaensso.timbre.profiling :as profiling
+             :refer (pspy pspy* profile defnp p p*)]
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
         polismath.named-matrix
@@ -65,14 +67,14 @@
     (filter #(> (count (:members %)) 0))))
 
 
-(defn recenter-clusters [data clusters]
+(defnp recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
   (map
     #(assoc % :center (mean (matrix (:matrix (rowname-subset data (:members %))))))
     clusters))
 
 
-(defn safe-recenter-clusters [data clusters]
+(defnp safe-recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
   (as-> clusters clsts
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
@@ -102,7 +104,7 @@
      :center (mean (map :center [clst1 clst2]))}))
 
 
-(defn most-distal [data clusters]
+(defnp most-distal [data clusters]
   "Finds the most distal point in all clusters"
   (let [[dist clst-id id]
           ; find the maximum dist, clst-id, mem-id triple
@@ -119,7 +121,7 @@
     {:dist dist :clst-id clst-id :id id}))
 
 
-(defn uniqify-clusters [clusters]
+(defnp uniqify-clusters [clusters]
   (reduce
     (fn [clusters clst]
       (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
@@ -138,7 +140,7 @@
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
-        possible-clusters (min k (count (distinct (rows (:matrix data)))))]
+        possible-clusters (p :posible-clusters (min k (count (distinct (rows (:matrix data))))))]
     (loop [clusters uniq-clusters]
       ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters)]
@@ -147,6 +149,7 @@
           (let [outlier (most-distal data clusters)]
             (if (> (:dist outlier) 0)
               ; There is work to be done, so do it
+              (p :inner-clean-loop
               (recur
                 (->
                   ; first remove the most distal point from the cluster it was in;
@@ -158,7 +161,7 @@
                   ; next add a new cluster containing only said point.
                   (conj {:id (inc (apply max (map :id clusters)))
                          :members [(:id outlier)]
-                         :center (get-row-by-name data (:id outlier))})))
+                         :center (get-row-by-name data (:id outlier))}))))
               ; Else just return recentered clusters
               clusters))
           ; Else just return recentered clusters

@@ -1,6 +1,8 @@
 (ns polismath.simulation
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.string :as string])
+            [taoensso.timbre.profiling :as profiling
+              :refer (pspy pspy* profile defnp p p*)]
   (:use polismath.utils
         polismath.named-matrix
         polismath.conversation
@@ -47,8 +49,8 @@
 
 
 (defn exit [status msg]
-    (println msg)
-    (System/exit status))
+  (println msg)
+  (System/exit status))
 
 
 (def cli-options
