@@ -39,7 +39,11 @@
           class="btn btn-lg btn-default btn-vote"
           type="button"
         >
-        <strong style="color:gray">~</strong> &nbsp;Pass/Junk </button>
+        {{#ifNotIE8}}
+          <i class="icon-ban-circle" style="color: gray"></i>
+        {{/ifNotIE8}}
+        {{! <strong style="color:gray">~</strong> }}
+        &nbsp;Pass/Junk </button>
     </div>
   {{/unless}}
 </div>
