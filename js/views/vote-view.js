@@ -84,8 +84,12 @@ module.exports = Handlebones.ModelView.extend({
         alert("error sending vote " + JSON.stringify(err));
     }
     function onVote() {
+      var that = this;
       eb.trigger(eb.vote);
-      showNext();
+      this.$el.slideUp(400, function() {
+        showNext();
+        that.$el.slideDown();
+      });
     };
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");
@@ -96,7 +100,7 @@ module.exports = Handlebones.ModelView.extend({
         tid: tid
       });
       serverClient.agree(tid)
-          .then(onVote, onFail);
+          .then(onVote.bind(this), onFail);
     };
     this.participantDisagreed = function() {
       var tid = this.model.get("tid");
@@ -107,7 +111,7 @@ module.exports = Handlebones.ModelView.extend({
         tid: tid
       });
       serverClient.disagree(tid)
-          .then(onVote, onFail);
+          .then(onVote.bind(this), onFail);
     };
     this.participantPassed = function() {
       var tid = this.model.get("tid");
@@ -118,7 +122,7 @@ module.exports = Handlebones.ModelView.extend({
         tid: tid
       });
       serverClient.pass(tid)
-          .then(onVote, onFail);
+          .then(onVote.bind(this), onFail);
     };
     this.participantStarred = function() {
       var tid = this.model.get("tid");
@@ -130,12 +134,12 @@ module.exports = Handlebones.ModelView.extend({
         tid: tid
       });
       $.when(serverClient.star(tid), serverClient.agree(tid))
-          .then(onVote, onFail);
+          .then(onVote.bind(this), onFail);
     };
     this.participantTrashed = function() {
       var tid = this.model.get("tid");
       serverClient.trash(tid)
-          .then(onVote, onFail);
+          .then(onVote.bind(this), onFail);
     };
     showNext();
     serverClient.addCommentsAvailableListener(function() {
