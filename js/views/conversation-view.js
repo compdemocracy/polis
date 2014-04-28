@@ -513,7 +513,7 @@ module.exports =  Handlebones.ModelView.extend({
 
 
 
-  }, 0); // end listenTo "rendered"
+  }, 0); // end listenTo "render"
   });
   this.render();
   } // end initialize
