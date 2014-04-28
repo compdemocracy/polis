@@ -28,10 +28,6 @@ var ServerClient = require("../lib/polis");
 var Handlebones = require("handlebones");
 
 var VIS_SELECTOR = "#visualization_div";
-var ANALYZE_TAB = "analyzeTab";
-var METADATA_TAB = "metadata_pill";
-var WRITE_TAB = "commentFormTab";
-var VOTE_TAB = "commentViewTab";
 
 var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
@@ -307,7 +303,7 @@ module.exports =  Handlebones.ModelView.extend({
       }));
 
       this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-        if (that.currentTab === METADATA_TAB) {
+        if (that.conversationTabs.onMetadataTab()) {
           console.log(enabledAnswers);
           serverClient.queryParticipantsByMetadata(enabledAnswers).then(
             vis.emphasizeParticipants,
@@ -399,6 +395,43 @@ module.exports =  Handlebones.ModelView.extend({
     eb.on(eb.clusterClicked, onClusterTapped);
     eb.on(eb.queryResultsRendered, _.bind(this.onAnalyzeTabPopulated, this));
 
+
+    that.conversationTabs.on("beforeshow:write", function() {
+      if (shouldHideVisWhenWriteTabShowing()) {
+        // When we're switching to the write tab, hide the vis.
+        that.hideVis();
+      }
+    });
+    that.conversationTabs.on("beforehide:write", function() {
+      // When we're leaving the write tab, show the vis again.
+      that.showVis();
+    });
+    that.conversationTabs.on("beforehide:analyze", function() {
+      // that.analyzeGlobalView.hideCarousel();
+      that.analyzeGlobalView.deselectComments();
+    });
+
+    that.conversationTabs.on("beforeshow:analyze", function() {
+      if (shouldShowVisUnderTabs()) {
+        moveVisAboveQueryResults();
+      }
+      that.allCommentsCollection.doFetch().then(function() {
+        that.analyzeGlobalView.sortAgree();
+      });
+      // that.analyzeGlobalView.showCarousel();
+    });
+
+    that.conversationTabs.on("beforeshow:vote", function() {
+      if (shouldShowVisUnderTabs()) {
+        moveVisToBottom();
+      }
+    });
+    that.conversationTabs.on("aftershow:analyze", function() {
+      $(".query_result_item").first().trigger("click");
+    });
+
+
+
     this.listenTo(this, "render", function(){
       setTimeout(function() {
 
@@ -414,52 +447,10 @@ module.exports =  Handlebones.ModelView.extend({
           vis.deselect();
         }
       }
-      // Before shown
-      $('a[data-toggle="tab"]').on('show.bs.tab', function (e) {
-        var to = e.target;
-        var from = e.relatedTarget;
-        that.currentTab = to.id;
-        if (to && to.id === WRITE_TAB && shouldHideVisWhenWriteTabShowing()) {
-          // When we're switching to the write tab, hide the vis.
-          that.hideVis();
-        }
-         // previous tab
-        if (from && from.id === WRITE_TAB) {
-          // When we're leaving the write tab, show the vis again.
-          that.showVis();
-        }
-        if(from && from.id === ANALYZE_TAB) {
-          // that.analyzeGlobalView.hideCarousel();
-          that.analyzeGlobalView.deselectComments();
-        }
-        if(to && to.id === ANALYZE_TAB) {
-          if (shouldShowVisUnderTabs()) {
-            moveVisAboveQueryResults();
-          }
-          that.allCommentsCollection.doFetch().then(function() {
-            that.analyzeGlobalView.sortAgree();
-          });
-          // that.analyzeGlobalView.showCarousel();
-        }
-        if(to && to.id === VOTE_TAB) {
-          if (shouldShowVisUnderTabs()) {
-            moveVisToBottom();
-          }
-        }
-      });
-
-      // After shown
-      $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-        console.log(e.target);
-        // e.relatedTarget // previous tab
-        if(e.target && e.target.id === ANALYZE_TAB) {
-          $(".query_result_item").first().trigger("click");
-        }
-      });
-
-
+      that.conversationTabs.on("analyzeGroups:close", deselectHulls);
+      
       that.commentView.on("showComment", _.once(function() {
-        that.$("#"+VOTE_TAB).tooltip({
+        that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
           title: "Start here - read and react to comments submitted by others.",
           placement: "top",
           delay: { show: 300, hide: 200 },
@@ -469,7 +460,7 @@ module.exports =  Handlebones.ModelView.extend({
         .on("click", deselectHulls);
       }));
 
-      that.$("#" + WRITE_TAB).tooltip({
+      that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
         title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
         placement: "top",
         delay: { show: 300, hide: 200 },
@@ -477,7 +468,7 @@ module.exports =  Handlebones.ModelView.extend({
       })
       .on("click", deselectHulls);
 
-      that.$("#"+ANALYZE_TAB).tooltip({
+      that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({
         title: "Filters! Click on the \"analyze\" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
         placement: "top",
         delay: { show: 300, hide: 200 },

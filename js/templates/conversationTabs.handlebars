@@ -1,20 +1,26 @@
 {{#if showGroupHeader}}
-  <div> BACK </div>
+  <a class="analyzeGroupCloseButton"> {{#ifNotIE8}}<i class="icon-angle-left"></i>{{/ifNotIE8}} BACK </a>
 {{else}}
   <ul class="nav nav-tabs tab-conv">
-    <li class="active">
+    <li 
+      {{#if voteActive}} class="active" {{/if}}
+    >
       <a href="#commentView" id="commentViewTab" data-toggle="tab">
         {{#ifNotIE8}}<i class="icon-align-justify"></i>{{/ifNotIE8}} 
         Read &amp; React
       </a>
     </li>
-    <li>
+    <li
+      {{#if writeActive}} class="active" {{/if}}
+    >
       <a href="#commentForm" id="commentFormTab" data-toggle="tab">
         {{#ifNotIE8}}<i class="icon-pencil"></i>{{/ifNotIE8}}
         Write
       </a>
     </li>
-    <li>
+    <li
+      {{#if analyzeActive}} class="active" {{/if}}
+    >
       <a href="#analyze" id="analyzeTab" data-toggle="tab">
         {{#ifNotIE8}}<i class="icon-coffee"></i>{{/ifNotIE8}}
         Analyze
