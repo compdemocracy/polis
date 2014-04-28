@@ -1,11 +1,11 @@
 var AnalyzeGlobalView = require("../views/analyze-global");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
-var View = require('../view');
 var template = require('../tmpl/conversation-view');
 var CommentView = require('../views/vote-view');
 var CommentFormView = require("../views/comment-form");
 var ConversationStatsHeader = require('../views/conversation-stats-header');
+var ConversationTabsView = require("../views/conversationTabs");
 var ChangeVotesView = require("../views/change-votes");
 var display = require("../util/display");
 var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
@@ -296,6 +296,11 @@ module.exports =  Handlebones.View.extend({
       });
       this.serverClient.startPolling();
       /* child views */
+
+
+      this.conversationTabs = this.addChild(new ConversationTabsView({
+        model: new Backbone.Model()
+      }));
 
       this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
         serverClient: serverClient,

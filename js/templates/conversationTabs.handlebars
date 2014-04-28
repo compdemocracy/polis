@@ -1,0 +1,24 @@
+{{#if showGroupHeader}}
+  <div> BACK </div>
+{{else}}
+  <ul class="nav nav-tabs tab-conv">
+    <li class="active">
+      <a href="#commentView" id="commentViewTab" data-toggle="tab">
+        {{#ifNotIE8}}<i class="icon-align-justify"></i>{{/ifNotIE8}} 
+        Read &amp; React
+      </a>
+    </li>
+    <li>
+      <a href="#commentForm" id="commentFormTab" data-toggle="tab">
+        {{#ifNotIE8}}<i class="icon-pencil"></i>{{/ifNotIE8}}
+        Write
+      </a>
+    </li>
+    <li>
+      <a href="#analyze" id="analyzeTab" data-toggle="tab">
+        {{#ifNotIE8}}<i class="icon-coffee"></i>{{/ifNotIE8}}
+        Analyze
+      </a>
+    </li>
+  </ul>
+{{/if}}

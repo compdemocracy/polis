@@ -44,26 +44,7 @@
   <!-- overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. -->
   <div class="t-span6 col-xs-12 col-sm-6 col-md-5 col-lg-4">
   <div class="tabbable"> <!-- Only required for left/right tabs -->
-    <ul class="nav nav-tabs tab-conv">
-      <li class="active">
-        <a href="#commentView" id="commentViewTab" data-toggle="tab">
-          {{#ifNotIE8}}<i class="icon-align-justify"></i>{{/ifNotIE8}} 
-          Read &amp; React
-        </a>
-      </li>
-      <li>
-        <a href="#commentForm" id="commentFormTab" data-toggle="tab">
-          {{#ifNotIE8}}<i class="icon-pencil"></i>{{/ifNotIE8}}
-          Write
-        </a>
-      </li>
-      <li>
-        <a href="#analyze" id="analyzeTab" data-toggle="tab">
-          {{#ifNotIE8}}<i class="icon-coffee"></i>{{/ifNotIE8}}
-          Analyze
-        </a>
-      </li>
-    </ul>
+    {{view conversationTabs}}
 
     <span id="vis_sibling_above_tab_content"></span>
 
