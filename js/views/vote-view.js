@@ -86,9 +86,11 @@ module.exports = Handlebones.ModelView.extend({
     function onVote() {
       var that = this;
       eb.trigger(eb.vote);
-      this.$el.slideUp(400, function() {
+      this.$el.slideUp(150, function() {
         showNext();
-        that.$el.slideDown();
+        setTimeout(function(){
+          that.$el.slideDown(150);
+        }, 1000);
       });
     };
     this.participantAgreed = function(e) {
