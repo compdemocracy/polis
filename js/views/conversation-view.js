@@ -43,13 +43,10 @@ function shouldHideVisWhenWriteTabShowing() {
 }
 
 
-module.exports =  Handlebones.View.extend({
+module.exports =  Handlebones.ModelView.extend({
   name: "conversation-view",
   template: template,
   events: {
-  },
-  context: function() {
-    return _.extend({}, this, this.model&&this.model.attributes);
   },
   destroyPopovers: function() {
     popoverEach("destroy");
@@ -86,6 +83,7 @@ module.exports =  Handlebones.View.extend({
   },
 
   initialize: function(options) {
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     var vis;
     var zid = this.zid = this.model.get("zid");
