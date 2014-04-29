@@ -30,6 +30,121 @@ var $ = require("jquery");
 
 function authenticated() { return PolisStorage.uid(); }
 
+// TODO refactor this terrible recursive monster function.
+function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
+
+  if (!zinvite && !authenticated()) { return this.bail(); }
+
+  var that = this;
+
+  var suzinvite;
+  if (singleUse) {
+    suzinvite = zinvite;
+  }
+
+  var uid = PolisStorage.uid();
+
+  if (!uid) {
+      console.log("trying to load conversation, but no auth");
+      // Not signed in.
+      // Or not registered.
+
+      if (singleUse) {
+
+        $.ajax({
+          url: "/v3/joinWithSuzinvite",
+          type: "POST",
+          dataType: "json",
+          xhrFields: {
+              withCredentials: true
+          },
+          // crossDomain: true,
+          data: {
+            zid: zid,
+            suzinvite: suzinvite
+          }
+        }).then(function(data) {
+          that.participationView(zid);
+        }, function(err) {
+          if (err.responseText === "polis_err_no_matching_suzinvite") {
+            alert("Sorry, this single-use URL has been used.");
+          } else {
+            that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
+              doJoinConversation.call(that, onSuccess, zid);
+            });
+          }
+        });
+      } else {
+        this.doCreateUserFromGatekeeper(zid, zinvite, singleUse).done(function() {
+          // Try again, should be ready now.
+          doJoinConversation.call(that, onSuccess, zid, zinvite);
+        });
+      }
+  } else {
+    var params = {
+      zid: zid,
+    };
+    if (singleUse) {
+      params.suzinvite = suzinvite;
+    } else {
+      params.zinvite = zinvite;
+    }
+
+    if (singleUse) {
+      // join conversation (may already have joined)
+      var ptpt = new ParticipantModel(params);
+      ptpt.save().then(function() {
+        // Participant record was created, or already existed.
+        // Go to the conversation.
+        onSuccess(ptpt);
+      }, function(err) {
+        $.ajax({
+          url: "/v3/joinWithSuzinvite",
+          type: "POST",
+          dataType: "json",
+          xhrFields: {
+              withCredentials: true
+          },
+          // crossDomain: true,
+          data: {
+            zid: zid,
+            suzinvite: suzinvite
+          }
+        }).then(function(data) {
+          doJoinConversation.call(that, onSuccess, zid);
+        }, function(err) {
+          if (err.responseText === "polis_err_no_matching_suzinvite") {
+            alert("Sorry, this single-use URL has been used.");
+          } else {
+            that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
+              doJoinConversation.call(that, onSuccess, zid);
+            });
+          }
+        });
+      });
+    } else {
+      // join conversation (may already have joined)
+      var ptpt = new ParticipantModel(params);
+      ptpt.save().then(function() {
+        // Participant record was created, or already existed.
+        // Go to the conversation.
+        onSuccess(ptpt);
+      }, function(err) {
+        that.conversationGatekeeper(zid, uid, zinvite).done(function(ptptData) {
+          doJoinConversation.call(that, onSuccess, zid, zinvite);
+        });
+      });
+    }
+  }
+  //  else {
+  //   // Found a pid for that zid.
+  //   // Go to the conversation.
+  //   that.doLaunchConversation(zid);
+  // }
+
+}
+
+
 var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
@@ -50,6 +165,9 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^ot\/([0-9]+)\/(.*)/, "participationViewWithSuzinvite"); // zid/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/(.*)/, "demoConversation");
+
+    this.r(/power\/([0-9]+)/, "powerView");  // power/zid
+    this.r(/power\/([0-9]+)\/(.*)/, "powerView"); // power/zid/zinvite
   },
   r: function(pattern, methodToCall) {
     metric("route", methodToCall);
@@ -239,115 +357,20 @@ var polisRouter = Backbone.Router.extend({
     window.suzinvite = suzinvite;
     return this.participationView(zid, suzinvite, true);
   },
-  participationView: function(zid, zinvite, singleUse) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
-    if (!zinvite && !authenticated()) { return this.bail(); }
+  powerView: function(zid, zinvite) {
+    doJoinConversation.call(this, 
+      this.doLaunchConversation.bind(this), // TODO
+      zid,
+      zinvite);
+  },
+  participationView: function(zid, zinvite, singleUse) {
 
-    var that = this;
+    doJoinConversation.call(this, 
+      this.doLaunchConversation.bind(this),
+      zid,
+      zinvite,
+      singleUse);
 
-    var suzinvite;
-    if (singleUse) {
-      suzinvite = zinvite;
-    }
-
-    var uid = PolisStorage.uid();
-
-    if (!uid) {
-        console.log("trying to load conversation, but no auth");
-        // Not signed in.
-        // Or not registered.
-
-        if (singleUse) {
-
-          $.ajax({
-            url: "/v3/joinWithSuzinvite",
-            type: "POST",
-            dataType: "json",
-            xhrFields: {
-                withCredentials: true
-            },
-            // crossDomain: true,
-            data: {
-              zid: zid,
-              suzinvite: suzinvite
-            }
-          }).then(function(data) {
-            that.participationView(zid);
-          }, function(err) {
-            if (err.responseText === "polis_err_no_matching_suzinvite") {
-              alert("Sorry, this single-use URL has been used.");
-            } else {
-              that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
-                that.participationView(zid);
-              });
-            }
-          });
-        } else {
-          this.doCreateUserFromGatekeeper(zid, zinvite, singleUse).done(function() {
-            // Try again, should be ready now.
-            that.participationView(zid, zinvite);
-          });
-        }
-    } else {
-      var params = {
-        zid: zid,
-      };
-      if (singleUse) {
-        params.suzinvite = suzinvite;
-      } else {
-        params.zinvite = zinvite;
-      }
-
-      if (singleUse) {
-        // join conversation (may already have joined)
-        var ptpt = new ParticipantModel(params);
-        ptpt.save().then(function() {
-          // Participant record was created, or already existed.
-          // Go to the conversation.
-          that.doLaunchConversation(ptpt);
-        }, function(err) {
-          $.ajax({
-            url: "/v3/joinWithSuzinvite",
-            type: "POST",
-            dataType: "json",
-            xhrFields: {
-                withCredentials: true
-            },
-            // crossDomain: true,
-            data: {
-              zid: zid,
-              suzinvite: suzinvite
-            }
-          }).then(function(data) {
-            that.participationView(zid);
-          }, function(err) {
-            if (err.responseText === "polis_err_no_matching_suzinvite") {
-              alert("Sorry, this single-use URL has been used.");
-            } else {
-              that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
-                that.participationView(zid);
-              });
-            }
-          });
-        });
-      } else {
-        // join conversation (may already have joined)
-        var ptpt = new ParticipantModel(params);
-        ptpt.save().then(function() {
-          // Participant record was created, or already existed.
-          // Go to the conversation.
-          that.doLaunchConversation(ptpt);
-        }, function(err) {
-          that.conversationGatekeeper(zid, uid, zinvite).done(function(ptptData) {
-            that.participationView(zid, zinvite);
-          });
-        });
-      }
-    }
-    //  else {
-    //   // Found a pid for that zid.
-    //   // Go to the conversation.
-    //   that.doLaunchConversation(zid);
-    // }
   },
   // assumes the user already exists.
   conversationGatekeeper: function(zid, uid, zinvite, singleUse) {
