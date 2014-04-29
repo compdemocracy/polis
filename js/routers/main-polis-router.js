@@ -12,7 +12,7 @@ var CreateConversationFormView = require("../views/create-conversation-form");
 var ConversationDetailsView = require("../views/conversation-details");
 var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
 var ConversationGatekeeperViewCreateUser = require("../views/conversationGatekeeperViewCreateUser");
-var ConversationView = require("../views/conversation-view");
+var ParticipationView = require("../views/participation");
 var CreateUserFormView = require("../views/create-user-form");
 var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
@@ -34,7 +34,7 @@ var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
     this.r("conversation/create", "createConversation");
-    this.r("conversation/view/:id(/:zinvite)", "conversationView");
+    this.r("conversation/view/:id(/:zinvite)", "participationView");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("settings", "deregister");
@@ -45,9 +45,9 @@ var polisRouter = Backbone.Router.extend({
     this.r("prototype", "prototype");
     this.r("", "landingPageView");
 
-    this.r(/([0-9]+)/, "conversationView");  // zid
-    this.r(/([0-9]+)\/(.*)/, "conversationView"); // zid/zinvite
-    this.r(/^ot\/([0-9]+)\/(.*)/, "conversationViewWithSuzinvite"); // zid/suzinvite
+    this.r(/([0-9]+)/, "participationView");  // zid
+    this.r(/([0-9]+)\/(.*)/, "participationView"); // zid/zinvite
+    this.r(/^ot\/([0-9]+)\/(.*)/, "participationViewWithSuzinvite"); // zid/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/(.*)/, "demoConversation");
   },
@@ -215,14 +215,14 @@ var polisRouter = Backbone.Router.extend({
         zid: zid
     });
     bbFetch(model).then(function() {
-      var conversationView = new ConversationView({
+      var participationView = new ParticipationView({
         pid: pid,
         model: model
       });
-      RootView.getInstance().setView(conversationView);
+      RootView.getInstance().setView(participationView);
     },function(e) {
       console.error("error loading conversation model", e);
-      setTimeout(function() { that.conversationView(zid); }, 5000); // retry
+      setTimeout(function() { that.participationView(zid); }, 5000); // retry
     });
   },
   demoConversation: function(zid) {
@@ -235,11 +235,11 @@ var polisRouter = Backbone.Router.extend({
 
     this.doLaunchConversation(ptpt);
   },
-  conversationViewWithSuzinvite: function(zid, suzinvite) {
+  participationViewWithSuzinvite: function(zid, suzinvite) {
     window.suzinvite = suzinvite;
-    return this.conversationView(zid, suzinvite, true);
+    return this.participationView(zid, suzinvite, true);
   },
-  conversationView: function(zid, zinvite, singleUse) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
+  participationView: function(zid, zinvite, singleUse) {					//THE CONVERzATION, VISUALIZATION, VOTING, ETC.
     if (!zinvite && !authenticated()) { return this.bail(); }
 
     var that = this;
@@ -271,20 +271,20 @@ var polisRouter = Backbone.Router.extend({
               suzinvite: suzinvite
             }
           }).then(function(data) {
-            that.conversationView(zid);
+            that.participationView(zid);
           }, function(err) {
             if (err.responseText === "polis_err_no_matching_suzinvite") {
               alert("Sorry, this single-use URL has been used.");
             } else {
               that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
-                that.conversationView(zid);
+                that.participationView(zid);
               });
             }
           });
         } else {
           this.doCreateUserFromGatekeeper(zid, zinvite, singleUse).done(function() {
             // Try again, should be ready now.
-            that.conversationView(zid, zinvite);
+            that.participationView(zid, zinvite);
           });
         }
     } else {
@@ -318,13 +318,13 @@ var polisRouter = Backbone.Router.extend({
               suzinvite: suzinvite
             }
           }).then(function(data) {
-            that.conversationView(zid);
+            that.participationView(zid);
           }, function(err) {
             if (err.responseText === "polis_err_no_matching_suzinvite") {
               alert("Sorry, this single-use URL has been used.");
             } else {
               that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
-                that.conversationView(zid);
+                that.participationView(zid);
               });
             }
           });
@@ -338,7 +338,7 @@ var polisRouter = Backbone.Router.extend({
           that.doLaunchConversation(ptpt);
         }, function(err) {
           that.conversationGatekeeper(zid, uid, zinvite).done(function(ptptData) {
-            that.conversationView(zid, zinvite);
+            that.participationView(zid, zinvite);
           });
         });
       }
@@ -393,7 +393,7 @@ var polisRouter = Backbone.Router.extend({
       RootView.getInstance().setView(createUserFormView);
     },function(e) {
       console.error("error loading conversation model", e);
-      setTimeout(function() { that.conversationView(zid); }, 5000); // retry
+      setTimeout(function() { that.participationView(zid); }, 5000); // retry
     });
     return dfd.promise();
   },
@@ -445,7 +445,7 @@ var polisRouter = Backbone.Router.extend({
       if (zid) {
         // Redirect to a specific conversation after the user signs in.
         // TODO think - do we want to use this route for this scenario, it's probably handled by the other gatekeeper functions.
-        that.conversationView(zid);
+        that.participationView(zid);
       } else {
         that.navigate("inbox", {trigger: true});
       }

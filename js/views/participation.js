@@ -1,7 +1,7 @@
 var AnalyzeGlobalView = require("../views/analyze-global");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
-var template = require('../tmpl/conversation-view');
+var template = require('../tmpl/participation');
 var CommentView = require('../views/vote-view');
 var CommentFormView = require("../views/comment-form");
 var ConversationStatsHeader = require('../views/conversation-stats-header');
@@ -40,7 +40,7 @@ function shouldHideVisWhenWriteTabShowing() {
 
 
 module.exports =  Handlebones.ModelView.extend({
-  name: "conversation-view",
+  name: "participationView",
   template: template,
   events: {
   },
