@@ -1,12 +1,10 @@
 var AnalyzeGlobalView = require("../views/analyze-global");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
-var template = require('../tmpl/participation');
-var CommentView = require('../views/vote-view');
-var CommentFormView = require("../views/comment-form");
+var template = require('../tmpl/power');
 var ConversationStatsHeader = require('../views/conversation-stats-header');
-var ConversationTabsView = require("../views/conversationTabs");
-var ChangeVotesView = require("../views/change-votes");
+
+
 var display = require("../util/display");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
@@ -24,14 +22,6 @@ var VIS_SELECTOR = "#visualization_div";
 
 var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
-function shouldShowVisUnderTabs() {
-  return display.xs();
-}
-function shouldHideVisWhenWriteTabShowing() {
-  return shouldShowVisUnderTabs();
-}
-
-
 module.exports =  ConversationView.extend({
   name: "powerView",
   template: template,
@@ -47,7 +37,7 @@ module.exports =  ConversationView.extend({
     $("#visualization_div").show();
   },
   allowMetadataFiltering: function() {
-    return this.conversationTabs.onAnalyzeTab();
+    return true;
   },
 
   emphasizeParticipants: function() {
@@ -86,17 +76,6 @@ module.exports =  ConversationView.extend({
     }
 
 
-    function moveVisToBottom() {
-      var $vis = that.$(VIS_SELECTOR).detach();
-      $("#vis_sibling_bottom").append($vis);
-    }
-
-    function moveVisAboveQueryResults() {
-      var $vis = that.$(VIS_SELECTOR).detach();
-      $("#vis_sibling_above_tab_content").append($vis);
-    }
-
-
     function initPcaVis() {
 
       $(VIS_SELECTOR).html("").height(0);
@@ -131,15 +110,6 @@ module.exports =  ConversationView.extend({
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
-
-
-
-      if (shouldShowVisUnderTabs()) {
-        // wait for layout
-        setTimeout(
-          moveVisToBottom,
-          10);
-      }
 
       that.serverClient.addPersonUpdateListener(onPersonUpdate)
 
@@ -199,38 +169,10 @@ module.exports =  ConversationView.extend({
 
       /* child views */
 
-
-      this.conversationTabs = this.addChild(new ConversationTabsView({
-        model: new Backbone.Model()
-      }));
-
-
-
-      this.changeVotes = new ChangeVotesView({
-        serverClient: serverClient,
-        zid: zid
-      });
-
-      this.commentView = this.addChild(new CommentView({
-        serverClient: serverClient,
-        model: new CommentModel(),
-        votesByMe: this.votesByMe,
-        is_public:  this.model.get("is_public"),
-        pid: pid,
-        zid: zid
-      }));
-      // this.commentView.on("vote", this.tutorialController.onVote);
-
       this.commentsByMe = new CommentsCollection({
         zid: zid,
         pid: pid
       });
-
-      this.commentForm = this.addChild(new CommentFormView({
-        pid: pid,
-        collection: this.commentsByMe,
-        zid: zid
-      }));
 
       this.resultsView = this.addChild(new ResultsView({
         serverClient: serverClient,
@@ -267,12 +209,6 @@ module.exports =  ConversationView.extend({
       }, 200);
       this.votesByMe.on("add", updateMyProjectionAfterAddingVote);
 
-      this.commentForm.on("commentSubmitted", function() {
-        // $("#"+VOTE_TAB).tab("show");
-      });
-   
-      this.commentForm.updateCollection();
-
     // Clicking on the background dismisses the popovers.
     this.$el.on("click", function() {
       that.destroyPopovers();
@@ -280,41 +216,6 @@ module.exports =  ConversationView.extend({
 
     eb.on(eb.clusterClicked, this.onClusterTapped.bind(this));
     eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
-
-
-    that.conversationTabs.on("beforeshow:write", function() {
-      if (shouldHideVisWhenWriteTabShowing()) {
-        // When we're switching to the write tab, hide the vis.
-        that.hideVis();
-      }
-    });
-    that.conversationTabs.on("beforehide:write", function() {
-      // When we're leaving the write tab, show the vis again.
-      that.showVis();
-    });
-    that.conversationTabs.on("beforehide:analyze", function() {
-      // that.analyzeGlobalView.hideCarousel();
-      that.analyzeGlobalView.deselectComments();
-    });
-
-    that.conversationTabs.on("beforeshow:analyze", function() {
-      if (shouldShowVisUnderTabs()) {
-        moveVisAboveQueryResults();
-      }
-      that.allCommentsCollection.doFetch().then(function() {
-        that.analyzeGlobalView.sortAgree();
-      });
-      // that.analyzeGlobalView.showCarousel();
-    });
-
-    that.conversationTabs.on("beforeshow:vote", function() {
-      if (shouldShowVisUnderTabs()) {
-        moveVisToBottom();
-      }
-    });
-    that.conversationTabs.on("aftershow:analyze", function() {
-      $(".query_result_item").first().trigger("click");
-    });
 
 
 
@@ -332,56 +233,7 @@ module.exports =  ConversationView.extend({
         if (vis) {
           vis.deselect();
         }
-      }
-      that.conversationTabs.on("analyzeGroups:close", deselectHulls);
-      
-      that.commentView.on("showComment", _.once(function() {
-        that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
-          title: "Start here - read and react to comments submitted by others.",
-          placement: "top",
-          delay: { show: 300, hide: 200 },
-          container: "body"
-
-        })
-        .on("click", deselectHulls);
-      }));
-
-      that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
-        title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
-        placement: "top",
-        delay: { show: 300, hide: 200 },
-        container: "body"
-      })
-      .on("click", deselectHulls);
-
-      that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({
-        title: "Filters! Click on the \"analyze\" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
-        placement: "top",
-        delay: { show: 300, hide: 200 },
-        container: "body"
-
-      // Wait until the first comment is shown before showing the tooltip
-      });
-      that.commentView.on("showComment", _.once(function() {   
-
-        that.$commentViewPopover = that.$("#commentView").popover({
-          title: "START HERE",
-          content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
-          html: true, //XSS risk, not important for now
-          trigger: "manual",
-          placement: "bottom"
-        });
-
-        setTimeout(function(){
-          that.$commentViewPopover.popover("show");
-          $("#commentViewPopoverButton").click(function(){
-            that.$commentViewPopover.popover("destroy");
-          });
-        },1000);
-      }));
-
-
-      
+      }      
       configureGutters();
       if (isIE8) {
         // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
@@ -398,6 +250,10 @@ module.exports =  ConversationView.extend({
 
 
 
+      that.allCommentsCollection.doFetch().then(function() {
+        that.analyzeGlobalView.sortAgree();
+      });
+      
 
   }, 0); // end listenTo "render"
   });

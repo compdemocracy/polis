@@ -13,6 +13,7 @@ var ConversationDetailsView = require("../views/conversation-details");
 var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
 var ConversationGatekeeperViewCreateUser = require("../views/conversationGatekeeperViewCreateUser");
 var ParticipationView = require("../views/participation");
+var PowerView = require("../views/power");
 var CreateUserFormView = require("../views/create-user-form");
 var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
@@ -340,9 +341,28 @@ var polisRouter = Backbone.Router.extend({
       RootView.getInstance().setView(participationView);
     },function(e) {
       console.error("error loading conversation model", e);
-      setTimeout(function() { that.participationView(zid); }, 5000); // retry
     });
   },
+
+  doLaunchPowerView: function(ptptModel) {
+    var zid = ptptModel.get("zid");
+    var pid = ptptModel.get("pid");
+    
+    // Assumes you have a pid already.
+    var model = new ConversationModel({
+        zid: zid
+    });
+    bbFetch(model).then(function() {
+      var powerView = new PowerView({
+        pid: pid,
+        model: model
+      });
+      RootView.getInstance().setView(powerView);
+    },function(e) {
+      console.error("error loading conversation model", e);
+    });
+  },
+
   demoConversation: function(zid) {
     var ptpt = new ParticipantModel({
       zid: zid,
@@ -359,7 +379,7 @@ var polisRouter = Backbone.Router.extend({
   },
   powerView: function(zid, zinvite) {
     doJoinConversation.call(this, 
-      this.doLaunchConversation.bind(this), // TODO
+      this.doLaunchPowerView.bind(this), // TODO
       zid,
       zinvite);
   },
