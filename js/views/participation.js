@@ -8,24 +8,17 @@ var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
 var ChangeVotesView = require("../views/change-votes");
 var display = require("../util/display");
-var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
 var ParticipantModel = require("../models/participant");
-var ConversationModel = require("../models/conversation");
+var ConversationView = require("../views/conversation");
 var CommentModel = require("../models/comment");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
-var VotesCollection = require("../collections/votes");
-var MetadataQuestionsCollection = require("../collections/metadataQuestions");
 var ResultsCollection = require("../collections/results");
-var PolisStorage = require("../util/polisStorage");
-var popoverEach = require("../util/popoverEach");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
-var TutorialController = require("../controllers/tutorialController");
-var ServerClient = require("../lib/polis");
-var Handlebones = require("handlebones");
+
 
 var VIS_SELECTOR = "#visualization_div";
 
@@ -39,37 +32,13 @@ function shouldHideVisWhenWriteTabShowing() {
 }
 
 
-module.exports =  Handlebones.ModelView.extend({
+module.exports =  ConversationView.extend({
   name: "participationView",
   template: template,
   events: {
   },
-  destroyPopovers: function() {
-    popoverEach("destroy");
-  },
-  onClusterTapped : function(gid) {
-    this.destroyPopovers();
-    var that = this;
-      // if (window.isMobile()) {
-      //    window.scrollTo(0, $("#visualization_div").offset().top);
-      // }
-  },
   onAnalyzeTabPopulated: function() {
     $('.query_result_item').first().trigger('click');
-  },
-  updateVotesByMeCollection: function() {
-    console.log("votesByMe.fetch");
-    if (this.pid < 0) {
-      // DEMO_MODE
-      return;
-    }
-    this.votesByMe.fetch({
-      data: $.param({
-        zid: this.zid,
-        pid: this.pid
-      }),
-      reset: false
-    });
   },
   hideVis: function() {
     $("#visualization_div").hide();
@@ -77,38 +46,29 @@ module.exports =  Handlebones.ModelView.extend({
   showVis: function() {
     $("#visualization_div").show();
   },
+  allowMetadataFiltering: function() {
+    return this.conversationTabs.onAnalyzeTab();
+  },
 
+  emphasizeParticipants: function() {
+    this.vis.emphasizeParticipants.apply(this, arguments);
+  },
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     var vis;
-    var zid = this.zid = this.model.get("zid");
-    var pid = this.pid = options.pid;
-    var zinvite = this.zinvite = this.model.get("zinvite");
-    var is_public = this.model.get("is_public");
+    var zid = this.zid;
+    var pid = this.pid;
+    var zinvite = this.zinvite;
+    var serverClient = this.serverClient;
 
 
     this.conversationStatsHeader = new ConversationStatsHeader();
 
-    this.tutorialController = new TutorialController();
-    var metadataCollection = new MetadataQuestionsCollection([], {
-        zid: zid
-    });
-
-    metadataCollection.fetch({
-      data: $.param({
-        zid: zid
-      }),
-      processData: true
-    });
 
     var resultsCollection = new ResultsCollection();
 
     // HTTP PATCH - model.save({patch: true})
-
-    function onClusterTapped() {
-        that.onClusterTapped();
-    }
 
     function onPersonUpdate() {
       if (vis) {
@@ -152,7 +112,7 @@ module.exports =  Handlebones.ModelView.extend({
       var h = w/2;
       $(VIS_SELECTOR).height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate);
-      vis = new VisView({
+      vis = that.vis = new VisView({
           getPid: function() {
             if (!_.isId(pid)) {
               //alert("bad pid: " + pid);
@@ -237,81 +197,12 @@ module.exports =  Handlebones.ModelView.extend({
     });
 
 
-    this.votesByMe = new VotesCollection();
-
-    this.allCommentsCollection = new CommentsCollection();
-    this.allCommentsCollection.firstFetchPromise = $.Deferred();
-
-    var serverClient = that.serverClient = new ServerClient({
-      zid: zid,
-      zinvite: zinvite,
-      tokenStore: PolisStorage.token,
-      pid: pid,
-      votesByMe: this.votesByMe,
-      comments: this.allCommentsCollection,
-      //commentsStore: PolisStorage.comments,
-      //reactionsByMeStore: PolisStorage.reactionsByMe,
-      utils: window.utils,
-      protocol: /localhost/.test(document.domain) ? "http" : "https",
-      domain: /localhost/.test(document.domain) ? "localhost:5000" : "pol.is",
-      basePath: "",
-      logger: console
-    });
-
-    this.allCommentsCollection.updateRepness = function(tidToRepness) {
-      this.each(function(model) {
-        model.set("repness", tidToRepness[model.get("tid")], {silent: true});
-      });
-    };
-
-    this.allCommentsCollection.fetch = this.allCommentsCollection.doFetch = function() {
-      var thatCollection = this;
-      var params = {
-        zid: zid
-      };
-      var promise = Backbone.Collection.prototype.fetch.call(this, {
-        data: $.param(params),
-        processData: true,
-        silent: true,
-        ajax: function() {
-          return that.serverClient.getFancyComments(params);
-        }
-      });
-      promise.then(this.firstFetchPromise.resolve);
-      promise.then(function() {
-        thatCollection.trigger("reset");
-      });
-      return promise;
-    };
-
-      this.updateVotesByMeCollection();
-      this.serverClient.addPollingScheduledCallback(function() {
-        that.updateVotesByMeCollection();
-      });
-      this.serverClient.startPolling();
       /* child views */
 
 
       this.conversationTabs = this.addChild(new ConversationTabsView({
         model: new Backbone.Model()
       }));
-
-      this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
-        serverClient: serverClient,
-        zid: zid,
-        collection: metadataCollection
-      }));
-
-      this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-        if (that.conversationTabs.onMetadataTab()) {
-          console.log(enabledAnswers);
-          serverClient.queryParticipantsByMetadata(enabledAnswers).then(
-            vis.emphasizeParticipants,
-            function(err) {
-              console.error(err);
-            });
-        }
-      });
 
 
 
@@ -324,7 +215,7 @@ module.exports =  Handlebones.ModelView.extend({
         serverClient: serverClient,
         model: new CommentModel(),
         votesByMe: this.votesByMe,
-        is_public: is_public,
+        is_public:  this.model.get("is_public"),
         pid: pid,
         zid: zid
       }));
@@ -379,11 +270,6 @@ module.exports =  Handlebones.ModelView.extend({
       this.commentForm.on("commentSubmitted", function() {
         // $("#"+VOTE_TAB).tab("show");
       });
-
-      /* tooltips */
-      console.log("here are the views children:");
-      console.dir(this.children);
-
    
       this.commentForm.updateCollection();
 
@@ -392,8 +278,8 @@ module.exports =  Handlebones.ModelView.extend({
       that.destroyPopovers();
     });
 
-    eb.on(eb.clusterClicked, onClusterTapped);
-    eb.on(eb.queryResultsRendered, _.bind(this.onAnalyzeTabPopulated, this));
+    eb.on(eb.clusterClicked, this.onClusterTapped.bind(this));
+    eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
 
 
     that.conversationTabs.on("beforeshow:write", function() {
