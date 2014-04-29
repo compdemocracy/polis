@@ -75,8 +75,8 @@ module.exports =  Handlebones.ModelView.extend({
     this.model.set("showGroupHeader", false);
     this.model.set("showTabs", true);
   },
-  onMetadataTab: function() {
-    return [this.ANALYZE_TAB, this.METADATA_TAB].indexOf(this.currentTab) >= 0;
+  onAnalyzeTab: function() {
+    return this.ANALYZE_TAB === this.currentTab;
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
