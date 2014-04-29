@@ -1,4 +1,4 @@
-var View = require("../view");
+var View = require("handlebones").View;
 var template = require("../tmpl/userCreate");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");

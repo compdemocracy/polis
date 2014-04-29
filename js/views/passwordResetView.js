@@ -1,4 +1,4 @@
-var View = require("../view");
+var View = require("handlebones").View;
 var template = require("../tmpl/passwordResetForm");
 var $ = require("jquery");
 var serialize = require("../util/serialize");

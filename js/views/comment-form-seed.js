@@ -1,4 +1,4 @@
-var View = require("../view");
+var View = require("handlebones").View;
 var template = require("../tmpl/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
