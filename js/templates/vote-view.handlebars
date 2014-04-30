@@ -1,4 +1,8 @@
 
+<div
+
+  style="border-radius: 0px 10px 10px 10px; border: 3px; border-top: 1px; border-left: 1px; border-style:solid; border-color: lightgray; ">
+
 <div id="comment_shower">
   {{#if empty}}
     <div  style="margin: 20px;" class="alert alert-warning">
@@ -7,11 +11,14 @@
     </div>
   {{else}}
   <!-- there is a comment to show -->
-    <p style="padding: 20px 20px 10px 20px; min-height: 100px"> {{txt}} </p>
+    <p style="padding: 20px 20px 10px 20px; min-height: 100px; margin-bottom: 0px"> {{txt}} </p>
   {{/if}}
 </div>
 
-  <div class="reactionButtons">
+  <div
+    class="reactionButtons"
+    style="margin: 5px"
+  >
   {{#unless empty}}
       <div class="btn-group btn-group-justified">
         <div
@@ -46,4 +53,5 @@
         &nbsp;Pass ... </div>
     </div>
   {{/unless}}
+</div>
 </div>
