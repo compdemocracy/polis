@@ -373,11 +373,13 @@ module.exports =  ConversationView.extend({
         });
 
         setTimeout(function(){
-          that.$commentViewPopover.popover("show");
-          $("#commentViewPopoverButton").click(function(){
-            that.$commentViewPopover.popover("destroy");
-          });
-        },3000);
+          if (that.conversationTabs.onVoteTab()) {
+            that.$commentViewPopover.popover("show");
+            $("#commentViewPopoverButton").click(function(){
+              that.$commentViewPopover.popover("destroy");
+            });
+          }
+        },2000);
       }));
 
 

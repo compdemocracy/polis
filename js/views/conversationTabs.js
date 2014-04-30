@@ -78,6 +78,9 @@ module.exports =  Handlebones.ModelView.extend({
   onAnalyzeTab: function() {
     return this.ANALYZE_TAB === this.currentTab;
   },
+  onVoteTab: function() {
+    return this.VOTE_TAB === this.currentTab;
+  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
