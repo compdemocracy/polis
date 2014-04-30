@@ -1,4 +1,3 @@
-var View = require("../view");
 var Handlebars = require("handlebars");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/faq");
