@@ -13,37 +13,37 @@
 
   <div class="reactionButtons">
   {{#unless empty}}
-      <div class="btn-group">
-        <button
+      <div class="btn-group btn-group-justified">
+        <div
           class="btn btn-lg btn-default btn-vote"
           id="agreeButton"
-          type="button"
+          role="button"
         >
         {{#ifNotIE8}}
           <i class="icon-caret-up" style="color: #2ecc71;"></i>
         {{/ifNotIE8}}
-        &nbsp;Agree </button>
+        &nbsp;Agree </div>
 
-        <button
+        <div
           id="disagreeButton"
           class="btn btn-lg btn-default btn-vote"
-          type="button"
+          role="button"
         >
         {{#ifNotIE8}}
           <i class="icon-caret-down" style="color: #e74c3c"></i>
         {{/ifNotIE8}}
-        &nbsp;Disagree </button>
+        &nbsp;Disagree </div>
 
-        <button
+        <div
           id="passButton"
           class="btn btn-lg btn-default btn-vote"
-          type="button"
+          role="button"
         >
         {{#ifNotIE8}}
           <i class="icon-ban-circle" style="color: gray"></i>
         {{/ifNotIE8}}
         {{! <strong style="color:gray">~</strong> }}
-        &nbsp;Pass ... </button>
+        &nbsp;Pass ... </div>
     </div>
   {{/unless}}
 </div>
