@@ -1,3 +1,4 @@
+var constants = require("../util/constants");
 var View = require("handlebones").View;
 var template = require("../tmpl/comment-form-seed");
 var CommentModel = require("../models/comment");
@@ -24,6 +25,7 @@ module.exports = Handlebones.CollectionView.extend({
     attrs.pid = this.pid;
     attrs.zid = this.zid;
     var comment = new CommentModel(attrs);
+    attr.vote = constants.REACTIONS.PASS; // Preseeded comments are automatically passed. Needed for now since math assumes every comment has at least one vote.
     comment.save().then(function() {
       that.trigger("commentSubmitted"); // view.trigger
       that.updateCollection();

@@ -1,3 +1,4 @@
+var constants = require("../util/constants");
 var View = require("handlebones").View;
 var template = require("../tmpl/comment-form");
 var CommentModel = require("../models/comment");
@@ -38,7 +39,7 @@ module.exports = Handlebones.View.extend({
     var that = this; //that = the view
     attrs.pid = this.pid;
     attrs.zid = this.zid;
-
+    attrs.vote = constants.REACTIONS.AGREE; // participants' comments are automatically agreed to. Needed for now since math assumes every comment has at least one vote.
 
     if (/^\s*$/.exec(attrs.txt)) {
       alert("Comment is empty");
