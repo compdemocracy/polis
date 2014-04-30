@@ -377,7 +377,7 @@ module.exports =  ConversationView.extend({
           $("#commentViewPopoverButton").click(function(){
             that.$commentViewPopover.popover("destroy");
           });
-        },1000);
+        },3000);
       }));
 
 
