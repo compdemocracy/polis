@@ -719,7 +719,7 @@ function clientSideBaseCluster(things, N) {
 
                 // in case of malformed PCs (seen on conversations with only one comment)
                 pcX = pcX || [];
-                pcY = pcX || [];
+                pcY = pcY || [];
  
 
                 votesForTidBid = pcaData["votes-base"];
