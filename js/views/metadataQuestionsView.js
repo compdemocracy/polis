@@ -4,7 +4,7 @@ var Handlebones = require("handlebones");
 
 
 var CV = Handlebones.CollectionView.extend({
-  tagName: "ul",
+  tagName: "div",
   modelView: MetadataQuestionAndAnswersView
 });
 

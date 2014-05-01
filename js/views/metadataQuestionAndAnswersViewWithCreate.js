@@ -5,7 +5,7 @@ var serialize = require("../util/serialize");
 
 
 var CV = Handlebones.CollectionView.extend({
-  tagName: "ul",
+  tagName: "div",
   modelView: MetadataAnswerViewWithDelete
 });
 

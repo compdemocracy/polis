@@ -1,6 +1,16 @@
-{{value}}
-{{#if allowDelete}}
-	<a role="button" type="button" class="deleteAnswer makeCursorPointer removeUnderlinedLink">
-		&nbsp;<i class="icon-remove"></i>
-	</a>
-{{/if}}
+  {{#if is_exclusive}}
+    <label class="makeCursorPointer questionAnswer">
+      {{! NOTE: using pmqid as the name, since the radio button is exclusive across items with the same name }}
+      <input type="radio" class="metadataCheckbox" onclick="this.checked=false;">
+  {{else}}
+    <label class="makeCursorPointer questionAnswer">
+      {{! NOTE: using pmqid as the name, since the radio button is exclusive across items with the same name }}
+      <input type="checkbox" class="metadataCheckbox" onclick="this.checked=false;">
+  {{/if}}
+  {{value}}
+    {{#if allowDelete}}
+      <a role="button" type="button" class="deleteAnswer makeCursorPointer removeUnderlinedLink">
+        &nbsp;<i class="icon-remove"></i>
+      </a>
+    {{/if}}
+  </label> {{! NOTE - this tag begins within the conditional above }}
