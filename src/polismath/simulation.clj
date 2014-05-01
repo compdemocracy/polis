@@ -5,7 +5,6 @@
         polismath.named-matrix
         polismath.conversation
         clj-time.coerce
-        clojure.tools.logging 
         plumbing.core
         clj-time.local))
 
