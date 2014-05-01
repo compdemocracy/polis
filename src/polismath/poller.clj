@@ -1,9 +1,6 @@
 (ns polismath.poller
-  (:use
-        clj-logging-config.log4j   
-;        clojure.pprint
+  (:use clojure.pprint
         clojure.core.matrix.impl.ndarray
-        clojure.tools.logging 
         polismath.conversation
         polismath.named-matrix
         polismath.utils
@@ -17,16 +14,6 @@
             [monger.core :as mg]
             [monger.collection :as mgcol]
             [environ.core :as env]))
-
-
-(set-logger!)
-
-(info "poller launch")
-
-;; Ensure that logging is via an agent
-(def *allow-direct-logging* false)
-
-
 
 
 (def metric (make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
