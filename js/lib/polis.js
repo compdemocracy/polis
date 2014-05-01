@@ -73,6 +73,8 @@ module.exports = function(params) {
 
     var pcX = {};
     var pcY = {};
+    var centerX = 0;
+    var centerY = 0;
     var repness = {}; // gid -> tid -> representativeness (bigger is more representative)
     var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
     var participantCount = 0;
@@ -712,6 +714,9 @@ function clientSideBaseCluster(things, N) {
 
                 pcX = pcaData.pca.comps[0];
                 pcY = pcaData.pca.comps[1];
+                centerX = pcaData.pca.center[0] || 0;
+                centerY = pcaData.pca.center[1] || 0;
+
                 // in case of malformed PCs (seen on conversations with only one comment)
                 pcX = pcX || [];
                 pcY = pcX || [];
@@ -1046,6 +1051,9 @@ function clientSideBaseCluster(things, N) {
             x += vote * (pcX[tid] || 0);
             y += vote * (pcY[tid] || 0);
         });
+
+        x -= centerX;
+        y -= centerY;
 
         return {
             pid : getPid(),
