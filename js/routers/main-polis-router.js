@@ -33,9 +33,6 @@ function authenticated() { return PolisStorage.uid(); }
 
 // TODO refactor this terrible recursive monster function.
 function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
-
-  if (!zinvite && !authenticated()) { return this.bail(); }
-
   var that = this;
 
   var suzinvite;
