@@ -25,7 +25,7 @@
          end# (System/currentTimeMillis)
          duration# (- end# start#)]
      (metric ~metric-name duration# end#)
-     (debug (str end# " " ~metric-name " " duration# " millis"))
+     (println (str end# " " ~metric-name " " duration# " millis"))
      ret#))
 
 (metric "math.process.launch" 1)
@@ -67,7 +67,7 @@
         (ko/where {:created [> last-timestamp]})
         (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
     (catch Exception e (do
-        (error (str "polling failed " (.getMessage e)))
+        (println (str "polling failed " (.getMessage e)))
         []))))
 
 
@@ -100,15 +100,15 @@
               end (System/currentTimeMillis)
               duration (- end start)]
           (metric "math.pca.compute.ok" duration)
-          (debug conv2)
+          (println conv2)
           
           (if (> (:lastVoteTimestamp conv2) (:lastVoteTimestamp conv)) ; basic sanity check. else don't modify.
             conv2
             conv))))))
 
 (defn bid-to-pid-uploader [key iref old_conv conv]
-  (info "bid-to-pid-uploader " (:zid conv))
-  (debug "bid-to-pid-uploader " conv)
+  (println "bid-to-pid-uploader " (:zid conv))
+  (println "bid-to-pid-uploader " conv)  
             ; Upload pid mapping NOTE: uploading before primary
             ; results since client triggers resuest for pid mapping in
             ; response to a new primary math result, so there is race.
@@ -128,8 +128,8 @@
       obj))))
 
 (defn math-uploader [key iref old_conv conv]
-  (info "math-uploader " (:zid conv))
-  (debug "math-uploader " conv)
+  (println "math-uploader " (:zid conv))
+  (println "math-uploader " conv)  
                                         ; Upload primary math results
   (let [
               ; For now, convert to json and back (using cheshire to cast NDArray and Vector)
@@ -155,7 +155,7 @@
 (defn init-conv-agent [zid]
   (swap! conversations
          (fn [cs]
-           (info "init-conv-agent" zid)
+           (println "init-conv-agent" zid)
            (assoc cs
              zid
              (agent (new-conv zid 0)))))
@@ -166,13 +166,13 @@
     a))
 
 (defn -main []
-  (info "launching poller " (System/currentTimeMillis))
+  (println "launching poller " (System/currentTimeMillis))
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
         mg-db           (mongo-connect! (env/env :mongo-url))
         last-timestamp  (atom 0)]
     (endlessly poll-interval
-      (info "poll >" @last-timestamp)
+      (println "poll >" @last-timestamp)
       (let [new-votes (poll pg-spec @last-timestamp)
             zid-to-votes (group-by :zid new-votes)
             zid-votes (shuffle (into [] zid-to-votes))
@@ -195,8 +195,8 @@
             ;; Clear old errors.
             (let [old-error  (agent-error a)]
               (if (not (nil? old-error))
-                (do (error old-error)
-                    (error "AGENT ERROR!")
+                (do (println old-error)
+                    (println "AGENT ERROR!")
                     (.printStackTrace old-error)
                     (restart-agent a @a))))
             
@@ -204,9 +204,9 @@
             (send a (make-math-updater zid))
             
             
-            (info "zid: " zid)
-            (info "time: " (System/currentTimeMillis))
-            (info "\n\n")
+            (println "zid: " zid)
+            (println "time: " (System/currentTimeMillis))
+            (println "\n\n")
             ))
         
         (swap! last-timestamp

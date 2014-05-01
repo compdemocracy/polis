@@ -13,7 +13,7 @@
   [tag & expr]
   `(let [start# (. System (nanoTime))
          ret# ~@expr]
-     (debug (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
+     (println (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
 
 
