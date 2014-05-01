@@ -1,6 +1,4 @@
-(ns polismath.utils
-  (:use
-   clojure.tools.logging))
+(ns polismath.utils)
 
 
 (defn agree? [n]

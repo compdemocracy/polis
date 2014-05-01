@@ -1,5 +1,4 @@
-(ns polismath.metrics
-  (:use clojure.tools.logging))
+(ns polismath.metrics)
 
 (defn make-socket 
 	([] (new java.net.DatagramSocket))
@@ -23,7 +22,7 @@
 (defn make-send [hostname port]
 	(let [send-socket (make-socket)]
           (fn [data]
-            (debug "sending " data " to " hostname ":" port)
+            (error "sending " data " to " hostname ":" port)
             (send-data send-socket hostname port data))))
 
 (defn make-metric-sender [hostname port carbon-api-key]
