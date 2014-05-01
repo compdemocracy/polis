@@ -36,6 +36,19 @@ function comparatorDisagree(a, b) {
   x = x || bbCompareAscending("A", a, b);
   return x || compareTieBreaker(a, b);
 }
+function comparatorDivisive(a, b) {
+  var b_agrees = b.get("A");
+  var b_disagrees = b.get("D");
+  var a_agrees = a.get("A");
+  var a_disagrees = a.get("D");
+  var b_product = b_agrees * b_disagrees;
+  var a_product = a_agrees * a_disagrees;
+  var b_sum = b_agrees + b_disagrees + 1; // Add 1 to prevent divide-by-zero
+  var a_sum = a_agrees + a_disagrees + 1; // Add 1 to prevent divide-by-zero
+  var x = b_product/b_sum - a_product/a_sum;
+  x = x || bbCompareAscending("A", a, b);
+  return x || compareTieBreaker(a, b);
+}
 
 function comparatorStars(a, b) {
   var x = bbCompare("stars", a, b);
@@ -128,9 +141,9 @@ module.exports = Handlebones.View.extend({
     tidsForGroup: null,
     visibleTids: [],
     events: {
-      "click #sortStar": "sortStar",
       "click #sortAgree": "sortAgree",
       "click #sortDisagree": "sortDisagree",
+      "click #sortDivisive": "sortDivisive",
       "keyup input": "updateSearch",
       "propertychange input": "updateSearch",
       submit: function(e) {
@@ -152,7 +165,7 @@ module.exports = Handlebones.View.extend({
       }
     },
     selectSortModes: function(chosenButtonSelector) {
-      this.$("#sortAgree,#sortDisagree,#sortStar").removeClass("enabled");
+      this.$("#sortAgree,#sortDisagree,#sortDivisive").removeClass("enabled");
       this.$(chosenButtonSelector).addClass("enabled");
     },
     selectFirst: function() {
@@ -175,10 +188,12 @@ module.exports = Handlebones.View.extend({
     this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
-  sortStar: function(e) {
-    alert("coming soon!");
+  sortDivisive: function(e) {
+    this.collection.comparator = comparatorDivisive;
+    this.collection.sort();
+    this.selectFirst();
+    this.selectSortModes("#sortDivisive");
   },
-
   sortRepness: function(e) {
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
