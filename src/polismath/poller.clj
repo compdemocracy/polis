@@ -76,7 +76,7 @@
     (kdb/with-db db-spec
       (ko/select "votes"
         (ko/where {:created [> last-timestamp]})
-        (ko/order :created :asc)))
+        (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
     (catch Exception e (do
         (error (str "polling failed " (.getMessage e)))
         []))))
