@@ -838,6 +838,47 @@ function match(key, zid) {
 }
 
 
+// // If there are any comments which have no votes by the owner, create a PASS vote by the owner.
+// client.query("select * from comments", [], function(err, comments) {
+//     client.query("select * from votes", [], function(err, votes) {
+//         comments = comments.rows;
+//         votes = votes.rows;
+
+//         var exists = {};
+//         votes.forEach(function(v) {
+//             exists[v.zid +"_"+ v.tid] = true;
+//         });
+//         var missing = [];
+//         for (var i = 0 ; i < comments.length; i++) {
+//             var c = comments[i];
+//             if (!exists[c.zid + "_" + c.tid]) {
+//                 missing.push(c);
+//             }
+//         }
+//         async.series(
+//             missing.map(function(c) {
+//                 return function(callback) {
+//                     votesPost(c.pid, c.zid, c.tid, 0)
+//                         .then(function() {
+//                             console.log("ok " + c.txt);
+//                             callback(null);
+//                         })
+//                         .catch(function() {
+//                             console.log("failedd " + c.txt);
+//                             callback(1);
+//                         });
+//                 };
+//             }),
+//             function(err, results) {
+//                 console.log(err);
+//             });
+
+
+//         console.dir(missing);
+//         console.log(missing.length);
+//         console.log(comments.length);
+//     });
+// });
 
 
 function authWithApiKey(assigner) {
