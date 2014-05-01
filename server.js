@@ -3756,6 +3756,7 @@ var fetchIndex = function(req, res) {
 }
 
 app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
+app.get(/^\/power\/[0-9]+.*/, fetchIndex); // power view
 app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create.*/, fetchIndex);
