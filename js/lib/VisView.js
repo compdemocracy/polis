@@ -388,7 +388,7 @@ function setClusterActive(clusterId) {
 
     // duplicated at 938457938475438975
     if (!isIE8) {
-        main_layer.selectAll(".active").classed("active", false);
+        main_layer.selectAll(".active_group").classed("active_group", false);
     }
     
     return $.Deferred().resolve([]);
@@ -410,9 +410,9 @@ function updateHullColors() {
         }
    } else {
         if (selectedCluster >= 0) {
-            d3.select(d3Hulls[selectedCluster][0][0]).classed("active", true);
-            d3.select(d3HullSelections[selectedCluster][0][0]).classed("active", true);            
-            d3.select(d3HullShadows[selectedCluster][0][0]).classed("active", true);
+            d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
+            d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
+            d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
         }
    }
 }
@@ -1458,7 +1458,7 @@ function resetSelection() {
   console.log("resetSelection");
   if (isIE8) {
   } else {
-      visualization.selectAll(".active").classed("active", false);
+      visualization.selectAll(".active_group").classed("active_group", false);
   }
   selectedCluster = -1;
   eb.trigger(eb.clusterClicked, selectedCluster);

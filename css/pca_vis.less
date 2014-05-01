@@ -70,18 +70,24 @@
 
 .hull_selection {
   stroke: rgba(0,0,0,0);
+  border-color: rgba(0,0,0,0);
   stroke-width: 9px;
+  border-width: 2px;  // for html elements
+  border-style: dashed; // for html elements
+  border-radius: 5px; // for html elements
   stroke-linejoin: round;
   stroke-dasharray: 5px;
   // stroke-dashoffset: 1px;
   z-index: 401;
 }
-.hull_selection.active {
+.hull_selection.active_group {
   stroke: #6FBAFF;
+  border-color: #6FBAFF; // for html elements
 }
 
-.active {
+.active_group {
   fill: #ebf3ff;
+  background-color: #ebf3ff; // for html elements
   stroke: #ebf3ff;
 }
 .ptpt {
