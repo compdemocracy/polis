@@ -1,7 +1,14 @@
 <form role="form">
 	<div class="form-group">
 
-		<textarea id="comment_form_textarea" class="form-control" rows="9" name="txt" type="text" placeholder="'We should legalize the local growing and use of Marijuana, but restrict importation from Mexico to prevent dangerous existing cartels from profiting.'"></textarea>
+		<textarea
+      id="comment_form_textarea"
+      class="form-control"
+      rows="5"
+      maxlength="997"
+      name="txt"
+      type="text"
+      placeholder="'We should legalize the local growing and use of Marijuana, but restrict importation from Mexico to prevent dangerous existing cartels from profiting.'"></textarea>
 
 	</div>
 	<div class="form-group">
@@ -11,4 +18,4 @@
 </form>
 
 
-{{collection}}
+{{view commentsByMeView}}

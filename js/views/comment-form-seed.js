@@ -6,9 +6,14 @@ var CommentView = require("../views/commentView");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
 
-module.exports = Handlebones.CollectionView.extend({
+
+var CommentsByMeView = Handlebones.CollectionView.extend({
+  modelView: CommentView
+});
+
+
+module.exports = Handlebones.View.extend({
   name: "comment-form-seed",
-  modelView: CommentView,
   template: template,
     events: {
     "click #comment_button": function(e){
@@ -24,8 +29,8 @@ module.exports = Handlebones.CollectionView.extend({
     var that = this; //that = the view
     attrs.pid = this.pid;
     attrs.zid = this.zid;
+    attrs.vote = constants.REACTIONS.PASS; // Preseeded comments are automatically passed. Needed for now since math assumes every comment has at least one vote.
     var comment = new CommentModel(attrs);
-    attr.vote = constants.REACTIONS.PASS; // Preseeded comments are automatically passed. Needed for now since math assumes every comment has at least one vote.
     comment.save().then(function() {
       that.trigger("commentSubmitted"); // view.trigger
       that.updateCollection();
@@ -37,8 +42,7 @@ module.exports = Handlebones.CollectionView.extend({
   updateCollection: function() {
     this.collection.fetch({
       data: $.param({
-        zid: this.zid,
-        pid: this.pid
+        zid: this.zid
       })
     });
   },
@@ -46,5 +50,8 @@ module.exports = Handlebones.CollectionView.extend({
     this.zid = options.zid;
     this.pid = options.pid;
     this.collection = options.collection; // comments by me collection
+    this.commentsByMeView = this.addChild(new CommentsByMeView({
+      collection: this.collection
+    }));
   }
 });
