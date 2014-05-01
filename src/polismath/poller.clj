@@ -66,7 +66,9 @@
       :zid zid
       ; "$gt" 92839182312
     } 
-    new-results
+    (assoc new-results
+           "zid" zid
+           "lastVoteTimestamp" timestamp)
     :multi false
     :upsert true))
 
