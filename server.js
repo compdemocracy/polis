@@ -432,8 +432,8 @@ mongo.connect(process.env.MONGO_URL, {
     db.collection('users', function(err, collectionOfUsers) {
     db.collection('events', function(err, collection) {
     db.collection('stimuli', function(err, collectionOfStimuli) {
-    db.collection('polismath_test_mar02', function(err, collectionOfPcaResults) {
-    db.collection('polismath_bidToPid_test_mar14', function(err, collectionOfBidToPidResults) {
+    db.collection('polismath_test_april9', function(err, collectionOfPcaResults) {
+    db.collection('polismath_bidToPid_april9', function(err, collectionOfBidToPidResults) {
 
         callback(null, {
             mongoCollectionOfEvents: collection,
