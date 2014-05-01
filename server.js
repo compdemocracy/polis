@@ -904,21 +904,25 @@ function getPidForParticipant(assigner, cache) {
     };
 }
 
-function votesPost(res, pid, zid, tid, voteType) {
-    var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default);";
-    var params = [pid, zid, tid, voteType];
-    client.query(query, params, function(err, result) {
-        if (err) {
-            if (isDuplicateKey(err)) {
-                fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
-            } else {
-                fail(res, 500, "polis_err_vote", err);
+
+function votesPost(pid, zid, tid, voteType) {
+    return new Promise(function(resolve, reject) {
+        var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default);";
+        var params = [pid, zid, tid, voteType];
+        client.query(query, params, function(err, result) {
+            if (err) {
+                if (isDuplicateKey(err)) {
+                    reject("polis_err_vote_duplicate");
+                } else {
+                    reject("polis_err_vote");
+                }
+                return;
             }
-            return;
-        }
-        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
+            resolve();
+        });
     });
 }
+
 
 function votesGet(res, p) {
     var q = sql_votes.select(sql_votes.star())
@@ -2548,9 +2552,11 @@ app.post("/v3/comments",
     auth(assignToP),
     need('zid', getInt, assignToP),
     need('txt', getOptionalStringLimitLength(997), assignToP),
+    want('vote', getIntInRange(-1, 1), assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var txt = req.p.txt;
+    var vote = req.p.vote;
 
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
@@ -2570,17 +2576,17 @@ function(req, res) {
                     sendCommentModerationEmail(125, zid, tid, txt);
                 }
 
-                // Since the user posted it, we'll submit an auto-pull for that.
-                //var autopull = {
-                    //zid: req.p.zid,
-                    //vote: polistypes.reactions.pull,
-                    //tid: tid,
-                    //pid: req.p.pid
-                //};
-                res.json({
-                    tid: tid,
+                var autoVotePromise = _.isUndefined(vote) ?
+                    Promise.resolve() :
+                    votesPost(pid, zid, tid, vote);
+
+                autoVotePromise.then(function() {
+                    res.json({
+                        tid: tid,
+                    });
+                }, function(err) {
+                    fail(res, 500, "polis_err_vote_on_create", err);
                 });
-                //votesPost(res, pid, zid, tid, [autopull]);
             }); // insert
     });
 
@@ -2606,7 +2612,7 @@ function(req, res) {
                             //tid: tid,
                             //pid: pid
                         //};
-                        ////votesPost(res, pid, zid, tid, [autoPull]);
+                        ////votesPost(pid, zid, tid, [autoPull]);
                       //}); // COMMIT
                     //}); // INSERT
                 //}); // SET CONSTRAINTS
@@ -2742,7 +2748,16 @@ app.post("/v3/votes",
     need('vote', getIntInRange(-1, 1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
-        votesPost(res, req.p.pid, req.p.zid, req.p.tid, req.p.vote);
+
+    votesPost(req.p.pid, req.p.zid, req.p.tid, req.p.vote).then(function() {
+        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
+    }).catch(function(err) {
+        if (err === "polis_err_vote_duplicate") {
+            fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
+        } else {
+            fail(res, 500, "polis_err_vote", err);
+        }
+    });
 });
 
 app.post("/v3/stars",
