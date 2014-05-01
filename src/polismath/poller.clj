@@ -85,26 +85,19 @@
 
 (def conversations (atom {})) ; Will contain zid -> agent(data)
 
-(def pending-votes (ref {})) ; zid -> [votes]
 
-(defn make-math-updater [zid]
+(defn make-math-updater [votes]
   (fn [conv]
-    (let [votes (dosync
-                 (let [votes ((deref pending-votes) zid)]
-                   (ref-set pending-votes (dissoc (deref pending-votes) zid))
-                   votes))]
-      (if (empty? votes)
-        conv ; No new votes to process, return conv as-is
-        (let [start (System/currentTimeMillis)
-              conv2 (conv-update conv votes)
-              end (System/currentTimeMillis)
-              duration (- end start)]
-          (metric "math.pca.compute.ok" duration)
-          (println conv2)
-          
-          (if (> (:lastVoteTimestamp conv2) (:lastVoteTimestamp conv)) ; basic sanity check. else don't modify.
-            conv2
-            conv))))))
+    (let [start (System/currentTimeMillis)]
+        (do
+          (println "starting zid: " (:zid conv))
+          (println conv)
+          (let [foo (conv-update conv votes)
+                end (System/currentTimeMillis)
+                duration (- end start)]
+            (metric "math.pca.compute.ok" duration)
+            (println foo)
+            foo)))))
 
 (defn bid-to-pid-uploader [key iref old_conv conv]
   (println "bid-to-pid-uploader " (:zid conv))
@@ -183,15 +176,6 @@
                       (init-conv-agent zid))
                 ]
 
-            (dosync
-             (let [old (deref pending-votes)]
-               (ref-set
-                pending-votes
-                (assoc old
-                  zid (if (nil? (old zid))
-                        votes
-                        (concat (old zid) votes))))))
-            
             ;; Clear old errors.
             (let [old-error  (agent-error a)]
               (if (not (nil? old-error))
@@ -201,7 +185,7 @@
                     (restart-agent a @a))))
             
             ;; Enqueue the votes on the agent for that conversation.            
-            (send a (make-math-updater zid))
+            (send a (make-math-updater votes))
             
             
             (println "zid: " zid)
