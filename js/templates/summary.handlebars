@@ -1,0 +1,79 @@
+{{#ifNotEmbedded}}
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span> 
+      </button>
+      <a href="/inbox" class="navbar-brand">Polis</a>
+    </div>
+    <div class="navbar-collapse collapse">
+      <ul class="nav navbar-nav navbar-right">
+        <li><a href="https://pol.is/about">About</a></li>
+        <li><a href="mailto:colin@pol.is?subject=Polis%20Feedback">Contact</a></li>
+        <li><a href="/settings">
+          {{#ifNotIE8}}
+          <i class="icon-signout"></i>
+          {{/ifNotIE8}}
+          &nbsp; Signout</a></li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div>
+</div>
+{{/ifNotEmbedded}}
+
+<section class="container" style="margin-bottom: 50px;"> 
+
+<div class="row">
+  <div class="col-sm-8 conversationViewHeadline">
+    <h3> {{topic}} </h3>
+    <small><i> {{description}} </i></small>
+  </div>
+<!--  <div class="col-sm-6 alert alert-info alert-dismissable">
+    <button type="button" class="close" data-dismiss="alert">×</button>
+    <h4> Welcome</h4>
+    <p> The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis is currently in beta - your <span class="popover_helper_class" id="feedback_and_suggestions"> feedback and suggestions</span> are welcome as we work to improve the overall experience of the application. <i class="icon-info-sign"></i> <span class="popover_helper_class" id="how_do_i_use">How do I use Polis?</span></p>
+  </div> -->
+</div>
+
+
+<span id="vis_sibling_bottom" class="col-xs-10">
+  <div id="visualization_div" class="vis_container"></div>
+</span>
+
+<div id="raphael_div">
+
+
+<div class="row"> <!-- may get no-gutter class on xs -->
+
+  {{! COMMENTS }}
+  <div class="col-xs-4">
+    <h4>Comments</h4>
+    {{view conversationStatsHeader}}
+    {{view analyzeGlobalView}}
+    <div class="query_results_div" class="hidden-xs">
+    </div> <!-- query results div -->
+  </div> <!-- span 4 -->
+
+  {{! METADATA }}
+  {{#if hasMetadata}}
+    <div class="col-xs-4">
+      <h4>Participant Info</h4>
+      <div id="metadata_eyes">
+        {{!
+        <div class="alert alert-info alert-dismissable" style="margin-top: 20px">
+          <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+          <p> All participants are shown by default. Clicking on an answer below will cause participants who chose that answer to fade out. This makes it easier to identify patterns of agreement and disagreement in those participants who remain. </p>
+        </div>
+        }}
+        {{view metadataQuestionsView}}
+      </div>        
+    </div>
+  {{/if}}
+
+
+</div> <!-- row -->
+</section>
