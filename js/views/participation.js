@@ -323,11 +323,13 @@ module.exports =  ConversationView.extend({
 
       scrollTopOnFirstShow();
 
-      // $("#visualization_div").affix({
-      //   offset: {
-      //     top: 150 //will be set dynamically
-      //   }
-      // });
+      if (!display.xs() && !display.sm()) {
+        $("#visualization_div").affix({
+          offset: {
+            top: 150 //will be set dynamically
+          }
+        });
+      }
       function deselectHulls() {
         if (vis) {
           vis.deselect();
