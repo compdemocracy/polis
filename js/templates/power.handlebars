@@ -28,10 +28,6 @@
 <section class="container" style="margin-bottom: 50px;"> 
 
 <div class="row">
-  <div class="col-sm-8 conversationViewHeadline">
-    <h3> {{topic}} </h3>
-    <small><i> {{description}} </i></small>
-  </div>
 <!--  <div class="col-sm-6 alert alert-info alert-dismissable">
     <button type="button" class="close" data-dismiss="alert">×</button>
     <h4> Welcome</h4>
@@ -39,13 +35,21 @@
   </div> -->
 </div>
 
+<div class="row">
 
-<span id="vis_sibling_bottom" class="col-xs-10">
-  <div id="visualization_div" class="vis_container"></div>
-</span>
+  <div class="panel panel-default col-xs-3">
+    <div class="panel-body">
+      <button class="btn btn-default" style="margin-bottom:10px"><i class="icon-tag"> </i> Create Cohort</button>
+      <button class="btn btn-default btn-success"><i class="icon-refresh"> </i> Recompute Visualization</button>
+    </div>
+  </div>
 
-<div id="raphael_div">
+  <span id="vis_sibling_bottom" class="col-xs-9">
+    <div id="visualization_div" class="vis_container"></div>
+  </span>
 
+  <div id="raphael_div">
+</div>
 
 <div class="row"> <!-- may get no-gutter class on xs -->
 
