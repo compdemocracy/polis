@@ -26,6 +26,33 @@ module.exports =  ConversationView.extend({
   name: "powerView",
   template: template,
   events: {
+    "click #reproject": function() {
+      this.doReproject();
+    },
+    "dragstart": function(ev) {
+      console.log("dragging");
+      var s = ev.target.id;
+      if (!s) {
+        s = ev.target.id = "draggable_" + Math.random();
+      }
+      ev.originalEvent.dataTransfer.setData("Text",s);
+    },
+    "drop #dragtarget": function(ev) {
+      console.log("drop");
+      ev.preventDefault();
+      var data=ev.originalEvent.dataTransfer.getData("Text");
+      var target = ev.target;
+      if (target.id !== "dragtarget") {
+        target = $("#dragtarget")[0];
+      }
+      target.appendChild(document.getElementById(data));
+    },
+    "dragover #dragtarget": function(ev) {
+      console.log("dragover");
+      ev.preventDefault();
+      // allow drop
+    }
+
   },
   onAnalyzeTabPopulated: function() {
     $('.query_result_item').first().trigger('click');
