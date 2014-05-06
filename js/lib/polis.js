@@ -73,7 +73,7 @@ module.exports = function(params) {
     var votesByMe = params.votesByMe;
     var allComments = params.comments;
 
-    comments.on("add remove reset", function() {
+    allComments.on("add remove reset", function() {
         eb.trigger(eb.commentCount, this.length);
     });
 
@@ -1142,11 +1142,10 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    function setTidSubsetForReprojection(tids) {
-        tidSubsetForReprojection = tids;        
-    }
-
     function reprojectForSubsetOfComments(projectionPeopleCache) {
+        var tidSubsetForReprojection = allComments.chain().filter(function(c) {
+            return !c.get("unchecked");
+        }).map(function(c) { return c.get("tid");}).value();
         if (!tidSubsetForReprojection.length ||  // nothing is selected, just show the original projection.
             tidSubsetForReprojection.length === allComments.length // all comments are shown, so just show the original projection.
         ) {
@@ -1321,7 +1320,6 @@ function clientSideBaseCluster(things, N) {
         unstar: unstar,
         stories: stories,
         invite: invite,
-        setTidSubsetForReprojection: setTidSubsetForReprojection,
         queryParticipantsByMetadata: queryParticipantsByMetadata,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addInitReadyListener: initReadyCallbacks.add,

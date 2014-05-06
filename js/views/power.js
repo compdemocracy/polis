@@ -218,6 +218,8 @@ module.exports =  ConversationView.extend({
     eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
 
 
+    this.doReproject = _.debounce(serverClient.updateMyProjection, 1000);
+
 
     this.listenTo(this, "render", function(){
       setTimeout(function() {
