@@ -250,7 +250,7 @@ module.exports =  ConversationView.extend({
 
       var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
       this.analyzeGlobalView.on("searchChanged", function(o) {
-        serverClient.setTidSubsetForReprojection(o.tids);
+        // serverClient.setTidSubsetForReprojection(o.tids);
         doReproject();
       });
 

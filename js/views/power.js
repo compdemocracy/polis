@@ -14,6 +14,7 @@ var CommentModel = require("../models/comment");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
 var ResultsCollection = require("../collections/results");
+var RulesCollection = require("../collections/rules");
 var RulesView = require("../views/rules");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
@@ -69,7 +70,9 @@ module.exports =  ConversationView.extend({
   },
 
   emphasizeParticipants: function() {
-    this.vis.emphasizeParticipants.apply(this, arguments);
+    if (this.vis) {
+      this.vis.emphasizeParticipants.apply(this, arguments);
+    }
   },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
@@ -87,8 +90,10 @@ module.exports =  ConversationView.extend({
     var resultsCollection = new ResultsCollection();
 
 
-    var rulesCollection = new Collection();
-
+    var rulesCollection = new RulesCollection();
+    this.rulesView = this.addChild(new RulesView({
+      collection: rulesCollection
+    }));
 
     // HTTP PATCH - model.save({patch: true})
 
