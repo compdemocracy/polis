@@ -14,6 +14,7 @@ var CommentModel = require("../models/comment");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
 var ResultsCollection = require("../collections/results");
+var RulesView = require("../views/rules");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 
@@ -84,6 +85,10 @@ module.exports =  ConversationView.extend({
 
 
     var resultsCollection = new ResultsCollection();
+
+
+    var rulesCollection = new Collection();
+
 
     // HTTP PATCH - model.save({patch: true})
 
