@@ -49,30 +49,25 @@
 
 <div class="row"> <!-- may get no-gutter class on xs -->
 
-  {{! COMMENTS }}
   <div class="col-xs-4">
-    <h4>Comments</h4>
+    <h4>Group 0</h4>
     {{view conversationStatsHeader}}
-    {{view analyzeGlobalView}}
-    <div class="query_results_div" class="hidden-xs">
-    </div> <!-- query results div -->
-  </div> <!-- span 4 -->
+    {{view analyzeGlobalView0}}
+  </div>
 
-  {{! METADATA }}
-  {{#if hasMetadata}}
-    <div class="col-xs-4">
-      <h4>Participant Info</h4>
-      <div id="metadata_eyes">
-        {{!
-        <div class="alert alert-info alert-dismissable" style="margin-top: 20px">
-          <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
-          <p> All participants are shown by default. Clicking on an answer below will cause participants who chose that answer to fade out. This makes it easier to identify patterns of agreement and disagreement in those participants who remain. </p>
-        </div>
-        }}
-        {{view metadataQuestionsView}}
-      </div>        
-    </div>
-  {{/if}}
+
+  <div class="col-xs-4">
+    <h4>Group 1</h4>
+    {{view conversationStatsHeader}}
+    {{view analyzeGlobalView1}}
+  </div>
+
+
+  <div class="col-xs-4">
+    <h4>Group 2</h4>
+    {{view conversationStatsHeader}}
+    {{view analyzeGlobalView2}}
+  </div>
 
 
 </div> <!-- row -->

@@ -181,14 +181,33 @@ module.exports =  ConversationView.extend({
       }));
 
 
-      this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
+      this.analyzeGlobalView0 = this.addChild(new AnalyzeGlobalView({
         zid: zid,
         isIE8: isIE8,
+        gid: 0,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },
         collection: this.allCommentsCollection
       }));
+      this.analyzeGlobalView1 = this.addChild(new AnalyzeGlobalView({
+        zid: zid,
+        isIE8: isIE8,
+        gid: 1,
+        getTidsForGroup: function() {
+          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+        },
+        collection: this.allCommentsCollection
+      }));
+      this.analyzeGlobalView2 = this.addChild(new AnalyzeGlobalView({
+        zid: zid,
+        isIE8: isIE8,
+        gid: 2,
+        getTidsForGroup: function() {
+          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+        },
+        collection: this.allCommentsCollection
+      }));            
 
       eb.on(eb.commentSelected, function(tid) {
         vis.selectComment(tid);
@@ -251,7 +270,9 @@ module.exports =  ConversationView.extend({
 
 
       that.allCommentsCollection.doFetch().then(function() {
-        that.analyzeGlobalView.sortAgree();
+        that.analyzeGlobalView0.sortAgree();
+        that.analyzeGlobalView1.sortAgree();
+        that.analyzeGlobalView2.sortAgree();                
       });
       
 
