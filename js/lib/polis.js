@@ -62,6 +62,7 @@ module.exports = function(params) {
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
 
+    var clustersCachePromise = $.Deferred();
     var votesForTidBidPromise = $.Deferred();
 
     var projectionPeopleCache = [];
@@ -758,6 +759,7 @@ function clientSideBaseCluster(things, N) {
 
                     projectionPeopleCache = buckets;
                     clustersCache = clusters;
+                    clustersCachePromise.resolve();
 
                     buckets = prepProjection(buckets);
                     return null;
@@ -917,7 +919,7 @@ function clientSideBaseCluster(things, N) {
     function getTidsForGroup(gid, max) {
         var dfd = $.Deferred();
         // delay since clustersCache might not be populated yet.
-        votesForTidBidPromise.done(function()  {
+        $.when(votesForTidBidPromise, clustersCachePromise).done(function()  {
             var tidToR = computeRepness(clustersCache[gid], votesForTidBid);
             var tids;
             if (_.isNumber(max)) {

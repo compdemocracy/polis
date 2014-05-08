@@ -398,18 +398,16 @@ module.exports =  Handlebones.ModelView.extend({
       }
 
 
+      that.commentsCollection0.doFetch().then(function() {
+        // that.analyzeGlobalView0.sortAgree();              
+      });
+      that.commentsCollection1.doFetch().then(function() {
+        // that.analyzeGlobalView1.sortAgree();              
+      });
+      that.commentsCollection2.doFetch().then(function() {
+        // that.analyzeGlobalView2.sortAgree();              
+      });
 
-      setTimeout(function() {
-        that.commentsCollection0.doFetch().then(function() {
-          // that.analyzeGlobalView0.sortAgree();              
-        });
-        that.commentsCollection1.doFetch().then(function() {
-          // that.analyzeGlobalView1.sortAgree();              
-        });
-        that.commentsCollection2.doFetch().then(function() {
-          // that.analyzeGlobalView2.sortAgree();              
-        });
-      }, 5000);
       
 
   }, 0); // end listenTo "render"
