@@ -2,7 +2,6 @@ var AnalyzeGlobalView = require("../views/analyze-global");
 var Backbone = require("backbone");
 var CommentModel = require("../models/comment");
 var CommentsCollection = require("../collections/comments");
-var ConversationStatsHeader = require('../views/conversation-stats-header');
 var display = require("../util/display");
 var eb = require("../eventBus");
 var GroupSummaryTemplate = require("../tmpl/group-summary");
@@ -118,6 +117,7 @@ module.exports =  Handlebones.ModelView.extend({
         });
 
         var gid = this.model.get("gid");
+
         this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
           zid: zid,
           isIE8: isIE8,
@@ -137,16 +137,19 @@ module.exports =  Handlebones.ModelView.extend({
     });
 
 
+    this.groupCollection =  new Backbone.Collection([
+        // {
+        //   gid:0
+        // },{
+        //   gid:1
+        // },{
+        //   gid:2
+        // }
+        ]);
 
     this.summaryItemCollectionView = this.addChild(new SummaryItemCollectionView({
-      collection: new Backbone.Collection([
-        {
-          gid:0
-        },{
-          gid:1
-        },{
-          gid:2
-        }])
+      collection: this.groupCollection
+     
     }));
 
     this.tutorialController = new TutorialController();
@@ -163,7 +166,6 @@ module.exports =  Handlebones.ModelView.extend({
       }),
       processData: true
     });
-
 
     var serverClient = that.serverClient = new ServerClient({
       zid: zid,
@@ -182,6 +184,28 @@ module.exports =  Handlebones.ModelView.extend({
 
     this.serverClient.startPolling();
 
+    this.serverClient.addPersonUpdateListener(function(buckets, clusters) {
+      var bidToCount = {};
+      _.each(buckets, function(b) {
+        bidToCount[b.bid] = b.count;
+      });
+      var totalParticipants = 0;
+      var i = 0;
+      clusters = _.map(clusters, function(bids) {
+        var o = {};
+        var count = _.reduce(
+          _.map(bids, function(bid) {return bidToCount[bid];}),
+          function(a,b ) { return a+b;}, 0);
+        o.participantCount = count;
+        totalParticipants += count;
+        o.gid = i++;
+        return o;
+      });
+      _.each(clusters, function(cluster) {
+        cluster.percent = Math.floor(cluster.participantCount / totalParticipants * 100);
+      });
+      that.groupCollection.set(clusters);
+    });
 
 
        // CHILD VIEWS
@@ -213,7 +237,6 @@ module.exports =  Handlebones.ModelView.extend({
 
 
 
-    this.conversationStatsHeader = new ConversationStatsHeader();
 
 
     var resultsCollection = new ResultsCollection();
