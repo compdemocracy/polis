@@ -27,10 +27,22 @@ var ResultsCollection = require("../collections/results");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 
+var GroupSummaryTemplate = require("../tmpl/group-summary");
 
 var VIS_SELECTOR = "#visualization_div";
 
 var isIE8 = navigator.userAgent.match(/MSIE [89]/);
+
+
+
+function updateRepness(tidToRepness) {
+  this.each(function(model) {
+    model.set("repness", tidToRepness[model.get("tid")], {silent: true});
+  });
+}
+
+    
+
 
 module.exports =  Handlebones.ModelView.extend({
   name: "summaryView",
@@ -75,17 +87,78 @@ module.exports =  Handlebones.ModelView.extend({
     var is_public = this.model.get("is_public");
     var vis;
 
+
+    function doFetch() {
+      var thatCollection = this;
+      var params = {
+        zid: zid
+      };
+      var promise = Backbone.Collection.prototype.fetch.call(this, {
+        data: $.param(params),
+        processData: true,
+        silent: true,
+        ajax: function() {
+          return that.serverClient.getFancyComments(params);
+        }
+      });
+      promise.then(this.firstFetchPromise.resolve);
+      promise.then(function() {
+        thatCollection.trigger("reset");
+      });
+      return promise;
+    }
+
+
+
+    var SummaryItemView = Handlebones.ModelView.extend({
+      template: GroupSummaryTemplate,
+      initialize: function(options) {
+        Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+
+        this.commentsCollection = new CommentsCollection();
+        this.commentsCollection.firstFetchPromise = $.Deferred();
+        this.commentsCollection.updateRepness = updateRepness;
+        this.commentsCollection.fetch = this.commentsCollection.doFetch = doFetch;
+
+        this.commentsCollection.fetch().then(function() {
+          // that.analyzeGlobalView0.sortAgree();              
+        });
+
+        var gid = this.model.get("gid");
+        this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
+          zid: zid,
+          isIE8: isIE8,
+          gid: gid,
+          getTidsForGroup: function() {
+            return that.serverClient.getTidsForGroup(gid, 5);          
+          },
+          collection: this.commentsCollection
+        }));       
+
+      }
+    });
+
+
+    var SummaryItemCollectionView = Handlebones.CollectionView.extend({
+      modelView: SummaryItemView,
+    });
+
+
+
+    this.summaryItemCollectionView = this.addChild(new SummaryItemCollectionView({
+      collection: new Backbone.Collection([
+        {
+          gid:0
+        },{
+          gid:1
+        },{
+          gid:2
+        }])
+    }));
+
     this.tutorialController = new TutorialController();
 
     this.votesByMe = new VotesCollection();
-
-    this.commentsCollection0 = new CommentsCollection();
-    this.commentsCollection1 = new CommentsCollection();
-    this.commentsCollection2 = new CommentsCollection();
-    this.commentsCollection0.firstFetchPromise = $.Deferred();
-    this.commentsCollection1.firstFetchPromise = $.Deferred();
-    this.commentsCollection2.firstFetchPromise = $.Deferred();
-
 
     var metadataCollection = new MetadataQuestionsCollection([], {
         zid: zid
@@ -115,40 +188,6 @@ module.exports =  Handlebones.ModelView.extend({
     });
 
     this.serverClient.startPolling();
-
-
-    function updateRepness(tidToRepness) {
-      this.each(function(model) {
-        model.set("repness", tidToRepness[model.get("tid")], {silent: true});
-      });
-    }
-    this.commentsCollection0.updateRepness = updateRepness;
-    this.commentsCollection1.updateRepness = updateRepness;
-    this.commentsCollection2.updateRepness = updateRepness;
-
-    function doFetch() {
-      var thatCollection = this;
-      var params = {
-        zid: zid
-      };
-      var promise = Backbone.Collection.prototype.fetch.call(this, {
-        data: $.param(params),
-        processData: true,
-        silent: true,
-        ajax: function() {
-          return that.serverClient.getFancyComments(params);
-        }
-      });
-      promise.then(this.firstFetchPromise.resolve);
-      promise.then(function() {
-        thatCollection.trigger("reset");
-      });
-      return promise;
-    }
-
-    this.commentsCollection0.fetch = this.commentsCollection0.doFetch = doFetch;
-    this.commentsCollection1.fetch = this.commentsCollection1.doFetch = doFetch;
-    this.commentsCollection2.fetch = this.commentsCollection2.doFetch = doFetch;
 
 
 
@@ -308,35 +347,6 @@ module.exports =  Handlebones.ModelView.extend({
         collection: resultsCollection
       }));
 
-
-      this.analyzeGlobalView0 = this.addChild(new AnalyzeGlobalView({
-        zid: zid,
-        isIE8: isIE8,
-        gid: 0,
-        getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup(0, 5);          
-        },
-        collection: this.commentsCollection0
-      }));
-      this.analyzeGlobalView1 = this.addChild(new AnalyzeGlobalView({
-        zid: zid,
-        isIE8: isIE8,
-        gid: 1,
-        getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup(1, 5);          
-        },
-        collection: this.commentsCollection1
-      }));
-      this.analyzeGlobalView2 = this.addChild(new AnalyzeGlobalView({
-        zid: zid,
-        isIE8: isIE8,
-        gid: 2,
-        getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup(2, 5);          
-        },
-        collection: this.commentsCollection2
-      }));            
-
       eb.on(eb.commentSelected, function(tid) {
         if (vis) {
           vis.selectComment(tid);
@@ -398,17 +408,6 @@ module.exports =  Handlebones.ModelView.extend({
       }
 
 
-      that.commentsCollection0.doFetch().then(function() {
-        // that.analyzeGlobalView0.sortAgree();              
-      });
-      that.commentsCollection1.doFetch().then(function() {
-        // that.analyzeGlobalView1.sortAgree();              
-      });
-      that.commentsCollection2.doFetch().then(function() {
-        // that.analyzeGlobalView2.sortAgree();              
-      });
-
-      
 
   }, 0); // end listenTo "render"
   });
