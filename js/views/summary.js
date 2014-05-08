@@ -1,38 +1,31 @@
+var AnalyzeGlobalView = require("../views/analyze-global");
+var Backbone = require("backbone");
+var CommentModel = require("../models/comment");
 var CommentsCollection = require("../collections/comments");
+var ConversationStatsHeader = require('../views/conversation-stats-header');
+var display = require("../util/display");
 var eb = require("../eventBus");
+var GroupSummaryTemplate = require("../tmpl/group-summary");
 var Handlebones = require("handlebones");
 var MetadataQuestionsCollection = require("../collections/metadataQuestions");
 var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
+var ParticipantModel = require("../models/participant");
 var PolisStorage = require("../util/polisStorage");
 var popoverEach = require("../util/popoverEach");
-var ServerClient = require("../lib/polis");
-var TutorialController = require("../controllers/tutorialController");
-var VotesCollection = require("../collections/votes");
-
-var AnalyzeGlobalView = require("../views/analyze-global");
-var Backbone = require("backbone");
-var eb = require("../eventBus");
-var template = require('../tmpl/summary');
-var ConversationStatsHeader = require('../views/conversation-stats-header');
-
-
-var display = require("../util/display");
-var ResultsView = require("../views/results-view");
-var VoteModel = require("../models/vote");
-var ParticipantModel = require("../models/participant");
-var CommentModel = require("../models/comment");
-var UserModel = require("../models/user");
-var CommentsCollection = require("../collections/comments");
 var ResultsCollection = require("../collections/results");
+var ResultsView = require("../views/results-view");
+var ServerClient = require("../lib/polis");
+var template = require('../tmpl/summary');
+var TutorialController = require("../controllers/tutorialController");
+var UserModel = require("../models/user");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
-
-var GroupSummaryTemplate = require("../tmpl/group-summary");
+var VoteModel = require("../models/vote");
+var VotesCollection = require("../collections/votes");
 
 var VIS_SELECTOR = "#visualization_div";
 
 var isIE8 = navigator.userAgent.match(/MSIE [89]/);
-
 
 
 function updateRepness(tidToRepness) {
