@@ -45,16 +45,9 @@
   <div class="tabbable"> <!-- Only required for left/right tabs -->
     {{view conversationTabs}}
 
-    <span id="vis_sibling_above_tab_content"></span>
 
     <div class="tab-content">
-      <div class="tab-pane active" id="commentView">
-        {{view commentView}}
-      </div>
-      <div class="tab-pane" id="commentForm">
-        {{view commentForm}}
-      </div>
-      <div class="tab-pane" id="analyze">
+      <div class="tab-pane" id="analyze" style="border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; ">
         {{view conversationStatsHeader}}
       <!-- BEGIN PILLS -->
         <div class="tabbable">
@@ -80,6 +73,13 @@
           </div>      
         </div> <!-- END PILLS -->
       </div> <!-- analyze tab pane -->
+      <span id="vis_sibling_above_tab_content"></span>
+      <div class="tab-pane active" id="commentView">
+        {{view commentView}}
+      </div>
+      <div class="tab-pane" id="commentForm" style="border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; ">
+        {{view commentForm}}
+      </div>
     </div> <!-- tab content -->
   </div> <!-- tabbable -->
   </div> <!-- span 4 -->
