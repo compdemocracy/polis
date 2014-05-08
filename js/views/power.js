@@ -1,4 +1,4 @@
-var AnalyzeGlobalView = require("../views/analyze-global");
+var AnalyzeGlobalReprojectView = require("../views/analyze-global-reproject");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
 var template = require('../tmpl/power');
@@ -218,7 +218,7 @@ module.exports =  ConversationView.extend({
       }));
 
 
-      this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
+      this.analyzeGlobalView = this.addChild(new AnalyzeGlobalReprojectView({
         zid: zid,
         isIE8: isIE8,
         getTidsForGroup: function() {

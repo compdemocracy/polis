@@ -6,11 +6,6 @@ var CommentModel = require("../models/comment");
 module.exports = Handlebones.ModelView.extend({
     name: "analyze-comment-view",
     template: template,
-    context: function() {
-      var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-      ctx.showCheckbox = true;
-      return ctx;
-    },
     events: {
       click: function() {
         eb.trigger(eb.commentSelected, this.model.get("tid"));

@@ -2,11 +2,18 @@ var MetadataQuestionAndAnswersView = require("../views/metadataQuestionAndAnswer
 var template = require("../tmpl/rules");
 var Handlebones = require("handlebones");
 var RuleItemView = require("../views/rule-item");
-
+var Handlebars = require("handlebars");
+var rulesEmptyTemplate = require("../tmpl/rules-empty");
 
 var CV = Handlebones.CollectionView.extend({
   tagName: "div",
   modelView: RuleItemView
+});
+
+
+var EV = Handlebones.View.extend({
+  tagName: "p",
+  template: rulesEmptyTemplate
 });
 
 
@@ -18,6 +25,8 @@ module.exports = Handlebones.View.extend({
 
     initialize: function(options) {
       this.rulesCollectionView = this.addChild(new this.CollectionView({
+        emptyView: EV,
+        modelView: RuleItemView,
         collection: options.collection
       }));
       this.zid = options.zid;
