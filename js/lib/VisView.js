@@ -430,7 +430,7 @@ function handleOnClusterClicked(hullId) {
     $("#analyzeTab").tab("show");
     eb.trigger(eb.clusterClicked, hullId);
 
-    resetSelectedComment();
+    // resetSelectedComment();
     // unhoverAll();
     setClusterActive(hullId)
         .then(
@@ -1256,7 +1256,7 @@ function upsertNode(updatedNodes, newClusters) {
     selectComment(selectedTid);
   }
 
-}
+} // END upsertNode
 
 function selectComment(tid) {
     if (!_.isNumber(tid)) {
@@ -1463,8 +1463,8 @@ function resetSelection() {
   selectedCluster = -1;
   eb.trigger(eb.clusterClicked, selectedCluster);
   // visualization.transition().duration(750).attr("transform", "");
-  selectedBids = [];
-  resetSelectedComment();
+  // selectedBids = [];
+  // resetSelectedComment();
   // unhoverAll();
 }
 

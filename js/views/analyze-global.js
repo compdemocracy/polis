@@ -15,7 +15,6 @@ module.exports = Handlebones.View.extend({
     CV: AnalyzeCollectionView,
     template: template,
     tidsForGroup: null,
-    visibleTids: [],
     events: {
       "click #sortAgree": "sortAgree",
       "click #sortDisagree": "sortDisagree",

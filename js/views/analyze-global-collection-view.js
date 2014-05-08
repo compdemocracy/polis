@@ -56,9 +56,10 @@ function comparatorStars(a, b) {
 module.exports = Handlebones.CollectionView.extend({
   modelView: AnalyzeCommentView,
   comparator: comparatorAgree,
+  visibleTids: [],
   modelFilter: function(model, index) {
     var searchString = this.parent.searchString;
-    var visibleTids = this.parent.visibleTids;
+    var visibleTids = this.visibleTids;
     var tidsForGroup = this.parent.tidsForGroup;
     var searchEnabled = this.parent.searchEnabled;
     var tid = model.get("tid");
