@@ -41,7 +41,9 @@ module.exports =  ConversationView.extend({
   },
 
   emphasizeParticipants: function() {
-    this.vis.emphasizeParticipants.apply(this, arguments);
+    if (this.vis) {
+      this.vis.emphasizeParticipants.apply(this, arguments);
+    }
   },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
@@ -210,7 +212,9 @@ module.exports =  ConversationView.extend({
       }));            
 
       eb.on(eb.commentSelected, function(tid) {
-        vis.selectComment(tid);
+        if (vis) {
+          vis.selectComment(tid);
+        }
       });
 
       // this.votesByMe.on("all", function(x) {

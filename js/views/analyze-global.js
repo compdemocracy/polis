@@ -142,7 +142,7 @@ module.exports = Handlebones.View.extend({
       $(el_carouselSelector).html("");
     }
 
-    eb.on(eb.clusterClicked, function(gid) {
+    function doFetch(gid) {
       that.collection.firstFetchPromise.then(function() {
         if (gid === -1) {
           that.$("#commentSearch").show();
@@ -175,6 +175,11 @@ module.exports = Handlebones.View.extend({
           });
         }
       });
-    });
+    }
+    if (!_.isUndefined(options.gid)) {
+      doFetch(options.gid);
+    } else {
+      eb.on(eb.clusterClicked, doFetch);
+    }
   }
 });

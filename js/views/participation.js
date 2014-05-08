@@ -51,7 +51,9 @@ module.exports =  ConversationView.extend({
   },
 
   emphasizeParticipants: function() {
-    this.vis.emphasizeParticipants.apply(this, arguments);
+    if (this.vis) {
+      this.vis.emphasizeParticipants.apply(this, arguments);
+    }
   },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
