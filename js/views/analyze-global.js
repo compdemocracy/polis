@@ -142,6 +142,10 @@ module.exports = Handlebones.View.extend({
       $(el_carouselSelector).html("");
     }
 
+
+    // TODO MOVE THIS LOGIC TO THE GROUP-SPECIFIC CODE...
+    // this is getting crappy.
+
     function doFetch(gid) {
       that.collection.firstFetchPromise.then(function() {
         if (gid === -1) {

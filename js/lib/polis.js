@@ -71,11 +71,11 @@ module.exports = function(params) {
 
     // collections
     var votesByMe = params.votesByMe;
-    var allComments = params.comments;
+    var allComments = [];
 
-    allComments.on("add remove reset", function() {
-        eb.trigger(eb.commentCount, this.length);
-    });
+    // allComments.on("add remove reset", function() {
+    //     eb.trigger(eb.commentCount, this.length);
+    // });
 
     var pcX = {};
     var pcY = {};
@@ -901,7 +901,7 @@ function clientSideBaseCluster(things, N) {
                     x.A = 0;
                     x.D = 0;
                 }
-                return x;
+                return _.clone(x);
             });
         });
     }
@@ -915,30 +915,35 @@ function clientSideBaseCluster(things, N) {
     }
 
     function getTidsForGroup(gid, max) {
-        var tidToR = computeRepness(clustersCache[gid], votesForTidBid);
-        var tids;
-        if (_.isNumber(max)) {
-            // keep the tids with the highest repness.
-            var pairs = _.map(tidToR, function(repness, tid) {
-                tid = Number(tid);
-                return [repness, tid];
+        var dfd = $.Deferred();
+        // delay since clustersCache might not be populated yet.
+        votesForTidBidPromise.done(function()  {
+            var tidToR = computeRepness(clustersCache[gid], votesForTidBid);
+            var tids;
+            if (_.isNumber(max)) {
+                // keep the tids with the highest repness.
+                var pairs = _.map(tidToR, function(repness, tid) {
+                    tid = Number(tid);
+                    return [repness, tid];
+                });
+                pairs = pairs.sort(function(a, b) {return b[0] - a[0];});
+                pairs = pairs.slice(0, max);
+                tids = _.map(pairs, function(p) {
+                    return p[1];
+                });
+            } else {
+                // keep all tids
+                // (this impl is wasteful)
+                tids = _.map(tidToR, function(repness, tid) {
+                    return Number(tid);
+                });
+            }
+            dfd.resolve({
+                tidToR: tidToR,
+                tids: tids
             });
-            pairs = pairs.sort(function(a, b) {return b[0] - a[0];});
-            pairs = pairs.slice(0, max);
-            tids = _.map(pairs, function(p) {
-                return p[1];
-            });
-        } else {
-            // keep all tids
-            // (this impl is wasteful)
-            tids = _.map(tidToR, function(repness, tid) {
-                return Number(tid);
-            });
-        }
-        return $.Deferred().resolve({
-            tidToR: tidToR,
-            tids: tids
         });
+        return dfd.promise();
     }
 
     function getCommentsForGroup(gid, max) {
@@ -1142,132 +1147,132 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    function reprojectForSubsetOfComments(projectionPeopleCache) {
-        var tidSubsetForReprojection = allComments.chain().filter(function(c) {
-            return !c.get("unchecked");
-        }).map(function(c) { return c.get("tid");}).value();
-        if (!tidSubsetForReprojection.length ||  // nothing is selected, just show the original projection.
-            tidSubsetForReprojection.length === allComments.length // all comments are shown, so just show the original projection.
-        ) {
-            return projectionPeopleCache;
-        }
-        var tids = tidSubsetForReprojection;
-        var subset = _.pick(votesForTidBid, tids);
-        var comments = _.map(subset, function(o, tid) {
-            var votesFromEachBid = _.clone(o.D); // start with disagrees, since each disagree is a +1, and we want the projection to be oriented the same way as the original projection
-            var len = o.A.length;
-            for (var i = 0; i < len; i++) {
-                // since agrees are -1, we want to subtract for each.
-                votesFromEachBid[i] -= o.A[i];
-            }
-            return {
-                votes: votesFromEachBid,
-                tid: Number(tid)
-            };
-        });
-        var buckets = []; // index==bid, [voteForTidAt0, voteForTidAt1, ...]
-        var len = comments[0].votes.length;
-        var tids = _.map(_.pluck(comments, "tid"), function(tid) { return Number(tid);});
-        var tidToIndex = {};
-        _.each(comments, function(o) {
-            // Pack the subsets of tids into a dense array.
-            tidToIndex[o.tid] = tids.indexOf(o.tid);
-        });
-        for (var bid = 0; bid < len; bid++) {
-            buckets[bid] = [];
-            _.each(comments, function(o) {
-                var index = tidToIndex[o.tid];
-                buckets[bid][index] = o.votes[bid];
-            });
-        }
+    // function reprojectForSubsetOfComments(projectionPeopleCache) {
+    //     var tidSubsetForReprojection = allComments.chain().filter(function(c) {
+    //         return !c.get("unchecked");
+    //     }).map(function(c) { return c.get("tid");}).value();
+    //     if (!tidSubsetForReprojection.length ||  // nothing is selected, just show the original projection.
+    //         tidSubsetForReprojection.length === allComments.length // all comments are shown, so just show the original projection.
+    //     ) {
+    //         return projectionPeopleCache;
+    //     }
+    //     var tids = tidSubsetForReprojection;
+    //     var subset = _.pick(votesForTidBid, tids);
+    //     var comments = _.map(subset, function(o, tid) {
+    //         var votesFromEachBid = _.clone(o.D); // start with disagrees, since each disagree is a +1, and we want the projection to be oriented the same way as the original projection
+    //         var len = o.A.length;
+    //         for (var i = 0; i < len; i++) {
+    //             // since agrees are -1, we want to subtract for each.
+    //             votesFromEachBid[i] -= o.A[i];
+    //         }
+    //         return {
+    //             votes: votesFromEachBid,
+    //             tid: Number(tid)
+    //         };
+    //     });
+    //     var buckets = []; // index==bid, [voteForTidAt0, voteForTidAt1, ...]
+    //     var len = comments[0].votes.length;
+    //     var tids = _.map(_.pluck(comments, "tid"), function(tid) { return Number(tid);});
+    //     var tidToIndex = {};
+    //     _.each(comments, function(o) {
+    //         // Pack the subsets of tids into a dense array.
+    //         tidToIndex[o.tid] = tids.indexOf(o.tid);
+    //     });
+    //     for (var bid = 0; bid < len; bid++) {
+    //         buckets[bid] = [];
+    //         _.each(comments, function(o) {
+    //             var index = tidToIndex[o.tid];
+    //             buckets[bid][index] = o.votes[bid];
+    //         });
+    //     }
 
-        var trainingSet = _.map(buckets, function(b) {
-            return {
-                input: b,
-                output: b
-            };
-        });
+    //     var trainingSet = _.map(buckets, function(b) {
+    //         return {
+    //             input: b,
+    //             output: b
+    //         };
+    //     });
 
-        var nn = new brain.NeuralNetwork({
-            hiddenLayers: [2]
-        });
-
-
-      nn.runInputLinear = function(input) {
-        this.outputs[0] = input;  // set output state of input layer
-
-        for (var layer = 1; layer <= this.outputLayer; layer++) {
-          for (var node = 0; node < this.sizes[layer]; node++) {
-            var weights = this.weights[layer][node];
-
-            var sum = this.biases[layer][node];
-            for (var k = 0; k < weights.length; k++) {
-              sum += weights[k] * input[k];
-            }
-            this.outputs[layer][node] = 0.25 * sum + 0.5;
-          }
-          var output = input = this.outputs[layer];
-        }
-        return output;
-      };
-
-      nn.runLinear = function(input) {
-        if (this.inputLookup) {
-          input = lookup.toArray(this.inputLookup, input);
-        }
-
-        var linearOutput = this.runInputLinear(input);
-
-        if (this.outputLookup) {
-          output = lookup.toHash(this.outputLookup, output);
-        }
-        return linearOutput;
-      };
+    //     var nn = new brain.NeuralNetwork({
+    //         hiddenLayers: [2]
+    //     });
 
 
+    //   nn.runInputLinear = function(input) {
+    //     this.outputs[0] = input;  // set output state of input layer
+
+    //     for (var layer = 1; layer <= this.outputLayer; layer++) {
+    //       for (var node = 0; node < this.sizes[layer]; node++) {
+    //         var weights = this.weights[layer][node];
+
+    //         var sum = this.biases[layer][node];
+    //         for (var k = 0; k < weights.length; k++) {
+    //           sum += weights[k] * input[k];
+    //         }
+    //         this.outputs[layer][node] = 0.25 * sum + 0.5;
+    //       }
+    //       var output = input = this.outputs[layer];
+    //     }
+    //     return output;
+    //   };
+
+    //   nn.runLinear = function(input) {
+    //     if (this.inputLookup) {
+    //       input = lookup.toArray(this.inputLookup, input);
+    //     }
+
+    //     var linearOutput = this.runInputLinear(input);
+
+    //     if (this.outputLookup) {
+    //       output = lookup.toHash(this.outputLookup, output);
+    //     }
+    //     return linearOutput;
+    //   };
 
 
-        nn.train(trainingSet, {
-            errorThresh: 0.004,
-            learningRate: 0.4,
-            iterations: 1001,
-            log: true,
-            logPeriod: 100
-        });
 
 
-        /// training done, now project each bucket
+    //     nn.train(trainingSet, {
+    //         errorThresh: 0.004,
+    //         learningRate: 0.4,
+    //         iterations: 1001,
+    //         log: true,
+    //         logPeriod: 100
+    //     });
 
-        // var runDataSigmoid = []
-        // var runDataLinear = {};
 
-        // _.each(buckets, function(b){
-        //     var tid = b.tid;
-        //     var votes = b.votes;
-        //     var run = nn.run(votes);
-        //     runDataSigmoid.push(nn.outputs[1].slice(0)) // this line... ask colin.
-        // });
+    //     /// training done, now project each bucket
 
-        var runDataLinear = _.map(buckets, function(o, bid){
-            var votes = o;
-            var runLinear = nn.runLinear(votes)
-            return nn.outputs[1].slice(0);
-        });
+    //     // var runDataSigmoid = []
+    //     // var runDataLinear = {};
 
-        console.log('The run was successful. Here are the values of the hidden layer for each run: ')
-        // console.dir(runDataSigmoid)
-        console.dir(runDataLinear);
-        reprojected = _.map(projectionPeopleCache, function(o, bid) {
-            o = _.clone(o);
-            o.proj = {
-                x: runDataLinear[bid][0],
-                y: runDataLinear[bid][1]
-            };
-            return o;
-        });
+    //     // _.each(buckets, function(b){
+    //     //     var tid = b.tid;
+    //     //     var votes = b.votes;
+    //     //     var run = nn.run(votes);
+    //     //     runDataSigmoid.push(nn.outputs[1].slice(0)) // this line... ask colin.
+    //     // });
 
-        return reprojected;
-    }
+    //     var runDataLinear = _.map(buckets, function(o, bid){
+    //         var votes = o;
+    //         var runLinear = nn.runLinear(votes)
+    //         return nn.outputs[1].slice(0);
+    //     });
+
+    //     console.log('The run was successful. Here are the values of the hidden layer for each run: ')
+    //     // console.dir(runDataSigmoid)
+    //     console.dir(runDataLinear);
+    //     reprojected = _.map(projectionPeopleCache, function(o, bid) {
+    //         o = _.clone(o);
+    //         o.proj = {
+    //             x: runDataLinear[bid][0],
+    //             y: runDataLinear[bid][1]
+    //         };
+    //         return o;
+    //     });
+
+    //     return reprojected;
+    // }
 
     function addPollingScheduledCallback(f) {
         pollingScheduledCallbacks.push(f);
@@ -1298,7 +1303,7 @@ function clientSideBaseCluster(things, N) {
     }
 
     function prepProjection(buckets) {
-        buckets = reprojectForSubsetOfComments(buckets);
+        // buckets = reprojectForSubsetOfComments(buckets);
         buckets = withProjectedSelf(buckets);
         return buckets;
     }

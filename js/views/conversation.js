@@ -80,7 +80,6 @@ module.exports = Handlebones.ModelView.extend({
       tokenStore: PolisStorage.token,
       pid: pid,
       votesByMe: this.votesByMe,
-      comments: this.allCommentsCollection,
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,

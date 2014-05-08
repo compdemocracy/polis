@@ -1,3 +1,14 @@
+var CommentsCollection = require("../collections/comments");
+var eb = require("../eventBus");
+var Handlebones = require("handlebones");
+var MetadataQuestionsCollection = require("../collections/metadataQuestions");
+var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
+var PolisStorage = require("../util/polisStorage");
+var popoverEach = require("../util/popoverEach");
+var ServerClient = require("../lib/polis");
+var TutorialController = require("../controllers/tutorialController");
+var VotesCollection = require("../collections/votes");
+
 var AnalyzeGlobalView = require("../views/analyze-global");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
@@ -9,7 +20,6 @@ var display = require("../util/display");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
 var ParticipantModel = require("../models/participant");
-var ConversationView = require("../views/conversation");
 var CommentModel = require("../models/comment");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
@@ -22,11 +32,22 @@ var VIS_SELECTOR = "#visualization_div";
 
 var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
-module.exports =  ConversationView.extend({
+module.exports =  Handlebones.ModelView.extend({
   name: "summaryView",
   template: template,
   events: {
   },
+
+  destroyPopovers: function() {
+    popoverEach("destroy");
+  },
+  onClusterTapped : function(gid) {
+    this.destroyPopovers();
+    var that = this;
+      // if (window.isMobile()) {
+      //    window.scrollTo(0, $("#visualization_div").offset().top);
+      // }
+  },  
   onAnalyzeTabPopulated: function() {
     $('.query_result_item').first().trigger('click');
   },
@@ -46,13 +67,118 @@ module.exports =  ConversationView.extend({
     }
   },
   initialize: function(options) {
-    ConversationView.prototype.initialize.apply(this, arguments);
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
+    var zid = this.zid = this.model.get("zid");
+    var pid = this.pid = options.pid;
+    var zinvite = this.zinvite = this.model.get("zinvite");
+    var is_public = this.model.get("is_public");
     var vis;
-    var zid = this.zid;
-    var pid = this.pid;
-    var zinvite = this.zinvite;
-    var serverClient = this.serverClient;
+
+    this.tutorialController = new TutorialController();
+
+    this.votesByMe = new VotesCollection();
+
+    this.commentsCollection0 = new CommentsCollection();
+    this.commentsCollection1 = new CommentsCollection();
+    this.commentsCollection2 = new CommentsCollection();
+    this.commentsCollection0.firstFetchPromise = $.Deferred();
+    this.commentsCollection1.firstFetchPromise = $.Deferred();
+    this.commentsCollection2.firstFetchPromise = $.Deferred();
+
+
+    var metadataCollection = new MetadataQuestionsCollection([], {
+        zid: zid
+    });
+
+    metadataCollection.fetch({
+      data: $.param({
+        zid: zid
+      }),
+      processData: true
+    });
+
+
+    var serverClient = that.serverClient = new ServerClient({
+      zid: zid,
+      zinvite: zinvite,
+      tokenStore: PolisStorage.token,
+      pid: pid,
+      votesByMe: this.votesByMe,
+      //commentsStore: PolisStorage.comments,
+      //reactionsByMeStore: PolisStorage.reactionsByMe,
+      utils: window.utils,
+      protocol: /localhost/.test(document.domain) ? "http" : "https",
+      domain: /localhost/.test(document.domain) ? "localhost:5000" : "pol.is",
+      basePath: "",
+      logger: console
+    });
+
+    this.serverClient.startPolling();
+
+
+    function updateRepness(tidToRepness) {
+      this.each(function(model) {
+        model.set("repness", tidToRepness[model.get("tid")], {silent: true});
+      });
+    }
+    this.commentsCollection0.updateRepness = updateRepness;
+    this.commentsCollection1.updateRepness = updateRepness;
+    this.commentsCollection2.updateRepness = updateRepness;
+
+    function doFetch() {
+      var thatCollection = this;
+      var params = {
+        zid: zid
+      };
+      var promise = Backbone.Collection.prototype.fetch.call(this, {
+        data: $.param(params),
+        processData: true,
+        silent: true,
+        ajax: function() {
+          return that.serverClient.getFancyComments(params);
+        }
+      });
+      promise.then(this.firstFetchPromise.resolve);
+      promise.then(function() {
+        thatCollection.trigger("reset");
+      });
+      return promise;
+    }
+
+    this.commentsCollection0.fetch = this.commentsCollection0.doFetch = doFetch;
+    this.commentsCollection1.fetch = this.commentsCollection1.doFetch = doFetch;
+    this.commentsCollection2.fetch = this.commentsCollection2.doFetch = doFetch;
+
+
+
+       // CHILD VIEWS
+
+      this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
+        serverClient: serverClient,
+        zid: zid,
+        collection: metadataCollection
+      }));
+
+       // LISTEN TO EVENTS
+
+      this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
+        if (that.allowMetadataFiltering()) {
+          console.log(enabledAnswers);
+          serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+            that.emphasizeParticipants.bind(that),
+            function(err) {
+              console.error(err);
+            });
+        }
+      });
+
+      // Clicking on the background dismisses the popovers.
+      this.$el.on("click", function() {
+        that.destroyPopovers();
+      });
+
+
 
 
     this.conversationStatsHeader = new ConversationStatsHeader();
@@ -188,27 +314,27 @@ module.exports =  ConversationView.extend({
         isIE8: isIE8,
         gid: 0,
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup(0);          
+          return that.serverClient.getTidsForGroup(0, 5);          
         },
-        collection: this.allCommentsCollection
+        collection: this.commentsCollection0
       }));
       this.analyzeGlobalView1 = this.addChild(new AnalyzeGlobalView({
         zid: zid,
         isIE8: isIE8,
         gid: 1,
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup(1);          
+          return that.serverClient.getTidsForGroup(1, 5);          
         },
-        collection: this.allCommentsCollection
+        collection: this.commentsCollection1
       }));
       this.analyzeGlobalView2 = this.addChild(new AnalyzeGlobalView({
         zid: zid,
         isIE8: isIE8,
         gid: 2,
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup(2);          
+          return that.serverClient.getTidsForGroup(2, 5);          
         },
-        collection: this.allCommentsCollection
+        collection: this.commentsCollection2
       }));            
 
       eb.on(eb.commentSelected, function(tid) {
@@ -273,11 +399,17 @@ module.exports =  ConversationView.extend({
 
 
 
-      that.allCommentsCollection.doFetch().then(function() {
-        that.analyzeGlobalView0.sortAgree();
-        that.analyzeGlobalView1.sortAgree();
-        that.analyzeGlobalView2.sortAgree();                
-      });
+      setTimeout(function() {
+        that.commentsCollection0.doFetch().then(function() {
+          // that.analyzeGlobalView0.sortAgree();              
+        });
+        that.commentsCollection1.doFetch().then(function() {
+          // that.analyzeGlobalView1.sortAgree();              
+        });
+        that.commentsCollection2.doFetch().then(function() {
+          // that.analyzeGlobalView2.sortAgree();              
+        });
+      }, 5000);
       
 
   }, 0); // end listenTo "render"
