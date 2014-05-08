@@ -188,7 +188,7 @@ module.exports =  ConversationView.extend({
         isIE8: isIE8,
         gid: 0,
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+          return that.serverClient.getTidsForGroup(0);          
         },
         collection: this.allCommentsCollection
       }));
@@ -197,7 +197,7 @@ module.exports =  ConversationView.extend({
         isIE8: isIE8,
         gid: 1,
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+          return that.serverClient.getTidsForGroup(1);          
         },
         collection: this.allCommentsCollection
       }));
@@ -206,7 +206,7 @@ module.exports =  ConversationView.extend({
         isIE8: isIE8,
         gid: 2,
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+          return that.serverClient.getTidsForGroup(2);          
         },
         collection: this.allCommentsCollection
       }));            
