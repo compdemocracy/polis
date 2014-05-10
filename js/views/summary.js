@@ -34,7 +34,7 @@ function updateRepness(tidToRepness) {
 }
 
     
-
+var groupNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 module.exports =  Handlebones.ModelView.extend({
   name: "summaryView",
@@ -199,6 +199,7 @@ module.exports =  Handlebones.ModelView.extend({
         o.participantCount = count;
         totalParticipants += count;
         o.gid = i++;
+        o.name = groupNames[o.gid];
         return o;
       });
       _.each(clusters, function(cluster) {
