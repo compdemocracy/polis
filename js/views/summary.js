@@ -397,6 +397,19 @@ module.exports =  Handlebones.ModelView.extend({
     this.listenTo(this, "render", function(){
       setTimeout(function() {
 
+
+
+      $('#fileSelected').click(function(){
+        var reader = new FileReader();
+        reader.readAsText($('#fileinput').get(0).files[0]);
+        reader.onload = function (e) {
+          // console.log(d3.csv.parse(e.target.result));
+          serverClient.parseMetadataFromCSV(e.target.result);
+        }
+      });
+
+
+
       scrollTopOnFirstShow();
 
       // $("#visualization_div").affix({

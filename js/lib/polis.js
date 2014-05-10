@@ -49,6 +49,9 @@ module.exports = function(params) {
     var queryParticipantsByMetadataPath = "/v3/query_participants_by_metadata";
 
     var commentVelocitiesPath = "/v3/velocities";
+    var metadataAnswersPath = "/v3/metadata/answers";
+    var metadataChoicesPath = "/v3/metadata/choices";
+    var xidsPath = "/v3/xids";
 
     var logger = params.logger;
 
@@ -646,15 +649,266 @@ function clientSideBaseCluster(things, N) {
     });
 }
 
-   
- function computeRepness(bidsFromGroup, votesForTidBid) {
+
+    function getMetadataAnswers() {
+        return polisGet(metadataAnswersPath, {
+            zid: zid
+        });
+    }
+    function getMetadataChoices() {
+        return polisGet(metadataChoicesPath, {
+            zid: zid
+        });
+    }
+
+    function getBidToGid() {
+        var bidToGid = {};
+        for (var gid = 0; gid < clustersCache.length; gid++) {
+            var cluster = clustersCache[gid];
+            for (var i = 0; i < cluster.length; i++) {
+                var bid = cluster[i];
+                bidToGid[bid] = gid;
+            }
+        }
+        return bidToGid;
+    }
+
+    // returns {
+    //   pmqid : {
+    //     pmaid : {
+    //       choices : {
+    //         gid : [answers]
+    //       },
+    //       counts: {
+    //         gid: [number of ptpts in gid who chose that that pmaid for that pmqid]
+    //       }
+    //     }
+    //   }
+    // }
+    function doFindRepresentativeMetadata(choices, p2b, b2g) {
+        var groupedChoices = _.groupBy(choices, "pmqid");
+        var questionsWithAnswersWithChoices = {};
+        _.each(groupedChoices, function(choicesForQuestion, pmqid) {
+            var allChoicesForAnswer = _.groupBy(choicesForQuestion, "pmaid");
+            var allChoicesForAnswerGrouped = {};
+            _.each(allChoicesForAnswer, function(choices, pmaid) {
+                _.each(choices, function(c) {
+                    c.bid = p2b[c.pid];
+                    c.gid = b2g[c.bid];
+                });
+            });
+            var counts = {};
+            _.each(allChoicesForAnswer, function(choices, pmaid) {
+                var groupedAnswers = _.groupBy(choices, "gid");
+                allChoicesForAnswerGrouped[pmaid] = groupedAnswers;
+                counts[pmaid] = {};
+                _.each(groupedAnswers, function(answersForGroup, gid) {
+                    counts[pmaid][gid] = answersForGroup.length;
+                });
+            });
+            _.allChoicesForAnswerGrouped
+            questionsWithAnswersWithChoices[pmqid] = {
+                groups: allChoicesForAnswerGrouped,
+                counts: counts
+            };
+        });
+
+        console.dir(questionsWithAnswersWithChoices);
+
         var repness = {};
 
+        // ... 
+
+
+        return questionsWithAnswersWithChoices;
+    }
+
+    function findRepresentativeMetadata(bidsFromGroup, choicesForPmaidBid) {
+        return $.when(
+            // getMetadataAnswers(),
+            getMetadataChoices(),
+            getPidToBidMappingFromCache(),
+            getXids(),
+            clustersCachePromise).then(function(
+                // answersResponse,
+                choicesResponse,
+                mappings,
+                xids,
+                foo) {
+            // var answers = answersResponse[0];
+            var choices = choicesResponse[0];
+            // var b2p = mappings.b2p;
+            var p2b = mappings.p2b;
+            var b2g = getBidToGid();
+
+            return doFindRepresentativeMetadata(choices, p2b, b2g);
+        });
+    }
+
+    function getXids() {
+        return polisGet(xidsPath, {
+            zid: zid
+        });
+    }
+   
+
+    // TODO account for "N/A", "null", etc
+    function parseMetadataFromCSV(rawCsvFile) {
+       return getXids().then(function(xids) {
+            var notNumberColumns = [];
+            var notIntegerColumns = [];
+            var valueSets = [];
+            var rows = d3.csv.parseRows(rawCsvFile);
+            var rowCount = rows.length;
+            var colCount = rows[0].length;
+            var xidsUnaccounted = {};
+            var xidHash = {};
+
+            for (var c = 0; c < colCount; c++) {
+                rows[0][c] = {
+                    name: rows[0][c],
+                    type: "integer", // may be disproven and become "float" or "string"
+                    cardinality: 0
+                };
+            }
+
+            for (var x = 0; x < xids.length; x++) {
+                xidsUnaccounted[xids[x].xid] = true;
+                xidHash[xids[x].xid] = true;
+            }
+
+            var xidsFoundPerColumn = [];
+            for (var c = 0; c < colCount; c++) {
+                xidsFoundPerColumn[c] = 0;
+                valueSets[c] = {};
+            }
+            // sanity checking, and determine xid column
+            for (var r = 0; r < rowCount; r++) {
+                var row = rows[r];
+                if (r > 0) {
+                    for (var c = 0; c < colCount; c++) {
+                        var cell = row[c];
+
+                        // find the cardinality
+                        valueSets[c][cell] = true;
+
+                        // Determine the columns where the xids are
+                        if (xidHash[cell]) {
+                            xidsFoundPerColumn[c] += 1;
+                        }
+                        if (xidsUnaccounted[cell]) {
+                            // Mark the xid as seen
+                            delete xidsUnaccounted[cell];
+                        }
+            
+                        // determine if the columns can be parsed as numbers
+                        if (notNumberColumns[c]) {
+                            continue;
+                        }
+                        var n = parseFloat(cell);
+                        var nInt = parseInt(cell);
+                        if (isNaN(n)) {
+                            notNumberColumns[c] = true;
+                            notIntegerColumns[c] = true;
+                        } else if (n !== nInt) {
+                            notIntegerColumns[c] = true;
+                        }
+                    }
+                }
+            }
+
+            // Assign Cardinality
+            _.each(valueSets, function(values, c) {
+                rows[0][c].cardinality = _.keys(values).length;
+            });
+
+            // Assing Types
+            _.each(notIntegerColumns, function(isNotInt, c) {
+                var isNumber = !notNumberColumns[c];
+                if(isNotInt) {
+                    if (isNumber) {
+                        rows[0][c].type = "float";
+                    } else {
+                        rows[0][c].type = "string";
+                    }
+                }
+            });
+
+            _.each(xidsUnaccounted, function(val, xid) {
+                alert("Participant exists with xid: "+xid+", but that xid is missing from the loaded data.");
+            });
+
+            // Find the Xid Column
+            var xidColumn = 0;
+
+            function argMaxForIndexOrKey(items) {
+                var max = -Infinity;
+                var maxArg = null;
+                _.each(items, function(val, arg) {
+                    if (val > max) {
+                        max = val;
+                        maxArg = arg;
+                    }
+                });
+                return maxArg;
+            }
+
+            var xidColumn = argMaxForIndexOrKey(xidsFoundPerColumn);
+            // TODO check xidsUnaccounted within this column only.
+            alert("the xid column appears to be called " + rows[0][xidColumn].name);
+            
+            var hasNumericalColumns = false;
+            for (var c = 0; c < colCount; c++) {
+                var isNumberColumn = !notNumberColumns[c];
+                if (isNumberColumn) {
+                    hasNumericalColumns = true;
+                    break;
+                }
+            }
+            if (hasNumericalColumns) {
+                for (var r = 0; r < rowCount; r++) {
+                    var row = rows[r];                            
+                    if (r > 0) {
+                        for (var c = 0; c < colCount; c++) {
+                            if (!notNumberColumns[c]) {
+                                row[c] = parseFloat(row[c]);
+                                if (isNaN(row[c])) {
+                                    alert("expected number for cell with value \"" + row[c] + "\" in column named \"" + rows[0][c].name + "\"");
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            var xids = [];
+            for (var r = 0; r < rowCount; r++) {
+                var row = rows[r];
+                var xid = row.splice(xidColumn, 1)[0];
+                xids.push(xid);
+            }
+
+            var infoRow = rows.shift();
+            xids.shift(); // Remove the info row for the xid column 
+
+            var result = {
+                info: infoRow,
+                xids: xids,
+                rows: rows
+            };
+            console.dir(result);
+            return result;
+        }, function(err) {
+            alert(err);
+        });
+    }
+
+    function computeRepness(bidsFromGroup, votesForTidBid) {
         var inCluster = {};
         _.each(bidsFromGroup, function(bid) {
             inCluster[bid] = true;
         });
-        repness = {};
+        var repness = {};
         _.each(votesForTidBid, function(bidToVote, tid) {
             tid = Number(tid);
             var inAgree = 1;
@@ -1087,8 +1341,8 @@ function clientSideBaseCluster(things, N) {
 
     function getPidToBidMappingFromCache() {
 
-        if (lastServerTokenForBidToPid >= lastServerTokenForPCA) {
-            return new Promise.resolve({
+        if (lastServerTokenForBidToPid >= lastServerTokenForPCA && lastServerTokenForBidToPid > 0) {
+            return $.Deferred().resolve({
                 p2b: pidToBidCache,
                 b2p: bidToPid,
                 bid: bid,
@@ -1345,6 +1599,9 @@ function clientSideBaseCluster(things, N) {
 
         createConversation: createConversation,
         getConversations: getConversations,
+
+        findRepresentativeMetadata: findRepresentativeMetadata,
+        parseMetadataFromCSV: parseMetadataFromCSV,
 
         updateMyProjection: updateMyProjection,
 
