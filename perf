@@ -1,0 +1,71 @@
+
+The following was computed on the a 5000x10 conversation; it seems that reflection is one of our problems here
+
+    2014-May-09 11:27:06 -0700 fullerine INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+      :user/clean-start-clusters      2     9.0ms       4.4s      2.2s      2.2s      30 4.4s
+    :user/safe-recenter-clusters      2     5.0ms       2.2s      1.1s      1.1s      15 2.2s
+                :user/row-subset    106   260.0μs     68.0ms     8.0ms    20.0ms      15 2.2s
+         :user/recenter-clusters      2     3.0ms       2.1s      1.1s      1.1s      14 2.1s
+            :user/rowname-subset     53   462.0μs     47.0ms     8.0ms    20.0ms       7 1.0s
+          :user/posible-clusters      2   306.0μs     23.0ms    12.0ms    12.0ms       0 24.0ms
+          :user/uniqify-clusters      2    20.0μs      1.0ms   737.0μs   757.0μs       0 2.0ms
+                      Clock Time                                                     100 14.8s
+                  Accounted Time                                                      81 12.0s
+
+Here are the reflection warnings that matter to our lib
+
+    Auto-boxing loop arg: current-indent
+    exception.clj:44 recur arg for primitive local: i is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: i
+
+    # The main culprit?
+    Reflection warning, polismath/named_matrix.clj:21:41 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:46:11 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:55:11 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:61:34 - call to indexOf can't be resolved.
+    Reflection warning, polismath/named_matrix.clj:67:24 - call to indexOf can't be resolved.
+
+    pca.clj:51 recur arg for primitive local: last_eigval is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: last-eigval
+
+    Reflection warning, polismath/clusters.clj:136:27 - call to indexOf can't be resolved.
+    Reflection warning, polismath/clusters.clj:136:27 - call to indexOf can't be resolved.
+    Performance warning, polismath/clusters.clj:201:25 - case has int tests, but tested expression is not primitive.
+    Reflection warning, polismath/conversation.clj:22:13 - call to indexOf can't be resolved.
+    Reflection warning, polismath/simulation.clj:78:3 - reference to field nextElement can't be resolved.
+
+
+Fuck... this doesn't seem to be working. I took away all of the reflection warnings with a type-indexof
+function, but still no dice. What's left of the reflections:
+
+    (defn typed-indexof [^java.util.List coll item]
+      (.indexOf coll item))
+
+    # Other libraries...
+    Reflection warning, /tmp/form-init1039726133741870246.clj:1:911 - call to invokeStaticMethod can't be resolved.
+    Reflection warning, alex_and_georges/debug_repl.clj:101:8 - reference to field getCause can't be resolved.
+    Reflection warning, alex_and_georges/debug_repl.clj:102:8 - reference to field getCause can't be resolved.
+    Reflection warning, plumbing/fnk/schema.clj:93:37 - call to java.lang.IllegalArgumentException ctor can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:231:9 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:242:11 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:244:49 - call to java.lang.Exception ctor can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:244:11 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:276:9 - call to setStackTrace can't be resolved.
+    Reflection warning, clojure/tools/trace.clj:277:15 - call to setStackTrace can't be resolved.
+    Reflection warning, bigml/sampling/random.clj:11:11 - call to cern.jet.random.tdouble.engine.MersenneTwister64 vector can't be resolved.
+    Reflection warning, clj_time/core.clj:577:10 - reference to field getDayOfMonth can't be resolved.
+
+    # Us????
+    columns.clj:125 recur arg for primitive local: current_indent is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: current-indent
+    exception.clj:44 recur arg for primitive local: i is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: i
+    pca.clj:51 recur arg for primitive local: last_eigval is not matching primitive, had: Object, needed: long
+    Auto-boxing loop arg: last-eigval
+
+    Performance warning, polismath/clusters.clj:201:25 - case has int tests, but tested expression is not primitive.
+    Reflection warning, polismath/conversation.clj:22:13 - call to indexOf can't be resolved.
+    Reflection warning, polismath/simulation.clj:78:3 - reference to field nextElement can't be resolved.
+
+

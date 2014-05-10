@@ -1,6 +1,6 @@
 (ns polismath.clusters
-  (:require [toaensso.timbre.profiling :as profiling
-             :refer (pspy pspy* profile defnp p p*)]
+  (:require [taoensso.timbre.profiling :as profiling
+             :refer (pspy pspy* profile defnp p p*)])
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
         polismath.named-matrix
@@ -69,11 +69,16 @@
 
 (defnp recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
+  (greedy
   (map
     #(assoc % :center (mean (matrix (:matrix (rowname-subset data (:members %))))))
-    clusters))
+    clusters)))
 
-
+(use 'alex-and-georges.debug-repl)
+(require '[clojure.tools.trace :as tr])
+(defn probe [data]
+  ;(println (distinct (mapv count (into [] data))))
+  data)
 (defnp safe-recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
   (as-> clusters clsts
@@ -93,7 +98,9 @@
       [{:id (inc (apply max (map :id clusters)))
         :members (:rows data)
         :center (mean (matrix (:matrix data)))}]
-      clsts)))
+      clsts)
+    ; XXX - for profiling
+    (greedy clsts)))
 
 
 (defn merge-clusters [clst1 clst2]
@@ -126,12 +133,12 @@
     (fn [clusters clst]
       (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
         (if identical-clst
-          (assoc clusters (.indexOf clusters identical-clst) (merge-clusters identical-clst clst))
+          (assoc clusters (typed-indexof clusters identical-clst) (merge-clusters identical-clst clst))
           (conj clusters clst))))
     [] clusters))
 
 
-(defn clean-start-clusters [data clusters k]
+(defnp clean-start-clusters [data clusters k]
   "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
@@ -149,8 +156,8 @@
           (let [outlier (most-distal data clusters)]
             (if (> (:dist outlier) 0)
               ; There is work to be done, so do it
-              (p :inner-clean-loop
               (recur
+              (p :usr/inner-clean
                 (->
                   ; first remove the most distal point from the cluster it was in;
                   (map

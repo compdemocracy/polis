@@ -1,9 +1,10 @@
 (ns polismath.simulation
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.string :as string])
+            [clojure.string :as string]
             [taoensso.timbre.profiling :as profiling
-              :refer (pspy pspy* profile defnp p p*)]
+              :refer (pspy pspy* profile defnp p p*)])
   (:use polismath.utils
+        alex-and-georges.debug-repl
         polismath.named-matrix
         polismath.conversation
         clj-time.coerce
@@ -73,11 +74,17 @@
    (string/join \newline)))
 
 
+(defn pretty-conv [conv]
+  (debug-repl)
+  conv)
+
+
 (defn endlessly-sim [opts]
   (let [simulator (atom (make-vote-gen opts))
         conversations (atom {})
         vote-rate (:vote-rate opts)]
     (endlessly (:poll-interval opts)
+      (println \newline "POLLING!")
       (let [new-votes (take vote-rate @simulator)
             split-votes (group-by :zid new-votes)]
         (swap! simulator #(drop vote-rate %))
@@ -85,32 +92,47 @@
           (swap! conversations
             (fn [convs]
               (assoc convs zid
-                (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes))))
-          (println \newline (@conversations zid)))))))
+                (let [updated
+                       (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)]
+                  (println "updated")
+                  (println (keys (updated)))
+                  updated))))
+          (println zid \newline))))))
 
 
+;(defn -main [& args]
+  ;(println "Starting simulations")
+  ;(let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    ;(cond
+      ;(:help options)   (exit 0 (usage summary))
+      ;(:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
+      ;true              (endlessly-sim options))))
+
+
+;(defn basic-test []
+(conv-update {:rating-mat (named-matrix)} (random-votes 600 10))
 (defn -main [& args]
-  (println "Starting simulations")
-  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
-    (cond
-      (:help options)   (exit 0 (usage summary))
-      (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
-      true              (endlessly-sim options))))
-
-
-
-(defn basic-test []
+  (profile :info :clusters
   (let [
-      a (time2 "conv-update  a  1000" (conv-update {:rating-mat (named-matrix)} (random-votes 600 10)))
-      b (time2 "conv-update  b  5000" (conv-update {:rating-mat (named-matrix)} (random-votes 5000 10)))
-      b2 (time2 "conv-update b2 5000*10+100*1" (conv-update b (random-votes 100 1)))
-      b3 (time2 "conv-update b3 5000*10+5000*10" (conv-update b2 (random-votes 5000 10)))            
-    ]
-  (println (keys a))
-  (println (keys b))
-  ))
+        ;a (time2 "conv-update  a  1000" (conv-update {:rating-mat (named-matrix)} (random-votes 600 10)))
+        b (time2 "conv-update  b  5000" (conv-update {:rating-mat (named-matrix)} (random-votes 1000 10)))
+        b2 (time2 "conv-update b2 5000*10+100*1" (conv-update b (random-votes 5000 12)))
+        ;b3 (time2 "conv-update b3 5000*10+5000*10" (conv-update b2 (random-votes 5000 10)))]
+        ]
+  (println (keys b)))))
 
-                                        ;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
+;(defnp some-fun [x y]
+  ;(let [z (p :zlet (* x y))]
+    ;(loop [a (+ z 2)]
+      ;(p :in-loop1 (+ a 2))
+      ;(if (> a 0)
+        ;(recur (p :in-loop2 (- a 4)))
+        ;(* a 5)))))
+
+;(defn -main [& args]
+  ;(profile :info :test-prof (some-fun 7 8)))
+
+;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
 ;  (pprint (group-by :id (:base-clusters b)))
 ;  (pprint (map :members (sort-by :id (:base-clusters b))))  
   

@@ -24,6 +24,19 @@
     xss))
 
 
+(def greedy? true)
+(defn greedy [iter]
+  (if greedy?
+    (into [] iter)
+    iter))
+
+(defn greedy-false [iter] iter)
+
+
+(defn typed-indexof [^java.util.List coll item]
+  (.indexOf coll item))
+
+
 (defmacro endlessly [interval & forms]
   `(doseq [~'x (range)]
      ~@forms
