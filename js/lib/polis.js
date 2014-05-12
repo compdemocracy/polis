@@ -750,11 +750,26 @@ function clientSideBaseCluster(things, N) {
             zid: zid
         });
     }
+
+    function getXidToPid() {
+        return getXids().then(function(items) {
+            var x2p = {};
+            for (var i = 0; i < items.length; i++) {
+                x2p[items[i].xid] = items[i].pid;
+            }
+            return x2p;
+        });
+    }
    
 
     // TODO account for "N/A", "null", etc
+    // returns {
+    //     info : [ {name: "city", cardinality: 2, type: "string"},...]
+    //     rows : [ [data,...],...]
+    //     xids : [xid for row 0, xid for row 1, ...]
+    // }
     function parseMetadataFromCSV(rawCsvFile) {
-       return getXids().then(function(xids) {
+       return getXidToPid().then(function(x2p) {
             var notNumberColumns = [];
             var notIntegerColumns = [];
             var valueSets = [];
@@ -764,6 +779,31 @@ function clientSideBaseCluster(things, N) {
             var xidsUnaccounted = {};
             var xidHash = {};
 
+
+
+            // Remove redundant columns (from a SQL join, for example)
+            function columnsEqual(a, b) {
+                for (var r = 0; r < rowCount; r++) {
+                    if (a[r] !== b[r]) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            var duplicateColumns = [];
+            for (var c = 0; c < colCount; c++) {
+                for (var d = c; d < colCount; d++) {
+                    if (columnsEqual(c, d)) {
+                        duplicateColumns.push(rows[0][d]);
+                    }
+                }
+            }
+            if (duplicateColumns.length) {
+                alert('duplicateColumns');
+                alert(duplicateColumns);
+            }
+
+            // Replace the column names in the 0th row with objects with metadata.
             for (var c = 0; c < colCount; c++) {
                 rows[0][c] = {
                     name: rows[0][c],
@@ -772,25 +812,22 @@ function clientSideBaseCluster(things, N) {
                 };
             }
 
-            for (var x = 0; x < xids.length; x++) {
-                xidsUnaccounted[xids[x].xid] = true;
-                xidHash[xids[x].xid] = true;
-            }
+            _.each(x2p, function(pid, xid) {
+                xidsUnaccounted[xid] = true;
+                xidHash[xid] = true;
+            });
 
             var xidsFoundPerColumn = [];
             for (var c = 0; c < colCount; c++) {
                 xidsFoundPerColumn[c] = 0;
                 valueSets[c] = {};
             }
-            // sanity checking, and determine xid column
+            // determine xid column
             for (var r = 0; r < rowCount; r++) {
                 var row = rows[r];
                 if (r > 0) {
                     for (var c = 0; c < colCount; c++) {
                         var cell = row[c];
-
-                        // find the cardinality
-                        valueSets[c][cell] = true;
 
                         // Determine the columns where the xids are
                         if (xidHash[cell]) {
@@ -801,6 +838,48 @@ function clientSideBaseCluster(things, N) {
                             delete xidsUnaccounted[cell];
                         }
             
+                    }
+                }
+            }
+
+            _.each(xidsUnaccounted, function(val, xid) {
+                alert("Participant exists with xid: "+xid+", but that xid is missing from the loaded data.");
+            });
+
+            // Find the Xid Column
+            var xidColumn = 0;
+
+            function argMaxForIndexOrKey(items) {
+                var max = -Infinity;
+                var maxArg = null;
+                _.each(items, function(val, arg) {
+                    if (val > max) {
+                        max = val;
+                        maxArg = arg;
+                    }
+                });
+                return maxArg;
+            }
+
+            var xidColumn = argMaxForIndexOrKey(xidsFoundPerColumn);
+            // TODO check xidsUnaccounted within this column only.
+            alert("the xid column appears to be called " + rows[0][xidColumn].name);
+            
+            // Remove extra rows (which have no corresponsing xids)
+            rows = _.filter(rows, function(row) {
+                var xid = row[xidColumn];
+                return !_.isUndefined(x2p[xid]);
+            });
+            rowCount = rows.length;
+
+            for (var r = 0; r < rowCount; r++) {
+                var row = rows[r];
+                if (r > 0) {
+                    for (var c = 0; c < colCount; c++) {
+                        var cell = row[c];
+                        // find the cardinality
+                        valueSets[c][cell] = true;
+
                         // determine if the columns can be parsed as numbers
                         if (notNumberColumns[c]) {
                             continue;
@@ -834,29 +913,6 @@ function clientSideBaseCluster(things, N) {
                 }
             });
 
-            _.each(xidsUnaccounted, function(val, xid) {
-                alert("Participant exists with xid: "+xid+", but that xid is missing from the loaded data.");
-            });
-
-            // Find the Xid Column
-            var xidColumn = 0;
-
-            function argMaxForIndexOrKey(items) {
-                var max = -Infinity;
-                var maxArg = null;
-                _.each(items, function(val, arg) {
-                    if (val > max) {
-                        max = val;
-                        maxArg = arg;
-                    }
-                });
-                return maxArg;
-            }
-
-            var xidColumn = argMaxForIndexOrKey(xidsFoundPerColumn);
-            // TODO check xidsUnaccounted within this column only.
-            alert("the xid column appears to be called " + rows[0][xidColumn].name);
-            
             var hasNumericalColumns = false;
             for (var c = 0; c < colCount; c++) {
                 var isNumberColumn = !notNumberColumns[c];
@@ -887,14 +943,19 @@ function clientSideBaseCluster(things, N) {
                 var xid = row.splice(xidColumn, 1)[0];
                 xids.push(xid);
             }
-
             var infoRow = rows.shift();
             xids.shift(); // Remove the info row for the xid column 
 
+
+            var pids = _.map(xids, function(xid) {
+                return x2p[xid];
+            });
+
             var result = {
                 info: infoRow,
+                rows: rows,
                 xids: xids,
-                rows: rows
+                pids: pids
             };
             console.dir(result);
             return result;
@@ -1563,6 +1624,8 @@ function clientSideBaseCluster(things, N) {
         buckets = withProjectedSelf(buckets);
         return buckets;
     }
+
+    findRepresentativeMetadata();
 
     return {
         authenticated: authenticated,
