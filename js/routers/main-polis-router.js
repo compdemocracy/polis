@@ -19,6 +19,7 @@ var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
 var LandingPageView = require("../views/landing-page");
 var metric = require("../util/metric");
+var ModerationView = require("../views/moderation");
 var PasswordResetView = require("../views/passwordResetView");
 var PasswordResetInitView = require("../views/passwordResetInitView");
 var ShareLinkView = require("../views/share-link-view");
@@ -170,6 +171,10 @@ var polisRouter = Backbone.Router.extend({
 
     this.r(/summary\/([0-9]+)/, "summaryView");  // summary/zid
     this.r(/summary\/([0-9]+)\/(.*)/, "summaryView"); // summary/zid/zinvite
+
+    this.r(/moderate\/([0-9]+)/, "moderationView");  // moderate/zid
+    this.r(/moderate\/([0-9]+)\/(.*)/, "moderationView"); // moderate/zid/zinvite
+
   },
   r: function(pattern, methodToCall) {
     metric("route", methodToCall);
@@ -381,6 +386,24 @@ var polisRouter = Backbone.Router.extend({
       console.error("error loading conversation model", e);
     });
   },
+  doLaunchModerationView: function(ptptModel) {
+    var zid = ptptModel.get("zid");
+    var pid = ptptModel.get("pid");
+    
+    // Assumes you have a pid already.
+    var model = new ConversationModel({
+        zid: zid
+    });
+    bbFetch(model).then(function() {
+      var view = new ModerationView({
+        pid: pid,
+        model: model
+      });
+      RootView.getInstance().setView(view);
+    },function(e) {
+      console.error("error loading conversation model", e);
+    });
+  },
 
 
   demoConversation: function(zid) {
@@ -406,6 +429,13 @@ var polisRouter = Backbone.Router.extend({
   summaryView: function(zid, zinvite) {
     doJoinConversation.call(this, 
       this.doLaunchSummaryView.bind(this), // TODO
+      zid,
+      zinvite);
+  },
+
+  moderationView: function(zid, zinvite) {
+    doJoinConversation.call(this, 
+      this.doLaunchModerationView.bind(this), // TODO
       zid,
       zinvite);
   },

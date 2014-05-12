@@ -29,7 +29,7 @@
 
 <div class="row">
   <div class="col-sm-8 conversationViewHeadline">
-    <h1>Summary</h1>
+    <h1>Moderate</h1>
     <h2> {{topic}} </h2>
     <small><i> {{description}} </i></small>
   </div>
@@ -40,21 +40,6 @@
   </div> -->
 </div>
 
-
-<span id="vis_sibling_bottom" class="col-xs-10">
-  <div id="visualization_div" class="vis_container"></div>
-</span>
-
-<div id="raphael_div">
-
-
-<input type="file" id="fileinput"/>
-<button type="button" id="fileSelected">Ok, file selected.</button>
-
-<div class="row"> <!-- may get no-gutter class on xs -->
-
-  {{view summaryItemCollectionView}}
-
-</div> <!-- row -->
+{{view moderateCommentsCollectionView}}
 
 </section>
