@@ -1256,6 +1256,43 @@ function(req, res) {
     });
 });
 
+function getXids(zid) {
+    return new Promise(function(resolve, reject) {
+
+        client.query("select pid, xid from xids inner join "+
+            "(select * from participants where zid = ($1)) as p on xids.uid = p.uid "+
+            " where owner in (select owner from conversations where zid = ($1));", [zid], function(err, result) {
+            if (err) {
+                reject("polis_err_fetching_xids");
+                return;
+            }
+            resolve(result.rows);
+        });
+    });
+}
+
+app.get("/v3/xids",
+    auth(assignToP),
+    moveToBody,
+    need("zid", getInt, assignToP),
+function(req, res) {
+    var uid = req.p.uid;
+    var zid = req.p.zid;
+
+    // isConversationOwner(zid, uid, function(err) {
+    //     if (err) { fail(res, 403, "polis_err_get_xids_not_authorized", err); return; }
+    //     onAllowed();
+    // });
+    onAllowed(); // TODO check ownership
+    function onAllowed() {
+        getXids(zid).then(function(xids) {
+            res.status(200).json(xids);
+        }, function(err) {
+            fail(res, 500, "polis_err_get_xids", err);
+        });
+    }
+});
+
 // TODO cache
 app.get("/v3/bid",
     auth(assignToP),
@@ -1732,6 +1769,16 @@ function getAnswersForConversation(zid, callback) {
         callback(0, x.rows);
     });
 }
+function getChoicesForConversation(zid) {
+    return new Promise(function(resolve, reject) {
+        client.query("select * from participant_metadata_choices where zid = ($1) and alive = TRUE;", [zid], function(err, x) {
+            if (err) { reject(err); return; }
+            if (!x || !x.rows) { resolve([]); return; }
+            resolve(x.rows);
+        });
+    });
+}
+
 
 function getUserInfoForUid(uid, callback) {
     client.query("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
@@ -1753,6 +1800,7 @@ function getUserInfoForUid2(uid, callback) {
         });
     });
 }
+
 
 // function sendEmailToUser(uid, subject, bodyText, callback) {
 //     getEmailForUid(uid, function(err, email) {
@@ -2361,17 +2409,28 @@ app.get("/v3/comments",
     want('pid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
     want('not_voted_by_pid', getInt, assignToP),
+    want('moderation', getBool, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
 function(req, res) {
 
     function handleResult(err, docs) {
         if (err) { fail(res, 500, "polis_err_get_comments", err); return; }
         if (docs.rows && docs.rows.length) {
-            res.json(
-                docs.rows
-                    .filter(function(row) { return row.velocity > 0; })
-                    .map(function(row) { return _.pick(row, ["txt", "tid", "created"]); })
-            );
+            var cols = [
+                "txt",
+                "tid",
+                "created",
+            ];
+            var rows = docs.rows;
+
+            if (req.p.moderation) {
+                cols.push("velocity");
+            } else {
+                rows = rows.filter(function(row) { return row.velocity > 0; });
+            }
+            rows = rows.map(function(row) { return _.pick(row, cols); });
+
+            res.json(rows);
         } else {
             res.json([]);
         }
@@ -3131,6 +3190,26 @@ function(req, res) {
     }
 });
 
+app.get('/v3/metadata/choices',
+    moveToBody,
+    auth(assignToP),
+    need('zid', getInt, assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+
+    isOwnerOrParticipant(zid, uid, doneChecking);
+    function doneChecking(err, foo) {
+        if (err) { fail(res, 403, "polis_err_get_participant_metadata_choices_auth", err); return; }
+
+        getChoicesForConversation(zid).then(function(choices) {
+            res.status(200).json(choices);
+        }, function(err) {
+            fail(res, 500, "polis_err_get_participant_metadata_choices", err);
+        });     
+    }
+});
+
 app.get('/v3/metadata/answers',
     moveToBody,
     authOptional(assignToP),
@@ -3799,6 +3878,7 @@ var fetchIndex = function(req, res) {
 app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
 app.get(/^\/power\/[0-9]+.*/, fetchIndex); // power view
 app.get(/^\/summary\/[0-9]+.*/, fetchIndex); // summary view
+app.get(/^\/moderate\/[0-9]+.*/, fetchIndex); // summary view
 app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create.*/, fetchIndex);
