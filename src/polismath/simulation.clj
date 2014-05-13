@@ -110,29 +110,13 @@
 
 
 ;(defn basic-test []
-(conv-update {:rating-mat (named-matrix)} (random-votes 600 10))
 (defn -main [& args]
-  (profile :info :clusters
-  (let [
-        ;a (time2 "conv-update  a  1000" (conv-update {:rating-mat (named-matrix)} (random-votes 600 10)))
-        b (time2 "conv-update  b  5000" (conv-update {:rating-mat (named-matrix)} (random-votes 1000 10)))
-        b2 (time2 "conv-update b2 5000*10+100*1" (conv-update b (random-votes 5000 12)))
-        ;b3 (time2 "conv-update b3 5000*10+5000*10" (conv-update b2 (random-votes 5000 10)))]
-        ]
-  (println (keys b)))))
+  (let [big-ptpts    10000
+        big-comments 10
+        a  (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
+        b  (time2 "CONVUP med" (conv-update a (random-votes 500 10)))
+        b2 (time2 "CONVUP big" (conv-update b (random-votes big-ptpts big-comments)))]
+    (profile :info :clusters
+      (time2 "CONVUP big-part" (conv-update b2 (random-votes big-ptpts big-comments :n-votes 100))))))
 
-;(defnp some-fun [x y]
-  ;(let [z (p :zlet (* x y))]
-    ;(loop [a (+ z 2)]
-      ;(p :in-loop1 (+ a 2))
-      ;(if (> a 0)
-        ;(recur (p :in-loop2 (- a 4)))
-        ;(* a 5)))))
 
-;(defn -main [& args]
-  ;(profile :info :test-prof (some-fun 7 8)))
-
-;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
-;  (pprint (group-by :id (:base-clusters b)))
-;  (pprint (map :members (sort-by :id (:base-clusters b))))  
-  
