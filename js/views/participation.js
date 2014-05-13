@@ -266,7 +266,9 @@ module.exports =  ConversationView.extend({
       });
 
       eb.on(eb.commentSelected, function(tid) {
-        vis.selectComment(tid);
+        if (vis) {
+          vis.selectComment(tid);
+        }
       });
 
       // this.votesByMe.on("all", function(x) {
