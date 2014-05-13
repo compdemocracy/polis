@@ -4,6 +4,7 @@ var eb = require("../eventBus");
 var template = require("../tmpl/analyze-global");
 var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
+var Utils = require("../util/utils");
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
@@ -64,7 +65,7 @@ module.exports = Handlebones.View.extend({
     this.analyzeCollectionView.sortRepness();
   },
   useCarousel: function() {
-      return !this.isIE8 && display.xs();
+      return !Utils.isIE8() && display.xs();
   },
   hideCarousel: function() {
     this.$("#carousel").hide();

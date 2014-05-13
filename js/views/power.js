@@ -22,7 +22,7 @@ var VisView = require("../lib/VisView");
 
 var VIS_SELECTOR = "#visualization_div";
 
-var isIE8 = navigator.userAgent.match(/MSIE [89]/);
+var isIE8 = Utils.isIE8();
 
 module.exports =  ConversationView.extend({
   name: "powerView",
@@ -114,6 +114,10 @@ module.exports =  ConversationView.extend({
 
 
     function initPcaVis() {
+      if (!Utils.supportsVis()) {
+        // Don't show vis for weird devices (Gingerbread, etc)
+        return;
+      }
 
       $(VIS_SELECTOR).html("").height(0);
       // $(VIS_SELECTOR).parent().css("display", "none");
@@ -228,7 +232,9 @@ module.exports =  ConversationView.extend({
       }));
 
       eb.on(eb.commentSelected, function(tid) {
-        vis.selectComment(tid);
+        if (vis) {
+          vis.selectComment(tid);
+        }
       });
 
       // this.votesByMe.on("all", function(x) {

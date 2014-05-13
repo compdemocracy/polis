@@ -260,6 +260,10 @@ module.exports =  Handlebones.ModelView.extend({
 
 
     function initPcaVis() {
+      if (!Utils.supportsVis()) {
+        // Don't show vis for weird devices (Gingerbread, etc)
+        return;
+      }
 
       $(VIS_SELECTOR).html("").height(0);
       // $(VIS_SELECTOR).parent().css("display", "none");

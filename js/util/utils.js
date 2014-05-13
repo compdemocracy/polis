@@ -18,5 +18,11 @@ module.exports = {
   },
   supportsSVG: function() {
     return !!document.createElementNS && !!document.createElementNS('http://www.w3.org/2000/svg', 'svg').createSVGRect;
+  },
+  isIE8: function() {
+    return navigator.userAgent.match(/MSIE [89]/);
+  },
+  supportsVis: function() {
+    return this.supportsSVG() || this.isIE8();
   }
 };

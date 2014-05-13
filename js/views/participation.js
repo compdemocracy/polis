@@ -22,8 +22,7 @@ var VisView = require("../lib/VisView");
 
 var VIS_SELECTOR = "#visualization_div";
 
-var isIE8 = navigator.userAgent.match(/MSIE [89]/);
-var hasSvg = Utils.supportsSVG();
+var isIE8 = Utils.isIE8();
 
 function shouldShowVisUnderTabs() {
   return display.xs();
@@ -101,7 +100,7 @@ module.exports =  ConversationView.extend({
 
 
     function initPcaVis() {
-      if (!isIE8 && !hasSvg) {
+      if (!Utils.supportsVis()) {
         // Don't show vis for weird devices (Gingerbread, etc)
         return;
       }

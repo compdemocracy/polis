@@ -8,8 +8,9 @@ var Handlebones = require("handlebones");
 var template = require('../tmpl/moderation');
 var ModerateCommentView = require('../views/moderate-comment');
 var countBadgeTemplate = require('../tmpl/countBadge');
+var Utils = require("../util/utils");
 
-var isIE8 = navigator.userAgent.match(/MSIE [89]/);
+var isIE8 = Utils.isIE8();
 
 var ModerateCommentsCollectionView = Handlebones.CollectionView.extend({
   modelView: ModerateCommentView,
