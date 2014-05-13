@@ -118,7 +118,7 @@ module.exports =  ConversationView.extend({
       }
       var h = w/2;
       $(VIS_SELECTOR).height(h);
-      that.serverClient.removePersonUpdateListener(onPersonUpdate);
+      that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
       vis = that.vis = new VisView({
           getPid: function() {
             if (!_.isId(pid)) {
@@ -148,7 +148,7 @@ module.exports =  ConversationView.extend({
           10);
       }
 
-      that.serverClient.addPersonUpdateListener(onPersonUpdate)
+      that.serverClient.addPersonUpdateListener(onPersonUpdate) // TODO REMOVE DUPLICATE
 
       that.tutorialController.setHandler("blueDot", function(){
         that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
@@ -193,7 +193,11 @@ module.exports =  ConversationView.extend({
           })      
         },1500)
       }) 
-    }  
+    } // end initPcaVis  
+
+
+
+
 
     // just a quick hack for now.
     // we may need to look into something more general
