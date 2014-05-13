@@ -779,29 +779,47 @@ function clientSideBaseCluster(things, N) {
             var xidsUnaccounted = {};
             var xidHash = {};
 
-
+            // Check row lengths
+            for (var r = 0; r < rowCount; r++) {
+                if (rows[r].length !== colCount) {
+                    alert("row length does not match length of first row. (for row number " + r + ")");
+                    return;
+                }
+            }
 
             // Remove redundant columns (from a SQL join, for example)
             function columnsEqual(a, b) {
                 for (var r = 0; r < rowCount; r++) {
-                    if (a[r] !== b[r]) {
+                    var row = rows[r];
+                    if (row[a] !== row[b]) {
                         return false;
                     }
                 }
                 return true;
             }
             var duplicateColumns = [];
-            for (var c = 0; c < colCount; c++) {
-                for (var d = c; d < colCount; d++) {
+            for (var c = 0; c < colCount-1; c++) {
+                for (var d = c+1; d < colCount; d++) {
                     if (columnsEqual(c, d)) {
-                        duplicateColumns.push(rows[0][d]);
+                        duplicateColumns.push({
+                            name: rows[0][d],
+                            col: d
+                        });
                     }
                 }
             }
             if (duplicateColumns.length) {
-                alert('duplicateColumns');
-                alert(duplicateColumns);
+                alert('removing duplicate columns: ' + _.pluck(duplicateColumns, "name"));
             }
+            // Remove duplicate columns
+            for (var r = 0; r < rowCount; r++) {
+                var row = rows[r];
+                _.each(duplicateColumns, function(c) {
+                    row.splice(c.col, 1);
+                });
+            }
+            colCount = rows[0].length;
+
 
             // Replace the column names in the 0th row with objects with metadata.
             for (var c = 0; c < colCount; c++) {
@@ -858,10 +876,20 @@ function clientSideBaseCluster(things, N) {
                         maxArg = arg;
                     }
                 });
-                return maxArg;
+                return {
+                    arg: maxArg,
+                    max: max,
+                };
             }
 
-            var xidColumn = argMaxForIndexOrKey(xidsFoundPerColumn);
+            var result = argMaxForIndexOrKey(xidsFoundPerColumn);
+            var xidColumn = result.arg;
+            var maxXidCount = result.max;
+            if (maxXidCount === 0) {
+                alert("xid column missing, please be sure to include a column with xids");
+                return;
+            }
+
             // TODO check xidsUnaccounted within this column only.
             alert("the xid column appears to be called " + rows[0][xidColumn].name);
             
@@ -936,7 +964,7 @@ function clientSideBaseCluster(things, N) {
                     }
                 }
             }
-
+            // Remove xid column
             var xids = [];
             for (var r = 0; r < rowCount; r++) {
                 var row = rows[r];
