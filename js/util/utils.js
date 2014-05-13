@@ -15,5 +15,8 @@ module.exports = {
       }
     }
     return spans;
+  },
+  supportsSVG: function() {
+    return !!document.createElementNS && !!document.createElementNS('http://www.w3.org/2000/svg', 'svg').createSVGRect;
   }
 };
