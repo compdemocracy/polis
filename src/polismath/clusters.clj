@@ -76,13 +76,11 @@
 
 (use 'alex-and-georges.debug-repl)
 (require '[clojure.tools.trace :as tr])
-(defn probe [data]
-  ;(println (distinct (mapv count (into [] data))))
-  data)
 (defnp safe-recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
   (as-> clusters clsts
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
+    (p :safe-recenter-map (greedy
     (map
       (fn [clst]
         (let [rns (safe-rowname-subset data (:members clst))]
@@ -90,6 +88,7 @@
             nil
             (assoc clst :center (mean (matrix (:matrix rns)))))))
       clsts)
+      ))
     ; Remove the nils, they break the math
     (remove nil? clsts)
     ; If nothing is left, make one great big cluster - so that things don't break in most-distal later
@@ -128,7 +127,7 @@
     {:dist dist :clst-id clst-id :id id}))
 
 
-(defnp uniqify-clusters [clusters]
+(defn uniqify-clusters [clusters]
   (reduce
     (fn [clusters clst]
       (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
@@ -147,7 +146,7 @@
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
-        possible-clusters (p :posible-clusters (min k (count (distinct (rows (:matrix data))))))]
+        possible-clusters (min k (count (distinct (rows (:matrix data)))))]
     (loop [clusters uniq-clusters]
       ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters)]
@@ -176,7 +175,7 @@
 
  
 ; Each cluster should have the shape {:id :members :center}
-(defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
+(defnp kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   "Performs a k-means clustering."
   (let [data-iter (zip (:rows data) (matrix (:matrix data)))
         clusters  (if last-clusters

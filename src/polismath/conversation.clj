@@ -54,18 +54,23 @@
   "Base of all conversation updates; handles default update opts and does named matrix updating"
   {:opts'       (plmb/fnk [opts]
                   "Merge in opts with the following defaults"
+                  (println "\nStarting new conv update!")
                   (merge {:n-comps 2
                           :pca-iters 10
                           :base-iters 10
                           :base-k 50
                           :group-iters 10}
                     opts))
+
    :rating-mat  (plmb/fnk [conv votes]
+                  (time2 "rating-mat"
                   (update-nmat (:rating-mat conv)
-                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes))))
+
    :n           (plmb/fnk [rating-mat]
                   "count the participants"
-                  (count (:rows rating-mat)))})
+                  (time2 "counting-ptpts"
+                  (count (:rows rating-mat))))})
 
 
 (def small-conv-update-graph
@@ -75,10 +80,12 @@
      {:mat (plmb/fnk [rating-mat]
              "swap nils for zeros - most things need the 0s, but repness needs the nils"
              (time2 "mat"
+              (greedy
               (map (fn [row] (map #(if (nil? %) 0 %) row))
-                   (:matrix rating-mat))))
+                   (:matrix rating-mat)))))
 
       :pca (plmb/fnk [conv mat opts']
+             ;(println "XXXXX" (type mat) mat)
              (time2 "pca"
                (wrapped-pca mat (:n-comps opts')
                             :start-vectors (get-in conv [:pca :comps])
@@ -90,24 +97,27 @@
       :base-clusters
             (plmb/fnk [conv rating-mat proj opts']
               (time2 "base-clusters"
+                (greedy
                 (sort-by :id
                   (kmeans (assoc rating-mat :matrix proj)
                     (:base-k opts')
                     :last-clusters (:base-clusters conv)
-                    :cluster-iters (:base-iters opts')))))
+                    :cluster-iters (:base-iters opts'))))))
 
        :group-clusters
             (plmb/fnk [conv rating-mat base-clusters opts']
               (time2 "group-clusters"
+                (greedy
                 (sort-by :id
                   (kmeans (xy-clusters-to-nmat2 base-clusters)
                     (choose-group-k base-clusters)
                     :last-clusters (:group-clusters conv)
-                    :cluster-iters (:group-iters opts')))))
+                    :cluster-iters (:group-iters opts'))))))
 
        :bid-to-pid (plmb/fnk [base-clusters]
                      (time2 "bid-to-pid"
-                       (map :members (sort-by :id base-clusters))))
+                      (greedy
+                       (map :members (sort-by :id base-clusters)))))
 
        ;;; returns {tid {
        ;;;           :agree [0 4 2 0 6 0 0 1]
@@ -115,6 +125,7 @@
        ;;; where the indices in the arrays are bids
        :votes-base (plmb/fnk [bid-to-pid rating-mat]
                      (time2 "votes-base"
+                       (greedy
                        (let [tids (:cols rating-mat)]
                          (reduce
                            (fn [o entry]
@@ -126,7 +137,7 @@
                                {:tid tid
                                 :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
                                 :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)})
-                             tids)))))
+                             tids))))))
        ; End of large-update
        }))
 
