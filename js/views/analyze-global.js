@@ -11,6 +11,56 @@ var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 var el_carouselSelector = "#carousel";
 
 
+
+function bbCompare(propertyName, a, b) {
+  var x = b.get(propertyName) - a.get(propertyName);
+  return x;
+}
+function bbCompareAscending(propertyName, a, b) {
+  return -bbCompare(propertyName, a, b);
+}
+function compareTieBreaker(a, b) {
+  var x = bbCompare("stars", a, b);
+  x = x || a.get("txt").length - b.get("txt").length; // shorter comments first
+  x = x || bbCompare("created", a, b);
+  // x = x || (b.get("txt").toLowerCase() < a.get("txt").toLowerCase()) ? 1 : -1; // alphabetic
+  return x;
+}
+function sortRepness(a, b) {
+  var x = bbCompare("repness", a, b);
+  return x || compareTieBreaker(a, b);
+}
+function comparatorAgree(a, b) {
+  var x = bbCompare("A", a, b);
+  x = x || bbCompareAscending("D", a, b);
+  return x || compareTieBreaker(a, b);
+}
+function comparatorDisagree(a, b) {
+  var x = bbCompare("D", a, b);
+  x = x || bbCompareAscending("A", a, b);
+  return x || compareTieBreaker(a, b);
+}
+function comparatorDivisive(a, b) {
+  var b_agrees = b.get("A");
+  var b_disagrees = b.get("D");
+  var a_agrees = a.get("A");
+  var a_disagrees = a.get("D");
+  var b_product = b_agrees * b_disagrees;
+  var a_product = a_agrees * a_disagrees;
+  var b_sum = b_agrees + b_disagrees + 1; // Add 1 to prevent divide-by-zero
+  var a_sum = a_agrees + a_disagrees + 1; // Add 1 to prevent divide-by-zero
+  var x = b_product/b_sum - a_product/a_sum;
+  x = x || bbCompareAscending("A", a, b);
+  return x || compareTieBreaker(a, b);
+}
+
+function comparatorStars(a, b) {
+  var x = bbCompare("stars", a, b);
+  return x || compareTieBreaker(a, b);
+}
+
+
+
 module.exports = Handlebones.View.extend({
     name: "analyze-global-view",
     CV: AnalyzeCollectionView,
@@ -45,24 +95,37 @@ module.exports = Handlebones.View.extend({
       this.$(chosenButtonSelector).addClass("enabled");
     },
     selectFirst: function() {
-      this.analyzeCollectionView.selectFirst();
+      if (this.analyzeCollectionView) {
+        this.analyzeCollectionView.selectFirst();
+      }
     },
   searchEnabled: true,
   sortEnabled: true,
+
+
   sortAgree: function(e) {
-    this.analyzeCollectionView.sortAgree();
+    this.collection.comparator = comparatorAgree;
+    this.collection.sort();
+    this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
-    this.analyzeCollectionView.sortDisagree();
+    this.collection.comparator = comparatorDisagree;
+    this.collection.sort();
+    this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
   sortDivisive: function(e) {
-    this.analyzeCollectionView.sortDivisive();
+    this.collection.comparator = comparatorDivisive;
+    this.collection.sort();
+    this.selectFirst();
     this.selectSortModes("#sortDivisive");
   },
   sortRepness: function(e) {
-    this.analyzeCollectionView.sortRepness();
+    // There are no buttons associated with this.
+    this.collection.comparator = sortRepness;
+    this.collection.sort();
+    this.selectFirst();
   },
   useCarousel: function() {
       return !Utils.isIE8() && display.xs();
@@ -76,7 +139,9 @@ module.exports = Handlebones.View.extend({
   updateSearch: function(e) {
     this.searchString = e.target.value;
     this.deselectComments();
-    this.analyzeCollectionView.updateModelFilter();
+    if (this.analyzeCollectionView) {
+      this.analyzeCollectionView.updateModelFilter();
+    }
     // this.selectFirst();
   },
   deselectComments: function() {
@@ -126,15 +191,20 @@ module.exports = Handlebones.View.extend({
         "</div>");
     });
     // Auto-select the first comment.
-    $(el_carouselSelector).find(".query_result_item").first().trigger("click");
+    eb.trigger(eb.commentSelected, indexToTid[0]);
+    // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
   },
   initialize: function(options) {
     var that = this;
     this.collection = options.collection;
-
-    this.analyzeCollectionView = this.addChild(new this.CV({
-      collection: this.collection
-    }));
+    this.collection.comparator = comparatorAgree;
+    
+    if (!that.useCarousel()) {
+      this.analyzeCollectionView = this.addChild(new this.CV({
+        collection: this.collection,
+        comparator: comparatorAgree
+      }));
+    }
 
     var getTidsForGroup = options.getTidsForGroup;
 
@@ -157,7 +227,9 @@ module.exports = Handlebones.View.extend({
           that.searchEnabled = true;
           that.tidsForGroup = null;
           that.sortAgree();     
-          that.analyzeCollectionView.updateModelFilter();
+          if (this.analyzeCollectionView) {
+            that.analyzeCollectionView.updateModelFilter();
+          }
           if (that.useCarousel()) {
             that.renderWithCarousel();
           }
@@ -172,7 +244,9 @@ module.exports = Handlebones.View.extend({
             that.tidsForGroup = o.tids;
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
-            that.analyzeCollectionView.updateModelFilter();
+            if (this.analyzeCollectionView) {
+              that.analyzeCollectionView.updateModelFilter();
+            }
             if (that.useCarousel()) {
               that.renderWithCarousel();
             }
