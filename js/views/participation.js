@@ -334,6 +334,12 @@ module.exports =  ConversationView.extend({
       $(".query_result_item").first().trigger("click");
     });
 
+    that.conversationTabs.on("aftershow:write", function() {
+      // Put the comment textarea in focus (should pop up the keyboard on mobile)
+      $("#comment_form_textarea").focus();
+    });
+
+
 
 
     this.listenTo(this, "render", function(){

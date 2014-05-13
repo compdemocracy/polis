@@ -64,6 +64,9 @@ module.exports =  Handlebones.ModelView.extend({
       if(e.target && e.target.id === this.ANALYZE_TAB) {
         this.trigger("aftershow:analyze");
       }
+      if (e.target && e.target.id === this.WRITE_TAB) {
+        this.trigger("aftershow:write");
+      }
     }
   },
 
