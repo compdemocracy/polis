@@ -1,27 +1,27 @@
 <div>
 
 <form role="form" style="margin-left:10px; margin-right:10px">
-	<div class="form-group">
+	<div class="form-group" style="position:relative">
+
 		<textarea
       class="form-control"
       id="comment_form_textarea"
-      rows="4"
+      rows="5"
+
       name="txt"
       type="text"
       maxlength="997"
       placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."
     ></textarea>
-	</div>
-	<div class="form-group">
 		<button
       class="form-control btn btn-primary"
+      style="position: absolute; right: 0; bottom: -15px; max-width: 100px"
       id="comment_button"
       type="submit"
       >
-      Submit Comment
+      Send
     </button>
-	</div>
-	
+  </div>
 </form>
 
 {{view commentsByMeView}}
