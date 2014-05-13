@@ -1,4 +1,6 @@
-(ns polismath.utils)
+(ns polismath.utils
+  (:require [taoensso.timbre.profiling :as profiling
+             :refer (pspy pspy* profile defnp p p*)]))
 
 
 (defn agree? [n]
@@ -24,11 +26,11 @@
     xss))
 
 
-(def greedy? true)
-(defn greedy [iter]
-  (if greedy?
-    (into [] iter)
-    iter))
+(let [greedy? true]
+  (defn greedy [iter]
+    (if greedy?
+      (into [] iter)
+      iter)))
 
 (defn greedy-false [iter] iter)
 
@@ -48,9 +50,12 @@
 
 
 (defn filter-by-index [coll idxs] 
-  (->> (with-indices coll)
-    (filter #((set idxs) (first %)))
-    (map second)))
+  (greedy-false
+  (let [idx-set (set idxs)]
+    (->> (with-indices coll)
+      (filter #(idx-set (first %)))
+      (map second)))
+    ))
 
 
 (defn apply-kwargs [f & args]

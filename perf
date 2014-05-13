@@ -69,3 +69,108 @@ function, but still no dice. What's left of the reflections:
     Reflection warning, polismath/simulation.clj:78:3 - reference to field nextElement can't be resolved.
 
 
+May 12, 2014
+
+WOOT! It seems I've sorted out the biggest culrpit here.
+It turned out to be the filter-by-index function.
+It was creating a new set each time, which was absolutely killing performance.
+I was able to cut down an order of magnitude by doing this alone.
+
+So now on to other things...
+
+For starters, I tried running on 100,000 ptpts 10 cmts.
+There are the big and big-part update times
+
+    N-ptpts: 99998
+    Starting new conv update!
+    1399963793428 rating-mat 1292120.671242 msecs #=> 1,292.120s #=> 20 minutes
+    1399963793436 mat 7.876006 msecs
+    1399963800685 pca 7249.400704 msecs # 7 sec
+    1399963802045 proj 1359.328171 msecs # 1.3 sec
+    1399963848873 base-clusters 46828.255953 msecs # 46 sec
+    1399963848873 bid-to-pid 0.054336 msecs 
+    1399963849626 votes-base 752.377173 msecs
+    1399963849626 counting-ptpts 0.003771 msecs
+    1399963849628 group-clusters 2.392552 msecs
+    1399963849628 CONVUP big 1353257.322353 msecs
+
+    N-ptpts: 99998
+    1399963849843 rating-mat 140.33363 msecs
+    1399963849849 mat 5.574799 msecs
+    1399963855133 pca 5283.952589 msecs
+    1399963856372 proj 1238.580412 msecs
+    1399964442254 base-clusters 585882.249774 msecs # 585.882 # 10 min
+    1399964442254 bid-to-pid 0.056502 msecs
+    1399964442916 votes-base 661.268519 msecs
+    1399964442916 counting-ptpts 0.003702 msecs
+    1399964442917 group-clusters 1.644483 msecs
+    1399964442918 CONVUP big-part 593284.9938 msecs
+
+    2014-May-13 00:00:42 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+                    :user/kmeans      2     2.0ms     585.9s    292.9s    292.9s      99 585.9s
+      :user/clean-start-clusters      2     1.0ms     546.2s    273.1s    273.1s      92 546.2s
+    :user/safe-recenter-clusters      2   604.0μs     276.2s    138.1s    138.1s      47 276.2s
+         :user/safe-recenter-map      2   552.0μs     276.2s    138.1s    138.1s      47 276.2s
+       :user/safe-rowname-subset     53    90.0μs       9.6s      1.7s      5.2s      46 274.5s
+         :user/recenter-clusters      2   485.0μs     269.9s    135.0s    135.0s      45 269.9s
+            :user/rowname-subset     53    82.0μs       8.7s      1.6s      5.1s      45 268.4s
+                :user/row-subset    106    46.0μs     47.0ms     3.0ms    28.0ms       1 3.0s
+           :user/filter-by-index    212     5.0μs    862.0μs   129.0μs   439.0μs       0 93.0ms
+          :user/uniqify-clusters      2    12.0μs      1.0ms   510.0μs   522.0μs       0 1.0ms
+       :user/safe-recenter-empty      2     3.0μs    301.0μs   149.0μs   152.0μs       0 303.0μs
+         :user/safe-recenter-nil      2    21.0μs    155.0μs    67.0μs    88.0μs       0 175.0μs
+                      Clock Time                                                     100 593.3s
+                  Accounted Time                                                     421 2500.3s
+
+
+Hmm.... This is suggesting that performance on the rating-mat update may actually become a problem if we can't
+keep everything else moving quickly enough.
+Of course, this corresponds to 1,000,000 votes.
+If we ever get 1,000,000 votes at once then (for a specific conv), God help us for now... XXX
+
+On the other hand, note that the base clustering takes QUITE a long time in this second one here (10 minutes).
+Again, this seems to be due largely due to the clean-start-clusters.
+We really have to figure out how to speed that up. XXX
+
+Another thought: initially I was concerned that something might not be quite right given that the second
+(partial) updata would always take so much longer than the full matrix population.
+But this actually makes sense: most of the time is in the clean-start-clusters, but the clean-start-clusters
+is going to be a lot simpler if the last round didn't have that many members.
+
+Also, note that there are still some strange "unable to slice nil" errors cropping up every now and again.
+A few of those leading to a backlog, and it might put us on ice while the conversation catches up. XXX
+
+One last thing:
+Note that the PCA grows as a function of the number of comments, but that downstream analyses don't, because
+they're just on projections.
+
+    # 10 cmts
+    big
+    1399967451528 pca 942.879957 msecs # 1 sec
+    1399967451706 proj 177.306975 msecs # 0.2 sec
+    big-part
+    1399967458208 pca 751.15802 msecs # < 1sec
+    1399967458369 proj 161.097721 msecs 
+
+    # 100 cmts
+    big
+    1399967669033 pca 6840.381594 msecs # 7 sec
+    1399967669866 proj 833.318748 msecs # 0.8 sec
+    big-part
+    1399967679124 pca 3850.089523 msecs # 4 sec
+    1399967679911 proj 786.742437 msecs # 0.8 sec
+
+Something interesting here: Note the second times are a lot shorter in each case (1/2-ish).
+This is likely because the power-iteration is working exactly as planned.
+Which is good.
+Still, if it's another 7x to increase both the cmts and ptpts 10x, then we could easily expect to see minute long
+compute times for our PCA step.
+So we'll either want to fix our Batch PCA or try to speed this bit up XXX
+
+Also note here that the time for update is much lower than it was when there were 10x more people (80sec).
+Could this let us use a tranpose for this messy operation? XXX
+In general this may also point to where some of the possible optimizations are with respect to this update
+implementation.
+
+

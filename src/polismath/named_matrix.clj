@@ -42,19 +42,23 @@
 
 (defnp rowname-subset [nmat row-names]
   "Returns a new named matrix which has been subset based on the given row-names"
-  (->> row-names
-    (map #(typed-indexof (:rows nmat) %))
-    (greedy)
-    (row-subset nmat)))
+  (let [nmat-rows (into [] (:rows nmat))]
+    (->> row-names
+      ; a bit of a hack with into [] ; shouold really fix upstream
+      (map #(typed-indexof nmat-rows %))
+      (greedy)
+      (row-subset nmat))))
 
 
-(defn safe-rowname-subset [nmat row-names]
+(defnp safe-rowname-subset [nmat row-names]
   "This version of rowname-subset filters out negative indices, so that if not all names in row-names
   are in nmat, it just subsets to the rownames that are. Should scrap other one?"
-  (->> row-names
-    (map #(typed-indexof (:rows nmat) %))
-    (filter #(>= % 0))
-    (row-subset nmat)))
+  (let [nmat-rows (into [] (:rows nmat))]
+    (->> row-names
+      ; a bit of a hack with into [] ; shouold really fix upstream
+      (map #(typed-indexof nmat-rows %))
+      (filterv #(>= % 0))
+      (row-subset nmat))))
 
 
 (defn get-row-by-name [nmat row-name]
