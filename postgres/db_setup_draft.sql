@@ -202,6 +202,7 @@ CREATE TABLE comments(
     pid INTEGER NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
     txt VARCHAR(1000) NOT NULL,
+    velocity REAL NOT NULL DEFAULT 1,
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
 
