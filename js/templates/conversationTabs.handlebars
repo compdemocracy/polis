@@ -1,13 +1,17 @@
-<div id="conversationTabs" style="margin-left:10px; margin-right:10px">
+<div id="conversationTabs" class="custom_gutter">
 {{#if showGroupHeader}}
   <a class="analyzeGroupCloseButton" style="cursor:pointer; padding-bottom:10px"> {{#ifNotIE8}}<i class="icon-angle-left"></i>{{/ifNotIE8}} Back to all comments</a>
 {{else}}
   <ul class="nav nav-tabs tab-conv"
     style="border-bottom: 0px">
-    <li 
+    <li
       {{#if voteActive}} class="active" {{/if}}
     >
-      <a href="#commentView" id="commentViewTab" data-toggle="tab">
+      <a
+        href="#commentView"
+        id="commentViewTab"
+        style="{{#if smallTabs}}font-size:95%{{/if}}"
+        data-toggle="tab">
         {{#ifNotIE8}}<i class="icon-align-justify"></i>{{/ifNotIE8}} 
         Read &amp; React
       </a>
@@ -15,7 +19,11 @@
     <li
       {{#if writeActive}} class="active" {{/if}}
     >
-      <a href="#commentForm" id="commentFormTab" data-toggle="tab">
+      <a
+        href="#commentForm"
+        id="commentFormTab"
+        style="{{#if smallTabs}}font-size:95%{{/if}}"
+        data-toggle="tab">
         {{#ifNotIE8}}<i class="icon-pencil"></i>{{/ifNotIE8}}
         Write
       </a>
@@ -23,7 +31,11 @@
     <li
       {{#if analyzeActive}} class="active" {{/if}}
     >
-      <a href="#analyze" id="analyzeTab" data-toggle="tab">
+      <a
+        href="#analyze"
+        id="analyzeTab"
+        style="{{#if smallTabs}}font-size:95%{{/if}}"
+        data-toggle="tab">
         {{#ifNotIE8}}<i class="icon-coffee"></i>{{/ifNotIE8}}
         Analyze
       </a>

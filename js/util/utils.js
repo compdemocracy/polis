@@ -22,6 +22,9 @@ module.exports = {
   isIE8: function() {
     return navigator.userAgent.match(/MSIE [89]/);
   },
+  isIphone: function() {
+    return navigator.userAgent.match(/iPhone/);
+  },
   supportsVis: function() {
     return this.supportsSVG() || this.isIE8();
   }

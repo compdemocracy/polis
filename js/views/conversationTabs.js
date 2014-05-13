@@ -5,6 +5,8 @@ var ConversationStatsHeader = require('../views/conversation-stats-header');
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/conversationTabs");
+var display = require("../util/display");
+var Utils = require("../util/utils");
 
 
 module.exports =  Handlebones.ModelView.extend({
@@ -26,6 +28,9 @@ module.exports =  Handlebones.ModelView.extend({
     }
     if (this.currentTab === this.ANALYZE_TAB) {
       c.analyzeActive = true;
+    }
+    if (display.xs() && Utils.isIphone()) {
+      c.smallTabs = true;
     }
     return c;
   },
