@@ -119,8 +119,8 @@ module.exports = Handlebones.View.extend({
       results.data('owlCarousel').addItem(
         "<div style='margin:10px; text-align:justify' class='well query_result_item'>" + 
           "<p>" +
-            "Agrees: " + c.get("A") +
-            " Disagrees: " + c.get("D") +
+            "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
+            "<span class='d'>&#9660; " + c.get("D") + "</span>" +
           "</p>" +
           c.get("txt") +
         "</div>");
