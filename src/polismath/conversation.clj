@@ -190,15 +190,25 @@
 (def large-conv-update (graph/eager-compile large-conv-update-graph))
 
 
+(defn dump-edn [data]
+  (spit (str "errorconv." (. System (nanoTime)) ".edn")
+    (prn-str data)))
+
 (defn conv-update [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 1000}
                                  :as opts}]
-  (let [ptpts   (time2 "ptpts" (:row (:rating-mat conv)))
-        n-ptpts (time2 "n-ptpts" (count (distinct (into ptpts (map :pid votes)))))]
-    ; dispatch to the appropriate function
-    ((cond
-       (> n-ptpts 9999999999)   large-conv-update
-       :else             small-conv-update)
-          {:conv conv :votes votes :opts opts})))
+  (try
+    (let [ptpts   (:rows (:rating-mat conv))
+          n-ptpts (count (distinct (into ptpts (map :pid votes))))]
+      (println "N-ptpts:" n-ptpts)
+      ; dispatch to the appropriate function
+      ((cond
+         (> n-ptpts 9999999999)   large-conv-update
+         :else             small-conv-update)
+            {:conv conv :votes votes :opts opts}))
+    (catch Exception e 
+      (println "Update Failure:" (.getMessage e))
+      (dump-edn {:conv conv :votes votes :opts opts :e e})
+      (throw e))))
 
 
