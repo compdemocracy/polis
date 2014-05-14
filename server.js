@@ -633,6 +633,27 @@ function getInt(s) {
     return x;
 }
 
+function getNumber(s) {
+    if (_.isNumber(s)) {
+        return s;
+    }
+    var x = parseFloat(s);
+    if (isNaN(x)) {
+        throw "polis_fail_parse_number";
+    }
+    return x;
+}
+
+function getNumberInRange(min, max) {
+    return function(s) {
+        var x = getNumber(s)
+        if (x < min || max < x) {
+            throw "polis_fail_parse_number_out_of_range";
+        }
+        return x;
+    };
+}
+
 function getArrayOfString(a) {
     if (_.isString(a)) {
         a = a.split(',');
@@ -2425,6 +2446,7 @@ function(req, res) {
 
             if (req.p.moderation) {
                 cols.push("velocity");
+                cols.push("zid");
             } else {
                 rows = rows.filter(function(row) { return row.velocity > 0; });
             }
@@ -2936,6 +2958,19 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
     });
   });
 }
+
+app.put('/v3/comments', 
+    moveToBody,
+    auth(assignToP),
+    need('zid', getInt, assignToP),
+    need('tid', getInt, assignToP),
+    need('velocity', getNumberInRange(0,1), assignToP),
+    function(req, res){
+        console.log(req.p)
+        // changeCommentVelocity(p.zid, p.tid, velocity)
+        res.status(200)
+})
+
 
 app.put('/v3/conversations/:zid',
     moveToBody,
