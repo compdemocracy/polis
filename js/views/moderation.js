@@ -7,18 +7,32 @@ var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var template = require('../tmpl/moderation');
 var ModerateCommentView = require('../views/moderate-comment');
+var countBadgeTemplate = require('../tmpl/countBadge');
 
 var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
 var ModerateCommentsCollectionView = Handlebones.CollectionView.extend({
-  modelView: ModerateCommentView
+  modelView: ModerateCommentView,
+  initialize: function() {
+    Handlebones.CollectionView.prototype.initialize.apply(this, arguments);
+    this.on("moderated", function(model, velocity) {
+      console.log('moderated fired by parent', model, velocity);
+    });
+  },
 });
 
+var TodoCountView = Handlebones.View.extend({
+  template: countBadgeTemplate,
+  context: function(){
+    return {count: this.collection.length}
+  }
+})
 
 module.exports =  Handlebones.ModelView.extend({
   name: "moderationView",
   template: template,
   events: {
+
   },
 
   initialize: function(options) {
@@ -47,7 +61,19 @@ module.exports =  Handlebones.ModelView.extend({
         zid: this.zid
       }),
       reset: false
+    }).then(function(){
+      that.render();
     });
+
+    this.todoCountView = this.addChild(new TodoCountView({
+      collection: this.comments
+    }))
+
+    this.listenTo(this.comments, "sync remove add", function(){
+      this.todoCountView.render()
+    })
+
+
 
     this.moderateCommentsCollectionView = this.addChild(new ModerateCommentsCollectionView({
       collection: this.comments

@@ -2,6 +2,7 @@ var Model = require("../model");
 
 module.exports = Model.extend({
   name: "comment",
+  url: "comments",
   urlRoot: "comments",
   idAttribute: "tid",
   defaults: {

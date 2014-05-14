@@ -29,9 +29,24 @@
 
 <div class="row">
   <div class="col-sm-8 conversationViewHeadline">
-    <h1>Moderate</h1>
-    <h2> {{topic}} </h2>
-    <small><i> {{description}} </i></small>
+    <h1>Moderate Comments</h1>
+{{!--         <h2> {{topic}} </h2>
+    <small><i> {{description}} </i></small> --}}
+<!-- Nav tabs -->
+<ul class="nav nav-tabs" style="margin-bottom: 30px; margin-top: 30px">
+  <li class="active"><a href="#all" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
+  <li><a href="#profile" data-toggle="tab">Accepted</a></li>
+  <li><a href="#messages" data-toggle="tab">Rejected</a></li>
+</ul>
+
+<!-- Tab panes -->
+<div class="tab-content" >
+  <div class="tab-pane active" id="all"> {{view moderateCommentsCollectionView}} </div>
+  <div class="tab-pane" id="profile">...</div>
+  <div class="tab-pane" id="messages">...</div>
+</div>
+
+
   </div>
 <!--  <div class="col-sm-6 alert alert-info alert-dismissable">
     <button type="button" class="close" data-dismiss="alert">×</button>
@@ -40,6 +55,5 @@
   </div> -->
 </div>
 
-{{view moderateCommentsCollectionView}}
 
 </section>
