@@ -12,7 +12,6 @@ var Utils = require("../util/utils");
 module.exports =  Handlebones.ModelView.extend({
   name: "conversation-tabs-view",
   template: template,
-
   ANALYZE_TAB: "analyzeTab",
   METADATA_TAB: "metadata_pill",
   VOTE_TAB: "commentViewTab",
@@ -32,6 +31,7 @@ module.exports =  Handlebones.ModelView.extend({
     if (display.xs() && Utils.isIphone()) {
       c.smallTabs = true;
     }
+    c.use_background_content_class = display.xs();
     return c;
   },
 

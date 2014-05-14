@@ -1,3 +1,5 @@
+<div class="{{#if use_background_content_class}}background_content{{/if}}">
+  
 {{#ifNotEmbedded}}
 <div class="navbar navbar-default navbar-fixed-top" role="navigation">
   <div class="container">
@@ -42,7 +44,9 @@
 <div id="controlTabs" class="row"> <!-- may get no-gutter class on xs -->
   <!-- overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. -->
   <div class="t-span6 col-xs-12 col-sm-6 col-md-5 col-lg-4">
-  <div class="tabbable"> <!-- Only required for left/right tabs -->
+  <div class="tabbable"
+    style="background-color:white"
+  > <!-- Only required for left/right tabs -->
     {{view conversationTabs}}
 
 
@@ -91,3 +95,4 @@
 
 </div> <!-- row -->
 </section>
+</div>

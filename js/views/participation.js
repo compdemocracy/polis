@@ -55,6 +55,11 @@ module.exports =  ConversationView.extend({
       this.vis.emphasizeParticipants.apply(this, arguments);
     }
   },
+  context: function() {
+    var ctx = ConversationView.prototype.context.apply(this, arguments);
+    ctx.use_background_content_class = display.xs();
+    return ctx;
+  },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
