@@ -156,8 +156,6 @@ module.exports = Handlebones.ModelView.extend({
     });
     
     this.$el.on("click", function(e) {
-      e.preventDefault();
-      console.dir(e.target);
       var id = e.target.id;
       if (id === "agreeButton") {
         that.participantAgreed();
@@ -169,7 +167,11 @@ module.exports = Handlebones.ModelView.extend({
         that.participantStarred();
       } else if (id === "passButton") {
         that.participantPassed();
+      } else {
+        return;
       }
+      e.preventDefault();
+      return false;
     });
 
     pollForComments(); // call immediately
