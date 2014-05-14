@@ -203,6 +203,7 @@ CREATE TABLE comments(
     created BIGINT DEFAULT now_as_millis(),
     txt VARCHAR(1000) NOT NULL,
     velocity REAL NOT NULL DEFAULT 1,
+    moderation_count INTEGER NOT NULL DEFAULT 0, -- counts the number of times a user has performed a moderation task, like "accept" or "reject"
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
 

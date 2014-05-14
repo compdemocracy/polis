@@ -57,6 +57,32 @@ var badwords = require('badwords/object'),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
     _ = require('underscore');
 
+var akismet = require('akismet').client({
+    blog: 'https://pol.is',  // required: your root level url
+    apiKey: process.env["AKISMET_ANTISPAM_API_KEY"]
+});
+
+akismet.verifyKey(function(err, verified) {
+  if (verified) 
+    console.log('Akismet: API key successfully verified.');
+  else 
+    console.log('Akismet: Unable to verify API key.');
+});
+
+
+function isSpam(o) {
+    return new Promise(function(resolve, reject) {
+        akismet.checkSpam(o, function(err, spam) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(spam);
+            }
+        });
+    });
+}
+
+
 app.disable('x-powered-by'); // save a whale
 
 // airbrake.handleExceptions();
@@ -2445,6 +2471,7 @@ function(req, res) {
             var rows = docs.rows;
 
             if (req.p.moderation) {
+                cols.push("moderation_count");
                 cols.push("velocity");
                 cols.push("zid");
             } else {
@@ -2511,7 +2538,7 @@ function failWithRetryRequest(res) {
     res.writeHead(500).send(57493875);
 }
 
-function sendCommentModerationEmail(uid, zid, tid, commentTxt) {
+function sendCommentModerationEmail(uid, zid, tid, commentTxt, classifications) {
     var body = "Muted comment:" +
         "\n" +
         commentTxt + "\n" +
@@ -2522,6 +2549,8 @@ function sendCommentModerationEmail(uid, zid, tid, commentTxt) {
         "Click this URL to unmute the comment:\n" +
         "\n" +
         createUnmuteUrl(zid, tid) + "\n" +
+        "- - - - - - - - - - - - - \n" +   
+        " (classified as " + JSON.stringify(classifications) + ")\n" +
         "- - - - - - - - - - - - - \n" +        
         "\n";
 
@@ -2564,11 +2593,28 @@ function changeCommentVelocity(zid, tid, velocity) {
     });
 }
 
+function incrementCommentModerationPendingStatus(zid, tid) {
+    return new Promise(function(resolve, reject) {
+        client.query("UPDATE COMMENTS SET moderation_count=moderation_count+1 WHERE zid=($1) and tid=($2);", [zid, tid], function(err) {
+            if (err) {
+                reject(new Error("polis_err_change_comment_moderation_count_failed"));
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+
 function muteComment(zid, tid) {
-    return changeCommentVelocity(zid, tid, 0);
+    return changeCommentVelocity(zid, tid, 0).then(function() {
+        return incrementCommentModerationPendingStatus(zid, tid);
+    });
 }
 function unmuteComment(zid, tid) {
-    return changeCommentVelocity(zid, tid, 1);
+    return changeCommentVelocity(zid, tid, 1).then(function() {
+        return incrementCommentModerationPendingStatus(zid, tid);
+    });
 }
 
 function getComment(zid, tid) {
@@ -2670,6 +2716,9 @@ function hasBadWords(txt) {
     return false;
 }
 
+
+
+
 app.post("/v3/comments",
     auth(assignToP),
     need('zid', getInt, assignToP),
@@ -2677,39 +2726,80 @@ app.post("/v3/comments",
     want('vote', getIntInRange(-1, 1), assignToP),
 function(req, res) {
     var zid = req.p.zid;
+    var uid = req.p.uid;
     var txt = req.p.txt;
     var vote = req.p.vote;
 
-    getPid(req.p.zid, req.p.uid, function(err, pid) {
+    var ip = 
+        req.headers['x-forwarded-for'] ||  // TODO This header may contain multiple IP addresses. Which should we report?
+        req.connection.remoteAddress || 
+        req.socket.remoteAddress ||
+        req.connection.socket.remoteAddress;
+    
+    var isSpamPromise = isSpam({
+        comment_content: txt,
+        comment_author: uid,
+        permalink: 'https://pol.is/' + zid,
+        user_ip: ip,
+        user_agent: req.headers['user-agent'],
+        referrer: req.headers['referer'],
+    });
+    isSpamPromise.catch(function(err) {
+        console.error("isSpam failed");
+        console.dir(err);
+    });
+    // var isSpamPromise = Promise.resolve(false);
+
+    getPid(zid, uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
  
         var bad = hasBadWords(txt);
-        var velocity = bad ? 0 : 1;
-        client.query(
-            "INSERT INTO COMMENTS (tid, pid, zid, txt, velocity, created) VALUES (null, $1, $2, $3, $4, default) RETURNING tid;",
-            [pid, zid, txt, velocity],
-            function(err, docs) {
-                if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
-                docs = docs.rows;
-                var tid = docs && docs[0] && docs[0].tid;
+        isSpamPromise.then(function(spammy) {
+            console.log("spam test says: " + txt + " " + (spammy?"spammy":"not_spammy"));
+            return spammy;
+        }, function(err) {
+            console.error("spam check failed");
+            console.dir(err);
+            return false; // spam check failed, continue assuming "not spammy".
+        }).then(function(spammy) {
+            var velocity = 1;
+            var moderation_count = 0;
+            var classifications = [];
+            if (bad) {
+                velocity = 0;
+                classifications.push("bad");
+            }
+            if (spammy) {
+                velocity = 0;
+                classifications.push("spammy");
+            }
 
-                if (bad) {
-                    // send to mike for moderation
-                    sendCommentModerationEmail(125, zid, tid, txt);
-                }
+            client.query(
+                "INSERT INTO COMMENTS (tid, pid, zid, txt, velocity, moderation_count, created) VALUES (null, $1, $2, $3, $4, $5, default) RETURNING tid;",
+                [pid, zid, txt, velocity, moderation_count],
+                function(err, docs) {
+                    if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
+                    docs = docs.rows;
+                    var tid = docs && docs[0] && docs[0].tid;
 
-                var autoVotePromise = _.isUndefined(vote) ?
-                    Promise.resolve() :
-                    votesPost(pid, zid, tid, vote);
+                    if (bad || spammy) {
+                        // send to mike for moderation
+                        sendCommentModerationEmail(125, zid, tid, txt, classifications);
+                    }
 
-                autoVotePromise.then(function() {
-                    res.json({
-                        tid: tid,
+                    var autoVotePromise = _.isUndefined(vote) ?
+                        Promise.resolve() :
+                        votesPost(pid, zid, tid, vote);
+
+                    autoVotePromise.then(function() {
+                        res.json({
+                            tid: tid,
+                        });
+                    }, function(err) {
+                        fail(res, 500, "polis_err_vote_on_create", err);
                     });
-                }, function(err) {
-                    fail(res, 500, "polis_err_vote_on_create", err);
-                });
-            }); // insert
+                }); // insert
+        });
     });
 
         //var rollback = function(client) {

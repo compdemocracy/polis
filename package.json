@@ -39,6 +39,7 @@
     "intercom.io": "0.0.5",
     "es6-promise": "~0.1.1",
     "badwords": "0.0.3",
-    "stripe": "~2.5.0"
+    "stripe": "~2.5.0",
+    "akismet": "0.0.11"
   }
 }
