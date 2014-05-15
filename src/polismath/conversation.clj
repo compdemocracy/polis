@@ -144,23 +144,6 @@
 
 
 
-
-
-(def unused-conv-targets
-  (merge
-   small-conv-update-graph
-   {
-    :repness     ; NOTE - repness is calculated on the client
-          (plmb/fnk [rating-mat group-clusters base-clusters]
-            (sort-by :id
-             (if (> (count group-clusters) 1)
-               (conv-repness
-                rating-mat
-                group-clusters
-                base-clusters))))
-    }))
-
-
 (defn partial-pca
   [mat pca indices & {:keys [n-comps iters learning-rate]
                       :or {n-comps 2 iters 10 learning-rate 0.01}}]
