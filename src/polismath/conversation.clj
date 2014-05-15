@@ -55,7 +55,6 @@
   "Base of all conversation updates; handles default update opts and does named matrix updating"
   {:opts'       (plmb/fnk [opts]
                   "Merge in opts with the following defaults"
-                  (println "\nStarting new conv update!")
                   (merge {:n-comps 2
                           :pca-iters 10
                           :base-iters 10
@@ -71,7 +70,36 @@
    :n           (plmb/fnk [rating-mat]
                   "count the participants"
                   (time2 "counting-ptpts"
-                  (count (:rows rating-mat))))})
+                    (count (:rows rating-mat))))
+
+   :n-cmts      (plmb/fnk [rating-mat]
+                  "count comments"
+                  (time2 "counting-comments"
+                    (count (:cols rating-mat))))
+
+   :user-vote-counts
+                (plmb/fnk [rating-mat votes]
+                  "This counts the number of actual votes each user has"
+                  (time2 "user-vote-count"
+                    (mapv
+                      (fn [rowname row] [rowname (count (remove nil? row))])
+                      (:rows rating-mat)
+                      (:matrix rating-mat))))
+
+   :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
+                  "This keeps track of which ptpts are in the conversation (to be considered
+                  for base-clustering) based on home many votes they have. Once a ptpt is in,
+                  they will remain in."
+                  (let [last-in (or (:in-conv conv) #{})]
+                    (into last-in
+                      (map first
+                        (filter
+                          (fn [[rowname cnt]]
+                            ; We only start looking at a ptpt if they have rated either all the comments or at
+                            ; least 7 if there are more than 7
+                            (> cnt (min 7 n-cmts)))
+                          user-vote-counts)))))
+                         })
 
 
 (def small-conv-update-graph
@@ -81,12 +109,11 @@
      {:mat (plmb/fnk [rating-mat]
              "swap nils for zeros - most things need the 0s, but repness needs the nils"
              (time2 "mat"
-              (greedy
-              (map (fn [row] (map #(if (nil? %) 0 %) row))
-                   (:matrix rating-mat)))))
+               (greedy
+               (map (fn [row] (map #(if (nil? %) 0 %) row))
+                 (:matrix rating-mat)))))
 
       :pca (plmb/fnk [conv mat opts']
-             ;(println "XXXXX" (type mat) mat)
              (time2 "pca"
                (wrapped-pca mat (:n-comps opts')
                             :start-vectors (get-in conv [:pca :comps])
@@ -96,14 +123,16 @@
               (time2 "proj" (pca-project mat pca)))
 
       :base-clusters
-            (plmb/fnk [conv rating-mat proj opts']
+            (plmb/fnk [conv rating-mat proj in-conv opts']
               (time2 "base-clusters"
                 (greedy
-                (sort-by :id
-                  (kmeans (assoc rating-mat :matrix proj)
-                    (:base-k opts')
-                    :last-clusters (:base-clusters conv)
-                    :cluster-iters (:base-iters opts'))))))
+                (let [proj-mat (assoc rating-mat :matrix proj)
+                      in-conv-mat (rowname-subset proj-mat in-conv)]
+                  (sort-by :id
+                    (kmeans in-conv-mat
+                      (:base-k opts')
+                      :last-clusters (:base-clusters conv)
+                      :cluster-iters (:base-iters opts')))))))
 
        :group-clusters
             (plmb/fnk [conv rating-mat base-clusters opts']
@@ -126,7 +155,6 @@
        ;;; where the indices in the arrays are bids
        :votes-base (plmb/fnk [bid-to-pid rating-mat]
                      (time2 "votes-base"
-                       (greedy
                        (let [tids (:cols rating-mat)]
                          (reduce
                            (fn [o entry]
@@ -138,7 +166,7 @@
                                {:tid tid
                                 :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
                                 :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)})
-                             tids))))))
+                             tids)))))
        ; End of large-update
        }))
 
@@ -192,6 +220,7 @@
 (defn conv-update [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 1000}
                                  :as opts}]
+  (println "\nStarting new conv update!")
   (try
     (let [ptpts   (:rows (:rating-mat conv))
           n-ptpts (count (distinct (into ptpts (map :pid votes))))]
@@ -201,7 +230,8 @@
          (> n-ptpts 9999999999)   large-conv-update
          :else             small-conv-update)
             {:conv conv :votes votes :opts opts}))
-    (catch Exception e 
+    (catch Exception e
+      ; XXX - hmm... have to figure out how to deal with this hook in production
       (println "Update Failure:" (.getMessage e))
       (dump-edn {:conv conv :votes votes :opts opts :error (str e)})
       (throw e))))
