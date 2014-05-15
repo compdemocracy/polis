@@ -120,3 +120,12 @@
       (time2 "CONVUP big-part" (conv-update b2 (random-votes big-ptpts big-comments :n-votes 100))))))
 
 
+(defn load-conv [filename]
+  (let [data (load-conv-edn filename)
+        {:keys [conv votes opts]} data
+        {:keys [rating-mat base-clusters pca]} conv]
+    (println "Loaded conv:" filename)
+    (println "Dimensions:" (count (:rows rating-mat)) "x" (count (:cols rating-mat)))
+    (conv-update conv votes)))
+
+

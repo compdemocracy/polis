@@ -4,6 +4,7 @@
             [clojure.core.matrix :as matrix]
             [clojure.tools.trace :as tr]
             [clojure.math.numeric-tower :as math]
+            [clojure.tools.reader.edn :as edn]
             [bigml.sampling.simple :as sampling])
   (:use polismath.utils
         polismath.pca
@@ -219,7 +220,11 @@
             {:conv conv :votes votes :opts opts}))
     (catch Exception e 
       (println "Update Failure:" (.getMessage e))
-      (dump-edn {:conv conv :votes votes :opts opts :e e})
+      (dump-edn {:conv conv :votes votes :opts opts :error (str e)})
       (throw e))))
+
+
+(defn load-conv-edn [filename]
+  (edn/read-string (slurp filename)))
 
 
