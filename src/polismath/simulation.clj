@@ -100,24 +100,23 @@
           (println zid \newline))))))
 
 
-;(defn -main [& args]
-  ;(println "Starting simulations")
-  ;(let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
-    ;(cond
-      ;(:help options)   (exit 0 (usage summary))
-      ;(:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
-      ;true              (endlessly-sim options))))
-
-
-;(defn basic-test []
 (defn -main [& args]
-  (let [big-ptpts    10000
+  (println "Starting simulations")
+  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    (cond
+      (:help options)   (exit 0 (usage summary))
+      (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
+      true              (endlessly-sim options))))
+
+
+(defn play [& args]
+  (let [big-ptpts    5000
         big-comments 10
         a  (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
         b  (time2 "CONVUP med" (conv-update a (random-votes 500 10)))
         b2 (time2 "CONVUP big" (conv-update b (random-votes big-ptpts big-comments)))]
     (profile :info :clusters
-      (time2 "CONVUP big-part" (conv-update b2 (random-votes big-ptpts big-comments :n-votes 100))))))
+      (time2 "CONVUP big-part" (conv-update b2 (random-votes big-ptpts (+ big-comments 2) :n-votes 100))))))
 
 
 (defn load-conv [filename]
