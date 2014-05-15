@@ -1,7 +1,10 @@
 (ns polismath.simulation
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.string :as string])
+            [clojure.string :as string]
+            [taoensso.timbre.profiling :as profiling
+              :refer (pspy pspy* profile defnp p p*)])
   (:use polismath.utils
+        alex-and-georges.debug-repl
         polismath.named-matrix
         polismath.conversation
         clj-time.coerce
@@ -47,8 +50,8 @@
 
 
 (defn exit [status msg]
-    (println msg)
-    (System/exit status))
+  (println msg)
+  (System/exit status))
 
 
 (def cli-options
@@ -71,11 +74,17 @@
    (string/join \newline)))
 
 
+(defn pretty-conv [conv]
+  (debug-repl)
+  conv)
+
+
 (defn endlessly-sim [opts]
   (let [simulator (atom (make-vote-gen opts))
         conversations (atom {})
         vote-rate (:vote-rate opts)]
     (endlessly (:poll-interval opts)
+      (println \newline "POLLING!")
       (let [new-votes (take vote-rate @simulator)
             split-votes (group-by :zid new-votes)]
         (swap! simulator #(drop vote-rate %))
@@ -83,8 +92,12 @@
           (swap! conversations
             (fn [convs]
               (assoc convs zid
-                (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes))))
-          (println \newline (@conversations zid)))))))
+                (let [updated
+                       (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)]
+                  (println "updated")
+                  (println (keys (updated)))
+                  updated))))
+          (println zid \newline))))))
 
 
 (defn -main [& args]
@@ -96,19 +109,22 @@
       true              (endlessly-sim options))))
 
 
+(defn play [& args]
+  (let [big-ptpts    5000
+        big-comments 10
+        a  (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
+        b  (time2 "CONVUP med" (conv-update a (random-votes 500 10)))
+        b2 (time2 "CONVUP big" (conv-update b (random-votes big-ptpts big-comments)))]
+    (profile :info :clusters
+      (time2 "CONVUP big-part" (conv-update b2 (random-votes big-ptpts (+ big-comments 2) :n-votes 100))))))
 
-(defn basic-test []
-  (let [
-      a (time2 "conv-update  a  1000" (conv-update {:rating-mat (named-matrix)} (random-votes 600 10)))
-      b (time2 "conv-update  b  5000" (conv-update {:rating-mat (named-matrix)} (random-votes 5000 10)))
-      b2 (time2 "conv-update b2 5000*10+100*1" (conv-update b (random-votes 100 1)))
-      b3 (time2 "conv-update b3 5000*10+5000*10" (conv-update b2 (random-votes 5000 10)))            
-    ]
-  (println (keys a))
-  (println (keys b))
-  ))
 
-                                        ;  (pprint (sorted-map-by #(< (:id %1) (:id %2)) (:base-clusters b)))
-;  (pprint (group-by :id (:base-clusters b)))
-;  (pprint (map :members (sort-by :id (:base-clusters b))))  
-  
+(defn load-conv [filename]
+  (let [data (load-conv-edn filename)
+        {:keys [conv votes opts]} data
+        {:keys [rating-mat base-clusters pca]} conv]
+    (println "Loaded conv:" filename)
+    (println "Dimensions:" (count (:rows rating-mat)) "x" (count (:cols rating-mat)))
+    (conv-update conv votes)))
+
+

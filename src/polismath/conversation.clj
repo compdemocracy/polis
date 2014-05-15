@@ -4,6 +4,7 @@
             [clojure.core.matrix :as matrix]
             [clojure.tools.trace :as tr]
             [clojure.math.numeric-tower :as math]
+            [clojure.tools.reader.edn :as edn]
             [bigml.sampling.simple :as sampling])
   (:use polismath.utils
         polismath.pca
@@ -60,12 +61,45 @@
                           :base-k 50
                           :group-iters 10}
                     opts))
+
    :rating-mat  (plmb/fnk [conv votes]
+                  (time2 "rating-mat"
                   (update-nmat (:rating-mat conv)
-                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes))))
+
    :n           (plmb/fnk [rating-mat]
                   "count the participants"
-                  (count (:rows rating-mat)))})
+                  (time2 "counting-ptpts"
+                    (count (:rows rating-mat))))
+
+   :n-cmts      (plmb/fnk [rating-mat]
+                  "count comments"
+                  (time2 "counting-comments"
+                    (count (:cols rating-mat))))
+
+   :user-vote-counts
+                (plmb/fnk [rating-mat votes]
+                  "This counts the number of actual votes each user has"
+                  (time2 "user-vote-count"
+                    (mapv
+                      (fn [rowname row] [rowname (count (remove nil? row))])
+                      (:rows rating-mat)
+                      (:matrix rating-mat))))
+
+   :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
+                  "This keeps track of which ptpts are in the conversation (to be considered
+                  for base-clustering) based on home many votes they have. Once a ptpt is in,
+                  they will remain in."
+                  (let [last-in (or (:in-conv conv) #{})]
+                    (into last-in
+                      (map first
+                        (filter
+                          (fn [[rowname cnt]]
+                            ; We only start looking at a ptpt if they have rated either all the comments or at
+                            ; least 7 if there are more than 7
+                            (> cnt (min 7 n-cmts)))
+                          user-vote-counts)))))
+                         })
 
 
 (def small-conv-update-graph
@@ -75,8 +109,9 @@
      {:mat (plmb/fnk [rating-mat]
              "swap nils for zeros - most things need the 0s, but repness needs the nils"
              (time2 "mat"
-              (map (fn [row] (map #(if (nil? %) 0 %) row))
-                   (:matrix rating-mat))))
+               (greedy
+               (map (fn [row] (map #(if (nil? %) 0 %) row))
+                 (:matrix rating-mat)))))
 
       :pca (plmb/fnk [conv mat opts']
              (time2 "pca"
@@ -88,26 +123,31 @@
               (time2 "proj" (pca-project mat pca)))
 
       :base-clusters
-            (plmb/fnk [conv rating-mat proj opts']
+            (plmb/fnk [conv rating-mat proj in-conv opts']
               (time2 "base-clusters"
-                (sort-by :id
-                  (kmeans (assoc rating-mat :matrix proj)
-                    (:base-k opts')
-;                    :last-clusters (:base-clusters conv)
-                    :cluster-iters (:base-iters opts')))))
+                (greedy
+                (let [proj-mat (assoc rating-mat :matrix proj)
+                      in-conv-mat (rowname-subset proj-mat in-conv)]
+                  (sort-by :id
+                    (kmeans in-conv-mat
+                      (:base-k opts')
+                      :last-clusters (:base-clusters conv)
+                      :cluster-iters (:base-iters opts')))))))
 
        :group-clusters
             (plmb/fnk [conv rating-mat base-clusters opts']
               (time2 "group-clusters"
+                (greedy
                 (sort-by :id
                   (kmeans (xy-clusters-to-nmat2 base-clusters)
                     (choose-group-k base-clusters)
- ;                   :last-clusters (:group-clusters conv)
-                    :cluster-iters (:group-iters opts')))))
+                    :last-clusters (:group-clusters conv)
+                    :cluster-iters (:group-iters opts'))))))
 
        :bid-to-pid (plmb/fnk [base-clusters]
                      (time2 "bid-to-pid"
-                       (map :members (sort-by :id base-clusters))))
+                      (greedy
+                       (map :members (sort-by :id base-clusters)))))
 
        ;;; returns {tid {
        ;;;           :agree [0 4 2 0 6 0 0 1]
@@ -129,20 +169,6 @@
                              tids)))))
        ; End of large-update
        }))
-
-(def unused-conv-targets
-  (merge
-   small-conv-update-graph
-   {
-    :repness     ; NOTE - repness is calculated on the client
-          (plmb/fnk [rating-mat group-clusters base-clusters]
-            (sort-by :id
-             (if (> (count group-clusters) 1)
-               (conv-repness
-                rating-mat
-                group-clusters
-                base-clusters))))
-    }))
 
 
 (defn partial-pca
@@ -186,15 +212,31 @@
 (def large-conv-update (graph/eager-compile large-conv-update-graph))
 
 
+(defn dump-edn [data]
+  (spit (str "errorconv." (. System (nanoTime)) ".edn")
+    (prn-str data)))
+
 (defn conv-update [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 1000}
                                  :as opts}]
-  (let [ptpts   (time2 "ptpts" (:row (:rating-mat conv)))
-        n-ptpts (time2 "n-ptpts" (count (distinct (into ptpts (map :pid votes)))))]
-    ; dispatch to the appropriate function
-    ((cond
-       (> n-ptpts 9999999999)   large-conv-update
-       :else             small-conv-update)
-          {:conv conv :votes votes :opts opts})))
+  (println "\nStarting new conv update!")
+  (try
+    (let [ptpts   (:rows (:rating-mat conv))
+          n-ptpts (count (distinct (into ptpts (map :pid votes))))]
+      (println "N-ptpts:" n-ptpts)
+      ; dispatch to the appropriate function
+      ((cond
+         (> n-ptpts 9999999999)   large-conv-update
+         :else             small-conv-update)
+            {:conv conv :votes votes :opts opts}))
+    (catch Exception e
+      ; XXX - hmm... have to figure out how to deal with this hook in production
+      (println "Update Failure:" (.getMessage e))
+      (dump-edn {:conv conv :votes votes :opts opts :error (str e)})
+      (throw e))))
+
+
+(defn load-conv-edn [filename]
+  (edn/read-string (slurp filename)))
 
 

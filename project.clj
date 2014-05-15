@@ -14,6 +14,8 @@
   ]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
                  [cheshire "5.3.1"]
+                 [org.clojure/tools.reader "0.8.4"]
+                 [com.taoensso/timbre "3.1.6"]
                  [net.mikera/core.matrix "0.19.0"]
                  [net.mikera/core.matrix.stats "0.3.0"]
                  [net.mikera/vectorz-clj "0.19.0"]

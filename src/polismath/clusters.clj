@@ -1,4 +1,6 @@
 (ns polismath.clusters
+  (:require [taoensso.timbre.profiling :as profiling
+             :refer (pspy pspy* profile defnp p p*)])
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
         polismath.named-matrix
@@ -65,17 +67,20 @@
     (filter #(> (count (:members %)) 0))))
 
 
-(defn recenter-clusters [data clusters]
+(defnp recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
+  (greedy
   (map
     #(assoc % :center (mean (matrix (:matrix (rowname-subset data (:members %))))))
-    clusters))
+    clusters)))
 
-
-(defn safe-recenter-clusters [data clusters]
+(use 'alex-and-georges.debug-repl)
+(require '[clojure.tools.trace :as tr])
+(defnp safe-recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
   (as-> clusters clsts
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
+    (p :safe-recenter-map (greedy
     (map
       (fn [clst]
         (let [rns (safe-rowname-subset data (:members clst))]
@@ -83,6 +88,7 @@
             nil
             (assoc clst :center (mean (matrix (:matrix rns)))))))
       clsts)
+      ))
     ; Remove the nils, they break the math
     (remove nil? clsts)
     ; If nothing is left, make one great big cluster - so that things don't break in most-distal later
@@ -91,7 +97,9 @@
       [{:id (inc (apply max (map :id clusters)))
         :members (:rows data)
         :center (mean (matrix (:matrix data)))}]
-      clsts)))
+      clsts)
+    ; XXX - for profiling
+    (greedy clsts)))
 
 
 (defn merge-clusters [clst1 clst2]
@@ -102,7 +110,7 @@
      :center (mean (map :center [clst1 clst2]))}))
 
 
-(defn most-distal [data clusters]
+(defnp most-distal [data clusters]
   "Finds the most distal point in all clusters"
   (let [[dist clst-id id]
           ; find the maximum dist, clst-id, mem-id triple
@@ -124,12 +132,12 @@
     (fn [clusters clst]
       (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
         (if identical-clst
-          (assoc clusters (.indexOf clusters identical-clst) (merge-clusters identical-clst clst))
+          (assoc clusters (typed-indexof clusters identical-clst) (merge-clusters identical-clst clst))
           (conj clusters clst))))
     [] clusters))
 
 
-(defn clean-start-clusters [data clusters k]
+(defnp clean-start-clusters [data clusters k]
   "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
@@ -148,6 +156,7 @@
             (if (> (:dist outlier) 0)
               ; There is work to be done, so do it
               (recur
+              (p :usr/inner-clean
                 (->
                   ; first remove the most distal point from the cluster it was in;
                   (map
@@ -158,7 +167,7 @@
                   ; next add a new cluster containing only said point.
                   (conj {:id (inc (apply max (map :id clusters)))
                          :members [(:id outlier)]
-                         :center (get-row-by-name data (:id outlier))})))
+                         :center (get-row-by-name data (:id outlier))}))))
               ; Else just return recentered clusters
               clusters))
           ; Else just return recentered clusters
@@ -166,7 +175,7 @@
 
  
 ; Each cluster should have the shape {:id :members :center}
-(defn kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
+(defnp kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   "Performs a k-means clustering."
   (let [data-iter (zip (:rows data) (matrix (:matrix data)))
         clusters  (if last-clusters
