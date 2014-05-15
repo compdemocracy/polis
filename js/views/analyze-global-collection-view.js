@@ -7,6 +7,9 @@ var Handlebones = require("handlebones");
 module.exports = Handlebones.CollectionView.extend({
   modelView: AnalyzeCommentView,
   visibleTids: [],
+  groupInfo: function() {
+    return this.parent.groupInfo();
+  },
   modelFilter: function(model, index) {
     var searchString = this.parent.searchString;
     var visibleTids = this.visibleTids;

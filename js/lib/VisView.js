@@ -427,8 +427,6 @@ function handleOnClusterClicked(hullId) {
       return resetSelection();
     }
 
-    $("#analyzeTab").tab("show");
-    eb.trigger(eb.clusterClicked, hullId);
 
     // resetSelectedComment();
     // unhoverAll();
@@ -436,6 +434,8 @@ function handleOnClusterClicked(hullId) {
         .then(
             updateHulls,
             updateHulls);
+
+    eb.trigger(eb.clusterClicked, hullId);
 
     updateHullColors();
 
@@ -1625,6 +1625,10 @@ eb.on(eb.vote, function() {
 
 // setTimeout(selectBackground, 1);
 
+function getSelectedGid() {
+    return selectedCluster;
+}
+
 return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
@@ -1632,6 +1636,7 @@ return {
     selectComment: selectComment,
     // dipsplayBlueDotHelpItem: displayHelpItem,
     emphasizeParticipants: emphasizeParticipants,
+    getSelectedGid: getSelectedGid,
 };
 
 };

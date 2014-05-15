@@ -295,8 +295,10 @@ module.exports =  ConversationView.extend({
 
 
 
-      that.allCommentsCollection.doFetch().then(function() {
-        that.analyzeGlobalView.sortAgree();
+      that.allCommentsCollection.doFetch({
+        gid: that.selectedGid
+      }).then(function() {
+        that.analyzeGlobalView.sort();
       });
       
 

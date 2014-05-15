@@ -102,26 +102,38 @@ module.exports = Handlebones.View.extend({
   searchEnabled: true,
   sortEnabled: true,
 
+  groupInfo: function() {
+    return this.parent.groupInfo();
+  },
 
+  // sort with the current comparator
+  sort: function() {
+    this.collection.sort();
+    this.selectFirst();
+  },
   sortAgree: function(e) {
+    this.analyzeCollectionView.groupMode = false;
     this.collection.comparator = comparatorAgree;
     this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
+    this.analyzeCollectionView.groupMode = false;
     this.collection.comparator = comparatorDisagree;
     this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
   sortDivisive: function(e) {
+    this.analyzeCollectionView.groupMode = false;
     this.collection.comparator = comparatorDivisive;
     this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortDivisive");
   },
   sortRepness: function(e) {
+    this.analyzeCollectionView.groupMode = true;
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
     this.collection.sort();
@@ -241,6 +253,8 @@ module.exports = Handlebones.View.extend({
           that.sortEnabled = false;
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
+
+            that.analyzeCollectionView.groupMode = true;
             that.tidsForGroup = o.tids;
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
@@ -254,11 +268,15 @@ module.exports = Handlebones.View.extend({
           });
         }
       });
-    }
+    } // End doFetch
+
     if (!_.isUndefined(options.gid)) {
       doFetch(options.gid);
     } else {
-      eb.on(eb.clusterClicked, doFetch);
+      eb.on(eb.clusterClicked, function(gid) {
+        that.analyzeCollectionView.groupMode = false;
+        doFetch(gid);
+      });
     }
   }
 });

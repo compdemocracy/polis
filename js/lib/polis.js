@@ -70,6 +70,7 @@ module.exports = function(params) {
 
     var projectionPeopleCache = [];
     var clustersCache = [];
+    var selectedGid = -1;
 
     var tidSubsetForReprojection = [];
 
@@ -1231,7 +1232,7 @@ function clientSideBaseCluster(things, N) {
 
     function getFancyComments(options) {
         return $.when(getComments(options), votesForTidBidPromise).then(function(args /* , dont need second arg */) {
-            
+
             var comments = args[0];
             // don't need args[1], just used as a signal
 
@@ -1653,7 +1654,59 @@ function clientSideBaseCluster(things, N) {
         return buckets;
     }
 
+    function getSelectedGroupInfo() {
+        if (selectedGid === -1) {
+            return {count: 0, votes: {A:[],D:[],gA:0,gD:0}};
+        }
+        var count = 0;
+        if (clustersCache[selectedGid]) {
+            _.each(clustersCache[selectedGid], function(bid, gid) {
+                count += projectionPeopleCache[bid].count;
+            });
+        }
+
+
+        var votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
+
+        // YUK - Checking the state of a promise like this is crappy.
+        // TODO refactor so we're pushing the data towards the views, instead
+        // of having the views request data in their context method, which leads
+        // to asking for things synchronously.
+        if(votesForTidBidPromise.state() === "resolved" &&
+            clustersCachePromise.state() === "resolved") {
+
+            var group = clustersCache[selectedGid];
+            var inGroup = {};
+            for (var i = 0; i < group.length; i++) {
+                inGroup[group[i]] = true;
+            }
+            
+            votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
+
+            _.each(votesForTidBid, function(bidToVote, tid) {
+                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid] = {
+                    gA: bidToVote.A.map(function(votes, bid) {
+                        return inGroup[bid] ? votes : 0;
+                    }),
+                    gD: bidToVote.D.map(function(votes, bid) {
+                        return inGroup[bid] ? votes : 0;
+                    })
+                };
+                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA_total = sum(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA),
+                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD)
+            });
+        }
+
+        return {
+            count: count,
+            votes: votesForTidBidWhereVotesOutsideGroupAreZeroed
+        };
+    }
+    
     findRepresentativeMetadata();
+    eb.on(eb.clusterClicked, function(gid) {
+        selectedGid = gid;
+    });
 
     return {
         authenticated: authenticated,
@@ -1661,6 +1714,7 @@ function clientSideBaseCluster(things, N) {
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForGroup: getCommentsForGroup,
         getTidsForGroup: getTidsForGroup,
+        getSelectedGroupInfo: getSelectedGroupInfo,
         getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,
         getPidToBidMapping: getPidToBidMappingFromCache,

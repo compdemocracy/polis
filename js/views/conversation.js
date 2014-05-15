@@ -12,6 +12,11 @@ var VotesCollection = require("../collections/votes");
 
 module.exports = Handlebones.ModelView.extend({
 
+
+  groupInfo: function() {
+    return this.serverClient.getSelectedGroupInfo();
+  },
+
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
     if (this.pid < 0) {
@@ -40,6 +45,8 @@ module.exports = Handlebones.ModelView.extend({
     popoverEach("destroy");
   },
   onClusterTapped : function(gid) {
+    this.selectedGid = gid;
+
     this.destroyPopovers();
     var that = this;
       // if (window.isMobile()) {
@@ -102,9 +109,10 @@ module.exports = Handlebones.ModelView.extend({
       });
     };
 
-    this.allCommentsCollection.fetch = this.allCommentsCollection.doFetch = function() {
+    this.allCommentsCollection.fetch = this.allCommentsCollection.doFetch = function(o) {
       var thatCollection = this;
       var params = {
+        gid: o.gid,
         zid: zid
       };
       var promise = Backbone.Collection.prototype.fetch.call(this, {

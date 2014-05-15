@@ -79,9 +79,10 @@ module.exports =  Handlebones.ModelView.extend({
     var is_public = this.model.get("is_public");
     var vis;
 
-    function doFetch() {
+    function doFetch(o) {
       var thatCollection = this;
       var params = {
+        gid: o.gid,
         zid: zid
       };
       var promise = Backbone.Collection.prototype.fetch.call(this, {

@@ -21,5 +21,16 @@ module.exports = Handlebones.ModelView.extend({
       }
       // rendered: function() {
       // }
+    },
+    context: function() {
+      var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+      ctx.groupMode = this.parent.groupMode;
+      var groupInfo = this.parent.groupInfo();
+      ctx.gTotal = groupInfo.count;
+      var tidInfo = groupInfo.votes[ctx.tid];
+      ctx.gA_total = tidInfo && tidInfo.gA_total;
+      ctx.gPercent = (ctx.gA_total / ctx.gTotal * 100) >> 0;
+
+      return ctx;
     }
 });

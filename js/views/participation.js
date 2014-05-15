@@ -37,6 +37,7 @@ module.exports =  ConversationView.extend({
   template: template,
   events: {
   },
+  
   onAnalyzeTabPopulated: function() {
     $('.query_result_item').first().trigger('click');
   },
@@ -68,6 +69,13 @@ module.exports =  ConversationView.extend({
     var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
+
+
+    eb.on(eb.clusterClicked, function() {
+      $("#analyzeTab").tab("show");
+      that.onClusterTapped.apply(that, arguments);
+    });
+    eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
 
 
     this.conversationStatsHeader = new ConversationStatsHeader();
@@ -301,9 +309,6 @@ module.exports =  ConversationView.extend({
       that.destroyPopovers();
     });
 
-    eb.on(eb.clusterClicked, this.onClusterTapped.bind(this));
-    eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
-
 
     that.conversationTabs.on("beforeshow:write", function() {
       if (shouldHideVisWhenWriteTabShowing()) {
@@ -324,8 +329,10 @@ module.exports =  ConversationView.extend({
       if (shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
-      that.allCommentsCollection.doFetch().then(function() {
-        that.analyzeGlobalView.sortAgree();
+      that.allCommentsCollection.doFetch({
+        gid: that.selectedGid
+      }).then(function() {
+        that.analyzeGlobalView.sort();
       });
       // that.analyzeGlobalView.showCarousel();
     });
