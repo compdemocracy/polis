@@ -112,28 +112,36 @@ module.exports = Handlebones.View.extend({
     this.selectFirst();
   },
   sortAgree: function(e) {
-    this.analyzeCollectionView.groupMode = false;
+    if (this.analyzeCollectionView) {
+      this.analyzeCollectionView.groupMode = false;
+    }
     this.collection.comparator = comparatorAgree;
     this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
-    this.analyzeCollectionView.groupMode = false;
+    if (this.analyzeCollectionView) {
+      this.analyzeCollectionView.groupMode = false;
+    }
     this.collection.comparator = comparatorDisagree;
     this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
   sortDivisive: function(e) {
-    this.analyzeCollectionView.groupMode = false;
+    if (this.analyzeCollectionView) {
+      this.analyzeCollectionView.groupMode = false;
+    }
     this.collection.comparator = comparatorDivisive;
     this.collection.sort();
     this.selectFirst();
     this.selectSortModes("#sortDivisive");
   },
   sortRepness: function(e) {
-    this.analyzeCollectionView.groupMode = true;
+    if (this.analyzeCollectionView) {
+      this.analyzeCollectionView.groupMode = true;
+    }
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
     this.collection.sort();
@@ -254,11 +262,13 @@ module.exports = Handlebones.View.extend({
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
 
-            that.analyzeCollectionView.groupMode = true;
+            if (that.analyzeCollectionView) {
+              that.analyzeCollectionView.groupMode = true;
+            }
             that.tidsForGroup = o.tids;
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
-            if (this.analyzeCollectionView) {
+            if (that.analyzeCollectionView) {
               that.analyzeCollectionView.updateModelFilter();
             }
             if (that.useCarousel()) {
@@ -274,7 +284,9 @@ module.exports = Handlebones.View.extend({
       doFetch(options.gid);
     } else {
       eb.on(eb.clusterClicked, function(gid) {
-        that.analyzeCollectionView.groupMode = false;
+        if (that.analyzeCollectionView) {
+          that.analyzeCollectionView.groupMode = false;
+        }
         doFetch(gid);
       });
     }
