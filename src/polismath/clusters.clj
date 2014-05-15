@@ -74,7 +74,6 @@
     #(assoc % :center (mean (matrix (:matrix (rowname-subset data (:members %))))))
     clusters)))
 
-(use 'alex-and-georges.debug-repl)
 (require '[clojure.tools.trace :as tr])
 (defnp safe-recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
