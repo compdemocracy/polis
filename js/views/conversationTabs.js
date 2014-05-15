@@ -28,7 +28,7 @@ module.exports =  Handlebones.ModelView.extend({
     if (this.currentTab === this.ANALYZE_TAB) {
       c.analyzeActive = true;
     }
-    if (display.xs() && Utils.isIphone()) {
+    if (display.xs()) {
       c.smallTabs = true;
     }
     c.use_background_content_class = display.xs();

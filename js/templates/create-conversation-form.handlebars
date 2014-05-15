@@ -36,19 +36,20 @@
 	</div>
 	<div class="createConversationForm col-sm-6 col-md-6">
 
+
 		<form class="well conversationsForm" role="form">
 			<div class="control-group">
 				<label for="topic"> Topic </label>
-				<input style="width: 90%" maxlength="35" id="topic" type="text" name="topic" placeholder="Topic - e.g. Legalization" value="{{topic}}" class="form-control">	
+				<input style="width: 90%" maxlength="35" id="topic" type="text" name="topic" value="{{topic}}" class="form-control">
 			</div>
 			<div class="control-group">
-				<label for="description"> Description & Question</label>
-				<textarea style="width: 90%" type="text" maxlength="300" class="form-control" name="description" id="description" placeholder="Description & Question - e.g. Washington and other US states are legalizing, or at least decriminalizing, marijuana. Should this trend continue? Should it stop at marijuana, or should legalization extend to other presently illegal drugs as well?" rows="7">{{description}}</textarea>
+				<label for="description" style="margin-top:20px"> Description & Question</label>
+				<textarea style="width: 90%" type="text" maxlength="300" class="form-control" name="description" id="description" rows="7">{{description}}</textarea>
 			</div>
 			
 		  <div class="checkbox">
 		    <label>
-		      <input type="checkbox" checked="" id="is_not_public" name="is_not_public"> Invite Only
+		      <input type="checkbox" id="is_public" name="is_public"> Short URL (easily typeable, less secure)
 		    </label>
 		  </div>
 			<button class="btn btn-success submitButton btn-lg" name="formAction" type="submit" value="publish">Create</button>
@@ -94,7 +95,7 @@
 				
 		<div class="well" id="metadataFormContainer" style="cursor:pointer">
 			<i class="icon-caret-right" id="metadataCaret" style="margin-right: 10px;"></i>
-			<h5 style="display:inline"> Ask Participants About Themselves </h5>      
+			<h5 style="display:inline"> Survey Questions </h5>
 			<div style="display:none;" id="hiddenMetadataForm">
 				<div style="margin-top: 20px" class="alert alert-info">
 		     	<p> Ask participants about themselves <i class="icon-info-sign"></i> <span id="metaDataHelperTextButton" style="cursor: pointer"> Tell me more. </span></p>
@@ -118,6 +119,18 @@
 		   	<form class="xidsForm" role="form">
 					<textarea style="width: 90%" type="text" class="form-control" name="xidsTextarea" id="xidsTextarea" placeholder="paste xids here (one per line). API coming soon!" rows="20"></textarea>
 				  </form>
+			</div>
+		</div>
+
+		<div class="well" id="moderationFormContainer" style="cursor:pointer">
+			<i class="icon-caret-right" id="moderationCaret" style="margin-right: 10px;"></i>
+			<h5 style="display:inline"> Moderation </h5>
+			<div style="display:none;" id="hiddenModerationForm">
+		   	<form class="moderationForm" role="form">
+			    <div class="checkbox"><label><input type="checkbox" checked="" id="profanity_filter" name="profanity_filter"> Profanity filter</label></div>
+			    <div class="checkbox"><label><input type="checkbox" checked="" id="spam_filter" name="spam_filter"> Spam filter</label></div>
+			    <div class="checkbox"><label><input type="checkbox" id="strict_moderation" name="strict_moderation"> Strict Moderation (no comments shown without approval)</label></div>
+			  </form>
 			</div>
 		</div>
 

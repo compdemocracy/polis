@@ -211,7 +211,7 @@ module.exports = Handlebones.View.extend({
         var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
         header =
             "<span class='a' style='margin-right:10px'>&#9650; " + percent + "%</span>" +
-            "<span class='small'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
+            "<span class='small' style='color:darkgray;'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
       } else {
         header = 
           "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +

@@ -33,6 +33,13 @@ module.exports = View.extend({
         this.$("#hiddenXidsForm").show();
         this.$("#xidsFormContainer").css({"cursor": "default"});
       },
+      "click #moderationFormContainer": function() {
+        this.$("#moderationCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#hiddenModerationForm").show();
+        this.$("#moderationFormContainer").css({"cursor": "default"});
+
+      },
+
       "click #seedCommentHelperTextButton": function(){
         this.$("#hiddenSeedCommentHelperText").toggle();
       },
@@ -48,7 +55,6 @@ module.exports = View.extend({
         var formAction = $(event.target).data("action");
 
         serialize(this, function(attrs) {
-          attrs.is_public = !attrs.is_not_public
           var xids = attrs.xidsTextarea;
           if (xids && xids.length) {
             xids = xids.split("\n");
