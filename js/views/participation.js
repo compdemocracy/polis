@@ -393,7 +393,7 @@ module.exports =  ConversationView.extend({
       .on("click", deselectHulls);
 
       that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({
-        title: "Filters! Click on the \"analyze\" tab to sort participants using metadata. For instance, maybe you only want to see female respondants under 40, or only managers in the NYC office, etc.",
+        title: "See which comments have consensus, and which comments were representative of each group.",
         placement: "top",
         delay: { show: 300, hide: 200 },
         container: "body"
