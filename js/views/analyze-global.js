@@ -167,8 +167,8 @@ module.exports = Handlebones.View.extend({
   deselectComments: function() {
     eb.trigger(eb.commentSelected, false);
   },
-  renderWithCarousel: function() {
-
+  renderWithCarousel: function(gid) {
+    var that = this;
     $(el_carouselSelector).html("");
     // $(el_carouselSelector).css("overflow", "hidden");        
 
@@ -200,15 +200,31 @@ module.exports = Handlebones.View.extend({
     });
     var indexToTid = this.collection.pluck("tid");
 
+    var groupMode = gid !== -1;
+
+    var info = that.groupInfo();
     _.each(this.collection.first(NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW), function(c) {
-      results.data('owlCarousel').addItem(
+      var tid = c.get('tid');
+      var header;
+      if (groupMode) {
+        var v = info.votes[tid];
+        var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
+        header =
+            "<span class='a' style='margin-right:10px'>&#9650; " + percent + "%</span>" +
+            "<span class='small'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
+      } else {
+        header = 
+          "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
+          "<span class='d'>&#9660; " + c.get("D") + "</span>";
+      }
+      var html = 
         "<div style='margin:10px; text-align:justify' class='well query_result_item'>" + 
           "<p>" +
-            "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
-            "<span class='d'>&#9660; " + c.get("D") + "</span>" +
+            header +
           "</p>" +
           c.get("txt") +
-        "</div>");
+        "</div>";
+      results.data('owlCarousel').addItem(html);
     });
     // Auto-select the first comment.
     eb.trigger(eb.commentSelected, indexToTid[0]);
@@ -251,7 +267,7 @@ module.exports = Handlebones.View.extend({
             that.analyzeCollectionView.updateModelFilter();
           }
           if (that.useCarousel()) {
-            that.renderWithCarousel();
+            that.renderWithCarousel(gid);
           }
           that.selectFirst();
         } else {
@@ -272,7 +288,7 @@ module.exports = Handlebones.View.extend({
               that.analyzeCollectionView.updateModelFilter();
             }
             if (that.useCarousel()) {
-              that.renderWithCarousel();
+              that.renderWithCarousel(gid);
             }
             that.selectFirst();
           });
