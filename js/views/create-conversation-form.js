@@ -55,6 +55,13 @@ module.exports = View.extend({
         var formAction = $(event.target).data("action");
 
         serialize(this, function(attrs) {
+
+          // !! to make sure these properties exist as 'false', instead of just being absent.
+          attrs.is_public = !!attrs.is_public;
+          attrs.profanity_filter = !!attrs.profanity_filter;
+          attrs.spam_filter = !!attrs.spam_filter;
+          attrs.strict_moderation = !!attrs.strict_moderation;
+
           var xids = attrs.xidsTextarea;
           if (xids && xids.length) {
             xids = xids.split("\n");
