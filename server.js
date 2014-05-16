@@ -4001,7 +4001,7 @@ var fetchIndex = function(req, res) {
 }
 
 app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
-app.get(/^\/power\/[0-9]+.*/, fetchIndex); // power view
+app.get(/^\/explore\/[0-9]+.*/, fetchIndex); // power view
 app.get(/^\/summary\/[0-9]+.*/, fetchIndex); // summary view
 app.get(/^\/moderate\/[0-9]+.*/, fetchIndex); // summary view
 app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
