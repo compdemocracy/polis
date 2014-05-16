@@ -126,6 +126,7 @@
             (plmb/fnk [conv rating-mat proj in-conv opts']
               (time2 "base-clusters"
                 (greedy
+                ; XXX - Hmm... not a huge deal, but we should dissoc the :cols also
                 (let [proj-mat (assoc rating-mat :matrix proj)
                       in-conv-mat (rowname-subset proj-mat in-conv)]
                   (sort-by :id
