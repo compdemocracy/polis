@@ -4,11 +4,15 @@
 
 
 (defn agree? [n]
-  (< n 0))
+  (and
+    (not (nil? n))
+    (< n 0)))
 
 
 (defn disagree? [n]
-  (> n 0))
+  (and
+    (not (nil? n))
+    (> n 0)))
 
 
 (defmacro time2
