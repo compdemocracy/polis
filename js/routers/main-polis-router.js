@@ -13,7 +13,7 @@ var ConversationDetailsView = require("../views/conversation-details");
 var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
 var ConversationGatekeeperViewCreateUser = require("../views/conversationGatekeeperViewCreateUser");
 var ParticipationView = require("../views/participation");
-var PowerView = require("../views/power");
+var ExploreView = require("../views/explore");
 var CreateUserFormView = require("../views/create-user-form");
 var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
@@ -166,8 +166,8 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/(.*)/, "demoConversation");
 
-    this.r(/power\/([0-9]+)/, "powerView");  // power/zid
-    this.r(/power\/([0-9]+)\/(.*)/, "powerView"); // power/zid/zinvite
+    this.r(/explore\/([0-9]+)/, "exploreView");  // explore/zid
+    this.r(/explore\/([0-9]+)\/(.*)/, "exploreView"); // explore/zid/zinvite
 
     this.r(/summary\/([0-9]+)/, "summaryView");  // summary/zid
     this.r(/summary\/([0-9]+)\/(.*)/, "summaryView"); // summary/zid/zinvite
@@ -350,7 +350,7 @@ var polisRouter = Backbone.Router.extend({
     });
   },
 
-  doLaunchPowerView: function(ptptModel) {
+  doLaunchExploreView: function(ptptModel) {
     var zid = ptptModel.get("zid");
     var pid = ptptModel.get("pid");
     
@@ -359,11 +359,11 @@ var polisRouter = Backbone.Router.extend({
         zid: zid
     });
     bbFetch(model).then(function() {
-      var powerView = new PowerView({
+      var exploreView = new ExploreView({
         pid: pid,
         model: model
       });
-      RootView.getInstance().setView(powerView);
+      RootView.getInstance().setView(exploreView);
     },function(e) {
       console.error("error loading conversation model", e);
     });
@@ -420,9 +420,9 @@ var polisRouter = Backbone.Router.extend({
     window.suzinvite = suzinvite;
     return this.participationView(zid, suzinvite, true);
   },
-  powerView: function(zid, zinvite) {
+  exploreView: function(zid, zinvite) {
     doJoinConversation.call(this, 
-      this.doLaunchPowerView.bind(this), // TODO
+      this.doLaunchExploreView.bind(this), // TODO
       zid,
       zinvite);
   },

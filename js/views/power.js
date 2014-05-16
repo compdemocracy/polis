@@ -1,7 +1,7 @@
 var AnalyzeGlobalReprojectView = require("../views/analyze-global-reproject");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
-var template = require('../tmpl/power');
+var template = require('../tmpl/explore');
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 
 
@@ -25,7 +25,7 @@ var VIS_SELECTOR = "#visualization_div";
 var isIE8 = Utils.isIE8();
 
 module.exports =  ConversationView.extend({
-  name: "powerView",
+  name: "exploreView",
   template: template,
   events: {
     "click #reproject": function() {

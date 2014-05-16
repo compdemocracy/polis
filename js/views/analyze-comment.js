@@ -10,7 +10,7 @@ module.exports = Handlebones.ModelView.extend({
       click: function() {
         eb.trigger(eb.commentSelected, this.model.get("tid"));
       },
-      "click .powerCheckbox": function() {
+      "click .exploreCheckbox": function() {
         this.model.set("unchecked", !this.model.get("unchecked"));
       },
       mouseover: function() {
