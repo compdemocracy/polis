@@ -26,6 +26,6 @@ module.exports = {
     return navigator.userAgent.match(/iPhone/);
   },
   supportsVis: function() {
-    return this.supportsSVG() || this.isIE8();
+    return this.supportsSVG() && !this.isIE8();
   }
 };

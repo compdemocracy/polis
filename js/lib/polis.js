@@ -1658,9 +1658,13 @@ function clientSideBaseCluster(things, N) {
         if (selectedGid === -1) {
             return {count: 0, votes: {A:[],D:[],gA:0,gD:0}};
         }
+        return getGroupInfo(selectedGid);
+    }
+
+    function getGroupInfo(gid) {
         var count = 0;
-        if (clustersCache[selectedGid]) {
-            _.each(clustersCache[selectedGid], function(bid, gid) {
+        if (clustersCache[gid]) {
+            _.each(clustersCache[gid], function(bid, gid) {
                 count += projectionPeopleCache[bid].count;
             });
         }
@@ -1675,7 +1679,7 @@ function clientSideBaseCluster(things, N) {
         if(votesForTidBidPromise.state() === "resolved" &&
             clustersCachePromise.state() === "resolved") {
 
-            var group = clustersCache[selectedGid];
+            var group = clustersCache[gid];
             var inGroup = {};
             for (var i = 0; i < group.length; i++) {
                 inGroup[group[i]] = true;
@@ -1714,6 +1718,7 @@ function clientSideBaseCluster(things, N) {
         getCommentsForProjection: getCommentsForProjection,
         getCommentsForGroup: getCommentsForGroup,
         getTidsForGroup: getTidsForGroup,
+        getGroupInfo: getGroupInfo,
         getSelectedGroupInfo: getSelectedGroupInfo,
         getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,

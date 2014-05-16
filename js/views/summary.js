@@ -42,6 +42,10 @@ module.exports =  Handlebones.ModelView.extend({
   events: {
   },
 
+
+  groupInfo: function(gid) {
+    return this.serverClient.getGroupInfo(gid);
+  },
   destroyPopovers: function() {
     popoverEach("destroy");
   },
@@ -104,6 +108,9 @@ module.exports =  Handlebones.ModelView.extend({
 
     var SummaryItemView = Handlebones.ModelView.extend({
       template: GroupSummaryTemplate,
+      groupInfo: function() {
+        return this.parent.groupInfo(this.model.get("gid"));
+      },
       initialize: function(options) {
         Handlebones.ModelView.prototype.initialize.apply(this, arguments);
 
@@ -112,11 +119,14 @@ module.exports =  Handlebones.ModelView.extend({
         this.commentsCollection.updateRepness = updateRepness;
         this.commentsCollection.fetch = this.commentsCollection.doFetch = doFetch;
 
-        this.commentsCollection.fetch().then(function() {
+        var gid = this.model.get("gid");
+
+        this.commentsCollection.fetch({
+          gid: gid
+        }).then(function() {
           // that.analyzeGlobalView0.sortAgree();              
         });
 
-        var gid = this.model.get("gid");
 
         this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
           zid: zid,
@@ -134,6 +144,9 @@ module.exports =  Handlebones.ModelView.extend({
 
     var SummaryItemCollectionView = Handlebones.CollectionView.extend({
       modelView: SummaryItemView,
+      groupInfo: function(gid) {
+        return this.parent.groupInfo(gid);
+      },
     });
 
 
