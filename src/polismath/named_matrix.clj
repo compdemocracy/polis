@@ -21,7 +21,7 @@
       (let [[row-index col-index] (map #(typed-indexof %1 %2) [rows cols] [row col])
             [rows cols] (map (fn [xs x i] (if (= -1 i) (conj xs x) xs))
                           [rows cols] [row col] [row-index col-index])
-            ; If necessary, insert new columns and/or rows of zeros
+            ; If necessary, insert new columns and/or rows of nils
             matrix (if (= -1 col-index) (mapv #(conj % nil) matrix) matrix)
             matrix (if (> (count rows) (count matrix)) (conj matrix (into [] (repeat (count cols) nil))) matrix)
             ; Get indices of matrix position to be updated (note typed-indexof above gives -1 if item not in coll)

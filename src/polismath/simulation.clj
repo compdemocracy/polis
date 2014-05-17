@@ -119,8 +119,8 @@
       (time2 "CONVUP big-part" (conv-update b2 (random-votes big-ptpts (+ big-comments 2) :n-votes 100))))))
 
 
-(defn load-conv [filename]
-  (let [data (load-conv-edn filename)
+(defn replay-conv-update [filename]
+  (let [data (load-conv-update filename)
         {:keys [conv votes opts]} data
         {:keys [rating-mat base-clusters pca]} conv]
     (println "Loaded conv:" filename)

@@ -1,6 +1,12 @@
 (ns polismath.utils
+  (:use alex-and-georges.debug-repl
+        clojure.core.matrix)
   (:require [taoensso.timbre.profiling :as profiling
-             :refer (pspy pspy* profile defnp p p*)]))
+             :refer (pspy pspy* profile defnp p p*)]
+            [clojure.tools.reader.edn :as edn]
+            [clojure.core.matrix :as mat]))
+
+(set-current-implementation :vectorz)
 
 
 (defn agree? [n]
@@ -76,6 +82,52 @@
 
 (defn prep-for-uploading-bidToPid-mapping [results]
   {"bidToPid" (:bid-to-pid results)})
+
+
+;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
+;; edn reader
+
+(def ^:private ipv-print-method (get (methods print-method) clojure.lang.IPersistentVector))
+
+(defmethod print-method mikera.matrixx.Matrix
+  [o ^java.io.Writer w]
+  (.write w "#mikera.matrixx.Matrix ")
+  (ipv-print-method
+    (mapv #(into [] %) o)
+    w))
+
+(defmethod print-method mikera.vectorz.Vector
+  [o ^java.io.Writer w]
+  (.write w "#mikera.vectorz.Vector ")
+  (ipv-print-method o w))
+
+(defmethod print-method mikera.arrayz.NDArray
+  [o ^java.io.Writer w]
+  (.write w "#mikera.arrayz.NDArray ")
+  (ipv-print-method o w))
+
+; a reader that uses these custom printing formats
+(defn read-vectorz-edn [text]
+  (edn/read-string
+    {:readers {'mikera.vectorz.Vector mat/matrix
+               'mikera.arrayz.NDArray mat/matrix
+               'mikera.matrixx.Matrix mat/matrix}}
+    text))
+
+
+(defn conv-update-dump [conv votes & [opts error]]
+  (spit (str "errorconv." (. System (nanoTime)) ".edn")
+    ; XXX - not sure if the print-method calls will work just in this namespace or not...
+    (prn-str
+      {:conv  (into {}
+                (assoc-in conv [:pca :center] (matrix (into [] (:center (:pca conv))))))
+       :votes votes
+       :opts  opts
+       :error (str error)})))
+
+
+(defn load-conv-update [filename]
+  (read-vectorz-edn (slurp filename)))
 
 
 (defn prep-for-uploading-to-client [results]

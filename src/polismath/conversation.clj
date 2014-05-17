@@ -4,7 +4,6 @@
             [clojure.core.matrix :as matrix]
             [clojure.tools.trace :as tr]
             [clojure.math.numeric-tower :as math]
-            [clojure.tools.reader.edn :as edn]
             [bigml.sampling.simple :as sampling])
   (:use polismath.utils
         polismath.pca
@@ -214,10 +213,6 @@
 (def large-conv-update (graph/eager-compile large-conv-update-graph))
 
 
-(defn dump-edn [data]
-  (spit (str "errorconv." (. System (nanoTime)) ".edn")
-    (prn-str data)))
-
 (defn conv-update [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 1000}
                                  :as opts}]
@@ -234,11 +229,7 @@
     (catch Exception e
       ; XXX - hmm... have to figure out how to deal with this hook in production
       (println "Update Failure:" (.getMessage e))
-      (dump-edn {:conv conv :votes votes :opts opts :error (str e)})
+      (conv-update-dump conv votes opts e)
       (throw e))))
-
-
-(defn load-conv-edn [filename]
-  (edn/read-string (slurp filename)))
 
 
