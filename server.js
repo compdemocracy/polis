@@ -504,9 +504,10 @@ function pgQuery() {
 
     pg.connect(process.env.DATABASE_URL, function(err, client, done) {
         if (err) {
-            yell("pg_connect_pool_fail");
             callback(err);
+            // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback 
             done(err);
+            yell("pg_connect_pool_fail");
             return;
         }
         client.query(queryString, params, function() {
