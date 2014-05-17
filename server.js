@@ -499,6 +499,7 @@ function pgQuery() {
 
     pg.connect(process.env.DATABASE_URL, function(err, client, done) {
         if (err) {
+            yell("pg_connect_pool_fail");
             callback(err);
             done(err);
             return;
