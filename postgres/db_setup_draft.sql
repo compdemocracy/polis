@@ -114,6 +114,9 @@ CREATE TABLE conversations(
     is_active BOOLEAN DEFAULT FALSE,
     is_draft BOOLEAN DEFAULT FALSE, -- TODO check default
     is_public BOOLEAN DEFAULT TRUE,
+    profanity_filter BOOLEAN DEFAULT TRUE,
+    spam_filter BOOLEAN DEFAULT TRUE,
+    strict_moderation BOOLEAN DEFAULT FALSE,
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ?? 
@@ -203,7 +206,8 @@ CREATE TABLE comments(
     created BIGINT DEFAULT now_as_millis(),
     txt VARCHAR(1000) NOT NULL,
     velocity REAL NOT NULL DEFAULT 1,
-    moderation_count INTEGER NOT NULL DEFAULT 0, -- counts the number of times a user has performed a moderation task, like "accept" or "reject"
+    mod INTEGER NOT NULL DEFAULT 0,-- {-1,0,1} where -1 is reject, 0 is no action, and 1 is accept
+    active BOOLEAN NOT NULL DEFAULT TRUE, -- will be false if the comment should not be shown.
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
 

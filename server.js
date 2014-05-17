@@ -242,6 +242,9 @@ var sql_conversations = sql.define({
     "is_active",
     "is_draft",
     "is_public",
+    "profanity_filter",
+    "spam_filter",
+    "strict_moderation",
     "email_domain",
     "owner",
     "created",
@@ -266,6 +269,8 @@ var sql_comments = sql.define({
     "created",
     "txt",
     "velocity",
+    "active",
+    "mod",
     ]
 });
 
@@ -2773,6 +2778,9 @@ function(req, res) {
     });
     // var isSpamPromise = Promise.resolve(false);
 
+    // TODO Use this to check conversation.strict_moderation
+    // var conversationInfoPromise = getConversationInfo(zid);
+
     getPid(zid, uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
  
@@ -3093,6 +3101,9 @@ app.put('/v3/conversations/:zid',
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('is_public', getBool, assignToP),
+    want('profanity_filter', getBool, assignToP),
+    want('spam_filter', getBool, assignToP),
+    want('strict_moderation', getBool, assignToP),
     want('topic', getOptionalStringLimitLength(1000), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP),
     want('verifyMeta', getBool, assignToP),
@@ -3117,6 +3128,15 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.is_public)) {
         fields.is_public = req.p.is_public;
+    }
+    if (!_.isUndefined(req.p.profanity_filter)) {
+        fields.profanity_filter = req.p.profanity_filter;
+    }
+    if (!_.isUndefined(req.p.spam_filter)) {
+        fields.spam_filter = req.p.spam_filter;
+    }
+    if (!_.isUndefined(req.p.strict_moderation)) {
+        fields.strict_moderation = req.p.strict_moderation;
     }
     if (!_.isUndefined(req.p.topic)) {
         fields.topic = req.p.topic;
