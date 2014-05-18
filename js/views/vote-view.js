@@ -30,11 +30,19 @@ module.exports = Handlebones.ModelView.extend({
     var serverClient = options.serverClient;
     var votesByMe = options.votesByMe;
     var votesByMeFetched = $.Deferred();
-    votesByMe.on("sync", votesByMeFetched.resolve);
+
     var is_public = options.is_public;
     var zid = this.zid = options.zid;
     var pid = this.pid = options.pid;
     console.dir(serverClient);
+
+    if (this.pid < 0) {
+      // DEMO_MODE
+      votesByMeFetched.resolve();
+    }
+    votesByMe.on("sync", votesByMeFetched.resolve);
+
+
     var that = this;
     var waitingForComments = true;
     var commentPollInterval = 5 * 1000;
