@@ -8,6 +8,11 @@ module.exports = Handlebones.ModelView.extend({
     name: "vote-view",
     template: template,
     events: {
+
+      "click #agreeButton": "participantAgreed",
+      "click #disagreeButton": "participantDisagreed",
+      "click #passButton": "participantPassed",
+      
       "hover .starbutton": function(){
         this.$(".starbutton").html("<i class='icon-star'></i>");
       }
@@ -155,25 +160,6 @@ module.exports = Handlebones.ModelView.extend({
       }
     });
     
-    this.$el.on("click", function(e) {
-      var id = e.target.id;
-      if (id === "agreeButton") {
-        that.participantAgreed();
-      } else if (id === "disagreeButton") {
-        that.participantDisagreed();
-      } else if(id === "trashButton") {
-        that.participantTrashed();
-      } else if (id === "starButton") {
-        that.participantStarred();
-      } else if (id === "passButton") {
-        that.participantPassed();
-      } else {
-        return;
-      }
-      e.preventDefault();
-      return false;
-    });
-
     pollForComments(); // call immediately
     setInterval(pollForComments, commentPollInterval);
     this.listenTo(this, "rendered", function(){

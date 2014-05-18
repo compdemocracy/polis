@@ -9,6 +9,7 @@ var template = require('../tmpl/moderation');
 var ModerateCommentView = require('../views/moderate-comment');
 var countBadgeTemplate = require('../tmpl/countBadge');
 var Utils = require("../util/utils");
+var Constants = require("../util/constants");
 
 var isIE8 = Utils.isIE8();
 
@@ -16,9 +17,6 @@ var ModerateCommentsCollectionView = Handlebones.CollectionView.extend({
   modelView: ModerateCommentView,
   initialize: function() {
     Handlebones.CollectionView.prototype.initialize.apply(this, arguments);
-    this.on("moderated", function(model, velocity) {
-      console.log('moderated fired by parent', model, velocity);
-    });
   },
 });
 
@@ -33,9 +31,39 @@ module.exports =  Handlebones.ModelView.extend({
   name: "moderationView",
   template: template,
   events: {
-
   },
 
+  updateCollections: function() {
+    var that = this;
+    $.when(
+      this.commentsTodo.fetch({
+        data: $.param({
+          moderation: true,
+          mod: Constants.MOD.UNMODERATED,
+          zid: this.zid
+        }),
+        reset: false
+      }),
+      this.commentsAccepted.fetch({
+        data: $.param({
+          moderation: true,
+          mod: Constants.MOD.OK,
+          zid: this.zid
+        }),
+        reset: false
+      }),
+      this.commentsRejected.fetch({
+        data: $.param({
+          moderation: true,
+          mod: Constants.MOD.BAN,
+          zid: this.zid
+        }),
+        reset: false
+      })
+      ).then(function(){
+        that.render();
+      });
+  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
@@ -44,6 +72,7 @@ module.exports =  Handlebones.ModelView.extend({
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
 
+    eb.on(eb.moderated, _.bind(this.updateCollections, this));
 
     // just a quick hack for now.
     // we may need to look into something more general
@@ -53,31 +82,47 @@ module.exports =  Handlebones.ModelView.extend({
       window.scroll(0,0);
     });
 
-    this.comments = new CommentsCollection([], {
+    this.commentsTodo = new CommentsCollection([], {
       zid: zid
     });
-    this.comments.fetch({
-      data: $.param({
-        moderation: true,
-        zid: this.zid
-      }),
-      reset: false
-    }).then(function(){
-      that.render();
+    this.commentsAccepted = new CommentsCollection([], {
+      zid: zid
+    });
+    this.commentsRejected = new CommentsCollection([], {
+      zid: zid
     });
 
+    this.updateCollections();
+
     this.todoCountView = this.addChild(new TodoCountView({
-      collection: this.comments
-    }))
+      collection: this.commentsTodo
+    }));
+    this.acceptedCountView = this.addChild(new TodoCountView({
+      collection: this.commentsAccepted
+    }));
+    this.rejectedCountView = this.addChild(new TodoCountView({
+      collection: this.commentsRejected
+    }));    
 
-    this.listenTo(this.comments, "sync remove add", function(){
+    this.listenTo(this.commentsTodo, "sync remove add", function(){
       this.todoCountView.render()
-    })
+    });
+    this.listenTo(this.commentsAccepted, "sync remove add", function(){
+      this.acceptedCountView.render()
+    });
+    this.listenTo(this.commentsRejected, "sync remove add", function(){
+      this.rejectedCountView.render()
+    });    
 
 
-
-    this.moderateCommentsCollectionView = this.addChild(new ModerateCommentsCollectionView({
-      collection: this.comments
+    this.moderateCommentsTodoCollectionView = this.addChild(new ModerateCommentsCollectionView({
+      collection: this.commentsTodo
+    }));
+    this.moderateCommentsAcceptedCollectionView = this.addChild(new ModerateCommentsCollectionView({
+      collection: this.commentsAccepted
+    }));
+    this.moderateCommentsRejectedCollectionView = this.addChild(new ModerateCommentsCollectionView({
+      collection: this.commentsRejected
     }));
 
   } // end initialize

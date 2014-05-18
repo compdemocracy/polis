@@ -12,5 +12,6 @@ bus.commentSelected = "commentSelected";
 bus.participantCount = "participantCount";
 bus.voteCount = "voteCount";
 bus.commentCount = "commentCount";
+bus.moderated = "moderated";
 
 module.exports = bus;

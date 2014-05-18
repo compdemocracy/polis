@@ -34,16 +34,16 @@
     <small><i> {{description}} </i></small> --}}
 <!-- Nav tabs -->
 <ul class="nav nav-tabs" style="margin-bottom: 30px; margin-top: 30px">
-  <li class="active"><a href="#all" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
-  <li><a href="#profile" data-toggle="tab">Accepted</a></li>
-  <li><a href="#messages" data-toggle="tab">Rejected</a></li>
+  <li class="active"><a href="#todo" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
+  <li><a href="#accepted" data-toggle="tab">Accepted <span class="badge"> {{view acceptedCountView}} </span></a></li>
+  <li><a href="#rejected" data-toggle="tab">Rejected <span class="badge"> {{view rejectedCountView}} </span></a></li>
 </ul>
 
 <!-- Tab panes -->
 <div class="tab-content" >
-  <div class="tab-pane active" id="all"> {{view moderateCommentsCollectionView}} </div>
-  <div class="tab-pane" id="profile">...</div>
-  <div class="tab-pane" id="messages">...</div>
+  <div class="tab-pane active" id="todo"> {{view moderateCommentsTodoCollectionView}} </div>
+  <div class="tab-pane" id="accepted">{{view moderateCommentsAcceptedCollectionView}}</div>
+  <div class="tab-pane" id="rejected">{{view moderateCommentsRejectedCollectionView}}</div>
 </div>
 
 
