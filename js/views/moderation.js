@@ -60,9 +60,10 @@ module.exports =  Handlebones.ModelView.extend({
         }),
         reset: false
       })
-      ).then(function(){
-        that.render();
-      });
+      );
+    // .then(function(){
+        // that.render();
+      // });
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
