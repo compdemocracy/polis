@@ -2491,6 +2491,7 @@ app.get("/v3/comments",
     want('not_pid', getInt, assignToP),
     want('not_voted_by_pid', getInt, assignToP),
     want('moderation', getBool, assignToP),
+    want('mod', getInt, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
 function(req, res) {
 
@@ -2508,6 +2509,8 @@ function(req, res) {
                 cols.push("moderation_count");
                 cols.push("velocity");
                 cols.push("zid");
+                cols.push("mod");
+                cols.push("active");
             } else {
                 rows = rows.filter(function(row) { return row.active; });
             }
@@ -2532,6 +2535,9 @@ function(req, res) {
     }
     if (!_.isUndefined(req.p.not_pid)) {
         q = q.where(sql_comments.pid.notEquals(req.p.not_pid));
+    }
+    if (!_.isUndefined(req.p.mod)) {
+        q = q.where(sql_comments.mod.equals(req.p.mod));
     }
     if (!_.isUndefined(req.p.not_voted_by_pid)) {
         // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
@@ -2631,7 +2637,7 @@ function moderateComment(zid, tid, active, mod) {
     return new Promise(function(resolve, reject) {
         pgQuery("UPDATE COMMENTS SET active=($3), mod=($4) WHERE zid=($1) and tid=($2);", [zid, tid, active, mod], function(err) {
             if (err) {
-                reject(new Error("polis_err_moderate_comment_failed"));
+                reject(err);
             } else {
                 resolve();
             }
@@ -3113,17 +3119,40 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
   });
 }
 
-app.put('/v3/comments', 
+function isModerator() {
+    return isConversationOwner.apply(this, arguments);
+}
+
+app.put('/v3/comments',
     moveToBody,
     auth(assignToP),
     need('zid', getInt, assignToP),
     need('tid', getInt, assignToP),
+    need('active', getBool, assignToP),
+    need('mod', getInt, assignToP),
     need('velocity', getNumberInRange(0,1), assignToP),
-    function(req, res){
-        console.log(req.p)
-        // changeCommentVelocity(p.zid, p.tid, velocity)
-        res.status(200)
-})
+function(req, res){
+    var uid = req.p.uid;
+    var zid = req.p.zid;
+    var tid = req.p.tid;
+    var active = req.p.active;
+    var mod = req.p.mod;
+
+
+    // isModerator(zid, uid, doneChecking);
+    
+    doneChecking(); // TODO check if user is moderator
+
+    function doneChecking(err) {
+        if (err) { fail(res, 403, "polis_err_update_comment_auth", err); return; }
+
+        moderateComment(zid, tid, active, mod).then(function() {
+            res.status(200).json({});
+        }, function(err) {
+            fail(res, 500, "polis_err_update_comment", err);
+        });
+    }
+});
 
 
 app.put('/v3/conversations/:zid',
