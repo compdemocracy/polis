@@ -2495,76 +2495,94 @@ app.get("/v3/comments",
 //    need('lastServerToken', _.identity, assignToP),
 function(req, res) {
 
-    function handleResult(err, docs) {
-        if (err) { fail(res, 500, "polis_err_get_comments", err); return; }
-        if (docs.rows && docs.rows.length) {
-            var cols = [
-                "txt",
-                "tid",
-                "created",
-            ];
-            var rows = docs.rows;
+    // TODO check auth for zid
 
-            if (req.p.moderation) {
-                cols.push("moderation_count");
-                cols.push("velocity");
-                cols.push("zid");
-                cols.push("mod");
-                cols.push("active");
-            } else {
-                rows = rows.filter(function(row) { return row.active; });
-            }
-            rows = rows.map(function(row) { return _.pick(row, cols); });
+    var isModerationRequest = req.p.moderation;
 
-            res.json(rows);
-        } else {
-            res.json([]);
-        }
-    }
+    getConversationInfo(req.p.zid).then(function(conv) {
 
-
-    var q = sql_comments.select(sql_comments.star())
-        .where(
-            sql_comments.zid.equals(req.p.zid)
-        );
-    if (!_.isUndefined(req.p.pid)) {
-        q = q.where(sql_comments.pid.equals(req.p.pid));
-    }
-    if (!_.isUndefined(req.p.tids)) {
-        q = q.where(sql_comments.tid.in(req.p.tids));
-    }
-    if (!_.isUndefined(req.p.not_pid)) {
-        q = q.where(sql_comments.pid.notEquals(req.p.not_pid));
-    }
-    if (!_.isUndefined(req.p.mod)) {
-        q = q.where(sql_comments.mod.equals(req.p.mod));
-    }
-    if (!_.isUndefined(req.p.not_voted_by_pid)) {
-        // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
-        // Don't return comments the user has already voted on.
-        q = q.where(
-            sql_comments.tid.notIn(
-                sql_votes.subQuery().select(sql_votes.tid)
-                    .where(
-                        sql_votes.zid.equals(req.p.zid)
-                    ).and(
-                        sql_votes.pid.equals(req.p.not_voted_by_pid)
-                    )
-                )
+        var q = sql_comments.select(sql_comments.star())
+            .where(
+                sql_comments.zid.equals(req.p.zid)
             );
-    }
-    q = q.where(sql_comments.velocity.gt(0)); // filter muted comments
-    q = q.order(sql_comments.created);
-    q = q.limit(999); // TODO paginate
+        if (!_.isUndefined(req.p.pid)) {
+            q = q.where(sql_comments.pid.equals(req.p.pid));
+        }
+        if (!_.isUndefined(req.p.tids)) {
+            q = q.where(sql_comments.tid.in(req.p.tids));
+        }
+        if (!_.isUndefined(req.p.not_pid)) {
+            q = q.where(sql_comments.pid.notEquals(req.p.not_pid));
+        }
+        if (!_.isUndefined(req.p.mod)) {
+            q = q.where(sql_comments.mod.equals(req.p.mod));
+        }
+        if (!_.isUndefined(req.p.not_voted_by_pid)) {
+            // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
+            // Don't return comments the user has already voted on.
+            q = q.where(
+                sql_comments.tid.notIn(
+                    sql_votes.subQuery().select(sql_votes.tid)
+                        .where(
+                            sql_votes.zid.equals(req.p.zid)
+                        ).and(
+                            sql_votes.pid.equals(req.p.not_voted_by_pid)
+                        )
+                    )
+                );
+        }
+        if (isModerationRequest) {
 
-    //if (_.isNumber(req.p.not_pid)) {
-        //query += " AND pid != ($"+ (i++) + ")";
-        //parameters.unshift(req.p.not_pid);
-    //}
-    //
-    //pgQuery("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
-    console.log("mike", q.toString());
-    pgQuery(q.toString(), [], handleResult);
+        } else {
+            q = q.where(sql_comments.active.equals(true));            
+            if (conv.strict_moderation) {
+                q = q.where(sql_comments.mod.equals(polisTypes.mod.ok));
+            } else {
+                q = q.where(sql_comments.mod.notEquals(polisTypes.mod.ban));
+            }
+        }
+
+        q = q.where(sql_comments.velocity.gt(0)); // filter muted comments
+        q = q.order(sql_comments.created);
+        q = q.limit(999); // TODO paginate
+
+        //if (_.isNumber(req.p.not_pid)) {
+            //query += " AND pid != ($"+ (i++) + ")";
+            //parameters.unshift(req.p.not_pid);
+        //}
+        //
+        //pgQuery("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
+        console.log("mike", q.toString());
+        
+        pgQuery(q.toString(), [], function(err, docs) {
+            if (err) { fail(res, 500, "polis_err_get_comments", err); return; }
+            if (docs.rows && docs.rows.length) {
+                var cols = [
+                    "txt",
+                    "tid",
+                    "created",
+                ];
+                var rows = docs.rows;
+
+                if (req.p.moderation) {
+                    cols.push("moderation_count");
+                    cols.push("velocity");
+                    cols.push("zid");
+                    cols.push("mod");
+                    cols.push("active");
+                }
+                rows = rows.map(function(row) { return _.pick(row, cols); });
+
+                res.json(rows);
+            } else {
+                res.json([]);
+            }
+        });
+    }, function(err) {
+        fail(res, 500, "polis_err_get_comments_conv_info", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_get_comments", new Error("polis_err_get_comments"), err);
+    });
 }); // end GET /v3/comments
 
 
