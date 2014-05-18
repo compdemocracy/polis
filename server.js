@@ -884,6 +884,11 @@ var polisTypes = {
         unstar: 0,
         star: 1,
     },
+    mod: {
+        ban: -1,
+        unmoderated: 0,
+        ok: 1,
+    },
 };
 polisTypes.reactionValues = _.values(polisTypes.reactions);
 polisTypes.starValues = _.values(polisTypes.staractions);
@@ -2504,7 +2509,7 @@ function(req, res) {
                 cols.push("velocity");
                 cols.push("zid");
             } else {
-                rows = rows.filter(function(row) { return row.velocity > 0; });
+                rows = rows.filter(function(row) { return row.active; });
             }
             rows = rows.map(function(row) { return _.pick(row, cols); });
 
@@ -2622,11 +2627,11 @@ function changeCommentVelocity(zid, tid, velocity) {
     });
 }
 
-function incrementCommentModerationPendingStatus(zid, tid) {
+function moderateComment(zid, tid, active, mod) {
     return new Promise(function(resolve, reject) {
-        pgQuery("UPDATE COMMENTS SET moderation_count=moderation_count+1 WHERE zid=($1) and tid=($2);", [zid, tid], function(err) {
+        pgQuery("UPDATE COMMENTS SET active=($3), mod=($4) WHERE zid=($1) and tid=($2);", [zid, tid, active, mod], function(err) {
             if (err) {
-                reject(new Error("polis_err_change_comment_moderation_count_failed"));
+                reject(new Error("polis_err_moderate_comment_failed"));
             } else {
                 resolve();
             }
@@ -2634,16 +2639,13 @@ function incrementCommentModerationPendingStatus(zid, tid) {
     });
 }
 
-
 function muteComment(zid, tid) {
-    return changeCommentVelocity(zid, tid, 0).then(function() {
-        return incrementCommentModerationPendingStatus(zid, tid);
-    });
+    var mod = polisTypes.mod.ban;
+    return moderateComment(zid, tid, false, mod);
 }
 function unmuteComment(zid, tid) {
-    return changeCommentVelocity(zid, tid, 1).then(function() {
-        return incrementCommentModerationPendingStatus(zid, tid);
-    });
+    var mod = polisTypes.mod.ok;
+    return moderateComment(zid, tid, true, mod);
 }
 
 function getComment(zid, tid) {
@@ -2736,6 +2738,7 @@ function(req, res) {
 
 
 function hasBadWords(txt) {
+    txt = txt.toLowerCase();
     var tokens = txt.split(" ");
     for (var i = 0; i < tokens.length; i++) {
         if (badwords[tokens[i]]) {
@@ -2746,6 +2749,17 @@ function hasBadWords(txt) {
 }
 
 
+function getConversationInfo(zid) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("SELECT * FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(result.rows[0]);
+            }
+        });
+    });
+}
 
 
 app.post("/v3/comments",
@@ -2779,11 +2793,14 @@ function(req, res) {
     });
     // var isSpamPromise = Promise.resolve(false);
 
-    // TODO Use this to check conversation.strict_moderation
-    // var conversationInfoPromise = getConversationInfo(zid);
 
-    getPid(zid, uid, function(err, pid) {
-        if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
+    var conversationInfoPromise = getConversationInfo(zid);
+
+    var pidPromise = getPidPromise(zid, uid);
+
+    Promise.all([pidPromise, conversationInfoPromise]).then(function(results) {
+        var pid = results[0];
+        var conv = results[1];
  
         var bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
@@ -2795,26 +2812,34 @@ function(req, res) {
             return false; // spam check failed, continue assuming "not spammy".
         }).then(function(spammy) {
             var velocity = 1;
+            var active = true;
             var moderation_count = 0;
             var classifications = [];
-            if (bad) {
-                velocity = 0;
+            if (bad && conv.profanity_filter) {
+                active = false;
                 classifications.push("bad");
             }
-            if (spammy) {
-                velocity = 0;
+            if (spammy && conv.spam_filter) {
+                active = false;
                 classifications.push("spammy");
             }
+            if (conv.strict_moderation) {
+                active = false;
+            }
+            var mod = 0; // hasn't yet been moderated.
 
             pgQuery(
-                "INSERT INTO COMMENTS (tid, pid, zid, txt, velocity, moderation_count, created) VALUES (null, $1, $2, $3, $4, $5, default) RETURNING tid;",
-                [pid, zid, txt, velocity, moderation_count],
+                "INSERT INTO COMMENTS "+
+                  "(pid, zid, txt, velocity, active, mod, created, tid) VALUES "+
+                  "($1,   $2,  $3,       $4,     $5,  $6, default, null) RETURNING tid;",
+                   [pid, zid, txt, velocity, active, mod],
+
                 function(err, docs) {
                     if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
                     docs = docs.rows;
                     var tid = docs && docs[0] && docs[0].tid;
 
-                    if (bad || spammy) {
+                    if (bad || spammy || conv.strict_moderation) {
                         // send to mike for moderation
                         sendCommentModerationEmail(125, zid, tid, txt, classifications);
                     }
@@ -2831,8 +2856,15 @@ function(req, res) {
                         fail(res, 500, "polis_err_vote_on_create", err);
                     });
                 }); // insert
-        });
+           }, function(err) {
+                yell("polis_err_unhandled_spam_check_error");
+
+            });
+    }, function(errors) {
+        if (errors[0]) { fail(res, 500, "polis_err_getting_pid", errors[0]); return; }
+        if (errors[1]) { fail(res, 500, "polis_err_getting_conv_info", errors[1]); return; }        
     });
+
 
         //var rollback = function(client) {
           //pgQuery('ROLLBACK', function(err) {
