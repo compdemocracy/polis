@@ -2613,25 +2613,20 @@ function failWithRetryRequest(res) {
     res.writeHead(500).send(57493875);
 }
 
-function sendCommentModerationEmail(uid, zid, tid, commentTxt, classifications) {
-    var body = "Muted comment:" +
-        "\n" +
-        commentTxt + "\n" +
+function sendCommentModerationEmail(uid, zid) {
+    var body = "Click this URL to review the comments:\n" +
+         "\n" +
+        createModerationUrl(zid) +
+         "\n";
 
-        "\n" +
-        "- - - - - - - - - - - - - \n" +
-        "\n" +
-        "Click this URL to unmute the comment:\n" +
-        "\n" +
-        createUnmuteUrl(zid, tid) + "\n" +
-        "- - - - - - - - - - - - - \n" +   
-        " (classified as " + JSON.stringify(classifications) + ")\n" +
-        "- - - - - - - - - - - - - \n" +        
-        "\n";
-
-    return sendTextToEmail(uid, "UNMUTE? \""+commentTxt.slice(0,100), body);
+    return sendTextToEmail(uid, "Polis Moderation - Comments are waiting for your review.", body);
 }
 
+function createModerationUrl(zid) {
+    var server = devMode ? "http://localhost:5000" : "https://pol.is";
+
+    return server + "/moderate/"+zid;
+}
 
 function createMuteUrl(zid, tid) {
     var server = devMode ? "http://localhost:5000" : "https://pol.is";
@@ -2882,7 +2877,10 @@ function(req, res) {
 
                     if (bad || spammy || conv.strict_moderation) {
                         // send to mike for moderation
-                        sendCommentModerationEmail(125, zid, tid, txt, classifications);
+                        sendCommentModerationEmail(125, zid);
+
+                        // send to conversation owner for moderation
+                        sendCommentModerationEmail(conv.owner, zid);
                     }
 
                     var autoVotePromise = _.isUndefined(vote) ?
