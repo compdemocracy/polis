@@ -111,7 +111,7 @@ module.exports =  Handlebones.ModelView.extend({
     }));    
 
     this.listenTo(this.commentsTodo, "sync remove add", function(){
-      this.todoCountView.render()
+      this.todoCountView.render();
       clearInterval(this.animationIntervalRef);
       if (this.commentsTodo.length) {
         this.animationIntervalRef = setInterval(showThen("_", showThen("["+this.commentsTodo.length+"]",function(){})), 1000);
@@ -120,10 +120,10 @@ module.exports =  Handlebones.ModelView.extend({
       }
     });
     this.listenTo(this.commentsAccepted, "sync remove add", function(){
-      this.acceptedCountView.render()
+      this.acceptedCountView.render();
     });
     this.listenTo(this.commentsRejected, "sync remove add", function(){
-      this.rejectedCountView.render()
+      this.rejectedCountView.render();
     });    
 
 
