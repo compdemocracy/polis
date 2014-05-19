@@ -2586,10 +2586,10 @@ function(req, res) {
                 rows = rows.map(function(row) { return _.pick(row, cols); });
                 console.log("getComments " + rid + " sendingRows");
 
-                res.json(rows);
+                res.status(200).json(rows);
             } else {
                 console.log("getComments " + rid + " sendingNoRows");
-                res.json([]);
+                res.status(200).json([]);
             }
         });
     }, function(err) {
