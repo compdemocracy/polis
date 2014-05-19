@@ -2613,19 +2613,47 @@ function failWithRetryRequest(res) {
     res.writeHead(500).send(57493875);
 }
 
-function sendCommentModerationEmail(uid, zid) {
-    var body = "Click this URL to review the comments:\n" +
-         "\n" +
-        createModerationUrl(zid) +
-         "\n";
+function getNumberOfCommentsWithModerationStatus(zid, mod) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("select count(*) from comments where zid = ($1) and mod = ($2);", [zid, mod], function(err, result) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(result && result.rows && result.rows[0].count || void 0);
+            }
+        });
+    });
+}
 
-    return sendTextToEmail(uid, "Polis Moderation - Comments are waiting for your review.", body);
+function sendCommentModerationEmail(uid, zid, unmoderatedCommentCount) {
+    if (_.isUndefined(unmoderatedCommentCount)) {
+        unmoderatedCommentCount = "";
+    }
+    var body = unmoderatedCommentCount;
+    if (unmoderatedCommentCount === 1) {
+        body += " Comment is waiting for your review here: ";
+    } else {
+        body += " Comments are waiting for your review here: ";
+    }
+    // NOTE: the counter goes in the email body so it doesn't create a new email thread (in Gmail, etc)
+    // body += " Click this URL to review them: " +
+        // createModerationUrl(zid);
+    body += createModerationUrl(zid);
+
+    body += "\n\nThank you for using Polis.";
+
+         // NOTE: adding a changing element (date) at the end to prevent gmail from thinking the URL is a signature, and hiding it. (since the URL doesn't change between emails, Gmail tries to be smart, and hides it)        
+         // "Sent: " + Date.now() + "\n";
+
+    // NOTE: Adding zid to the subject to force the email client to create a new email thread.
+    return sendTextToEmail(uid, "Waiting for review (conversation " + zid + ")", body);
 }
 
 function createModerationUrl(zid) {
     var server = devMode ? "http://localhost:5000" : "https://pol.is";
 
-    return server + "/moderate/"+zid;
+    var url = server + "/m/"+zid;
+    return url;
 }
 
 function createMuteUrl(zid, tid) {
@@ -2876,11 +2904,16 @@ function(req, res) {
                     var tid = docs && docs[0] && docs[0].tid;
 
                     if (bad || spammy || conv.strict_moderation) {
-                        // send to mike for moderation
-                        sendCommentModerationEmail(125, zid);
+                        getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
+                            yell("polis_err_getting_modstatus_comment_count");
+                            return void 0;
+                        }).then(function(n) {
+                            // send to mike for moderation
+                            sendCommentModerationEmail(125, zid, n);
 
-                        // send to conversation owner for moderation
-                        sendCommentModerationEmail(conv.owner, zid);
+                            // send to conversation owner for moderation
+                            sendCommentModerationEmail(conv.owner, zid, n);
+                        });
                     }
 
                     var autoVotePromise = _.isUndefined(vote) ?
@@ -4141,7 +4174,7 @@ var fetchIndex = function(req, res) {
 app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
 app.get(/^\/explore\/[0-9]+.*/, fetchIndex); // power view
 app.get(/^\/summary\/[0-9]+.*/, fetchIndex); // summary view
-app.get(/^\/moderate\/[0-9]+.*/, fetchIndex); // summary view
+app.get(/^\/m\/[0-9]+.*/, fetchIndex); // summary view
 app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create.*/, fetchIndex);
