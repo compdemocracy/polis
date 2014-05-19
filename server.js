@@ -2496,10 +2496,13 @@ app.get("/v3/comments",
 function(req, res) {
 
     // TODO check auth for zid
+    var rid = Math.random();
+    console.log("getComments " + rid + " begin");
 
     var isModerationRequest = req.p.moderation;
 
     getConversationInfo(req.p.zid).then(function(conv) {
+        console.log("getComments " + rid + " gotConvInfo");
 
         var q = sql_comments.select(sql_comments.star())
             .where(
@@ -2553,10 +2556,19 @@ function(req, res) {
         //
         //pgQuery("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
         console.log("mike", q.toString());
+
+        console.log("getComments " + rid + " doneBuildingQuery");
         
         pgQuery(q.toString(), [], function(err, docs) {
-            if (err) { fail(res, 500, "polis_err_get_comments", err); return; }
+            console.log("getComments " + rid + " queryResponse");
+            if (err) { fail(res, 500, "polis_err_get_comments", err); 
+                console.log("getComments " + rid + " queryError");
+
+                return; }
+
             if (docs.rows && docs.rows.length) {
+                console.log("getComments " + rid + " gotRows");
+
                 var cols = [
                     "txt",
                     "tid",
@@ -2572,15 +2584,19 @@ function(req, res) {
                     cols.push("active");
                 }
                 rows = rows.map(function(row) { return _.pick(row, cols); });
+                console.log("getComments " + rid + " sendingRows");
 
                 res.json(rows);
             } else {
+                console.log("getComments " + rid + " sendingNoRows");
                 res.json([]);
             }
         });
     }, function(err) {
+        console.log("getComments " + rid + " failedConvInfo");
         fail(res, 500, "polis_err_get_comments_conv_info", err);
     }).catch(function(err) {
+        console.log("getComments " + rid + " failed");
         fail(res, 500, "polis_err_get_comments", new Error("polis_err_get_comments"), err);
     });
 }); // end GET /v3/comments
