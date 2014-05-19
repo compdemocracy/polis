@@ -27,7 +27,7 @@
     "optimist": "~0.3.5",
     "grunt": "~0.3.17",
     "bcrypt": "~0.7.2",
-    "express": "~3.0.0",
+    "express": "~3.7.0",
     "redis": "~0.8.2",
     "squel": "~1.1.3",
     "http-proxy": "~0.10.3",

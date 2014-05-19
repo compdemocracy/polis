@@ -2590,6 +2590,7 @@ function(req, res) {
             } else {
                 console.log("getComments " + rid + " sendingNoRows");
                 res.status(200).json([]);
+                console.log("getComments " + rid + " afterSendingNoRows");
             }
         });
     }, function(err) {
