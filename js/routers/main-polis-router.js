@@ -172,8 +172,8 @@ var polisRouter = Backbone.Router.extend({
     this.r(/summary\/([0-9]+)/, "summaryView");  // summary/zid
     this.r(/summary\/([0-9]+)\/(.*)/, "summaryView"); // summary/zid/zinvite
 
-    this.r(/moderate\/([0-9]+)/, "moderationView");  // moderate/zid
-    this.r(/moderate\/([0-9]+)\/(.*)/, "moderationView"); // moderate/zid/zinvite
+    this.r(/m\/([0-9]+)/, "moderationView");  // m/zid
+    this.r(/m\/([0-9]+)\/(.*)/, "moderationView"); // m/zid/zinvite
 
   },
   r: function(pattern, methodToCall) {
