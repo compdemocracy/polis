@@ -97,7 +97,7 @@
                           (fn [[rowname cnt]]
                             ; We only start looking at a ptpt if they have rated either all the comments or at
                             ; least 7 if there are more than 7
-                            (> cnt (min 7 n-cmts)))
+                            (>= cnt (min 7 n-cmts)))
                           user-vote-counts)))))
                          })
 
