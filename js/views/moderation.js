@@ -13,6 +13,11 @@ var Constants = require("../util/constants");
 
 var isIE8 = Utils.isIE8();
 
+// animated title
+function showThen(c, f) { return function() {document.title = c; setTimeout(f, 200);}} 
+
+
+
 var ModerateCommentsCollectionView = Handlebones.CollectionView.extend({
   modelView: ModerateCommentView,
   initialize: function() {
@@ -107,6 +112,12 @@ module.exports =  Handlebones.ModelView.extend({
 
     this.listenTo(this.commentsTodo, "sync remove add", function(){
       this.todoCountView.render()
+      clearInterval(this.animationIntervalRef);
+      if (this.commentsTodo.length) {
+        this.animationIntervalRef = setInterval(showThen("_", showThen("["+this.commentsTodo.length+"]",function(){})), 1000);
+      } else {
+        document.title = "";
+      }
     });
     this.listenTo(this.commentsAccepted, "sync remove add", function(){
       this.acceptedCountView.render()
@@ -125,6 +136,25 @@ module.exports =  Handlebones.ModelView.extend({
     this.moderateCommentsRejectedCollectionView = this.addChild(new ModerateCommentsCollectionView({
       collection: this.commentsRejected
     }));
+
+    var pollingReference = setInterval(function() {
+      // TODO don't send everything each time
+      that.commentsTodo.fetch({
+        data: $.param({
+          moderation: true,
+          mod: Constants.MOD.UNMODERATED,
+          zid: that.zid
+        }),
+        reset: false
+      });
+    }, 10000);
+
+    this.listenTo(this, "remove", function () {
+      clearInterval(pollingReference);
+      this.moderateCommentsTodoCollectionView.remove();
+      this.moderateCommentsAcceptedCollectionView.remove();
+      this.moderateCommentsRejectedCollectionView.remove();
+    });
 
   } // end initialize
 });
