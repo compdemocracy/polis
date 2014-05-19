@@ -2496,7 +2496,7 @@ app.get("/v3/comments",
 function(req, res) {
 
     // TODO check auth for zid
-    var rid = req.headers["x-request-id"];
+    var rid = req.headers["x-request-id"] + req.headers['user-agent'];
     console.log("getComments " + rid + " begin");
 
     var isModerationRequest = req.p.moderation;
