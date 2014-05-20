@@ -2646,7 +2646,12 @@ function getNumberOfCommentsWithModerationStatus(zid, mod) {
             if (err) {
                 reject(err);
             } else {
-                resolve(result && result.rows && result.rows[0].count || void 0);
+                var count = result && result.rows && result.rows[0] && result.rows[0].count;
+                count = Number(count);
+                if (isNaN(count)) {
+                    count = void 0;
+                }
+                resolve(count);
             }
         });
     });
