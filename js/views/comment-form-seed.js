@@ -30,6 +30,7 @@ module.exports = Handlebones.View.extend({
     attrs.pid = this.pid;
     attrs.zid = this.zid;
     attrs.vote = constants.REACTIONS.PASS; // Preseeded comments are automatically passed. Needed for now since math assumes every comment has at least one vote.
+    attrs.prepop = true; // this is a prepopulated comment
     var comment = new CommentModel(attrs);
     comment.save().then(function() {
       that.trigger("commentSubmitted"); // view.trigger
