@@ -879,6 +879,7 @@ var polisTypes = {
         push: 1,
         pull: -1,
         see: 0,
+        pass: 0,
     },
     staractions: {
         unstar: 0,
