@@ -1836,6 +1836,19 @@ function isConversationOwner(zid, uid, callback) {
     });
 }
 
+function isOwner(zid, uid) {
+    return getConversationInfo(zid).then(function(info) {
+        console.log(39847534987 + " isOwner " + uid);
+        console.dir(info);
+        console.log(info.owner === uid);
+        return info.owner === uid;
+    });
+}
+
+function isModerator(zid, uid) {
+    return isOwner(zid, uid);
+}
+
 // returns a pid of -1 if it's missing
 function getPid(zid, uid, callback) {
     pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
@@ -2851,17 +2864,18 @@ function getConversationInfo(zid) {
     });
 }
 
-
 app.post("/v3/comments",
     auth(assignToP),
     need('zid', getInt, assignToP),
     need('txt', getOptionalStringLimitLength(997), assignToP),
     want('vote', getIntInRange(-1, 1), assignToP),
+    want('prepop', getBool, assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var txt = req.p.txt;
     var vote = req.p.vote;
+    var prepopulating = req.p.prepop;
 
     var ip = 
         req.headers['x-forwarded-for'] ||  // TODO This header may contain multiple IP addresses. Which should we report?
@@ -2882,15 +2896,16 @@ function(req, res) {
         console.dir(err);
     });
     // var isSpamPromise = Promise.resolve(false);
-
+    var isModeratorPromise = isModerator(zid, uid);
 
     var conversationInfoPromise = getConversationInfo(zid);
 
     var pidPromise = getPidPromise(zid, uid);
 
-    Promise.all([pidPromise, conversationInfoPromise]).then(function(results) {
+    Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise]).then(function(results) {
         var pid = results[0];
         var conv = results[1];
+        var is_moderator = results[2];
  
         var bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
@@ -2916,7 +2931,14 @@ function(req, res) {
             if (conv.strict_moderation) {
                 active = false;
             }
+
             var mod = 0; // hasn't yet been moderated.
+
+            // moderators' comments are automatically in (when prepopulating).
+            if (is_moderator && prepopulating) {
+                mod = polisTypes.mod.ok;
+                active = true;
+            }
 
             pgQuery(
                 "INSERT INTO COMMENTS "+
@@ -3211,10 +3233,6 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
   });
 }
 
-function isModerator() {
-    return isConversationOwner.apply(this, arguments);
-}
-
 app.put('/v3/comments',
     moveToBody,
     auth(assignToP),
@@ -3231,9 +3249,9 @@ function(req, res){
     var mod = req.p.mod;
 
 
-    // isModerator(zid, uid, doneChecking);
+    // isModerator(zid, uid);
     
-    doneChecking(); // TODO check if user is moderator
+    doneChecking(); // TODO check if user is moderator - careful, using promises now
 
     function doneChecking(err) {
         if (err) { fail(res, 403, "polis_err_update_comment_auth", err); return; }
