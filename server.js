@@ -2605,7 +2605,6 @@ function(req, res) {
                 var rows = docs.rows;
 
                 if (req.p.moderation) {
-                    cols.push("moderation_count");
                     cols.push("velocity");
                     cols.push("zid");
                     cols.push("mod");
@@ -2918,7 +2917,6 @@ function(req, res) {
         }).then(function(spammy) {
             var velocity = 1;
             var active = true;
-            var moderation_count = 0;
             var classifications = [];
             if (bad && conv.profanity_filter) {
                 active = false;
