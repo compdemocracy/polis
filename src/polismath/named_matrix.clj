@@ -63,60 +63,87 @@
   (get-matrix [this] "Extract the matrix object")
   (rowname-subset [this names] "Get a new PNamedMatrix subsetting to just the given rownames"))
 
-(defn- padding-dimcounts
-  "Generate paddinbg dimension counts vector suitable for core.matrix/broadcast"
-  [mat dim n]
-  (let [d (cm/dimensionality mat)
-        dcs (mapv #(cm/dimension-count mat %) (range d))]
-    (assoc dcs dim n)))
+;(defn- padding-dimcounts
+  ;"Generate paddinbg dimension counts vector suitable for core.matrix/broadcast"
+  ;[mat dim n]
+  ;(let [d (cm/dimensionality mat)
+        ;dcs (mapv #(cm/dimension-count mat %) (range d))]
+    ;(assoc dcs dim n)))
+
+;(defn add-padding
+  ;"Add padding to a matrix. Note that if mat has nils, this function only works if value is also nil."
+  ;; XXX - the nil thing might be able to be fixed (if we need it at some point) by manually turning the
+  ;; padding potions into vectors via into in this sitation. Catch?
+  ;[mat dim n & [value]]
+  ;(case dim
+    ;; This should actually work for everything, but join-along isn't yet implemented for dim>0
+    ;0 (let [dimcounts (padding-dimcounts mat dim n)
+            ;mat       (if (nil? value) mat (cm/matrix mat))
+            ;padding   (cm/broadcast value dimcounts)
+            ;padding   (if (number? value) padding (cm/matrix padding))]
+        ;(cm/matrix (cm/join-along 0 mat padding)))
+    ;1 (cm/transpose (add-padding (cm/transpose mat) 0 n value))))
 
 (defn add-padding
-  "Add padding to a matrix. Note that if mat has nils, this function only works if value is also nil."
-  ; XXX - the nil thing might be able to be fixed (if we need it at some point) by manually turning the
-  ; padding potions into vectors via into in this sitation. Catch?
+  "Adds specified value padding to 2d matrices"
   [mat dim n & [value]]
-  (let [dimcounts (padding-dimcounts mat dim n)
-        mat       (if (nil? value) (do (println "me") mat) (cm/matrix mat))
-        padding   (cm/broadcast value dimcounts)
-        padding   (if (number? value) (do (println "fuck") padding) (cm/matrix padding))]
-    (cm/matrix (cm/join-along dim mat padding))))
+  (let [other-dim (mod (inc dim) 2)
+        other-dimcount (cm/dimension-count mat other-dim)]
+    (case dim
+      0 (let [padding (into [] (repeat other-dimcount value))]
+          (into mat (repeat n padding)))
+      1 (let [padding (repeat n value)]
+          (mapv #(into % padding) mat)))))
 
 
 (deftype NamedMatrix
-  [^IndexHash row-index ^IndexHash col-index ^java.util.List matrix]
+  [row-index col-index ^java.util.Vector matrix]
   PNamedMatrix
     (update-nmat [this values]
+      ; A bunch of profiling shit
       (let [values (into [] values)]
-        (println "count" (count values))
-        (p :update-nmat
-          ; First find the row and column names that aren't yet in the data
-          (let [[missing-rows missing-cols]
-                  (reduce
-                    (fn [[missing-rows missing-cols] [row col value]]
-                      (when (nil? (index (.row-index this) row))
-                        (append missing-rows row))
-                      (when (nil? (index (.col-index this) row))
-                        (append missing-cols col)))
-                    [[] []]
-                    values)]
-            ; Construct a new NamedMatrix
-            (.NamedMatrix
-              ; Construct new rowname and colname hash-indices
-              (append-many (.row-index this) missing-rows)
-              (append-many (.col-index this) missing-cols)
-              ; Construct new matrix
-              (as-> (.matrix this) mat
-                ; First add padding of nils for new rows/cols
-                (add-padding mat 1 (count missing-cols))
-                (add-padding mat 0 (count missing-rows))
-                ; Next assoc-in all of the new votes
-                (reduce
-                  (fn [mat' [row col value]]
-                    (let [row-i (index (.row-index this) row)
-                          col-i (index (.col-index this) col)]
-                      (assoc-in [row-i col-i] value)))
-                  mat
-                  values)))))))
+      (println "count" (count values))
+      (p :update-nmat
+      ; XXX - Start actual function
+      ; First find the row and column names that aren't yet in the data
+      (let [[missing-rows missing-cols]
+              (reduce
+                (fn [[missing-rows missing-cols] [row col value]]
+                  [(if (nil? (index (.row-index this) row))
+                     (conj missing-rows row)
+                     missing-rows)
+                   (if (nil? (index (.col-index this) col))
+                     (conj missing-cols col)
+                     missing-cols)])
+                [[] []]
+                values)
+            ; Construct new rowname and colname hash-indices
+            new-row-index (append-many (.row-index this) missing-rows)
+            new-col-index (append-many (.col-index this) missing-cols)
+            new-row-count (count (set missing-rows))
+            new-col-count (count (set missing-cols))]
+        ; Construct a new NamedMatrix
+        (NamedMatrix.
+          new-row-index
+          new-col-index
+          ; Construct new matrix
+          (as-> (.matrix this) mat
+            (if (= 0 (cm/dimension-count mat 1))
+              ; If the matrix is empty, just create the shape needed
+              (cm/coerce [[]]
+                (cm/broadcast nil [new-row-count new-col-count]))
+              ; OW, add padding of nils for new rows/cols
+              (-> mat
+                (add-padding 1 (count (set missing-cols)))
+                (add-padding 0 (count (set missing-rows)))))
+            ; Next assoc-in all of the new votes
+            (reduce
+              (fn [mat' [row col value]]
+                (let [row-i (index new-row-index row)
+                      col-i (index new-col-index col)]
+                  (assoc-in mat' [row-i col-i] value)))
+              mat
+              values)))))))
     (rownames [this] (get-names (.row-index this)))
     (colnames [this] (get-names (.col-index this)))
     (get-matrix [this] (.matrix this))

@@ -14,92 +14,130 @@
 (def real-nmat (named-matrix
   ["p1" "p2" "p3"]
   ["c1" "c2" "c3"]
-  [[ 0 1 0]
-   [-1 1 1]
-   [-1 0 0]]))
+  [[ 0 1   nil]
+   [-1 1   1  ]
+   [-1 nil nil]]))
+
+(defn v=? [v1 v2]
+  (every? identity
+    (map 
+      (fn [x y]
+        (or 
+          (and (nil? x) (nil? y)) 
+          (= (float x) (float y))))
+      v1 v2)))
+
+(def simple true)
+(defn m=? [m1 m2]
+  (if simple
+    (= m1 m2)
+    (every? identity (map v=? m1 m2))))
+
+(defn unpack-nmat [nmat]
+  (map #(% nmat) [rownames colnames get-matrix]))
+
+(def m [[1 2 3] [4 5 6]])
+
+(deftest simple-add-padding-test
+  (testing "Adding nil"
+    (testing "verticle"
+      (is (m=? [[1 2 3] [4 5 6] [nil nil nil]] (add-padding m 0 1 nil))))
+    (testing "horizontal"
+      (is (m=? [[1 2 3 nil] [4 5 6 nil]] (add-padding m 1 1 nil))))
+  (testing "adding 0"
+    (testing "verticle"
+      (is (m=? [[1 2 3] [4 5 6] [0 0 0]] (add-padding m 0 1 0))))
+    (testing "horizontal"
+      (is (m=? [[1 2 3 0] [4 5 6 0]] (add-padding m 1 1 0)))))))
 
 
 ; Simple creation test
 (deftest create-matrix
   (testing "Creation of matrix from scratch"
     (let [nmat (named-matrix)
-          {:keys [rows cols matrix]} (update-nmat nmat reactions)]
-      (is (= rows (:rows real-nmat)))
-      (is (= cols (:cols real-nmat)))
-      (is (= matrix (:matrix real-nmat))))))
+          [rows cols matrix] (unpack-nmat (update-nmat nmat reactions))]
+      (is (= rows (rownames real-nmat)))
+      (is (= cols (colnames real-nmat)))
+      (is (= matrix (get-matrix real-nmat))))))
+
+(defn nmat-equal [nm1 nm2]
+  (is
+    (and
+      (= (rownames nm1) (rownames nm2))
+      (= (colnames nm1) (colnames nm2))
+      (m=? (get-matrix nm1) (get-matrix nm2)))))
 
 (deftest test-update-nmat
   (testing "Updating an existing nmatrix"
     (testing "with existing cols"
       (let [nmat (update-nmat real-nmat
                    ['("p1" "c3" 1) '("p3" "c3" -1)])]
-        (is (= (:matrix nmat)
+        (is (m=? (get-matrix nmat)
                [[ 0 1  1]
                 [-1 1  1]
-                [-1 0 -1]]))
-        (is (= (:rows nmat)
-               (:rows real-nmat))
+                [-1 nil -1]]))
+        (is (= (rownames nmat)
+               (rownames real-nmat))
             "Nothing should change rows")
-        (is (= (:cols nmat)
-               (:cols real-nmat))
+        (is (= (colnames nmat)
+               (colnames real-nmat))
             "Nothing should change with cols")))
 
     (testing "with new rows"
       (let [nmat (update-nmat real-nmat
                    ['("p4" "c3" 1) '("p3" "c3" -1)])]
-        (is (= (:matrix nmat)
-               [[ 0 1  0]
+        (is (m=? (get-matrix nmat)
+               [[ 0 1  nil]
                 [-1 1  1]
-                [-1 0 -1]
-                [ 0 0  1]]))
-        (is (= (:rows nmat)
+                [-1 nil -1]
+                [ nil nil  1]]))
+        (is (= (rownames nmat)
                ["p1" "p2" "p3" "p4"])
             "the new participant should be in rows")
-        (is (= (:cols nmat)
-               (:cols real-nmat))
+        (is (= (colnames nmat)
+               (colnames real-nmat))
             "Nothing should change with cols")))
 
     (testing "with new cols"
       (let [nmat (update-nmat real-nmat
                    ['("p3" "c4" 1) '("p2" "c3" -1)])]
-        (is (= (:matrix nmat)
-               [[ 0 1  0 0]
-                [-1 1 -1 0]
-                [-1 0  0 1]]))
-        (is (= (:rows nmat)
-               (:rows real-nmat))
+        (is (m=? (get-matrix nmat)
+               [[ 0 1   nil  nil]
+                [-1 1   -1   nil]
+                [-1 nil nil  1  ]]))
+        (is (= (rownames nmat)
+               (rownames real-nmat))
             "Nothing should change with rows")
-        (is (= (:cols nmat)
+        (is (= (colnames nmat)
                ["c1" "c2" "c3" "c4"])
             "the new cols should be in cols")))
 
     (testing "with new cols and rows"
       (let [nmat (update-nmat real-nmat
                    ['("p4" "c3" 1) '("p3" "c4" -1)])]
-        (is (= (:matrix nmat)
-               [[ 0 1  0  0]
-                [-1 1  1  0]
-                [-1 0  0 -1]
-                [ 0 0  1  0]]))
-        (is (= (:rows nmat)
+        (is (m=? (get-matrix nmat)
+               [[ 0   1    nil  nil]
+                [-1   1    1    nil]
+                [-1   nil  nil -1  ]
+                [ nil nil  1    nil]]))
+        (is (= (rownames nmat)
                ["p1" "p2" "p3" "p4"])
             "the new participant should be in rows")
-        (is (= (:cols nmat)
+        (is (= (colnames nmat)
                ["c1" "c2" "c3" "c4"])
             "there new participants should be in rows")))))
 
 
 (deftest matrix-subsetting-test
   (testing "by row"
-    (let [submat (named-matrix ["p1" "p2"] ["c1" "c2" "c3"]
-                    [[ 0 1 0]
-                     [-1 1 1]])]
+    (let [submat (named-matrix
+                   ["p1" "p2"] ["c1" "c2" "c3"]
+                    [[ 0 1 nil]
+                     [-1 1 1  ]])]
       (testing "using rowname-subset"
-        (is (= (rowname-subset real-nmat ["p1" "p2"]) submat)))
-      (testing "using row-subset"
-        (is (= (row-subset real-nmat [0 1]) submat)))
+        (is (nmat-equal (rowname-subset real-nmat ["p1" "p2"]) submat)))
       (testing "using inv-rowname-subset"
-        (is (= (inv-rowname-subset real-nmat ["p3"]) submat))))))
+        (is (nmat-equal (inv-rowname-subset real-nmat ["p3"]) submat))))))
 
 
 (deftest get-row-by-name-test
