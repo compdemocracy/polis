@@ -1665,6 +1665,20 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
         }
     });
 }
+
+function getZinvite(zid) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("select * from zinvites where zid = ($1);", [zid], function(err, result) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(result && result.rows && result.rows[0] && result.rows[0].zinvite || void 0);
+            }
+        });
+    });
+}
+
+
 function checkSuzinviteCodeValidity(zid, suzinvite, callback) {
     pgQuery('SELECT * FROM suzinvites WHERE zid = ($1) AND suzinvite = ($2);', [zid, suzinvite], function(err, results) {
         if (err || !results || !results.rows || !results.rows.length) {
@@ -2635,24 +2649,35 @@ function sendCommentModerationEmail(uid, zid, unmoderatedCommentCount) {
     } else {
         body += " Comments are waiting for your review here: ";
     }
-    // NOTE: the counter goes in the email body so it doesn't create a new email thread (in Gmail, etc)
-    // body += " Click this URL to review them: " +
-        // createModerationUrl(zid);
-    body += createModerationUrl(zid);
 
-    body += "\n\nThank you for using Polis.";
+    getZinvite(zid).catch(function(err) {
+        console.error(err);
+        yell("polis_err_getting_zinvite");
+        return void 0;
+    }).then(function(zinvite) {
 
-         // NOTE: adding a changing element (date) at the end to prevent gmail from thinking the URL is a signature, and hiding it. (since the URL doesn't change between emails, Gmail tries to be smart, and hides it)        
-         // "Sent: " + Date.now() + "\n";
+        // NOTE: the counter goes in the email body so it doesn't create a new email thread (in Gmail, etc)
+        // body += " Click this URL to review them: " +
+            // createModerationUrl(zid);
+        body += createModerationUrl(zid, zinvite);
 
-    // NOTE: Adding zid to the subject to force the email client to create a new email thread.
-    return sendTextToEmail(uid, "Waiting for review (conversation " + zid + ")", body);
+        body += "\n\nThank you for using Polis.";
+
+             // NOTE: adding a changing element (date) at the end to prevent gmail from thinking the URL is a signature, and hiding it. (since the URL doesn't change between emails, Gmail tries to be smart, and hides it)        
+             // "Sent: " + Date.now() + "\n";
+
+        // NOTE: Adding zid to the subject to force the email client to create a new email thread.
+        return sendTextToEmail(uid, "Waiting for review (conversation " + zid + ")", body);
+    });
 }
 
-function createModerationUrl(zid) {
+function createModerationUrl(zid, zinvite) {
     var server = devMode ? "http://localhost:5000" : "https://pol.is";
 
     var url = server + "/m/"+zid;
+    if (zinvite) {
+        url += "/" + zinvite;
+    }
     return url;
 }
 
