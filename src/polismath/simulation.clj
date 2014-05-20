@@ -110,13 +110,14 @@
 
 
 (defn play [& args]
-  (let [big-ptpts    5000
+  (let [big-ptpts    10000
         big-comments 10
-        a  (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
-        b  (time2 "CONVUP med" (conv-update a (random-votes 500 10)))
-        b2 (time2 "CONVUP big" (conv-update b (random-votes big-ptpts big-comments)))]
+        a (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
+        a (time2 "CONVUP med" (conv-update a (random-votes 500 10)))]
+        ;a (time2 "CONVUP big" (conv-update a (random-votes big-ptpts big-comments)))]
     (profile :info :clusters
-      (time2 "CONVUP big-part" (conv-update b2 (random-votes big-ptpts (+ big-comments 2) :n-votes 100))))))
+      ;(time2 "CONVUP big-part" (conv-update a (random-votes big-ptpts (+ big-comments 2) :n-votes 100))))))
+      (time2 "CONVUP big-part" (conv-update a (random-votes big-ptpts (+ big-comments 2)))))))
 
 
 (defn replay-conv-update [filename]
@@ -124,7 +125,7 @@
         {:keys [conv votes opts]} data
         {:keys [rating-mat base-clusters pca]} conv]
     (println "Loaded conv:" filename)
-    (println "Dimensions:" (count (:rows rating-mat)) "x" (count (:cols rating-mat)))
+    (println "Dimensions:" (count (rownames rating-mat)) "x" (count (colnames rating-mat)))
     (conv-update conv votes)))
 
 

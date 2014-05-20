@@ -34,7 +34,7 @@
     (map-indexed
       (fn [id position] {:id id :members [] :center (matrix position)})
       ; Have to make sure we don't have identical cluster centers
-      (distinct (rows (:matrix data))))))
+      (distinct (rows (get-matrix data))))))
 
 
 (defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
@@ -71,7 +71,7 @@
   "Replace cluster centers with a center computed from new positions"
   (greedy
   (map
-    #(assoc % :center (mean (matrix (:matrix (rowname-subset data (:members %))))))
+    #(assoc % :center (mean (matrix (get-matrix (rowname-subset data (:members %))))))
     clusters)))
 
 (use 'alex-and-georges.debug-repl)
@@ -84,9 +84,9 @@
     (map
       (fn [clst]
         (let [rns (safe-rowname-subset data (:members clst))]
-          (if (empty? (:rows rns))
+          (if (empty? (rownames rns))
             nil
-            (assoc clst :center (mean (matrix (:matrix rns)))))))
+            (assoc clst :center (mean (matrix (get-matrix rns)))))))
       clsts)
       ))
     ; Remove the nils, they break the math
@@ -95,8 +95,8 @@
     ; XXX - Should see if there is a cleaner place/way to handle this...
     (if (empty? clsts)
       [{:id (inc (apply max (map :id clusters)))
-        :members (:rows data)
-        :center (mean (matrix (:matrix data)))}]
+        :members (rownames data)
+        :center (mean (matrix (get-matrix data)))}]
       clsts)
     ; XXX - for profiling
     (greedy clsts)))
@@ -123,7 +123,7 @@
                           #(vector (distance (get-row-by-name data mem) (:center %)) (:id %))
                           clusters))
                    mem))
-              (:rows data)))]
+              (rownames data)))]
     {:dist dist :clst-id clst-id :id id}))
 
 
@@ -146,7 +146,7 @@
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
-        possible-clusters (min k (count (distinct (rows (:matrix data)))))]
+        possible-clusters (min k (count (distinct (rows (get-matrix data)))))]
     (loop [clusters uniq-clusters]
       ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters)]
@@ -177,7 +177,7 @@
 ; Each cluster should have the shape {:id :members :center}
 (defnp kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   "Performs a k-means clustering."
-  (let [data-iter (zip (:rows data) (matrix (:matrix data)))
+  (let [data-iter (zip (rownames data) (matrix (get-matrix data)))
         clusters  (if last-clusters
                     (clean-start-clusters data last-clusters k)
                     (init-clusters data k))]
@@ -204,8 +204,8 @@
                       ; Start with psuedocount of 1, 1 as a prior to prevent division by zero (smoothing)
                       [1 1] votes)]
               (/ up not-up)))]
-    (let [in-cols  (columns (:matrix in-part))
-          out-cols (columns (:matrix out-part))]
+    (let [in-cols  (columns (get-matrix in-part))
+          out-cols (columns (get-matrix out-part))]
       (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
 
 

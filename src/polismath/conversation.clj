@@ -19,13 +19,13 @@
                   )))
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
-  (let [idx (.indexOf (:cols rating-mat) tid)
-        pid-to-row (zipmap (:rows rating-mat) (range (count (:rows rating-mat))))]
+  (let [idx (.indexOf (colnames rating-mat) tid)
+        pid-to-row (zipmap (rownames rating-mat) (range (count (rownames rating-mat))))]
     (if (< idx 0)
       []
       (map ; for each bucket
         (fn [pids]
-          (let [person-rows (:matrix rating-mat)]
+          (let [person-rows (get-matrix rating-mat)]
             (math/abs
               ; add up the votes within the group for the given tid
               (reduce + 0
@@ -69,12 +69,12 @@
    :n           (plmb/fnk [rating-mat]
                   "count the participants"
                   (time2 "counting-ptpts"
-                    (count (:rows rating-mat))))
+                    (count (rownames rating-mat))))
 
    :n-cmts      (plmb/fnk [rating-mat]
                   "count comments"
                   (time2 "counting-comments"
-                    (count (:cols rating-mat))))
+                    (count (colnames rating-mat))))
 
    :user-vote-counts
                 (plmb/fnk [rating-mat votes]
@@ -82,8 +82,8 @@
                   (time2 "user-vote-count"
                     (mapv
                       (fn [rowname row] [rowname (count (remove nil? row))])
-                      (:rows rating-mat)
-                      (:matrix rating-mat))))
+                      (rownames rating-mat)
+                      (get-matrix rating-mat))))
 
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
                   "This keeps track of which ptpts are in the conversation (to be considered
@@ -110,7 +110,7 @@
              (time2 "mat"
                (greedy
                (map (fn [row] (map #(if (nil? %) 0 %) row))
-                 (:matrix rating-mat)))))
+                 (get-matrix rating-mat)))))
 
       :pca (plmb/fnk [conv mat opts']
              (time2 "pca"
@@ -125,8 +125,12 @@
             (plmb/fnk [conv rating-mat proj in-conv opts']
               (time2 "base-clusters"
                 (greedy
-                ; XXX - Hmm... not a huge deal, but we should dissoc the :cols also
-                (let [proj-mat (assoc rating-mat :matrix proj)
+                ; XXX - Hmm... not a huge deal, but we should dissoc the colnames also
+                (let [proj-mat
+                        (named-matrix (rownames rating-mat) ["x" "y"] proj)
+                        ;(NamedMatrix. (.row-index rating-mat)
+                                      ;(index-hash ["x" "y"])
+                                      ;proj)
                       in-conv-mat (rowname-subset proj-mat in-conv)]
                   (sort-by :id
                     (kmeans in-conv-mat
@@ -155,7 +159,7 @@
        ;;; where the indices in the arrays are bids
        :votes-base (plmb/fnk [bid-to-pid rating-mat]
                      (time2 "votes-base"
-                       (let [tids (:cols rating-mat)]
+                       (let [tids (colnames rating-mat)]
                          (reduce
                            (fn [o entry]
                              (assoc o (:tid entry) (dissoc entry :tid)))
@@ -218,7 +222,7 @@
                                  :as opts}]
   (println "\nStarting new conv update!")
   (try
-    (let [ptpts   (:rows (:rating-mat conv))
+    (let [ptpts   (rownames (:rating-mat conv))
           n-ptpts (count (distinct (into ptpts (map :pid votes))))]
       (println "N-ptpts:" n-ptpts)
       ; dispatch to the appropriate function

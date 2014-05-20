@@ -174,3 +174,37 @@ In general this may also point to where some of the possible optimizations are w
 implementation.
 
 
+May 18, 2014
+
+Been a little while since I checked in...
+
+I've figured out what is causing the slow rating mtarix update.
+Silly me... I was doing indexOf on the rows list to get to the matrix indices.
+Bad idea...
+I'm going to switch to hash-maos, through which I think we can cut the matrix-update code to seconds with 500k ptpts
+This was what we had from that count:
+
+
+    2014-May-17 22:27:26 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+               :user/update-nmat      1    392.2s     392.2s       0ns    392.2s      92 392.2s
+                :user/MU-indices 600000     2.0μs      3.0ms   324.0μs   627.0μs      88 376.2s
+            :user/rowname-subset     54    47.0μs      15.7s   571.0ms   298.0ms       4 16.1s
+                    :user/kmeans      2     2.0ms      12.1s      6.1s      6.1s       3 12.1s
+              :user/MU-rows-cols 600000     1.0μs       1.3s     4.0μs     4.0μs       1 2.6s
+      :user/clean-start-clusters      2     1.0ms       1.6s   818.0ms   819.0ms       0 1.6s
+               :user/MU-assoc-in 600000     1.0μs      4.0ms     278ns     2.0μs       0 1.4s
+              :user/MU-indices-2 600000     1.0μs    219.0μs     247ns     2.0μs       0 1.2s
+    :user/safe-recenter-clusters      2   576.0μs    820.0ms   410.0ms   410.0ms       0 820.0ms
+         :user/safe-recenter-map      2   564.0μs    819.0ms   409.0ms   410.0ms       0 820.0ms
+                :user/row-subset    107    29.0μs     45.0ms   988.0μs     7.0ms       0 771.0ms
+         :user/recenter-clusters      2   351.0μs    768.0ms   384.0ms   384.0ms       0 768.0ms
+                  :user/MU-assoc 600000     698ns      1.0ms     226ns     1.0μs       0 626.0ms
+                :user/MU-row-add 600000     488ns    197.0μs     492ns     966ns       0 580.0ms
+                :user/MU-col-add 600000     488ns    293.0μs     101ns     911ns       0 547.0ms
+       :user/safe-rowname-subset     53    57.0μs     12.0ms   856.0μs     8.0ms       0 401.0ms
+                      Clock Time                                                     100 428.3s
+                  Accounted Time                                                     189 808.8s
+
+Will want to keep an eye on the other MU items on that list, as they are liable to be the next points for speeding things up.
+
