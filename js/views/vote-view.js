@@ -3,6 +3,10 @@ var Handlebones = require("handlebones");
 var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
 var serverClient = require("../lib/polis");
+var Utils = require("../util/utils");
+
+
+var isMobile = Utils.isMobile();
 
 module.exports = Handlebones.ModelView.extend({
     name: "vote-view",
@@ -18,7 +22,9 @@ module.exports = Handlebones.ModelView.extend({
       }
     },
   context: function() {
-    return _.extend({}, this, this.model&&this.model.attributes);
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx.isMobile = isMobile;
+    return ctx;
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
