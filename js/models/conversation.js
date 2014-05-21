@@ -17,6 +17,9 @@ module.exports = Model.extend({
       created: 0,
       owner: undefined,
       participant_count: "",
+      url_moderate: function() {
+        return "/m/" + this.zid;
+      },
       url_name: function(){
         var s = "/" + this.zid;
         if (!this.is_public && this.zinvites) {

@@ -1,5 +1,5 @@
-<li class="row" style="border-bottom: 1px solid lightgrey; padding-bottom: 10px">
-    <div class="col-sm-5">
+<li class="row" style="border-bottom: 1px solid lightgrey; padding-bottom: 10px; margin-top: 20px">
+    <div class="col-sm-4">
       <h5>{{topic}}</h5>
       <i>{{description}}</i>
     </div>
@@ -15,8 +15,13 @@
       <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
       </div> -->
     </div>
-    <div class="col-sm-2">
-      <p><a href="{{url_name}}" class="btn btn-default btn-large"><i class="icon-rocket"></i>&nbsp;Launch Conversation</a></li></p>
-    </div>
+
+
+    <div class="btn-group">
+      <a href="{{url_name}}" class="btn btn-default btn-large">View Conversation</a>
+      {{#if is_owner}}
+      <a href="{{url_moderate}}" class="btn btn-default btn-large">Admin</a>
+      {{/if}}
+    </div> {{! btn-group}}
 </li>
 </div>
