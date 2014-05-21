@@ -3,10 +3,6 @@ var Handlebones = require("handlebones");
 var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
 var serverClient = require("../lib/polis");
-var Utils = require("../util/utils");
-
-
-var isMobile = Utils.isMobile();
 
 module.exports = Handlebones.ModelView.extend({
     name: "vote-view",
@@ -23,7 +19,6 @@ module.exports = Handlebones.ModelView.extend({
     },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-    ctx.isMobile = isMobile;
     return ctx;
   },
   initialize: function(options) {
@@ -116,6 +111,12 @@ module.exports = Handlebones.ModelView.extend({
       } else {
         showNext();
       }
+
+      // Fix for stuck hover effects for touch events.
+      // Remove when this is fix is accepted
+      // https://github.com/twbs/bootstrap/issues/12832
+      this.$(".btn-vote").css("background-color", "white");
+
     };
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");
