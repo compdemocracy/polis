@@ -61,6 +61,7 @@ module.exports = View.extend({
           attrs.profanity_filter = !!attrs.profanity_filter;
           attrs.spam_filter = !!attrs.spam_filter;
           attrs.strict_moderation = !!attrs.strict_moderation;
+          attrs.send_created_email = true;
 
           var xids = attrs.xidsTextarea;
           if (xids && xids.length) {
