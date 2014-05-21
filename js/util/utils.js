@@ -25,6 +25,15 @@ module.exports = {
   isIphone: function() {
     return navigator.userAgent.match(/iPhone/);
   },
+  isIpad: function() {
+    return navigator.userAgent.match(/iPad/);
+  },
+  isAndroid: function() {
+    return navigator.userAgent.match(/Android/);
+  },
+  isMobile: function() {
+    return this.isIphone() || this.isIpad() || this.isAndroid();
+  },
   supportsVis: function() {
     return this.supportsSVG() && !this.isIE8();
   }
