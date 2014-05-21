@@ -3771,15 +3771,16 @@ app.get('/v3/conversations',
     want('zid', getInt, assignToP),
     want('owner', getInt, assignToP), // TODO needed?
 function(req, res) {
+  var uid = req.p.uid;
 
   // First fetch a list of conversations that the user is a participant in.
-  pgQuery('select zid from participants where uid = ($1);', [req.p.uid], function(err, results) {
+  pgQuery('select zid from participants where uid = ($1);', [uid], function(err, results) {
     if (err) { fail(res, 500, "polis_err_get_conversations_participated_in", err); return; }
 
     var participantIn = results && results.rows && _.pluck(results.rows, "zid") || null;
 
     var query = sql_conversations.select(sql_conversations.star())
-    var orClauses = sql_conversations.owner.equals(req.p.uid);
+    var orClauses = sql_conversations.owner.equals(uid);
     if (participantIn.length) {
         orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
     }
@@ -3802,8 +3803,12 @@ function(req, res) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
 
+        data.forEach(function(conv) {
+            conv.is_owner = conv.owner === uid;
+        });
+
         var conversationsWithZinvites = data.filter(function(conv) {
-            return conv.owner === req.p.uid && !conv.is_public;
+            return conv.owner === uid && !conv.is_public;
         }).map(function(conv) {
             return conv.zid;
         });
