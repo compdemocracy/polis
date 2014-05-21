@@ -3282,6 +3282,7 @@ app.put('/v3/conversations/:zid',
     want('topic', getOptionalStringLimitLength(1000), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP),
     want('verifyMeta', getBool, assignToP),
+    want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
 function(req, res){
   isOwner(req.p.zid, req.p.uid).then(function(ok) {
     if (!ok) {
@@ -3342,6 +3343,30 @@ function(req, res){
                     return;
                 }
                 var conv = result && result.rows && result.rows[0];
+
+                // send notification email
+                if (req.p.send_created_email) {
+                    Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req.p.zid)]).then(function(results) {
+                        var hname = results[0].hname;
+                        var url = results[1];
+                        sendTextToEmail(
+                            req.p.uid,
+                            "Conversation created",
+                            "Hi " + hname + ",\n" +
+                            "\n" +
+                            "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation:" +
+                            "\n" +
+                            url + "\n" +
+                            "\n" +
+                            "With gratitude,\n" +
+                            "\n" +
+                            "The team at pol.is\n"
+                            );
+                    }, function(err) {
+                        yell("polis_err_sending_conversation_created_email");
+                        console.dir(err);
+                    });
+                }
                 res.status(200).json(conv);
             }
         );
@@ -3991,6 +4016,19 @@ function(req, res) {
 
 function generateSingleUseUrl(zid, suzinvite) {
     return "https://pol.is/ot/" + zid + "/" + suzinvite;
+}
+
+
+function getConversationUrl(zid) {
+    return Promise.all([getConversationInfo(zid), getZinvite(zid)]).then(function(results) {
+        var conv = results[0];
+        var zinvite = results[1];
+        var url = "https://pol.is/" + zid;
+        if (!conv.is_public) {
+            url += "/" + zinvite;
+        }
+        return url;
+    });
 }
 
 app.post("/v3/users/invite",
