@@ -22,7 +22,7 @@
           {{/ifNotIE8}}
           &nbsp; Signout</a></li>
       </ul>
-    </div><!--/.nav-collapse -->
+    </div>{{! /.nav-collapse }}
   </div>
 </div>
 {{/ifNotEmbedded}}
@@ -34,26 +34,21 @@
     <h2> {{topic}} </h2>
     <i> {{description}} </i>
   </div>
-<!--  <div class="col-sm-6 alert alert-info alert-dismissable">
-    <button type="button" class="close" data-dismiss="alert">×</button>
-    <h4> Welcome</h4>
-    <p> The purpose of Polis is to allow large groups (larger than can be accomodated by email and other similar tools) to communicate in real-time, in the interest of sharing feedback and making decisions. Polis is currently in beta - your <span class="popover_helper_class" id="feedback_and_suggestions"> feedback and suggestions</span> are welcome as we work to improve the overall experience of the application. <i class="icon-info-sign"></i> <span class="popover_helper_class" id="how_do_i_use">How do I use Polis?</span></p>
-  </div> -->
 </div>
 
 <div id="controlTabs" class="row"> <!-- may get no-gutter class on xs -->
-  <!-- overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. -->
+  {{! overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. }}
   <div class="t-span6 col-xs-12 col-sm-7 col-md-5 col-lg-4">
   <div class="tabbable"
     style="background-color:white"
-  > <!-- Only required for left/right tabs -->
+  > {{! Only required for left/right tabs }}
     {{view conversationTabs}}
 
 
     <div class="tab-content">
       <div class="tab-pane" id="analyze" style="border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; ">
         {{view conversationStatsHeader}}
-      <!-- BEGIN PILLS -->
+        {{! BEGIN PILLS }}
         <div class="tabbable">
           {{! #if hasMetadata
           <ul class="nav nav-pills nav-justified hidden-xs">
@@ -65,7 +60,7 @@
             <div class="tab-pane active" id="query_results_hiddenxs">
               {{view analyzeGlobalView}}
               <div class="query_results_div" class="hidden-xs">
-              </div> <!-- query results div -->
+              </div> {{! query results div }}
             </div>
             <div class="tab-pane" id="metadata_eyes">
               <div class="alert alert-info alert-dismissable" style="margin-top: 20px">
@@ -74,9 +69,9 @@
               </div>
               {{view metadataQuestionsView}}
             </div>
-          </div>      
-        </div> <!-- END PILLS -->
-      </div> <!-- analyze tab pane -->
+          </div>
+        </div> {{! END PILLS }}
+      </div> {{! analyze tab pane }}
       <div class="tab-pane active" id="commentView">
         {{view commentView}}
       </div>
@@ -96,9 +91,9 @@
       ">
         {{view commentForm}}
       </div>
-    </div> <!-- tab content -->
-  </div> <!-- tabbable -->
-  </div> <!-- span 4 -->
+    </div> {{! tab content }}
+  </div> {{! tabbable }}
+  </div> {{! span 4 }}
 
   <span id="vis_sibling_bottom" class="t-span6 col-xs-12 col-sm-6 col-md-7 col-lg-8">
     <div id="visualization_div" class="vis_container"></div>
@@ -106,6 +101,6 @@
 
   <div id="raphael_div">
 
-</div> <!-- row -->
+</div> {{! /.row }}
 </section>
 </div>
