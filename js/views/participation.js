@@ -20,9 +20,11 @@ var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 
 
+
 var VIS_SELECTOR = "#visualization_div";
 
 var isIE8 = Utils.isIE8();
+var isMobile = Utils.isMobile();
 
 function shouldShowVisUnderTabs() {
   return display.xs();
@@ -374,32 +376,36 @@ module.exports =  ConversationView.extend({
       that.conversationTabs.on("analyzeGroups:close", deselectHulls);
       
       that.commentView.on("showComment", _.once(function() {
-        that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
-          title: "Start here - read and react to comments submitted by others.",
+        if (!isMobile) {
+          that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
+            title: "Start here - read and react to comments submitted by others.",
+            placement: "top",
+            delay: { show: 300, hide: 200 },
+            container: "body"
+          });
+        }
+        that.$("#"+that.conversationTabs.VOTE_TAB).on("click", deselectHulls);
+      }));
+      if (!isMobile) {
+        that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
+          title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
+          placement: "top",
+          delay: { show: 300, hide: 200 },
+          container: "body"
+        });
+      }
+      that.$("#" + that.conversationTabs.WRITE_TAB).on("click", deselectHulls);
+
+      if (!isMobile) {
+        that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({
+          title: "See which comments have consensus, and which comments were representative of each group.",
           placement: "top",
           delay: { show: 300, hide: 200 },
           container: "body"
 
-        })
-        .on("click", deselectHulls);
-      }));
-
-      that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
-        title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
-        placement: "top",
-        delay: { show: 300, hide: 200 },
-        container: "body"
-      })
-      .on("click", deselectHulls);
-
-      that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({
-        title: "See which comments have consensus, and which comments were representative of each group.",
-        placement: "top",
-        delay: { show: 300, hide: 200 },
-        container: "body"
-
-      // Wait until the first comment is shown before showing the tooltip
-      });
+        // Wait until the first comment is shown before showing the tooltip
+        });
+      }
       that.commentView.on("showComment", _.once(function() {   
 
         that.$commentViewPopover = that.$("#commentView").popover({
