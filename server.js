@@ -3283,6 +3283,11 @@ app.put('/v3/conversations/:zid',
     want('description', getOptionalStringLimitLength(50000), assignToP),
     want('verifyMeta', getBool, assignToP),
 function(req, res){
+  isOwner(req.p.zid, req.p.uid).then(function(ok) {
+    if (!ok) {
+        fail(res, 403, "polis_err_update_conversation_permission");
+        return;
+    }
 
     var verifyMetaPromise;
     if (req.p.verifyMeta) {
@@ -3341,8 +3346,12 @@ function(req, res){
             }
         );
     }, function(err) {
-        res.status(500).json(err);
+        fail(res, 500, "polis_err_update_conversation", err);
     });
+
+  }, function(err) {
+    fail(res, 500, "polis_err_update_conversation", err);
+  });
 });
 
 app.delete('/v3/metadata/questions/:pmqid',
