@@ -331,12 +331,12 @@ var polisRouter = Backbone.Router.extend({
         if (eventName === "done") {
           var suurls = data;
             if (suurls) {
-            var suurlsCsv = ["xid, url"];
+            var suurlsCsv = [];
             var len = suurls.xids.length;
             var xids = suurls.xids;
             var urls = suurls.urls;
             for (var i = 0; i < len; i++) {
-              suurlsCsv.push(xids[i] + "," + urls[i]);
+              suurlsCsv.push({xid: xids[i], url: urls[i]});
             }
             model.set("suurls", suurlsCsv);
           }
