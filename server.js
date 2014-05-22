@@ -30,6 +30,7 @@ var badwords = require('badwords/object'),
     app = express(),
     sql = require("sql"),
     squel = require("squel"),
+    escapeLiteral = pg = require('pg').Client.prototype.escapeLiteral,
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
     async = require('async'),
@@ -4103,8 +4104,8 @@ function(req, res) {
         var pairs = _.zip(xids, suzinviteArray);
 
         var valuesStatements = pairs.map(function(pair) {
-            var xid = pg.Client.prototype.escapeLiteral(pair[0]);
-            var suzinvite = pg.Client.prototype.escapeLiteral(pair[1]);
+            var xid = escapeLiteral(pair[0]);
+            var suzinvite = escapeLiteral(pair[1]);
             var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
             console.log(statement);
             return statement;
