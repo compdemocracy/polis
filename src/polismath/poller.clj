@@ -90,7 +90,7 @@
   (println "launching poller " (System/currentTimeMillis))
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
-        mg-db           (mongo-connect! (env/env :mongo-url))
+        mg-db           (mongo-connect! (env/env :mongolab-uri))
         last-timestamp  (atom 0)
         conversations   (atom {})]
     (endlessly poll-interval
