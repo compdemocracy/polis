@@ -21,7 +21,7 @@
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
   ; XXX - should replace index-of with our new index-hash functionality
-  (let [idx (.indexOf (colnames rating-mat) tid)
+  (let [idx (index (get-row-index rating-mat) tid)
         pid-to-row (zipmap (rownames rating-mat) (range (count (rownames rating-mat))))]
     (if (< idx 0)
       []
