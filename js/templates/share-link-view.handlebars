@@ -1,12 +1,13 @@
 {{#ifDefined suurls}}
 <table style="margin-left: 100px">
+<tr><td>
+<table>
   <tr style="-webkit-user-select: none;
       -moz-user-select: none;
       -ms-user-select: none;
       user-select: none;
     ">
-    <th>xids</th>
-    <th style="padding-left: 20px">single use URLs</th>
+    <th>xid</th>
   </tr>
   {{#each suurls}}
   <tr>
@@ -15,9 +16,27 @@
       -ms-user-select: none;
       user-select: none;
     ">{{this.xid}}</td>
-    <td style="padding-left: 20px">{{this.url}}<br/></td>
   </tr>
   {{/each}}
+</table>
+</td>
+<td>
+<table style="margin-left: 100px">
+  <tr style="-webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    ">
+    <th >single use URL</th>
+  </tr>
+  {{#each suurls}}
+  <tr>
+    <td >{{this.url}}<br/></td>
+  </tr>
+  {{/each}}
+</table>
+</td>
+</tr>
 </table>
 {{/ifDefined}}
 
