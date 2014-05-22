@@ -61,6 +61,7 @@
   (rownames [this] "Vector of row names, in order")
   (colnames [this] "Vector of column names, in order")
   (get-matrix [this] "Extract the matrix object")
+  (get-row-index [this] "Extract the row-index object")
   (rowname-subset [this names] "Get a new PNamedMatrix subsetting to just the given rownames"))
 
 ;(defn- padding-dimcounts
@@ -86,7 +87,7 @@
 
 (defn add-padding
   "Adds specified value padding to 2d matrices"
-  [mat dim n & [value]]
+  [mat ^Integer dim ^Integer n & [value]]
   (let [other-dim (mod (inc dim) 2)
         other-dimcount (cm/dimension-count mat other-dim)]
     (case dim
@@ -147,6 +148,7 @@
     (rownames [this] (get-names (.row-index this)))
     (colnames [this] (get-names (.col-index this)))
     (get-matrix [this] (.matrix this))
+    (get-row-index [this] (.row-index this))
     (rowname-subset [this names]
       (let [row-indices (map (partial index (.row-index this)) names)
             row-index (subset (.row-index this) names)]
@@ -171,13 +173,13 @@
   are in nmat, it just subsets to the rownames that are. Should scrap other one?"
   (let [safe-names (filter
                      ; XXX This is kinda bad; should only be using protocol
-                     (partial index (.row-index nmat))
+                     (partial index (get-row-index nmat))
                      names)]
     (rowname-subset nmat names)))
 
 (defn get-row-by-name [nmat row-name]
   ; XXX This is kinda bad; should only be using protocol
-  (cm/get-row (get-matrix nmat) (index (.row-index nmat) row-name)))
+  (cm/get-row (get-matrix nmat) (index (get-row-index nmat) row-name)))
 
 (defn inv-rowname-subset [nmat row-names]
   "Returns named matrix which has been subset to all the rows not in row-names"
