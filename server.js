@@ -1667,6 +1667,20 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
     });
 }
 
+function getZidForZinvite(zinvite) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("select zid from zinvites where zinvite = ($1);", [zinvite], function(err, result) {
+            if (err) {
+                reject(err);
+            } else if (!result || !result.rows || !result.rows[0] || !result.rows[0].zid) {
+                reject("polis_err_no_zid_for_zinvite");
+            } else {
+                resolve(result.rows[0].zid);
+            }
+        });
+    });
+}
+
 function getZinvite(zid) {
     return new Promise(function(resolve, reject) {
         pgQuery("select * from zinvites where zid = ($1);", [zid], function(err, result) {
@@ -2265,55 +2279,24 @@ function createDummyUser() {
     });
 }
 
-app.post("/v3/joinWithSuzinvite",
+app.post("/v3/joinWithInvite",
     authOptional(assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
+    want('zinvite', getOptionalStringLimitLength(999), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
-    var uid = req.p.uid;
-    var existingAuth = !!uid;
-    var suzinvite = req.p.suzinvite;
-    var answers = req.p.answers;
 
-    Promise.resolve(suzinvite)
-    .then(getSUZinviteInfo)
-    .then(function(suzinviteInfo) {
-      if (uid) {
-          return _.extend({uid: uid}, suzinviteInfo);
-      } else {
-          return createDummyUser().then(function(uid) {
-              // augment with suzinvite row
-              return _.extend({uid: uid}, suzinviteInfo);
-          });
-      }
-    })
-    .then(function(userWithSuzinviteRow) {
-        var zid = userWithSuzinviteRow.zid;
-        return userHasAnsweredZeQuestions(zid, answers).then(function() {
-            // looks good, pass through
-            return userWithSuzinviteRow;
-        });
-    })
-    .then(function(userWithSuzinviteRow) {
-      var uid = userWithSuzinviteRow.uid;
-      var zid = userWithSuzinviteRow.zid;
-      return joinConversation(zid, uid, answers).then(function(pid) {
-        return _.extend({pid: pid}, userWithSuzinviteRow);
-      });
-    })
-    .then(function(o) {
-      return createXidEntry(o.xid, o.owner, o.uid).then(function() {
-        return o;
-      });
-    })
-    .then(function(o) {
-      return deleteSuzinvite(suzinvite).then(function() {
-        return o;
-      });
+    joinWithZinviteOrSuzinvite({
+        answers: req.p.answers,
+        existingAuth: !!req.p.uid,
+        suzinvite: req.p.suzinvite,
+        uid: req.p.uid,
+        zinvite: req.p.zinvite,
     })
     .then(function(o) {
         var uid = o.uid;
-        if (!existingAuth) {
+        // TODO check for possible security implications
+        if (!o.existingAuth) {
             return startSessionAndAddCookies(res, uid).then(function() {
                 return o;
             });
@@ -2331,6 +2314,70 @@ function(req, res) {
       // fail(res, 500, err, err);
     });
 });
+
+
+
+// TODO make zinvites unique, so they can be removed from the URL
+
+
+
+function joinWithZinviteOrSuzinvite(o) {
+    return Promise.resolve(o)
+    .then(function(o) {
+        if (o.zinvite) {
+          return getZidForZinvite(o.zinvite).then(function(zid) {
+            // may want to check zid here
+            return _.extend(o, {zid: zid});
+          });
+        } else if (o.suzinvite) {
+            return getSUZinviteInfo(o.suzinvite).then(function(suzinviteInfo) {
+              return _.extend(o, suzinviteInfo);
+            });
+        } else {
+            throw new Error("polis_err_missing_invite");
+        }
+    })
+    .then(function(o) {
+      if (o.uid) {
+        return o;
+      } else {
+        return createDummyUser().then(function(uid) {
+          return _.extend(o, {uid: uid});
+        });
+      }
+    })
+    .then(function(o) {
+        return userHasAnsweredZeQuestions(o.zid, o.answers).then(function() {
+            // looks good, pass through
+            return o;
+        });
+    })
+    .then(function(o) {
+      return joinConversation(o.zid, o.uid, o.answers).then(function(pid) {
+        return _.extend({pid: pid}, o);
+      });
+    })
+    .then(function(o) {
+      if (o.xid) {
+        // used for suzinvite case
+        return createXidEntry(o.xid, o.owner, o.uid).then(function() {
+          return o;
+        });
+      } else {
+        return o;
+      }
+    })
+    .then(function(o) {
+      if (o.suzinvite) {
+        return deleteSuzinvite(o.suzinvite).then(function() {
+          return o;
+        });
+      } else {
+        return o;
+      }
+    });
+}
+
 
 function startSessionAndAddCookies(res, uid) {
     return new Promise(function(resolve, reject) {
