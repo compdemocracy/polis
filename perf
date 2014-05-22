@@ -208,3 +208,88 @@ This was what we had from that count:
 
 Will want to keep an eye on the other MU items on that list, as they are liable to be the next points for speeding things up.
 
+
+May 21, 2014
+
+Woot! I seem to have stamped this shit.
+At least largely.
+Before I go on though, I should make a correction.
+I'm pretty sure the above was actually on 600,000 new _comments_, not  ptpts.
+The latter would not make sense with the call counts shown above.
+
+Anyway; it seems that using indexOf on matrices was basically just a terrible idea.
+I thought lookup was constant time.
+Which is silly in retrospect.
+Anyway.
+It's not.
+
+I've implemented a custom data type which maintains both a vector and a hash-map so we can quickly get (the
+former equivalent of) indexOf.
+Now look at the times:
+
+    Starting new conv update!
+    N-ptpts: 60000
+    count 720000
+    1400735231267 rating-mat 3003.265079 msecs
+    1400735231267 counting-comments 0.0044 msecs
+    1400735231336 user-vote-count 68.865603 msecs
+    1400735231381 mat 5.540164 msecs
+    1400735235871 pca 4489.99813 msecs
+    1400735236737 proj 865.464804 msecs
+    1400735256213 base-clusters 19475.856953 msecs
+    1400735256213 bid-to-pid 0.054686 msecs
+    1400735256715 votes-base 501.544857 msecs
+    1400735256715 counting-ptpts 0.004539 msecs
+    1400735256717 group-clusters 1.903313 msecs
+    1400735256717 CONVUP big-part 31481.174735 msecs
+    2014-May-21 22:07:36 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+                    :user/kmeans      2     2.0ms      19.3s      9.6s      9.6s      61 19.3s
+               :user/update-nmat      1      2.9s       2.9s       0ns      2.9s       9 2.9s
+      :user/clean-start-clusters      2   928.0μs       1.8s   921.0ms   921.0ms       6 1.8s
+    :user/safe-recenter-clusters      2   505.0μs    944.0ms   472.0ms   472.0ms       3 945.0ms
+         :user/safe-recenter-map      2   492.0μs    944.0ms   472.0ms   472.0ms       3 944.0ms
+         :user/recenter-clusters      2   268.0μs    837.0ms   418.0ms   418.0ms       3 837.0ms
+       :user/safe-rowname-subset     53    37.0μs      4.0ms   345.0μs     3.0ms       1 164.0ms
+                      Clock Time                                                     100 31.5s
+                  Accounted Time                                                      85 26.9s
+
+
+Damn son.
+Down to 30 seconds.
+Still some room for improvment given I'm looking at some new reflection/performance warnings.
+We'll see how things do after that.
+
+
+Hmmm... I tried running on 1mil ptpts and 100 cmts and got this.
+
+    Starting new conv update!
+    N-ptpts: 100000
+    count 10200000
+    1400736772092 rating-mat 454258.957733 msecs
+    1400736772093 counting-comments 0.005029 msecs
+    1400736778787 user-vote-count 6694.438309 msecs
+    1400736778866 mat 8.482992 msecs
+    1400736853808 pca 74942.795939 msecs
+    1400736863400 proj 9591.412637 msecs
+    1400736914508 base-clusters 51108.178211 msecs
+    1400736914509 bid-to-pid 0.065022 msecs
+    Exception in thread "main" java.lang.OutOfMemoryError: GC overhead limit exceeded
+            at clojure.lang.PersistentHashMap$ArrayNode.assoc(PersistentHashMap.java:364)
+            at clojure.lang.PersistentHashMap$ArrayNode.assoc(PersistentHashMap.java:361)
+            at clojure.lang.PersistentHashMap.assoc(PersistentHashMap.java:142)
+            at clojure.lang.PersistentHashMap.assoc(PersistentHashMap.java:28)
+            at clojure.lang.RT.assoc(RT.java:702)
+            at clojure.core$assoc.invoke(core.clj:187)
+            at clojure.core$zipmap.invoke(core.clj:2715)
+            at polismath.conversation$agg_bucket_votes_for_tid.invoke(conversation.clj:24)
+            at polismath.conversation$fn__4283$fnk4280_positional__4284$fn__4287.invoke(conversation.clj:168)
+
+
+Can probably fix this with JVM settings, but for now we seem to have found an upper limit.
+However, of interest is that the rating-mat update, while significant is operating on 100mil votes, which
+we'll liekly never see in a single update.
+If we have a milion people probably more like 10 per user minute, tops.
+So if we keep everything else moving quickly enough, we might be fine.
+
+
