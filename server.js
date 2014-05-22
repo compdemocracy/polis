@@ -348,7 +348,7 @@ var ReadableIds = (function() {
 // With the MongoLab addon the MONGOLAB_URI config variable is added to your
 // Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
 
-console.log(process.env.MONGO_URL);
+console.log(process.env.MONGOLAB_URI);
 
 function makeSessionToken() {
     // These can probably be shortened at some point.
@@ -451,7 +451,7 @@ testSession("12345ADFHSADFJKASHDF");
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
 function connectToMongo(callback) {
-mongo.connect(process.env.MONGO_URL, {
+mongo.connect(process.env.MONGOLAB_URI, {
     server: {
         auto_reconnect: true
     },
