@@ -20,6 +20,7 @@
                   )))
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
+  ; XXX - should replace index-of with our new index-hash functionality
   (let [idx (.indexOf (colnames rating-mat) tid)
         pid-to-row (zipmap (rownames rating-mat) (range (count (rownames rating-mat))))]
     (if (< idx 0)
@@ -90,15 +91,23 @@
                   "This keeps track of which ptpts are in the conversation (to be considered
                   for base-clustering) based on home many votes they have. Once a ptpt is in,
                   they will remain in."
-                  (let [last-in (or (:in-conv conv) #{})]
-                    (into last-in
+                  (as-> (or (:in-conv conv) #{}) in-conv
+                    ; Start with whatever you have, and join it with anything that meets the criteria
+                    (into in-conv
                       (map first
                         (filter
                           (fn [[rowname cnt]]
                             ; We only start looking at a ptpt if they have rated either all the comments or at
                             ; least 7 if there are more than 7
                             (>= cnt (min 7 n-cmts)))
-                          user-vote-counts)))))
+                          user-vote-counts)))
+                    ; If you are left with nothing, just take the 7 ptps with the largest number of votes.
+                    ; Silly, but...
+                    (if (empty? in-conv)
+                      (map first
+                        (take 7
+                          (sort-by (comp - second) user-vote-counts)))
+                      in-conv)))
                          })
 
 

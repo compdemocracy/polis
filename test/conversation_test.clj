@@ -18,6 +18,10 @@
                     {:pid pid :tid tid :vote (rand)})]
     (testing "should work on empty matrix and one vote"
       (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes single-vote})))
+    (testing "should work on a wonky matrix"
+      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes
+                              [{:pid :a :tid :x :vote  1}
+                               {:pid :b :tid :y :vote -1}]})))
     (testing "should work on empty matrix and several votes"
       (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes several-votes})))
     (testing "should work on ful matrix"
