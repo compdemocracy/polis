@@ -17,6 +17,12 @@ var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
 
+
+var dimensions = {
+    width: params.w,
+    height: params.h
+};
+
 // var getPid = params.getPid;
 
 function getBid(d) {
@@ -149,10 +155,6 @@ function hideTip() {
 }
 
 
-var dimensions = {
-    width: "100%",
-    height: "100%"
-};
 
 // if (isIE8) {
 //     // R2D3 seems to have trouble with percent values.
