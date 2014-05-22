@@ -19,12 +19,11 @@ var ResultsCollection = require("../collections/results");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 
-
-
 var VIS_SELECTOR = "#visualization_div";
 
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
+var useRaphael = isIE8;
 
 function shouldShowVisUnderTabs() {
   return display.xs();
@@ -104,13 +103,23 @@ module.exports =  ConversationView.extend({
 
 
     function moveVisToBottom() {
-      var $vis = that.$(VIS_SELECTOR).detach();
-      $("#vis_sibling_bottom").append($vis);
+      if (useRaphael) {
+        var $vis = that.$("#raphael_div").detach();
+        $("#raphael_sibling_bottom").append($vis);
+      } else {
+        var $vis = that.$(VIS_SELECTOR).detach();
+        $("#vis_sibling_bottom").append($vis);
+      }
     }
 
     function moveVisAboveQueryResults() {
-      var $vis = that.$(VIS_SELECTOR).detach();
-      $("#vis_sibling_above_tab_content").append($vis);
+      if (useRaphael) {
+        var $vis = that.$("#raphael_div").detach();
+        $("#raphael_div_above_tab_content").append($vis);
+      } else {
+        var $vis = that.$(VIS_SELECTOR).detach();
+        $("#vis_sibling_above_tab_content").append($vis);
+      }
     }
 
 
