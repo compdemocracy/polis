@@ -45,8 +45,8 @@ module.exports = Handlebones.ModelView.extend({
         attrs.zid = params.zid;
 
         var url = urlPrefix + "v3/participants";
-        if (params.suzinvite) {
-          url = urlPrefix + "v3/joinWithSuzinvite";
+        if (params.suzinvite || params.zinvite) {
+          url = urlPrefix + "v3/joinWithInvite";
         }
 
         $.ajax({

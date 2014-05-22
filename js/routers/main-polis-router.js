@@ -52,7 +52,7 @@ function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
       if (singleUse) {
 
         $.ajax({
-          url: "/v3/joinWithSuzinvite",
+          url: "/v3/joinWithInvite",
           type: "POST",
           dataType: "json",
           xhrFields: {
@@ -73,6 +73,27 @@ function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
               doJoinConversation.call(that, onSuccess, zid);
             });
           }
+        });
+      } else if (zinvite) {
+        // Don't require user to explicitly create a user before joining the conversation.
+        $.ajax({
+          url: "/v3/joinWithInvite",
+          type: "POST",
+          dataType: "json",
+          xhrFields: {
+              withCredentials: true
+          },
+          // crossDomain: true,
+          data: {
+            zid: zid,
+            zinvite: zinvite
+          }
+        }).then(function(data) {
+          that.participationView(zid);
+        }, function(err) {
+          that.conversationGatekeeper(zid, zinvite).done(function(ptptData) {
+            doJoinConversation.call(that, onSuccess, zid);
+          });
         });
       } else {
         this.doCreateUserFromGatekeeper(zid, zinvite, singleUse).done(function() {
@@ -99,7 +120,7 @@ function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
         onSuccess(ptpt);
       }, function(err) {
         $.ajax({
-          url: "/v3/joinWithSuzinvite",
+          url: "/v3/joinWithInvite",
           type: "POST",
           dataType: "json",
           xhrFields: {
