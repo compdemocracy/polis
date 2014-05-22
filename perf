@@ -292,4 +292,33 @@ we'll liekly never see in a single update.
 If we have a milion people probably more like 10 per user minute, tops.
 So if we keep everything else moving quickly enough, we might be fine.
 
+Here is some data for 30k x 20cmts:
+
+    Starting new conv update!
+    N-ptpts: 30000
+    count 660000
+    1400746217528 rating-mat 1503.576119 msecs
+    1400746217529 counting-comments 0.0044 msecs
+    1400746217583 user-vote-count 54.830368 msecs
+    1400746217621 mat 4.400001 msecs
+    1400746221937 pca 4316.419774 msecs
+    1400746222599 proj 661.168579 msecs
+    1400746234367 base-clusters 11768.231347 msecs
+    1400746234367 bid-to-pid 0.054615 msecs
+    1400746234788 votes-base 420.764263 msecs
+    1400746234788 counting-ptpts 0.004191 msecs
+    1400746234790 group-clusters 1.557323 msecs
+    1400746234790 CONVUP big-part 21241.605796 msecs
+    2014-May-22 01:10:34 -0700 noether INFO [polismath.simulation] - Profiling: :user/clusters
+                              Id  Calls       Min        Max       MAD      Mean   Time% Time
+                    :user/kmeans      2     1.0ms      11.7s      5.8s      5.8s      55 11.7s
+               :user/update-nmat      1      1.4s       1.4s       0ns      1.4s       6 1.4s
+      :user/clean-start-clusters      2   891.0μs       1.2s   588.0ms   589.0ms       6 1.2s
+    :user/safe-recenter-clusters      2   470.0μs    585.0ms   292.0ms   293.0ms       3 585.0ms
+         :user/safe-recenter-map      2   457.0μs    585.0ms   292.0ms   293.0ms       3 585.0ms
+         :user/recenter-clusters      2   260.0μs    520.0ms   260.0ms   260.0ms       2 521.0ms
+       :user/safe-rowname-subset     53    33.0μs      3.0ms   222.0μs     2.0ms       0 105.0ms
+                      Clock Time                                                     100 21.2s
+                  Accounted Time                                                      75 16.0s
+
 
