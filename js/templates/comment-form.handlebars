@@ -31,7 +31,8 @@
   </div>
 </form>
 
-  <div style="margin-top: 45px; margin-left: 8px;">
+  {{! Using span to prevent this from eating up space when empty, which causes a gray bar to appear on sm layouts }}
+  <span style="margin-top: 45px; margin-left: 8px;">
     {{view commentsByMeView}}
-  </div>
+  </span>
 </div>
