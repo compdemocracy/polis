@@ -36,10 +36,7 @@
     (map-indexed
       (fn [id position] {:id id :members [] :center (matrix position)})
       ; Have to make sure we don't have identical cluster centers
-      (distinct (rows 
-                  (do (println "yhere we are" (get-matrix data))
-                  (get-matrix data))))))
-  )
+      (distinct (rows (get-matrix data))))))
 
 
 (defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
