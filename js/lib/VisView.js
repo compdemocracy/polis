@@ -171,6 +171,8 @@ var paper;
 if (isIE8) {
     paper = new Raphael($(el_raphaelSelector)[0], dimensions.width, dimensions.height);
     paper.clear();
+    // http://stackoverflow.com/questions/15365129/manipulate-canvas-background-color-in-raphael-by-using-variable-paper
+    paper.canvas.style.backgroundColor = '#FFFFFF';
 }
 
 var MAX_BUCKETS = 60;
