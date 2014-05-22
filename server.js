@@ -4121,7 +4121,7 @@ function(req, res) {
                 xids: xids,
             });
         });
-    }, function(err) {
+    }).catch(function(err) {
         fail(res, 500, "polis_err_generating_single_use_invites", err);
     });
 });
