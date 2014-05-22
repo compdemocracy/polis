@@ -9,10 +9,20 @@
 
 
 (deftest init-conversation-test
-  (let [new-votes [{:pid :a, :tid :x, :vote 3}]]
-    (testing "should work on empty matrix"
-      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes new-votes})))
-    (testing "should work on an existing matrix"
-      (is (small-conv-update {:conv {:rating-mat rat-mat} :opts {} :votes new-votes})))))
+  (let [single-vote [{:pid :a, :tid :x, :vote 3}]
+        several-votes
+                  (conj single-vote 
+                     {:pid :b, :tid :x, :vote 0}
+                     {:pid :a, :tid :y, :vote 1})
+        full-votes (for [pid [:a :b :c] tid [:x :y :z]]
+                    {:pid pid :tid tid :vote (rand)})]
+    (testing "should work on empty matrix and one vote"
+      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes single-vote})))
+    (testing "should work on empty matrix and several votes"
+      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes several-votes})))
+    (testing "should work on ful matrix"
+      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes full-votes})))
+    (testing "should work on an existing matrix and several votes"
+      (is (small-conv-update {:conv {:rating-mat rat-mat} :opts {} :votes several-votes})))))
 
 

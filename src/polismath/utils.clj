@@ -45,7 +45,7 @@
 (defn greedy-false [iter] iter)
 
 
-(defn typed-indexof [^java.util.List coll item]
+(defn ^Integer typed-indexof [^java.util.List coll item]
   (.indexOf coll item))
 
 

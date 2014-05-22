@@ -37,7 +37,7 @@
     (testing "doesn't give duplicate clusters"
       (is (not (= (:center (first clusts)) (:center (second clusts))))))
     (testing "coordinate transforms should be handled gracefully"
-      (let [real-nmat (assoc real-nmat :matrix
+      (let [real-nmat (named-matrix (rownames real-nmat) (colnames real-nmat)
                             [[0.5 0.3]
                              [4.3 0.5]
                              [2.3 8.1]
@@ -133,25 +133,25 @@
 
 (let [last-clusters [{:members [1 2] :id 1}
                      {:members [3 4] :id 2}]
-      data (named-matrix [1 2 3 4] [:x :y]
+      nmat (fn [rows] (named-matrix rows [:x :y]
              [[1.2   0.4]
               [1.0   0.3]
               [-0.2 -0.4]
-              [-0.7 -0.7]])
+              [-0.7 -0.7]]))
       kmeanser (fn [new-data] (kmeans new-data 2 :last-clusters last-clusters))]
 
   (deftest missing-some-members
-    (let [new-data (assoc data :rows [1 5 3 4])]
+    (let [new-data (nmat [1 5 3 4])]
       (is (kmeanser new-data))
       (size-correct (kmeanser new-data) 2)))
 
   (deftest missing-all-members
-    (let [new-data (assoc data :rows [6 5 3 4])]
+    (let [new-data (nmat [6 5 3 4])]
       (is (kmeanser new-data))
       (size-correct (kmeanser new-data) 2)))
 
   (deftest missing-all-members-global
-    (let [new-data (assoc data :rows [6 5 8 7])]
+    (let [new-data (nmat [6 5 8 7])]
       (is (kmeanser new-data))
       (size-correct (kmeanser new-data) 2))))
 

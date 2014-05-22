@@ -1,6 +1,8 @@
 (ns polismath.clusters
   (:require [taoensso.timbre.profiling :as profiling
-             :refer (pspy pspy* profile defnp p p*)])
+             :refer (pspy pspy* profile defnp p p*)]
+            [clojure.tools.trace :as tr]
+            [alex-and-georges.debug-repl :as dbr])
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
         polismath.named-matrix
@@ -34,7 +36,10 @@
     (map-indexed
       (fn [id position] {:id id :members [] :center (matrix position)})
       ; Have to make sure we don't have identical cluster centers
-      (distinct (rows (get-matrix data))))))
+      (distinct (rows 
+                  (do (println "yhere we are" (get-matrix data))
+                  (get-matrix data))))))
+  )
 
 
 (defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
@@ -74,8 +79,7 @@
     #(assoc % :center (mean (matrix (get-matrix (rowname-subset data (:members %))))))
     clusters)))
 
-(use 'alex-and-georges.debug-repl)
-(require '[clojure.tools.trace :as tr])
+
 (defnp safe-recenter-clusters [data clusters]
   "Replace cluster centers with a center computed from new positions"
   (as-> clusters clsts

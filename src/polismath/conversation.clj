@@ -4,7 +4,8 @@
             [clojure.core.matrix :as matrix]
             [clojure.tools.trace :as tr]
             [clojure.math.numeric-tower :as math]
-            [bigml.sampling.simple :as sampling])
+            [bigml.sampling.simple :as sampling]
+            [alex-and-georges.debug-repl :as dbr])
   (:use polismath.utils
         polismath.pca
         polismath.clusters
@@ -96,7 +97,7 @@
                           (fn [[rowname cnt]]
                             ; We only start looking at a ptpt if they have rated either all the comments or at
                             ; least 7 if there are more than 7
-                            (> cnt (min 7 n-cmts)))
+                            (>= cnt (min 7 n-cmts)))
                           user-vote-counts)))))
                          })
 
@@ -125,12 +126,8 @@
             (plmb/fnk [conv rating-mat proj in-conv opts']
               (time2 "base-clusters"
                 (greedy
-                ; XXX - Hmm... not a huge deal, but we should dissoc the colnames also
                 (let [proj-mat
                         (named-matrix (rownames rating-mat) ["x" "y"] proj)
-                        ;(NamedMatrix. (.row-index rating-mat)
-                                      ;(index-hash ["x" "y"])
-                                      ;proj)
                       in-conv-mat (rowname-subset proj-mat in-conv)]
                   (sort-by :id
                     (kmeans in-conv-mat
