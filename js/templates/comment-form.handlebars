@@ -1,4 +1,4 @@
-<div>
+<div id="fooparty">
 
 <form
   role="form"
@@ -10,18 +10,19 @@
 	<div class="form-group" style="position:relative">
 
 		<textarea
-      class="form-control"
+      class="form-control comment_form_textarea_width"
+
       id="comment_form_textarea"
       rows="5"
-      style="max-width: 77%"
+      style=" font-size: 16px"
       name="txt"
       type="text"
       maxlength="997"
       placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."
     ></textarea>
 		<button
-      class="form-control btn btn-primary"
-      style="position: absolute; right: 0; bottom: 0px; max-width: 64px; background-color: #379FF8;"
+      class="form-control btn btn-primary comment_form_button_position"
+      style="background-color: #379FF8;"
       id="comment_button"
       type="submit"
       >
@@ -30,5 +31,7 @@
   </div>
 </form>
 
-{{view commentsByMeView}}
+  <div style="margin-top: 45px; margin-left: 8px;">
+    {{view commentsByMeView}}
+  </div>
 </div>
