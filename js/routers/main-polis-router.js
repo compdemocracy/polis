@@ -69,7 +69,7 @@ function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
           if (err.responseText === "polis_err_no_matching_suzinvite") {
             alert("Sorry, this single-use URL has been used.");
           } else {
-            that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
+            that.conversationGatekeeper(zid, suzinvite, singleUse).done(function(ptptData) {
               doJoinConversation.call(that, onSuccess, zid);
             });
           }
@@ -116,7 +116,7 @@ function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
           if (err.responseText === "polis_err_no_matching_suzinvite") {
             alert("Sorry, this single-use URL has been used.");
           } else {
-            that.conversationGatekeeper(zid, uid, suzinvite, singleUse).done(function(ptptData) {
+            that.conversationGatekeeper(zid, suzinvite, singleUse).done(function(ptptData) {
               doJoinConversation.call(that, onSuccess, zid);
             });
           }
@@ -130,7 +130,7 @@ function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
         // Go to the conversation.
         onSuccess(ptpt);
       }, function(err) {
-        that.conversationGatekeeper(zid, uid, zinvite).done(function(ptptData) {
+        that.conversationGatekeeper(zid, zinvite).done(function(ptptData) {
           doJoinConversation.call(that, onSuccess, zid, zinvite);
         });
       });
@@ -449,11 +449,10 @@ var polisRouter = Backbone.Router.extend({
 
   },
   // assumes the user already exists.
-  conversationGatekeeper: function(zid, uid, zinvite, singleUse) {
+  conversationGatekeeper: function(zid, zinvite, singleUse) {
     var dfd = $.Deferred();
     var params = {
-      zid: zid,
-      uid: uid,
+      zid: zid
     };
     if (singleUse) {
       params.suzinvite = zinvite
