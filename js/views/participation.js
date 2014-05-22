@@ -23,7 +23,10 @@ var VIS_SELECTOR = "#visualization_div";
 
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
-var useRaphael = isIE8;
+var isAndroid = Utils.isAndroid();
+var useRaphael =
+  isIE8 || // because no support for svg
+  isAndroid; // because the vis runs a bit slow there. Gingerbread gets no vis.
 
 function shouldShowVisUnderTabs() {
   return display.xs();
@@ -103,23 +106,13 @@ module.exports =  ConversationView.extend({
 
 
     function moveVisToBottom() {
-      if (useRaphael) {
-        var $vis = that.$("#raphael_div").detach();
-        $("#raphael_sibling_bottom").append($vis);
-      } else {
-        var $vis = that.$(VIS_SELECTOR).detach();
-        $("#vis_sibling_bottom").append($vis);
-      }
+      var $vis = that.$(VIS_SELECTOR).detach();
+      $("#vis_sibling_bottom").append($vis);
     }
 
     function moveVisAboveQueryResults() {
-      if (useRaphael) {
-        var $vis = that.$("#raphael_div").detach();
-        $("#raphael_div_above_tab_content").append($vis);
-      } else {
-        var $vis = that.$(VIS_SELECTOR).detach();
-        $("#vis_sibling_above_tab_content").append($vis);
-      }
+      var $vis = that.$(VIS_SELECTOR).detach();
+      $("#vis_sibling_above_tab_content").append($vis);
     }
 
 
@@ -149,7 +142,7 @@ module.exports =  ConversationView.extend({
             }
             return pid;
           },
-          isIE8: isIE8,
+          isIE8: useRaphael,
           getCommentsForProjection: serverClient.getCommentsForProjection,
           getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
@@ -275,7 +268,6 @@ module.exports =  ConversationView.extend({
 
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
         zid: zid,
-        isIE8: isIE8,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },
