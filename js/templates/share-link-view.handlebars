@@ -2,36 +2,24 @@
 <table style="margin-left: 100px">
 <tr><td>
 <table>
-  <tr style="-webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    ">
+  <tr>
     <th>xid</th>
   </tr>
   {{#each suurls}}
   <tr>
-    <td style="-webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    ">{{this.xid}}</td>
+    <td>{{this.xid}}</td>
   </tr>
   {{/each}}
 </table>
 </td>
 <td>
 <table style="margin-left: 100px">
-  <tr style="-webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    ">
+  <tr>
     <th >single use URL</th>
   </tr>
   {{#each suurls}}
   <tr>
-    <td >{{this.url}}<br/></td>
+    <td class="selectable">{{this.url}}<br/></td>
   </tr>
   {{/each}}
 </table>
