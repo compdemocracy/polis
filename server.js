@@ -2558,57 +2558,46 @@ app.post("/v2/feedback",
                     }); // each 
     });
 
-app.get("/v3/comments",
-    moveToBody,
-    authOptional(assignToP),
-    need('zid', getInt, assignToP),
-    want('tids', getArrayOfInt, assignToP),
-    want('pid', getInt, assignToP),
-    want('not_pid', getInt, assignToP),
-    want('not_voted_by_pid', getInt, assignToP),
-    want('moderation', getBool, assignToP),
-    want('mod', getInt, assignToP),
-//    need('lastServerToken', _.identity, assignToP),
-function(req, res) {
 
-    // TODO check auth for zid
-    var rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
-    console.log("getComments " + rid + " begin");
+function getComments(o) {
+    var isModerationRequest = o.moderation;
 
-    var isModerationRequest = req.p.moderation;
-
-    getConversationInfo(req.p.zid).then(function(conv) {
-        console.log("getComments " + rid + " gotConvInfo");
+    return new Promise(function(resolve, reject) {
+      getConversationInfo(o.zid).then(function(conv) {
 
         var q = sql_comments.select(sql_comments.star())
             .where(
-                sql_comments.zid.equals(req.p.zid)
+                sql_comments.zid.equals(o.zid)
             );
-        if (!_.isUndefined(req.p.pid)) {
-            q = q.where(sql_comments.pid.equals(req.p.pid));
+        if (!_.isUndefined(o.pid)) {
+            q = q.where(sql_comments.pid.equals(o.pid));
         }
-        if (!_.isUndefined(req.p.tids)) {
-            q = q.where(sql_comments.tid.in(req.p.tids));
+        if (!_.isUndefined(o.tids)) {
+            q = q.where(sql_comments.tid.in(o.tids));
         }
-        if (!_.isUndefined(req.p.not_pid)) {
-            q = q.where(sql_comments.pid.notEquals(req.p.not_pid));
+        if (!_.isUndefined(o.not_pid)) {
+            q = q.where(sql_comments.pid.notEquals(o.not_pid));
         }
-        if (!_.isUndefined(req.p.mod)) {
-            q = q.where(sql_comments.mod.equals(req.p.mod));
+        if (!_.isUndefined(o.mod)) {
+            q = q.where(sql_comments.mod.equals(o.mod));
         }
-        if (!_.isUndefined(req.p.not_voted_by_pid)) {
+        if (!_.isUndefined(o.not_voted_by_pid)) {
             // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
             // Don't return comments the user has already voted on.
             q = q.where(
                 sql_comments.tid.notIn(
                     sql_votes.subQuery().select(sql_votes.tid)
                         .where(
-                            sql_votes.zid.equals(req.p.zid)
+                            sql_votes.zid.equals(o.zid)
                         ).and(
-                            sql_votes.pid.equals(req.p.not_voted_by_pid)
+                            sql_votes.pid.equals(o.not_voted_by_pid)
                         )
                     )
                 );
+        }
+
+        if (!_.isUndefined(o.without)) {
+            q = q.where(sql_comments.tid.notEquals(o.without));
         }
         if (isModerationRequest) {
 
@@ -2622,8 +2611,17 @@ function(req, res) {
         }
 
         q = q.where(sql_comments.velocity.gt(0)); // filter muted comments
-        q = q.order(sql_comments.created);
-        q = q.limit(999); // TODO paginate
+
+        if (!_.isUndefined(o.random)) {
+            q = q.order("random()");
+        } else {
+            q = q.order(sql_comments.created);
+        }
+        if (!_.isUndefined(o.limit)) {
+            q = q.limit(o.limit);
+        } else {
+            q = q.limit(999); // TODO paginate
+        }
 
         //if (_.isNumber(req.p.not_pid)) {
             //query += " AND pid != ($"+ (i++) + ")";
@@ -2631,20 +2629,14 @@ function(req, res) {
         //}
         //
         //pgQuery("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
-        console.log("mike", q.toString());
 
-        console.log("getComments " + rid + " doneBuildingQuery");
-        
         pgQuery(q.toString(), [], function(err, docs) {
-            console.log("getComments " + rid + " queryResponse");
-            if (err) { fail(res, 500, "polis_err_get_comments", err); 
-                console.log("getComments " + rid + " queryError");
-
-                return; }
+            if (err) { 
+                reject(err);
+                return;
+            }
 
             if (docs.rows && docs.rows.length) {
-                console.log("getComments " + rid + " gotRows");
-
                 var cols = [
                     "txt",
                     "tid",
@@ -2652,25 +2644,52 @@ function(req, res) {
                 ];
                 var rows = docs.rows;
 
-                if (req.p.moderation) {
+                if (isModerationRequest) {
                     cols.push("velocity");
                     cols.push("zid");
                     cols.push("mod");
                     cols.push("active");
                 }
                 rows = rows.map(function(row) { return _.pick(row, cols); });
-                console.log("getComments " + rid + " sendingRows");
+                resolve(rows);
 
-                res.status(200).json(rows);
             } else {
-                console.log("getComments " + rid + " sendingNoRows");
-                res.status(200).json([]);
-                console.log("getComments " + rid + " afterSendingNoRows");
+                resolve([]);
+
             }
-        });
-    }, function(err) {
-        console.log("getComments " + rid + " failedConvInfo");
-        fail(res, 500, "polis_err_get_comments_conv_info", err);
+        }); // end pgQuery
+      }).catch(function(err) {
+
+        reject(err);
+      }); // end getConversationInfo
+    }); // end new Promise
+}
+
+app.get("/v3/comments",
+    moveToBody,
+    authOptional(assignToP),
+    need('zid', getInt, assignToP),
+    want('tids', getArrayOfInt, assignToP),
+    want('pid', getInt, assignToP),
+    want('not_pid', getInt, assignToP),
+    want('not_voted_by_pid', getInt, assignToP),
+    want('moderation', getBool, assignToP),
+    want('mod', getInt, assignToP),
+//    need('lastServerToken', _.identity, assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var tids = req.p.tids;
+    var pid = req.p.pid;
+    var not_pid = req.p.not_pid;
+    var not_voted_by_pid = req.p.not_voted_by_pid;
+    var mod = req.p.mod;
+
+    // TODO check auth for zid
+    var rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
+    console.log("getComments " + rid + " begin");
+
+    getComments(req.p).then(function(comments) {
+        res.status(200).json(comments);
     }).catch(function(err) {
         console.log("getComments " + rid + " failed");
         fail(res, 500, "polis_err_get_comments", new Error("polis_err_get_comments"), err);
@@ -3188,6 +3207,74 @@ function(req, res) {
     votesGet(res, req.p);
 });
 
+
+function getNextComment(zid, pid, withoutTid) {
+    var params = {
+        zid: zid,
+        not_voted_by_pid: pid,
+        limit: 1,
+        random: true,
+    };
+    if (!_.isUndefined(withoutTid)) {
+        params.without = withoutTid;
+    }
+    return getComments(params).then(function(comments) {
+        if (!comments || !comments.length) {
+            return null;
+        } else {
+            return comments[0];
+        }
+    });
+
+    // return new Promise(function(resolve, reject) {
+    //     // If this is slow, one thing to look at is http://stackoverflow.com/questions/19412/how-to-request-a-random-row-in-sql
+    //     var s = "select * from comments where zid = ($1) and tid not in (select tid from votes where zid = ($1) and pid = ($2)) order by RANDOM() limit 1;";
+    //     var args = [zid, pid];
+    //     if (!_.isUndefined(withoutTid)) {
+    //         s = "select * from comments where zid = ($1) and tid not in (select tid from votes where zid = ($1) and pid = ($2)) and tid not in (($3)) order by RANDOM() limit 1;";
+    //         args = [zid, pid, withoutTid];
+    //     }
+
+    //      q = q.where(sql_comments.active.equals(true));            
+    //         if (conv.strict_moderation) {
+    //             q = q.where(sql_comments.mod.equals(polisTypes.mod.ok));
+    //         } else {
+    //             q = q.where(sql_comments.mod.notEquals(polisTypes.mod.ban));
+    //         }
+
+
+    //     console.log(s)
+    //     console.dir(args);
+    //     pgQuery(s, args, function(err, result) {
+    //         if (err) {
+    //             reject(err);
+    //         } else {
+    //             var c = (result.rows && result.rows.length) ? result.rows[0] : null;
+    //             resolve(c);
+    //         }
+    //     });
+    // });
+}
+
+app.get("/v3/nextComment",
+    moveToBody,
+    auth(assignToP),
+    need('zid', getInt, assignToP),
+    need('not_voted_by_pid', getInt, assignToP),
+    want('without', getInt, assignToP),
+function(req, res) {
+    getNextComment(req.p.zid, req.p.not_voted_by_pid).then(function(c) {
+        if (c) {
+            res.status(200).json(c);
+        } else {
+            res.status(304).end();
+        }
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_get_next_comment", err);
+    });
+});
+
+
 app.post("/v3/votes",
     auth(assignToP),
     need('tid', getInt, assignToP),
@@ -3197,7 +3284,13 @@ app.post("/v3/votes",
 function(req, res) {
 
     votesPost(req.p.pid, req.p.zid, req.p.tid, req.p.vote).then(function() {
-        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
+        return getNextComment(req.p.zid, req.p.pid);
+    }).then(function(nextComment) {
+        var result = {};
+        if (nextComment) {
+            result.nextComment = nextComment;
+        }
+        res.status(200).json(result);
     }).catch(function(err) {
         if (err === "polis_err_vote_duplicate") {
             fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
