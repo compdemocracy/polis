@@ -181,11 +181,11 @@
 
 
 (defn partial-pca
-  [mat pca indices & {:keys [n-comps iters learning-rate]
-                      :or {n-comps 2 iters 10 learning-rate 0.01}}]
   "This function takes in the rating matrix, the current pca and a set of row indices and
   computes the partial pca off of those, returning a lambda that will take the latest PCA 
   and make the update on that in case there have been other mini batch updates since started"
+  [mat pca indices & {:keys [n-comps iters learning-rate]
+                      :or {n-comps 2 iters 10 learning-rate 0.01}}]
   (let [rating-subset (filter-by-index mat indices)
         part-pca (powerit-pca rating-subset n-comps
                      :start-vectors (:comps pca)
@@ -201,7 +201,11 @@
        :comps  (mapv #(learn %1 %2) (:comps pca') (:comps part-pca))})))
 
 
-(defn sample-size-fn [start-y stop-y start-x stop-x]
+(defn sample-size-fn
+  "Return a function which decides how many ptpts to sample for mini-batch updates; the input
+  parameters correspond to a line of sample sizes to interpolate. Beyon the bounds of these
+  points, the sample sizes flatten out so all sample sizes lie in [start-y stop-y]"
+  [start-y stop-y start-x stop-x]
   (let [slope (/ (- stop-y start-y) (- stop-x start-x))
         start (- (* slope start-x) start-y)]
     (fn [size]
@@ -213,6 +217,7 @@
 
 
 (def large-conv-update-graph
+  "Same as small-conv-update-graph, but uses mini-batch PCA"
   (merge small-conv-update-graph
     {:pca (plmb/fnk [conv mat opts']
             (let [n-ptpts (matrix/dimension-count mat 0)
@@ -229,7 +234,10 @@
 (def large-conv-update (graph/eager-compile large-conv-update-graph))
 
 
-(defn conv-update [conv votes & {:keys [med-cutoff large-cutoff]
+(defn conv-update
+  "This function dispatches to either small- or large-conv-update, depending on the number
+  of participants (as decided by call to sample-size-fn)."
+  [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 1000}
                                  :as opts}]
   (println "\nStarting new conv update!")
@@ -243,7 +251,8 @@
          :else             small-conv-update)
             {:conv conv :votes votes :opts opts}))
     (catch Exception e
-      ; XXX - hmm... have to figure out how to deal with this hook in production
+      ; XXX - hmm... have to figure out how to deal with this hook in production. Shouldn't save things to
+      ; disk that are too big, and in fact won't be able to save to disk at all on heroku
       (println "Update Failure:" (.getMessage e))
       (conv-update-dump conv votes opts e)
       (throw e))))

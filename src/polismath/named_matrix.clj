@@ -66,26 +66,6 @@
   (get-col-index [this] "Extract the col-index object")
   (rowname-subset [this names] "Get a new PNamedMatrix subsetting to just the given rownames"))
 
-;(defn- padding-dimcounts
-  ;"Generate paddinbg dimension counts vector suitable for core.matrix/broadcast"
-  ;[mat dim n]
-  ;(let [d (cm/dimensionality mat)
-        ;dcs (mapv #(cm/dimension-count mat %) (range d))]
-    ;(assoc dcs dim n)))
-
-;(defn add-padding
-  ;"Add padding to a matrix. Note that if mat has nils, this function only works if value is also nil."
-  ;; XXX - the nil thing might be able to be fixed (if we need it at some point) by manually turning the
-  ;; padding potions into vectors via into in this sitation. Catch?
-  ;[mat dim n & [value]]
-  ;(case dim
-    ;; This should actually work for everything, but join-along isn't yet implemented for dim>0
-    ;0 (let [dimcounts (padding-dimcounts mat dim n)
-            ;mat       (if (nil? value) mat (cm/matrix mat))
-            ;padding   (cm/broadcast value dimcounts)
-            ;padding   (if (number? value) padding (cm/matrix padding))]
-        ;(cm/matrix (cm/join-along 0 mat padding)))
-    ;1 (cm/transpose (add-padding (cm/transpose mat) 0 n value))))
 
 (defn add-padding
   "Adds specified value padding to 2d matrices"
@@ -171,17 +151,16 @@
 
 ; Put in interface? ...
 
-(defnp safe-rowname-subset [nmat names]
+(defnp safe-rowname-subset
   "This version of rowname-subset filters out negative indices, so that if not all names in row-names
   are in nmat, it just subsets to the rownames that are. Should scrap other one?"
+  [nmat names]
   (let [safe-names (filter
-                     ; XXX This is kinda bad; should only be using protocol
                      (partial index (get-row-index nmat))
                      names)]
     (rowname-subset nmat names)))
 
 (defn get-row-by-name [nmat row-name]
-  ; XXX This is kinda bad; should only be using protocol
   (cm/get-row (get-matrix nmat) (index (get-row-index nmat) row-name)))
 
 (defn inv-rowname-subset [nmat row-names]

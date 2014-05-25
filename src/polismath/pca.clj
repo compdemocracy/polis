@@ -12,16 +12,18 @@
 (set! *unchecked-math* true)
 
 
-(defn repeatv [n x]
+(defn repeatv
   "Utility function for making a vector of length n composed entirely of x"
+  [n x]
   (matrix (into [] (repeat n x))))
 
 
 ; Should maybe hide this inside power-iteration and have that function wrap it's current
 ; recursive functionality
-(defn xtxr [data start-vec]
+(defn xtxr
   "Will need to rename this and some of the inner variables to be easier to read...
   Computes an inner step of the power-iteration process"
+  [data start-vec]
   (let [n-cols (dimension-count data 1)
         curr-vec (transpose (repeatv n-cols 0))]
     (loop [data (rows data) curr-vec curr-vec]
@@ -31,9 +33,10 @@
         curr-vec))))
 
 
-(defn power-iteration [data & [iters start-vector]]
+(defn power-iteration
   "This function produces the first eigenvector of data using the power iteration method with
   iters iterations and starting vector start-vector (defaulting to 100 and 111111 resp)."
+  [data & [iters start-vector]]
   ; need to clean up some of these variables names to be more descriptive
   (let [iters (or iters 100)
         n-cols (dimension-count data 1)
@@ -51,15 +54,17 @@
           (recur (dec iters) normed eigval))))))
 
 
-(defn proj-vec [xs ys]
+(defn proj-vec
   "This computes the projection of ys orthogonally onto the vector spanned by xs"
+  [xs ys]
   (let [coeff (/ (dot xs ys) (dot xs xs))]
     (* coeff xs)))
 
 
-(defn factor-matrix [data xs]
+(defn factor-matrix
   "As in the Gram-Shmidt process; we can 'factor out' the vector xs from all the vectors in data,
   such that there is no remaining variance in the xs direction within the data."
+  [data xs]
   ; If we have a zero eigenvector, it's safe to just assume that 0 should remain the matrix
   (if (#{0 0.0} (dot xs xs))
     data
@@ -74,9 +79,10 @@
 
 
 ; Will eventually also want to add last-pcs
-(defn powerit-pca [data n-comps & {:keys [iters start-vectors]}]
+(defn powerit-pca
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
+  [data n-comps & {:keys [iters start-vectors]}]
   (let [center (mean data)
         cntrd-data (- data center)
         start-vectors (or start-vectors [])
@@ -95,8 +101,9 @@
                 (recur data' n-comps' pcs (rest start-vectors))))))}))
 
 
-(defn wrapped-pca [data n-comps & {:keys [iters start-vectors] :as kwargs}]
+(defn wrapped-pca
   "This function gracefully handles weird edge cases inherent in the messiness of real world data"
+  [data n-comps & {:keys [iters start-vectors] :as kwargs}]
   (match (map (partial dimension-count data) [0 1])
     [1 n-cols]
       {:center (matrix (repeatv n-comps 0))
@@ -113,8 +120,9 @@
                         nil)))))
 
 
-(defn pca-project [data {:keys [comps center]}]
+(defn pca-project
   "Apply the principal component projection specified by pcs to the data"
+  [data {:keys [comps center]}]
   ; Here we map each row of data to it's projection
   ; XXX - still need to verify this...
   (mmul (- data center) (transpose comps)))

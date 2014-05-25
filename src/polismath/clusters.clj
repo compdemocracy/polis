@@ -13,15 +13,17 @@
 (set-current-implementation :vectorz)
 
 
-(defn clst-append [clst item]
+(defn clst-append
   "Append an item to a cluster, where item is a (mem_id, vector) pair"
+  [clst item]
   (assoc clst
          :members (conj (:members clst) (first item))
          :positions (conj (:positions clst) (last item))))
 
 
-(defn add-to-closest [clusts item]
+(defn add-to-closest
   "Find the closest cluster and append item (mem_id, vector) to it"
+  [clusts item]
   (let [[clst-id clst] (apply min-key
                          (fn [[clst-id clst]]
                            (distance (last item) (:center clst)))
@@ -30,8 +32,9 @@
       (clst-append clst item))))
 
 
-(defn init-clusters [data k]
+(defn init-clusters
   "Effectively random initial clusters for initializing a new kmeans comp"
+  [data k]
   (take k
     (map-indexed
       (fn [id position] {:id id :members [] :center (matrix position)})
@@ -39,9 +42,10 @@
       (distinct (rows (get-matrix data))))))
 
 
-(defn same-clustering? [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
+(defn same-clustering?
   "Determines whether clusterings are within tolerance by measuring distances between
   centers. Note that cluster centers here must be vectors and not NDArrays"
+  [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
   (letfn [(cntrs [clsts] (sort (map :center clsts)))]
     (every?
       (fn [[x y]]
@@ -49,15 +53,17 @@
       (zip (cntrs clsts1) (cntrs clsts2)))))
 
 
-(defn cleared-clusters [clusters]
+(defn cleared-clusters
   "Clears a cluster's members so that new ones can be assoced on a new clustering step"
+  [clusters]
   (into {} (map #(vector (:id %) (assoc % :members [])) clusters)))
 
 
-(defn cluster-step [data-iter k clusters]
+(defn cluster-step
   "Performs one step of an interative K-means:
   data-iter: seq of pairs (id, position), eg (pid, person-rating-row)
   clusters: array of clusters"
+  [data-iter k clusters]
   (->> data-iter
     ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
     (reduce add-to-closest (cleared-clusters clusters))
@@ -69,16 +75,18 @@
     (filter #(> (count (:members %)) 0))))
 
 
-(defnp recenter-clusters [data clusters]
+(defnp recenter-clusters
   "Replace cluster centers with a center computed from new positions"
+  [data clusters]
   (greedy
   (map
     #(assoc % :center (mean (matrix (get-matrix (rowname-subset data (:members %))))))
     clusters)))
 
 
-(defnp safe-recenter-clusters [data clusters]
+(defnp safe-recenter-clusters
   "Replace cluster centers with a center computed from new positions"
+  [data clusters]
   (as-> clusters clsts
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
     (p :safe-recenter-map (greedy
@@ -111,8 +119,9 @@
      :center (mean (map :center [clst1 clst2]))}))
 
 
-(defnp most-distal [data clusters]
+(defnp most-distal
   "Finds the most distal point in all clusters"
+  [data clusters]
   (let [[dist clst-id id]
           ; find the maximum dist, clst-id, mem-id triple
           (apply max-key #(get % 0)
@@ -138,10 +147,11 @@
     [] clusters))
 
 
-(defnp clean-start-clusters [data clusters k]
+(defnp clean-start-clusters
   "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
+  [data clusters k]
   ; First recenter clusters (replace cluster center with a center computed from new positions)
   (let [clusters (into [] (safe-recenter-clusters data clusters))
         ; next make sure we're not dealing with any clusters that are identical to eachother
@@ -176,8 +186,9 @@
 
  
 ; Each cluster should have the shape {:id :members :center}
-(defnp kmeans [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
+(defnp kmeans
   "Performs a k-means clustering."
+  [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   (let [data-iter (zip (rownames data) (matrix (get-matrix data)))
         clusters  (if last-clusters
                     (clean-start-clusters data last-clusters k)
@@ -190,9 +201,10 @@
 
 
 ; NOTE - repness is calculated on the client
-(defn repness [in-part out-part]
+(defn repness
   "Computes the representativeness of each of the columns for the split defined by in-part out-part,
   each of which is a named-matrix of votes (with the same columns) which might contain nils."
+  [in-part out-part]
   (letfn [(frac-up [votes]
             "Computes the fraction of votes in arg that are positive and not zero, negative or nil."
             (let [[up not-up]

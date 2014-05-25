@@ -70,14 +70,17 @@
     ))
 
 
-(defn apply-kwargs [f & args]
+(defn apply-kwargs
   "Takes a function f, any number of regular args, and a final kw-args argument which will be
   splatted in as a final argument"
+  [f & args]
   (apply (apply partial f (butlast args)) (apply concat (last args))))
 
 
-(defn use-debuggers []
-  "Handy debugging utility for loading in debugging namespaces"
+(defn use-debuggers
+  "Handy debugging utility for loading in debugging namespaces - doesn't really always work. XXX - maybe
+  use Vinyasa?"
+  []
   (require '[alex-and-georges.debug-repl :as dr])
   (require '[clojure.tools.trace :as tr]))
 
@@ -133,6 +136,7 @@
 
 
 (defn prep-for-uploading-to-client [results]
+  ; XXX - this should really be in conversations I think; not really a util function
   (let [base-clusters (:base-clusters results)
         repness (:base-clusters results)]
     (-> results

@@ -23,20 +23,20 @@
         (generator #(- % 1) 3)))))
 
 
-(defnk make-vote-gen [person-count-start person-count-growth
-                      comment-count-start comment-count-growth
-                      n-convs vote-rate]
+(defnk make-vote-gen
   "This function creates an infinite sequence of reations which models an increasing number of comments and
   people over time, over some number of conversations n-convs. The start-n argument sets the initial number of
   ptpts and cmts per conversation."
+  [person-count-start person-count-growth comment-count-start comment-count-growth n-convs vote-rate]
   (mapcat
     #(random-votes %1 %2 :n-convs n-convs :n-votes vote-rate)
     (map #(+ person-count-start (* person-count-growth %)) (range))
     (map #(+ comment-count-start (* comment-count-growth %)) (range))))
 
 
-(defn random-poll [db-spec last-timestamp generator-args]
+(defn random-poll
   "This is specifically structured to be a drop in replacement for the postgres poll"
+  [db-spec last-timestamp generator-args]
   (letfn [(rand-timestamp []
             (+ last-timestamp
                (rand-int (- (to-long (local-now)) last-timestamp))))]
@@ -110,8 +110,8 @@
 
 
 (defn play [& args]
-  (let [big-ptpts    10000
-        big-comments 10
+  (let [big-ptpts    20000
+        big-comments 100
         a (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
         a (time2 "CONVUP med" (conv-update a (random-votes 500 10)))]
         ;a (time2 "CONVUP big" (conv-update a (random-votes big-ptpts big-comments)))]
