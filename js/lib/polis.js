@@ -33,6 +33,7 @@ module.exports = function(params) {
     var starsPath = "/v3/stars";
     var trashesPath = "/v3/trashes";
     var commentsPath = "/v3/comments";
+    var nextCommentPath = "/v3/nextComment";
     var feedbackPath = "/v2/feedback";
 
     var createAccountPath = "/v3/auth/new";
@@ -181,23 +182,32 @@ module.exports = function(params) {
         return _.keys(commentsToVoteOn).length;
     }
 
-    function getNextComment() {
-        var dfd = $.Deferred();
+    // expecting params to have a 'without' property: a tid to ignore.
+    function getNextComment(params) {
+        // var dfd = $.Deferred();
 
-        var index;
-        var numComments = getNumComments();
-        if (numComments > 0) {
-            // Pick a random comment
-            index = _.shuffle(_.keys(commentsToVoteOn)).pop();
-            dfd.resolve(commentsToVoteOn[index]);
-        } else {
-            // return the number of votes user has done.
-            // This is useful to know if there are no
-            // comments because the user is done voting,
-            // or if there aren't any comments available yet.
-            dfd.reject(votesByMe.size());
-        }
-        return dfd.promise();
+        // var index;
+        // var numComments = getNumComments();
+        // if (numComments > 0) {
+        //     // Pick a random comment
+        //     index = _.shuffle(_.keys(commentsToVoteOn)).pop();
+        //     dfd.resolve(commentsToVoteOn[index]);
+        // } else {
+        //     // return the number of votes user has done.
+        //     // This is useful to know if there are no
+        //     // comments because the user is done voting,
+        //     // or if there aren't any comments available yet.
+        //     dfd.reject(votesByMe.size());
+        // }
+        // return dfd.promise();
+
+        params = $.extend({
+            not_voted_by_pid: getPid(),
+            limit: 1,
+            zid: zid
+        }, params);
+
+        return polisGet(nextCommentPath, params);
     }
 
     function submitComment(model) {
@@ -239,6 +249,7 @@ module.exports = function(params) {
         });
     }
 
+    // returns promise {nextComment: {tid:...}} or {} if no further comments
     function react(params) {
         if (params.zid && params.zid !== zid) {
             if (params.vote !== polisTypes.reactions.see) {
