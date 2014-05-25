@@ -1,4 +1,5 @@
 (ns polismath.conversation
+  (:refer-clojure :exclude [* -  + == /])
   (:require [plumbing.core :as plmb]
             [plumbing.graph :as graph]
             [clojure.core.matrix :as matrix]
@@ -6,7 +7,9 @@
             [clojure.math.numeric-tower :as math]
             [bigml.sampling.simple :as sampling]
             [alex-and-georges.debug-repl :as dbr])
-  (:use polismath.utils
+  (:use clojure.core.matrix
+        clojure.core.matrix.operators
+        polismath.utils
         polismath.pca
         polismath.clusters
         polismath.named-matrix))
@@ -14,30 +17,30 @@
 
 (defn choose-group-k [base-clusters]
   (let [len (count base-clusters)]
-                  (cond
-                   (< len 99) 3
-                   :else 4
-                  )))
+    (cond
+      (< len 99) 3
+      :else 4)))
+
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
-  ; XXX - should replace index-of with our new index-hash functionality
-  (let [idx (index (get-row-index rating-mat) tid)
-        pid-to-row (zipmap (rownames rating-mat) (range (count (rownames rating-mat))))]
-    (if (< idx 0)
-      []
+  (if-let [idx (index (get-col-index rating-mat) tid)]
+    ; If we have data for the given comment...
+    (let [pid-to-row (zipmap (rownames rating-mat) (range (count (rownames rating-mat))))
+          person-rows (get-matrix rating-mat)]
       (map ; for each bucket
         (fn [pids]
-          (let [person-rows (get-matrix rating-mat)]
-            (math/abs
-              ; add up the votes within the group for the given tid
-              (reduce + 0
-                ; reove votes you don't want to count
-                (filter filter-cond
-                  ; get a list of votes for the tid from each person in the group
-                  (map
-                    (fn [pid] (get (get person-rows (pid-to-row pid)) idx))
-                    pids))))))
-        bid-to-pid))))
+          (->> pids
+            ; get votes for the tid from each ptpt in group
+            (map (fn [pid] (get (get person-rows (pid-to-row pid)) idx)))
+            ; filter votes you don't want to count
+            (filter filter-cond)
+            ; Sum and abs
+            (reduce + 0)
+            (math/abs)))
+        bid-to-pid))
+    ; Otherwise return an empty vector
+    []))
+
 
 ; conv - should have
 ;   * last-updated
@@ -50,7 +53,6 @@
 ; [hidden]
 ;   * rating matrix
 ;   * base-cluster-full [ptpt to base mpa]
-
 
 (def base-conv-update-graph
   "Base of all conversation updates; handles default update opts and does named matrix updating"
@@ -165,18 +167,14 @@
        ;;; where the indices in the arrays are bids
        :votes-base (plmb/fnk [bid-to-pid rating-mat]
                      (time2 "votes-base"
-                       (let [tids (colnames rating-mat)]
-                         (reduce
-                           (fn [o entry]
-                             (assoc o (:tid entry) (dissoc entry :tid)))
-                           {}
-                           (map
-                             (fn [tid]
-                               ; A for aggree; D for disagree
-                               {:tid tid
-                                :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
-                                :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)})
-                             tids)))))
+                       (->> rating-mat
+                          colnames
+                          (map (fn [tid]
+                             {:tid tid
+                              :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
+                              :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
+                          (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))))))
+
        ; End of large-update
        }))
 
@@ -192,17 +190,24 @@
         part-pca (powerit-pca rating-subset n-comps
                      :start-vectors (:comps pca)
                      :iters iters)
-        forget-rate (- 1 learning-rate)]
+        forget-rate (- 1 learning-rate)
+        learn (fn [old-val new-val]
+                (let [old-val (join old-val (repeat (- (dimension-count new-val 0)
+                                                       (dimension-count old-val 0)) 0))]
+                  (+ (* forget-rate old-val) (* learning-rate new-val))))]
     (fn [pca']
       "Actual updater lambda"
-      (plmb/map-vals #(+ (* forget-rate %1) (* learning-rate %2)) pca' part-pca))))
+      {:center (learn (:center pca') (:center part-pca))
+       :comps  (mapv #(learn %1 %2) (:comps pca') (:comps part-pca))})))
 
 
 (defn sample-size-fn [start-y stop-y start-x stop-x]
   (let [slope (/ (- stop-y start-y) (- stop-x start-x))
         start (- (* slope start-x) start-y)]
     (fn [size]
-      (min (+ start (* slope size)) stop-y))))
+      (max 
+        (long (min (+ start (* slope size)) stop-y))
+        start-y))))
 ; For now... Will want this constructed with opts eventually
 (def sample-size (sample-size-fn 100 1500 1500 150000))
 
@@ -213,7 +218,8 @@
             (let [n-ptpts (matrix/dimension-count mat 0)
                   sample-size (sample-size n-ptpts)]
               (loop [pca (:pca conv) iter (:pca-iters opts')]
-                (let [pca ((partial-pca pca (sampling/sample sample-size)) pca)]
+                (let [rand-indices (take sample-size (sampling/sample (range n-ptpts) :generator :twister))
+                      pca          ((partial-pca mat pca rand-indices) pca)]
                   (if (= iter 0)
                     (recur pca (dec iter))
                     pca)))))}))
@@ -233,7 +239,7 @@
       (println "N-ptpts:" n-ptpts)
       ; dispatch to the appropriate function
       ((cond
-         (> n-ptpts 9999999999)   large-conv-update
+         (> n-ptpts 999)   large-conv-update
          :else             small-conv-update)
             {:conv conv :votes votes :opts opts}))
     (catch Exception e

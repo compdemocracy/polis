@@ -30,3 +30,26 @@
       (is (small-conv-update {:conv {:rating-mat rat-mat} :opts {} :votes several-votes})))))
 
 
+(deftest large-conv-update-test
+  (let [data (named-matrix
+               [:p1 :p2 :p3 :p4 :p5]
+               [:c1 :c2 :c3 :c4]
+               [[ 0  1  0 -1  1]
+                [-1  0 -1 -1  0]
+                [ 1  0  1  0  1]
+                [ 1 -1  0 -1  0]
+                [-1 -1  0  1  0]])
+        conv {:rating-mat data
+              :pca {:center [0.0 -0.2 -0.0  0.4] ;actually calculated this...
+                    :comps [[0.4  0.2 -0.3  0.7] ;this is faked...
+                            [0.1 -0.5  0.2  0.2]]}}]
+    (testing "should work with votes for only existing ptpts/cmts"
+      (is (large-conv-update {:conv conv :opts {} 
+                              :votes [{:pid :p1 :tid :c1 :vote  1}
+                                      {:pid :p3 :tid :c3 :vote -1}]})))
+    (testing "should work with votes for new cmts"
+      (is (large-conv-update {:conv conv :opts {}
+                              :votes [{:pid :p3 :tid :c5 :vote  1}
+                                      {:pid :p5 :tid :c5 :vote -1}]})))))
+
+

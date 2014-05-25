@@ -61,7 +61,9 @@
   (rownames [this] "Vector of row names, in order")
   (colnames [this] "Vector of column names, in order")
   (get-matrix [this] "Extract the matrix object")
+  ; XXX - Should probably set these up map [this key] -> (index (.row-index this) key) since that's whats needed
   (get-row-index [this] "Extract the row-index object")
+  (get-col-index [this] "Extract the col-index object")
   (rowname-subset [this names] "Get a new PNamedMatrix subsetting to just the given rownames"))
 
 ;(defn- padding-dimcounts
@@ -149,6 +151,7 @@
     (colnames [this] (get-names (.col-index this)))
     (get-matrix [this] (.matrix this))
     (get-row-index [this] (.row-index this))
+    (get-col-index [this] (.col-index this))
     (rowname-subset [this names]
       (let [row-indices (map (partial index (.row-index this)) names)
             row-index (subset (.row-index this) names)]
