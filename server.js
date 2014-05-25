@@ -3225,35 +3225,6 @@ function getNextComment(zid, pid, withoutTids) {
             return comments[0];
         }
     });
-
-    // return new Promise(function(resolve, reject) {
-    //     // If this is slow, one thing to look at is http://stackoverflow.com/questions/19412/how-to-request-a-random-row-in-sql
-    //     var s = "select * from comments where zid = ($1) and tid not in (select tid from votes where zid = ($1) and pid = ($2)) order by RANDOM() limit 1;";
-    //     var args = [zid, pid];
-    //     if (!_.isUndefined(withoutTid)) {
-    //         s = "select * from comments where zid = ($1) and tid not in (select tid from votes where zid = ($1) and pid = ($2)) and tid not in (($3)) order by RANDOM() limit 1;";
-    //         args = [zid, pid, withoutTid];
-    //     }
-
-    //      q = q.where(sql_comments.active.equals(true));            
-    //         if (conv.strict_moderation) {
-    //             q = q.where(sql_comments.mod.equals(polisTypes.mod.ok));
-    //         } else {
-    //             q = q.where(sql_comments.mod.notEquals(polisTypes.mod.ban));
-    //         }
-
-
-    //     console.log(s)
-    //     console.dir(args);
-    //     pgQuery(s, args, function(err, result) {
-    //         if (err) {
-    //             reject(err);
-    //         } else {
-    //             var c = (result.rows && result.rows.length) ? result.rows[0] : null;
-    //             resolve(c);
-    //         }
-    //     });
-    // });
 }
 
 app.get("/v3/nextComment",
