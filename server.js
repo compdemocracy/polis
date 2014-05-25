@@ -2596,8 +2596,8 @@ function getComments(o) {
                 );
         }
 
-        if (!_.isUndefined(o.without)) {
-            q = q.where(sql_comments.tid.notEquals(o.without));
+        if (!_.isUndefined(o.withoutTids)) {
+            q = q.where(sql_comments.tid.notIn(o.withoutTids));
         }
         if (isModerationRequest) {
 
@@ -3208,15 +3208,15 @@ function(req, res) {
 });
 
 
-function getNextComment(zid, pid, withoutTid) {
+function getNextComment(zid, pid, withoutTids) {
     var params = {
         zid: zid,
         not_voted_by_pid: pid,
         limit: 1,
         random: true,
     };
-    if (!_.isUndefined(withoutTid)) {
-        params.without = withoutTid;
+    if (!_.isUndefined(withoutTids)) {
+        params.withoutTids = withoutTids;
     }
     return getComments(params).then(function(comments) {
         if (!comments || !comments.length) {
@@ -3261,9 +3261,9 @@ app.get("/v3/nextComment",
     auth(assignToP),
     need('zid', getInt, assignToP),
     need('not_voted_by_pid', getInt, assignToP),
-    want('without', getInt, assignToP),
+    want('without', getArrayOfInt, assignToP),
 function(req, res) {
-    getNextComment(req.p.zid, req.p.not_voted_by_pid).then(function(c) {
+    getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
         if (c) {
             res.status(200).json(c);
         } else {
