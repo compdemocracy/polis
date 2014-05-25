@@ -182,8 +182,7 @@ module.exports = function(params) {
         return _.keys(commentsToVoteOn).length;
     }
 
-    // expecting params to have a 'without' property: a tid to ignore.
-    function getNextComment(params) {
+    function getNextComment(o) {
         // var dfd = $.Deferred();
 
         // var index;
@@ -201,11 +200,26 @@ module.exports = function(params) {
         // }
         // return dfd.promise();
 
-        params = $.extend({
+
+        var params = {
             not_voted_by_pid: getPid(),
             limit: 1,
+            without: [],
             zid: zid
-        }, params);
+        };
+
+        if (demoMode()) {
+            // DEMO_MODE
+            params.without = votesByMe.pluck("tid");
+        }
+
+        if (o && !_.isUndefined(o.notTid)) {
+            // Don't return the comment that's currently showing.
+            // We expect the server to know what we've voted on,
+            // but not what client is currently viewing.
+            params.without.push(o.notTid);
+        }
+
 
         return polisGet(nextCommentPath, params);
     }
@@ -261,7 +275,15 @@ module.exports = function(params) {
             console.error(params);
         }
         if (demoMode()) {
-            return $.Deferred().resolve();
+            return getNextComment({
+                notTid: params.tid // Also don't show the comment that was just voted on.
+            }).then(function(c) {
+                var o = {};
+                if (c) {
+                    o.nextComment = c;
+                }
+                return o;
+            });
         }
         return polisPost(votesPath, $.extend({}, params, {
                 // server will find the pid
