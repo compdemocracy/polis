@@ -4,10 +4,10 @@
         [clojure.core.match :only (match)]
         clojure.core.matrix 
         clojure.core.matrix.stats
-        clojure.core.matrix.operators))
+        clojure.core.matrix.operators)
+  (:require [clojure.tools.trace :as tr]))
 
 (set-current-implementation :vectorz)
-(require '[clojure.tools.trace :as tr])
 
 (set! *unchecked-math* true)
 

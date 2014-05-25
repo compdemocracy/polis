@@ -4,7 +4,8 @@
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
             [clojure.tools.reader.edn :as edn]
-            [clojure.core.matrix :as mat]))
+            [clojure.core.matrix :as mat]
+            [clojure.tools.trace :as tr]))
 
 (set-current-implementation :vectorz)
 
@@ -42,10 +43,11 @@
       (into [] iter)
       iter)))
 
+
 (defn greedy-false [iter] iter)
 
 
-(defn ^Integer typed-indexof [^java.util.List coll item]
+(defn ^long typed-indexof [^java.util.List coll item]
   (.indexOf coll item))
 
 
