@@ -1134,10 +1134,11 @@ function clientSideBaseCluster(things, N) {
                         return new Bucket(b);
                     });
 
-                    buckets = removeSelfFromBuckets(buckets);
+                    var temp = removeSelfFromBucketsAndClusters(buckets, clusters);
+                    buckets = temp.buckets;
+                    clustersCache = temp.clusters;
 
                     projectionPeopleCache = buckets;
-                    clustersCache = clusters;
                     clustersCachePromise.resolve();
 
                     buckets = prepProjection(buckets);
@@ -1150,14 +1151,31 @@ function clientSideBaseCluster(things, N) {
     }
 
 
+    function removeItemFromArray(bid, cluster) {
+        var index = cluster.indexOf(bid);
+        if (index >= 0) {
+            cluster = cluster.splice(index, 1);
+        }
+        return cluster;
+    }
 
-    function removeSelfFromBuckets(buckets) {
-        return _.map(buckets, function(b) {
-            if (b.bid === bid) {
-                b.count -= 1;
+    function removeSelfFromBucketsAndClusters(buckets, clusters) {
+        for (var b = 0; b < buckets.length; b++) {
+            var bucket = buckets[b];
+            if (bucket.bid === bid) {
+                bucket.count -= 1;
             }
-            return b;
-        });
+            if (bucket.count <= 0) {
+                clusters = _.map(clusters, function(cluster) {
+                    removeItemFromArray(bucket.bid, cluster);
+                    return cluster;
+                });
+            }
+        }
+        return {
+            buckets: buckets,
+            clusters: clusters
+        }
     }
 
     function arraysToObjects(objWithArraysAsProperties) {
