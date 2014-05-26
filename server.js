@@ -3238,7 +3238,7 @@ function(req, res) {
         if (c) {
             res.status(200).json(c);
         } else {
-            res.status(304).end();
+            res.status(200).json({});
         }
     }).catch(function(err) {
         fail(res, 500, "polis_err_get_next_comment", err);
