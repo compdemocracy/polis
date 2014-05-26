@@ -3215,7 +3215,7 @@ function getNextComment(zid, pid, withoutTids) {
         limit: 1,
         random: true,
     };
-    if (!_.isUndefined(withoutTids)) {
+    if (!_.isUndefined(withoutTids) && withoutTids.length) {
         params.withoutTids = withoutTids;
     }
     return getComments(params).then(function(comments) {
