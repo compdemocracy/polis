@@ -204,7 +204,6 @@ module.exports = function(params) {
         var params = {
             not_voted_by_pid: getPid(),
             limit: 1,
-            without: [],
             zid: zid
         };
 
@@ -217,6 +216,9 @@ module.exports = function(params) {
             // Don't return the comment that's currently showing.
             // We expect the server to know what we've voted on,
             // but not what client is currently viewing.
+            if (!params.without) {
+                params.without = [];
+            }
             params.without.push(o.notTid);
         }
 
