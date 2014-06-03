@@ -1,5 +1,6 @@
 (ns polismath.named-matrix
   (:require [clojure.core.matrix :as cm]
+             [clojure.core.matrix.select :as cm-sel]
             [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)])
   (:use polismath.utils))
