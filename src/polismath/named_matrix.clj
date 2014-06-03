@@ -83,6 +83,13 @@
 
 (deftype NamedMatrix
   [row-index col-index ^java.util.Vector matrix]
+  Object
+    (toString [this]
+      (str
+        "{:rownames " (into [] (rownames this))
+        " :colnames " (into [] (colnames this))
+        " :matrix " (get-matrix this)
+        "}"))
   PNamedMatrix
     (update-nmat [this values]
       ; A bunch of profiling shit
