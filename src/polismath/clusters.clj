@@ -225,6 +225,33 @@
      (dist-matrix (get-matrix nm1) (get-matrix nm2)))))
 
 
+(defn silhouette
+  "Compute the silhoette coefficient for either a cluster member, or for an entire clustering. Currently,
+  the latter just averages over the former for all members - it's likely there is a more efficient way
+  to block things up."
+  ([distmat clusters member]
+   (let [dist-row (rowname-subset distmat [member])
+         [a b]
+           (reduce
+             (fn [[a b] clst]
+               (let [memb-clst? (some #{member} (:members clst))
+                     membs (remove #{member} (:members clst))
+                     in-block (colname-subset dist-row membs)
+                     new-val (mean (first (get-matrix in-block)))]
+                 ; Either new-val is a or a possible b condidate
+                 (if memb-clst?
+                   [new-val b]
+                   [a (min new-val (or b new-val))])))
+             [nil nil]
+             clusters)]
+     (/ (- b a) (max b a))))
+  ([distmat clusters]
+   (mean
+     (map
+       (partial silhouette distmat clusters)
+       (rownames distmat)))))
+
+
 ; NOTE - repness is calculated on the client
 (defn repness
   "Computes the representativeness of each of the columns for the split defined by in-part out-part,
