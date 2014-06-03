@@ -8,7 +8,8 @@
         polismath.named-matrix
         clojure.core.matrix
         clojure.core.matrix.stats
-        clojure.core.matrix.operators))
+        clojure.core.matrix.operators
+        clojure.core.matrix.select))
 
 (set-current-implementation :vectorz)
 
@@ -198,6 +199,30 @@
         (if (or (= iter 0) (same-clustering? clusters new-clusters))
           new-clusters
           (recur new-clusters (dec iter)))))))
+
+
+(defn dist-matrix
+  "Dist matrix"
+  ([m] (dist-matrix m m))
+  ([m1 m2]
+   (matrix
+     (map
+       (fn [r1]
+         (map
+           (fn [r2]
+             (distance r1 r2))
+           m2))
+       m1))))
+
+
+(defn named-dist-matrix
+  "Distance matrix with rownames and colnames corresponding to rownames of nm1 and nm2 respectively."
+  ([nm] (named-dist-matrix nm nm))
+  ([nm1 nm2]
+   (named-matrix
+     (rownames nm1)
+     (rownames nm2)
+     (dist-matrix (get-matrix nm1) (get-matrix nm2)))))
 
 
 ; NOTE - repness is calculated on the client

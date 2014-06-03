@@ -64,7 +64,8 @@
   ; XXX - Should probably set these up map [this key] -> (index (.row-index this) key) since that's whats needed
   (get-row-index [this] "Extract the row-index object")
   (get-col-index [this] "Extract the col-index object")
-  (rowname-subset [this names] "Get a new PNamedMatrix subsetting to just the given rownames"))
+  (rowname-subset [this names] "Get a new PNamedMatrix subsetting to just the given rownames")
+  (colname-subset [this names] "Get a new PNamedMatrix subsetting to just the given columns"))
 
 
 (defn add-padding
@@ -138,7 +139,14 @@
         (NamedMatrix.
           row-index
           (.col-index this)
-          (filter-by-index (.matrix this) row-indices)))))
+          (filter-by-index (.matrix this) row-indices))))
+    (colname-subset [this names]
+      (let [col-indices (map (partial index (.col-index this)) names)
+            col-index (subset (.col-index this) names)]
+        (NamedMatrix.
+          (.row-index this)
+          col-index
+          (cm-sel/sel (.matrix this) (cm-sel/irange) col-indices)))))
 
 (defn named-matrix
   "Generator function for a new named matrix"
