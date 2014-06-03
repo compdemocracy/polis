@@ -1,4 +1,5 @@
 (ns named-matrix-test
+  (:use test-helpers)
   (:require [clojure.test :refer :all]
             [polismath.named-matrix :refer :all]))
 
@@ -18,20 +19,6 @@
    [-1 1   1  ]
    [-1 nil nil]]))
 
-(defn v=? [v1 v2]
-  (every? identity
-    (map 
-      (fn [x y]
-        (or 
-          (and (nil? x) (nil? y)) 
-          (= (float x) (float y))))
-      v1 v2)))
-
-(def simple true)
-(defn m=? [m1 m2]
-  (if simple
-    (= m1 m2)
-    (every? identity (map v=? m1 m2))))
 
 (defn unpack-nmat [nmat]
   (map #(% nmat) [rownames colnames get-matrix]))
