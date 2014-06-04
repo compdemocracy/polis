@@ -235,15 +235,26 @@
            (reduce
              (fn [[a b] clst]
                (let [memb-clst? (some #{member} (:members clst))
-                     membs (remove #{member} (:members clst))
-                     in-block (colname-subset dist-row membs)
-                     new-val (mean (first (get-matrix in-block)))]
-                 ; Either new-val is a or a possible b condidate
-                 (if memb-clst?
-                   [new-val b]
-                   [a (min new-val (or b new-val))])))
+                     membs (remove #{member} (:members clst))]
+                 ; This is a little bit silly, but will basically trigger returning 0 if member is in a
+                 ; singleton cluster
+                 (if (and memb-clst? (empty? membs))
+                   (reduced [1 1])
+                   ; Otherwise, continue...
+                   (as-> membs data
+                     ; Subset to just the columns for this clusters
+                     (colname-subset dist-row data)
+                     (get-matrix data)
+                     ; This is a 2D row vector; we want 1D, so take first
+                     (first data)
+                     ; Take the mean of the entries
+                     (mean data)
+                     (if memb-clst?
+                       [data b]
+                       [a (min data (or b data))])))))
              [nil nil]
              clusters)]
+     ; The actual silhouette computation
      (/ (- b a) (max b a))))
   ([distmat clusters]
    (mean

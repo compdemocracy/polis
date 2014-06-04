@@ -51,6 +51,8 @@
     (is (almost=? (silhouette distmat clusters :a) 0.71428)))
   (deftest clutering-silhouette-test
     ; Again, by hand
-    (is (almost=? (silhouette distmat clusters) 0.5654))))
+    (is (almost=? (silhouette distmat clusters) 0.5654)))
+  (deftest singleton-cluster-test
+    (is (= 0 (silhouette distmat [{:members [:a]} {:members [:c :d]}] :a)))))
 
 
