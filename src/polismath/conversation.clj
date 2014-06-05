@@ -62,6 +62,7 @@
                           :pca-iters 10
                           :base-iters 10
                           :base-k 50
+                          :max-k 12
                           :group-iters 10}
                     opts))
 
@@ -110,7 +111,15 @@
                         (take 7
                           (sort-by (comp - second) user-vote-counts)))
                       in-conv)))
-                         })
+  ; End of base conv update
+  })
+
+
+(defn max-k-fn
+  [data max-max-k]
+  (min max-max-k
+    (max 2
+      (int (/ (count (rownames data)) 3)))))
 
 
 (def small-conv-update-graph
@@ -146,26 +155,60 @@
                       :last-clusters (:base-clusters conv)
                       :cluster-iters (:base-iters opts')))))))
 
-       :group-clusters
-            (plmb/fnk [conv rating-mat base-clusters opts']
-              (time2 "group-clusters"
-                (greedy
-                (sort-by :id
-                  (kmeans (xy-clusters-to-nmat2 base-clusters)
-                    (choose-group-k base-clusters)
-                    :last-clusters (:group-clusters conv)
-                    :cluster-iters (:group-iters opts'))))))
+      :base-clusters-proj
+            (plmb/fnk [base-clusters]
+              (xy-clusters-to-nmat2 base-clusters))
+      
+      :bucket-dists
+            (plmb/fnk [base-clusters-proj]
+              (time2 "bucket-dists"
+                (named-dist-matrix base-clusters-proj)))
 
-       :bid-to-pid (plmb/fnk [base-clusters]
+      ; Compute group-clusters for multiple k values
+      :group-clusterings
+            (plmb/fnk [conv base-clusters-proj opts']
+              (into {}
+                ; XXX - should test pmap out
+                (map
+                  (fn [k]
+                    [k
+                      (sort-by :id
+                        (time2 (str "group-clusters-k=" k)
+                        (kmeans base-clusters-proj k
+                          :last-clusters
+                            ; A little pedantic here in case no clustering yet for this k
+                            (let [last-clusterings (:group-clusterings conv)]
+                              (if last-clusterings
+                                (last-clusterings k)
+                                last-clusterings))
+                          :cluster-iters (:group-iters opts'))))])
+                  (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts')))))))
+
+      ; Compute silhouette values for the various clusterings
+      :group-clusterings-silhouettes
+            (plmb/fnk [group-clusterings bucket-dists]
+              (into {}
+                (map
+                  (fn [[k clsts]]
+                    [k (silhouette bucket-dists clsts)])
+                  group-clusterings)))
+
+      ; Here we just pick the best K value, based on silhouette
+      :group-clusters
+            (plmb/fnk [group-clusterings group-clusterings-silhouettes]
+              (get group-clusterings
+                (max-key group-clusterings-silhouettes (keys group-clusterings))))
+
+      :bid-to-pid (plmb/fnk [base-clusters]
                      (time2 "bid-to-pid"
                       (greedy
                        (map :members (sort-by :id base-clusters)))))
 
-       ;;; returns {tid {
-       ;;;           :agree [0 4 2 0 6 0 0 1]
-       ;;;           :disagree [3 0 0 1 0 23 0 ]}
-       ;;; where the indices in the arrays are bids
-       :votes-base (plmb/fnk [bid-to-pid rating-mat]
+      ;; returns {tid {
+      ;;           :agree [0 4 2 0 6 0 0 1]
+      ;;           :disagree [3 0 0 1 0 23 0 ]}
+      ;; where the indices in the arrays are bids
+      :votes-base (plmb/fnk [bid-to-pid rating-mat]
                      (time2 "votes-base"
                        (->> rating-mat
                           colnames
@@ -175,8 +218,8 @@
                               :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
                           (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))))))
 
-       ; End of large-update
-       }))
+     ; End of large-update
+     }))
 
 
 
@@ -220,6 +263,7 @@
   "Same as small-conv-update-graph, but uses mini-batch PCA"
   (merge small-conv-update-graph
     {:pca (plmb/fnk [conv mat opts']
+            (time2 "mb-pca"
             (let [n-ptpts (matrix/dimension-count mat 0)
                   sample-size (sample-size n-ptpts)]
               (loop [pca (:pca conv) iter (:pca-iters opts')]
@@ -227,7 +271,7 @@
                       pca          ((partial-pca mat pca rand-indices) pca)]
                   (if (= iter 0)
                     (recur pca (dec iter))
-                    pca)))))}))
+                    pca))))))}))
 
 
 (def small-conv-update (graph/eager-compile small-conv-update-graph))
@@ -238,7 +282,7 @@
   "This function dispatches to either small- or large-conv-update, depending on the number
   of participants (as decided by call to sample-size-fn)."
   [conv votes & {:keys [med-cutoff large-cutoff]
-                                 :or {med-cutoff 100 large-cutoff 1000}
+                                 :or {med-cutoff 100 large-cutoff 10000}
                                  :as opts}]
   (println "\nStarting new conv update!")
   (try
@@ -247,7 +291,7 @@
       (println "N-ptpts:" n-ptpts)
       ; dispatch to the appropriate function
       ((cond
-         (> n-ptpts 999)   large-conv-update
+         (> n-ptpts large-cutoff)   large-conv-update
          :else             small-conv-update)
             {:conv conv :votes votes :opts opts}))
     (catch Exception e
