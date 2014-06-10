@@ -94,7 +94,7 @@ module.exports = Handlebones.ModelView.extend({
       var userHasVoted = !!votesByMe.size();
 
       waitingForComments = true;
-      pollForComments();
+      // pollForComments();
 
       var message1;
       var message2;
