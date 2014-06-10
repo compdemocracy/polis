@@ -1718,7 +1718,12 @@ function clientSideBaseCluster(things, N) {
         var count = 0;
         if (clustersCache[gid]) {
             _.each(clustersCache[gid], function(bid, gid) {
-                count += projectionPeopleCache[bid].count;
+                var bucket = _.findWhere(projectionPeopleCache, {bid: bid});
+                if (!bucket) {
+                    console.error('missing bucket for bid: ' + bid);
+                } else {
+                    count += bucket.count;
+                }
             });
         }
 
