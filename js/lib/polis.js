@@ -896,9 +896,9 @@ function clientSideBaseCluster(things, N) {
                 }
             }
 
-            _.each(xidsUnaccounted, function(val, xid) {
-                alert("Participant exists with xid: "+xid+", but that xid is missing from the loaded data.");
-            });
+            if (_.size(xidsUnaccounted)) {
+                alert("The attached data-source is missing data on participants with these xids: " + xidsUnaccounted.join(" "));
+            }
 
             // Find the Xid Column
             var xidColumn = 0;
