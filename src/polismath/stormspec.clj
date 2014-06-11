@@ -1,9 +1,8 @@
-(ns polismath.storm-spec
+(ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
-  (:require [incanter.core :as ic.core])
   (:use [backtype.storm clojure config]
-        polismath.matrix-utils
-        polismath.pca
+        polismath.named-matrix
+        polismath.conversation
         polismath.simulation)
   (:gen-class))
 
@@ -35,41 +34,20 @@
             new-value (apply update-fn value inputs)]
         (assoc data conv-id new-value)))))
 
-; This is a little bit of a hack. Need to get pca working on matrices with just a couple of elements still...
-;(def init-matrix (->RatingMatrix ["p1" "p2" "p3"] ["c1" "c2" "c3"] [[1 1 0] [0 1 -1] [0 -1 1]]))
-; this might actually be really bad for structural sharing (keeping a head around); don't understand all of
-; the intricacies of structural sharing though
-(def init-matrix (named-matrix))
 
-(defbolt rating-matrix ["conv-id" "rating-matrix"] {:prepare true}
+(defbolt conv-update ["conv"] {:prepare true}
   [conf context collector]
-  (let [data (atom {})]
+  (let [convs (atom {})]
     (bolt (execute [tuple]
       (let [[conv-id reaction] (.getValues tuple)]
-        (swap! data
-               (data-updater #(update-nmat % [reaction]) #(identity init-matrix))
-               conv-id)
+        (swap! convs
+               (data-updater
+                 #(conv-update % [reaction]) hash-map)
+                 conv-id)
         (emit-bolt! collector
-                    [conv-id (ic.core/matrix (:matrix (get @data conv-id)))]
-                    :anchor tuple))))))
-
-
-(defbolt ptpt-pca ["conv-id" "pcs" "proj"] {:prepare true}
-  [conf context collector]
-  ; If nothing exists yet, creating an empty matrix
-  (let [data (atom {})
-        n-comps 2]
-    (bolt (execute [tuple]
-      (let [[conv-id rating-matrix] (.getValues tuple)]
-        (swap! data (data-updater #(powerit-pca rating-matrix n-comps :start-vectors % :iters 5)) conv-id)
-        (let [pcs (get @data conv-id)
-              proj (pca-project rating-matrix pcs)]
-          (emit-bolt! collector [conv-id pcs proj])))))))
-
-
-;(defbolt clusters ["clusters"] {:prepare true}
-  ;[conf context collector]
-  ;(let [
+                    [(get @data conv-id)]
+                    :anchor tuple)
+        (ack! collector tuple))))))
 
 
 (defn mk-topology []
@@ -77,11 +55,9 @@
     ; Spouts:
     {"1" (spout-spec reaction-spout)}
     ; Bolts:
-    {"2" (bolt-spec {"1"  ["conv-id"]}
-                    rating-matrix)
-     "3" (bolt-spec {"2" ["conv-id"]}
-                    ptpt-pca)
-     }))
+    {"2" (bolt-spec
+           {"1"  ["conv-id"]}
+           conv-update)}))
 
 
 (defn run-local! []
