@@ -14,6 +14,7 @@
   ]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
                  [cheshire "5.3.1"]
+                 [storm "0.9.0.1"]
                  [org.clojure/tools.reader "0.8.4"]
                  [com.taoensso/timbre "3.1.6"]
                  [net.mikera/core.matrix "0.23.0"]
