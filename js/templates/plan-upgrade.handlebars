@@ -32,8 +32,6 @@
 
 <h3>Subscription Plans</h3>
 
-
-
     <table class="table options">
       <thead>
         <tr>
@@ -90,34 +88,16 @@
 
 {{#if isPlanIndividuals}}
 {{! WARNING DUPLICATED CODE }}
-<form action="/charge" method="POST">
-  <script
-    src="https://checkout.stripe.com/checkout.js" class="stripe-button"
-    data-key="{{stripeKey}}"
-    data-image="https://pol.is/landerImages/clusters.png"
-    data-name="pol.is"
-    data-email="{{email}}"
-    data-description="{{plan_name}}"
-    data-panel-label="Monthly"
-    data-amount="{{plan_amount}}">
-  </script>
-  <input type="hidden" name="plan" value="{{plan_id}}"></input>
+<form action="/charge" method="POST" id="stripeForm">
+
 </form>
 {{/if}}
+
+
 {{#if isPlanSites}}
 {{! WARNING DUPLICATED CODE }}
-<form action="/charge" method="POST">
-  <script
-    src="https://checkout.stripe.com/checkout.js" class="stripe-button"
-    data-key="{{stripeKey}}"
-    data-image="https://pol.is/landerImages/clusters.png"
-    data-name="pol.is"
-    data-email="{{email}}"
-    data-description="{{plan_name}}"
-    data-panel-label="Monthly"
-    data-amount="{{plan_amount}}">
-  </script>
-  <input type="hidden" name="plan" value="{{plan_id}}"></input>
+<form action="/charge" method="POST" id="stripeForm">
+
 </form>
 {{/if}}
 

@@ -5,6 +5,7 @@ module.exports = View.extend({
   name: "planUpgrade",
   template: template,
   events: {
+
   },
   initialize: function(options){
     this.plan_id = options.plan_id;
@@ -13,10 +14,9 @@ module.exports = View.extend({
     this.isPlanSites = "sites" === this.plan_id;
     this.isPlanOrgs = "orgs" === this.plan_id;
     this.plan_name = {
-      individuals: "Subscribe to \"Individual\" plan",
-      sites: "Subscribe to \"Sites\" plan",
-      orgs: "Subscribe to \"Orgs\" plan",
-      mike: "Subscribe to \"Mike\" plan",
+      individuals: "Subscribe to Individual plan",
+      sites: "Subscribe to Sites plan",
+      orgs: "Subscribe to Orgs plan",
     }[this.plan_id];
 
     this.plan_amount = {
@@ -25,6 +25,28 @@ module.exports = View.extend({
       // orgs:
     }[this.plan_id];
 
-    this.stripeKey = /localhost/.test(document.domain) ? "pk_test_LtZf0dmw98aL3BV3meSuvc8Q" : "pk_live_OqP5AaF2RnMKNgCiltF6VT6x";
+    var that = this;
+
+    this.stripeKey = /localhost/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
+
+    /* isn't it crystal clear what's going on here? le sigh. */
+    this.listenTo(this, "render", function(){
+      console.log('foo')
+      setTimeout(function(){
+
+        that.$("#stripeForm").html("<script "+
+          'src="https://checkout.stripe.com/checkout.js"'+
+          'class="stripe-button"'+
+          "data-key=\""+ that.stripeKey +"\" "+
+          "data-image=\"https://pol.is/landerImages/clusters.png\" "+
+          "data-name=\"pol.is\"  "+
+          "data-description=\""+ that.plan_name +"\"  "+
+          "data-panel-label=\"Monthly\" "+
+          "data-amount\""+that.plan_amount +
+          "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + that.plan_id + "\"></input>");
+
+      }, 200)
+    })
+
   }
 });
