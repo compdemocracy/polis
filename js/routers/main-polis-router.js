@@ -96,10 +96,34 @@ function doJoinConversation(onSuccess, zid, zinvite, singleUse) {
           });
         });
       } else {
-        this.doCreateUserFromGatekeeper(zid, zinvite, singleUse).done(function() {
-          // Try again, should be ready now.
-          doJoinConversation.call(that, onSuccess, zid, zinvite);
+        // this.doCreateUserFromGatekeeper(zid, zinvite, singleUse).done(function() {
+        //   // Try again, should be ready now.
+        //   doJoinConversation.call(that, onSuccess, zid, zinvite);
+        // });
+
+
+        // !!!!!!!!!!TEMP CODE - JOIN WITHOUT A ZINVITE!!!!!
+        // Don't require user to explicitly create a user before joining the conversation.
+        $.ajax({
+          url: "/v3/joinWithInvite",
+          type: "POST",
+          dataType: "json",
+          xhrFields: {
+              withCredentials: true
+          },
+          // crossDomain: true,
+          data: {
+            zid: zid,
+            // zinvite: zinvite
+          }
+        }).then(function(data) {
+          that.participationView(zid);
+        }, function(err) {
+          that.conversationGatekeeper(zid).done(function(ptptData) {
+            doJoinConversation.call(that, onSuccess, zid);
+          });
         });
+
       }
   } else {
     var params = {
