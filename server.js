@@ -2284,6 +2284,7 @@ app.post("/v3/joinWithInvite",
     authOptional(assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
+    want('zid', getInt, assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
 
@@ -2293,6 +2294,7 @@ function(req, res) {
         suzinvite: req.p.suzinvite,
         uid: req.p.uid,
         zinvite: req.p.zinvite,
+        zid: req.p.zid, // TEMP - REMOVE THIS AND SWITCH TO USING ZINVITES
     })
     .then(function(o) {
         var uid = o.uid;
@@ -2334,6 +2336,8 @@ function joinWithZinviteOrSuzinvite(o) {
             return getSUZinviteInfo(o.suzinvite).then(function(suzinviteInfo) {
               return _.extend(o, suzinviteInfo);
             });
+        } else if (o.zid) {
+            return o;
         } else {
             throw new Error("polis_err_missing_invite");
         }
