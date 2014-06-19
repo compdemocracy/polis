@@ -235,6 +235,7 @@ var intercom = new Intercom({
 var sql_conversations = sql.define({
   name: 'conversations',
   columns: [
+    "cid",
     "zid",
     "topic",
     "description",
@@ -691,6 +692,42 @@ function getInt(s) {
     }
     return x;
 }
+
+
+function getZidFromCid(cid) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("select zid from conversations where cid = ($1);", [cid], function(err, results) {
+            if (err) {
+                reject(err);
+            } else if (!results || !results.rows || !results.rows.length) {
+                reject("polis_err_fetching_zid_for_cid");
+            } else {
+                resolve(results.rows[0].zid;
+            }
+        });
+    });
+}
+
+// cid is the client/ public API facing string ID
+function parseCidFetchZid(assigner, isOptional) {
+    var parseCid = getStringLimitLength(1, 100);
+
+    return function(req, res, next) {
+        var cid = parseCid(s);
+        getZidFromCid(cid).then(function(zid) {
+            assigner(req, "zid", Number(zid));
+            next();
+        }, function(err) {
+            if (isOptional) {
+                next();
+            } else {
+                next(connectError(400, "polis_err_finding_zid"));
+            }
+        });
+    };
+}
+
+
 
 function getNumber(s) {
     if (_.isNumber(s)) {
@@ -1281,7 +1318,7 @@ app.get("/v3/math/pca",
     meter("api.math.pca.get"),
     moveToBody,
     authOptional(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('lastVoteTimestamp', getInt, assignToP, 0),
     function(req, res) {
         // TODO check if owner/ptpt or public
@@ -1341,7 +1378,7 @@ function getBidToPidMapping(zid, lastVoteTimestamp) {
 app.get("/v3/bidToPid",
     authOptional(assignToP),
     moveToBody,
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
     var uid = req.p.uid;
@@ -1380,7 +1417,7 @@ function getXids(zid) {
 app.get("/v3/xids",
     auth(assignToP),
     moveToBody,
-    need("zid", getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -1403,7 +1440,7 @@ function(req, res) {
 app.get("/v3/bid",
     auth(assignToP),
     moveToBody,
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
     var uid = req.p.uid;
@@ -1537,7 +1574,7 @@ function(req, res) {
 
 app.get("/v3/zinvites/:zid",
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res) {
     // if uid is not conversation owner, fail
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
@@ -1656,7 +1693,7 @@ function(req, res) {
 app.post("/v3/zinvites/:zid",
     moveToBody,
     auth(assignToP),    
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res) {
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 500, "polis_err_creating_zinvite_invalid_conversation_or_owner", err); return; }
@@ -2095,7 +2132,7 @@ app.get("/v3/participants",
     moveToBody,
     authOptional(assignToP),
     want('pid', getInt, assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     // need('uid', getInt, assignToP), // requester
 function(req, res) {
     var pid = req.p.pid;
@@ -2164,7 +2201,7 @@ function userHasAnsweredZeQuestions(zid, answers) {
 
 app.post("/v3/participants",
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
@@ -2320,7 +2357,7 @@ app.post("/v3/joinWithInvite",
     authOptional(assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
-    want('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP, 'optional'),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
 
@@ -2706,10 +2743,23 @@ function getComments(o) {
     }); // end new Promise
 }
 
+/*
+ Rename column 'zid' to 'cid', add a new column called 'zid' and have that be a VARCHAR of limited length.
+ Use cid internally, refactor math poller to use cid
+ continue to use zid externally, but it will be a string of limited length
+ Don't expose the cid to the client.
+
+ plan:
+ add the new column cid, copy values from zid
+ change the code to look things up by cid
+
+*/
+
+
 app.get("/v3/comments",
     moveToBody,
     authOptional(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('tids', getArrayOfInt, assignToP),
     want('pid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
@@ -2883,7 +2933,7 @@ app.get("/v3/mute",
     moveToBody,
     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('tid', getInt, assignToP),
 function(req, res) {
     var tid = req.p.tid;
@@ -2923,7 +2973,7 @@ app.get("/v3/unmute",
     moveToBody,
     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('tid', getInt, assignToP),
 function(req, res) {
     var tid = req.p.tid;
@@ -2978,7 +3028,7 @@ function getConversationInfo(zid) {
 
 app.post("/v3/comments",
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('txt', getOptionalStringLimitLength(997), assignToP),
     want('vote', getIntInRange(-1, 1), assignToP),
     want('prepop', getBool, assignToP),
@@ -3130,7 +3180,7 @@ function(req, res) {
 app.get("/v3/votes/me",
     moveToBody,
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
@@ -3198,7 +3248,7 @@ function getCommentIdCounts(voteRecords) {
 app.get("/v3/selection",
     moveToBody,
     want('users', getArrayOfInt, assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res) {
         var zid = req.p.zid;
         var users = req.p.users || [];
@@ -3241,7 +3291,7 @@ function(req, res) {
 
 app.get("/v3/votes",
     moveToBody,
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('pid', getInt, assignToP),
     want('tid', getInt, assignToP),
 function(req, res) {
@@ -3271,7 +3321,7 @@ function getNextComment(zid, pid, withoutTids) {
 app.get("/v3/nextComment",
     moveToBody,
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('not_voted_by_pid', getInt, assignToP),
     want('without', getArrayOfInt, assignToP),
 function(req, res) {
@@ -3290,7 +3340,7 @@ function(req, res) {
 app.post("/v3/votes",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('vote', getIntInRange(-1, 1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3315,7 +3365,7 @@ function(req, res) {
 app.post("/v3/stars",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('starred', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3337,7 +3387,7 @@ function(req, res) {
 app.post("/v3/trashes",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('trashed', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3392,7 +3442,7 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
 app.put('/v3/comments',
     moveToBody,
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('tid', getInt, assignToP),
     need('active', getBool, assignToP),
     need('mod', getInt, assignToP),
@@ -3424,7 +3474,7 @@ function(req, res){
 app.put('/v3/conversations/:zid',
     moveToBody,
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
@@ -3622,7 +3672,7 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 app.get('/v3/metadata/questions',
     moveToBody,
     authOptional(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -3668,7 +3718,7 @@ app.post('/v3/metadata/questions',
     moveToBody,
     auth(assignToP),
     need('key', getOptionalStringLimitLength(999), assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var key = req.p.key;
@@ -3691,7 +3741,7 @@ function(req, res) {
 app.post('/v3/metadata/answers',
     moveToBody,
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('pmqid', getInt, assignToP),
     need('value', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
@@ -3723,7 +3773,7 @@ function(req, res) {
 app.get('/v3/metadata/choices',
     moveToBody,
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -3743,7 +3793,7 @@ function(req, res) {
 app.get('/v3/metadata/answers',
     moveToBody,
     authOptional(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('pmqid', getInt, assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
@@ -3795,7 +3845,7 @@ function(req, res) {
 app.get('/v3/metadata',
     moveToBody,
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -3879,7 +3929,7 @@ function(req, res) {
 app.get('/v3/conversations/:zid',
     moveToBody,
     authOptional(assignToP),
-    want('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP, 'optional'),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
 function(req, res) {
     var zid = req.p.zid;
@@ -3921,7 +3971,7 @@ app.get('/v3/conversations',
     auth(assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
-    want('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP, 'optional'),
     want('owner', getInt, assignToP), // TODO needed?
 function(req, res) {
   var uid = req.p.uid;
@@ -4066,7 +4116,7 @@ function(req, res) {
 
 app.post('/v3/query_participants_by_metadata',
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
     need('pmaids', getArrayOfInt, assignToP, []),
 function(req, res) {
     var uid = req.p.uid;
@@ -4098,7 +4148,7 @@ function(req, res) {
 
 app.post('/v3/sendCreatedLinkToEmail', 
     auth(assignToP),
-    need('zid', getInt, assignToP),
+    parseCidFetchZid(assignToP),
 function(req, res){
     console.log(req.p)
     pgQuery("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
@@ -4194,7 +4244,7 @@ app.post("/v3/users/invite",
     auth(assignToP),
 
     need('single_use_tokens', getBool, assignToP),
-    need('zid', getInt, assignToP), 
+    parseCidFetchZid(assignToP),
     need('xids', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
     var owner = req.p.uid;
