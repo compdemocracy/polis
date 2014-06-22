@@ -3,6 +3,7 @@ var eb = require("./eventBus");
 var Backbone = require("backbone");
 var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
+var Metrics = require("./metrics");
 var PolisStorage = require("./util/polisStorage");
 var Handlebars = require("handlebars");
 var _ = require("underscore");
@@ -100,6 +101,7 @@ initialize(function(next) {
     // needed are aysynchronous
     var router = new MainPolisRouter();
 
+    Metrics.boot();
     // set up the "exitConv" event
     var currentRoute;
     router.on("route", function(route, params) {

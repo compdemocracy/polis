@@ -152,8 +152,10 @@ module.exports = {
         // clearAll: clearAll,
         //comments: makeAccessor("p_comments"), // TODO use a real db
         //reactionsByMe: makeAccessor("p_reactions_by_me"), // TODO use a real db
-        email: makeAccessor("email").get,
+        hasEmail: makeAccessor("e").get,
+        // email: makeAccessor("email").get,
         //username: makeAccessor("p_username"),
         uid: asNumber(makeAccessor("uid2").get)
+
         //token: makeAccessor("p_authToken")
     };
