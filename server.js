@@ -694,9 +694,10 @@ function getInt(s) {
 }
 
 
+// NOTE: currently sid is stored as zinvite
 function getZidFromSid(sid) {
     return new Promise(function(resolve, reject) {
-        pgQuery("select zid from conversations where sid = ($1);", [sid], function(err, results) {
+        pgQuery("select zid from zinvites where zinvite = ($1);", [sid], function(err, results) {
             if (err) {
                 reject(err);
             } else if (!results || !results.rows || !results.rows.length) {
