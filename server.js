@@ -810,6 +810,7 @@ var need = prrrams.need;
 var want = prrrams.want;
 
 var COOKIES = {
+    HAS_EMAIL: 'e',
     TOKEN : 'token2',
     UID : 'uid2',
     REFERRER : 'ref',
@@ -817,32 +818,54 @@ var COOKIES = {
 
 var oneYear = 1000*60*60*24*365;
 function addCookies(res, token, uid) {
-    if (domainOverride) {
-        res.cookie(COOKIES.TOKEN, token, {
-            path: '/',
-            httpOnly: true,
-            maxAge: oneYear,
-        });
-        res.cookie(COOKIES.UID, uid, {
-            path: '/',
-            maxAge: oneYear,         
-        });
-    } else {
-        res.cookie(COOKIES.TOKEN, token, {
-            path: '/',
-            httpOnly: true,
-            maxAge: oneYear,
-            domain: '.pol.is',
-            // secure: true, // TODO need HTTPS
-        });
-        res.cookie(COOKIES.UID, uid, {
-            path: '/',
-            // httpOnly: true, (client JS needs to see something to know it's signed in)
-            maxAge: oneYear,
-            domain: '.pol.is',
-            // secure: true, // TODO need HTTPS
-        });
+    function addPrimaryCookies() {
+        if (domainOverride) {
+            res.cookie(COOKIES.TOKEN, token, {
+                path: '/',
+                httpOnly: true,
+                maxAge: oneYear,
+            });
+            res.cookie(COOKIES.UID, uid, {
+                path: '/',
+                maxAge: oneYear,         
+            });
+        } else {
+            res.cookie(COOKIES.TOKEN, token, {
+                path: '/',
+                httpOnly: true,
+                maxAge: oneYear,
+                domain: '.pol.is',
+                // secure: true, // TODO need HTTPS
+            });
+            res.cookie(COOKIES.UID, uid, {
+                path: '/',
+                // httpOnly: true, (client JS needs to see something to know it's signed in)
+                maxAge: oneYear,
+                domain: '.pol.is',
+                // secure: true, // TODO need HTTPS
+            });
+        }
     }
+    function addHasEmailCookie() {
+        if (domainOverride) {
+            res.cookie(COOKIES.HAS_EMAIL, 1, {
+                path: '/',
+                maxAge: oneYear,
+            });
+        } else {
+            res.cookie(COOKIES.HAS_EMAIL, 1, {
+                path: '/',
+                maxAge: oneYear,
+                domain: '.pol.is',
+            });
+        } 
+    }
+    return getUserProperty(uid, "email").then(function(email) {
+        addPrimaryCookies();
+        addHasEmailCookie();
+    }, function(err) {
+        addPrimaryCookies();
+    });
 }
 
 function generateHashedPassword(password, callback) {
@@ -1647,6 +1670,19 @@ function(req, res) {
     });
 });
 
+function getUserProperty(uid, propertyName) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("SELECT * FROM users WHERE uid = ($1);", [uid], function(err, results) {
+            if (err) {
+                reject(err);
+            } else if (!results || !results.rows || !results.rows.length) {
+                reject();
+            } else {
+                resolve(results.rows[0][propertyName]);
+            }
+        });
+    });
+}
 
 function getConversationProperty(zid, propertyName, callback) {
     pgQuery('SELECT * FROM conversations WHERE zid = ($1);', [zid], function(err, results) {
@@ -2449,6 +2485,7 @@ function(req, res) {
                             var params = {
                                 "email" : email,
                                 "name" : hname,
+                                "user_id": uid,
                             };
                             var customData = {};
                             if (referrer) {
