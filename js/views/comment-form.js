@@ -38,7 +38,7 @@ module.exports = Handlebones.View.extend({
   participantCommented: function(attrs) {
     var that = this; //that = the view
     attrs.pid = this.pid;
-    attrs.zid = this.zid;
+    attrs.sid = this.sid;
     attrs.vote = constants.REACTIONS.AGREE; // participants' comments are automatically agreed to. Needed for now since math assumes every comment has at least one vote.
 
     if (/^\s*$/.exec(attrs.txt)) {
@@ -74,14 +74,14 @@ module.exports = Handlebones.View.extend({
   updateCollection: function() {
     this.collection.fetch({
       data: $.param({
-        zid: this.zid,
+        sid: this.sid,
         pid: this.pid
       })
     });
   },
   initialize: function(options) {
     this.pid = options.pid;
-    this.zid = options.zid;
+    this.sid = options.sid;
     this.collection = options.collection;
     this.commentsByMeView = this.addChild(new CommentsByMeView({
       collection: options.collection

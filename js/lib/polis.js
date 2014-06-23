@@ -101,7 +101,7 @@ module.exports = function(params) {
 
     var needAuthCallbacks = $.Callbacks();
 
-    var zid = params.zid;
+    var sid = params.sid;
     var zinvite = params.zinvite;
     var pid = params.pid;
 
@@ -126,7 +126,7 @@ module.exports = function(params) {
             lastServerToken: (new Date(0)).getTime(),
             // not_pid: getPid(), // don't want to see own coments
             not_voted_by_pid: getPid(),
-            zid: zid
+            sid: sid
             //?
         };
         function fail() {
@@ -204,7 +204,7 @@ module.exports = function(params) {
         var params = {
             not_voted_by_pid: getPid(),
             limit: 1,
-            zid: zid
+            sid: sid
         };
 
         if (demoMode()) {
@@ -238,7 +238,7 @@ module.exports = function(params) {
 
         model = $.extend(model, {
             // server will find the pid
-            zid: zid
+            sid: sid
         });
         if (typeof model.txt !== "string" || model.txt.length === 0) {
             logger.error("bad comment");
@@ -267,7 +267,7 @@ module.exports = function(params) {
 
     // returns promise {nextComment: {tid:...}} or {} if no further comments
     function react(params) {
-        if (params.zid && params.zid !== zid) {
+        if (params.sid && params.sid !== sid) {
             if (params.vote !== polisTypes.reactions.see) {
                 console.error("wrong stimulus");
             }
@@ -289,7 +289,7 @@ module.exports = function(params) {
         }
         return polisPost(votesPath, $.extend({}, params, {
                 // server will find the pid
-                zid: zid
+                sid: sid
             })
         );
     }
@@ -321,12 +321,12 @@ module.exports = function(params) {
         return polisPost(trashesPath, {
             tid: tid,
             trashed: 1,
-            zid: zid
+            sid: sid
         });
     }
 
     function doStarAction(params) {
-        if (params.zid && params.zid !== zid) {
+        if (params.sid && params.sid !== sid) {
             console.error("wrong stimulus");
         }
         if (typeof params.tid === "undefined") {
@@ -344,7 +344,7 @@ module.exports = function(params) {
         }
 
         return polisPost(starsPath, $.extend({}, params, {
-                zid: zid
+                sid: sid
             })
         );
     }
@@ -365,14 +365,14 @@ module.exports = function(params) {
 
     function getCommentVelocities() {
         return polisGet(commentVelocitiesPath, {
-            zid: zid
+            sid: sid
         });
     }
 
     function invite(xids) {
         return polisPost("/v3/users/invite", {
             single_use_tokens: true,
-            zid: zid,
+            sid: sid,
             xids: xids
         });
     }
@@ -688,12 +688,12 @@ function clientSideBaseCluster(things, N) {
 
     function getMetadataAnswers() {
         return polisGet(metadataAnswersPath, {
-            zid: zid
+            sid: sid
         });
     }
     function getMetadataChoices() {
         return polisGet(metadataChoicesPath, {
-            zid: zid
+            sid: sid
         });
     }
 
@@ -783,7 +783,7 @@ function clientSideBaseCluster(things, N) {
 
     function getXids() {
         return polisGet(xidsPath, {
-            zid: zid
+            sid: sid
         });
     }
 
@@ -1067,7 +1067,7 @@ function clientSideBaseCluster(things, N) {
     function fetchPca() {
         return polisGet(pcaPath, {
             lastVoteTimestamp: lastServerTokenForPCA,
-            zid: zid
+            sid: sid
         }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
@@ -1220,7 +1220,7 @@ function clientSideBaseCluster(things, N) {
 
     // todo make a separate file for stimulus stuff
     function stories() {
-        return [zid];
+        return [sid];
                 //"509c9db2bc1e120000000001",
                 //"509c9eddbc1e120000000002",
                 //"509c9fd6bc1e120000000003",
@@ -1229,7 +1229,7 @@ function clientSideBaseCluster(things, N) {
 
     function submitFeedback(data) {
         data = $.extend({}, data, {
-            zid: zid,
+            sid: sid,
             type: "feedback"
         });
         return polisPost(feedbackPath, {
@@ -1259,7 +1259,7 @@ function clientSideBaseCluster(things, N) {
         var comments;
         return polisGet(pcaPath, {
             lastServerToken: 0,
-            zid: zid
+            sid: sid
         }).pipe( function(pcaData) {
             comments = pcaData.pca.principal_components;
             var keys = _.keys(comments);
@@ -1307,7 +1307,7 @@ function clientSideBaseCluster(things, N) {
 
     function getComments(params) {
         params = $.extend({
-            zid: zid,
+            sid: sid,
             // not_pid: getPid() // don't want to see own coments
         }, params);
         return polisGet(commentsPath, params);
@@ -1408,7 +1408,7 @@ function clientSideBaseCluster(things, N) {
 
     // function doJoinConversation(zinvite) {
     //     var params = {
-    //         zid: zid
+    //         sid: sid
     //     };
     //     if (zinvite) {
     //         _.extend(params, {
@@ -1424,7 +1424,7 @@ function clientSideBaseCluster(things, N) {
     function queryParticipantsByMetadata(pmaids) {
         return polisPost(queryParticipantsByMetadataPath, {
             pmaids: pmaids,
-            zid: zid
+            sid: sid
         });
     }
 
@@ -1498,7 +1498,7 @@ function clientSideBaseCluster(things, N) {
     function getPidToBidMapping() {
         return polisGet(bidToPidPath, {
             lastVoteTimestamp: lastServerTokenForBidToPid, // use the same
-            zid: zid
+            sid: sid
         }).then(function(data, textStatus, xhr) {
             if (304 === xhr.status) {
                 return {
@@ -1534,7 +1534,7 @@ function clientSideBaseCluster(things, N) {
         }
         return polisGet(bidPath, {
             lastVoteTimestamp: lastServerTokenForBid, // use the same
-            zid: zid
+            sid: sid
         }).then(function(data, textStatus, xhr) {
             if (304 === xhr.status) {
                 // cached

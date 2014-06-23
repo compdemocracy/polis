@@ -70,7 +70,7 @@ module.exports =  ConversationView.extend({
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     var vis;
-    var zid = this.zid;
+    var sid = this.sid;
     var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
@@ -236,7 +236,7 @@ module.exports =  ConversationView.extend({
 
       this.changeVotes = new ChangeVotesView({
         serverClient: serverClient,
-        zid: zid
+        sid: sid
       });
 
       this.commentView = this.addChild(new CommentView({
@@ -245,30 +245,30 @@ module.exports =  ConversationView.extend({
         votesByMe: this.votesByMe,
         is_public:  this.model.get("is_public"),
         pid: pid,
-        zid: zid
+        sid: sid
       }));
       // this.commentView.on("vote", this.tutorialController.onVote);
 
       this.commentsByMe = new CommentsCollection({
-        zid: zid,
+        sid: sid,
         pid: pid
       });
 
       this.commentForm = this.addChild(new CommentFormView({
         pid: pid,
         collection: this.commentsByMe,
-        zid: zid
+        sid: sid
       }));
 
       this.resultsView = this.addChild(new ResultsView({
         serverClient: serverClient,
-        zid: zid,
+        sid: sid,
         collection: resultsCollection
       }));
 
 
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
-        zid: zid,
+        sid: sid,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },

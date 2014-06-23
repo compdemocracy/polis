@@ -25,7 +25,7 @@ module.exports = Handlebones.ModelView.extend({
     }
     this.votesByMe.fetch({
       data: $.param({
-        zid: this.zid,
+        sid: this.sid,
         pid: this.pid
       }),
       reset: false
@@ -57,7 +57,7 @@ module.exports = Handlebones.ModelView.extend({
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
-    var zid = this.zid = this.model.get("zid");
+    var sid = this.sid = this.model.get("sid");
     var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
@@ -70,19 +70,19 @@ module.exports = Handlebones.ModelView.extend({
 
 
     var metadataCollection = new MetadataQuestionsCollection([], {
-        zid: zid
+        sid: sid
     });
 
     metadataCollection.fetch({
       data: $.param({
-        zid: zid
+        sid: sid
       }),
       processData: true
     });
 
 
     var serverClient = that.serverClient = new ServerClient({
-      zid: zid,
+      sid: sid,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
       pid: pid,
@@ -113,7 +113,7 @@ module.exports = Handlebones.ModelView.extend({
       var thatCollection = this;
       var params = {
         gid: o.gid,
-        zid: zid
+        sid: sid
       };
       var promise = Backbone.Collection.prototype.fetch.call(this, {
         data: $.param(params),
@@ -137,7 +137,7 @@ module.exports = Handlebones.ModelView.extend({
 
       this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
         serverClient: serverClient,
-        zid: zid,
+        sid: sid,
         collection: metadataCollection
       }));
 

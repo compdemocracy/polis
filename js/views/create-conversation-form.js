@@ -81,7 +81,7 @@ module.exports = View.extend({
               data: {
                 xids: xids,
                 single_use_tokens: true,
-                zid: that.model.get("zid")
+                sid: that.model.get("sid")
               }
             }) : 
             $.Deferred().resolve();
@@ -116,32 +116,32 @@ module.exports = View.extend({
 
       // ConversationModel
       this.model = options.model;
-      var zid = this.model.get("zid");
+      var sid = this.model.get("sid");
       var pid = options.pid;
 
       var metadataCollection = new MetadataQuestionCollection([], {
-          zid: zid
+          sid: sid
       });
 
       metadataCollection.fetch({
           data: $.param({
-              zid: zid
+              sid: sid
           }),
           processData: true
       });
       this.metadataQuestionsViewWithCreate = this.addChild(new MetadataQuestionsViewWithCreate({
         collection: metadataCollection,
-        zid: zid
+        sid: sid
       }));
 
       this.commentsByMe = new CommentsCollection({
-        zid: zid
+        sid: sid
       });
 
       this.commentForm = this.addChild(new CommentFormSeedView({
         pid: pid,
         collection: this.commentsByMe,
-        zid: zid
+        sid: sid
       }));
 
     },

@@ -60,7 +60,7 @@ module.exports =  Handlebones.ModelView.extend({
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
-    var zid = this.zid = this.model.get("zid");
+    var sid = this.sid = this.model.get("sid");
     var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
@@ -69,7 +69,7 @@ module.exports =  Handlebones.ModelView.extend({
       var thatCollection = this;
       var params = {
         gid: o.gid,
-        zid: zid
+        sid: sid
       };
       var promise = Backbone.Collection.prototype.fetch.call(this, {
         data: $.param(params),
@@ -111,7 +111,7 @@ module.exports =  Handlebones.ModelView.extend({
 
 
         this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
-          zid: zid,
+          sid: sid,
           isIE8: isIE8,
           gid: gid,
           getTidsForGroup: function() {
@@ -152,18 +152,18 @@ module.exports =  Handlebones.ModelView.extend({
     this.votesByMe = new VotesCollection();
 
     var metadataCollection = new MetadataQuestionsCollection([], {
-        zid: zid
+        sid: sid
     });
 
     metadataCollection.fetch({
       data: $.param({
-        zid: zid
+        sid: sid
       }),
       processData: true
     });
 
     var serverClient = that.serverClient = new ServerClient({
-      zid: zid,
+      sid: sid,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
       pid: pid,
@@ -208,7 +208,7 @@ module.exports =  Handlebones.ModelView.extend({
 
       this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
         serverClient: serverClient,
-        zid: zid,
+        sid: sid,
         collection: metadataCollection
       }));
 
@@ -264,13 +264,13 @@ module.exports =  Handlebones.ModelView.extend({
       /* child views */
 
       this.commentsByMe = new CommentsCollection({
-        zid: zid,
+        sid: sid,
         pid: pid
       });
 
       this.resultsView = this.addChild(new ResultsView({
         serverClient: serverClient,
-        zid: zid,
+        sid: sid,
         collection: resultsCollection
       }));
 

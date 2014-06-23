@@ -34,6 +34,6 @@ module.exports = Handlebones.View.extend({
         var allAnswers = _.chain(this.query).values().flatten().value();
         this.trigger("answersSelected", allAnswers);
       });
-      this.zid = options.zid;
+      this.sid = options.sid;
     }
 });

@@ -10,7 +10,7 @@ module.exports = Handlebones.ModelView.extend({
   allowDelete: false,
   initialize: function(options) {
     var model = this.model = options.model;
-    // this.zid = options.zid;
+    // this.sid = options.sid;
     if (model.data instanceof MetadataQuestion) {
       this.itemView = new MetadataQuestionAndAnswersFilterView({
         model: model.data

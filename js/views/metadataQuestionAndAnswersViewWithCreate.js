@@ -32,9 +32,9 @@ module.exports = MetadataQuestionAndAnswersView.extend({
 
       // Make sure the form isn't empty.
       if (attrs.answerInput && attrs.answerInput.length) {
-        var zid = that.model.get("zid");
+        var sid = that.model.get("sid");
         var data = {
-          zid: zid,
+          sid: sid,
           pmqid: that.model.get("pmqid"),
           value: attrs.answerInput
         };
@@ -46,7 +46,7 @@ module.exports = MetadataQuestionAndAnswersView.extend({
 
           that.answers.fetch({
             data: $.param({
-              zid: zid,
+              sid: sid,
               pmqid: that.model.get("pmqid")
             }),
             processData: true

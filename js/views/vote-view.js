@@ -33,7 +33,7 @@ module.exports = Handlebones.ModelView.extend({
     var votesByMeFetched = $.Deferred();
 
     var is_public = options.is_public;
-    var zid = this.zid = options.zid;
+    var sid = this.sid = options.sid;
     var pid = this.pid = options.pid;
     console.dir(serverClient);
 
@@ -123,7 +123,7 @@ module.exports = Handlebones.ModelView.extend({
       var tid = this.model.get("tid");
       votesByMe.add({
         vote: -1,
-        zid: zid,
+        sid: sid,
         pid: pid,
         tid: tid
       });
@@ -134,7 +134,7 @@ module.exports = Handlebones.ModelView.extend({
       var tid = this.model.get("tid");
       votesByMe.add({
         vote: 1,
-        zid: zid,
+        sid: sid,
         pid: pid,
         tid: tid
       });
@@ -145,7 +145,7 @@ module.exports = Handlebones.ModelView.extend({
       var tid = this.model.get("tid");
       votesByMe.add({
         vote: 0,
-        zid: zid,
+        sid: sid,
         pid: pid,
         tid: tid
       });
@@ -157,7 +157,7 @@ module.exports = Handlebones.ModelView.extend({
       votesByMe.add({
         participantStarred: true,
         vote: -1,
-        zid: zid,
+        sid: sid,
         pid: pid,
         tid: tid
       });

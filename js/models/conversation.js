@@ -3,7 +3,7 @@ var Model = require("../model");
 module.exports = Model.extend({
     name: "conversation",
     path: "conversations",
-    idAttribute: "zid",
+    idAttribute: "sid",
     urlRoot: "conversations",
     url: function() {
         return this.urlRoot + "/" + this.id;
@@ -18,10 +18,10 @@ module.exports = Model.extend({
       owner: undefined,
       participant_count: "",
       url_moderate: function() {
-        return "/m/" + this.zid;
+        return "/m/" + this.sid;
       },
       url_name: function(){
-        var s = "/" + this.zid;
+        var s = "/" + this.sid;
         if (!this.is_public && this.zinvites) {
           s += "/" + this.zinvites[0]; // TODO deal with multiple?
         }
