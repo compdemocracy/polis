@@ -4123,7 +4123,7 @@ function(req, res) {
                 zid: zid,
             };
             if (zinvite) {
-                data.zinvites = [zinvite];
+                data.sid = zinvite;
             }
             res.status(200).json(data);
         }
