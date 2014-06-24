@@ -6,7 +6,7 @@ module.exports = Model.extend({
     idAttribute: "sid",
     urlRoot: "conversations",
     url: function() {
-        return this.urlRoot + "/" + this.id;
+        return this.urlRoot;
     },
     defaults: {
       //topic: "", // an empty topic will be shown as a localized date string
@@ -21,11 +21,7 @@ module.exports = Model.extend({
         return "/m/" + this.sid;
       },
       url_name: function(){
-        var s = "/" + this.sid;
-        if (!this.is_public && this.zinvites) {
-          s += "/" + this.zinvites[0]; // TODO deal with multiple?
-        }
-        return s;
+        return "/" + this.sid;
       },
       url_name_with_hostname: function() {
         // build the URL for the user to copy & paste

@@ -205,20 +205,15 @@ var polisRouter = Backbone.Router.extend({
     this.r("prototype", "prototype");
     this.r("", "landingPageView");
 
-    this.r(/([0-9]+)/, "participationView");  // sid
-    this.r(/([0-9]+)\/(.*)/, "participationView"); // sid/zinvite
-    this.r(/^ot\/([0-9]+)\/(.*)/, "participationViewWithSuzinvite"); // sid/suzinvite
+    this.r(/([0-9][0-9A-Za-z]+)/, "participationView");  // sid
+    this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // sid/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/(.*)/, "demoConversation");
 
-    this.r(/explore\/([0-9]+)/, "exploreView");  // explore/sid
-    this.r(/explore\/([0-9]+)\/(.*)/, "exploreView"); // explore/sid/zinvite
+    this.r(/explore\/([0-9][0-9A-Za-z]+)/, "exploreView");  // explore/sid
+    this.r(/summary\/([0-9][0-9A-Za-z]+)/, "summaryView");  // summary/sid
+    this.r(/m\/([0-9][0-9A-Za-z]+)/, "moderationView");  // m/sid
 
-    this.r(/summary\/([0-9]+)/, "summaryView");  // summary/sid
-    this.r(/summary\/([0-9]+)\/(.*)/, "summaryView"); // summary/sid/zinvite
-
-    this.r(/m\/([0-9]+)/, "moderationView");  // m/sid
-    this.r(/m\/([0-9]+)\/(.*)/, "moderationView"); // m/sid/zinvite
 
   },
   r: function(pattern, methodToCall) {
@@ -380,11 +375,16 @@ var polisRouter = Backbone.Router.extend({
     var sid = ptptModel.get("sid");
     var pid = ptptModel.get("pid");
     
+    var data = {
+      sid: sid
+    };
+
     // Assumes you have a pid already.
-    var model = new ConversationModel({
-        sid: sid
-    });
-    bbFetch(model).then(function() {
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
       var participationView = new ParticipationView({
         pid: pid,
         model: model
@@ -399,11 +399,15 @@ var polisRouter = Backbone.Router.extend({
     var sid = ptptModel.get("sid");
     var pid = ptptModel.get("pid");
     
+    var data = {
+      sid: sid
+    };
     // Assumes you have a pid already.
-    var model = new ConversationModel({
-        sid: sid
-    });
-    bbFetch(model).then(function() {
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
       var exploreView = new ExploreView({
         pid: pid,
         model: model
@@ -417,11 +421,15 @@ var polisRouter = Backbone.Router.extend({
     var sid = ptptModel.get("sid");
     var pid = ptptModel.get("pid");
     
+    var data = {
+      sid: sid
+    };
     // Assumes you have a pid already.
-    var model = new ConversationModel({
-        sid: sid
-    });
-    bbFetch(model).then(function() {
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
       var view = new SummaryView({
         pid: pid,
         model: model
@@ -435,11 +443,15 @@ var polisRouter = Backbone.Router.extend({
     var sid = ptptModel.get("sid");
     var pid = ptptModel.get("pid");
     
+    var data = {
+      sid: sid
+    };
     // Assumes you have a pid already.
-    var model = new ConversationModel({
-        sid: sid
-    });
-    bbFetch(model).then(function() {
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
       var view = new ModerationView({
         pid: pid,
         model: model
@@ -494,21 +506,22 @@ var polisRouter = Backbone.Router.extend({
 
   },
   // assumes the user already exists.
-  conversationGatekeeper: function(sid, zinvite, singleUse) {
+  conversationGatekeeper: function(sid, suzinvite, singleUse) {
     var dfd = $.Deferred();
-    var params = {
+    var data = {
       sid: sid
     };
     if (singleUse) {
-      params.suzinvite = zinvite
-    } else {
-      params.zinvite = zinvite;
+      data.suzinvite = suzinvite
     }
-
-    var model = new ConversationModel(params);
-    bbFetch(model).then(function() {
-      params.model = model;
-      var gatekeeperView = new ConversationGatekeeperView(params);
+    // Assumes you have a pid already.
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
+      data.model = model;
+      var gatekeeperView = new ConversationGatekeeperView(data);
       gatekeeperView.on("done", dfd.resolve);
       RootView.getInstance().setView(gatekeeperView);
     }, dfd.reject);
@@ -518,17 +531,19 @@ var polisRouter = Backbone.Router.extend({
   doCreateUserFromGatekeeper: function(sid, zinvite, singleUse) {
     var dfd = $.Deferred();
 
-    var params = {
-        sid: sid,
-        create: true, // do we need this?
+    var data = {
+      create: true, // do we need this?
+      sid: sid
     };
     if (singleUse) {
-        params.suzinvite = zinvite;
-    } else {
-        params.zinvite = zinvite;
+      data.suzinvite = suzinvite
     }
-    var model = new ConversationModel(params);
-    bbFetch(model).then(function() {
+    // Assumes you have a pid already.
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
       var createUserFormView = new ConversationGatekeeperViewCreateUser({
         model : model
       });
