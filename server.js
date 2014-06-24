@@ -626,71 +626,84 @@ function userFail(res, httpCode, clientVisibleErrorString, err) {
 }
 
 function getEmail(s) {
-    if (typeof s !== "string" || s.length > 999 || -1 === s.indexOf("@")) {
-        throw "polis_fail_parse_email";
-    }
-    return s;
+    return new Promise(function(resolve, reject) {
+        if (typeof s !== "string" || s.length > 999 || -1 === s.indexOf("@")) {
+            return reject("polis_fail_parse_email");
+        }
+        resolve(s);
+    });
 }
 
 function getPassword(s) {
-    if (typeof s !== "string" || s.length > 999) {
-        throw "polis_fail_parse_password";
-    } else if (s.length < 6) {
-        throw "polis_err_password_too_short";
-    }
-    return s;
+    return new Promise(function(resolve, reject) {
+        if (typeof s !== "string" || s.length > 999) {
+            return reject("polis_fail_parse_password");
+        } else if (s.length < 6) {
+            return reject("polis_err_password_too_short");
+        }
+        resolve(s);
+    });
 }
 
 function getOptionalStringLimitLength(limit) {
     return function(s) {
-        if (s.length && s.length > limit) {
-            throw "polis_fail_parse_string_too_long";
-        }
-        // strip leading/trailing spaces
-        s = s.replace(/^ */,"").replace(/ *$/,"");
-        return s;
+        return new Promise(function(resolve, reject) {
+            if (s.length && s.length > limit) {
+                return reject("polis_fail_parse_string_too_long");
+            }
+            // strip leading/trailing spaces
+            s = s.replace(/^ */,"").replace(/ *$/,"");
+            resolve(s);
+        });
     };
 }
+
 function getStringLimitLength(min, max) {
     return function(s) {
-
-        if (typeof s !== "string") {
-            throw "polis_fail_parse_string_missing";
-        }
-        if (s.length && s.length > max) {
-            throw "polis_fail_parse_string_too_long";
-        }
-        if (s.length && s.length < min) {
-            throw "polis_fail_parse_string_too_short";
-        }
-        // strip leading/trailing spaces
-        s = s.replace(/^ */,"").replace(/ *$/,"");
-        return s;
+        return new Promise(function(resolve, reject) {
+            if (typeof s !== "string") {
+                return reject("polis_fail_parse_string_missing");
+            }
+            if (s.length && s.length > max) {
+                return reject("polis_fail_parse_string_too_long");
+            }
+            if (s.length && s.length < min) {
+                return reject("polis_fail_parse_string_too_short");
+            }
+            // strip leading/trailing spaces
+            s = s.replace(/^ */,"").replace(/ *$/,"");
+            resolve(s);
+        });
     };
 }
 
 
 function getBool(s) {
-    if ("boolean" === typeof s) {
-        return s;
-    }
-    s = s.toLowerCase();
-    if (s === 't' || s === 'true') {
-        return true;
-    } else if (s === 'f' || s === 'false') {
-        return false;
-    }
-    throw "polis_fail_parse_boolean";
+    return new Promise(function(resolve, reject) {
+        if ("boolean" === typeof s) {
+            return resolve(s);
+        }
+        s = s.toLowerCase();
+        if (s === 't' || s === 'true') {
+            return resolve(true);
+        } else if (s === 'f' || s === 'false') {
+            return resolve(false);
+        }
+        reject("polis_fail_parse_boolean");
+    });
 }
+
 function getInt(s) {
-    if (_.isNumber(s) && s >> 0 === s) {
-        return s;
-    }
-    var x = parseInt(s);
-    if (isNaN(x)) {
-        throw "polis_fail_parse_int";
-    }
-    return x;
+    return new Promise(function(resolve, reject) {
+        if (_.isNumber(s) && s >> 0 === s) {
+            return resolve(s);
+        }
+        var x = parseInt(s);
+        if (isNaN(x)) {
+            return reject("polis_fail_parse_int");
+        }
+        resolve(x);
+    });
 }
 
 
@@ -699,71 +712,70 @@ function getZidFromSid(sid) {
     return new Promise(function(resolve, reject) {
         pgQuery("select zid from zinvites where zinvite = ($1);", [sid], function(err, results) {
             if (err) {
-                reject(err);
+                return reject(err);
             } else if (!results || !results.rows || !results.rows.length) {
-                reject("polis_err_fetching_zid_for_sid");
+                return reject("polis_err_fetching_zid_for_sid " + sid);
             } else {
-                resolve(results.rows[0].zid;
+                return resolve(results.rows[0].zid);
             }
         });
     });
 }
 
 // sid is the client/ public API facing string ID
-function parseSidFetchZid(assigner, isOptional) {
-    var parseSid = getStringLimitLength(1, 100);
-
-    return function(req, res, next) {
-        var sid = parseSid(s);
-        getZidFromSid(sid).then(function(zid) {
-            assigner(req, "zid", Number(zid));
-            next();
-        }, function(err) {
-            if (isOptional) {
-                next();
-            } else {
-                next(connectError(400, "polis_err_finding_zid"));
-            }
+var parseSid = getStringLimitLength(1, 100);
+function getSidFetchZid(s) {
+    console.log('getSidFetchZid ' + s);
+    return parseSid(s).then(function(sid) {
+        console.log('getSidFetchZid ' + sid);
+        return getZidFromSid(sid).then(function(zid) {
+            console.log('getSidFetchZid ' + zid);
+            return Number(zid);
         });
-    };
+    });
 }
 
 
 
 function getNumber(s) {
-    if (_.isNumber(s)) {
-        return s;
-    }
-    var x = parseFloat(s);
-    if (isNaN(x)) {
-        throw "polis_fail_parse_number";
-    }
-    return x;
+    return new Promise(function(resolve, reject) {
+        if (_.isNumber(s)) {
+            return resolve(s);
+        }
+        var x = parseFloat(s);
+        if (isNaN(x)) {
+            return reject("polis_fail_parse_number");
+        }
+        resolve(x);
+    });
 }
 
 function getNumberInRange(min, max) {
     return function(s) {
-        var x = getNumber(s)
-        if (x < min || max < x) {
-            throw "polis_fail_parse_number_out_of_range";
-        }
-        return x;
+        return getNumber(s).then(function(x) {
+            if (x < min || max < x) {
+                throw "polis_fail_parse_number_out_of_range";
+            }
+            return x;
+        });
     };
 }
 
 function getArrayOfString(a) {
-    if (_.isString(a)) {
-        a = a.split(',');
-    }
-    if (!_.isArray(a)) {
-        throw "polis_fail_parse_int_array";
-    }
-    return a;
+    return new Promise(function(resolve, reject) {
+        if (_.isString(a)) {
+            a = a.split(',');
+        }
+        if (!_.isArray(a)) {
+            return reject("polis_fail_parse_int_array");
+        }
+        resolve(a);
+    });
 }
 
 function getArrayOfStringNonEmpty(a) {
     if (!a || !a.length) {
-        throw "polis_fail_parse_string_array_empty";
+        return Promise.reject("polis_fail_parse_string_array_empty");
     }
     return getArrayOfString(a);
 }
@@ -773,24 +785,25 @@ function getArrayOfInt(a) {
         a = a.split(',');
     }
     if (!_.isArray(a)) {
-        throw "polis_fail_parse_int_array";
+        return Promise.reject("polis_fail_parse_int_array");
     }
-    return a.map(getInt);
+    return Promise.resolve(a.map(getInt));
 }
 function getArrayOfIntNonEmpty(a) {
     if (!a || !a.length) {
-        throw "polis_fail_parse_int_array_empty";
+        return Promise.reject("polis_fail_parse_int_array_empty");
     }
     return getArrayOfInt(a);
 }
 
 function getIntInRange(min, max) {
     return function(s) {
-        var x = getInt(s)
-        if (x < min || max < x) {
-            throw "polis_fail_parse_int_out_of_range";
-        }
-        return x;
+        return getInt(s).then(function(x) {
+            if (x < min || max < x) {
+                throw "polis_fail_parse_int_out_of_range";
+            }
+            return x;
+        });
     };
 }
 function assignToP(req, name, x) {
@@ -798,24 +811,30 @@ function assignToP(req, name, x) {
     req.p[name] = x;
 }
 
+function assignToPCustom(name) {
+    return function(req, ignoredName, x) {
+        assignToP(req, name, x);
+    };
+}
+
+
 var prrrams = (function() {
-    function getParam(name, parserWhichThrowsOnParseFail, assigner, required, defaultVal) {
+    function getParam(name, parserWhichReturnsPromise, assigner, required, defaultVal) {
         var f = function(req, res, next) {
             if (req.body && !_.isUndefined(req.body[name])) {
-                var parsed;
-                try {
-                    parsed = parserWhichThrowsOnParseFail(req.body[name]);
-                } catch (e) {
+                parserWhichReturnsPromise(req.body[name]).then(function(parsed) {
+                    assigner(req, name, parsed);
+                    next();
+                }, function(e) {
                     var s = "polis_err_param_parse_failed" + " " + name;
                     var err = connectError(400, s);
                     console.error(s);
                     console.error(err);
+                    console.error(e);
                     yell(s);
                     next(err);
                     return;
-                }
-                assigner(req, name, parsed);
-                next();
+                })
             } else if (!required) {
                 if (typeof defaultVal !== "undefined") {
                     assigner(req, name, defaultVal);
@@ -833,11 +852,11 @@ var prrrams = (function() {
         };
         return f;
     }
-    function need(name, parserWhichThrowsOnParseFail, assigner) {
-        return getParam(name, parserWhichThrowsOnParseFail, assigner, true);
+    function need(name, parserWhichReturnsPromise, assigner) {
+        return getParam(name, parserWhichReturnsPromise, assigner, true);
     }
-    function want(name, parserWhichThrowsOnParseFail, assigner, defaultVal) {
-        return getParam(name, parserWhichThrowsOnParseFail, assigner, false, defaultVal);
+    function want(name, parserWhichReturnsPromise, assigner, defaultVal) {
+        return getParam(name, parserWhichReturnsPromise, assigner, false, defaultVal);
     }
     return {
         need: need,
@@ -1319,7 +1338,7 @@ app.get("/v3/math/pca",
     meter("api.math.pca.get"),
     moveToBody,
     authOptional(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
     function(req, res) {
         // TODO check if owner/ptpt or public
@@ -1379,7 +1398,7 @@ function getBidToPidMapping(zid, lastVoteTimestamp) {
 app.get("/v3/bidToPid",
     authOptional(assignToP),
     moveToBody,
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
     var uid = req.p.uid;
@@ -1418,7 +1437,7 @@ function getXids(zid) {
 app.get("/v3/xids",
     auth(assignToP),
     moveToBody,
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -1441,7 +1460,7 @@ function(req, res) {
 app.get("/v3/bid",
     auth(assignToP),
     moveToBody,
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
     var uid = req.p.uid;
@@ -1575,7 +1594,7 @@ function(req, res) {
 
 app.get("/v3/zinvites/:zid",
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
     // if uid is not conversation owner, fail
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
@@ -1694,7 +1713,7 @@ function(req, res) {
 app.post("/v3/zinvites/:zid",
     moveToBody,
     auth(assignToP),    
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 500, "polis_err_creating_zinvite_invalid_conversation_or_owner", err); return; }
@@ -2133,7 +2152,7 @@ app.get("/v3/participants",
     moveToBody,
     authOptional(assignToP),
     want('pid', getInt, assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     // need('uid', getInt, assignToP), // requester
 function(req, res) {
     var pid = req.p.pid;
@@ -2202,7 +2221,7 @@ function userHasAnsweredZeQuestions(zid, answers) {
 
 app.post("/v3/participants",
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
@@ -2358,7 +2377,7 @@ app.post("/v3/joinWithInvite",
     authOptional(assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
-    parseSidFetchZid(assignToP, 'optional'),
+    want('sid', getSidFetchZid, assignToPCustom('zid')),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
 
@@ -2760,7 +2779,7 @@ function getComments(o) {
 app.get("/v3/comments",
     moveToBody,
     authOptional(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('tids', getArrayOfInt, assignToP),
     want('pid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
@@ -2934,7 +2953,7 @@ app.get("/v3/mute",
     moveToBody,
     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('tid', getInt, assignToP),
 function(req, res) {
     var tid = req.p.tid;
@@ -2974,7 +2993,7 @@ app.get("/v3/unmute",
     moveToBody,
     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('tid', getInt, assignToP),
 function(req, res) {
     var tid = req.p.tid;
@@ -3029,7 +3048,7 @@ function getConversationInfo(zid) {
 
 app.post("/v3/comments",
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('txt', getOptionalStringLimitLength(997), assignToP),
     want('vote', getIntInRange(-1, 1), assignToP),
     want('prepop', getBool, assignToP),
@@ -3181,7 +3200,7 @@ function(req, res) {
 app.get("/v3/votes/me",
     moveToBody,
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
@@ -3249,7 +3268,7 @@ function getCommentIdCounts(voteRecords) {
 app.get("/v3/selection",
     moveToBody,
     want('users', getArrayOfInt, assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
         var zid = req.p.zid;
         var users = req.p.users || [];
@@ -3292,7 +3311,7 @@ function(req, res) {
 
 app.get("/v3/votes",
     moveToBody,
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('pid', getInt, assignToP),
     want('tid', getInt, assignToP),
 function(req, res) {
@@ -3322,7 +3341,7 @@ function getNextComment(zid, pid, withoutTids) {
 app.get("/v3/nextComment",
     moveToBody,
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('not_voted_by_pid', getInt, assignToP),
     want('without', getArrayOfInt, assignToP),
 function(req, res) {
@@ -3341,7 +3360,7 @@ function(req, res) {
 app.post("/v3/votes",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('vote', getIntInRange(-1, 1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3366,7 +3385,7 @@ function(req, res) {
 app.post("/v3/stars",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('starred', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3388,7 +3407,7 @@ function(req, res) {
 app.post("/v3/trashes",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('trashed', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3443,7 +3462,7 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
 app.put('/v3/comments',
     moveToBody,
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('tid', getInt, assignToP),
     need('active', getBool, assignToP),
     need('mod', getInt, assignToP),
@@ -3472,10 +3491,10 @@ function(req, res){
 });
 
 
-app.put('/v3/conversations/:zid',
+app.put('/v3/conversations',
     moveToBody,
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
@@ -3673,7 +3692,7 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 app.get('/v3/metadata/questions',
     moveToBody,
     authOptional(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -3719,7 +3738,7 @@ app.post('/v3/metadata/questions',
     moveToBody,
     auth(assignToP),
     need('key', getOptionalStringLimitLength(999), assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var zid = req.p.zid;
     var key = req.p.key;
@@ -3742,7 +3761,7 @@ function(req, res) {
 app.post('/v3/metadata/answers',
     moveToBody,
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('pmqid', getInt, assignToP),
     need('value', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
@@ -3774,7 +3793,7 @@ function(req, res) {
 app.get('/v3/metadata/choices',
     moveToBody,
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -3794,7 +3813,7 @@ function(req, res) {
 app.get('/v3/metadata/answers',
     moveToBody,
     authOptional(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('pmqid', getInt, assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
@@ -3846,7 +3865,7 @@ function(req, res) {
 app.get('/v3/metadata',
     moveToBody,
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -3927,55 +3946,82 @@ function(req, res) {
 });
 
 
-app.get('/v3/conversations/:zid',
-    moveToBody,
-    authOptional(assignToP),
-    parseSidFetchZid(assignToP, 'optional'),
-    want('zinvite', getOptionalStringLimitLength(300), assignToP),
-function(req, res) {
-    var zid = req.p.zid;
-    var zinvite = req.p.zinvite;
-
-    // TODO check zinvite before giving out info.
-
-    pgQuery('SELECT * FROM conversations WHERE zid = ($1);', [zid], function(err, results) {
-        if (err) { fail(res, 500, "polis_err_get_conversation_by_zid", err); return; }
-        if (!results || !results.rows || !results.rows.length) {
-            fail(res, 404, "polis_err_no_such_conversation", new Error("polis_err_no_such_conversation"));
-            return;
-        }
-        var conv = results.rows[0];
+function getConversationHasMetadata(zid) {
+    return new Promise(function(resolve, reject) {
         pgQuery('SELECT * from participant_metadata_questions where zid = ($1)', [zid], function(err, metadataResults) {
-            if (err) { fail(res, 500, "polis_err_get_conversation_metadata_by_zid", err); return; }
-            if (!metadataResults || !metadataResults.rows || !metadataResults.rows.length) {
-                // return the conversation data without adding any metadata stuff
-            } else {
-                conv.hasMetadata = true;
+            if (err) {
+                return reject("polis_err_get_conversation_metadata_by_zid");
             }
-            pgQuery('SELECT * from users where uid = ($1)', [conv.owner], function(err, results){
-                if (err) { fail(res, 500, "polis_err_get_uid_from_users", err); return; }
-                if (!results || !results.rows || !results.rows.length) {
-                    fail(res, 500, "polis_err_no_such_conversation_owner", new Error("polis_err_no_such_conversation"));
-                    return;
-                }
-                var ownername = results.rows[0].hname;
-                conv.ownername = ownername;
-                res.status(200).json(conv);
-            })
+            var hasNoMetadata = !metadataResults || !metadataResults.rows || !metadataResults.rows.length;
+            resolve(!hasNoMetadata);
         });
     });
-});
+}
 
+// Returns a function that behaves like failNow, but waits for some duration.
+// The idea is to prevent timing attacks on various failure modes.
+function failNotWithin(minDelay) {
+    var timerStart = Date.now();
+    return function() {
+        var args = arguments;
+        var failMoment = Date.now();
+        var elapsedBeforeFailureDetected = failMoment - timerStart;
+        var remainingDelay = Math.max(0, minDelay - elapsedBeforeFailureDetected);
+        setTimeout(function() {
+            fail.apply({}, args);
+        }, remainingDelay);
+    };
+}
 
 app.get('/v3/conversations',
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
-    parseSidFetchZid(assignToP, 'optional'),
+    want('sid', getSidFetchZid, assignToPCustom('zid')),
     want('owner', getInt, assignToP), // TODO needed?
 function(req, res) {
   var uid = req.p.uid;
+  var zid = req.p.zid;
+
+  var fail = failNotWithin(500);
+
+  if (zid) {
+    // no need for auth, since sid was provided
+    Promise.all([
+        getConversationInfo(zid),
+        getConversationHasMetadata(zid),
+        getUserProperty(uid, "hname"),
+        getZinvite(zid),
+    ]).then(function(results) {
+        var conv = results[0];
+        var convHasMetadata = results[1];
+        var conversationOwnerHname = results[2];
+        var sid = results[3];
+        
+        if (convHasMetadata) {
+            conv.hasMetadata = true;
+        }
+        if (!_.isUndefined(conversationOwnerHname)) {
+            conv.ownername = conversationOwnerHname;
+        }
+        if (!sid) {
+            console.dir(arguments);
+            throw new Error("polis_err_getting_conversation_sid");
+        }
+        res.status(200).json(conv);
+    }, function(err) {
+        fail(res, 500, "polis_err_getting_conversation", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_getting_conversation", err);
+    });
+    return;
+  }
+  // ELSE not zid specific
+
+  if (!uid) {
+    return fail(res, 403, "polis_err_need_auth", new Error("polis_err_need_auth"));
+  }
 
   // First fetch a list of conversations that the user is a participant in.
   pgQuery('select zid from participants where uid = ($1);', [uid], function(err, results) {
@@ -4011,22 +4057,19 @@ function(req, res) {
             conv.is_owner = conv.owner === uid;
         });
 
-        var conversationsWithZinvites = data.filter(function(conv) {
-            return conv.owner === uid && !conv.is_public;
-        }).map(function(conv) {
-            return conv.zid;
+        var zids = data.map(function(conv) {
+            return Number(conv.zid);
         });
 
-        if (!conversationsWithZinvites.length) {
-            return res.json(data);
-        }
-        pgQuery("select * from zinvites where zid in (" + conversationsWithZinvites.join(",") + ");",[], function(err, results) {
+        pgQuery("select * from zinvites where zid in (" + zids.join(",") + ");",[], function(err, results) {
             if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return; }
             var zinvites = _.indexBy(results.rows, "zid");
 
             data = data.map(function(conv) {
                 if (zinvites[conv.zid]) {
-                    conv.zinvites = [zinvites[conv.zid].zinvite];
+                    conv.sid = zinvites[conv.zid].zinvite;
+                } else {
+                    fail(res, 500, "polis_err_get_conversation_sid", err);
                 }
                 return conv;
             });
@@ -4117,7 +4160,7 @@ function(req, res) {
 
 app.post('/v3/query_participants_by_metadata',
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('pmaids', getArrayOfInt, assignToP, []),
 function(req, res) {
     var uid = req.p.uid;
@@ -4149,7 +4192,7 @@ function(req, res) {
 
 app.post('/v3/sendCreatedLinkToEmail', 
     auth(assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res){
     console.log(req.p)
     pgQuery("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
@@ -4245,7 +4288,7 @@ app.post("/v3/users/invite",
     auth(assignToP),
 
     need('single_use_tokens', getBool, assignToP),
-    parseSidFetchZid(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('xids', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
     var owner = req.p.uid;
@@ -4474,11 +4517,12 @@ var fetchIndex = function(req, res) {
     }
 }
 
-app.get(/^\/[0-9]+.*/, fetchIndex); // conversation view
-app.get(/^\/explore\/[0-9]+.*/, fetchIndex); // power view
-app.get(/^\/summary\/[0-9]+.*/, fetchIndex); // summary view
-app.get(/^\/m\/[0-9]+.*/, fetchIndex); // summary view
-app.get(/^\/ot\/[0-9]+.*/, fetchIndex); // conversation view, one-time url
+
+app.get(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
+app.get(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
+app.get(/^\/summary\/[0-9][0-9A-Za-z]+/, fetchIndex); // summary view
+app.get(/^\/m\/[0-9][0-9A-Za-z]+[0-9][0-9A-Za-z]+/, fetchIndex); // summary view
+app.get(/^\/ot\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create.*/, fetchIndex);
 app.get(/^\/user\/create$/, fetchIndex);
@@ -4486,7 +4530,7 @@ app.get(/^\/user\/login$/, fetchIndex);
 app.get(/^\/settings$/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
-app.get(/^\/demo.*/, fetchIndex);
+app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
 app.get(/^\/pwreset.*/, fetchIndex);
 app.get(/^\/prototype.*/, fetchIndex);
 app.get(/^\/plan.*/, fetchIndex);
