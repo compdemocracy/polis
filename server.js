@@ -4091,7 +4091,7 @@ function isUserAllowedToCreateConversations(uid, callback) {
 }
 
 // TODO check to see if ptpt has answered necessary metadata questions.
-app.post('/v3/conversations/undefined', // TODO undefined is not ok
+app.post('/v3/conversations',
     auth(assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
