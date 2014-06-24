@@ -4006,7 +4006,6 @@ function(req, res) {
             conv.ownername = conversationOwnerHname;
         }
         if (!sid) {
-            console.dir(arguments);
             throw new Error("polis_err_getting_conversation_sid");
         }
         res.status(200).json(conv);
