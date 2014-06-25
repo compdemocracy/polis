@@ -4380,7 +4380,7 @@ function getConversationUrl(zid) {
 app.post("/v3/users/invite",
     // authWithApiKey(assignToP),
     auth(assignToP),
-
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('single_use_tokens', getBool, assignToP),
     need('xids', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
