@@ -71,27 +71,26 @@ module.exports = View.extend({
           }
           delete attrs.xidsTextarea;
 
-          var readyToSubmit = !!xids ? 
-            $.ajax({
-              url: "/v3/users/invite",
-              type: "POST",
-              dataType: "json",
-              xhrFields: {
-                  withCredentials: true
-              },
-              // crossDomain: true,
-              data: {
-                xids: xids,
-                single_use_tokens: true,
-                sid: that.model.get("sid")
-              }
-            }) : 
-            $.Deferred().resolve();
+          attrs.verifyMeta = true; // make sure there are answers for each question.
+          bbSave(that.model, attrs).then(function(data) {
+            // NOTE: the suurl generation must take place after the PUT conversations call, since the sid may change (and the sid is included in the suurls)
+            var promise = !!xids ? 
+              $.ajax({
+                url: "/v3/users/invite",
+                type: "POST",
+                dataType: "json",
+                xhrFields: {
+                    withCredentials: true
+                },
+                // crossDomain: true,
+                data: {
+                  xids: xids,
+                  single_use_tokens: true,
+                  sid: that.model.get("sid")
+                }
+              }) : $.Deferred().resolve();
 
-          readyToSubmit.then(function(suurls) {
-
-            attrs.verifyMeta = true; // make sure there are answers for each question.
-            bbSave(that.model, attrs).then(function(data) {
+            promise.then(function(suurls) {
               that.trigger("done", suurls);
             }, function(model, err) {
               err = err.responseText;
