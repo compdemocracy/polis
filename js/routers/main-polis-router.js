@@ -217,7 +217,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/([0-9][0-9A-Za-z]+)$/, "participationView");  // sid
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/sid/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
-    this.r(/^demo\/(.*)/, "demoConversation");
+    this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
 
     this.r(/explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/sid
     this.r(/summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/sid
