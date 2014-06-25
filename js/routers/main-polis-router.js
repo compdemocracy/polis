@@ -214,6 +214,11 @@ var polisRouter = Backbone.Router.extend({
     this.r(/summary\/([0-9][0-9A-Za-z]+)/, "summaryView");  // summary/sid
     this.r(/m\/([0-9][0-9A-Za-z]+)/, "moderationView");  // m/sid
 
+    // backwards compatibility TODO remove after July 2014
+    this.r(/([0-9]+)/, "participationViewDeprecated");  // zid
+    this.r(/([0-9]+)\/(.*)/, "participationViewDeprecated"); // zid/zinvite
+    this.r(/m\/([0-9]+)/, "moderationViewDeprecated");  // m/zid
+    this.r(/m\/([0-9]+)\/(.*)/, "moderationViewDeprecated"); // m/zid/zinvite
 
   },
   r: function(pattern, methodToCall) {
@@ -496,6 +501,11 @@ var polisRouter = Backbone.Router.extend({
       sid,
       zinvite);
   },
+  moderationViewDeprecated: function(sid, zinvite) {
+    doJoinConversation.call(this, 
+      this.doLaunchModerationView.bind(this), // TODO
+      zinvite); // maps to sid
+  },
   participationView: function(sid, zinvite, singleUse) {
 
     doJoinConversation.call(this, 
@@ -505,6 +515,12 @@ var polisRouter = Backbone.Router.extend({
       singleUse);
 
   },
+  participationViewDeprecated: function(zid, zinvite, singleUse) {
+    doJoinConversation.call(this, 
+      this.doLaunchConversation.bind(this),
+      zinvite); // maps to sid now
+  },
+  
   // assumes the user already exists.
   conversationGatekeeper: function(sid, suzinvite, singleUse) {
     var dfd = $.Deferred();
