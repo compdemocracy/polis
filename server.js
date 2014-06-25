@@ -2515,71 +2515,52 @@ function(req, res) {
 function joinWithZidOrSuzinvite(o) {
     return Promise.resolve(o)
     .then(function(o) {
-        console.log('joinWithSidOrSuzinvite 1');
         if (o.suzinvite) {
-        console.log('joinWithSidOrSuzinvite 1a');
             return getSUZinviteInfo(o.suzinvite).then(function(suzinviteInfo) {
               return _.extend(o, suzinviteInfo);
             });
         } else if (o.zid) {
-        console.log('joinWithSidOrSuzinvite 1b');
             return o;
         } else {
-        console.log('joinWithSidOrSuzinvite 1c');
             throw new Error("polis_err_missing_invite");
         }
     })
     .then(function(o) {
-        console.log('joinWithSidOrSuzinvite 2');
       if (o.uid) {
-        console.log('joinWithSidOrSuzinvite 2a');
         return o;
       } else {
-        console.log('joinWithSidOrSuzinvite 2b');
         return createDummyUser().then(function(uid) {
-        console.log('joinWithSidOrSuzinvite 2bb');
           return _.extend(o, {uid: uid});
         });
       }
     })
     .then(function(o) {
-        console.log('joinWithSidOrSuzinvite 3');
         return userHasAnsweredZeQuestions(o.zid, o.answers).then(function() {
-        console.log('joinWithSidOrSuzinvite 3a');
             // looks good, pass through
             return o;
         });
     })
     .then(function(o) {
-        console.log('joinWithSidOrSuzinvite 4');
       return joinConversation(o.zid, o.uid, o.answers).then(function(pid) {
-        console.log('joinWithSidOrSuzinvite 4a');
         return _.extend({pid: pid}, o);
       });
     })
     .then(function(o) {
-        console.log('joinWithSidOrSuzinvite 5');
       if (o.xid) {
         // used for suzinvite case
-        console.log('joinWithSidOrSuzinvite 5a');
         return createXidEntry(o.xid, o.owner, o.uid).then(function() {
           return o;
         });
       } else {
-        console.log('joinWithSidOrSuzinvite 5b');
         return o;
       }
     })
     .then(function(o) {
-        console.log('joinWithSidOrSuzinvite 6');
       if (o.suzinvite) {
-        console.log('joinWithSidOrSuzinvite 6a');
         return deleteSuzinvite(o.suzinvite).then(function() {
-        console.log('joinWithSidOrSuzinvite 6aa');
           return o;
         });
       } else {
-        console.log('joinWithSidOrSuzinvite 6b');
         return o;
       }
     });
