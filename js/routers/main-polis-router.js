@@ -205,21 +205,23 @@ var polisRouter = Backbone.Router.extend({
     this.r("prototype", "prototype");
     this.r("", "landingPageView");
 
-    this.r(/([0-9][0-9A-Za-z]+)/, "participationView");  // sid
-    this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // sid/suzinvite
-    this.r(/^pwreset\/(.*)/, "pwReset");
-    this.r(/^demo\/(.*)/, "demoConversation");
 
-    this.r(/explore\/([0-9][0-9A-Za-z]+)/, "exploreView");  // explore/sid
-    this.r(/summary\/([0-9][0-9A-Za-z]+)/, "summaryView");  // summary/sid
-    this.r(/m\/([0-9][0-9A-Za-z]+)/, "moderationView");  // m/sid
 
     // backwards compatibility TODO remove after July 2014
     this.r(/([0-9]+)/, "participationViewDeprecated");  // zid
     this.r(/([0-9]+)\/(.*)/, "participationViewDeprecated"); // zid/zinvite
     this.r(/m\/([0-9]+)/, "moderationViewDeprecated");  // m/zid
     this.r(/m\/([0-9]+)\/(.*)/, "moderationViewDeprecated"); // m/zid/zinvite
+    // end backwards compatibility routes
 
+    this.r(/([0-9][0-9A-Za-z]+)$/, "participationView");  // sid
+    this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/sid/suzinvite
+    this.r(/^pwreset\/(.*)/, "pwReset");
+    this.r(/^demo\/(.*)/, "demoConversation");
+
+    this.r(/explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/sid
+    this.r(/summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/sid
+    this.r(/m\/([0-9][0-9A-Za-z]+)$/, "moderationView");  // m/sid
   },
   r: function(pattern, methodToCall) {
     metric("route", methodToCall);
