@@ -2501,8 +2501,7 @@ function(req, res) {
         });
     })
     .catch(function(err) {
-      res.status(500).json(err.message);
-      // fail(res, 500, err, err);
+      fail(res, 500, err.message, err);
     });
 });
 
