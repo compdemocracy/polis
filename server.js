@@ -4366,8 +4366,8 @@ function(req, res) {
 });
 
 
-function generateSingleUseUrl(zid, suzinvite) {
-    return "https://pol.is/ot/" + zid + "/" + suzinvite;
+function generateSingleUseUrl(sid, suzinvite) {
+    return "https://pol.is/ot/" + sid + "/" + suzinvite;
 }
 
 
@@ -4389,11 +4389,13 @@ app.post("/v3/users/invite",
 
     need('single_use_tokens', getBool, assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('sid', getStringLimitLength(1, 100), assignToP),
     need('xids', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
     var owner = req.p.uid;
     var xids = req.p.xids;
     var zid = req.p.zid;
+    var sid = req.p.sid;
 
 
     // generate some tokens
@@ -4415,7 +4417,7 @@ function(req, res) {
             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
             res.json({
                 urls: suzinviteArray.map(function(suzinvite) {
-                    return generateSingleUseUrl(zid, suzinvite);
+                    return generateSingleUseUrl(sid, suzinvite);
                 }),
                 xids: xids,
             });
