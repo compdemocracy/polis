@@ -165,7 +165,6 @@ var metric = (function() {
                     console.error("metric send failed " + err);
                     reject(err);
                 } else {
-                    console.log("metric send ok");
                     resolve();
                 }
             });
@@ -553,8 +552,6 @@ function auth(assigner, isOptional) {
     return function(req, res, next) {
         //var token = req.body.token;
         var token = req.cookies[COOKIES.TOKEN];
-        console.log("token from cookie");
-        console.dir(req.cookies);
         if (!token) {
             if (isOptional) {
                 next();
@@ -566,8 +563,6 @@ function auth(assigner, isOptional) {
         //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
         getUserInfoForSessionToken(token, res, function(err, uid) {
 
-    console.log("got uid");
-        console.log(uid);
             if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
 
             if ( req.body.uid && req.body.uid !== uid) {
@@ -725,11 +720,8 @@ function getZidFromSid(sid) {
 // sid is the client/ public API facing string ID
 var parseSid = getStringLimitLength(1, 100);
 function getSidFetchZid(s) {
-    console.log('getSidFetchZid ' + s);
     return parseSid(s).then(function(sid) {
-        console.log('getSidFetchZid ' + sid);
         return getZidFromSid(sid).then(function(zid) {
-            console.log('getSidFetchZid ' + zid);
             return Number(zid);
         });
     });
@@ -984,7 +976,6 @@ var oneYear = 1000*60*60*24*365;
 function addCookies(res, token, uid) {
     function addPrimaryCookies() {
         if (domainOverride) {
-            console.log("addCookies domainOverride", COOKIES.TOKEN, token, COOKIES.UID, uid);
             res.cookie(COOKIES.TOKEN, token, {
                 path: '/',
                 httpOnly: true,
@@ -994,9 +985,7 @@ function addCookies(res, token, uid) {
                 path: '/',
                 maxAge: oneYear,         
             });
-            console.log("addCookies domainOverride done", COOKIES.TOKEN, token, COOKIES.UID, uid);
         } else {
-            console.log("addCookies no domainOverride", COOKIES.TOKEN, token, COOKIES.UID, uid);
             res.cookie(COOKIES.TOKEN, token, {
                 path: '/',
                 httpOnly: true,
@@ -1011,18 +1000,15 @@ function addCookies(res, token, uid) {
                 domain: '.pol.is',
                 // secure: true, // TODO need HTTPS
             });
-            console.log("addCookies no domainOverride done", COOKIES.TOKEN, token, COOKIES.UID, uid);
         }
     }
     function addHasEmailCookie() {
         if (domainOverride) {
-            console.log("addCookies e domainOverride", COOKIES.HAS_EMAIL, 1);
             res.cookie(COOKIES.HAS_EMAIL, 1, {
                 path: '/',
                 maxAge: oneYear,
             });
         } else {
-            console.log("addCookies e no domainOverride", COOKIES.HAS_EMAIL, 1);
             res.cookie(COOKIES.HAS_EMAIL, 1, {
                 path: '/',
                 maxAge: oneYear,
@@ -1030,17 +1016,12 @@ function addCookies(res, token, uid) {
             });
         } 
     }
-    console.log("addCookies");
     return getUserProperty(uid, "email").then(function(email) {
         if (email) {
-            console.log("addCookies and e");
             addPrimaryCookies();
             addHasEmailCookie();
-            console.log("addCookie done", res.cookie());
         } else {
-            console.log("addCookies no e");
             addPrimaryCookies();
-            console.log("addCookie done", res.cookie());
         }
     });
 }
@@ -2508,7 +2489,6 @@ function(req, res) {
         // TODO check for possible security implications
         if (!o.existingAuth) {
             return startSessionAndAddCookies(res, uid).then(function() {
-                console.log("startSessionAndAddCookies done" + o);
                 return o;
             });
         }
