@@ -3430,7 +3430,7 @@ function getNextComment(zid, pid, withoutTids) {
 
 app.get("/v3/nextComment",
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
     need('not_voted_by_pid', getInt, assignToP),
     want('without', getArrayOfInt, assignToP),
