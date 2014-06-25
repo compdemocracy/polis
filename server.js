@@ -4382,14 +4382,11 @@ app.post("/v3/users/invite",
     auth(assignToP),
 
     need('single_use_tokens', getBool, assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
-    need('sid', getStringLimitLength(1, 100), assignToP),
     need('xids', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
     var owner = req.p.uid;
     var xids = req.p.xids;
     var zid = req.p.zid;
-    var sid = req.p.sid;
 
 
     // generate some tokens
@@ -4409,11 +4406,17 @@ function(req, res) {
         console.log(query);
         pgQuery(query, [], function(err, results) {
             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
-            res.json({
-                urls: suzinviteArray.map(function(suzinvite) {
-                    return generateSingleUseUrl(sid, suzinvite);
-                }),
-                xids: xids,
+            getZinvite(zid).then(function(sid) {
+                res.json({
+                    urls: suzinviteArray.map(function(suzinvite) {
+                        return generateSingleUseUrl(sid, suzinvite);
+                    }),
+                    xids: xids,
+                });
+            }, function(err) {
+                fail(res, 500, "polis_err_generating_single_use_invites_missing_sid", err);
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_generating_single_use_invites", err);
             });
         });
     }).catch(function(err) {
