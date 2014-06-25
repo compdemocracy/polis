@@ -2506,11 +2506,6 @@ function(req, res) {
 });
 
 
-
-// TODO make zinvites unique, so they can be removed from the URL
-
-
-
 function joinWithZidOrSuzinvite(o) {
     return Promise.resolve(o)
     .then(function(o) {
