@@ -1,3 +1,4 @@
+var bbSave = require("../net/bbSave");
 var View = require("handlebones").View;
 var template = require("../tmpl/create-conversation-form");
 var CommentsCollection = require("../collections/comments");
@@ -59,6 +60,7 @@ module.exports = View.extend({
           // !! to make sure these properties exist as 'false', instead of just being absent.
           attrs.is_public = !!attrs.is_public;
           attrs.profanity_filter = !!attrs.profanity_filter;
+          attrs.short_url = !!attrs.is_public;
           attrs.spam_filter = !!attrs.spam_filter;
           attrs.strict_moderation = !!attrs.strict_moderation;
           attrs.send_created_email = true;
@@ -89,10 +91,10 @@ module.exports = View.extend({
           readyToSubmit.then(function(suurls) {
 
             attrs.verifyMeta = true; // make sure there are answers for each question.
-            that.model.save(attrs).then(function(data) {
+            bbSave(that.model, attrs).then(function(data) {
               that.trigger("done", suurls);
-            }, function(err) {
-              var err = err.responseJSON;
+            }, function(model, err) {
+              err = err.responseText;
               if (err === "polis_err_missing_metadata_answers") {
                 that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
               } else {
@@ -119,14 +121,13 @@ module.exports = View.extend({
       var sid = this.model.get("sid");
       var pid = options.pid;
 
-      var metadataCollection = new MetadataQuestionCollection([], {
+      var data = {
           sid: sid
-      });
+      };
+      var metadataCollection = new MetadataQuestionCollection([], data);
 
       metadataCollection.fetch({
-          data: $.param({
-              sid: sid
-          }),
+          data: $.param(data),
           processData: true
       });
       this.metadataQuestionsViewWithCreate = this.addChild(new MetadataQuestionsViewWithCreate({

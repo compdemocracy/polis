@@ -74,7 +74,7 @@ function doJoinConversation(onSuccess, sid, zinvite, singleUse) {
             });
           }
         });
-      } else if (zinvite) {
+      } else if (sid) {
         // Don't require user to explicitly create a user before joining the conversation.
         $.ajax({
           url: "/v3/joinWithInvite",
@@ -85,8 +85,7 @@ function doJoinConversation(onSuccess, sid, zinvite, singleUse) {
           },
           // crossDomain: true,
           data: {
-            sid: sid,
-            zinvite: zinvite
+            sid: sid
           }
         }).then(function(data) {
           that.participationView(sid);
@@ -96,6 +95,7 @@ function doJoinConversation(onSuccess, sid, zinvite, singleUse) {
           });
         });
       } else {
+        alert("missing conversation ID in URL. Shouldn't hit this.");
         // this.doCreateUserFromGatekeeper(sid, zinvite, singleUse).done(function() {
         //   // Try again, should be ready now.
         //   doJoinConversation.call(that, onSuccess, sid, zinvite);
