@@ -873,71 +873,6 @@ var COOKIES = {
     REFERRER : 'ref',
 };
 
-var oneYear = 1000*60*60*24*365;
-function addCookies(res, token, uid) {
-    function addPrimaryCookies() {
-        if (domainOverride) {
-            res.cookie(COOKIES.TOKEN, token, {
-                path: '/',
-                httpOnly: true,
-                maxAge: oneYear,
-            });
-            res.cookie(COOKIES.UID, uid, {
-                path: '/',
-                maxAge: oneYear,         
-            });
-        } else {
-            res.cookie(COOKIES.TOKEN, token, {
-                path: '/',
-                httpOnly: true,
-                maxAge: oneYear,
-                domain: '.pol.is',
-                // secure: true, // TODO need HTTPS
-            });
-            res.cookie(COOKIES.UID, uid, {
-                path: '/',
-                // httpOnly: true, (client JS needs to see something to know it's signed in)
-                maxAge: oneYear,
-                domain: '.pol.is',
-                // secure: true, // TODO need HTTPS
-            });
-        }
-    }
-    function addHasEmailCookie() {
-        if (domainOverride) {
-            res.cookie(COOKIES.HAS_EMAIL, 1, {
-                path: '/',
-                maxAge: oneYear,
-            });
-        } else {
-            res.cookie(COOKIES.HAS_EMAIL, 1, {
-                path: '/',
-                maxAge: oneYear,
-                domain: '.pol.is',
-            });
-        } 
-    }
-    return getUserProperty(uid, "email").then(function(email) {
-        addPrimaryCookies();
-        addHasEmailCookie();
-    }, function(err) {
-        addPrimaryCookies();
-    });
-}
-
-function generateHashedPassword(password, callback) {
-    bcrypt.genSalt(12, function(errSalt, salt) {
-        if (errSalt) { return callback("polis_err_salt"); return; }
-        bcrypt.hash(password, salt, function(errHash, hashedPassword) {
-            if (errHash) { return callback("polis_err_hash");}
-            callback(null, hashedPassword);
-        });
-    });
-}
-
-
-
-
 
 
 function initializePolisAPI(err, args) {
@@ -1044,6 +979,84 @@ function match(key, zid) {
 // });
 
 
+
+var oneYear = 1000*60*60*24*365;
+function addCookies(res, token, uid) {
+    function addPrimaryCookies() {
+        if (domainOverride) {
+            console.log("addCookies domainOverride", COOKIES.TOKEN, token, COOKIES.UID, uid);
+            res.cookie(COOKIES.TOKEN, token, {
+                path: '/',
+                httpOnly: true,
+                maxAge: oneYear,
+            });
+            res.cookie(COOKIES.UID, uid, {
+                path: '/',
+                maxAge: oneYear,         
+            });
+            console.log("addCookies domainOverride done", COOKIES.TOKEN, token, COOKIES.UID, uid);
+        } else {
+            console.log("addCookies no domainOverride", COOKIES.TOKEN, token, COOKIES.UID, uid);
+            res.cookie(COOKIES.TOKEN, token, {
+                path: '/',
+                httpOnly: true,
+                maxAge: oneYear,
+                domain: '.pol.is',
+                // secure: true, // TODO need HTTPS
+            });
+            res.cookie(COOKIES.UID, uid, {
+                path: '/',
+                // httpOnly: true, (client JS needs to see something to know it's signed in)
+                maxAge: oneYear,
+                domain: '.pol.is',
+                // secure: true, // TODO need HTTPS
+            });
+            console.log("addCookies no domainOverride done", COOKIES.TOKEN, token, COOKIES.UID, uid);
+        }
+    }
+    function addHasEmailCookie() {
+        if (domainOverride) {
+            console.log("addCookies e domainOverride", COOKIES.HAS_EMAIL, 1);
+            res.cookie(COOKIES.HAS_EMAIL, 1, {
+                path: '/',
+                maxAge: oneYear,
+            });
+        } else {
+            console.log("addCookies e no domainOverride", COOKIES.HAS_EMAIL, 1);
+            res.cookie(COOKIES.HAS_EMAIL, 1, {
+                path: '/',
+                maxAge: oneYear,
+                domain: '.pol.is',
+            });
+        } 
+    }
+    console.log("addCookies");
+    return getUserProperty(uid, "email").then(function(email) {
+        if (email) {
+            console.log("addCookies and e");
+            addPrimaryCookies();
+            addHasEmailCookie();
+            console.log("addCookie done", res.cookie());
+        } else {
+            console.log("addCookies no e");
+            addPrimaryCookies();
+            console.log("addCookie done", res.cookie());
+        }
+    });
+}
+
+function generateHashedPassword(password, callback) {
+    bcrypt.genSalt(12, function(errSalt, salt) {
+        if (errSalt) { return callback("polis_err_salt"); return; }
+        bcrypt.hash(password, salt, function(errHash, hashedPassword) {
+            if (errHash) { return callback("polis_err_hash");}
+            callback(null, hashedPassword);
+        });
+    });
+}
+
+
+
 function authWithApiKey(assigner) {
     return function(req, res, next) {
         var header=req.headers['authorization']||'',          // get the header
@@ -1129,18 +1142,23 @@ function votesPost(pid, zid, tid, voteType) {
 
 
 function votesGet(res, p) {
-    var q = sql_votes.select(sql_votes.star())
-        .where(sql_votes.zid.equals(p.zid));
+    return new Promise(function(resolve, reject) {
+        var q = sql_votes.select(sql_votes.star())
+            .where(sql_votes.zid.equals(p.zid));
 
-    if (!_.isUndefined(p.pid)) {
-        q = q.where(sql_votes.pid.equals(p.pid));
-    }
-    if (!_.isUndefined(p.tid)) {
-        q = q.where(sql_votes.tid.equals(p.tid));
-    }
-    pgQuery(q.toString(), function(err, docs) {
-        if (err) { fail(res, 500, "polis_err_votes_get", err); return; }
-        res.json(docs.rows);
+        if (!_.isUndefined(p.pid)) {
+            q = q.where(sql_votes.pid.equals(p.pid));
+        }
+        if (!_.isUndefined(p.tid)) {
+            q = q.where(sql_votes.tid.equals(p.tid));
+        }
+        pgQuery(q.toString(), function(err, results) {
+            if (err) {
+                reject(err);
+            } else {
+               resolve(results.rows);
+            }
+        });
     });
 } // End votesGet
 
@@ -1364,7 +1382,7 @@ app.get("/v3/math/pca",
         });
         promise.then(function(data) {
             if (data) {
-                res.json(data);
+                finishOne(res, data);
             } else {
                 res.status(304).end();
             }
@@ -1375,6 +1393,7 @@ app.get("/v3/math/pca",
 
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
+    lastVoteTimestamp = lastVoteTimestamp || 0;
     return new MPromise("db.bidToPid.get", function(resolve, reject) {
         collectionOfBidToPidResults.find({$and :[
             {zid: zid},
@@ -1666,14 +1685,29 @@ function generateToken(len, pseudoRandomOk, callback) {
         }
 
         var prettyToken = buf.toString('base64')
-            .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
+            .replace(/\//g,'A').replace(/\+/g,'B') // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
+            .replace(/l/g, 'C') // looks like '1'
+            .replace(/L/g, 'D') // looks like '1'
+            .replace(/o/g, 'E') // looks like 0
+            .replace(/O/g, 'F') // looks lke 0
+            .replace(/1/g, 'G') // looks like 'l'
+            .replace(/0/g, 'H') // looks like 'O'
+        ;
+        // replace first character with a number between 2 and 9 (avoiding 0 and 1 since they look like l and O)
+        prettyToken = _.random(2,9) + prettyToken.slice(1);
+        prettyToken = prettyToken.toLowerCase();
+        prettyToken = prettyToken.slice(0, len); // in case it's too long
 
         callback(0, prettyToken);
     });  
 }
 
-function generateAndRegisterZinvite(zid, callback) {
-    generateToken(12, false, function(err, zinvite) {
+function generateAndRegisterZinvite(zid, generateShort, callback) {
+    var len = 12;
+    if (generateShort) {
+        len = 6;
+    }
+    generateToken(len, false, function(err, zinvite) {
         if (err) {
             return callback("polis_err_creating_zinvite");
         }
@@ -1713,12 +1747,15 @@ function(req, res) {
 app.post("/v3/zinvites/:zid",
     moveToBody,
     auth(assignToP),    
+    want('short_url', getBool, assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res) {
+    var generateShortUrl = req.p.short_url;
+
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 500, "polis_err_creating_zinvite_invalid_conversation_or_owner", err); return; }
 
-        generateAndRegisterZinvite(req.p.zid, function(err, zinvite) {
+        generateAndRegisterZinvite(req.p.zid, generateShortUrl, function(err, zinvite) {
             if (err) { fail(res, 500, "polis_err_creating_zinvite", err); return; }
             res.status(200).json({
                 zinvite: zinvite,
@@ -1775,6 +1812,8 @@ function getZidForZinvite(zinvite) {
     });
 }
 
+
+// TODO consider LRU cache
 function getZinvite(zid) {
     return new Promise(function(resolve, reject) {
         pgQuery("select * from zinvites where zid = ($1);", [zid], function(err, result) {
@@ -1787,6 +1826,79 @@ function getZinvite(zid) {
     });
 }
 
+// TODO consider LRU cache
+function getZinvites(zids) {
+    if (!zids.length) {
+        return Promise.resolve(zids);
+    };
+    console.log("foo");
+    console.dir(zids);
+    zids = _.map(zids, function(zid) {
+        return Number(zid); // just in case
+    });
+    zids = _.uniq(zids);
+    console.log("foo");
+    console.dir(zids);
+    return new Promise(function(resolve, reject) {
+        pgQuery("select * from zinvites where zid in ("+zids.join(",")+");", [], function(err, result) {
+            if (err) {
+                reject(err);
+            } else {
+                var zid2sid = {};
+                var len = result.rows.length;
+                for (var i = 0; i < len; i++) {
+                    var o = result.rows[i];
+                    zid2sid[o.zid] = o.zinvite;
+                }
+                resolve(zid2sid);
+            }
+        });
+    });
+}
+
+function addSid(o) {
+    if (!o.zid) {
+        // if no zid, resolve without fetching zinvite.
+        return Promise.resolve(o);
+    }
+    return getZinvite(o.zid).then(function(sid) {
+        o.sid = sid;
+        return o;
+    });
+}
+
+function addSids(a) {
+    var zids = [];
+    for (var i = 0; i < a.length; i++) {
+        if (a[i].zid) {
+            zids.push(a[i].zid);
+        }
+    }
+    if (!zids.length) {
+        return Promise.resolve(a);
+    }
+    return getZinvites(zids).then(function(zid2sid) {
+        return a.map(function(o) {
+            o.sid = zid2sid[o.zid];
+            return o;
+        });
+    });
+}
+
+function finishOne(res, o) {
+    addSid(o).then(function(item) {
+        res.status(200).json(item);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_finishing_response", err);
+    });
+}
+function finishArray(res, a) {
+    addSids(a).then(function(items) {
+        res.status(200).json(items);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_finishing_response", err);
+    });
+}
 
 function checkSuzinviteCodeValidity(zid, suzinvite, callback) {
     pgQuery('SELECT * FROM suzinvites WHERE zid = ($1) AND suzinvite = ($2);', [zid, suzinvite], function(err, results) {
@@ -2340,8 +2452,11 @@ function(req, res) {
                     email: email,
                     token: token
                 };
-                addCookies(res, token, uid);
-                res.json(response_data);
+                addCookies(res, token, uid).then(function() {
+                    res.json(response_data);
+                }).catch(function(err) {
+                    fail(res, 500, "polis_err_adding_cookies", err);
+                });
             }); // startSession
         }); // compare
     }); // query
@@ -2376,24 +2491,24 @@ function createDummyUser() {
 app.post("/v3/joinWithInvite",
     authOptional(assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
-    want('zinvite', getOptionalStringLimitLength(999), assignToP),
     want('sid', getSidFetchZid, assignToPCustom('zid')),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
 
-    joinWithZinviteOrSuzinvite({
+    joinWithZidOrSuzinvite({
         answers: req.p.answers,
         existingAuth: !!req.p.uid,
         suzinvite: req.p.suzinvite,
         uid: req.p.uid,
-        zinvite: req.p.zinvite,
-        zid: req.p.zid, // TEMP - REMOVE THIS AND SWITCH TO USING ZINVITES
+        zid: req.p.zid, // since the zid is looked up using the sid, it's safe to use zid as an invite token.
     })
     .then(function(o) {
         var uid = o.uid;
+        console.log("startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
         // TODO check for possible security implications
         if (!o.existingAuth) {
             return startSessionAndAddCookies(res, uid).then(function() {
+                console.log("startSessionAndAddCookies done" + o);
                 return o;
             });
         }
@@ -2417,60 +2532,74 @@ function(req, res) {
 
 
 
-function joinWithZinviteOrSuzinvite(o) {
+function joinWithZidOrSuzinvite(o) {
     return Promise.resolve(o)
     .then(function(o) {
-        if (o.zinvite) {
-          return getZidForZinvite(o.zinvite).then(function(zid) {
-            // may want to check zid here
-            return _.extend(o, {zid: zid});
-          });
-        } else if (o.suzinvite) {
+        console.log('joinWithSidOrSuzinvite 1');
+        if (o.suzinvite) {
+        console.log('joinWithSidOrSuzinvite 1a');
             return getSUZinviteInfo(o.suzinvite).then(function(suzinviteInfo) {
               return _.extend(o, suzinviteInfo);
             });
         } else if (o.zid) {
+        console.log('joinWithSidOrSuzinvite 1b');
             return o;
         } else {
+        console.log('joinWithSidOrSuzinvite 1c');
             throw new Error("polis_err_missing_invite");
         }
     })
     .then(function(o) {
+        console.log('joinWithSidOrSuzinvite 2');
       if (o.uid) {
+        console.log('joinWithSidOrSuzinvite 2a');
         return o;
       } else {
+        console.log('joinWithSidOrSuzinvite 2b');
         return createDummyUser().then(function(uid) {
+        console.log('joinWithSidOrSuzinvite 2bb');
           return _.extend(o, {uid: uid});
         });
       }
     })
     .then(function(o) {
+        console.log('joinWithSidOrSuzinvite 3');
         return userHasAnsweredZeQuestions(o.zid, o.answers).then(function() {
+        console.log('joinWithSidOrSuzinvite 3a');
             // looks good, pass through
             return o;
         });
     })
     .then(function(o) {
+        console.log('joinWithSidOrSuzinvite 4');
       return joinConversation(o.zid, o.uid, o.answers).then(function(pid) {
+        console.log('joinWithSidOrSuzinvite 4a');
         return _.extend({pid: pid}, o);
       });
     })
     .then(function(o) {
+        console.log('joinWithSidOrSuzinvite 5');
       if (o.xid) {
         // used for suzinvite case
+        console.log('joinWithSidOrSuzinvite 5a');
         return createXidEntry(o.xid, o.owner, o.uid).then(function() {
           return o;
         });
       } else {
+        console.log('joinWithSidOrSuzinvite 5b');
         return o;
       }
     })
     .then(function(o) {
+        console.log('joinWithSidOrSuzinvite 6');
       if (o.suzinvite) {
+        console.log('joinWithSidOrSuzinvite 6a');
         return deleteSuzinvite(o.suzinvite).then(function() {
+        console.log('joinWithSidOrSuzinvite 6aa');
           return o;
         });
       } else {
+        console.log('joinWithSidOrSuzinvite 6b');
         return o;
       }
     });
@@ -2484,8 +2613,7 @@ function startSessionAndAddCookies(res, uid) {
                 reject(new Error("polis_err_reg_failed_to_start_session"));
                 return;
             }
-            addCookies(res, token, uid);
-            resolve();
+            resolve(addCookies(res, token, uid));
         });
     });
 }
@@ -2530,8 +2658,8 @@ function(req, res) {
                         if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
                         startSession(uid, function(err,token) {
-                            if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
-                            addCookies(res, token, uid);
+                          if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
+                          addCookies(res, token, uid).then(function() {
                             res.json({
                                 uid: uid,
                                 hname: hname,
@@ -2564,6 +2692,11 @@ function(req, res) {
                                     return;
                                 }
                             });
+                          }, function(err) {
+                              fail(res, 500, "polis_err_adding_cookies", err);
+                          }).catch(function(err) {
+                              fail(res, 500, "polis_err_adding_user", err);
+                          });
                         }); // end startSession
                     }); // end insert user
             }); // end generateHashedPassword
@@ -2800,7 +2933,7 @@ function(req, res) {
     console.log("getComments " + rid + " begin");
 
     getComments(req.p).then(function(comments) {
-        res.status(200).json(comments);
+        finishArray(res, comments);
     }).catch(function(err) {
         console.log("getComments " + rid + " failed");
         fail(res, 500, "polis_err_get_comments", new Error("polis_err_get_comments"), err);
@@ -3206,9 +3339,7 @@ function(req, res) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
         pgQuery("SELECT * FROM votes WHERE zid = ($1) AND pid = ($2);", [req.p.zid, req.p.pid], function(err, docs) {
             if (err) { fail(res, 500, "polis_err_get_votes_by_me", err); return; }
-            res.json({
-                votes: docs.rows,
-            });
+            finishArray(res, docs.rows);
         });
     });
 });
@@ -3304,7 +3435,7 @@ function(req, res) {
                         return b.created > a.created;
                     }
                 });
-                res.json(comments);
+                finishArray(res, comments);
             }); // end comments query
         }); // end votes query
     }); // end GET selection
@@ -3315,7 +3446,11 @@ app.get("/v3/votes",
     want('pid', getInt, assignToP),
     want('tid', getInt, assignToP),
 function(req, res) {
-    votesGet(res, req.p);
+    votesGet(res, req.p).then(function(votes) {
+        finishArray(res, votes);
+    }, function(err) {
+        fail(res, 500, "polis_err_votes_get", err);
+    });
 });
 
 
@@ -3347,7 +3482,7 @@ app.get("/v3/nextComment",
 function(req, res) {
     getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
         if (c) {
-            res.status(200).json(c);
+            finishOne(res, c);
         } else {
             res.status(200).json({});
         }
@@ -3372,7 +3507,7 @@ function(req, res) {
         if (nextComment) {
             result.nextComment = nextComment;
         }
-        res.status(200).json(result);
+        finishOne(res, result);
     }).catch(function(err) {
         if (err === "polis_err_vote_duplicate") {
             fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
@@ -3425,6 +3560,7 @@ function(req, res) {
         res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
     });
 });
+
 
 function verifyMetadataAnswersExistForEachQuestion(zid) {
   var errorcode = "polis_err_missing_metadata_answers";
@@ -3491,6 +3627,31 @@ function(req, res){
 });
 
 
+// kind of crappy that we're replacing the zinvite.
+// This is needed because we initially create a conversation with the POST, then actually set the properties with the subsequent PUT.
+// if we stop doing that, we can remove this function.
+function generateAndReplaceZinvite(zid, generateShortZinvite) {
+    var len = 12;
+    if (generateShortZinvite) {
+        len = 6;
+    }
+    return new Promise(function(resolve, reject) {
+        generateToken(len, false, function(err, zinvite) {
+            if (err) {
+                return reject("polis_err_creating_zinvite");
+            }
+            pgQuery("update zinvites set zinvite = ($1) where zid = ($2);", [zinvite, zid], function(err, results) {
+                if (err) {
+                    reject(err);
+                } else {
+                    resolve(zinvite);
+                }
+            });
+        }); 
+    });
+}
+
+
 app.put('/v3/conversations',
     moveToBody,
     auth(assignToP),
@@ -3500,6 +3661,7 @@ app.put('/v3/conversations',
     want('is_draft', getBool, assignToP),
     want('is_public', getBool, assignToP),
     want('profanity_filter', getBool, assignToP),
+    want('short_url', getBool, assignToP),
     want('spam_filter', getBool, assignToP),
     want('strict_moderation', getBool, assignToP),
     want('topic', getOptionalStringLimitLength(1000), assignToP),
@@ -3507,6 +3669,7 @@ app.put('/v3/conversations',
     want('verifyMeta', getBool, assignToP),
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
 function(req, res){
+  var generateShortUrl = req.p.short_url;
   isOwner(req.p.zid, req.p.uid).then(function(ok) {
     if (!ok) {
         fail(res, 403, "polis_err_update_conversation_permission");
@@ -3590,14 +3753,20 @@ function(req, res){
                         console.dir(err);
                     });
                 }
-                res.status(200).json(conv);
+                var promise = generateShortUrl ?
+                    generateAndReplaceZinvite(req.p.zid, generateShortUrl) :
+                    Promise.resolve();
+                promise.then(function() {
+                    finishOne(res, conv);
+                }).catch(function(err) {
+                    fail(res, 500, "polis_err_update_conversation", err);
+                });
             }
         );
     }, function(err) {
-        fail(res, 500, "polis_err_update_conversation", err);
+        fail(res, 500, err.message, err);
     });
-
-  }, function(err) {
+  }).catch(function(err) {
     fail(res, 500, "polis_err_update_conversation", err);
   });
 });
@@ -3729,7 +3898,7 @@ function(req, res) {
                 r.required = true;
                 return r;
             });
-            res.status(200).json(rows);
+            finishArray(res, rows);
         });
     }
 });
@@ -3753,7 +3922,7 @@ function(req, res) {
             ], function(err, results) {
             if (err || !results || !results.rows || !results.rows.length) { fail(res, 500, "polis_err_post_participant_metadata_key", err); return; }
 
-            res.status(200).json(results.rows[0]);
+            finishOne(res, results.rows[0]);
         });
     }
 });
@@ -3770,10 +3939,6 @@ function(req, res) {
     var pmqid = req.p.pmqid;
     var value = req.p.value;
 
-    function finish(row) {
-        res.status(200).json(row);
-    }
-
     isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
@@ -3781,10 +3946,10 @@ function(req, res) {
             if (err || !results || !results.rows || !results.rows.length) { 
                 pgQuery("UPDATE participant_metadata_answers set alive = TRUE where pmqid = ($1) AND zid = ($2) AND value = ($3) RETURNING *;", [pmqid, zid, value], function(err, results) {
                     if (err) { fail(res, 500, "polis_err_post_participant_metadata_value", err); return; }
-                    finish(results.rows[0]);
+                    finishOne(res, results.rows[0]);
                 });
             } else {
-                finish(results.rows[0]);
+                finishOne(res, results.rows[0]);
             }
         });
     }
@@ -3803,7 +3968,7 @@ function(req, res) {
         if (err) { fail(res, 403, "polis_err_get_participant_metadata_choices_auth", err); return; }
 
         getChoicesForConversation(zid).then(function(choices) {
-            res.status(200).json(choices);
+            finishArray(res, choices);
         }, function(err) {
             fail(res, 500, "polis_err_get_participant_metadata_choices", err);
         });     
@@ -3857,7 +4022,7 @@ function(req, res) {
                 r.is_exclusive = true; // TODO fetch this info from the queston itself
                 return r;
             });
-            res.status(200).json(rows);
+            finishArray(res, rows);
         });
     }
 });
@@ -4008,7 +4173,7 @@ function(req, res) {
         if (!sid) {
             throw new Error("polis_err_getting_conversation_sid");
         }
-        res.status(200).json(conv);
+        finishOne(res, conv);
     }, function(err) {
         fail(res, 500, "polis_err_getting_conversation", err);
     }).catch(function(err) {
@@ -4056,24 +4221,7 @@ function(req, res) {
             conv.is_owner = conv.owner === uid;
         });
 
-        var zids = data.map(function(conv) {
-            return Number(conv.zid);
-        });
-
-        pgQuery("select * from zinvites where zid in (" + zids.join(",") + ");",[], function(err, results) {
-            if (err) { fail(res, 500, "polis_err_get_conversation_zinvites", err); return; }
-            var zinvites = _.indexBy(results.rows, "zid");
-
-            data = data.map(function(conv) {
-                if (zinvites[conv.zid]) {
-                    conv.sid = zinvites[conv.zid].zinvite;
-                } else {
-                    fail(res, 500, "polis_err_get_conversation_sid", err);
-                }
-                return conv;
-            });
-            res.json(data);
-        });
+        finishArray(res, data);
     });
   });
 });
@@ -4118,23 +4266,15 @@ function(req, res) {
         }
 
         var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
-        function finish(zinvite) {
-            var data = {
-                zid: zid,
-            };
-            if (zinvite) {
-                data.sid = zinvite;
-            }
-            res.status(200).json(data);
-        }
-        if (!req.p.is_public) {
-            generateAndRegisterZinvite(zid, function(err, zinvite) {
-                if (err) { fail(res, 500, "polis_err_zinvite_create", err); return; }
-                finish(zinvite);
+
+        var generateShortUrl = false;
+        generateAndRegisterZinvite(zid, generateShortUrl, function(err, zinvite) {
+            if (err) { fail(res, 500, "polis_err_zinvite_create", err); return; }
+            finishOne(res, {
+                zid: zid
             });
-        } else {
-            finish();
-        }
+        });
+
     }); // end insert
   }); // end isUserAllowedToCreateConversations
 }); // end post conversations
