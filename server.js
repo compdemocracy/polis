@@ -624,12 +624,19 @@ function getEmail(s) {
 
 function getPassword(s) {
     return new Promise(function(resolve, reject) {
-        if (typeof s !== "string" || s.length > 999) {
+        if (typeof s !== "string" || s.length > 999 || s.length === 0) {
             return reject("polis_fail_parse_password");
-        } else if (s.length < 6) {
-            return reject("polis_err_password_too_short");
         }
         resolve(s);
+    });
+}
+
+function getPasswordWithCreatePasswordRules(s) {
+    return getPassword(s).then(function(s) {
+        if (s.length < 6) {
+            throw new Error("polis_err_password_too_short");
+        }
+        return s;
     });
 }
 
@@ -1464,7 +1471,7 @@ function(req, res) {
 
 app.post("/v3/auth/password",
     need('pwresettoken', getOptionalStringLimitLength(1000), assignToP),
-    need('newPassword', getPassword, assignToP),
+    need('newPassword', getPasswordWithCreatePasswordRules, assignToP),
 function(req, res) {
     var pwresettoken = req.p.pwresettoken;
     var newPassword = req.p.newPassword;
@@ -2375,7 +2382,7 @@ app.post("/v3/beta",
 
 
 app.post("/v3/auth/login",
-    need('password', getOptionalStringLimitLength(999), assignToP),
+    need('password', getPassword, assignToP),
     want('email', getEmail, assignToP),
 function(req, res) {
     var password = req.p.password;
@@ -2549,7 +2556,7 @@ function startSessionAndAddCookies(res, uid) {
 
 app.post("/v3/auth/new",
     want('anon', getBool, assignToP),
-    want('password', getPassword, assignToP),
+    want('password', getPasswordWithCreatePasswordRules, assignToP),
     want('email', getOptionalStringLimitLength(999), assignToP),
     want('hname', getOptionalStringLimitLength(999), assignToP),
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
