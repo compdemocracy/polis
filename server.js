@@ -1234,6 +1234,7 @@ app.use(express.cookieParser());
 app.use(express.bodyParser());
 app.use(function(req, res, next) {
     if (req.body) {
+        console.log(req.path);
         var temp = _.clone(req.body);
         if (temp.email) {
             temp.email = "foo@foo.com";
