@@ -37,7 +37,7 @@ module.exports = View.extend({
         }).then(function(message) {
           alert(message);
           // reload the page to clear out the password from memory
-          window.location = window.location.protocol + "//" + window.location.host + "/#user/login";
+          window.location = window.location.protocol + "//" + window.location.host + "/user/login";
         }, function(errmessage) {
           alert(errmessage);
         });
