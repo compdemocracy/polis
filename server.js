@@ -122,16 +122,6 @@ app.disable('x-powered-by'); // save a whale
 
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
-function connectError(errorcode, message){
-  var err = new Error(message);
-  err.status = errorcode;
-  return err;
-}
-
-var AUTH_FAILED = 'auth failed';
-var ALLOW_ANON = true;
-
-
 var metric = (function() {
     var apikey = process.env.HOSTEDGRAPHITE_APIKEY;
     return function(metricName, numberValue, optionalTimestampOverride) {
@@ -554,17 +544,22 @@ function auth(assigner, isOptional) {
             if (isOptional) {
                 next();
             } else {
-                next(connectError(401, "polis_err_auth_token_not_supplied"));
+                res.status(401);
+                next("polis_err_auth_token_not_supplied");
             }
             return;
         }
         //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
         getUserInfoForSessionToken(token, res, function(err, uid) {
 
-            if (err) { next(connectError(err, "polis_err_auth_token_missing")); return;}
-
+            if (err) {
+                res.status(403);
+                next("polis_err_auth_no_such_token");
+                return;
+            }
             if ( req.body.uid && req.body.uid !== uid) {
-                next(connectError(401, "polis_err_auth_mismatch_uid"));
+                res.status(401);
+                next("polis_err_auth_mismatch_uid");
                 return;
             }
             assigner(req, "uid", Number(uid));
@@ -816,13 +811,12 @@ var prrrams = (function() {
                     assigner(req, name, parsed);
                     next();
                 }, function(e) {
-                    var s = "polis_err_param_parse_failed" + " " + name;
-                    var err = connectError(400, s);
+                    var s = "polis_err_param_parse_failed_" + name;
                     console.error(s);
-                    console.error(err);
                     console.error(e);
                     yell(s);
-                    next(err);
+                    res.status(400);
+                    next(s);
                     return;
                 })
             } else if (!required) {
@@ -832,11 +826,10 @@ var prrrams = (function() {
                 next();
             } else {
                 console.dir(req);
-                var s = "polis_err_param_missing" + " " + name;
-                var err = connectError(400, s);
+                var s = "polis_err_param_missing_" + name;
                 console.error(s);
-                console.error(err);
                 yell(s);
+                res.status(400);
                 next(err);
             }
         };
