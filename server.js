@@ -709,7 +709,8 @@ function getZidFromSid(sid) {
             if (err) {
                 return reject(err);
             } else if (!results || !results.rows || !results.rows.length) {
-                return reject("polis_err_fetching_zid_for_sid " + sid);
+                console.error("polis_err_fetching_zid_for_sid " + sid);
+                return reject("polis_err_fetching_zid_for_sid");
             } else {
                 return resolve(results.rows[0].zid);
             }
