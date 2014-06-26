@@ -29,7 +29,6 @@ var badwords = require('badwords/object'),
     express = require('express'),
     app = express(),
     sql = require("sql"),
-    squel = require("squel"),
     escapeLiteral = pg = require('pg').Client.prototype.escapeLiteral,
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
@@ -234,7 +233,6 @@ var intercom = new Intercom({
 var sql_conversations = sql.define({
   name: 'conversations',
   columns: [
-    "sid",
     "zid",
     "topic",
     "description",
@@ -901,31 +899,6 @@ var polisTypes = {
 };
 polisTypes.reactionValues = _.values(polisTypes.reactions);
 polisTypes.starValues = _.values(polisTypes.staractions);
-
-var objectIdFields = ["_id", "u", "to"];
-var not_objectIdFields = ["s"];
-function checkFields(ev) {
-    for (var k in ev) {
-        if ("string" === typeof ev[k] && objectIdFields.indexOf(k) >= 0) {
-            ev[k] = ObjectId(ev[k]);
-        }
-        // check if it's an ObjectId, but shouldn't be
-        if (ev[k].getTimestamp && not_objectIdFields.indexOf(k) >= 0) {
-            console.error("field should not be wrapped in ObjectId: " + k);
-            process.exit(1);
-        }
-    }
-}
-// helper for migrating off of mongo style identifiers
-function match(key, zid) {
-    var variants = [{}];
-    variants[0][key] = zid;
-    if (zid.length === 24) {
-        variants.push({});
-        variants[1][key] = ObjectId(zid);
-    }
-    return {$or: variants};
-}
 
 
 // // If there are any comments which have no votes by the owner, create a PASS vote by the owner.
@@ -2742,21 +2715,6 @@ function(req, res) {
 
     });
 });
-
-app.post("/v2/feedback",
-    auth(assignToP),
-    function(req, res) {
-                var data = req.body;
-                    data.events.forEach(function(ev){
-                        if (!ev.feedback) { fail(res, 400, "polis_err_missing_feedback", new Error("polis_err_missing_feedback")); return; }
-                        if (data.uid) { ev.uid = ObjectId(data.uid); }
-                        checkFields(ev);
-                        collection.insert(ev, function(err, cursor) {
-                            if (err) { fail(res, 500, "polis_err_sending_feedback", err); return; }
-                            res.end();
-                        }); // insert
-                    }); // each 
-    });
 
 
 function getComments(o) {
