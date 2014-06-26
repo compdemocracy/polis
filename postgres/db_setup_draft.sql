@@ -40,8 +40,9 @@ CREATE TABLE jianiuevyew (
     UNIQUE(uid)
 );
 
+-- NOTE: NOT YET CREATED!
 CREATE TABLE apikeys(
-    uid INTEGER NOT NULL REFERENCES users(zid),
+    uid INTEGER NOT NULL REFERENCES users(uid),
     apikey VARCHAR(300) NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (apikey)
