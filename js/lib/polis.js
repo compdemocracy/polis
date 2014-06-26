@@ -34,7 +34,6 @@ module.exports = function(params) {
     var trashesPath = "/v3/trashes";
     var commentsPath = "/v3/comments";
     var nextCommentPath = "/v3/nextComment";
-    var feedbackPath = "/v2/feedback";
 
     var createAccountPath = "/v3/auth/new";
     var loginPath = "/v3/auth/login";
@@ -1227,17 +1226,6 @@ function clientSideBaseCluster(things, N) {
                 //"509ca042bc1e120000000004"];
     }
 
-    function submitFeedback(data) {
-        data = $.extend({}, data, {
-            sid: sid,
-            type: "feedback"
-        });
-        return polisPost(feedbackPath, {
-            events: [data]
-        });
-    }
-
-
     // helper for copy-and-pasted mongo documents
     function ObjectId(s) {
         return s;
@@ -1817,7 +1805,6 @@ function clientSideBaseCluster(things, N) {
         // simple way to centralize polling actions, and ensure they happen near each-other (to save battery)
         addPollingScheduledCallback: addPollingScheduledCallback,
 
-        submitFeedback: submitFeedback,
         submitComment: submitComment
     };
 };
