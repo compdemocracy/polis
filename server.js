@@ -1805,14 +1805,10 @@ function getZinvites(zids) {
     if (!zids.length) {
         return Promise.resolve(zids);
     };
-    console.log("foo");
-    console.dir(zids);
     zids = _.map(zids, function(zid) {
         return Number(zid); // just in case
     });
     zids = _.uniq(zids);
-    console.log("foo");
-    console.dir(zids);
     return new Promise(function(resolve, reject) {
         pgQuery("select * from zinvites where zid in ("+zids.join(",")+");", [], function(err, result) {
             if (err) {
