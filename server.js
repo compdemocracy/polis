@@ -1224,20 +1224,33 @@ function MPromise(name, f) {
 // failed logins
 // forgot password
 
-function logPostBody(req, res, next) {
-    if (req.body) {
-        console.dir(req.body);
-    }
-    next();
-}
+
 app.use(meter("api.all"));
-app.use(logPostBody);
 app.use(express.logger());
 app.use(redirectIfWrongDomain);
 app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
 app.use(express.cookieParser());
 app.use(express.bodyParser());
+app.use(function(req, res, next) {
+    if (req.body) {
+        var temp = _.clone(req.body);
+        if (temp.email) {
+            temp.email = "foo@foo.com";
+        }
+        if (temp.password) {
+            temp.password = "some_password";
+        }
+        if (temp.newPassword) {
+            temp.newPassword = "some_password";
+        }
+        if (temp.hname) {
+            temp.hname = "somebody";
+        }
+        console.dir(req.body);
+    }
+    next();
+});
 app.use(function(err, req, res, next) {
     if(!err) return next();
     console.log("error found in middleware");
