@@ -801,6 +801,11 @@ function getIntInRange(min, max) {
 }
 function assignToP(req, name, x) {
     req.p = req.p || {};
+    if (!_.isUndefined(req.p[name])) {
+        var s = "clobbering " + name
+        console.error(s);
+        yell(s);
+    }
     req.p[name] = x;
 }
 
