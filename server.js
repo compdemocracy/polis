@@ -4314,40 +4314,6 @@ function(req, res){
     })
 })
 
-app.get('/v3/users/new',
-function(req, res) {
-    // creating a user may fail, since we randomly generate the uid, and there may be collisions.
-    pgQuery('INSERT INTO users VALUES(default) returning uid', function(err, result) {
-        if (err) {
-            /* Example error
-            {   [Error: duplicate key value violates unique constraint "users_user_id_key"]
-                severity: 'ERROR',
-                code: '23505',
-                detail: 'Key (user_id)=(6) already exists.',
-                file: 'nbtinsert.c',
-                line: '397',
-                routine: '_bt_check_unique' }
-            */
-            // make the client try again to get a user id -- don't let the server spin
-            res.setHeader('Retry-After', 0);
-            console.warn(57493875);
-            res.status(500).end(57493875);
-            yell("polis_err_get_users_new");
-            return;
-        }
-        if (!result) {
-            yell("polis_fail_get_users_new");
-            console.error(827982173);
-            res.status(500).end(827982173);
-        } else {
-            res.send('got: ' + result.user_id);
-        }
-  //});
-  //query.on('end', function(result) {
-  });
-});
-
-
 function generateSingleUseUrl(sid, suzinvite) {
     return "https://pol.is/ot/" + sid + "/" + suzinvite;
 }
