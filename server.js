@@ -1507,7 +1507,7 @@ function(req, res) {
         if (err) { console.error(err); fail(res, 500, "Password Reset failed. Couldn't find matching pwresettoken.", err); return; }
         var uid = Number(userParams.uid);        
         generateHashedPassword(newPassword, function(err, hashedPassword) {
-            pgQuery("UPDATE users SET pwhash = ($1) where uid=($2);", [hashedPassword, uid], function(err, results) {
+            pgQuery("UPDATE jianiuevyew SET pwhash = ($1) where uid=($2);", [hashedPassword, uid], function(err, results) {
                 if (err) { console.error(err); fail(res, 500, "Couldn't reset password.", err); return; }
                 res.status(200).json("Password reset successful.");
                 clearPwResetToken(pwresettoken, function(err) {
@@ -2420,27 +2420,35 @@ function(req, res) {
         docs = docs.rows;
         if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); console.error("polis_err_login_unknown_user_or_password_err"); return; }
         if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_noresults"); return; }
-        var hashedPassword  = docs[0].pwhash;
+
         var uid = docs[0].uid;
 
-        bcrypt.compare(password, hashedPassword, function(errCompare, result) {
-            console.log("errCompare, result", errCompare, result);
-            if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
-            
-            startSession(uid, function(errSess, token) {
-                var response_data = {
-                    uid: uid,
-                    email: email,
-                    token: token
-                };
-                addCookies(res, token, uid).then(function() {
-                    res.json(response_data);
-                }).catch(function(err) {
-                    fail(res, 500, "polis_err_adding_cookies", err);
-                });
-            }); // startSession
-        }); // compare
-    }); // query
+        pgQuery("select pwhash from jianiuevyew where uid = ($1);", [uid], function(err, results) {
+            results = results.rows;
+            if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); console.error("polis_err_login_unknown_user_or_password_err"); return; }
+            if (!results || results.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_noresults"); return; }
+
+            var hashedPassword  = results[0].pwhash;
+
+            bcrypt.compare(password, hashedPassword, function(errCompare, result) {
+                console.log("errCompare, result", errCompare, result);
+                if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
+                
+                startSession(uid, function(errSess, token) {
+                    var response_data = {
+                        uid: uid,
+                        email: email,
+                        token: token
+                    };
+                    addCookies(res, token, uid).then(function() {
+                        res.json(response_data);
+                    }).catch(function(err) {
+                        fail(res, 500, "polis_err_adding_cookies", err);
+                    });
+                }); // startSession
+            }); // compare
+        }); // pwhash query
+    }); // users query
 }); // /v3/auth/login
 
 
@@ -2603,56 +2611,62 @@ function(req, res) {
             generateHashedPassword(password, function(err, hashedPassword) {
                 if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
                     var query = "insert into users " +
-                        "(email, pwhash, hname, zinvite, oinvite, is_owner) VALUES "+
-                        "($1, $2, $3, $4, $5, $6) "+
+                        "(email, hname, zinvite, oinvite, is_owner) VALUES "+
+                        "($1, $2, $3, $4, $5) "+
                         "returning uid;";
                     var vals = 
-                        [email, hashedPassword, hname, zinvite||null, oinvite||null, true];
+                        [email, hname, zinvite||null, oinvite||null, true];
 
                     pgQuery(query, vals, function(err, result) {
                         if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
-                        startSession(uid, function(err,token) {
-                          if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
-                          addCookies(res, token, uid).then(function() {
-                            res.json({
-                                uid: uid,
-                                hname: hname,
-                                email: email,
-                                // token: token
-                            });
 
-                            var params = {
-                                "email" : email,
-                                "name" : hname,
-                                "user_id": uid,
-                            };
-                            var customData = {};
-                            if (referrer) {
-                                customData.referrer = referrer;
-                            }
-                            if (organization) {
-                                customData.org = organization;
-                            }
-                            customData.uid = uid;
-                            if (_.keys(customData).length) {
-                                params["custom_data"] = customData;
-                            }
-                            intercom.createUser(params, function(err, res) {
-                                if (err) {
-                                    console.log(err);
-                                    console.error("polis_err_intercom_create_user_fail");
-                                    console.dir(params);
-                                    yell("polis_err_intercom_create_user_fail");
-                                    return;
+                        pgQuery("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function(err, results) {
+                            if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
+
+
+                            startSession(uid, function(err,token) {
+                              if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
+                              addCookies(res, token, uid).then(function() {
+                                res.json({
+                                    uid: uid,
+                                    hname: hname,
+                                    email: email,
+                                    // token: token
+                                });
+
+                                var params = {
+                                    "email" : email,
+                                    "name" : hname,
+                                    "user_id": uid,
+                                };
+                                var customData = {};
+                                if (referrer) {
+                                    customData.referrer = referrer;
                                 }
-                            });
-                          }, function(err) {
-                              fail(res, 500, "polis_err_adding_cookies", err);
-                          }).catch(function(err) {
-                              fail(res, 500, "polis_err_adding_user", err);
-                          });
-                        }); // end startSession
+                                if (organization) {
+                                    customData.org = organization;
+                                }
+                                customData.uid = uid;
+                                if (_.keys(customData).length) {
+                                    params["custom_data"] = customData;
+                                }
+                                intercom.createUser(params, function(err, res) {
+                                    if (err) {
+                                        console.log(err);
+                                        console.error("polis_err_intercom_create_user_fail");
+                                        console.dir(params);
+                                        yell("polis_err_intercom_create_user_fail");
+                                        return;
+                                    }
+                                });
+                              }, function(err) {
+                                  fail(res, 500, "polis_err_adding_cookies", err);
+                              }).catch(function(err) {
+                                  fail(res, 500, "polis_err_adding_user", err);
+                              });
+                            }); // end startSession
+                        }); // end insert pwhash
                     }); // end insert user
             }); // end generateHashedPassword
     }); // end find existing users

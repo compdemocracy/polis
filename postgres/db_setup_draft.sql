@@ -20,7 +20,6 @@ CREATE TABLE users(
     -- 2147483647  (2**32/2 -1)
     uid SERIAL,
     hname VARCHAR(746), --  human name (the token 'name' returns too many results when grepped) 746 is the longest name on records: (Wolfe+585, Senior.) Some cultures have more than two names, and some people don't even have two names. for example: http://s.ai/dl_redacted_small.png
-    pwhash VARCHAR(128),
     created BIGINT DEFAULT now_as_millis(),
     username VARCHAR(128),
     email VARCHAR(256), -- http://stackoverflow.com/questions/386294/what-is-the-maximum-length-of-a-valid-email-address
@@ -29,6 +28,16 @@ CREATE TABLE users(
     oinvite VARCHAR(300), -- The oinvite used to create the user, or to upgrade the user to a conversation owner.
     UNIQUE (email),
     UNIQUE (uid)
+);
+
+-- this is the password hashes table.
+-- the funny name is a bit of security by obscurity in case
+-- somehow we end up with a security hole that allows for
+-- querying arbitrary tables. Don't want it called "passwords".
+CREATE TABLE jianiuevyew (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    pwhash VARCHAR(128),
+    UNIQUE(uid)
 );
 
 CREATE TABLE apikeys(
