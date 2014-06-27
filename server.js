@@ -3518,20 +3518,19 @@ function(req, res){
     var active = req.p.active;
     var mod = req.p.mod;
 
-
-    // isModerator(zid, uid);
-    
-    doneChecking(); // TODO check if user is moderator - careful, using promises now
-
-    function doneChecking(err) {
-        if (err) { fail(res, 403, "polis_err_update_comment_auth", err); return; }
-
-        moderateComment(zid, tid, active, mod).then(function() {
-            res.status(200).json({});
-        }, function(err) {
-            fail(res, 500, "polis_err_update_comment", err);
-        });
-    }
+    isModerator(zid, uid).then(function(isModerator) {
+        if (isModerator) {
+            moderateComment(zid, tid, active, mod).then(function() {
+                res.status(200).json({});
+            }, function(err) {
+                fail(res, 500, "polis_err_update_comment", err);
+            });
+        } else {
+            fail(res, 403, "polis_err_update_comment_auth");
+        }
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_update_comment", err);
+    });
 });
 
 
