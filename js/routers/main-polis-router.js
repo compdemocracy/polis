@@ -459,6 +459,10 @@ var polisRouter = Backbone.Router.extend({
       data: $.param(data),
       processData: true
     }).then(function() {
+      if (!model.get("is_owner")) {
+        alert("Sorry, only the conversation owner can moderate this conversation.");
+        return;
+      }
       var view = new ModerationView({
         pid: pid,
         model: model
