@@ -36,7 +36,7 @@ CREATE TABLE users(
 -- querying arbitrary tables. Don't want it called "passwords".
 CREATE TABLE jianiuevyew (
     uid INTEGER NOT NULL REFERENCES users(uid),
-    pwhash VARCHAR(128),
+    pwhash VARCHAR(128) NOT NULL,
     UNIQUE(uid)
 );
 
@@ -176,6 +176,11 @@ CREATE TABLE participants(
     UNIQUE (zid, pid),
     UNIQUE (zid, uid) 
 );
+-- TODO create indicies on uid and zid
+
+CREATE INDEX participants_conv_uid_idx ON participants USING btree (uid); -- speed up the inbox query
+CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed up the auto-increment trigger
+
 
 -- mapping between uid and (owner,eXternalID)
 CREATE TABLE xids (
@@ -205,8 +210,6 @@ CREATE TABLE suzinvites (
     --admin bool
 --);
 
-
-CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed up the auto-increment trigger
 
  -- can't rely on SEQUENCEs since they may have gaps.. or maybe we can live with that? maybe we use a trigger incrementer like on the participants table? that would mean locking on a per conv basis, maybe ok for starters
 CREATE TABLE comments(
