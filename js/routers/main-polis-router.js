@@ -17,7 +17,6 @@ var ExploreView = require("../views/explore");
 var CreateUserFormView = require("../views/create-user-form");
 var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
-var LandingPageView = require("../views/landing-page");
 var metric = require("../util/metric");
 var ModerationView = require("../views/moderation");
 var PasswordResetView = require("../views/passwordResetView");
