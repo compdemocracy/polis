@@ -4004,7 +4004,6 @@ app.get('/v3/conversations',
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('sid', getSidFetchZid, assignToPCustom('zid')),
-    want('owner', getInt, assignToP), // TODO needed?
 function(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
