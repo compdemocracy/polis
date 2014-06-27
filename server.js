@@ -970,14 +970,14 @@ function addCookies(res, token, uid) {
                 httpOnly: true,
                 maxAge: oneYear,
                 domain: '.pol.is',
-                // secure: true, // TODO need HTTPS
+                secure: true,
             });
             res.cookie(COOKIES.UID, uid, {
                 path: '/',
                 // httpOnly: true, (client JS needs to see something to know it's signed in)
                 maxAge: oneYear,
                 domain: '.pol.is',
-                // secure: true, // TODO need HTTPS
+                secure: true,
             });
         }
     }
