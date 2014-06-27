@@ -2222,20 +2222,12 @@ function sendTextToEmail(uid, subject, body) {
     });
 }
 
-
-
-function sendCreatedLinkToEmail(){
-
-    //todo move stuff out of the post sendConversationLinkToEmail POST and into functions 
-
-}
-
+// tags: ANON_RELATED
 app.get("/v3/participants",
     moveToBody,
     authOptional(assignToP),
     want('pid', getInt, assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
-    // need('uid', getInt, assignToP), // requester
 function(req, res) {
     var pid = req.p.pid;
     var uid = req.p.uid;
@@ -2256,11 +2248,7 @@ function(req, res) {
         // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
         pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
             if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-            // console.dir(result.rows);
             res.json(result.rows);
-            // .map(function(row) {
-            //     return _.pick(row, ["hname", "email"]);
-            // }));
         });
     }
     pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
@@ -2366,15 +2354,6 @@ function(req, res) {
     });
 });
 
-// client should really supply this
-//function getParticipantId(uid, zid, callback) {
-    //pgQuery("SELECT pid FROM participants WHERE uid = ($1) AND zid = ($2);", [uid, zid], function(err, docs) {
-        //if (err) { callback(err); return; }
-        //var pid = docs && docs[0] && docs[0].pid;
-        //callback(null, pid);
-    //});
-//}
-
 
 app.post("/v3/beta", 
     need('email', getEmail, assignToP),
@@ -2439,19 +2418,6 @@ function(req, res) {
         }); // pwhash query
     }); // users query
 }); // /v3/auth/login
-
-
-function sqlHasResults(query, params) {
-    return new Promise(function(resolve, reject) {
-        pgQuery(query, params, function(err, results) {
-            if (err) { return resolve(err); }
-            if (!results || !results.rows || !results.rows.length) {
-                return reject(new Error("polis_err_no_such_token"));
-            }
-            resolve(results.rows[0]);
-        });
-    });
-}
 
 function createDummyUser() {
     return new Promise(function(resolve, reject) {
@@ -2871,7 +2837,6 @@ function(req, res) {
     var not_voted_by_pid = req.p.not_voted_by_pid;
     var mod = req.p.mod;
 
-    // TODO check auth for zid
     var rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
     console.log("getComments " + rid + " begin");
 
