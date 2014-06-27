@@ -1398,8 +1398,6 @@ function(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
 
-    // TODO check if owner/ptpt or public
-
     getBidToPidMapping(zid, lastVoteTimestamp).then(function(doc) {
         var b2p = doc.bidToPid;
         
@@ -1435,18 +1433,19 @@ function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
 
-    // isConversationOwner(zid, uid, function(err) {
-    //     if (err) { fail(res, 403, "polis_err_get_xids_not_authorized", err); return; }
-    //     onAllowed();
-    // });
-    onAllowed(); // TODO check ownership
-    function onAllowed() {
-        getXids(zid).then(function(xids) {
-            res.status(200).json(xids);
-        }, function(err) {
-            fail(res, 500, "polis_err_get_xids", err);
-        });
-    }
+    isOwner(zid, uid).then(function(owner) {
+        if (owner) {
+            getXids(zid).then(function(xids) {
+                res.status(200).json(xids);
+            }, function(err) {
+                fail(res, 500, "polis_err_get_xids", err);
+            });
+        } else {
+            fail(res, 403, "polis_err_get_xids_not_authorized");
+        }
+    }, function(err) {
+        fail(res, 500, "polis_err_get_xids", err);
+    });
 });
 
 // TODO cache
@@ -1459,8 +1458,6 @@ function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
-
-    // TODO check if owner/ptpt or public
 
     var dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
     var pidPromise = getPidPromise(zid, uid);
@@ -4483,7 +4480,10 @@ function makeFileFetcher(hostname, port, path, contentType) {
         } else {
             // pol.is.s3-website-us-east-1.amazonaws.com            
             // preprod.pol.is.s3-website-us-east-1.amazonaws.com
-            url = "http://" + hostname + path; // TODO https
+
+            // TODO https - buckets would need to be renamed to have dashes instead of dots.
+            // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
+            url = "http://" + hostname + path;
         }
         console.log("fetch file from " + url);
         http.get(url, function(proxyResponse) {
