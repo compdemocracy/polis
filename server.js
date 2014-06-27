@@ -4077,6 +4077,9 @@ function(req, res) {
         if (!_.isUndefined(conversationOwnerHname)) {
             conv.ownername = conversationOwnerHname;
         }
+
+        conv.is_owner = conv.owner === uid;
+        
         if (!sid) {
             throw new Error("polis_err_getting_conversation_sid");
         }
