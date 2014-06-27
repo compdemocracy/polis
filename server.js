@@ -2387,8 +2387,8 @@ function createDummyUser() {
 
 app.post("/v3/joinWithInvite",
     authOptional(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
-    want('sid', getSidFetchZid, assignToPCustom('zid')),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
 
