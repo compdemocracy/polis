@@ -1692,29 +1692,6 @@ function generateAndRegisterZinvite(zid, generateShort, callback) {
 }
 
 
-
-// Custom invite code generator, returns the code in the response
-app.get("/v3/oinvites/magicString9823742834/:note",
-    moveToBody,
-    auth(assignToP),
-    want('note', getOptionalStringLimitLength(999), assignToP),
-function(req, res) {
-    var note = req.p.note;
-
-    require('crypto').randomBytes(12, function(err, buf) {
-        if (err) { fail(res, "polis_err_creating_oinvite_random_bytes", err); return; }
-
-        var oinvite = buf.toString('base64')
-            .replace(/\//g,'A').replace(/\+/g,'B'); // replace url-unsafe tokens (ends up not being a proper encoding since it maps onto A and B. Don't want to use any punctuation.)
-
-        pgQuery('INSERT INTO oinvites (oinvite, note, created) VALUES ($1, $2, default);', [oinvite, note], function(err, results) {
-            if (err) { fail(res, 500, "polis_err_creating_oinvite_db", err); return; }
-            res.status(200).end(oinvite);
-        });
-    });  
-});
-
-
 app.post("/v3/zinvites/:zid",
     moveToBody,
     auth(assignToP),    
@@ -2349,27 +2326,6 @@ function(req, res) {
         }
         doJoin();
     });
-});
-
-
-app.post("/v3/beta", 
-    need('email', getEmail, assignToP),
-    want('name', getOptionalStringLimitLength(999), assignToP),
-    want('organization', getOptionalStringLimitLength(999), assignToP),
-    function(req,res){
-
-        var email = req.p.email;
-        var name = req.p.name;
-        var organization = req.p.organization;
-
-        pgQuery("INSERT INTO beta (email, name, organization, created) VALUES ($1, $2, $3, default);", [email, name, organization], function(err, result) {
-            if (err) { 
-                console.log(email, name, organization);
-                fail(res, 403, "polis_err_beta_registration", err);
-                return;
-            }
-            res.status(200).json({});
-        });
 });
 
 
