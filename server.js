@@ -2871,40 +2871,27 @@ function createModerationUrl(zid, zinvite) {
     return url;
 }
 
-function createMuteUrl(zid, tid) {
-    var server = devMode ? "http://localhost:5000" : "https://pol.is";
-    var params = {
-        zid: zid,
-        tid: tid
-    };
-    var path = "v3/mute";
-    params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-    return server + "/"+path+"?" + paramsToStringSortedByName(params);
-}
+// function createMuteUrl(zid, tid) {
+//     var server = devMode ? "http://localhost:5000" : "https://pol.is";
+//     var params = {
+//         zid: zid,
+//         tid: tid
+//     };
+//     var path = "v3/mute";
+//     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+//     return server + "/"+path+"?" + paramsToStringSortedByName(params);
+// }
 
-function createUnmuteUrl(zid, tid) {
-    var server = devMode ? "http://localhost:5000" : "https://pol.is";
-    var params = {
-        zid: zid,
-        tid: tid
-    };
-    var path = "v3/unmute";
-    params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
-    return server + "/"+path+"?" + paramsToStringSortedByName(params);
-}
-
-
-function changeCommentVelocity(zid, tid, velocity) {
-    return new Promise(function(resolve, reject) {
-        pgQuery("UPDATE COMMENTS SET velocity=($3) WHERE zid=($1) and tid=($2);", [zid, tid, velocity], function(err) {
-            if (err) {
-                reject(new Error("polis_err_change_comment_velicity_failed"));
-            } else {
-                resolve();
-            }
-        });
-    });
-}
+// function createUnmuteUrl(zid, tid) {
+//     var server = devMode ? "http://localhost:5000" : "https://pol.is";
+//     var params = {
+//         zid: zid,
+//         tid: tid
+//     };
+//     var path = "v3/unmute";
+//     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+//     return server + "/"+path+"?" + paramsToStringSortedByName(params);
+// }
 
 function moderateComment(zid, tid, active, mod) {
     return new Promise(function(resolve, reject) {
@@ -2918,14 +2905,14 @@ function moderateComment(zid, tid, active, mod) {
     });
 }
 
-function muteComment(zid, tid) {
-    var mod = polisTypes.mod.ban;
-    return moderateComment(zid, tid, false, mod);
-}
-function unmuteComment(zid, tid) {
-    var mod = polisTypes.mod.ok;
-    return moderateComment(zid, tid, true, mod);
-}
+// function muteComment(zid, tid) {
+//     var mod = polisTypes.mod.ban;
+//     return moderateComment(zid, tid, false, mod);
+// }
+// function unmuteComment(zid, tid) {
+//     var mod = polisTypes.mod.ok;
+//     return moderateComment(zid, tid, true, mod);
+// }
 
 function getComment(zid, tid) {
     return new Promise(function(resolve, reject) {
@@ -2942,78 +2929,78 @@ function getComment(zid, tid) {
 }
 
 
-// NOTE: using GET so it can be hit from an email URL.
-app.get("/v3/mute",
-    moveToBody,
-    // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
-    need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
-    need('tid', getInt, assignToP),
-function(req, res) {
-    var tid = req.p.tid;
-    var zid = req.p.zid;
-    var params = {
-        zid: req.p.zid,
-        tid: req.p.tid,
-        signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
-    };
-    console.log("mute", 1);
-    verifyHmacForQueryParams("v3/mute", params).catch(function() {
-    console.log("mute", 2);
+// // NOTE: using GET so it can be hit from an email URL.
+// app.get("/v3/mute",
+//     moveToBody,
+//     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
+//     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
+//     need('sid', getSidFetchZid, assignToPCustom('zid')),
+//     need('tid', getInt, assignToP),
+// function(req, res) {
+//     var tid = req.p.tid;
+//     var zid = req.p.zid;
+//     var params = {
+//         zid: req.p.zid,
+//         tid: req.p.tid,
+//         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
+//     };
+//     console.log("mute", 1);
+//     verifyHmacForQueryParams("v3/mute", params).catch(function() {
+//     console.log("mute", 2);
 
-        fail(res, 403, "polis_err_signature_mismatch");
-    }).then(function() {
-    console.log("mute", 3);
-        return muteComment(zid, tid);
-    }).then(function() {
-    console.log("mute", 4);
-        return getComment(zid, tid);
-    }).then(function(c) {
-    console.log("mute", 5);
-        res.set('Content-Type', 'text/html');
-        res.send(
-            "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
-            "<p>" + c.txt + "</p>" +
-            "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
-        );
-    }).catch(function(err) {
-    console.log("mute", 6);
-        fail(res, 500, err);
-    });
-});
+//         fail(res, 403, "polis_err_signature_mismatch");
+//     }).then(function() {
+//     console.log("mute", 3);
+//         return muteComment(zid, tid);
+//     }).then(function() {
+//     console.log("mute", 4);
+//         return getComment(zid, tid);
+//     }).then(function(c) {
+//     console.log("mute", 5);
+//         res.set('Content-Type', 'text/html');
+//         res.send(
+//             "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
+//             "<p>" + c.txt + "</p>" +
+//             "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
+//         );
+//     }).catch(function(err) {
+//     console.log("mute", 6);
+//         fail(res, 500, err);
+//     });
+// });
 
-// NOTE: using GET so it can be hit from an email URL.
-app.get("/v3/unmute",
-    moveToBody,
-    // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
-    need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
-    need('tid', getInt, assignToP),
-function(req, res) {
-    var tid = req.p.tid;
-    var zid = req.p.zid;
-    var params = {
-        zid: req.p.zid,
-        tid: req.p.tid,
-        signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
-    };
-    verifyHmacForQueryParams("v3/unmute", params).catch(function() {
-        fail(res, 403, "polis_err_signature_mismatch");
-    }).then(function() {
-        return unmuteComment(zid, tid);
-    }).then(function() {
-        return getComment(zid, tid);
-    }).then(function(c) {
-        res.set('Content-Type', 'text/html');
-        res.send(
-            "<h1>unmuted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
-            "<p>" + c.txt + "</p>" +
-            "<a href=\"" + createMuteUrl(zid, tid) + "\">Mute this comment.</a>"
-        );
-    }).catch(function(err) {
-        fail(res, 500, err);
-    });
-});
+// // NOTE: using GET so it can be hit from an email URL.
+// app.get("/v3/unmute",
+//     moveToBody,
+//     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
+//     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
+//     need('sid', getSidFetchZid, assignToPCustom('zid')),
+//     need('tid', getInt, assignToP),
+// function(req, res) {
+//     var tid = req.p.tid;
+//     var zid = req.p.zid;
+//     var params = {
+//         zid: req.p.zid,
+//         tid: req.p.tid,
+//         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
+//     };
+//     verifyHmacForQueryParams("v3/unmute", params).catch(function() {
+//         fail(res, 403, "polis_err_signature_mismatch");
+//     }).then(function() {
+//         return unmuteComment(zid, tid);
+//     }).then(function() {
+//         return getComment(zid, tid);
+//     }).then(function(c) {
+//         res.set('Content-Type', 'text/html');
+//         res.send(
+//             "<h1>unmuted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
+//             "<p>" + c.txt + "</p>" +
+//             "<a href=\"" + createMuteUrl(zid, tid) + "\">Mute this comment.</a>"
+//         );
+//     }).catch(function(err) {
+//         fail(res, 500, err);
+//     });
+// });
 
 
 function hasBadWords(txt) {
