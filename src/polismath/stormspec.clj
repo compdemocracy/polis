@@ -2,7 +2,6 @@
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:use [backtype.storm clojure config]
         polismath.named-matrix
-        polismath.conversation
         polismath.simulation)
   (:gen-class))
 

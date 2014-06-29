@@ -2,7 +2,7 @@
   :source-paths ["src/"
                  "src/polismath/"
                  ".lein-git-deps/debug-repl/src/"
-                 ".lein-git-deps/incubator-storm/src/"]
+                 ".lein-git-deps/tools.cli/src/main/clojure/"]
   ;:aot :all
   ; faster run time in exchange for slower startup time
   :jvm-opts ^:replace []
@@ -12,6 +12,7 @@
             [lein-environ "0.4.0"]]
   :git-dependencies [
     ["https://github.com/Prismatic/hiphip.git" "master"]
+    ["https://github.com/metasoarous/tools.cli.git" "master"]
   ]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
                  [cheshire "5.3.1"]
@@ -23,7 +24,8 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.1"]
-                 [org.clojure/tools.cli "0.3.1"]
+                 ;[org.clojure/tools.cli "0.3.1"]
+                 [storm "0.9.0.1"]
                  [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "1.5.0"]
@@ -36,9 +38,9 @@
   
   :profiles {
     :dev {
-      :global-vars {
-        *warn-on-reflection* true
-      }
+      ;:global-vars {
+        ;*warn-on-reflection* true
+      ;}
       :dependencies [
         [org.clojure/tools.trace "0.7.6"]
         [criterium "0.4.2"]
@@ -46,7 +48,6 @@
       ]
       :git-dependencies [
         ["https://github.com/GeorgeJahad/debug-repl.git" "master"]
-        ["https://github.com/metasoarous/incubator-storm.git" "master"]
       ]
       :env {
         :mongo-url "db/mongo.db"

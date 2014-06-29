@@ -1,5 +1,5 @@
 (ns polismath.simulation
-  (:require [clojure.tools.cli :refer [parse-opts]]
+  (:require [clojure.newtools.cli :refer [parse-opts]]
             [clojure.string :as string]
             [taoensso.timbre.profiling :as profiling
               :refer (pspy pspy* profile defnp p p*)])
