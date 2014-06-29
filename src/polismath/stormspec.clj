@@ -1,50 +1,45 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
+  (:require [polismath.simulation :as sim])
   (:use [backtype.storm clojure config]
         polismath.named-matrix
-        polismath.simulation)
+        polismath.conversation)
   (:gen-class))
 
 
 (defspout reaction-spout ["conv-id" "reaction"] {:prepare true}
   [conf context collector]
-  (let [n-convs 3
-        start-n 3
-        reaction-gen (atom (make-reaction-gen n-convs start-n))]
+  (let [at-a-time 10
+        interval 1000
+        reaction-gen
+          (atom
+            (sim/make-vote-gen 
+              {:n-convs 3
+               :vote-rate interval
+               :person-count-start 4
+               :person-count-growth 3
+               :comment-count-start 3
+               :comment-count-growth 1}))]
     (spout
       (nextTuple []
-        (let [reaction (first @reaction-gen)
-              conv-id (first reaction)
-              rest-reaction (rest reaction)]
-          (Thread/sleep 1000)
+        (let [rxn-batch (take at-a-time @reaction-gen)
+              split-rxns (group-by :zid rxn-batch)]
+          (Thread/sleep interval)
           (println "RUNNING SPOUT")
-          (swap! reaction-gen rest)
-          (emit-spout! collector [conv-id rest-reaction])))
+          (swap! reaction-gen (partial drop at-a-time))
+          (doseq [[conv-id rxns] split-rxns]
+            (emit-spout! collector [conv-id rxns]))))
       (ack [id]))))
 
 
-(defn data-updater [update-fn & [init-fn]]
-  "This function abstracts the common pattern of fetching (or initing if necessary) an item from a
-  data dictionary, then updating it based on the specified updated function. Useful since our bolts
-  store data by conversation id."
-  (let [init-fn (or init-fn #(identity nil))]
-    (fn [data conv-id & inputs]
-      (let [value (or (get data conv-id) (init-fn))
-            new-value (apply update-fn value inputs)]
-        (assoc data conv-id new-value)))))
-
-
-(defbolt conv-update ["conv"] {:prepare true}
+(defbolt conv-update-bolt ["conv"] {:prepare true}
   [conf context collector]
-  (let [convs (atom {})]
+  (let [conv (agent {:rating-mat (named-matrix)})]
     (bolt (execute [tuple]
-      (let [[conv-id reaction] (.getValues tuple)]
-        (swap! convs
-               (data-updater
-                 #(conv-update % [reaction]) hash-map)
-                 conv-id)
+      (let [[conv-id rxns] (.getValues tuple)]
+        (send conv conv-update rxns)
         (emit-bolt! collector
-                    [(get @data conv-id)]
+                    [@conv]
                     :anchor tuple)
         (ack! collector tuple))))))
 
@@ -56,7 +51,7 @@
     ; Bolts:
     {"2" (bolt-spec
            {"1"  ["conv-id"]}
-           conv-update)}))
+           conv-update-bolt)}))
 
 
 (defn run-local! []
