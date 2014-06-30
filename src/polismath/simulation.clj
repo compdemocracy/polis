@@ -74,10 +74,6 @@
    (string/join \newline)))
 
 
-(defn pretty-conv [conv]
-  (debug-repl)
-  conv)
-
 (defn conv-stat-row
   [zid votes conv]
   (str "XXX,"
