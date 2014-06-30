@@ -78,11 +78,20 @@
   (debug-repl)
   conv)
 
+(defn conv-stat-row
+  [zid votes conv]
+  (str "XXX,"
+       zid ","
+       (count (:base-clusters conv)) ","
+       (count votes) ","
+       (count (rownames (:rating-mat conv)))))
+
 
 (defn endlessly-sim [opts]
   (let [simulator (atom (make-vote-gen opts))
         conversations (atom {})
         vote-rate (:vote-rate opts)]
+    (println "XXX,conv,k,votes,ptpts")
     (endlessly (:poll-interval opts)
       (println \newline "POLLING!")
       (let [new-votes (take vote-rate @simulator)
@@ -92,12 +101,11 @@
           (swap! conversations
             (fn [convs]
               (assoc convs zid
-                (let [updated
-                       (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes)]
-                  (println "updated")
-                  (println (keys (updated)))
-                  updated))))
-          (println zid \newline))))))
+                (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes))))
+          (let [conv (@conversations zid)]
+            (println (conv-stat-row zid votes conv)))
+          (println \newline "Conv" zid)
+        )))))
 
 
 (defn -main [& args]
@@ -113,11 +121,10 @@
   (let [big-ptpts    20000
         big-comments 100
         a (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
-        a (time2 "CONVUP med" (conv-update a (random-votes 500 10)))]
-        ;a (time2 "CONVUP big" (conv-update a (random-votes big-ptpts big-comments)))]
+        a (time2 "CONVUP med" (conv-update a (random-votes 500 10)))
+        a (time2 "CONVUP big" (conv-update a (random-votes big-ptpts big-comments)))]
     (profile :info :clusters
-      ;(time2 "CONVUP big-part" (conv-update a (random-votes big-ptpts (+ big-comments 2) :n-votes 100))))))
-      (time2 "CONVUP big-part" (conv-update a (random-votes big-ptpts (+ big-comments 2)))))))
+      (time2 "CONVUP big-part" (conv-update a (random-votes big-ptpts (+ big-comments 2)) :large-cutoff 10000)))))
 
 
 (defn replay-conv-update [filename]
