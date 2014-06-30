@@ -49,11 +49,6 @@
     :parse-fn #(Integer/parseInt %)))
 
 
-(defn exit [status msg]
-  (println msg)
-  (System/exit status))
-
-
 (def cli-options
   [(int-opt "-i" "--poll-interval INTERVAL" "Milliseconds between randomly generated polls" :default 1500)
    (int-opt "-r" "--vote-rate RATE" "Number of new votes every iteration" :default 10)

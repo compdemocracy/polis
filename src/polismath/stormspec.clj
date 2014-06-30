@@ -1,8 +1,11 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
-  (:require [polismath.simulation :as sim])
+  (:require [polismath.simulation :as sim]
+            [clojure.string :as string]
+            [clojure.newtools.cli :refer [parse-opts]])
   (:use [backtype.storm clojure config]
         polismath.named-matrix
+        polismath.utils
         polismath.conversation)
   (:gen-class))
 
@@ -67,9 +70,30 @@
     (mk-topology)))
 
 
-(defn -main
-  ([]
-   (run-local!))
-  ([name]
-   (submit-topology! name)))
+(def cli-options
+  "Has the same options as simulation if simulations are run"
+  (into
+    [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]]
+    sim/cli-options))
+
+
+(defn usage [options-summary]
+  (->> ["Polismath stormspec"
+        "Usage: lein run -m polismath.stormspec [options]"
+        ""
+        "Options:"
+        options-summary]
+   (string/join \newline)))
+
+
+(defn -main [& args]
+  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    (cond
+      (:help options)   (exit 0 (usage summary))
+      (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
+      :else 
+        (if-let [name (:name options)]
+          (submit-topology! name)
+          (run-local!)))))
+
 

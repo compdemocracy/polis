@@ -10,6 +10,11 @@
 (set-current-implementation :vectorz)
 
 
+(defn exit [status msg]
+  (println msg)
+  (System/exit status))
+
+
 (defn agree? [n]
   (and 
     (not (nil? n))
