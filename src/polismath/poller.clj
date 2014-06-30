@@ -53,7 +53,9 @@
       :zid zid
       ; "$gt" 92839182312
     } 
-    new-results
+    (assoc new-results
+           "zid" zid
+           "lastVoteTimestamp" timestamp)
     :multi false
     :upsert true))
 
@@ -63,7 +65,7 @@
     (kdb/with-db db-spec
       (ko/select "votes"
         (ko/where {:created [> last-timestamp]})
-        (ko/order :created :asc)))
+        (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
     (catch Exception e (do
         (println (str "polling failed " (.getMessage e)))
         []))))
@@ -111,7 +113,6 @@
                                    end (System/currentTimeMillis)
                                    duration (- end start)]
                                (metric "math.pca.compute.ok" duration)
-                               (pprint foo)
                                foo)))
                   (catch Exception e
                     (do
@@ -142,19 +143,17 @@
                   json (generate-string
                         (prep-for-uploading-bidToPid-mapping
                          (@conversations zid)))
-              obj (parse-string json)] 
-
-              (println json)
-              (println
-               (meter
+                  obj (parse-string json)]
+              
+              (meter
                 "db.math.bidToPid.put"
                 (mongo-upsert-results
-                 "polismath_bidToPid_test_mar14"
+                 "polismath_bidToPid_april9"
                  zid
                  lastVoteTimestamp
                  (assoc obj
                    "lastVoteTimestamp" lastVoteTimestamp
-                   "zid" zid)))))
+                   "zid" zid))))
             
             ; Upload primary math results
             (let [
@@ -164,20 +163,16 @@
                         (prep-for-uploading-to-client
                          (@conversations zid)))
               obj (parse-string json)] 
-
-              (println json)
-              ; (debug-repl)
-              (println
-               (meter
-                "db.math.pca.put"
-                (mongo-upsert-results
-                 "polismath_test_mar02"
-                 zid
-                 lastVoteTimestamp
-                 (assoc obj
-                   "lastVoteTimestamp" lastVoteTimestamp
-                   "zid" zid)))))
-            )))
+              (meter
+               "db.math.pca.put"
+               (mongo-upsert-results
+                "polismath_test_april9"
+                zid
+                lastVoteTimestamp
+                (assoc obj
+                  "lastVoteTimestamp" lastVoteTimestamp
+                  "zid" zid)))
+              ))))
             
 
             
