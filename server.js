@@ -476,6 +476,22 @@ function pgQuery() {
 }
 
 
+function pgQueryP(queryString, params) {
+    return new Promise(function(resolve, reject) {
+        pgQuery(queryString, params, function(err, result) {
+            if (err) {
+                return reject(err);
+            }
+            if (!result || !result.rows) {
+                // caller is responsible for testing if there are results
+                return resolve([]);
+            }
+            resolve(result.rows);
+        });
+    });
+}
+
+
 
 function hasAuthToken(req) {
     return !!req.cookies[COOKIES.TOKEN];
