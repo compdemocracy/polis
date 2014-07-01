@@ -1632,6 +1632,18 @@ function generateSUZinvites(numTokens) {
   });
 }
 
+function generateTokenP(len, pseudoRandomOk) {
+    return new Promise(function(resolve, reject) {
+        generateToken(len, pseudoRandomOk, function(err, token) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(token);
+            }
+        });
+    });
+}
+
 function generateToken(len, pseudoRandomOk, callback) {
     // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
     // TODO if you want more readable tokens, see ReadableIds 
