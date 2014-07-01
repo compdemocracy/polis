@@ -302,3 +302,7 @@
       (throw e))))
 
 
+(defn new-conv []
+  {:rating-mat (named-matrix)})
+
+
