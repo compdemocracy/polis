@@ -104,10 +104,17 @@ var ModelView = Handlebones.ModelView;
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    var that = this;
     // this.model = options.model;
     this.urlPrefix = "https://pol.is/";
     if (-1 === document.domain.indexOf("pol.is")) {
       this.urlPrefix = "http://localhost:5000/";
     }
+    this.listenTo(this, "render", function() {
+      var email = that.model.get("email");
+      if (email) {
+        that.$("#email").val(email);
+      }
+    });
   }
 });

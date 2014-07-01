@@ -196,6 +196,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("conversation/view/:id(/:zinvite)", "participationView");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
+    this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r("settings", "deregister");
     this.r("plan/upgrade(/:plan_id)", "upgradePlan");
     this.r("inbox(/:filter)", "inbox");
@@ -595,6 +596,28 @@ var polisRouter = Backbone.Router.extend({
     // this.doCreateUser().done(function() {
       that.navigate("inbox", {trigger: true});
       // that.inbox();
+    });
+  },
+  createUserViewFromEinvite: function(einvite) {
+    var model = {
+      einvite: einvite,
+      create: true
+    };
+    $.getJSON("/v3/einvites?einvite=" + einvite).then(function(o) {
+      model.email = o.email;      
+      return model;
+    }, function() {
+      // einvite lookup failed somehow, go ahead and show the form - the user will have to enter their email again.
+      console.error("einvite lookup failed");
+      return $.Deferred().resolve(model);
+    }).then(function(model) {
+      var view = new ConversationGatekeeperViewCreateUser({
+        model: new Backbone.Model(model)
+      });
+      view.on("authenticated", function() {
+        that.navigate("inbox", {trigger: true});
+      });
+      RootView.getInstance().setView(view);
     });
   },
   pwReset: function(pwresettoken) {
