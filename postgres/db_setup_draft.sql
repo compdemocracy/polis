@@ -142,6 +142,15 @@ CREATE TABLE oinvites (
     UNIQUE (oinvite)
 );
 
+--  email verification codes
+CREATE TABLE einvites (
+    einvite VARCHAR(100) NOT NULL,
+    email VARCHAR(999),
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (einvite)
+);
+
+
 --  invite codes for converationZ
 CREATE TABLE zinvites (
     zid INTEGER NOT NULL REFERENCES conversations(zid),

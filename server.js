@@ -2131,6 +2131,36 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
     });
 }
 
+function sendEinviteEmail(email, einvite) {
+    return new Promise(function(resolve, reject) {
+        var server = devMode ? "http://localhost:5000" : "https://pol.is";
+        var body = "" +
+            "Welcome to pol.is!\n" +
+            "\n" +
+            "Click this link to open your account:\n" +
+            "\n" +
+            server + "/welcome/" + einvite + "\n" +
+            "\n" +
+            "Thank you for using Polis\n";
+
+        mailgun.sendText(
+            'The Team at Polis <mike@pol.is>',
+            [email],
+            "Get Started with Polis",
+            body,
+            'mike@pol.is', {},
+            function(err) {
+                if (err) {
+                    console.error('mailgun send error: ' + err);
+                    reject(err);
+                    return;
+                }
+                resolve();
+            }
+        );
+    });
+}
+
 
 
 
@@ -4203,6 +4233,45 @@ function(req, res){
     })
 })
 
+
+
+
+
+app.post("/v3/einvites",
+    need('email', getEmail, assignToP),
+function(req, res) {
+    var email = req.p.email;
+    generateTokenP(30, false).then(function(einvite) {
+        return pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
+            return sendEinviteEmail(email, einvite).then(function() {
+                res.status(200).send("");
+            });
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_sending_einvite", err);
+    });
+});
+
+
+
+app.get("/v3/einvites",
+    moveToBody,
+    need("einvite", getStringLimitLength(1, 100), assignToP),
+function(req, res) {
+    var einvite = req.p.einvite;
+    
+    console.log("select * from einvites where einvite = ($1);", [einvite]);
+    pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
+        if (!rows.length) {
+            throw new Error("polis_err_missing_einvite");
+        }
+        res.status(200).json(rows[0]);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_fetching_einvite", err);
+    });
+});
+
+
 function generateSingleUseUrl(sid, suzinvite) {
     return "https://pol.is/ot/" + sid + "/" + suzinvite;
 }
@@ -4477,6 +4546,7 @@ app.get(/^\/ot\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view, one-time 
 app.get(/^\/conversation\/create.*/, fetchIndex);
 app.get(/^\/user\/create$/, fetchIndex);
 app.get(/^\/user\/login$/, fetchIndex);
+app.get(/^\/welcome\/.*$/, fetchIndex);
 app.get(/^\/settings$/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
