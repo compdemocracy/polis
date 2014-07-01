@@ -819,7 +819,10 @@ var prrrams = (function() {
                     res.status(400);
                     next(s);
                     return;
-                })
+                }).catch(function(err) {
+                    fail(res, "polis_err_misc", err);
+                    return;
+                });
             } else if (!required) {
                 if (typeof defaultVal !== "undefined") {
                     assigner(req, name, defaultVal);
@@ -831,7 +834,7 @@ var prrrams = (function() {
                 console.error(s);
                 yell(s);
                 res.status(400);
-                next(err);
+                next(s);
             }
         };
         return f;
