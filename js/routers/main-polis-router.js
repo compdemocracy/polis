@@ -590,15 +590,22 @@ var polisRouter = Backbone.Router.extend({
     RootView.getInstance().setView(createUserFormView);
     return dfd.promise();
   },
+  redirect: function(path) {
+    document.location = document.location.protocol + "//" + document.location.host + path;
+  },
   createUser: function(){
     var that = this;
     this.doLogin(true).done(function() {
     // this.doCreateUser().done(function() {
-      that.navigate("inbox", {trigger: true});
+
+        // trash the JS context, don't leave password sitting around
+        that.redirect("/inbox");
+
       // that.inbox();
     });
   },
   createUserViewFromEinvite: function(einvite) {
+    var that = this;
     var model = {
       einvite: einvite,
       create: true
@@ -615,7 +622,8 @@ var polisRouter = Backbone.Router.extend({
         model: new Backbone.Model(model)
       });
       view.on("authenticated", function() {
-        that.navigate("inbox", {trigger: true});
+        // trash the JS context, don't leave password sitting around
+        that.redirect("/inbox");
       });
       RootView.getInstance().setView(view);
     });
@@ -641,16 +649,11 @@ var polisRouter = Backbone.Router.extend({
     RootView.getInstance().setView(gatekeeperView);
     return dfd.promise();
   },
-  login: function(sid){
+  login: function(){
     var that = this;
     this.doLogin(false).done(function() {
-      if (sid) {
-        // Redirect to a specific conversation after the user signs in.
-        // TODO think - do we want to use this route for this scenario, it's probably handled by the other gatekeeper functions.
-        that.participationView(sid);
-      } else {
-        that.navigate("inbox", {trigger: true});
-      }
+        // trash the JS context, don't leave password sitting around
+        that.redirect("/inbox");
     });
   },
   faq: function(){
