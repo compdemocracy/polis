@@ -414,28 +414,6 @@ function clearPwResetToken(pwresettoken, cb) {
     });
 }
 
-/*
-console.log('b4 starting session');
-var testSession = function(userID) {
-    console.log('starting session');
-    startSession(userID, function(err, token) {
-        if (err) {
-            console.error('startSession failed with error: ' + err);
-            return;
-        }
-        console.log('started session with token: ' + token);
-        getUserInfoForSessionToken(token, function(err, fetchedUserInfo) {
-            if (err) { console.error('getUserInfoForSessionToken failed with error: ' + err); return; }
-            console.log(userID, fetchedUserInfo.u);
-            var status = userID === fetchedUserInfo.u ? "sessions work" : "sessions broken";
-            console.log(status);
-        });
-    });
-};
-testSession("12345ADFHSADFJKASHDF");
-*/
-
-
 //var mongoServer = new MongoServer(process.env.MONGOLAB_URI, 37977, {auto_reconnect: true});
 //var db = new MongoDb('exampleDb', mongoServer, {safe: true});
 function connectToMongo(callback) {
@@ -453,22 +431,13 @@ mongo.connect(process.env.MONGOLAB_URI, {
         process.exit(1);
     }
 
-    db.collection('users', function(err, collectionOfUsers) {
-    db.collection('events', function(err, collection) {
-    db.collection('stimuli', function(err, collectionOfStimuli) {
     db.collection('polismath_test_april9', function(err, collectionOfPcaResults) {
     db.collection('polismath_bidToPid_april9', function(err, collectionOfBidToPidResults) {
 
         callback(null, {
-            mongoCollectionOfEvents: collection,
-            mongoCollectionOfUsers: collectionOfUsers,
-            mongoCollectionOfStimuli: collectionOfStimuli,
             mongoCollectionOfPcaResults: collectionOfPcaResults,
             mongoCollectionOfBidToPidResults: collectionOfBidToPidResults,
         });
-    });
-    });
-    });
     });
     });
 });
@@ -508,7 +477,7 @@ function pgQuery() {
 
 
 
-function hasToken(req) {
+function hasAuthToken(req) {
     return !!req.cookies[COOKIES.TOKEN];
 }
 
@@ -780,7 +749,10 @@ function getArrayOfInt(a) {
     if (!_.isArray(a)) {
         return Promise.reject("polis_fail_parse_int_array");
     }
-    return Promise.resolve(a.map(getInt));
+    function integer(i) {
+        return Number(i) >> 0;
+    }
+    return Promise.resolve(a.map(integer));
 }
 function getArrayOfIntNonEmpty(a) {
     if (!a || !a.length) {
@@ -1674,7 +1646,7 @@ function generateToken(len, pseudoRandomOk, callback) {
 }
 
 function generateAndRegisterZinvite(zid, generateShort, callback) {
-    var len = 12;
+    var len = 10;
     if (generateShort) {
         len = 6;
     }
@@ -2266,12 +2238,10 @@ function userHasAnsweredZeQuestions(zid, answers) {
 app.post("/v3/participants",
     auth(assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
-    want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
-    var zinvite = req.p.zinvite;
     var answers = req.p.answers;
 
     function finish(pid) {
@@ -2284,7 +2254,8 @@ function(req, res) {
             pid: pid,
         });
     }
-    function onAllowed() {
+
+    function doJoin() {
         userHasAnsweredZeQuestions(zid, answers).then(function() {
             joinConversation(zid, uid, answers).then(function(pid) {
                 finish(pid);
@@ -2293,28 +2264,7 @@ function(req, res) {
             });
         }, function(err) {
             userFail(res, 400, err.message, err);
-        }); // end get is_public
-    }
-
-    function doJoin() {
-        // get all info, be sure to return is_anon, so we don't poll for user info in polis.js
-        getConversationProperty(zid, "is_public", function(err, is_public) {
-            if (err) { fail(res, 500, "polis_err_add_participant_property_check", err); return; }
-            if (is_public) {
-                onAllowed();
-            } else {
-                checkZinviteCodeValidity(zid, zinvite, function(err) {
-                    if (err) {
-                        isConversationOwner(zid, uid, function(err) {
-                            if (err) { fail(res, 403, "polis_err_add_participant_bad_zinvite_code", err); return; }
-                            onAllowed();
-                        });
-                        return;
-                    }
-                    onAllowed();
-                });
-            }
-        }); // end userHasAnsweredZeQuestions
+        });
     }
 
     // Check if already in the conversation
@@ -4022,6 +3972,7 @@ function(req, res) {
         if (!sid) {
             throw new Error("polis_err_getting_conversation_sid");
         }
+        // NOTE: since zid is defined, sid was provided, so it's OK to return the sid here.
         finishOne(res, conv);
     }, function(err) {
         fail(res, 500, "polis_err_getting_conversation", err);
@@ -4119,6 +4070,7 @@ function(req, res) {
         var generateShortUrl = false;
         generateAndRegisterZinvite(zid, generateShortUrl, function(err, zinvite) {
             if (err) { fail(res, 500, "polis_err_zinvite_create", err); return; }
+            // NOTE: OK to return sid, because this conversation was just created by this user.
             finishOne(res, {
                 zid: zid
             });
@@ -4366,7 +4318,9 @@ function addStaticFileHeaders(res) {
 function proxy(req, res) {
     var hostname = buildStaticHostname(req, res);
     if (!hostname) {
-        fail(res, 500, "polis_err_serving_to_domain");
+        fail(res, 500, "polis_err_proxy_serving_to_domain");
+        console.error(req.headers.host);
+        console.error(req.path);
         return;
     }
     if (devMode) {
@@ -4398,6 +4352,7 @@ function buildStaticHostname(req, res) {
     } else {
         var origin = req.headers.host;
         if (!whitelistedBuckets[origin]) {
+            console.error("got request with host that's not whitelisted: (" + req.headers.host + ")");
             return;
         }
         if (/about.polis.io/.exec(origin)) {
@@ -4413,7 +4368,9 @@ function makeFileFetcher(hostname, port, path, contentType) {
     return function(req, res) {
         var hostname = buildStaticHostname(req, res);
         if (!hostname) {
-            fail(res, 500, "polis_err_serving_to_domain");
+            fail(res, 500, "polis_err_file_fetcher_serving_to_domain");
+            console.error(req.headers.host);
+            console.error(req.path);
             return;
         }
         var url;
@@ -4510,7 +4467,7 @@ app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
 var conditionalIndexFetcher = (function() {
     var fetchLander = makeFileFetcher(hostname, port, "/lander.html", "text/html");
     return function(req, res) {
-        if (hasToken(req)) {
+        if (hasAuthToken(req)) {
             // user is signed in, serve the app
             return fetchIndex(req, res);
         } else if (!browserSupportsPushState(req)) {
