@@ -104,8 +104,7 @@
       (println "poll >" @last-timestamp)
       ; Get and split new votes
       (let [new-votes (poll pg-spec @last-timestamp)
-            zid-to-votes (group-by :zid new-votes)
-            zid-votes (shuffle (into [] zid-to-votes))]
+            zid-votes (group-by :zid new-votes)]
         ; For each conv...
         (doseq [[zid votes] zid-votes]
           (let [lastVoteTimestamp (:created (last votes))
