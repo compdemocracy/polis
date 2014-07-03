@@ -64,7 +64,6 @@ module.exports =  Handlebones.ModelView.extend({
     
     // After shown
     "shown.bs.tab": function (e) {
-      console.log(e.target);
       // e.relatedTarget // previous tab
       if(e.target && e.target.id === this.ANALYZE_TAB) {
         this.trigger("aftershow:analyze");
