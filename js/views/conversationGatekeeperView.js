@@ -6,6 +6,9 @@ var MetadataQuestion = require("../models/metadataQuestion");
 var PolisStorage = require("../util/polisStorage");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
+var URLs = require("../util/url");
+
+var urlPrefix = URLs.urlPrefix;
 
 module.exports = Handlebones.ModelView.extend({
   name: "conversationGatekeeper",
@@ -14,10 +17,6 @@ module.exports = Handlebones.ModelView.extend({
     "submit form": function(event){
       var that = this;
       event.preventDefault();
-      var urlPrefix = "https://pol.is/";
-      if (-1 === document.domain.indexOf("pol.is")) {
-          urlPrefix = "http://localhost:5000/";
-      }
       serialize(this, function(attrs){
         // pull out the for values for pmaid
 

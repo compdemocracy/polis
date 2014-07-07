@@ -8,7 +8,9 @@ var popoverEach = require("../util/popoverEach");
 var ServerClient = require("../lib/polis");
 var TutorialController = require("../controllers/tutorialController");
 var VotesCollection = require("../collections/votes");
+var URLs = require("../util/url");
 
+var urlPrefix = URLs.urlPrefix;
 
 module.exports = Handlebones.ModelView.extend({
 
@@ -90,8 +92,6 @@ module.exports = Handlebones.ModelView.extend({
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,
-      protocol: /localhost/.test(document.domain) ? "http" : "https",
-      domain: /localhost/.test(document.domain) ? "localhost:5000" : "pol.is",
       basePath: "",
       logger: console
     });

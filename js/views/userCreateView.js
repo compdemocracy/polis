@@ -3,7 +3,9 @@ var template = require("../tmpl/userCreate");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 var serialize = require("../util/serialize");
+var URLs = require("../util/url");
 
+var urlPrefix = URLs.urlPrefix;
 
 module.exports = View.extend({
     name: "userCreateView",
@@ -12,10 +14,6 @@ module.exports = View.extend({
       "submit form": function(event){
         var that = this;
         event.preventDefault();
-        var urlPrefix = "https://pol.is/";
-        if (-1 === document.domain.indexOf("pol.is")) {
-            urlPrefix = "http://localhost:5000/";
-        }
         this.serialize(function(attrs, release){
           // Incorporate options, like zinvite.
           attrs = $.extend(that.options || {}, attrs);

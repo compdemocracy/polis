@@ -3,6 +3,9 @@ var template = require("../tmpl/create-user-form");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 var serialize = require("../util/serialize");
+var URLs = require("../util/url");
+
+var urlPrefix = URLs.urlPrefix;
 
 var ModelView = Handlebones.ModelView;
 
@@ -58,7 +61,7 @@ var ModelView = Handlebones.ModelView;
         return that.onFail("Password must be 8 or more characters.");
       }
       $.ajax({
-        url: that.urlPrefix + "v3/auth/new",
+        url: urlPrefix + "v3/auth/new",
         type: "POST",
         dataType: "json",
         xhrFields: {
@@ -80,7 +83,7 @@ var ModelView = Handlebones.ModelView;
     
     serialize(this, function(attrs){
       $.ajax({
-        url: that.urlPrefix + "v3/auth/login",
+        url: urlPrefix + "v3/auth/login",
         type: "POST",
         dataType: "json",
         xhrFields: {
@@ -106,10 +109,6 @@ var ModelView = Handlebones.ModelView;
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     // this.model = options.model;
-    this.urlPrefix = "https://pol.is/";
-    if (-1 === document.domain.indexOf("pol.is")) {
-      this.urlPrefix = "http://localhost:5000/";
-    }
     this.listenTo(this, "render", function() {
       var email = that.model.get("email");
       if (email) {

@@ -3,8 +3,9 @@ var metric = require("../util/metric");
 var Utils = require("../util/utils")
 var shuffleWithSeed = require("../util/shuffleWithSeed");
 var brain = require("brain");
+var URLs = require("../util/url");
 
-
+var urlPrefix = URLs.urlPrefix;
 
 
 module.exports = function(params) {
@@ -25,33 +26,31 @@ module.exports = function(params) {
 
     var commentsToVoteOn = {}; // tid -> comment
 
-    var protocol = params.protocol || "https";
-    var domain = params.domain;
     var basePath = params.basePath;
 
-    var votesPath = "/v3/votes";
-    var starsPath = "/v3/stars";
-    var trashesPath = "/v3/trashes";
-    var commentsPath = "/v3/comments";
-    var nextCommentPath = "/v3/nextComment";
+    var votesPath = "v3/votes";
+    var starsPath = "v3/stars";
+    var trashesPath = "v3/trashes";
+    var commentsPath = "v3/comments";
+    var nextCommentPath = "v3/nextComment";
 
-    var createAccountPath = "/v3/auth/new";
-    var loginPath = "/v3/auth/login";
-    var deregisterPath = "/v3/auth/deregister";
-    var pcaPath = "/v3/math/pca";
-    var bidToPidPath = "/v3/bidToPid";
-    var bidPath = "/v3/bid";
-    var selectionPath = "/v3/selection";
+    var createAccountPath = "v3/auth/new";
+    var loginPath = "v3/auth/login";
+    var deregisterPath = "v3/auth/deregister";
+    var pcaPath = "v3/math/pca";
+    var bidToPidPath = "v3/bidToPid";
+    var bidPath = "v3/bid";
+    var selectionPath = "v3/selection";
 
-    var conversationsPath = "/v3/conversations";
-    var participantsPath = "/v3/participants";
+    var conversationsPath = "v3/conversations";
+    var participantsPath = "v3/participants";
 
-    var queryParticipantsByMetadataPath = "/v3/query_participants_by_metadata";
+    var queryParticipantsByMetadataPath = "v3/query_participants_by_metadata";
 
-    var commentVelocitiesPath = "/v3/velocities";
-    var metadataAnswersPath = "/v3/metadata/answers";
-    var metadataChoicesPath = "/v3/metadata/choices";
-    var xidsPath = "/v3/xids";
+    var commentVelocitiesPath = "v3/velocities";
+    var metadataAnswersPath = "v3/metadata/answers";
+    var metadataChoicesPath = "v3/metadata/choices";
+    var xidsPath = "v3/xids";
 
     var logger = params.logger;
 
@@ -369,7 +368,7 @@ module.exports = function(params) {
     }
 
     function invite(xids) {
-        return polisPost("/v3/users/invite", {
+        return polisPost("v3/users/invite", {
             single_use_tokens: true,
             sid: sid,
             xids: xids
@@ -398,7 +397,7 @@ module.exports = function(params) {
             throw "api param should be a string";
         }
 
-        var url = protocol + "://"+ domain + basePath + api;
+        var url = urlPrefix + basePath + api;
 
         // Add the auth token if needed.
         // if (_.contains(authenticatedCalls, api)) {

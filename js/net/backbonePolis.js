@@ -1,3 +1,7 @@
+var URLs = require("../util/url");
+
+var urlPrefix = URLs.urlPrefix;
+
 var api_version = "v3";
 
 var originalAjax = Backbone.ajax;
@@ -9,12 +13,7 @@ Backbone.ajax = function(url, options) {
 		url = options.url; // this part is different than jQuery.ajax (it would set url to null)
 	}
 
-    var protocol = "//";
-    var firstPart = protocol + "pol.is/";
-    if (-1 === document.domain.indexOf("pol.is")) {
-        firstPart = protocol + "localhost:5000/";
-    }
-    var base_url = firstPart + api_version + "/";
+    var base_url = urlPrefix + api_version + "/";
 
     //var base_url = "http://localhost:5000/" + api_version;
     url = base_url + url;

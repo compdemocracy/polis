@@ -1,7 +1,9 @@
 var View = require("handlebones").View;
 var template = require("../tmpl/passwordResetInitForm");
 var serialize = require("../util/serialize");
+var URLs = require("../util/url");
 
+var urlPrefix = URLs.urlPrefix;
 
 module.exports = View.extend({
   name: "passwordResetInitForm",
@@ -9,10 +11,6 @@ module.exports = View.extend({
   events: {
     "submit form": function(event){
       event.preventDefault();
-      var urlPrefix = "https://pol.is/";
-      if (-1 === document.domain.indexOf("pol.is")) {
-          urlPrefix = "http://localhost:5000/";
-      }
       serialize(this, function(attrs){
         if (!/.@./.test(attrs.email)) {
           alert("need email");

@@ -89,7 +89,7 @@ if (!window.location.hostname.match(/polis/)) {
 window.deregister = function() {
     // relying on server to clear cookies
     return $.post("/v3/auth/deregister", {}).always(function() {
-      window.location = "https://about.polis.io";
+      window.location = "/about";
       // Backbone.history.navigate("/", {trigger: true});
     });
 };
