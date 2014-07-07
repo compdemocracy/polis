@@ -1752,7 +1752,7 @@ function clientSideBaseCluster(things, N) {
         };
     }
     
-    findRepresentativeMetadata();
+    // findRepresentativeMetadata();
     eb.on(eb.clusterClicked, function(gid) {
         selectedGid = gid;
     });
