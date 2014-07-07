@@ -1509,7 +1509,13 @@ function(req, res) {
 
     getUidByEmail(email, function(err, uid) {
         setupPwReset(uid, function(err, pwresettoken) {
-            sendPasswordResetEmail(uid, pwresettoken, function(err) {
+
+            var server = devMode ? "http://localhost:5000" : "https://pol.is";
+            if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
+                server = "https://preprod.pol.is";
+            }
+
+            sendPasswordResetEmail(uid, pwresettoken, server, function(err) {
                 if (err) { console.error(err); fail(res, 500, "Error: Couldn't send password reset email.", err); return; }
                 res.status(200).json("Password reset email sent, please check your email.");
             });
@@ -2100,18 +2106,17 @@ function getUserInfoForUid2(uid, callback) {
 // }
 
 
-function sendPasswordResetEmail(uid, pwresettoken, callback) {
+function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
     getUserInfoForUid(uid, function(err, userInfo) {
         if (err) { return callback(err);}
         if (!userInfo) { return callback('missing user info');}
-        var server = devMode ? "http://localhost:5000" : "https://pol.is";
         var body = "" +
             "Hi " + userInfo.hname + ",\n" +
             "\n" +
             "We have just received a password reset request for " + userInfo.email + "\n" +
             "\n" +
             "To reset your password, visit this url:\n" +
-            server + "/pwreset/" + pwresettoken + "\n" +
+            serverName + "/pwreset/" + pwresettoken + "\n" +
             "\n" +
             "Thank you for using Polis\n";
 
@@ -2131,15 +2136,15 @@ function sendPasswordResetEmail(uid, pwresettoken, callback) {
     });
 }
 
-function sendEinviteEmail(email, einvite) {
+
+function sendEinviteEmail(email, einvite, serverName) {
     return new Promise(function(resolve, reject) {
-        var server = devMode ? "http://localhost:5000" : "https://pol.is";
         var body = "" +
             "Welcome to pol.is!\n" +
             "\n" +
             "Click this link to open your account:\n" +
             "\n" +
-            server + "/welcome/" + einvite + "\n" +
+            serverName + "/welcome/" + einvite + "\n" +
             "\n" +
             "Thank you for using Polis\n";
 
@@ -4243,7 +4248,13 @@ function(req, res) {
     var email = req.p.email;
     generateTokenP(30, false).then(function(einvite) {
         return pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
-            return sendEinviteEmail(email, einvite).then(function() {
+
+            var server = devMode ? "http://localhost:5000" : "https://pol.is";
+            if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
+                server = "https://preprod.pol.is";
+            }
+
+            return sendEinviteEmail(email, einvite, server).then(function() {
                 res.status(200).send("");
             });
         });
