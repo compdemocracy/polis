@@ -3826,16 +3826,11 @@ function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
 
-    isOwnerOrParticipant(zid, uid, doneChecking);
-    function doneChecking(err, foo) {
-        if (err) { fail(res, 403, "polis_err_get_participant_metadata_choices_auth", err); return; }
-
-        getChoicesForConversation(zid).then(function(choices) {
-            finishArray(res, choices);
-        }, function(err) {
-            fail(res, 500, "polis_err_get_participant_metadata_choices", err);
-        });     
-    }
+    getChoicesForConversation(zid).then(function(choices) {
+        finishArray(res, choices);
+    }, function(err) {
+        fail(res, 500, "polis_err_get_participant_metadata_choices", err);
+    });
 });
 
 app.get('/v3/metadata/answers',
