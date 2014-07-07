@@ -74,6 +74,12 @@ Handlebars.registerHelper("notUseCarousel", function(arg0) {
 });
 
 
+Handlebars.registerHelper('logo_href', function(arg0, options) {
+  var shouldSeeInbox = PolisStorage.hasEmail();
+  return shouldSeeInbox ? "/inbox" : "/about";
+});
+
+
 // Partials
 Handlebars.registerPartial("header", HeaderPartial);
 
