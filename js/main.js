@@ -24,6 +24,8 @@ var owl = require("owl");
 // Call this here so it gets initialized early.
 var popoverEach = require("./util/popoverEach");
 
+// register partials
+var HeaderPartial = require("./tmpl/header");
 
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
@@ -72,7 +74,8 @@ Handlebars.registerHelper("notUseCarousel", function(arg0) {
 });
 
 
-
+// Partials
+Handlebars.registerPartial("header", HeaderPartial);
 
 
 _.mixin({
