@@ -1317,44 +1317,80 @@ app.all("/v3/*", function(req, res, next) {
   return res.send(204);
 });
 
+
+function getPca(zid, lastVoteTimestamp) {
+    return new MPromise("db.math.pca.get", function(resolve, reject) {
+        collectionOfPcaResults.find({$and :[
+            {zid: zid},
+            {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
+            ]}, function(err, cursor) {
+            if (err) {
+                reject(new Error("polis_err_get_pca_results_find"));
+                return;
+            }
+            cursor.toArray( function(err, docs) {
+                if (err) {
+                    reject(new Error("polis_err_get_pca_results_find_toarray"));
+                } else if (!docs.length) {
+                    resolve(null);
+                } else {
+                    resolve(docs[0]);
+                }
+            });
+        });
+    });
+}
+
+// Cache the knowledge of whether there are any pca results for a given zid.
+// Needed to determine whether to return a 404 or a 304.
+// zid -> boolean
+var pcaResultsExistForZid = {};
+
 app.get("/v3/math/pca",
     meter("api.math.pca.get"),
     moveToBody,
     authOptional(assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
-    function(req, res) {
-        // TODO check if owner/ptpt or public
-        var promise = new MPromise("db.math.pca.get", function(resolve, reject) {
-            collectionOfPcaResults.find({$and :[
-                {zid: req.p.zid},
-                {lastVoteTimestamp: {$gt: req.p.lastVoteTimestamp}},
-                ]}, function(err, cursor) {
-                if (err) {
-                    reject(new Error("polis_err_get_pca_results_find"));
-                    return;
-                }
-                cursor.toArray( function(err, docs) {
-                    if (err) {
-                        reject(new Error("polis_err_get_pca_results_find_toarray"));
-                    } else if (!docs.length) {
-                        resolve(null);
-                    } else {
-                        resolve(docs[0]);
-                    }
+function(req, res) {
+    var zid = req.p.zid;
+    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+
+    function finishWith304or404() {
+        if (pcaResultsExistForZid[zid]) {
+            res.status(304).end();
+        } else {
+            // Technically, this should probably be a 404, but
+            // the red errors make it hard to see other errors
+            // in Chrome Developer Tools.
+            res.status(304).end();
+            // res.status(404).end();
+        }
+    }
+
+    getPca(zid, lastVoteTimestamp).then(function(data) {
+        if (data) {
+            finishOne(res, data);
+        } else {
+            // check whether we should return a 304 or a 404
+            if (_.isUndefined(pcaResultsExistForZid[zid])) {
+                // This server doesn't know yet if there are any PCA results in the DB
+                // So try querying from 0
+                getPca(zid, 0).then(function(data) {
+                    var exists = !!data;
+                    pcaResultsExistForZid[zid] = exists;
+                    finishWith304or404();
+                }).catch(function(err) {
+                    fail(res, 500, err);
                 });
-            });
-        });
-        promise.then(function(data) {
-            if (data) {
-                finishOne(res, data);
             } else {
-                res.status(304).end();
+                finishWith304or404();
             }
-        }, function(err) {
-            fail(res, 500, err);
-        });
+        }
+    }).catch(function(err) {
+        fail(res, 500, err);
     });
+});
 
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
