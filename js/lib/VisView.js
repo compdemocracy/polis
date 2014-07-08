@@ -916,6 +916,13 @@ function key(d) {
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters) {
     console.log("upsert");
+
+    if (updatedNodes.length < 12 && !visBlockerOn) {
+        showVisBlocker();
+    }
+    else if (updatedNodes.length >= 12 && visBlockerOn) {
+        hideVisBlocker();
+    }
     //nodes.set(node.pid, node);
 
 
@@ -1486,6 +1493,37 @@ function selectBackground() {
   }
 }
 
+var visBlockerOn = false;
+function showVisBlocker() {
+    visBlockerOn = true;
+
+    overlay_layer.append("rect")
+        .classed("visBlocker", true)
+        .style("fill", "white")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", w)
+        .attr("height", h)
+    ;
+    overlay_layer.append("text")
+            .classed("visBlocker", true)
+            .attr("text-anchor", "middle")
+            .text("no vis yet")
+            .attr("fill", "#000")
+            .attr("strke", "#000")
+            .attr("transform", "translate("+ 
+                w/2 +
+                "," + h/2 + ")")
+    ;
+}
+
+function hideVisBlocker() {
+    visBlockerOn = false;
+
+    overlay_layer.selectAll(".visBlocker")
+        .remove()
+    ;
+}
 
 // TODO account for Buckets
 function emphasizeParticipants(pids) {

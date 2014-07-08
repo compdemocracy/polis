@@ -64,6 +64,7 @@ module.exports = function(params) {
     var personUpdateCallbacks = $.Callbacks();
     var commentsAvailableCallbacks = $.Callbacks();
 
+    var firstPcaCallPromise = $.Deferred();
     var clustersCachePromise = $.Deferred();
     var votesForTidBidPromise = $.Deferred();
 
@@ -1069,6 +1070,7 @@ function clientSideBaseCluster(things, N) {
         }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
+                    firstPcaCallPromise.resolve();
                     return $.Deferred().reject();
                 }
 
@@ -1143,8 +1145,14 @@ function clientSideBaseCluster(things, N) {
                     return null;
                 });
             },
-            function(err) {
-                console.error("failed to get pca data");
+            function(xhr) {
+                if (404 === xhr.status) {
+                    firstPcaCallPromise.resolve();
+                } else if (500 === xhr.status) {
+                    alert("failed to get pca data");
+                }
+            }).then(function() {
+                firstPcaCallPromise.resolve();
             });
     }
 
@@ -1785,8 +1793,12 @@ function clientSideBaseCluster(things, N) {
         addPersonUpdateListener: function() {
             personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
 
-            var buckets = prepProjection(projectionPeopleCache);
-            sendUpdatedVisData(buckets, clustersCache);
+            firstPcaCallPromise.then(function() {
+                var buckets = prepProjection(projectionPeopleCache);
+                if (buckets.length) {
+                    sendUpdatedVisData(buckets, clustersCache);
+                }
+            });
         },
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
