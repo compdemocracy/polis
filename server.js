@@ -2677,7 +2677,7 @@ function(req, res) {
 
 
 var planCodes = {
-    mike: 99999,
+    mike: 9999,
     trial: 0,
     individuals: 1,
     sites: 100,
@@ -2685,7 +2685,7 @@ var planCodes = {
 };
 
 var planCodeToPlanName = {
-    99999: "MikePlan",
+    9999: "MikePlan",
     0: "Trial",
     1: "Individual",
     100: "Site",
