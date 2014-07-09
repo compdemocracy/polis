@@ -337,7 +337,7 @@ gulp.task('deploy', [
   });
 });
 
-gulp.task('preprod', [
+gulp.task('deployPreprod', [
   // "dist"
   "configureForProduction",
 ], function() {
