@@ -3,6 +3,15 @@
 {{#ifNotEmbedded}}
 {{> header}}
 {{/ifNotEmbedded}}
+{{#ifShowTrialBanner}}
+  {{#if is_owner}}
+    {{> banner}}
+  {{else}}
+    {{#if pp}}
+      {{> banner_pp}}
+    {{/if}}
+  {{/if}}
+{{/ifShowTrialBanner}}
 
 <section class="container" style="margin-bottom: 50px;"> 
 

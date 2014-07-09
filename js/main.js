@@ -26,6 +26,8 @@ var popoverEach = require("./util/popoverEach");
 
 // register partials
 var HeaderPartial = require("./tmpl/header");
+var BannerPartial = require("./tmpl/banner");
+var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
@@ -79,9 +81,20 @@ Handlebars.registerHelper('logo_href', function(arg0, options) {
   return shouldSeeInbox ? "/inbox" : "/about";
 });
 
+Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {
+  return 5 + " days"; // TODO
+});
+
+Handlebars.registerHelper("ifShowTrialBanner", function(arg0) {
+  var shouldShow = true;
+  return shouldShow ? arg0.fn(this) : "";
+});
 
 // Partials
 Handlebars.registerPartial("header", HeaderPartial);
+Handlebars.registerPartial("banner", BannerPartial);
+Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
+
 
 
 _.mixin({
