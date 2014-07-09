@@ -4650,6 +4650,7 @@ app.get(/^\/user\/create$/, fetchIndex);
 app.get(/^\/user\/login$/, fetchIndex);
 app.get(/^\/welcome\/.*$/, fetchIndex);
 app.get(/^\/settings$/, fetchIndex);
+app.get(/^\/user\/logout$/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
