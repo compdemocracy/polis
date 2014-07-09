@@ -4125,6 +4125,7 @@ function(req, res) {
         }
 
         conv.is_owner = conv.owner === uid;
+        conv.pp = false; // participant pays (WIP)
         
         if (!sid) {
             throw new Error("polis_err_getting_conversation_sid");
