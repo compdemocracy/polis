@@ -331,8 +331,8 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("beforehide:write", function() {
       // When we're leaving the write tab, show the vis again.
       that.showVis();
+      that.hideWriteHints();
     });
-    that.hideWriteHints();
     that.conversationTabs.on("beforehide:analyze", function() {
       // that.analyzeGlobalView.hideCarousel();
       that.analyzeGlobalView.deselectComments();
