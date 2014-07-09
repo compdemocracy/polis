@@ -32,7 +32,8 @@ function shouldShowVisUnderTabs() {
   return display.xs();
 }
 function shouldHideVisWhenWriteTabShowing() {
-  return shouldShowVisUnderTabs();
+  return true;
+  // return shouldShowVisUnderTabs();
 }
 
 
@@ -50,6 +51,12 @@ module.exports =  ConversationView.extend({
   },
   showVis: function() {
     $("#visualization_div").show();
+  },
+  hideWriteHints: function() {
+    $("#write_hints_div").hide();
+  },
+  showWriteHints: function() {
+    $("#write_hints_div").show();
   },
   allowMetadataFiltering: function() {
     return this.conversationTabs.onAnalyzeTab();
@@ -319,11 +326,13 @@ module.exports =  ConversationView.extend({
         // When we're switching to the write tab, hide the vis.
         that.hideVis();
       }
+      that.showWriteHints();
     });
     that.conversationTabs.on("beforehide:write", function() {
       // When we're leaving the write tab, show the vis again.
       that.showVis();
     });
+    that.hideWriteHints();
     that.conversationTabs.on("beforehide:analyze", function() {
       // that.analyzeGlobalView.hideCarousel();
       that.analyzeGlobalView.deselectComments();
