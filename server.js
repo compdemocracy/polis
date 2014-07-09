@@ -2142,6 +2142,32 @@ function getUserInfoForUid2(uid, callback) {
 // }
 
 
+function emailBadProblemTime(message) {
+    getUserInfoForUid(uid, function(err, userInfo) {
+        if (err) { return callback(err);}
+        if (!userInfo) { return callback('missing user info');}
+        var body = "" +
+            "Yo, there was a serious problem. Here's the message:\n" +
+            message
+            ;
+
+        mailgun.sendText(
+            'Polis Support <mike@pol.is>',
+            ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
+            "Polis Bad Problems!!!",
+            body,
+            'mike@pol.is', {},
+            function(err) {
+                if (err) {
+                    console.error('mailgun send error: ' + err);
+                }
+                callback(err);
+            }
+        );
+    });
+}
+
+
 function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
     getUserInfoForUid(uid, function(err, userInfo) {
         if (err) { return callback(err);}
