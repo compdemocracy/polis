@@ -41,7 +41,13 @@
       <h3 class="panel-title">Plan</h3>
     </div>
     <div class="panel-body">
-      {{plan}}
+      <strong>{{plan}}</strong>
+      {{#ifTrial}}
+        <div>
+          {{> trialRemainingStatement}}
+          <a href="/plan/upgrade/individuals">Upgrade Now</a>
+        </div>
+      {{/ifTrial}}
     </div>
   </div>
 

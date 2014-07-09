@@ -28,6 +28,7 @@ var popoverEach = require("./util/popoverEach");
 var HeaderPartial = require("./tmpl/header");
 var BannerPartial = require("./tmpl/banner");
 var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
+var TrialRemainingStatementParitial = require("./tmpl/trialRemainingStatement");
 
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
@@ -85,15 +86,21 @@ Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {
   return 5 + " days"; // TODO
 });
 
-Handlebars.registerHelper("ifShowTrialBanner", function(arg0) {
-  var shouldShow = true;
+
+function isTrialUser() {
+  return true;
+}
+Handlebars.registerHelper("ifTrial", function(arg0) {
+  var shouldShow = isTrialUser();
   return shouldShow ? arg0.fn(this) : "";
 });
+
 
 // Partials
 Handlebars.registerPartial("header", HeaderPartial);
 Handlebars.registerPartial("banner", BannerPartial);
 Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
+Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementParitial);
 
 
 

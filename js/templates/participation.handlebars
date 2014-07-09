@@ -3,15 +3,15 @@
 {{#ifNotEmbedded}}
 {{> header}}
 {{/ifNotEmbedded}}
-{{#ifShowTrialBanner}}
+{{#ifTrial}}
   {{#if is_owner}}
     {{> banner}}
   {{else}}
     {{#if pp}}
-      {{> banner_pp}}
+    {{> banner_pp}}
     {{/if}}
   {{/if}}
-{{/ifShowTrialBanner}}
+{{/ifTrial}}
 
 <section class="container" style="margin-bottom: 50px;"> 
 
