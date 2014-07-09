@@ -21,6 +21,7 @@ var metric = require("../util/metric");
 var ModerationView = require("../views/moderation");
 var PasswordResetView = require("../views/passwordResetView");
 var PasswordResetInitView = require("../views/passwordResetInitView");
+var SettingsView = require("../views/settings.js");
 var ShareLinkView = require("../views/share-link-view");
 var SummaryView = require("../views/summary.js");
 var PlanUpgradeView = require("../views/plan-upgrade");
@@ -196,8 +197,9 @@ var polisRouter = Backbone.Router.extend({
     this.r("conversation/view/:id(/:zinvite)", "participationView");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
+    this.r("user/logout", "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
-    this.r("settings", "deregister");
+    this.r("settings", "settings");
     this.r("plan/upgrade(/:plan_id)", "upgradePlan");
     this.r("inbox(/:filter)", "inbox");
     this.r("faq", "faq");
@@ -271,6 +273,15 @@ var polisRouter = Backbone.Router.extend({
       // this.inbox();
       this.navigate("inbox", {trigger: true});
     }
+  },
+  settings: function() {
+    var userModel = new UserModel();
+    bbFetch(userModel).then(function() {
+        var view = new SettingsView({
+        model: userModel,
+      });
+      RootView.getInstance().setView(view);
+    });
   },
   deregister: function() {
     window.deregister();
