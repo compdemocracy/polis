@@ -2109,7 +2109,7 @@ function getUserInfoForUid(uid, callback) {
 }
 function getUserInfoForUid2(uid, callback) {
     return new Promise(function(resolve, reject) {
-        pgQuery("SELECT email, hname from users where uid = $1", [uid], function(err, results) {
+        pgQuery("SELECT email, hname, plan from users where uid = $1", [uid], function(err, results) {
             if (err) { return reject(err); }
             if (!results.rows || !results.rows.length) {
                 return reject(null);
@@ -2638,15 +2638,46 @@ app.get("/v3/users",
 function(req, res) {
     var uid = req.p.uid;
     getUserInfoForUid2(uid).then(function(info) {
+
         res.json({
             email: info.email,
             hname: info.hname,
+            plan: planCodeToPlanName[info.plan],
         });
     }, function(err) {
         fail(res, 500, "polis_err_getting_user_info", err);
     });
 });
 
+
+var planCodes = {
+    mike: 99999,
+    trial: 0,
+    individuals: 1,
+    sites: 100,
+    orgs: 1000,
+};
+
+var planCodeToPlanName = {
+    99999: "MikePlan",
+    0: "Trial",
+    1: "Individual",
+    100: "Site",
+    1000: "Organization",
+};
+
+
+function changePlan(uid, planCode) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("update users set plan = ($1) where uid = ($2);", [planCode, uid], function(err, results) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
 
 app.post("/charge",
     auth(assignToP),
@@ -2690,16 +2721,19 @@ function(req, res) {
             }
         }
 
-        var protocol = devMode ? "http" : "https";
+        var planCode = planCodes[plan];
+        changePlan(uid, planCode).then(function() {
+            var protocol = devMode ? "http" : "https";
 
-        // Redirect to the same URL with the path behind the fragment "#"
-        res.writeHead(302, {
-            Location: protocol + "://" + req.headers.host +"/inbox",
+            // Redirect to the same URL with the path behind the fragment "#"
+            res.writeHead(302, {
+                Location: protocol + "://" + req.headers.host +"/inbox",
+            });
+
+            return res.end();
+        }).catch(function(err) {
+            emailBadProblemTime("User changed their plan, stripe was charged, but we failed to update the DB.");
         });
-
-        return res.end();
-
-
     });
 });
 
