@@ -858,6 +858,8 @@ var COOKIES = {
     TOKEN : 'token2',
     UID : 'uid2',
     REFERRER : 'ref',
+    USER_CREATED_TIMESTAMP: 'uc',
+    PLAN_NUMBER: 'plan', // not set if trial user
 };
 
 
@@ -943,56 +945,96 @@ polisTypes.starValues = _.values(polisTypes.staractions);
 
 
 var oneYear = 1000*60*60*24*365;
-function addCookies(res, token, uid) {
-    function addPrimaryCookies() {
-        if (domainOverride) {
-            res.cookie(COOKIES.TOKEN, token, {
-                path: '/',
-                httpOnly: true,
-                maxAge: oneYear,
-            });
-            res.cookie(COOKIES.UID, uid, {
+function addPlanCookie(planNumber) {
+    if (domainOverride) {
+        res.cookie(COOKIES.USER_CREATED_TIMESTAMP, o.created, {
+            path: '/',
+            maxAge: oneYear,         
+        });
+        if (o.plan > 0) {
+            res.cookie(COOKIES.PLAN_NUMBER, o.plan, {
                 path: '/',
                 maxAge: oneYear,         
             });
-        } else {
-            res.cookie(COOKIES.TOKEN, token, {
+        }
+    } else {
+        res.cookie(COOKIES.USER_CREATED_TIMESTAMP, o.created, {
+            path: '/',
+            maxAge: oneYear,
+            domain: '.pol.is',
+            secure: true,
+            // not httpOnly - needed by JS
+        });
+        if (o.plan > 0) {
+            res.cookie(COOKIES.PLAN_NUMBER, o.plan, {
                 path: '/',
-                httpOnly: true,
-                maxAge: oneYear,
-                domain: '.pol.is',
+                maxAge: oneYear,         
                 secure: true,
-            });
-            res.cookie(COOKIES.UID, uid, {
-                path: '/',
-                // httpOnly: true, (client JS needs to see something to know it's signed in)
-                maxAge: oneYear,
-                domain: '.pol.is',
-                secure: true,
+                // not httpOnly - needed by JS
             });
         }
     }
-    function addHasEmailCookie() {
-        if (domainOverride) {
-            res.cookie(COOKIES.HAS_EMAIL, 1, {
-                path: '/',
-                maxAge: oneYear,
-            });
-        } else {
-            res.cookie(COOKIES.HAS_EMAIL, 1, {
-                path: '/',
-                maxAge: oneYear,
-                domain: '.pol.is',
-            });
-        } 
+}
+
+function setCookie(res, name, value, options) {
+    var o = _.clone(options||{});
+    o.path = _.isUndefined(o.path) ? '/' : o.path;
+    o.maxAge = _.isUndefined(o.maxAge) ? oneYear : o.maxAge;
+    if (!domainOverride) {
+        o.secure = _.isUndefined(o.secure) ? true : o.secure;
+        o.domain = _.isUndefined(o.domain) ? '.pol.is' : o.domain;
     }
-    return getUserProperty(uid, "email").then(function(email) {
-        if (email) {
-            addPrimaryCookies();
-            addHasEmailCookie();
-        } else {
-            addPrimaryCookies();
-        }
+    res.cookie(name, value, o);
+}
+
+function setPlanCookie(res, planNumber) {
+    if (planNumber > 0) {
+        setCookie(res, COOKIES.PLAN_NUMBER, planNumber, {
+            // not httpOnly - needed by JS
+        });
+    } else {
+        // falsy
+    }
+}
+function setHasEmailCookie(res, email) {
+    if (email) {
+        setCookie(res, COOKIES.HAS_EMAIL, 1, {
+            // not httpOnly - needed by JS
+        });
+    } else {
+        // falsy
+    }
+}
+
+function setUserCreatedTimestampCookie(res, timestamp) {
+    setCookie(res, COOKIES.USER_CREATED_TIMESTAMP, timestamp, {
+        // not httpOnly - needed by JS
+    });
+}
+
+function setTokenCookie(res, token) {
+    setCookie(res, COOKIES.TOKEN, token, {
+        httpOnly: true,
+    });
+}
+
+function setUidCookie(res, uid) {
+    setCookie(res, COOKIES.UID, uid, {
+        // not httpOnly - needed by JS
+    });
+}
+
+function addCookies(res, token, uid) {
+    return getUserInfoForUid2(uid).then(function(o) {
+        var email = o.email;
+        var created = o.created;
+        var plan = o.plan;
+
+        setTokenCookie(res, token);
+        setUidCookie(res, uid);
+        setPlanCookie(res, plan);
+        setHasEmailCookie(res, email);
+        setUserCreatedTimestampCookie(res, o.created);
     });
 }
 
@@ -2109,12 +2151,13 @@ function getUserInfoForUid(uid, callback) {
 }
 function getUserInfoForUid2(uid, callback) {
     return new Promise(function(resolve, reject) {
-        pgQuery("SELECT email, hname, plan from users where uid = $1", [uid], function(err, results) {
+        pgQuery("SELECT * from users where uid = $1", [uid], function(err, results) {
             if (err) { return reject(err); }
             if (!results.rows || !results.rows.length) {
                 return reject(null);
             }
-            resolve(results.rows[0]);
+            var o = results.rows[0]
+            resolve(o);
         });
     });
 }
@@ -2750,6 +2793,9 @@ function(req, res) {
         var planCode = planCodes[plan];
         changePlan(uid, planCode).then(function() {
             var protocol = devMode ? "http" : "https";
+
+
+            setPlanCookie(res, planCode);
 
             // Redirect to the same URL with the path behind the fragment "#"
             res.writeHead(302, {
