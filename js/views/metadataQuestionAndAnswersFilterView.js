@@ -29,6 +29,6 @@ module.exports = Handlebones.ModelView.extend({
       enabledAnswers = _.map(enabledAnswers, function(answerModel) { return answerModel.get("pmaid");});
       this.model.set("enabledAnswers", enabledAnswers);
     });
-    this.zid = options.zid;
+    this.sid = options.sid;
   }
 });

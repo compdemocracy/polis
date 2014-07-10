@@ -1,31 +1,17 @@
 <div class="{{#if use_background_content_class}}background_content{{/if}}">
   
 {{#ifNotEmbedded}}
-<div class="navbar navbar-default navbar-fixed-top" role="navigation">
-  <div class="container">
-    <div class="navbar-header">
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
-        <span class="sr-only">Toggle navigation</span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span>
-        <span class="icon-bar"></span> 
-      </button>
-      <a href="/inbox" class="navbar-brand">Polis</a>
-    </div>
-    <div class="navbar-collapse collapse">
-      <ul class="nav navbar-nav navbar-right">
-        <li><a href="https://pol.is/about">About</a></li>
-        <li><a href="mailto:colin@pol.is?subject=Polis%20Feedback">Contact</a></li>
-        <li><a href="/settings">
-          {{#ifNotIE8}}
-          <i class="icon-signout"></i>
-          {{/ifNotIE8}}
-          &nbsp; Signout</a></li>
-      </ul>
-    </div>{{! /.nav-collapse }}
-  </div>
-</div>
+{{> header}}
 {{/ifNotEmbedded}}
+{{#ifTrial}}
+  {{#if is_owner}}
+    {{> banner}}
+  {{else}}
+    {{#if pp}}
+    {{> banner_pp}}
+    {{/if}}
+  {{/if}}
+{{/ifTrial}}
 
 <section class="container" style="margin-bottom: 50px;"> 
 
@@ -105,7 +91,7 @@
               border-right: 3px solid lightgrey;
               border-bottom: 3px solid lightgrey;
               border-left: 1px solid lightgrey;
-              padding-bottom: 48px;
+              {{!-- padding-bottom: 48px; --}}
               border-bottom-right-radius: 10px;
               border-bottom-left-radius: 10px;
               border-top-right-radius: 10px;
@@ -121,6 +107,49 @@
   <span id="vis_sibling_bottom" class="t-span6 col-xs-12 col-sm-6 col-md-7 col-lg-8">
     <div id="visualization_div" class="vis_container"></div>
   </span>
+
+
+
+    <div
+      id="write_hints_div"
+      style="
+        display:none;
+        padding-left: 20px;
+        padding-right: 20px;
+        border: 1px solid lightgrey;
+        border-radius: 10px;
+        {{!-- margin: 20px; --}}
+      "
+      class="
+        col-xs-12
+        col-sm-5
+        col-md-7
+        col-lg-8
+      ">
+
+      <h3> Writing Comments </h3>
+
+      <p> The conversations in pol.is can only ever be as good as the comments submitted. You are responsible for the quality of the content, and the dimensions that will be considered by other participants. </p>
+
+      <ul> 
+        <li> Your comment should be articulate, well-informed & relevant. </li> 
+        <li> The shorter the better: each comment should include only a single idea or opinion.</li>
+        <li> Your comment will be sent out randomly. You are not replying directly to anyone else in the conversation.</li>
+      </ul> 
+
+      <h5> When and where will my comment be displayed? </h5> 
+
+      <p> Your comment may or may not be moderated. Comments may appear to immediately to other participants, or there may be a delay, pending moderator approval. Approved comments will appear, at random, to other participants in this conversation. </p>
+
+      <h5>Will my words be edited? </h5>
+      <p> No. Comments are either approved or rejected during moderation, but cannot be edited. </p> 
+
+      <h5>Will I be identified when making a comment?</h5>
+      <p> Anonymity varies in pol.is from conversation to conversation. Commenting is anonymous, unless you reveal anything that can be used to deanonymize you. Your voting patterns can also be used to deanonymize you in certain circumstances, given the content of other comments. For more information, please see our <a href="/privacy">Privacy Policy</a>.</p>
+
+
+
+    </div>
 
 </div> {{! /row }}
 

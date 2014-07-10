@@ -2,7 +2,9 @@ var View = require("handlebones").View;
 var template = require("../tmpl/passwordResetForm");
 var $ = require("jquery");
 var serialize = require("../util/serialize");
+var URLs = require("../util/url");
 
+var urlPrefix = URLs.urlPrefix;
 
 module.exports = View.extend({
   name: "passwordResetForm",
@@ -11,10 +13,6 @@ module.exports = View.extend({
     "submit form": function(event){
       var that = this;
       event.preventDefault();
-      var urlPrefix = "https://pol.is/";
-      if (-1 === document.domain.indexOf("pol.is")) {
-          urlPrefix = "http://localhost:5000/";
-      }
       serialize(this, function(attrs){
         attrs.pwresettoken = that.pwresettoken;
         if(attrs.newPassword !== attrs.pw2){
@@ -37,7 +35,7 @@ module.exports = View.extend({
         }).then(function(message) {
           alert(message);
           // reload the page to clear out the password from memory
-          window.location = window.location.protocol + "//" + window.location.host + "/#user/login";
+          window.location = window.location.protocol + "//" + window.location.host + "/user/login";
         }, function(errmessage) {
           alert(errmessage);
         });

@@ -29,7 +29,7 @@ module.exports = MetadataQuestionsView.extend({
       // Make sure the form isn't empty.
       if (attrs.questionInput && attrs.questionInput.length) {
         var data = {
-          zid: that.zid,
+          sid: that.sid,
           key: attrs.questionInput
         };
         var model = new MetadataQuestion(data);
@@ -39,7 +39,7 @@ module.exports = MetadataQuestionsView.extend({
           //that.collection.add(model);
           that.collection.fetch({
             data: $.param({
-              zid: that.zid,
+              sid: that.sid,
             })//,
             // reset: true
           });

@@ -6,6 +6,9 @@ var MetadataQuestion = require("../models/metadataQuestion");
 var PolisStorage = require("../util/polisStorage");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
+var URLs = require("../util/url");
+
+var urlPrefix = URLs.urlPrefix;
 
 module.exports = Handlebones.ModelView.extend({
   name: "conversationGatekeeper",
@@ -14,10 +17,6 @@ module.exports = Handlebones.ModelView.extend({
     "submit form": function(event){
       var that = this;
       event.preventDefault();
-      var urlPrefix = "https://pol.is/";
-      if (-1 === document.domain.indexOf("pol.is")) {
-          urlPrefix = "http://localhost:5000/";
-      }
       serialize(this, function(attrs){
         // pull out the for values for pmaid
 
@@ -42,7 +41,7 @@ module.exports = Handlebones.ModelView.extend({
         if (params.suzinvite) {
           attrs.suzinvite = params.suzinvite;
         }
-        attrs.zid = params.zid;
+        attrs.sid = params.sid;
 
         var url = urlPrefix + "v3/participants";
         if (params.suzinvite || params.zinvite) {
@@ -71,11 +70,11 @@ module.exports = Handlebones.ModelView.extend({
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.options = options;
     this.model = options.model;
-    var zid = options.zid;
+    var sid = options.sid;
     var zinvite = options.zinvite;
     var suzinvite = options.suzinvite;
     var params = {
-      zid: zid,
+      sid: sid,
     };
     if (options.zinvite) {
       params.zinvite = options.zinvite;
@@ -89,7 +88,7 @@ module.exports = Handlebones.ModelView.extend({
 
     this.metadataCollection = new MetadataQuestionCollection([], {
       model: MetadataQuestionModelWithZinvite,
-      zid: zid
+      sid: sid
     });
     this.metadataCollection.fetch({
         data: $.param(params),
@@ -99,7 +98,7 @@ module.exports = Handlebones.ModelView.extend({
       collection: this.metadataCollection,
       zinvite: zinvite,
       suzinvite: suzinvite,
-      zid: zid
+      sid: sid
     }));
     // this.gatekeeperAuthView = new UserCreateView({
     //   zinvite: zinvite,

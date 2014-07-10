@@ -1,12 +1,25 @@
 var Model = require("../model");
 
+
+// hit moderation invite url
+
+// it seems necesary to create a list of moderators for each conversation.
+// this is because you want to be able to go moderate from your inbox, even if you're not the owner.
+
+// so the workflow is:
+// hit pol.is/m/sid/minvite
+// this will fire an event to ensure that you're noted as a moderator.
+// if not, you can't PUT to the comments. (that's the least we can do)
+// we could prevent rendering the view too, but that's more work.
+
+
 module.exports = Model.extend({
     name: "conversation",
     path: "conversations",
-    idAttribute: "zid",
+    idAttribute: "sid",
     urlRoot: "conversations",
     url: function() {
-        return this.urlRoot + "/" + this.id;
+        return this.urlRoot;
     },
     defaults: {
       //topic: "", // an empty topic will be shown as a localized date string
@@ -18,14 +31,11 @@ module.exports = Model.extend({
       owner: undefined,
       participant_count: "",
       url_moderate: function() {
-        return "/m/" + this.zid;
+//        return "/m/" + this.sid + "/" + this.minvite;
+        return "/m/" + this.sid;
       },
       url_name: function(){
-        var s = "/" + this.zid;
-        if (!this.is_public && this.zinvites) {
-          s += "/" + this.zinvites[0]; // TODO deal with multiple?
-        }
-        return s;
+        return "/" + this.sid;
       },
       url_name_with_hostname: function() {
         // build the URL for the user to copy & paste

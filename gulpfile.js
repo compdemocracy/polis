@@ -337,7 +337,7 @@ gulp.task('deploy', [
   });
 });
 
-gulp.task('preprod', [
+gulp.task('deployPreprod', [
   // "dist"
   "configureForProduction",
 ], function() {
@@ -397,19 +397,18 @@ function deployAboutPage(params) {
     creds = _.extend(creds, params);
     
     var root = "../about-polis";
+    var dist = "../about-polis/dist";
     return gulp.src([
-      root + "/lander.html",
-      root + "/marketers.html",
-      root + "/company.html",
-      root + "/pricing.html",
-      root + "/professors.html",
-      root + "/try.html",
-      root + "/d3.js",
-      root + "/clusterforce.js",
-      root + "/api.html",
-      root + "/politics.html", 
-      root + "/unsupportedBrowser.html",
-      root + "/about.css",
+      dist + "/api.html",
+      dist + "/company.html",
+      dist + "/faq.html",
+      dist + "/lander.html",
+      dist + "/privacy.html",
+      dist + "/professors.html",
+      dist + "/tos.html",
+      dist + "/unsupportedBrowser.html",
+
+      root + "/src/about.css",
       root + "/**/rainbow/**/*",
       root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
       root + "/**/node_modules/underscore/underscore-min.js", // ** to preserve path 

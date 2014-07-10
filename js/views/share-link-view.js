@@ -10,8 +10,8 @@ module.exports = Handlebones.ModelView.extend({
       "click #sendShareLinkToEmailButton": function(){
         //https://www.dropbox.com/s/f8ed1vtpim28aej/Screenshot%202014-03-02%2023.29.31.png 
         //owner was undefined on the client side, so going to server to make requests for that information and fire mailgun
-        //if oid is on the client side, can send that instead of zid
-        var zid=this.model.attributes.zid;
+        //if oid is on the client side, can send that instead of sid
+        var sid=this.model.attributes.sid;
         $.ajax({
           type: "POST",
           dataType: "json",
@@ -21,7 +21,7 @@ module.exports = Handlebones.ModelView.extend({
           crossDomain: true,
           url: "/v3/sendCreatedLinkToEmail",
           data: {
-            zid: zid
+            sid: sid
           }
         }).done(function(){
           console.log('sent!')

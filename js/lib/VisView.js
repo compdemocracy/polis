@@ -37,6 +37,7 @@ var selfHasAppeared = false;
 // The h and w values should be locked at a 1:2 ratio of h to w
 var h;
 var w;
+var participantCount = 1;
 var nodes = [];
 var clusters = [];
 var hulls = [];
@@ -913,9 +914,47 @@ function key(d) {
     return d.bid;
 }
 
+
+
+function getParticipantCount(nodes) {
+       // var count = d.count;
+    var count = 0;
+    for (var i = 0; i < nodes.length; i++) {
+        count += nodes[i].count;
+    }
+    return count;
+}
+
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters) {
     console.log("upsert");
+
+    participantCount = getParticipantCount(updatedNodes);
+
+    var MIN_PARTICIPANTS_FOR_VIS = 10;
+    if (updatedNodes.length < MIN_PARTICIPANTS_FOR_VIS && !visBlockerOn) {
+        showVisBlocker();
+    }
+    else if (updatedNodes.length >= MIN_PARTICIPANTS_FOR_VIS && visBlockerOn) {
+        hideVisBlocker();
+    }
+    if (visBlockerOn) {
+        var neededCount = MIN_PARTICIPANTS_FOR_VIS - participantCount;
+        overlay_layer.selectAll(".visBlockerMainText")
+            .text("Need " +neededCount+ " more participants to vote before the visualization appears.");
+
+        overlay_layer.selectAll(".visBlockerGraphic")
+            .text(function(d) {
+                var txt = "";
+                _.times(participantCount, function() {
+                    txt += "\uf007 "; // uf118
+                });
+                _.times(neededCount, function() {
+                    txt += "_ ";
+                });
+                return txt;
+            });
+    }
     //nodes.set(node.pid, node);
 
 
@@ -1206,14 +1245,9 @@ function upsertNode(updatedNodes, newClusters) {
           .append("text")
           .attr("text-anchor", "end");
 
-      function labelText(d) {
-        // var count = d.count;
-        var count = 0;
-        for (var i = 0; i < nodes.length; i++) {
-            count += nodes[i].count;
-        }
-        return count + (count === 1 ? " person" : " people");
-      }
+    function labelText(d) {
+        return participantCount + (participantCount === 1 ? " person" : " people");
+    }
 
     // update
     if (legendCircles) {
@@ -1486,6 +1520,53 @@ function selectBackground() {
   }
 }
 
+var visBlockerOn = false;
+function showVisBlocker() {
+    visBlockerOn = true;
+
+    overlay_layer.append("rect")
+        .classed("visBlocker", true)
+        .style("fill", "white")
+        .attr("x", 0)
+        .attr("y", 0)
+        .attr("width", w)
+        .attr("height", h)
+        .style("stroke", "lightgray")
+        .attr("rx", 10)
+        .attr("ry", 10)
+    ;
+    overlay_layer.append("text")
+            .classed("visBlocker", true)
+            .classed("visBlockerMainText", true)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#000")
+            .attr("strke", "#000")
+            .attr("transform", "translate("+ 
+                w/2 +
+                "," + h/3 + ")")
+    ;
+    overlay_layer.append("text")
+            .classed("visBlocker", true)
+            .classed("visBlockerGraphic", true)
+            .attr("transform", "translate("+ 
+                w/2 +
+                "," + (2*h/3) +")")
+            .attr("text-anchor", "middle")
+            .attr("fill", "#000")
+            .attr("strke", "#000")
+        .attr('font-family', 'FontAwesome')
+        .attr('font-size', function(d) { return '2em'} )
+        ;
+
+}
+
+function hideVisBlocker() {
+    visBlockerOn = false;
+
+    overlay_layer.selectAll(".visBlocker")
+        .remove()
+    ;
+}
 
 // TODO account for Buckets
 function emphasizeParticipants(pids) {

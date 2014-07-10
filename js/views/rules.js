@@ -29,6 +29,6 @@ module.exports = Handlebones.View.extend({
         modelView: RuleItemView,
         collection: options.collection
       }));
-      this.zid = options.zid;
+      this.sid = options.sid;
     }
 });

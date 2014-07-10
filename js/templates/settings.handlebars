@@ -1,0 +1,73 @@
+{{> header}}
+
+
+<section class="container">
+<div class="row">
+
+<div class="
+  col-xs-10 col-xs-offset-1
+  col-sm-8 col-sm-offset-2
+  col-md-offset-0
+">
+
+<h2>Settings</h2>
+
+
+<form role="form">
+  
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">Name</h3>
+    </div>
+    <div class="panel-body">
+      {{hname}}
+    </div>
+  </div>
+
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">Email</h3>
+    </div>
+    <div class="panel-body">
+      {{email}}
+    </div>
+  </div>
+
+
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">Plan</h3>
+    </div>
+    <div class="panel-body">
+      <strong>{{plan}}</strong>
+      {{#ifTrial}}
+        <div>
+          {{> trialRemainingStatement}}
+          <a href="/plan/upgrade/individuals">Upgrade Now</a>
+        </div>
+      {{/ifTrial}}
+    </div>
+  </div>
+
+{{!
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title">Notification</h3>
+    </div>
+    <div class="panel-body">
+      <div class="checkbox">
+        <label>
+          <input type="checkbox" id="notify_me" name="notify_me" checked="checked"> Notify me of updates
+        </label>
+      </div>
+    </div>
+  </div>
+}}
+</form>
+
+
+</div> {{! end column }}
+</div> {{! end row }}
+</section>

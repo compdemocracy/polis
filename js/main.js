@@ -3,10 +3,12 @@ var eb = require("./eventBus");
 var Backbone = require("backbone");
 var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
+var Metrics = require("./metrics");
 var PolisStorage = require("./util/polisStorage");
 var Handlebars = require("handlebars");
 var _ = require("underscore");
 var display = require("./util/display");
+var Utils = require("./util/utils");
 
 // These are required here to ensure they are included in the build.
 var bootstrapAlert = require("bootstrap_alert");
@@ -23,6 +25,11 @@ var owl = require("owl");
 // Call this here so it gets initialized early.
 var popoverEach = require("./util/popoverEach");
 
+// register partials
+var HeaderPartial = require("./tmpl/header");
+var BannerPartial = require("./tmpl/banner");
+var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
+var TrialRemainingStatementParitial = require("./tmpl/trialRemainingStatement");
 
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
@@ -71,6 +78,25 @@ Handlebars.registerHelper("notUseCarousel", function(arg0) {
 });
 
 
+Handlebars.registerHelper('logo_href', function(arg0, options) {
+  var shouldSeeInbox = PolisStorage.hasEmail();
+  return shouldSeeInbox ? "/inbox" : "/about";
+});
+
+
+Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {
+  return Utils.trialDaysRemaining();
+});
+Handlebars.registerHelper("ifTrial", function(arg0) {
+  return Utils.isTrialUser() ? arg0.fn(this) : "";
+});
+
+
+// Partials
+Handlebars.registerPartial("header", HeaderPartial);
+Handlebars.registerPartial("banner", BannerPartial);
+Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
+Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementParitial);
 
 
 
@@ -88,7 +114,7 @@ if (!window.location.hostname.match(/polis/)) {
 window.deregister = function() {
     // relying on server to clear cookies
     return $.post("/v3/auth/deregister", {}).always(function() {
-      window.location = "https://about.polis.io";
+      window.location = "/about";
       // Backbone.history.navigate("/", {trigger: true});
     });
 };
@@ -100,6 +126,7 @@ initialize(function(next) {
     // needed are aysynchronous
     var router = new MainPolisRouter();
 
+    Metrics.boot();
     // set up the "exitConv" event
     var currentRoute;
     router.on("route", function(route, params) {

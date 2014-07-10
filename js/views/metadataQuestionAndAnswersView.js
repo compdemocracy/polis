@@ -23,6 +23,6 @@ module.exports = Handlebones.ModelView.extend({
     this.answersCollectionView = this.addChild(new this.CollectionView({
       collection: this.answers
     }));
-    this.zid = options.zid;
+    this.sid = options.sid;
   }
 });

@@ -1,3 +1,4 @@
+var bbSave = require("../net/bbSave");
 var View = require("handlebones").View;
 var template = require("../tmpl/create-conversation-form");
 var CommentsCollection = require("../collections/comments");
@@ -59,6 +60,7 @@ module.exports = View.extend({
           // !! to make sure these properties exist as 'false', instead of just being absent.
           attrs.is_public = !!attrs.is_public;
           attrs.profanity_filter = !!attrs.profanity_filter;
+          attrs.short_url = !!attrs.is_public;
           attrs.spam_filter = !!attrs.spam_filter;
           attrs.strict_moderation = !!attrs.strict_moderation;
           attrs.send_created_email = true;
@@ -69,30 +71,29 @@ module.exports = View.extend({
           }
           delete attrs.xidsTextarea;
 
-          var readyToSubmit = !!xids ? 
-            $.ajax({
-              url: "/v3/users/invite",
-              type: "POST",
-              dataType: "json",
-              xhrFields: {
-                  withCredentials: true
-              },
-              // crossDomain: true,
-              data: {
-                xids: xids,
-                single_use_tokens: true,
-                zid: that.model.get("zid")
-              }
-            }) : 
-            $.Deferred().resolve();
+          attrs.verifyMeta = true; // make sure there are answers for each question.
+          bbSave(that.model, attrs).then(function(data) {
+            // NOTE: the suurl generation must take place after the PUT conversations call, since the sid may change (and the sid is included in the suurls)
+            var promise = !!xids ? 
+              $.ajax({
+                url: "/v3/users/invite",
+                type: "POST",
+                dataType: "json",
+                xhrFields: {
+                    withCredentials: true
+                },
+                // crossDomain: true,
+                data: {
+                  xids: xids,
+                  single_use_tokens: true,
+                  sid: that.model.get("sid")
+                }
+              }) : $.Deferred().resolve();
 
-          readyToSubmit.then(function(suurls) {
-
-            attrs.verifyMeta = true; // make sure there are answers for each question.
-            that.model.save(attrs).then(function(data) {
+            promise.then(function(suurls) {
               that.trigger("done", suurls);
-            }, function(err) {
-              var err = err.responseJSON;
+            }, function(model, err) {
+              err = err.responseText;
               if (err === "polis_err_missing_metadata_answers") {
                 that.onFail("Each participant question needs at least one answer. (They are multiple-choice)");
               } else {
@@ -116,32 +117,31 @@ module.exports = View.extend({
 
       // ConversationModel
       this.model = options.model;
-      var zid = this.model.get("zid");
+      var sid = this.model.get("sid");
       var pid = options.pid;
 
-      var metadataCollection = new MetadataQuestionCollection([], {
-          zid: zid
-      });
+      var data = {
+          sid: sid
+      };
+      var metadataCollection = new MetadataQuestionCollection([], data);
 
       metadataCollection.fetch({
-          data: $.param({
-              zid: zid
-          }),
+          data: $.param(data),
           processData: true
       });
       this.metadataQuestionsViewWithCreate = this.addChild(new MetadataQuestionsViewWithCreate({
         collection: metadataCollection,
-        zid: zid
+        sid: sid
       }));
 
       this.commentsByMe = new CommentsCollection({
-        zid: zid
+        sid: sid
       });
 
       this.commentForm = this.addChild(new CommentFormSeedView({
         pid: pid,
         collection: this.commentsByMe,
-        zid: zid
+        sid: sid
       }));
 
     },

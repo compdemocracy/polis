@@ -1,6 +1,23 @@
 body {
   font-family: "brandon-grotesque", sans-serif;
-  padding-top: 50px;
+  // padding-top: 70px;
+}
+
+/* WARNING - duplicated in about-polis repo */
+.logo_and_login_section {
+/*  border-bottom: 1px solid rgba(149, 165, 166,1.0);*/
+/*    padding-bottom: 15px; */
+            // background-color: rgba(189, 195, 199,.1);
+    // border-top: 1px solid rgba(189, 195, 199,.2);
+    // border-bottom: 1px solid rgba(189, 195, 199,.2);
+}
+
+.header_item {
+    position:relative;
+    top: 25px;
+    font-weight: 700;
+    color: black;
+    font-size: 16px;
 }
 
 /* Helpers */
@@ -150,11 +167,10 @@ body {
 
 
 
-
-
-
-@media (max-width: @screen-sm-min) {
-    .comment_form_button_position {
+/*XS XS XS XS XS XS XS */
+/*  @screen-sm-min  */
+@media(max-width:767px){
+   .comment_form_button_position {
     position: absolute; 
     right: 0; 
     bottom: 0px; 
@@ -163,11 +179,13 @@ body {
   .comment_form_textarea_width {
     max-width: 75%;
   }
+ 
 }
 
-/* Small devices (tablets, 768px and up) */
-@media (min-width: @screen-sm-min) { 
-
+/*SM SM SM SM SM SM SM */
+/* @screen-sm-min  */
+@media(min-width:768px){
+ 
   .comment_form_textarea_width {
     max-width: 100%;
   }
@@ -178,24 +196,22 @@ body {
     bottom: -53px; 
     max-width: 91px;
   }
-  
+ 
 }
-
-/* Medium devices (desktops, 992px and up) */
-@media (min-width: @screen-md-min) { 
-
-
-
+ 
+/*MD MD MD MD MD MD MD MD */
+/* @screen-md-min */
+@media(min-width:992px){
+ 
+ 
 }
-
-/* Large devices (large desktops, 1200px and up) */
-@media (min-width: @screen-lg-min) { 
-
-
+ 
+/*LG LG LG LG LG LG LG LG */
+/* @screen-lg-min  */
+@media(min-width:1200px){
+ 
+ 
 }
-
-
-
 
 
 

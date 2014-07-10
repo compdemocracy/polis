@@ -45,7 +45,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.UNMODERATED,
-          zid: this.zid
+          sid: this.sid
         }),
         reset: false
       }),
@@ -53,7 +53,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.OK,
-          zid: this.zid
+          sid: this.sid
         }),
         reset: false
       }),
@@ -61,7 +61,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.BAN,
-          zid: this.zid
+          sid: this.sid
         }),
         reset: false
       })
@@ -73,7 +73,7 @@ module.exports =  Handlebones.ModelView.extend({
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
-    var zid = this.zid = this.model.get("zid");
+    var sid = this.sid = this.model.get("sid");
     var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
@@ -89,13 +89,13 @@ module.exports =  Handlebones.ModelView.extend({
     });
 
     this.commentsTodo = new CommentsCollection([], {
-      zid: zid
+      sid: sid
     });
     this.commentsAccepted = new CommentsCollection([], {
-      zid: zid
+      sid: sid
     });
     this.commentsRejected = new CommentsCollection([], {
-      zid: zid
+      sid: sid
     });
 
     this.updateCollections();
@@ -143,7 +143,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.UNMODERATED,
-          zid: that.zid
+          sid: that.sid
         }),
         reset: false
       });
