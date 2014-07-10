@@ -4710,6 +4710,10 @@ app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/ht
 app.get(/^\/api$/, makeFileFetcher(hostname, port, "/api.html", "text/html"));
 app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
 app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
+app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", "text/html"));
+app.get(/^\/blog$/, makeFileFetcher(hostname, port, "/blog.html", "text/html"));
+app.get(/^\/tos$/, makeFileFetcher(hostname, port, "/tos.html", "text/html"));
+app.get(/^\/privacy$/, makeFileFetcher(hostname, port, "/privacy.html", "text/html"));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
 app.get(/^\/about$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
 app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
