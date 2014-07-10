@@ -1,3 +1,24 @@
+var PolisStorage = require("./polisStorage");
+
+var millisPerDay = 1000 * 60 * 60 * 24;
+
+function millisSinceJoin() {
+  return Date.now() - PolisStorage.userCreated();
+}
+function daysSinceJoin() {
+  console.log('daysSinceJoin', millisSinceJoin(), millisPerDay);
+  return (millisSinceJoin() / millisPerDay) >> 0;
+}
+function numberOfDaysInTrial() {
+  return 10;
+}
+function trialDaysRemaining() {
+  console.log('trial', numberOfDaysInTrial(), daysSinceJoin());
+
+  return Math.max(0, numberOfDaysInTrial() - daysSinceJoin());
+}
+
+
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
@@ -36,5 +57,10 @@ module.exports = {
   },
   supportsVis: function() {
     return this.supportsSVG() && !this.isIE8();
-  }
+  },
+  isTrialUser: function() {
+    return !PolisStorage.plan();
+  },
+  numberOfDaysInTrial: numberOfDaysInTrial,
+  trialDaysRemaining: trialDaysRemaining
 };

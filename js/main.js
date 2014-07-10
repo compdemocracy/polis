@@ -8,6 +8,7 @@ var PolisStorage = require("./util/polisStorage");
 var Handlebars = require("handlebars");
 var _ = require("underscore");
 var display = require("./util/display");
+var Utils = require("./util/utils");
 
 // These are required here to ensure they are included in the build.
 var bootstrapAlert = require("bootstrap_alert");
@@ -82,17 +83,12 @@ Handlebars.registerHelper('logo_href', function(arg0, options) {
   return shouldSeeInbox ? "/inbox" : "/about";
 });
 
+
 Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {
-  return 5 + " days"; // TODO
+  return Utils.trialDaysRemaining();
 });
-
-
-function isTrialUser() {
-  return true;
-}
 Handlebars.registerHelper("ifTrial", function(arg0) {
-  var shouldShow = isTrialUser();
-  return shouldShow ? arg0.fn(this) : "";
+  return Utils.isTrialUser() ? arg0.fn(this) : "";
 });
 
 

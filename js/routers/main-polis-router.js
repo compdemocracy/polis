@@ -14,7 +14,6 @@ var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
 var ConversationGatekeeperViewCreateUser = require("../views/conversationGatekeeperViewCreateUser");
 var ParticipationView = require("../views/participation");
 var ExploreView = require("../views/explore");
-var CreateUserFormView = require("../views/create-user-form");
 var EmptyView = require("../views/empty-view");
 var LoginFormView = require("../views/login-form");
 var metric = require("../util/metric");
@@ -32,6 +31,7 @@ var _ = require("underscore");
 var $ = require("jquery");
 
 function authenticated() { return PolisStorage.uid(); }
+function hasEmail() { return PolisStorage.hasEmail(); }
 
 // TODO refactor this terrible recursive monster function.
 function doJoinConversation(onSuccess, sid, zinvite, singleUse) {
@@ -240,7 +240,10 @@ var polisRouter = Backbone.Router.extend({
     var promise;
     if (!authenticated()) {
       window.planId = plan_id;
-      promise = this.doLogin();
+      promise = this.doLogin(false);
+    } else if (!hasEmail()) {
+      window.planId = plan_id;
+      promise = this.doLogin(true);
     } else {
       if (_.isUndefined(plan_id) && !_.isUndefined(window.plan_id)) {
         plan_id = window.planId;
@@ -275,12 +278,20 @@ var polisRouter = Backbone.Router.extend({
     }
   },
   settings: function() {
-    var userModel = new UserModel();
-    bbFetch(userModel).then(function() {
-        var view = new SettingsView({
-        model: userModel,
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(false);
+    } else if (!hasEmail()) {
+      promise = this.doLogin(true);
+    }
+    promise.then(function() {
+      var userModel = new UserModel();
+      bbFetch(userModel).then(function() {
+          var view = new SettingsView({
+          model: userModel,
+        });
+        RootView.getInstance().setView(view);
       });
-      RootView.getInstance().setView(view);
     });
   },
   deregister: function() {
@@ -300,94 +311,108 @@ var polisRouter = Backbone.Router.extend({
     RootView.getInstance().setView(shareLinkView);
   },
   inbox: function(filter){
-    if (!authenticated()) { return this.bail(); }
-    // TODO add to inboxview init
-    // conversationsCollection.fetch({
-    //     data: $.param({
-    //         is_active: false,
-    //         is_draft: false,
-    //     }),
-    //     processData: true,
-    // });
-    var filterAttrs = {};
-    if (filter) {
-      switch(filter) {
-        case "closed":
-          filterAttrs.is_active = false;
-          filterAttrs.is_draft = false;
-        break;
-        case "active":
-          filterAttrs.is_active = true;
-        break;
-        default:
-          filterAttrs.is_active = true;
-        break;
-      }
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(false);
+    } else if (!hasEmail()) {
+      promise = this.doLogin(true);
     }
-    var conversationsCollection = new ConversationsCollection();
-    // Let the InboxView filter the conversationsCollection.
-    var inboxView = new InboxView($.extend(filterAttrs, {
-      collection: conversationsCollection
-    }));
-    RootView.getInstance().setView(inboxView);
+    promise.then(function() {
+      // TODO add to inboxview init
+      // conversationsCollection.fetch({
+      //     data: $.param({
+      //         is_active: false,
+      //         is_draft: false,
+      //     }),
+      //     processData: true,
+      // });
+      var filterAttrs = {};
+      if (filter) {
+        switch(filter) {
+          case "closed":
+            filterAttrs.is_active = false;
+            filterAttrs.is_draft = false;
+          break;
+          case "active":
+            filterAttrs.is_active = true;
+          break;
+          default:
+            filterAttrs.is_active = true;
+          break;
+        }
+      }
+      var conversationsCollection = new ConversationsCollection();
+      // Let the InboxView filter the conversationsCollection.
+      var inboxView = new InboxView($.extend(filterAttrs, {
+        collection: conversationsCollection
+      }));
+      RootView.getInstance().setView(inboxView);
+    });
   },
   homepageView: function(){
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
   createConversation: function(){
-    if (!authenticated()) { return this.bail(); }
-    function onFail(err) {
-      alert("failed to create new conversation");
-      console.dir(err);
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(false);
+    } else if (!hasEmail()) {
+      promise = this.doLogin(true);
     }
     var that = this;
-    conversationsCollection = new ConversationsCollection();
+    promise.then(function() {
+      function onFail(err) {
+        alert("failed to create new conversation");
+        console.dir(err);
+      }
+      conversationsCollection = new ConversationsCollection();
 
-    var model = new ConversationModel({
-      is_draft: true,
-      is_active: true // TODO think
-    });
-
-    model.save().then(function(data) {
-      var sid = data[0][0].sid;
-      model.set("sid", sid);
-
-      var ptpt = new ParticipantModel({
-        sid: sid
+      var model = new ConversationModel({
+        is_draft: true,
+        is_active: true // TODO think
       });
-      return ptpt.save();
-    }).then(function(ptptAttrs) {
-      var createConversationFormView = new CreateConversationFormView({
-        model: model,
-        collection: conversationsCollection,
-        pid: ptptAttrs.pid,
-        add: true
-      });
-      that.listenTo(createConversationFormView, "all", function(eventName, data) {
-        if (eventName === "done") {
-          var suurls = data;
-            if (suurls) {
-            var suurlsCsv = [];
-            var len = suurls.xids.length;
-            var xids = suurls.xids;
-            var urls = suurls.urls;
-            for (var i = 0; i < len; i++) {
-              suurlsCsv.push({xid: xids[i], url: urls[i]});
+
+      model.save().then(function(data) {
+        var sid = data[0][0].sid;
+        model.set("sid", sid);
+
+        var ptpt = new ParticipantModel({
+          sid: sid
+        });
+        return ptpt.save();
+      }).then(function(ptptAttrs) {
+        var createConversationFormView = new CreateConversationFormView({
+          model: model,
+          collection: conversationsCollection,
+          pid: ptptAttrs.pid,
+          add: true
+        });
+        that.listenTo(createConversationFormView, "all", function(eventName, data) {
+          if (eventName === "done") {
+            var suurls = data;
+              if (suurls) {
+              var suurlsCsv = [];
+              var len = suurls.xids.length;
+              var xids = suurls.xids;
+              var urls = suurls.urls;
+              for (var i = 0; i < len; i++) {
+                suurlsCsv.push({xid: xids[i], url: urls[i]});
+              }
+              model.set("suurls", suurlsCsv);
             }
-            model.set("suurls", suurlsCsv);
+            that.gotoShareView(model);
+            // that.navigate("inbox", {trigger: true});
+            //that.inbox();
           }
-          that.gotoShareView(model);
-          // that.navigate("inbox", {trigger: true});
-          //that.inbox();
-        }
-      });
-      RootView.getInstance().setView(createConversationFormView);
-      $("[data-toggle='checkbox']").each(function() {
-        var $checkbox = $(this);
-        $checkbox.checkbox();
-      });
-    }, onFail);
+        });
+        RootView.getInstance().setView(createConversationFormView);
+        $("[data-toggle='checkbox']").each(function() {
+          var $checkbox = $(this);
+          $checkbox.checkbox();
+        });
+      }, onFail);
+    });
   },
   doLaunchConversation: function(ptptModel) {
     var sid = ptptModel.get("sid");
@@ -577,28 +602,15 @@ var polisRouter = Backbone.Router.extend({
       data: $.param(data),
       processData: true
     }).then(function() {
-      var createUserFormView = new ConversationGatekeeperViewCreateUser({
+      var view = new ConversationGatekeeperViewCreateUser({
         model : model
       });
-      createUserFormView.on("authenticated", dfd.resolve);
-      RootView.getInstance().setView(createUserFormView);
+      view.on("authenticated", dfd.resolve);
+      RootView.getInstance().setView(view);
     },function(e) {
       console.error("error loading conversation model", e);
       setTimeout(function() { that.participationView(sid); }, 5000); // retry
     });
-    return dfd.promise();
-  },
-  doCreateUser: function(zinvite){
-    var dfd = $.Deferred();
-
-    var createUserFormView = new CreateUserFormView({
-      model : new Backbone.Model({
-        zinvite: zinvite,
-        create: true
-      })
-    });
-    createUserFormView.on("authenticated", dfd.resolve);
-    RootView.getInstance().setView(createUserFormView);
     return dfd.promise();
   },
   redirect: function(path) {

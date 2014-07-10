@@ -1,3 +1,5 @@
+var _ = require("underscore");
+
 var store = (function() {
     // Using cookies because IE can have crazy security settings that make localStorage off-limits.
     // We may want
@@ -100,6 +102,16 @@ var store = (function() {
             return Number(getter(key));
         };
     }
+    function asNumberWithFalsyAsZero(getter) {
+        return function(key) {
+            var val = getter(key);
+            if (_.isUndefined(val)) {
+                return 0;
+            } else {
+                return Number(val);
+            }
+        };
+    }
 
     // function makeMapAccessor(accessor) {
     //     var oldGet = accessor.get;
@@ -155,7 +167,9 @@ module.exports = {
         hasEmail: makeAccessor("e").get,
         // email: makeAccessor("email").get,
         //username: makeAccessor("p_username"),
-        uid: asNumber(makeAccessor("uid2").get)
+        uid: asNumber(makeAccessor("uid2").get),
+        plan: asNumberWithFalsyAsZero(makeAccessor("plan").get),
+        userCreated: asNumberWithFalsyAsZero(makeAccessor("uc").get) // using asNumberWithFalsyAsZero to not break existing logged-in users July 2014
 
         //token: makeAccessor("p_authToken")
     };
