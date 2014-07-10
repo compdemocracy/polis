@@ -4393,7 +4393,7 @@ function(req, res) {
             }
 
             return sendEinviteEmail(email, einvite, server).then(function() {
-                res.status(200).send("");
+                res.status(200).json({});
             });
         });
     }).catch(function(err) {
