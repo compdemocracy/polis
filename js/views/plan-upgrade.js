@@ -27,7 +27,7 @@ module.exports = View.extend({
 
     var that = this;
 
-    this.stripeKey = /localhost/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
+    this.stripeKey = /localhost|preprod.pol.is/.test(document.domain) ? "pk_test_x6ETDQy1aCvKnaIJ2dyYFVVj" : "pk_live_zSFep14gq0gqnVkKVp6vI9eM";
 
     /* isn't it crystal clear what's going on here? le sigh. */
     this.listenTo(this, "render", function(){
