@@ -1,4 +1,4 @@
-(defproject polis-math "0.1.0-SNAPSHOT"
+(defproject polismath "0.1.0-SNAPSHOT"
   :source-paths ["src/"
                  "src/polismath/"
                  ".lein-git-deps/debug-repl/src/"
