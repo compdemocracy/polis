@@ -1,6 +1,8 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [polismath.simulation :as sim]
+            [polismath.poller :as poll]
+            [environ.core :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]])
   (:use [backtype.storm clojure config]
@@ -10,7 +12,7 @@
   (:gen-class))
 
 
-(defspout sim-reaction-spout ["conv-id" "reaction"] {:prepare true}
+(defspout sim-reaction-spout ["zid" "last-timestamp" "reaction"] {:prepare true}
   [conf context collector]
   (let [at-a-time 10
         interval 1000
@@ -26,49 +28,45 @@
     (spout
       (nextTuple []
         (let [rxn-batch (take at-a-time @reaction-gen)
-              split-rxns (group-by :zid rxn-batch)]
+              split-rxns (group-by :zid rxn-batch)
+              last-timestamp (System/currentTimeMillis)]
           (Thread/sleep interval)
           (println "RUNNING SPOUT")
           (swap! reaction-gen (partial drop at-a-time))
-          (doseq [[conv-id rxns] split-rxns]
-            (emit-spout! collector [conv-id rxns]))))
+          (doseq [[zid rxns] split-rxns]
+            (emit-spout! collector [zid last-timestamp rxns]))))
       (ack [id]))))
 
 
-(defspout reaction-spout ["conv-id" "reaction"] {:prepare true}
+(defspout reaction-spout ["zid" "last-timestamp" "reaction"] {:prepare true}
   [conf context collector]
   (let [poll-interval   1000
-        pg-spec         (heroku-db-spec (env/env :database-url))
-        mg-db           (mongo-connect! (env/env :mongo-url))
+        pg-spec         (poll/heroku-db-spec (env/env :database-url))
+        mg-db           (poll/mongo-connect! (env/env :mongo-url))
         last-timestamp  (atom 0)]
     (spout
       (nextTuple []
         (Thread/sleep poll-interval)
         (println "poll >" @last-timestamp)
-        (let [new-votes (poll pg-spec @last-timestamp)
+        (let [new-votes (poll/poll pg-spec @last-timestamp)
               grouped-votes (group-by :zid)]
-          (doseq [[conv-id rxns] grouped-votes]
-            (emit-spout! collector [conv-id rxns]))
+          (doseq [[zid rxns] grouped-votes]
+            (emit-spout! collector [zid @last-timestamp rxns]))
           (swap! last-timestamp (fn [_] (:created (last new-votes))))))
       (ack [id]))))
 
-; Some thoughts here
-; * need to pass through lastVoteTimestamp?
-; * need to think about atoms vs other reftypes more; do we want to be spawning extra threads in this case?
-;   storm gives us threads for free so... But the queueing behaviour is nice there. What refs will tell us
-;   when things are waiting for us? Can build a queue and only start firing updates when we aren't already
-;   running. But then likely need a watcher... so starting to look messier.
 
-(defbolt conv-update-bolt ["conv"] {:prepare true}
+(defbolt conv-update-bolt ["conv"] {:prepare true :params [write?]}
   [conf context collector]
-  (let [conv (agent {:rating-mat (named-matrix)})]
+  (let [conv (agent (new-conv))]
     (bolt (execute [tuple]
-      (let [[conv-id rxns] (.getValues tuple)]
+      (let [[zid last-timestamp rxns] (.getValues tuple)]
         ; Perform the computational update
         (send conv conv-update rxns)
         ; Format and upload results
-        (->> (format-conv-for-mongo conv zid lastVoteTimestamp)
-          (mongo-upsert-results "polismath_bidToPid_april9" zid lastVoteTimestamp))
+        (when write?
+          (->> (poll/format-conv-for-mongo @conv zid last-timestamp)
+            (poll/mongo-upsert-results "polismath_bidToPid_april9" zid last-timestamp)))
         ; Storm stuff...
         (emit-bolt! collector
                     [@conv]
@@ -76,33 +74,37 @@
         (ack! collector tuple))))))
 
 
-(defn mk-topology []
+(defn mk-topology [sim? write?]
   (topology
     ; Spouts:
-    {"1" (spout-spec reaction-spout)}
+    {"1" (spout-spec
+           (if sim? sim-reaction-spout reaction-spout))}
     ; Bolts:
     {"2" (bolt-spec
-           {"1"  ["conv-id"]}
-           conv-update-bolt)}))
+           {"1"  ["zid"]}
+           (conv-update-bolt write?))}))
 
 
-(defn run-local! []
+(defn run-local! [{sim :sim write :write}]
   (let [cluster (LocalCluster.)]
-    (.submitTopology cluster "online-pca" {TOPOLOGY-DEBUG true} (mk-topology))))
+    (.submitTopology cluster
+                     "online-pca"
+                     {TOPOLOGY-DEBUG true}
+                     (mk-topology sim write))))
 
 
-(defn submit-topology! [name]
-  (StormSubmitter/submitTopology
-    name
+(defn submit-topology! [name {sim :sim write :write}]
+  (StormSubmitter/submitTopology name
     {TOPOLOGY-DEBUG true
      TOPOLOGY-WORKERS 3}
-    (mk-topology)))
+    (mk-topology sim write)))
 
 
 (def cli-options
   "Has the same options as simulation if simulations are run"
   (into
-    [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]]
+    [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
+     ["-s" "--sim"]]
     sim/cli-options))
 
 
@@ -122,7 +124,7 @@
       (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
       :else 
         (if-let [name (:name options)]
-          (submit-topology! name)
-          (run-local!)))))
+          (submit-topology! name options)
+          (run-local! options)))))
 
 
