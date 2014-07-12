@@ -77,7 +77,7 @@
                   (count (colnames rating-mat)))
 
    :user-vote-counts
-                (plmb/fnk [rating-mat votes]
+                (plmb/fnk [rating-mat]
                   (mapv
                     (fn [rowname row] [rowname (count (remove nil? row))])
                     (rownames rating-mat)
