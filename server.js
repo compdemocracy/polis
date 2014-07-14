@@ -1577,6 +1577,17 @@ function(req, res) {
     });
 });
 
+
+function getServerNameWithProtocol(req) {
+    var server = devMode ? "http://localhost:5000" : "https://pol.is";
+
+    if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
+        server = "https://preprod.pol.is";
+    }
+    return server;
+}
+
+
 app.post("/v3/auth/pwresettoken",
     need('email', getEmail, assignToP),
 function(req, res) {
@@ -1588,10 +1599,7 @@ function(req, res) {
     getUidByEmail(email, function(err, uid) {
         setupPwReset(uid, function(err, pwresettoken) {
 
-            var server = devMode ? "http://localhost:5000" : "https://pol.is";
-            if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
-                server = "https://preprod.pol.is";
-            }
+            var server = getServerNameWithProtocol(req);
 
             sendPasswordResetEmail(uid, pwresettoken, server, function(err) {
                 if (err) { console.error(err); fail(res, 500, "Error: Couldn't send password reset email.", err); return; }
@@ -3737,7 +3745,7 @@ function(req, res){
 
                 // send notification email
                 if (req.p.send_created_email) {
-                    Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req.p.zid)]).then(function(results) {
+                    Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req, req.p.zid)]).then(function(results) {
                         var hname = results[0].hname;
                         var url = results[1];
                         sendTextToEmail(
@@ -3753,7 +3761,7 @@ function(req, res){
                             "\n" +
                             "The team at pol.is\n"
                             );
-                    }, function(err) {
+                    }).catch(function(err) {
                         yell("polis_err_sending_conversation_created_email");
                         console.dir(err);
                     });
@@ -4426,11 +4434,12 @@ function generateSingleUseUrl(sid, suzinvite) {
 }
 
 
-function getConversationUrl(zid) {
+function getConversationUrl(req, zid) {
     return Promise.all([getConversationInfo(zid), getZinvite(zid)]).then(function(results) {
         var conv = results[0];
         var zinvite = results[1];
-        var url = "https://pol.is/" + zinvite;
+
+        var url = getServerNameWithProtocol(req) + "/" + zinvite;
         return url;
     });
 }
