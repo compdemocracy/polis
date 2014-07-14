@@ -52,6 +52,7 @@ var badwords = require('badwords/object'),
     // ),
     Mailgun = require('mailgun').Mailgun,
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
+    querystring = require('querystring'),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
     SimpleCache = require("simple-lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
@@ -2193,6 +2194,1316 @@ function getUserInfoForUid2(uid, callback) {
 // }
 
 
+function sendEmail(o) {
+    return new Promise(function(resolve, reject) {
+        if (!o.to ||
+            !o.subject ||
+            (!o.text && !o.html)
+        ) {
+            o.from = o.from || 'Pol.is Support <mike@pol.is>';
+            throw new Error("polis_err_sending_email_missing_params");
+        }
+
+
+        o.html = var html = 
+'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://ww=' +
+'w.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns=3D"http://www=' +
+'.w3.org/1999/xhtml"><head>' +
+'    <title></title>' +
+'    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf=' +
+'-8">' +
+'    <style type=3D"text/css">' +
+'body {' +
+'  margin: 0;' +
+'  padding: 0;' +
+'  min-width: 100%;' +
+'}' +
+'table {' +
+'  border-collapse: collapse;' +
+'  border-spacing: 0;' +
+'}' +
+'td {' +
+'  padding: 0;' +
+'  vertical-align: top;' +
+'}' +
+'.spacer,' +
+'.border {' +
+'  font-size: 1px;' +
+'  line-height: 1px;' +
+'}' +
+'img {' +
+'  border: 0;' +
+'  -ms-interpolation-mode: bicubic;' +
+'}' +
+'.image {' +
+'  font-size: 0;' +
+'  Margin-bottom: 24px;' +
+'}' +
+'.image img {' +
+'  display: block;' +
+'}' +
+'.logo img {' +
+'  display: block;' +
+'}' +
+'strong {' +
+'  font-weight: bold;' +
+'}' +
+'h1,' +
+'h2,' +
+'h3,' +
+'p,' +
+'ol,' +
+'ul,' +
+'li {' +
+'  Margin-top: 0;' +
+'}' +
+'ol,' +
+'ul,' +
+'li {' +
+'  padding-left: 0;' +
+'}' +
+'.btn a {' +
+'  mso-hide: all;' +
+'}' +
+'blockquote {' +
+'  Margin-top: 0;' +
+'  Margin-right: 0;' +
+'  Margin-bottom: 0;' +
+'  padding-right: 0;' +
+'}' +
+'.column-top {' +
+'  font-size: 32px;' +
+'  line-height: 32px;' +
+'}' +
+'.column-bottom {' +
+'  font-size: 8px;' +
+'  line-height: 8px;' +
+'}' +
+'.column {' +
+'  text-align: left;' +
+'}' +
+'.contents {' +
+'  width: 100%;' +
+'}' +
+'.padded {' +
+'  padding-left: 32px;' +
+'  padding-right: 32px;' +
+'}' +
+'.wrapper {' +
+'  background-color: #fbfbfb;' +
+'  width: 100%;' +
+'  min-width: 620px;' +
+'  -webkit-text-size-adjust: 100%;' +
+'  -ms-text-size-adjust: 100%;' +
+'}' +
+'table.wrapper {' +
+'  table-layout: fixed;' +
+'}' +
+'.one-col,' +
+'.two-col,' +
+'.three-col {' +
+'  Margin-left: auto;' +
+'  Margin-right: auto;' +
+'  width: 600px;' +
+'}' +
+'.one-col p,' +
+'.one-col ol,' +
+'.one-col ul {' +
+'  Margin-bottom: 24px;' +
+'}' +
+'.two-col p,' +
+'.two-col ol,' +
+'.two-col ul {' +
+'  Margin-bottom: 23px;' +
+'}' +
+'.two-col .image {' +
+'  Margin-bottom: 23px;' +
+'}' +
+'.two-col .column-bottom {' +
+'  font-size: 9px;' +
+'  line-height: 9px;' +
+'}' +
+'.two-col .column {' +
+'  width: 300px;' +
+'}' +
+'.three-col p,' +
+'.three-col ol,' +
+'.three-col ul {' +
+'  Margin-bottom: 21px;' +
+'}' +
+'.three-col .image {' +
+'  Margin-bottom: 21px;' +
+'}' +
+'.three-col .column-bottom {' +
+'  font-size: 11px;' +
+'  line-height: 11px;' +
+'}' +
+'.three-col .column {' +
+'  width: 200px;' +
+'}' +
+'.three-col .first .padded {' +
+'  padding-left: 32px;' +
+'  padding-right: 16px;' +
+'}' +
+'.three-col .second .padded {' +
+'  padding-left: 24px;' +
+'  padding-right: 24px;' +
+'}' +
+'.three-col .third .padded {' +
+'  padding-left: 16px;' +
+'  padding-right: 32px;' +
+'}' +
+'@media only screen and (max-width: 620px) {' +
+'  [class*=3Dwrapper] {' +
+'    min-width: 318px !important;' +
+'    width: 100%!important;' +
+'  }' +
+'  [class*=3Dwrapper] .one-col,' +
+'  [class*=3Dwrapper] .two-col,' +
+'  [class*=3Dwrapper] .three-col {' +
+'    width: 318px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .column {' +
+'    display: block;' +
+'    width: 318px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .padded {' +
+'    padding-left: 32px !important;' +
+'    padding-right: 32px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .full {' +
+'    display: none;' +
+'  }' +
+'  [class*=3Dwrapper] .image {' +
+'    margin-bottom: 24px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .image img {' +
+'    height: auto !important;' +
+'    width: 100% !important;' +
+'  }' +
+'}' +
+'.wrapper h1 {' +
+'  font-weight: 700;' +
+'  letter-spacing: -0.03em;' +
+'  -webkit-font-smoothing: antialiased;' +
+'}' +
+'.wrapper h2 {' +
+'  font-style: italic;' +
+'  font-weight: normal;' +
+'  -webkit-font-smoothing: antialiased;' +
+'}' +
+'.wrapper h3 {' +
+'  font-weight: normal;' +
+'  -webkit-font-smoothing: antialiased;' +
+'}' +
+'.wrapper p,' +
+'.wrapper ol,' +
+'.wrapper ul {' +
+'  -moz-osx-font-smoothing: grayscale;' +
+'}' +
+'blockquote {' +
+'  font-style: italic;' +
+'}' +
+'.one-col p,' +
+'.one-col ol,' +
+'.one-col ul {' +
+'  -webkit-font-smoothing: antialiased;' +
+'}' +
+'.two-col h1 {' +
+'  letter-spacing: -0.02em;' +
+'}' +
+'.two-col p,' +
+'.two-col ol,' +
+'.two-col ul {' +
+'  -webkit-font-smoothing: antialiased;' +
+'}' +
+'.feature .one-col h1 {' +
+'  font-family: Georgia, serif;' +
+'  letter-spacing: 0;' +
+'  font-weight: normal;' +
+'}' +
+'.feature .one-col h2 {' +
+'  font-style: normal;' +
+'  font-weight: bold;' +
+'}' +
+'.feature .one-col h3 {' +
+'  font-style: italic;' +
+'}' +
+'.feature .one-col p,' +
+'.feature .one-col ol,' +
+'.feature .one-col ul {' +
+'  -webkit-font-smoothing: antialiased;' +
+'}' +
+'.border {' +
+'  background-color: #e9e9e9;' +
+'}' +
+'td.border {' +
+'  width: 1px;' +
+'}' +
+'tr.border {' +
+'  height: 1px;' +
+'}' +
+'tr.border td {' +
+'  line-height: 1px;' +
+'}' +
+'.one-col,' +
+'.two-col,' +
+'.three-col {' +
+'  background-color: #ffffff;' +
+'  font-size: 14px;' +
+'}' +
+'.one-col,' +
+'.two-col,' +
+'.three-col,' +
+'.preheader,' +
+'.header,' +
+'.footer {' +
+'  Margin-left: auto;' +
+'  Margin-right: auto;' +
+'}' +
+'.preheader {' +
+'  background: #fbfbfb;' +
+'}' +
+'.preheader table {' +
+'  width: 602px;' +
+'}' +
+'.preheader .title,' +
+'.preheader .webversion {' +
+'  padding-top: 10px;' +
+'  padding-bottom: 12px;' +
+'  color: #999999;' +
+'  font-family: Georgia, serif;' +
+'  font-size: 12px;' +
+'  font-style: italic;' +
+'  line-height: 21px;' +
+'}' +
+'.preheader .title a,' +
+'.preheader .webversion a {' +
+'  color: #999999;' +
+'}' +
+'.preheader .title a:hover,' +
+'.preheader .webversion a:hover {' +
+'  color: #454545 !important;' +
+'}' +
+'.preheader .title {' +
+'  text-align: left;' +
+'}' +
+'.preheader .webversion {' +
+'  text-align: right;' +
+'  width: 177px;' +
+'}' +
+'.wrapper h2,' +
+'.wrapper h3,' +
+'.wrapper p,' +
+'.wrapper ol,' +
+'.wrapper ul,' +
+'.wrapper .feature .one-col h1 {' +
+'  font-family: Georgia, serif;' +
+'}' +
+'@media screen and (min-width: 0) {' +
+'  .wrapper h2,' +
+'  .wrapper h3,' +
+'  .wrapper p,' +
+'  .wrapper ol,' +
+'  .wrapper ul,' +
+'  .wrapper .feature .one-col h1 {' +
+'    font-family: Georgia, serif !important;' +
+'  }' +
+'}' +
+'.wrapper .one-col h1,' +
+'.wrapper .two-col h1,' +
+'.wrapper .three-col h1,' +
+'.wrapper .feature h2,' +
+'.wrapper .header .logo,' +
+'.wrapper .btn a,' +
+'.wrapper .footer .social .social-text {' +
+'  font-family: sans-serif;' +
+'}' +
+'@media screen and (min-width: 0) {' +
+'  .wrapper .one-col h1,' +
+'  .wrapper .two-col h1,' +
+'  .wrapper .three-col h1,' +
+'  .wrapper .feature h2,' +
+'  .wrapper .header .logo,' +
+'  .wrapper .btn a,' +
+'  .wrapper .footer .social .social-text {' +
+'    font-family: Avenir, sans-serif !important;' +
+'  }' +
+'}' +
+'.wrapper .header .border td {' +
+'  width: 602px;' +
+'}' +
+'.wrapper .header .logo {' +
+'  color: #41637e;' +
+'  font-size: 26px;' +
+'  font-weight: 700;' +
+'  letter-spacing: -0.02em;' +
+'  line-height: 32px;' +
+'  padding: 32px 0;' +
+'  text-align: center;' +
+'}' +
+'.wrapper .header .logo a {' +
+'  text-decoration: none;' +
+'}' +
+'.wrapper a {' +
+'  color: #41637e;' +
+'  text-decoration: underline;' +
+'  transition: color .2s;' +
+'}' +
+'.wrapper a:hover {' +
+'  color: #454545 !important;' +
+'}' +
+'.wrapper h1 {' +
+'  color: #565656;' +
+'  font-size: 36px;' +
+'  line-height: 42px;' +
+'  Margin-bottom: 18px;' +
+'}' +
+'.wrapper h2 {' +
+'  color: #555555;' +
+'  font-size: 26px;' +
+'  line-height: 32px;' +
+'  Margin-bottom: 20px;' +
+'}' +
+'.wrapper h3 {' +
+'  color: #555555;' +
+'  font-size: 18px;' +
+'  line-height: 22px;' +
+'  Margin-bottom: 16px;' +
+'}' +
+'.wrapper h1 a,' +
+'.wrapper h2 a,' +
+'.wrapper h3 a {' +
+'  text-decoration: none;' +
+'}' +
+'.wrapper h3 a {' +
+'  color: #999999;' +
+'}' +
+'.wrapper p,' +
+'.wrapper ol,' +
+'.wrapper ul {' +
+'  color: #565656;' +
+'}' +
+'.wrapper .gray {' +
+'  background-color: #f7f7f7;' +
+'}' +
+'.wrapper .gray blockquote {' +
+'  border-left-color: #dddddd;' +
+'}' +
+'blockquote {' +
+'  font-size: 14px;' +
+'  border-left: 2px solid #e9e9e9;' +
+'  Margin-left: 0;' +
+'  padding-left: 16px;' +
+'}' +
+'table.divider {' +
+'  width: 100%;' +
+'}' +
+'.divider .inner {' +
+'  padding-bottom: 24px;' +
+'}' +
+'.divider table {' +
+'  background-color: #41637e;' +
+'  font-size: 2px;' +
+'  line-height: 2px;' +
+'  width: 60px;' +
+'}' +
+'.image .border {' +
+'  background-color: #c7c7c7;' +
+'}' +
+'.image-frame {' +
+'  background-color: #d9d9d9;' +
+'  padding: 8px;' +
+'}' +
+'.image-background {' +
+'  background-color: #f8f8f8;' +
+'  display: inline-block;' +
+'}' +
+'.btn {' +
+'  Margin-bottom: 24px;' +
+'  padding: 2px;' +
+'}' +
+'.btn a {' +
+'  background-color: #41637e;' +
+'  border: 1px solid #ffffff;' +
+'  color: #ffffff !important;' +
+'  display: inline-block;' +
+'  font-size: 13px;' +
+'  font-weight: bold;' +
+'  line-height: 15px;' +
+'  outline-color: #41637e;' +
+'  outline-style: solid;' +
+'  outline-width: 2px;' +
+'  padding: 10px 30px;' +
+'  text-align: center;' +
+'  text-decoration: none !important;' +
+'  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);' +
+'  transition: background-color 0.2s, border-color 0.2s;' +
+'  -webkit-font-smoothing: antialiased;' +
+'}' +
+'.btn a:hover {' +
+'  background-color: #454545 !important;' +
+'  color: #ffffff !important;' +
+'  outline-color: #454545 !important;' +
+'}' +
+'.one-col .column table:nth-last-child(2) td h1:last-child,' +
+'.one-col .column table:nth-last-child(2) td h2:last-child,' +
+'.one-col .column table:nth-last-child(2) td h3:last-child,' +
+'.one-col .column table:nth-last-child(2) td p:last-child,' +
+'.one-col .column table:nth-last-child(2) td ol:last-child,' +
+'.one-col .column table:nth-last-child(2) td ul:last-child {' +
+'  Margin-bottom: 24px;' +
+'}' +
+'.one-col p,' +
+'.one-col ol,' +
+'.one-col ul {' +
+'  font-size: 16px;' +
+'  line-height: 24px;' +
+'}' +
+'.one-col ol,' +
+'.one-col ul {' +
+'  Margin-left: 18px;' +
+'}' +
+'.two-col .column table:nth-last-child(2) td h1:last-child,' +
+'.two-col .column table:nth-last-child(2) td h2:last-child,' +
+'.two-col .column table:nth-last-child(2) td h3:last-child,' +
+'.two-col .column table:nth-last-child(2) td p:last-child,' +
+'.two-col .column table:nth-last-child(2) td ol:last-child,' +
+'.two-col .column table:nth-last-child(2) td ul:last-child {' +
+'  Margin-bottom: 23px;' +
+'}' +
+'.two-col .image-frame {' +
+'  padding: 6px;' +
+'}' +
+'.two-col h1 {' +
+'  font-size: 26px;' +
+'  line-height: 32px;' +
+'  Margin-bottom: 16px;' +
+'}' +
+'.two-col h2 {' +
+'  font-size: 20px;' +
+'  line-height: 26px;' +
+'  Margin-bottom: 18px;' +
+'}' +
+'.two-col h3 {' +
+'  font-size: 16px;' +
+'  line-height: 20px;' +
+'  Margin-bottom: 14px;' +
+'}' +
+'.two-col p,' +
+'.two-col ol,' +
+'.two-col ul {' +
+'  font-size: 14px;' +
+'  line-height: 23px;' +
+'}' +
+'.two-col ol,' +
+'.two-col ul {' +
+'  Margin-left: 16px;' +
+'}' +
+'.two-col li {' +
+'  padding-left: 5px;' +
+'}' +
+'.two-col .divider .inner {' +
+'  padding-bottom: 23px;' +
+'}' +
+'.two-col .btn {' +
+'  Margin-bottom: 23px;' +
+'}' +
+'.two-col blockquote {' +
+'  padding-left: 16px;' +
+'}' +
+'.three-col .column table:nth-last-child(2) td h1:last-child,' +
+'.three-col .column table:nth-last-child(2) td h2:last-child,' +
+'.three-col .column table:nth-last-child(2) td h3:last-child,' +
+'.three-col .column table:nth-last-child(2) td p:last-child,' +
+'.three-col .column table:nth-last-child(2) td ol:last-child,' +
+'.three-col .column table:nth-last-child(2) td ul:last-child {' +
+'  Margin-bottom: 21px;' +
+'}' +
+'.three-col .image-frame {' +
+'  padding: 4px;' +
+'}' +
+'.three-col h1 {' +
+'  font-size: 20px;' +
+'  line-height: 26px;' +
+'  Margin-bottom: 12px;' +
+'}' +
+'.three-col h2 {' +
+'  font-size: 16px;' +
+'  line-height: 22px;' +
+'  Margin-bottom: 14px;' +
+'}' +
+'.three-col h3 {' +
+'  font-size: 14px;' +
+'  line-height: 18px;' +
+'  Margin-bottom: 10px;' +
+'}' +
+'.three-col p,' +
+'.three-col ol,' +
+'.three-col ul {' +
+'  font-size: 12px;' +
+'  line-height: 21px;' +
+'}' +
+'.three-col ol,' +
+'.three-col ul {' +
+'  Margin-left: 14px;' +
+'}' +
+'.three-col li {' +
+'  padding-left: 6px;' +
+'}' +
+'.three-col .divider .inner {' +
+'  padding-bottom: 21px;' +
+'}' +
+'.three-col .btn {' +
+'  Margin-bottom: 21px;' +
+'}' +
+'.three-col .btn a {' +
+'  font-size: 12px;' +
+'  line-height: 14px;' +
+'  padding: 8px 19px;' +
+'}' +
+'.three-col blockquote {' +
+'  padding-left: 16px;' +
+'}' +
+'.wrapper.feature,' +
+'.wrapper.feature .one-col {' +
+'  background-color: #f7f7f7;' +
+'}' +
+'.feature .column-top {' +
+'  font-size: 36px;' +
+'  line-height: 36px;' +
+'}' +
+'.feature .column-bottom {' +
+'  font-size: 4px;' +
+'  line-height: 4px;' +
+'}' +
+'.feature .column {' +
+'  text-align: center;' +
+'}' +
+'.feature .image {' +
+'  Margin-bottom: 32px;' +
+'}' +
+'.feature .one-col .column table:last-child td h1:last-child,' +
+'.feature .one-col .column table:last-child td h2:last-child,' +
+'.feature .one-col .column table:last-child td h3:last-child,' +
+'.feature .one-col .column table:last-child td p:last-child,' +
+'.feature .one-col .column table:last-child td ol:last-child,' +
+'.feature .one-col .column table:last-child td ul:last-child {' +
+'  Margin-bottom: 32px;' +
+'}' +
+'.feature .one-col h1,' +
+'.feature .one-col h2,' +
+'.feature .one-col h3 {' +
+'  text-align: center;' +
+'}' +
+'.feature .one-col h1 {' +
+'  font-size: 52px;' +
+'  line-height: 58px;' +
+'  Margin-bottom: 22px;' +
+'}' +
+'.feature .one-col h2 {' +
+'  font-size: 42px;' +
+'  line-height: 48px;' +
+'  Margin-bottom: 20px;' +
+'}' +
+'.feature .one-col h3 {' +
+'  font-size: 32px;' +
+'  color: #555555;' +
+'  line-height: 42px;' +
+'  Margin-bottom: 20px;' +
+'}' +
+'.feature .one-col h3 a {' +
+'  color: #555555;' +
+'}' +
+'.feature .one-col p,' +
+'.feature .one-col ol,' +
+'.feature .one-col ul {' +
+'  font-size: 21px;' +
+'  line-height: 32px;' +
+'  Margin-bottom: 32px;' +
+'}' +
+'.feature .one-col p a,' +
+'.feature .one-col ol a,' +
+'.feature .one-col ul a {' +
+'  border-bottom: 1px solid #41637e;' +
+'  text-decoration: none;' +
+'}' +
+'.feature .one-col p {' +
+'  text-align: center;' +
+'}' +
+'.feature .one-col ol,' +
+'.feature .one-col ul {' +
+'  Margin-left: 40px;' +
+'  text-align: left;' +
+'}' +
+'.feature .one-col li {' +
+'  padding-left: 3px;' +
+'}' +
+'.feature .one-col .btn {' +
+'  Margin-bottom: 32px;' +
+'  text-align: center;' +
+'}' +
+'.feature .one-col .divider .inner {' +
+'  padding-bottom: 32px;' +
+'}' +
+'.feature .one-col blockquote {' +
+'  border-left: none;' +
+'  border-bottom: 2px solid #d9d9d9;' +
+'  border-top: 2px solid #d9d9d9;' +
+'  Margin-bottom: 32px;' +
+'  padding-bottom: 42px;' +
+'  padding-left: 0;' +
+'  padding-top: 42px;' +
+'  position: relative;' +
+'}' +
+'.feature .one-col blockquote:before,' +
+'.feature .one-col blockquote:after {' +
+'  content: '';' +
+'  display: block;' +
+'  background: -moz-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d=' +
+'9 75%, #f7f7f7 75%);' +
+'  background: -webkit-gradient(linear, left top, right top, color-stop(25=' +
+'%, #f7f7f7), color-stop(25%, #d9d9d9), color-stop(75%, #d9d9d9), color-st=' +
+'op(75%, #f7f7f7));' +
+'  background: -webkit-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9=' +
+'d9d9 75%, #f7f7f7 75%);' +
+'  background: -o-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9 =' +
+'75%, #f7f7f7 75%);' +
+'  background: -ms-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9=' +
+' 75%, #f7f7f7 75%);' +
+'  background: linear-gradient(to right, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9=' +
+' 75%, #f7f7f7 75%);' +
+'  position: absolute;' +
+'  height: 2px;' +
+'  width: 100%;' +
+'}' +
+'.feature .one-col blockquote:before {' +
+'  top: -2px;' +
+'}' +
+'.feature .one-col blockquote:after {' +
+'  bottom: -2px;' +
+'}' +
+'.feature .one-col blockquote p,' +
+'.feature .one-col blockquote ol,' +
+'.feature .one-col blockquote ul {' +
+'  font-size: 42px;' +
+'  line-height: 48px;' +
+'  Margin-bottom: 48px;' +
+'}' +
+'.feature .one-col blockquote p:last-child,' +
+'.feature .one-col blockquote ol:last-child,' +
+'.feature .one-col blockquote ul:last-child {' +
+'  Margin-bottom: 0 !important;' +
+'}' +
+'.footer {' +
+'  width: 602px;' +
+'}' +
+'.footer .social {' +
+'  padding-top: 32px;' +
+'  padding-bottom: 22px;' +
+'}' +
+'.footer .social .divider {' +
+'  text-align: center;' +
+'  padding-left: 14px;' +
+'  padding-right: 14px;' +
+'}' +
+'.footer .social .social-text {' +
+'  height: 21px;' +
+'  vertical-align: middle !important;' +
+'  color: #41637e;' +
+'  font-size: 10px;' +
+'  font-weight: bold;' +
+'  letter-spacing: 0.1em;' +
+'  text-decoration: none;' +
+'}' +
+'.footer .social .social-text a {' +
+'  color: #41637e;' +
+'  text-decoration: none;' +
+'}' +
+'.footer .address .padded {' +
+'  text-align: left;' +
+'}' +
+'.footer .subscription .padded {' +
+'  text-align: right;' +
+'}' +
+'.footer .padded {' +
+'  color: #999999;' +
+'  font-family: Georgia, serif;' +
+'  font-size: 12px;' +
+'  line-height: 20px;' +
+'}' +
+'.footer .address,' +
+'.footer .subscription {' +
+'  padding-top: 32px;' +
+'  padding-bottom: 64px;' +
+'  width: 300px;' +
+'}' +
+'.footer .address a,' +
+'.footer .subscription a {' +
+'  color: #999999;' +
+'  font-weight: bold;' +
+'  text-decoration: none;' +
+'}' +
+'.footer .address table,' +
+'.footer .subscription table {' +
+'  width: 100%;' +
+'}' +
+'.footer .subscription {' +
+'  text-align: right;' +
+'}' +
+'@media only screen and (max-width: 620px) {' +
+'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+' td h1:last-child,' +
+'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+' td h1:last-child,' +
+'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'2) td h1:last-child,' +
+'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+' td h2:last-child,' +
+'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+' td h2:last-child,' +
+'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'2) td h2:last-child,' +
+'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+' td h3:last-child,' +
+'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+' td h3:last-child,' +
+'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'2) td h3:last-child,' +
+'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+' td p:last-child,' +
+'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+' td p:last-child,' +
+'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'2) td p:last-child,' +
+'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+' td ol:last-child,' +
+'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+' td ol:last-child,' +
+'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'2) td ol:last-child,' +
+'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+' td ul:last-child,' +
+'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+' td ul:last-child,' +
+'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'2) td ul:last-child {' +
+'    Margin-bottom: 24px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .address,' +
+'  [class*=3Dwrapper] .subscription {' +
+'    display: block;' +
+'    width: 318px !important;' +
+'    text-align: center !important;' +
+'  }' +
+'  [class*=3Dwrapper] .address {' +
+'    padding-bottom: 0 !important;' +
+'  }' +
+'  [class*=3Dwrapper] .subscription {' +
+'    padding-top: 0 !important;' +
+'  }' +
+'  [class*=3Dwrapper] h1 {' +
+'    font-size: 36px !important;' +
+'    letter-spacing: -0.03em !important;' +
+'    line-height: 42px !important;' +
+'    Margin-bottom: 18px !important;' +
+'  }' +
+'  [class*=3Dwrapper] h2 {' +
+'    font-size: 26px !important;' +
+'    line-height: 32px !important;' +
+'    Margin-bottom: 20px !important;' +
+'  }' +
+'  [class*=3Dwrapper] h3 {' +
+'    font-size: 18px !important;' +
+'    line-height: 22px !important;' +
+'    Margin-bottom: 16px !important;' +
+'  }' +
+'  [class*=3Dwrapper] p,' +
+'  [class*=3Dwrapper] ol,' +
+'  [class*=3Dwrapper] ul {' +
+'    font-size: 16px !important;' +
+'    letter-spacing: 0 !important;' +
+'    line-height: 24px !important;' +
+'    Margin-bottom: 24px !important;' +
+'  }' +
+'  [class*=3Dwrapper] ol,' +
+'  [class*=3Dwrapper] ul {' +
+'    Margin-left: 18px !important;' +
+'  }' +
+'  [class*=3Dwrapper] li {' +
+'    padding-left: 2px !important;' +
+'  }' +
+'  [class*=3Dwrapper] blockquote {' +
+'    padding-left: 16px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .two-col .column:nth-child(n + 3) {' +
+'    border-top: 1px solid #e9e9e9;' +
+'  }' +
+'  [class*=3Dwrapper] .btn {' +
+'    margin-bottom: 24px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .btn a {' +
+'    display: block!important;' +
+'    font-size: 13px!important;' +
+'    font-weight: bold!important;' +
+'    line-height: 15px!important;' +
+'    padding: 10px 30px!important;' +
+'  }' +
+'  [class*=3Dwrapper] .column-bottom {' +
+'    font-size: 8px !important;' +
+'    line-height: 8px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .first .column-bottom,' +
+'  [class*=3Dwrapper] .three-col .second .column-bottom {' +
+'    display: none;' +
+'  }' +
+'  [class*=3Dwrapper] .second .column-top,' +
+'  [class*=3Dwrapper] .third .column-top {' +
+'    display: none;' +
+'  }' +
+'  [class*=3Dwrapper] .image-frame {' +
+'    padding: 4px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .header .logo {' +
+'    font-size: 26px !important;' +
+'    line-height: 32px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .header .logo img {' +
+'    display: inline-block !important;' +
+'    max-width: 260px !important;' +
+'    height: auto!important;' +
+'  }' +
+'  [class*=3Dwrapper] table.border,' +
+'  [class*=3Dwrapper] .header,' +
+'  [class*=3Dwrapper] .webversion,' +
+'  [class*=3Dwrapper] .footer {' +
+'    width: 320px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .preheader .webversion,' +
+'  [class*=3Dwrapper] .header .logo a {' +
+'    text-align: center !important;' +
+'  }' +
+'  [class*=3Dwrapper] .preheader table,' +
+'  [class*=3Dwrapper] .border td {' +
+'    width: 318px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .image .border td {' +
+'    width: auto !important;' +
+'  }' +
+'  [class*=3Dwrapper] .title {' +
+'    display: none;' +
+'  }' +
+'  [class*=3Dwrapper] .footer .padded {' +
+'    text-align: center!important;' +
+'  }' +
+'  [class*=3Dwrapper] .footer .subscription .padded {' +
+'    padding-top: 20px!important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature .btn {' +
+'    margin-bottom: 28px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature .image {' +
+'    margin-bottom: 28px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature .divider .inner {' +
+'    padding-bottom: 28px!important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature h1 {' +
+'    font-size: 42px !important;' +
+'    line-height: 48px !important;' +
+'    margin-bottom: 20px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature h2 {' +
+'    font-size: 32px !important;' +
+'    line-height: 36px !important;' +
+'    margin-bottom: 18px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature h3 {' +
+'    font-size: 26px !important;' +
+'    line-height: 32px !important;' +
+'    margin-bottom: 20px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature p,' +
+'  [class*=3Dwrapper] .feature ol,' +
+'  [class*=3Dwrapper] .feature ul {' +
+'    font-size: 20px !important;' +
+'    line-height: 28px !important;' +
+'    margin-bottom: 28px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature blockquote {' +
+'    font-size: 18px !important;' +
+'    line-height: 26px !important;' +
+'    margin-bottom: 28px !important;' +
+'    padding-bottom: 26px !important;' +
+'    padding-left: 0 !important;' +
+'    padding-top: 26px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature blockquote p,' +
+'  [class*=3Dwrapper] .feature blockquote ol,' +
+'  [class*=3Dwrapper] .feature blockquote ul {' +
+'    font-size: 26px !important;' +
+'    line-height: 32px !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature blockquote p:last-child,' +
+'  [class*=3Dwrapper] .feature blockquote ol:last-child,' +
+'  [class*=3Dwrapper] .feature blockquote ul:last-child {' +
+'    margin-bottom: 0 !important;' +
+'  }' +
+'  [class*=3Dwrapper] .feature .column table:last-of-type h1:last-child,' +
+'  [class*=3Dwrapper] .feature .column table:last-of-type h2:last-child,' +
+'  [class*=3Dwrapper] .feature .column table:last-of-type h3:last-child {=' +
+'' +
+'    margin-bottom: 28px !important;' +
+'  }' +
+'}' +
+'@media only screen and (max-width: 320px) {' +
+'  [class*=3Dwrapper] td.border {' +
+'    display: none;' +
+'  }' +
+'  [class*=3Dwrapper] table.border,' +
+'  [class*=3Dwrapper] .header,' +
+'  [class*=3Dwrapper] .webversion,' +
+'  [class*=3Dwrapper] .footer {' +
+'    width: 318px !important;' +
+'  }' +
+'}' +
+'</style>' +
+'    <!--[if mso]>' +
+'    <style>' +
+'      .spacer, .border, .column-top, .column-bottom {' +
+'        mso-line-height-rule: exactly;' +
+'      }' +
+'    </style>' +
+'    <![endif]-->' +
+'  </head>' +
+'  <body style=3D"margin-top: 0;margin-bottom: 0;margin-left: 0;margin-rig=' +
+'ht: 0;padding-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;m=' +
+'in-width: 100%" bgcolor=3D"#fbfbfb">' +
+'    <center class=3D"wrapper" style=3D"background-color: #fbfbfb;width: 1=' +
+'00%;min-width: 620px;-webkit-text-size-adjust: 100%;-ms-text-size-adjust:=' +
+' 100%">' +
+'      <table class=3D"wrapper" style=3D"border-collapse: collapse;border-=' +
+'spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-webkit=' +
+'-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixed">' +
+'        <tbody><tr>' +
+'          <td style=3D"padding-top: 0;padding-bottom: 0;padding-left: 0;p=' +
+'adding-right: 0;vertical-align: top">' +
+'            <center>' +
+'              <table class=3D"preheader" style=3D"border-collapse: collap=' +
+'se;border-spacing: 0;Margin-left: auto;Margin-right: auto;background-colo=' +
+'r: #fbfbfb;background-image: none;background-attachment: scroll;backgroun=' +
+'d-repeat: repeat;background-position: top left">' +
+'                <tbody><tr>' +
+'                  <td style=3D"padding-top: 0;padding-bottom: 0;padding-l=' +
+'eft: 0;padding-right: 0;vertical-align: top">' +
+'                    <table style=3D"border-collapse: collapse;border-spac=' +
+'ing: 0;width: 602px">' +
+'                      <tbody><tr>' +
+'                        <td class=3D"title" style=3D"padding-top: 10px;pa=' +
+'dding-bottom: 12px;padding-left: 0;padding-right: 0;vertical-align: top;c=' +
+'olor: #999999;font-family: Georgia, serif;font-size: 12px;font-style: ita=' +
+'lic;line-height: 21px;text-align: left">Reset your password</td>' +
+'                        <td class=3D"webversion" style=3D"padding-top: 10=' +
+'px;padding-bottom: 12px;padding-left: 0;padding-right: 0;vertical-align: =' +
+'top;color: #999999;font-family: Georgia, serif;font-size: 12px;font-style=' +
+': italic;line-height: 21px;text-align: right;width: 177px">' +
+'                          <span emb-translate=3D"NoImages">No images?</sp=' +
+'an> <a style=3D"color: #999999;text-decoration: none;transition: color .2=' +
+'s;font-weight: bold" href=3D"http://polistechnologyinc.cmail1.com/t/d-e-v=' +
+'hitjl-=' +
+'slhirikh=' +
+'-y/"><span emb-translate=3D"Web=' +
+'Version">Click here</span></a>' +
+'                        </td>' +
+'                      </tr>' +
+'                    </tbody></table>' +
+'                  </td>' +
+'                </tr>' +
+'              </tbody></table>' +
+'              <table class=3D"header" style=3D"border-collapse: collapse;=' +
+'border-spacing: 0;Margin-left: auto;Margin-right: auto">' +
+'                <tbody><tr class=3D"border" style=3D"font-size: 1px;line-=' +
+'height: 1px;background-color: #e9e9e9;height: 1px"><td style=3D"padding-t=' +
+'op: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: =' +
+'top;line-height: 1px;width: 602px">&nbsp;</td></tr>' +
+'                <tr><td class=3D"logo" style=3D"padding-top: 32px;padding=' +
+'-bottom: 32px;padding-left: 0;padding-right: 0;vertical-align: top;font-f=' +
+'amily: sans-serif;color: #41637e;font-size: 26px;font-weight: 700;letter-=' +
+'spacing: -0.02em;line-height: 32px;text-align: center" align=3D"center"><=' +
+'center><div id=3D"emb-email-header"><img style=3D"border-left-width: 0;bo=' +
+'rder-top-width: 0;border-bottom-width: 0;border-right-width: 0;-ms-interp=' +
+'olation-mode: bicubic;display: block;max-width: 333px" src=3D"http://i1.c=' +
+'mail1.com/ei/d/D0/C71/461/050040/csfinal/Screenshot2014-07-1411.53.04.png=' +
+'" alt=3D"" width=3D"222" height=3D"90"></div></center></td></tr>' +
+'              </tbody></table>' +
+'            </center>' +
+'          </td>' +
+'        </tr>' +
+'      </tbody></table>' +
+'     =20' +
+'          <table class=3D"wrapper" style=3D"border-collapse: collapse;bor=' +
+'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we=' +
+'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe=' +
+'d">' +
+'            <tbody><tr>' +
+'              <td style=3D"padding-top: 0;padding-bottom: 0;padding-left:=' +
+' 0;padding-right: 0;vertical-align: top">' +
+'                <center>' +
+'                  <table style=3D"border-collapse: collapse;border-spacin=' +
+'g: 0;Margin-left: auto;Margin-right: auto">' +
+'                    <tbody><tr class=3D"border" style=3D"font-size: 1px;l=' +
+'ine-height: 1px;background-color: #e9e9e9;height: 1px"><td style=3D"paddi=' +
+'ng-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-ali=' +
+'gn: top;line-height: 1px" colspan=3D"3">&nbsp;</td></tr>' +
+'                    <tr>' +
+'                      <td class=3D"border" style=3D"padding-top: 0;paddin=' +
+'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz=' +
+'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td=' +
+'>' +
+'                      <td style=3D"padding-top: 0;padding-bottom: 0;paddi=' +
+'ng-left: 0;padding-right: 0;vertical-align: top">' +
+'                        <table class=3D"one-col" style=3D"border-collapse=' +
+': collapse;border-spacing: 0;Margin-left: auto;Margin-right: auto;width: =' +
+'600px;background-color: #ffffff;font-size: 14px">' +
+'                          <tbody><tr>' +
+'                            <td class=3D"column" style=3D"padding-top: 0;=' +
+'padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;te=' +
+'xt-align: left">' +
+'                              <div><div class=3D"column-top" style=3D"fon=' +
+'t-size: 32px;line-height: 32px">&nbsp;</div></div>' +
+'                                <table class=3D"contents" style=3D"border=' +
+'-collapse: collapse;border-spacing: 0;width: 100%">' +
+'                                  <tbody><tr>' +
+'                                    <td class=3D"padded" style=3D"padding=' +
+'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical=' +
+'-align: top">' +
+'                                     =20' +
+'            <table class=3D"divider" style=3D"border-collapse: collapse;b=' +
+'order-spacing: 0;width: 100%"><tbody><tr><td class=3D"inner" style=3D"pad=' +
+'ding-top: 0;padding-bottom: 24px;padding-left: 0;padding-right: 0;vertica=' +
+'l-align: top" align=3D"center">' +
+'              <table style=3D"border-collapse: collapse;border-spacing: 0=' +
+';background-color: #41637e;font-size: 2px;line-height: 2px;width: 60px">' +
+'                <tbody><tr><td style=3D"padding-top: 0;padding-bottom: 0;=' +
+'padding-left: 0;padding-right: 0;vertical-align: top">&nbsp;</td></tr>' +
+'              </tbody></table>' +
+'            </td></tr></tbody></table>' +
+'         =20' +
+'                                    </td>' +
+'                                  </tr>' +
+'                                </tbody></table>' +
+'                             =20' +
+'                                <table class=3D"contents" style=3D"border=' +
+'-collapse: collapse;border-spacing: 0;width: 100%">' +
+'                                  <tbody><tr>' +
+'                                    <td class=3D"padded" style=3D"padding=' +
+'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical=' +
+'-align: top">' +
+'                                     =20' +
+'           =20' +
+'<h1 style=3D"Margin-top: 0;font-weight: 700;letter-spacing: -0.03em;-webk=' +
+'it-font-smoothing: antialiased;color: #565656;font-size: 36px;line-height=' +
+': 42px;Margin-bottom: 18px;font-family: sans-serif">Your password has bee=' +
+'n reset</h1><p style=3D"Margin-top: 0;-moz-osx-font-smoothing: grayscale;=' +
+'font-family: Georgia, serif;color: #565656;Margin-bottom: 24px;-webkit-fo=' +
+'nt-smoothing: antialiased;font-size: 16px;line-height: 24px">Click the li=' +
+'nk below to create your new password.</p><p style=3D"Margin-top: 0;-moz-o=' +
+'sx-font-smoothing: grayscale;font-family: Georgia, serif;color: #565656;M=' +
+'argin-bottom: 24px;-webkit-font-smoothing: antialiased;font-size: 16px;li=' +
+'ne-height: 24px"><a style=3D"color: #41637e;text-decoration: underline;tr=' +
+'ansition: color .2s" data-emb-href-display=3D"pol.is/passwordreset"=20' +
+'href=3D"http://polistechnologyinc.cmail1.com/t/d-l-vhitjl-=' +
+'=' +
+'slhirikh=' +
+'-r/">pol.is/passwordreset</a></p>' +
+'         =20' +
+'                                    </td>' +
+'                                  </tr>' +
+'                                </tbody></table>' +
+'                             =20' +
+'                              <div class=3D"column-bottom" style=3D"font-=' +
+'size: 8px;line-height: 8px">&nbsp;</div>' +
+'                            </td>' +
+'                          </tr>' +
+'                        </tbody></table>' +
+'                      </td>' +
+'                      <td class=3D"border" style=3D"padding-top: 0;paddin=' +
+'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz=' +
+'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td=' +
+'>' +
+'                    </tr>' +
+'                  </tbody></table>' +
+'                </center>' +
+'              </td>' +
+'            </tr>' +
+'          </tbody></table>' +
+'       =20' +
+'          <table class=3D"wrapper" style=3D"border-collapse: collapse;bor=' +
+'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we=' +
+'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe=' +
+'d">' +
+'            <tbody><tr>' +
+'              <td style=3D"padding-top: 0;padding-bottom: 0;padding-left:=' +
+' 0;padding-right: 0;vertical-align: top">' +
+'                <center>' +
+'                  <table class=3D"border" style=3D"border-collapse: colla=' +
+'pse;border-spacing: 0;font-size: 1px;line-height: 1px;background-color: #=' +
+'e9e9e9;Margin-left: auto;Margin-right: auto" width=3D"602">' +
+'                    <tbody><tr><td style=3D"padding-top: 0;padding-bottom=' +
+': 0;padding-left: 0;padding-right: 0;vertical-align: top">&nbsp;</td></tr=' +
+'>' +
+'                  </tbody></table>' +
+'                </center>' +
+'              </td>' +
+'            </tr>' +
+'          </tbody></table>' +
+'       =20' +
+'      <div class=3D"spacer" style=3D"font-size: 1px;line-height: 32px">&n=' +
+'bsp;</div>' +
+'      <table class=3D"wrapper" style=3D"border-collapse: collapse;border-=' +
+'spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-webkit=' +
+'-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixed">' +
+'        <tbody><tr>' +
+'          <td style=3D"padding-top: 0;padding-bottom: 0;padding-left: 0;p=' +
+'adding-right: 0;vertical-align: top">' +
+'            <center>' +
+'              <table class=3D"footer" style=3D"border-collapse: collapse;=' +
+'border-spacing: 0;Margin-left: auto;Margin-right: auto;width: 602px">' +
+'                <tbody><tr>' +
+'                  <td class=3D"social" style=3D"padding-top: 32px;padding=' +
+'-bottom: 22px;padding-left: 0;padding-right: 0;vertical-align: top" align=' +
+'=3D"center">' +
+'                   =20' +
+'                  </td>' +
+'                </tr>' +
+'                <tr class=3D"border" style=3D"font-size: 1px;line-height:=' +
+' 1px;background-color: #e9e9e9;height: 1px"><td style=3D"padding-top: 0;p=' +
+'adding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;lin=' +
+'e-height: 1px">&nbsp;</td></tr>' +
+'                <tr>' +
+'                  <td style=3D"padding-top: 0;padding-bottom: 0;padding-l=' +
+'eft: 0;padding-right: 0;vertical-align: top">' +
+'                    <table style=3D"border-collapse: collapse;border-spac=' +
+'ing: 0">' +
+'                      <tbody><tr>' +
+'                        <td class=3D"address" style=3D"padding-top: 32px;=' +
+'padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align: top=' +
+';width: 300px">' +
+'                          <table class=3D"contents" style=3D"border-colla=' +
+'pse: collapse;border-spacing: 0;width: 100%">' +
+'                            <tbody><tr>' +
+'                              <td class=3D"padded" style=3D"padding-top: =' +
+'0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align=' +
+': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei=' +
+'ght: 20px;text-align: left">' +
+'                                <div>&#169;&nbsp;Polis Technology Inc., 2=' +
+'014</div>' +
+'                              </td>' +
+'                            </tr>' +
+'                          </tbody></table>' +
+'                        </td>' +
+'                        <td class=3D"subscription" style=3D"padding-top: =' +
+'32px;padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align=' +
+': top;width: 300px;text-align: right">' +
+'                          <table class=3D"contents" style=3D"border-colla=' +
+'pse: collapse;border-spacing: 0;width: 100%">' +
+'                            <tbody><tr>' +
+'                              <td class=3D"padded" style=3D"padding-top: =' +
+'0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align=' +
+': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei=' +
+'ght: 20px;text-align: right">' +
+'                                <div>You are receiving this email because=' +
+' you initiated a password reset.</div>' +
+'                                <div><span><a style=3D"color: #999999;tex=' +
+'t-decoration: none;transition: color .2s;font-weight: bold" href=3D"http:=' +
+'//polistechnologyinc.updatemyprofile.com/d-vhitjl-=' +
+'=' +
+'0B132C62-slhirikh=' +
+'-j"><span emb-translate=3D"Preferences">=' +
+'Preferences</span></a>&nbsp;&nbsp;|&nbsp;&nbsp;</span><a style=3D"color: =' +
+'#999999;text-decoration: none;transition: color .2s;font-weight: bold" hr=' +
+'ef=3D"http://polistechnologyinc.cmail1.com/t/d-u-vhitjl-=' +
+'=' +
+'slhirikh=' +
+'-h/"><span emb-translate=3D"Unsubscribe">Unsubscribe</=' +
+'span></a></div>' +
+'                              </td>' +
+'                            </tr>' +
+'                          </tbody></table>' +
+'                        </td>' +
+'                      </tr>' +
+'                    </tbody></table>' +
+'                  </td>' +
+'                </tr>' +
+'              </tbody></table>' +
+'            </center>' +
+'          </td>' +
+'        </tr>' +
+'      </tbody></table>' +
+'    </center>' +
+'  <img style=3D"border-left-width: 0 !important;border-top-width: 0 !impo=' +
+'rtant;border-bottom-width: 0 !important;border-right-width: 0 !important;=' +
+'-ms-interpolation-mode: bicubic;height: 1px !important;width: 1px !import=' +
+'ant;margin-top: 0 !important;margin-bottom: 0 !important;margin-left: 0 !=' +
+'important;margin-right: 0 !important;padding-top: 0 !important;padding-bo=' +
+'ttom: 0 !important;padding-left: 0 !important;padding-right: 0 !important=' +
+'" src=3D"https://cmail1.com/t/d-o-vhitjl-=' +
+'slhirikh=' +
+'/o.gif" width=3D"1" height=3D"1" border=3D"0" alt=3D"">' +
+'</body></html>';
+
+        var post_data = querystring.stringify(o);
+
+        var username = "api";
+        var password = "key-1wbdbnhfs-qn42bmjo2a9glbzka86z16";
+        var auth = 'Basic ' + new Buffer(username + ":" + password).toString('base64');
+        var headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': post_data.length
+            // 'Host': 'www.example.com',
+            'Authorization': auth
+        };
+
+        // An object of options to indicate where to post to
+        var post_options = {
+            host: 'api.mailgun.net',
+            port: '443', // ? 80? SECURITY
+            path: '/v2/pol.is/messages',
+            method: 'POST',
+            headers: headers
+        };
+
+        var result = "";
+        // Set up the request
+        var post_req = http.request(post_options, function(res) {
+            res.setEncoding('utf8');
+            res.on('data', function (chunk) {
+                result += chunk;
+            });
+            res.on('end', function() {
+                resolve(result);
+            });
+            res.on('errors', function(err){
+                console.error("======= begin received: =======");
+                console.log(result);
+                console.error("======= end received: =======");
+                reject(err);
+            });
+        });
+
+        req.on('error', function(err) {
+            reject(err);
+        });
+
+        // post the data
+        post_req.write(post_data);
+        post_req.end();
+
+    });
+
+}
+
+
 function emailBadProblemTime(message) {
     getUserInfoForUid(uid, function(err, userInfo) {
         if (err) { return callback(err);}
@@ -2329,20 +3640,15 @@ function sendTextToEmail(uid, subject, body) {
             if (err) { return reject(err);}
             if (!userInfo) { return reject(new Error('missing user info'));}
 
-            mailgun.sendText(
-                'Polis <mike@pol.is>',
-                [userInfo.email],
-                subject,
-                body,
-                'mike@pol.is', {},
-                function(err) {
-                    if (err) {
-                        console.error('mailgun send error');
-                        return reject(err);
-                    }
-                    resolve();
-                }
-            );
+            sendEmail({
+                to: userInfo.email,
+                body: body
+            }).then(function(response) {
+                resolve();
+            }, function(err) {
+                console.error('mailgun send error');
+                return reject(err);
+            });
         });
     });
 }
