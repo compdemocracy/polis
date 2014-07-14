@@ -24,8 +24,8 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 var badwords = require('badwords/object'),
     dgram = require('dgram'),
     http = require('http'),
-    https = require('https'),
     httpProxy = require('http-proxy'),
+    https = require('https'),
     Promise = require('es6-promise').Promise,
     express = require('express'),
     app = express(),
@@ -53,7 +53,6 @@ var badwords = require('badwords/object'),
     // ),
     Mailgun = require('mailgun').Mailgun,
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
-    mimelib = require('mimelib'),
     querystring = require('querystring'),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
     SimpleCache = require("simple-lru-cache"),
@@ -2211,16 +2210,14 @@ function sendEmail(o) {
     console.log(12345678);
 
         o.from = o.from || 'Pol.is Support <mike@pol.is>';
-        // BEGIN_HTML
-o.html = 
-//mimelib.foldLine(
-'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://ww=' +
-'w.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns=3D"http://www=' +
-'.w3.org/1999/xhtml"><head>' +
-'    <title></title>' +
-'    <meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf=' +
-'-8">' +
-'    <style type=3D"text/css">' +
+        
+        delete o.text;
+        o.html =
+'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">' +
+'<head>' +
+'<title></title>' +
+'<meta http-equiv="Content-Type" content="text/html; charset=utf=8">' +
+'<style type="text/css">' +
 'body {' +
 '  margin: 0;' +
 '  padding: 0;' +
@@ -2362,30 +2359,30 @@ o.html =
 '  padding-right: 32px;' +
 '}' +
 '@media only screen and (max-width: 620px) {' +
-'  [class*=3Dwrapper] {' +
+'  [class*=wrapper] {' +
 '    min-width: 318px !important;' +
 '    width: 100%!important;' +
 '  }' +
-'  [class*=3Dwrapper] .one-col,' +
-'  [class*=3Dwrapper] .two-col,' +
-'  [class*=3Dwrapper] .three-col {' +
+'  [class*=wrapper] .one-col,' +
+'  [class*=wrapper] .two-col,' +
+'  [class*=wrapper] .three-col {' +
 '    width: 318px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .column {' +
+'  [class*=wrapper] .column {' +
 '    display: block;' +
 '    width: 318px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .padded {' +
+'  [class*=wrapper] .padded {' +
 '    padding-left: 32px !important;' +
 '    padding-right: 32px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .full {' +
+'  [class*=wrapper] .full {' +
 '    display: none;' +
 '  }' +
-'  [class*=3Dwrapper] .image {' +
+'  [class*=wrapper] .image {' +
 '    margin-bottom: 24px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .image img {' +
+'  [class*=wrapper] .image img {' +
 '    height: auto !important;' +
 '    width: 100% !important;' +
 '  }' +
@@ -2960,185 +2957,185 @@ o.html =
 '  text-align: right;' +
 '}' +
 '@media only screen and (max-width: 620px) {' +
-'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
 ' td h1:last-child,' +
-'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
 ' td h1:last-child,' +
-'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
 '2) td h1:last-child,' +
-'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
 ' td h2:last-child,' +
-'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
 ' td h2:last-child,' +
-'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
 '2) td h2:last-child,' +
-'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
 ' td h3:last-child,' +
-'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
 ' td h3:last-child,' +
-'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
 '2) td h3:last-child,' +
-'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
 ' td p:last-child,' +
-'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
 ' td p:last-child,' +
-'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
 '2) td p:last-child,' +
-'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
 ' td ol:last-child,' +
-'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
 ' td ol:last-child,' +
-'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
 '2) td ol:last-child,' +
-'  [class*=3Dwrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
 ' td ul:last-child,' +
-'  [class*=3Dwrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
 ' td ul:last-child,' +
-'  [class*=3Dwrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
 '2) td ul:last-child {' +
 '    Margin-bottom: 24px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .address,' +
-'  [class*=3Dwrapper] .subscription {' +
+'  [class*=wrapper] .address,' +
+'  [class*=wrapper] .subscription {' +
 '    display: block;' +
 '    width: 318px !important;' +
 '    text-align: center !important;' +
 '  }' +
-'  [class*=3Dwrapper] .address {' +
+'  [class*=wrapper] .address {' +
 '    padding-bottom: 0 !important;' +
 '  }' +
-'  [class*=3Dwrapper] .subscription {' +
+'  [class*=wrapper] .subscription {' +
 '    padding-top: 0 !important;' +
 '  }' +
-'  [class*=3Dwrapper] h1 {' +
+'  [class*=wrapper] h1 {' +
 '    font-size: 36px !important;' +
 '    letter-spacing: -0.03em !important;' +
 '    line-height: 42px !important;' +
 '    Margin-bottom: 18px !important;' +
 '  }' +
-'  [class*=3Dwrapper] h2 {' +
+'  [class*=wrapper] h2 {' +
 '    font-size: 26px !important;' +
 '    line-height: 32px !important;' +
 '    Margin-bottom: 20px !important;' +
 '  }' +
-'  [class*=3Dwrapper] h3 {' +
+'  [class*=wrapper] h3 {' +
 '    font-size: 18px !important;' +
 '    line-height: 22px !important;' +
 '    Margin-bottom: 16px !important;' +
 '  }' +
-'  [class*=3Dwrapper] p,' +
-'  [class*=3Dwrapper] ol,' +
-'  [class*=3Dwrapper] ul {' +
+'  [class*=wrapper] p,' +
+'  [class*=wrapper] ol,' +
+'  [class*=wrapper] ul {' +
 '    font-size: 16px !important;' +
 '    letter-spacing: 0 !important;' +
 '    line-height: 24px !important;' +
 '    Margin-bottom: 24px !important;' +
 '  }' +
-'  [class*=3Dwrapper] ol,' +
-'  [class*=3Dwrapper] ul {' +
+'  [class*=wrapper] ol,' +
+'  [class*=wrapper] ul {' +
 '    Margin-left: 18px !important;' +
 '  }' +
-'  [class*=3Dwrapper] li {' +
+'  [class*=wrapper] li {' +
 '    padding-left: 2px !important;' +
 '  }' +
-'  [class*=3Dwrapper] blockquote {' +
+'  [class*=wrapper] blockquote {' +
 '    padding-left: 16px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .two-col .column:nth-child(n + 3) {' +
+'  [class*=wrapper] .two-col .column:nth-child(n + 3) {' +
 '    border-top: 1px solid #e9e9e9;' +
 '  }' +
-'  [class*=3Dwrapper] .btn {' +
+'  [class*=wrapper] .btn {' +
 '    margin-bottom: 24px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .btn a {' +
+'  [class*=wrapper] .btn a {' +
 '    display: block!important;' +
 '    font-size: 13px!important;' +
 '    font-weight: bold!important;' +
 '    line-height: 15px!important;' +
 '    padding: 10px 30px!important;' +
 '  }' +
-'  [class*=3Dwrapper] .column-bottom {' +
+'  [class*=wrapper] .column-bottom {' +
 '    font-size: 8px !important;' +
 '    line-height: 8px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .first .column-bottom,' +
-'  [class*=3Dwrapper] .three-col .second .column-bottom {' +
+'  [class*=wrapper] .first .column-bottom,' +
+'  [class*=wrapper] .three-col .second .column-bottom {' +
 '    display: none;' +
 '  }' +
-'  [class*=3Dwrapper] .second .column-top,' +
-'  [class*=3Dwrapper] .third .column-top {' +
+'  [class*=wrapper] .second .column-top,' +
+'  [class*=wrapper] .third .column-top {' +
 '    display: none;' +
 '  }' +
-'  [class*=3Dwrapper] .image-frame {' +
+'  [class*=wrapper] .image-frame {' +
 '    padding: 4px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .header .logo {' +
+'  [class*=wrapper] .header .logo {' +
 '    font-size: 26px !important;' +
 '    line-height: 32px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .header .logo img {' +
+'  [class*=wrapper] .header .logo img {' +
 '    display: inline-block !important;' +
 '    max-width: 260px !important;' +
 '    height: auto!important;' +
 '  }' +
-'  [class*=3Dwrapper] table.border,' +
-'  [class*=3Dwrapper] .header,' +
-'  [class*=3Dwrapper] .webversion,' +
-'  [class*=3Dwrapper] .footer {' +
+'  [class*=wrapper] table.border,' +
+'  [class*=wrapper] .header,' +
+'  [class*=wrapper] .webversion,' +
+'  [class*=wrapper] .footer {' +
 '    width: 320px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .preheader .webversion,' +
-'  [class*=3Dwrapper] .header .logo a {' +
+'  [class*=wrapper] .preheader .webversion,' +
+'  [class*=wrapper] .header .logo a {' +
 '    text-align: center !important;' +
 '  }' +
-'  [class*=3Dwrapper] .preheader table,' +
-'  [class*=3Dwrapper] .border td {' +
+'  [class*=wrapper] .preheader table,' +
+'  [class*=wrapper] .border td {' +
 '    width: 318px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .image .border td {' +
+'  [class*=wrapper] .image .border td {' +
 '    width: auto !important;' +
 '  }' +
-'  [class*=3Dwrapper] .title {' +
+'  [class*=wrapper] .title {' +
 '    display: none;' +
 '  }' +
-'  [class*=3Dwrapper] .footer .padded {' +
+'  [class*=wrapper] .footer .padded {' +
 '    text-align: center!important;' +
 '  }' +
-'  [class*=3Dwrapper] .footer .subscription .padded {' +
+'  [class*=wrapper] .footer .subscription .padded {' +
 '    padding-top: 20px!important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature .btn {' +
+'  [class*=wrapper] .feature .btn {' +
 '    margin-bottom: 28px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature .image {' +
+'  [class*=wrapper] .feature .image {' +
 '    margin-bottom: 28px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature .divider .inner {' +
+'  [class*=wrapper] .feature .divider .inner {' +
 '    padding-bottom: 28px!important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature h1 {' +
+'  [class*=wrapper] .feature h1 {' +
 '    font-size: 42px !important;' +
 '    line-height: 48px !important;' +
 '    margin-bottom: 20px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature h2 {' +
+'  [class*=wrapper] .feature h2 {' +
 '    font-size: 32px !important;' +
 '    line-height: 36px !important;' +
 '    margin-bottom: 18px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature h3 {' +
+'  [class*=wrapper] .feature h3 {' +
 '    font-size: 26px !important;' +
 '    line-height: 32px !important;' +
 '    margin-bottom: 20px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature p,' +
-'  [class*=3Dwrapper] .feature ol,' +
-'  [class*=3Dwrapper] .feature ul {' +
+'  [class*=wrapper] .feature p,' +
+'  [class*=wrapper] .feature ol,' +
+'  [class*=wrapper] .feature ul {' +
 '    font-size: 20px !important;' +
 '    line-height: 28px !important;' +
 '    margin-bottom: 28px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature blockquote {' +
+'  [class*=wrapper] .feature blockquote {' +
 '    font-size: 18px !important;' +
 '    line-height: 26px !important;' +
 '    margin-bottom: 28px !important;' +
@@ -3146,32 +3143,32 @@ o.html =
 '    padding-left: 0 !important;' +
 '    padding-top: 26px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature blockquote p,' +
-'  [class*=3Dwrapper] .feature blockquote ol,' +
-'  [class*=3Dwrapper] .feature blockquote ul {' +
+'  [class*=wrapper] .feature blockquote p,' +
+'  [class*=wrapper] .feature blockquote ol,' +
+'  [class*=wrapper] .feature blockquote ul {' +
 '    font-size: 26px !important;' +
 '    line-height: 32px !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature blockquote p:last-child,' +
-'  [class*=3Dwrapper] .feature blockquote ol:last-child,' +
-'  [class*=3Dwrapper] .feature blockquote ul:last-child {' +
+'  [class*=wrapper] .feature blockquote p:last-child,' +
+'  [class*=wrapper] .feature blockquote ol:last-child,' +
+'  [class*=wrapper] .feature blockquote ul:last-child {' +
 '    margin-bottom: 0 !important;' +
 '  }' +
-'  [class*=3Dwrapper] .feature .column table:last-of-type h1:last-child,' +
-'  [class*=3Dwrapper] .feature .column table:last-of-type h2:last-child,' +
-'  [class*=3Dwrapper] .feature .column table:last-of-type h3:last-child {=' +
+'  [class*=wrapper] .feature .column table:last-of-type h1:last-child,' +
+'  [class*=wrapper] .feature .column table:last-of-type h2:last-child,' +
+'  [class*=wrapper] .feature .column table:last-of-type h3:last-child {=' +
 '' +
 '    margin-bottom: 28px !important;' +
 '  }' +
 '}' +
 '@media only screen and (max-width: 320px) {' +
-'  [class*=3Dwrapper] td.border {' +
+'  [class*=wrapper] td.border {' +
 '    display: none;' +
 '  }' +
-'  [class*=3Dwrapper] table.border,' +
-'  [class*=3Dwrapper] .header,' +
-'  [class*=3Dwrapper] .webversion,' +
-'  [class*=3Dwrapper] .footer {' +
+'  [class*=wrapper] table.border,' +
+'  [class*=wrapper] .header,' +
+'  [class*=wrapper] .webversion,' +
+'  [class*=wrapper] .footer {' +
 '    width: 318px !important;' +
 '  }' +
 '}' +
@@ -3184,43 +3181,43 @@ o.html =
 '    </style>' +
 '    <![endif]-->' +
 '  </head>' +
-'  <body style=3D"margin-top: 0;margin-bottom: 0;margin-left: 0;margin-rig=' +
-'ht: 0;padding-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;m=' +
-'in-width: 100%" bgcolor=3D"#fbfbfb">' +
-'    <center class=3D"wrapper" style=3D"background-color: #fbfbfb;width: 1=' +
-'00%;min-width: 620px;-webkit-text-size-adjust: 100%;-ms-text-size-adjust:=' +
+'  <body style="margin-top: 0;margin-bottom: 0;margin-left: 0;margin-right: 0;padding-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;min-width: 100%" bgcolor="#fbfbfb">' +
+    'more foo <span style="color:green;">bar</span>'+
+
+'<center class="wrapper" style="background-color: #fbfbfb;width: 1' +
+'00%;min-width: 620px;-webkit-text-size-adjust: 100%;-ms-text-size-adjust:' +
 ' 100%">' +
-'      <table class=3D"wrapper" style=3D"border-collapse: collapse;border-=' +
-'spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-webkit=' +
+'      <table class="wrapper" style="border-collapse: collapse;border-' +
+'spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-webkit' +
 '-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixed">' +
 '        <tbody><tr>' +
-'          <td style=3D"padding-top: 0;padding-bottom: 0;padding-left: 0;p=' +
+'          <td style="padding-top: 0;padding-bottom: 0;padding-left: 0;p' +
 'adding-right: 0;vertical-align: top">' +
 '            <center>' +
-'              <table class=3D"preheader" style=3D"border-collapse: collap=' +
-'se;border-spacing: 0;Margin-left: auto;Margin-right: auto;background-colo=' +
-'r: #fbfbfb;background-image: none;background-attachment: scroll;backgroun=' +
+'              <table class="preheader" style="border-collapse: collap' +
+'se;border-spacing: 0;Margin-left: auto;Margin-right: auto;background-colo' +
+'r: #fbfbfb;background-image: none;background-attachment: scroll;backgroun' +
 'd-repeat: repeat;background-position: top left">' +
 '                <tbody><tr>' +
-'                  <td style=3D"padding-top: 0;padding-bottom: 0;padding-l=' +
+'                  <td style="padding-top: 0;padding-bottom: 0;padding-l' +
 'eft: 0;padding-right: 0;vertical-align: top">' +
-'                    <table style=3D"border-collapse: collapse;border-spac=' +
+'                    <table style="border-collapse: collapse;border-spac' +
 'ing: 0;width: 602px">' +
 '                      <tbody><tr>' +
-'                        <td class=3D"title" style=3D"padding-top: 10px;pa=' +
-'dding-bottom: 12px;padding-left: 0;padding-right: 0;vertical-align: top;c=' +
-'olor: #999999;font-family: Georgia, serif;font-size: 12px;font-style: ita=' +
+'                        <td class="title" style="padding-top: 10px;pa' +
+'dding-bottom: 12px;padding-left: 0;padding-right: 0;vertical-align: top;c' +
+'olor: #999999;font-family: Georgia, serif;font-size: 12px;font-style: ita' +
 'lic;line-height: 21px;text-align: left">Reset your password</td>' +
-'                        <td class=3D"webversion" style=3D"padding-top: 10=' +
-'px;padding-bottom: 12px;padding-left: 0;padding-right: 0;vertical-align: =' +
-'top;color: #999999;font-family: Georgia, serif;font-size: 12px;font-style=' +
+'                        <td class="webversion" style="padding-top: 10' +
+'px;padding-bottom: 12px;padding-left: 0;padding-right: 0;vertical-align: ' +
+'top;color: #999999;font-family: Georgia, serif;font-size: 12px;font-style' +
 ': italic;line-height: 21px;text-align: right;width: 177px">' +
-'                          <span emb-translate=3D"NoImages">No images?</sp=' +
-'an> <a style=3D"color: #999999;text-decoration: none;transition: color .2=' +
-'s;font-weight: bold" href=3D"http://polistechnologyinc.cmail1.com/t/d-e-v=' +
-'hitjl-=' +
-'slhirikh=' +
-'-y/"><span emb-translate=3D"Web=' +
+'                          <span emb-translate="NoImages">No images?</sp' +
+'an> <a style="color: #999999;text-decoration: none;transition: color .2' +
+'s;font-weight: bold" href="http://polistechnologyinc.cmail1.com/t/d-e-v' +
+'hitjl-' +
+'slhirikh' +
+'-y/"><span emb-translate="Web' +
 'Version">Click here</span></a>' +
 '                        </td>' +
 '                      </tr>' +
@@ -3228,116 +3225,116 @@ o.html =
 '                  </td>' +
 '                </tr>' +
 '              </tbody></table>' +
-'              <table class=3D"header" style=3D"border-collapse: collapse;=' +
+'              <table class="header" style="border-collapse: collapse;' +
 'border-spacing: 0;Margin-left: auto;Margin-right: auto">' +
-'                <tbody><tr class=3D"border" style=3D"font-size: 1px;line-=' +
-'height: 1px;background-color: #e9e9e9;height: 1px"><td style=3D"padding-t=' +
-'op: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: =' +
+'                <tbody><tr class="border" style="font-size: 1px;line-' +
+'height: 1px;background-color: #e9e9e9;height: 1px"><td style="padding-t' +
+'op: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: ' +
 'top;line-height: 1px;width: 602px">&nbsp;</td></tr>' +
-'                <tr><td class=3D"logo" style=3D"padding-top: 32px;padding=' +
-'-bottom: 32px;padding-left: 0;padding-right: 0;vertical-align: top;font-f=' +
-'amily: sans-serif;color: #41637e;font-size: 26px;font-weight: 700;letter-=' +
-'spacing: -0.02em;line-height: 32px;text-align: center" align=3D"center"><=' +
-'center><div id=3D"emb-email-header"><img style=3D"border-left-width: 0;bo=' +
-'rder-top-width: 0;border-bottom-width: 0;border-right-width: 0;-ms-interp=' +
-'olation-mode: bicubic;display: block;max-width: 333px" src=3D"http://i1.c=' +
-'mail1.com/ei/d/D0/C71/461/050040/csfinal/Screenshot2014-07-1411.53.04.png=' +
-'" alt=3D"" width=3D"222" height=3D"90"></div></center></td></tr>' +
+'                <tr><td class="logo" style="padding-top: 32px;padding' +
+'-bottom: 32px;padding-left: 0;padding-right: 0;vertical-align: top;font-f' +
+'amily: sans-serif;color: #41637e;font-size: 26px;font-weight: 700;letter-' +
+'spacing: -0.02em;line-height: 32px;text-align: center" align="center"><' +
+'center><div id="emb-email-header"><img style="border-left-width: 0;bo' +
+'rder-top-width: 0;border-bottom-width: 0;border-right-width: 0;-ms-interp' +
+'olation-mode: bicubic;display: block;max-width: 333px" src="http://i1.c' +
+'mail1.com/ei/d/D0/C71/461/050040/csfinal/Screenshot2014-07-1411.53.04.png' +
+'" alt="" width="222" height="90"></div></center></td></tr>' +
 '              </tbody></table>' +
 '            </center>' +
 '          </td>' +
 '        </tr>' +
 '      </tbody></table>' +
-'     =20' +
-'          <table class=3D"wrapper" style=3D"border-collapse: collapse;bor=' +
-'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we=' +
-'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe=' +
+'      ' +
+'          <table class="wrapper" style="border-collapse: collapse;bor' +
+'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we' +
+'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe' +
 'd">' +
 '            <tbody><tr>' +
-'              <td style=3D"padding-top: 0;padding-bottom: 0;padding-left:=' +
+'              <td style="padding-top: 0;padding-bottom: 0;padding-left:' +
 ' 0;padding-right: 0;vertical-align: top">' +
 '                <center>' +
-'                  <table style=3D"border-collapse: collapse;border-spacin=' +
+'                  <table style="border-collapse: collapse;border-spacin' +
 'g: 0;Margin-left: auto;Margin-right: auto">' +
-'                    <tbody><tr class=3D"border" style=3D"font-size: 1px;l=' +
-'ine-height: 1px;background-color: #e9e9e9;height: 1px"><td style=3D"paddi=' +
-'ng-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-ali=' +
-'gn: top;line-height: 1px" colspan=3D"3">&nbsp;</td></tr>' +
+'                    <tbody><tr class="border" style="font-size: 1px;l' +
+'ine-height: 1px;background-color: #e9e9e9;height: 1px"><td style="paddi' +
+'ng-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-ali' +
+'gn: top;line-height: 1px" colspan="3">&nbsp;</td></tr>' +
 '                    <tr>' +
-'                      <td class=3D"border" style=3D"padding-top: 0;paddin=' +
-'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz=' +
-'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td=' +
+'                      <td class="border" style="padding-top: 0;paddin' +
+'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz' +
+'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td' +
 '>' +
-'                      <td style=3D"padding-top: 0;padding-bottom: 0;paddi=' +
+'                      <td style="padding-top: 0;padding-bottom: 0;paddi' +
 'ng-left: 0;padding-right: 0;vertical-align: top">' +
-'                        <table class=3D"one-col" style=3D"border-collapse=' +
-': collapse;border-spacing: 0;Margin-left: auto;Margin-right: auto;width: =' +
+'                        <table class="one-col" style="border-collapse' +
+': collapse;border-spacing: 0;Margin-left: auto;Margin-right: auto;width: ' +
 '600px;background-color: #ffffff;font-size: 14px">' +
 '                          <tbody><tr>' +
-'                            <td class=3D"column" style=3D"padding-top: 0;=' +
-'padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;te=' +
+'                            <td class="column" style="padding-top: 0;' +
+'padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;te' +
 'xt-align: left">' +
-'                              <div><div class=3D"column-top" style=3D"fon=' +
+'                              <div><div class="column-top" style="fon' +
 't-size: 32px;line-height: 32px">&nbsp;</div></div>' +
-'                                <table class=3D"contents" style=3D"border=' +
+'                                <table class="contents" style="border' +
 '-collapse: collapse;border-spacing: 0;width: 100%">' +
 '                                  <tbody><tr>' +
-'                                    <td class=3D"padded" style=3D"padding=' +
-'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical=' +
+'                                    <td class="padded" style="padding' +
+'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical' +
 '-align: top">' +
-'                                     =20' +
-'            <table class=3D"divider" style=3D"border-collapse: collapse;b=' +
-'order-spacing: 0;width: 100%"><tbody><tr><td class=3D"inner" style=3D"pad=' +
-'ding-top: 0;padding-bottom: 24px;padding-left: 0;padding-right: 0;vertica=' +
-'l-align: top" align=3D"center">' +
-'              <table style=3D"border-collapse: collapse;border-spacing: 0=' +
+'                                      ' +
+'            <table class="divider" style="border-collapse: collapse;b' +
+'order-spacing: 0;width: 100%"><tbody><tr><td class="inner" style="pad' +
+'ding-top: 0;padding-bottom: 24px;padding-left: 0;padding-right: 0;vertica' +
+'l-align: top" align="center">' +
+'              <table style="border-collapse: collapse;border-spacing: 0' +
 ';background-color: #41637e;font-size: 2px;line-height: 2px;width: 60px">' +
-'                <tbody><tr><td style=3D"padding-top: 0;padding-bottom: 0;=' +
+'                <tbody><tr><td style="padding-top: 0;padding-bottom: 0;' +
 'padding-left: 0;padding-right: 0;vertical-align: top">&nbsp;</td></tr>' +
 '              </tbody></table>' +
 '            </td></tr></tbody></table>' +
-'         =20' +
+'          ' +
 '                                    </td>' +
 '                                  </tr>' +
 '                                </tbody></table>' +
-'                             =20' +
-'                                <table class=3D"contents" style=3D"border=' +
+'                              ' +
+'                                <table class="contents" style="border' +
 '-collapse: collapse;border-spacing: 0;width: 100%">' +
 '                                  <tbody><tr>' +
-'                                    <td class=3D"padded" style=3D"padding=' +
-'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical=' +
+'                                    <td class="padded" style="padding' +
+'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical' +
 '-align: top">' +
-'                                     =20' +
-'           =20' +
-'<h1 style=3D"Margin-top: 0;font-weight: 700;letter-spacing: -0.03em;-webk=' +
-'it-font-smoothing: antialiased;color: #565656;font-size: 36px;line-height=' +
-': 42px;Margin-bottom: 18px;font-family: sans-serif">Your password has bee=' +
-'n reset</h1><p style=3D"Margin-top: 0;-moz-osx-font-smoothing: grayscale;=' +
-'font-family: Georgia, serif;color: #565656;Margin-bottom: 24px;-webkit-fo=' +
-'nt-smoothing: antialiased;font-size: 16px;line-height: 24px">Click the li=' +
-'nk below to create your new password.</p><p style=3D"Margin-top: 0;-moz-o=' +
-'sx-font-smoothing: grayscale;font-family: Georgia, serif;color: #565656;M=' +
-'argin-bottom: 24px;-webkit-font-smoothing: antialiased;font-size: 16px;li=' +
-'ne-height: 24px"><a style=3D"color: #41637e;text-decoration: underline;tr=' +
-'ansition: color .2s" data-emb-href-display=3D"pol.is/passwordreset"=20' +
-'href=3D"http://polistechnologyinc.cmail1.com/t/d-l-vhitjl-=' +
-'=' +
-'slhirikh=' +
+'                                      ' +
+'            ' +
+'<h1 style="Margin-top: 0;font-weight: 700;letter-spacing: -0.03em;-webk' +
+'it-font-smoothing: antialiased;color: #565656;font-size: 36px;line-height' +
+': 42px;Margin-bottom: 18px;font-family: sans-serif">Your password has bee' +
+'n reset</h1><p style="Margin-top: 0;-moz-osx-font-smoothing: grayscale;' +
+'font-family: Georgia, serif;color: #565656;Margin-bottom: 24px;-webkit-fo' +
+'nt-smoothing: antialiased;font-size: 16px;line-height: 24px">Click the li' +
+'nk below to create your new password.</p><p style="Margin-top: 0;-moz-o' +
+'sx-font-smoothing: grayscale;font-family: Georgia, serif;color: #565656;M' +
+'argin-bottom: 24px;-webkit-font-smoothing: antialiased;font-size: 16px;li' +
+'ne-height: 24px"><a style="color: #41637e;text-decoration: underline;tr' +
+'ansition: color .2s" data-emb-href-display="pol.is/passwordreset" ' +
+'href="http://polistechnologyinc.cmail1.com/t/d-l-vhitjl-' +
+'' +
+'slhirikh' +
 '-r/">pol.is/passwordreset</a></p>' +
-'         =20' +
+'          ' +
 '                                    </td>' +
 '                                  </tr>' +
 '                                </tbody></table>' +
-'                             =20' +
-'                              <div class=3D"column-bottom" style=3D"font-=' +
+'                              ' +
+'                              <div class="column-bottom" style="font-' +
 'size: 8px;line-height: 8px">&nbsp;</div>' +
 '                            </td>' +
 '                          </tr>' +
 '                        </tbody></table>' +
 '                      </td>' +
-'                      <td class=3D"border" style=3D"padding-top: 0;paddin=' +
-'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz=' +
-'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td=' +
+'                      <td class="border" style="padding-top: 0;paddin' +
+'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz' +
+'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td' +
 '>' +
 '                    </tr>' +
 '                  </tbody></table>' +
@@ -3345,95 +3342,95 @@ o.html =
 '              </td>' +
 '            </tr>' +
 '          </tbody></table>' +
-'       =20' +
-'          <table class=3D"wrapper" style=3D"border-collapse: collapse;bor=' +
-'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we=' +
-'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe=' +
+'        ' +
+'          <table class="wrapper" style="border-collapse: collapse;bor' +
+'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we' +
+'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe' +
 'd">' +
 '            <tbody><tr>' +
-'              <td style=3D"padding-top: 0;padding-bottom: 0;padding-left:=' +
+'              <td style="padding-top: 0;padding-bottom: 0;padding-left:' +
 ' 0;padding-right: 0;vertical-align: top">' +
 '                <center>' +
-'                  <table class=3D"border" style=3D"border-collapse: colla=' +
-'pse;border-spacing: 0;font-size: 1px;line-height: 1px;background-color: #=' +
-'e9e9e9;Margin-left: auto;Margin-right: auto" width=3D"602">' +
-'                    <tbody><tr><td style=3D"padding-top: 0;padding-bottom=' +
-': 0;padding-left: 0;padding-right: 0;vertical-align: top">&nbsp;</td></tr=' +
+'                  <table class="border" style="border-collapse: colla' +
+'pse;border-spacing: 0;font-size: 1px;line-height: 1px;background-color: #' +
+'e9e9e9;Margin-left: auto;Margin-right: auto" width="602">' +
+'                    <tbody><tr><td style="padding-top: 0;padding-bottom' +
+': 0;padding-left: 0;padding-right: 0;vertical-align: top">&nbsp;</td></tr' +
 '>' +
 '                  </tbody></table>' +
 '                </center>' +
 '              </td>' +
 '            </tr>' +
 '          </tbody></table>' +
-'       =20' +
-'      <div class=3D"spacer" style=3D"font-size: 1px;line-height: 32px">&n=' +
+'        ' +
+'      <div class="spacer" style="font-size: 1px;line-height: 32px">&n' +
 'bsp;</div>' +
-'      <table class=3D"wrapper" style=3D"border-collapse: collapse;border-=' +
-'spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-webkit=' +
+'      <table class="wrapper" style="border-collapse: collapse;border-' +
+'spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-webkit' +
 '-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixed">' +
 '        <tbody><tr>' +
-'          <td style=3D"padding-top: 0;padding-bottom: 0;padding-left: 0;p=' +
+'          <td style="padding-top: 0;padding-bottom: 0;padding-left: 0;p' +
 'adding-right: 0;vertical-align: top">' +
 '            <center>' +
-'              <table class=3D"footer" style=3D"border-collapse: collapse;=' +
+'              <table class="footer" style="border-collapse: collapse;' +
 'border-spacing: 0;Margin-left: auto;Margin-right: auto;width: 602px">' +
 '                <tbody><tr>' +
-'                  <td class=3D"social" style=3D"padding-top: 32px;padding=' +
-'-bottom: 22px;padding-left: 0;padding-right: 0;vertical-align: top" align=' +
-'=3D"center">' +
-'                   =20' +
+'                  <td class="social" style="padding-top: 32px;padding' +
+'-bottom: 22px;padding-left: 0;padding-right: 0;vertical-align: top" align' +
+'="center">' +
+'                    ' +
 '                  </td>' +
 '                </tr>' +
-'                <tr class=3D"border" style=3D"font-size: 1px;line-height:=' +
-' 1px;background-color: #e9e9e9;height: 1px"><td style=3D"padding-top: 0;p=' +
-'adding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;lin=' +
+'                <tr class="border" style="font-size: 1px;line-height:' +
+' 1px;background-color: #e9e9e9;height: 1px"><td style="padding-top: 0;p' +
+'adding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;lin' +
 'e-height: 1px">&nbsp;</td></tr>' +
 '                <tr>' +
-'                  <td style=3D"padding-top: 0;padding-bottom: 0;padding-l=' +
+'                  <td style="padding-top: 0;padding-bottom: 0;padding-l' +
 'eft: 0;padding-right: 0;vertical-align: top">' +
-'                    <table style=3D"border-collapse: collapse;border-spac=' +
+'                    <table style="border-collapse: collapse;border-spac' +
 'ing: 0">' +
 '                      <tbody><tr>' +
-'                        <td class=3D"address" style=3D"padding-top: 32px;=' +
-'padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align: top=' +
+'                        <td class="address" style="padding-top: 32px;' +
+'padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align: top' +
 ';width: 300px">' +
-'                          <table class=3D"contents" style=3D"border-colla=' +
+'                          <table class="contents" style="border-colla' +
 'pse: collapse;border-spacing: 0;width: 100%">' +
 '                            <tbody><tr>' +
-'                              <td class=3D"padded" style=3D"padding-top: =' +
-'0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align=' +
-': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei=' +
+'                              <td class="padded" style="padding-top: ' +
+'0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align' +
+': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei' +
 'ght: 20px;text-align: left">' +
-'                                <div>&#169;&nbsp;Polis Technology Inc., 2=' +
+'                                <div>&#169;&nbsp;Polis Technology Inc., 2' +
 '014</div>' +
 '                              </td>' +
 '                            </tr>' +
 '                          </tbody></table>' +
 '                        </td>' +
-'                        <td class=3D"subscription" style=3D"padding-top: =' +
-'32px;padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align=' +
+'                        <td class="subscription" style="padding-top: ' +
+'32px;padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align' +
 ': top;width: 300px;text-align: right">' +
-'                          <table class=3D"contents" style=3D"border-colla=' +
+'                          <table class="contents" style="border-colla' +
 'pse: collapse;border-spacing: 0;width: 100%">' +
 '                            <tbody><tr>' +
-'                              <td class=3D"padded" style=3D"padding-top: =' +
-'0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align=' +
-': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei=' +
+'                              <td class="padded" style="padding-top: ' +
+'0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align' +
+': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei' +
 'ght: 20px;text-align: right">' +
-'                                <div>You are receiving this email because=' +
+'                                <div>You are receiving this email because' +
 ' you initiated a password reset.</div>' +
-'                                <div><span><a style=3D"color: #999999;tex=' +
-'t-decoration: none;transition: color .2s;font-weight: bold" href=3D"http:=' +
-'//polistechnologyinc.updatemyprofile.com/d-vhitjl-=' +
-'=' +
-'0B132C62-slhirikh=' +
-'-j"><span emb-translate=3D"Preferences">=' +
-'Preferences</span></a>&nbsp;&nbsp;|&nbsp;&nbsp;</span><a style=3D"color: =' +
-'#999999;text-decoration: none;transition: color .2s;font-weight: bold" hr=' +
-'ef=3D"http://polistechnologyinc.cmail1.com/t/d-u-vhitjl-=' +
-'=' +
-'slhirikh=' +
-'-h/"><span emb-translate=3D"Unsubscribe">Unsubscribe</=' +
+'                                <div><span><a style="color: #999999;tex' +
+'t-decoration: none;transition: color .2s;font-weight: bold" href="http:' +
+'//polistechnologyinc.updatemyprofile.com/d-vhitjl-' +
+'' +
+'0B132C62-slhirikh' +
+'-j"><span emb-translate="Preferences">' +
+'Preferences</span></a>&nbsp;&nbsp;|&nbsp;&nbsp;</span><a style="color: ' +
+'#999999;text-decoration: none;transition: color .2s;font-weight: bold" hr' +
+'ef="http://polistechnologyinc.cmail1.com/t/d-u-vhitjl-' +
+'' +
+'slhirikh' +
+'-h/"><span emb-translate="Unsubscribe">Unsubscribe</' +
 'span></a></div>' +
 '                              </td>' +
 '                            </tr>' +
@@ -3449,60 +3446,26 @@ o.html =
 '        </tr>' +
 '      </tbody></table>' +
 '    </center>' +
-'  <img style=3D"border-left-width: 0 !important;border-top-width: 0 !impo=' +
-'rtant;border-bottom-width: 0 !important;border-right-width: 0 !important;=' +
-'-ms-interpolation-mode: bicubic;height: 1px !important;width: 1px !import=' +
-'ant;margin-top: 0 !important;margin-bottom: 0 !important;margin-left: 0 !=' +
-'important;margin-right: 0 !important;padding-top: 0 !important;padding-bo=' +
-'ttom: 0 !important;padding-left: 0 !important;padding-right: 0 !important=' +
-'" src=3D"https://cmail1.com/t/d-o-vhitjl-=' +
-'slhirikh=' +
-'/o.gif" width=3D"1" height=3D"1" border=3D"0" alt=3D"">' +
-'</body></html>'
+'  <img style="border-left-width: 0 !important;border-top-width: 0 !impo' +
+'rtant;border-bottom-width: 0 !important;border-right-width: 0 !important;' +
+'-ms-interpolation-mode: bicubic;height: 1px !important;width: 1px !import' +
+'ant;margin-top: 0 !important;margin-bottom: 0 !important;margin-left: 0 !' +
+'important;margin-right: 0 !important;padding-top: 0 !important;padding-bo' +
+'ttom: 0 !important;padding-left: 0 !important;padding-right: 0 !important' +
+'" src="https://cmail1.com/t/d-o-vhitjl-' +
+'slhirikh' +
+'/o.gif" width="1" height="1" border="0" alt="">' +
 
-// END_HTML
-// )
-;
-        // o.message = 
-// mimelib.foldLine('--_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66\n' +
-// 'Content-Type: text/plain;\n' +
-// '    charset="utf-8"\n' +
-// 'Content-Transfer-Encoding: quoted-printable\n' +
-// '\n' +
-// o.body +
-// '\n' +
-// '--_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66\n' +
-// 'Content-Type: text/html;\n' +
-// '    charset="utf-8"\n' +
-// 'Content-Transfer-Encoding: quoted-printable\n' +
-// '\n' +
-// o.html +
-// '\n' +
-// '\n' +
-// '\n' +
-// '\n' +
-// '\n' +
-// '--_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66--');
+'  </body>';
 
-delete o.html;
-// delete o.text;
-// o.html = "<html> hello from html </html>";
-// o.text = "foo";
-o.text = "foo";
-
-var useMime = false;
         var post_data = querystring.stringify(o);
 
         var username = "api";
         var password = "key-1wbdbnhfs-qn42bmjo2a9glbzka86z16";
         var auth = 'Basic ' + new Buffer(username + ":" + password).toString('base64');
         var headers = {
-
             'Content-Type': 'application/x-www-form-urlencoded',
             'Content-Length': post_data.length,
-
-            // 'Content-Type': 'multipart/form-data; boundary="_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66"',            
-            // 'Content-Type': 'multipart/form-data',
             // 'Host': 'www.example.com',
             'Authorization': auth
         };
@@ -3523,12 +3486,11 @@ var useMime = false;
             res.setEncoding('utf8');
             res.on('data', function (chunk) {
     console.log(1234567890);
-                console.log(chunk);
                 result += chunk;
             });
             res.on('end', function() {
     console.log(12345678901);
-                console.log(result);
+    console.log(result);
                 resolve(result);
             });
             res.on('errors', function(err){
