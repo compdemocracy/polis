@@ -24,6 +24,7 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 var badwords = require('badwords/object'),
     dgram = require('dgram'),
     http = require('http'),
+    https = require('https'),
     httpProxy = require('http-proxy'),
     Promise = require('es6-promise').Promise,
     express = require('express'),
@@ -52,6 +53,7 @@ var badwords = require('badwords/object'),
     // ),
     Mailgun = require('mailgun').Mailgun,
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
+    mimelib = require('mimelib'),
     querystring = require('querystring'),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
     SimpleCache = require("simple-lru-cache"),
@@ -2195,17 +2197,23 @@ function getUserInfoForUid2(uid, callback) {
 
 
 function sendEmail(o) {
+    console.log(1234567);
+
     return new Promise(function(resolve, reject) {
         if (!o.to ||
             !o.subject ||
             (!o.text && !o.html)
         ) {
-            o.from = o.from || 'Pol.is Support <mike@pol.is>';
+    console.log(123456777);
             throw new Error("polis_err_sending_email_missing_params");
         }
 
+    console.log(12345678);
 
-        o.html = var html = 
+        o.from = o.from || 'Pol.is Support <mike@pol.is>';
+        // BEGIN_HTML
+o.html = 
+//mimelib.foldLine(
 '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://ww=' +
 'w.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns=3D"http://www=' +
 '.w3.org/1999/xhtml"><head>' +
@@ -2858,7 +2866,7 @@ function sendEmail(o) {
 '}' +
 '.feature .one-col blockquote:before,' +
 '.feature .one-col blockquote:after {' +
-'  content: '';' +
+'  content: "";' +
 '  display: block;' +
 '  background: -moz-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d=' +
 '9 75%, #f7f7f7 75%);' +
@@ -3450,16 +3458,51 @@ function sendEmail(o) {
 '" src=3D"https://cmail1.com/t/d-o-vhitjl-=' +
 'slhirikh=' +
 '/o.gif" width=3D"1" height=3D"1" border=3D"0" alt=3D"">' +
-'</body></html>';
+'</body></html>'
 
+// END_HTML
+// )
+;
+        // o.message = 
+// mimelib.foldLine('--_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66\n' +
+// 'Content-Type: text/plain;\n' +
+// '    charset="utf-8"\n' +
+// 'Content-Transfer-Encoding: quoted-printable\n' +
+// '\n' +
+// o.body +
+// '\n' +
+// '--_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66\n' +
+// 'Content-Type: text/html;\n' +
+// '    charset="utf-8"\n' +
+// 'Content-Transfer-Encoding: quoted-printable\n' +
+// '\n' +
+// o.html +
+// '\n' +
+// '\n' +
+// '\n' +
+// '\n' +
+// '\n' +
+// '--_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66--');
+
+delete o.html;
+// delete o.text;
+// o.html = "<html> hello from html </html>";
+// o.text = "foo";
+o.text = "foo";
+
+var useMime = false;
         var post_data = querystring.stringify(o);
 
         var username = "api";
         var password = "key-1wbdbnhfs-qn42bmjo2a9glbzka86z16";
         var auth = 'Basic ' + new Buffer(username + ":" + password).toString('base64');
         var headers = {
+
             'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': post_data.length
+            'Content-Length': post_data.length,
+
+            // 'Content-Type': 'multipart/form-data; boundary="_=aspNetEmail=_9a3b12560ce643ca82e68ee3e3bedb66"',            
+            // 'Content-Type': 'multipart/form-data',
             // 'Host': 'www.example.com',
             'Authorization': auth
         };
@@ -3468,19 +3511,24 @@ function sendEmail(o) {
         var post_options = {
             host: 'api.mailgun.net',
             port: '443', // ? 80? SECURITY
-            path: '/v2/pol.is/messages',
+            path: '/v2/pol.is/messages',// + useMime ? '.mime': '', // NOTE: the v2 is mailgun's v2, not ours!
             method: 'POST',
             headers: headers
         };
+    console.log(123456789);
 
         var result = "";
         // Set up the request
-        var post_req = http.request(post_options, function(res) {
+        var post_req = https.request(post_options, function(res) {
             res.setEncoding('utf8');
             res.on('data', function (chunk) {
+    console.log(1234567890);
+                console.log(chunk);
                 result += chunk;
             });
             res.on('end', function() {
+    console.log(12345678901);
+                console.log(result);
                 resolve(result);
             });
             res.on('errors', function(err){
@@ -3491,13 +3539,15 @@ function sendEmail(o) {
             });
         });
 
-        req.on('error', function(err) {
+        post_req.on('error', function(err) {
+    console.log(123456789012);
             reject(err);
         });
 
         // post the data
         post_req.write(post_data);
         post_req.end();
+    console.log(1234567890123);
 
     });
 
@@ -3635,20 +3685,11 @@ function verifyHmacForQueryParams(path, params) {
 }
 
 function sendTextToEmail(uid, subject, body) {
-    return new Promise(function(resolve, reject) {
-        getUserInfoForUid(uid, function(err, userInfo) {
-            if (err) { return reject(err);}
-            if (!userInfo) { return reject(new Error('missing user info'));}
-
-            sendEmail({
-                to: userInfo.email,
-                body: body
-            }).then(function(response) {
-                resolve();
-            }, function(err) {
-                console.error('mailgun send error');
-                return reject(err);
-            });
+    return getUserInfoForUid2(uid).then(function(userInfo) {
+        return sendEmail({
+            to: userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
+            subject: subject,
+            text: body
         });
     });
 }
@@ -4330,6 +4371,8 @@ function sendCommentModerationEmail(uid, zid, unmoderatedCommentCount) {
 
         // NOTE: Adding zid to the subject to force the email client to create a new email thread.
         return sendTextToEmail(uid, "Waiting for review (conversation " + zid + ")", body);
+    }).catch(function(err) {
+        console.error(err);
     });
 }
 
@@ -5066,7 +5109,10 @@ function(req, res){
                             "With gratitude,\n" +
                             "\n" +
                             "The team at pol.is\n"
-                            );
+                            )
+                        .catch(function(err) {
+                            console.error(err);
+                        });
                     }).catch(function(err) {
                         yell("polis_err_sending_conversation_created_email");
                         console.dir(err);
