@@ -4430,10 +4430,7 @@ function getConversationUrl(zid) {
     return Promise.all([getConversationInfo(zid), getZinvite(zid)]).then(function(results) {
         var conv = results[0];
         var zinvite = results[1];
-        var url = "https://pol.is/" + zid;
-        if (!conv.is_public) {
-            url += "/" + zinvite;
-        }
+        var url = "https://pol.is/" + zinvite;
         return url;
     });
 }
