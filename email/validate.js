@@ -1,13 +1,20 @@
+// how to prepare an email:
+// (double check the first call to sed, make sure it escapes 's properly)
+// cat email/test.js  | sed "s/'/\\'/g" | sed 's/\=$//' | sed 's/\=3D/=/g' | sed 's/\=20/ /g' | sed "s/^/'/" | sed "s/$/' +/"
+
+
 module.exports = function(context) {
   if (!context.url) {
     throw new Error("polis_err_email_params_missing");
   }
   var html = 
-'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml">' +
-'<head>' +
-'<title></title>' +
-'<meta http-equiv="Content-Type" content="text/html; charset=utf=8">' +
-'<style type="text/css">' +
+'<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://ww' +
+'w.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www' +
+'.w3.org/1999/xhtml"><head>' +
+'    <title></title>' +
+'    <meta http-equiv="Content-Type" content="text/html; charset=utf' +
+'-8">' +
+'    <style type="text/css">' +
 'body {' +
 '  margin: 0;' +
 '  padding: 0;' +
@@ -655,18 +662,18 @@ module.exports = function(context) {
 '.feature .one-col blockquote:after {' +
 '  content: "";' +
 '  display: block;' +
-'  background: -moz-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d=' +
+'  background: -moz-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d' +
 '9 75%, #f7f7f7 75%);' +
-'  background: -webkit-gradient(linear, left top, right top, color-stop(25=' +
-'%, #f7f7f7), color-stop(25%, #d9d9d9), color-stop(75%, #d9d9d9), color-st=' +
+'  background: -webkit-gradient(linear, left top, right top, color-stop(25' +
+'%, #f7f7f7), color-stop(25%, #d9d9d9), color-stop(75%, #d9d9d9), color-st' +
 'op(75%, #f7f7f7));' +
-'  background: -webkit-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9=' +
+'  background: -webkit-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9' +
 'd9d9 75%, #f7f7f7 75%);' +
-'  background: -o-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9 =' +
+'  background: -o-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9 ' +
 '75%, #f7f7f7 75%);' +
-'  background: -ms-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9=' +
+'  background: -ms-linear-gradient(left, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9' +
 ' 75%, #f7f7f7 75%);' +
-'  background: linear-gradient(to right, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9=' +
+'  background: linear-gradient(to right, #f7f7f7 25%, #d9d9d9 25%, #d9d9d9' +
 ' 75%, #f7f7f7 75%);' +
 '  position: absolute;' +
 '  height: 2px;' +
@@ -747,41 +754,41 @@ module.exports = function(context) {
 '  text-align: right;' +
 '}' +
 '@media only screen and (max-width: 620px) {' +
-'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)' +
 ' td h1:last-child,' +
-'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)' +
 ' td h1:last-child,' +
-'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(' +
 '2) td h1:last-child,' +
-'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)' +
 ' td h2:last-child,' +
-'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)' +
 ' td h2:last-child,' +
-'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(' +
 '2) td h2:last-child,' +
-'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)' +
 ' td h3:last-child,' +
-'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)' +
 ' td h3:last-child,' +
-'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(' +
 '2) td h3:last-child,' +
-'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)' +
 ' td p:last-child,' +
-'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)' +
 ' td p:last-child,' +
-'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(' +
 '2) td p:last-child,' +
-'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)' +
 ' td ol:last-child,' +
-'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)' +
 ' td ol:last-child,' +
-'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(' +
 '2) td ol:last-child,' +
-'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .one-col .column:last-child table:nth-last-child(2)' +
 ' td ul:last-child,' +
-'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)=' +
+'  [class*=wrapper] .two-col .column:last-child table:nth-last-child(2)' +
 ' td ul:last-child,' +
-'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(=' +
+'  [class*=wrapper] .three-col .column:last-child table:nth-last-child(' +
 '2) td ul:last-child {' +
 '    Margin-bottom: 24px !important;' +
 '  }' +
@@ -946,7 +953,7 @@ module.exports = function(context) {
 '  }' +
 '  [class*=wrapper] .feature .column table:last-of-type h1:last-child,' +
 '  [class*=wrapper] .feature .column table:last-of-type h2:last-child,' +
-'  [class*=wrapper] .feature .column table:last-of-type h3:last-child {=' +
+'  [class*=wrapper] .feature .column table:last-of-type h3:last-child {' +
 '' +
 '    margin-bottom: 28px !important;' +
 '  }' +
@@ -971,8 +978,10 @@ module.exports = function(context) {
 '    </style>' +
 '    <![endif]-->' +
 '  </head>' +
-'  <body style="margin-top: 0;margin-bottom: 0;margin-left: 0;margin-right: 0;padding-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;min-width: 100%" bgcolor="#fbfbfb">' +
-'<center class="wrapper" style="background-color: #fbfbfb;width: 1' +
+'  <body style="margin-top: 0;margin-bottom: 0;margin-left: 0;margin-rig' +
+'ht: 0;padding-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;m' +
+'in-width: 100%" bgcolor="#fbfbfb">' +
+'    <center class="wrapper" style="background-color: #fbfbfb;width: 1' +
 '00%;min-width: 620px;-webkit-text-size-adjust: 100%;-ms-text-size-adjust:' +
 ' 100%">' +
 '      <table class="wrapper" style="border-collapse: collapse;border-' +
@@ -989,7 +998,6 @@ module.exports = function(context) {
 '                <tbody><tr>' +
 '                  <td style="padding-top: 0;padding-bottom: 0;padding-l' +
 'eft: 0;padding-right: 0;vertical-align: top">' +
-
 // '                    <table style="border-collapse: collapse;border-spac' +
 // 'ing: 0;width: 602px">' +
 // '                      <tbody><tr>' +
@@ -1004,14 +1012,13 @@ module.exports = function(context) {
 // '                          <span emb-translate="NoImages">No images?</sp' +
 // 'an> <a style="color: #999999;text-decoration: none;transition: color .2' +
 // 's;font-weight: bold" href="http://polistechnologyinc.cmail1.com/t/d-e-v' +
-// 'hitjl-' +
+// 'hdilt-' +
 // 'slhirikh' +
 // '-y/"><span emb-translate="Web' +
 // 'Version">Click here</span></a>' +
 // '                        </td>' +
 // '                      </tr>' +
 // '                    </tbody></table>' +
-
 '                  </td>' +
 '                </tr>' +
 '              </tbody></table>' +
@@ -1028,7 +1035,7 @@ module.exports = function(context) {
 'center><div id="emb-email-header"><img style="border-left-width: 0;bo' +
 'rder-top-width: 0;border-bottom-width: 0;border-right-width: 0;-ms-interp' +
 'olation-mode: bicubic;display: block;max-width: 333px" src="http://i1.c' +
-'mail1.com/ei/d/D0/C71/461/050040/csfinal/Screenshot2014-07-1411.53.04.png' +
+'mail1.com/ei/d/C7/3A3/32F/102809/csfinal/Screenshot2014-07-1411.53.04.png' +
 '" alt="" width="222" height="90"></div></center></td></tr>' +
 '              </tbody></table>' +
 '            </center>' +
@@ -1036,46 +1043,72 @@ module.exports = function(context) {
 '        </tr>' +
 '      </tbody></table>' +
 '      ' +
-'          <table class="wrapper" style="border-collapse: collapse;bor' +
-'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we' +
-'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe' +
-'d">' +
-'            <tbody><tr>' +
+'          <table class="wrapper feature" style="border-collapse: coll' +
+'apse;border-spacing: 0;background-color: #f7f7f7;width: 100%;min-width: 6' +
+'20px;-webkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layo' +
+'ut: fixed" width="100%">' +
+'            <tbody><tr class="border" style="font-size: 1px;line-heig' +
+'ht: 1px;background-color: #e9e9e9;height: 1px"><td style="padding-top: ' +
+'0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;' +
+'line-height: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f2f2f2;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f3f3f3;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f4f4f4;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f5f5f5;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f6f6f6;height: 2px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr>' +
 '              <td style="padding-top: 0;padding-bottom: 0;padding-left:' +
-' 0;padding-right: 0;vertical-align: top">' +
-'                <center>' +
-'                  <table style="border-collapse: collapse;border-spacin' +
-'g: 0;Margin-left: auto;Margin-right: auto">' +
-'                    <tbody><tr class="border" style="font-size: 1px;l' +
-'ine-height: 1px;background-color: #e9e9e9;height: 1px"><td style="paddi' +
-'ng-top: 0;padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-ali' +
-'gn: top;line-height: 1px" colspan="3">&nbsp;</td></tr>' +
-'                    <tr>' +
-'                      <td class="border" style="padding-top: 0;paddin' +
-'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz' +
-'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td' +
-'>' +
-'                      <td style="padding-top: 0;padding-bottom: 0;paddi' +
-'ng-left: 0;padding-right: 0;vertical-align: top">' +
-'                        <table class="one-col" style="border-collapse' +
-': collapse;border-spacing: 0;Margin-left: auto;Margin-right: auto;width: ' +
-'600px;background-color: #ffffff;font-size: 14px">' +
+' 0;padding-right: 0;vertical-align: top" align="center">' +
+'                <table class="one-col" style="border-collapse: collap' +
+'se;border-spacing: 0;Margin-left: auto;Margin-right: auto;width: 600px;ba' +
+'ckground-color: #f7f7f7;font-size: 14px">' +
+'                  <tbody><tr>' +
+'                    <td class="column" style="padding-top: 0;padding-' +
+'bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;text-align' +
+': center">' +
+'                      <div><div class="column-top" style="font-size: ' +
+'36px;line-height: 36px">&nbsp;</div></div>' +
+'                        <table class="contents" style="border-collaps' +
+'e: collapse;border-spacing: 0;width: 100%">' +
 '                          <tbody><tr>' +
-'                            <td class="column" style="padding-top: 0;' +
-'padding-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;te' +
-'xt-align: left">' +
-'                              <div><div class="column-top" style="fon' +
-'t-size: 32px;line-height: 32px">&nbsp;</div></div>' +
-'                                <table class="contents" style="border' +
-'-collapse: collapse;border-spacing: 0;width: 100%">' +
-'                                  <tbody><tr>' +
-'                                    <td class="padded" style="padding' +
-'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical' +
-'-align: top">' +
-'                                      ' +
+'                            <td class="padded" style="padding-top: 0;' +
+'padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align: ' +
+'top">' +
+'                              ' +
+'            <h2 style="Margin-top: 0;font-style: normal;font-weight: bo' +
+'ld;-webkit-font-smoothing: antialiased;font-family: sans-serif;color: #55' +
+'5555;font-size: 42px;line-height: 48px;Margin-bottom: 20px;text-align: ce' +
+'nter"><strong style="font-weight: bold">Welcome</strong></h2>' +
+'          ' +
+'                            </td>' +
+'                          </tr>' +
+'                        </tbody></table>' +
+'                      ' +
+'                        <table class="contents" style="border-collaps' +
+'e: collapse;border-spacing: 0;width: 100%">' +
+'                          <tbody><tr>' +
+'                            <td class="padded" style="padding-top: 0;' +
+'padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align: ' +
+'top">' +
+'                              ' +
 '            <table class="divider" style="border-collapse: collapse;b' +
 'order-spacing: 0;width: 100%"><tbody><tr><td class="inner" style="pad' +
-'ding-top: 0;padding-bottom: 24px;padding-left: 0;padding-right: 0;vertica' +
+'ding-top: 0;padding-bottom: 32px;padding-left: 0;padding-right: 0;vertica' +
 'l-align: top" align="center">' +
 '              <table style="border-collapse: collapse;border-spacing: 0' +
 ';background-color: #41637e;font-size: 2px;line-height: 2px;width: 60px">' +
@@ -1084,88 +1117,120 @@ module.exports = function(context) {
 '              </tbody></table>' +
 '            </td></tr></tbody></table>' +
 '          ' +
-'                                    </td>' +
-'                                  </tr>' +
-'                                </tbody></table>' +
-'                              ' +
-'                                <table class="contents" style="border' +
-'-collapse: collapse;border-spacing: 0;width: 100%">' +
-'                                  <tbody><tr>' +
-'                                    <td class="padded" style="padding' +
-'-top: 0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical' +
-'-align: top">' +
-'                                      ' +
-'            ' +
-'<h1 style="Margin-top: 0;font-weight: 700;letter-spacing: -0.03em;-webk' +
-'it-font-smoothing: antialiased;color: #565656;font-size: 36px;line-height' +
-': 42px;Margin-bottom: 18px;font-family: sans-serif">Password Reset' +
-' Request</h1><p style="Margin-top: 0;-moz-osx-font-smoothing: grayscale;' +
-'font-family: Georgia, serif;color: #565656;Margin-bottom: 24px;-webkit-fo' +
-'nt-smoothing: antialiased;font-size: 16px;line-height: 24px">' +
-'We have just received a password reset request for ' +
-context.email + '. ' + 
-'</p>' +
-'<p style="Margin-top: 0;-moz-osx-font-smoothing: grayscale;' +
-'font-family: Georgia, serif;color: #565656;Margin-bottom: 24px;-webkit-fo' +
-'nt-smoothing: antialiased;font-size: 16px;line-height: 24px">' +
-'</p>' +
-'Click the li' +
-'nk below to create your new password.</p><p style="Margin-top: 0;-moz-o' +
-'sx-font-smoothing: grayscale;font-family: Georgia, serif;color: #565656;M' +
-'argin-bottom: 24px;-webkit-font-smoothing: antialiased;font-size: 16px;li' +
-'ne-height: 24px"><a style="color: #41637e;text-decoration: underline;tr' +
-'ansition: color .2s" data-emb-href-display="' +
-
-context.url +
-
-'" ' +
-'href="' +
-context.url + 
-'">'+
-
-context.url +
-
-'</a></p>' +
-'          ' +
-'                                    </td>' +
-'                                  </tr>' +
-'                                </tbody></table>' +
-'                              ' +
-'                              <div class="column-bottom" style="font-' +
-'size: 8px;line-height: 8px">&nbsp;</div>' +
 '                            </td>' +
 '                          </tr>' +
 '                        </tbody></table>' +
-'                      </td>' +
-'                      <td class="border" style="padding-top: 0;paddin' +
-'g-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;font-siz' +
-'e: 1px;line-height: 1px;background-color: #e9e9e9;width: 1px">&#8203;</td' +
-'>' +
-'                    </tr>' +
-'                  </tbody></table>' +
-'                </center>' +
+'                      ' +
+'                        <table class="contents" style="border-collaps' +
+'e: collapse;border-spacing: 0;width: 100%">' +
+'                          <tbody><tr>' +
+'                            <td class="padded" style="padding-top: 0;' +
+'padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align: ' +
+'top">' +
+'                              ' +
+'            <p style="Margin-top: 0;-moz-osx-font-smoothing: grayscale;' +
+'font-family: Georgia, serif;color: #565656;Margin-bottom: 32px;-webkit-fo' +
+'nt-smoothing: antialiased;font-size: 21px;line-height: 32px;text-align: c' +
+'enter">We\'re excited you\'re here, and look forward to supporting you.' +
+' &nbsp;Click below to get started.</p>' +
+'          ' +
+'                            </td>' +
+'                          </tr>' +
+'                        </tbody></table>' +
+'                      ' +
+'                        <table class="contents" style="border-collaps' +
+'e: collapse;border-spacing: 0;width: 100%">' +
+'                          <tbody><tr>' +
+'                            <td class="padded" style="padding-top: 0;' +
+'padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align: ' +
+'top">' +
+'                              ' +
+'            <div class="btn" style="Margin-bottom: 32px;padding-top: ' +
+'2px;padding-bottom: 2px;padding-left: 2px;padding-right: 2px;text-align: ' +
+'center">' +
+'              ' +
+'<!--[if !mso]><!-- --><a style="mso-hide: all;background-color: #41637' +
+'e;border-left-color: #ffffff;border-left-style: solid;border-left-width: ' +
+'1px;border-top-color: #ffffff;border-top-style: solid;border-top-width: 1' +
+'px;border-bottom-color: #ffffff;border-bottom-style: solid;border-bottom-' +
+'width: 1px;border-right-color: #ffffff;border-right-style: solid;border-r' +
+'ight-width: 1px;color: #ffffff !important;display: inline-block;font-size' +
+': 13px;font-weight: bold;line-height: 15px;outline-color: #41637e;outline' +
+'-style: solid;outline-width: 2px;padding-top: 10px;padding-bottom: 10px;p' +
+'adding-left: 30px;padding-right: 30px;text-align: center;text-decoration:' +
+' none !important;text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);transition: colo' +
+'r .2s;-webkit-font-smoothing: antialiased;font-family: sans-serif" ' +
+'href="http://polistechnologyinc.cmail1.com/t/d-l-vhdilt-' +
+'' +
+'slhirikh' +
+'-r/">Confirm Your Email Address</a><!--<![endif]-->' +
+'' +
+'            <!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vm' +
+'l" href="http://polistechnologyinc.cmail1.com/t/d-l-vhdilt-' +
+'' +
+'slhirikh' +
+'-r/" style="width:232px" fillcolor="#41637E" ' +
+'strokecolor="#41637E" strokeweight="6px"><v:stroke linestyle="thint' +
+'hin"></v:stroke><v:textbox style="mso-fit-shape-to-text:t" inset="0px' +
+',7px,0px,7px"><center style="font-size:13px;line-height:15px;color:#FFF' +
+'FFF;font-family:sans-serif;font-weight:bold;mso-line-height-rule:exactly;' +
+'mso-text-raise:0px">Confirm Your Email Address</center></v:textbox></v:re' +
+'ct><![endif]--></div>' +
+'          ' +
+'                            </td>' +
+'                          </tr>' +
+'                        </tbody></table>' +
+'                      ' +
+'                        <table class="contents" style="border-collaps' +
+'e: collapse;border-spacing: 0;width: 100%">' +
+'                          <tbody><tr>' +
+'                            <td class="padded" style="padding-top: 0;' +
+'padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align: ' +
+'top">' +
+'                              ' +
+'            <p style="Margin-top: 0;-moz-osx-font-smoothing: grayscale;' +
+'font-family: Georgia, serif;color: #565656;Margin-bottom: 32px;-webkit-fo' +
+'nt-smoothing: antialiased;font-size: 21px;line-height: 32px;text-align: c' +
+'enter">With gratitude,</p><p style="Margin-top: 0;-moz-osx-font-smoothi' +
+'ng: grayscale;font-family: Georgia, serif;color: #565656;Margin-bottom: 3' +
+'2px;-webkit-font-smoothing: antialiased;font-size: 21px;line-height: 32px' +
+';text-align: center"><em>The pol.is team</em></p>' +
+'          ' +
+'                            </td>' +
+'                          </tr>' +
+'                        </tbody></table>' +
+'                      ' +
+'                    </td>' +
+'                  </tr>' +
+'                </tbody></table>' +
+'                <div class="column-bottom" style="font-size: 4px;line' +
+'-height: 4px">&nbsp;</div>' +
 '              </td>' +
 '            </tr>' +
-'          </tbody></table>' +
-'        ' +
-'          <table class="wrapper" style="border-collapse: collapse;bor' +
-'der-spacing: 0;background-color: #fbfbfb;width: 100%;min-width: 620px;-we' +
-'bkit-text-size-adjust: 100%;-ms-text-size-adjust: 100%;table-layout: fixe' +
-'d">' +
-'            <tbody><tr>' +
-'              <td style="padding-top: 0;padding-bottom: 0;padding-left:' +
-' 0;padding-right: 0;vertical-align: top">' +
-'                <center>' +
-'                  <table class="border" style="border-collapse: colla' +
-'pse;border-spacing: 0;font-size: 1px;line-height: 1px;background-color: #' +
-'e9e9e9;Margin-left: auto;Margin-right: auto" width="602">' +
-'                    <tbody><tr><td style="padding-top: 0;padding-bottom' +
-': 0;padding-left: 0;padding-right: 0;vertical-align: top">&nbsp;</td></tr' +
-'>' +
-'                  </tbody></table>' +
-'                </center>' +
-'              </td>' +
-'            </tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f6f6f6;height: 2px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f5f5f5;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f4f4f4;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f3f3f3;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #f2f2f2;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
+'            <tr class="border" style="font-size: 1px;line-height: 1px' +
+';background-color: #e9e9e9;height: 1px"><td style="padding-top: 0;paddi' +
+'ng-bottom: 0;padding-left: 0;padding-right: 0;vertical-align: top;line-he' +
+'ight: 1px">&nbsp;</td></tr>' +
 '          </tbody></table>' +
 '        ' +
 '      <div class="spacer" style="font-size: 1px;line-height: 32px">&n' +
@@ -1212,37 +1277,35 @@ context.url +
 '                            </tr>' +
 '                          </tbody></table>' +
 '                        </td>' +
-'                        <td class="subscription" style="padding-top: ' +
-'32px;padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align' +
-': top;width: 300px;text-align: right">' +
-'                          <table class="contents" style="border-colla' +
-'pse: collapse;border-spacing: 0;width: 100%">' +
-'                            <tbody><tr>' +
-'                              <td class="padded" style="padding-top: ' +
-'0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align' +
-': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei' +
-'ght: 20px;text-align: right">' +
-'                                <div>You are receiving this email because' +
-' you initiated a password reset.</div>' +
-
+// '                        <td class="subscription" style="padding-top: ' +
+// '32px;padding-bottom: 64px;padding-left: 0;padding-right: 0;vertical-align' +
+// ': top;width: 300px;text-align: right">' +
+// '                          <table class="contents" style="border-colla' +
+// 'pse: collapse;border-spacing: 0;width: 100%">' +
+// '                            <tbody><tr>' +
+// '                              <td class="padded" style="padding-top: ' +
+// '0;padding-bottom: 0;padding-left: 32px;padding-right: 32px;vertical-align' +
+// ': top;color: #999999;font-family: Georgia, serif;font-size: 12px;line-hei' +
+// 'ght: 20px;text-align: right">' +
+// '                                <div>You are receiving this email because' +
+// ' you created a new pol.is conversation.</div>' +
 // '                                <div><span><a style="color: #999999;tex' +
 // 't-decoration: none;transition: color .2s;font-weight: bold" href="http:' +
-// '//polistechnologyinc.updatemyprofile.com/d-vhitjl-' +
+// '//polistechnologyinc.updatemyprofile.com/d-vhdilt-' +
 // '' +
 // '0B132C62-slhirikh' +
 // '-j"><span emb-translate="Preferences">' +
 // 'Preferences</span></a>&nbsp;&nbsp;|&nbsp;&nbsp;</span><a style="color: ' +
 // '#999999;text-decoration: none;transition: color .2s;font-weight: bold" hr' +
-// 'ef="http://polistechnologyinc.cmail1.com/t/d-u-vhitjl-' +
+// 'ef="http://polistechnologyinc.cmail1.com/t/d-u-vhdilt-' +
 // '' +
 // 'slhirikh' +
 // '-h/"><span emb-translate="Unsubscribe">Unsubscribe</' +
 // 'span></a></div>' +
-
-'                              </td>' +
-'                            </tr>' +
-'                          </tbody></table>' +
-'                        </td>' +
+// '                              </td>' +
+// '                            </tr>' +
+// '                          </tbody></table>' +
+// '                        </td>' +
 '                      </tr>' +
 '                    </tbody></table>' +
 '                  </td>' +
@@ -1259,10 +1322,17 @@ context.url +
 // 'ant;margin-top: 0 !important;margin-bottom: 0 !important;margin-left: 0 !' +
 // 'important;margin-right: 0 !important;padding-top: 0 !important;padding-bo' +
 // 'ttom: 0 !important;padding-left: 0 !important;padding-right: 0 !important' +
-// '" src="https://cmail1.com/t/d-o-vhitjl-' +
+// '" src="https://cmail1.com/t/d-o-vhdilt-' +
 // 'slhirikh' +
 // '/o.gif" width="1" height="1" border="0" alt="">' +
+'</body></html>' +
+'' +
+'' +
+'' +
+'' +
+'--_=aspNetEmail=_889d387b5dfb4a9489a33c1c62dbc7e6--' +
+'Todoist' +
+'';
 
-'  </body>';
   return html;
 }

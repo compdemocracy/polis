@@ -24,6 +24,7 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 var badwords = require('badwords/object'),
     dgram = require('dgram'),
     emailTemplatePwReset = require('./email/pwreset.js'),
+    emailTemplateValidate = require('./email/validate.js'),
     http = require('http'),
     httpProxy = require('http-proxy'),
     https = require('https'),
@@ -2323,31 +2324,11 @@ function sendPasswordResetEmail(uid, pwresettoken, serverName) {
 
 
 function sendEinviteEmail(email, einvite, serverName) {
-    return new Promise(function(resolve, reject) {
-        var body = "" +
-            "Welcome to pol.is!\n" +
-            "\n" +
-            "Click this link to open your account:\n" +
-            "\n" +
-            serverName + "/welcome/" + einvite + "\n" +
-            "\n" +
-            "Thank you for using Polis\n";
-
-        mailgun.sendText(
-            'The Team at Polis <mike@pol.is>',
-            [email],
-            "Get Started with Polis",
-            body,
-            'mike@pol.is', {},
-            function(err) {
-                if (err) {
-                    console.error('mailgun send error: ' + err);
-                    reject(err);
-                    return;
-                }
-                resolve();
-            }
-        );
+    var html = emailTemplateValidate({});
+    return sendEmail({
+        to: email,
+        subject: "Validate your email address with pol.is",
+        html: html,
     });
 }
 
