@@ -3,14 +3,51 @@ body {
   // padding-top: 70px;
 }
 
-/* WARNING - duplicated in about-polis repo */
-.logo_and_login_section {
-/*  border-bottom: 1px solid rgba(149, 165, 166,1.0);*/
-/*    padding-bottom: 15px; */
-            // background-color: rgba(189, 195, 199,.1);
-    // border-top: 1px solid rgba(189, 195, 199,.2);
-    // border-bottom: 1px solid rgba(189, 195, 199,.2);
+
+/* ---------- BEGIN STICKY FOOTER ---------- */
+
+html,
+body {
+  height: 100%;
+  /* The html and body elements cannot have any padding or margin. */
 }
+
+/* Wrapper for page content to push down footer */
+#wrap {
+  min-height: 100%;
+  height: auto !important;
+  height: 100%;
+  /* Negative indent footer by its height */
+  margin: 0 auto -60px;
+  /* Pad bottom by footer height */
+  padding: 0 0 60px;
+}
+
+/* Set the fixed height of the footer here */
+#footer {
+  height: 320px;
+  background-color: #f5f5f5;
+}
+
+.footer_item {
+  margin-right: 40px; 
+  position: relative; 
+  top: 19px;
+
+}
+
+/* ---------- END STICKY FOOTER ---------- */
+
+
+/* WARNING - duplicated in about-polis repo */
+  .logo_and_login_section {
+  /*  border-bottom: 1px solid rgba(149, 165, 166,1.0);*/
+    background-color: rgba(189, 195, 199,.1);
+    border-top: 1px solid rgba(189, 195, 199,.2);
+    border-bottom: 1px solid rgba(189, 195, 199,.2);
+  }
+
+
 
 .header_item {
     position:relative;

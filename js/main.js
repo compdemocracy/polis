@@ -30,6 +30,7 @@ var HeaderPartial = require("./tmpl/header");
 var BannerPartial = require("./tmpl/banner");
 var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
+var FooterPartial = require("./tmpl/footer")
 
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
@@ -97,7 +98,7 @@ Handlebars.registerPartial("header", HeaderPartial);
 Handlebars.registerPartial("banner", BannerPartial);
 Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
 Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementPartial);
-
+Handlebars.registerPartial("footer", FooterPartial);
 
 
 _.mixin({
