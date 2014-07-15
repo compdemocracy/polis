@@ -91,6 +91,9 @@ Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {
 Handlebars.registerHelper("ifTrial", function(arg0) {
   return Utils.isTrialUser() ? arg0.fn(this) : "";
 });
+Handlebars.registerHelper("ifIndividual", function(arg0) {
+  return Utils.isIndividualUser() ? arg0.fn(this) : "";
+});
 
 
 // Partials

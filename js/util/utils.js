@@ -61,6 +61,9 @@ module.exports = {
   isTrialUser: function() {
     return !PolisStorage.plan();
   },
+  isIndividualUser: function() {
+    return PolisStorage.plan() === 1;
+  },
   numberOfDaysInTrial: numberOfDaysInTrial,
   trialDaysRemaining: trialDaysRemaining
 };

@@ -38,13 +38,40 @@
       <h3 class="panel-title">Plan</h3>
     </div>
     <div class="panel-body">
-      <strong>{{plan}}</strong>
       {{#ifTrial}}
-        <div>
+        <div class="alert alert-warning" role="alert">
           {{> trialRemainingStatement}}
-          <a href="/plan/upgrade/individuals">Upgrade Now</a>
+          {{!-- <a href="/plan/upgrade/individuals">Upgrade Now</a> --}}
         </div>
       {{/ifTrial}}
+      <table class="table">
+        <thead>
+        <tr>
+          <th>Plan
+          </th>
+          <th>Price
+          </th>
+          <th> {{! buttons column}}
+          </th>
+        </tr>
+        </thead>
+        <tr>
+          <td>Individual</td>
+          <td>$100/month</td>
+          <td> 
+            {{#ifTrial}}<span id="stripeForm"></span> {{/ifTrial}}
+            {{#ifIndividual}}Your plan{{/ifIndividual}}
+          </td>
+        </tr>
+        <tr>
+          <td>Trial</td>
+          <td>Free for 10 days</td>
+          <td>
+            {{#ifTrial}} Your plan {{/ifTrial}}
+            {{#ifIndividual}} {{! should probably be a downgrade button }} {{/ifIndividual}}
+          </td>
+        </tr>
+      </table>
     </div>
   </div>
 
