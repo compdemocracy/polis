@@ -866,6 +866,13 @@ var COOKIES = {
     USER_CREATED_TIMESTAMP: 'uc',
     PLAN_NUMBER: 'plan', // not set if trial user
 };
+var COOKIES_TO_CLEAR = {
+    e: true,
+    token2: true,
+    uid2: true,
+    uc: true,
+    plan: true,
+};
 
 
 
@@ -1631,21 +1638,31 @@ function getUidByEmail(email, callback) {
 function clearCookies(req, res) {
     if (domainOverride) {
         for (var cookieName in req.cookies) {
-            res.clearCookie(cookieName, {path: "/"});
+            if (COOKIES_TO_CLEAR[cookieName]) {
+                res.clearCookie(cookieName, {path: "/"});
+            }
         }
     } else {       
         for (var cookieName in req.cookies) {
-            res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
+            if (COOKIES_TO_CLEAR[cookieName]) {
+                res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
+            }
         }     
         for (var cookieName in req.cookies) {
-            res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+            if (COOKIES_TO_CLEAR[cookieName]) {
+                res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+            }
         }          
         for (var cookieName in req.cookies) {
-            res.clearCookie(cookieName, {path: "/", domain: ".pol.is"});
+            if (COOKIES_TO_CLEAR[cookieName]) {
+                res.clearCookie(cookieName, {path: "/", domain: ".pol.is"});
+            }
         }
-        for (var cookieName in req.cookies) {
-            res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
-        }
+        // for (var cookieName in req.cookies) {
+        //     if (COOKIES_TO_CLEAR[cookieName]) {
+        //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
+        //     }
+        // }
     }
     console.log("after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
 }
