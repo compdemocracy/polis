@@ -4,9 +4,6 @@
 
 
 module.exports = function(context) {
-  if (!context.url) {
-    throw new Error("polis_err_email_params_missing");
-  }
   var html = 
 '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://ww' +
 'w.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www' +
