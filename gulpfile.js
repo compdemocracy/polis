@@ -91,19 +91,39 @@ gulp.task('templates', function(){
 
   //does not include participation, which is the main view, because the footer is not right /userCreate.handlebars$/,
   var topLevelViews = [/faq.handlebars$/, /settings.handlebars$/, /summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /passwordResetForm.handlebars$/,  /explore.handlebars$/, /conversationGatekeeper.handlebars$/, /passwordResetInitForm.handlebars$/, /create-conversation-form.handlebars$/, /plan-upgrade.handlebars$/];
+  var bannerNeedingViews = [/summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /explore.handlebars$/, /create-conversation-form.handlebars$/];
+
+  function needsBanner(file) {
+    return _.some(bannerNeedingViews, function(regex){
+      return file.path.match(regex)
+    });
+  }
+  function needsHeaderAndFooter(file) {
+    return _.some(topLevelViews, function(regex){
+      return file.path.match(regex)
+    });
+  }
 
   gulp.src(['js/templates/*.hbs', 'js/templates/*.handlebars'])
     .pipe(tap(function(file) {
       
-      if(_.some(topLevelViews, function(regex){
-        return file.path.match(regex)
-      })) {
+      if(needsHeaderAndFooter(file) || needsBanner(file)) {
+        console.log(file.path)
         file._contents = Buffer.concat([
-            new Buffer('<div id="wrapper">'),
-            new Buffer('{{#ifNotEmbedded}}{{> header}}{{/ifNotEmbedded}}{{#ifTrial}}{{> banner}}{{/ifTrial}}'),
+            new Buffer(
+              needsHeaderAndFooter(file) ? '<div id="wrapper">' : ''
+            ),
+            new Buffer(
+              (needsHeaderAndFooter(file) ? '{{#ifNotEmbedded}}{{> header}}{{/ifNotEmbedded}}' : '') +
+              (needsBanner(file) ? '{{#ifTrial}}{{> banner}}{{/ifTrial}}' : '')
+            ),
             file._contents,
-            new Buffer('</div>'),
-            new Buffer('{{> footer}}')
+            new Buffer(
+              needsHeaderAndFooter(file) ? '</div>' : ''
+            ),
+            new Buffer(
+              needsHeaderAndFooter(file) ? '{{> footer}}' : ''
+            ),
         ]);
       }
     }))
