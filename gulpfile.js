@@ -7,6 +7,7 @@ var uglify = require('gulp-uglify')
 var rename = require('gulp-rename');
 var connect = require('gulp-connect'); 
 var less = require('gulp-less');
+var tap = require('gulp-tap');
 var clean = require('gulp-clean');
 var jshint = require('gulp-jshint');
 var gzip = require('gulp-gzip');
