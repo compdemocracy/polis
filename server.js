@@ -598,7 +598,9 @@ function fail(res, httpCode, clientVisibleErrorString, err) {
 
 function userFail(res, httpCode, clientVisibleErrorString, err) {
     console.error(clientVisibleErrorString, err);
-    console.error(err.stack);
+    if (err && err.stack) {
+        console.error(err.stack);
+    }
     res.writeHead(httpCode || 500);
     res.end(clientVisibleErrorString);
 }
