@@ -527,6 +527,9 @@ function authOptional(assigner) {
 }
 
 function doCookieAuth(assigner, isOptional, req, res, next) {
+
+    var token = req.cookies[COOKIES.TOKEN];
+    
     //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
     getUserInfoForSessionToken(token, res, function(err, uid) {
 
