@@ -1974,8 +1974,8 @@ function finishArray(res, a) {
         // ensure we don't expose zid
         if (items) {
             for  (var i = 0; i < items.length; i++) {
-                if (item.zid) {
-                    delete item.zid;
+                if (items[i].zid) {
+                    delete items[i].zid;
                 }
             }
         }
