@@ -35,8 +35,8 @@ module.exports = Handlebones.ModelView.extend({
         attrs.answers = numbers;
 
         var params = that.params;
-        if (params.zinvite) {
-          attrs.zinvite = params.zinvite;
+        if (params.sid) {
+          attrs.sid = params.sid;
         }
         if (params.suzinvite) {
           attrs.suzinvite = params.suzinvite;
@@ -44,7 +44,7 @@ module.exports = Handlebones.ModelView.extend({
         attrs.sid = params.sid;
 
         var url = urlPrefix + "v3/participants";
-        if (params.suzinvite || params.zinvite) {
+        if (params.suzinvite || params.sid) {
           url = urlPrefix + "v3/joinWithInvite";
         }
 
@@ -71,13 +71,12 @@ module.exports = Handlebones.ModelView.extend({
     this.options = options;
     this.model = options.model;
     var sid = options.sid;
-    var zinvite = options.zinvite;
     var suzinvite = options.suzinvite;
     var params = {
       sid: sid,
     };
-    if (options.zinvite) {
-      params.zinvite = options.zinvite;
+    if (options.sid) {
+      params.sid = options.sid;
     }
     if (options.suzinvite) {
       params.suzinvite = options.suzinvite;
@@ -96,7 +95,6 @@ module.exports = Handlebones.ModelView.extend({
     });
     this.metadataQuestionsView = this.addChild(new MetadataQuestionsView({
       collection: this.metadataCollection,
-      zinvite: zinvite,
       suzinvite: suzinvite,
       sid: sid
     }));
