@@ -4242,60 +4242,47 @@ function failNotWithin(minDelay) {
     };
 }
 
-app.get('/v3/conversations',
-    moveToBody,
-    authOptional(assignToP),
-    want('is_active', getBool, assignToP),
-    want('is_draft', getBool, assignToP),
-    want('sid', getSidFetchZid, assignToPCustom('zid')),
-function(req, res) {
+function getOneConversation(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
-
-  var fail = failNotWithin(500);
-
-  if (zid) {
+    var fail = failNotWithin(500);
     // no need for auth, since sid was provided
     Promise.all([
         getConversationInfo(zid),
         getConversationHasMetadata(zid),
-        getUserProperty(uid, "hname"),
-        getZinvite(zid),
     ]).then(function(results) {
         var conv = results[0];
         var convHasMetadata = results[1];
-        var conversationOwnerHname = results[2];
-        var sid = results[3];
-        
-        if (convHasMetadata) {
-            conv.hasMetadata = true;
-        }
-        if (!_.isUndefined(conversationOwnerHname)) {
-            conv.ownername = conversationOwnerHname;
-        }
+        getUserProperty(conv.owner, "hname").then(function(ownername) {
+            if (convHasMetadata) {
+                conv.hasMetadata = true;
+            }
+            if (!_.isUndefined(ownername)) {
+                conv.ownername = ownername;
+            }
 
-        conv.is_owner = conv.owner === uid;
-        conv.pp = false; // participant pays (WIP)
-        
-        if (!sid) {
-            throw new Error("polis_err_getting_conversation_sid");
-        }
-        // NOTE: since zid is defined, sid was provided, so it's OK to return the sid here.
-        finishOne(res, conv);
+            conv.is_owner = conv.owner === uid;
+            conv.pp = false; // participant pays (WIP)
+            
+            finishOne(res, conv);
+            
+        }, function(err) {
+            fail(res, 500, "polis_err_getting_conversation_info", err);
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_getting_conversation", err);
+        });
     }, function(err) {
         fail(res, 500, "polis_err_getting_conversation", err);
     }).catch(function(err) {
         fail(res, 500, "polis_err_getting_conversation", err);
     });
-    return;
-  }
-  // ELSE not zid specific
+}
 
-  if (!uid) {
-    return fail(res, 403, "polis_err_need_auth", new Error("polis_err_need_auth"));
-  }
-
-  // First fetch a list of conversations that the user is a participant in.
+function getConversations(req, res) {
+  var uid = req.p.uid;
+  var zid = req.p.zid;
+  var fail = failNotWithin(500);
+      // First fetch a list of conversations that the user is a participant in.
   pgQuery('select zid from participants where uid = ($1);', [uid], function(err, results) {
     if (err) { fail(res, 500, "polis_err_get_conversations_participated_in", err); return; }
 
@@ -4332,6 +4319,22 @@ function(req, res) {
         finishArray(res, data);
     });
   });
+}
+
+app.get('/v3/conversations',
+    moveToBody,
+    authOptional(assignToP),
+    want('is_active', getBool, assignToP),
+    want('is_draft', getBool, assignToP),
+    want('sid', getSidFetchZid, assignToPCustom('zid')),
+function(req, res) {
+  if (req.p.zid) {
+    getOneConversation(req, res);
+  } else if (req.p.uid) {
+    getConversations(req, res);
+  } else {
+    fail(res, 403, "polis_err_need_auth", new Error("polis_err_need_auth"));
+  }
 });
 
 
