@@ -64,23 +64,7 @@
 			</div>
 		</div> 
 				
-		<div class="well" id="metadataFormContainer" style="cursor:pointer">
-			<i class="icon-caret-right" id="metadataCaret" style="margin-right: 10px;"></i>
-			<h5 style="display:inline"> Survey Questions </h5>
-			<div style="display:none;" id="hiddenMetadataForm">
-				<div style="margin-top: 20px" class="alert alert-info">
-		     	<p> Ask participants about themselves <i class="icon-info-sign"></i> <span id="metaDataHelperTextButton" style="cursor: pointer"> Tell me more. </span></p>
-		     	<div id="hiddenMetadataHelperText" style="display:none; margin-top: 20px">
-		     	<p> Asks participants for facts about themselves when they first join the conversation, then use that information to filter them later. </p>
-		     	<p> Create any kind of question you like. You must define both the questions and the answers. You can define qualitative categories such as "What office do you work out of?" with answers such as "New York", "LA", "Boston", "No office - remote contractor". You can also define binary questions such as "Have you ever lived without healthcare?", but must manually create the answers "Yes" and "No". You can also create quantitative scales, where a question such as "How many times do you check email per day?" might have answers such as "1-2", "3-5", "5+". </p>
-		     	<p> When participants enter the conversation, they will be asked to check boxes, and will be able to check as many as apply to them (answers to questions are not mutually exclusive). During the conversation, click the 'Analyze' tab to use the filters. </p>
-		     	</div>
-		   	</div>
-				{{view metadataQuestionsViewWithCreate}}
-			</div>
-		</div>
-		
-		<div class="well" id="xidsFormContainer" style="cursor:pointer">
+{{!-- 		<div class="well" id="xidsFormContainer" style="cursor:pointer">
 			<i class="icon-caret-right" id="xidsCaret" style="margin-right: 10px;"></i>
 			<h5 style="display:inline"> Single-Use URLs </h5>      
 			<div style="display:none;" id="hiddenXidsForm">
@@ -91,7 +75,7 @@
 					<textarea style="width: 90%" type="text" class="form-control" name="xidsTextarea" id="xidsTextarea" placeholder="paste xids here (one per line). API coming soon!" rows="20"></textarea>
 				  </form>
 			</div>
-		</div>
+		</div> --}}
 
 		<div class="well" id="moderationFormContainer" style="cursor:pointer">
 			<i class="icon-caret-right" id="moderationCaret" style="margin-right: 10px;"></i>
@@ -116,9 +100,9 @@
 		-->
 
 	</div> <!-- end div formerly known by span6 -->
-	<div class="col-sm-6">
+{{!-- 	<div class="col-sm-6">
 		<iframe width="100%" style="min-height: 400px" src="//www.youtube.com/embed/ST9bUZhsHf4?rel=0" frameborder="0" allowfullscreen></iframe>
-	</div>
+	</div> --}}
 
 
 </div> <!-- row --> 

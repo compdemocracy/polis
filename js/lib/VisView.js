@@ -941,7 +941,7 @@ function upsertNode(updatedNodes, newClusters) {
     if (visBlockerOn) {
         var neededCount = MIN_PARTICIPANTS_FOR_VIS - participantCount;
         overlay_layer.selectAll(".visBlockerMainText")
-            .text("Need " +neededCount+ " more participants to vote before the visualization appears.");
+            .text("Waiting on " +neededCount+ " more participants to join & vote.");
 
         overlay_layer.selectAll(".visBlockerGraphic")
             .text(function(d) {
