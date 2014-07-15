@@ -525,35 +525,66 @@ function needAtLeastOne() {
 function authOptional(assigner) {
     return auth(assigner, true);
 }
+
+function doCookieAuth(assigner, isOptional, req, res, next) {
+    //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
+    getUserInfoForSessionToken(token, res, function(err, uid) {
+
+        if (err) {
+            res.status(403);
+            next("polis_err_auth_no_such_token");
+            return;
+        }
+        if ( req.body.uid && req.body.uid !== uid) {
+            res.status(401);
+            next("polis_err_auth_mismatch_uid");
+            return;
+        }
+        assigner(req, "uid", Number(uid));
+        next();
+    });
+}
+
+function getUidForApiKey(apikey) {
+    return pgQueryP("select uid from apikeysndvweifu WHERE apikey = ($1);", [apikey]);
+}
+
+// http://en.wikipedia.org/wiki/Basic_access_authentication#Client_side
+function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
+    var header=req.headers['authorization']||'',        // get the header
+        token=header.split(/\s+/).pop()||'',            // and the encoded auth token
+        auth=new Buffer(token, 'base64').toString(),    // convert from base64
+        parts=auth.split(/:/),                          // split on colon
+        username=parts[0], 
+        password=parts[1], // we don't use the password part, just use "apikey:"
+        apikey=username;
+    getUidForApiKey(apikey).then(function(rows) {
+        if (!rows || !rows.length) {
+           throw new Error("no_such_apikey");
+        }
+        assigner(req, "uid", Number(rows[0].uid));
+        next();
+    }).catch(function(err) {
+        res.status(403);
+        console.error(err.stack);
+        next("polis_err_auth_no_such_api_token");
+    });
+}
+
 function auth(assigner, isOptional) {
     return function(req, res, next) {
         //var token = req.body.token;
         var token = req.cookies[COOKIES.TOKEN];
-        if (!token) {
-            if (isOptional) {
-                next();
-            } else {
-                res.status(401);
-                next("polis_err_auth_token_not_supplied");
-            }
-            return;
-        }
-        //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
-        getUserInfoForSessionToken(token, res, function(err, uid) {
-
-            if (err) {
-                res.status(403);
-                next("polis_err_auth_no_such_token");
-                return;
-            }
-            if ( req.body.uid && req.body.uid !== uid) {
-                res.status(401);
-                next("polis_err_auth_mismatch_uid");
-                return;
-            }
-            assigner(req, "uid", Number(uid));
+        if (token) {
+            doCookieAuth(assigner, isOptional, req, res, next);
+        } else if (req.headers['authorization']) {
+            doApiKeyBasicAuth(assigner, isOptional, req, res, next);
+        }  else if (isOptional) {
             next();
-        });
+        } else {
+            res.status(401);
+            next("polis_err_auth_token_not_supplied");
+        }
     };
 }
 
@@ -1061,27 +1092,6 @@ function generateHashedPassword(password, callback) {
         });
     });
 }
-
-
-
-function authWithApiKey(assigner) {
-    return function(req, res, next) {
-        var header=req.headers['authorization']||'',          // get the header
-              token=header.split(/\s+/).pop()||'',            // and the encoded auth token
-              auth=new Buffer(token, 'base64').toString(),    // convert from base64
-              parts=auth.split(/:/),                          // split on colon
-              appid=parts[0], // not currently used
-              apikey=parts[1];
-        pgQuery("SELECT * FROM apikeys WHERE apikey = ($1);", [apikey], function(err, results) {
-            if (err) { next(err); }
-            if (!results || !results.rows || !results.rows.filter(function(row) {row.apikey === apikey;}).length) {
-                next("no_such_apikey");
-            }
-            next(null, row.uid);
-        });
-    };
-}
-
 
 
 
@@ -1793,20 +1803,14 @@ function generateToken(len, pseudoRandomOk, callback) {
     });  
 }
 
-function generateAndRegisterZinvite(zid, generateShort, callback) {
+function generateAndRegisterZinvite(zid, generateShort) {
     var len = 10;
     if (generateShort) {
         len = 6;
     }
-    generateToken(len, false, function(err, zinvite) {
-        if (err) {
-            return callback("polis_err_creating_zinvite");
-        }
-        pgQuery('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [zid, zinvite], function(err, results) {
-            if (err) {
-                return callback("polis_err_creating_zinvite_invalid_conversation_or_owner");
-            }
-            return callback(0, zinvite);
+    return generateTokenP(len, false).then(function(zinvite) {
+        return pgQueryP('INSERT INTO zinvites (zid, zinvite, created) VALUES ($1, $2, default);', [zid, zinvite]).then(function(rows) {
+            return zinvite;
         });
     });
 }
@@ -1823,12 +1827,13 @@ function(req, res) {
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
         if (err) { fail(res, 500, "polis_err_creating_zinvite_invalid_conversation_or_owner", err); return; }
 
-        generateAndRegisterZinvite(req.p.zid, generateShortUrl, function(err, zinvite) {
-            if (err) { fail(res, 500, "polis_err_creating_zinvite", err); return; }
+        generateAndRegisterZinvite(req.p.zid, generateShortUrl).then(function(zinvite) {
             res.status(200).json({
                 zinvite: zinvite,
             });
-        });
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_creating_zinvite", err);
+        })
     });
 });
 
@@ -1951,13 +1956,26 @@ function addSids(a) {
 
 function finishOne(res, o) {
     addSid(o).then(function(item) {
+        // ensure we don't expose zid
+        if (item.zid) {
+            delete item.zid;
+        }
         res.status(200).json(item);
     }).catch(function(err) {
         fail(res, 500, "polis_err_finishing_response", err);
     });
 }
+
 function finishArray(res, a) {
     addSids(a).then(function(items) {
+        // ensure we don't expose zid
+        if (items) {
+            for  (var i = 0; i < items.length; i++) {
+                if (item.zid) {
+                    delete item.zid;
+                }
+            }
+        }
         res.status(200).json(items);
     }).catch(function(err) {
         fail(res, 500, "polis_err_finishing_response", err);
@@ -4328,20 +4346,37 @@ function isUserAllowedToCreateConversations(uid, callback) {
 // TODO check to see if ptpt has answered necessary metadata questions.
 app.post('/v3/conversations',
     auth(assignToP),
-    want('is_active', getBool, assignToP),
-    want('is_draft', getBool, assignToP),
+    want('is_active', getBool, assignToP, true),
+    want('is_draft', getBool, assignToP, false),
     want('is_public', getBool, assignToP, false),
     want('is_anon', getBool, assignToP, false),
+    want('profanity_filter', getBool, assignToP, true),
+    want('spam_filter', getBool, assignToP, true),
+    want('strict_moderation', getBool, assignToP, false),
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
 function(req, res) {
+    var generateShortUrl = req.p.is_public;
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
     if (err) { fail(res, 403, "polis_err_add_conversation_failed_user_check", err); return; }
     if (!isAllowed) { fail(res, 403, "polis_err_add_conversation_not_enabled", new Error("polis_err_add_conversation_not_enabled")); return; }
-    pgQuery(
-'INSERT INTO conversations (zid, owner, created, topic, description, participant_count, is_active, is_draft, is_public, is_anon)  VALUES(default, $1, default, $2, $3, default, $4, $5, $6, $7) RETURNING zid;',
-[req.p.uid, req.p.topic, req.p.description, req.p.is_active, req.p.is_draft, req.p.is_public, req.p.is_anon], function(err, result) {
+
+
+    var q = sql_conversations.insert({
+        owner: req.p.uid,
+        topic: req.p.topic,
+        description: req.p.description,
+        is_active: req.p.is_active,
+        is_draft: req.p.is_draft,
+        is_public: req.p.is_public,
+        is_anon: req.p.is_anon,
+        profanity_filter: req.p.profanity_filter,
+        spam_filter: req.p.spam_filter,
+        strict_moderation: req.p.strict_moderation,
+    }).returning('*').toString();
+
+    pgQuery(q, [], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
                 yell(err)
@@ -4354,15 +4389,15 @@ function(req, res) {
 
         var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
 
-        var generateShortUrl = false;
-        generateAndRegisterZinvite(zid, generateShortUrl, function(err, zinvite) {
-            if (err) { fail(res, 500, "polis_err_zinvite_create", err); return; }
+        generateAndRegisterZinvite(zid, generateShortUrl).then(function(zinvite) {
             // NOTE: OK to return sid, because this conversation was just created by this user.
             finishOne(res, {
+                url: buildConversationUrl(req, zinvite),
                 zid: zid
             });
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_zinvite_create", err);
         });
-
     }); // end insert
   }); // end isUserAllowedToCreateConversations
 }); // end post conversations
@@ -4509,15 +4544,16 @@ function generateSingleUseUrl(sid, suzinvite) {
 }
 
 
-function getConversationUrl(req, zid) {
-    return Promise.all([getConversationInfo(zid), getZinvite(zid)]).then(function(results) {
-        var conv = results[0];
-        var zinvite = results[1];
+function buildConversationUrl(req, zinvite) {
+    return getServerNameWithProtocol(req) + "/" + zinvite;
+}
 
-        var url = getServerNameWithProtocol(req) + "/" + zinvite;
-        return url;
+function getConversationUrl(req, zid) {
+    return getZinvite(zid).then(function(zinvite) {
+        return buildConversationUrl(req, zinvite);
     });
 }
+
 
 app.post("/v3/users/invite",
     // authWithApiKey(assignToP),
