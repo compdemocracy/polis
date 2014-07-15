@@ -32,37 +32,22 @@
 {{#ifNotDefined suurls}}
 <section class="container">
 
-  <div class="col-lg-offset-3 col-sm-6 col-md-6">
+  <div class="col-md-offset-3 col-md-6 col-sm-8 col-sm-offset-2 col-xs-10 col-xs-offset-1">
 
-      <div style="margin-top:40px" class="alert alert-success">
-        <h4 style="margin-top: 20px; margin-bottom: 20px; text-align: center;"> PUBLISHED! SHARE THIS LINK.</h4> 
-        <p style="text-align: center"> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it! Paste this link into your navigation bar to go to your conversation. </p>
+      <div style="margin-top:40px" class="text-center">
+        <h1> {{url_name_with_hostname}} </h1>
+        <div >
+          <h5 style="margin-top: 60px; margin-bottom: 20px; text-align: center; text-transform: uppercase; font-weight: 700"> PUBLISHED! SHARE THIS LINK.</h5> 
+          <p style="text-align: center; font-weight: 100">  Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or post it to your website or blog. Try it! Paste this link into your navigation bar to go to your conversation. </p>
+        </div>
 
-        <input style="
-          text-align: center;
-          cursor: pointer;
-          margin-top: 20px;
-          padding: 10px;
-          width: 100%;
-          background-color: white
-          "
-          type="text"
-          value="{{url_name_with_hostname}}"
-          name="convoLink"
-          readonly=""
-          id="shareLinkInput"
-          >
-
-        <p class="text-center" style="margin-top:9px;font-style:italic;font-size:13px"> This link has been sent to your email.</p>
-
-        {{#if is_public}}
+{{!--         {{#if is_public}}
           <a href="https://twitter.com/share" class="twitter-share-button" data-url="{{url_name_with_production_hostname}}" data-text="{{tweet_text}}" data-size="large" data-count="none" data-hashtags="polis" data-dnt="true">Tweet</a>
           <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
-        {{/if}}
+        {{/if}} --}}
         
       </div>
           
-    <!--<button style="margin-top: 20px" class="btn btn-large" id="okButton">Got it, take me to the conversation.</button> -->
   </div>
 
 </section>
