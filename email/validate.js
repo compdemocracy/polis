@@ -1,6 +1,6 @@
 // how to prepare an email:
 // (double check the first call to sed, make sure it escapes 's properly)
-// cat email/test.js  | sed "s/'/\\'/g" | sed 's/\=$//' | sed 's/\=3D/=/g' | sed 's/\=20/ /g' | sed "s/^/'/" | sed "s/$/' +/"
+// cat email/test.js  | grep -v aspNetEmail | sed "s/'/\\'/g" | sed 's/\=$//' | sed 's/\=3D/=/g' | sed 's/\=20/ /g' | sed "s/^/'/" | sed "s/$/' +/"
 
 
 module.exports = function(context) {
@@ -1157,16 +1157,14 @@ module.exports = function(context) {
 'adding-left: 30px;padding-right: 30px;text-align: center;text-decoration:' +
 ' none !important;text-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);transition: colo' +
 'r .2s;-webkit-font-smoothing: antialiased;font-family: sans-serif" ' +
-'href="http://polistechnologyinc.cmail1.com/t/d-l-vhdilt-' +
-'' +
-'slhirikh' +
-'-r/">Confirm Your Email Address</a><!--<![endif]-->' +
+'href="' +
+context.url +
+'">Confirm Your Email Address</a><!--<![endif]-->' +
 '' +
 '            <!--[if mso]><v:rect xmlns:v="urn:schemas-microsoft-com:vm' +
-'l" href="http://polistechnologyinc.cmail1.com/t/d-l-vhdilt-' +
-'' +
-'slhirikh' +
-'-r/" style="width:232px" fillcolor="#41637E" ' +
+'l" href="' +
+context.url +
+'" style="width:232px" fillcolor="#41637E" ' +
 'strokecolor="#41637E" strokeweight="6px"><v:stroke linestyle="thint' +
 'hin"></v:stroke><v:textbox style="mso-fit-shape-to-text:t" inset="0px' +
 ',7px,0px,7px"><center style="font-size:13px;line-height:15px;color:#FFF' +
@@ -1323,12 +1321,6 @@ module.exports = function(context) {
 // 'slhirikh' +
 // '/o.gif" width="1" height="1" border="0" alt="">' +
 '</body></html>' +
-'' +
-'' +
-'' +
-'' +
-'--_=aspNetEmail=_889d387b5dfb4a9489a33c1c62dbc7e6--' +
-'Todoist' +
 '';
 
   return html;

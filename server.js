@@ -2341,7 +2341,9 @@ function sendPasswordResetEmail(uid, pwresettoken, serverName) {
 
 
 function sendEinviteEmail(email, einvite, serverName) {
-    var html = emailTemplateValidate({});
+    var html = emailTemplateValidate({
+        url: serverName + "/welcome/" + einvite,
+    });
     return sendEmail({
         to: email,
         subject: "Validate your email address with pol.is",
