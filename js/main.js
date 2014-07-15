@@ -29,7 +29,7 @@ var popoverEach = require("./util/popoverEach");
 var HeaderPartial = require("./tmpl/header");
 var BannerPartial = require("./tmpl/banner");
 var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
-var TrialRemainingStatementParitial = require("./tmpl/trialRemainingStatement");
+var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
@@ -96,7 +96,7 @@ Handlebars.registerHelper("ifTrial", function(arg0) {
 Handlebars.registerPartial("header", HeaderPartial);
 Handlebars.registerPartial("banner", BannerPartial);
 Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
-Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementParitial);
+Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementPartial);
 
 
 
