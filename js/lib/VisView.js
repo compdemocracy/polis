@@ -1530,10 +1530,10 @@ function showVisBlocker() {
     overlay_layer.append("rect")
         .classed("visBlocker", true)
         .style("fill", "white")
-        .attr("x", 0)
-        .attr("y", 0)
-        .attr("width", w)
-        .attr("height", h)
+        .attr("x", 1) // inset so it doesn't get cut off on firefox
+        .attr("y", 1) // inset so it doesn't get cut off on firefox
+        .attr("width", w-2) // inset so it doesn't get cut off on firefox
+        .attr("height", h-2) // inset so it doesn't get cut off on firefox
         .style("stroke", "lightgray")
         .attr("rx", 10)
         .attr("ry", 10)
