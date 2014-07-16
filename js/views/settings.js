@@ -9,6 +9,8 @@ module.exports = Handlebones.ModelView.extend({
   initialize: function(options) {
     this.model = options.model;
 
+
+    // -----------   BEGIN STRIPE CODE ----------------
     this.plan_id = "individuals";
     this.plan_name = {
       individuals: "Upgrade to Individual plan",
@@ -31,7 +33,7 @@ module.exports = Handlebones.ModelView.extend({
       console.log('foo')
       setTimeout(function(){
 
-        that.$("#stripeForm").html("<script "+
+        $("#stripeForm").html("<script "+
           'src="https://checkout.stripe.com/checkout.js"'+
           'class="stripe-button"'+
           "data-key=\""+ that.stripeKey +"\" "+
@@ -45,6 +47,7 @@ module.exports = Handlebones.ModelView.extend({
       }, 200);
 
     });
+    // -----------   END STRIPE CODE ----------------    
 
 
   },

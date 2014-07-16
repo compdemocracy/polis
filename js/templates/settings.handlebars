@@ -10,8 +10,6 @@
 <h2>Settings</h2>
 
 
-<form role="form">
-  
 
   <div class="panel panel-default">
     <div class="panel-heading">
@@ -43,6 +41,8 @@
           {{> trialRemainingStatement}}
         </div>
       {{/ifTrial}}
+
+
       <table class="table">
         <thead>
         <tr>
@@ -58,7 +58,8 @@
           <td>Individual</td>
           <td>$100/month</td>
           <td> 
-            {{#ifTrial}}<span id="stripeForm"></span> {{/ifTrial}}
+            {{#ifTrial}}<form action="/charge" method="POST" id="stripeForm"></form>
+             {{/ifTrial}}
             {{#ifIndividual}}Your plan{{/ifIndividual}}
           </td>
         </tr>
@@ -88,8 +89,6 @@
     </div>
   </div>
 }}
-</form>
-
 
 </div> {{! end column }}
 </div> {{! end row }}
