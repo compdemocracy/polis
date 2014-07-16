@@ -2898,7 +2898,7 @@ function(req, res) {
 
             // Redirect to the same URL with the path behind the fragment "#"
             res.writeHead(302, {
-                Location: protocol + "://" + req.headers.host +"/inbox",
+                Location: protocol + "://" + req.headers.host +"/settings",
             });
 
             return res.end();
