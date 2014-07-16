@@ -1410,6 +1410,21 @@ function getPca(zid, lastVoteTimestamp) {
     });
 }
 
+
+
+function redirectIfHasZidButNoSid(req, res, next) {
+  if (req.body.zid && !req.body.sid) {
+    console.log("redirecting old zid user to about page");
+    res.writeHead(302, {
+        Location: "https://pol.is/about"
+    });
+    return res.end();
+  }
+  return next();
+}
+
+
+
 // Cache the knowledge of whether there are any pca results for a given zid.
 // Needed to determine whether to return a 404 or a 304.
 // zid -> boolean
@@ -1418,6 +1433,7 @@ var pcaResultsExistForZid = {};
 app.get("/v3/math/pca",
     meter("api.math.pca.get"),
     moveToBody,
+    redirectIfHasZidButNoSid, // TODO remove once 
     authOptional(assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
