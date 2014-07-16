@@ -943,6 +943,7 @@ function upsertNode(updatedNodes, newClusters) {
         overlay_layer.selectAll(".visBlockerMainText")
             .text("Waiting for " +neededCount+ " more participants to join & vote.")
             .style("font-weight", 700)
+            .style("font-size", display.xs() ? ".9em" : "1em")
             ;
 
         overlay_layer.selectAll(".visBlockerGraphic")
