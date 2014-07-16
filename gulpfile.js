@@ -110,20 +110,20 @@ gulp.task('templates', function(){
       if(needsHeaderAndFooter(file) || needsBanner(file)) {
         console.log(file.path)
         file._contents = Buffer.concat([
-            new Buffer(
-              needsHeaderAndFooter(file) ? '<div id="wrapper">' : ''
-            ),
+            // new Buffer(
+            //   needsHeaderAndFooter(file) ? '<div class="wrap">' : ''
+            // ),
             new Buffer(
               (needsHeaderAndFooter(file) ? '{{#ifNotEmbedded}}{{> header}}{{/ifNotEmbedded}}' : '') +
               (needsBanner(file) ? '{{#ifTrial}}{{> banner}}{{/ifTrial}}' : '')
             ),
             file._contents,
-            new Buffer(
-              needsHeaderAndFooter(file) ? '</div>' : ''
-            ),
-            new Buffer(
-              needsHeaderAndFooter(file) ? '{{> footer}}' : ''
-            ),
+            // new Buffer(
+              // needsHeaderAndFooter(file) ? '</div>' : ''
+            // ),
+            // new Buffer(
+              // needsHeaderAndFooter(file) ? '{{> footer}}' : ''
+            // ),
         ]);
       }
     }))

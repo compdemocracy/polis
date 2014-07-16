@@ -224,6 +224,36 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/sid
     this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/sid
     this.r(/^m\/([0-9][0-9A-Za-z]+)$/, "moderationView");  // m/sid
+
+    var routesWithFooter = [
+      /^faq/,
+      /^settings/,
+      /^summaryView/,
+      /^inbox/,
+      /^moderationView/,
+      /^pwResetInit/,
+      /^pwReset/,
+      /^exploreView/,
+      /^createConversation/
+    ];
+    function needsFooter(route) {
+      return _.some(routesWithFooter, function(regex){
+        return route.match(regex)
+      });
+    }
+    this.on("route", function(route, params) {
+      if (needsFooter(route)) {
+        $('[data-view-name="root"]').addClass("wrap");
+        var footer = $("#footer").detach();
+        $(document.body).append(footer);
+        $("#footer").show();
+      } else {
+        $("#footer").hide();
+        $('[data-view-name="root"]').removeClass("wrap");
+      }
+    });
+
+
   },
   r: function(pattern, methodToCall) {
     metric("route", methodToCall);
