@@ -46,7 +46,10 @@ module.exports = Handlebones.ModelView.extend({
     initialize: function() {
       Handlebones.ModelView.prototype.initialize.apply(this, arguments);
       this.tweet_text = "Join the conversation!";
-      
+
+      this.listenTo(this, "render", function(){
+        $(document.body).addClass("unselectable");
+      });
 
       // NOTE: showing the topic may result in people actually responsing with tweets instead of clicking the link.
       // var topic = this.model.get("topic");

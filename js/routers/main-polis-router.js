@@ -222,6 +222,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
 
     this.r(/^explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/sid
+    this.r(/^share\/([0-9][0-9A-Za-z]+)$/, "shareView");  // share/sid
     this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/sid
     this.r(/^m\/([0-9][0-9A-Za-z]+)$/, "moderationView");  // m/sid
 
@@ -327,18 +328,23 @@ var polisRouter = Backbone.Router.extend({
   deregister: function() {
     window.deregister();
   },
-  gotoShareView: function(conversationModel) {
+  shareView: function(sid) {
     var that = this;
-    var shareLinkView = new ShareLinkView({
-      model: conversationModel
+    var data = {
+      sid: sid
+    };
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
+      var view = new ShareLinkView({
+        model: model
+      });
+      RootView.getInstance().setView(view);
+    },function(e) {
+      console.error("error loading conversation model", e);
     });
-    shareLinkView.on("done", function() {
-      var sid = conversationModel.get("sid");
-      var zinvite = conversationModel.get("zinvites")[0];
-      var path = sid + (zinvite ? "/" + zinvite : "");
-      that.navigate(path, {trigger: true});
-    });
-    RootView.getInstance().setView(shareLinkView);
   },
   inbox: function(filter){
     var promise = $.Deferred().resolve();
@@ -420,20 +426,20 @@ var polisRouter = Backbone.Router.extend({
         });
         that.listenTo(createConversationFormView, "all", function(eventName, data) {
           if (eventName === "done") {
-            var suurls = data;
-              if (suurls) {
-              var suurlsCsv = [];
-              var len = suurls.xids.length;
-              var xids = suurls.xids;
-              var urls = suurls.urls;
-              for (var i = 0; i < len; i++) {
-                suurlsCsv.push({xid: xids[i], url: urls[i]});
-              }
-              model.set("suurls", suurlsCsv);
-            }
-            that.gotoShareView(model);
-            // that.navigate("inbox", {trigger: true});
-            //that.inbox();
+            // NOTE suurls broken for now
+            // var suurls = data;
+            //   if (suurls) {
+            //   var suurlsCsv = [];
+            //   var len = suurls.xids.length;
+            //   var xids = suurls.xids;
+            //   var urls = suurls.urls;
+            //   for (var i = 0; i < len; i++) {
+            //     suurlsCsv.push({xid: xids[i], url: urls[i]});
+            //   }
+            //   model.set("suurls", suurlsCsv);
+            // }
+
+            that.navigate("share/" + model.get("sid"), {trigger: true});
           }
         });
         RootView.getInstance().setView(createConversationFormView);
