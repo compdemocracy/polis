@@ -1,27 +1,17 @@
-<li class="row" style="border-bottom: 1px solid #f3f3f3; padding-bottom: 10px; margin-top: 20px">
-    <div class="col-sm-4">
-      <h5>{{topic}}</h5>
-      <i>{{description}}</i>
+<div class="row" style="margin-top: 30px">
+    <div class="col-md-4">
+      <p><span class="badge" style="font-weight: 500; color: white">{{participant_count}} &nbsp;<i class="icon-user"></i></span></p>
+      <h5 style="text-transform: uppercase; font-weight: 700">{{topic}}</h5>
+      <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro" >{{description}}</p>
+      <div>
+        <a href="{{url_name}}" style="font-weight:500"> {{url_name_with_hostname}} </a>
+      </div>
     </div>
-    <div class="col-sm-1">
-      <p><span class="badge" style="font-weight: 100; color: white">{{participant_count}} <i class="icon-user"></i></span></p>
-      <!-- <img src="sparklines.svg" style="width:100%"> -->
-      <!--http://benjchristensen.com/2011/08/08/simple-sparkline-using-svg-path-and-d3-js/ -->
+    <div class="col-md-3">
+      <div class="btn-group">
+        {{#if is_owner}}
+        <a href="{{url_moderate}}" class="btn btn-default btn-large">Moderate</a>
+        {{/if}}
+      </div> {{! btn-group}}
     </div>
-    <div class="col-sm-4">
-      <input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly="" class="form-control">
-      <!-- <div class="alert alert-info alert-dismissable">
-      <button type="button" class="close" data-dismiss="alert">×</button>
-      <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
-      </div> -->
-    </div>
-
-
-    <div class="btn-group">
-      <a href="{{url_name}}" class="btn btn-default btn-large">View Conversation</a>
-      {{#if is_owner}}
-      <a href="{{url_moderate}}" class="btn btn-default btn-large">Admin</a>
-      {{/if}}
-    </div> {{! btn-group}}
-</li>
 </div>
