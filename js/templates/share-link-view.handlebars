@@ -30,25 +30,22 @@
 
 
 {{#ifNotDefined suurls}}
-<section class="container">
 
-  <div class="col-md-offset-3 col-md-6 col-sm-8 col-sm-offset-2 col-xs-10 col-xs-offset-1">
+<center style="width:100%; margin-top:50px;">
+<a href="{{url_name}}" style="font-size: {{#ifXs}}20px{{/ifXs}}{{#ifNotXs}}40px{{/ifNotXs}}">
+  {{url_name_with_hostname}}
+</a>
 
-      <div style="margin-top:40px" class="text-center">
-        <h1>{{url_name_with_hostname}}</h1>
-        <div >
-          <h5 style="margin-top: 60px; margin-bottom: 20px; text-align: center; text-transform: uppercase; font-weight: 700"> PUBLISHED! SHARE THIS LINK.</h5> 
-          <p style="text-align: center; font-weight: 100">  Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or post it to your website or blog. Try it! Paste this link into your navigation bar to go to your conversation. </p>
-        </div>
+<div class="unselectable">
+  <h5 class="unselectable" style="margin-top: 30px; margin-bottom: 20px; text-transform: uppercase; font-weight: 700"> PUBLISHED! SHARE THIS LINK.</h5> 
+  <p class="unselectable" style="max-width: 450px; margin-left:30px; margin-right:30px; font-weight: 100">  Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or post it to your website or blog. Try it! Paste this link into your navigation bar to go to your conversation. </p>
+</div>
+
+</center>
 
 {{!--         {{#if is_public}}
           <a href="https://twitter.com/share" class="twitter-share-button" data-url="{{url_name_with_production_hostname}}" data-text="{{tweet_text}}" data-size="large" data-count="none" data-hashtags="polis" data-dnt="true">Tweet</a>
           <script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
         {{/if}} --}}
-        
-      </div>
-          
-  </div>
 
-</section>
 {{/ifNotDefined}}
