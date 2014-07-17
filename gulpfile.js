@@ -441,6 +441,7 @@ function deployAboutPage(params) {
     return gulp.src([
       dist + "/api.html",
       dist + "/company.html",
+      dist + "/embed.html",
       dist + "/faq.html",
       dist + "/lander.html",
       dist + "/privacy.html",
