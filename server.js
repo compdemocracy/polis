@@ -4853,6 +4853,7 @@ app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/professors.html", "t
 app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
 app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
 app.get(/^\/api$/, makeFileFetcher(hostname, port, "/api.html", "text/html"));
+app.get(/^\/embed$/, makeFileFetcher(hostname, port, "/embed.html", "text/html"));
 app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
 app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
 app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", "text/html"));
