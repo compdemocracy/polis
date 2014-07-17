@@ -3107,7 +3107,7 @@ function getNumberOfCommentsWithModerationStatus(zid, mod) {
     });
 }
 
-function sendCommentModerationEmail(uid, zid, unmoderatedCommentCount) {
+function sendCommentModerationEmail(req, uid, zid, unmoderatedCommentCount) {
     if (_.isUndefined(unmoderatedCommentCount)) {
         unmoderatedCommentCount = "";
     }
@@ -3125,9 +3125,8 @@ function sendCommentModerationEmail(uid, zid, unmoderatedCommentCount) {
     }).then(function(zinvite) {
 
         // NOTE: the counter goes in the email body so it doesn't create a new email thread (in Gmail, etc)
-        // body += " Click this URL to review them: " +
-            // createModerationUrl(zid);
-        body += createModerationUrl(zid, zinvite);
+
+        body += createModerationUrl(req, zinvite);
 
         body += "\n\nThank you for using Polis.";
 
@@ -3141,13 +3140,13 @@ function sendCommentModerationEmail(uid, zid, unmoderatedCommentCount) {
     });
 }
 
-function createModerationUrl(zid, zinvite) {
+function createModerationUrl(req, zinvite) {
     var server = devMode ? "http://localhost:5000" : "https://pol.is";
 
-    var url = server + "/m/"+zid;
-    if (zinvite) {
-        url += "/" + zinvite;
+    if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
+        server = "https://preprod.pol.is";
     }
+    var url = server + "/m/"+zinvite;
     return url;
 }
 
@@ -3399,10 +3398,10 @@ function(req, res) {
                             return void 0;
                         }).then(function(n) {
                             // send to mike for moderation
-                            sendCommentModerationEmail(125, zid, n);
+                            sendCommentModerationEmail(req, 125, zid, n);
 
                             // send to conversation owner for moderation
-                            sendCommentModerationEmail(conv.owner, zid, n);
+                            sendCommentModerationEmail(req, conv.owner, zid, n);
                         });
                     }
 
