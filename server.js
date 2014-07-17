@@ -1338,6 +1338,7 @@ var whitelistedDomains = [
   "https://www.pol.is",
   "http://preprod.pol.is",
   "https://preprod.pol.is",
+  "", // for API
 ];
 
 var whitelistedBuckets = {
@@ -1356,7 +1357,7 @@ app.all("/v3/*", function(req, res, next) {
       // at origin || referer? is Origin for CORS preflight?
       // or for everything? 
       // Origin was missing from FF, so added Referer.
-      host =  req.get("Origin") || req.get("Referer"); 
+      host =  req.get("Origin") || req.get("Referer") || ""; 
   }
 
   // Somehow the fragment identifier is being sent by IE10????
@@ -1373,10 +1374,14 @@ app.all("/v3/*", function(req, res, next) {
       console.log('not whitelisted');
       return next(new Error("unauthorized domain: " + host));
   }
-  res.header("Access-Control-Allow-Origin", host);
-  res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
-  res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Credentials", true);
+  if (host === "") {
+    // API
+  } else {
+      res.header("Access-Control-Allow-Origin", host);
+      res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
+      res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
+      res.header("Access-Control-Allow-Credentials", true);
+  }
   return next();
 });
 app.all("/v3/*", function(req, res, next) {
