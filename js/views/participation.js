@@ -71,6 +71,7 @@ module.exports =  ConversationView.extend({
     var ctx = ConversationView.prototype.context.apply(this, arguments);
     ctx.use_background_content_class = display.xs();
     ctx.xs = display.xs();
+    ctx.showNewButton = true;
     return ctx;
   },
   initialize: function(options) {
