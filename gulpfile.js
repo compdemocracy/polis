@@ -46,10 +46,6 @@ var devMode = true;
 gulp.task('connect', [], function() {
   express.static.mime.define({'application/x-font-woff': ['.woff']});
   var app = express();
-  app.use(/.*/, function(req, res, next) {
-    console.dir(req);
-    next();
-  });
   var fetchIndex = express.static(path.join(destRoot, "index.html"));
   app.use(express.static(path.join(destRoot)));
   app.use("/", fetchIndex);
@@ -92,88 +88,9 @@ gulp.task('connect', [], function() {
   app.use(/^\/about$/, express.static(path.join(destRoot, "lander.html")));
   app.use(/^\/try$/, express.static(path.join(destRoot, "try.html")));
 
-
-
-  //   var proxy = https.request({
-  //     port: 443,
-  //     host: request.headers['host'],
-  //     path: request.url,
-  //     method: request.method,
-  //     headers: request.headers,
-  //   });
-  //   var headers = _.extend({}, request.headers, {
-  //     "Origin" : "https://preprod.pol.is",
-  //     "Referer": "https://preprod.pol.is",
-  //     // "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36",
-  //   });
-  //   var proxy_request = proxy.request(request.method, request.url, headers);
-  //   proxy_request.addListener('response', function (proxy_response) {
-  //     proxy_response.addListener('data', function(chunk) {
-  //       response.write(chunk, 'binary');
-  //     });
-  //     proxy_response.addListener('end', function() {
-  //       response.end();
-  //     });
-  //     response.writeHead(proxy_response.statusCode, proxy_response.headers);
-  //   });
-  //   request.addListener('data', function(chunk) {
-  //     proxy_request.write(chunk, 'binary');
-  //   });
-  //   request.addListener('end', function() {
-  //     proxy_request.end();
-  //   });
-  // });
-
-  app.listen(8000);  
-  console.log('server ready');
+  app.listen(8000);
+  console.log('localhost:8000');
 });
-
-
-
-
-//   connect.server({
-//   root: destRoot,
-//   port: 8000,
-//   middleware: function(connect, o) {
-//         // console.dir(o);
-//       // console.dir(connect);
-//       return [ (function(req, res, next) {
-//         console.dir(req);
-//         console.dir(res);
-//         var url = require('url');
-//         var proxy = require('proxy-middleware');
-//         // var options = url.parse('https://preprod.pol.is/v3');
-//         // options.route = req.originalUrl; //'v3';
-//         return proxy({
-//           host: "preprod.pol.is",
-//           port: 433,
-//           path: req.originalUrl,
-//           headers: {
-//             "Origin" : "https://preprod.pol.is",
-//             "Referer": "https://preprod.pol.is",
-//             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36",
-//           }
-//         });
-//       })];
-//     }
-//   // proxies: [{
-//   //       context: '/v3',
-//   //       host: 'preprod.pol.is',
-//   //       port: 443,
-//   //       https: false,
-//   //       xforward: false,
-//   //       headers: {
-//   //         "Origin" : "https://preprod.pol.is",
-//   //         "Referer": "https://preprod.pol.is",
-//   //         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36",
-//   //       }
-//   //   }
-//   // ]
-//   // livereload: true,
-//   // open: {
-//   //   browser: 'chrome' // if not working OS X browser: 'Google Chrome'
-//   // }
-// }));
 
 gulp.task('cleancss', function(){
   gulp.src(destRoot + '/css', {read: false})
