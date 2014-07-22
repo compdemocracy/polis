@@ -1,7 +1,6 @@
 var _ = require('underscore');
+var exec = require('child_process').exec;
 var express = require('express');
-
-
 var gulp = require('gulp');
 var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
@@ -27,6 +26,7 @@ var compileHandlebars = require('gulp-compile-handlebars');
 // var server = lr();
 var markdown = require('gulp-markdown')
 var path = require('path');
+var Promise = require('es6-promise').Promise;
 var proxy = require('proxy-middleware');
 var header = require('gulp-header');
 var hbsfy = require("hbsfy").configure({
@@ -36,12 +36,16 @@ var https = require("https");
 var fs = require('fs');
 var request = require('request');
 var sass = require('gulp-ruby-sass');
+var Stream = require('stream');
+var sys = require('sys');
 var url = require('url');
 
 
 var useJsHint = false;
 var destRoot = __dirname + "/devel";
 var devMode = true;
+
+
 
 gulp.task('connect', [], function() {
   express.static.mime.define({'application/x-font-woff': ['.woff']});
@@ -91,6 +95,19 @@ gulp.task('connect', [], function() {
   app.listen(8000);
   console.log('localhost:8000');
 });
+
+function getGitHash() {
+  return new Promise(function(resolve, reject) {
+    exec("git log --pretty=\"%h\" -n 1", function(error, stdout, stderr) {
+      if (error) {
+        console.error('FAILED TO GET GIT HASH: ' + error);
+        reject(stderr);
+      } else {
+        resolve(stdout);
+      }
+    })
+  });
+}
 
 gulp.task('cleancss', function(){
   gulp.src(destRoot + '/css', {read: false})
@@ -413,7 +430,25 @@ gulp.task('about', function () {
 
 
 
+function promiseToStream(p) {
+  var Readable = require('stream').Readable;
+  var rs = new Readable;
+  console.dir(rs);
+  p.then(function(val) {
+    rs.push(val);
+    rs.push(null);
+    console.dir(rs);
+  }).catch(function(err) {
+    rs.emit("error", err);
+    console.dir(rs);
+  });
+  return rs;
+  // rs.push('beep ');
+  // rs.push('boop\n');
+  // rs.push(null);
 
+  // rs.pipe(process.stdout);
+}
 
 
 // ----------------------- END ABOUT PAGE STUFF -------------------------
@@ -431,6 +466,18 @@ gulp.task('common', [
   "fontawesome",
   "index",
   ], function() {
+    var p = getGitHash();
+    p.then(function(hash) {
+      hash = hash.toString();
+      console.log("GIT HASH " + hash);
+    }).catch(function(err) {
+      console.error(err);
+    });
+  var s = promiseToStream(p);
+  s.on("error", function(err) {
+    console.dir(err);
+  });
+  return s;
     // if (devMode) {
     //   connect.reload();
     // }
