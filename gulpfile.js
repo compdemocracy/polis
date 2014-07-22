@@ -5,8 +5,7 @@ var browserify = require('gulp-browserify');
 var concat = require('gulp-concat'); 
 var uglify = require('gulp-uglify')
 var rename = require('gulp-rename');
-var connect = require('gulp-connect'); 
-var less = require('gulp-less');
+var connect = require('gulp-connect');
 var tap = require('gulp-tap');
 var clean = require('gulp-clean');
 var jshint = require('gulp-jshint');
@@ -30,6 +29,7 @@ var hbsfy = require("hbsfy").configure({
   extensions: ["handlebars"]
 });
 var fs = require('fs');
+var sass = require('gulp-ruby-sass');
 
 
 var useJsHint = false;
@@ -51,11 +51,15 @@ gulp.task('cleancss', function(){
 })
 
 
-gulp.task('less', function(){
+gulp.task('css', function(){
   gulp.src([
-    devMode ? "css/polis_main_devel.less" : "css/polis_main_dist.less",
+    devMode ? "css/polis_main_devel.scss" : "css/polis_main_dist.scss",
     ])
-      .pipe(less())
+      .pipe(sass({
+        loadPath: [__dirname + "/css"],
+        sourcemap: true,
+        sourcemapPath: '../scss'
+      }))
       .pipe(concat("polis.css"))
       .pipe(gulp.dest(destRoot + '/css'))
 });
@@ -376,7 +380,7 @@ gulp.task("configureForProduction", function() {
 gulp.task('common', [
   "scriptsOther",
   "scripts",
-  "less",
+  "css",
   "fontawesome",
   "index",
   ], function() {

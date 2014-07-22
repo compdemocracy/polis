@@ -14,7 +14,6 @@
     "brain": "~0.6.3"
   },
   "devDependencies": {
-    "assemble-less": "~0.5.3",
     "bower": "~1.2",
     "gulp": "~3.5.2",
     "gulp-browserify": "~0.4.2",
@@ -26,7 +25,6 @@
     "gulp-header": "~1.0.2",
     "gulp-if": "0.0.5",
     "gulp-jshint": "~1.4.0",
-    "gulp-less": "~1.2.1",
     "gulp-minify-css": "~0.3.0",
     "gulp-rename": "~1.0.0",
     "gulp-s3": "git://github.com/mbjorkegren/gulp-s3",
@@ -40,7 +38,9 @@
     "thorax-inspector": "0.2.4",
     "gulp-tap": "~0.1.1",
     "gulp-compile-handlebars": "~0.2.0",
-    "gulp-markdown": "~0.1.2"
+    "gulp-markdown": "~0.1.2",
+    "node-sass": "~0.9.3",
+    "gulp-ruby-sass": "~0.6.0"
   },
   "scripts": {
     "start": "node ./node_modules/.bin/grunt",

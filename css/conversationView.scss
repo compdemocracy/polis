@@ -153,18 +153,18 @@ svg {
 }
 
 .query_result_item.selected {
-  background-color: @color_selected_comment;
+  background-color: $color_selected_comment;
 }
 
 .hover {
-  background-color: @color_selected_comment;
+  background-color: $color_selected_comment;
 }
 
 .a {
-  color: @color_agree;
+  color: $color_agree;
 }
 .d {
-  color: @color_disagree;
+  color: $color_disagree;
 }
 
 
@@ -175,16 +175,16 @@ svg {
   cursor: pointer;
 }
 #sortAgree.sort.enabled {
-  color: @color_agree;
-  border-bottom: 1px solid @color_agree;
+  color: $color_agree;
+  border-bottom: 1px solid $color_agree;
 }
 #sortDisagree.sort.enabled {
-  color: @color_disagree;
-  border-bottom: 1px solid @color_disagree;
+  color: $color_disagree;
+  border-bottom: 1px solid $color_disagree;
 }
 #sortDivisive.sort.enabled {
-  color: @color_agree;
-  border-bottom: 1px solid @color_agree;
+  color: $color_agree;
+  border-bottom: 1px solid $color_agree;
 }
 
 #analyzeHeader {

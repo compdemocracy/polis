@@ -1,9 +1,9 @@
-@color_agree: #2ecc71; // EMERALD
-@color_disagree: #e74c3c; // ALIZARIN
-@color_pass: #BDC3C7; // SILVER
-@color_self: #0CF; // blue like the dot on a map
-@color_star: yellow; // TODO find right color
-@color_selected_comment: #f7f7f7;
+$color_agree: #2ecc71; // EMERALD
+$color_disagree: #e74c3c; // ALIZARIN
+$color_pass: #BDC3C7; // SILVER
+$color_self: #0CF; // blue like the dot on a map
+$color_star: yellow; // TODO find right color
+$color_selected_comment: #f7f7f7;
 
 #analyze .nav-pills {
   margin-top: 20px
