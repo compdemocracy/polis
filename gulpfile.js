@@ -1,4 +1,7 @@
 var _ = require('underscore');
+var express = require('express');
+
+
 var gulp = require('gulp');
 var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
@@ -23,27 +26,153 @@ var compileHandlebars = require('gulp-compile-handlebars');
 // var lr = require('tiny-lr');  
 // var server = lr();
 var markdown = require('gulp-markdown')
-
+var path = require('path');
+var proxy = require('proxy-middleware');
 var header = require('gulp-header');
 var hbsfy = require("hbsfy").configure({
   extensions: ["handlebars"]
 });
+var https = require("https");
 var fs = require('fs');
+var request = require('request');
 var sass = require('gulp-ruby-sass');
+var url = require('url');
 
 
 var useJsHint = false;
 var destRoot = __dirname + "/devel";
 var devMode = true;
 
-gulp.task('connect', connect.server({
-  root: destRoot,
-  port: 8000,
-  // livereload: true,
-  // open: {
-  //   browser: 'chrome' // if not working OS X browser: 'Google Chrome'
-  // }
-}));
+gulp.task('connect', [], function() {
+  var app = express();
+  app.use(/.*/, function(req, res, next) {
+    console.dir(req);
+    next();
+  });
+  var fetchIndex = express.static(path.join(destRoot, "index.html"));
+  app.use(express.static(path.join(destRoot)));
+  app.use("/", fetchIndex);
+  app.use('/v3', function(req, response) {
+    var x = request("https://preprod.pol.is" + req.originalUrl);
+    req.pipe(x);
+    x.pipe(response);
+  });
+  app.use(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
+  app.use(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
+  app.use(/^\/share\/[0-9][0-9A-Za-z]+/, fetchIndex); // share view
+  app.use(/^\/summary\/[0-9][0-9A-Za-z]+/, fetchIndex); // summary view
+  app.use(/^\/m\/[0-9][0-9A-Za-z]+/, fetchIndex); // moderation view
+  app.use(/^\/ot\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view, one-time url
+  // TODO consider putting static files on /static, and then using a catch-all to serve the index.
+  app.use(/^\/conversation\/create.*/, fetchIndex);
+  app.use(/^\/user\/create$/, fetchIndex);
+  app.use(/^\/user\/login$/, fetchIndex);
+  app.use(/^\/welcome\/.*$/, fetchIndex);
+  app.use(/^\/settings$/, fetchIndex);
+  app.use(/^\/user\/logout$/, fetchIndex);
+  app.use(/^\/inbox.*/, fetchIndex);
+  app.use(/^\/pwresetinit$/, fetchIndex);
+  app.use(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
+  app.use(/^\/pwreset.*/, fetchIndex);
+  app.use(/^\/prototype.*/, fetchIndex);
+  app.use(/^\/plan.*/, fetchIndex);
+  app.use(/^\/professors$/, express.static(path.join(destRoot, "professors.html")));
+  app.use(/^\/pricing$/, express.static(path.join(destRoot, "pricing.html")));
+  app.use(/^\/company$/, express.static(path.join(destRoot, "company.html")));
+  app.use(/^\/api$/, express.static(path.join(destRoot, "api.html")));
+  app.use(/^\/embed$/, express.static(path.join(destRoot, "embed.html")));
+  app.use(/^\/politics$/, express.static(path.join(destRoot, "politics.html")));
+  app.use(/^\/marketers$/, express.static(path.join(destRoot, "marketers.html")));
+  app.use(/^\/faq$/, express.static(path.join(destRoot, "faq.html")));
+  app.use(/^\/blog$/, express.static(path.join(destRoot, "blog.html")));
+  app.use(/^\/tos$/, express.static(path.join(destRoot, "tos.html")));
+  app.use(/^\/privacy$/, express.static(path.join(destRoot, "privacy.html")));
+  // Duplicate url for content at root. Needed so we have something for "About" to link to.
+  app.use(/^\/about$/, express.static(path.join(destRoot, "lander.html")));
+  app.use(/^\/try$/, express.static(path.join(destRoot, "try.html")));
+
+
+
+  //   var proxy = https.request({
+  //     port: 443,
+  //     host: request.headers['host'],
+  //     path: request.url,
+  //     method: request.method,
+  //     headers: request.headers,
+  //   });
+  //   var headers = _.extend({}, request.headers, {
+  //     "Origin" : "https://preprod.pol.is",
+  //     "Referer": "https://preprod.pol.is",
+  //     // "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36",
+  //   });
+  //   var proxy_request = proxy.request(request.method, request.url, headers);
+  //   proxy_request.addListener('response', function (proxy_response) {
+  //     proxy_response.addListener('data', function(chunk) {
+  //       response.write(chunk, 'binary');
+  //     });
+  //     proxy_response.addListener('end', function() {
+  //       response.end();
+  //     });
+  //     response.writeHead(proxy_response.statusCode, proxy_response.headers);
+  //   });
+  //   request.addListener('data', function(chunk) {
+  //     proxy_request.write(chunk, 'binary');
+  //   });
+  //   request.addListener('end', function() {
+  //     proxy_request.end();
+  //   });
+  // });
+
+  app.listen(8000);  
+  console.log('server ready');
+});
+
+
+
+
+//   connect.server({
+//   root: destRoot,
+//   port: 8000,
+//   middleware: function(connect, o) {
+//         // console.dir(o);
+//       // console.dir(connect);
+//       return [ (function(req, res, next) {
+//         console.dir(req);
+//         console.dir(res);
+//         var url = require('url');
+//         var proxy = require('proxy-middleware');
+//         // var options = url.parse('https://preprod.pol.is/v3');
+//         // options.route = req.originalUrl; //'v3';
+//         return proxy({
+//           host: "preprod.pol.is",
+//           port: 433,
+//           path: req.originalUrl,
+//           headers: {
+//             "Origin" : "https://preprod.pol.is",
+//             "Referer": "https://preprod.pol.is",
+//             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36",
+//           }
+//         });
+//       })];
+//     }
+//   // proxies: [{
+//   //       context: '/v3',
+//   //       host: 'preprod.pol.is',
+//   //       port: 443,
+//   //       https: false,
+//   //       xforward: false,
+//   //       headers: {
+//   //         "Origin" : "https://preprod.pol.is",
+//   //         "Referer": "https://preprod.pol.is",
+//   //         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/36.0.1985.125 Safari/537.36",
+//   //       }
+//   //   }
+//   // ]
+//   // livereload: true,
+//   // open: {
+//   //   browser: 'chrome' // if not working OS X browser: 'Google Chrome'
+//   // }
+// }));
 
 gulp.task('cleancss', function(){
   gulp.src(destRoot + '/css', {read: false})
