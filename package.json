@@ -38,7 +38,9 @@
     "matchdep": "~0.1.2",
     "open": "0.0.3",
     "thorax-inspector": "0.2.4",
-    "gulp-tap": "~0.1.1"
+    "gulp-tap": "~0.1.1",
+    "gulp-compile-handlebars": "~0.2.0",
+    "gulp-markdown": "~0.1.2"
   },
   "scripts": {
     "start": "node ./node_modules/.bin/grunt",

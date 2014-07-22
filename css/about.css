@@ -1,0 +1,431 @@
+
+
+
+/*
+
+	html {
+		font-family: "brandon-grotesque", "helvetica", "arial";
+		font-size: 16px;
+		min-height: 100%;
+	}
+
+	h1, h2, h3, h4, h5, h6, a {
+		font-family: "brandon-grotesque", "helvetica", "arial";
+	}*/
+
+	.btn {
+		font-family: "brandon-grotesque", "helvetica", "arial";
+	}
+
+	#snowcity {
+		z-index: -1001;
+		position: fixed;
+		top: 0px;
+		left: 0;
+		min-height: 100%;
+		display: block;
+	}
+
+	@media (min-width: 1200px) { 
+		#snowcity {
+			z-index: -1001;
+			position: fixed;
+			top: 0;
+			width: 100%;
+			/*height: 100%;*/
+		}
+	}
+
+
+	body {
+		margin: 0px;
+		background-color: rgb(56, 56, 56) \9;
+		position: relative;
+		min-height: 100%;
+	}
+	
+  p, li {
+  	/*font-family: "museo-slab", "helvetica", "arial";*/
+  			font-family: "brandon-grotesque", "helvetica", "arial";
+
+  	font-size: 16px;
+  	line-height: 25px
+  }
+
+  label, input {
+  	/*font-family: "museo-slab", "helvetica", "arial";*/
+  			font-family: "brandon-grotesque", "helvetica", "arial";
+  }
+
+
+  ul {
+		list-style: square;
+	}
+
+	.sectionHeader {
+		font-family: "brandon-grotesque", "helvetica", "arial";
+		padding-bottom: 10px;
+		margin-top: 40px;
+		margin-bottom: 40px;
+		font-weight: 500;
+		border-bottom: 1px solid black;
+	}
+
+	.curly {
+		font-size: 120px;
+		position: relative;
+		top: 45px;
+	}
+
+
+
+/*
+	#polisHeader {
+		background: url(conductor.jpeg) no-repeat center 68px;
+		background-size: cover;
+		padding: 100px 0;
+		height: 800px;
+		margin-top: -68px;
+		font-family: "brandon-grotesque";
+	}
+
+*/
+
+	.feature {
+		margin-top: 30px;
+	}
+
+	.contentBackground {
+		background-color: rgba(255,255,255,.93);
+		border-radius: 7px;
+	}
+
+
+
+	/* Overview */
+
+	 #polisOverview {
+  	margin-top: 0px;
+  	margin-bottom: 40px;
+		color: black;
+		line-height: 25px;
+		padding: 20px 20px 10px 20px;
+  }
+
+  #polisOverview h2 {
+  	text-align: center;
+  	font-weight: 300;
+  	font-size: 36px;
+  }
+
+	/* User Stories */ 
+
+	/* Embedded Conversation */ 
+
+	.communicationForGroups {
+		padding: 20px;
+		font-weight: 100;
+		text-align: center;
+		background-color: white;
+		margin-top: 100px;
+	}
+
+
+	.playWithExampleHeader {
+		background-color: rgba(255, 255, 255, .97); 
+		margin: 0px;  
+		padding-bottom: 40px; 
+		padding-top: 40px; 
+		color: black; 
+		margin-top: 30px; 
+		font-weight: 300;
+		border-bottom: 1px solid lightgrey;
+		border-top-right-radius: 7px;
+		border-top-left-radius: 7px;
+	}
+
+
+.samplePolis {
+  width: 100%;
+  min-height: 1200px;
+}
+
+
+.signUpForm {
+	padding-bottom: 40px;
+	padding-left: 15px;
+	padding-right: 15px;
+
+}
+
+.features {
+	padding-top: 40px;
+	padding-bottom: 40px;
+	padding-left: 30px;
+	padding-right: 30px;
+	margin-top: 30px;
+}
+
+
+
+
+/* AFTER 2014_JUNE REFACTOR */
+
+
+
+	html {
+		font-family: "brandon-grotesque", helvetica, arial;
+		font-size: 16px;
+	}
+
+	h1, h2, h3, h4, h5, h6, a, ul, li, p, label, input, .btn {
+		font-family: "brandon-grotesque", helvetica, arial;
+		font-weight: 300;
+	}
+
+    /* WARNING - duplicated in main polis client repo */
+	.logo_and_login_section {
+	/*	border-bottom: 1px solid rgba(149, 165, 166,1.0);*/
+		padding-bottom: 15px;
+				background-color: rgba(189, 195, 199,.1);
+		border-top: 1px solid rgba(189, 195, 199,.2);
+		border-bottom: 1px solid rgba(189, 195, 199,.2);
+	}
+
+
+/*XS XS XS XS XS XS XS */
+@media(max-width:767px){
+
+	.video_section {
+		padding-top: 20px;
+		padding-bottom: 40px;
+	}
+
+	.text-center-mobile {
+		text-align: center;
+	}
+
+	h1 {
+		text-align: center;
+	}
+
+	.subtext {
+		text-align: center;
+	}
+
+
+	/*MEDIA QUERY*/
+	.video_height {
+		min-height: 210px
+	}
+
+	.process-item-text {
+		width: 50%;
+		margin: auto;
+		margin-bottom: 20px;
+		margin-top: 20px;
+	}
+
+	.feature {
+		margin-bottom: 20px;
+	}
+
+	.explore_demo_link {
+		margin-bottom: 30px;
+	}
+
+}
+/*SM SM SM SM SM SM SM */
+@media(min-width:768px){
+
+	.video_section {
+		padding-top: 20px;
+		padding-bottom: 40px;
+	}
+
+}
+
+/*MD MD MD MD MD MD MD MD */
+@media(min-width:992px){
+
+		.video_section {
+			padding-top: 50px;
+			padding-bottom: 40px;
+		}
+
+}
+
+/*LG LG LG LG LG LG LG LG */
+@media(min-width:1200px){
+		.video_section {
+			padding-top: 50px;
+			padding-bottom: 40px;
+		}
+
+}
+
+	.custom_container_for_large_screens {
+		max-width: 1800px;
+		margin: auto;
+	}
+
+	.video {
+		padding: 7px;
+		border: 1px solid #95a5a6;
+		border-radius: 7px;
+		/*media query this */
+	}
+
+	.wistia_embed_border {
+			border: 1px solid #95a5a6;
+			border-radius: 7px;
+			padding: 7px 18px 7px 18px;
+	}
+
+
+	.the_way_feedback_should_be {
+		line-height: 1.3em;
+		margin-top: 0px;
+	}
+
+	.features_section {
+		background-color: rgba(189, 195, 199,.1);
+		padding-top: 30px;
+		padding-bottom: 20px;
+		border-top: 1px solid rgba(189, 195, 199,.2);
+		border-bottom: 1px solid rgba(189, 195, 199,.2);
+	}
+
+	.trial_form_input {
+		margin-bottom: 10px;
+		margin-right: ;
+	}
+
+	.feature {
+		color: rgba(0,0,0,.7);
+
+	}
+
+	.feature h4 {
+		font-weight: 500;
+		line-height: 1.4em;
+	}
+
+	.process {
+		background-color: rgba(189, 195, 199,.1);
+		padding-top: 15px;
+		padding-bottom: 20px;
+		border-top: 1px solid rgba(189, 195, 199,.2);
+		border-bottom: 1px solid rgba(189, 195, 199,.2);
+	}
+
+	.process-title {
+		margin-bottom: 25px;
+		 font-weight: 500
+	}
+
+	.process-item {
+		background-color: white;
+		width: 70px;
+		margin: auto;
+		padding: 20px;
+		border-radius: 50px;
+		border: 2px solid rgba(189, 195, 199,.5);
+		color: rgba(52, 73, 94,1.0);
+	}
+
+
+
+	.process h4 {
+		font-weight: 500;
+		line-height: 1.4em;
+		color: rgba(52, 73, 94,1.0);
+	}
+
+	#startconvo_submitbutton {
+		font-weight: 700;
+	}
+
+	#polisLogo {
+		font-weight: 500;
+		letter-spacing: 2px;
+		font-size: 24px;
+	}
+
+	#aboutPageLoginButton {
+		position:relative; 
+		top: 25px; 
+		font-weight: 500; 
+		color: black;
+		font-size: 16px;
+	}
+
+	h1 {
+		font-size: 48px;
+		margin-bottom: 20px;
+	}
+
+	h4 { 
+		font-size: 18px;
+	}
+
+	.btn {
+		font-family: "brandon-grotesque", helvetica, arial;
+		font-weight: 100;
+	}
+
+	.btn-danger {
+		font-weight: 300;
+	}
+
+    /* This gets Google to fall into place */
+    .social {
+        font-size: 1px;
+    }
+     
+    /* This gets Facebook to fall into place */
+    .social iframe {
+        vertical-align: middle;
+    }
+     
+    /* Set an optional width for your button wrappers */
+    .social span {
+        display: inline-block;
+    }
+
+    .social iframe,.social>span {
+        vertical-align: middle;
+    }
+
+/* Sticky footer styles
+-------------------------------------------------- */
+
+html,
+body {
+  height: 100%;
+  /* The html and body elements cannot have any padding or margin. */
+}
+
+/* Wrapper for page content to push down footer */
+#wrap {
+  min-height: 100%;
+  height: auto !important;
+  height: 100%;
+  /* Negative indent footer by its height */
+  margin: 0 auto -60px;
+  /* Pad bottom by footer height */
+  padding: 0 0 60px;
+}
+
+/* Set the fixed height of the footer here */
+#footer {
+  height: 320px;
+  background-color: #f5f5f5;
+}
+
+.footer_item {
+	margin-right: 40px; 
+	position: relative; 
+	top: 19px;
+
+}

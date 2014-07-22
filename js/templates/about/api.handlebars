@@ -1,0 +1,95 @@
+{{> top}}
+{{> header}}
+
+<script>
+function switchLanguages() {
+    if (window.location.hash && window.location.hash.length) {
+        var lang = window.location.hash.slice(1);
+        $(".code_sample").hide();
+        $(".code_" + lang).show();
+        $(".pill").removeClass("active");
+        $(".pill_" + lang).addClass("active");
+    }
+}
+$(window).on('hashchange', switchLanguages);
+$(document).ready(switchLanguages);
+</script>
+
+<div class="container">
+
+<div class="row" style="margin-top: 70px;">
+  <div class="col-sm-12">
+    <h1> API </h1>
+    <h5 class="col-sm-6"> <span class="label label-default">API STABILITY:</span> <span class="label label-danger">EXPERIMENTAL - SUBJECT TO FREQUENT CHANGE</span> <h5>
+    <ul class="nav nav-pills col-sm-6">
+        <li class="pill pill_curl active"><a href="#curl">Curl</a></li>
+        <li class="pill pill_ruby"><a href="#ruby">Ruby</a></li>
+    </ul>
+  </div>
+</div>
+
+  <div id="createConversation" class="row" style="margin-bottom: 300px;">
+    <div class="col-sm-12">
+      <h3 style="border-bottom: 1px solid lightgrey; padding-bottom: 20px; margin-top: 50px"><a href="#createConversation" >#Creating a conversation</a></h3>  
+    </div>
+
+    <div class="col-sm-5">
+      <p> The API key is the only required field. A minimal request...</p> 
+      <pre> <code data-language="shell">curl -X POST -s "https://pol.is/v3/conversations" \
+        --user $POLIS_API_KEY:</code></pre> 
+        <p>...will create a conversation that is immediately accessible on the internet at the returned url. It will have the following defaults:  </p>
+      <pre><code data-language="javascript">
+is_public: false
+topic: ""
+description: ""
+      </code></pre>
+    </div>
+    <div class="col-sm-7">
+      <h5> REQUEST </h5>
+      <pre>
+<code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/v3/conversations" \
+      --user $POLIS_API_KEY: \
+      -F topic="Should we raise the minimum wage?" \
+      -F description="It's currently under $10/hr, What do you think?" \
+      -F is_public=true \
+      -F strict_moderation=false
+</code>
+<code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
+require 'net/http'
+require 'uri'
+require 'json'
+
+uri = URI.parse('https://pol.is/v3/conversations')
+
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+
+request = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
+request.basic_auth ENV['POLIS_API_KEY'], ''
+
+data = {
+    'topic' => "Should we raise the minimum wage?",
+    'description' => "It's currently under $10/hr, What do you think?",
+    'is_public' => false,
+    'strict_moderation' => false,
+}
+
+request.body = data.to_json
+response = http.request(request)
+
+puts response.body
+</code>
+      </pre>
+        <h5>RESPONSE</h5>
+      <pre> <code data-language="javascript">
+{
+    sid: "1234abc",
+    url: "https://pol.is/1234abc"
+}
+      </code></pre>
+    </div> 
+  </div> 
+
+</div> <!--container-->
+
+{{> footer}}

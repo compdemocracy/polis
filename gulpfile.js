@@ -18,10 +18,13 @@ var combineCSS = require('combine-css');
 var gulpif = require('gulp-if');
 var gutil = require('gulp-util');
 var handlebars = require('gulp-handlebars');
+var compileHandlebars = require('gulp-compile-handlebars');
 // var styl = require('gulp-styl');  
 // var refresh = require('gulp-livereload');  
 // var lr = require('tiny-lr');  
 // var server = lr();
+var markdown = require('gulp-markdown')
+
 var header = require('gulp-header');
 var hbsfy = require("hbsfy").configure({
   extensions: ["handlebars"]
@@ -322,6 +325,47 @@ gulp.task("scriptsOther", function() {
   }
   return s.pipe(gulp.dest(destRoot + "/js"));
 });
+
+// ---------------------- BEGIN ABOUT PAGE STUFF ------------------------
+
+gulp.task('templates', function () {
+
+    var top = fs.readFileSync('js/templates/about/partials/top.handlebars', {encoding: "utf8"});
+    var header = fs.readFileSync('js/templates/about/partials/header.handlebars', {encoding: "utf8"});
+    var footer = fs.readFileSync('js/templates/about/partials/footer.handlebars', {encoding: "utf8"});
+
+    var templateData = {
+        foo: 'bar333'
+    },
+    options = {
+        ignorePartials: false, //ignores the unknown footer2 partial in the handlebars template, defaults to false
+        partials : {
+               top : top,
+            header : header,
+            footer : footer
+        },
+        helpers : {
+            // capitals : function(str){
+            //     return str.toUpperCase();   
+            // }
+        }
+    }
+
+    return gulp.src('js/templates/about/*.handlebars')
+        .pipe(compileHandlebars(templateData, options))
+        .pipe(rename(function (path) {
+          path.extname = ".html"
+        }))
+        .pipe(gulp.dest(destRoot));
+});
+
+
+
+
+
+
+
+// ----------------------- END ABOUT PAGE STUFF -------------------------
 
 
 gulp.task("configureForProduction", function() {

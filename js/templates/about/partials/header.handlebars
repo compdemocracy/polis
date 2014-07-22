@@ -1,0 +1,43 @@
+<body>
+
+<script>
+function setCookie(cname,cvalue,exdays) {
+    var d = new Date();
+    d.setTime(d.getTime()+(exdays*24*60*60*1000));
+    var expires = "expires="+d.toGMTString();
+    document.cookie = cname + "=" + cvalue + "; " + expires;
+}
+
+function getCookie(cname) {
+    var name = cname + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0; i<ca.length; i++) 
+      {
+      var c = ca[i].trim();
+      if (c.indexOf(name)==0) return c.substring(name.length,c.length);
+    }
+    return "";
+}
+if (!getCookie("ref")) {
+    setCookie("ref", document.referrer, 365);
+}
+</script>
+
+<!-- facebook code for share link -->
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+var js, fjs = d.getElementsByTagName(s)[0];
+if (d.getElementById(id)) return;
+js = d.createElement(s); js.id = id;
+js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=328354915742&version=v2.0";
+fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+	<div class="row logo_and_login_section ">
+		<div class="col-xs-2 col-xs-offset-1">
+			<h3 id="polisLogo" >pol<span style="color: rgba(52, 152, 219,1.0)">.</span>is</h3>
+		</div>
+		<div class="col-sm-2  col-sm-offset-6 col-xs-3 col-xs-offset-5"> 
+			<a href="/user/login" id="aboutPageLoginButton" class="pull-right"> login </a>
+		</div>
+	</div>

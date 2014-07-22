@@ -1,0 +1,249 @@
+<!DOCTYPE html> 
+<html>
+<head>
+<title>Polis for Professors</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
+<link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.css">
+<link rel="stylesheet" type="text/css" href="about.css">
+<script type="text/javascript" src="//use.typekit.net/ecj0qyr.js"></script>
+<script type="text/javascript">try{Typekit.load();}catch(e){}</script>
+<script>
+function setCookie(cname,cvalue,exdays) {
+    var d = new Date();
+    d.setTime(d.getTime()+(exdays*24*60*60*1000));
+    var expires = "expires="+d.toGMTString();
+    document.cookie = cname + "=" + cvalue + "; " + expires;
+}
+
+function getCookie(cname) {
+    var name = cname + "=";
+    var ca = document.cookie.split(';');
+    for(var i=0; i<ca.length; i++) 
+      {
+      var c = ca[i].trim();
+      if (c.indexOf(name)==0) return c.substring(name.length,c.length);
+    }
+    return "";
+}
+if (!getCookie("ref")) {
+    setCookie("ref", document.referrer, 365);
+}
+</script>
+<script>
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-49459311-1', 'pol.is');
+  ga('require', 'displayfeatures');
+  ga('send', 'pageview');
+
+</script>
+<style type="text/css">
+	h1, h2, h3, h4, h5, h6, p, label {
+		color: rgba(52, 73, 94, .8);
+	}
+
+</style>
+
+</head>
+<body>
+
+<div class="container" style="margin-top: 50px">
+	<div id="polisHeader" class="row">
+		<div class="col-xs-12" >
+			<h1 class="" style="background-color: rgba(255,255,255,.9); padding: 20px; border-radius: 3px; display: inline-block"> CLASSROOM ENGAGEMENT REIMAGINED </h1> 
+		</div>
+		<div class="col-xs-12">
+			<h3 class="" style="margin-bottom: 30px; line-height: 1.5; background-color: rgba(255,255,255,.9); padding: 20px; border-radius: 3px; display: inline-block"> No more multiple choice: ask open ended questions. Let your students do the thinking. </h3> 
+		</div>
+		<div class="col-sm-6">
+			<iframe src="//player.vimeo.com/video/97355138?byline=0&amp;portrait=0" width="100%" style="min-height:350px" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+		</div>
+
+		<div class="col-md-5 col-md-offset-1 col-xs-12" >
+			<div class="signUpForm"style="background-color: rgba(255,255,255,1); border-radius: 7px; color: black ">
+				<div class="row" style="margin-bottom: 20px; ">
+					<div class=" col-md-11 col-md-offset-1">
+						<h3 style="line-height: 1.5"><em>Start your first pol.is conversation in seconds, for free</em></h3>
+					</div>
+				</div>
+				<form class="form-horizontal" role="form">
+				<div class="form-group">
+					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_name">Full Name</label>
+					<div class="col-md-6">
+						<input type="text" id="startconvo_name" placeholder="Full Name" class="form-control">
+					</div>		
+				</div>
+				<div class="form-group">
+					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_org">Organization</label>
+					<div class="col-md-6">
+					<input type="text" id="startconvo_org" placeholder="Organization" class="form-control">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_email">Email</label>
+					<div class="col-md-6">
+					<input type="email" id="startconvo_email" placeholder="Email" class="form-control">
+					</div>
+				</div>
+				<div class="form-group">
+					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_password">Password</label>
+					<div class="col-md-6">
+					<input type="password" id="startconvo_password" placeholder="Password" class="form-control">
+					</div>
+				</div>
+				<div class="form-group">
+					<div class="col-md-offset-1 col-md-4">
+						<button style="margin-top: 20px" type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg">Start my first conversation</button>	
+					</div>	
+				</div>
+				</form> 
+				<div class="row" id="errorDiv">
+				</div>
+			</div>			
+		</div>
+	</div>
+
+
+	<div class="row" style=" margin-bottom: 300px">
+		<div class="col-sm-3 text-center feature">
+			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
+				<p><i class="fa fa-rocket fa-4x"></i></p>
+				<h3>Blazing Fast</h3>
+				<p>Start pol.is in seconds during class, finish in minutes. Ask the open ended questions you have rather than trying to twist them into boring MC questions. </p>			
+			</div>
+		</div>
+		<div class="col-sm-3 text-center feature">
+			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
+				<p><i class="fa fa-mobile fa-4x"></i>&nbsp;<i class="fa fa-tablet fa-4x"></i>&nbsp;<i class="fa fa-laptop fa-4x"></i>&nbsp;<i class="fa fa-desktop fa-4x"></i>&nbsp;</p>
+				<h3>Browser Based</h3>
+				<p>Pol.is is completely free for students - everyone can participate on devices they already bring to class. </p>
+			</div>
+		</div>
+		<div class="col-sm-3 text-center feature">
+			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
+				<p><i class="fa fa-lightbulb-o fa-4x"></i></p>
+				<h3>Interesting Insights</h3>
+				<p> We'll surface patterns you didn't expect to find. Consensus, divisive & wedge issues - fuel for conversation. </p>
+			</div>
+		</div>
+		<div class="col-sm-3 text-center feature">
+			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
+				<p><i class="fa fa-gears fa-4x"></i></p>
+				<h3>Just Works</h3>
+				<p> Built on rock solid cloud infrastructure, pol.is will be there when you need it. </p>
+			</div>	
+		</div>
+	</div>
+ 
+
+
+<!-- 	<div class="row" style="border-radius: 7px">
+	<div class="col-xs-12">
+		<h2 class="text-center playWithExampleHeader"> Play with an example conversation 
+		<p style="padding-top: 10px"> <em>(This is the interface each participant sees)</em> </p>
+		</h2>
+		<iframe id="samplePolis" class="samplePolis" src="/demo/2demo" frameborder="0"></iframe>
+	</div>
+	</div> -->
+
+</div> <!-- container -->
+
+
+<img id="snowcity">
+
+<!--[if lte IE 8]>
+<script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+<script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+<![endif]-->
+<script type="text/javascript" src="node_modules/underscore/underscore-min.js"></script>
+<script type="text/javascript" src="bower_components/jquery/dist/jquery.min.js"></script>
+<script type="text/javascript">
+	
+$(document).ready(function(){
+
+	var initialwidth = $(window).width()
+	if (initialwidth >= 1200){
+			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
+		} else if (initialwidth > 768 && initialwidth < 1200 ) {
+			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
+		} else if (initialwidth <= 768 ) {
+			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
+	}
+
+	$(window).resize(_.debounce(imageOnResize, 300))
+
+	function imageOnResize(){
+		var ww = $(window).width()
+		console.log(ww)
+		console.log(ww)
+		if (ww >= 1200){
+			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
+		} else if (ww > 768 && ww < 1200 ) {
+			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
+		} else if (ww <= 768 ) {
+			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
+		}
+	}
+
+	$("form").submit(function(e){
+		e.preventDefault();
+		var fullname = $('#startconvo_name').val();
+		var organization = $('#startconvo_org').val();
+		var email = $('#startconvo_email').val();
+		var password = $('#startconvo_password').val();
+
+		if (!fullname) {
+			$('').html();
+		}
+		if(!organization) {
+			$('').html();
+		}
+		if (!email) {
+			$('').html();
+		}
+		if (!password) {
+			$('').html();
+		}
+        if (!password.length || password.length < 8) {
+			$('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Password must be at least 8 characters long.</div>")
+            return;
+        }
+
+		$.ajax({
+		  type: "POST",
+		  url: "/v3/auth/new",
+      contentType: "application/json; charset=utf-8",
+            headers: {
+          //"Cache-Control": "no-cache"  // no-cache
+          "Cache-Control": "max-age=0"
+      },
+      xhrFields: {
+          withCredentials: true
+      },
+
+      crossDomain: true,
+      dataType: "json",
+
+		  data: JSON.stringify({ 
+		  	hname: fullname,
+		  	organization: organization,
+		  	email: email,
+		  	password: password
+		  })
+		}).done(function( data ) {
+		  window.location = "/conversation/create";
+		}).fail(function(){
+			$('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
+		});
+	})
+})
+
+
+</script>
+
+</body>
+</html>
