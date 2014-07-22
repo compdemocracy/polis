@@ -332,7 +332,7 @@ gulp.task("scriptsOther", function() {
 
 // ---------------------- BEGIN ABOUT PAGE STUFF ------------------------
 
-gulp.task('templates', function () {
+gulp.task('about', function () {
 
     var top = fs.readFileSync('js/templates/about/partials/top.handlebars', {encoding: "utf8"});
     var header = fs.readFileSync('js/templates/about/partials/header.handlebars', {encoding: "utf8"});
@@ -465,6 +465,8 @@ function deploy(params) {
 
 // For now, you'll have to copy the assets from the other repo into the "about" directory
 gulp.task('deployAboutPage', [
+  "configureForProduction",
+  "about",
   ], function() {
   return deployAboutPage({
       bucket: "pol.is"
@@ -472,6 +474,8 @@ gulp.task('deployAboutPage', [
 });
 
 gulp.task('deployAboutPagePreprod', [
+  "configureForProduction",
+  "about",
   ], function() {
   return deployAboutPage({
       bucket: "preprod.pol.is"
