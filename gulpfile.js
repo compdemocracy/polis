@@ -228,32 +228,32 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: 'Handlebones',
           },
           bootstrap_alert: {  //all bootstrap files need to be added to the dependency array of js/main.js
-            path: 'bower_components/bootstrap/js/alert',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/alert',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_tab: {
-            path : 'bower_components/bootstrap/js/tab',
+            path : 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/tab',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_popover: {
-            path: 'bower_components/bootstrap/js/popover',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/popover',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_collapse: {
-            path: 'bower_components/bootstrap/js/collapse',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/collapse',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_dropdown: {
-            path: 'bower_components/bootstrap/js/dropdown',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/dropdown',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_affix: {
-            path: 'bower_components/bootstrap/js/affix',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/affix',
             depends: { jquery: "jQuery" },
             exports: null,
           },
@@ -263,17 +263,17 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             exports: null,
           },
           bootstrap_tooltip: {
-            path: 'bower_components/bootstrap/js/tooltip',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/tooltip',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_button: { 
-            path: 'bower_components/bootstrap/js/button',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/button',
             depends: { jquery: "jQuery" },
             exports: null,
           },
           bootstrap_transition: {
-            path: 'bower_components/bootstrap/js/transition',
+            path: 'bower_components/bootstrap-sass-official/assets/javascripts/bootstrap/transition',
             depends: { jquery: "jQuery" },
             exports: null,
           },
@@ -501,9 +501,10 @@ function deployAboutPage(params) {
       dist + "/tos.html",
       dist + "/unsupportedBrowser.html",
 
+      dist + "/css/polis.css",
+
       root + "/src/about.css",
       root + "/**/rainbow/**/*",
-      root + "/**/bower_components/bootstrap/dist/css/bootstrap.css", // ** to preserve path 
       root + "/**/node_modules/underscore/underscore-min.js", // ** to preserve path 
       root + "/**/landerImages/*",
       root + "/**/bower_components/font-awesome/css/font-awesome.min.css",
