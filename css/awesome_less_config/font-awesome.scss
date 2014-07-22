@@ -1,6 +1,7 @@
 /* @import */
 
-@import "variables";
+@import "../../bower_components/font-awesome/scss/variables";
+@import "variables"; // override
 @import "../../bower_components/font-awesome/scss/mixins";
 @import "../../bower_components/font-awesome/scss/path";
 @import "../../bower_components/font-awesome/scss/core";
