@@ -14,7 +14,7 @@ module.exports = Handlebones.ModelView.extend({
       "click #passButton": "participantPassed",
       
       "hover .starbutton": function(){
-        this.$(".starbutton").html("<i class='icon-star'></i>");
+        this.$(".starbutton").html("<i class='fa fa-star'></i>");
       }
     },
   context: function() {

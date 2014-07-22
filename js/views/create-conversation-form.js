@@ -17,12 +17,12 @@ module.exports = View.extend({
         $(event.target).select();
       },
       "click #seedCommentsContainer": function() {
-        this.$("#seedCommentsCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#seedCommentsCaret").removeClass("fa fa-caret-right").addClass("fa fa-caret-down");
         this.$("#hiddenSeedCommentForm").show();
         this.$("#seedCommentsCaret").css({"cursor": "default"});
       },
       "click #metadataFormContainer": function() {
-        this.$("#metadataCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#metadataCaret").removeClass("fa fa-caret-right").addClass("fa fa-caret-down");
         this.$("#hiddenMetadataForm").show();
         this.$("#metadataFormContainer").css({"cursor": "default"});
       },
@@ -30,12 +30,12 @@ module.exports = View.extend({
         this.$("#hiddenMetadataHelperText").toggle();
       },
       "click #xidsFormContainer": function(){
-        this.$("#xidsCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#xidsCaret").removeClass("fa fa-caret-right").addClass("fa fa-caret-down");
         this.$("#hiddenXidsForm").show();
         this.$("#xidsFormContainer").css({"cursor": "default"});
       },
       "click #moderationFormContainer": function() {
-        this.$("#moderationCaret").removeClass("icon-caret-right").addClass("icon-caret-down");
+        this.$("#moderationCaret").removeClass("fa fa-caret-right").addClass("fa fa-caret-down");
         this.$("#hiddenModerationForm").show();
         this.$("#moderationFormContainer").css({"cursor": "default"});
 
