@@ -993,60 +993,30 @@ polisTypes.starValues = _.values(polisTypes.staractions);
 
 
 var oneYear = 1000*60*60*24*365;
-function addPlanCookie(planNumber) {
-    if (domainOverride) {
-        res.cookie(COOKIES.USER_CREATED_TIMESTAMP, o.created, {
-            path: '/',
-            maxAge: oneYear,         
-        });
-        if (o.plan > 0) {
-            res.cookie(COOKIES.PLAN_NUMBER, o.plan, {
-                path: '/',
-                maxAge: oneYear,         
-            });
-        }
-    } else {
-        res.cookie(COOKIES.USER_CREATED_TIMESTAMP, o.created, {
-            path: '/',
-            maxAge: oneYear,
-            domain: '.pol.is',
-            secure: true,
-            // not httpOnly - needed by JS
-        });
-        if (o.plan > 0) {
-            res.cookie(COOKIES.PLAN_NUMBER, o.plan, {
-                path: '/',
-                maxAge: oneYear,         
-                secure: true,
-                // not httpOnly - needed by JS
-            });
-        }
-    }
-}
 
-function setCookie(res, name, value, options) {
+function setCookie(res, setOnPolisDomain, name, value, options) {
     var o = _.clone(options||{});
     o.path = _.isUndefined(o.path) ? '/' : o.path;
     o.maxAge = _.isUndefined(o.maxAge) ? oneYear : o.maxAge;
-    if (!domainOverride) {
+    if (setOnPolisDomain) {
         o.secure = _.isUndefined(o.secure) ? true : o.secure;
         o.domain = _.isUndefined(o.domain) ? '.pol.is' : o.domain;
     }
     res.cookie(name, value, o);
 }
 
-function setPlanCookie(res, planNumber) {
+function setPlanCookie(res, setOnPolisDomain, planNumber) {
     if (planNumber > 0) {
-        setCookie(res, COOKIES.PLAN_NUMBER, planNumber, {
+        setCookie(res, setOnPolisDomain, COOKIES.PLAN_NUMBER, planNumber, {
             // not httpOnly - needed by JS
         });
     } else {
         // falsy
     }
 }
-function setHasEmailCookie(res, email) {
+function setHasEmailCookie(res, setOnPolisDomain, email) {
     if (email) {
-        setCookie(res, COOKIES.HAS_EMAIL, 1, {
+        setCookie(res, setOnPolisDomain, COOKIES.HAS_EMAIL, 1, {
             // not httpOnly - needed by JS
         });
     } else {
@@ -1054,35 +1024,40 @@ function setHasEmailCookie(res, email) {
     }
 }
 
-function setUserCreatedTimestampCookie(res, timestamp) {
-    setCookie(res, COOKIES.USER_CREATED_TIMESTAMP, timestamp, {
+function setUserCreatedTimestampCookie(res, setOnPolisDomain, timestamp) {
+    setCookie(res, setOnPolisDomain, COOKIES.USER_CREATED_TIMESTAMP, timestamp, {
         // not httpOnly - needed by JS
     });
 }
 
-function setTokenCookie(res, token) {
-    setCookie(res, COOKIES.TOKEN, token, {
+function setTokenCookie(res, setOnPolisDomain, token) {
+    setCookie(res, setOnPolisDomain, COOKIES.TOKEN, token, {
         httpOnly: true,
     });
 }
 
-function setUidCookie(res, uid) {
-    setCookie(res, COOKIES.UID, uid, {
+function setUidCookie(res, setOnPolisDomain, uid) {
+    setCookie(res, setOnPolisDomain, COOKIES.UID, uid, {
         // not httpOnly - needed by JS
     });
 }
 
-function addCookies(res, token, uid) {
+function addCookies(req, res, token, uid) {
     return getUserInfoForUid2(uid).then(function(o) {
         var email = o.email;
         var created = o.created;
         var plan = o.plan;
 
-        setTokenCookie(res, token);
-        setUidCookie(res, uid);
-        setPlanCookie(res, plan);
-        setHasEmailCookie(res, email);
-        setUserCreatedTimestampCookie(res, o.created);
+        var setOnPolisDomain = !domainOverride;
+        if (setOnPolisDomain && req.headers.host.match(/^localhost:[0-9]{4}/)) {
+            setOnPolisDomain = false;
+        }
+
+        setTokenCookie(res, setOnPolisDomain, token);
+        setUidCookie(res, setOnPolisDomain, uid);
+        setPlanCookie(res, setOnPolisDomain, plan);
+        setHasEmailCookie(res, setOnPolisDomain, email);
+        setUserCreatedTimestampCookie(res, setOnPolisDomain, o.created);
     });
 }
 
@@ -2624,7 +2599,7 @@ function(req, res) {
                         email: email,
                         token: token
                     };
-                    addCookies(res, token, uid).then(function() {
+                    addCookies(req, res, token, uid).then(function() {
                         res.json(response_data);
                     }).catch(function(err) {
                         fail(res, 500, "polis_err_adding_cookies", err);
@@ -2667,7 +2642,7 @@ function(req, res) {
         console.log("startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
         // TODO check for possible security implications
         if (!o.existingAuth) {
-            return startSessionAndAddCookies(res, uid).then(function() {
+            return startSessionAndAddCookies(req, res, uid).then(function() {
                 return o;
             });
         }
@@ -2740,14 +2715,14 @@ function joinWithZidOrSuzinvite(o) {
 }
 
 
-function startSessionAndAddCookies(res, uid) {
+function startSessionAndAddCookies(req, res, uid) {
     return new Promise(function(resolve, reject) {
         startSession(uid, function(err,token) {
             if (err) {
                 reject(new Error("polis_err_reg_failed_to_start_session"));
                 return;
             }
-            resolve(addCookies(res, token, uid));
+            resolve(addCookies(req, res, token, uid));
         });
     });
 }
@@ -2798,7 +2773,7 @@ function(req, res) {
 
                             startSession(uid, function(err,token) {
                               if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
-                              addCookies(res, token, uid).then(function() {
+                              addCookies(req, res, token, uid).then(function() {
                                 res.json({
                                     uid: uid,
                                     hname: hname,
