@@ -4,13 +4,13 @@
 	  <div class="no-rounding container">
 	  	<div class="container"><div class="navbar-header"><a class="navbar-brand" href="#">Polis</a></div>
 		  	<a class="btn btn-navbar btn-default" data-toggle="collapse" data-target=".nav-collapse">
-	        <span class="icon-bar"></span>
-	        <span class="icon-bar"></span>
-	        <span class="icon-bar"></span>
+	        <span class="fa fa-bar"></span>
+	        <span class="fa fa-bar"></span>
+	        <span class="fa fa-bar"></span>
 	      	</a>
 	      <ul class="nav pull-right navbar-nav">
 	      	{{#if false}}
-	    	<li><a href="#"><span class="user">{{given_name}}</span><i class="icon-user"></i> </a></li>
+	    	<li><a href="#"><span class="user">{{given_name}}</span><i class="fa fa-users"></i> </a></li>
 	    	{{/if}}
 	    	{{#if true}}
 	    		<li><a href="/login">Sign In</a></li>
@@ -40,7 +40,7 @@
   <div class="col-lg-offset-3 col-sm-6 col-md-6">
     <div class="well detailsBox">
 
-	<a href="/conversation/view/{{sid}}" class="btn btn-block btn-warning launchConversation"><i class="icon-rocket"></i> Launch Conversation</a>
+	<a href="/conversation/view/{{sid}}" class="btn btn-block btn-warning launchConversation"><i class="fa fa-rocket"></i> Launch Conversation</a>
 
 	<h3> {{topic}} </h3>
 	<blockquote> {{description}} </blockquote>
@@ -118,7 +118,7 @@
 
 	<div class="well deleteConversation">
 
-	{{#button method="delete" tag="a" type="button" class="btn btn-danger btn-block "}}<i class="icon-remove"></i> Delete Conversation{{/button}}
+	{{#button method="delete" tag="a" type="button" class="btn btn-danger btn-block "}}<i class="fa fa-times"></i> Delete Conversation{{/button}}
 
 	</div>
 
