@@ -44,6 +44,7 @@ var destRoot = __dirname + "/devel";
 var devMode = true;
 
 gulp.task('connect', [], function() {
+  express.static.mime.define({'application/x-font-woff': ['.woff']});
   var app = express();
   app.use(/.*/, function(req, res, next) {
     console.dir(req);
