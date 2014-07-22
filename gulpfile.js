@@ -112,8 +112,8 @@ gulp.task('css', function(){
 });
 
 gulp.task('fontawesome', function() {
-  gulp.src('bower_components/font-awesome/font/**/*')
-    .pipe(gulp.dest(destRoot + "/font"));
+  gulp.src('bower_components/font-awesome/fonts/**/*')
+    .pipe(gulp.dest(destRoot + "/fonts"));
 });
 // TODO remove
 gulp.task('sparklines', function() {
