@@ -1641,31 +1641,53 @@ app.post("/v3/auth/pwresettoken",
 function(req, res) {
     var email = req.p.email;
 
+    var server = getServerNameWithProtocol(req);
+    
     // let's clear the cookies here, in case something is borked.
     clearCookies(req, res);
 
-    getUidByEmail(email, function(err, uid) {
+    function finish() {
+        res.status(200).json("Password reset email sent, please check your email.");
+    }
+
+    getUidByEmail(email).then(function(uid) {
+    
         setupPwReset(uid, function(err, pwresettoken) {
 
-            var server = getServerNameWithProtocol(req);
-
             sendPasswordResetEmail(uid, pwresettoken, server).then(function() {
-                res.status(200).json("Password reset email sent, please check your email.");
+                finish();
             }).catch(function(err) {
                 fail(res, 500, "Error: Couldn't send password reset email.", err);
             });
         });
+    }, function() {
+        sendPasswordResetEmailFailure(email, server);
+        finish();
     });
 });
 
-function getUidByEmail(email, callback) {
+function sendPasswordResetEmailFailure(email, server) {
+     return sendEmail({
+        to: email,
+        subject: "Password Reset Failed",
+        text: 
+            "We were unable to find a pol.is account registered with the email address: " + email + "\n" +
+            "\n" +
+            "You may have used another email address to create your account.\n" +
+            "\n" +            
+            "If you need to create a new account, you can do that here " + server + "/user/create\n" +
+            "\n" +
+            "Feel free to reply to this email if you need help."
+    });
+}
+
+function getUidByEmail(email) {
     email = email.toLowerCase();
-    pgQuery("SELECT uid FROM users where LOWER(email) = ($1);", [email], function(err, results) {
-        if (err) { return callback(err); }
-        if (!results || !results.rows || !results.rows.length) {
-            return callback(1);
+    return pgQueryP("SELECT uid FROM users where LOWER(email) = ($1);", [email]).then(function(rows) {
+        if (!rows || !rows.length) {
+            throw new Error("polis_err_no_user_matching_email");
         }
-        callback(null, results.rows[0].uid);
+        return rows[0].uid;
     });
 }
 
