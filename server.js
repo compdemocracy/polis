@@ -1313,6 +1313,7 @@ var whitelistedDomains = [
   "https://www.pol.is",
   "http://preprod.pol.is",
   "https://preprod.pol.is",
+  "http://localhost:8000",
   "", // for API
 ];
 
