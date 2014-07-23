@@ -57,6 +57,7 @@ var badwords = require('badwords/object'),
     mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
     querystring = require('querystring'),
     devMode = "localhost" === process.env["STATIC_FILES_HOST"],
+    request = require('request'),
     SimpleCache = require("simple-lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
     _ = require('underscore');
@@ -4775,20 +4776,26 @@ function makeFileFetcher(hostname, port, path, contentType) {
             url = "http://" + hostname + path;
         }
         console.log("fetch file from " + url);
-        http.get(url, function(proxyResponse) {
-            if (devMode) {
-                addStaticFileHeaders(res);
-            }
-            res.setHeader('Content-Type', contentType);
-            proxyResponse.on('data', function (chunk) {
-                res.write(chunk);
-            });
-            proxyResponse.on('end', function () {
-                res.end();
-            });
-        }).on("error", function(e) {
-            fail(res, 500, "polis_err_serving_file", new Error("polis_err_serving_file"));
+        var x = request(url);
+        req.pipe(x);
+        x.pipe(res);
+        x.on("error", function(err) {
+            fail(res, 500, "polis_err_finding_file " + path, err);
         });
+        // http.get(url, function(proxyResponse) {
+        //     if (devMode) {
+        //         addStaticFileHeaders(res);
+        //     }
+        //     res.setHeader('Content-Type', contentType);
+        //     proxyResponse.on('data', function (chunk) {
+        //         res.write(chunk);
+        //     });
+        //     proxyResponse.on('end', function () {
+        //         res.end();
+        //     });
+        // }).on("error", function(e) {
+        //     fail(res, 500, "polis_err_serving_file", new Error("polis_err_serving_file"));
+        // });
     };
 }
 

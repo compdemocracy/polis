@@ -41,6 +41,7 @@
     "badwords": "0.0.3",
     "stripe": "~2.5.0",
     "akismet": "0.0.11",
-    "mimelib": "~0.2.16"
+    "mimelib": "~0.2.16",
+    "request": "~2.38.0"
   }
 }
