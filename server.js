@@ -3388,6 +3388,7 @@ function(req, res) {
 
                 function(err, docs) {
                     if (err) { 
+                        console.dir(err);
                         if (err.code == '23505') {
                             // duplicate comment
                             fail(res, 409, "polis_err_post_comment_duplicate", err);
