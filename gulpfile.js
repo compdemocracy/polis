@@ -522,8 +522,7 @@ gulp.task("watchForDev", [
 
 
 gulp.task('deploy', [
-  // "dist"
-  "configureForProduction",
+  "dist"
 ], function() {
   return deploy({
       bucket: "pol.is"
@@ -531,8 +530,7 @@ gulp.task('deploy', [
 });
 
 gulp.task('deployPreprod', [
-  // "dist"
-  "configureForProduction",
+  "dist"
 ], function() {
   return deploy({
       bucket: "preprod.pol.is"
