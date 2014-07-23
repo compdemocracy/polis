@@ -44,16 +44,20 @@ var url = require('url');
 
 
 var useJsHint = false;
-var destRoot = __dirname + "/devel";
+const baseDistRoot = "dist";
+var destRootBase = "devel";
+var destRootRest = '';  // in dist, will be the cachebuster path prefix
+function destRoot() {
+  return destRootBase + "/" + destRootRest;
+}
 var devMode = true;
-
 
 
 gulp.task('connect', [], function() {
   express.static.mime.define({'application/x-font-woff': ['.woff']});
   var app = express();
-  var fetchIndex = express.static(path.join(destRoot, "index.html"));
-  app.use(express.static(path.join(destRoot)));
+  var fetchIndex = express.static(path.join(destRootBase, "index.html"));
+  app.use(express.static(path.join(destRootBase)));
   app.use("/", fetchIndex);
   app.use('/v3', function(req, response) {
     var x = request("https://preprod.pol.is" + req.originalUrl);
@@ -79,20 +83,20 @@ gulp.task('connect', [], function() {
   app.use(/^\/pwreset.*/, fetchIndex);
   app.use(/^\/prototype.*/, fetchIndex);
   app.use(/^\/plan.*/, fetchIndex);
-  app.use(/^\/professors$/, express.static(path.join(destRoot, "professors.html")));
-  app.use(/^\/pricing$/, express.static(path.join(destRoot, "pricing.html")));
-  app.use(/^\/company$/, express.static(path.join(destRoot, "company.html")));
-  app.use(/^\/api$/, express.static(path.join(destRoot, "api.html")));
-  app.use(/^\/embed$/, express.static(path.join(destRoot, "embed.html")));
-  app.use(/^\/politics$/, express.static(path.join(destRoot, "politics.html")));
-  app.use(/^\/marketers$/, express.static(path.join(destRoot, "marketers.html")));
-  app.use(/^\/faq$/, express.static(path.join(destRoot, "faq.html")));
-  app.use(/^\/blog$/, express.static(path.join(destRoot, "blog.html")));
-  app.use(/^\/tos$/, express.static(path.join(destRoot, "tos.html")));
-  app.use(/^\/privacy$/, express.static(path.join(destRoot, "privacy.html")));
+  app.use(/^\/professors$/, express.static(path.join(destRootBase, "professors.html")));
+  app.use(/^\/pricing$/, express.static(path.join(destRootBase, "pricing.html")));
+  app.use(/^\/company$/, express.static(path.join(destRootBase, "company.html")));
+  app.use(/^\/api$/, express.static(path.join(destRootBase, "api.html")));
+  app.use(/^\/embed$/, express.static(path.join(destRootBase, "embed.html")));
+  app.use(/^\/politics$/, express.static(path.join(destRootBase, "politics.html")));
+  app.use(/^\/marketers$/, express.static(path.join(destRootBase, "marketers.html")));
+  app.use(/^\/faq$/, express.static(path.join(destRootBase, "faq.html")));
+  app.use(/^\/blog$/, express.static(path.join(destRootBase, "blog.html")));
+  app.use(/^\/tos$/, express.static(path.join(destRootBase, "tos.html")));
+  app.use(/^\/privacy$/, express.static(path.join(destRootBase, "privacy.html")));
   // Duplicate url for content at root. Needed so we have something for "About" to link to.
-  app.use(/^\/about$/, express.static(path.join(destRoot, "lander.html")));
-  app.use(/^\/try$/, express.static(path.join(destRoot, "try.html")));
+  app.use(/^\/about$/, express.static(path.join(destRootBase, "lander.html")));
+  app.use(/^\/try$/, express.static(path.join(destRootBase, "try.html")));
 
   app.listen(8000);
   console.log('localhost:8000');
@@ -126,17 +130,17 @@ gulp.task('css', function(){
         sourcemapPath: '../scss'
       }))
       .pipe(concat("polis.css"))
-      .pipe(gulp.dest(destRoot + '/css'))
+      .pipe(gulp.dest(destRoot() + '/css'))
 });
 
 gulp.task('fontawesome', function() {
   gulp.src('bower_components/font-awesome/fonts/**/*')
-    .pipe(gulp.dest(destRoot + "/fonts"));
+    .pipe(gulp.dest(destRoot() + "/fonts"));
 });
 // TODO remove
 gulp.task('sparklines', function() {
   var s = gulp.src('sparklines.svg')
-    .pipe(gulp.dest(destRoot));
+    .pipe(gulp.dest(destRoot()));
 });
 gulp.task('index', [
   'sparklines',
@@ -144,19 +148,19 @@ gulp.task('index', [
   var s = gulp.src('index.html');
   if (devMode) {
     s = s.pipe(template({
-      basepath: '',
+      basepath: destRootRest,
       d3Filename: 'd3.js',
       r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
-      basepath: '', // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
+      basepath: destRootRest, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
   }
-  return s.pipe(gulp.dest(destRoot));
+  return s.pipe(gulp.dest(destRootBase));
 });
 
 gulp.task('templates', function(){
@@ -362,7 +366,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
           .pipe(gzip())
       }
       s = s.pipe(rename('polis.js'));
-      return s.pipe(gulp.dest(destRoot + "/js"));
+      return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
 // for big infrequently changing scripts that we don't want to concatenate
@@ -392,7 +396,7 @@ gulp.task("scriptsOther", function() {
         path.extname = ext.substr(0, ext.length- ".gz".length);
       }));
   }
-  return s.pipe(gulp.dest(destRoot + "/js"));
+  return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
 // ---------------------- BEGIN ABOUT PAGE STUFF ------------------------
@@ -528,7 +532,7 @@ function deploy(params) {
     // Files without Gzip
     gulp.src([
       destRoot + '/**',
-      '!' + destRoot + '/js/**',
+      '!' + destRoot() + '/js/**',
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
@@ -538,7 +542,7 @@ function deploy(params) {
 
     // Gzipped Files
     gulp.src([
-      destRoot + '/**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
+      destRoot() + '/**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
