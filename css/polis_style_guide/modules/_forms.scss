@@ -1,37 +1,60 @@
-//
-// polis style guide
 // FORMS
 //
 
 .form-vertical {
-  label {
-    display: block;
-    margin-bottom: 5px;
+  margin-bottom: ($default-whitespace*2);
+  border: 0;
 
+  .form-group {
+    margin-bottom: $default-whitespace;
+  }
+  .form-label {
+    display: block;
+    margin-bottom: 0;
+
+    color: $text-color;
     font-family: $sans-font;
     font-size: 22px;
-    font-weight: normal;
+    font-weight: 400;
   }
 }
 
-// default input styles
 .form-control {
-  width: 90%;
+  min-height: 36px;
+  height: auto;
+  width: 100%;
   display: block;
-  padding: 8px 10px 6px 10px;
-  margin-top: 4px;
-  margin-bottom: $default-whitespace;
-  border-radius: 4px;
+  padding: 0 10px;
+  margin-bottom: 2px;
+  border-radius: 2px;
 
+  background-color: #fff;
   border: 1px solid $default-border-color;
   color: $dark-gray;
-  font-size: 20px;
+  font-size: 22px;
   font-family: $serif-font;
   font-weight: normal;
+  line-height: 48px;
+  box-shadow: none;
+
+  &:hover {
+    border-color: #aaa;
+  }
+
+  &:focus {
+    border-color: $brand-color;
+    outline: none;
+    box-shadow: none;
+  }
 }
 
 .form-control--title {
   font-size: 30px;
+}
+
+.forgot-password {
+  font-family: $serif-font;
+  line-height: 2;
 }
 
 // Checkbox and radio buttons
@@ -45,4 +68,27 @@
     float: left;
     margin: 5px 0 0 (-$default-whitespace);
   }
+}
+
+//
+// Alternate Create an Account/Sign Up section
+//
+.alternateRegOr {
+    text-align: center;
+    position: absolute;
+    width: 40px;
+    /*left: 50%;*/
+    /*margin-left: -20px;*/ /* -1/2 of width, to center a position:absolute element */
+    left: 20px; /* since the form is left-aligned */
+    top: -13px;
+
+    background-color: $bg-color;
+    font-weight: 700;
+}
+
+.alternateReg {
+    margin-top: $default-whitespace;
+    padding-top: $default-whitespace + ($default-whitespace/2);
+
+    border-top: 1px solid $default-border-color;
 }

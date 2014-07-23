@@ -1,9 +1,7 @@
-//
-// polis style guide
 // BUTTONS
+//
 
-.btn-submit {
-  margin-top: ($default-whitespace/2);
+.btn-primary {
   margin-bottom: $default-whitespace;
   padding: 8px 25px;
   border-radius: 4px;
@@ -12,27 +10,42 @@
   background-color: $brand-color;
   color: #fff;
   font-family: $sans-font;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
+
   &:hover {
-    background-color: $default-hover-color;
+    background-color: $btn-hover-color;
   }
 }
 
 .btn-alt {
   margin-bottom: $default-whitespace;
-  padding: 4px 20px;
+  padding: 7px 23px;
   border-radius: 4px;
-  border: 3px solid $default-border-color;
+  border: 0;
 
-  background-color: transparent;
-  color: $brand-text-color;
+  background-color: $bg-alt-color;
+  color: $brand-color;
   font-family: $sans-font;
-  font-weight: 500;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
 
   &:hover {
-    opacity: 0.7;
+    color: $brand-text-color;
   }
+}
+
+//
+// Voting buttons: agree and disagree
+//
+#agreeButton, #disagreeButton {
+  border-right: 0px
+}
+
+.btn-vote {
+  // set this independently of the overall font size, since they're difficult to get right.
+  font-size: 20px;
+  padding: 10px 0px; // no horizontal padding - to prevent the right edge of "disagree" from being clipped on iOS
 }

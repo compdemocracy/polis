@@ -1,0 +1,22 @@
+// LISTS
+//
+
+.list-plain {
+  margin-top: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.list-horizontal {
+  margin: 0;
+  padding-left: 0;
+}
+
+.list-horizontal > li {
+  display: inline-block;
+  margin-left: $default-whitespace;
+
+  &:first-child {
+    margin-left: 0;
+  }
+}
