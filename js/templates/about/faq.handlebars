@@ -1,12 +1,145 @@
 {{> top}}
 {{> header}}
 
-<div class="container" style="margin-top: 100px; margin-bottom: 100px">
+<div class="container" style="margin-bottom: 50px">
 	<div class="row">
-		<div class="col-md-8 col-md-offset-2 col-xs-10 col-xs-offset-1">
-      <h1>FAQ</h1>
+		<div class="col-xs-12">
+      <h1>Frequently Asked Questions</h1>
 		</div>
 	</div>
+  <div class="row">
+  	<div class="col-xs-12">
+			<h2 class="faq-title"> Fundamentals </h2>
+  	</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> What is pol.is? </h4>
+			<p class="faq-body">Pol.is is a web based tool for quickly gathering open ended feedback in response to an open ended question. Pol.is produces sentiment groups and other insights by running statistical analysis on voting patterns of participants in the conversation.</p>
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> How does pol.is work?</h4>
+			<p class="faq-body">An individual starts a pol.is conversation by asking an open ended question and sharing a link with a group of participants. Participants write comments in response to the question, and react to each other's comments by voting. Pol.is generates a real-time visualization showing opinion groups that have formed. By clicking on the groups, everyone can see the comments that separate that group from the rest of the participants. We show you which comments were most agreed upon, disagreed upon and divisive. By exploring, you and your participants gain insights.</p>
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> What problem does pol.is solve?</h4>
+			<p class="faq-body">Asking an open ended question of 20, 200, or 2000 people using email, discussion threads or comment boards is problematic. It's time consuming to synthesize lots of open ended text and make meaning out of it. Pol.is synthesizes  open text automatically, producing majority and minority opinion groups and making it simple to tell which perspectives have broad consensus and which ones are divisive.</p>
+		</div>
+		<div class="col-md-6">
+			<h4 class="faq-subtitle"> What about upvoting/downvoting sites, such as Reddit, Stack Overflow and Quora? How is pol.is different than these?</h4>
+			<p class="faq-body">Sites that use upvoting and downvoting fail to account for the presence of opinion groups. They work well when there is one best answer, and only the best answer matters, but fail when there are multiple right answers (ie., with more subjective questions).</p>
+		</div>
+		<div class="col-md-6">
+			<h4 class="faq-subtitle"> How many people do I need to have a successful conversation?</h4>
+			<p class="faq-body">At least 10. Because pol.is depends on analyzing patterns of opinion, more participants means more opportunity for patterns to emerge. Pol.is works best when when you are trying to organize the opinions of tens, hundreds, or thousands of people.</p>
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> Can anyone join the conversation I create? Can I restrict access?</h4>
+			<p class="faq-body"> Anyone with a link can join the conversation. Short links (pol.is/123abc) are easy for an audience to type or tweet, and more discoverable. Long links (e.g. pol.is/789xyzTBaymEdigAxwDSP6), are harder to type, but provide a basic level of security by being impossible to guess, even for a computer.</p>
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> Do all participants see the visualization? Why?</h4>
+			<p class="faq-body">Yes - all participants are able to see the visualization and analyze the results. Seeing one's own place in the conversation is an incentive to participate.</p>
+		</div> 
+		<div class="col-md-12">
+			<h4 class="faq-subtitle"> How are pol.is conversations different from traditional surveys?</h4>
+		</div>
+		<div class="col-md-4">
+			<p class="faq-body">In short, pol.is handles open ended text responses (subjective / value based questions) much better than traditional surveys. Consider:</p>
+			<ul class="faq-body">
+				<li class="faq-body">Surveys require that time and effort be spent to create questions at the outset.</li>
+				<li class="faq-body">Surveys require time, care &amp; intention to avoid bias.</li>
+				<li class="faq-body">Survey software does not automatically analyze the data that comes back. For instance, let's say 50% of respondents agree with question A, and 50% with question B. Were those the same 50% or not? How do those answers relate to those given for question C? While it's possible to do advanced statistical analysis to discover these correlations, that takes expertise and time.</li>
+				<li class="faq-body">Respondents are limited in the expressiveness of their responses. If an open text field is included, it creates more work for survey analysts. </li>
+				<li class="faq-body">Surveys are generally boring to fill out.</li>
+			</ul>
+		</div>
+		<div class="col-md-4">
+			<p class="faq-body">With pol.is, in contrast:</p>
+			<ul class="faq-body">
+				<li class="faq-body">There are no questions to create. Since participants create the statements others react to, a conversation is both effortless to start and authentic to the feelings and priorities of the participants.</li>
+				<li class="faq-body">Sentiment groups and correlations are produced automatically.</li>
+			</ul>
+		</div>
+		<div class="col-md-4">
+			<p class="faq-body">There are logistical implications to these differences: pol.is can be deployed in seconds in response to something unexpected, like a problem that comes up in the middle of a normal day.</p>
+		</div>
+	</div> <!-- end row -->
+			
+
+	<div class="row">
+		<div class="col-xs-12">
+			<h2 class="faq-title"> Analysis </h2>
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> What does the visualization mean?</h4>
+			<ul class="faq-body"> 
+				<li class="faq-body"> Grey dots represent one or more participants in the conversation</li>
+				<li class="faq-body"> Participants are closer together if they tend to agree, and further apart if they tend to disagree.</li>
+				<li class="faq-body"> Each participant sees their own position in the conversation as a blue dot that moves with each vote.</li>
+				<li class="faq-body"> Shaded grey areas represent opinion groups. Participants within an opinion group tend to agree with others in that group.</li>
+			</ul>
+			<p class="faq-body"> A participant is counted as â€œin the conversationâ€ if they have reacted to enough comments (either 7 comments or 100% of comments, whichever comes first). Excluding those who didn't heavily participate improves the reliability of the statistical analysis. However, those participants who are not yet â€œin the conversationâ€ will still see a blue dot representing their position in the conversation.</p>
+		</div> 
+		<div class="col-md-4">
+			<h4 class="faq-subtitle">Groups </h4>
+			<p class="faq-body"> By clicking on a group, you can see the comments which are most representative of that group's opinion. Specifically, these comments are generally agreed upon within the selected group, but disagreed upon outside the group. </p>
+		</div>
+		<div class="col-md-8">
+			<h4 class="faq-subtitle">The Analyze Tab</h4>
+			<p class="faq-body"> After clicking on the Analyze tab or on Group in the visualization, comments will show up next to the visualization. There are several ways you can gain insight into how these comments relate to the conversation. </p>
+			<ul class="faq-body">
+				<li class="faq-body"> Above each comment is a summary of the agreement for each comment. </li>
+			   <ul class="faq-body">
+				   <li class="faq-body"> When you've selected an opinion group in the visualization, you will see a percentage indicating the percentage of people in the group who agreed with the statement. This percentage does not account for people who didn't vote through all the comments and might not have seen the selected comment.</li>
+				   <li class="faq-body"> You will also see a fraction like (34/41), which indicates that out of 41 people in the group, 34 saw the comment and agreed with it. The remaining either did not see the comment[d], disagreed with it, or passed.</li>
+				   <li class="faq-body"> When in the Analyze tab, you will simply see a summary count of the number of agrees and disagrees for each comment.</li>
+			   </ul>
+			</ul>
+			<ul class="faq-body">
+				<li class="faq-body">Clicking on a comment shows the patterns of agrees and disagrees across the conversation directly on the visualization. These patterns are conveyed by transforming the grey dots into colored triangles.</li><li class="faq-body">
+				<ul class="faq-body">
+			  	<li class="faq-body"> Upward pointing, green triangles correspond to votes in agreement with the particular comment.</li>
+			  	<li class="faq-body"> Downward pointing, red triangles correspond with votes disagreeing with the given comment.</li>
+			  	<li class="faq-body"> If the conversation has gotten large enough that dots represent multiple people, the dot will turn into two triangles stacked on top of each other. The size of the triangles in this case corresponds with the number of agrees and disagrees among those participants. </li>
+			  	<li class="faq-body"> No triangle will be shown for those participants who either passed or did not vote on a question.</li>
+				</ul>
+			</li></ul>
+		</div>
+	</div> <!--end row --> 
+	<div class="row">
+		<div class="col-xs-12">
+			<h2 class="faq-title"> API &amp; Embedding </h2>
+		</div>
+		<div class="col-sm-6">
+			<h4 class="faq-subtitle"> Can I embed a pol.is conversation into a webpage?</h4>
+			<p class="faq-body"> Yes. Either manually by inserting the link into an iframe in your code, or doing the same programmatically using the API. Because pol.is is a responsive web application, it will resize to the container it is loaded inside of. The recommended minimum width is 320px.</p>
+		</div>
+		<div class="col-sm-6">
+			<h4 class="faq-subtitle"> Can I integrate pol.is into an existing application?</h4>
+			<p class="faq-body"> Yes - it's as easy as a 'POST' to the API to create a new conversation. Because pol.is is a responsive web application, it will resize to the container it is loaded inside of. The recommended minimum width is 320px. </p> 
+		</div>
+	</div> <!-- end row --> 
+	<div class="row">
+		<div class="col-xs-12">
+			<h2 class="faq-title"> Nuts &amp; Bolts </h2> 
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> How do I delete / modify conversations?</h4>
+			<p class="faq-body"> Conversations cannot be deleted or modified. If  Conversations can be concluded, which disables commenting and voting to all present and future participants. </p>
+		</div>
+		<div class="col-md-8">
+			<h4 class="faq-subtitle"> How do I submit a feature/bug request?</h4>
+			<p class="faq-body"> Send us a message inside of pol.is by clicking the question mark on the lower right and corner of your screen.</p>
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> Do we need to have a new installation of pol.is at our (company/school/etc.)?</h4>
+			<p class="faq-body"> Pol.is is a web based tool and works completely online. No local installation is necessary.</p>
+		</div>
+		<div class="col-md-4">
+			<h4 class="faq-subtitle"> Do all of the participants need logins, or just the user who starts the conversation? </h4>
+			<p class="faq-body"> This depends on the anonymity of a given conversation. By default, all participants are anonymous and do not need to login. </p>
+		</div>
+	</div>
+
 </div>
 
 {{> footer}}
