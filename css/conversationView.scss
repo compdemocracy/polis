@@ -2,6 +2,8 @@
 // Conversation View
 //
 
+@import 'polis_style_guide/polis_styles';
+
 .helpArrow {
   fill: #222;
 }
@@ -30,19 +32,6 @@
   border-color: #333;
 }
 
-*.unselectable {
-  -moz-user-select: none;
-  -khtml-user-select: none;
-  -webkit-user-select: none;
-
-  /*
-   Introduced in IE 10.
-   See http://ie.microsoft.com/testdrive/HTML5/msUserSelect/
-  */
-  -ms-user-select: none;
-  user-select: none;
-}
-
 .affix {
   position: fixed;
   top: 51px;
@@ -50,16 +39,6 @@
 
 .affix-top {
 
-}
-
-#agreeButton, #disagreeButton {
-  border-right: 0px
-}
-
-.btn-vote {
-  // set this independently of the overall font size, since they're difficult to get right.
-  font-size: 20px;
-  padding: 10px 0px; // no horizontal padding - to prevent the right edge of "disagree" from being clipped on iOS
 }
 
 .tab-conv {
