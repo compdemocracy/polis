@@ -30,8 +30,8 @@ body {
 }
 
 .footer_item {
-  margin-right: 40px; 
-  position: relative; 
+  margin-right: 40px;
+  position: relative;
   top: 19px;
 
 }
@@ -112,7 +112,7 @@ body {
 /* Conversation create - and everything concerned with metadata */
 
 .makeCursorPointer {
-  cursor: pointer;  
+  cursor: pointer;
 }
 .addNewMetadataButton {
   margin-top: 25px;
@@ -172,23 +172,6 @@ body {
   position: relative;
 }
 
-.alternateRegOr {
-    text-align: center;
-    position: absolute;
-    width: 40px;
-    /*left: 50%;*/
-    /*margin-left: -20px;*/ /* -1/2 of width, to center a position:absolute element */
-    left: 20px; /* since the form is left-aligned */
-    top: -13px;
-    background-color: #fff;
-}
-
-.alternateReg {
-    border-top: 1px solid #888;
-    margin-top: 10px;
-    padding-top: 15px;
-}
-
 .owl-carousel .owl-wrapper-outer{
   overflow: visible;
   position: relative;
@@ -235,50 +218,44 @@ $custom_gutter_pixels: 5px;
 /*  @screen-sm-min  */
 @media(max-width:767px){
    .comment_form_button_position {
-    position: absolute; 
-    right: 0; 
-    bottom: 0px; 
+    position: absolute;
+    right: 0;
+    bottom: 0px;
     max-width: 67px;
   }
   .comment_form_textarea_width {
     max-width: 75%;
   }
- 
+
 }
 
 /*SM SM SM SM SM SM SM */
 /* @screen-sm-min  */
 @media(min-width:768px){
- 
+
   .comment_form_textarea_width {
     max-width: 100%;
   }
 
   .comment_form_button_position {
-    position: absolute; 
-    right: 0; 
-    bottom: -53px; 
+    position: absolute;
+    right: 0;
+    bottom: -53px;
     max-width: 91px;
   }
- 
+
 }
- 
+
 /*MD MD MD MD MD MD MD MD */
 /* @screen-md-min */
 @media(min-width:992px){
- 
- 
+
+
 }
- 
+
 /*LG LG LG LG LG LG LG LG */
 /* @screen-lg-min  */
 @media(min-width:1200px){
- 
- 
+
+
 }
-
-
-
-
-
-
