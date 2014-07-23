@@ -1,4 +1,23 @@
 polis-dashboard-require
 =======================
 
-This is the port of the polis dashboard to use requirejs 
+This is the port of the polis dashboard to use requirejs
+
+## Development
+
+Install with [npm](https://www.npmsjs.org/) and [bower](http://bower.io/):
+
+  $ npm install
+  $ bower install
+
+To initialize:
+  $ gulp dist
+
+To build:
+  $ gulp
+
+The dev server is at [localhost:8000](http://localhost:8000/)
+
+### Requirements
+
+For gulp-ruby-sass to enable `sourcemap` options, it requires Sass >= 3.3.0
