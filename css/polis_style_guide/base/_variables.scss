@@ -1,0 +1,43 @@
+//
+// polis style guide
+// VARIABLES
+//
+
+//
+// COLORS
+//
+$light-gray: #717171;
+$medium-gray: #555555;
+$dark-gray: #171717;
+
+$brand-color: #3498db;
+$brand-text-color: #0a77bf;
+
+$bg-color: #f7f7f7;
+$text-color: $light-gray; //contrast ratio 4.5
+
+$default-border-color: #e4e4e4;
+
+$link-color: $brand-text-color;
+
+//
+// CONTENT
+//
+$default-gutter: 25px;
+
+$default-whitespace: 25px;
+$default-leading: 1.6;
+
+//
+// FONTS
+//
+$headline-font: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+$sans-font: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+//  alternate sans-serif (?): "Droid Sans", sans-serif;
+$serif-font: "Chaparral Pro", serif;
+
+//
+// LAYOUT
+//
+$large-screen: 960px;
+$medium-screen: 600px;

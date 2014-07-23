@@ -1,0 +1,48 @@
+//
+// polis style guide
+// FORMS
+//
+
+.form-vertical {
+  label {
+    display: block;
+    margin-bottom: 5px;
+
+    font-family: $sans-font;
+    font-size: 22px;
+    font-weight: normal;
+  }
+}
+
+// default input styles
+.form-control {
+  width: 90%;
+  display: block;
+  padding: 8px 10px 6px 10px;
+  margin-top: 4px;
+  margin-bottom: $default-whitespace;
+  border-radius: 4px;
+
+  border: 1px solid $default-border-color;
+  color: $dark-gray;
+  font-size: 20px;
+  font-family: $serif-font;
+  font-weight: normal;
+}
+
+.form-control--title {
+  font-size: 30px;
+}
+
+// Checkbox and radio buttons
+
+.input-checkbox,
+.input-radio {
+  padding-left: $default-whitespace;
+
+  input[type="checkbox"],
+  input[type="radio"]  {
+    float: left;
+    margin: 5px 0 0 (-$default-whitespace);
+  }
+}

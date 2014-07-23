@@ -1,0 +1,93 @@
+//
+// polis style guide
+// BASE
+//
+
+*, *:before, *:after {
+  box-sizing: border-box;
+}
+
+body {
+  background: $bg-color;
+  color: $text-color;
+  font-family: $serif-font;
+  font-size: 18px;
+  line-height: $default-leading;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, p, ul, ol {
+  margin-top: 0;
+}
+
+//
+// Links
+//
+a {
+  &, &:link {
+    color: $link-color;
+    text-decoration: none;
+  }
+}
+
+//
+// Persistent Header (extract?)
+//
+.header {
+  margin: 0;
+  padding: 30px 0 15px 0;
+  border-bottom: 3px solid #eeeff0;
+
+  vertical-align: bottom;
+}
+
+.title {
+  margin: 0;
+  display: inline-block;
+
+  color: $medium-gray;
+  font-family: $headline-font;
+  font-size: 28px;
+  font-weight: normal;
+  letter-spacing: 1px;
+
+  .blue {
+    color: $brand-color;
+    font-weight: bold;
+  }
+}
+
+.nav {
+  float: right;
+  margin-top: 10px;
+
+  font-family: $sans-font;
+  font-size: 20px;
+}
+
+//
+// Headings
+//
+.primary-heading {
+  color: $dark-gray;
+  font-family: $headline-font;
+  font-weight: 700;
+  font-size: 36px;
+}
+
+.sub-heading {
+  color: $light-gray;
+  font-family: $serif-font;
+  font-weight: normal;
+  font-size: 18px;
+}
+
+.secondary-heading {
+  color: $dark-gray;
+  font-family: $headline-font;
+  font-weight: 900;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

@@ -1,0 +1,38 @@
+//
+// polis style guide
+// BUTTONS
+
+.btn-submit {
+  margin-top: ($default-whitespace/2);
+  margin-bottom: $default-whitespace;
+  padding: 8px 25px;
+  border-radius: 4px;
+  border: 0;
+
+  background-color: $brand-color;
+  color: #fff;
+  font-family: $sans-font;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  &:hover {
+    background-color: $default-hover-color;
+  }
+}
+
+.btn-alt {
+  margin-bottom: $default-whitespace;
+  padding: 4px 20px;
+  border-radius: 4px;
+  border: 3px solid $default-border-color;
+
+  background-color: transparent;
+  color: $brand-text-color;
+  font-family: $sans-font;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+
+  &:hover {
+    opacity: 0.7;
+  }
+}
