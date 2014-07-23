@@ -34,6 +34,7 @@ var hbsfy = require("hbsfy").configure({
 });
 var https = require("https");
 var fs = require('fs');
+var mapStream = require('map-stream');
 var request = require('request');
 var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
@@ -612,6 +613,36 @@ gulp.task('deployAboutPagePreprod', [
   ], function() {
   return deployAboutPage({
       bucket: "preprod.pol.is"
+  });
+});
+
+var staticRoutes = [
+  "",
+  "api",
+  "company",
+  "embed",
+  "faq",
+  "lander",
+  "privacy",
+  "professors",
+  "tos",
+  "unsupportedBrowser",
+];
+
+gulp.task('purgeCache', [], function() {
+  console.log("Purging cache for routes that don't have cache-busters...\n");
+  staticRoutes.forEach(function(route) {
+    var formatter = mapStream(function (data, callback) {
+      var o = JSON.parse(data);
+      if (!o.result === "success") {
+        console.error("---------- PURGE CACHE FAILED ------------- " + data)
+      }
+      callback(null, data + "\n");
+    });
+    console.log(route);
+    request.get("https://preprod.pol.is/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78?url=https://preprod.pol.is/" + route)
+    .pipe(formatter)
+    .pipe(process.stdout);
   });
 });
 
