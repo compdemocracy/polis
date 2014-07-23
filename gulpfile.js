@@ -50,7 +50,7 @@ const baseDistRoot = "dist";
 var destRootBase = "devel";
 var destRootRest = '';  // in dist, will be the cachebuster path prefix
 function destRoot() {
-  return destRootBase + "/" + destRootRest;
+  return [destRootBase, destRootRest].join("/");
 }
 var devMode = true;
 
@@ -148,16 +148,21 @@ gulp.task('index', [
   'sparklines',
 ], function() {
   var s = gulp.src('index.html');
+  var basepath = destRootRest;
+  if (basepath === "/") {
+    // this happens in dev
+    basepath = "";
+  }
   if (devMode) {
     s = s.pipe(template({
-      basepath: "/" + destRootRest,
+      basepath: basepath,
       d3Filename: 'd3.js',
       r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
-      basepath: "/" + destRootRest, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
+      basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
@@ -464,8 +469,8 @@ gulp.task("configureForProduction", function(callback) {
 
     var d = new Date();
     var unique_token = [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
-    destRootRest = staticFilesPrefix + "/" + unique_token;
-    
+    destRootRest = [staticFilesPrefix, unique_token].join("/");
+
     console.log('done setting destRoot: ' + destRoot() + "  destRootRest: " + destRootRest + "  destRootBase: " + destRootBase);
     callback(null);
   }).catch(function(err) {
