@@ -3387,7 +3387,15 @@ function(req, res) {
                    [pid, zid, txt, velocity, active, mod],
 
                 function(err, docs) {
-                    if (err) { fail(res, 500, "polis_err_post_comment", err); return; }
+                    if (err) { 
+                        if (err.code == '23505') {
+                            // duplicate comment
+                            fail(res, 409, "polis_err_post_comment_duplicate", err);
+                        } else {
+                            fail(res, 500, "polis_err_post_comment", err);
+                        }
+                        return;
+                    }
                     docs = docs.rows;
                     var tid = docs && docs[0] && docs[0].tid;
 

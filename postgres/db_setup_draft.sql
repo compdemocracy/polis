@@ -41,10 +41,13 @@ CREATE TABLE jianiuevyew (
     UNIQUE(uid)
 );
 
--- NOTE: NOT YET CREATED!
-CREATE TABLE apikeys(
+-- apikeys api key table
+-- the funny name is a bit of security by obscurity in case
+-- somehow we end up with a security hole that allows for
+-- querying arbitrary tables. Don't want it called "apikeys".
+CREATE TABLE apikeysndvweifu (
     uid INTEGER NOT NULL REFERENCES users(uid),
-    apikey VARCHAR(300) NOT NULL,
+    apikey VARCHAR(32) NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (apikey)
 );
@@ -227,10 +230,11 @@ CREATE TABLE comments(
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
-    txt VARCHAR(1000) NOT NULL,
+    txt VARCHAR(1000) NOT NULL, -- TODO ensure not empty
     velocity REAL NOT NULL DEFAULT 1,
     mod INTEGER NOT NULL DEFAULT 0,-- {-1,0,1} where -1 is reject, 0 is no action, and 1 is accept
     active BOOLEAN NOT NULL DEFAULT TRUE, -- will be false if the comment should not be shown.
+    UNIQUE(zid, txt),    --issued this: ALTER TABLE comments ADD CONSTRAINT comments_txt_unique_constraint UNIQUE (zid, txt);
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
 
