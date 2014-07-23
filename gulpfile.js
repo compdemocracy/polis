@@ -460,7 +460,11 @@ gulp.task("configureForProduction", function(callback) {
   // NOTE using callback instead of returning a promise since the promise isn't doing the trick - haven't tried updating gulp yet.
   getGitHash().then(function(hash) {
     hash = hash.toString().match(/[A-Za-z0-9]+/)[0];
-    destRootRest = staticFilesPrefix + "/" + hash;
+
+    var d = new Date();
+    var unique_token = [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
+    destRootRest = staticFilesPrefix + "/" + unique_token;
+    
     console.log('done setting destRoot: ' + destRoot() + "  destRootRest: " + destRootRest + "  destRootBase: " + destRootBase);
     callback(null);
   }).catch(function(err) {
@@ -533,6 +537,9 @@ function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
 
+    var cacheSecondsHtml = 60;
+    var cacheSecondsForContentWithCacheBuster = 60; //31536000; TODO
+
     function makeUploadPathHtml(file) {
       var fixed = file.path.match(RegExp("[^/]*$"))[0];
       console.log("upload path: " + fixed);
@@ -552,6 +559,7 @@ function deploy(params) {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace("MAX_AGE", cacheSecondsHtml),
         },
         makeUploadPath: makeUploadPathHtml,
       }));
@@ -566,6 +574,7 @@ function deploy(params) {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace("MAX_AGE", cacheSecondsForContentWithCacheBuster),
         },
         makeUploadPath: makeUploadPath,
       }));
@@ -579,6 +588,7 @@ function deploy(params) {
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace("MAX_AGE", cacheSecondsForContentWithCacheBuster),          
         },
         makeUploadPath: makeUploadPath,
       }));
