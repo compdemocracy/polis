@@ -53,6 +53,7 @@ function destRoot() {
   return [destRootBase, destRootRest].join("/");
 }
 var devMode = true;
+var host;
 
 
 gulp.task('connect', [], function() {
@@ -634,7 +635,7 @@ var staticRoutes = [
   "unsupportedBrowser",
 ];
 
-gulp.task('purgeCache', [], function() {
+function doPurgeCache() {
   console.log("Purging cache for routes that don't have cache-busters...\n");
   staticRoutes.forEach(function(route) {
     var formatter = mapStream(function (data, callback) {
@@ -645,11 +646,22 @@ gulp.task('purgeCache', [], function() {
       callback(null, data + "\n");
     });
     console.log(route);
-    request.get("https://preprod.pol.is/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78?url=https://preprod.pol.is/" + route)
+    request.get(host + "/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78?url=https://preprod.pol.is/" + route)
     .pipe(formatter)
     .pipe(process.stdout);
   });
+}
+
+gulp.task("configureForCachePurge", function() {
+  host = "https://pol.is";
 });
+
+gulp.task("configureForCachePurgePreprod", function() {
+  host = "https://preprod.pol.is";
+});
+
+gulp.task('purgeCache', ["configureForCachePurge"], doPurgeCache);
+gulp.task('purgeCachePreprod', ["configureForCachePurgePreprod"], doPurgeCache);
 
 function deployAboutPage(params) {
 
