@@ -8,54 +8,57 @@
     {{/if}}
   {{#if create}}
 
+    <h1 class="primary-heading">Join the conversation</h1>
     {{#if sid}}
     <p> To participate in this conversation, you'll need to create a Polis account. </p>
     {{/if}}
-    <form role="form" class="well">
+    <form role="form" class="form-vertical">
       <div class="form-group">
-        <label for="gatekeeperNameCreate">Full Name</label>
+        <label class="form-label" for="gatekeeperNameCreate">Full Name</label>
         <input type="text" id="hname" name="hname" placeholder="Full Name" id="gatekeeperNameCreate" class="form-control">
       </div>
       <div class="form-group">
-        <label for="gatekeeperEmailCreate">Email</label>
+        <label class="form-label" for="gatekeeperEmailCreate">Email</label>
         <input type="text" id="email" name="email" placeholder="Email" id="gatekeeperEmailCreate" class="form-control">
       </div>
-      <div class="form-group"> 
-        <label for="gatekeeperPasswordCreate">Password</label>
+      <div class="form-group">
+        <label class="form-label" for="gatekeeperPasswordCreate">Password</label>
         <input type="password" id="password" name="password" placeholder="Password" id="gatekeeperPasswordCreate" class="form-control">
       </div>
       <div class="row" id="errorDiv"> </div>
-      <button type="submit" class="btn btn-primary btn-lg"> Create New Account </button>
+      <button type="submit" class="btn-primary">Create New Account</button>
     </form>
   {{else}}
     {{#if sid}}
     <p> To participate in this conversation, you'll need to sign in with a Polis account. </p>
     {{/if}}
-    <form role="form" class="well">
+    <form role="form" class="form-vertical">
       <div class="form-group">
-        <label for="gatekeeperLoginEmail">Email</label>
-        <input type="text" id="email" name="email" placeholder="Email" id="gatekeeperLoginEmail" class="form-control">  
+        <label class="form-label" for="gatekeeperLoginEmail">Email</label>
+        <input type="text" id="email" name="email" placeholder="Email" id="gatekeeperLoginEmail" class="form-control">
       </div>
-      <div class="form-group"> 
-        <label for="gatekeeperLoginPassword">Password</label>
-        <input type="password" id="password" name="password" placeholder="Password" id="gatekeeperLoginPassword" class="form-control">  
+      <div class="form-group">
+        <label class="form-label" for="gatekeeperLoginPassword">
+          Password
+        </label>
+        <input type="password" id="password" name="password" placeholder="Password" id="gatekeeperLoginPassword" class="form-control">
+        <a href="/pwresetinit" class="forgot-password pull-right">Forgot your password?</a>
       </div>
 
       <div class="row" id="errorDiv"></div>
-      <button type="submit" class="btn btn-primary btn-lg"> Sign In </button>
-      <div style="margin-top:10px;"><a href="/pwresetinit">Forgot your Password?</a></div>
+      <button type="submit" class="btn-primary">Sign In</button>
     </form>
-    
+
 
 
   {{/if}}
     <div class="rel">
       <span class="alternateRegOr">OR</span>
-      <div class="alternateReg" style="margin-bottom:30px">
+      <div class="alternateReg">
         {{#if create}}
-          <button class="gotoSignIn btn btn-default">I have an account and need to sign in.</button>
+          <button class="gotoSignIn btn-alt">I have an account and need to sign in</button>
         {{else}}
-          <button class="gotoCreate btn btn-default">Create new account</button>
+          <button class="gotoCreate btn-alt">Create new account</button>
         {{/if}}
       </div>
     </div>
