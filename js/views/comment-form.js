@@ -66,6 +66,8 @@ module.exports = Handlebones.View.extend({
         that.trigger("commentSubmitted"); // view.trigger
         that.updateCollection();
       }, function() {
+        console.log("failed to send");
+        console.dir(arguments);
         alert("failed to send");
       });
       return promise;
