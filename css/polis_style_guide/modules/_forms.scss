@@ -34,7 +34,7 @@
   font-size: 22px;
   font-family: $serif-font;
   font-weight: normal;
-  line-height: 48px;
+  line-height: 2;
   box-shadow: none;
 
   &:hover {
@@ -83,7 +83,7 @@
     top: -13px;
 
     background-color: $bg-color;
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .alternateReg {
