@@ -35,6 +35,8 @@ var hbsfy = require("hbsfy").configure({
 var https = require("https");
 var fs = require('fs');
 var request = require('request');
+var rimraf = require("rimraf");
+var runSequence = require('run-sequence');
 var sass = require('gulp-ruby-sass');
 var Stream = require('stream');
 var sys = require('sys');
@@ -109,9 +111,8 @@ function getGitHash() {
   });
 }
 
-gulp.task('cleancss', function(){
-  gulp.src(destRoot + '/css', {read: false})
-      .pipe(clean())
+gulp.task('cleanDist', function(){
+  rimraf.sync(baseDistRoot);
 })
 
 
@@ -424,39 +425,43 @@ gulp.task('about', function () {
         .pipe(rename(function (path) {
           path.extname = ".html"
         }))
-        .pipe(gulp.dest(destRoot));
+        .pipe(gulp.dest(destRoot()));
 });
 
 
 
 
-function promiseToStream(p) {
-  var Readable = require('stream').Readable;
-  var rs = new Readable;
-  console.dir(rs);
-  p.then(function(val) {
-    rs.push(val);
-    rs.push(null);
-    console.dir(rs);
-  }).catch(function(err) {
-    rs.emit("error", err);
-    console.dir(rs);
-  });
-  return rs;
-  // rs.push('beep ');
-  // rs.push('boop\n');
-  // rs.push(null);
-
-  // rs.pipe(process.stdout);
-}
+// function promiseToStream(p) {
+//   var Readable = Stream.Readable;
+//   var rs = new Readable;
+//   p.then(function(val) {
+//     rs.push(val);
+//     rs.push(null);
+//   }).catch(function(err) {
+//     rs.emit("error", err);
+//   });
+//   return rs;
+// }
 
 
 // ----------------------- END ABOUT PAGE STUFF -------------------------
 
 
-gulp.task("configureForProduction", function() {
-  destRoot = "./dist";
+gulp.task("configureForProduction", ["cleanDist"], function(callback) {
   devMode = false;
+
+  console.log('getGitHash begin');
+  // NOTE using callback instead of returning a promise since the promise isn't doing the trick - haven't tried updating gulp yet.
+  getGitHash().then(function(hash) {
+    hash = hash.toString().match(/[A-Za-z0-9]+/)[0];
+    destRootRest = "/cached/" + hash;
+    console.log('done setting destRoot: ' + destRoot() + "  destRootRest: " + destRootRest + "  destRootBase: " + destRootBase);
+    callback(null);
+  }).catch(function(err) {
+    console.error('getGitHash err');
+    console.error(err);
+    callback(true);
+  });
 });
 
 gulp.task('common', [
@@ -466,21 +471,6 @@ gulp.task('common', [
   "fontawesome",
   "index",
   ], function() {
-    var p = getGitHash();
-    p.then(function(hash) {
-      hash = hash.toString();
-      console.log("GIT HASH " + hash);
-    }).catch(function(err) {
-      console.error(err);
-    });
-  var s = promiseToStream(p);
-  s.on("error", function(err) {
-    console.dir(err);
-  });
-  return s;
-    // if (devMode) {
-    //   connect.reload();
-    // }
 });
 
 gulp.task('dev', [
@@ -490,8 +480,11 @@ gulp.task('dev', [
 
 gulp.task('dist', [
   "configureForProduction",
-  "common",
-  ], function(){
+  ], function(callback){
+    runSequence('common',
+              // ['build-scripts', 'build-styles'], // these two would be parallel
+              // 'build-html',
+              callback);
 });
 
 gulp.task("watchForDev", [
