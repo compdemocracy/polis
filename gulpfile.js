@@ -541,8 +541,7 @@ function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
 
-    var cacheSecondsHtml = 60;
-    var cacheSecondsForContentWithCacheBuster = 60; //31536000; TODO
+    var cacheSecondsForContentWithCacheBuster = 31536000;
 
     function makeUploadPathHtml(file) {
       var fixed = file.path.match(RegExp("[^/]*$"))[0];
@@ -556,18 +555,6 @@ function deploy(params) {
       return fixed;
     }
 
-    // HTML files (uncached)
-    gulp.src([
-      destRootBase + '/**/*.html',
-      ], {read: false}).pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace("MAX_AGE", cacheSecondsHtml),
-        },
-        makeUploadPath: makeUploadPathHtml,
-      }));
-
     // Cached Files without Gzip
     console.log(destRoot())
     gulp.src([
@@ -578,7 +565,7 @@ function deploy(params) {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace("MAX_AGE", cacheSecondsForContentWithCacheBuster),
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
         },
         makeUploadPath: makeUploadPath,
       }));
@@ -592,10 +579,25 @@ function deploy(params) {
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace("MAX_AGE", cacheSecondsForContentWithCacheBuster),          
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),          
         },
         makeUploadPath: makeUploadPath,
       }));
+
+    // HTML files (uncached)
+    // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
+    gulp.src([
+      destRootBase + '/**/*.html',
+      ], {read: false}).pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+          'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
+        },
+        makeUploadPath: makeUploadPathHtml,
+      }));
+
+
 
 }
 
