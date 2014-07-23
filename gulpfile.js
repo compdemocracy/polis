@@ -44,6 +44,7 @@ var url = require('url');
 
 
 var useJsHint = false;
+const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
 var destRootRest = '';  // in dist, will be the cachebuster path prefix
@@ -148,14 +149,14 @@ gulp.task('index', [
   var s = gulp.src('index.html');
   if (devMode) {
     s = s.pipe(template({
-      basepath: destRootRest,
+      basepath: "/" + destRootRest,
       d3Filename: 'd3.js',
       r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
-      basepath: destRootRest, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
+      basepath: "/" + destRootRest, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
@@ -451,14 +452,15 @@ gulp.task('about', function () {
 // ----------------------- END ABOUT PAGE STUFF -------------------------
 
 
-gulp.task("configureForProduction", ["cleanDist"], function(callback) {
+gulp.task("configureForProduction", function(callback) {
   devMode = false;
+  destRootBase = "dist";
 
   console.log('getGitHash begin');
   // NOTE using callback instead of returning a promise since the promise isn't doing the trick - haven't tried updating gulp yet.
   getGitHash().then(function(hash) {
     hash = hash.toString().match(/[A-Za-z0-9]+/)[0];
-    destRootRest = "/cached/" + hash;
+    destRootRest = staticFilesPrefix + "/" + hash;
     console.log('done setting destRoot: ' + destRoot() + "  destRootRest: " + destRootRest + "  destRootBase: " + destRootBase);
     callback(null);
   }).catch(function(err) {
@@ -485,10 +487,12 @@ gulp.task('dev', [
 gulp.task('dist', [
   "configureForProduction",
   ], function(callback){
-    runSequence('common',
-              // ['build-scripts', 'build-styles'], // these two would be parallel
-              // 'build-html',
-              callback);
+    runSequence(
+      'cleanDist',
+      'common',
+      // ['build-scripts', 'build-styles'], // these two would be parallel
+      // 'build-html',
+      callback);
 });
 
 gulp.task("watchForDev", [
@@ -529,26 +533,54 @@ function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
 
-    // Files without Gzip
+    function makeUploadPathHtml(file) {
+      var fixed = file.path.match(RegExp("[^/]*$"))[0];
+      console.log("upload path: " + fixed);
+      return fixed;
+    }
+
+    function makeUploadPath(file) {
+      var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
+      console.log("upload path: " + fixed);
+      return fixed;
+    }
+
+    // HTML files (uncached)
     gulp.src([
-      destRoot + '/**',
-      '!' + destRoot() + '/js/**',
+      destRootBase + '/**/*.html',
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
-        }
+        },
+        makeUploadPath: makeUploadPathHtml,
       }));
 
-    // Gzipped Files
+    // Cached Files without Gzip
+    console.log(destRoot())
     gulp.src([
-      destRoot() + '/**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
-      ], {read: false}).pipe(s3(creds, {
+      destRoot() + '**/**',
+      '!' + destRoot() + '/js/**',
+      ], {read: false})
+      .pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+        },
+        makeUploadPath: makeUploadPath,
+      }));
+
+    // Cached Gzipped Files
+    gulp.src([
+      destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
+      ], {read: false})
+    .pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
-        }
+        },
+        makeUploadPath: makeUploadPath,
       }));
 
 }
