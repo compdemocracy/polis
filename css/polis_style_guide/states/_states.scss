@@ -1,0 +1,55 @@
+// STATES
+// augments or overwrites other styles
+// generally prefixed with 'is-'
+//
+
+//
+// Visibility
+//
+// Hide from browsers and screen readers
+.is-hidden {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+// Hide from browsers, but let screen readers access
+.is-visually-hidden {
+  position: absolute !important;
+  padding: 0;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip: rect(1px, 1px, 1px, 1px);
+  border: 0;
+}
+
+// Hide from browsers but don't remove from flow
+.is-invisible {
+  visibility: hidden;
+}
+
+.is-visible {
+  visibility: visible;
+}
+
+// Alignment
+.pull-left {
+  float: left;
+}
+.pull-right {
+  float: right;
+}
+
+//
+*.unselectable {
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+
+  /*
+   Introduced in IE 10.
+   See http://ie.microsoft.com/testdrive/HTML5/msUserSelect/
+  */
+  -ms-user-select: none;
+  user-select: none;
+}
