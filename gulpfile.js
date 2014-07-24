@@ -64,6 +64,9 @@ gulp.task('connect', [], function() {
   app.use("/", fetchIndex);
   app.use('/v3', function(req, response) {
     var x = request("https://preprod.pol.is" + req.originalUrl);
+    x.on("error", function(err) {
+      response.status(500).end();
+    });
     req.pipe(x);
     x.pipe(response);
   });
