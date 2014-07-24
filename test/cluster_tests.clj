@@ -161,3 +161,18 @@
   (missing-all-members-global))
 
 
+(deftest dropped-cluster
+  ; Goal is to split clst 2 so that one mem goes to 1 and other goes to 3; empty cluster should handle
+  (let [last-clusters [{:members [1 2] :id 1}
+                       {:members [3 4] :id 2}
+                       {:members [5 6] :id 3}]
+        nmat (named-matrix [1 2 3 4 5 6] [:x :y]
+               [[ 1.1  1.1]
+                [ 1.0  1.0]
+                [ 0.9  0.9]
+                [-0.9 -0.9]
+                [-1.0 -1.0]
+                [-1.1 -1.1]])]
+    (is (kmeans nmat 3 :last-clusters last-clusters))))
+
+
