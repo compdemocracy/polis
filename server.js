@@ -1050,7 +1050,8 @@ function addCookies(req, res, token, uid) {
         var plan = o.plan;
 
         var setOnPolisDomain = !domainOverride;
-        if (setOnPolisDomain && req.headers.host.match(/^localhost:[0-9]{4}/)) {
+        var origin = req.headers.origin || "";
+        if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
             setOnPolisDomain = false;
         }
 
@@ -1671,7 +1672,8 @@ function getUidByEmail(email) {
 
 
 function clearCookies(req, res) {
-    if (domainOverride) {
+    var origin = req.headers.origin || "";
+    if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
         for (var cookieName in req.cookies) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/"});
