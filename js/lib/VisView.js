@@ -552,7 +552,7 @@ function updateHulls() {
     function tesselatePoint(xyPair) {
         var x = xyPair[0];
         var y = xyPair[1];
-        var r = chooseCircleRadiusOuter(xyPair[2]);
+        var r = chooseCircleRadiusOuter(xyPair[2]);  // + 5?
         var points = [];
         var theta = 0;
         var tau = 6.28318;
