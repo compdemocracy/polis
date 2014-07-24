@@ -1,4 +1,4 @@
-$color_agree: #2ecc71; // EMERALD
+$color_agree: rgb(0, 181, 77); // EMERALD
 $color_disagree: #e74c3c; // ALIZARIN
 $color_pass: #BDC3C7; // SILVER
 $color_self: #0CF; // blue like the dot on a map
@@ -86,9 +86,9 @@ $color_selected_comment: #f7f7f7;
 }
 
 .active_group {
-  fill: #ebf3ff;
-  background-color: #ebf3ff; // for html elements
-  stroke: #ebf3ff;
+  fill: #e9f0f7;
+  background-color: #e9f0f7; // for html elements
+  stroke: #e9f0f7;
 }
 .ptpt {
   z-index: 500;

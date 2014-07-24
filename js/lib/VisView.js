@@ -88,7 +88,7 @@ var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
 var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
 
-var colorPull = "#2ecc71"; // EMERALD
+var colorPull = "rgb(0, 181, 77)"; // EMERALD
 var colorPush = "#e74c3c"; // ALIZARIN
 var colorPass = "#BDC3C7"; // SILVER
 var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
@@ -1480,7 +1480,7 @@ function updateNodes() {
 
       update.attr("fill-opacity", function(d) {
         if (selectedCluster >= 0) {
-            return d.gid === selectedCluster ? "100%" : "50%";
+            return d.gid === selectedCluster ? "100%" : "25%";
         } else {
             // nothing selected
             return "100%";
