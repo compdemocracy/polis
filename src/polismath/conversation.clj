@@ -104,11 +104,11 @@
                             ; least 7 if there are more than 7
                             (>= cnt (min 7 n-cmts)))
                           user-vote-counts)))
-                    ; If you are left with nothing, just take the 7 ptps with the largest number of votes.
-                    ; Silly, but...
-                    (if (empty? in-conv)
+                    ; If you are left with fewer than 15 participants, take the top most contributing
+                    ; participants
+                    (if (< (count in-conv) 15)
                       (map first
-                        (take 7
+                        (take 15
                           (sort-by (comp - second) user-vote-counts)))
                       in-conv)))
   ; End of base conv update
