@@ -11,7 +11,7 @@
 
 
 (defn agree? [n]
-  (and 
+  (and
     (not (nil? n))
     (< n 0)))
 

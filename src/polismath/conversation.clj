@@ -222,7 +222,6 @@
      }))
 
 
-
 (defn partial-pca
   "This function takes in the rating matrix, the current pca and a set of row indices and
   computes the partial pca off of those, returning a lambda that will take the latest PCA 
