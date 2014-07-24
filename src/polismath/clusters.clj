@@ -69,11 +69,11 @@
     ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
     (reduce add-to-closest (cleared-clusters clusters))
     vals
+    ; Filter out clusters that don't have any members (should maybe log on verbose?)
+    (filter #(> (count (:members %)) 0))
     ; Apply mean to get updated centers
     (map #(-> (assoc % :center (mean (:positions %)))
-            (dissoc :positions)))
-    ; Filter out clusters that don't have any members (should maybe log on verbose?)
-    (filter #(> (count (:members %)) 0))))
+            (dissoc :positions)))))
 
 
 (defnp recenter-clusters
