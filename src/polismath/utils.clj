@@ -94,6 +94,15 @@
   (require '[clojure.tools.trace :as tr]))
 
 
+(defn clst-trace
+  ([clsts] (clst-trace "" clsts))
+  ([k clsts]
+   (println "TRACE" k ":")
+   (doseq [c clsts]
+     (println "   " c))
+   clsts))
+
+
 (defn prep-for-uploading-bidToPid-mapping [results]
   {"bidToPid" (:bid-to-pid results)})
 
