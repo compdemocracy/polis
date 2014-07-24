@@ -92,7 +92,7 @@
 
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
                   "This keeps track of which ptpts are in the conversation (to be considered
-                  for base-clustering) based on home many votes they have. Once a ptpt is in,
+                  for base-clustering) based on how many votes they have. Once a ptpt is in,
                   they will remain in."
                   (as-> (or (:in-conv conv) #{}) in-conv
                     ; Start with whatever you have, and join it with anything that meets the criteria
