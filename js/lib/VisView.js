@@ -1314,6 +1314,7 @@ function selectComment(tid) {
             var node = nodes[i];
             node.ups = votes.A[node.bid] || 0;
             node.downs = votes.D[node.bid] || 0;
+            node.gid = bidToGid[node.bid];
 
             // for (var p = 0; p < node.ppl.length; p++) {
 
@@ -1476,6 +1477,15 @@ function updateNodes() {
 
         setupBlueDotHelpText(update.select(".selfDot"));
       }
+
+      update.attr("fill-opacity", function(d) {
+        if (selectedCluster >= 0) {
+            return d.gid === selectedCluster ? "100%" : "50%";
+        } else {
+            // nothing selected
+            return "100%";
+        }
+      });
   }
   // displayHelpItem("foo");
 
