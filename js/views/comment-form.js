@@ -65,10 +65,12 @@ module.exports = Handlebones.View.extend({
       promise.then(function() {
         that.trigger("commentSubmitted"); // view.trigger
         that.updateCollection();
-      }, function() {
-        console.log("failed to send");
-        console.dir(arguments);
-        alert("failed to send");
+      }, function(args) {
+        if (args[0] && args[0][0] && args[0][0].status === 409) {
+          alert("Duplicate! That comment already exists.");
+        } else {
+          alert("failed to send");
+        }
       });
       return promise;
     }
