@@ -107,11 +107,15 @@
                           user-vote-counts)))
                     ; If you are left with fewer than 15 participants, take the top most contributing
                     ; participants
-                    (if (< (count in-conv) 15)
-                      (map first
-                        (take 15
-                          (sort-by (comp - second) user-vote-counts)))
-                      in-conv)))
+                    (let [greedy-n 15
+                          n-in-conv (count in-conv)]
+                      (if (< n-in-conv greedy-n)
+                        (->> (hash-map-prune user-vote-counts in-conv)
+                          (sort-by (comp - second))
+                          (map first)
+                          (take (- greedy-n n-in-conv))
+                          (into in-conv))
+                        in-conv))))
   ; End of base conv update
   })
 
