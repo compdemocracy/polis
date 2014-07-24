@@ -83,13 +83,6 @@
 
 (deftype NamedMatrix
   [row-index col-index ^java.util.Vector matrix]
-  Object
-    (toString [this]
-      (str
-        "{:rownames " (into [] (rownames this))
-        " :colnames " (into [] (colnames this))
-        " :matrix " (get-matrix this)
-        "}"))
   PNamedMatrix
     (update-nmat [this values]
       ; A bunch of profiling shit
@@ -156,6 +149,7 @@
           col-index
           (cm-sel/sel (.matrix this) (cm-sel/irange) col-indices)))))
 
+
 (defn named-matrix
   "Generator function for a new named matrix"
   [& [rows cols matrix]]
@@ -163,6 +157,21 @@
     (index-hash (or rows []))
     (index-hash (or cols []))
     (or matrix [[]])))
+
+
+(defmethod print-method NamedMatrix
+  [nm ^java.io.Writer w]
+  (.write w
+    (str "#polismath.named-matrix.NamedMatrix "
+      "{:rownames " (into [] (rownames nm))
+      " :colnames " (into [] (colnames nm))
+      " :matrix " (get-matrix nm)
+      "}")))
+
+
+(defn named-matrix-reader
+  [{:keys [rownames colnames matrix]}]
+  (named-matrix rownames colnames matrix))
 
 
 ; Put in interface? ...
@@ -176,8 +185,10 @@
                      names)]
     (rowname-subset nmat names)))
 
+
 (defn get-row-by-name [nmat row-name]
   (cm/get-row (get-matrix nmat) (index (get-row-index nmat) row-name)))
+
 
 (defn inv-rowname-subset [nmat row-names]
   "Returns named matrix which has been subset to all the rows not in row-names"
