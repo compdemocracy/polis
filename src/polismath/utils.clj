@@ -2,7 +2,7 @@
   (:use alex-and-georges.debug-repl
         clojure.core.matrix)
   (:require [taoensso.timbre.profiling :as profiling
-             :refer (pspy pspy* profile defnp p p*)]
+               :refer (pspy pspy* profile defnp p p*)]
             [clojure.tools.reader.edn :as edn]
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr]))
