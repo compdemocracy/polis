@@ -132,8 +132,8 @@ gulp.task('css', function(){
     ])
       .pipe(sass({
         loadPath: [__dirname + "/css"],
-        sourcemap: true,
-        sourcemapPath: '../scss'
+        // sourcemap: true,
+        // sourcemapPath: '../scss'
       }))
       .pipe(concat("polis.css"))
       .pipe(gulp.dest(destRoot() + '/css'))
