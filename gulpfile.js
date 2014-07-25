@@ -625,34 +625,18 @@ gulp.task('deployAboutPagePreprod', [
   });
 });
 
-var staticRoutes = [
-  "",
-  "api",
-  "company",
-  "embed",
-  "faq",
-  "lander",
-  "privacy",
-  "professors",
-  "tos",
-  "unsupportedBrowser",
-];
-
 function doPurgeCache() {
-  console.log("Purging cache for routes that don't have cache-busters...\n");
-  staticRoutes.forEach(function(route) {
-    var formatter = mapStream(function (data, callback) {
-      var o = JSON.parse(data);
-      if (!o.result === "success") {
-        console.error("---------- PURGE CACHE FAILED ------------- " + data)
-      }
-      callback(null, data + "\n");
-    });
-    console.log(route);
-    request.get(host + "/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78?url=https://preprod.pol.is/" + route)
+  console.log("Purging cache for "+host +"\n");
+  var formatter = mapStream(function (data, callback) {
+    var o = JSON.parse(data);
+    if (!o.result === "success") {
+      console.error("---------- PURGE CACHE FAILED ------------- " + data)
+    }
+    callback(null, data + "\n");
+  });
+  request.get(host + "/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78")
     .pipe(formatter)
     .pipe(process.stdout);
-  });
 }
 
 gulp.task("configureForCachePurge", function() {
