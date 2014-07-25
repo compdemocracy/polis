@@ -159,14 +159,14 @@ gulp.task('index', [
   }
   if (devMode) {
     s = s.pipe(template({
-      basepath: basepath,
+      basepath: "/" + basepath,
       d3Filename: 'd3.js',
       r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
-      basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
+      basepath: "/" + basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
@@ -627,15 +627,15 @@ gulp.task('deployAboutPagePreprod', [
 
 function doPurgeCache() {
   console.log("Purging cache for "+host +"\n");
-  var formatter = mapStream(function (data, callback) {
-    var o = JSON.parse(data);
-    if (!o.result === "success") {
-      console.error("---------- PURGE CACHE FAILED ------------- " + data)
-    }
-    callback(null, data + "\n");
-  });
+  // var formatter = mapStream(function (data, callback) {
+  //   var o = JSON.parse(data);
+  //   if (!o.result === "success") {
+  //     console.error("---------- PURGE CACHE FAILED ------------- " + data)
+  //   }
+  //   callback(null, data + "\n");
+  // });
   request.get(host + "/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78")
-    .pipe(formatter)
+    // .pipe(formatter)
     .pipe(process.stdout);
 }
 
