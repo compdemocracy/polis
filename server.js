@@ -4566,17 +4566,20 @@ function(req, res) {
 
 
 app.get("/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78",
-    moveToBody,
-    need("url", getStringLimitLength(1, 999), assignToP),
+    // moveToBody,
 function(req, res) {
-    var url = req.p.url;
+
+    var hostname = "pol.is";
+    if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
+        hostname = "preprod.pol.is";
+    }
 
     request.post("https://www.cloudflare.com/api_json.html").form({
-        a: 'zone_file_purge',
-        tkn: process.env.CLOUDFLARE_API_KEY, // 'd26c10fae72d0f05980b1295bd71c690d5176',
-        email: process.env.CLOUDFLARE_API_EMAIL, //'michael.bjorkegren@gmail.com',
-        z: 'pol.is',
-        url: url,
+        a: 'fpurge_ts',
+        tkn: process.env.CLOUDFLARE_API_KEY,
+        email: process.env.CLOUDFLARE_API_EMAIL,
+        z: hostname,
+        v: 1,
     })
     .pipe(res);
 
