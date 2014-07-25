@@ -141,7 +141,18 @@ gulp.task('css', function(){
         // sourcemapPath: '../scss'
       }))
       .pipe(concat("polis.css"))
-      .pipe(gulp.dest(destRoot() + '/css'))
+      .pipe(gulp.dest(destRoot() + '/css'));
+});
+
+gulp.task('cssAbout', function(){
+  gulp.src(["css/about.scss"])
+      .pipe(sass({
+        loadPath: [__dirname + "/css"],
+        // sourcemap: true,
+        // sourcemapPath: '../scss'
+      }))
+      .pipe(concat("about.css"))
+      .pipe(gulp.dest(destRoot() + '/css'));
 });
 
 gulp.task('fontawesome', function() {
@@ -417,20 +428,20 @@ gulp.task("scriptsOther", function() {
 
 // ---------------------- BEGIN ABOUT PAGE STUFF ------------------------
 
-gulp.task('about', function () {
+gulp.task('about', ["cssAbout"], function () {
 
-    var top = fs.readFileSync('js/templates/about/partials/top.handlebars', {encoding: "utf8"});
-    var header = fs.readFileSync('js/templates/about/partials/header.handlebars', {encoding: "utf8"});
-    var footer = fs.readFileSync('js/templates/about/partials/footer.handlebars', {encoding: "utf8"});
+    var top = fs.readFileSync('js/templates/about/partials/staticTop.handlebars', {encoding: "utf8"});
+    var header = fs.readFileSync('js/templates/about/partials/staticHeader.handlebars', {encoding: "utf8"});
+    var footer = fs.readFileSync('js/templates/about/partials/staticFooter.handlebars', {encoding: "utf8"});
 
     var basepath = destRootRest;
     if (basepath === "/") {
       // this happens in dev
       basepath = "";
     }
-    top = top.replace(/<%= *basepath *%>/, basepath);
-    header = header.replace(/<%= *basepath *%>/, basepath);
-    footer = footer.replace(/<%= *basepath *%>/, basepath);
+    top = top.replace(/<%= *basepath *%>/g, basepath);
+    header = header.replace(/<%= *basepath *%>/g, basepath);
+    footer = footer.replace(/<%= *basepath *%>/g, basepath);
 
     var templateData = {
         foo: 'bar333'
