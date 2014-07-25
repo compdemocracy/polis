@@ -48,13 +48,23 @@ var useJsHint = false;
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
-var destRootRest = '';  // in dist, will be the cachebuster path prefix
+var destRootRest = '/';  // in dist, will be the cachebuster path prefix
 function destRoot() {
-  return [destRootBase, destRootRest].join("/");
+  var root = path.join(destRootBase, destRootRest);
+  return root;
 }
 var devMode = true;
 var host;
 
+
+function prepPathForTemplate(path) {
+  // add slash at front if missing      
+  if (path.match(/^[^\/]/)) {
+    path = "/" + path;
+  }
+  path = path.replace(/\/*$/,""); // remove trailing slash
+  return path;
+}
 
 gulp.task('connect', [], function() {
 
@@ -168,21 +178,17 @@ gulp.task('index', [
   'sparklines',
 ], function() {
   var s = gulp.src('index.html');
-  var basepath = destRootRest;
-  if (basepath === "/") {
-    // this happens in dev
-    basepath = "";
-  }
+  var basepath = prepPathForTemplate(destRootRest);
   if (devMode) {
     s = s.pipe(template({
-      basepath: "/" + basepath,
+      basepath: basepath,
       d3Filename: 'd3.js',
       r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
-      basepath: "/" + basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
+      basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
@@ -428,17 +434,13 @@ gulp.task("scriptsOther", function() {
 
 // ---------------------- BEGIN ABOUT PAGE STUFF ------------------------
 
-gulp.task('about', ["cssAbout"], function () {
+gulp.task('about', function () {
 
     var top = fs.readFileSync('js/templates/about/partials/staticTop.handlebars', {encoding: "utf8"});
     var header = fs.readFileSync('js/templates/about/partials/staticHeader.handlebars', {encoding: "utf8"});
     var footer = fs.readFileSync('js/templates/about/partials/staticFooter.handlebars', {encoding: "utf8"});
 
-    var basepath = destRootRest;
-    if (basepath === "/") {
-      // this happens in dev
-      basepath = "";
-    }
+    var basepath = prepPathForTemplate(destRootRest);
     top = top.replace(/<%= *basepath *%>/g, basepath);
     header = header.replace(/<%= *basepath *%>/g, basepath);
     footer = footer.replace(/<%= *basepath *%>/g, basepath);
@@ -513,8 +515,10 @@ gulp.task('common', [
   "scriptsOther",
   "scripts",
   "css",
+  "cssAbout",
   "fontawesome",
   "index",
+  "about",
   ], function() {
 });
 
@@ -631,26 +635,6 @@ function deploy(params) {
 
 }
 
-
-// For now, you'll have to copy the assets from the other repo into the "about" directory
-gulp.task('deployAboutPage', [
-  "configureForProduction",
-  "about",
-  ], function() {
-  return deployAboutPage({
-      bucket: "pol.is"
-  });
-});
-
-gulp.task('deployAboutPagePreprod', [
-  "configureForProduction",
-  "about",
-  ], function() {
-  return deployAboutPage({
-      bucket: "preprod.pol.is"
-  });
-});
-
 function doPurgeCache() {
   console.log("Purging cache for "+host +"\n");
   // var formatter = mapStream(function (data, callback) {
@@ -675,44 +659,6 @@ gulp.task("configureForCachePurgePreprod", function() {
 
 gulp.task('purgeCache', ["configureForCachePurge"], doPurgeCache);
 gulp.task('purgeCachePreprod', ["configureForCachePurgePreprod"], doPurgeCache);
-
-function deployAboutPage(params) {
-
-    var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-
-    creds = _.extend(creds, params);
-    
-    var root = "../about-polis";
-    var dist = "../about-polis/dist";
-    return gulp.src([
-      dist + "/api.html",
-      dist + "/company.html",
-      dist + "/embed.html",
-      dist + "/faq.html",
-      dist + "/lander.html",
-      dist + "/privacy.html",
-      dist + "/professors.html",
-      dist + "/tos.html",
-      dist + "/unsupportedBrowser.html",
-
-      dist + "/css/polis.css",
-
-      root + "/src/about.css",
-      root + "/**/rainbow/**/*",
-      root + "/**/node_modules/underscore/underscore-min.js", // ** to preserve path 
-      root + "/**/landerImages/*",
-      root + "/**/bower_components/font-awesome/css/font-awesome.min.css",
-      root + "/**/bower_components/font-awesome/fonts/**",
-      root + "/**/bower_components/jquery/dist/jquery.js",
-      root + "/**/bower_components/jquery/dist/jquery.min.js"
-      ], {read: false}).pipe(s3(creds, {
-        delay: 1000,
-        headers: {
-          'x-amz-acl': 'public-read',
-        }
-      }));
-}
-
 
 gulp.task('default', [
   "dev",
