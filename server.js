@@ -4342,7 +4342,7 @@ function getConversations(req, res) {
         query = query.and(sql_conversations.zid.equals(req.p.zid));
     }
     //query = whereOptional(query, req.p, 'owner');
-    query = query.order(sql_conversations.created);
+    query = query.order(sql_conversations.created.descending);
     query = query.limit(999); // TODO paginate
 
     pgQuery(query.toString(), function(err, result) {
@@ -4570,9 +4570,7 @@ app.get("/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78",
 function(req, res) {
 
     var hostname = "pol.is";
-    if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
-        hostname = "preprod.pol.is";
-    }
+    // NOTE: can't purge preprod independently unless we set up a separate domain on cloudflare, AFAIK
 
     request.post("https://www.cloudflare.com/api_json.html").form({
         a: 'fpurge_ts',
