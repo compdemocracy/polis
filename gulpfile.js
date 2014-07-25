@@ -440,7 +440,7 @@ gulp.task('about', function () {
         .pipe(rename(function (path) {
           path.extname = ".html"
         }))
-        .pipe(gulp.dest(destRoot()));
+        .pipe(gulp.dest(destRootBase));
 });
 
 
@@ -494,6 +494,7 @@ gulp.task('common', [
 });
 
 gulp.task('dev', [
+  "about",
   "common",
   ], function(){
 });
