@@ -32,9 +32,9 @@ var badwords = require('badwords/object'),
     express = require('express'),
     app = express(),
     sql = require("sql"),
-    escapeLiteral = pg = require('pg').Client.prototype.escapeLiteral,
+    escapeLiteral = require('pg').Client.prototype.escapeLiteral,
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
-    mongo = require('mongodb'), MongoServer = mongo.Server, MongoDb = mongo.Db, ObjectId = mongo.ObjectID,
+    mongo = require('mongodb'),
     async = require('async'),
     fs = require('fs'),
     url = require('url'),
@@ -42,11 +42,10 @@ var badwords = require('badwords/object'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
     Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
-    net = require('net'),
     Pushover = require( 'pushover-notifications' ),
     pushoverInstance = new Pushover( {
-        user: process.env['PUSHOVER_GROUP_POLIS_DEV'],
-        token: process.env['PUSHOVER_POLIS_PROXY_API_KEY'],
+        user: process.env.PUSHOVER_GROUP_POLIS_DEV,
+        token: process.env.PUSHOVER_POLIS_PROXY_API_KEY,
     }),
     // sendgrid = require('sendgrid')(
     //   process.env['SENDGRID_USERNAME'],
@@ -54,9 +53,9 @@ var badwords = require('badwords/object'),
     //   {api: 'smtp'}
     // ),
     Mailgun = require('mailgun').Mailgun,
-    mailgun = new Mailgun(process.env['MAILGUN_API_KEY']),
+    mailgun = new Mailgun(process.env.MAILGUN_API_KEY),
     querystring = require('querystring'),
-    devMode = "localhost" === process.env["STATIC_FILES_HOST"],
+    devMode = "localhost" === process.env.STATIC_FILES_HOST,
     request = require('request'),
     SimpleCache = require("simple-lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
@@ -64,14 +63,15 @@ var badwords = require('badwords/object'),
 
 var akismet = require('akismet').client({
     blog: 'https://pol.is',  // required: your root level url
-    apiKey: process.env["AKISMET_ANTISPAM_API_KEY"]
+    apiKey: process.env.AKISMET_ANTISPAM_API_KEY
 });
 
 akismet.verifyKey(function(err, verified) {
-  if (verified) 
+  if (verified) {
     console.log('Akismet: API key successfully verified.');
-  else 
+  } else {
     console.log('Akismet: Unable to verify API key.');
+  }
 });
 
 
@@ -194,7 +194,7 @@ var errorNotifications = (function() {
             console.error(token);
             errors.push(token); 
         },
-    }
+    };
 }());
 var yell = errorNotifications.add;
 
@@ -203,7 +203,7 @@ var yell = errorNotifications.add;
 var redisForAuth;
 if (process.env.REDISTOGO_URL) {
     var rtg   = url.parse(process.env.REDISTOGO_URL);
-    var redisForAuth = require("redis").createClient(rtg.port, rtg.hostname);
+    redisForAuth = require("redis").createClient(rtg.port, rtg.hostname);
     redisForAuth.auth(rtg.auth.split(":")[1]);
 } else {
     redisForAuth = require('redis').createClient();
@@ -279,14 +279,14 @@ var sql_participant_metadata_answers = sql.define({
     ]
 });
 
-var sql_otzinvites = sql.define({
-  name: 'otzinvites',
-  columns: [
-    "otzinvite",
-    "zid",
-    "xid",
-    ]
-});
+// var sql_otzinvites = sql.define({
+//   name: 'otzinvites',
+//   columns: [
+//     "otzinvite",
+//     "zid",
+//     "xid",
+//     ]
+// });
 
 
 function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
@@ -304,37 +304,37 @@ function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
 }
 
 
-// Eventually, the plan is to support a larger number-space by using some lowercase letters.
-// Waiting to implement that since there's cognitive overhead with mapping the IDs to/from
-// letters/numbers.
-// Just using digits [2-9] to start with. Omitting 0 and 1 since they can be confused with
-// letters once we start using letters.
-// This should give us roughly 8^8 = 16777216 conversations before we have to add letters.
-var ReadableIds = (function() {
-    function rand(a) {
-        return _.random(a.length);
-    }
-    // no 1 (looks like l)
-    // no 0 (looks like 0)
-    var numbers8 = "23456789".split(""); 
+// // Eventually, the plan is to support a larger number-space by using some lowercase letters.
+// // Waiting to implement that since there's cognitive overhead with mapping the IDs to/from
+// // letters/numbers.
+// // Just using digits [2-9] to start with. Omitting 0 and 1 since they can be confused with
+// // letters once we start using letters.
+// // This should give us roughly 8^8 = 16777216 conversations before we have to add letters.
+// var ReadableIds = (function() {
+//     function rand(a) {
+//         return _.random(a.length);
+//     }
+//     // no 1 (looks like l)
+//     // no 0 (looks like 0)
+//     var numbers8 = "23456789".split(""); 
 
-    // should fit within 32 bits
-    function generateConversationId() {
-       return [
-            rand(numbers8),
-            rand(numbers8),
-            rand(numbers8),
-            rand(numbers8),
-            rand(numbers8),
-            rand(numbers8),
-            rand(numbers8),
-            rand(numbers8)
-        ].join('');
-    }
-    return {
-        generateConversationId: generateConversationId,
-    };
-}());
+//     // should fit within 32 bits
+//     function generateConversationId() {
+//        return [
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8),
+//             rand(numbers8)
+//         ].join('');
+//     }
+//     return {
+//         generateConversationId: generateConversationId,
+//     };
+// }());
 
 
 // Connect to a mongo database via URI
@@ -502,25 +502,6 @@ function hasAuthToken(req) {
     return !!req.cookies[COOKIES.TOKEN];
 }
 
-function needAtLeastOne() {
-    var choices = Array.prototype.slice.call(arguments, 0);
-
-    return function(req, res, next) {
-        console.log("mike needAtLeastOne running");
-        function tryChoice(f, callback) {
-            console.log("mike needAtLeastOne tryChoice");
-            f(req, res, function(err) {
-                console.log("mike needAtLeastOne callback " + err);
-                callback(!err);
-            });
-        }
-        async.some(choices, tryChoice, function(atLeastOneSucceeded) {
-            var allFailed = !atLeastOneSucceeded;
-            console.log("mike needAtLeastOne allFailed " + allFailed);
-            next(allFailed);
-        });
-    };
-}
 
 // input token from body or query, and populate req.body.u with userid.
 function authOptional(assigner) {
@@ -555,8 +536,8 @@ function getUidForApiKey(apikey) {
 
 // http://en.wikipedia.org/wiki/Basic_access_authentication#Client_side
 function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
-    var header=req.headers['authorization']||'',        // get the header
-        token=header.split(/\s+/).pop()||'',            // and the encoded auth token
+    var header=req.headers.authorization || '',        // get the header
+        token=header.split(/\s+/).pop() || '',            // and the encoded auth token
         auth=new Buffer(token, 'base64').toString(),    // convert from base64
         parts=auth.split(/:/),                          // split on colon
         username=parts[0], 
@@ -581,7 +562,7 @@ function auth(assigner, isOptional) {
         var token = req.cookies[COOKIES.TOKEN];
         if (token) {
             doCookieAuth(assigner, isOptional, req, res, next);
-        } else if (req.headers['authorization']) {
+        } else if (req.headers.authorization) {
             doApiKeyBasicAuth(assigner, isOptional, req, res, next);
         }  else if (isOptional) {
             next();
@@ -609,11 +590,7 @@ function moveToBody(req, res, next) {
 //     console.log(req.method + " " + req.url);
 //     next();
 // }
-    
 
-function makeHash(ary) {
-    return _.object(ary, ary.map(function(){return 1;}));
-}
 
 String.prototype.hashCode = function(){
     var hash = 0, i, char;
@@ -812,12 +789,6 @@ function getArrayOfInt(a) {
     }
     return Promise.resolve(a.map(integer));
 }
-function getArrayOfIntNonEmpty(a) {
-    if (!a || !a.length) {
-        return Promise.reject("polis_fail_parse_int_array_empty");
-    }
-    return getArrayOfInt(a);
-}
 
 function getIntInRange(min, max) {
     return function(s) {
@@ -832,7 +803,7 @@ function getIntInRange(min, max) {
 function assignToP(req, name, x) {
     req.p = req.p || {};
     if (!_.isUndefined(req.p[name])) {
-        var s = "clobbering " + name
+        var s = "clobbering " + name;
         console.error(s);
         yell(s);
     }
@@ -1011,18 +982,17 @@ function setPlanCookie(res, setOnPolisDomain, planNumber) {
         setCookie(res, setOnPolisDomain, COOKIES.PLAN_NUMBER, planNumber, {
             // not httpOnly - needed by JS
         });
-    } else {
-        // falsy
     }
+    // else falsy
+
 }
 function setHasEmailCookie(res, setOnPolisDomain, email) {
     if (email) {
         setCookie(res, setOnPolisDomain, COOKIES.HAS_EMAIL, 1, {
             // not httpOnly - needed by JS
         });
-    } else {
-        // falsy
     }
+    // else falsy
 }
 
 function setUserCreatedTimestampCookie(res, setOnPolisDomain, timestamp) {
@@ -1065,7 +1035,7 @@ function addCookies(req, res, token, uid) {
 
 function generateHashedPassword(password, callback) {
     bcrypt.genSalt(12, function(errSalt, salt) {
-        if (errSalt) { return callback("polis_err_salt"); return; }
+        if (errSalt) { return callback("polis_err_salt"); }
         bcrypt.hash(password, salt, function(errHash, hashedPassword) {
             if (errHash) { return callback("polis_err_hash");}
             callback(null, hashedPassword);
@@ -1098,7 +1068,7 @@ function getPidForParticipant(assigner, cache) {
             }
         }
         pgQuery("SELECT pid FROM participants WHERE zid = ($1) and uid = ($2);", [zid, uid], function(err, results) {
-            if (err) { yell("polis_err_get_pid_for_participant"); next(err); return }
+            if (err) { yell("polis_err_get_pid_for_participant"); next(err); return; }
             var pid = -1;
             if (results && results.rows && results.rows.length) {
                 pid = results.rows[0].pid;
@@ -1290,7 +1260,9 @@ app.use(function(req, res, next) {
     next();
 });
 app.use(function(err, req, res, next) {
-    if(!err) return next();
+    if(!err) {
+        return next();
+    }
     console.log("error found in middleware");
     yell(err);
     next(err);
@@ -1561,8 +1533,8 @@ function(req, res) {
         var b2p = items[0].bidToPid;
         var pid = items[1];
 
-        var bid = null;
-        for (var bid = 0; bid < b2p.length; bid++) {
+        var bid;
+        for (bid = 0; bid < b2p.length; bid++) {
             var pids = b2p[bid];
             var i = pids.indexOf(pid);
             if (i !== -1) {
@@ -1673,29 +1645,31 @@ function getUidByEmail(email) {
 
 function clearCookies(req, res) {
     var origin = req.headers.origin || "";
+    var cookieName;
     if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-        for (var cookieName in req.cookies) {
+        for (cookieName in req.cookies) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/"});
             }
         }
-    } else {       
-        for (var cookieName in req.cookies) {
+    } else {
+
+        for (cookieName in req.cookies) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
             }
         }     
-        for (var cookieName in req.cookies) {
+        for (cookieName in req.cookies) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
             }
         }          
-        for (var cookieName in req.cookies) {
+        for (cookieName in req.cookies) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/", domain: ".pol.is"});
             }
         }
-        // for (var cookieName in req.cookies) {
+        // for (cookieName in req.cookies) {
         //     if (COOKIES_TO_CLEAR[cookieName]) {
         //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
         //     }
@@ -1858,7 +1832,7 @@ function(req, res) {
             });
         }).catch(function(err) {
             fail(res, 500, "polis_err_creating_zinvite", err);
-        })
+        });
     });
 });
 
@@ -1928,7 +1902,7 @@ function getZinvite(zid) {
 function getZinvites(zids) {
     if (!zids.length) {
         return Promise.resolve(zids);
-    };
+    }
     zids = _.map(zids, function(zid) {
         return Number(zid); // just in case
     });
@@ -2032,7 +2006,9 @@ function getOwner(zid) {
 function getSUZinviteInfo(suzinvite) {
     return new Promise(function(resolve, reject) {
         pgQuery('SELECT * FROM suzinvites WHERE suzinvite = ($1);', [suzinvite], function(err, results) {
-            if (err) {return reject(err); }
+            if (err) {
+                return reject(err);
+            }
             if (!results || !results.rows || !results.rows.length) {
                 return reject(new Error("polis_err_no_matching_suzinvite"));
             }
@@ -2232,7 +2208,7 @@ function getUserInfoForUid2(uid, callback) {
             if (!results.rows || !results.rows.length) {
                 return reject(null);
             }
-            var o = results.rows[0]
+            var o = results.rows[0];
             resolve(o);
         });
     });
@@ -2336,28 +2312,26 @@ function sendEmail(o) {
 
 
 function emailBadProblemTime(message) {
-    getUserInfoForUid(uid, function(err, userInfo) {
-        if (err) { return callback(err);}
-        if (!userInfo) { return callback('missing user info');}
-        var body = "" +
-            "Yo, there was a serious problem. Here's the message:\n" +
-            message
-            ;
+    var body = "" +
+        "Yo, there was a serious problem. Here's the message:\n" +
+        message
+        ;
 
-        mailgun.sendText(
-            'Polis Support <mike@pol.is>',
-            ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
-            "Polis Bad Problems!!!",
-            body,
-            'mike@pol.is', {},
-            function(err) {
-                if (err) {
-                    console.error('mailgun send error: ' + err);
-                }
-                callback(err);
+    mailgun.sendText(
+        'Polis Support <mike@pol.is>',
+        ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
+        "Polis Bad Problems!!!",
+        body,
+        'mike@pol.is', {},
+        function(err) {
+            if (err) {
+                console.error('mailgun send error: ' + err);
             }
-        );
-    });
+            console.error(message);
+            yell("polis_err_failed_to_email_bad_problem_time");            
+            yell(message);
+        }
+    );
 }
 
 
@@ -2578,7 +2552,7 @@ function(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
     email = email.toLowerCase();
-    if (!_.isString(password) || password.length == 0) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
+    if (!_.isString(password) || !password.length) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
     pgQuery("SELECT * FROM users WHERE LOWER(email) = ($1);", [email], function(err, docs) {
         docs = docs.rows;
         if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); console.error("polis_err_login_unknown_user_or_password_err"); return; }
@@ -2745,7 +2719,7 @@ function(req, res) {
     var email = req.p.email;
     var oinvite = req.p.oinvite;
     var zinvite = req.p.zinvite;
-    var referrer = req.cookies[COOKIES.REFERRER];;
+    var referrer = req.cookies[COOKIES.REFERRER];
     var organization = req.p.organization;
 
     if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
@@ -2799,7 +2773,7 @@ function(req, res) {
                                 }
                                 customData.uid = uid;
                                 if (_.keys(customData).length) {
-                                    params["custom_data"] = customData;
+                                    params.custom_data = customData;
                                 }
                                 intercom.createUser(params, function(err, res) {
                                     if (err) {
@@ -2839,7 +2813,8 @@ function(req, res) {
     });
 });
 
-
+// These map from non-ui string codes to number codes used in the DB
+// The string representation ("sites", etc) is also used in intercom.
 var planCodes = {
     mike: 9999,
     trial: 0,
@@ -2848,6 +2823,7 @@ var planCodes = {
     orgs: 1000,
 };
 
+// These are for customer to see in UI
 var planCodeToPlanName = {
     9999: "MikePlan",
     0: "Trial",
@@ -2869,6 +2845,25 @@ function changePlan(uid, planCode) {
     });
 }
 
+function setUsersPlanInIntercom(uid, planCode) {
+    return new Promise(function(resolve, reject) {
+        var params = {
+            "user_id": uid,
+            "custom_data" : {
+                "plan_code" : planCode,
+            },
+        };
+        intercom.updateUser(params, function(err, res) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(res);
+            }
+        });
+    });
+}
+
+
 app.post("/charge",
     auth(assignToP),
     need('stripeToken', getOptionalStringLimitLength(999), assignToP),
@@ -2879,6 +2874,7 @@ function(req, res) {
     var stripeToken = req.p.stripeToken;
     var uid = req.p.uid;
     var plan = req.p.plan;
+    var planCode = planCodes[plan];
 
     console.dir(req.p);
 
@@ -2911,7 +2907,11 @@ function(req, res) {
             }
         }
 
-        var planCode = planCodes[plan];
+        setUsersPlanInIntercom(uid, planCode).catch(function(err) {
+            emailBadProblemTime("User " + uid + " changed their plan, stripe was charged, but we failed to update Intercom");
+        });
+
+        // update DB and finish
         changePlan(uid, planCode).then(function() {
             var protocol = devMode ? "http" : "https";
 
@@ -2926,6 +2926,7 @@ function(req, res) {
             return res.end();
         }).catch(function(err) {
             emailBadProblemTime("User changed their plan, stripe was charged, but we failed to update the DB.");
+            fail(res, 500, "polis_err_changing_plan", err);
         });
     });
 });
@@ -3332,7 +3333,7 @@ function(req, res) {
         permalink: 'https://pol.is/' + zid,
         user_ip: ip,
         user_agent: req.headers['user-agent'],
-        referrer: req.headers['referer'],
+        referrer: req.headers.referer,
     });
     isSpamPromise.catch(function(err) {
         console.error("isSpam failed");
@@ -3391,7 +3392,7 @@ function(req, res) {
                 function(err, docs) {
                     if (err) { 
                         console.dir(err);
-                        if (err.code == '23505') {
+                        if (err.code === '23505' || err.code === 23505) {
                             // duplicate comment
                             fail(res, 409, "polis_err_post_comment_duplicate", err);
                         } else {
@@ -3542,7 +3543,7 @@ function(req, res) {
         var users = req.p.users || [];
         
         getVotesForZidPids(zid, users, function(err, voteRecords) {
-            if (err) { fail(res, 500, "polis_err_get_selection", err); console.dir(results); return; }
+            if (err) { fail(res, 500, "polis_err_get_selection", err); return; }
             if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes", new Error("polis_err_get_selection_no_votes")); return; }
 
             var commentIdCounts = getCommentIdCounts(voteRecords);
@@ -3703,7 +3704,7 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
   var errorcode = "polis_err_missing_metadata_answers";
   return new Promise(function(resolve, reject) {
     pgQuery("select pmqid from participant_metadata_questions where zid = ($1);", [zid], function(err, results) {
-        if (err) {reject(err); return }
+        if (err) {reject(err); return; }
         if (!results.rows || !results.rows.length) {
             resolve();
             return;
@@ -3713,7 +3714,7 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
             "select pmaid, pmqid from participant_metadata_answers where pmqid in ("+pmqids.join(",")+") and alive = TRUE and zid = ($1);",
             [zid],
             function(err, results) {
-                if (err) { reject(err); return }
+                if (err) { reject(err); return; }
                 if (!results.rows || !results.rows.length) {
                     reject(new Error(errorcode));
                     return;
@@ -4010,6 +4011,24 @@ function(req, res) {
     var zinvite = req.p.zinvite;
     var suzinvite = req.p.suzinvite;
 
+    function doneChecking(err, foo) {
+        if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
+
+        async.parallel([
+            function(callback) { pgQuery("SELECT * FROM participant_metadata_questions WHERE alive = true AND zid = ($1);", [zid], callback); },
+            //function(callback) { pgQuery("SELECT * FROM participant_metadata_answers WHERE alive = true AND zid = ($1);", [zid], callback); },
+            //function(callback) { pgQuery("SELECT * FROM participant_metadata_choices WHERE alive = true AND zid = ($1);", [zid], callback); },
+        ], function(err, result) {
+            if (err) { fail(res, 500, "polis_err_get_participant_metadata_questions", err); return; }
+            var rows = result[0] && result[0].rows;
+            rows = rows.map(function(r) {
+                r.required = true;
+                return r;
+            });
+            finishArray(res, rows);
+        });
+    }
+
     if (zinvite) {
         checkZinviteCodeValidity(zid, zinvite, doneChecking);
     } else if (suzinvite) {
@@ -4021,23 +4040,6 @@ function(req, res) {
             } else {
                 isOwnerOrParticipant(zid, uid, doneChecking);
             }
-        });
-    }
-    function doneChecking(err, foo) {
-        if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
-
-        async.parallel([
-            function(callback) { pgQuery("SELECT * FROM participant_metadata_questions WHERE alive = true AND zid = ($1);", [zid], callback) },
-            //function(callback) { pgQuery("SELECT * FROM participant_metadata_answers WHERE alive = true AND zid = ($1);", [zid], callback) },
-            //function(callback) { pgQuery("SELECT * FROM participant_metadata_choices WHERE alive = true AND zid = ($1);", [zid], callback) },
-        ], function(err, result) {
-            if (err) { fail(res, 500, "polis_err_get_participant_metadata_questions", err); return; }
-            var rows = result[0] && result[0].rows;
-            rows = rows.map(function(r) {
-                r.required = true;
-                return r;
-            });
-            finishArray(res, rows);
         });
     }
 });
@@ -4052,7 +4054,6 @@ function(req, res) {
     var key = req.p.key;
     var uid = req.p.uid;
   
-    isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
         pgQuery("INSERT INTO participant_metadata_questions (pmqid, zid, key) VALUES (default, $1, $2) RETURNING *;", [
@@ -4064,6 +4065,8 @@ function(req, res) {
             finishOne(res, results.rows[0]);
         });
     }
+
+    isConversationOwner(zid, uid, doneChecking);
 });
     
 app.post('/v3/metadata/answers',
@@ -4078,7 +4081,6 @@ function(req, res) {
     var pmqid = req.p.pmqid;
     var value = req.p.value;
 
-    isConversationOwner(zid, uid, doneChecking);
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
         pgQuery("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [pmqid, zid, value, ], function(err, results) {
@@ -4092,6 +4094,8 @@ function(req, res) {
             }
         });
     }
+
+    isConversationOwner(zid, uid, doneChecking);
 });
 
 app.get('/v3/metadata/choices',
@@ -4124,20 +4128,6 @@ function(req, res) {
     var suzinvite = req.p.suzinvite;
     var pmqid = req.p.pmqid;
 
-    if (zinvite) {
-        checkZinviteCodeValidity(zid, zinvite, doneChecking);
-    } else if (suzinvite) {
-        checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
-    } else {
-        getConversationProperty(zid, "is_public", function(err, is_public) {
-            if (!err && is_public) {
-                doneChecking(false);
-            } else {
-                isOwnerOrParticipant(zid, uid, doneChecking);
-            }
-        });
-    }
-    
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
         var query = sql_participant_metadata_answers.select(sql_participant_metadata_answers.star())
@@ -4159,6 +4149,20 @@ function(req, res) {
             finishArray(res, rows);
         });
     }
+
+    if (zinvite) {
+        checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else if (suzinvite) {
+        checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
+    } else {
+        getConversationProperty(zid, "is_public", function(err, is_public) {
+            if (!err && is_public) {
+                doneChecking(false);
+            } else {
+                isOwnerOrParticipant(zid, uid, doneChecking);
+            }
+        });
+    }
 });
 
 app.get('/v3/metadata',
@@ -4174,25 +4178,12 @@ function(req, res) {
     var zinvite = req.p.zinvite;
     var suzinvite = req.p.suzinvite;
 
-    if (zinvite) {
-        checkZinviteCodeValidity(zid, zinvite, doneChecking);
-    } else if (suzinvite) {
-        checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
-    } else {
-        getConversationProperty(zid, "is_public", function(err, is_public) {
-            if (!err && is_public) {
-                doneChecking(false);
-            } else {
-                isOwnerOrParticipant(zid, uid, doneChecking);
-            }
-        });
-    }
     function doneChecking(err) {
         if (err) { fail(res, 403, "polis_err_get_participant_metadata_auth", err); return; }
         async.parallel([
-            function(callback) { pgQuery("SELECT * FROM participant_metadata_questions WHERE zid = ($1);", [zid], callback) },
-            function(callback) { pgQuery("SELECT * FROM participant_metadata_answers WHERE zid = ($1);", [zid], callback) },
-            function(callback) { pgQuery("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback) },
+            function(callback) { pgQuery("SELECT * FROM participant_metadata_questions WHERE zid = ($1);", [zid], callback); },
+            function(callback) { pgQuery("SELECT * FROM participant_metadata_answers WHERE zid = ($1);", [zid], callback); },
+            function(callback) { pgQuery("SELECT * FROM participant_metadata_choices WHERE zid = ($1);", [zid], callback); },
         ], function(err, result) {
             if (err) { fail(res, 500, "polis_err_get_participant_metadata", err); return; }
             var keys = result[0] && result[0].rows;
@@ -4202,21 +4193,23 @@ function(req, res) {
             var keyNames = {};
             var valueNames = {};
             var i;
+            var k;
+            var v;
             if (!keys || !keys.length) {
                 res.status(200).json({});
                 return;
             }
             for (i = 0; i < keys.length; i++) {
                 // Add a map for each keyId
-                var k = keys[i];
+                k = keys[i];
                 o[k.pmqid] = {}; 
                 // keep the user-facing key name
                 keyNames[k.pmqid] = k.key;
             }
             for (i = 0; i < vals.length; i++) {
                 // Add an array for each possible valueId
-                var k = vals[i];
-                var v = vals[i];
+                k = vals[i];
+                v = vals[i];
                 o[k.pmqid][v.pmaid] = []; 
                 // keep the user-facing value string
                 valueNames[v.pmaid] = v.value;
@@ -4231,6 +4224,20 @@ function(req, res) {
                 keys: keyNames,
                 values: valueNames,
             });
+        });
+    }
+
+    if (zinvite) {
+        checkZinviteCodeValidity(zid, zinvite, doneChecking);
+    } else if (suzinvite) {
+        checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
+    } else {
+        getConversationProperty(zid, "is_public", function(err, is_public) {
+            if (!err && is_public) {
+                doneChecking(false);
+            } else {
+                isOwnerOrParticipant(zid, uid, doneChecking);
+            }
         });
     }
 });
@@ -4318,7 +4325,7 @@ function getConversations(req, res) {
 
     var participantIn = results && results.rows && _.pluck(results.rows, "zid") || null;
 
-    var query = sql_conversations.select(sql_conversations.star())
+    var query = sql_conversations.select(sql_conversations.star());
     var orClauses = sql_conversations.owner.equals(uid);
     if (participantIn.length) {
         orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
@@ -4415,7 +4422,7 @@ function(req, res) {
     pgQuery(q, [], function(err, result) {
         if (err) {
             if (isDuplicateKey(err)) {
-                yell(err)
+                yell(err);
                 failWithRetryRequest(res);
             } else {
                 fail(res, 500, "polis_err_add_conversation", err);
@@ -4469,7 +4476,7 @@ function(req, res) {
         // empty selection
         return res.status(200).json([]);
     }
-    isOwnerOrParticipant(zid, uid, doneChecking);
+
     function doneChecking() {
         // find list of participants who are not eliminated by the list of excluded choices.
         pgQuery(
@@ -4486,13 +4493,15 @@ function(req, res) {
                 res.status(200).json(_.pluck(results.rows, "pid"));
             });
     }
+
+    isOwnerOrParticipant(zid, uid, doneChecking);    
 });
 
 app.post('/v3/sendCreatedLinkToEmail', 
     auth(assignToP),
     need('sid', getSidFetchZid, assignToPCustom('zid')),
 function(req, res){
-    console.log(req.p)
+    console.log(req.p);
     pgQuery("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
         if (err) { fail(res, 500, "polis_err_get_email_db", err); return; }
         var email = results.rows[0].email;
@@ -4523,12 +4532,12 @@ function(req, res){
                         console.error('mailgun send error: ' + err);
                         fail(res, 500, "mailgun_error", err);
                     }
-                    res.status(200).json({})
+                    res.status(200).json({});
                 }
             );
-        })
-    })
-})
+        });
+    });
+});
 
 
 
@@ -4839,7 +4848,7 @@ var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
 var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", "text/html");
 
-var fetchIndex = function(req, res) {
+function fetchIndex(req, res) {
     var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html");
     if (isUnsupportedBrowser(req)){
         

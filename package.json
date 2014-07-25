@@ -16,16 +16,14 @@
   },
   "author": "",
   "license": "",
-  "devDependencies": {
-    "grunt": "~0.3.17"
-  },
   "dependencies": {
+    "gulp": "~3.8.6",
+    "gulp-jshint": "~1.8.0",
     "underscore": "~1.5.2",
     "mongodb": "~1.1.11",
     "pg": "~2.8.3",
     "async": "~0.1.22",
     "optimist": "~0.3.5",
-    "grunt": "~0.3.17",
     "bcrypt": "~0.7.2",
     "express": "~3.7.0",
     "redis": "~0.8.2",
