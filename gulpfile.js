@@ -57,19 +57,24 @@ var host;
 
 
 gulp.task('connect', [], function() {
-  express.static.mime.define({'application/x-font-woff': ['.woff']});
-  var app = express();
-  var fetchIndex = express.static(path.join(destRootBase, "index.html"));
-  app.use(express.static(path.join(destRootBase)));
-  app.use("/", fetchIndex);
-  app.use('/v3', function(req, response) {
+
+  function proxyToPreprod(req, response) {
     var x = request("https://preprod.pol.is" + req.originalUrl);
     x.on("error", function(err) {
       response.status(500).end();
     });
     req.pipe(x);
     x.pipe(response);
-  });
+  }
+
+
+  express.static.mime.define({'application/x-font-woff': ['.woff']});
+  var app = express();
+  var fetchIndex = express.static(path.join(destRootBase, "index.html"));
+  app.use(express.static(path.join(destRootBase)));
+  app.use("/", fetchIndex);
+  app.use(/^\/v3/, proxyToPreprod);
+  app.use(/^\/landerImages/, proxyToPreprod);  
   app.use(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
   app.use(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
   app.use(/^\/share\/[0-9][0-9A-Za-z]+/, fetchIndex); // share view
@@ -417,6 +422,15 @@ gulp.task('about', function () {
     var top = fs.readFileSync('js/templates/about/partials/top.handlebars', {encoding: "utf8"});
     var header = fs.readFileSync('js/templates/about/partials/header.handlebars', {encoding: "utf8"});
     var footer = fs.readFileSync('js/templates/about/partials/footer.handlebars', {encoding: "utf8"});
+
+    var basepath = destRootRest;
+    if (basepath === "/") {
+      // this happens in dev
+      basepath = "";
+    }
+    top = top.replace(/<%= *basepath *%>/, basepath);
+    header = header.replace(/<%= *basepath *%>/, basepath);
+    footer = footer.replace(/<%= *basepath *%>/, basepath);
 
     var templateData = {
         foo: 'bar333'
