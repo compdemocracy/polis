@@ -1,29 +1,29 @@
-
-
 <section class="container">
 <div class="row">
 
-	<div class="col-sm-12 " style="margin-bottom: 20px; margin-top: 15px;">
-		<h4 style="display:inline">Create a conversation </h4>
-		<h5 style="display:inline; font-weight:100"><em>(all fields optional)</em></h5>
+	<div class="col-sm-12">
+		<h1 class="primary-heading">
+			Create a conversation
+			<span class="sub-heading">(all fields are optional)</span>
+		</h1>
 	</div>
 	<div class="createConversationForm col-sm-6 ">
-		<form class="well conversationsForm" role="form">
-			<div class="control-group">
-				<label for="topic"> Topic </label>
-				<input style="width: 90%" maxlength="35" id="topic" type="text" name="topic" value="{{topic}}" class="form-control">
+		<form class="well conversationsForm form-vertical" role="form">
+			<div class="form-group">
+				<label class="form-label" for="topic">Topic</label>
+				<input maxlength="35" id="topic" type="text" name="topic" value="{{topic}}" class="form-control">
 			</div>
-			<div class="control-group">
-				<label for="description" style="margin-top:20px"> Description & Question</label>
-				<textarea style="width: 90%" type="text" maxlength="300" class="form-control" name="description" id="description" rows="7">{{description}}</textarea>
+			<div class="form-group">
+				<label class="form-label" for="description"> Description &amp; Question</label>
+				<textarea type="text" maxlength="300" class="form-control" name="description" id="description" rows="7">{{description}}</textarea>
 			</div>
-			
+
 		  <div class="checkbox">
-		    <label>
+		    <label class="form-label">
 		      <input type="checkbox" id="is_public" name="is_public"> Short URL (easily typeable, less secure)
 		    </label>
 		  </div>
-			<button class="btn btn-success submitButton btn-lg" name="formAction" type="submit" value="publish">Create</button>
+			<button class="btn-primary" name="formAction" type="submit" value="publish">Create</button>
 			<div class="row" id="errorDiv"> </div>
 			<input type="hidden" name="id" id="id" value="{{id}}" class="form-control">
 		</form>
@@ -50,7 +50,7 @@
 			{{!-- <button class="btn btn-default" name="formAction" type="submit" value="draft">Save as Draft</button> --}}
 
 		<div class="well" id="seedCommentsContainer" style="cursor:pointer">
-			<i class="fa fa-caret-right" id="seedCommentsCaret" style="margin-right: 10px;"></i> 
+			<i class="fa fa-caret-right" id="seedCommentsCaret" style="margin-right: 10px;"></i>
 			<h5 style="display:inline"> Add Comments for Participants to React To </h5>
 			<div style="display:none;" id="hiddenSeedCommentForm">
 				<div style="margin-top: 20px" class="alert alert-info">
@@ -62,11 +62,11 @@
     		</div>
 				{{view commentForm}}
 			</div>
-		</div> 
-				
+		</div>
+
 {{!-- 		<div class="well" id="xidsFormContainer" style="cursor:pointer">
 			<i class="fa fa-caret-right" id="xidsCaret" style="margin-right: 10px;"></i>
-			<h5 style="display:inline"> Single-Use URLs </h5>      
+			<h5 style="display:inline"> Single-Use URLs </h5>
 			<div style="display:none;" id="hiddenXidsForm">
 				<div style="margin-top: 20px" class="alert alert-info">
 		     	<p> Add xids (one per line) to generate single-use URLs </p>
@@ -105,5 +105,5 @@
 	</div> --}}
 
 
-</div> <!-- row --> 
+</div> <!-- row -->
 </section>
