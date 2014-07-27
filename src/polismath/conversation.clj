@@ -333,7 +333,6 @@
 ; a reader that uses these custom printing formats
 (defn read-vectorz-edn [text]
   (edn/read-string
-  ;(clojure.core/read-string
     {:readers {'mikera.vectorz.Vector matrix
                'mikera.arrayz.NDArray matrix
                'mikera.matrixx.Matrix matrix
