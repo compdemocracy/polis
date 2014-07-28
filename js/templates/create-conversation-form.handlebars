@@ -8,28 +8,30 @@
 		</h1>
 	</div>
 	<div class="createConversationForm col-sm-6 ">
-		<form class="well conversationsForm form-vertical" role="form">
-			<div class="form-group">
-				<label class="form-label" for="topic">Topic</label>
-				<input maxlength="35" id="topic" type="text" name="topic" value="{{topic}}" class="form-control">
+		<form class="FormVertical" role="form">
+			<div class="FormVertical-group">
+				<label class="FormLabel" for="topic">Topic</label>
+				<input maxlength="35" id="topic" type="text" name="topic" value="{{topic}}" class="FormControl">
 			</div>
-			<div class="form-group">
-				<label class="form-label" for="description"> Description &amp; Question</label>
-				<textarea type="text" maxlength="300" class="form-control" name="description" id="description" rows="7">{{description}}</textarea>
+			<div class="FormVertical-group">
+				<label class="FormLabel" for="description"> Description &amp; Question</label>
+				<textarea type="text" maxlength="300" class="FormControl" name="description" id="description" rows="7">{{description}}</textarea>
 			</div>
 
-		  <div class="checkbox">
-		    <label class="form-label">
-		      <input type="checkbox" id="is_public" name="is_public"> Short URL (easily typeable, less secure)
+		  <div class="FormVertical-group">
+		    <label class="FormLabel">
+		      <input type="checkbox" id="is_public" name="is_public" class="FormCheckbox"> Short URL (easily typeable, less secure)
 		    </label>
 		  </div>
-			<button class="btn-primary" name="formAction" type="submit" value="publish">Create</button>
+			<div class="FormVertical-group">
+				<button class="Btn Btn-primary" name="formAction" type="submit" value="publish">Create</button>
+			</div>
 			<div class="row" id="errorDiv"> </div>
-			<input type="hidden" name="id" id="id" value="{{id}}" class="form-control">
+			<input type="hidden" name="id" id="id" value="{{id}}" class="FormControl">
 		</form>
 
 			{{!--
-			<div class="form-group">
+			<div class="FormVertical-group">
 			  <div class="controls">
 			  	<div class="checkbox"><label for="anonymous" class="">
 			  		<input type="checkbox" id="anonymous" name="is_anon" data-toggle="checkbox" {{#if="" is_anon}}checked{{="" if}}=""> Make this conversation anonymous -- this should grey out/disable the metadata box below.
@@ -43,7 +45,7 @@
                 <button type="button" class="close" data-dismiss="alert">×</button>
                 <p> Use this link to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it on your website or blog. </p>
               </div>
-			<input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly="" class="form-control">
+			<input type="text" value="{{url_name_with_hostname}}" name="convoLink" style="cursor: pointer" readonly="" class="FormControl">
               <div class="alert alert-info">
 			--}}
 
@@ -72,7 +74,7 @@
 		     	<p> Add xids (one per line) to generate single-use URLs </p>
 		   	</div>
 		   	<form class="xidsForm" role="form">
-					<textarea style="width: 90%" type="text" class="form-control" name="xidsTextarea" id="xidsTextarea" placeholder="paste xids here (one per line). API coming soon!" rows="20"></textarea>
+					<textarea style="width: 90%" type="text" class="FormControl" name="xidsTextarea" id="xidsTextarea" placeholder="paste xids here (one per line). API coming soon!" rows="20"></textarea>
 				  </form>
 			</div>
 		</div> --}}
