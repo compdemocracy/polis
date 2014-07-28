@@ -6,7 +6,6 @@
 
 // BASE
 @import 'base/variables';
-@import 'base/utilities';
 @import 'base/base';
 @import 'base/content';
 
@@ -17,7 +16,11 @@
 @import 'modules/navigation';
 @import 'modules/buttons';
 @import 'modules/forms';
+@import 'modules/formSwitch';
 @import 'modules/lists';
 
 //STATES
 @import 'states/states';
+
+// utilities
+@import 'base/utilities';
