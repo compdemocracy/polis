@@ -5,7 +5,7 @@
 //
 // Headings
 //
-.primary-heading {
+.HeadingA {
   color: $dark-gray;
   font-family: $headline-font;
   font-weight: 700;
@@ -13,14 +13,14 @@
   line-height: $default-leading;
 }
 
-.sub-heading {
+.HeadingA-aside {
   color: $light-gray;
   font-family: $serif-font;
   font-weight: normal;
   font-size: 18px;
 }
 
-.secondary-heading {
+.HeadingB {
   color: $dark-gray;
   font-family: $headline-font;
   font-weight: 900;
@@ -30,9 +30,9 @@
 }
 
 //
-// Header/Banner containing logo
+// Header/banner
 //
-.header {
+.Header {
   margin: 0;
   padding: 30px 0 15px 0;
   border-bottom: 3px solid #eeeff0;
@@ -40,7 +40,7 @@
   vertical-align: bottom;
 }
 
-.logo {
+.Logo {
   margin: 0;
   display: inline-block;
 
@@ -49,9 +49,9 @@
   font-size: 28px;
   font-weight: normal;
   letter-spacing: 1px;
+}
 
-  .blue {
-    color: $brand-color;
-    font-weight: bold;
-  }
+.Logo--blue {
+  color: $brand-color;
+  font-weight: bold;
 }

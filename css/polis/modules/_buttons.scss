@@ -1,20 +1,19 @@
 // BUTTONS
 //
 
-.btn {
+.Btn {
   padding: 8px 25px;
   border-radius: 4px;
   border: 0;
-  margin-bottom: $default-whitespace;
 
+  font-family: $sans-font;
   font-weight: 700;
   text-transform: uppercase;
 }
 
-.btn-primary {
+.Btn-primary {
   background-color: $brand-color;
   color: #fff;
-  font-family: $sans-font;
   letter-spacing: 0.07em;
 
   &:hover {
@@ -22,10 +21,9 @@
   }
 }
 
-.btn-alt {
+.Btn-alt {
   background-color: $bg-alt-color;
   color: $brand-color;
-  font-family: $sans-font;
   letter-spacing: 0.05em;
 
   &:hover {
@@ -40,7 +38,7 @@
   border-right: 0px
 }
 
-.btn-vote {
+.Btn-vote {
   // set this independently of the overall font size, since they're difficult to get right.
   font-size: 20px;
   padding: 10px 0px; // no horizontal padding - to prevent the right edge of "disagree" from being clipped on iOS

@@ -1,25 +1,33 @@
 // FORMS
 //
 
-.form-vertical {
+.FormVertical {
   margin-bottom: ($default-whitespace*2);
   border: 0;
 
-  .form-group {
-    margin-bottom: $default-whitespace;
-  }
-  .form-label {
-    display: block;
+  &:last-child {
     margin-bottom: 0;
-
-    color: $text-color;
-    font-family: $sans-font;
-    font-size: 22px;
-    font-weight: 400;
   }
 }
 
-.form-control {
+.FormVertical-group {
+  margin-bottom: $default-whitespace;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.FormLabel {
+  display: block;
+
+  color: $text-color;
+  font-family: $sans-font;
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.FormControl {
   min-height: 36px;
   height: auto;
   width: 100%;
@@ -48,19 +56,22 @@
   }
 }
 
-.form-control--title {
+.FormControl--title {
   font-size: 30px;
 }
 
-.forgot-password {
+.FormLink {
+  display: block;
+
   font-family: $serif-font;
   line-height: 2;
+  text-align: right;
 }
 
 // Checkbox and radio buttons
 
-.checkbox,
-.radio {
+.Checkbox,
+.Radio {
   padding-left: $default-whitespace;
 
   input[type="checkbox"],
@@ -73,6 +84,9 @@
 //
 // Alternate Create an Account/Sign Up section
 //
+.rel {
+  position: relative;
+}
 .alternateRegOr {
     text-align: center;
     position: absolute;
