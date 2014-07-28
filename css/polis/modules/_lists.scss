@@ -1,18 +1,18 @@
 // LISTS
 //
 
-.list-plain {
+.ListPlain {
   margin-top: 0;
   padding-left: 0;
   list-style: none;
 }
 
-.list-horizontal {
+.ListHorizontal {
   margin: 0;
   padding-left: 0;
 }
 
-.list-horizontal > li {
+.ListHorizontal > li {
   display: inline-block;
   margin-left: $default-whitespace;
 
