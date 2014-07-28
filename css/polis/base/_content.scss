@@ -28,30 +28,3 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-
-//
-// Header/banner
-//
-.Header {
-  margin: 0;
-  padding: 30px 0 15px 0;
-  border-bottom: 3px solid #eeeff0;
-
-  vertical-align: bottom;
-}
-
-.Logo {
-  margin: 0;
-  display: inline-block;
-
-  color: $medium-gray;
-  font-family: $headline-font;
-  font-size: 28px;
-  font-weight: normal;
-  letter-spacing: 1px;
-}
-
-.Logo--blue {
-  color: $brand-color;
-  font-weight: bold;
-}
