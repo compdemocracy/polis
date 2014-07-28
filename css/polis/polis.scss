@@ -6,8 +6,12 @@
 
 // BASE
 @import 'base/variables';
+@import 'base/utilities';
 @import 'base/base';
 @import 'base/content';
+
+//LAYOUT
+@import 'layout/grid';
 
 //MODULES
 @import 'modules/navigation';
