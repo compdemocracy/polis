@@ -1,17 +1,20 @@
 // BUTTONS
 //
 
-.btn-primary {
-  margin-bottom: $default-whitespace;
+.btn {
   padding: 8px 25px;
   border-radius: 4px;
   border: 0;
+  margin-bottom: $default-whitespace;
 
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.btn-primary {
   background-color: $brand-color;
   color: #fff;
   font-family: $sans-font;
-  font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.07em;
 
   &:hover {
@@ -20,16 +23,9 @@
 }
 
 .btn-alt {
-  margin-bottom: $default-whitespace;
-  padding: 8px 25px;
-  border-radius: 4px;
-  border: 0;
-
   background-color: $bg-alt-color;
   color: $brand-color;
   font-family: $sans-font;
-  font-weight: 700;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 
   &:hover {

@@ -2,8 +2,12 @@
 // Styles applied directly to elements usually using the element selector
 //
 
-*, *:before, *:after {
+html {
   box-sizing: border-box;
+}
+
+*, *:before, *:after {
+  box-sizing: inherit;
 }
 
 body {
