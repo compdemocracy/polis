@@ -68,41 +68,15 @@
   text-align: right;
 }
 
+//
 // Checkbox and radio buttons
-
-.Checkbox,
-.Radio {
-  padding-left: $default-whitespace;
-
-  input[type="checkbox"],
-  input[type="radio"]  {
-    float: left;
-    margin: 5px 0 0 (-$default-whitespace);
-  }
-}
-
 //
-// Alternate Create an Account/Sign Up section
-//
-.rel {
-  position: relative;
-}
-.alternateRegOr {
-    text-align: center;
-    position: absolute;
-    width: 40px;
-    /*left: 50%;*/
-    /*margin-left: -20px;*/ /* -1/2 of width, to center a position:absolute element */
-    left: 20px; /* since the form is left-aligned */
-    top: -13px;
+// .FormLabel--checkbox,
+// .FormLabel--radio {
+//   padding-left: $default-whitespace;
+// }
 
-    background-color: $bg-color;
-    font-weight: 400;
-}
-
-.alternateReg {
-    margin-top: $default-whitespace;
-    padding-top: $default-whitespace + ($default-whitespace/2);
-
-    border-top: 1px solid $default-border-color;
+.FormCheckbox,
+.FormRadio {
+  margin: 0 10px 0 0;
 }
