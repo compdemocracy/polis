@@ -8,45 +8,50 @@
     {{/if}}
   {{#if create}}
 
-    <h1 class="primary-heading">Join the conversation</h1>
+    <h1 class="HeadingA">Join the conversation</h1>
     {{#if sid}}
     <p> To participate in this conversation, you'll need to create a Polis account. </p>
     {{/if}}
-    <form role="form" class="form-vertical">
-      <div class="form-group">
-        <label class="form-label" for="gatekeeperNameCreate">Full Name</label>
-        <input type="text" id="hname" name="hname" id="gatekeeperNameCreate" class="form-control">
+    <form role="form" class="FormVertical">
+      <div class="FormVertical-group">
+        <label class="FormLabel" for="gatekeeperNameCreate">Full Name</label>
+        <input type="text" id="hname" name="hname" id="gatekeeperNameCreate" class="FormControl">
       </div>
-      <div class="form-group">
-        <label class="form-label" for="gatekeeperEmailCreate">Email</label>
-        <input type="text" id="email" name="email" id="gatekeeperEmailCreate" class="form-control">
+      <div class="FormVertical-group">
+        <label class="FormLabel" for="gatekeeperEmailCreate">Email</label>
+        <input type="text" id="email" name="email" id="gatekeeperEmailCreate" class="FormControl">
       </div>
-      <div class="form-group">
-        <label class="form-label" for="gatekeeperPasswordCreate">Password</label>
-        <input type="password" id="password" name="password" id="gatekeeperPasswordCreate" class="form-control">
+      <div class="FormVertical-group">
+        <label class="FormLabel" for="gatekeeperPasswordCreate">Password</label>
+        <input type="password" id="password" name="password" id="gatekeeperPasswordCreate" class="FormControl">
       </div>
       <div class="row" id="errorDiv"> </div>
-      <button type="submit" class="btn-primary">Create New Account</button>
+      <div class="FormVertical-group">
+        <button type="submit" class="Btn Btn-primary">Create New Account</button>
+      </div>
     </form>
   {{else}}
+    <h1 class="HeadingA">Sign in</h1>
     {{#if sid}}
     <p> To participate in this conversation, you'll need to sign in with a Polis account. </p>
     {{/if}}
-    <form role="form" class="form-vertical">
-      <div class="form-group">
-        <label class="form-label" for="gatekeeperLoginEmail">Email</label>
-        <input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="form-control">
+    <form role="form" class="FormVertical">
+      <div class="FormVertical-group">
+        <label class="FormLabel" for="gatekeeperLoginEmail">Email</label>
+        <input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">
       </div>
-      <div class="form-group">
-        <label class="form-label" for="gatekeeperLoginPassword">
+      <div class="FormVertical-group">
+        <label class="FormLabel" for="gatekeeperLoginPassword">
           Password
         </label>
-        <input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="form-control">
-        <a href="/pwresetinit" class="forgot-password pull-right">Forgot your password?</a>
+        <input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">
+        <a href="/pwresetinit" class="FormLink">Forgot your password?</a>
       </div>
 
       <div class="row" id="errorDiv"></div>
-      <button type="submit" class="btn-primary">Sign In</button>
+      <div class="FormVertical-group">
+        <button type="submit" class="Btn Btn-primary">Sign In</button>
+      </div>
     </form>
 
 
@@ -56,9 +61,9 @@
       <span class="alternateRegOr">OR</span>
       <div class="alternateReg">
         {{#if create}}
-          <button class="gotoSignIn btn-alt">I have an account and need to sign in</button>
+          <button class="gotoSignIn Btn Btn-alt">I have an account and need to sign in</button>
         {{else}}
-          <button class="gotoCreate btn-alt">Create new account</button>
+          <button class="gotoCreate Btn Btn-alt">Create new account</button>
         {{/if}}
       </div>
     </div>
