@@ -1,7 +1,6 @@
 var _ = require('underscore');
+var exec = require('child_process').exec;
 var express = require('express');
-
-
 var gulp = require('gulp');
 var s3 = require('gulp-s3');
 var browserify = require('gulp-browserify');
@@ -27,6 +26,7 @@ var compileHandlebars = require('gulp-compile-handlebars');
 // var server = lr();
 var markdown = require('gulp-markdown')
 var path = require('path');
+var Promise = require('es6-promise').Promise;
 var proxy = require('proxy-middleware');
 var header = require('gulp-header');
 var hbsfy = require("hbsfy").configure({
@@ -34,26 +34,57 @@ var hbsfy = require("hbsfy").configure({
 });
 var https = require("https");
 var fs = require('fs');
+var mapStream = require('map-stream');
 var request = require('request');
+var rimraf = require("rimraf");
+var runSequence = require('run-sequence');
 var sass = require('gulp-ruby-sass');
+var Stream = require('stream');
+var sys = require('sys');
 var url = require('url');
 
 
 var useJsHint = false;
-var destRoot = __dirname + "/devel";
+const staticFilesPrefix = "cached";
+const baseDistRoot = "dist";
+var destRootBase = "devel";
+var destRootRest = '/';  // in dist, will be the cachebuster path prefix
+function destRoot() {
+  var root = path.join(destRootBase, destRootRest);
+  return root;
+}
 var devMode = true;
+var host;
+
+
+function prepPathForTemplate(path) {
+  // add slash at front if missing      
+  if (path.match(/^[^\/]/)) {
+    path = "/" + path;
+  }
+  path = path.replace(/\/*$/,""); // remove trailing slash
+  return path;
+}
 
 gulp.task('connect', [], function() {
-  express.static.mime.define({'application/x-font-woff': ['.woff']});
-  var app = express();
-  var fetchIndex = express.static(path.join(destRoot, "index.html"));
-  app.use(express.static(path.join(destRoot)));
-  app.use("/", fetchIndex);
-  app.use('/v3', function(req, response) {
+
+  function proxyToPreprod(req, response) {
     var x = request("https://preprod.pol.is" + req.originalUrl);
+    x.on("error", function(err) {
+      response.status(500).end();
+    });
     req.pipe(x);
     x.pipe(response);
-  });
+  }
+
+
+  express.static.mime.define({'application/x-font-woff': ['.woff']});
+  var app = express();
+  var fetchIndex = express.static(path.join(destRootBase, "index.html"));
+  app.use(express.static(path.join(destRootBase)));
+  app.use("/", fetchIndex);
+  app.use(/^\/v3/, proxyToPreprod);
+  app.use(/^\/landerImages/, proxyToPreprod);  
   app.use(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
   app.use(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
   app.use(/^\/share\/[0-9][0-9A-Za-z]+/, fetchIndex); // share view
@@ -73,28 +104,41 @@ gulp.task('connect', [], function() {
   app.use(/^\/pwreset.*/, fetchIndex);
   app.use(/^\/prototype.*/, fetchIndex);
   app.use(/^\/plan.*/, fetchIndex);
-  app.use(/^\/professors$/, express.static(path.join(destRoot, "professors.html")));
-  app.use(/^\/pricing$/, express.static(path.join(destRoot, "pricing.html")));
-  app.use(/^\/company$/, express.static(path.join(destRoot, "company.html")));
-  app.use(/^\/api$/, express.static(path.join(destRoot, "api.html")));
-  app.use(/^\/embed$/, express.static(path.join(destRoot, "embed.html")));
-  app.use(/^\/politics$/, express.static(path.join(destRoot, "politics.html")));
-  app.use(/^\/marketers$/, express.static(path.join(destRoot, "marketers.html")));
-  app.use(/^\/faq$/, express.static(path.join(destRoot, "faq.html")));
-  app.use(/^\/blog$/, express.static(path.join(destRoot, "blog.html")));
-  app.use(/^\/tos$/, express.static(path.join(destRoot, "tos.html")));
-  app.use(/^\/privacy$/, express.static(path.join(destRoot, "privacy.html")));
+  app.use(/^\/professors$/, express.static(path.join(destRootBase, "professors.html")));
+  app.use(/^\/pricing$/, express.static(path.join(destRootBase, "pricing.html")));
+  app.use(/^\/company$/, express.static(path.join(destRootBase, "company.html")));
+  app.use(/^\/api$/, express.static(path.join(destRootBase, "api.html")));
+  app.use(/^\/embed$/, express.static(path.join(destRootBase, "embed.html")));
+  app.use(/^\/politics$/, express.static(path.join(destRootBase, "politics.html")));
+  app.use(/^\/marketers$/, express.static(path.join(destRootBase, "marketers.html")));
+  app.use(/^\/faq$/, express.static(path.join(destRootBase, "faq.html")));
+  app.use(/^\/blog$/, express.static(path.join(destRootBase, "blog.html")));
+  app.use(/^\/tos$/, express.static(path.join(destRootBase, "tos.html")));
+  app.use(/^\/privacy$/, express.static(path.join(destRootBase, "privacy.html")));
+  app.use(/^\/styleguide$/, express.static(path.join(destRootBase, "styleguide.html")));
   // Duplicate url for content at root. Needed so we have something for "About" to link to.
-  app.use(/^\/about$/, express.static(path.join(destRoot, "lander.html")));
-  app.use(/^\/try$/, express.static(path.join(destRoot, "try.html")));
+  app.use(/^\/about$/, express.static(path.join(destRootBase, "lander.html")));
+  app.use(/^\/try$/, express.static(path.join(destRootBase, "try.html")));
 
   app.listen(8000);
   console.log('localhost:8000');
 });
 
-gulp.task('cleancss', function(){
-  gulp.src(destRoot + '/css', {read: false})
-      .pipe(clean())
+function getGitHash() {
+  return new Promise(function(resolve, reject) {
+    exec("git log --pretty=\"%h\" -n 1", function(error, stdout, stderr) {
+      if (error) {
+        console.error('FAILED TO GET GIT HASH: ' + error);
+        reject(stderr);
+      } else {
+        resolve(stdout);
+      }
+    })
+  });
+}
+
+gulp.task('cleanDist', function(){
+  rimraf.sync(baseDistRoot);
 })
 
 
@@ -104,47 +148,59 @@ gulp.task('css', function(){
     ])
       .pipe(sass({
         loadPath: [__dirname + "/css"],
-        sourcemap: true,
-        sourcemapPath: '../scss'
+        // sourcemap: true,
+        // sourcemapPath: '../scss'
       }))
       .pipe(concat("polis.css"))
-      .pipe(gulp.dest(destRoot + '/css'))
+      .pipe(gulp.dest(destRoot() + '/css'));
+});
+
+gulp.task('cssAbout', function(){
+  gulp.src(["css/about.scss"])
+      .pipe(sass({
+        loadPath: [__dirname + "/css"],
+        // sourcemap: true,
+        // sourcemapPath: '../scss'
+      }))
+      .pipe(concat("about.css"))
+      .pipe(gulp.dest(destRoot() + '/css'));
 });
 
 gulp.task('fontawesome', function() {
   gulp.src('bower_components/font-awesome/fonts/**/*')
-    .pipe(gulp.dest(destRoot + "/fonts"));
+    .pipe(gulp.dest(destRoot() + "/fonts"));
 });
 // TODO remove
 gulp.task('sparklines', function() {
   var s = gulp.src('sparklines.svg')
-    .pipe(gulp.dest(destRoot));
+    .pipe(gulp.dest(destRoot()));
 });
 gulp.task('index', [
   'sparklines',
 ], function() {
   var s = gulp.src('index.html');
+  var basepath = prepPathForTemplate(destRootRest);
   if (devMode) {
     s = s.pipe(template({
-      basepath: '',
+      basepath: basepath,
       d3Filename: 'd3.js',
       r2d3Filename: 'r2d3.js',
     }))
   } else {
     s = s.pipe(template({
       //basepath: 'https://s3.amazonaws.com/pol.is',
-      basepath: '', // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
+      basepath: basepath, // proxy through server (cached by cloudflare, and easier than choosing a bucket for preprod, etc)
       d3Filename: 'd3.min.js',
       r2d3Filename: 'r2d3.min.js',
     }));
   }
-  return s.pipe(gulp.dest(destRoot));
+  return s.pipe(gulp.dest(destRootBase));
 });
 
 gulp.task('templates', function(){
 
   //does not include participation, which is the main view, because the footer is not right /userCreate.handlebars$/,
-  var topLevelViews = [/faq.handlebars$/, /settings.handlebars$/, /summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /passwordResetForm.handlebars$/,  /explore.handlebars$/, /conversationGatekeeper.handlebars$/, /passwordResetInitForm.handlebars$/, /create-conversation-form.handlebars$/, /plan-upgrade.handlebars$/];
+  var topLevelViews = [/settings.handlebars$/, /summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /passwordResetForm.handlebars$/,  /explore.handlebars$/, /conversationGatekeeper.handlebars$/, /passwordResetInitForm.handlebars$/, /create-conversation-form.handlebars$/, /plan-upgrade.handlebars$/];
   var bannerNeedingViews = [/summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /explore.handlebars$/, /create-conversation-form.handlebars$/];
 
   function needsBanner(file) {
@@ -344,7 +400,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
           .pipe(gzip())
       }
       s = s.pipe(rename('polis.js'));
-      return s.pipe(gulp.dest(destRoot + "/js"));
+      return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
 // for big infrequently changing scripts that we don't want to concatenate
@@ -374,16 +430,21 @@ gulp.task("scriptsOther", function() {
         path.extname = ext.substr(0, ext.length- ".gz".length);
       }));
   }
-  return s.pipe(gulp.dest(destRoot + "/js"));
+  return s.pipe(gulp.dest(destRoot() + "/js"));
 });
 
 // ---------------------- BEGIN ABOUT PAGE STUFF ------------------------
 
 gulp.task('about', function () {
 
-    var top = fs.readFileSync('js/templates/about/partials/top.handlebars', {encoding: "utf8"});
-    var header = fs.readFileSync('js/templates/about/partials/header.handlebars', {encoding: "utf8"});
-    var footer = fs.readFileSync('js/templates/about/partials/footer.handlebars', {encoding: "utf8"});
+    var top = fs.readFileSync('js/templates/about/partials/staticTop.handlebars', {encoding: "utf8"});
+    var header = fs.readFileSync('js/templates/about/partials/staticHeader.handlebars', {encoding: "utf8"});
+    var footer = fs.readFileSync('js/templates/about/partials/staticFooter.handlebars', {encoding: "utf8"});
+
+    var basepath = prepPathForTemplate(destRootRest);
+    top = top.replace(/<%= *basepath *%>/g, basepath);
+    header = header.replace(/<%= *basepath *%>/g, basepath);
+    footer = footer.replace(/<%= *basepath *%>/g, basepath);
 
     var templateData = {
         foo: 'bar333'
@@ -407,44 +468,76 @@ gulp.task('about', function () {
         .pipe(rename(function (path) {
           path.extname = ".html"
         }))
-        .pipe(gulp.dest(destRoot));
+        .pipe(gulp.dest(destRootBase));
 });
 
 
 
 
-
+// function promiseToStream(p) {
+//   var Readable = Stream.Readable;
+//   var rs = new Readable;
+//   p.then(function(val) {
+//     rs.push(val);
+//     rs.push(null);
+//   }).catch(function(err) {
+//     rs.emit("error", err);
+//   });
+//   return rs;
+// }
 
 
 // ----------------------- END ABOUT PAGE STUFF -------------------------
 
 
-gulp.task("configureForProduction", function() {
-  destRoot = "./dist";
+gulp.task("configureForProduction", function(callback) {
   devMode = false;
+  destRootBase = "dist";
+
+  console.log('getGitHash begin');
+  // NOTE using callback instead of returning a promise since the promise isn't doing the trick - haven't tried updating gulp yet.
+  getGitHash().then(function(hash) {
+    hash = hash.toString().match(/[A-Za-z0-9]+/)[0];
+
+    var d = new Date();
+    var unique_token = [d.getFullYear(), d.getMonth(), d.getDate(), d.getHours(), d.getMinutes(), d.getSeconds(), hash].join("_");
+    destRootRest = [staticFilesPrefix, unique_token].join("/");
+
+    console.log('done setting destRoot: ' + destRoot() + "  destRootRest: " + destRootRest + "  destRootBase: " + destRootBase);
+    callback(null);
+  }).catch(function(err) {
+    console.error('getGitHash err');
+    console.error(err);
+    callback(true);
+  });
 });
 
 gulp.task('common', [
   "scriptsOther",
   "scripts",
   "css",
+  "cssAbout",
   "fontawesome",
   "index",
+  "about",
   ], function() {
-    // if (devMode) {
-    //   connect.reload();
-    // }
 });
 
 gulp.task('dev', [
+  "about",
   "common",
   ], function(){
 });
 
 gulp.task('dist', [
   "configureForProduction",
-  "common",
-  ], function(){
+  ], function(callback){
+    runSequence(
+      'cleanDist',
+      'common',
+      // ['build-scripts', 'build-styles'], // these two would be parallel
+      // 'build-html',
+      callback);
 });
 
 gulp.task("watchForDev", [
@@ -464,8 +557,7 @@ gulp.task("watchForDev", [
 
 
 gulp.task('deploy', [
-  // "dist"
-  "configureForProduction",
+  "dist"
 ], function() {
   return deploy({
       bucket: "pol.is"
@@ -473,8 +565,7 @@ gulp.task('deploy', [
 });
 
 gulp.task('deployPreprod', [
-  // "dist"
-  "configureForProduction",
+  "dist"
 ], function() {
   return deploy({
       bucket: "preprod.pol.is"
@@ -485,87 +576,90 @@ function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
 
-    // Files without Gzip
+    var cacheSecondsForContentWithCacheBuster = 31536000;
+
+    function makeUploadPathHtml(file) {
+      var fixed = file.path.match(RegExp("[^/]*$"))[0];
+      console.log("upload path: " + fixed);
+      return fixed;
+    }
+
+    function makeUploadPath(file) {
+      var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
+      console.log("upload path: " + fixed);
+      return fixed;
+    }
+
+    // Cached Files without Gzip
+    console.log(destRoot())
     gulp.src([
-      destRoot + '/**',
-      '!' + destRoot + '/js/**',
-      ], {read: false}).pipe(s3(creds, {
+      destRoot() + '**/**',
+      '!' + destRoot() + '/js/**',
+      ], {read: false})
+      .pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
-        }
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
+        },
+        makeUploadPath: makeUploadPath,
       }));
 
-    // Gzipped Files
+    // Cached Gzipped Files
     gulp.src([
-      destRoot + '/**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
-      ], {read: false}).pipe(s3(creds, {
+      destRoot() + '**/js/**', // simply saying "/js/**" causes the 'js' prefix to be stripped, and the files end up in the root of the bucket.
+      ], {read: false})
+    .pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
-        }
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),          
+        },
+        makeUploadPath: makeUploadPath,
       }));
 
-}
-
-
-// For now, you'll have to copy the assets from the other repo into the "about" directory
-gulp.task('deployAboutPage', [
-  "configureForProduction",
-  "about",
-  ], function() {
-  return deployAboutPage({
-      bucket: "pol.is"
-  });
-});
-
-gulp.task('deployAboutPagePreprod', [
-  "configureForProduction",
-  "about",
-  ], function() {
-  return deployAboutPage({
-      bucket: "preprod.pol.is"
-  });
-});
-
-function deployAboutPage(params) {
-
-    var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
-
-    creds = _.extend(creds, params);
-    
-    var root = "../about-polis";
-    var dist = "../about-polis/dist";
-    return gulp.src([
-      dist + "/api.html",
-      dist + "/company.html",
-      dist + "/embed.html",
-      dist + "/faq.html",
-      dist + "/lander.html",
-      dist + "/privacy.html",
-      dist + "/professors.html",
-      dist + "/tos.html",
-      dist + "/unsupportedBrowser.html",
-
-      dist + "/css/polis.css",
-
-      root + "/src/about.css",
-      root + "/**/rainbow/**/*",
-      root + "/**/node_modules/underscore/underscore-min.js", // ** to preserve path 
-      root + "/**/landerImages/*",
-      root + "/**/bower_components/font-awesome/css/font-awesome.min.css",
-      root + "/**/bower_components/font-awesome/fonts/**",
-      root + "/**/bower_components/jquery/dist/jquery.js",
-      root + "/**/bower_components/jquery/dist/jquery.min.js"
+    // HTML files (uncached)
+    // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
+    gulp.src([
+      destRootBase + '/**/*.html',
       ], {read: false}).pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
-        }
+          'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
+        },
+        makeUploadPath: makeUploadPathHtml,
       }));
+
+
+
 }
 
+function doPurgeCache() {
+  console.log("Purging cache for "+host +"\n");
+  // var formatter = mapStream(function (data, callback) {
+  //   var o = JSON.parse(data);
+  //   if (!o.result === "success") {
+  //     console.error("---------- PURGE CACHE FAILED ------------- " + data)
+  //   }
+  //   callback(null, data + "\n");
+  // });
+  request.get(host + "/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78")
+    // .pipe(formatter)
+    .pipe(process.stdout);
+}
+
+gulp.task("configureForCachePurge", function() {
+  host = "https://pol.is";
+});
+
+gulp.task("configureForCachePurgePreprod", function() {
+  host = "https://preprod.pol.is";
+});
+
+gulp.task('purgeCache', ["configureForCachePurge"], doPurgeCache);
+gulp.task('purgeCachePreprod', ["configureForCachePurgePreprod"], doPurgeCache);
 
 gulp.task('default', [
   "dev",
