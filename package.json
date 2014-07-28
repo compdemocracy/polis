@@ -15,7 +15,8 @@
     "request": "~2.37.0",
     "rimraf": "~2.2.8",
     "run-sequence": "~0.3.6",
-    "map-stream": "~0.1.0"
+    "map-stream": "~0.1.0",
+    "es6-promise": "~1.0.0"
   },
   "devDependencies": {
     "bower": "~1.2",
