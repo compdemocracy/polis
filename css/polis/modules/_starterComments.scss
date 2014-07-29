@@ -2,10 +2,10 @@
 // in the Create Conversation view, these are the added/starter comments
 // the user entered for the conversation
 
-.starterComments {
+.StarterComments {
   margin-bottom: $default-whitespace;
 
-  // hack: there is always an empty added comment at the bottom :(
+  // on initialization there is 1 empty added comment at the bottom :(
   // &:last-child {
   //   display: none;
   // }
@@ -14,14 +14,14 @@
   }
 }
 
-.starterComments-heading {
+.StarterComments-heading {
   border-bottom: 1px solid $default-border-color;
 
   color: $light-gray;
   font-weight: normal;
 }
 
-.starterComments-delete {
+.StarterComments-delete {
   color: $link-color;
   font-weight: bold;
 
@@ -30,7 +30,7 @@
   }
 }
 
-.starterComments-text {
+.StarterComments-text {
   padding: 0.25em 0.5em;
   border-radius: 4px;
   border: none;
