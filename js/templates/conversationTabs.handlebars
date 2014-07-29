@@ -2,28 +2,7 @@
   custom_gutter_via_padding
   {{#if use_background_content_class}}background_content{{/if}}
   ">
-{{#if showGroupHeader}}
-<ul class="nav nav-tabs tab-conv" style="border-bottom: 0px">
-<li>
-<a style="{{#if smallTabs}}font-size:95%{{/if}}">
-<i class="fa fa-align-justify"></i>
-</a>
-</li>
 
-<li>
-<a style="{{#if smallTabs}}font-size:95%{{/if}}">
-<i class="fa fa-pencil"></i>
-</a>
-</li>
-
-<li>
-<a style="{{#if smallTabs}}font-size:95%{{/if}}">
-<i class="fa fa-coffee"></i>
-</a>
-</li>
-
-</ul>
-{{else}}
   <ul class="nav nav-tabs tab-conv"
     style="border-bottom: 0px">
     <li
@@ -35,7 +14,7 @@
         style="{{#if smallTabs}}font-size:95%{{/if}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i class="fa fa-align-justify"></i>{{/ifNotIE8}} 
-        Read &amp; React
+        {{#unless showGroupHeader}}Read &amp; React{{/unless}}
       </a>
     </li>
     <li
@@ -47,7 +26,7 @@
         style="{{#if smallTabs}}font-size:95%{{/if}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i class="fa fa-pencil"></i>{{/ifNotIE8}}
-        Write
+        {{#unless showGroupHeader}}Write{{/unless}}
       </a>
     </li>
     <li
@@ -59,9 +38,19 @@
         style="{{#if smallTabs}}font-size:95%{{/if}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i class="fa fa-coffee"></i>{{/ifNotIE8}}
-        Analyze
+        {{#unless showGroupHeader}}Analyze{{/unless}}
+      </a>
+    </li>
+    <li
+      {{#if analyzeActive}} class="active" {{/if}}
+    >
+      <a
+        href="#group"
+        id="groupTab"
+        style="{{#if smallTabs}}font-size:95%;{{/if}} display:none;"
+        data-toggle="tab">
+      {{! nothing to show}}        
       </a>
     </li>
   </ul>
-{{/if}}
 </div>

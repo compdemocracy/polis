@@ -1,4 +1,5 @@
 var AnalyzeGlobalView = require("../views/analyze-global");
+var AnalyzeGroupView = require("../views/analyze-group");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
 var template = require('../tmpl/participation');
@@ -84,8 +85,17 @@ module.exports =  ConversationView.extend({
     var serverClient = this.serverClient;
 
 
-    eb.on(eb.clusterClicked, function() {
-      $("#analyzeTab").tab("show");
+    eb.on(eb.clusterClicked, function(gid) {
+      if (gid === -1) {
+        if (vis) {
+          vis.selectComment(null);
+        }
+        $("#commentViewTab").click();
+      } else {
+        $("#groupTab").click();
+      }
+
+      // $("#groupTab").tab("show");
       that.onClusterTapped.apply(that, arguments);
     });
     eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
@@ -274,6 +284,13 @@ module.exports =  ConversationView.extend({
         collection: resultsCollection
       }));
 
+      this.analyzeGroupView = this.addChild(new AnalyzeGroupView({
+        sid: sid,
+        getTidsForGroup: function() {
+          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+        },
+        collection: this.allCommentsCollection
+      }));
 
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
         sid: sid,
@@ -338,6 +355,16 @@ module.exports =  ConversationView.extend({
       // that.analyzeGlobalView.hideCarousel();
       that.analyzeGlobalView.deselectComments();
     });
+    that.conversationTabs.on("beforehide:group", function() {
+      // that.analyzeGlobalView.hideCarousel();
+      if (vis) {
+        vis.deselect();
+      }
+      that.analyzeGroupView.deselectComments();
+      eb.trigger(eb.commentSelected, false);
+      that.conversationTabs.doShowTabsUX();
+    });
+
 
     that.conversationTabs.on("beforeshow:analyze", function() {
       if (shouldShowVisUnderTabs()) {
@@ -350,6 +377,17 @@ module.exports =  ConversationView.extend({
       });
       // that.analyzeGlobalView.showCarousel();
     });
+      that.conversationTabs.on("beforeshow:group", function() {
+      if (shouldShowVisUnderTabs()) {
+        moveVisAboveQueryResults();
+      }
+      that.allCommentsCollection.doFetch({
+        gid: that.selectedGid
+      }).then(function() {
+        that.analyzeGroupView.sort();
+      });
+      // that.analyzeGlobalView.showCarousel();
+    });
 
     that.conversationTabs.on("beforeshow:vote", function() {
       if (shouldShowVisUnderTabs()) {
@@ -359,7 +397,9 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("aftershow:analyze", function() {
       $(".query_result_item").first().trigger("click");
     });
-
+    that.conversationTabs.on("aftershow:group", function() {
+      $(".query_result_item").first().trigger("click");
+    });
     that.conversationTabs.on("aftershow:write", function() {
       // Put the comment textarea in focus (should pop up the keyboard on mobile)
       $("#comment_form_textarea").focus();
@@ -385,7 +425,13 @@ module.exports =  ConversationView.extend({
           vis.deselect();
         }
       }
-      that.conversationTabs.on("analyzeGroups:close", deselectHulls);
+      that.conversationTabs.on("analyzeGroups:close", function() {
+
+        if (!isMobile) {
+          that.hideCarousel();
+        }
+        deselectHulls();
+      });
       
       that.commentView.on("showComment", _.once(function() {
         if (!isMobile) {

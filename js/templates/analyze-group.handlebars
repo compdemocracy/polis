@@ -1,0 +1,36 @@
+<div style ="
+{{#ifNotXs}}
+border-style: solid;
+border-width: 0px;
+border-top-width: 1px;
+border-color: lightgray;
+border-right: 3px solid lightgrey;
+border-bottom: 3px solid lightgrey;
+border-left: 1px solid lightgrey;
+border-bottom-right-radius: 10px;
+border-bottom-left-radius: 10px;
+border-top-right-radius: 10px;
+border-top-left-radius: 10px;
+{{/ifNotXs}}
+">
+
+<span id="vis_sibling_above_tab_content"></span>
+  
+  <div id="groupStats">
+    {{!-- <p>
+      {{numSelected}} people in the selected group.
+    </p> --}}
+    <h3 style="
+    padding: 20px;
+    background-color: rgb(247, 247, 247);
+    margin-top: 0px;
+    text-align: center;
+    border-radius: 9px 9px 0px 0px;
+"> {{! line-height since the span around "selected group may vertically overlap with the rest of the text }}
+      What <span class="hull_selection active_group" style="padding: 5px; padding-top: 0px; padding-bottom: 0px;">this group</span> thought:
+    </h3>
+  </div>
+  <div id="carousel" style="overflow:hidden;"></div>
+</div>
+
+</div>
