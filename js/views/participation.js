@@ -387,7 +387,7 @@ module.exports =  ConversationView.extend({
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
-        that.analyzeGlobalView.sort();
+        that.analyzeGlobalView.sortAgree();
       });
       // that.analyzeGlobalView.showCarousel();
     });
@@ -398,7 +398,7 @@ module.exports =  ConversationView.extend({
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
-        that.analyzeGroupView.sort();
+        that.analyzeGroupView.sortRepness();
       });
       // that.analyzeGlobalView.showCarousel();
     });

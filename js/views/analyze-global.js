@@ -230,15 +230,5 @@ module.exports = Handlebones.View.extend({
       });
     } // End doFetch
 
-    if (!_.isUndefined(options.gid)) {
-      doFetch(options.gid);
-    } else {
-      eb.on(eb.clusterClicked, function(gid) {
-        if (that.analyzeCollectionView) {
-          that.analyzeCollectionView.groupMode = false;
-        }
-        doFetch(gid);
-      });
-    }
   }
 });
