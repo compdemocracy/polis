@@ -148,7 +148,8 @@ module.exports = Handlebones.View.extend({
     this.selectFirst();
   },
   useCarousel: function() {
-      return !Utils.isIE8() && display.xs();
+    return true;
+    // return !Utils.isIE8() && display.xs();
   },
   hideCarousel: function() {
     this.$("#carousel").hide();

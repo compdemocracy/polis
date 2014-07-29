@@ -36,7 +36,11 @@
 
 
       <div class="tab-content">
-        <div class="tab-pane" id="analyze" style="border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; ">
+        <div class="tab-pane" id="analyze" style="
+        {{#ifXs}}
+        border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; 
+        {{/ifXs}}
+        ">
           {{view conversationStatsHeader}}
           {{! BEGIN PILLS }}
           <div class="tabbable">

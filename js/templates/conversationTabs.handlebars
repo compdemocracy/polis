@@ -3,7 +3,26 @@
   {{#if use_background_content_class}}background_content{{/if}}
   ">
 {{#if showGroupHeader}}
-  <a class="analyzeGroupCloseButton" style="cursor:pointer; padding-bottom:10px"> {{#ifNotIE8}}<i class="fa fa-angle-left"></i>{{/ifNotIE8}} Back to all comments</a>
+<ul class="nav nav-tabs tab-conv" style="border-bottom: 0px">
+<li>
+<a style="{{#if smallTabs}}font-size:95%{{/if}}">
+<i class="fa fa-align-justify"></i>
+</a>
+</li>
+
+<li>
+<a style="{{#if smallTabs}}font-size:95%{{/if}}">
+<i class="fa fa-pencil"></i>
+</a>
+</li>
+
+<li>
+<a style="{{#if smallTabs}}font-size:95%{{/if}}">
+<i class="fa fa-coffee"></i>
+</a>
+</li>
+
+</ul>
 {{else}}
   <ul class="nav nav-tabs tab-conv"
     style="border-bottom: 0px">
