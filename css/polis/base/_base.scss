@@ -21,6 +21,15 @@ body {
 
 h1, h2, h3, h4, h5, h6, p, ul, ol {
   margin-top: 0;
+
+  font-family: inherit;
+}
+
+// bootstrap override
+p, ul, ol {
+  font-size: 18px;
+  font-weight: normal;
+  line-height: $default-leading;
 }
 
 //
