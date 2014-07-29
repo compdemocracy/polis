@@ -102,7 +102,12 @@ module.exports =  ConversationView.extend({
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
       if (vis) {
-        vis.showLineToCluster(gid);
+        if (display.xs()) {
+          // don't show line on mobile
+          vis.showLineToCluster(-1);
+        } else {
+          vis.showLineToCluster(gid);
+        }
       }
       if (gid === -1) {
         if (vis) {

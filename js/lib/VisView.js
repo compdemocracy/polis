@@ -1690,17 +1690,13 @@ function centerOfCluster(gid) {
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
-function showLineToCluster(content) {
+function showLineToCluster(gid) {
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
         .style("stroke", "lightgray")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", ["-2,80", centerOfCluster(selectedCluster).join(",")].join(" "));
-
-    // $(".helpArrow").removeClass("hidden");
-    $("#helpTextBox").removeClass("hidden");
-    $("#helpTextMessage").html(content);
+        .attr("points", ["-2,80", centerOfCluster(gid).join(",")].join(" "));
 }
 
 function onHelpTextClicked() {
