@@ -134,13 +134,5 @@ module.exports =  Handlebones.ModelView.extend({
     // start with the vote tab
     this.currentTab = this.VOTE_TAB;
 
-    eb.on(eb.clusterClicked, function(gid) {
-      if (gid === -1) {
-        that.doShowTabsUX();
-      } else {
-        that.doShowGroupUX();
-      }
-    });
-
   }
 });
