@@ -1,0 +1,14 @@
+//TOGGLE
+
+.Toggle {
+  font-family: $sans-font;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.ToggleContent {
+  padding-left: $default-whitespace;
+  border-left: 2px solid $brand-color;
+
+  color: $dark-gray;
+}

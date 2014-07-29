@@ -1,0 +1,29 @@
+// ACCORDION
+
+.Accordion {
+  margin-bottom: $default-whitespace;
+  padding-top: $default-whitespace;
+  border-top: 1px solid $default-border-color;
+
+  &:last-child {
+    padding-bottom: $default-whitespace;
+    border-bottom: 1px solid $default-border-color;
+  }
+
+  & > *:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.Accordion-toggle {
+  margin-right: 10px;
+
+  color: $dark-gray;
+}
+
+.Accordion-content {
+  padding-top: $default-whitespace;
+  margin-left: $default-whitespace;
+
+  font-family: $serif-font;
+}
