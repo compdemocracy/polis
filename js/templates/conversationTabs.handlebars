@@ -35,7 +35,7 @@
       <a
         href="#analyze"
         id="analyzeTab"
-        style="{{#if smallTabs}}font-size:95%{{/if}}"
+        style="{{#if smallTabs}}font-size:95%;{{/if}} {{#ifXs}}display:none;{{/ifXs}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i class="fa fa-coffee"></i>{{/ifNotIE8}}
         {{#unless showGroupHeader}}Analyze{{/unless}}
