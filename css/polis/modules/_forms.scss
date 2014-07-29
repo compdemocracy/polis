@@ -31,6 +31,7 @@
   min-height: 36px;
   height: auto;
   width: 100%;
+  position: relative;
   display: block;
   padding: 0 10px;
   margin-bottom: 2px;
@@ -70,13 +71,10 @@
 
 //
 // Checkbox and radio buttons
-//
-// .FormLabel--checkbox,
-// .FormLabel--radio {
-//   padding-left: $default-whitespace;
-// }
 
-.FormCheckbox,
-.FormRadio {
-  margin: 0 10px 0 0;
+.Checkbox,
+.Radio {
+  position: relative;
+  top: -2px;
+  margin: 0 6px 0 0 !important;
 }

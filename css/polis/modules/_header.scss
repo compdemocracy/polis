@@ -9,15 +9,14 @@
   vertical-align: bottom;
 }
 
-.Logo {
-  margin: 0;
+.Logo, #polisLogo {
   display: inline-block;
 
   color: $medium-gray;
   font-family: $headline-font;
   font-size: 28px;
   font-weight: normal;
-  letter-spacing: 1px;
+  letter-spacing: 0.07em;
 }
 
 .Logo--blue {
