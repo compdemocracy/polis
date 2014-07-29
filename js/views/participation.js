@@ -450,7 +450,6 @@ module.exports =  ConversationView.extend({
             container: "body"
           });
         }
-        that.$("#"+that.conversationTabs.VOTE_TAB).on("click", deselectHulls);
       }));
       if (!isMobile) {
         that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
@@ -460,7 +459,6 @@ module.exports =  ConversationView.extend({
           container: "body"
         });
       }
-      that.$("#" + that.conversationTabs.WRITE_TAB).on("click", deselectHulls);
 
       if (!isMobile) {
         that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({
