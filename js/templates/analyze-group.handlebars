@@ -16,6 +16,7 @@ border-top-left-radius: 10px;
 
 <span id="vis_sibling_above_tab_content"></span>
   
+  {{#ifNotXs}}
   <div id="groupStats">
     {{!-- <p>
       {{numSelected}} people in the selected group.
@@ -30,6 +31,7 @@ border-top-left-radius: 10px;
       What <span class="hull_selection active_group" style="padding: 5px; padding-top: 0px; padding-bottom: 0px;">this group</span> thought:
     </h3>
   </div>
+  {{/ifNotXs}}
   <div id="carousel" style="overflow:hidden;"></div>
 </div>
 
