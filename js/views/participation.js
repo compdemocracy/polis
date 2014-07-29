@@ -22,6 +22,8 @@ var VisView = require("../lib/VisView");
 
 var VIS_SELECTOR = "#visualization_div";
 
+var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
+
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
 var isAndroid = Utils.isAndroid();
@@ -45,7 +47,9 @@ module.exports =  ConversationView.extend({
   },
   
   onAnalyzeTabPopulated: function() {
-    $('.query_result_item').first().trigger('click');
+    if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
+      $('.query_result_item').first().trigger('click');
+    }
   },
   hideVis: function() {
     $("#visualization_div").hide();
@@ -219,25 +223,25 @@ module.exports =  ConversationView.extend({
           that.$shadedGroupPopover.popover("destroy");
         });
       });
-      that.tutorialController.setHandler("analyzePopover", function(){
-        setTimeout(function(){
-          if (!that.$el) {
-            return;
-          }
-          that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
-            title: "COMMENTS FOR THIS GROUP",
-            content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
-            html: true,
-            trigger: "manual",
-            placement: "bottom"  
-          });
-          that.$('.query_result_item').first().trigger('click');
-          that.$analyzeViewPopover.popover("show");
-          that.$('#analyzeViewPopoverButton').click(function(){
-            that.$analyzeViewPopover.popover("destroy");
-          })      
-        },1500)
-      }) 
+      // that.tutorialController.setHandler("analyzePopover", function(){
+      //   setTimeout(function(){
+      //     if (!that.$el) {
+      //       return;
+      //     }
+      //     that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
+      //       title: "COMMENTS FOR THIS GROUP",
+      //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+      //       html: true,
+      //       trigger: "manual",
+      //       placement: "bottom"  
+      //     });
+      //     // that.$('.query_result_item').first().trigger('click');
+      //     that.$analyzeViewPopover.popover("show");
+      //     that.$('#analyzeViewPopoverButton').click(function(){
+      //       that.$analyzeViewPopover.popover("destroy");
+      //     })      
+      //   },1500)
+      // }) 
     } // end initPcaVis  
 
 
@@ -405,7 +409,9 @@ module.exports =  ConversationView.extend({
       }
     });
     that.conversationTabs.on("aftershow:analyze", function() {
-      $(".query_result_item").first().trigger("click");
+      if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
+        $(".query_result_item").first().trigger("click");
+      }
     });
     that.conversationTabs.on("aftershow:group", function() {
       $(".query_result_item").first().trigger("click");

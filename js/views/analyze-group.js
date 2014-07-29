@@ -105,31 +105,31 @@ module.exports = Handlebones.View.extend({
   // sort with the current comparator
   sort: function() {
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
   },
   sortAgree: function(e) {
     this.collection.comparator = comparatorAgree;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
     this.collection.comparator = comparatorDisagree;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
   sortDivisive: function(e) {
     this.collection.comparator = comparatorDivisive;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
     this.selectSortModes("#sortDivisive");
   },
   sortRepness: function(e) {
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
   },
   useCarousel: function() {
     return true;
@@ -239,7 +239,7 @@ module.exports = Handlebones.View.extend({
           that.tidsForGroup = null;
           that.sortAgree();   
           that.renderWithCarousel(gid);
-          that.selectFirst();
+          // that.selectFirst();
         } else {
           that.$("#commentSearch").hide();
           that.$("#commentSort").hide();
@@ -252,7 +252,7 @@ module.exports = Handlebones.View.extend({
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
             that.renderWithCarousel(gid);
-            that.selectFirst();
+            // that.selectFirst();
           });
         }
       });

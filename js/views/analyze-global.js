@@ -8,6 +8,8 @@ var Utils = require("../util/utils");
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
+var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
+
 
 function bbCompare(propertyName, a, b) {
   var x = b.get(propertyName) - a.get(propertyName);
@@ -106,7 +108,9 @@ module.exports = Handlebones.View.extend({
   // sort with the current comparator
   sort: function() {
     this.collection.sort();
-    this.selectFirst();
+    if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
+      this.selectFirst();
+    }
   },
   sortAgree: function(e) {
     if (this.analyzeCollectionView) {
@@ -114,7 +118,7 @@ module.exports = Handlebones.View.extend({
     }
     this.collection.comparator = comparatorAgree;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
@@ -123,7 +127,7 @@ module.exports = Handlebones.View.extend({
     }
     this.collection.comparator = comparatorDisagree;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
   sortDivisive: function(e) {
@@ -132,7 +136,7 @@ module.exports = Handlebones.View.extend({
     }
     this.collection.comparator = comparatorDivisive;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
     this.selectSortModes("#sortDivisive");
   },
   sortRepness: function(e) {
@@ -142,7 +146,7 @@ module.exports = Handlebones.View.extend({
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
     this.collection.sort();
-    this.selectFirst();
+    // this.selectFirst();
   },
   useCarousel: function() {
     return false;
@@ -202,7 +206,7 @@ module.exports = Handlebones.View.extend({
           if (this.analyzeCollectionView) {
             that.analyzeCollectionView.updateModelFilter();
           }
-          that.selectFirst();
+          // that.selectFirst();
         } else {
           that.$("#commentSearch").hide();
           that.$("#commentSort").hide();
@@ -220,7 +224,7 @@ module.exports = Handlebones.View.extend({
             if (that.analyzeCollectionView) {
               that.analyzeCollectionView.updateModelFilter();
             }
-            that.selectFirst();
+            // that.selectFirst();
           });
         }
       });
