@@ -46,6 +46,17 @@ module.exports =  ConversationView.extend({
   events: {
   },
   
+  shouldAffixVis: false,
+  enableVisAffix: function() {
+    this.shouldAffixVis = true;
+    $("#visualization_div").addClass("affix");
+    $("#visualization_div").css("top", "");    
+  },
+  disableVisAffix: function() {
+    this.shouldAffixVis = false;
+    $("#visualization_div").removeClass("affix");
+    $("#visualization_div").css("top", $("#vis_sibling_bottom").offset().top);
+  },
   onAnalyzeTabPopulated: function() {
     if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
       $('.query_result_item').first().trigger('click');
@@ -191,7 +202,7 @@ module.exports =  ConversationView.extend({
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
 
-
+      that.disableVisAffix();
 
       if (shouldShowVisUnderTabs()) {
         // wait for layout
@@ -371,6 +382,7 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("beforehide:analyze", function() {
       // that.analyzeGlobalView.hideCarousel();
       that.analyzeGlobalView.deselectComments();
+      that.disableVisAffix();
     });
     that.conversationTabs.on("beforehide:group", function() {
       // that.analyzeGlobalView.hideCarousel();
@@ -384,6 +396,7 @@ module.exports =  ConversationView.extend({
 
 
     that.conversationTabs.on("beforeshow:analyze", function() {
+      that.enableVisAffix();
       if (shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
@@ -432,7 +445,8 @@ module.exports =  ConversationView.extend({
 
       scrollTopOnFirstShow();
 
-      if (!display.xs() && !display.sm()) {
+
+      if (!display.xs() && !display.sm() && that.shouldAffixVis) {
         $("#visualization_div").affix({
           offset: {
             top: 150 //will be set dynamically
