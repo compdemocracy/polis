@@ -90,6 +90,9 @@ module.exports =  ConversationView.extend({
 
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
+      if (vis) {
+        vis.showLineToCluster(gid);
+      }
       if (gid === -1) {
         if (vis) {
           vis.selectComment(null);

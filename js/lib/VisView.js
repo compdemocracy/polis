@@ -260,9 +260,21 @@ if (isIE8) {
     }
 } else {
 
-    $(el_selector)
-      .append("<svg></svg>")
-      ;
+$(el_selector)
+  .append("<svg>" +
+    "<defs>" +
+        "<marker class='helpArrow' id='ArrowTip'" +
+                "viewBox='0 0 14 14'" +
+                "refX='1' refY='5'" +
+                "markerWidth='5'" +
+                "markerHeight='5'" +
+                "orient='auto'>" +
+            // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
+            "<circle cx = '6' cy = '6' r = '5' style='fill:lightgray;'/>" +
+        "</marker>" +
+    "</defs>" +
+    "</svg>")
+  ;
 }
 
 if (isIE8) {
@@ -441,6 +453,7 @@ function handleOnClusterClicked(hullId) {
             updateHulls);
 
     eb.trigger(eb.clusterClicked, hullId);
+    eb.trigger(eb.clusterSelectionChanged, hullId);
 
     updateHullColors();
 
@@ -1490,7 +1503,7 @@ function updateNodes() {
         }
       });
   }
-  // displayHelpItem("foo");
+  // showLineToCluster("foo");
 
   // visualization.selectAll(".node")
   //   .attr("transform", chooseTransform)
@@ -1666,17 +1679,29 @@ function emphasizeParticipants(pids) {
 }
 
 
+function centerOfCluster(gid) {
+    var c = centroids[gid];
+    if (c) {
+        return [c.x, c.y];
+    } else {
+        return [-2, -2];
+    }
+}
+
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
-// function displayHelpItem(content) {
-//     overlay_layer.selectAll(".helpArrow")
-//         .style("display", "block")
-//         .attr("marker-end", "url(#ArrowTip)");
+function showLineToCluster(content) {
+    overlay_layer.selectAll(".helpArrow")
+        .style("display", "block")
+        .style("stroke", "lightgray")
+        .attr("marker-end", "url(#ArrowTip)")
+        // .attr("marker-start", "url(#ArrowTip)")
+        .attr("points", ["-2,80", centerOfCluster(selectedCluster).join(",")].join(" "));
 
-//     // $(".helpArrow").removeClass("hidden");
-//     $("#helpTextBox").removeClass("hidden");
-//     $("#helpTextMessage").html(content);
-// }
+    // $(".helpArrow").removeClass("hidden");
+    $("#helpTextBox").removeClass("hidden");
+    $("#helpTextMessage").html(content);
+}
 
 function onHelpTextClicked() {
     overlay_layer.selectAll(".helpArrow")
@@ -1684,10 +1709,6 @@ function onHelpTextClicked() {
     // $(".helpArrow").addClass("hidden");
     $("#helpTextBox").addClass("hidden");
 }
-
-// window.foo = displayHelpItem;
-// displayHelpItem("foo");
-
 
 function setupBlueDotHelpText(self) {
     if (SELF_DOT_SHOW_INITIALLY) {
@@ -1734,7 +1755,7 @@ return {
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
     selectComment: selectComment,
-    // dipsplayBlueDotHelpItem: displayHelpItem,
+    showLineToCluster: showLineToCluster,
     emphasizeParticipants: emphasizeParticipants,
     getSelectedGid: getSelectedGid,
 };
