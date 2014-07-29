@@ -58,9 +58,6 @@ module.exports =  Handlebones.ModelView.extend({
   },
 
   events: {
-    "click .analyzeGroupCloseButton": function() {
-      this.trigger("analyzeGroups:close");
-    },
     // Before shown
     "show.bs.tab": function (e) {
       var to = e.target;

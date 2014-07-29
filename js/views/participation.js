@@ -441,14 +441,6 @@ module.exports =  ConversationView.extend({
           vis.deselect();
         }
       }
-      that.conversationTabs.on("analyzeGroups:close", function() {
-
-        if (!isMobile) {
-          that.hideCarousel();
-        }
-        deselectHulls();
-      });
-      
       that.commentView.on("showComment", _.once(function() {
         if (!isMobile) {
           that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
