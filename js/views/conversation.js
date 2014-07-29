@@ -14,7 +14,8 @@ var urlPrefix = URLs.urlPrefix;
 
 module.exports = Handlebones.ModelView.extend({
 
-
+  selectedGid: -1,
+  
   groupInfo: function() {
     return this.serverClient.getGroupInfo(this.selectedGid);
   },
