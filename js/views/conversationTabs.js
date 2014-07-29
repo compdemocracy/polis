@@ -124,12 +124,15 @@ module.exports =  Handlebones.ModelView.extend({
   onVoteTab: function() {
     return this.VOTE_TAB === this.currentTab;
   },
+  onGroupTab: function() {
+    return this.GROUP_TAB === this.currentTab;
+  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
 
     // start with the vote tab
-    this.currentTab = this.VOTE_TAB,
+    this.currentTab = this.VOTE_TAB;
 
     eb.on(eb.clusterClicked, function(gid) {
       if (gid === -1) {
