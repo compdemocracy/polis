@@ -1515,7 +1515,7 @@ function resetSelection() {
       visualization.selectAll(".active_group").classed("active_group", false);
   }
   selectedCluster = -1;
-  eb.trigger(eb.clusterClicked, selectedCluster);
+  eb.trigger(eb.clusterSelectionChanged, selectedCluster);
   // visualization.transition().duration(750).attr("transform", "");
   // selectedBids = [];
   // resetSelectedComment();

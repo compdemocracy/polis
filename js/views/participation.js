@@ -85,19 +85,29 @@ module.exports =  ConversationView.extend({
     var serverClient = this.serverClient;
 
 
-    eb.on(eb.clusterClicked, function(gid) {
+    eb.on(eb.clusterSelectionChanged, function(gid) {
       if (gid === -1) {
         if (vis) {
           vis.selectComment(null);
         }
-        $("#commentViewTab").click();
-      } else {
-        $("#groupTab").click();
+        // $("#commentViewTab").click();
+
+        if (that.conversationTabs.onGroupTab()) { // TODO check if needed
+          that.conversationTabs.gotoVoteTab();
+        }
+      }
+    });
+
+    eb.on(eb.clusterClicked, function(gid) {
+      if (_.isNumber(gid) && gid >= 0) {
+        that.conversationTabs.gotoGroupTab();
+        // $("#groupTab").click();
+      // $("#groupTab").tab("show");
       }
 
-      // $("#groupTab").tab("show");
       that.onClusterTapped.apply(that, arguments);
     });
+
     eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
 
 

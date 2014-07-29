@@ -8,6 +8,7 @@ bus.vote = "vote";
 bus.exitConv = "exitConv";
 bus.votableShown = "votableShown";
 bus.clusterClicked = "clusterClicked";
+bus.clusterSelectionChanged = "clusterSelectionChanged";
 bus.commentSelected = "commentSelected";
 bus.participantCount = "participantCount";
 bus.voteCount = "voteCount";
