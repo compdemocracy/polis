@@ -414,7 +414,7 @@ function updateHullColors() {
             }
         }
    } else {
-        if (selectedCluster >= 0) {
+        if (clusterIsSelected()) {
             d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
             d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
             d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
@@ -670,7 +670,7 @@ force.on("tick", function(e) {
 
 function shouldDisplayCircle(d) {
     // Hide the circle so we can show the up/down arrows
-    if (selectedTid >= 0 &&
+    if (commentIsSelected() &&
         !isSelf(d) // for now, always show circle - TODO fix up/down arrow for blue dot
         ) {
         return false;
@@ -723,7 +723,7 @@ function chooseDisplayForCircle(d) {
 
 function shouldDisplayArrows(d) {
     // Hide the circle so we can show the up/down arrows
-    if (selectedTid >= 0) {
+    if (commentIsSelected()) {
         return true;
     }
     return false;
@@ -734,7 +734,7 @@ function chooseDisplayForArrows(d) {
 }
 
 function chooseFill(d) {
-    // if (selectedTid >= 0) {
+    // if (commentIsSelected()) {
     //     if (d.effects === -1) {  // pull
     //         return colorPull;
     //     } else if (d.effects === 1) { // push
@@ -769,10 +769,13 @@ function chooseStroke(d) {
     }
 }
 
-function commentIsSelected() {
-    return selectedTid >= 0;
+function clusterIsSelected() {
+    return _.isNumber(selectedCluster) && selectedCluster >= 0;
 }
 
+function commentIsSelected() {
+    return _.isNumber(selectedTid) && selectedTid >= 0;
+}
 
 function chooseTransformForRoots(d) {
     var insetPoint = getInsetTarget(d);
@@ -986,7 +989,7 @@ function upsertNode(updatedNodes, newClusters) {
     }
     
     // readyToReselectComment.done(function() {
-    //     if (selectedTid >= 0) {
+    //     if (commentIsSelected()) {
     //         selectComment(selectedTid);
     //     }
     // });
@@ -1293,7 +1296,7 @@ function upsertNode(updatedNodes, newClusters) {
 
   updateHulls();
 
-  if (selectedTid >= 0) {
+  if (commentIsSelected()) {
     selectComment(selectedTid);
   }
 
@@ -1479,7 +1482,7 @@ function updateNodes() {
       }
 
       update.attr("fill-opacity", function(d) {
-        if (selectedCluster >= 0) {
+        if (clusterIsSelected()) {
             return d.gid === selectedCluster ? "100%" : "25%";
         } else {
             // nothing selected
@@ -1521,8 +1524,7 @@ function resetSelection() {
 
 
 function selectBackground() {
-
-  if (selectedCluster >= 0) {
+  if (clusterIsSelected()) {
     resetSelection();
     setClusterActive(-1)
       .then(
