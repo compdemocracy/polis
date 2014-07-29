@@ -19,6 +19,23 @@ module.exports =  Handlebones.ModelView.extend({
   WRITE_TAB: "commentFormTab",
   from: {},
 
+  gotoTab: function(id) {
+    this.currentTab = id;
+    this.$("#" + id).click();
+  },
+  gotoVoteTab: function() {
+    this.gotoTab(this.VOTE_TAB);
+  },
+  gotoWriteTab: function() {
+    this.gotoTab(this.WRITE_TAB);
+  },
+  gotoAnalyzeTab: function() {
+    this.gotoTab(this.ANALYZE_TAB);
+  },
+  gotoGroupTab: function() {
+    this.gotoTab(this.GROUP_TAB);
+  },
+
   context: function() {
     var c = _.extend({}, Handlebones.ModelView.prototype.context.apply(this, arguments));
     if (this.currentTab === this.VOTE_TAB) {
