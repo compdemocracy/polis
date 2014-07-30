@@ -1,8 +1,10 @@
 // NOTIFICATIONS
 //
 
-.Notifications {
-
+.Notification {
+  margin-bottom: $default-whitespace;
+  padding: 0.75em 1em;
+  border-radius: 4px;
 }
 
 .Notification--danger {
@@ -11,5 +13,14 @@
 }
 
 .Notification--warning {
+  background-color: $warning-bg-color;
+  color: $warning-text-color;
 
+  border: 1px solid $default-border-color;
+}
+
+.WarningIcon {
+  margin-right: 5px;
+
+  color: $brand-color;
 }
