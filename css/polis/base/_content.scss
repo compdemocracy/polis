@@ -36,11 +36,20 @@
 
 .HeadingC {
   border-bottom: 1px solid $default-border-color;
-
   color: $light-gray;
   font-weight: normal;
   font-family: $headline-font;
   font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* colin created for tabs in conversation view, modify or rename if necessary and update conversationTabs.handlebars */
+.HeadingD {
+  color: $dark-gray;
+  font-family: $headline-font;
+  font-weight: 900;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
