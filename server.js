@@ -4349,12 +4349,17 @@ function getConversations(req, res) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
 
-        data.forEach(function(conv) {
-            conv.is_owner = conv.owner === uid;
-            conv.moderation_url = createModerationUrl(req, conv.sid);
+        addSids(data).then(function(data) {
+            data.forEach(function(conv) {
+                conv.is_owner = conv.owner === uid;
+                conv.moderation_url = createModerationUrl(req, conv.sid);
+                delete conv.zid;
+                console.dir(conv);
+            });
+            res.status(200).json(data);
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_get_conversations_misc", err);
         });
-
-        finishArray(res, data);
     });
   });
 }
