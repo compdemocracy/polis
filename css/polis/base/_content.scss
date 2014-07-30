@@ -18,6 +18,7 @@
   font-family: $serif-font;
   font-weight: normal;
   font-size: 18px;
+  white-space: nowrap;
 }
 
 .HeadingB {
@@ -31,4 +32,15 @@
 
 .HeadingB--inline {
   display: inline;
+}
+
+.HeadingC {
+  border-bottom: 1px solid $default-border-color;
+
+  color: $light-gray;
+  font-weight: normal;
+  font-family: $headline-font;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
