@@ -4419,7 +4419,7 @@ app.post('/v3/conversations',
     want('profanity_filter', getBool, assignToP, true),
     want('spam_filter', getBool, assignToP, true),
     want('strict_moderation', getBool, assignToP, false),
-    want('context', getOptionalStringLimitLength(999), assignToP),
+    want('context', getOptionalStringLimitLength(999), assignToP, ""),
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
 function(req, res) {
