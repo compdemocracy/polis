@@ -4319,9 +4319,10 @@ function getOneConversation(req, res) {
 function getConversations(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
-  var is_moderator = req.p.is_moderator;
+  var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
+  var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
   var context = req.p.context;
-  console.log("context", context);
+  console.log("thecontext", context);
 
   var fail = failNotWithin(500);
       // First fetch a list of conversations that the user is a participant in.
@@ -4360,8 +4361,11 @@ function getConversations(req, res) {
         addSids(data).then(function(data) {
             data.forEach(function(conv) {
                 conv.is_owner = conv.owner === uid;
-                if (is_moderator) {
-                    conv.moderation_url = createModerationUrl(req, conv.sid);
+                if (want_inbox_item_admin_url) {
+                    conv.inbox_item_admin_url = createModerationUrl(req, conv.sid);
+                }
+                if (want_inbox_item_participant_url) {
+                    conv.inbox_item_participant_url = getServerNameWithProtocol(req) +"/"+ conv.sid;
                 }
                 delete conv.zid;
                 console.dir(conv);
@@ -4380,7 +4384,8 @@ app.get('/v3/conversations',
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('sid', getSidFetchZid, assignToPCustom('zid')),
-    want('is_moderator', getBool, assignToP), // NOTE - use this for API only!
+    want('want_inbox_item_admin_url', getBool, assignToP), // NOTE - use this for API only!
+    want('want_inbox_item_participant_url', getBool, assignToP), // NOTE - use this for API only!
     want('context', getStringLimitLength(1, 999), assignToP),
 function(req, res) {
   if (req.p.zid) {
@@ -4414,8 +4419,8 @@ app.post('/v3/conversations',
     want('profanity_filter', getBool, assignToP, true),
     want('spam_filter', getBool, assignToP, true),
     want('strict_moderation', getBool, assignToP, false),
-    want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('context', getOptionalStringLimitLength(999), assignToP),
+    want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
 function(req, res) {
 
