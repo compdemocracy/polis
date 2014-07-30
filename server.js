@@ -4351,6 +4351,7 @@ function getConversations(req, res) {
 
         data.forEach(function(conv) {
             conv.is_owner = conv.owner === uid;
+            conv.moderation_url = createModerationUrl(req, conv.sid);
         });
 
         finishArray(res, data);
