@@ -21,6 +21,17 @@ module.exports = Handlebones.ModelView.extend({
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     return ctx;
   },
+  animateOut: function() {
+    // Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
+    this.$el.children().children().animate({
+      opacity: 0
+    }, 200);
+  },
+  animateIn: function() {
+    this.$el.children().children().animate({
+      opacity: 1
+    }, 200);
+  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
       eb.on(eb.exitConv, cleanup);
@@ -74,7 +85,9 @@ module.exports = Handlebones.ModelView.extend({
       });
     }
     function onFail(err) {
-        alert("error sending vote " + JSON.stringify(err));
+      this.animateIn();
+      console.error(err);
+      alert("Apologies, your vote failed to send. Please check your connection and try again.");
     }
     function onVote(result) {
       var that = this;
@@ -84,9 +97,7 @@ module.exports = Handlebones.ModelView.extend({
       } else {
         showEmpty();
       }
-      this.$el.children().children().animate({
-        opacity: 1
-      }, 200);
+      this.animateIn();
 
       // Fix for stuck hover effects for touch events.
       // Remove when this is fix is accepted
@@ -123,10 +134,7 @@ module.exports = Handlebones.ModelView.extend({
     }
 
     this.onButtonClicked = function() {
-      // Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
-      this.$el.children().children().animate({
-        opacity: 0
-      }, 200);
+      this.animateOut();
     };
 
     this.participantAgreed = function(e) {
@@ -139,7 +147,7 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       serverClient.agree(tid)
-          .then(onVote.bind(this), onFail);
+          .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantDisagreed = function() {
       var tid = this.model.get("tid");
@@ -151,7 +159,7 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       serverClient.disagree(tid)
-          .then(onVote.bind(this), onFail);
+          .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantPassed = function() {
       var tid = this.model.get("tid");
@@ -163,7 +171,7 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       serverClient.pass(tid)
-          .then(onVote.bind(this), onFail);
+          .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantStarred = function() {
       var tid = this.model.get("tid");
@@ -176,13 +184,13 @@ module.exports = Handlebones.ModelView.extend({
       });
       this.onButtonClicked();
       $.when(serverClient.star(tid), serverClient.agree(tid))
-          .then(onVote.bind(this), onFail);
+          .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantTrashed = function() {
       var tid = this.model.get("tid");
       this.onButtonClicked();
       serverClient.trash(tid)
-          .then(onVote.bind(this), onFail);
+          .then(onVote.bind(this), onFail.bind(this));
     };
 
     pollForComments(); // call immediately
