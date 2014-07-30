@@ -241,6 +241,7 @@ var sql_conversations = sql.define({
     "strict_moderation",
     "email_domain",
     "owner",
+    "context",
     "created",
     ]
 });
@@ -4318,6 +4319,9 @@ function getOneConversation(req, res) {
 function getConversations(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
+  var is_moderator = req.p.is_moderator;
+  var context = req.p.context;
+
   var fail = failNotWithin(500);
       // First fetch a list of conversations that the user is a participant in.
   pgQuery('select zid from participants where uid = ($1);', [uid], function(err, results) {
@@ -4341,6 +4345,9 @@ function getConversations(req, res) {
     if (!_.isUndefined(req.p.zid)) {
         query = query.and(sql_conversations.zid.equals(req.p.zid));
     }
+    if (!_.isUndefined(req.p.context)) {
+        query = query.and(sql_conversations.context.equals(req.p.context));
+    }
     //query = whereOptional(query, req.p, 'owner');
     query = query.order(sql_conversations.created.descending);
     query = query.limit(999); // TODO paginate
@@ -4352,7 +4359,9 @@ function getConversations(req, res) {
         addSids(data).then(function(data) {
             data.forEach(function(conv) {
                 conv.is_owner = conv.owner === uid;
-                conv.moderation_url = createModerationUrl(req, conv.sid);
+                if (is_moderator) {
+                    conv.moderation_url = createModerationUrl(req, conv.sid);
+                }
                 delete conv.zid;
                 console.dir(conv);
             });
@@ -4370,6 +4379,8 @@ app.get('/v3/conversations',
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('sid', getSidFetchZid, assignToPCustom('zid')),
+    want('is_moderator', getBool, assignToP), // NOTE - use this for API only!
+    want('context', getStringLimitLength(1, 999), assignToP),
 function(req, res) {
   if (req.p.zid) {
     getOneConversation(req, res);
@@ -4403,6 +4414,7 @@ app.post('/v3/conversations',
     want('spam_filter', getBool, assignToP, true),
     want('strict_moderation', getBool, assignToP, false),
     want('topic', getOptionalStringLimitLength(1000), assignToP, ""),
+    want('context', getOptionalStringLimitLength(999), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
 function(req, res) {
     var generateShortUrl = req.p.is_public;
@@ -4423,6 +4435,7 @@ function(req, res) {
         profanity_filter: req.p.profanity_filter,
         spam_filter: req.p.spam_filter,
         strict_moderation: req.p.strict_moderation,
+        context: req.p.context,
     }).returning('*').toString();
 
     pgQuery(q, [], function(err, result) {

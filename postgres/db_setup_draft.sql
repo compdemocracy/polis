@@ -134,6 +134,7 @@ CREATE TABLE conversations(
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ?? 
+    context VARCHAR(1000), -- for things like a semester of a class, etc
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
 );
