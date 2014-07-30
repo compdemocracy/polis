@@ -40,7 +40,8 @@ $(document).ready(switchLanguages);
         <h5 class="HeadingB"> REQUEST </h5>
         <pre>
         <code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/v3/conversations" \
-              --user $POLIS_API_KEY: \</code>
+              --user $POLIS_API_KEY: \
+              -F context="string_that_represents_a_collection_of_conversations" \</code>
         </pre>
         <h5 class="HeadingB"> RESPONSE </h5>
         <pre>
