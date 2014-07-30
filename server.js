@@ -4321,6 +4321,7 @@ function getConversations(req, res) {
   var zid = req.p.zid;
   var is_moderator = req.p.is_moderator;
   var context = req.p.context;
+  console.log("context", context);
 
   var fail = failNotWithin(500);
       // First fetch a list of conversations that the user is a participant in.
