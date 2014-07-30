@@ -1,18 +1,5 @@
 
 
-
-/*
-
-	html {
-		font-family: "brandon-grotesque", "helvetica", "arial";
-		font-size: 16px;
-		min-height: 100%;
-	}
-
-	h1, h2, h3, h4, h5, h6, a {
-		font-family: "brandon-grotesque", "helvetica", "arial";
-	}*/
-
 	.btn {
 		font-family: "brandon-grotesque", "helvetica", "arial";
 	}
@@ -44,23 +31,23 @@
 		min-height: 100%;
 	}
 	
-  p, li {
-  	/*font-family: "museo-slab", "helvetica", "arial";*/
-  			font-family: "brandon-grotesque", "helvetica", "arial";
+  // p, li {
+  // 	/*font-family: "museo-slab", "helvetica", "arial";*/
+  // 			font-family: "brandon-grotesque", "helvetica", "arial";
 
-  	font-size: 16px;
-  	line-height: 25px
-  }
+  // 	font-size: 16px;
+  // 	line-height: 25px
+  // }
 
-  label, input {
-  	/*font-family: "museo-slab", "helvetica", "arial";*/
-  			font-family: "brandon-grotesque", "helvetica", "arial";
-  }
+ //  label, input {
+ //  	/*font-family: "museo-slab", "helvetica", "arial";*/
+ //  			font-family: "brandon-grotesque", "helvetica", "arial";
+ //  }
 
 
-  ul {
-		list-style: square;
-	}
+ //  ul {
+	// 	list-style: square;
+	// }
 
 	.sectionHeader {
 		font-family: "brandon-grotesque", "helvetica", "arial";
@@ -172,16 +159,6 @@
 /* AFTER 2014_JUNE REFACTOR */
 
 
-
-	html {
-		font-family: "brandon-grotesque", helvetica, arial;
-		font-size: 16px;
-	}
-
-	h1, h2, h3, h4, h5, h6, a, ul, li, p, label, input, .btn {
-		font-family: "brandon-grotesque", helvetica, arial;
-		font-weight: 300;
-	}
 
     /* WARNING - duplicated in main polis client repo */
 	.logo_and_login_section {
@@ -396,36 +373,3 @@
     .social iframe,.social>span {
         vertical-align: middle;
     }
-
-/* Sticky footer styles
--------------------------------------------------- */
-
-html,
-body {
-  height: 100%;
-  /* The html and body elements cannot have any padding or margin. */
-}
-
-/* Wrapper for page content to push down footer */
-#wrap {
-  min-height: 100%;
-  height: auto !important;
-  height: 100%;
-  /* Negative indent footer by its height */
-  margin: 0 auto -60px;
-  /* Pad bottom by footer height */
-  padding: 0 0 60px;
-}
-
-/* Set the fixed height of the footer here */
-#footer {
-  height: 320px;
-  background-color: #f5f5f5;
-}
-
-.footer_item {
-	margin-right: 40px; 
-	position: relative; 
-	top: 19px;
-
-}
