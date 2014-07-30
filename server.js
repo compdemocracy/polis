@@ -4417,6 +4417,8 @@ app.post('/v3/conversations',
     want('context', getOptionalStringLimitLength(999), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
 function(req, res) {
+
+    console.log("context", req.p.context);
     var generateShortUrl = req.p.is_public;
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
