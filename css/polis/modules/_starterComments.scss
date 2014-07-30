@@ -5,20 +5,9 @@
 .StarterComments {
   margin-bottom: $default-whitespace;
 
-  // on initialization there is 1 empty added comment at the bottom :(
-  // &:last-child {
-  //   display: none;
-  // }
   & > *:last-child {
     margin-bottom: 0;
   }
-}
-
-.StarterComments-heading {
-  border-bottom: 1px solid $default-border-color;
-
-  color: $light-gray;
-  font-weight: normal;
 }
 
 .StarterComments-delete {
@@ -27,6 +16,13 @@
 
   &:before {
     content: "×";
+
+    position: relative;
+    top: 0.15em;
+    left: 0.2em;
+
+    font-size: 1.75em;
+    line-height: 1;
   }
 }
 
