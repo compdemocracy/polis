@@ -69,16 +69,6 @@
     ))
 
 
-(defn hash-map-prune
-  "Create a new map which is given by removing all entries in m with keys in rm-keys"
-  [m rm-keys]
-  (let [rm-keys (set rm-keys)]
-    (into {}
-      (remove
-        (fn [[k v]] (rm-keys k))
-        m))))
-
-
 (defn apply-kwargs
   "Takes a function f, any number of regular args, and a final kw-args argument which will be
   splatted in as a final argument"
