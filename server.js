@@ -437,8 +437,8 @@ mongo.connect(process.env.MONGOLAB_URI, {
         process.exit(1);
     }
 
-    db.collection('polismath_test_april9', function(err, collectionOfPcaResults) {
-    db.collection('polismath_bidToPid_april9', function(err, collectionOfBidToPidResults) {
+    db.collection('polismath_july30', function(err, collectionOfPcaResults) {
+    db.collection('polismath_bidToPid_july30', function(err, collectionOfBidToPidResults) {
 
         callback(null, {
             mongoCollectionOfPcaResults: collectionOfPcaResults,
