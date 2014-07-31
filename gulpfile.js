@@ -218,7 +218,7 @@ gulp.task('templates', function(){
     });
   }
 
-  gulp.src(['js/templates/*.hbs', 'js/templates/*.handlebars'])
+  return gulp.src(['js/templates/*.hbs', 'js/templates/*.handlebars'])
     .pipe(tap(function(file) {
       
       if(needsHeaderAndFooter(file) || needsBanner(file)) {
