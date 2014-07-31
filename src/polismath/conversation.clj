@@ -204,7 +204,7 @@
       :group-clusters
             (plmb/fnk [group-clusterings group-clusterings-silhouettes]
               (get group-clusterings
-                (max-key group-clusterings-silhouettes (keys group-clusterings))))
+                (apply max-key group-clusterings-silhouettes (keys group-clusterings))))
 
       :bid-to-pid (plmb/fnk [base-clusters]
                      (time2 "bid-to-pid"
