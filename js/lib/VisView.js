@@ -649,8 +649,15 @@ function updateHulls() {
     updateHullPromises = _.map(_.range(hulls.length), updateHull);
 
 
-    $.when.apply($, updateHullPromises).then(
-        updateHullColors);
+    var p = $.when.apply($, updateHullPromises);
+    p.then(function() {
+        if (clusterToShowLineTo >= 0) {
+            updateLineToCluster(clusterToShowLineTo);
+        } else {
+            // Don't need to update if it's a null selection, since updateLineToCluster is called upon deselect.
+        }
+    });
+    p.then(updateHullColors);
 }
 
 var hullFps = 20;
@@ -1704,7 +1711,13 @@ function centerOfCluster(gid) {
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
+var clusterToShowLineTo = -1;
 function showLineToCluster(gid) {
+    clusterToShowLineTo = gid;
+    updateLineToCluster(gid);
+}
+
+function updateLineToCluster(gid) {
     var center = centerOfCluster(gid);
     center[0] += xOffset;
 

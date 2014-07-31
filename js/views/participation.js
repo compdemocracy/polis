@@ -207,7 +207,7 @@ module.exports =  ConversationView.extend({
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
-
+      vis.showLineToCluster(that.selectedGid);
       that.disableVisAffix();
 
       if (shouldShowVisUnderTabs()) {
