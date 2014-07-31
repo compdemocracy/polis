@@ -21,7 +21,14 @@ function getCookie(cname) {
 if (!getCookie("ref")) {
     setCookie("ref", document.referrer, 365);
 }
+
+$(document).ready(function() {
+  if (getCookie("uid2")) {
+    $("#aboutPageLoginButton").hide();
+  }
+});
 </script>
+
 
 <!-- facebook code for share link -->
 <div id="fb-root"></div>

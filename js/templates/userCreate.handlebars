@@ -18,7 +18,7 @@
       </div>
       <div class="form-group">
         <label for="gatekeeperEmailCreate">Email</label>
-        <input type="text" id="email" name="email" placeholder="Email" id="gatekeeperEmailCreate" class="form-control">
+        <input type="text" id="email" name="email" placeholder="Email" id="gatekeeperEmailCreate" class="form-control" {{#if readonlyEmail}}readonly{{/if}}>
       </div>
       <div class="form-group"> 
         <label for="gatekeeperPasswordCreate">Password</label>
@@ -49,6 +49,7 @@
 
 
   {{/if}}
+  {{#unless hideHaveAccount}}
     <div class="rel">
       <span class="alternateRegOr">OR</span>
       <div class="alternateReg" style="margin-bottom:30px">
@@ -59,6 +60,7 @@
         {{/if}}
       </div>
     </div>
+    {{/unless}}
   </div> <!-- span -->
 </div> <!-- row -->
 </section> <!-- container -->

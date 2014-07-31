@@ -34,6 +34,8 @@
           <a href="/conversation/create" title="Create a new conversation"><i class="fa fa-plus -square"> </i> New</a>
         </li>
         {{/ifDefined}}
+        
+        {{#ifAuthenticated}}
         <li class="dropdown">
           <a href="#" class="dropdown-toggle" data-toggle="dropdown">
             <i class="fa fa-cog"></i>
@@ -49,6 +51,7 @@
               &nbsp; Signout</a></li>
           </ul>
         </li>
+        {{/ifAuthenticated}}
       </ul>
 
 
