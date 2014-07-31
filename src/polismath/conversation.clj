@@ -223,7 +223,8 @@
                              {:tid tid
                               :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
                               :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
-                          (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))))))
+                          (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))
+                                  {}))))
 
      ; End of large-update
      }))
