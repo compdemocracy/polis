@@ -1321,6 +1321,10 @@ function clientSideBaseCluster(things, N) {
                 });
                 pairs = pairs.sort(function(a, b) {return b[0] - a[0];});
                 pairs = pairs.slice(0, max);
+                // filter out comments with negative repness
+                pairs = _.filter(pairs, function(p) {
+                    return p[0] > 0;
+                });
                 tids = _.map(pairs, function(p) {
                     return p[1];
                 });

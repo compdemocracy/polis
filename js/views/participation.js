@@ -45,7 +45,7 @@ module.exports =  ConversationView.extend({
   template: template,
   events: {
   },
-  
+  firstMathPollResultDeferred: $.Deferred(),
   shouldAffixVis: false,
   enableVisAffix: function() {
     this.shouldAffixVis = true;
@@ -142,6 +142,7 @@ module.exports =  ConversationView.extend({
     // HTTP PATCH - model.save({patch: true})
 
     function onPersonUpdate() {
+      that.firstMathPollResultDeferred.resolve();
       if (vis) {
         vis.upsertNode.apply(vis, arguments);
       }
@@ -206,7 +207,7 @@ module.exports =  ConversationView.extend({
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
-
+      vis.showLineToCluster(that.selectedGid);
       that.disableVisAffix();
 
       if (shouldShowVisUnderTabs()) {
@@ -358,7 +359,12 @@ module.exports =  ConversationView.extend({
           serverClient.updateMyProjection(that.votesByMe);
         }, 300); // wait a bit to let the dot blink before moving it.
       }, 200);
-      this.votesByMe.on("add", updateMyProjectionAfterAddingVote);
+
+      // Wait for PCA to download, so we don't fire an event with only the blue dot.
+      // That would cause the vis blocker to flash.
+      this.firstMathPollResultDeferred.then(function() {
+        that.votesByMe.on("add", updateMyProjectionAfterAddingVote);
+      });
 
       this.commentForm.on("commentSubmitted", function() {
         // $("#"+VOTE_TAB).tab("show");

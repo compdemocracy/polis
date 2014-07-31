@@ -16,7 +16,7 @@ var getReactionsToComment = params.getReactionsToComment;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
-
+var xOffset = params.xOffset = 30;
 
 var dimensions = {
     width: params.w,
@@ -44,6 +44,7 @@ var hulls = [];
 var centroids = [];
 var visualization;
 var main_layer;
+var blocker_layer;
 var overlay_layer;
 //var g; // top level svg group within the vis that gets translated/scaled on zoom
 var force;
@@ -296,7 +297,13 @@ if (isIE8) {
                 // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
     ;
     $(el_selector).on("click", selectBackground);
-    main_layer = visualization.append(groupTag);
+
+    main_layer = visualization.append(groupTag)
+        .attr("transform", "translate("+ xOffset +")");
+        
+    blocker_layer = visualization.append(groupTag)
+        .attr("transform", "translate("+ xOffset +")");
+
     overlay_layer = visualization.append(groupTag);
 
     overlay_layer.append("polyline")
@@ -304,7 +311,7 @@ if (isIE8) {
         .classed("helpArrowLine", true)
         .style("display", "none")
         ;
-    w = $(el_selector).width();
+    w = $(el_selector).width() - xOffset;
     h = $(el_selector).height();
 }
 
@@ -583,21 +590,26 @@ function updateHulls() {
         var dfd = new $.Deferred();
         setTimeout(function() {
             var hull = hulls[i];
-            // if (hull.length == 1) {
-            //     hull.push([
-            //         hull[0][0] + 0.01,
-            //         hull[0][1] + 0.01
-            //         ]);
-            // }
-            // if (hull.length == 2) {
-            //     hull.push([
-            //         hull[0][0] + 0.01,
-            //         hull[0][1] - 0.01 // NOTE subtracting so they're not inline
-            //         ]);
-            // }
+
+            var pointsToFeedToD3 = hull.map(function(pt) { return pt;});
+
+            if (pointsToFeedToD3.length == 1) {
+                pointsToFeedToD3.push([
+                    pointsToFeedToD3[0][0] + 0.01,
+                    pointsToFeedToD3[0][1] + 0.01
+                    ]);
+            }
+            if (pointsToFeedToD3.length == 2) {
+                pointsToFeedToD3.push([
+                    pointsToFeedToD3[0][0] + 0.01,
+                    pointsToFeedToD3[0][1] - 0.01 // NOTE subtracting so they're not inline
+                    ]);
+            }
 
 
-            var hullPoints = d3.geom.hull(hull);
+
+            var hullPoints = d3.geom.hull(pointsToFeedToD3);
+
             var centroid = computeCentroid(hullPoints);
             centroids[i] = centroid;
 
@@ -642,8 +654,15 @@ function updateHulls() {
     updateHullPromises = _.map(_.range(hulls.length), updateHull);
 
 
-    $.when.apply($, updateHullPromises).then(
-        updateHullColors);
+    var p = $.when.apply($, updateHullPromises);
+    p.then(function() {
+        if (clusterToShowLineTo >= 0) {
+            updateLineToCluster(clusterToShowLineTo);
+        } else {
+            // Don't need to update if it's a null selection, since updateLineToCluster is called upon deselect.
+        }
+    });
+    p.then(updateHullColors);
 }
 
 var hullFps = 20;
@@ -692,6 +711,38 @@ function shouldDisplayCircle(d) {
 }
 
 function computeCentroid(points) {
+
+    // TEMPORARY HACK!
+    // reduces the number of points to 3, since the general N code isn't producing good centroids.
+    if (points.length > 3) {
+        points = [
+            points[0],
+            points[Math.floor(points.length/2)],
+            points[points.length-1]
+        ];
+    }
+
+    if (points.length === 3) {
+        var p = points;
+        return {
+            x: (p[0][0] + p[1][0] + p[2][0])/3,
+            y: (p[0][1] + p[1][1] + p[2][1])/3
+        };
+    } else if (points.length === 2) {
+        var p = points;
+        return {
+            x: (p[0][0] + p[1][0]) / 2,
+            y: (p[0][1] + p[1][1]) / 2
+        };
+    } else if (points.length === 1) {
+        return {
+            x: points[0][0],
+            y: points[0][1]
+        };
+    }
+
+
+
     // http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
     var x = 0;
     var y = 0;
@@ -947,7 +998,7 @@ function upsertNode(updatedNodes, newClusters) {
 
     participantCount = getParticipantCount(updatedNodes);
 
-    var MIN_PARTICIPANTS_FOR_VIS = 10;
+    var MIN_PARTICIPANTS_FOR_VIS = 8;
     if (participantCount < MIN_PARTICIPANTS_FOR_VIS && !visBlockerOn) {
         showVisBlocker();
     }
@@ -956,13 +1007,13 @@ function upsertNode(updatedNodes, newClusters) {
     }
     if (visBlockerOn) {
         var neededCount = MIN_PARTICIPANTS_FOR_VIS - participantCount;
-        overlay_layer.selectAll(".visBlockerMainText")
+        blocker_layer.selectAll(".visBlockerMainText")
             .text("Waiting for " +neededCount+ " more participants to join & vote.")
             .style("font-weight", 700)
             .style("font-size", display.xs() ? ".9em" : "1em")
             ;
 
-        overlay_layer.selectAll(".visBlockerGraphic")
+        blocker_layer.selectAll(".visBlockerGraphic")
             .text(function(d) {
                 var txt = "";
                 _.times(participantCount, function() {
@@ -1559,7 +1610,7 @@ var visBlockerOn = false;
 function showVisBlocker() {
     visBlockerOn = true;
 
-    overlay_layer.append("rect")
+    blocker_layer.append("rect")
         .classed("visBlocker", true)
         .style("fill", "white")
         .attr("x", 1) // inset so it doesn't get cut off on firefox
@@ -1570,7 +1621,7 @@ function showVisBlocker() {
         .attr("rx", 10)
         .attr("ry", 10)
     ;
-    overlay_layer.append("text")
+    blocker_layer.append("text")
             .classed("visBlocker", true)
             .classed("visBlockerMainText", true)
             .attr("text-anchor", "middle")
@@ -1580,7 +1631,7 @@ function showVisBlocker() {
                 w/2 +
                 "," + h/3 + ")")
     ;
-    overlay_layer.append("text")
+    blocker_layer.append("text")
             .classed("visBlocker", true)
             .classed("visBlockerGraphic", true)
             .attr("transform", "translate("+ 
@@ -1598,7 +1649,7 @@ function showVisBlocker() {
 function hideVisBlocker() {
     visBlockerOn = false;
 
-    overlay_layer.selectAll(".visBlocker")
+    blocker_layer.selectAll(".visBlocker")
         .remove()
     ;
 }
@@ -1691,19 +1742,32 @@ function centerOfCluster(gid) {
     if (c) {
         return [c.x, c.y];
     } else {
-        return [-2, -2];
+        return [-99, -99];
     }
 }
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
+var clusterToShowLineTo = -1;
 function showLineToCluster(gid) {
+    clusterToShowLineTo = gid;
+    updateLineToCluster(gid);
+}
+
+function updateLineToCluster(gid) {
+    if (navigator.userAgent.match(/MSIE 10/)) {
+        return;
+    }
+    var center = centerOfCluster(gid);
+    center[0] += xOffset;
+
+    center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
         .style("stroke", "lightgray")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", ["-2,80", centerOfCluster(gid).join(",")].join(" "));
+        .attr("points", ["-2,80", center].join(" "));
 }
 
 function onHelpTextClicked() {
