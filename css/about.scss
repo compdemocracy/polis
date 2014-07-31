@@ -211,6 +211,10 @@
 		margin-bottom: 30px;
 	}
 
+  .moderate-button {
+    margin-top: 20px;
+  }
+
 }
 /*SM SM SM SM SM SM SM */
 @media(min-width:768px){
@@ -219,6 +223,10 @@
 		padding-top: 20px;
 		padding-bottom: 40px;
 	}
+
+	.moderate-button {
+    float: right;
+  }
 
 }
 
