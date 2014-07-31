@@ -84,6 +84,9 @@ module.exports = Handlebones.ModelView.extend({
       } else {
         showEmpty();
       }
+      this.$el.children().children().animate({
+        opacity: 1
+      }, 200);
 
       // Fix for stuck hover effects for touch events.
       // Remove when this is fix is accepted
@@ -119,6 +122,13 @@ module.exports = Handlebones.ModelView.extend({
       that.render();
     }
 
+    this.onButtonClicked = function() {
+      // Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
+      this.$el.children().children().animate({
+        opacity: 0
+      }, 200);
+    };
+
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");
       votesByMe.add({
@@ -127,6 +137,7 @@ module.exports = Handlebones.ModelView.extend({
         pid: pid,
         tid: tid
       });
+      this.onButtonClicked();
       serverClient.agree(tid)
           .then(onVote.bind(this), onFail);
     };
@@ -138,6 +149,7 @@ module.exports = Handlebones.ModelView.extend({
         pid: pid,
         tid: tid
       });
+      this.onButtonClicked();
       serverClient.disagree(tid)
           .then(onVote.bind(this), onFail);
     };
@@ -149,6 +161,7 @@ module.exports = Handlebones.ModelView.extend({
         pid: pid,
         tid: tid
       });
+      this.onButtonClicked();
       serverClient.pass(tid)
           .then(onVote.bind(this), onFail);
     };
@@ -161,11 +174,13 @@ module.exports = Handlebones.ModelView.extend({
         pid: pid,
         tid: tid
       });
+      this.onButtonClicked();
       $.when(serverClient.star(tid), serverClient.agree(tid))
           .then(onVote.bind(this), onFail);
     };
     this.participantTrashed = function() {
       var tid = this.model.get("tid");
+      this.onButtonClicked();
       serverClient.trash(tid)
           .then(onVote.bind(this), onFail);
     };

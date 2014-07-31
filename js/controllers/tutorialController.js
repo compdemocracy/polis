@@ -46,7 +46,7 @@ module.exports = function() {
 
 
     function onClusterClicked(gid) {
-      if (gid >= 0) {
+      if (_.isNumber(gid) && gid >= 0) {
         clusterHasBeenClicked = true;
         if(hintHandlers.analyzePopover && !shown.analyzePopover){
           hintHandlers.analyzePopover();

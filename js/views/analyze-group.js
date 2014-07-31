@@ -1,14 +1,14 @@
-var AnalyzeCollectionView = require("../views/analyze-global-collection-view");
 var display = require("../util/display");
 var eb = require("../eventBus");
-var template = require("../tmpl/analyze-global");
+var template = require("../tmpl/analyze-group");
 var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
 var Utils = require("../util/utils");
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
-var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
+var el_carouselSelector = "#carousel";
+
 
 
 function bbCompare(propertyName, a, b) {
@@ -62,7 +62,6 @@ function comparatorStars(a, b) {
 
 module.exports = Handlebones.View.extend({
     name: "analyze-global-view",
-    CV: AnalyzeCollectionView,
     template: template,
     tidsForGroup: null,
     events: {
@@ -94,9 +93,7 @@ module.exports = Handlebones.View.extend({
       this.$(chosenButtonSelector).addClass("enabled");
     },
     selectFirst: function() {
-      if (this.analyzeCollectionView) {
-        this.analyzeCollectionView.selectFirst();
-      }
+ 
     },
   searchEnabled: true,
   sortEnabled: true,
@@ -108,54 +105,39 @@ module.exports = Handlebones.View.extend({
   // sort with the current comparator
   sort: function() {
     this.collection.sort();
-    if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
-      this.selectFirst();
-    }
+    // this.selectFirst();
   },
   sortAgree: function(e) {
-    if (this.analyzeCollectionView) {
-      this.analyzeCollectionView.groupMode = false;
-    }
     this.collection.comparator = comparatorAgree;
     this.collection.sort();
     // this.selectFirst();
     this.selectSortModes("#sortAgree");
   },
   sortDisagree: function(e) {
-    if (this.analyzeCollectionView) {
-      this.analyzeCollectionView.groupMode = false;
-    }
     this.collection.comparator = comparatorDisagree;
     this.collection.sort();
     // this.selectFirst();
     this.selectSortModes("#sortDisagree");
   },
   sortDivisive: function(e) {
-    if (this.analyzeCollectionView) {
-      this.analyzeCollectionView.groupMode = false;
-    }
     this.collection.comparator = comparatorDivisive;
     this.collection.sort();
     // this.selectFirst();
     this.selectSortModes("#sortDivisive");
   },
   sortRepness: function(e) {
-    if (this.analyzeCollectionView) {
-      this.analyzeCollectionView.groupMode = true;
-    }
     // There are no buttons associated with this.
     this.collection.comparator = sortRepness;
     this.collection.sort();
     // this.selectFirst();
   },
   useCarousel: function() {
-    return false;
-    // return true;
+    return true;
     // return !Utils.isIE8() && display.xs();
   },
   hideCarousel: function() {
-    this.$("#commentListView").show();
-    this.$("#carousel").hide();
+    // this.$("#commentListView").show();
+    // this.$("#carousel").hide();
   },
   showCarousel: function() {
     this.$("#commentListView").hide();
@@ -164,26 +146,79 @@ module.exports = Handlebones.View.extend({
   updateSearch: function(e) {
     this.searchString = e.target.value;
     this.deselectComments();
-    if (this.analyzeCollectionView) {
-      this.analyzeCollectionView.updateModelFilter();
-    }
     // this.selectFirst();
   },
   deselectComments: function() {
     eb.trigger(eb.commentSelected, false);
   },
-  
+  renderWithCarousel: function(gid) {
+    var that = this;
+    $(el_carouselSelector).html("");
+    // $(el_carouselSelector).css("overflow", "hidden");        
+
+    // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
+    $(el_carouselSelector).append("<div id='smallWindow' style='left: 10%; width:80%'></div>");        
+
+    var results = $("#smallWindow");
+    results.addClass("owl-carousel");
+    // results.css('background-color', 'yellow');
+
+    if (results.data('owlCarousel')) {
+      results.data('owlCarousel').destroy();
+    }
+    results.owlCarousel({
+      items : NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW, //3 items above 1000px browser width
+      // itemsDesktop : [1000,5], //5 items between 1000px and 901px
+      // itemsDesktopSmall : [900,3], // betweem 900px and 601px
+      // itemsTablet: [600,2], //2 items between 600 and 0
+      // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
+       singleItem : true,
+       // autoHeight : true,
+       afterMove: (function() {return function() {
+          var tid = indexToTid[this.currentItem];
+          setTimeout(function() {
+              eb.trigger(eb.commentSelected, tid);
+          }, 100);
+
+      }}())
+    });
+    var indexToTid = this.collection.pluck("tid");
+
+    var groupMode = gid !== -1;
+
+    var info = that.groupInfo();
+    _.each(this.collection.first(NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW), function(c) {
+      var tid = c.get('tid');
+      var header;
+      if (groupMode) {
+        var v = info.votes[tid];
+        var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
+        header =
+            "<span class='a' style='margin-right:10px'>&#9650; " + percent + "%</span>" +
+            "<span class='small' style='color:darkgray;'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
+      } else {
+        header = 
+          "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
+          "<span class='d'>&#9660; " + c.get("D") + "</span>";
+      }
+      var html = 
+        "<div style='margin:10px; text-align:justify' class='well query_result_item'>" + 
+          "<p>" +
+            header +
+          "</p>" +
+          c.get("txt") +
+        "</div>";
+      results.data('owlCarousel').addItem(html);
+    });
+    // Auto-select the first comment.
+    eb.trigger(eb.commentSelected, indexToTid[0]);
+    // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
+  },
   initialize: function(options) {
     var that = this;
     this.collection = options.collection;
     this.collection.comparator = comparatorAgree;
     
-    if (!that.useCarousel()) {
-      this.analyzeCollectionView = this.addChild(new this.CV({
-        collection: this.collection,
-        comparator: comparatorAgree
-      }));
-    }
 
     var getTidsForGroup = options.getTidsForGroup;
 
@@ -202,10 +237,8 @@ module.exports = Handlebones.View.extend({
           that.sortEnabled = true;
           that.searchEnabled = true;
           that.tidsForGroup = null;
-          that.sortAgree();     
-          if (this.analyzeCollectionView) {
-            that.analyzeCollectionView.updateModelFilter();
-          }
+          that.sortAgree();   
+          that.renderWithCarousel(gid);
           // that.selectFirst();
         } else {
           that.$("#commentSearch").hide();
@@ -215,20 +248,22 @@ module.exports = Handlebones.View.extend({
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
 
-            if (that.analyzeCollectionView) {
-              that.analyzeCollectionView.groupMode = true;
-            }
             that.tidsForGroup = o.tids;
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
-            if (that.analyzeCollectionView) {
-              that.analyzeCollectionView.updateModelFilter();
-            }
+            that.renderWithCarousel(gid);
             // that.selectFirst();
           });
         }
       });
     } // End doFetch
 
+    if (!_.isUndefined(options.gid)) {
+      doFetch(options.gid);
+    } else {
+      eb.on(eb.clusterClicked, function(gid) {
+        doFetch(gid);
+      });
+    }
   }
 });

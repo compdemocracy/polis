@@ -1,4 +1,5 @@
 var AnalyzeGlobalView = require("../views/analyze-global");
+var AnalyzeGroupView = require("../views/analyze-group");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
 var template = require('../tmpl/participation');
@@ -20,6 +21,8 @@ var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 
 var VIS_SELECTOR = "#visualization_div";
+
+var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
 
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
@@ -43,8 +46,21 @@ module.exports =  ConversationView.extend({
   events: {
   },
   
+  shouldAffixVis: false,
+  enableVisAffix: function() {
+    this.shouldAffixVis = true;
+    $("#visualization_div").addClass("affix");
+    $("#visualization_div").css("top", "");    
+  },
+  disableVisAffix: function() {
+    this.shouldAffixVis = false;
+    $("#visualization_div").removeClass("affix");
+    $("#visualization_div").css("top", $("#vis_sibling_bottom").offset().top);
+  },
   onAnalyzeTabPopulated: function() {
-    $('.query_result_item').first().trigger('click');
+    if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
+      $('.query_result_item').first().trigger('click');
+    }
   },
   hideVis: function() {
     $("#visualization_div").hide();
@@ -84,10 +100,37 @@ module.exports =  ConversationView.extend({
     var serverClient = this.serverClient;
 
 
-    eb.on(eb.clusterClicked, function() {
-      $("#analyzeTab").tab("show");
+    eb.on(eb.clusterSelectionChanged, function(gid) {
+      if (vis) {
+        if (display.xs()) {
+          // don't show line on mobile
+          vis.showLineToCluster(-1);
+        } else {
+          vis.showLineToCluster(gid);
+        }
+      }
+      if (gid === -1) {
+        if (vis) {
+          vis.selectComment(null);
+        }
+        // $("#commentViewTab").click();
+
+        if (that.conversationTabs.onGroupTab()) { // TODO check if needed
+          that.conversationTabs.gotoVoteTab();
+        }
+      }
+    });
+
+    eb.on(eb.clusterClicked, function(gid) {
+      if (_.isNumber(gid) && gid >= 0) {
+        that.conversationTabs.gotoGroupTab();
+        // $("#groupTab").click();
+      // $("#groupTab").tab("show");
+      }
+
       that.onClusterTapped.apply(that, arguments);
     });
+
     eb.on(eb.queryResultsRendered, this.onAnalyzeTabPopulated.bind(this));
 
 
@@ -164,7 +207,7 @@ module.exports =  ConversationView.extend({
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
 
-
+      that.disableVisAffix();
 
       if (shouldShowVisUnderTabs()) {
         // wait for layout
@@ -199,25 +242,25 @@ module.exports =  ConversationView.extend({
           that.$shadedGroupPopover.popover("destroy");
         });
       });
-      that.tutorialController.setHandler("analyzePopover", function(){
-        setTimeout(function(){
-          if (!that.$el) {
-            return;
-          }
-          that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
-            title: "COMMENTS FOR THIS GROUP",
-            content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
-            html: true,
-            trigger: "manual",
-            placement: "bottom"  
-          });
-          that.$('.query_result_item').first().trigger('click');
-          that.$analyzeViewPopover.popover("show");
-          that.$('#analyzeViewPopoverButton').click(function(){
-            that.$analyzeViewPopover.popover("destroy");
-          })      
-        },1500)
-      }) 
+      // that.tutorialController.setHandler("analyzePopover", function(){
+      //   setTimeout(function(){
+      //     if (!that.$el) {
+      //       return;
+      //     }
+      //     that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
+      //       title: "COMMENTS FOR THIS GROUP",
+      //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+      //       html: true,
+      //       trigger: "manual",
+      //       placement: "bottom"  
+      //     });
+      //     // that.$('.query_result_item').first().trigger('click');
+      //     that.$analyzeViewPopover.popover("show");
+      //     that.$('#analyzeViewPopoverButton').click(function(){
+      //       that.$analyzeViewPopover.popover("destroy");
+      //     })      
+      //   },1500)
+      // }) 
     } // end initPcaVis  
 
 
@@ -274,6 +317,13 @@ module.exports =  ConversationView.extend({
         collection: resultsCollection
       }));
 
+      this.analyzeGroupView = this.addChild(new AnalyzeGroupView({
+        sid: sid,
+        getTidsForGroup: function() {
+          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+        },
+        collection: this.allCommentsCollection
+      }));
 
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
         sid: sid,
@@ -337,16 +387,39 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("beforehide:analyze", function() {
       // that.analyzeGlobalView.hideCarousel();
       that.analyzeGlobalView.deselectComments();
+      that.disableVisAffix();
+    });
+    that.conversationTabs.on("beforehide:group", function() {
+      // that.analyzeGlobalView.hideCarousel();
+      if (vis) {
+        vis.deselect();
+      }
+      that.analyzeGroupView.deselectComments();
+      // eb.trigger(eb.commentSelected, false);
+      // that.conversationTabs.doShowTabsUX();
     });
 
+
     that.conversationTabs.on("beforeshow:analyze", function() {
+      that.enableVisAffix();
       if (shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
-        that.analyzeGlobalView.sort();
+        that.analyzeGlobalView.sortAgree();
+      });
+      // that.analyzeGlobalView.showCarousel();
+    });
+      that.conversationTabs.on("beforeshow:group", function() {
+      if (shouldShowVisUnderTabs()) {
+        moveVisAboveQueryResults();
+      }
+      that.allCommentsCollection.doFetch({
+        gid: that.selectedGid
+      }).then(function() {
+        that.analyzeGroupView.sortRepness();
       });
       // that.analyzeGlobalView.showCarousel();
     });
@@ -357,9 +430,13 @@ module.exports =  ConversationView.extend({
       }
     });
     that.conversationTabs.on("aftershow:analyze", function() {
+      if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
+        $(".query_result_item").first().trigger("click");
+      }
+    });
+    that.conversationTabs.on("aftershow:group", function() {
       $(".query_result_item").first().trigger("click");
     });
-
     that.conversationTabs.on("aftershow:write", function() {
       // Put the comment textarea in focus (should pop up the keyboard on mobile)
       $("#comment_form_textarea").focus();
@@ -373,7 +450,8 @@ module.exports =  ConversationView.extend({
 
       scrollTopOnFirstShow();
 
-      if (!display.xs() && !display.sm()) {
+
+      if (!display.xs() && !display.sm() && that.shouldAffixVis) {
         $("#visualization_div").affix({
           offset: {
             top: 150 //will be set dynamically
@@ -385,8 +463,6 @@ module.exports =  ConversationView.extend({
           vis.deselect();
         }
       }
-      that.conversationTabs.on("analyzeGroups:close", deselectHulls);
-      
       that.commentView.on("showComment", _.once(function() {
         if (!isMobile) {
           that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
@@ -396,7 +472,6 @@ module.exports =  ConversationView.extend({
             container: "body"
           });
         }
-        that.$("#"+that.conversationTabs.VOTE_TAB).on("click", deselectHulls);
       }));
       if (!isMobile) {
         that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
@@ -406,7 +481,6 @@ module.exports =  ConversationView.extend({
           container: "body"
         });
       }
-      that.$("#" + that.conversationTabs.WRITE_TAB).on("click", deselectHulls);
 
       if (!isMobile) {
         that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({

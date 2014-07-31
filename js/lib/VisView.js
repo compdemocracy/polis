@@ -260,9 +260,21 @@ if (isIE8) {
     }
 } else {
 
-    $(el_selector)
-      .append("<svg></svg>")
-      ;
+$(el_selector)
+  .append("<svg>" +
+    "<defs>" +
+        "<marker class='helpArrow' id='ArrowTip'" +
+                "viewBox='0 0 14 14'" +
+                "refX='1' refY='5'" +
+                "markerWidth='5'" +
+                "markerHeight='5'" +
+                "orient='auto'>" +
+            // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
+            "<circle cx = '6' cy = '6' r = '5' style='fill:lightgray;'/>" +
+        "</marker>" +
+    "</defs>" +
+    "</svg>")
+  ;
 }
 
 if (isIE8) {
@@ -414,7 +426,7 @@ function updateHullColors() {
             }
         }
    } else {
-        if (selectedCluster >= 0) {
+        if (clusterIsSelected()) {
             d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
             d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
             d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
@@ -441,6 +453,7 @@ function handleOnClusterClicked(hullId) {
             updateHulls);
 
     eb.trigger(eb.clusterClicked, hullId);
+    eb.trigger(eb.clusterSelectionChanged, hullId);
 
     updateHullColors();
 
@@ -670,7 +683,7 @@ force.on("tick", function(e) {
 
 function shouldDisplayCircle(d) {
     // Hide the circle so we can show the up/down arrows
-    if (selectedTid >= 0 &&
+    if (commentIsSelected() &&
         !isSelf(d) // for now, always show circle - TODO fix up/down arrow for blue dot
         ) {
         return false;
@@ -723,7 +736,7 @@ function chooseDisplayForCircle(d) {
 
 function shouldDisplayArrows(d) {
     // Hide the circle so we can show the up/down arrows
-    if (selectedTid >= 0) {
+    if (commentIsSelected()) {
         return true;
     }
     return false;
@@ -734,7 +747,7 @@ function chooseDisplayForArrows(d) {
 }
 
 function chooseFill(d) {
-    // if (selectedTid >= 0) {
+    // if (commentIsSelected()) {
     //     if (d.effects === -1) {  // pull
     //         return colorPull;
     //     } else if (d.effects === 1) { // push
@@ -769,10 +782,13 @@ function chooseStroke(d) {
     }
 }
 
-function commentIsSelected() {
-    return selectedTid >= 0;
+function clusterIsSelected() {
+    return _.isNumber(selectedCluster) && selectedCluster >= 0;
 }
 
+function commentIsSelected() {
+    return _.isNumber(selectedTid) && selectedTid >= 0;
+}
 
 function chooseTransformForRoots(d) {
     var insetPoint = getInsetTarget(d);
@@ -986,7 +1002,7 @@ function upsertNode(updatedNodes, newClusters) {
     }
     
     // readyToReselectComment.done(function() {
-    //     if (selectedTid >= 0) {
+    //     if (commentIsSelected()) {
     //         selectComment(selectedTid);
     //     }
     // });
@@ -1293,7 +1309,7 @@ function upsertNode(updatedNodes, newClusters) {
 
   updateHulls();
 
-  if (selectedTid >= 0) {
+  if (commentIsSelected()) {
     selectComment(selectedTid);
   }
 
@@ -1479,7 +1495,7 @@ function updateNodes() {
       }
 
       update.attr("fill-opacity", function(d) {
-        if (selectedCluster >= 0) {
+        if (clusterIsSelected()) {
             return d.gid === selectedCluster ? "100%" : "25%";
         } else {
             // nothing selected
@@ -1487,7 +1503,7 @@ function updateNodes() {
         }
       });
   }
-  // displayHelpItem("foo");
+  // showLineToCluster("foo");
 
   // visualization.selectAll(".node")
   //   .attr("transform", chooseTransform)
@@ -1512,7 +1528,7 @@ function resetSelection() {
       visualization.selectAll(".active_group").classed("active_group", false);
   }
   selectedCluster = -1;
-  eb.trigger(eb.clusterClicked, selectedCluster);
+  eb.trigger(eb.clusterSelectionChanged, selectedCluster);
   // visualization.transition().duration(750).attr("transform", "");
   // selectedBids = [];
   // resetSelectedComment();
@@ -1521,8 +1537,7 @@ function resetSelection() {
 
 
 function selectBackground() {
-
-  if (selectedCluster >= 0) {
+  if (clusterIsSelected()) {
     resetSelection();
     setClusterActive(-1)
       .then(
@@ -1664,17 +1679,25 @@ function emphasizeParticipants(pids) {
 }
 
 
+function centerOfCluster(gid) {
+    var c = centroids[gid];
+    if (c) {
+        return [c.x, c.y];
+    } else {
+        return [-2, -2];
+    }
+}
+
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
-// function displayHelpItem(content) {
-//     overlay_layer.selectAll(".helpArrow")
-//         .style("display", "block")
-//         .attr("marker-end", "url(#ArrowTip)");
-
-//     // $(".helpArrow").removeClass("hidden");
-//     $("#helpTextBox").removeClass("hidden");
-//     $("#helpTextMessage").html(content);
-// }
+function showLineToCluster(gid) {
+    overlay_layer.selectAll(".helpArrow")
+        .style("display", "block")
+        .style("stroke", "lightgray")
+        .attr("marker-end", "url(#ArrowTip)")
+        // .attr("marker-start", "url(#ArrowTip)")
+        .attr("points", ["-2,80", centerOfCluster(gid).join(",")].join(" "));
+}
 
 function onHelpTextClicked() {
     overlay_layer.selectAll(".helpArrow")
@@ -1682,10 +1705,6 @@ function onHelpTextClicked() {
     // $(".helpArrow").addClass("hidden");
     $("#helpTextBox").addClass("hidden");
 }
-
-// window.foo = displayHelpItem;
-// displayHelpItem("foo");
-
 
 function setupBlueDotHelpText(self) {
     if (SELF_DOT_SHOW_INITIALLY) {
@@ -1732,7 +1751,7 @@ return {
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
     selectComment: selectComment,
-    // dipsplayBlueDotHelpItem: displayHelpItem,
+    showLineToCluster: showLineToCluster,
     emphasizeParticipants: emphasizeParticipants,
     getSelectedGid: getSelectedGid,
 };

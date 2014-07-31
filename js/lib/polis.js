@@ -70,7 +70,6 @@ module.exports = function(params) {
 
     var projectionPeopleCache = [];
     var clustersCache = [];
-    var selectedGid = -1;
 
     var tidSubsetForReprojection = [];
 
@@ -1702,14 +1701,10 @@ function clientSideBaseCluster(things, N) {
         return buckets;
     }
 
-    function getSelectedGroupInfo() {
-        if (selectedGid === -1) {
+    function getGroupInfo(gid) {
+        if (gid === -1) {
             return {count: 0, votes: {A:[],D:[],gA:0,gD:0}};
         }
-        return getGroupInfo(selectedGid);
-    }
-
-    function getGroupInfo(gid) {
         var count = 0;
         if (clustersCache[gid]) {
             _.each(clustersCache[gid], function(bid, gid) {
@@ -1761,9 +1756,6 @@ function clientSideBaseCluster(things, N) {
     }
     
     // findRepresentativeMetadata();
-    eb.on(eb.clusterClicked, function(gid) {
-        selectedGid = gid;
-    });
 
     return {
         authenticated: authenticated,
@@ -1772,7 +1764,6 @@ function clientSideBaseCluster(things, N) {
         getCommentsForGroup: getCommentsForGroup,
         getTidsForGroup: getTidsForGroup,
         getGroupInfo: getGroupInfo,
-        getSelectedGroupInfo: getSelectedGroupInfo,
         getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,
         getPidToBidMapping: getPidToBidMappingFromCache,

@@ -36,7 +36,11 @@
 
 
       <div class="tab-content">
-        <div class="tab-pane" id="analyze" style="border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; ">
+        <div class="tab-pane" id="analyze" style="
+        {{!-- {{#ifXs}} --}}
+        border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; 
+        {{!-- {{/ifXs}} --}}
+        ">
           {{view conversationStatsHeader}}
           {{! BEGIN PILLS }}
           <div class="tabbable">
@@ -62,6 +66,16 @@
             </div>
           </div> {{! END PILLS }}
         </div> {{! analyze tab pane }}
+
+        <div class="tab-pane" id="group" style="
+        {{#ifXs}}
+        border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; 
+        {{/ifXs}}
+        ">
+          {{view analyzeGroupView}}
+        </div> {{! analyze tab pane }}
+
+
         <div
           class="tab-pane active"
           id="commentView"
@@ -104,7 +118,10 @@
     </div> {{! /tabbable }}
   </div> {{! /column }}
 
-  <span id="vis_sibling_bottom" class="t-span6 col-xs-12 col-sm-6 col-md-7 col-lg-8">
+  <span id="vis_sibling_bottom" class="t-span6 col-xs-12 col-sm-6 col-md-7 col-lg-8"
+    style="
+    {{#ifNotXs}}margin-left: -30px; {{/ifNotXs}} {{! make flush with tab pane so we can draw the arrow pointint to the selected hull}}
+    ">
     <div id="visualization_div" class="vis_container"></div>
   </span>
 

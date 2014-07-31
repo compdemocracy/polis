@@ -2,9 +2,7 @@
   custom_gutter_via_padding
   {{#if use_background_content_class}}background_content{{/if}}
   ">
-{{#if showGroupHeader}}
-  <a class="analyzeGroupCloseButton" style="cursor:pointer; padding-bottom:10px"> {{#ifNotIE8}}<i class="fa fa-angle-left"></i>{{/ifNotIE8}} Back to all comments</a>
-{{else}}
+
   <ul class="nav nav-tabs tab-conv"
     style="border-bottom: 0px">
     <li
@@ -16,8 +14,8 @@
         class="HeadingD"
         style="{{#if smallTabs}}font-size:95%{{/if}}"
         data-toggle="tab">
-        {{#ifNotIE8}}<i class="fa fa-align-justify"></i>{{/ifNotIE8}} 
-        READ &amp; REACT
+        {{#ifNotIE8}}<i class="fa fa-align-justify"></i>{{/ifNotIE8}}         
+        {{#unless showGroupHeader}}READ &amp; REACT{{/unless}}
       </a>
     </li>
     <li
@@ -30,7 +28,7 @@
         style="{{#if smallTabs}}font-size:95%{{/if}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i class="fa fa-pencil"></i>{{/ifNotIE8}}
-        WRITE
+        {{#unless showGroupHeader}}WRITE{{/unless}}
       </a>
     </li>
     <li
@@ -40,12 +38,22 @@
         href="#analyze"
         id="analyzeTab"
         class="HeadingD"
-        style="{{#if smallTabs}}font-size:95%{{/if}}"
+        style="{{#if smallTabs}}font-size:95%;{{/if}} {{#ifXs}}display:none;{{/ifXs}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i class="fa fa-coffee"></i>{{/ifNotIE8}}
-        ANALYZE
+        {{#unless showGroupHeader}}ANALYZE{{/unless}}
+      </a>
+    </li>
+    <li
+      {{#if groupActive}} class="active" {{/if}}
+    >
+      <a
+        href="#group"
+        id="groupTab"
+        style="{{#if smallTabs}}font-size:95%;{{/if}} display:none;"
+        data-toggle="tab">
+      {{! Group (nothing to show) }}
       </a>
     </li>
   </ul>
-{{/if}}
 </div>
