@@ -110,7 +110,9 @@
                     (let [greedy-n 15
                           n-in-conv (count in-conv)]
                       (if (< n-in-conv greedy-n)
-                        (->> (hash-map-prune user-vote-counts in-conv)
+                        (->> user-vote-counts
+                          (remove
+                            (fn [[k v]] (in-conv k)))
                           (sort-by (comp - second))
                           (map first)
                           (take (- greedy-n n-in-conv))
