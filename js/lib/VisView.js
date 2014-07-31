@@ -1755,6 +1755,9 @@ function showLineToCluster(gid) {
 }
 
 function updateLineToCluster(gid) {
+    if (navigator.userAgent.match(/MSIE 10/)) {
+        return;
+    }
     var center = centerOfCluster(gid);
     center[0] += xOffset;
 
