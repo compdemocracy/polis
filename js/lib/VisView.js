@@ -590,21 +590,26 @@ function updateHulls() {
         var dfd = new $.Deferred();
         setTimeout(function() {
             var hull = hulls[i];
-            // if (hull.length == 1) {
-            //     hull.push([
-            //         hull[0][0] + 0.01,
-            //         hull[0][1] + 0.01
-            //         ]);
-            // }
-            // if (hull.length == 2) {
-            //     hull.push([
-            //         hull[0][0] + 0.01,
-            //         hull[0][1] - 0.01 // NOTE subtracting so they're not inline
-            //         ]);
-            // }
+
+            var pointsToFeedToD3 = hull.map(function(pt) { return pt;});
+
+            if (pointsToFeedToD3.length == 1) {
+                pointsToFeedToD3.push([
+                    pointsToFeedToD3[0][0] + 0.01,
+                    pointsToFeedToD3[0][1] + 0.01
+                    ]);
+            }
+            if (pointsToFeedToD3.length == 2) {
+                pointsToFeedToD3.push([
+                    pointsToFeedToD3[0][0] + 0.01,
+                    pointsToFeedToD3[0][1] - 0.01 // NOTE subtracting so they're not inline
+                    ]);
+            }
 
 
-            var hullPoints = d3.geom.hull(hull);
+
+            var hullPoints = d3.geom.hull(pointsToFeedToD3);
+
             var centroid = computeCentroid(hullPoints);
             centroids[i] = centroid;
 
@@ -706,6 +711,38 @@ function shouldDisplayCircle(d) {
 }
 
 function computeCentroid(points) {
+
+    // TEMPORARY HACK!
+    // reduces the number of points to 3, since the general N code isn't producing good centroids.
+    if (points.length > 3) {
+        points = [
+            points[0],
+            points[Math.floor(points.length/2)],
+            points[points.length-1]
+        ];
+    }
+
+    if (points.length === 3) {
+        var p = points;
+        return {
+            x: (p[0][0] + p[1][0] + p[2][0])/3,
+            y: (p[0][1] + p[1][1] + p[2][1])/3
+        };
+    } else if (points.length === 2) {
+        var p = points;
+        return {
+            x: (p[0][0] + p[1][0]) / 2,
+            y: (p[0][1] + p[1][1]) / 2
+        };
+    } else if (points.length === 1) {
+        return {
+            x: points[0][0],
+            y: points[0][1]
+        };
+    }
+
+
+
     // http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
     var x = 0;
     var y = 0;
