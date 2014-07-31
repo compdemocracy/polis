@@ -85,6 +85,13 @@ Handlebars.registerHelper("notUseCarousel", function(arg0) {
   return useCarousel(arg0) ? "" : arg0.fn(this);
 });
 
+Handlebars.registerHelper("ifAuthenticated", function(arg0) {
+  return PolisStorage.uid() ? arg0.fn(this) : "";
+});
+Handlebars.registerHelper("ifNotAuthenticated", function(arg0) {
+  return PolisStorage.uid() ? "" : arg0.fn(this);
+});
+
 
 Handlebars.registerHelper('logo_href', function(arg0, options) {
   var shouldSeeInbox = PolisStorage.hasEmail();

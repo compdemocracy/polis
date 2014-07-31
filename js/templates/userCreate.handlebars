@@ -19,7 +19,7 @@
       </div>
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperEmailCreate">Email</label>
-        <input type="text" id="email" name="email" id="gatekeeperEmailCreate" class="FormControl">
+        <input type="text" id="email" name="email" id="gatekeeperEmailCreate" class="FormControl" {{#if readonlyEmail}}readonly{{/if}}>
       </div>
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperPasswordCreate">Password</label>
@@ -57,6 +57,7 @@
 
 
   {{/if}}
+  {{#unless hideHaveAccount}}
     <div class="SwitchForms">
       <span class="SwitchForms-text">OR</span>
       <div class="SwitchForms-submit">
@@ -67,6 +68,7 @@
         {{/if}}
       </div>
     </div>
+    {{/unless}}
   </div> <!-- span -->
 </div> <!-- row -->
 </section> <!-- container -->

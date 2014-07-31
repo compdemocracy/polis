@@ -81,6 +81,10 @@ gulp.task('connect', [], function() {
   express.static.mime.define({'application/x-font-woff': ['.woff']});
   var app = express();
   var fetchIndex = express.static(path.join(destRootBase, "index.html"));
+  app.use(function(req, res, next) {
+    res.setHeader("Cache-Control", "no-cache");
+    return next();
+  });
   app.use(express.static(path.join(destRootBase)));
   app.use("/", fetchIndex);
   app.use(/^\/v3/, proxyToPreprod);
@@ -200,7 +204,7 @@ gulp.task('index', [
 gulp.task('templates', function(){
 
   //does not include participation, which is the main view, because the footer is not right /userCreate.handlebars$/,
-  var topLevelViews = [/settings.handlebars$/, /summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /passwordResetForm.handlebars$/,  /explore.handlebars$/, /conversationGatekeeper.handlebars$/, /passwordResetInitForm.handlebars$/, /create-conversation-form.handlebars$/, /plan-upgrade.handlebars$/];
+  var topLevelViews = [/conversationGatekeeper.handlebars$/, /userCreate.handlebars$/, /create-user-form.handlebars$/, /login-form.handlebars$/, /settings.handlebars$/, /summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /passwordResetForm.handlebars$/,  /explore.handlebars$/, /conversationGatekeeper.handlebars$/, /passwordResetInitForm.handlebars$/, /create-conversation-form.handlebars$/, /plan-upgrade.handlebars$/];
   var bannerNeedingViews = [/summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /explore.handlebars$/, /create-conversation-form.handlebars$/];
 
   function needsBanner(file) {

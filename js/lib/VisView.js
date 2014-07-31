@@ -1033,10 +1033,17 @@ function upsertNode(updatedNodes, newClusters) {
         }
     }
     var minRad = minNodeRadiusScaleForGivenVisWidth(w);
-    var maxRad = maxNodeRadiusScaleForGivenVisWidth(w);
-    bucketRadiusForCount = d3.scale.linear().range([minRad, maxRad]).domain([1, maxCount]).clamp(true);
+    // var maxRad = maxNodeRadiusScaleForGivenVisWidth(w);
+    // bucketRadiusForCount = d3.scale.pow().exponent(.5).range([minRad, maxRad]).domain([1, maxCount]).clamp(true);
 
-
+    var baseSquared = minRad*minRad;
+    bucketRadiusForCount = function(count) {
+        // 1 -> area of 25, rad of 5
+        // 2 -> area of 50, rad of ~7
+        // sqrt(base**2 * count)
+        return Math.sqrt(baseSquared * count);
+    };
+    var maxRad = bucketRadiusForCount(maxCount);
 
   function createScales(updatedNodes) {
     var spans = computeXySpans(updatedNodes);
