@@ -80,7 +80,7 @@ gulp.task('connect', [], function() {
 
   express.static.mime.define({'application/x-font-woff': ['.woff']});
   var app = express();
-  var fetchIndex = express.static(path.join(destRootBase, "index.html"));
+  var fetchIndex = express.static(path.join(destRootBase, "index.html"), { maxAge: 0, });
   app.use(function(req, res, next) {
     res.setHeader("Cache-Control", "no-cache");
     return next();
@@ -218,7 +218,7 @@ gulp.task('templates', function(){
     });
   }
 
-  gulp.src(['js/templates/*.hbs', 'js/templates/*.handlebars'])
+  return gulp.src(['js/templates/*.hbs', 'js/templates/*.handlebars'])
     .pipe(tap(function(file) {
       
       if(needsHeaderAndFooter(file) || needsBanner(file)) {
