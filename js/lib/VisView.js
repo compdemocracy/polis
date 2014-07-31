@@ -302,7 +302,6 @@ if (isIE8) {
         .attr("transform", "translate("+ xOffset +")");
         
     blocker_layer = visualization.append(groupTag)
-        .style("display", "none")
         .attr("transform", "translate("+ xOffset +")");
 
     overlay_layer = visualization.append(groupTag);
