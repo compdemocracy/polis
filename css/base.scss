@@ -100,14 +100,6 @@ body {
 
 .startNewConversation { margin: 0px auto; display: block; position: relative; width: 230px; margin-bottom: 20px }
 
-/* Custom Confirm Dialog */
-
-.konfirm-shade { position: fixed; width: 100%; height: 100%; background: rgba(0,0,0,0.35); display: block; top: 0px; left: 0px; z-index: 9998;}
-.konfirm-dialog {position: fixed; background: #ECF0F1; border: 1px solid #BDC3C7; border-radius: 5px; color: #34495E; width: 280px; padding: 20px; text-align: center; z-index: 9999;}
-.konfirm-dialog p { font-size: 16px; margin-bottom: 20px;}
-.konfirm-dialog .btn-danger { display: inline-block; width: 100px;}
-.konfirm-dialog .btn-success { margin-left: 10px; display: inline-block; width: 100px;}
-
 
 /* Conversation create - and everything concerned with metadata */
 
@@ -217,12 +209,7 @@ $custom_gutter_pixels: 5px;
 /*XS XS XS XS XS XS XS */
 /*  @screen-sm-min  */
 @media(max-width:767px){
-   .comment_form_button_position {
-    position: absolute;
-    right: 0;
-    bottom: 0px;
-    max-width: 67px;
-  }
+
 
   .comment_form_textarea_width {
     max-width: 75%;
@@ -239,12 +226,6 @@ $custom_gutter_pixels: 5px;
     max-width: 100%;
   }
 
-  .comment_form_button_position {
-    position: absolute;
-    right: 0;
-    bottom: -53px;
-    max-width: 91px;
-  }
 
 
 
