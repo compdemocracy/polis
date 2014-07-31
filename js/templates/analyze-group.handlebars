@@ -2,6 +2,7 @@
 {{#ifNotXs}}
 border-style: solid;
 border-width: 0px;
+background-color: white;
 border-top-width: 1px;
 border-color: lightgray;
 border-right: 3px solid lightgrey;
@@ -21,15 +22,17 @@ border-top-left-radius: 10px;
     {{!-- <p>
       {{numSelected}} people in the selected group.
     </p> --}}
-    <h3 style="
+    <p 
+    class="HeadingC" 
+    style="
     padding: 20px;
     background-color: rgb(247, 247, 247);
     margin-top: 0px;
     text-align: center;
     border-radius: 9px 9px 0px 0px;
 "> {{! line-height since the span around "selected group may vertically overlap with the rest of the text }}
-      What <span class="hull_selection active_group" style="padding: 5px; padding-top: 0px; padding-bottom: 0px;">this group</span> thought:
-    </h3>
+      What <span class="hull_selection active_group " style="padding: 5px; padding-top: 0px; padding-bottom: 0px;">this group</span> thought:
+    </p>
   </div>
   {{/ifNotXs}}
   <div id="carousel" style="overflow:hidden;"></div>

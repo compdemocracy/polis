@@ -194,7 +194,7 @@ module.exports = Handlebones.View.extend({
         var v = info.votes[tid];
         var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
         header =
-            "<span class='a' style='margin-right:10px'>&#9650; " + percent + "%</span>" +
+            "<span class='a HeadingE' style='margin-right:10px'>&#9650; " + percent + "%</span>" +
             "<span class='small' style='color:darkgray;'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
       } else {
         header = 
@@ -202,7 +202,7 @@ module.exports = Handlebones.View.extend({
           "<span class='d'>&#9660; " + c.get("D") + "</span>";
       }
       var html = 
-        "<div style='margin:10px; text-align:justify' class='well query_result_item'>" + 
+        "<div style='margin:10px;' class='well query_result_item'>" + 
           "<p>" +
             header +
           "</p>" +

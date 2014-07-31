@@ -2,10 +2,20 @@
 // Conversation View
 //
 
+// [data-view-name="analyze-global-view"] {
+//   background-color: $bg-color;
+// }
 
 .nav-tabs {
   background-color: $bg-color;
 }
+
+.popover-title {
+  font-family: $sans-font;
+  text-transform: uppercase;
+  font-size: 16px;
+}
+
 
 .helpArrow {
   fill: #222;

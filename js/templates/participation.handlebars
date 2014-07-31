@@ -122,6 +122,7 @@
     style="
     {{#ifNotXs}}margin-left: -30px; {{/ifNotXs}} {{! make flush with tab pane so we can draw the arrow pointint to the selected hull}}
     ">
+    {{!-- <button class="Btn Btn-alt" style="position: absolute; right: 0px">SHOW LEGEND</button> --}}
     <div id="visualization_div" class="vis_container"></div>
   </span>
 
@@ -131,20 +132,18 @@
       id="write_hints_div"
       style="
         display:none;
-        padding-left: 20px;
-        padding-right: 20px;
-        border: 1px solid lightgrey;
-        border-radius: 10px;
+
         {{!-- margin: 20px; --}}
       "
       class="
-        col-xs-10 col-xs-offset-1
-        col-sm-5
-        col-md-6
-        col-lg-7
+        col-xs-10 
+        col-sm-6
+        col-md-offset-1
+        col-lg-5
+        hidden-xs
       ">
 
-      <h3> Writing Comments </h3>
+      <h3 class="HeadingB "> Writing Comments </h3>
 
       <p> The conversations in pol.is can only ever be as good as the comments submitted. You are responsible for the quality of the content, and the dimensions that will be considered by other participants. </p>
 
@@ -154,14 +153,14 @@
         <li> Your comment will be sent out randomly. You are not replying directly to anyone else in the conversation.</li>
       </ul> 
 
-      <h5> When and where will my comment be displayed? </h5> 
+      <h5 class="HeadingC" style="margin-top: 20px"> When and where will my comment be displayed? </h5> 
 
       <p> Your comment may or may not be moderated. Comments may appear to immediately to other participants, or there may be a delay, pending moderator approval. Approved comments will appear, at random, to other participants in this conversation. </p>
 
-      <h5>Will my words be edited? </h5>
+      <h5 class="HeadingC" style="margin-top: 20px">Will my words be edited? </h5>
       <p> No. Comments are either approved or rejected during moderation, but cannot be edited. </p> 
 
-      <h5>Will I be identified when making a comment?</h5>
+      <h5 class="HeadingC" style="margin-top: 20px">Will I be identified when making a comment?</h5>
       <p> Anonymity varies in pol.is from conversation to conversation. Commenting is anonymous, unless you reveal anything that can be used to deanonymize you. Your voting patterns can also be used to deanonymize you in certain circumstances, given the content of other comments. For more information, please see our <a href="/privacy">Privacy Policy</a>.</p>
 
 
