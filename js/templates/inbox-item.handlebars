@@ -1,13 +1,13 @@
 <div class="row" style="margin-top: 30px; border-top: 1px solid lightgrey; padding-top: 20px; padding-bottom: 20px">
-    <div class="col-md-8">
+    <div class="col-xs-7">
     <!-- <p><span class="badge" style="font-weight: 500; color: white">{{participant_count}} &nbsp;<i class="fa fa-group"></i></span></p> -->
       <h5 class="HeadingB">{{topic}}</h5>
-      <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro" >{{description}}</p>
+      <p class="blockquote" >{{description}}</p>
       <div>
         <a href="{{url_name}}" style="font-weight:500"> {{url_name_with_hostname}} </a>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-xs-4 col-xs-offset-1">
       
         {{#if is_owner}}
         <a href="{{url_moderate}}" class="Btn Btn-alt pull-right">Moderate</a>

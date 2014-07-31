@@ -23,37 +23,37 @@
   {{#unless empty}}
       <div class="btn-group btn-group-justified">
         <div
-          class="btn btn-lg btn-default btn-vote"
+          class="btn btn-lg btn-default "
           id="agreeButton"
           role="button"
           type="button"
         >
         {{#ifNotIE8}}
-          <i class="fa fa-caret-up" style="color: #2ecc71;"></i>
+          <i class="fa fa-caret-up" style="font-size: 20px; color: #2ecc71; position: relative; top: 1px"></i>
         {{/ifNotIE8}}
-        &nbsp;Agree </div>
+        &nbsp;<p class="btn-vote">AGREE</p> </div>
 
         <div
           id="disagreeButton"
-          class="btn btn-lg btn-default btn-vote"
+          class="btn btn-lg btn-default "
           role="button"
           type="button"
         >
         {{#ifNotIE8}}
-          <i class="fa fa-caret-down" style="color: #e74c3c"></i>
+          <i class="fa fa-caret-down" style="font-size: 20px; color: #e74c3c; position: relative; top: 2px"></i>
         {{/ifNotIE8}}
-        &nbsp;Disagree </div>
+        &nbsp;<p class="btn-vote">DISAGREE</p> </div>
 
         <div
           id="passButton"
-          class="btn btn-lg btn-default btn-vote"
+          class="btn btn-lg btn-default "
           role="button"
           type="button"
         >
         {{#ifNotIE8}}
-          <i class="fa fa-flag" style="color: #aaa"></i>
+          <i class="fa fa-flag" style="font-size: 16px; color: #aaa"></i>
         {{/ifNotIE8}}
-        /&nbsp;Pass </div>
+        /&nbsp;<p class="btn-vote">PASS</p> </div>
     </div>
   {{/unless}}
 </div>

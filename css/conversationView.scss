@@ -2,6 +2,11 @@
 // Conversation View
 //
 
+
+.nav-tabs {
+  background-color: $bg-color;
+}
+
 .helpArrow {
   fill: #222;
 }
@@ -45,7 +50,10 @@
 
 .btn-vote {
   // set this independently of the overall font size, since they're difficult to get right.
-  font-size: 20px;
+  font-family: $sans-font;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline;
   padding: 10px 0px; // no horizontal padding - to prevent the right edge of "disagree" from being clipped on iOS
 }
 
