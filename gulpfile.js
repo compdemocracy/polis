@@ -81,6 +81,10 @@ gulp.task('connect', [], function() {
   express.static.mime.define({'application/x-font-woff': ['.woff']});
   var app = express();
   var fetchIndex = express.static(path.join(destRootBase, "index.html"));
+  app.use(function(req, res, next) {
+    res.setHeader("Cache-Control", "no-cache");
+    return next();
+  });
   app.use(express.static(path.join(destRootBase)));
   app.use("/", fetchIndex);
   app.use(/^\/v3/, proxyToPreprod);
