@@ -103,7 +103,7 @@
         repness (:base-clusters results)]
     (-> results
       ; remove things we don't want to publish
-      (dissoc :mat :rating-mat :opts')
+      (dissoc :mat :rating-mat :opts' :bucket-dists :base-clusters-proj)
 
       ; REFORMAT PROJECTION
       ; remove original projection - we'll provide buckets/base-clusters instead
@@ -112,6 +112,8 @@
       ; REFORMAT BASE CLUSTERS
       (dissoc :base-clusters)
       (dissoc :bid-to-pid)
+      ; XXX - This should actually be based on the base-clusters-proj, since the work has already be done
+      ; here, but before it gets dissoc'd
       (assoc-in [:base-clusters "x"] (map #(first (:center %)) base-clusters))
       (assoc-in [:base-clusters "y"] (map #(second (:center %)) base-clusters))
       (assoc-in [:base-clusters "id"] (map :id base-clusters))
