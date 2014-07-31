@@ -7,7 +7,8 @@
             [clojure.tools.reader.edn :as edn]
             [clojure.math.numeric-tower :as math]
             [bigml.sampling.simple :as sampling]
-            [alex-and-georges.debug-repl :as dbr])
+           ; [alex-and-georges.debug-repl :as dbr]
+            )
   (:use clojure.core.matrix
         clojure.core.matrix.operators
         polismath.utils

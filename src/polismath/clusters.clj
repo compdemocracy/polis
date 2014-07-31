@@ -2,7 +2,8 @@
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
             [clojure.tools.trace :as tr]
-            [alex-and-georges.debug-repl :as dbr])
+           ; [alex-and-georges.debug-repl :as dbr]
+            )
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
         polismath.named-matrix
