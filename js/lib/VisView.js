@@ -16,7 +16,7 @@ var getReactionsToComment = params.getReactionsToComment;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
-
+var xOffset = params.xOffset = 30;
 
 var dimensions = {
     width: params.w,
@@ -44,6 +44,7 @@ var hulls = [];
 var centroids = [];
 var visualization;
 var main_layer;
+var blocker_layer;
 var overlay_layer;
 //var g; // top level svg group within the vis that gets translated/scaled on zoom
 var force;
@@ -296,7 +297,14 @@ if (isIE8) {
                 // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
     ;
     $(el_selector).on("click", selectBackground);
-    main_layer = visualization.append(groupTag);
+
+    main_layer = visualization.append(groupTag)
+        .attr("transform", "translate("+ xOffset +")");
+        
+    blocker_layer = visualization.append(groupTag)
+        .style("display", "none")
+        .attr("transform", "translate("+ xOffset +")");
+
     overlay_layer = visualization.append(groupTag);
 
     overlay_layer.append("polyline")
@@ -304,7 +312,7 @@ if (isIE8) {
         .classed("helpArrowLine", true)
         .style("display", "none")
         ;
-    w = $(el_selector).width();
+    w = $(el_selector).width() - xOffset;
     h = $(el_selector).height();
 }
 
@@ -956,13 +964,13 @@ function upsertNode(updatedNodes, newClusters) {
     }
     if (visBlockerOn) {
         var neededCount = MIN_PARTICIPANTS_FOR_VIS - participantCount;
-        overlay_layer.selectAll(".visBlockerMainText")
+        blocker_layer.selectAll(".visBlockerMainText")
             .text("Waiting for " +neededCount+ " more participants to join & vote.")
             .style("font-weight", 700)
             .style("font-size", display.xs() ? ".9em" : "1em")
             ;
 
-        overlay_layer.selectAll(".visBlockerGraphic")
+        blocker_layer.selectAll(".visBlockerGraphic")
             .text(function(d) {
                 var txt = "";
                 _.times(participantCount, function() {
@@ -1559,7 +1567,7 @@ var visBlockerOn = false;
 function showVisBlocker() {
     visBlockerOn = true;
 
-    overlay_layer.append("rect")
+    blocker_layer.append("rect")
         .classed("visBlocker", true)
         .style("fill", "white")
         .attr("x", 1) // inset so it doesn't get cut off on firefox
@@ -1570,7 +1578,7 @@ function showVisBlocker() {
         .attr("rx", 10)
         .attr("ry", 10)
     ;
-    overlay_layer.append("text")
+    blocker_layer.append("text")
             .classed("visBlocker", true)
             .classed("visBlockerMainText", true)
             .attr("text-anchor", "middle")
@@ -1580,7 +1588,7 @@ function showVisBlocker() {
                 w/2 +
                 "," + h/3 + ")")
     ;
-    overlay_layer.append("text")
+    blocker_layer.append("text")
             .classed("visBlocker", true)
             .classed("visBlockerGraphic", true)
             .attr("transform", "translate("+ 
@@ -1598,7 +1606,7 @@ function showVisBlocker() {
 function hideVisBlocker() {
     visBlockerOn = false;
 
-    overlay_layer.selectAll(".visBlocker")
+    blocker_layer.selectAll(".visBlocker")
         .remove()
     ;
 }
@@ -1691,19 +1699,23 @@ function centerOfCluster(gid) {
     if (c) {
         return [c.x, c.y];
     } else {
-        return [-2, -2];
+        return [-99, -99];
     }
 }
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
 function showLineToCluster(gid) {
+    var center = centerOfCluster(gid);
+    center[0] += xOffset;
+
+    center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
         .style("stroke", "lightgray")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", ["-2,80", centerOfCluster(gid).join(",")].join(" "));
+        .attr("points", ["-2,80", center].join(" "));
 }
 
 function onHelpTextClicked() {
