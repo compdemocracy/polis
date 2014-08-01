@@ -1,7 +1,7 @@
 var Handlebars = require("handlebars");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/inbox");
-var inboxCollectionItemTemplate = require("../tmpl/inbox-item");
+var inboxCollectionItemTemplate = require("../tmpl/inbox-item-api-test");
 var inboxEmptyTemplate = require("../tmpl/inbox-empty");
 
 var InboxCollectionView = Handlebones.CollectionView.extend({
@@ -20,7 +20,7 @@ module.exports = Handlebones.View.extend({
   initialize: function(options) {
     this.showNewButton = true;
     this.collection = options.collection;
-    this.filters = {};
+    this.filters = options.filters;
     // this.filters.is_active = options.is_active;
     // this.filters.is_draft = options.is_draft;
     this.collection.comparator = function(conversation) {

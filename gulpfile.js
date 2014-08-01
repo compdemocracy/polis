@@ -107,7 +107,8 @@ gulp.task('connect', [], function() {
   app.use(/^\/welcome\/.*$/, fetchIndex);
   app.use(/^\/settings$/, fetchIndex);
   app.use(/^\/user\/logout$/, fetchIndex);
-  app.use(/^\/inbox.*/, fetchIndex);
+  app.use(/^\/inbox$/, fetchIndex);
+  app.use(/^\/inboxApiTest$/, fetchIndex);
   app.use(/^\/pwresetinit$/, fetchIndex);
   app.use(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
   app.use(/^\/pwreset.*/, fetchIndex);

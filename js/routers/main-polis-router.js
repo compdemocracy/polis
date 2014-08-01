@@ -8,6 +8,7 @@ var FaqCollection = require("../collections/faqs");
 var FaqContent = require("../faqContent");
 var InboxItemForApiView = require('../views/inboxItemForApi');
 var InboxView = require("../views/inbox");
+var InboxApiTestView = require("../views/inboxApiTest");
 var HomepageView = require("../views/homepage");
 var CreateConversationFormView = require("../views/create-conversation-form");
 var ConversationDetailsView = require("../views/conversation-details");
@@ -204,6 +205,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("settings", "settings");
     this.r("plan/upgrade(/:plan_id)", "upgradePlan");
     this.r("inbox(/:filter)", "inbox");
+    this.r("inboxApiTest(/:filter)", "inboxApiTest");
     this.r("faq", "faq");
     this.r("pwresetinit", "pwResetInit");
     this.r("prototype", "prototype");
@@ -227,14 +229,15 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^share\/([0-9][0-9A-Za-z]+)$/, "shareView");  // share/sid
     this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/sid
     this.r(/^m\/([0-9][0-9A-Za-z]+)$/, "moderationView");  // m/sid
-    this.r(/^iip\/([0-9][0-9A-Za-z]+)$/, "inboxItemParticipant");
-    this.r(/^iim\/([0-9][0-9A-Za-z]+)$/, "inboxItemModerator");
+    // this.r(/^iip\/([0-9][0-9A-Za-z]+)$/, "inboxItemParticipant");
+    // this.r(/^iim\/([0-9][0-9A-Za-z]+)$/, "inboxItemModerator");
 
     var routesWithFooter = [
       /^faq/,
       /^settings/,
       /^summaryView/,
       /^inbox$/,
+      /^inboxApiTest$/,
       /^moderationView/,
       /^pwResetInit/,
       /^pwReset/,
@@ -420,6 +423,50 @@ var polisRouter = Backbone.Router.extend({
       var inboxView = new InboxView($.extend(filterAttrs, {
         collection: conversationsCollection
       }));
+      RootView.getInstance().setView(inboxView);
+    });
+  },
+  inboxApiTest: function(filter){
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(false);
+    } else if (!hasEmail()) {
+      promise = this.doLogin(true);
+    }
+    promise.then(function() {
+      // TODO add to inboxview init
+      // conversationsCollection.fetch({
+      //     data: $.param({
+      //         is_active: false,
+      //         is_draft: false,
+      //     }),
+      //     processData: true,
+      // });
+      var filterAttrs = {};
+      filterAttrs.want_inbox_item_admin_html = true;
+      // filterAttrs.want_inbox_item_admin_html = true;
+      filterAttrs.limit = 50;
+      // filterAttrs.want_inbox_item_participant_url = true;
+      // if (filter) {
+      //   switch(filter) {
+      //     case "closed":
+      //       filterAttrs.is_active = false;
+      //       filterAttrs.is_draft = false;
+      //     break;
+      //     case "active":
+      //       filterAttrs.is_active = true;
+      //     break;
+      //     default:
+      //       filterAttrs.is_active = true;
+      //     break;
+      //   }
+      // }
+      var conversationsCollection = new ConversationsCollection();
+      // Let the InboxView filter the conversationsCollection.
+      var inboxView = new InboxApiTestView({
+        filters: filterAttrs,
+        collection: conversationsCollection
+      });
       RootView.getInstance().setView(inboxView);
     });
   },
