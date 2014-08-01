@@ -4755,16 +4755,20 @@ app.get('/auth', function (req, res) {
 app.get('/oauth2/oauth2_github_callback', function (req, res) {
 
   function saveToken(error, result) {
-    if (error) { console.log('Access Token Error', error.message); }
+    if (error) {
+        console.log('Access Token Error', error.message);
+        fail(res, 500, "polis_err_oauth_callback_github", error);
+    }
     var token = oauth2.AccessToken.create(result);
     console.log("token", token);
+    res.status(200).end();
   }
 
   var code = req.query.code;
   console.log('/oauth2/oauth2_github_callback');
   oauth2.AuthCode.getToken({
     code: code,
-    redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
+    redirect_uri: 'https://preprod.pol.is/oauthTest'
   }, saveToken);
 
 
