@@ -4322,6 +4322,7 @@ function getConversations(req, res) {
   var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
   var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
   var context = req.p.context;
+  var limit = req.p.limit;
   console.log("thecontext", context);
 
   var fail = failNotWithin(500);
@@ -4352,8 +4353,13 @@ function getConversations(req, res) {
     }
     //query = whereOptional(query, req.p, 'owner');
     query = query.order(sql_conversations.created.descending);
-    query = query.limit(999); // TODO paginate
 
+    if (!_.isUndefined(req.p.limit)) {
+        query = query.limit(req.p.limit);
+    } else {
+        query = query.limit(999); // TODO paginate
+    }
+    
     pgQuery(query.toString(), function(err, result) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
@@ -4386,6 +4392,7 @@ app.get('/v3/conversations',
     want('sid', getSidFetchZid, assignToPCustom('zid')),
     want('want_inbox_item_admin_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_participant_url', getBool, assignToP), // NOTE - use this for API only!
+    want('limit', getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
     want('context', getStringLimitLength(1, 999), assignToP),
 function(req, res) {
   if (req.p.zid) {
