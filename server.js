@@ -4762,6 +4762,7 @@ app.get('/oauth2/oauth2_github_callback', function (req, res) {
     var token = oauth2.AccessToken.create(result);
     console.log("token", token);
     res.status(200).end();
+    res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
   }
 
   var code = req.query.code;
