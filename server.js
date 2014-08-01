@@ -4919,9 +4919,49 @@ app.get(/^\/user\/login$/, fetchIndex);
 app.get(/^\/welcome\/.*$/, fetchIndex);
 app.get(/^\/settings$/, fetchIndex);
 app.get(/^\/user\/logout$/, fetchIndex);
-app.get(/^\/iip\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
-app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
-app.get(/^\/inbox.*/, fetchIndex);
+
+
+app.get("/iip/:sid",
+// function(req, res, next) {
+//     req.p.sid = req.params.sid;
+//     next();
+// },
+    moveToBody,
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
+function(req, res) {
+    var sid = req.params.sid;
+    res.set({
+        'Content-Type': 'text/html',
+    });
+    res.send("<a href='https://pol.is/" + sid + "' target='_blank'>" + sid + "</a>");
+});
+// app.get(/^\/iip\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
+
+app.get("/iim/:sid",
+    moveToBody,
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
+function(req, res) {
+    var zid = req.p.zid;
+    var sid = req.params.sid;
+    getConversationInfo(zid).then(function(info) {
+        res.set({
+            'Content-Type': 'text/html',
+        });
+        var title = info.topic || info.created;
+        res.send("<a href='https://pol.is/" + sid + "' target='_blank'>" + title + "</a>" +
+                "<p><a href='https://pol.is/m" + sid + "' target='_blank'>moderate</a></p>" +
+                (info.description ? "<p>"+info.description+"</p>" : "")
+                );
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_fetching_conversation_info", err);
+    });
+});
+// app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
+
+
+
+app.get(/^\/inbox$/, fetchIndex);
+app.get(/^\/inboxApiTest/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
 app.get(/^\/pwreset.*/, fetchIndex);
