@@ -33,6 +33,28 @@
   }
 }
 
+.Btn-moderateAccept {
+  background-color: $bg-alt-color;
+  color: darken( $color_agree, 20%);
+  letter-spacing: 0.05em;
+
+  &:hover, &:focus {
+    background-color: #d9dadc;
+    color:  $color_agree;
+  }
+}
+
+.Btn-moderateReject {
+  background-color: $bg-alt-color;
+  color: darken( $color_disagree, 20%);
+  letter-spacing: 0.05em;
+
+  &:hover, &:focus {
+    background-color: #d9dadc;
+    color: $color_disagree;
+  }
+}
+
 //
 // Voting buttons: agree and disagree
 //
