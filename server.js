@@ -4744,42 +4744,42 @@ function(req, res) {
 
 
 
-// // BEGIN GITHUB OAUTH2 ROUTES
+// BEGIN GITHUB OAUTH2 ROUTES
 
-// // Initial page redirecting to Github
-// app.get('/auth', function (req, res) {
-//     res.redirect(authorization_uri);
-// });
+// Initial page redirecting to Github
+app.get('/auth', function (req, res) {
+    res.redirect(authorization_uri);
+});
 
-// // Callback service parsing the authorization token and asking for the access token
-// app.get('/oauth2/oauth2_github_callback', function (req, res) {
+// Callback service parsing the authorization token and asking for the access token
+app.get('/oauth2/oauth2_github_callback', function (req, res) {
 
-//   function saveToken(error, result) {
-//     if (error) {
-//         console.log('Access Token Error', error.message);
-//         fail(res, 500, "polis_err_oauth_callback_github", error);
-//     }
-//     var token = oauth2.AccessToken.create(result);
-//     console.log("token", token);
-//     res.status(200).end();
-//     // res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
-//   }
+  function saveToken(error, result) {
+    if (error) {
+        console.log('Access Token Error', error.message);
+        fail(res, 500, "polis_err_oauth_callback_github", error);
+    }
+    var token = oauth2.AccessToken.create(result);
+    console.log("token", token);
+    res.status(200).end();
+    res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
+  }
 
-//   var code = req.query.code;
-//   console.log('/oauth2/oauth2_github_callback');
-//   oauth2.AuthCode.getToken({
-//     code: code,
-//     redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
-//   }, saveToken);
+  var code = req.query.code;
+  console.log('/oauth2/oauth2_github_callback');
+  oauth2.AuthCode.getToken({
+    code: code,
+    redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
+  }, saveToken);
 
 
-// });
+});
 
-// app.get('/oauthTest', function (req, res) {
-//   res.send('Hello World');
-// });
+app.get('/oauthTest', function (req, res) {
+  res.send('Hello World');
+});
 
-// // END GITHUB OAUTH2 ROUTES
+// END GITHUB OAUTH2 ROUTES
 
 
 
