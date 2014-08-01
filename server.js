@@ -4321,6 +4321,8 @@ function getConversations(req, res) {
   var zid = req.p.zid;
   var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
   var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
+  var want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
+  var want_inbox_item_participant_html = req.p.want_inbox_item_participant_html;
   var context = req.p.context;
   var limit = req.p.limit;
   console.log("thecontext", context);
@@ -4367,11 +4369,20 @@ function getConversations(req, res) {
         addSids(data).then(function(data) {
             data.forEach(function(conv) {
                 conv.is_owner = conv.owner === uid;
+                var root = getServerNameWithProtocol(req);
                 if (want_inbox_item_admin_url) {
-                    conv.inbox_item_admin_url = getServerNameWithProtocol(req) +"/iim/"+ conv.sid;
+                    conv.inbox_item_admin_url = root +"/iim/"+ conv.sid;
                 }
                 if (want_inbox_item_participant_url) {
-                    conv.inbox_item_participant_url = getServerNameWithProtocol(req) +"/iip/"+ conv.sid;
+                    conv.inbox_item_participant_url = root +"/iip/"+ conv.sid;
+                }
+                if (want_inbox_item_admin_html) {
+                    conv.inbox_item_admin_html =
+                        "<a href='" +root +"/" +conv.sid + "'>"+(conv.topic||conv.created)+"</a>"+
+                        " <a href='" +root +"/m/"+ conv.sid + "'>moderate</a>";
+                }
+                if (want_inbox_item_participant_html) {
+                    conv.inbox_item_admin_html = "<a href='" +root +"/"+ conv.sid + "'>"+(conv.topic||conv.created)+"</a>";
                 }
                 delete conv.zid;
                 console.dir(conv);
@@ -4392,6 +4403,8 @@ app.get('/v3/conversations',
     want('sid', getSidFetchZid, assignToPCustom('zid')),
     want('want_inbox_item_admin_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_participant_url', getBool, assignToP), // NOTE - use this for API only!
+    want('want_inbox_item_admin_html', getBool, assignToP), // NOTE - use this for API only!
+    want('want_inbox_item_participant_html', getBool, assignToP), // NOTE - use this for API only!
     want('limit', getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
     want('context', getStringLimitLength(1, 999), assignToP),
 function(req, res) {
