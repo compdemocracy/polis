@@ -4768,7 +4768,7 @@ app.get('/oauth2/oauth2_github_callback', function (req, res) {
   console.log('/oauth2/oauth2_github_callback');
   oauth2.AuthCode.getToken({
     code: code,
-    redirect_uri: 'https://preprod.pol.is/oauthTest'
+    redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
   }, saveToken);
 
 
