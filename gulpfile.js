@@ -95,6 +95,11 @@ gulp.task('connect', [], function() {
   app.use(/^\/summary\/[0-9][0-9A-Za-z]+/, fetchIndex); // summary view
   app.use(/^\/m\/[0-9][0-9A-Za-z]+/, fetchIndex); // moderation view
   app.use(/^\/ot\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view, one-time url
+  
+  app.use(/^\/iip\/[0-9][0-9A-Za-z]+/, fetchIndex);
+  app.use(/^\/iim\/[0-9][0-9A-Za-z]+/, fetchIndex);
+
+
   // TODO consider putting static files on /static, and then using a catch-all to serve the index.
   app.use(/^\/conversation\/create.*/, fetchIndex);
   app.use(/^\/user\/create$/, fetchIndex);

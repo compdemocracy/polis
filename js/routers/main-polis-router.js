@@ -6,6 +6,7 @@ var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
 var FaqCollection = require("../collections/faqs");
 var FaqContent = require("../faqContent");
+var InboxItemForApiView = require('../views/inboxItemForApi');
 var InboxView = require("../views/inbox");
 var HomepageView = require("../views/homepage");
 var CreateConversationFormView = require("../views/create-conversation-form");
@@ -29,6 +30,7 @@ var PolisStorage = require("../util/polisStorage");
 var UserModel = require("../models/user");
 var _ = require("underscore");
 var $ = require("jquery");
+
 
 function authenticated() { return PolisStorage.uid(); }
 function hasEmail() { return PolisStorage.hasEmail(); }
@@ -225,12 +227,14 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^share\/([0-9][0-9A-Za-z]+)$/, "shareView");  // share/sid
     this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/sid
     this.r(/^m\/([0-9][0-9A-Za-z]+)$/, "moderationView");  // m/sid
+    this.r(/^iip\/([0-9][0-9A-Za-z]+)$/, "inboxItemParticipant");
+    this.r(/^iim\/([0-9][0-9A-Za-z]+)$/, "inboxItemModerator");
 
     var routesWithFooter = [
       /^faq/,
       /^settings/,
       /^summaryView/,
-      /^inbox/,
+      /^inbox$/,
       /^moderationView/,
       /^pwResetInit/,
       /^pwReset/,
@@ -292,6 +296,40 @@ var polisRouter = Backbone.Router.extend({
       });
     });
 
+  },
+  inboxItemParticipant: function(sid) {
+    var model = new Backbone.Model({
+      sid: sid,
+      participant_count: 0,
+      topic: "Placeholder Topic",
+      description: "Placeholder Description",
+      url_name: "https://preprod.pol.is/" + sid,
+      url_name_with_hostname: "https://preprod.pol.is/" + sid,
+      // url_moderate: "https://pol.is/m/" + sid,
+      target: "_blank",
+      is_owner: false,
+    })
+    var view = new InboxItemForApiView({
+      model: model
+    });
+    RootView.getInstance().setView(view);
+  },
+  inboxItemModerator: function(sid) {
+    var model = new Backbone.Model({
+      sid: sid,
+      participant_count: 0,
+      topic: "Placeholder Topic",
+      description: "Placeholder Description",
+      url_name: "https://pol.is/" + sid,
+      url_name_with_hostname: "https://pol.is/" + sid,
+      url_moderate: "https://pol.is/m/" + sid,
+      target: "_blank",
+      is_owner: true,
+    })
+    var view = new InboxItemForApiView({ // TODO moderator specific
+      model: model
+    });
+    RootView.getInstance().setView(view);
   },
   landingPageView: function() {
     if (!authenticated()) {

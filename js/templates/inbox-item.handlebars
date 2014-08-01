@@ -4,13 +4,13 @@
       <h5 style="text-transform: uppercase; font-weight: 700">{{topic}}</h5>
       <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro" >{{description}}</p>
       <div>
-        <a href="{{url_name}}" style="font-weight:500"> {{url_name_with_hostname}} </a>
+        <a href="{{url_name}}" {{#if target}}target={{target}}{{/if}} style="font-weight:500"> {{url_name_with_hostname}} </a>
       </div>
     </div>
     <div class="col-md-3">
       <div class="btn-group">
         {{#if is_owner}}
-        <a href="{{url_moderate}}" class="btn btn-default btn-large">Moderate</a>
+        <a href="{{url_moderate}}" {{#if target}}target={{target}}{{/if}} class="btn btn-default btn-large">Moderate</a>
         {{/if}}
       </div> {{! btn-group}}
     </div>
