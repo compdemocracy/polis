@@ -4362,10 +4362,10 @@ function getConversations(req, res) {
             data.forEach(function(conv) {
                 conv.is_owner = conv.owner === uid;
                 if (want_inbox_item_admin_url) {
-                    conv.inbox_item_admin_url = createModerationUrl(req, conv.sid);
+                    conv.inbox_item_admin_url = getServerNameWithProtocol(req) +"/iim/"+ conv.sid;
                 }
                 if (want_inbox_item_participant_url) {
-                    conv.inbox_item_participant_url = getServerNameWithProtocol(req) +"/"+ conv.sid;
+                    conv.inbox_item_participant_url = getServerNameWithProtocol(req) +"/iip/"+ conv.sid;
                 }
                 delete conv.zid;
                 console.dir(conv);
@@ -4912,6 +4912,8 @@ app.get(/^\/user\/login$/, fetchIndex);
 app.get(/^\/welcome\/.*$/, fetchIndex);
 app.get(/^\/settings$/, fetchIndex);
 app.get(/^\/user\/logout$/, fetchIndex);
+app.get(/^\/iip\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
+app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 app.get(/^\/inbox.*/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
