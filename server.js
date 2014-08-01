@@ -4760,8 +4760,9 @@ app.get('/oauth2/oauth2_github_callback', function (req, res) {
         fail(res, 500, "polis_err_oauth_callback_github", error);
     }
     var token = oauth2.AccessToken.create(result);
-    console.log("token", token);
-    res.status(200).end();
+    console.log("token");
+    console.dir(token);
+    // res.status(200).end();
     res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
   }
 
