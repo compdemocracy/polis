@@ -50,7 +50,7 @@ module.exports = View.extend({
         var formAction = $(event.target).val();
         $(event.target).parents("form:first").attr("data-action", formAction);
       },
-      "click .submitButton": function(event){
+      "click #submitButton": function(event){
         var that = this;
         event.preventDefault();
         var formAction = $(event.target).data("action");
