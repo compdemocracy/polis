@@ -8,10 +8,18 @@
       </div>
     </div>
     <div class="col-xs-4 col-xs-offset-1">
-      
+      <div>
         {{#if is_owner}}
         <a href="{{url_moderate}}" class="Btn Btn-alt pull-right">Moderate</a>
         {{/if}}
-      
+        <div style="clear: both;"></div>
+      </div>
+      <div style="margin-top: 20px">
+        {{#if is_owner}}
+        <a href="share{{url_name}}" class="Btn Btn-alt pull-right"><i class="fa fa-link hidden-xs"></i>&nbsp;Share</a>
+        {{/if}} 
+        <div style="clear: both;"></div>
+      </div>
+
     </div>
 </div>
