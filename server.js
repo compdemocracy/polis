@@ -4380,9 +4380,12 @@ function getConversations(req, res) {
                     conv.inbox_item_admin_html =
                         "<a href='" +root +"/" +conv.sid + "'>"+(conv.topic||conv.created)+"</a>"+
                         " <a href='" +root +"/m/"+ conv.sid + "'>moderate</a>";
+
+                    conv.inbox_item_admin_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
                 }
                 if (want_inbox_item_participant_html) {
-                    conv.inbox_item_admin_html = "<a href='" +root +"/"+ conv.sid + "'>"+(conv.topic||conv.created)+"</a>";
+                    conv.inbox_item_participant_html = "<a href='" +root +"/"+ conv.sid + "'>"+(conv.topic||conv.created)+"</a>";
+                    conv.inbox_item_participant_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
                 }
                 delete conv.zid;
                 console.dir(conv);
