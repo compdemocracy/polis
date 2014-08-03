@@ -4457,9 +4457,6 @@ function getConversations(req, res) {
                     conv.is_owner = conv.owner === uid;
                     var root = getServerNameWithProtocol(req);
 
-                    if (suurlData) {
-                        conv.suurl = suurlData[conv.zid].suurl;
-                    }
                     if (want_inbox_item_admin_url) {
                         conv.inbox_item_admin_url = root +"/iim/"+ conv.sid;
                     }
@@ -4476,6 +4473,10 @@ function getConversations(req, res) {
                     if (want_inbox_item_participant_html) {
                         conv.inbox_item_participant_html = "<a href='" +root +"/"+ conv.sid + "'>"+(conv.topic||conv.created)+"</a>";
                         conv.inbox_item_participant_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
+                    }
+
+                    if (suurlData) {
+                        conv.url = suurlData[conv.zid].suurl;
                     }
                     delete conv.zid;
                     console.dir(conv);
