@@ -443,9 +443,10 @@ var polisRouter = Backbone.Router.extend({
       //     processData: true,
       // });
       var filterAttrs = {};
-      filterAttrs.want_inbox_item_admin_html = true;
       // filterAttrs.want_inbox_item_admin_html = true;
-      filterAttrs.limit = 50;
+      // filterAttrs.want_inbox_item_admin_html = true;
+      filterAttrs.limit = 5;
+      filterAttrs.xid = "user_12345";
       // filterAttrs.want_inbox_item_participant_url = true;
       // if (filter) {
       //   switch(filter) {

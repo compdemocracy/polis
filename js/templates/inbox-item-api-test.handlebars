@@ -1,7 +1,7 @@
 <div class="row" style="margin-top: 30px">
     <div class="col-md-4" 
-    style="text-transform: uppercase;" {{! to see if css enters the iframe contents}}
     >
+    {{#if inbox_item_admin_html}}
       <iframe
         width="300"
         height="100"
@@ -16,5 +16,8 @@
       {{/if}}
       "
       ></iframe>
+      {{else}}
+      <a href="{{url}}">{{topic}}</a>
+      {{/if}}
     </div>
 </div>

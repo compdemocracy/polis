@@ -6,6 +6,13 @@ var inboxEmptyTemplate = require("../tmpl/inbox-empty");
 
 var InboxCollectionView = Handlebones.CollectionView.extend({
   modelView: Handlebones.ModelView.extend({
+    context: function() {
+      var c = Handlebones.ModelView.prototype.context.apply(this, arguments);
+      if (!c.topic) {
+        c.topic = ""+new Date(Number(c.created));
+      }
+      return c;
+    },
     template: inboxCollectionItemTemplate
   }),
   emptyView: Handlebones.View.extend({
