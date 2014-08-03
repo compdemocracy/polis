@@ -31,7 +31,7 @@ module.exports = Handlebones.View.extend({
     // this.filters.is_active = options.is_active;
     // this.filters.is_draft = options.is_draft;
     this.collection.comparator = function(conversation) {
-      return -new Date(conversation.get("createdAt")).getTime();
+      return -new Date(conversation.get("created")).getTime();
     };
     this.collection.fetch({
       data: $.param(this.filters)
