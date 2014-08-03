@@ -267,6 +267,7 @@ var sql_conversations = sql.define({
     "email_domain",
     "owner",
     "context",
+    "modified",
     "created",
     ]
 });
@@ -1117,7 +1118,7 @@ function getPidForParticipant(assigner, cache) {
 
 function votesPost(pid, zid, tid, voteType) {
     return new Promise(function(resolve, reject) {
-        var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default);";
+        var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
         var params = [pid, zid, tid, voteType];
         pgQuery(query, params, function(err, result) {
             if (err) {
@@ -1128,7 +1129,7 @@ function votesPost(pid, zid, tid, voteType) {
                 }
                 return;
             }
-            resolve();
+            resolve(result.rows[0].created);
         });
     });
 }
@@ -3426,7 +3427,7 @@ function(req, res) {
             pgQuery(
                 "INSERT INTO COMMENTS "+
                   "(pid, zid, txt, velocity, active, mod, created, tid) VALUES "+
-                  "($1,   $2,  $3,       $4,     $5,  $6, default, null) RETURNING tid;",
+                  "($1,   $2,  $3,       $4,     $5,  $6, default, null) RETURNING tid, created;",
                    [pid, zid, txt, velocity, active, mod],
 
                 function(err, docs) {
@@ -3442,6 +3443,7 @@ function(req, res) {
                     }
                     docs = docs.rows;
                     var tid = docs && docs[0] && docs[0].tid;
+                    var createdTime = docs && docs[0] && docs[0].created;
 
                     if (bad || spammy || conv.strict_moderation) {
                         getNumberOfCommentsWithModerationStatus(zid, polisTypes.mod.unmoderated).catch(function(err) {
@@ -3461,12 +3463,19 @@ function(req, res) {
                         votesPost(pid, zid, tid, vote);
 
                     autoVotePromise.then(function() {
+
+                        setTimeout(function() {
+                            updateConversationModifiedTime(zid, createdTime);
+                        }, 100);
+                        
                         res.json({
                             tid: tid,
                         });
                     }, function(err) {
                         fail(res, 500, "polis_err_vote_on_create", err);
                     });
+
+
                 }); // insert
            }, function(err) {
                 yell("polis_err_unhandled_spam_check_error");
@@ -3670,6 +3679,11 @@ function(req, res) {
 });
 
 
+function updateConversationModifiedTime(zid, t) {
+    var modified = _.isUndefined(t) ? Date.now() : Number(t);
+    return pgQueryP("update conversations set modified = ($2) where zid = ($1) and modified < ($2);", [zid, modified]);
+}
+
 app.post("/v3/votes",
     auth(assignToP),
     need('tid', getInt, assignToP),
@@ -3678,7 +3692,10 @@ app.post("/v3/votes",
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
 
-    votesPost(req.p.pid, req.p.zid, req.p.tid, req.p.vote).then(function() {
+    votesPost(req.p.pid, req.p.zid, req.p.tid, req.p.vote).then(function(createdTime) {
+        setTimeout(function() {
+            updateConversationModifiedTime(req.p.zid, createdTime);
+        }, 100);
         return getNextComment(req.p.zid, req.p.pid);
     }).then(function(nextComment) {
         var result = {};
@@ -3686,6 +3703,7 @@ function(req, res) {
             result.nextComment = nextComment;
         }
         finishOne(res, result);
+
     }).catch(function(err) {
         if (err === "polis_err_vote_duplicate") {
             fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
@@ -3702,7 +3720,7 @@ app.post("/v3/stars",
     need('starred', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
-    var query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default);";
+    var query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.starred];
     pgQuery(query, params, function(err, result) {
         if (err) {
@@ -3713,6 +3731,10 @@ function(req, res) {
             }
             return;
         }
+        var createdTime = result.rows[0].created;
+        setTimeout(function() {
+            updateConversationModifiedTime(req.p.zid, createdTime);
+        }, 100);
         res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
     });
 });
@@ -3735,6 +3757,12 @@ function(req, res) {
             }
             return;
         }
+
+        var createdTime = result.rows[0].created;
+        setTimeout(function() {
+            updateConversationModifiedTime(req.p.zid, createdTime);
+        }, 100);
+
         res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
     });
 });
