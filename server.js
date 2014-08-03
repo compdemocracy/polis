@@ -2055,6 +2055,13 @@ function deleteSuzinvite(suzinvite) {
     });
 }
 
+function xidExists(xid, owner, uid) {
+    return pgQueryP(
+        "select * from xids where xid = ($1) and owner = ($2) and uid = ($3);",
+        [xid, owner, uid]).then(function(rows) {
+            return rows && rows.length;
+        });
+}
 
 function createXidEntry(xid, owner, uid) {
     return new Promise(function(resolve, reject) {
@@ -2700,8 +2707,15 @@ function joinWithZidOrSuzinvite(o) {
     .then(function(o) {
       if (o.xid) {
         // used for suzinvite case
-        return createXidEntry(o.xid, o.owner, o.uid).then(function() {
-          return o;
+
+        return xidExists(o.xid, o.owner, o.uid).then(function(exists) {
+          if (exists) {
+            // skip creating the entry (workaround for posgres's lack of upsert)
+            return o;
+          }
+          return createXidEntry(o.xid, o.owner, o.uid).then(function() {
+            return o;
+          });
         });
       } else {
         return o;
@@ -4344,6 +4358,7 @@ function getOneConversation(req, res) {
 function getConversations(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
+  var xid = req.p.xid;
   var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
   var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
   var want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
@@ -4386,36 +4401,62 @@ function getConversations(req, res) {
     } else {
         query = query.limit(999); // TODO paginate
     }
-    
+
     pgQuery(query.toString(), function(err, result) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
 
-        addSids(data).then(function(data) {
-            data.forEach(function(conv) {
-                conv.is_owner = conv.owner === uid;
-                var root = getServerNameWithProtocol(req);
-                if (want_inbox_item_admin_url) {
-                    conv.inbox_item_admin_url = root +"/iim/"+ conv.sid;
-                }
-                if (want_inbox_item_participant_url) {
-                    conv.inbox_item_participant_url = root +"/iip/"+ conv.sid;
-                }
-                if (want_inbox_item_admin_html) {
-                    conv.inbox_item_admin_html =
-                        "<a href='" +root +"/" +conv.sid + "'>"+(conv.topic||conv.created)+"</a>"+
-                        " <a href='" +root +"/m/"+ conv.sid + "'>moderate</a>";
 
-                    conv.inbox_item_admin_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
+        addSids(data).then(function(data) {
+            var suurlsPromise;
+            if (xid) {
+                suurlsPromise = Promise.all(data.map(function(conv) {
+                    return createOneSuzinvite(
+                        xid,
+                        conv.zid,
+                        conv.owner, // TODO think: conv.owner or uid?
+                        _.partial(generateSingleUseUrl, req)
+                    ); 
+                }));
+            } else {
+                suurlsPromise = Promise.resolve();
+            }
+            return suurlsPromise.then(function(suurlData) {
+                if (suurlData) {
+                    suurlData = _.indexBy(suurlData, "zid");
                 }
-                if (want_inbox_item_participant_html) {
-                    conv.inbox_item_participant_html = "<a href='" +root +"/"+ conv.sid + "'>"+(conv.topic||conv.created)+"</a>";
-                    conv.inbox_item_participant_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
-                }
-                delete conv.zid;
-                console.dir(conv);
+                data.forEach(function(conv) {
+                    conv.is_owner = conv.owner === uid;
+                    var root = getServerNameWithProtocol(req);
+
+                    if (suurlData) {
+                        conv.suurl = suurlData[conv.zid].suurl;
+                    }
+                    if (want_inbox_item_admin_url) {
+                        conv.inbox_item_admin_url = root +"/iim/"+ conv.sid;
+                    }
+                    if (want_inbox_item_participant_url) {
+                        conv.inbox_item_participant_url = root +"/iip/"+ conv.sid;
+                    }
+                    if (want_inbox_item_admin_html) {
+                        conv.inbox_item_admin_html =
+                            "<a href='" +root +"/" +conv.sid + "'>"+(conv.topic||conv.created)+"</a>"+
+                            " <a href='" +root +"/m/"+ conv.sid + "'>moderate</a>";
+
+                        conv.inbox_item_admin_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
+                    }
+                    if (want_inbox_item_participant_html) {
+                        conv.inbox_item_participant_html = "<a href='" +root +"/"+ conv.sid + "'>"+(conv.topic||conv.created)+"</a>";
+                        conv.inbox_item_participant_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
+                    }
+                    delete conv.zid;
+                    console.dir(conv);
+                });
+                res.status(200).json(data);
+
+            }, function(err) {
+                fail(res, 500, "polis_err_get_conversations_surls", err);
             });
-            res.status(200).json(data);
         }).catch(function(err) {
             fail(res, 500, "polis_err_get_conversations_misc", err);
         });
@@ -4435,6 +4476,7 @@ app.get('/v3/conversations',
     want('want_inbox_item_participant_html', getBool, assignToP), // NOTE - use this for API only!
     want('limit', getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
     want('context', getStringLimitLength(1, 999), assignToP),
+    want('xid', getStringLimitLength(1, 999), assignToP),
 function(req, res) {
   if (req.p.zid) {
     getOneConversation(req, res);
@@ -4677,8 +4719,8 @@ function(req, res) {
 });
 
 
-function generateSingleUseUrl(sid, suzinvite) {
-    return "https://pol.is/ot/" + sid + "/" + suzinvite;
+function generateSingleUseUrl(req, sid, suzinvite) {
+    return getServerNameWithProtocol(req) + "/ot/" + sid + "/" + suzinvite;
 }
 
 
@@ -4692,6 +4734,29 @@ function getConversationUrl(req, zid) {
     });
 }
 
+
+function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
+    return generateSUZinvites(1).then(function(suzinviteArray) {
+        var suzinvite = suzinviteArray[0];
+        return pgQueryP(
+                "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ($1, $2, $3, $4);",
+                [suzinvite, xid, zid, owner])
+            .then(function(result) {
+                return getZinvite(zid);
+            }).then(function(sid) {
+                return {
+                    zid: zid,
+                    sid: sid
+                };
+            }).then(function(o) {
+                return {
+                    zid: o.zid,
+                    sid: o.sid,
+                    suurl: generateSingleUseUrl(o.sid, suzinvite),
+                };
+            });
+    });
+}
 
 app.post("/v3/users/invite",
     // authWithApiKey(assignToP),
@@ -4725,7 +4790,7 @@ function(req, res) {
             getZinvite(zid).then(function(sid) {
                 res.json({
                     urls: suzinviteArray.map(function(suzinvite) {
-                        return generateSingleUseUrl(sid, suzinvite);
+                        return generateSingleUseUrl(req, sid, suzinvite);
                     }),
                     xids: xids,
                 });
