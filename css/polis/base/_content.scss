@@ -54,13 +54,27 @@
   letter-spacing: 0.04em;
 }
 
-// colin created this as a color-free variant of heading B for the green text that shows when a group is clicked, modifies analyze-group.js 
+// colin created this as a color-free variant of heading B for the green text that shows when a group is clicked, modifies analyze-group.js and analyze global
 .HeadingE {
   font-family: $headline-font;
-  font-weight: 300;
+  font-weight: 700;
   font-size: 18px;
   text-transform: uppercase;
   letter-spacing: 0.04em;  
 }
 
-//colin created this for the writing comments subheaders
+//micro caps light
+.HeadingF {
+  font-family: $headline-font;
+  font-size: 12px;
+  text-transform: uppercase; 
+  letter-spacing: 0.04em;  
+}
+
+.HeadingF--light {
+  font-weight: 300;
+}
+
+.HeadingF--heavy {
+  font-weight: 700;
+}
