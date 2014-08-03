@@ -1,11 +1,3 @@
-//
-// Conversation View
-//
-
-// [data-view-name="analyze-global-view"] {
-//   background-color: $bg-color;
-// }
-
 .nav-tabs {
   background-color: $bg-color;
 }
@@ -15,7 +7,6 @@
   text-transform: uppercase;
   font-size: 16px;
 }
-
 
 .helpArrow {
   fill: #222;
@@ -48,10 +39,6 @@
 .affix {
   position: fixed;
   // top: 200px;
-}
-
-.affix-top {
-
 }
 
 #agreeButton, #disagreeButton {
@@ -165,6 +152,45 @@ svg {
   background-color: $color_selected_comment;
 }
 
+//
+
+
+#analyze .nav-pills {
+  margin-top: 20px
+}
+
+#analyze #accordion {
+  margin-top: 20px;
+}
+
+.query_results_div {
+  padding-top: 10px;
+}
+
+.query_results {
+  margin-left: 0px;
+  list-style: none;
+  padding-left:0px;
+}
+
+.query_result_item {
+    min-height: 50px;
+    margin: 5px;
+    margin-left: 10px;
+    margin-right: 10px;
+    padding: 10px;
+    cursor: pointer;
+    // border-left: 2px solid #ACCFE1;
+    // margin-left: 2px;
+    // text-align: justify;
+    // width: 92%
+}
+
+.active_result_item {
+  background-color: #FFFBE8;
+}
+
+
 .hover {
   background-color: $color_selected_comment;
 }
@@ -182,6 +208,7 @@ svg {
   margin: 0px 10px 0px 10px;
   padding-bottom: 4px;
   cursor: pointer;
+  font-size: 12px;
 }
 #sortAgree.sort.enabled {
   color: $color_agree;
@@ -204,9 +231,8 @@ svg {
 
 #commentSort, #groupStats {
   // margin-top: 14px;
-  margin-bottom: 14px;
+  // margin-bottom: 14px;
 }
-
 
 
 /* Everything but mobile */
@@ -224,9 +250,6 @@ svg {
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
     padding: 10px 10px;
   }
-  .row-fluid .t-span6 {
-    width: 48.61878453038674%;
-  }
 }
 
 
@@ -234,7 +257,7 @@ svg {
 @media only screen and (min-width : 768px) and (max-width : 1024px) {
 
   #comment_shower {
-    margin-top: 20px;
+    //margin-top: 20px;
   }
   .dropdown-menu {
     right: 0;

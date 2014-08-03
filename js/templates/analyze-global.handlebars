@@ -19,17 +19,17 @@ border-top-left-radius: 10px;
 <div id="analyzeHeader" class="hidden-xs">
 
   <form id="commentSearch" role="form" style="
-      margin-top: 20px;
+      padding: 20px 15px 0px 15px
   ">
-    <input type="text" class="form-control" id="commentSearchInput" placeholder="Search all comments">
+    <input type="text" id="commentSearchInput" style="width: 100%; height: 39px; border: 1px solid lightgrey; border-radius: 5px; padding-left: 10px;" placeholder="Search all comments">
   </form>
 
-  <div id="commentSort">
+  <div id="commentSort" style="padding: 10px 15px" class="text-center">
 
-    <span class="control">Sort by</span>
-    <span id="sortAgree" class="sort control"># of Agrees </span> 
-    <span id="sortDisagree" class="sort control"># of Disagrees </span> 
-    <span id="sortDivisive" class="sort control">
+{{!--     <span class="control HeadingF HeadingF--heavy">Sort by:</span>
+ --}}    <span id="sortAgree" class="sort control HeadingF HeadingF--light"># of Agrees </span> 
+    <span id="sortDisagree" class="sort control HeadingF HeadingF--light"># of Disagrees </span> 
+    <span id="sortDivisive" class="sort control HeadingF HeadingF--light">
         {{#ifNotIE8}}
           <i class="fa fa-exchange"></i>
         {{/ifNotIE8}}
