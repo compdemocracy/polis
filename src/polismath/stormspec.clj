@@ -68,9 +68,10 @@
 
 (defn update-fn-builder [zid write?]
   (fn [conv values]
-    (let [votes (flatten values)
-          new-conv (conv-update conv votes)
-          last-timestamp "4433455656"]
+    (let [votes (flatten (map :reactions values))
+          last-timestamp (apply max (map :last-timestamp values))
+          new-conv (conv-update conv votes)]
+      (Thread/sleep 5000)
       ; Format and upload results
       (when write?
         (->> (poll/format-conv-for-mongo conv zid last-timestamp)
@@ -94,7 +95,7 @@
               conv-agent (->> (update-fn-builder zid write?)
                               (new-conv-agent-builder)
                               (get-or-set! conv-agency zid))]
-          (qa/enqueue conv-agent rxns)
+          (qa/enqueue conv-agent {:last-timestamp last-timestamp :reactions rxns})
           ; This just triggers the :update-watcher in case new votes are pending and nothing is running
           (qa/ping conv-agent))
         (ack! collector tuple)))))
