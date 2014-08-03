@@ -2,6 +2,7 @@
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [polismath.simulation :as sim]
             [polismath.poller :as poll]
+            [polismath.queued-agent :as qa]
             [environ.core :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]])
@@ -56,22 +57,47 @@
       (ack [id]))))
 
 
-(defbolt conv-update-bolt ["conv"] {:prepare true :params [write?]}
+(defn get-or-set!
+  "Either gets the key state of a collection atom, or sets it to a val"
+  [coll-atom key & [init-fn]]
+  (or (get @coll-atom key)
+      (do
+        (swap! coll-atom assoc key (init-fn))
+        (get-or-set! coll-atom key))))
+
+
+(defn update-fn-builder [zid write?]
+  (fn [conv values]
+    (let [votes (flatten values)
+          new-conv (conv-update conv votes)
+          last-timestamp "4433455656"]
+      ; Format and upload results
+      (when write?
+        (->> (poll/format-conv-for-mongo conv zid last-timestamp)
+          (poll/mongo-upsert-results "polismath_bidToPid_april9" zid last-timestamp)))
+      new-conv)))
+
+
+(defn new-conv-agent-builder [update-fn]
+  (fn []
+    (qa/queued-agent
+      :update-fn update-fn
+      :init-fn new-conv)))
+
+
+(defbolt conv-update-bolt [] {:prepare true :params [write?]}
   [conf context collector]
-  (let [conv (agent (new-conv))]
-    (bolt (execute [tuple]
-      (let [[zid last-timestamp rxns] (.getValues tuple)]
-        ; Perform the computational update
-        (send conv conv-update rxns)
-        ; Format and upload results
-        (when write?
-          (->> (poll/format-conv-for-mongo @conv zid last-timestamp)
-            (poll/mongo-upsert-results "polismath_bidToPid_april9" zid last-timestamp)))
-        ; Storm stuff...
-        (emit-bolt! collector
-                    [@conv]
-                    :anchor tuple)
-        (ack! collector tuple))))))
+  (let [conv-agency (atom {})]
+    (bolt
+      (execute [tuple]
+        (let [[zid last-timestamp rxns] (.getValues tuple)
+              conv-agent (->> (update-fn-builder zid write?)
+                              (new-conv-agent-builder)
+                              (get-or-set! conv-agency zid))]
+          (qa/enqueue conv-agent rxns)
+          ; This just triggers the :update-watcher in case new votes are pending and nothing is running
+          (qa/ping conv-agent))
+        (ack! collector tuple)))))
 
 
 (defn mk-topology [sim? write?]
