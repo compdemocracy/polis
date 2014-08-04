@@ -1312,10 +1312,17 @@ function clientSideBaseCluster(things, N) {
         $.when(votesForTidBidPromise, clustersCachePromise).done(function()  {
             // Grab stats and turn into list of triples for easier mogrification
             var tidToStats = groupVoteStats(clustersCache[gid], votesForTidBid);
+
             var triples = _.map(tidToStats, function(stats, tid) {
                 tid = Number(tid);
                 return [tid, stats.repness, stats.inAgreeProb];
             });
+            
+            // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
+            // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
+            // estimates, we can change the API
+            var tidToR = _.object(_.map(triples, function(t) {return [t[0], t[1]];}));
+
             // filter out comments with insufficient repness or agreement probability
             triples = _.filter(triples, function(t) {
                 return (t[1] > 1.2) & (t[2] > 0.6);
@@ -1330,10 +1337,6 @@ function clientSideBaseCluster(things, N) {
             var tids = _.map(triples, function(t) {
                 return t[0];
             });
-            // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
-            // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
-            // estimates, we can change the API
-            var tidToR = _.object(_.map(triples, function(t) {return [t[0], t[1]];}));
             // resolve deferred
             dfd.resolve({
                 tidToR: tidToR,
