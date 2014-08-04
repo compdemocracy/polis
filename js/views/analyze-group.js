@@ -182,7 +182,7 @@ module.exports = Handlebones.View.extend({
 
       }}())
     });
-    var indexToTid = this.collection.pluck("tid");
+    var indexToTid = [];
 
     var groupMode = gid !== -1;
 
@@ -192,6 +192,7 @@ module.exports = Handlebones.View.extend({
       }),
       function(c) {
         var tid = c.get('tid');
+        indexToTid.push(tid);
         var header;
         if (groupMode) {
           var v = info.votes[tid];
