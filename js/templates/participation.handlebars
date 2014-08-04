@@ -130,8 +130,12 @@
     style="
     {{#ifNotXs}}margin-left: -30px; {{/ifNotXs}} {{! make flush with tab pane so we can draw the arrow pointint to the selected hull}}
     ">
-    <div id="visualization_div" class="vis_container"></div>
-    <a id="legendToggle">Show Legend</a>
+    <div id="visualization_parent_div">
+      <div id="visualization_div" class="vis_container"></div>
+      {{#ifNotXs}}
+      <a id="legendToggle">Show Legend</a>
+      {{/ifNotXs}}
+    </div>
   </span>
 
 
