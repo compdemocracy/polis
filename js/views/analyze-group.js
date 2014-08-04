@@ -182,35 +182,39 @@ module.exports = Handlebones.View.extend({
 
       }}())
     });
-    var indexToTid = this.collection.pluck("tid");
+    var indexToTid = [];
 
     var groupMode = gid !== -1;
 
     var info = that.groupInfo();
-    _.each(this.collection.first(NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW), function(c) {
-      var tid = c.get('tid');
-      var header;
-      if (groupMode) {
-        var v = info.votes[tid];
-        var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
-        header =
+    _.each(this.collection.filter(function(item) {
+        return _.contains(that.tidsForGroup, item.get('tid'));
+      }),
+      function(c) {
+        var tid = c.get('tid');
+        indexToTid.push(tid);
+        var header;
+        if (groupMode) {
+          var v = info.votes[tid];
+          var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
+          header =
             "<span class='a HeadingE' style='margin-right:10px'>&#9650; " + percent + "%</span>" +
             "<span class='small' style='color:darkgray;'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
-      } else {
-        header = 
-          "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
-          "<span class='d'>&#9660; " + c.get("D") + "</span>";
-      }
-      var html = 
-        "<div style='margin:10px;' class='well query_result_item'>" + 
-          "<p>" +
-            header +
-          "</p>" +
-          c.get("txt") +
-        "</div>";
-      results.data('owlCarousel').addItem(html);
-    });
-    // Auto-select the first comment.
+        } else {
+          header = 
+            "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
+            "<span class='d'>&#9660; " + c.get("D") + "</span>";
+        }
+        var html = 
+          "<div style='margin:10px; text-align:justify' class='well query_result_item'>" + 
+            "<p>" +
+              header +
+            "</p>" +
+            c.get("txt") +
+          "</div>";
+        results.data('owlCarousel').addItem(html);
+      });
+      // Auto-select the first comment.
     eb.trigger(eb.commentSelected, indexToTid[0]);
     // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
   },
@@ -247,7 +251,6 @@ module.exports = Handlebones.View.extend({
           that.sortEnabled = false;
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
-
             that.tidsForGroup = o.tids;
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();

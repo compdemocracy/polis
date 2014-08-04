@@ -15,7 +15,7 @@
         style="{{#if smallTabs}}font-size:95%{{/if}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}         
-        {{#unless showGroupHeader}}READ &amp; REACT{{/unless}}
+        {{#if showTabs}}READ &amp; REACT{{/if}}
       </a>
     </li>
     <li
@@ -28,7 +28,7 @@
         style="{{#if smallTabs}}font-size:95%{{/if}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}
-        {{#unless showGroupHeader}}WRITE{{/unless}}
+        {{#if showTabs}}WRITE{{/if}}
       </a>
     </li>
     <li
@@ -41,7 +41,7 @@
         style="{{#if smallTabs}}font-size:95%;{{/if}} {{#ifXs}}display:none;{{/ifXs}}"
         data-toggle="tab">
         {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}
-        {{#unless showGroupHeader}}ANALYZE{{/unless}}
+        {{#if showTabs}}ANALYZE{{/if}}
       </a>
     </li>
     <li
@@ -63,7 +63,7 @@
         id="legendTab"
         style="
           {{#if smallTabs}}font-size:95%;{{/if}}
-          {{!-- display:none; --}}
+          display:none;
         "
         data-toggle="tab">
         legend

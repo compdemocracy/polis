@@ -39,6 +39,18 @@ module.exports =  Handlebones.ModelView.extend({
   gotoLegendTab: function() {
     this.gotoTab(this.LEGEND_TAB);
   },
+  hideLegend: function() {
+    if (this.onLegendTab()) {
+      this.gotoVoteTab(); // TODO should probably to to most recent tab
+    }
+  },
+  toggleLegend: function() {
+    if (this.onLegendTab()) {
+      this.hideLegend();
+    } else {
+      this.gotoLegendTab();
+    }
+  },
 
   context: function() {
     var c = _.extend({}, Handlebones.ModelView.prototype.context.apply(this, arguments));
@@ -75,9 +87,15 @@ module.exports =  Handlebones.ModelView.extend({
       if (to && to.id === this.WRITE_TAB) {
         this.trigger("beforeshow:write");
       }
+      if (to && to.id === this.LEGEND_TAB) {
+        this.trigger("beforeshow:legend");
+      }
        // previous tab
       if (from && from.id === this.WRITE_TAB) {
         this.trigger("beforehide:write");
+      }
+      if (from && from.id === this.LEGEND_TAB) {
+        this.trigger("beforehide:legend");
       }
       if(from && from.id === this.ANALYZE_TAB) {
         this.trigger("beforehide:analyze");
@@ -88,11 +106,13 @@ module.exports =  Handlebones.ModelView.extend({
 
       if(from && from.id === this.GROUP_TAB) {
         this.trigger("beforehide:group");
-        this.doShowTabsUX();
+        this.hideGroupHeader();
+        this.showTabLabels();
       }
       if(to && to.id === this.GROUP_TAB) {
         this.trigger("beforeshow:group");
-        this.doShowGroupUX();        
+        this.showGroupHeader();
+        this.hideTabLabels();
       }
       if(to && to.id === this.VOTE_TAB) {
         this.trigger("beforeshow:vote");
@@ -117,13 +137,17 @@ module.exports =  Handlebones.ModelView.extend({
     }
   },
 
-  doShowGroupUX: function() {
-    this.model.set("showGroupHeader", true);
+  showTabLabels: function() {
+    this.model.set("showTabs", true);
+  },
+  hideTabLabels: function() {
     this.model.set("showTabs", false);
   },
-  doShowTabsUX: function() {
+  hideGroupHeader: function() {
     this.model.set("showGroupHeader", false);
-    this.model.set("showTabs", true);
+  },
+  showGroupHeader: function() {
+    this.model.set("showGroupHeader", true);
   },
   onAnalyzeTab: function() {
     return this.ANALYZE_TAB === this.currentTab;
@@ -133,6 +157,9 @@ module.exports =  Handlebones.ModelView.extend({
   },
   onGroupTab: function() {
     return this.GROUP_TAB === this.currentTab;
+  },
+  onLegendTab: function() {
+    return this.LEGEND_TAB === this.currentTab;
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
