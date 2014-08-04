@@ -61,7 +61,7 @@
 
 
 (defn cluster-step
-  "Performs one step of an interative K-means:
+  "Performs one step of an iterative K-means:
   data-iter: seq of pairs (id, position), eg (pid, person-rating-row)
   clusters: array of clusters"
   [data-iter k clusters]
@@ -69,11 +69,11 @@
     ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
     (reduce add-to-closest (cleared-clusters clusters))
     vals
+    ; Filter out clusters that don't have any members (should maybe log on verbose?)
+    (filter #(> (count (:members %)) 0))
     ; Apply mean to get updated centers
     (map #(-> (assoc % :center (mean (:positions %)))
-            (dissoc :positions)))
-    ; Filter out clusters that don't hvae any members (should maybe log on verbose?)
-    (filter #(> (count (:members %)) 0))))
+              (dissoc :positions)))))
 
 
 (defnp recenter-clusters

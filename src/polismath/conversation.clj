@@ -4,6 +4,7 @@
             [plumbing.graph :as graph]
             [clojure.core.matrix :as matrix]
             [clojure.tools.trace :as tr]
+            [clojure.tools.reader.edn :as edn]
             [clojure.math.numeric-tower :as math]
             [bigml.sampling.simple :as sampling]
             [alex-and-georges.debug-repl :as dbr])
@@ -97,13 +98,19 @@
                             ; least 7 if there are more than 7
                             (>= cnt (min 7 n-cmts)))
                           user-vote-counts)))
-                    ; If you are left with nothing, just take the 7 ptps with the largest number of votes.
-                    ; Silly, but...
-                    (if (empty? in-conv)
-                      (map first
-                        (take 7
-                          (sort-by (comp - second) user-vote-counts)))
-                      in-conv)))
+                    ; If you are left with fewer than 15 participants, take the top most contributing
+                    ; participants
+                    (let [greedy-n 15
+                          n-in-conv (count in-conv)]
+                      (if (< n-in-conv greedy-n)
+                        (->> user-vote-counts
+                          (remove
+                            (fn [[k v]] (in-conv k)))
+                          (sort-by (comp - second))
+                          (map first)
+                          (take (- greedy-n n-in-conv))
+                          (into in-conv))
+                        in-conv))))
   ; End of base conv update
   })
 
@@ -185,7 +192,7 @@
       :group-clusters
             (plmb/fnk [group-clusterings group-clusterings-silhouettes]
               (get group-clusterings
-                (max-key group-clusterings-silhouettes (keys group-clusterings))))
+                (apply max-key group-clusterings-silhouettes (keys group-clusterings))))
 
       :bid-to-pid (plmb/fnk [base-clusters]
                     (greedy
@@ -205,7 +212,6 @@
                       (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))))))
      ; End of large-update
      }))
-
 
 
 (defn partial-pca
@@ -262,6 +268,7 @@
 (def large-conv-update (graph/eager-compile large-conv-update-graph))
 
 
+(declare conv-update-dump)
 (defn conv-update
   "This function dispatches to either small- or large-conv-update, depending on the number
   of participants (as decided by call to sample-size-fn)."
@@ -288,5 +295,55 @@
 
 (defn new-conv []
   {:rating-mat (named-matrix)})
+
+
+
+;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
+;; edn reader
+
+(def ^:private ipv-print-method (get (methods print-method) clojure.lang.IPersistentVector))
+
+(defmethod print-method mikera.matrixx.Matrix
+  [o ^java.io.Writer w]
+  (.write w "#mikera.matrixx.Matrix ")
+  (ipv-print-method
+    (mapv #(into [] %) o)
+    w))
+
+(defmethod print-method mikera.vectorz.Vector
+  [o ^java.io.Writer w]
+  (.write w "#mikera.vectorz.Vector ")
+  (ipv-print-method o w))
+
+(defmethod print-method mikera.arrayz.NDArray
+  [o ^java.io.Writer w]
+  (.write w "#mikera.arrayz.NDArray ")
+  (ipv-print-method o w))
+
+
+; a reader that uses these custom printing formats
+(defn read-vectorz-edn [text]
+  (edn/read-string
+  ;(clojure.core/read-string
+    {:readers {'mikera.vectorz.Vector matrix
+               'mikera.arrayz.NDArray matrix
+               'mikera.matrixx.Matrix matrix
+               'polismath.named-matrix.NamedMatrix named-matrix-reader}}
+    text))
+
+
+(defn conv-update-dump [conv votes & [opts error]]
+  (spit (str "errorconv." (. System (nanoTime)) ".edn")
+    ; XXX - not sure if the print-method calls will work just in this namespace or not...
+    (prn-str
+      {:conv  (into {}
+                (assoc-in conv [:pca :center] (matrix (into [] (:center (:pca conv))))))
+       :votes votes
+       :opts  opts
+       :error (str error)})))
+
+
+(defn load-conv-update [filename]
+  (read-vectorz-edn (slurp filename)))
 
 

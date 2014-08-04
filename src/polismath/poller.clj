@@ -97,7 +97,7 @@
   (metric "math.process.launch" 1)
   (let [poll-interval 1000
         pg-spec         (heroku-db-spec (env/env :database-url))
-        mg-db           (mongo-connect! (env/env :mongo-url))
+        mg-db           (mongo-connect! (env/env :mongolab-uri))
         last-timestamp  (atom 0)
         conversations   (atom {})]
     (endlessly poll-interval
@@ -125,8 +125,18 @@
                       convs)))))
 
             ; Format and upload results
-            (->> (format-conv-for-mongo (@conversations zid) zid lastVoteTimestamp)
-              (mongo-upsert-results "polismath_bidToPid_april9" zid lastVoteTimestamp))))
+            (doseq [[prep-fn mongo-k] [[prep-for-uploading-bidToPid-mapping "polismath_bidToPid_july30"]
+                                       [prep-for-uploading-to-client "polismath_july30"]]]
+              (->
+                (@conversations zid)
+                (prep-fn)
+                (generate-string)
+                (parse-string)
+                (assoc
+                  "zid" zid
+                  "lastVoteTimestamp" lastVoteTimestamp)
+                (->>
+                  (mongo-upsert-results mongo-k zid lastVoteTimestamp))))))
 
         ; Update last-timestamp
         (swap! last-timestamp (fn [_] (:created (last new-votes))))))))

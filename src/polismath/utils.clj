@@ -2,8 +2,7 @@
   (:use alex-and-georges.debug-repl
         clojure.core.matrix)
   (:require [taoensso.timbre.profiling :as profiling
-             :refer (pspy pspy* profile defnp p p*)]
-            [clojure.tools.reader.edn :as edn]
+               :refer (pspy pspy* profile defnp p p*)]
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr]))
 
@@ -16,7 +15,7 @@
 
 
 (defn agree? [n]
-  (and 
+  (and
     (not (nil? n))
     (< n 0)))
 
@@ -82,6 +81,16 @@
   (apply (apply partial f (butlast args)) (apply concat (last args))))
 
 
+(defn hash-map-subset
+    "Create a new map which is given by subsetting to the given keys (ks)"
+    [m ks]
+    (let [ks (set ks)]
+      (into {}
+        (filter
+          (fn [[k v]] (ks k))
+          m))))
+
+
 (defn use-debuggers
   "Handy debugging utility for loading in debugging namespaces - doesn't really always work. XXX - maybe
   use Vinyasa?"
@@ -90,79 +99,58 @@
   (require '[clojure.tools.trace :as tr]))
 
 
+(defn clst-trace
+  ([clsts] (clst-trace "" clsts))
+  ([k clsts]
+   (println "TRACE" k ":")
+   (doseq [c clsts]
+     (println "   " c))
+   clsts))
+
+
 (defn prep-for-uploading-bidToPid-mapping [results]
   {"bidToPid" (:bid-to-pid results)})
 
 
-;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
-;; edn reader
 
-(def ^:private ipv-print-method (get (methods print-method) clojure.lang.IPersistentVector))
-
-(defmethod print-method mikera.matrixx.Matrix
-  [o ^java.io.Writer w]
-  (.write w "#mikera.matrixx.Matrix ")
-  (ipv-print-method
-    (mapv #(into [] %) o)
-    w))
-
-(defmethod print-method mikera.vectorz.Vector
-  [o ^java.io.Writer w]
-  (.write w "#mikera.vectorz.Vector ")
-  (ipv-print-method o w))
-
-(defmethod print-method mikera.arrayz.NDArray
-  [o ^java.io.Writer w]
-  (.write w "#mikera.arrayz.NDArray ")
-  (ipv-print-method o w))
-
-; a reader that uses these custom printing formats
-(defn read-vectorz-edn [text]
-  (edn/read-string
-    {:readers {'mikera.vectorz.Vector mat/matrix
-               'mikera.arrayz.NDArray mat/matrix
-               'mikera.matrixx.Matrix mat/matrix}}
-    text))
-
-
-(defn conv-update-dump [conv votes & [opts error]]
-  (spit (str "errorconv." (. System (nanoTime)) ".edn")
-    ; XXX - not sure if the print-method calls will work just in this namespace or not...
-    (prn-str
-      {:conv  (into {}
-                (assoc-in conv [:pca :center] (matrix (into [] (:center (:pca conv))))))
-       :votes votes
-       :opts  opts
-       :error (str error)})))
-
-
-(defn load-conv-update [filename]
-  (read-vectorz-edn (slurp filename)))
+(defn- assoc-in-bc
+  "Helper function to clean up the prep-for-uploading fn"
+  [conv k v & kvs]
+  (let [this-part (assoc-in conv [:base-clusters k] v)]
+    (if (empty? kvs)
+      this-part
+      (apply assoc-in-bc this-part kvs))))
 
 
 (defn prep-for-uploading-to-client [results]
   ; XXX - this should really be in conversations I think; not really a util function
-  (let [base-clusters (:base-clusters results)
-        repness (:base-clusters results)]
+  (let [base-clusters (:base-clusters results)]
     (-> results
-      ; remove things we don't want to publish
-      (dissoc :mat :rating-mat :opts')
-
-      ; REFORMAT PROJECTION
-      ; remove original projection - we'll provide buckets/base-clusters instead
-      (dissoc :proj)
-
       ; REFORMAT BASE CLUSTERS
       (dissoc :base-clusters)
-      (dissoc :bid-to-pid)
-      (assoc-in [:base-clusters "x"] (map #(first (:center %)) base-clusters))
-      (assoc-in [:base-clusters "y"] (map #(second (:center %)) base-clusters))
-      (assoc-in [:base-clusters "id"] (map :id base-clusters))
-      (assoc-in [:base-clusters "members"] (map :members base-clusters))
-      (assoc-in [:base-clusters "count"] (map #(count (:members %)) base-clusters))
+      (assoc-in-bc
+        "x"       (map #(first (:center %)) base-clusters)
+        "y"       (map #(second (:center %)) base-clusters)
+        "id"      (map :id base-clusters)
+        "members" (map :members base-clusters)
+        "count"   (map #(count (:members %)) base-clusters))
 
       ; REFORMAT REPNESS
       ; make the array position of each cluster imply the cluster id
-      (assoc :repness (map :repness (sort-by :id repness))))))
+      (assoc :repness (map :repness (sort-by :id base-clusters)))
+
+      ; Whitelist of keys to be included in sent data; removes intermediates
+      (hash-map-subset #{
+        :base-clusters
+        :group-clusters
+        :in-conv
+        :lastVoteTimestamp
+        :n
+        :n-cmts
+        :pca
+        :repness
+        :sid
+        :user-vote-counts
+        :votes-base}))))
 
 

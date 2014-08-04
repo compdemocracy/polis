@@ -4,7 +4,7 @@
             [taoensso.timbre.profiling :as profiling
               :refer (pspy pspy* profile defnp p p*)])
   (:use polismath.utils
-        alex-and-georges.debug-repl
+        ;alex-and-georges.debug-repl
         polismath.named-matrix
         polismath.conversation
         clj-time.coerce
