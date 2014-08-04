@@ -50,13 +50,13 @@ module.exports =  ConversationView.extend({
   shouldAffixVis: false,
   enableVisAffix: function() {
     this.shouldAffixVis = true;
-    $("#visualization_div").addClass("affix");
-    $("#visualization_div").css("top", "");    
+    $("#visualization_parent_div").addClass("affix");
+    $("#visualization_parent_div").css("top", "");    
   },
   disableVisAffix: function() {
     this.shouldAffixVis = false;
-    $("#visualization_div").removeClass("affix");
-    $("#visualization_div").css("top", $("#vis_sibling_bottom").offset().top);
+    $("#visualization_parent_div").removeClass("affix");
+    $("#visualization_parent_div").css("top", $("#vis_sibling_bottom").offset().top);
   },
   onAnalyzeTabPopulated: function() {
     if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
@@ -64,10 +64,10 @@ module.exports =  ConversationView.extend({
     }
   },
   hideVis: function() {
-    $("#visualization_div").hide();
+    $("#visualization_parent_div").hide();
   },
   showVis: function() {
-    $("#visualization_div").show();
+    $("#visualization_parent_div").show();
   },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
@@ -91,6 +91,12 @@ module.exports =  ConversationView.extend({
     ctx.showNewButton = true;
     return ctx;
   },
+  changeLegendButtonToShow: function() {
+    this.$("#legendToggle").text("show legend");
+  },
+  changeLegendButtonToHide: function() {
+    this.$("#legendToggle").text("hide legend");
+  },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
@@ -99,7 +105,6 @@ module.exports =  ConversationView.extend({
     var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
-
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
       if (vis) {
@@ -408,7 +413,9 @@ module.exports =  ConversationView.extend({
       // eb.trigger(eb.commentSelected, false);
       // that.conversationTabs.doShowTabsUX();
     });
-
+    that.conversationTabs.on("beforehide:legend", function() {
+      that.changeLegendButtonToShow();
+    });
 
     that.conversationTabs.on("beforeshow:analyze", function() {
       that.enableVisAffix();
@@ -458,10 +465,16 @@ module.exports =  ConversationView.extend({
     this.listenTo(this, "render", function(){
       setTimeout(function() {
 
+      $("#closeLegendButton").on("click", function() {
+        that.conversationTabs.hideLegend();
+      });
       $("#legendToggle").on("click", function() {
         that.conversationTabs.toggleLegend();
-        var s = that.conversationTabs.onLegendTab() ? "hide legend" : "show legend";
-        $("#legendToggle").text(s);
+        if (that.conversationTabs.onLegendTab()) {
+          that.changeLegendButtonToHide();
+        } else {
+          that.changeLegendButtonToShow();
+        }
       });
 
       scrollTopOnFirstShow();

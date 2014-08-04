@@ -39,9 +39,14 @@ module.exports =  Handlebones.ModelView.extend({
   gotoLegendTab: function() {
     this.gotoTab(this.LEGEND_TAB);
   },
-  toggleLegend: function() {
+  hideLegend: function() {
     if (this.onLegendTab()) {
       this.gotoVoteTab(); // TODO should probably to to most recent tab
+    }
+  },
+  toggleLegend: function() {
+    if (this.onLegendTab()) {
+      this.hideLegend();
     } else {
       this.gotoLegendTab();
     }
@@ -85,6 +90,9 @@ module.exports =  Handlebones.ModelView.extend({
        // previous tab
       if (from && from.id === this.WRITE_TAB) {
         this.trigger("beforehide:write");
+      }
+      if (from && from.id === this.LEGEND_TAB) {
+        this.trigger("beforehide:legend");
       }
       if(from && from.id === this.ANALYZE_TAB) {
         this.trigger("beforehide:analyze");
