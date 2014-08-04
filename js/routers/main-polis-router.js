@@ -555,6 +555,10 @@ var polisRouter = Backbone.Router.extend({
         model: model
       });
       RootView.getInstance().setView(participationView);
+
+      // Hide the Intercom help widget in participation view
+      $("#IntercomDefaultWidget").hide();
+
     },function(e) {
       console.error("error loading conversation model", e);
     });
