@@ -20,10 +20,10 @@ $(document).ready(switchLanguages);
     <div class="col-sm-12">
       <h1 class="HeadingA"> API </h1>
       <!-- groups are very powerful... sentiment groups... correlations... we'll give you... recurring... programmatic... --> 
-      {{!-- <ul class="nav nav-pills col-sm-6">
+      <ul class="nav nav-pills col-sm-6">
           <li class="pill pill_curl active"><a href="#curl">Curl</a></li>
           <li class="pill pill_ruby"><a href="#ruby">Ruby</a></li>
-      </ul> --}}
+      </ul>
     </div>
   </div>
   
@@ -65,25 +65,46 @@ description: ""
   <div class="col-sm-7">
 
 <h5> REQUEST </h5>
-<pre><code data-language="shell">curl -s "pol.is/api/v3/create" \
-  -X POST \
-  -u app-id:api-key \
-  -H "Content-Type: application/json" \
-  --data '{
-    topic: "Legalization...",
-    description: "Washington and other states are...",
-    short_link: true, 
-    starterComments: ["I prefer kittens!", "I prefer puppies!"],
-    metadata: [ 
-      {question: "Gender", answers: ["Male", "Female", ...]},
-      {question: "Income", answers: ["Family income below...", "Family income above...", ...]}
-    ]
-  }'  
-</code></pre>
+<pre>
+<code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/v3/conversations" \
+      --user $POLIS_API_KEY: \
+      -F topic="Should we raise the minimum wage?" \
+      -F description="It's currently under $10/hr, What do you think?" \
+      -F is_public=true \
+      -F strict_moderation=false 
+</code>
+<code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
+require 'net/http'
+require 'uri'
+require 'json'
+
+uri = URI.parse('https://pol.is/v3/conversations')
+
+http = Net::HTTP.new(uri.host, uri.port)
+http.use_ssl = true
+
+request = Net::HTTP::Post.new(uri.path, {
+    'Content-Type' =>'application/json'
+})
+request.basic_auth ENV['POLIS_API_KEY'], ''
+
+data = {
+    'topic' => "Should we raise the minimum wage?",
+    'description' => "It's currently under $10/hr, What do you think?",
+    'is_public' => false,
+    'strict_moderation' => false,
+}
+
+request.body = data.to_json
+response = http.request(request)
+
+puts response.body
+</code>
+</pre>
   <h5>RESPONSE</h5>
 <pre> <code data-language="javascript">{
   conversation_id: "1234abc",
-  url: "pol.is/1234abc", //7 character short_link
+  url: "pol.is/1234abc",
 }
 </code></pre>
 
