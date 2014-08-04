@@ -29,16 +29,18 @@ $(document).ready(switchLanguages);
   
 
 
-
+{{!-- 
+        POST CONVERSATIONS
+ --}}
   <div id="createConversation" class="row">
   <div class="col-sm-12">
-    <h3 ><a href="#createConversation">#Creating a conversation</a></h3>  
+    <h3 ><a href="#createConversation"># Creating a conversation</a></h3>  
   </div>
 
   <div class="col-sm-5">
     <h5>API</h5>
     <p> The API key is the only required field. A minimal request...</p> 
-<pre> <code data-language="shell">curl -s "pol.is/api/v1/create" \
+<pre> <code data-language="shell">curl -s "pol.is/api/v3/create" \
   -X POST \
   -u app-id:api-key \</code></pre> 
   <p>...will create a conversation that is immediately accessible on the internet at the returned url. It will have the following defaults:  </p>
@@ -63,7 +65,7 @@ description: ""
   <div class="col-sm-7">
 
 <h5> REQUEST </h5>
-<pre><code data-language="shell">curl -s "pol.is/api/v1/create" \
+<pre><code data-language="shell">curl -s "pol.is/api/v3/create" \
   -X POST \
   -u app-id:api-key \
   -H "Content-Type: application/json" \
@@ -88,9 +90,14 @@ description: ""
   </div> <!--column-->
 </div> <!--row-->
 
-<div id="getUsersPerLabel"class="row">
+
+
+{{!-- 
+        METADATA QUESTIONS
+ --}}
+{{!-- <div id="getUsersPerLabel"class="row">
   <div class="col-sm-12">
-    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getUsersPerLabel">#Adding custom metadata</a></h3>  
+    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getUsersPerLabel"># Adding custom metadata</a></h3>  
   </div>
 
   <div class="col-sm-5">
@@ -100,7 +107,7 @@ description: ""
   </div>
   <div class="col-sm-7">
     <h5> REQUEST </h5>
-<pre> <code data-language="shell">curl -s "pol.is/api/v1/conversation_id/metadata" \
+<pre> <code data-language="shell">curl -s "pol.is/api/v3/conversation_id/metadata" \
   -X POST \
   -u app-id:api-key \
   -H "Content-Type: application/json" \
@@ -115,12 +122,16 @@ description: ""
 }
 </code></pre>
   </div> <!--column-->
-</div> <!--row-->
+</div> <!--row--> --}}
 
 
-<div id="addingUsers"class="row">
+
+{{!-- 
+        SINGLE USE URLS suurls
+ --}}
+{{!-- <div id="addingUsers"class="row">
   <div class="col-sm-12">
-    <h3 name="addingUsers" style="border-bottom: 1px solid lightgrey"><a href="#addingUsers"> #Creating single-use URLs</a></h3>  
+    <h3 name="addingUsers" style="border-bottom: 1px solid lightgrey"><a href="#addingUsers"> # Creating single-use URLs</a></h3>  
   </div>
 
   <div class="col-sm-5">
@@ -137,7 +148,7 @@ description: ""
   </div>
   <div class="col-sm-7">
     <h5> REQUEST </h5>
-<pre> <code data-language="shell">curl -s "pol.is/api/v1/generateSingleUseTokens" \
+<pre> <code data-language="shell">curl -s "pol.is/api/v3/generateSingleUseTokens" \
   -X POST \
   -u app-id:api-key \
   -H "Content-Type: application/json" \
@@ -157,12 +168,15 @@ description: ""
 }
 </code></pre>
   </div> <!--column-->
-</div> <!--row-->
+</div> <!--row--> --}}
 
 
-<div id="getLabels"class="row">
+{{!-- 
+        GET COHORTS
+ --}}
+{{!-- <div id="getLabels"class="row">
   <div class="col-sm-12">
-    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getLabels">#Getting a list of cohorts created in the Polis GUI</a></h3>  
+    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getLabels"># Getting a list of cohorts created in the Polis GUI</a></h3>  
   </div>
 
   <div class="col-sm-5">
@@ -171,7 +185,7 @@ description: ""
   </div>
   <div class="col-sm-7">
     <h5> REQUEST </h5>
-<pre> <code data-language="javascript">curl -s "pol.is/api/v1/conversation_id/cohorts" \
+<pre> <code data-language="javascript">curl -s "pol.is/api/v3/conversation_id/cohorts" \
   -X GET \
   -u app-id:api-key
 </code></pre>
@@ -184,7 +198,7 @@ description: ""
 }
 </code></pre>
   </div> <!--column-->
-</div> <!--row-->
+</div> <!--row--> --}}
 
 </div> <!--container-->
 
