@@ -228,7 +228,7 @@ module.exports =  ConversationView.extend({
       that.tutorialController.setHandler("blueDot", function(){
         that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
           title: "DOTS ARE PEOPLE",
-          content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+          content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
           html: true,
           trigger: "manual",
           placement: "bottom"
@@ -240,7 +240,7 @@ module.exports =  ConversationView.extend({
       that.tutorialController.setHandler("shadedGroup", function(){
         that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
           title: "CLICK ON GROUPS",
-          content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+          content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
           html: true, 
           trigger: "manual",
           placement: "bottom"
@@ -256,7 +256,7 @@ module.exports =  ConversationView.extend({
       //     }
       //     that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
       //       title: "COMMENTS FOR THIS GROUP",
-      //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+      //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
       //       html: true,
       //       trigger: "manual",
       //       placement: "bottom"  
@@ -531,7 +531,7 @@ module.exports =  ConversationView.extend({
 
         that.$commentViewPopover = that.$("#commentView").popover({
           title: "START HERE",
-          content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+          content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
           html: true, //XSS risk, not important for now
           trigger: "manual",
           placement: "bottom"
