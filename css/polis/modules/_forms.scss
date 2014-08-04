@@ -78,3 +78,9 @@
   top: -2px;
   margin: 0 6px 0 0 !important;
 }
+
+
+// used for grayed-out email form, etc
+input:read-only {
+  background-color: #fafafa;
+}
