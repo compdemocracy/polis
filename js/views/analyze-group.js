@@ -251,7 +251,6 @@ module.exports = Handlebones.View.extend({
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
             that.tidsForGroup = o.tids;
-            console.log("Shit be fucked");
             console.log(that.tidsForGroup);
             that.collection.updateRepness(o.tidToR);
             that.sortRepness();
