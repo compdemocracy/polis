@@ -8,6 +8,7 @@ var CommentFormView = require("../views/comment-form");
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
 var ChangeVotesView = require("../views/change-votes");
+var LegendView = require("../views/legendView");
 var display = require("../util/display");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
@@ -332,6 +333,9 @@ module.exports =  ConversationView.extend({
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },
         collection: this.allCommentsCollection
+      }));
+
+      this.legendView = this.addChild(new LegendView({
       }));
 
       var doReproject = _.debounce(serverClient.updateMyProjection, 1000);

@@ -279,6 +279,39 @@ $(el_selector)
   ;
 }
 
+
+$("#legendRoot").html("");
+$("#legendRoot").append(
+"<svg width='100%' height='400'>"+
+"<path class='hull_shadow' gid='0' transform='translate(1, 1)' d='M50,50L200,100L175,250L25,200Z'></path>"+
+"<path class='hull_shadow' gid='1' transform='translate(1, 1)' d='M30,250L165,350L100,350L40,275Z'></path>"+
+"<path class='hull_selection' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
+"<path class='hull_selection' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
+"<path class='hull' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
+"<path class='hull' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
+"<circle cx='90' cy='140' r='15' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='50' cy='90' r='10' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<g class='ptpt node selfDot' fill-opacity='100%' transform='translate(85,86)'>"+
+  "<circle class='circle bktv' cx='0' cy='0' r='7.288888888888889' style='opacity: 0.5; fill: rgba(0, 0, 0, 0); stroke: rgb(0, 204, 255); stroke-width: 1px; display: inherit;'></circle>" +
+  "<circle class='circle bktvi' r='3.6444444444444444' style='fill: rgb(0, 204, 255); display: inherit;'></circle>"+
+"</g>" +
+
+
+"<g class='ptpt node' fill-opacity='100%' transform='translate(58.5164952631261,15.686456499723942) scale(2)'>"+
+  "<polygon class='up bktv' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); fill-opacity: 0.2; display: inherit;'></polygon>"+
+  "<polygon class='up bktvi' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); display: inherit;'></polygon>"+
+"</g>"+
+
+"<g class='ptpt node' fill-opacity='100%' transform='translate(68.6975366341736,169.01621449977468) scale(2)'>"+
+  "<polygon class='down bktv' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); fill-opacity: 0.2; display: inherit;'></polygon>"+
+  "<polygon class='down bktvi' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); display: inherit;'></polygon>"+
+"</g>"+
+
+
+
+"</svg>");
+
+
 if (isIE8) {
     $(el_raphaelSelector).on("click", selectBackground);
     w = $(el_raphaelSelector).width();
