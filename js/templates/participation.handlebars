@@ -75,6 +75,14 @@
           {{view analyzeGroupView}}
         </div> {{! analyze tab pane }}
 
+        <div class="tab-pane" id="legend" style="
+        {{#ifXs}}
+        border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; 
+        {{/ifXs}}
+        ">
+          {{view legendView}}
+        </div>
+
 
         <div
           class="tab-pane active"
@@ -123,6 +131,7 @@
     {{#ifNotXs}}margin-left: -30px; {{/ifNotXs}} {{! make flush with tab pane so we can draw the arrow pointint to the selected hull}}
     ">
     <div id="visualization_div" class="vis_container"></div>
+    <a id="legendToggle">Show Legend</a>
   </span>
 
 

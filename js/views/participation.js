@@ -8,6 +8,7 @@ var CommentFormView = require("../views/comment-form");
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
 var ChangeVotesView = require("../views/change-votes");
+var LegendView = require("../views/legendView");
 var display = require("../util/display");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
@@ -27,9 +28,9 @@ var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
 var isAndroid = Utils.isAndroid();
-var useRaphael =
-  isIE8 || // because no support for svg
-  isAndroid; // because the vis runs a bit slow there. Gingerbread gets no vis.
+var useRaphael = false;
+  isIE8; // because no support for svg
+  // isAndroid; // because the vis runs a bit slow there. Gingerbread gets no vis.
 
 function shouldShowVisUnderTabs() {
   return display.xs();
@@ -334,6 +335,9 @@ module.exports =  ConversationView.extend({
         collection: this.allCommentsCollection
       }));
 
+      this.legendView = this.addChild(new LegendView({
+      }));
+
       var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
       this.analyzeGlobalView.on("searchChanged", function(o) {
         // serverClient.setTidSubsetForReprojection(o.tids);
@@ -453,6 +457,12 @@ module.exports =  ConversationView.extend({
 
     this.listenTo(this, "render", function(){
       setTimeout(function() {
+
+      $("#legendToggle").on("click", function() {
+        that.conversationTabs.toggleLegend();
+        var s = that.conversationTabs.onLegendTab() ? "hide legend" : "show legend";
+        $("#legendToggle").text(s);
+      });
 
       scrollTopOnFirstShow();
 

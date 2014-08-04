@@ -14,6 +14,7 @@ module.exports =  Handlebones.ModelView.extend({
   template: template,
   ANALYZE_TAB: "analyzeTab",
   GROUP_TAB: "groupTab",
+  LEGEND_TAB: "legendTab",
   METADATA_TAB: "metadata_pill",
   VOTE_TAB: "commentViewTab",
   WRITE_TAB: "commentFormTab",
@@ -35,6 +36,16 @@ module.exports =  Handlebones.ModelView.extend({
   gotoGroupTab: function() {
     this.gotoTab(this.GROUP_TAB);
   },
+  gotoLegendTab: function() {
+    this.gotoTab(this.LEGEND_TAB);
+  },
+  toggleLegend: function() {
+    if (this.onLegendTab()) {
+      this.gotoVoteTab(); // TODO should probably to to most recent tab
+    } else {
+      this.gotoLegendTab();
+    }
+  },
 
   context: function() {
     var c = _.extend({}, Handlebones.ModelView.prototype.context.apply(this, arguments));
@@ -49,7 +60,10 @@ module.exports =  Handlebones.ModelView.extend({
     }
     if (this.currentTab === this.GROUP_TAB) {
       c.groupActive = true;
-    }    
+    }
+    if (this.currentTab === this.LEGEND_TAB) {
+      c.legendActive = true;
+    }        
     if (display.xs()) {
       c.smallTabs = true;
     }
@@ -126,6 +140,9 @@ module.exports =  Handlebones.ModelView.extend({
   },
   onGroupTab: function() {
     return this.GROUP_TAB === this.currentTab;
+  },
+  onLegendTab: function() {
+    return this.LEGEND_TAB === this.currentTab;
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
