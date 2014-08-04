@@ -28,9 +28,9 @@ var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
 var isAndroid = Utils.isAndroid();
-var useRaphael =
-  isIE8 || // because no support for svg
-  isAndroid; // because the vis runs a bit slow there. Gingerbread gets no vis.
+var useRaphael = false;
+  isIE8; // because no support for svg
+  // isAndroid; // because the vis runs a bit slow there. Gingerbread gets no vis.
 
 function shouldShowVisUnderTabs() {
   return display.xs();
