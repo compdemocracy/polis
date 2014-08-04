@@ -458,6 +458,12 @@ module.exports =  ConversationView.extend({
     this.listenTo(this, "render", function(){
       setTimeout(function() {
 
+      $("#legendToggle").on("click", function() {
+        that.conversationTabs.toggleLegend();
+        var s = that.conversationTabs.onLegendTab() ? "hide legend" : "show legend";
+        $("#legendToggle").text(s);
+      });
+
       scrollTopOnFirstShow();
 
 

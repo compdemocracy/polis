@@ -39,6 +39,13 @@ module.exports =  Handlebones.ModelView.extend({
   gotoLegendTab: function() {
     this.gotoTab(this.LEGEND_TAB);
   },
+  toggleLegend: function() {
+    if (this.onLegendTab()) {
+      this.gotoVoteTab(); // TODO should probably to to most recent tab
+    } else {
+      this.gotoLegendTab();
+    }
+  },
 
   context: function() {
     var c = _.extend({}, Handlebones.ModelView.prototype.context.apply(this, arguments));
@@ -133,6 +140,9 @@ module.exports =  Handlebones.ModelView.extend({
   },
   onGroupTab: function() {
     return this.GROUP_TAB === this.currentTab;
+  },
+  onLegendTab: function() {
+    return this.LEGEND_TAB === this.currentTab;
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
