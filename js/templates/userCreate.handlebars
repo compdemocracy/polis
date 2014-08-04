@@ -8,9 +8,19 @@
     {{/if}}
   {{#if create}}
 
-    <h1 class="HeadingA">Join the conversation</h1>
+    <h1 class="HeadingA">
+      {{#if showEmailWelcome}}
+      Welcome to pol.is
+      {{else}}
+      Join the conversation
+      {{/if}}
+    </h1>
+
     {{#if sid}}
     <p> To participate in this conversation, you'll need to create a Polis account. </p>
+    {{/if}}
+    {{#if showEmailWelcome}}
+    <p> Welcome, create a user.</p>
     {{/if}}
     <form role="form" class="FormVertical">
       <div class="FormVertical-group">

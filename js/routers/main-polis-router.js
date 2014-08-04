@@ -759,6 +759,7 @@ var polisRouter = Backbone.Router.extend({
       einvite: einvite,
       hideHaveAccount: true,
       readonlyEmail: true,
+      showEmailWelcome: true,
       create: true
     };
     $.getJSON("/v3/einvites?einvite=" + einvite).then(function(o) {
