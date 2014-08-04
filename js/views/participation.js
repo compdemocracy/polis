@@ -287,7 +287,9 @@ module.exports =  ConversationView.extend({
 
 
       this.conversationTabs = this.addChild(new ConversationTabsView({
-        model: new Backbone.Model()
+        model: new Backbone.Model({
+          showTabs: true
+        })
       }));
 
 
@@ -415,6 +417,10 @@ module.exports =  ConversationView.extend({
     });
     that.conversationTabs.on("beforehide:legend", function() {
       that.changeLegendButtonToShow();
+      that.conversationTabs.showTabLabels();
+    });
+    that.conversationTabs.on("beforeshow:legend", function() {
+      that.conversationTabs.hideTabLabels();
     });
 
     that.conversationTabs.on("beforeshow:analyze", function() {
