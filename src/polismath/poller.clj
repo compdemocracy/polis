@@ -15,7 +15,6 @@
             [monger.collection :as mgcol]
             [environ.core :as env]))
 
-
 (def metric (make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
 
 (defmacro meter
