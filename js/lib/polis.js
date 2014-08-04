@@ -1026,18 +1026,18 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    function computeRepness(bidsFromGroup, votesForTidBid) {
+    function groupVoteStats(bidsFromGroup, votesForTidBid) {
         var inCluster = {};
         _.each(bidsFromGroup, function(bid) {
             inCluster[bid] = true;
         });
-        var repness = {};
+        var results = {};
         _.each(votesForTidBid, function(bidToVote, tid) {
             tid = Number(tid);
-            var inAgree = 1;
-            var inDisagree = 1;
-            var outAgree = 1;
-            var outDisagree = 1;
+            var inAgree = 0;
+            var inDisagree = 0;
+            var outAgree = 0;
+            var outDisagree = 0;
             var len = bidToVote.A.length;
             if (bidToVote.D.length !== len) {
                 console.error('mismatch');
@@ -1051,15 +1051,14 @@ function clientSideBaseCluster(things, N) {
                     outDisagree += bidToVote.D[bid];
                 }
             }
-            // var totalVotes = inAgree + inDisagree + outAgree + outDisagree;
-            var repnessValue = (inAgree / (inDisagree)) / (outAgree/(outDisagree));
-            // since inAgree was padded, remove padding and multiply again.            
+            // repness score with + 1 psuedocounts/priors
+            var inAgreeProb = (inAgree + 1) / (inDisagree + inAgree + 1);
+            var repness = inAgreeProb / ((outAgree + 1) / (outDisagree + outAgree + 1));
             // Agreement within the group is super important, so let's multiply it in there twice.
-            repnessValue *= inAgree - 1;
-            repness[tid] = repnessValue;
+            results[tid] = {repness: repness, inAgreeProb: inAgreeProb};
         });
 
-        return repness;
+        return results;
     }
 
     function fetchPca() {
@@ -1311,30 +1310,34 @@ function clientSideBaseCluster(things, N) {
         var dfd = $.Deferred();
         // delay since clustersCache might not be populated yet.
         $.when(votesForTidBidPromise, clustersCachePromise).done(function()  {
-            var tidToR = computeRepness(clustersCache[gid], votesForTidBid);
-            var tids;
+            // Grab stats and turn into list of triples for easier mogrification
+            var tidToStats = groupVoteStats(clustersCache[gid], votesForTidBid);
+
+            var triples = _.map(tidToStats, function(stats, tid) {
+                tid = Number(tid);
+                return [tid, stats.repness, stats.inAgreeProb];
+            });
+            
+            // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
+            // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
+            // estimates, we can change the API
+            var tidToR = _.object(_.map(triples, function(t) {return [t[0], t[1]];}));
+
+            // filter out comments with insufficient repness or agreement probability
+            triples = _.filter(triples, function(t) {
+                return (t[1] > 1.2) & (t[2] > 0.6);
+            });
+            // sort, then map to tids
+            triples = triples.sort(function(a, b) {return b[1] - a[1];});
+            // limit to first `max` many if `max` is specified
             if (_.isNumber(max)) {
-                // keep the tids with the highest repness.
-                var pairs = _.map(tidToR, function(repness, tid) {
-                    tid = Number(tid);
-                    return [repness, tid];
-                });
-                pairs = pairs.sort(function(a, b) {return b[0] - a[0];});
-                pairs = pairs.slice(0, max);
-                // filter out comments with negative repness
-                pairs = _.filter(pairs, function(p) {
-                    return p[0] > 0;
-                });
-                tids = _.map(pairs, function(p) {
-                    return p[1];
-                });
-            } else {
-                // keep all tids
-                // (this impl is wasteful)
-                tids = _.map(tidToR, function(repness, tid) {
-                    return Number(tid);
-                });
+                triples = triples.slice(0, max);
             }
+            // extract tids
+            var tids = _.map(triples, function(t) {
+                return t[0];
+            });
+            // resolve deferred
             dfd.resolve({
                 tidToR: tidToR,
                 tids: tids

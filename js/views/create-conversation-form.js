@@ -5,7 +5,7 @@ var CommentsCollection = require("../collections/comments");
 var CommentFormSeedView = require("../views/comment-form-seed");
 var ConversationModel = require("../models/conversation");
 var MetadataQuestionsViewWithCreate = require("../views/metadataQuestionsViewWithCreate");
-var MetadataQuestionCollection = require("../collections/MetadataQuestions");
+var MetadataQuestionCollection = require("../collections/metadataQuestions");
 var PolisStorage = require("../util/polisStorage");
 var serialize = require("../util/serialize");
 

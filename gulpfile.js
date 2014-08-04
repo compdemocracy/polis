@@ -38,7 +38,7 @@ var mapStream = require('map-stream');
 var request = require('request');
 var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
-var sass = require('gulp-ruby-sass');
+var sass = require('gulp-sass');
 var Stream = require('stream');
 var sys = require('sys');
 var url = require('url');
@@ -95,6 +95,11 @@ gulp.task('connect', [], function() {
   app.use(/^\/summary\/[0-9][0-9A-Za-z]+/, fetchIndex); // summary view
   app.use(/^\/m\/[0-9][0-9A-Za-z]+/, fetchIndex); // moderation view
   app.use(/^\/ot\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view, one-time url
+  
+  app.use(/^\/iip\/[0-9][0-9A-Za-z]+/, fetchIndex);
+  app.use(/^\/iim\/[0-9][0-9A-Za-z]+/, fetchIndex);
+
+
   // TODO consider putting static files on /static, and then using a catch-all to serve the index.
   app.use(/^\/conversation\/create.*/, fetchIndex);
   app.use(/^\/user\/create$/, fetchIndex);
@@ -102,7 +107,8 @@ gulp.task('connect', [], function() {
   app.use(/^\/welcome\/.*$/, fetchIndex);
   app.use(/^\/settings$/, fetchIndex);
   app.use(/^\/user\/logout$/, fetchIndex);
-  app.use(/^\/inbox.*/, fetchIndex);
+  app.use(/^\/inbox$/, fetchIndex);
+  app.use(/^\/inboxApiTest$/, fetchIndex);
   app.use(/^\/pwresetinit$/, fetchIndex);
   app.use(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
   app.use(/^\/pwreset.*/, fetchIndex);

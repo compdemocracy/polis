@@ -4,13 +4,13 @@
       <h5 class="HeadingB">{{topic}}</h5>
       <p class="blockquote" >{{description}}</p>
       <div>
-        <a href="{{url_name}}" style="font-weight:500"> {{url_name_with_hostname}} </a>
+        <a href="{{url_name}}" {{#if target}}target={{target}}{{/if}} style="font-weight:500"> {{url_name_with_hostname}} </a>
       </div>
     </div>
     <div class="col-xs-4 col-xs-offset-1">
       <div>
         {{#if is_owner}}
-        <a href="{{url_moderate}}" class="Btn Btn-alt pull-right">Moderate</a>
+        <a href="{{url_moderate}}" {{#if target}}target={{target}}{{/if}} class="Btn Btn-alt pull-right">Moderate</a>
         {{/if}}
         <div style="clear: both;"></div>
       </div>

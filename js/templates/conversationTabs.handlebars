@@ -55,5 +55,20 @@
       {{! Group (nothing to show) }}
       </a>
     </li>
+    <li
+      {{#if legendActive}} class="active" {{/if}}
+    >
+      <a
+        href="#legend"
+        id="legendTab"
+        style="
+          {{#if smallTabs}}font-size:95%;{{/if}}
+          {{!-- display:none; --}}
+        "
+        data-toggle="tab">
+        legend
+      {{! nothing to show }}
+      </a>
+    </li>    
   </ul>
 </div>

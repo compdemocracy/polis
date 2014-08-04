@@ -68,6 +68,7 @@ var selfDotTooltipShow = !SELF_DOT_SHOW_INITIALLY;
 var SELF_DOT_HINT_HIDE_AFTER_DELAY = 10*1000;
 var selfDotHintText = "This is you";
 
+var clusterPointerOriginY = 80;
 
 // if (isIE8) {
 //     $(el_selector).html(
@@ -277,6 +278,39 @@ $(el_selector)
     "</svg>")
   ;
 }
+
+
+$("#legendRoot").html("");
+$("#legendRoot").append(
+"<svg width='100%' height='400'>"+
+"<path class='hull_shadow' gid='0' transform='translate(1, 1)' d='M50,50L200,100L175,250L25,200Z'></path>"+
+"<path class='hull_shadow' gid='1' transform='translate(1, 1)' d='M30,250L165,350L100,350L40,275Z'></path>"+
+"<path class='hull_selection' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
+"<path class='hull_selection' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
+"<path class='hull' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
+"<path class='hull' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
+"<circle cx='90' cy='140' r='15' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='50' cy='90' r='10' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<g class='ptpt node selfDot' fill-opacity='100%' transform='translate(85,86)'>"+
+  "<circle class='circle bktv' cx='0' cy='0' r='7.288888888888889' style='opacity: 0.5; fill: rgba(0, 0, 0, 0); stroke: rgb(0, 204, 255); stroke-width: 1px; display: inherit;'></circle>" +
+  "<circle class='circle bktvi' r='3.6444444444444444' style='fill: rgb(0, 204, 255); display: inherit;'></circle>"+
+"</g>" +
+
+
+"<g class='ptpt node' fill-opacity='100%' transform='translate(58.5164952631261,15.686456499723942) scale(2)'>"+
+  "<polygon class='up bktv' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); fill-opacity: 0.2; display: inherit;'></polygon>"+
+  "<polygon class='up bktvi' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); display: inherit;'></polygon>"+
+"</g>"+
+
+"<g class='ptpt node' fill-opacity='100%' transform='translate(68.6975366341736,169.01621449977468) scale(2)'>"+
+  "<polygon class='down bktv' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); fill-opacity: 0.2; display: inherit;'></polygon>"+
+  "<polygon class='down bktvi' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); display: inherit;'></polygon>"+
+"</g>"+
+
+
+
+"</svg>");
+
 
 if (isIE8) {
     $(el_raphaelSelector).on("click", selectBackground);
@@ -591,26 +625,30 @@ function updateHulls() {
         setTimeout(function() {
             var hull = hulls[i];
 
-            var pointsToFeedToD3 = hull.map(function(pt) { return pt;});
+            // var pointsToFeedToD3 = hull.map(function(pt) { return pt;});
 
-            if (pointsToFeedToD3.length == 1) {
-                pointsToFeedToD3.push([
-                    pointsToFeedToD3[0][0] + 0.01,
-                    pointsToFeedToD3[0][1] + 0.01
-                    ]);
-            }
-            if (pointsToFeedToD3.length == 2) {
-                pointsToFeedToD3.push([
-                    pointsToFeedToD3[0][0] + 0.01,
-                    pointsToFeedToD3[0][1] - 0.01 // NOTE subtracting so they're not inline
-                    ]);
-            }
+            // if (pointsToFeedToD3.length == 1) {
+            //     pointsToFeedToD3.push([
+            //         pointsToFeedToD3[0][0] + 0.01,
+            //         pointsToFeedToD3[0][1] + 0.01
+            //         ]);
+            // }
+            // if (pointsToFeedToD3.length == 2) {
+            //     pointsToFeedToD3.push([
+            //         pointsToFeedToD3[0][0] + 0.01,
+            //         pointsToFeedToD3[0][1] - 0.01 // NOTE subtracting so they're not inline
+            //         ]);
+            // }
 
 
 
-            var hullPoints = d3.geom.hull(pointsToFeedToD3);
+            // var hullPoints_WillBeMutated = d3.geom.hull(pointsToFeedToD3);
 
-            var centroid = computeCentroid(hullPoints);
+
+            var pointsToFeedToCentroidFinder = hull.map(function(pt) { return pt;});
+
+            // TODO PERF don't call computeClusterPointerTarget unless the pointer is visible!
+            var centroid = computeClusterPointerTarget(pointsToFeedToCentroidFinder);
             centroids[i] = centroid;
 
             // tesselate to provide a matching hull roundness near large buckets.        
@@ -710,16 +748,78 @@ function shouldDisplayCircle(d) {
     return true;
 }
 
-function computeCentroid(points) {
+function computeClusterPointerTarget(points_WillBeMutated) {
+    var points = points_WillBeMutated;
 
     // TEMPORARY HACK!
     // reduces the number of points to 3, since the general N code isn't producing good centroids.
     if (points.length > 3) {
-        points = [
-            points[0],
-            points[Math.floor(points.length/2)],
-            points[points.length-1]
-        ];
+        
+        // cache var to reduce closure traversal during sort.
+        var cpoy = clusterPointerOriginY;
+
+        // Use only the 3 left-most points, to create an effect where
+        // the cluster pointer is not 'reaching too far', but is 
+        // casually reaching only as far as needed to point to the
+        // cluster. This scheme also guarantees that the pointer
+        // will point to a location where there are no participant dots.
+        points.sort(function(pairA, pairB) {
+            var xA = pairA[0];
+            var xB = pairB[0];
+            var yA = pairA[1];
+            var yB = pairB[1];
+
+            var yDistFromPointerOriginA = Math.abs(cpoy - yA);
+            var yDistFromPointerOriginB = Math.abs(cpoy - yB);            
+
+            // prefer reaching farther in x than y (aesthetic choice)
+            // 2x is too much: https://www.dropbox.com/s/us5040qckcl5tzw/Screenshot%202014-07-31%2012.35.02.png
+            // multiplication seems wrong, since it affects things more strongly at large x values.
+            // trying addition
+            yDistFromPointerOriginA += 15;
+            yDistFromPointerOriginB += 15;
+
+            // assuming pointer's x origin is 0, if that's not the case, do Math.abs like above for y
+            var xDistFromPointerOriginA = xA;
+            var xDistFromPointerOriginB = xB;
+
+            var distFromOriginA = 
+            // Math.sqrt(
+                xDistFromPointerOriginA * xDistFromPointerOriginA +
+                yDistFromPointerOriginA * yDistFromPointerOriginA
+                // ); // Omitting sqrt for perf
+
+            var distFromOriginB = 
+            // Math.sqrt(
+                xDistFromPointerOriginB * xDistFromPointerOriginB +
+                yDistFromPointerOriginB * yDistFromPointerOriginB
+                // ); // Omitting sqrt for perf
+
+
+            return (distFromOriginA - distFromOriginB);
+            // large number is kept
+            // currently small x values of A make large values
+            //   return xA - xB;
+            // we also want small y values (since origin of pointer is upper left corner)
+            // (actually, the origin is from roughly [0,40] or something, so to be 100% accurate, we
+                // should probably measure closeness to the origin of the pointer)
+            // return (2*xA + yDistFromPointerOriginA) - (2*xB + yDistFromPointerOriginB);
+        });
+
+        // Choose the top 3 choices.
+        // TODO: if the three chosen points make up a narrow triangle,
+        // with one point halfway along the long edge, then the pointer
+        // will point very near that point. So we might want to consider an alternative point.
+        points = points.slice(0, 3);
+
+        // // An workaround alternative that points to somewhere inside the polygon,
+        // // but not the centroid, and sometimes reaches to the opposite side,
+        // // which is a lousy effect.
+        // points = [
+        //     points[0],
+        //     points[Math.floor(points.length/2)],
+        //     points[points.length-1]
+        // ];
     }
 
     if (points.length === 3) {
@@ -742,7 +842,7 @@ function computeCentroid(points) {
     }
 
 
-
+    // WARNING: this may be buggy
     // http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
     var x = 0;
     var y = 0;
@@ -1767,7 +1867,7 @@ function updateLineToCluster(gid) {
         .style("stroke", "lightgray")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", ["-2,80", center].join(" "));
+        .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
 }
 
 function onHelpTextClicked() {

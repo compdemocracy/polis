@@ -1,0 +1,23 @@
+<div class="row" style="margin-top: 30px">
+    <div class="col-md-4" 
+    >
+    {{#if inbox_item_admin_html}}
+      <iframe
+        width="300"
+        height="100"
+        style="border:0;"
+        srcdoc="{{inbox_item_admin_html}}"
+        seamless="seamless" {{! apply CSS from parent context }}
+        src="
+      {{#if inbox_item_admin_url}}
+        {{inbox_item_admin_url}}
+      {{else}}
+        {{inbox_item_participant_url}}
+      {{/if}}
+      "
+      ></iframe>
+      {{else}}
+      <a href="{{url}}">{{topic}}</a>
+      {{/if}}
+    </div>
+</div>

@@ -78,6 +78,14 @@
           {{view analyzeGroupView}}
         </div> {{! analyze tab pane }}
 
+        <div class="tab-pane" id="legend" style="
+        {{#ifXs}}
+        border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray; 
+        {{/ifXs}}
+        ">
+          {{view legendView}}
+        </div>
+
 
         <div
           class="tab-pane active"
