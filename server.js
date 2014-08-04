@@ -4478,7 +4478,17 @@ function getConversations(req, res) {
                     if (suurlData) {
                         conv.url = suurlData[conv.zid].suurl;
                     }
+                    conv.created = Number(conv.created);
+                    conv.modified = Number(conv.modified);
                     delete conv.zid;
+
+                    delete conv.is_anon;
+                    delete conv.is_active;
+                    delete conv.is_draft;
+                    delete conv.is_public;
+                    if (conv.context === "") {
+                        delete conv.context;
+                    }
                     console.dir(conv);
                 });
                 res.status(200).json(data);
