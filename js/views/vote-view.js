@@ -102,7 +102,7 @@ module.exports = Handlebones.ModelView.extend({
       // Fix for stuck hover effects for touch events.
       // Remove when this is fix is accepted
       // https://github.com/twbs/bootstrap/issues/12832
-      // this.$(".btn-vote").css("background-color", "white");
+      this.$(".btn-vote").blur();
     }
     function showEmpty() {
       var userHasVoted = !!votesByMe.size();
