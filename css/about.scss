@@ -2,83 +2,6 @@
 
 
 
-	
-
-
-	#snowcity {
-		z-index: -1001;
-		position: fixed;
-		top: 0px;
-		left: 0;
-		min-height: 100%;
-		display: block;
-	}
-
-	@media (min-width: 1200px) { 
-		#snowcity {
-			z-index: -1001;
-			position: fixed;
-			top: 0;
-			width: 100%;
-			/*height: 100%;*/
-		}
-	}
-
-
-	body {
-		margin: 0px;
-		background-color: rgb(56, 56, 56) \9;
-		position: relative;
-		min-height: 100%;
-	}
-	
-  // p, li {
-  // 	/*font-family: "museo-slab", "helvetica", "arial";*/
-  // 			font-family: "brandon-grotesque", "helvetica", "arial";
-
-  // 	font-size: 16px;
-  // 	line-height: 25px
-  // }
-
- //  label, input {
- //  	/*font-family: "museo-slab", "helvetica", "arial";*/
- //  			font-family: "brandon-grotesque", "helvetica", "arial";
- //  }
-
-
- //  ul {
-	// 	list-style: square;
-	// }
-
-	.sectionHeader {
-		font-family: "brandon-grotesque", "helvetica", "arial";
-		padding-bottom: 10px;
-		margin-top: 40px;
-		margin-bottom: 40px;
-		font-weight: 500;
-		border-bottom: 1px solid black;
-	}
-
-	.curly {
-		font-size: 120px;
-		position: relative;
-		top: 45px;
-	}
-
-
-
-/*
-	#polisHeader {
-		background: url(conductor.jpeg) no-repeat center 68px;
-		background-size: cover;
-		padding: 100px 0;
-		height: 800px;
-		margin-top: -68px;
-		font-family: "brandon-grotesque";
-	}
-
-*/
-
 	.feature {
 		margin-top: 30px;
 	}
@@ -184,13 +107,11 @@
 		text-align: center;
 	}
 
-	h1 {
+	h1, h4, .explore_demo_link {
 		text-align: center;
 	}
 
-	.subtext {
-		text-align: center;
-	}
+
 
 
 	/*MEDIA QUERY*/
@@ -210,6 +131,7 @@
 	}
 
 	.explore_demo_link {
+		margin-top: 20px;
 		margin-bottom: 30px;
 	}
 
@@ -290,12 +212,10 @@
 	}
 
 	.feature {
-		color: rgba(0,0,0,.7);
 
 	}
 
 	.feature h4 {
-		font-weight: 500;
 		line-height: 1.4em;
 	}
 
@@ -309,24 +229,16 @@
 
 	.process-title {
 		margin-bottom: 25px;
-		 font-weight: 500
 	}
 
 	.process-item {
 		background-color: white;
-		width: 70px;
+		width: 64px;
 		margin: auto;
+		margin-bottom: 25px;
 		padding: 20px;
 		border-radius: 50px;
 		border: 2px solid rgba(189, 195, 199,.5);
-		color: rgba(52, 73, 94,1.0);
-	}
-
-
-
-	.process h4 {
-		font-weight: 500;
-		line-height: 1.4em;
 		color: rgba(52, 73, 94,1.0);
 	}
 

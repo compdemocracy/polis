@@ -54,6 +54,10 @@
   letter-spacing: 0.04em;
 }
 
+.HeadingD--lineheight {
+  line-height: $default-leading;
+}
+
 // colin created this as a color-free variant of heading B for the green text that shows when a group is clicked, modifies analyze-group.js and analyze global
 .HeadingE {
   font-family: $headline-font;
@@ -78,3 +82,35 @@
 .HeadingF--heavy {
   font-weight: 700;
 }
+
+
+/**** Begin Lander Headings ****/
+.HeadingL {
+  font-size: 44px;
+  font-weight: 300;
+  font-family: $headline-font;
+  letter-spacing: 0.04em;
+  color: $dark-gray;
+}
+
+.HeadingG {
+  font-size: 24px;
+  font-weight: 300;
+  font-family: $headline-font;
+  letter-spacing: 0.04em;
+  color: $light-gray;
+}
+
+
+.HeadingH {
+  font-family: $headline-font;
+  font-weight: 700;
+  font-size: 14px;
+  text-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+
+/**** End Lander Headings ****/
+
