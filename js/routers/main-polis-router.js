@@ -418,11 +418,16 @@ var polisRouter = Backbone.Router.extend({
           break;
         }
       }
+
+      // Not just the ones I started.
+      filterAttrs.include_all_conversations_i_am_in = true;
+
       var conversationsCollection = new ConversationsCollection();
       // Let the InboxView filter the conversationsCollection.
-      var inboxView = new InboxView($.extend(filterAttrs, {
-        collection: conversationsCollection
-      }));
+      var inboxView = new InboxView({
+        collection: conversationsCollection,
+        filters: filterAttrs
+      });
       RootView.getInstance().setView(inboxView);
     });
   },
@@ -446,6 +451,7 @@ var polisRouter = Backbone.Router.extend({
       // filterAttrs.want_inbox_item_admin_html = true;
       // filterAttrs.want_inbox_item_admin_html = true;
       filterAttrs.limit = 5;
+      // filterAttrs.include_all_conversations_i_am_in = true; // don't want this for api test
       filterAttrs.want_mod_url = true;
       filterAttrs.xid = "user_12345";
       // filterAttrs.want_inbox_item_participant_url = true;
