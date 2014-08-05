@@ -2988,7 +2988,13 @@ function(req, res) {
             var protocol = devMode ? "http" : "https";
 
 
-            setPlanCookie(res, planCode);
+            // Set cookie
+            var setOnPolisDomain = !domainOverride;
+            var origin = req.headers.origin || "";
+            if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+                setOnPolisDomain = false;
+            }
+            setPlanCookie(res, setOnPolisDomain, planCode);
 
             // Redirect to the same URL with the path behind the fragment "#"
             res.writeHead(302, {
