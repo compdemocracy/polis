@@ -10,7 +10,7 @@
 
     <h1 class="HeadingA">
       {{#if showEmailWelcome}}
-      Welcome to pol.is
+      Email verified, create your account:
       {{else}}
       Join the conversation
       {{/if}}
@@ -20,7 +20,6 @@
     <p> To participate in this conversation, you'll need to create a Polis account. </p>
     {{/if}}
     {{#if showEmailWelcome}}
-    <p> Welcome, create a user.</p>
     {{/if}}
     <form role="form" class="FormVertical">
       <div class="FormVertical-group">
@@ -34,6 +33,9 @@
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperPasswordCreate">Password</label>
         <input type="password" id="password" name="password" id="gatekeeperPasswordCreate" class="FormControl">
+      </div>
+      <div class="FormVertical-group">
+        <input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a> .
       </div>
       <div class="row" id="errorDiv"> </div>
       <div class="FormVertical-group">
