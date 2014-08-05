@@ -1452,7 +1452,7 @@ function clientSideBaseCluster(things, N) {
         this.m[k] = v;
         return v;
     };
-    DD.prototype.g = DA.prototype.s = function(k,v) {
+    DD.prototype.s = DA.prototype.s = function(k,v) {
         this.m[k] = v;
     };
     function emptyArray() {
