@@ -10,3 +10,10 @@
 @import 'polis/polis';
 @import 'conversationView';
 @import 'pca_vis';
+
+
+// TODO set the bootstrap variable instead.
+.navbar-default {
+	background-color: #F4F4F4;
+	padding: 10px 0px 10px 0px;
+}
