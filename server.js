@@ -2754,6 +2754,7 @@ app.post("/v3/auth/new",
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
     want('organization', getOptionalStringLimitLength(999), assignToP),
+    want('gatekeeperTosPrivacy', getBool, assignToP),
 function(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
@@ -2762,7 +2763,9 @@ function(req, res) {
     var zinvite = req.p.zinvite;
     var referrer = req.cookies[COOKIES.REFERRER];
     var organization = req.p.organization;
+    var gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
 
+    if (!gatekeeperTosPrivacy) { fail(res, 400, "polis_err_reg_need_tos"); return; }
     if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
     if (!hname) { fail(res, 400, "polis_err_reg_need_name"); return; }
     if (!password) { fail(res, 400, "polis_err_reg_password"); return; }
