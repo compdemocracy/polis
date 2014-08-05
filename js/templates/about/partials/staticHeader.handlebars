@@ -24,7 +24,9 @@ if (!getCookie("ref")) {
 
 $(document).ready(function() {
   if (getCookie("uid2")) {
-    $("#aboutPageLoginButton").hide();
+    $(".ifNoAuth").hide();
+  } else {
+    $(".ifAuth").hide();
   }
 });
 </script>
@@ -40,11 +42,32 @@ js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=328354915742&version
 fjs.parentNode.insertBefore(js, fjs);
 }(document, 'script', 'facebook-jssdk'));</script>
 
-	<div class="row logo_and_login_section ">
-		<div class="col-xs-2 col-xs-offset-1">
-			<h3 id="polisLogo" >pol<span style="color: rgba(52, 152, 219,1.0)">.</span>is</h3>
-		</div>
-		<div class="col-sm-2  col-sm-offset-6 col-xs-3 col-xs-offset-5"> 
-			<a href="/user/login" id="aboutPageLoginButton" class="pull-right"> login </a>
-		</div>
-	</div>
+
+
+<div class="navbar navbar-default logo_and_login_section" role="navigation" style="margin-bottom: 0px;">
+ <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="fa fa-bars"></span>
+      </button>
+      <a
+        id="polisLogo"
+        class="Logo"
+        href="/"
+        >
+        pol<span class="Logo--blue">.</span>is
+
+      </a>
+    </div>
+
+    {{!-- <div class="navbar-collapse collapse"> --}}
+      <ul class="nav navbar-nav navbar-right">
+        <li class="ifNoAuth"><a class="HeadingB" href="/user/login">Login</a></li>
+        <li class="ifAuth"><a class="HeadingB" href="/inbox">Inbox</a></li>
+        <li class="ifAuth"><a class="HeadingB" href="/settings">Settings</a></li>
+        <li class="ifAuth"><a class="HeadingB" href="/user/logout">Signout</a></li>
+      </ul>
+    {{!-- </div>{{! /.nav-collapse }} --}}
+ </div>
+</div>

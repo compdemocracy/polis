@@ -22,7 +22,10 @@ body {
 /* Set the fixed height of the footer here */
 #footer {
   height: 320px;
-  background-color: #eee;
+  background-color: $header-footer-color;
+  padding-top: 30px;
+  border-color: #e7e7e7;
+  border-top: 1px solid transparent;
 }
 
 .footer_item {

@@ -95,8 +95,9 @@ Handlebars.registerHelper("ifNotAuthenticated", function(arg0) {
 
 
 Handlebars.registerHelper('logo_href', function(arg0, options) {
-  var shouldSeeInbox = PolisStorage.hasEmail();
-  return shouldSeeInbox ? "/inbox" : "/about";
+  // var shouldSeeInbox = PolisStorage.hasEmail();
+  // return shouldSeeInbox ? "/inbox" : "/about";
+  return "/about";
 });
 
 

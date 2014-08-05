@@ -20,6 +20,7 @@ module.exports = Handlebones.View.extend({
   initialize: function(options) {
     var that = this;
     this.showNewButton = true;
+    this.hideInboxLink = true;
     this.collection = options.collection;
     this.filters = {};
     // this.filters.is_active = options.is_active;
