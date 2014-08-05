@@ -113,6 +113,99 @@ puts response.body
 
 
 
+
+
+
+{{!-- 
+        GET PARTICIPATION
+ --}}
+  <div id="getParticipation" class="row">
+  <div class="col-sm-12">
+    <h3 ><a href="#getParticipation"># Get Participation Stats</a></h3>  
+  </div>
+
+  <div class="col-sm-5">
+    <h5>API</h5>
+    <p> Fetch stats about each participant's actions in the conversation</p>
+
+    <div class="alert alert-warning">
+      <p><p><strong> Heads up! </strong> </p> <p style="display: inline">
+      watch out for when users join using the wrong link!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ! ! !!!!!!!!!       ! ! ! ! !!</p>
+    </div>
+
+  </div>
+  <div class="col-sm-7">
+
+<h5> REQUEST </h5>
+<pre>
+<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/v3/participation" \
+    --user $POLIS_API_KEY: \
+    -d conversation_id="3f983jf"
+</code>
+<code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
+require 'net/http'
+require 'uri'
+require 'json'
+
+uri = URI('https://preprod.pol.is/v3/participation')
+params = {
+   'conversation_id' => '1234abc'
+}
+uri.query = URI.encode_www_form(params)
+
+http = Net::HTTP.new('preprod.pol.is', 443)
+http.use_ssl = true
+
+request = Net::HTTP::Get.new(uri, {
+    'Content-Type' =>'application/json'
+})
+request.basic_auth ENV['POLIS_API_KEY'], ''
+
+response = http.request(request)
+
+puts response.body
+</code>
+</pre>
+  <h5>RESPONSE</h5>
+<pre> <code data-language="javascript">{
+  "f2bc494c9b81056": {
+    "votes": 5,
+    "comments": 2
+  },
+  "c1d0747a40c5135": {
+    "votes": 6,
+    "comments": 0
+  },
+  "8d50eb37ecd10d2": {
+    "votes": 4,
+    "comments": 3
+  },
+  "a4835d18f0f19b0": {
+    "votes": 5,
+    "comments": 1
+  },
+  "16e64fabb16fa9a": {
+    "votes": 2,
+    "comments": 0
+  }
+}
+</code></pre>
+
+  </div> <!--column-->
+</div> <!--row-->
+
+
+
+
+
+
+
+
+
+
+
+
+
 {{!-- 
         METADATA QUESTIONS
  --}}
