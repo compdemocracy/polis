@@ -279,31 +279,48 @@ $(el_selector)
   ;
 }
 
-
 $("#legendRoot").html("");
-$("#legendRoot").append(
+$("#legendRoot").append("<p class=\"HeadingF HeadingF--light\" style=\"position: absolute; font-size: 12px; text-align: center; width: 100%; top: 6px\"> Dots represent participants. The closer the participants are, the more alike they voted.</p>" +
+"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 67px\"> Your position in the conversation, close to those who voted like you did. </p>" +
+"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 125px\"> One or more other participants. </p>" +
+"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 162px\"> A larger number of other participants.  </p>" +
+"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 200px\"> Groups of participants with a similar worldview appear as a shaded area. <strong> Click</strong> a group to learn which comments define them. </p>" +
+"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 278px\"> These participants <span style=\"color:#2ecc71;\"> agreed </span> with the selected comment </p>" +
+"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 328px\"> These participants <span style=\"color: #e74c3c;\">disagreed</span> with the selected comment </p>" +
 "<svg width='100%' height='400'>"+
-"<path class='hull_shadow' gid='0' transform='translate(1, 1)' d='M50,50L200,100L175,250L25,200Z'></path>"+
-"<path class='hull_shadow' gid='1' transform='translate(1, 1)' d='M30,250L165,350L100,350L40,275Z'></path>"+
-"<path class='hull_selection' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
-"<path class='hull_selection' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
-"<path class='hull' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
-"<path class='hull' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
-"<circle cx='90' cy='140' r='15' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='50' cy='90' r='10' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<g class='ptpt node selfDot' fill-opacity='100%' transform='translate(85,86)'>"+
+// "<path class='hull_shadow' gid='0' transform='translate(1, 1)' d='M50,50L200,100L175,250L25,200Z'></path>"+
+// "<path class='hull_shadow' gid='1' transform='translate(1, 1)' d='M30,250L165,350L100,350L40,275Z'></path>"+
+// "<path class='hull_selection' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
+// "<path class='hull_selection' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
+"<path class='hull' gid='0' d='M50,55L100,100L100,250L25,200Z'></path>"+
+"<path class='hull' gid='1' d='M30,250L90,330L60,360L20,275Z'></path>"+
+"<circle cx='82' cy='171' r='13' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='53' cy='100' r='9' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='53' cy='62' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='70' cy='90' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='70' cy='200' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='31' cy='197' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<circle cx='88' cy='134' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
+"<line x1='85' y1='208' x2='115' y2='208' style='stroke:#eee; stroke-width:2'></line>" +
+"<line x1='85' y1='134' x2='115' y2='134' style='stroke:#BDC3C7; stroke-width:1'></line>" +
+"<line x1='80' y1='171' x2='115' y2='171' style='stroke:#BDC3C7; stroke-width:1'></line>" +
+"<line x1='72' y1='76' x2='115' y2='76' style='stroke:#0CF;stroke-width:1'></line>" +
+"<line x1='40' y1='287' x2='115' y2='287' style='stroke:#2ecc71;stroke-width:1'></line>" +
+"<line x1='70' y1='336' x2='115' y2='336' style='stroke:#e74c3c;stroke-width:1'></line>" +
+"<g class='ptpt node selfDot' fill-opacity='100%' transform='translate(65,76)'>"+
   "<circle class='circle bktv' cx='0' cy='0' r='7.288888888888889' style='opacity: 0.5; fill: rgba(0, 0, 0, 0); stroke: rgb(0, 204, 255); stroke-width: 1px; display: inherit;'></circle>" +
   "<circle class='circle bktvi' r='3.6444444444444444' style='fill: rgb(0, 204, 255); display: inherit;'></circle>"+
 "</g>" +
 
-
-"<g class='ptpt node' fill-opacity='100%' transform='translate(58.5164952631261,15.686456499723942) scale(2)'>"+
-  "<polygon class='up bktv' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); fill-opacity: 0.2; display: inherit;'></polygon>"+
+/**** AGREE ****/
+"<g class='ptpt node' fill-opacity='100%' transform='translate(40.6975366341736,290.01621449977468) scale(2)'>"+
+  // "<polygon class='up bktv' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); fill-opacity: 0.2; display: inherit;'></polygon>"+
   "<polygon class='up bktvi' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); display: inherit;'></polygon>"+
 "</g>"+
 
-"<g class='ptpt node' fill-opacity='100%' transform='translate(68.6975366341736,169.01621449977468) scale(2)'>"+
-  "<polygon class='down bktv' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); fill-opacity: 0.2; display: inherit;'></polygon>"+
+/**** DISAGREE ****/
+"<g class='ptpt node' fill-opacity='100%' transform='translate(70.5164952631261,334.686456499723942) scale(2)'>"+
+  // "<polygon class='down bktv' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); fill-opacity: 0.2; display: inherit;'></polygon>"+
   "<polygon class='down bktvi' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); display: inherit;'></polygon>"+
 "</g>"+
 
