@@ -51,7 +51,8 @@
   font-weight: 900;
   font-size: 12px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  // letter-spacing: 0.04em; // causes tabs to be too wide on Chrome on Linux
+  letter-spacing: 0.01em;
 }
 
 .HeadingD--lineheight {
