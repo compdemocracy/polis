@@ -10,7 +10,7 @@ module.exports = Handlebones.ModelView.extend({
   events: {
     "click .deleteAnswer": function() {
       this.model.destroy();
-      // bbDestroy(this.model, {wait: true, data: $.param({sid: this.model.get("sid")})}).then(function() {
+      // bbDestroy(this.model, {wait: true, data: $.param({conversation_id: this.model.get("conversation_id")})}).then(function() {
       //   // ok
       // }, function(err) {
       //   alert("couldn't delete answer");
@@ -21,6 +21,6 @@ module.exports = Handlebones.ModelView.extend({
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.model = options.model;
-    this.sid = options.sid;
+    this.conversation_id = options.conversation_id;
   }
 });

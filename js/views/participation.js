@@ -101,7 +101,7 @@ module.exports =  ConversationView.extend({
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     var vis;
-    var sid = this.sid;
+    var conversation_id = this.conversation_id;
     var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
@@ -296,7 +296,7 @@ module.exports =  ConversationView.extend({
 
       this.changeVotes = new ChangeVotesView({
         serverClient: serverClient,
-        sid: sid
+        conversation_id: conversation_id
       });
 
       this.commentView = this.addChild(new CommentView({
@@ -305,29 +305,29 @@ module.exports =  ConversationView.extend({
         votesByMe: this.votesByMe,
         is_public:  this.model.get("is_public"),
         pid: pid,
-        sid: sid
+        conversation_id: conversation_id
       }));
       // this.commentView.on("vote", this.tutorialController.onVote);
 
       this.commentsByMe = new CommentsCollection({
-        sid: sid,
+        conversation_id: conversation_id,
         pid: pid
       });
 
       this.commentForm = this.addChild(new CommentFormView({
         pid: pid,
         collection: this.commentsByMe,
-        sid: sid
+        conversation_id: conversation_id
       }));
 
       this.resultsView = this.addChild(new ResultsView({
         serverClient: serverClient,
-        sid: sid,
+        conversation_id: conversation_id,
         collection: resultsCollection
       }));
 
       this.analyzeGroupView = this.addChild(new AnalyzeGroupView({
-        sid: sid,
+        conversation_id: conversation_id,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },
@@ -335,7 +335,7 @@ module.exports =  ConversationView.extend({
       }));
 
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
-        sid: sid,
+        conversation_id: conversation_id,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },

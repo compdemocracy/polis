@@ -73,7 +73,7 @@ module.exports = View.extend({
 
           attrs.verifyMeta = true; // make sure there are answers for each question.
           bbSave(that.model, attrs).then(function(data) {
-            // NOTE: the suurl generation must take place after the PUT conversations call, since the sid may change (and the sid is included in the suurls)
+            // NOTE: the suurl generation must take place after the PUT conversations call, since the conversation_id may change (and the conversation_id is included in the suurls)
             var promise = !!xids ? 
               $.ajax({
                 url: "/v3/users/invite",
@@ -86,7 +86,7 @@ module.exports = View.extend({
                 data: {
                   xids: xids,
                   single_use_tokens: true,
-                  sid: that.model.get("sid")
+                  conversation_id: that.model.get("conversation_id")
                 }
               }) : $.Deferred().resolve();
 
@@ -117,11 +117,11 @@ module.exports = View.extend({
 
       // ConversationModel
       this.model = options.model;
-      var sid = this.model.get("sid");
+      var conversation_id = this.model.get("conversation_id");
       var pid = options.pid;
 
       var data = {
-          sid: sid
+          conversation_id: conversation_id
       };
       var metadataCollection = new MetadataQuestionCollection([], data);
 
@@ -131,17 +131,17 @@ module.exports = View.extend({
       });
       this.metadataQuestionsViewWithCreate = this.addChild(new MetadataQuestionsViewWithCreate({
         collection: metadataCollection,
-        sid: sid
+        conversation_id: conversation_id
       }));
 
       this.commentsByMe = new CommentsCollection({
-        sid: sid
+        conversation_id: conversation_id
       });
 
       this.commentForm = this.addChild(new CommentFormSeedView({
         pid: pid,
         collection: this.commentsByMe,
-        sid: sid
+        conversation_id: conversation_id
       }));
 
     },

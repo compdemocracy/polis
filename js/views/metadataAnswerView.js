@@ -8,6 +8,6 @@ module.exports = Handlebones.ModelView.extend({
   allowDelete: false,
   initialize: function(options) {
       // this.model = options.model;
-      this.sid = options.sid;
+      this.conversation_id = options.conversation_id;
   }
 });

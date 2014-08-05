@@ -78,7 +78,7 @@ module.exports =  ConversationView.extend({
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     var vis;
-    var sid = this.sid;
+    var conversation_id = this.conversation_id;
     var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
@@ -211,19 +211,19 @@ module.exports =  ConversationView.extend({
       /* child views */
 
       this.commentsByMe = new CommentsCollection({
-        sid: sid,
+        conversation_id: conversation_id,
         pid: pid
       });
 
       this.resultsView = this.addChild(new ResultsView({
         serverClient: serverClient,
-        sid: sid,
+        conversation_id: conversation_id,
         collection: resultsCollection
       }));
 
 
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalReprojectView({
-        sid: sid,
+        conversation_id: conversation_id,
         isIE8: isIE8,
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          

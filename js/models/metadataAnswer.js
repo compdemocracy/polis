@@ -6,7 +6,7 @@ module.exports = Model.extend({
     idAttribute: "pmaid",
     defaults: {
         // pmaid: -1,
-        // sid: -1,
+        // conversation_id: -1,
         // pmqid: -1,
         // value: "",
         // checked: "checked", // TODO would be nice to use a boolean and have the template say "checked"

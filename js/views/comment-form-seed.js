@@ -28,7 +28,7 @@ module.exports = Handlebones.View.extend({
   participantCommented: function(attrs) {
     var that = this; //that = the view
     attrs.pid = this.pid;
-    attrs.sid = this.sid;
+    attrs.conversation_id = this.conversation_id;
     attrs.vote = constants.REACTIONS.PASS; // Preseeded comments are automatically passed. Needed for now since math assumes every comment has at least one vote.
     attrs.prepop = true; // this is a prepopulated comment
     var comment = new CommentModel(attrs);
@@ -43,12 +43,12 @@ module.exports = Handlebones.View.extend({
   updateCollection: function() {
     this.collection.fetch({
       data: $.param({
-        sid: this.sid
+        conversation_id: this.conversation_id
       })
     });
   },
   initialize: function(options) {
-    this.sid = options.sid;
+    this.conversation_id = options.conversation_id;
     this.pid = options.pid;
     this.collection = options.collection; // comments by me collection
     this.commentsByMeView = this.addChild(new CommentsByMeView({

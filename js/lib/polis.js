@@ -99,7 +99,7 @@ module.exports = function(params) {
 
     var needAuthCallbacks = $.Callbacks();
 
-    var sid = params.sid;
+    var conversation_id = params.conversation_id;
     var zinvite = params.zinvite;
     var pid = params.pid;
 
@@ -124,7 +124,7 @@ module.exports = function(params) {
             lastServerToken: (new Date(0)).getTime(),
             // not_pid: getPid(), // don't want to see own coments
             not_voted_by_pid: getPid(),
-            sid: sid
+            conversation_id: conversation_id
             //?
         };
         function fail() {
@@ -202,7 +202,7 @@ module.exports = function(params) {
         var params = {
             not_voted_by_pid: getPid(),
             limit: 1,
-            sid: sid
+            conversation_id: conversation_id
         };
 
         if (demoMode()) {
@@ -236,7 +236,7 @@ module.exports = function(params) {
 
         model = $.extend(model, {
             // server will find the pid
-            sid: sid
+            conversation_id: conversation_id
         });
         if (typeof model.txt !== "string" || model.txt.length === 0) {
             logger.error("bad comment");
@@ -265,7 +265,7 @@ module.exports = function(params) {
 
     // returns promise {nextComment: {tid:...}} or {} if no further comments
     function react(params) {
-        if (params.sid && params.sid !== sid) {
+        if (params.conversation_id && params.conversation_id !== conversation_id) {
             if (params.vote !== polisTypes.reactions.see) {
                 console.error("wrong stimulus");
             }
@@ -287,7 +287,7 @@ module.exports = function(params) {
         }
         return polisPost(votesPath, $.extend({}, params, {
                 // server will find the pid
-                sid: sid
+                conversation_id: conversation_id
             })
         );
     }
@@ -319,12 +319,12 @@ module.exports = function(params) {
         return polisPost(trashesPath, {
             tid: tid,
             trashed: 1,
-            sid: sid
+            conversation_id: conversation_id
         });
     }
 
     function doStarAction(params) {
-        if (params.sid && params.sid !== sid) {
+        if (params.conversation_id && params.conversation_id !== conversation_id) {
             console.error("wrong stimulus");
         }
         if (typeof params.tid === "undefined") {
@@ -342,7 +342,7 @@ module.exports = function(params) {
         }
 
         return polisPost(starsPath, $.extend({}, params, {
-                sid: sid
+                conversation_id: conversation_id
             })
         );
     }
@@ -363,14 +363,14 @@ module.exports = function(params) {
 
     function getCommentVelocities() {
         return polisGet(commentVelocitiesPath, {
-            sid: sid
+            conversation_id: conversation_id
         });
     }
 
     function invite(xids) {
         return polisPost("v3/users/invite", {
             single_use_tokens: true,
-            sid: sid,
+            conversation_id: conversation_id,
             xids: xids
         });
     }
@@ -686,12 +686,12 @@ function clientSideBaseCluster(things, N) {
 
     function getMetadataAnswers() {
         return polisGet(metadataAnswersPath, {
-            sid: sid
+            conversation_id: conversation_id
         });
     }
     function getMetadataChoices() {
         return polisGet(metadataChoicesPath, {
-            sid: sid
+            conversation_id: conversation_id
         });
     }
 
@@ -781,7 +781,7 @@ function clientSideBaseCluster(things, N) {
 
     function getXids() {
         return polisGet(xidsPath, {
-            sid: sid
+            conversation_id: conversation_id
         });
     }
 
@@ -1064,7 +1064,7 @@ function clientSideBaseCluster(things, N) {
     function fetchPca() {
         return polisGet(pcaPath, {
             lastVoteTimestamp: lastServerTokenForPCA,
-            sid: sid
+            conversation_id: conversation_id
         }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified
@@ -1224,7 +1224,7 @@ function clientSideBaseCluster(things, N) {
 
     // todo make a separate file for stimulus stuff
     function stories() {
-        return [sid];
+        return [conversation_id];
                 //"509c9db2bc1e120000000001",
                 //"509c9eddbc1e120000000002",
                 //"509c9fd6bc1e120000000003",
@@ -1252,7 +1252,7 @@ function clientSideBaseCluster(things, N) {
         var comments;
         return polisGet(pcaPath, {
             lastServerToken: 0,
-            sid: sid
+            conversation_id: conversation_id
         }).pipe( function(pcaData) {
             comments = pcaData.pca.principal_components;
             var keys = _.keys(comments);
@@ -1300,7 +1300,7 @@ function clientSideBaseCluster(things, N) {
 
     function getComments(params) {
         params = $.extend({
-            sid: sid,
+            conversation_id: conversation_id,
             // not_pid: getPid() // don't want to see own coments
         }, params);
         return polisGet(commentsPath, params);
@@ -1413,7 +1413,7 @@ function clientSideBaseCluster(things, N) {
 
     // function doJoinConversation(zinvite) {
     //     var params = {
-    //         sid: sid
+    //         conversation_id: conversation_id
     //     };
     //     if (zinvite) {
     //         _.extend(params, {
@@ -1429,7 +1429,7 @@ function clientSideBaseCluster(things, N) {
     function queryParticipantsByMetadata(pmaids) {
         return polisPost(queryParticipantsByMetadataPath, {
             pmaids: pmaids,
-            sid: sid
+            conversation_id: conversation_id
         });
     }
 
@@ -1503,7 +1503,7 @@ function clientSideBaseCluster(things, N) {
     function getPidToBidMapping() {
         return polisGet(bidToPidPath, {
             lastVoteTimestamp: lastServerTokenForBidToPid, // use the same
-            sid: sid
+            conversation_id: conversation_id
         }).then(function(data, textStatus, xhr) {
             if (304 === xhr.status) {
                 return {
@@ -1539,7 +1539,7 @@ function clientSideBaseCluster(things, N) {
         }
         return polisGet(bidPath, {
             lastVoteTimestamp: lastServerTokenForBid, // use the same
-            sid: sid
+            conversation_id: conversation_id
         }).then(function(data, textStatus, xhr) {
             if (304 === xhr.status) {
                 // cached

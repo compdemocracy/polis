@@ -29,6 +29,6 @@ module.exports = Handlebones.View.extend({
         modelView: RuleItemView,
         collection: options.collection
       }));
-      this.sid = options.sid;
+      this.conversation_id = options.conversation_id;
     }
 });

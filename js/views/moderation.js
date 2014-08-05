@@ -45,7 +45,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.UNMODERATED,
-          sid: this.sid
+          conversation_id: this.conversation_id
         }),
         reset: false
       }),
@@ -53,7 +53,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.OK,
-          sid: this.sid
+          conversation_id: this.conversation_id
         }),
         reset: false
       }),
@@ -61,7 +61,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.BAN,
-          sid: this.sid
+          conversation_id: this.conversation_id
         }),
         reset: false
       })
@@ -73,7 +73,7 @@ module.exports =  Handlebones.ModelView.extend({
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
-    var sid = this.sid = this.model.get("sid");
+    var conversation_id = this.conversation_id = this.model.get("conversation_id");
     var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
     var is_public = this.model.get("is_public");
@@ -89,13 +89,13 @@ module.exports =  Handlebones.ModelView.extend({
     });
 
     this.commentsTodo = new CommentsCollection([], {
-      sid: sid
+      conversation_id: conversation_id
     });
     this.commentsAccepted = new CommentsCollection([], {
-      sid: sid
+      conversation_id: conversation_id
     });
     this.commentsRejected = new CommentsCollection([], {
-      sid: sid
+      conversation_id: conversation_id
     });
 
     this.updateCollections();
@@ -143,7 +143,7 @@ module.exports =  Handlebones.ModelView.extend({
         data: $.param({
           moderation: true,
           mod: Constants.MOD.UNMODERATED,
-          sid: that.sid
+          conversation_id: that.conversation_id
         }),
         reset: false
       });

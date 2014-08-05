@@ -11,9 +11,9 @@ module.exports = Model.extend({
   },
   updateAnswers: function() {
     var pmqid = this.get("pmqid");
-    var sid = this.get("sid");
+    var conversation_id = this.get("conversation_id");
     var params = {
-      sid: sid,
+      conversation_id: conversation_id,
       pmqid: pmqid
     };
     if (this.suzinvite) {

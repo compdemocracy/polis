@@ -7,7 +7,7 @@ var Model = require("../model");
 // this is because you want to be able to go moderate from your inbox, even if you're not the owner.
 
 // so the workflow is:
-// hit pol.is/m/sid/minvite
+// hit pol.is/m/conversation_id/minvite
 // this will fire an event to ensure that you're noted as a moderator.
 // if not, you can't PUT to the comments. (that's the least we can do)
 // we could prevent rendering the view too, but that's more work.
@@ -16,7 +16,7 @@ var Model = require("../model");
 module.exports = Model.extend({
     name: "conversation",
     path: "conversations",
-    idAttribute: "sid",
+    idAttribute: "conversation_id",
     urlRoot: "conversations",
     url: function() {
         return this.urlRoot;
@@ -31,11 +31,11 @@ module.exports = Model.extend({
       owner: undefined,
       participant_count: "",
       url_moderate: function() {
-//        return "/m/" + this.sid + "/" + this.minvite;
-        return "/m/" + this.sid;
+//        return "/m/" + this.conversation_id + "/" + this.minvite;
+        return "/m/" + this.conversation_id;
       },
       url_name: function(){
-        return "/" + this.sid;
+        return "/" + this.conversation_id;
       },
       url_name_with_hostname: function() {
         // build the URL for the user to copy & paste

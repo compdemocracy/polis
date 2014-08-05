@@ -22,7 +22,7 @@ module.exports = Handlebones.ModelView.extend({
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     this.model = options.model;
-    this.sid = options.sid;
+    this.conversation_id = options.conversation_id;
     this.model.set("disabled", false);
   }
 });

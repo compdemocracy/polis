@@ -35,16 +35,16 @@ module.exports = Handlebones.ModelView.extend({
         attrs.answers = numbers;
 
         var params = that.params;
-        if (params.sid) {
-          attrs.sid = params.sid;
+        if (params.conversation_id) {
+          attrs.conversation_id = params.conversation_id;
         }
         if (params.suzinvite) {
           attrs.suzinvite = params.suzinvite;
         }
-        attrs.sid = params.sid;
+        attrs.conversation_id = params.conversation_id;
 
         var url = urlPrefix + "v3/participants";
-        if (params.suzinvite || params.sid) {
+        if (params.suzinvite || params.conversation_id) {
           url = urlPrefix + "v3/joinWithInvite";
         }
 
@@ -70,13 +70,13 @@ module.exports = Handlebones.ModelView.extend({
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.options = options;
     this.model = options.model;
-    var sid = options.sid;
+    var conversation_id = options.conversation_id;
     var suzinvite = options.suzinvite;
     var params = {
-      sid: sid,
+      conversation_id: conversation_id,
     };
-    if (options.sid) {
-      params.sid = options.sid;
+    if (options.conversation_id) {
+      params.conversation_id = options.conversation_id;
     }
     if (options.suzinvite) {
       params.suzinvite = options.suzinvite;
@@ -87,7 +87,7 @@ module.exports = Handlebones.ModelView.extend({
 
     this.metadataCollection = new MetadataQuestionCollection([], {
       model: MetadataQuestionModelWithZinvite,
-      sid: sid
+      conversation_id: conversation_id
     });
     this.metadataCollection.fetch({
         data: $.param(params),
@@ -96,7 +96,7 @@ module.exports = Handlebones.ModelView.extend({
     this.metadataQuestionsView = this.addChild(new MetadataQuestionsView({
       collection: this.metadataCollection,
       suzinvite: suzinvite,
-      sid: sid
+      conversation_id: conversation_id
     }));
     // this.gatekeeperAuthView = new UserCreateView({
     //   zinvite: zinvite,
