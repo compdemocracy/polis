@@ -16,8 +16,11 @@
       {{/if}}
       "
       ></iframe>
-      {{else}}
+    {{else}}
       <a href="{{url}}">{{topic}}</a>
-      {{/if}}
+      {{#ifDefined mod_url}}
+        <a href="{{mod_url}}">(moderate)</a>
+      {{/ifDefined}}
+    {{/if}}
     </div>
 </div>
