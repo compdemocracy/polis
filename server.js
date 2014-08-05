@@ -150,6 +150,34 @@ app.disable('x-powered-by'); // save a whale
 // });
 
 
+
+// basic defaultdict implementation
+function DD(f) {
+    this.m = {};
+    this.f = f;
+}
+// basic defaultarray implementation
+function DA(f) {
+    this.m = [];
+    this.f = f;
+}
+DD.prototype.g = DA.prototype.g = function(k) {
+    if (this.m.hasOwnProperty(k)) {
+        return this.m[k];
+    }
+    var v = this.f(k);
+    this.m[k] = v;
+    return v;
+};
+DD.prototype.s = DA.prototype.s = function(k,v) {
+    this.m[k] = v;
+};
+function emptyArray() {
+    return [];
+}
+
+
+
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
 var metric = (function() {
@@ -3094,6 +3122,82 @@ function getComments(o) {
 
 */
 
+
+app.get("/v3/participation",
+    moveToBody,
+    auth(assignToP),
+    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    want('strict', getBool, assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var strict = req.p.strict;
+
+    isOwner(zid, uid).then(function(ok) {
+        if (!ok) {
+            fail(res, 403, "polis_err_get_participation_auth");
+            return;
+        }
+
+        return Promise.all([
+            pgQueryP("select pid, count(*) from votes where zid = ($1) group by pid;", [zid]),
+            pgQueryP("select pid, count(*) from comments where zid = ($1) group by pid;", [zid]),
+            pgQueryP("select pid, xid from xids inner join (select * from participants where zid = ($1)) as p on xids.uid = p.uid;", [zid]),
+        ]).then(function(o) {
+            var voteCountRows = o[0];
+            var commentCountRows = o[1];
+            var pidXidRows = o[2];
+            var i, r;
+
+            if (strict && !pidXidRows.length) {
+                fail(res, 409, "polis_err_get_participation_missing_xids This conversation has no xids for its participants.");
+                return;
+            }
+
+            // Build a map like this {xid -> {votes: 10, comments: 2}}
+            var result = new DD(function() {
+                return {
+                    votes: 0,
+                    comments: 0,
+                };
+            });
+
+            // Count votes
+            for (i = 0; i < voteCountRows.length; i++) {
+                r = voteCountRows[i];
+                result.g(r.pid).votes = Number(r.count);
+            }
+            // Count comments
+            for (i = 0; i < commentCountRows.length; i++) {
+                r = commentCountRows[i];
+                result.g(r.pid).comments = Number(r.count);
+            }
+
+            // convert from DD to POJO
+            result = result.m;
+
+            // Convert from {pid -> foo} to {xid -> foo}
+            var pidToXid = {};
+            for (i = 0; i < pidXidRows.length; i++) {
+                pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
+            }
+            var xidBasedResult = {};
+            var size = 0;
+            _.each(result, function(val, key) {
+                xidBasedResult[pidToXid[key]] = val;
+                size += 1;
+            });
+
+            if (strict && (commentCountRows.length || voteCountRows.length) && size > 0) {
+                fail(res, 409, "polis_err_get_participation_missing_xids This conversation is missing xids for some of its participants.");
+                return;
+            }
+            res.status(200).json(xidBasedResult);
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_get_participation_misc", err);
+    });
+});
 
 app.get("/v3/comments",
     moveToBody,
