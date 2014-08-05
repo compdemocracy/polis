@@ -4500,6 +4500,7 @@ function getConversations(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
   var xid = req.p.xid;
+  var want_mod_url = req.p.want_mod_url;
   var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
   var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
   var want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
@@ -4570,6 +4571,10 @@ function getConversations(req, res) {
                     conv.is_owner = conv.owner === uid;
                     var root = getServerNameWithProtocol(req);
 
+                    if (want_mod_url) {
+                        // TODO make this into a moderation invite URL so others can join Issue #618
+                        conv.mod_url = createModerationUrl(req, conv.sid);
+                    }
                     if (want_inbox_item_admin_url) {
                         conv.inbox_item_admin_url = root +"/iim/"+ conv.sid;
                     }
@@ -4622,6 +4627,7 @@ app.get('/v3/conversations',
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('sid', getSidFetchZid, assignToPCustom('zid')),
+    want('want_mod_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_admin_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_participant_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_admin_html', getBool, assignToP), // NOTE - use this for API only!
