@@ -43,9 +43,14 @@ function ifNotDefined(context, options) {
 }
 Handlebars.registerHelper("ifNotDefined", ifNotDefined);
 
+
+function isEmbedded() {
+  return window.top != window;
+}
+
 function ifEmbedded(arg0) {
   // NOTE != instead of !== for IE8
-  return window.top != window ? arg0.fn(this) : "";
+  return isEmbedded() ? arg0.fn(this) : "";
 }
 Handlebars.registerHelper("ifEmbedded", ifEmbedded);
 
@@ -147,7 +152,12 @@ initialize(function(next) {
     var router = new MainPolisRouter();
 
     Metrics.boot();
-
+    if (isEmbedded()) {
+      setTimeout(function() {
+        // Hide the Intercom help widget in participation view
+        $("#IntercomDefaultWidget").hide();
+      }, 1000);
+    }
 
     IntercomModalHack.init();
 
