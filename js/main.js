@@ -145,6 +145,27 @@ initialize(function(next) {
     var router = new MainPolisRouter();
 
     Metrics.boot();
+
+    // // gray out the Intercom overlay
+    // var mo = new MutationObserver(function() {
+    //   console.dir(arguments);
+    //   $("#IModalOverlay").css("background-color", "rgba(0, 0, 0, 0.35)");
+    //   mo.disconnect();
+    //   mo.observe(document.body, {
+    //     attributes: true,
+    //     characterData: true,
+    //     childList: true,
+    //     subtree: true,
+    //   });
+
+    // });
+    // mo.observe(document.body, {
+    //   attributes: true,
+    //   characterData: true,
+    //   childList: true,
+    //   subtree: true,
+    // });
+
     // set up the "exitConv" event
     var currentRoute;
     router.on("route", function(route, params) {
