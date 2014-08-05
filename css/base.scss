@@ -145,16 +145,6 @@
   -o-user-select: auto;
 }
 
-$custom_gutter_pixels: 5px;
-
-.custom_gutter {
-  margin-left: $custom_gutter_pixels;
-  margin-right: $custom_gutter_pixels;
-}
-.custom_gutter_via_padding {
-  padding-left: $custom_gutter_pixels;
-  padding-right: $custom_gutter_pixels;
-}
 .background_content {
   background-color: #FAFAFA;
 }
