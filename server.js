@@ -761,15 +761,15 @@ function getInt(s) {
 }
 
 
-// NOTE: currently sid is stored as zinvite
-function getZidFromSid(sid) {
+// NOTE: currently conversation_id is stored as zinvite
+function getZidFromConversationId(conversation_id) {
     return new Promise(function(resolve, reject) {
-        pgQuery("select zid from zinvites where zinvite = ($1);", [sid], function(err, results) {
+        pgQuery("select zid from zinvites where zinvite = ($1);", [conversation_id], function(err, results) {
             if (err) {
                 return reject(err);
             } else if (!results || !results.rows || !results.rows.length) {
-                console.error("polis_err_fetching_zid_for_sid " + sid);
-                return reject("polis_err_fetching_zid_for_sid");
+                console.error("polis_err_fetching_zid_for_conversation_id" + conversation_id);
+                return reject("polis_err_fetching_zid_for_conversation_id");
             } else {
                 return resolve(results.rows[0].zid);
             }
@@ -777,11 +777,11 @@ function getZidFromSid(sid) {
     });
 }
 
-// sid is the client/ public API facing string ID
-var parseSid = getStringLimitLength(1, 100);
-function getSidFetchZid(s) {
-    return parseSid(s).then(function(sid) {
-        return getZidFromSid(sid).then(function(zid) {
+// conversation_id is the client/ public API facing string ID
+var parseConversationId = getStringLimitLength(1, 100);
+function getConversationIdFetchZid(s) {
+    return parseConversationId(s).then(function(conversation_id) {
+        return getZidFromConversationId(conversation_id).then(function(zid) {
             return Number(zid);
         });
     });
@@ -1438,8 +1438,8 @@ function getPca(zid, lastVoteTimestamp) {
 
 
 
-function redirectIfHasZidButNoSid(req, res, next) {
-  if (req.body.zid && !req.body.sid) {
+function redirectIfHasZidButNoConversationId(req, res, next) {
+  if (req.body.zid && !req.body.conversation_id) {
     console.log("redirecting old zid user to about page");
     res.writeHead(302, {
         Location: "https://pol.is/about"
@@ -1459,9 +1459,9 @@ var pcaResultsExistForZid = {};
 app.get("/v3/math/pca",
     meter("api.math.pca.get"),
     moveToBody,
-    redirectIfHasZidButNoSid, // TODO remove once 
+    redirectIfHasZidButNoConversationId, // TODO remove once 
     authOptional(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
     var zid = req.p.zid;
@@ -1529,7 +1529,7 @@ function getBidToPidMapping(zid, lastVoteTimestamp) {
 app.get("/v3/bidToPid",
     authOptional(assignToP),
     moveToBody,
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
     var uid = req.p.uid;
@@ -1566,7 +1566,7 @@ function getXids(zid) {
 app.get("/v3/xids",
     auth(assignToP),
     moveToBody,
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -1590,7 +1590,7 @@ function(req, res) {
 app.get("/v3/bid",
     auth(assignToP),
     moveToBody,
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
     var uid = req.p.uid;
@@ -1772,7 +1772,7 @@ function(req, res) {
 
 app.get("/v3/zinvites/:zid",
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     // if uid is not conversation owner, fail
     pgQuery('SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);', [req.p.zid, req.p.uid], function(err, results) {
@@ -1890,7 +1890,7 @@ app.post("/v3/zinvites/:zid",
     moveToBody,
     auth(assignToP),    
     want('short_url', getBool, assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var generateShortUrl = req.p.short_url;
 
@@ -1983,30 +1983,30 @@ function getZinvites(zids) {
             if (err) {
                 reject(err);
             } else {
-                var zid2sid = {};
+                var zid2conversation_id = {};
                 var len = result.rows.length;
                 for (var i = 0; i < len; i++) {
                     var o = result.rows[i];
-                    zid2sid[o.zid] = o.zinvite;
+                    zid2conversation_id[o.zid] = o.zinvite;
                 }
-                resolve(zid2sid);
+                resolve(zid2conversation_id);
             }
         });
     });
 }
 
-function addSid(o) {
+function addConversationId(o) {
     if (!o.zid) {
         // if no zid, resolve without fetching zinvite.
         return Promise.resolve(o);
     }
-    return getZinvite(o.zid).then(function(sid) {
-        o.sid = sid;
+    return getZinvite(o.zid).then(function(conversation_id) {
+        o.conversation_id = conversation_id;
         return o;
     });
 }
 
-function addSids(a) {
+function addConversationIds(a) {
     var zids = [];
     for (var i = 0; i < a.length; i++) {
         if (a[i].zid) {
@@ -2016,16 +2016,16 @@ function addSids(a) {
     if (!zids.length) {
         return Promise.resolve(a);
     }
-    return getZinvites(zids).then(function(zid2sid) {
+    return getZinvites(zids).then(function(zid2conversation_id) {
         return a.map(function(o) {
-            o.sid = zid2sid[o.zid];
+            o.conversation_id = zid2conversation_id[o.zid];
             return o;
         });
     });
 }
 
 function finishOne(res, o) {
-    addSid(o).then(function(item) {
+    addConversationId(o).then(function(item) {
         // ensure we don't expose zid
         if (item.zid) {
             delete item.zid;
@@ -2037,7 +2037,7 @@ function finishOne(res, o) {
 }
 
 function finishArray(res, a) {
-    addSids(a).then(function(items) {
+    addConversationIds(a).then(function(items) {
         // ensure we don't expose zid
         if (items) {
             for  (var i = 0; i < items.length; i++) {
@@ -2517,7 +2517,7 @@ app.get("/v3/participants",
     moveToBody,
     authOptional(assignToP),
     want('pid', getInt, assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var pid = req.p.pid;
     var uid = req.p.uid;
@@ -2581,7 +2581,7 @@ function userHasAnsweredZeQuestions(zid, answers) {
 
 app.post("/v3/participants",
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
     var zid = req.p.zid;
@@ -2681,7 +2681,7 @@ function createDummyUser() {
 
 app.post("/v3/joinWithInvite",
     authOptional(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
@@ -2691,7 +2691,7 @@ function(req, res) {
         existingAuth: !!req.p.uid,
         suzinvite: req.p.suzinvite,
         uid: req.p.uid,
-        zid: req.p.zid, // since the zid is looked up using the sid, it's safe to use zid as an invite token.
+        zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
     })
     .then(function(o) {
         var uid = o.uid;
@@ -3133,14 +3133,14 @@ function getComments(o) {
 }
 
 /*
- Rename column 'zid' to 'sid', add a new column called 'zid' and have that be a VARCHAR of limited length.
- Use sid internally, refactor math poller to use sid
+ Rename column 'zid' to 'conversation_id', add a new column called 'zid' and have that be a VARCHAR of limited length.
+ Use conversation_id internally, refactor math poller to use conversation_id
  continue to use zid externally, but it will be a string of limited length
- Don't expose the sid to the client.
+ Don't expose the conversation_id to the client.
 
  plan:
- add the new column sid, copy values from zid
- change the code to look things up by sid
+ add the new column conversation_id, copy values from zid
+ change the code to look things up by conversation_id
 
 */
 
@@ -3148,7 +3148,7 @@ function getComments(o) {
 app.get("/v3/participation",
     moveToBody,
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('strict', getBool, assignToP),
 function(req, res) {
     var zid = req.p.zid;
@@ -3224,7 +3224,7 @@ function(req, res) {
 app.get("/v3/comments",
     moveToBody,
     authOptional(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tids', getArrayOfInt, assignToP),
     want('pid', getInt, assignToP),
     want('not_pid', getInt, assignToP),
@@ -3385,7 +3385,7 @@ function getComment(zid, tid) {
 //     moveToBody,
 //     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
 //     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-//     need('sid', getSidFetchZid, assignToPCustom('zid')),
+//     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('tid', getInt, assignToP),
 // function(req, res) {
 //     var tid = req.p.tid;
@@ -3425,7 +3425,7 @@ function getComment(zid, tid) {
 //     moveToBody,
 //     // NOTE: no auth. We're relying on the signature. These URLs will be sent to conversation moderators.
 //     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
-//     need('sid', getSidFetchZid, assignToPCustom('zid')),
+//     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 //     need('tid', getInt, assignToP),
 // function(req, res) {
 //     var tid = req.p.tid;
@@ -3480,7 +3480,7 @@ function getConversationInfo(zid) {
 
 app.post("/v3/comments",
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('txt', getOptionalStringLimitLength(997), assignToP),
     want('vote', getIntInRange(-1, 1), assignToP),
     want('prepop', getBool, assignToP),
@@ -3649,7 +3649,7 @@ function(req, res) {
 app.get("/v3/votes/me",
     moveToBody,
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     getPid(req.p.zid, req.p.uid, function(err, pid) {
         if (err || pid < 0) { fail(res, 500, "polis_err_getting_pid", err); return; }
@@ -3715,7 +3715,7 @@ function getCommentIdCounts(voteRecords) {
 app.get("/v3/selection",
     moveToBody,
     want('users', getArrayOfInt, assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
         var zid = req.p.zid;
         var users = req.p.users || [];
@@ -3758,7 +3758,7 @@ function(req, res) {
 
 app.get("/v3/votes",
     moveToBody,
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('pid', getInt, assignToP),
     want('tid', getInt, assignToP),
 function(req, res) {
@@ -3792,7 +3792,7 @@ function getNextComment(zid, pid, withoutTids) {
 app.get("/v3/nextComment",
     moveToBody,
     authOptional(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('not_voted_by_pid', getInt, assignToP),
     want('without', getArrayOfInt, assignToP),
 function(req, res) {
@@ -3816,7 +3816,7 @@ function updateConversationModifiedTime(zid, t) {
 app.post("/v3/votes",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('vote', getIntInRange(-1, 1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3845,7 +3845,7 @@ function(req, res) {
 app.post("/v3/stars",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('starred', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3871,7 +3871,7 @@ function(req, res) {
 app.post("/v3/trashes",
     auth(assignToP),
     need('tid', getInt, assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('trashed', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
@@ -3933,7 +3933,7 @@ function verifyMetadataAnswersExistForEachQuestion(zid) {
 app.put('/v3/comments',
     moveToBody,
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('tid', getInt, assignToP),
     need('active', getBool, assignToP),
     need('mod', getInt, assignToP),
@@ -3989,7 +3989,7 @@ function generateAndReplaceZinvite(zid, generateShortZinvite) {
 app.put('/v3/conversations',
     moveToBody,
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
@@ -4198,7 +4198,7 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
 app.get('/v3/metadata/questions',
     moveToBody,
     authOptional(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -4245,7 +4245,7 @@ app.post('/v3/metadata/questions',
     moveToBody,
     auth(assignToP),
     need('key', getOptionalStringLimitLength(999), assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var zid = req.p.zid;
     var key = req.p.key;
@@ -4269,7 +4269,7 @@ function(req, res) {
 app.post('/v3/metadata/answers',
     moveToBody,
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('pmqid', getInt, assignToP),
     need('value', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
@@ -4298,7 +4298,7 @@ function(req, res) {
 app.get('/v3/metadata/choices',
     moveToBody,
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
@@ -4313,7 +4313,7 @@ function(req, res) {
 app.get('/v3/metadata/answers',
     moveToBody,
     authOptional(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('pmqid', getInt, assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
@@ -4365,7 +4365,7 @@ function(req, res) {
 app.get('/v3/metadata',
     moveToBody,
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('zinvite', getOptionalStringLimitLength(300), assignToP),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     // TODO want('lastMetaTime', getInt, assignToP, 0),
@@ -4480,7 +4480,7 @@ function getOneConversation(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
     var fail = failNotWithin(500);
-    // no need for auth, since sid was provided
+    // no need for auth, since conversation_id was provided
     Promise.all([
         getConversationInfo(zid),
         getConversationHasMetadata(zid),
@@ -4565,7 +4565,7 @@ function getConversations(req, res) {
         var data = result.rows || [];
 
 
-        addSids(data).then(function(data) {
+        addConversationIds(data).then(function(data) {
             var suurlsPromise;
             if (xid) {
                 suurlsPromise = Promise.all(data.map(function(conv) {
@@ -4589,23 +4589,23 @@ function getConversations(req, res) {
 
                     if (want_mod_url) {
                         // TODO make this into a moderation invite URL so others can join Issue #618
-                        conv.mod_url = createModerationUrl(req, conv.sid);
+                        conv.mod_url = createModerationUrl(req, conv.conversation_id);
                     }
                     if (want_inbox_item_admin_url) {
-                        conv.inbox_item_admin_url = root +"/iim/"+ conv.sid;
+                        conv.inbox_item_admin_url = root +"/iim/"+ conv.conversation_id;
                     }
                     if (want_inbox_item_participant_url) {
-                        conv.inbox_item_participant_url = root +"/iip/"+ conv.sid;
+                        conv.inbox_item_participant_url = root +"/iip/"+ conv.conversation_id;
                     }
                     if (want_inbox_item_admin_html) {
                         conv.inbox_item_admin_html =
-                            "<a href='" +root +"/" +conv.sid + "'>"+(conv.topic||conv.created)+"</a>"+
-                            " <a href='" +root +"/m/"+ conv.sid + "'>moderate</a>";
+                            "<a href='" +root +"/" +conv.conversation_id + "'>"+(conv.topic||conv.created)+"</a>"+
+                            " <a href='" +root +"/m/"+ conv.conversation_id + "'>moderate</a>";
 
                         conv.inbox_item_admin_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
                     }
                     if (want_inbox_item_participant_html) {
-                        conv.inbox_item_participant_html = "<a href='" +root +"/"+ conv.sid + "'>"+(conv.topic||conv.created)+"</a>";
+                        conv.inbox_item_participant_html = "<a href='" +root +"/"+ conv.conversation_id + "'>"+(conv.topic||conv.created)+"</a>";
                         conv.inbox_item_participant_html_escaped = conv.inbox_item_admin_html.replace(/'/g, "\\'");
                     }
 
@@ -4642,7 +4642,7 @@ app.get('/v3/conversations',
     authOptional(assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
-    want('sid', getSidFetchZid, assignToPCustom('zid')),
+    want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('want_mod_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_admin_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_participant_url', getBool, assignToP), // NOTE - use this for API only!
@@ -4724,7 +4724,7 @@ function(req, res) {
         var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
 
         generateAndRegisterZinvite(zid, generateShortUrl).then(function(zinvite) {
-            // NOTE: OK to return sid, because this conversation was just created by this user.
+            // NOTE: OK to return conversation_id, because this conversation was just created by this user.
             finishOne(res, {
                 url: buildConversationUrl(req, zinvite),
                 zid: zid
@@ -4756,7 +4756,7 @@ function(req, res) {
 
 app.post('/v3/query_participants_by_metadata',
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('pmaids', getArrayOfInt, assignToP, []),
 function(req, res) {
     var uid = req.p.uid;
@@ -4790,7 +4790,7 @@ function(req, res) {
 
 app.post('/v3/sendCreatedLinkToEmail', 
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res){
     console.log(req.p);
     pgQuery("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
@@ -4893,8 +4893,8 @@ function(req, res) {
 });
 
 
-function generateSingleUseUrl(req, sid, suzinvite) {
-    return getServerNameWithProtocol(req) + "/ot/" + sid + "/" + suzinvite;
+function generateSingleUseUrl(req, conversation_id, suzinvite) {
+    return getServerNameWithProtocol(req) + "/ot/" + conversation_id + "/" + suzinvite;
 }
 
 
@@ -4917,16 +4917,16 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
                 [suzinvite, xid, zid, owner])
             .then(function(result) {
                 return getZinvite(zid);
-            }).then(function(sid) {
+            }).then(function(conversation_id) {
                 return {
                     zid: zid,
-                    sid: sid
+                    conversation_id: conversation_id
                 };
             }).then(function(o) {
                 return {
                     zid: o.zid,
-                    sid: o.sid,
-                    suurl: generateSingleUseUrl(o.sid, suzinvite),
+                    conversation_id: o.conversation_id,
+                    suurl: generateSingleUseUrl(o.conversation_id, suzinvite),
                 };
             });
     });
@@ -4935,7 +4935,7 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 app.post("/v3/users/invite",
     // authWithApiKey(assignToP),
     auth(assignToP),
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('single_use_tokens', getBool, assignToP),
     need('xids', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
@@ -4961,15 +4961,15 @@ function(req, res) {
         console.log(query);
         pgQuery(query, [], function(err, results) {
             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
-            getZinvite(zid).then(function(sid) {
+            getZinvite(zid).then(function(conversation_id) {
                 res.json({
                     urls: suzinviteArray.map(function(suzinvite) {
-                        return generateSingleUseUrl(req, sid, suzinvite);
+                        return generateSingleUseUrl(req, conversation_id, suzinvite);
                     }),
                     xids: xids,
                 });
             }, function(err) {
-                fail(res, 500, "polis_err_generating_single_use_invites_missing_sid", err);
+                fail(res, 500, "polis_err_generating_single_use_invites_missing_conversation_id", err);
             }).catch(function(err) {
                 fail(res, 500, "polis_err_generating_single_use_invites", err);
             });
@@ -5244,35 +5244,35 @@ app.get(/^\/settings$/, fetchIndex);
 app.get(/^\/user\/logout$/, fetchIndex);
 
 
-app.get("/iip/:sid",
+app.get("/iip/:conversation_id",
 // function(req, res, next) {
-//     req.p.sid = req.params.sid;
+//     req.p.conversation_id = req.params.conversation_id;
 //     next();
 // },
     moveToBody,
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
-    var sid = req.params.sid;
+    var conversation_id = req.params.conversation_id;
     res.set({
         'Content-Type': 'text/html',
     });
-    res.send("<a href='https://pol.is/" + sid + "' target='_blank'>" + sid + "</a>");
+    res.send("<a href='https://pol.is/" + conversation_id + "' target='_blank'>" + conversation_id + "</a>");
 });
 // app.get(/^\/iip\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
-app.get("/iim/:sid",
+app.get("/iim/:conversation_id",
     moveToBody,
-    need('sid', getSidFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var zid = req.p.zid;
-    var sid = req.params.sid;
+    var conversation_id = req.params.conversation_id;
     getConversationInfo(zid).then(function(info) {
         res.set({
             'Content-Type': 'text/html',
         });
         var title = info.topic || info.created;
-        res.send("<a href='https://pol.is/" + sid + "' target='_blank'>" + title + "</a>" +
-                "<p><a href='https://pol.is/m" + sid + "' target='_blank'>moderate</a></p>" +
+        res.send("<a href='https://pol.is/" + conversation_id + "' target='_blank'>" + title + "</a>" +
+                "<p><a href='https://pol.is/m" + conversation_id + "' target='_blank'>moderate</a></p>" +
                 (info.description ? "<p>"+info.description+"</p>" : "")
                 );
     }).catch(function(err) {
