@@ -284,7 +284,7 @@ $("#legendRoot").append("<p class=\"HeadingF HeadingF--light\" style=\"position:
 "<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 67px\"> Your position in the conversation, close to those who voted like you did. </p>" +
 "<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 125px\"> One or more other participants. </p>" +
 "<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 162px\"> A larger number of other participants.  </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 200px\"> Groups of participants with a similar worldview appear as a shaded area. <strong> Click</strong> a group to learn which comments define them. </p>" +
+"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 200px\"> Shaded areas represent opinion groups. <strong> Click</strong> a group to learn which comments define them. </p>" +
 "<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 278px\"> These participants <span style=\"color:#2ecc71;\"> agreed </span> with the selected comment </p>" +
 "<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 328px\"> These participants <span style=\"color: #e74c3c;\">disagreed</span> with the selected comment </p>" +
 "<svg width='100%' height='400'>"+

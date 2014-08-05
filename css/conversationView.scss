@@ -41,8 +41,32 @@
   // top: 200px;
 }
 
+.reactionButtons {
+  margin-right: -2px;
+}
+
 #agreeButton, #disagreeButton {
   border-right: 0px
+}
+
+#agreeButton, #disagreeButton, #passButton {
+  border-bottom: 0;
+  background: #fafafa;
+  -webkit-font-smoothing: antialiased;
+
+  &:hover {
+    border-color: #bbb;
+    background: #eee;
+  }
+}
+
+#agreeButton {
+  border-left: 0;
+  border-radius: 0 0 0 8px;
+}
+
+#passButton {
+  border-radius: 0 0 8px 0;
 }
 
 .btn-vote {
@@ -191,9 +215,9 @@ svg {
 }
 
 
-.hover {
-  background-color: $color_selected_comment;
-}
+// .hover {
+//   background-color: $color_selected_comment;
+// }
 
 .a {
   color: $color_agree;
