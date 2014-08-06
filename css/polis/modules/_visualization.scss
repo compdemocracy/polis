@@ -1,0 +1,113 @@
+.visualization {
+  border: none;
+  background: $bg-color;
+  -moz-user-select: none;
+  -khtml-user-select: none;
+  -webkit-user-select: none;
+  -o-user-select: none;
+}
+.hull {
+  fill: #eee;
+  stroke: #eee;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+  z-index: 402;
+  cursor: pointer;
+}
+.hull_shadow {
+  fill: #d4d4d4;
+  stroke: #d4d4d4;
+  stroke-width: 8px;
+  stroke-linejoin: round;
+  z-index: 400;
+}
+.hull_shadow.active {
+  fill: #f1f1f1;
+  stroke: #f1f1f1;
+}
+
+.hull_selection {
+  stroke: rgba(0,0,0,0);
+  border-color: rgba(0,0,0,0);
+  stroke-width: 9px;
+  border-width: 2px;  // for html elements
+  border-style: dashed; // for html elements
+  border-radius: 5px; // for html elements
+  stroke-linejoin: round;
+  stroke-dasharray: 5px;
+  // stroke-dashoffset: 1px;
+  z-index: 401;
+}
+.hull_selection.active_group {
+  stroke: #6FBAFF;
+  border-color: #6FBAFF; // for html elements
+}
+
+.active_group {
+  fill: #e9f0f7;
+  background-color: #e9f0f7; // for html elements
+  stroke: #e9f0f7;
+}
+.ptpt {
+  z-index: 500;
+  cursor: pointer;
+ /* pointer-events: none; */
+}
+.hidden {
+  display: none;
+}
+.enter {
+  fill: green;
+}
+.update {
+  fill: #333;
+}
+.exit {
+  fill: brown;
+}
+
+/* http://stackoverflow.com/questions/16489307/how-to-remove-gutter-space-for-a-specific-div-only-bootstrap  */
+.row.no-gutter [class*='col-']:not(:first-child),.row.no-gutter [class*='col-']:not(:last-child) {
+  padding-right:0;
+  padding-left:0;
+}
+
+
+
+
+
+/*XS XS XS XS XS XS XS */
+/*  @screen-sm-min  */
+@media(max-width:767px){
+
+  #vis_sibling_bottom {
+    margin-top: 30px;
+  }
+
+}
+
+/*SM SM SM SM SM SM SM */
+/* @screen-sm-min  */
+@media(min-width:768px){
+
+  // #vis_sibling_bottom {
+  //   margin-top: 30px;
+  // }
+
+}
+
+/*MD MD MD MD MD MD MD MD */
+/* @screen-md-min */
+@media(min-width:992px){
+
+
+
+}
+
+/*LG LG LG LG LG LG LG LG */
+/* @screen-lg-min  */
+@media(min-width:1200px){
+
+
+
+}
