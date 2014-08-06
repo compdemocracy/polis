@@ -5103,7 +5103,14 @@ function addStaticFileHeaders(res) {
 function proxy(req, res) {
     var hostname = buildStaticHostname(req, res);
     if (!hostname) {
-        fail(res, 500, "polis_err_proxy_serving_to_domain");
+        var host = req.headers.host || "";
+        if (host.match(/polisapp.herokuapp.com$/)) {
+            // don't alert for this, it's probably DNS related
+            // TODO_SEO what should we return?
+            userFail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+        } else {
+            fail(res, 500, "polis_err_proxy_serving_to_domain", new Error(host));
+        }
         console.error(req.headers.host);
         console.error(req.path);
         return;
