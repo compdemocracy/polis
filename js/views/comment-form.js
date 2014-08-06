@@ -21,6 +21,10 @@ module.exports = Handlebones.View.extend({
   name: "comment-form",
   template: template,
 
+
+  // needed to prevent double submissions, which are annoying because they trigger a duplicate alert
+  buttonActive: true,
+
   context: function() {
     return _.extend({}, this, this.model&&this.model.attributes);
   },
@@ -28,11 +32,18 @@ module.exports = Handlebones.View.extend({
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();
-      serialize(this, function(attrs){
-        that.participantCommented(attrs).then(function() {
-          that.$("#comment_form_textarea").val("");
-        });      
-      });      
+      if (that.buttonActive) {
+        that.buttonActive = false;
+        console.log("BUTTON ACTIVE FALSE");
+        serialize(this, function(attrs){
+          that.participantCommented(attrs).then(function() {
+            that.$("#comment_form_textarea").val("");
+          }).always(function() {
+            that.buttonActive = true;
+            console.log("BUTTON ACTIVE TRUE");
+          });
+        });
+      }
     }
   },
   participantCommented: function(attrs) {
