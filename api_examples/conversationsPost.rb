@@ -2,7 +2,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI.parse('https://pol.is/v3/conversations')
+uri = URI.parse('https://pol.is/api/v3/conversations')
 
 http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = true

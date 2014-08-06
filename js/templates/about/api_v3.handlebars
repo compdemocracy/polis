@@ -131,12 +131,38 @@ puts response.body
 
 <h5> REQUEST </h5>
 <pre>
+
+<p>Get information on a single conversation which you have the conversation_id of</p>
+<div class="alert alert-warning">
+  <p><p><strong> Heads up! </strong> </p> <p style="display: inline">
+  If you don't suply a user_id, the URLs returned will not allow you to map the participants who follow the URLs back to users of your system.</p>
+</div>
+<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user $POLIS_API_KEY: \
+    -d conversation_id="1234abc"
+</code>
+
+<p>Get information on a single conversation which you have the conversation_id of, where the returned URL is customized to map  to a user in your system.</p>
+<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user $POLIS_API_KEY: \
+    -d conversation_id="1234abc" \
+    -d user_id="someUser123"
+</code>
+
+
+<p>Get a list of the conversations created by your account, where each URL is customized to map to a user in your system.</p>
+<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user $POLIS_API_KEY: \
+    -d user_id="someUser123" \
+    -d limit=10
+</code>
+
+<p>Add <code>want_mod_url</code> if you are rendering the links for a user you would like to grand moderation access to. The result will return a <code>mod_url</code> for each conversation.</p>
 <code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
     --user $POLIS_API_KEY: \
     -d conversation_id="1234abc" \
     -d user_id="someUser123" \
     -d want_mod_url=true \
-    -d include_all_conversations_i_am_in=true \
     -d limit=10
 </code>
 <code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.

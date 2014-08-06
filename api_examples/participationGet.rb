@@ -2,9 +2,9 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI('https://preprod.pol.is/v3/participation')
+uri = URI('https://preprod.pol.is/api/v3/participation')
 params = {
-   'sid' => '97zyYJ9PWVJ07lke'
+   'conversation_id' => '97zyYJ9PWVJ07lke'
 }
 uri.query = URI.encode_www_form(params)
 
