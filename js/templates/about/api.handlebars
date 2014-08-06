@@ -66,7 +66,7 @@ description: ""
 
 <h5> REQUEST </h5>
 <pre>
-<code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/v3/conversations" \
+<code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/api/v3/conversations" \
       --user $POLIS_API_KEY: \
       -F topic="Should we raise the minimum wage?" \
       -F description="It's currently under $10/hr, What do you think?" \
@@ -78,7 +78,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI.parse('https://pol.is/v3/conversations')
+uri = URI.parse('https://pol.is/api/v3/conversations')
 
 http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = true
@@ -138,7 +138,7 @@ puts response.body
 
 <h5> REQUEST </h5>
 <pre>
-<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/v3/participation" \
+<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/participation" \
     --user $POLIS_API_KEY: \
     -d conversation_id="1234abc"
 </code>
@@ -147,7 +147,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI('https://preprod.pol.is/v3/participation')
+uri = URI('https://preprod.pol.is/api/v3/participation')
 params = {
    'conversation_id' => '1234abc'
 }

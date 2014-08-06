@@ -76,7 +76,7 @@ module.exports = View.extend({
             // NOTE: the suurl generation must take place after the PUT conversations call, since the conversation_id may change (and the conversation_id is included in the suurls)
             var promise = !!xids ? 
               $.ajax({
-                url: "/v3/users/invite",
+                url: "/api/v3/users/invite",
                 type: "POST",
                 dataType: "json",
                 xhrFields: {

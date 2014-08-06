@@ -138,7 +138,7 @@ if (!window.location.hostname.match(/polis/)) {
 // debug convenience function for deregistering.
 window.deregister = function() {
     // relying on server to clear cookies
-    return $.post("/v3/auth/deregister", {}).always(function() {
+    return $.post("/api/v3/auth/deregister", {}).always(function() {
       window.location = "/about";
       // Backbone.history.navigate("/", {trigger: true});
     });

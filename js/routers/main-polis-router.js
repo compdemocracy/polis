@@ -55,7 +55,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
       if (singleUse) {
 
         $.ajax({
-          url: "/v3/joinWithInvite",
+          url: "/api/v3/joinWithInvite",
           type: "POST",
           dataType: "json",
           xhrFields: {
@@ -80,7 +80,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
       } else if (conversation_id) {
         // Don't require user to explicitly create a user before joining the conversation.
         $.ajax({
-          url: "/v3/joinWithInvite",
+          url: "/api/v3/joinWithInvite",
           type: "POST",
           dataType: "json",
           xhrFields: {
@@ -108,7 +108,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
         // !!!!!!!!!!TEMP CODE - JOIN WITHOUT A ZINVITE!!!!!
         // Don't require user to explicitly create a user before joining the conversation.
         $.ajax({
-          url: "/v3/joinWithInvite",
+          url: "/api/v3/joinWithInvite",
           type: "POST",
           dataType: "json",
           xhrFields: {
@@ -147,7 +147,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
         onSuccess(ptpt);
       }, function(err) {
         $.ajax({
-          url: "/v3/joinWithInvite",
+          url: "/api/v3/joinWithInvite",
           type: "POST",
           dataType: "json",
           xhrFields: {
@@ -769,7 +769,7 @@ var polisRouter = Backbone.Router.extend({
       showEmailWelcome: true,
       create: true
     };
-    $.getJSON("/v3/einvites?einvite=" + einvite).then(function(o) {
+    $.getJSON("/api/v3/einvites?einvite=" + einvite).then(function(o) {
       model.email = o.email;      
       return model;
     }, function() {

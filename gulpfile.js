@@ -87,7 +87,7 @@ gulp.task('connect', [], function() {
   });
   app.use(express.static(path.join(destRootBase)));
   app.use("/", fetchIndex);
-  app.use(/^\/v3/, proxyToPreprod);
+  app.use(/^\/api\//, proxyToPreprod);
   app.use(/^\/landerImages/, proxyToPreprod);  
   app.use(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
   app.use(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
@@ -655,7 +655,7 @@ function doPurgeCache() {
   //   }
   //   callback(null, data + "\n");
   // });
-  request.get(host + "/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78")
+  request.get(host + "/api/v3/cache/purge/f2938rh2389hr283hr9823rhg2gweiwriu78")
     // .pipe(formatter)
     .pipe(process.stdout);
 }

@@ -19,7 +19,7 @@ module.exports = Handlebones.ModelView.extend({
             withCredentials: true
           },
           crossDomain: true,
-          url: "/v3/sendCreatedLinkToEmail",
+          url: "/api/v3/sendCreatedLinkToEmail",
           data: {
             conversation_id: conversation_id
           }

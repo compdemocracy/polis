@@ -11,7 +11,7 @@ module.exports = View.extend({
       e.preventDefault();
       serialize(this, function(attrs){
         $.ajax({
-          url: "/v3/beta/",
+          url: "/api/v3/beta/",
           type: "POST",
           dataType: "json",
           xhrFields: {
