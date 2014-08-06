@@ -47,9 +47,9 @@ fjs.parentNode.insertBefore(js, fjs);
 <div class="navbar navbar-default logo_and_login_section" role="navigation" style="margin-bottom: 0px;">
  <div class="container">
     <div class="navbar-header">
-      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+      <button type="button" class="navbar-toggle" style="padding: 3px 10px;" data-toggle="collapse" data-target=".navbar-collapse">
         <span class="sr-only">Toggle navigation</span>
-        <span class="fa fa-bars"></span>
+        <span class="fa fa-bars" style="position: relative; top: 2px"></span>
       </button>
       <a
         id="polisLogo"
@@ -61,13 +61,22 @@ fjs.parentNode.insertBefore(js, fjs);
       </a>
     </div>
 
-    {{!-- <div class="navbar-collapse collapse"> --}}
+    <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
         <li class="ifNoAuth"><a class="HeadingB" href="/user/login">Login</a></li>
         <li class="ifAuth"><a class="HeadingB" href="/inbox">Inbox</a></li>
         <li class="ifAuth"><a class="HeadingB" href="/settings">Settings</a></li>
         <li class="ifAuth"><a class="HeadingB" href="/user/logout">Signout</a></li>
       </ul>
-    {{!-- </div>{{! /.nav-collapse }} --}}
+    </div>{{! /.nav-collapse }}
  </div>
 </div>
+
+
+
+
+
+
+
+
+

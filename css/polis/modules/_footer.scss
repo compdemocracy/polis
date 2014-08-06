@@ -28,19 +28,35 @@ body {
   border-top: 1px solid transparent;
 }
 
-#footer-conversation-view {
-  height: 50px;
-  background-color: transparent;
-  padding-top: 30px;
-  border-color: #e7e7e7;
-  border-top: 1px solid #fafafa;
-}
-
 .footer_item {
   margin-right: 40px;
   position: relative;
-  top: 19px;
+  top: 14px;
 
 }
+
+/* not yet applied! --remove this comment when applied-- */
+.footer-conversation-view-wrap {
+  min-height: 100%;
+  height: auto !important;
+  height: 100%;
+  /* Negative indent footer by its height */
+  margin: 0 auto -50px;
+  /* Pad bottom by footer height */
+  padding: 0 0 50px;
+}
+
+#footer-conversation-view {
+  height: 50px;
+  background-color: transparent;
+  border-color: #e7e7e7;
+  border-top: 1px solid lightgrey;
+}
+
+.footer-conversation-view-item {
+  position: relative;
+  top: 14px;
+}
+
 
 /* ---------- END STICKY FOOTER ---------- */

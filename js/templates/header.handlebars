@@ -18,43 +18,31 @@
         href="{{logo_href}}"
         >
         pol<span class="Logo--blue">.</span>is
-
       </a>
     </div>
 
     <div class="navbar-collapse collapse">
-
       <ul class="nav navbar-nav navbar-right">
         {{#ifDefined showNewButton}}
         <li>
           <a href="/conversation/create" title="Create a new conversation" class="HeadingB"><i class="fa fa-plus-square"> </i> NEW</a>
         </li>
         {{/ifDefined}}
+        <li class="divider"></li>
         {{#unless hideInboxLink}}
         <li id="inboxLink"><a class="HeadingB" href="/inbox">Inbox</a></li>
         {{/unless}}
-        
+        <li class="divider"></li>
         {{#ifAuthenticated}}
-        <li class="dropdown">
-          <a href="#" class="dropdown-toggle" data-toggle="dropdown">
-            <i class="fa fa-cog"></i>
-            <span class="caret"></span>
-          </a>
-          <ul class="dropdown-menu" role="menu">
-            <li><a href="/settings">Settings</a></li>
+            <li><a href="/settings" class="HeadingB">Settings</a></li>
             <li class="divider"></li>
-            <li><a href="/user/logout">
+            <li><a href="/user/logout" class="HeadingB">
               {{#ifNotIE8}}
               <i class="fa fa-sign-out"></i>
               {{/ifNotIE8}}
               &nbsp; Signout</a></li>
-          </ul>
-        </li>
         {{/ifAuthenticated}}
       </ul>
-
-
-
     </div>{{! /.nav-collapse }}
   </div> {{! /.container }}
 </div> {{! navbar }}
