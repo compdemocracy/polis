@@ -4623,7 +4623,6 @@ function getConversations(req, res) {
                     if (conv.context === "") {
                         delete conv.context;
                     }
-                    console.dir(conv);
                 });
                 res.status(200).json(data);
 
