@@ -133,7 +133,11 @@ puts response.body
 <pre>
 <code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
     --user $POLIS_API_KEY: \
-    -d conversation_id="1234abc"
+    -d conversation_id="1234abc" \
+    -d user_id="someUser123" \
+    -d want_mod_url=true \
+    -d include_all_conversations_i_am_in=true \
+    -d limit=10
 </code>
 <code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
 require 'net/http'

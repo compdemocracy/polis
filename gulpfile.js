@@ -87,7 +87,9 @@ gulp.task('connect', [], function() {
   });
   app.use(express.static(path.join(destRootBase)));
   app.use("/", fetchIndex);
-  app.use(/^\/api\//, proxyToPreprod);
+  app.use(/^\/api\/v[0-9]+/, proxyToPreprod);
+  app.get(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
+
   app.use(/^\/landerImages/, proxyToPreprod);  
   app.use(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
   app.use(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
@@ -117,7 +119,9 @@ gulp.task('connect', [], function() {
   app.use(/^\/professors$/, express.static(path.join(destRootBase, "professors.html")));
   app.use(/^\/pricing$/, express.static(path.join(destRootBase, "pricing.html")));
   app.use(/^\/company$/, express.static(path.join(destRootBase, "company.html")));
-  app.use(/^\/api$/, express.static(path.join(destRootBase, "api.html")));
+  app.use(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
+  app.use(/^\/api$/, function (req, res) { res.redirect("/docs/api");});  
+  app.use(/^\/docs\/api\/v3$/, express.static(path.join(destRootBase, "api_v3.html")));
   app.use(/^\/embed$/, express.static(path.join(destRootBase, "embed.html")));
   app.use(/^\/politics$/, express.static(path.join(destRootBase, "politics.html")));
   app.use(/^\/marketers$/, express.static(path.join(destRootBase, "marketers.html")));
