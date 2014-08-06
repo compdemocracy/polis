@@ -12,6 +12,17 @@
   text-transform: uppercase;
 }
 
+/*dedup with abstract class for btn & Btn-large */
+.Btn-small {
+  padding: 0.4em 1.00em;
+  border-radius: 4px;
+  border: 0;
+  font-size: 12px;
+  font-family: $sans-font;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .Btn-primary {
   background-color: $brand-color;
   color: #fff;
