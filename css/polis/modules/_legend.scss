@@ -7,8 +7,51 @@
 }
 
 
-    // padding: 20px;
-    // background-color: rgb(247, 247, 247);
-    // margin-top: 0px;
-    // text-align: center;
-    // border-radius: 9px 9px 0px 0px;
+
+
+
+
+
+
+/*XS XS XS XS XS XS XS */
+/*  @screen-sm-min  */
+@media(max-width:767px){
+
+	#legendToggle {
+		display: none;
+	}
+
+}
+
+/*SM SM SM SM SM SM SM */
+/* @screen-sm-min  */
+@media(min-width:768px){
+
+	#legendToggle {
+		position: absolute; 
+		right: 30px; 
+		top: 5px;
+	}
+
+}
+
+/*MD MD MD MD MD MD MD MD */
+/* @screen-md-min */
+@media(min-width:992px){
+  
+	#legendToggle {
+		position: absolute; 
+		right: 30px; 
+		top: 5px;
+	}
+
+
+}
+
+/*LG LG LG LG LG LG LG LG */
+/* @screen-lg-min  */
+@media(min-width:1200px){
+
+
+
+}
