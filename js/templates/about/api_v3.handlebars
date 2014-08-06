@@ -16,7 +16,7 @@ $(document).ready(switchLanguages);
 </script>
 
 <div class="container">
-  <div class="row" style="margin-top: 20px;">
+  <div class="row" style="margin-top: 20px; margin-bottom: 20px">
     <div class="col-sm-12">
       <h1 class="HeadingA"> API </h1>
       <!-- groups are very powerful... sentiment groups... correlations... we'll give you... recurring... programmatic... --> 
@@ -38,7 +38,7 @@ $(document).ready(switchLanguages);
   </div>
 
   <div class="col-sm-5">
-    <h5>API</h5>
+    <h5 class="HeadingH HeadingH--dark">API</h5>
     <p> The API key is the only required field. A minimal request...</p> 
 <pre> <code data-language="shell">curl -s "pol.is/api/v3/create" \
   -X POST \
@@ -50,12 +50,12 @@ description: ""
 </code></pre>
     <p> By default, conversations are easily typeable shortlinks that anyone on the internet can access: <pre> <code data-language="javascript"> pol.is/b2xpm7w </code> </pre> 
     <p>Obviously, some conversations are more sensitive and require security. There are two tiers: </p>
-    <h5> LONG LINKS </h5> <p> Assumes your users can be trusted not to share a single link to the conversation. This is similar to YouTube & Google Docs, which use very long strings of letters and numbers to ensure that no one without the link can find the location of the document or the video on the internet. Good for internal business communication - easy to share, low overhead, secure enough.</p>
+    <h5 class="HeadingH HeadingH--dark"> LONG LINKS </h5> <p> Assumes your users can be trusted not to share a single link to the conversation. This is similar to YouTube & Google Docs, which use very long strings of letters and numbers to ensure that no one without the link can find the location of the document or the video on the internet. Good for internal business communication - easy to share, low overhead, secure enough.</p>
 
 <pre><code data-language="javascript">short_url: false 
 </code></pre>
 
-    <h5> SINGLE USE URLs </h5> <p> Assumes that users will not be trusted to keep a link secret - renders each link useless once it is used. See <a href="#addingUsers">Creating single use URLs</a>.</p>
+    <h5 class="HeadingH HeadingH--dark"> SINGLE USE URLs </h5> <p> Assumes that users will not be trusted to keep a link secret - renders each link useless once it is used. See <a href="#addingUsers">Creating single use URLs</a>.</p>
 
     <div class="alert alert-warning">
       <p><p><strong> Heads up! </strong> </p> <p style="display: inline"> Even if you plan on generating single-use urls, we still return a reusable url from this call: the response to create a conversation <em> always </em> returns a valid url. Passing</p> <code>short_url: false</code> <p style="display:inline"> makes this more secure.</p> <p>An example of when you might want this? Ask a bunch of customers a question by sending them single use urls, then use the long link to share the results with your coworkers internally. </p>
@@ -64,7 +64,7 @@ description: ""
   </div>
   <div class="col-sm-7">
 
-<h5> REQUEST </h5>
+<h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
 <pre>
 <code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/api/v3/conversations" \
       --user $POLIS_API_KEY: \
@@ -73,7 +73,8 @@ description: ""
       -F is_public=true \
       -F strict_moderation=false 
 </code>
-<code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
+<code class="code_sample code_ruby" style="display:none;" data-language="ruby">#NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend that you avoid putting your API key directly into your source code.
+
 require 'net/http'
 require 'uri'
 require 'json'
@@ -101,7 +102,7 @@ response = http.request(request)
 puts response.body
 </code>
 </pre>
-  <h5>RESPONSE</h5>
+  <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
 <pre> <code data-language="javascript">{
   conversation_id: "1234abc",
   url: "pol.is/1234abc",
@@ -235,24 +236,24 @@ puts response.body
   </div>
 
   <div class="col-sm-5">
-    <h5>API</h5>
+    <h5 class="HeadingH HeadingH--dark">API</h5>
     <p> Fetch stats about each participant's actions in the conversation</p>
 
     <div class="alert alert-warning">
       <p><p><strong> Heads up! </strong> </p> <p style="display: inline">
-      watch out for when users join using the wrong link!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ! ! !!!!!!!!!       ! ! ! ! !!</p>
+      If users join without using a single use URL, they won't be returned in this request, so be careful about sharing the normal join URL returned when the conversation is created.</p>
     </div>
 
   </div>
   <div class="col-sm-7">
 
-<h5> REQUEST </h5>
+<h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
 <pre>
 <code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/participation" \
     --user $POLIS_API_KEY: \
     -d conversation_id="1234abc"
 </code>
-<code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
+<code class="code_sample code_ruby" style="display:none;" data-language="ruby">#NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
 require 'net/http'
 require 'uri'
 require 'json'
@@ -276,7 +277,7 @@ response = http.request(request)
 puts response.body
 </code>
 </pre>
-  <h5>RESPONSE</h5>
+  <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
 <pre> <code data-language="javascript">{
   "f2bc494c9b81056": {
     "votes": 5,
@@ -325,12 +326,12 @@ puts response.body
   </div>
 
   <div class="col-sm-5">
-    <h5>API</h5>
+    <h5 class="HeadingH HeadingH--dark">API</h5>
     <p>Send Polis metadata that will show up in the GUI - look for it in the 'analyze' tab. For use with <a href="#addingUsers">single use URLs</a>. </p>
     <p> Arbitrary metadata you send us is mapped to your <code>user_id</code> codes, which are in turn mapped to single use URLs. Array of arrays. Each internal array should contain: <code>[user_id, column, value]</code>. If there is a duplicate <code>user_id</code> & <code>column</code>, we'll use the most recent <code>value</code> we have, so updates are the same format.</p>
   </div>
   <div class="col-sm-7">
-    <h5> REQUEST </h5>
+    <h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
 <pre> <code data-language="shell">curl -s "pol.is/api/v3/conversation_id/metadata" \
   -X POST \
   -u app-id:api-key \
@@ -340,7 +341,7 @@ puts response.body
     [ ["mnpq678", "city", "seattle" ], ["pkhr345", "city", "seattle"], ["wxkqe95", "pet", "llama"], ["ngk895c", "milliseconds_to_conversion", "lickitysplit"], ...]
   }'  
 </code></pre>
-  <h5>RESPONSE</h5>
+  <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
 <pre> <code data-language="javascript">{
   status: "success" //status: "failure"
 }
@@ -359,9 +360,8 @@ puts response.body
   </div>
 
   <div class="col-sm-5">
-    <h5>API</h5>
+    <h5 class="HeadingH HeadingH--dark">API</h5>
     <p> A single-use 'join' url returned for each <code>user_id</code> sent to us in the request. When a user hits this type of url, they enter the conversation immediately (or hit the metadata page immediately) without being asked to login, whether they have an account or not. </p>
-
     <p> This is a measure to prevent the conversation from spreading to users you have not invited. Once this url has been used, it becomes useless. If the user is logged in when they first hit the url, they will continue to have access to the conversation. </p>   
 
     <p> This request uses the <code>conversation_id</code> returned by the <a href="#createConversation"> request to create a conversation </a>. Create single use tokens so that users who enter the conversation cannot share their link with anyone else. To do this, you will need to provide us with a list of <code>user_id</code>s (external ids) that can be anything you want, should made up by you & should map to your users in your database environment. The <code>user_id</code>s you provide are scoped to your own namespace in our database environment - you are free to use whatever identifier scheme you want (integers, guids, etc). </p>
@@ -371,7 +371,7 @@ puts response.body
     </div>
   </div>
   <div class="col-sm-7">
-    <h5> REQUEST </h5>
+    <h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
 <pre> <code data-language="shell">curl -s "pol.is/api/v3/generateSingleUseTokens" \
   -X POST \
   -u app-id:api-key \
@@ -381,7 +381,7 @@ puts response.body
     user_ids: ["mnpq678", "pkhr345", "wxkqe945", ...]
   }'  
 </code></pre>
-  <h5>RESPONSE</h5>
+  <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
 <pre> <code data-language="javascript">{
   invitation_urls: {
     "mnpq678": "pol.is/s1ng13us3m4g1ct0k3n1",
@@ -404,16 +404,16 @@ puts response.body
   </div>
 
   <div class="col-sm-5">
-    <h5>API</h5>
+    <h5 class="HeadingH HeadingH--dark">API</h5>
     <p>If you created cohorts in the Polis GUI, you can grab the data here. Returns an object where the keys are strings of cohorts you created, and the values are arrays of <code>user_id</code>s you can map back to your users in your database environment.</p>
   </div>
   <div class="col-sm-7">
-    <h5> REQUEST </h5>
+    <h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
 <pre> <code data-language="javascript">curl -s "pol.is/api/v3/conversation_id/cohorts" \
   -X GET \
   -u app-id:api-key
 </code></pre>
-  <h5>RESPONSE</h5>
+  <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
 <pre><code data-language="javascript">{
   cohorts: {
     "happy people": ["user1", "user2", "user3" ...],
