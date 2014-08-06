@@ -453,7 +453,7 @@ var polisRouter = Backbone.Router.extend({
       filterAttrs.limit = 5;
       // filterAttrs.include_all_conversations_i_am_in = true; // don't want this for api test
       filterAttrs.want_mod_url = true;
-      filterAttrs.xid = "user_12345";
+      filterAttrs.user_id = "user_12345";
       // filterAttrs.want_inbox_item_participant_url = true;
       // if (filter) {
       //   switch(filter) {
