@@ -13,7 +13,7 @@ Backbone.ajax = function(url, options) {
 		url = options.url; // this part is different than jQuery.ajax (it would set url to null)
 	}
 
-    var base_url = urlPrefix + api_version + "/";
+    var base_url = urlPrefix + "api/" + api_version + "/";
 
     //var base_url = "http://localhost:5000/" + api_version;
     url = base_url + url;

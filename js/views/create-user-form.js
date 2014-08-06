@@ -61,7 +61,7 @@ var ModelView = Handlebones.ModelView;
         return that.onFail("Password must be 8 or more characters.");
       }
       $.ajax({
-        url: urlPrefix + "v3/auth/new",
+        url: urlPrefix + "api/v3/auth/new",
         type: "POST",
         dataType: "json",
         xhrFields: {
@@ -83,7 +83,7 @@ var ModelView = Handlebones.ModelView;
     
     serialize(this, function(attrs){
       $.ajax({
-        url: urlPrefix + "v3/auth/login",
+        url: urlPrefix + "api/v3/auth/login",
         type: "POST",
         dataType: "json",
         xhrFields: {

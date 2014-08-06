@@ -19,7 +19,7 @@ module.exports = View.extend({
           attrs = $.extend(that.options || {}, attrs);
 
           $.ajax({
-            url: urlPrefix + "v3/auth/new",
+            url: urlPrefix + "api/v3/auth/new",
             type: "POST",
             dataType: "json",
             xhrFields: {

@@ -17,7 +17,7 @@ module.exports = View.extend({
           return;
         }
         $.ajax({
-          url: urlPrefix + "v3/auth/pwresettoken",
+          url: urlPrefix + "api/v3/auth/pwresettoken",
           type: "POST",
           dataType: "json",
           xhrFields: {

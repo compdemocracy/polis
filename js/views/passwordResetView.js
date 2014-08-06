@@ -24,7 +24,7 @@ module.exports = View.extend({
           return;
         }
         $.ajax({
-          url: urlPrefix + "v3/auth/password",
+          url: urlPrefix + "api/v3/auth/password",
           type: "POST",
           dataType: "json",
           xhrFields: {
