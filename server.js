@@ -5299,7 +5299,8 @@ app.get(/^\/plan.*/, fetchIndex);
 app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/professors.html", "text/html"));
 app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
 app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
-app.get(/^\/api$/, makeFileFetcher(hostname, port, "/api.html", "text/html"));
+app.get(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
+app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, port, "/api_v3.html", "text/html"));
 app.get(/^\/embed$/, makeFileFetcher(hostname, port, "/embed.html", "text/html"));
 app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
 app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
@@ -5336,7 +5337,7 @@ var conditionalIndexFetcher = (function() {
 app.get("/", conditionalIndexFetcher);
 
 // proxy everything else
-app.get(/^\/[^(v3)]?.*/, proxy);
+app.get(/^\/[^(api\/)]?.*/, proxy);
 
 
 
