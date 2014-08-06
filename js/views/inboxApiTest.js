@@ -25,7 +25,9 @@ module.exports = Handlebones.View.extend({
   name: "inbox",
   template: template,
   initialize: function(options) {
+    var that = this;
     this.showNewButton = true;
+    this.hideInboxLink = true;
     this.collection = options.collection;
     this.filters = options.filters;
     // this.filters.is_active = options.is_active;
@@ -33,9 +35,13 @@ module.exports = Handlebones.View.extend({
     this.collection.comparator = function(conversation) {
       return -new Date(conversation.get("created")).getTime();
     };
+    function onFetched() {
+      that.$(".inboxEmpty").show();
+      that.$(".inboxLoading").hide();
+    }
     this.collection.fetch({
       data: $.param(this.filters)
-    });
+    }).then(onFetched, onFetched);
     this.inboxCollectionView = this.addChild(new InboxCollectionView({
       collection: options.collection
     }));
