@@ -4516,6 +4516,7 @@ function getConversations(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
   var xid = req.p.xid;
+  var include_all_conversations_i_am_in = req.p.include_all_conversations_i_am_in;
   var want_mod_url = req.p.want_mod_url;
   var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
   var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
@@ -4534,7 +4535,9 @@ function getConversations(req, res) {
 
     var query = sql_conversations.select(sql_conversations.star());
     var orClauses = sql_conversations.owner.equals(uid);
-    if (participantIn.length) {
+
+    // TODO_PERF Check include_all_conversations_i_am_in before making the above DB query.
+    if (include_all_conversations_i_am_in && participantIn.length) {
         orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
     }
     query = query.where(orClauses);
@@ -4646,6 +4649,7 @@ function getConversations(req, res) {
 app.get('/api/v3/conversations',
     moveToBody,
     authOptional(assignToP),
+    want('include_all_conversations_i_am_in', getBool, assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
