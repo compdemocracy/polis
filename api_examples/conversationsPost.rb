@@ -8,7 +8,7 @@ http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = true
 
 request = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
-request.basic_auth 'pkey_mikeatpolis333', ''
+request.basic_auth ENV['POLIS_API_KEY'], ''
 
 data = {
     'topic' => "Should we raise the minimum wage?",

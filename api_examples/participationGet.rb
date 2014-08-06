@@ -14,7 +14,7 @@ http.use_ssl = true
 request = Net::HTTP::Get.new(uri, {
     'Content-Type' =>'application/json'
 })
-request.basic_auth 'pkey_useful_97zyYJ9PWVJ07lke', ''
+request.basic_auth ENV['POLIS_API_KEY'], ''
 
 response = http.request(request)
 
