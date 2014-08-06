@@ -53,17 +53,6 @@
   border-right: 0px
 }
 
-#agreeButton, #disagreeButton, #passButton {
-  border-bottom: 0;
-  background: #fafafa;
-  -webkit-font-smoothing: antialiased;
-
-  &:hover {
-    border-color: #bbb;
-    background: #eee;
-  }
-}
-
 #agreeButton {
   border-left: 0;
   border-radius: 0 0 0 8px;
@@ -71,6 +60,20 @@
 
 #passButton {
   border-radius: 0 0 8px 0;
+}
+
+#agreeButton, #disagreeButton, #passButton {
+  border-bottom: 0;
+  background: #fafafa;
+  -webkit-font-smoothing: antialiased;
+
+  // Only allow hovering when not on iOS ( see https://github.com/twbs/bootstrap/issues/12832 )
+  &.vote-btn-w-hover {
+    &:hover {
+      border-color: #bbb;
+      background: #eee;
+    }
+  }
 }
 
 .btn-vote {

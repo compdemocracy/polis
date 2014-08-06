@@ -22,7 +22,7 @@
   {{#unless empty}}
       <div class="btn-group btn-group-justified">
         <div
-          class="btn btn-lg btn-default "
+          class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
           id="agreeButton"
           role="button"
           type="button"
@@ -34,7 +34,7 @@
 
         <div
           id="disagreeButton"
-          class="btn btn-lg btn-default "
+          class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
           role="button"
           type="button"
         >
@@ -45,7 +45,7 @@
 
         <div
           id="passButton"
-          class="btn btn-lg btn-default "
+          class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
           role="button"
           type="button"
         >

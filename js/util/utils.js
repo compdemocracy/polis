@@ -49,6 +49,9 @@ module.exports = {
   isIpad: function() {
     return navigator.userAgent.match(/iPad/);
   },
+  isIos: function() {
+    return this.isIpad() || this.isIphone();
+  },
   isAndroid: function() {
     return navigator.userAgent.match(/Android/);
   },
