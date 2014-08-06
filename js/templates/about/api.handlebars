@@ -115,6 +115,86 @@ puts response.body
 
 
 
+{{!-- 
+        GET CONVERSATIONS
+ --}}
+  <div id="getConversations" class="row">
+  <div class="col-sm-12">
+    <h3 ><a href="#getConversations"># Get a list of your conversations</a></h3>  
+  </div>
+
+  <div class="col-sm-5">
+    <h5>API</h5>
+    <p> dfsoaijod ifjoaisjdf oijas dfoijasdoi</p>
+  </div>
+  <div class="col-sm-7">
+
+<h5> REQUEST </h5>
+<pre>
+<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user $POLIS_API_KEY: \
+    -d conversation_id="1234abc"
+</code>
+<code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
+require 'net/http'
+require 'uri'
+require 'json'
+
+uri = URI('https://preprod.pol.is/api/v3/participation')
+params = {
+   'conversation_id' => '1234abc'
+}
+uri.query = URI.encode_www_form(params)
+
+http = Net::HTTP.new('preprod.pol.is', 443)
+http.use_ssl = true
+
+request = Net::HTTP::Get.new(uri, {
+    'Content-Type' =>'application/json'
+})
+request.basic_auth ENV['POLIS_API_KEY'], ''
+
+response = http.request(request)
+
+puts response.body
+</code>
+</pre>
+  <h5>RESPONSE</h5>
+<pre> <code data-language="javascript">{
+  "f2bc494c9b81056": {
+    "votes": 5,
+    "comments": 2
+  },
+  "c1d0747a40c5135": {
+    "votes": 6,
+    "comments": 0
+  },
+  "8d50eb37ecd10d2": {
+    "votes": 4,
+    "comments": 3
+  },
+  "a4835d18f0f19b0": {
+    "votes": 5,
+    "comments": 1
+  },
+  "16e64fabb16fa9a": {
+    "votes": 2,
+    "comments": 0
+  }
+}
+</code></pre>
+
+  </div> <!--column-->
+</div> <!--row-->
+
+
+
+
+
+
+
+
+
 
 {{!-- 
         GET PARTICIPATION
@@ -217,7 +297,7 @@ puts response.body
   <div class="col-sm-5">
     <h5>API</h5>
     <p>Send Polis metadata that will show up in the GUI - look for it in the 'analyze' tab. For use with <a href="#addingUsers">single use URLs</a>. </p>
-    <p> Arbitrary metadata you send us is mapped to <code>xids</code>, which are in turn mapped to single use URLs. Array of arrays. Each internal array should contain: <code>[xid, column, value]</code>. If there is a duplicate <code>xid</code> & <code>column</code>, we'll use the most recent <code>value</code> we have, so updates are the same format.</p>
+    <p> Arbitrary metadata you send us is mapped to your <code>user_id</code> codes, which are in turn mapped to single use URLs. Array of arrays. Each internal array should contain: <code>[user_id, column, value]</code>. If there is a duplicate <code>user_id</code> & <code>column</code>, we'll use the most recent <code>value</code> we have, so updates are the same format.</p>
   </div>
   <div class="col-sm-7">
     <h5> REQUEST </h5>
@@ -250,14 +330,14 @@ puts response.body
 
   <div class="col-sm-5">
     <h5>API</h5>
-    <p> A single-use 'join' url returned for each <code>xid</code> sent to us in the request. When a user hits this type of url, they enter the conversation immediately (or hit the metadata page immediately) without being asked to login, whether they have an account or not. </p>
+    <p> A single-use 'join' url returned for each <code>user_id</code> sent to us in the request. When a user hits this type of url, they enter the conversation immediately (or hit the metadata page immediately) without being asked to login, whether they have an account or not. </p>
 
     <p> This is a measure to prevent the conversation from spreading to users you have not invited. Once this url has been used, it becomes useless. If the user is logged in when they first hit the url, they will continue to have access to the conversation. </p>   
 
-    <p> This request uses the <code>conversation_id</code> returned by the <a href="#createConversation"> request to create a conversation </a>. Create single use tokens so that users who enter the conversation cannot share their link with anyone else. To do this, you will need to provide us with a list of <code>xids</code> (external ids) that can be anything you want, should made up by you & should map to your users in your database environment. The <code>xids</code> you provide are scoped to your own namespace in our database environment - you are free to use whatever identifier scheme you want (integers, guids, etc). </p>
+    <p> This request uses the <code>conversation_id</code> returned by the <a href="#createConversation"> request to create a conversation </a>. Create single use tokens so that users who enter the conversation cannot share their link with anyone else. To do this, you will need to provide us with a list of <code>user_id</code>s (external ids) that can be anything you want, should made up by you & should map to your users in your database environment. The <code>user_id</code>s you provide are scoped to your own namespace in our database environment - you are free to use whatever identifier scheme you want (integers, guids, etc). </p>
     <pre><code data-language="javascript">single_use_tokens: true</code></pre>
     <div class="alert alert-warning">
-    <p> <p><strong> Heads up! </strong> </p><p style="display:inline">If your user IDs are tied to your business logic (ie., if user ID 23453 means that you have >= 23,453 users in a database table), it may be undesirable to expose them directly. A good option is to map them to magic tokens in a new db table, and associate the</p> <code>xids</code> <p style="display:inline"> you send to us with the tokens.</p> <!-- <a href="tokentutorial.html">See this tutorial on creating magic tokens (unique random numbers).</a> --></p>
+    <p> <p><strong> Heads up! </strong> </p><p style="display:inline">If your user IDs are tied to your business logic (ie., if user ID 23453 means that you have >= 23,453 users in a database table), it may be undesirable to expose them directly. A good option is to map them to magic tokens in a new db table, and associate the</p> <code>user_id</code>s <p style="display:inline"> you send to us with the tokens.</p> <!-- <a href="tokentutorial.html">See this tutorial on creating magic tokens (unique random numbers).</a> --></p>
     </div>
   </div>
   <div class="col-sm-7">
@@ -268,7 +348,7 @@ puts response.body
   -H "Content-Type: application/json" \
   --data '{
     conversation_id: "1234abc",
-    xids: ["mnpq678", "pkhr345", "wxkqe945", ...]
+    user_ids: ["mnpq678", "pkhr345", "wxkqe945", ...]
   }'  
 </code></pre>
   <h5>RESPONSE</h5>
@@ -295,7 +375,7 @@ puts response.body
 
   <div class="col-sm-5">
     <h5>API</h5>
-    <p>If you created cohorts in the Polis GUI, you can grab the data here. Returns an object where the keys are strings of cohorts you created, and the values are arrays of <code>xids</code> you can map back to your users in your database environment.</p>
+    <p>If you created cohorts in the Polis GUI, you can grab the data here. Returns an object where the keys are strings of cohorts you created, and the values are arrays of <code>user_id</code>s you can map back to your users in your database environment.</p>
   </div>
   <div class="col-sm-7">
     <h5> REQUEST </h5>
