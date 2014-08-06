@@ -40,7 +40,7 @@ var w;
 var participantCount = 1;
 var nodes = [];
 var clusters = [];
-var hulls = [];
+var hulls = []; // NOTE hulls will be the same length as clusters
 var centroids = [];
 var visualization;
 var main_layer;
@@ -49,7 +49,7 @@ var overlay_layer;
 //var g; // top level svg group within the vis that gets translated/scaled on zoom
 var force;
 var queryResults;
-var d3Hulls;
+var d3Hulls; // NOTE: this has constant length, may be longer than hulls array
 var d3HullSelections;
 var d3HullShadows;
 
@@ -637,6 +637,12 @@ function updateHulls() {
         return points;
     }
 
+    function hideHull(i) {
+        d3Hulls[i].datum([]).style("visibility", "hidden");
+        d3HullSelections[i].datum([]).style("visibility", "hidden");
+        d3HullShadows[i].datum([]).style("visibility", "hidden");
+    }
+
     function updateHull(i) {
         var dfd = new $.Deferred();
         setTimeout(function() {
@@ -686,8 +692,9 @@ function updateHulls() {
 
             // another pass through the hull generator, to remove interior tesselated points.
             var points = d3.geom.hull(tessellatedPoints);
-            if (points.length) {
-
+            if (!points.length) {
+                hideHull(i);
+            } else {
                 points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
                 var shape = makeHullShape(points);
                 if (isIE8) {
@@ -696,9 +703,15 @@ function updateHulls() {
                     raphaelHulls[i].animate({path: _transformed}, 0);
                     raphaelHullsShadow[i].animate({path: _transformed}, 0);
                 } else {
-                    d3Hulls[i].datum(points).attr("d", shape);
-                    d3HullSelections[i].datum(points).attr("d", shape);
-                    d3HullShadows[i].datum(points).attr("d", shape);
+                    d3Hulls[i].datum(points)
+                        .attr("d", shape)
+                        .style("visibility", "visible");
+                    d3HullSelections[i].datum(points)
+                        .attr("d", shape)
+                        .style("visibility", "visible");
+                    d3HullShadows[i].datum(points)
+                        .attr("d", shape)
+                        .style("visibility", "visible");
                 }
             }
             dfd.resolve();
@@ -711,6 +724,18 @@ function updateHulls() {
 
     var p = $.when.apply($, updateHullPromises);
     p.then(function() {
+        if (isIE8) {
+            // TODO
+        } else {
+            // Remove empty clusters.
+            var emptyClusterCount = d3Hulls.length - clusters.length;
+            var startIndex = d3Hulls.length - emptyClusterCount;
+            for (var i = startIndex; i < d3Hulls.length; i++) {
+                hideHull(i);
+            }
+        }
+
+
         if (clusterToShowLineTo >= 0) {
             updateLineToCluster(clusterToShowLineTo);
         } else {
