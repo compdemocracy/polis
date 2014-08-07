@@ -1135,10 +1135,10 @@ function getParticipantCount(nodes) {
 }
 
 // clusters [[2,3,4],[1,5]]
-function upsertNode(updatedNodes, newClusters) {
+function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     console.log("upsert");
 
-    participantCount = getParticipantCount(updatedNodes);
+    participantCount = newParticipantCount;
 
     var MIN_PARTICIPANTS_FOR_VIS = 8;
     if (participantCount < MIN_PARTICIPANTS_FOR_VIS && !visBlockerOn) {

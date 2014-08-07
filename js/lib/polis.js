@@ -1082,14 +1082,13 @@ function clientSideBaseCluster(things, N) {
                         return $.Deferred().reject();
                     }
                     var buckets = arraysToObjects(pcaData["base-clusters"]);
+                    participantCount = sum(pcaData["base-clusters"].count);
 
                     // TODO we should include the vectors for each comment (with the comments?)
                     ///commentVectors = pcaData.commentVectors;
 
                     // TODO this is not runnable, just a rough idea. (data isn't structured like this)
                     ///var people = pcaData.people;
-
-                    participantCount = _.reduce(buckets, function(memo, b) { return memo + b.count;}, 0);
 
                     eb.trigger(eb.participantCount, participantCount);
                     if (_.isNumber(pcaData.voteCount)) {
@@ -1214,8 +1213,8 @@ function clientSideBaseCluster(things, N) {
         return people;
     }
 
-    function sendUpdatedVisData(people, clusters) {
-        personUpdateCallbacks.fire(people || [], clusters || []);
+    function sendUpdatedVisData(people, clusters, participantCount) {
+        personUpdateCallbacks.fire(people || [], clusters || [], participantCount);
     }
 
     function authenticated() {
@@ -1484,7 +1483,7 @@ function clientSideBaseCluster(things, N) {
     function updateMyProjection() {
         console.log("updateMyProjection");
         var people = prepProjection(projectionPeopleCache);
-        sendUpdatedVisData(people, clustersCache);
+        sendUpdatedVisData(people, clustersCache, participantCount);
     }
 
     function getPidToBidMappingFromCache() {
@@ -1798,7 +1797,7 @@ function clientSideBaseCluster(things, N) {
             firstPcaCallPromise.then(function() {
                 var buckets = prepProjection(projectionPeopleCache);
                 if (buckets.length) {
-                    sendUpdatedVisData(buckets, clustersCache);
+                    sendUpdatedVisData(buckets, clustersCache, participantCount);
                 }
             });
         },

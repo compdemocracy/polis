@@ -10,6 +10,7 @@ var Handlebars = require("handlebars");
 var _ = require("underscore");
 var display = require("./util/display");
 var Utils = require("./util/utils");
+var Url = require("./util/url");
 
 // These are required here to ensure they are included in the build.
 var bootstrapAlert = require("bootstrap_alert");

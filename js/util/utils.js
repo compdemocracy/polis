@@ -57,7 +57,7 @@ module.exports = {
   },
   isOldAndroid: function() {
     return navigator.userAgent.match(/Android [012]\.[0-3]/);
-  }
+  },
   isMobile: function() {
     return this.isIphone() || this.isIpad() || this.isAndroid();
   },

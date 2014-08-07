@@ -16,7 +16,16 @@ if (document.domain === "localhost" && document.location.port === "8000") {
 	urlPrefix = localhost8000;
 }
 
+function isPreprod() {
+	return urlPrefix === preprod;
+}
+
+function isLocalhost() {
+	return urlPrefix === localhost || urlPrefix === localhost8000;
+}
 
 module.exports = {
-  urlPrefix: urlPrefix
+  urlPrefix: urlPrefix,
+  isPreprod: isPreprod,
+  isLocalhost: isLocalhost
 };
