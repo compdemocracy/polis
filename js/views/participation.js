@@ -186,8 +186,8 @@ module.exports =  ConversationView.extend({
         // Don't show vis for weird devices (Gingerbread, etc)
         return;
       }
-
-      $(VIS_SELECTOR).html("").height(0);
+      $("#visualization_div > .visualization").remove();
+      // $(VIS_SELECTOR).html("").height(0);
       // $(VIS_SELECTOR).parent().css("display", "none");
 
 
@@ -511,6 +511,7 @@ module.exports =  ConversationView.extend({
           vis.deselect();
         }
       }
+      /*
       that.commentView.on("showComment", _.once(function() {
         if (!isMobile) {
           that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
@@ -540,6 +541,7 @@ module.exports =  ConversationView.extend({
         // Wait until the first comment is shown before showing the tooltip
         });
       }
+      */
       that.commentView.on("showComment", _.once(function() {   
 
         that.$commentViewPopover = that.$("#commentView").popover({

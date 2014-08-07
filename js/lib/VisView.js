@@ -103,7 +103,7 @@ var colorNoVote = colorPass;
 // Cached results of tunalbes - set during init
 var strokeWidth;
 // Since initialize is called on resize, clear the old vis before setting up the new one.
-$(el_selector).html("");
+$(el_selector + " > .visualization").remove();
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 var tip = null;
@@ -255,6 +255,7 @@ function makeBucketParts(i) {
     return bucket;
 }
 
+
 if (isIE8) {
     for (var i = 0; i < MAX_BUCKETS; i++) {
         var bucket = makeBucketParts();
@@ -275,9 +276,15 @@ $(el_selector)
             "<circle cx = '6' cy = '6' r = '5' style='fill:lightgray;'/>" +
         "</marker>" +
     "</defs>" +
+    // "<g>" +
+    // '<rect x="'+ (w-150) +'" y="0" width="150" height="25" rx="3" ry="3" fill="#e3e4e5"/>'+
+    // '<text x="'+ (w-150) +'" y="10" width="150" height="25" rx="3" ry="3" fill="##3498db">SHOW LEGEND</text>'+
+    // "</g>" +
     "</svg>")
   ;
 }
+
+
 
 $("#legendRoot").html("");
 $("#legendRoot").append("<p class=\"HeadingF HeadingF--light\" style=\"position: absolute; font-size: 12px; text-align: center; width: 100%; top: 6px\"> Dots represent participants. The closer the participants are, the more alike they voted.</p>" +
@@ -365,8 +372,6 @@ if (isIE8) {
     w = $(el_selector).width() - xOffset;
     h = $(el_selector).height();
 }
-
-
 
 
 // function zoom() {

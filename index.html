@@ -9,25 +9,25 @@
     <link rel="stylesheet" type="text/css" href="<%= basepath %>/css/polis.css"> <!-- proxy all CSS through server for respond.js -->
 
     <script>
-// add error alerting
-if (document.domain.indexOf("preprod") || document.domain.indexOf("localhost")) {
-  if (window.addEventListener) {
-    window.addEventListener('error', function (evt) {
-      var s = evt.message + "' from " + evt.filename + ":" + evt.lineno;
-        console.log("Caught[via 'error' event]:  '" + s);
-        console.log(evt); // has srcElement / target / etc
-        alert(s);
-        evt.preventDefault();
-    });
-  } else {
-      window.onerror = function (msg, url, line) {
-        var s = msg + "' from " + url + ":" + line;
-        console.log("Caught[via window.onerror]: '" + s);
-        alert(s);
-        return true; // same as preventDefault
-    };
-  }
-}
+// // add error alerting
+// if (document.domain.indexOf("preprod") || document.domain.indexOf("localhost")) {
+//   if (window.addEventListener) {
+//     window.addEventListener('error', function (evt) {
+//       var s = evt.message + "' from " + evt.filename + ":" + evt.lineno;
+//         console.log("Caught[via 'error' event]:  '" + s);
+//         console.log(evt); // has srcElement / target / etc
+//         alert(s);
+//         evt.preventDefault();
+//     });
+//   } else {
+//       window.onerror = function (msg, url, line) {
+//         var s = msg + "' from " + url + ":" + line;
+//         console.log("Caught[via window.onerror]: '" + s);
+//         alert(s);
+//         return true; // same as preventDefault
+//     };
+//   }
+// }
 
 
       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
