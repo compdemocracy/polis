@@ -97,6 +97,17 @@ module.exports =  ConversationView.extend({
   changeLegendButtonToHide: function() {
     this.$("#legendToggle").text("hide legend");
   },
+  updateLineToSelectedCluster: function(gid) {
+    if (this.vis) {
+      if (display.xs()) {
+        // don't show line on mobile
+        this.vis.showLineToCluster(-1);
+      } else {
+        gid = _.isUndefined(gid) ? this.selectedGid : gid;
+        this.vis.showLineToCluster(gid);
+      }
+    }
+  },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
@@ -107,14 +118,7 @@ module.exports =  ConversationView.extend({
     var serverClient = this.serverClient;
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
-      if (vis) {
-        if (display.xs()) {
-          // don't show line on mobile
-          vis.showLineToCluster(-1);
-        } else {
-          vis.showLineToCluster(gid);
-        }
-      }
+      that.updateLineToSelectedCluster(gid);
       if (gid === -1) {
         if (vis) {
           vis.selectComment(null);
@@ -213,7 +217,7 @@ module.exports =  ConversationView.extend({
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
-      vis.showLineToCluster(that.selectedGid);
+      that.updateLineToSelectedCluster();
       that.disableVisAffix();
 
       if (shouldShowVisUnderTabs()) {
