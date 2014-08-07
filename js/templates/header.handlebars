@@ -25,18 +25,18 @@
       <ul class="nav navbar-nav navbar-right">
         {{#ifDefined showNewButton}}
         <li>
-          <a href="/conversation/create" title="Create a new conversation" class="HeadingB"><i class="fa fa-plus-square"> </i> NEW</a>
+          <a href="/conversation/create" title="Create a new conversation" class="HeadingD"><i class="fa fa-plus-square"> </i> NEW</a>
         </li>
         {{/ifDefined}}
         <li class="divider"></li>
         {{#unless hideInboxLink}}
-        <li id="inboxLink"><a class="HeadingB" href="/inbox">Inbox</a></li>
+        <li id="inboxLink"><a class="HeadingD" href="/inbox">Inbox</a></li>
         {{/unless}}
         <li class="divider"></li>
         {{#ifAuthenticated}}
-            <li><a href="/settings" class="HeadingB">Settings</a></li>
+            <li><a href="/settings" class="HeadingD">Settings</a></li>
             <li class="divider"></li>
-            <li><a href="/user/logout" class="HeadingB">
+            <li><a href="/user/logout" class="HeadingD">
               {{#ifNotIE8}}
               <i class="fa fa-sign-out"></i>
               {{/ifNotIE8}}

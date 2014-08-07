@@ -64,10 +64,12 @@ module.exports =  ConversationView.extend({
     }
   },
   hideVis: function() {
-    $("#visualization_parent_div").hide();
+    $(".visualization").hide();
+    $(".vis_container").hide();// TODO this is sloppy, should only need to hide/remove a single element
   },
   showVis: function() {
-    $("#visualization_parent_div").show();
+    $(".visualization").show();
+    $(".vis_container").show(); // TODO this is sloppy, should only need to hide/remove a single element
   },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
@@ -195,6 +197,7 @@ module.exports =  ConversationView.extend({
         w = 500;
         $(VIS_SELECTOR).width(w);
       }
+      var xOffset = display.xs() ? 0 : 30;
       var h = w/2;
       $(VIS_SELECTOR).height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
@@ -210,6 +213,7 @@ module.exports =  ConversationView.extend({
           getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
           getPidToBidMapping: serverClient.getPidToBidMapping,
+          xOffset: xOffset,
           w: w,
           h: h,
           computeXySpans: Utils.computeXySpans,
@@ -220,12 +224,12 @@ module.exports =  ConversationView.extend({
       that.updateLineToSelectedCluster();
       that.disableVisAffix();
 
-      if (shouldShowVisUnderTabs()) {
-        // wait for layout
-        setTimeout(
-          moveVisToBottom,
-          10);
-      }
+
+      // if (display.xs()) {
+      //   $("#commentView").addClass("floating-side-panel-gradients");
+      // } else {
+      //   $("#commentView").removeClass("floating-side-panel-gradients");
+      // }
 
       that.serverClient.addPersonUpdateListener(onPersonUpdate) // TODO REMOVE DUPLICATE
 
@@ -416,6 +420,7 @@ module.exports =  ConversationView.extend({
         vis.deselect();
       }
       that.analyzeGroupView.deselectComments();
+      vis.deselect();
       // eb.trigger(eb.commentSelected, false);
       // that.conversationTabs.doShowTabsUX();
     });
@@ -425,6 +430,7 @@ module.exports =  ConversationView.extend({
     });
     that.conversationTabs.on("beforeshow:legend", function() {
       that.conversationTabs.hideTabLabels();
+      that.showVis();
     });
 
     that.conversationTabs.on("beforeshow:analyze", function() {
@@ -432,6 +438,7 @@ module.exports =  ConversationView.extend({
       if (shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
+      that.showVis();
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
@@ -443,6 +450,7 @@ module.exports =  ConversationView.extend({
       if (shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
+      that.showVis();
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
@@ -455,6 +463,7 @@ module.exports =  ConversationView.extend({
       if (shouldShowVisUnderTabs()) {
         moveVisToBottom();
       }
+      that.showVis();
     });
     that.conversationTabs.on("aftershow:analyze", function() {
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
@@ -565,6 +574,21 @@ module.exports =  ConversationView.extend({
           configureGutters();
           initPcaVis();
         }, 100));
+
+        // This need to happen quickly, so no debounce
+        $(window).resize(function() {
+          if (shouldShowVisUnderTabs()) {
+            // wait for layout
+            setTimeout(
+              moveVisAboveQueryResults,
+              10);
+          } else {
+            // wait for layout
+            setTimeout(
+              moveVisToBottom,
+              10);
+          }
+        });
       }
 
 

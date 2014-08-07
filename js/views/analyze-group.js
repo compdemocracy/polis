@@ -237,7 +237,7 @@ module.exports = Handlebones.View.extend({
         if (gid === -1) {
           that.$("#commentSearch").show();
           that.$("#commentSort").show();
-          that.$("#groupStats").hide();
+          // that.$("#groupStats").hide();
           that.sortEnabled = true;
           that.searchEnabled = true;
           that.tidsForGroup = null;
@@ -247,7 +247,7 @@ module.exports = Handlebones.View.extend({
         } else {
           that.$("#commentSearch").hide();
           that.$("#commentSort").hide();
-          that.$("#groupStats").show();
+          // that.$("#groupStats").show();
           that.sortEnabled = false;
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {

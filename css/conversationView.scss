@@ -1,4 +1,4 @@
-.write-pane {
+.write-hint-pane {
   font-size: 16px;
 }
 
@@ -221,6 +221,16 @@ svg {
   background-color: #FFFBE8;
 }
 
+// needed if transitioning from gray to white
+.floating-side-panel-gradients {
+  background: #fafafa;
+  background: -moz-linear-gradient(top, #fafafa 0%, #FFFFFF 99%);
+  background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,#fafafa), color-stop(99%,#FFFFFF));
+  background: -webkit-linear-gradient(top, #fafafa 0%,#FFFFFF 99%);
+  background: -o-linear-gradient(top, #fafafa 0%,#FFFFFF 99%);
+  background: -ms-linear-gradient(top, #fafafa 0%,#FFFFFF 99%);
+  background: linear-gradient(to bottom, #fafafa 0%,#FFFFFF 99%);
+}
 
 // .hover {
 //   background-color: $color_selected_comment;
@@ -267,18 +277,56 @@ svg {
 
 $custom_gutter_pixels: 5px;
 
-.custom_gutter {
-  margin-left: $custom_gutter_pixels;
-  margin-right: $custom_gutter_pixels;
+.write-pane {
+  background-color: white;
+  border-style: solid;
+  border-width: 0px;
+  border-top-width: 1px;
+  border-color: lightgray;
 }
-.custom_gutter_via_padding {
-  padding-left: $custom_gutter_pixels;
-  padding-right: $custom_gutter_pixels;
+
+// override bootstrap's negative margin on xs
+.row {
+  margin-left: 0px;
+  margin-right: 0px;
 }
 
 /* Everything but mobile */
 @media (min-width: 767px) {
 
+
+  // make flush with tab pane so we can draw the arrow pointint to the selected hull
+  #vis_sibling_bottom {
+    margin-left: -30px;
+  }
+
+  #groupStats {
+    display: auto;
+  }
+
+  .analyze-group-pane {
+    border-style: solid;
+    border-width: 0px;
+    background-color: white;
+    border-top-width: 1px;
+    border-color: lightgray;
+    border-right: 3px solid lightgrey;
+    border-bottom: 3px solid lightgrey;
+    border-left: 1px solid lightgrey;
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+  }
+
+  .write-pane {
+    border-right: 3px solid lightgrey;
+    border-bottom: 3px solid lightgrey;
+    border-left: 1px solid lightgrey;
+  // padding-bottom: 48px;
+    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+  }
 }
 
 /* Large desktop */
@@ -306,6 +354,22 @@ $custom_gutter_pixels: 5px;
   }
 }
 
+/* LITTLE TABLET and down */
+@media only screen and (min-width : 320px) and (max-width : 1024px) {
+  #comment_shower_frame {
+    padding: 5px;
+  }
+  
+  .custom_gutter {
+    margin-left: $custom_gutter_pixels;
+    margin-right: $custom_gutter_pixels;
+  }
+  .custom_gutter_via_padding {
+    padding-left: $custom_gutter_pixels;
+    padding-right: $custom_gutter_pixels;
+  }
+}
+
 /* BIG PHONE and down */
 @media only screen and (min-width : 320px) and (max-width : 568px) {
   body{
@@ -314,9 +378,6 @@ $custom_gutter_pixels: 5px;
   #comment_shower {
     margin-top: 20px;
   }
-  #comment_shower_frame {
-    padding: 5px;
-  }
   .nav-tabs > li > a {
     padding-left: 12px !important;
     padding-right: 12px !important;
@@ -324,5 +385,18 @@ $custom_gutter_pixels: 5px;
   .dropdown-menu {
     right: 0;
     left: auto;
+  }
+  #groupStats {
+    display: none;
+  }
+  .polis-tab-pane {
+    border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray;
+  }
+
+  .polis-tab {
+    // font-size:10px; // not needed since we're hiding the analyze tab, which makes space for the other tabs
+  }
+  #vis_sibling_bottom {
+    margin-left: auto;
   }
 }

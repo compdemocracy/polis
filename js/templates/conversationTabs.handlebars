@@ -11,57 +11,53 @@
       <a
         href="#commentView"
         id="commentViewTab"
-        class="HeadingD"
-        style="{{#if smallTabs}}font-size:95%{{/if}}"
+        class="HeadingD polis-tab"
         data-toggle="tab">
         {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}{{#if showTabs}} READ &amp; REACT{{/if}}
       </a>
     </li>
     <li
-      {{#if writeActive}} class="active" {{/if}}
+      class="{{#if writeActive}}active{{/if}}" 
     >
       <a
         href="#commentForm"
         id="commentFormTab"
-        class="HeadingD"
-        style="{{#if smallTabs}}font-size:95%{{/if}}"
+        class="HeadingD polis-tab"
         data-toggle="tab">
         {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}{{#if showTabs}} WRITE{{/if}}
       </a>
     </li>
     <li
-      {{#if analyzeActive}} class="active" {{/if}}
+      class="{{#if analyzeActive}}active{{/if}} hidden-xs" 
     >
       <a
         href="#analyze"
         id="analyzeTab"
-        class="HeadingD"
-        style="{{#if smallTabs}}font-size:95%;{{/if}} {{#ifXs}}display:none;{{/ifXs}}"
+        class="HeadingD polis-tab"
         data-toggle="tab">
         {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}{{#if showTabs}} ANALYZE{{/if}}
       </a>
     </li>
     <li
-      {{#if groupActive}} class="active" {{/if}}
+      class="{{#if groupActive}}active{{/if}}"
     >
       <a
         href="#group"
         id="groupTab"
-        style="{{#if smallTabs}}font-size:95%;{{/if}} display:none;"
+        class="polis-tab"
+        style="display:none;"
         data-toggle="tab">
       {{! Group (nothing to show) }}
       </a>
     </li>
     <li
-      {{#if legendActive}} class="active" {{/if}}
+      class="{{#if legendActive}}active{{/if}}"
     >
       <a
         href="#legend"
         id="legendTab"
-        style="
-          {{#if smallTabs}}font-size:95%;{{/if}}
-          display:none;
-        "
+        class="polis-tab"
+        style="display:none;"
         data-toggle="tab">
         legend
       {{! nothing to show }}

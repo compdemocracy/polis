@@ -16,7 +16,7 @@ var getReactionsToComment = params.getReactionsToComment;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
-var xOffset = params.xOffset = 30;
+var xOffset = params.xOffset || 0;
 
 var dimensions = {
     width: params.w,
