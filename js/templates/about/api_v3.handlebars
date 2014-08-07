@@ -29,48 +29,38 @@ $(document).ready(switchLanguages);
   
 
 
-{{!-- 
-        POST CONVERSATIONS
- --}}
+{{!-- ********************* CREATE CONVERSATIONS ********************* --}}
+
   <div id="createConversation" class="row">
   <div class="col-sm-12">
-    <h3 ><a href="#createConversation"># Creating a conversation</a></h3>  
+    <h3 ><a href="#createConversation"># Create conversation</a></h3>  
   </div>
 
   <div class="col-sm-5">
-    <h5 class="HeadingH HeadingH--dark">API</h5>
-    <p> The API key is the only required field. A minimal request...</p> 
-<pre> <code data-language="shell">curl -s "pol.is/api/v3/create" \
-  -X POST \
-  -u app-id:api-key \</code></pre> 
-  <p>...will create a conversation that is immediately accessible on the internet at the returned url. It will have the following defaults:  </p>
-<pre><code data-language="javascript">short_url: true //false: long link
+    <h5 class="HeadingH HeadingH--dark">DEFAULTS</h5>
+    <p> If you haven't created a conversation in the app yet, try it out! Just like in the app, the fields are optional and there are defaults. The API key is the only required data field.
+<pre><code data-language="javascript">short_url: false 
 topic: ""
 description: ""
 </code></pre>
-    <p> By default, conversations are easily typeable shortlinks that anyone on the internet can access: <pre> <code data-language="javascript"> pol.is/b2xpm7w </code> </pre> 
-    <p>Obviously, some conversations are more sensitive and require security. There are two tiers: </p>
-    <h5 class="HeadingH HeadingH--dark"> LONG LINKS </h5> <p> Assumes your users can be trusted not to share a single link to the conversation. This is similar to YouTube & Google Docs, which use very long strings of letters and numbers to ensure that no one without the link can find the location of the document or the video on the internet. Good for internal business communication - easy to share, low overhead, secure enough.</p>
-
-<pre><code data-language="javascript">short_url: false 
-</code></pre>
+    <p> Passing <code>short_url: true</code> will return an easily typeable shortlink: <pre> <code data-language="javascript"> pol.is/b2xpm7w </code> </pre> 
+    <p>Some conversations are more sensitive and require security. There are two tiers: </p>
+    <h5 class="HeadingH HeadingH--dark"> LONG LINKS </h5> <p> <code>short_url: false</code> assumes your users can be trusted not to share a single link to the conversation. This is similar to YouTube & Google Docs, which use very long strings of letters and numbers to ensure that no one without the link can find the location of the document or the video on the internet. Good for internal business communication - easy to share, low overhead, secure enough.</p>
 
     <h5 class="HeadingH HeadingH--dark"> SINGLE USE URLs </h5> <p> Assumes that users will not be trusted to keep a link secret - renders each link useless once it is used. See <a href="#addingUsers">Creating single use URLs</a>.</p>
 
-    <div class="alert alert-warning">
-      <p><p><strong> Heads up! </strong> </p> <p style="display: inline"> Even if you plan on generating single-use urls, we still return a reusable url from this call: the response to create a conversation <em> always </em> returns a valid url. Passing</p> <code>short_url: false</code> <p style="display:inline"> makes this more secure.</p> <p>An example of when you might want this? Ask a bunch of customers a question by sending them single use urls, then use the long link to share the results with your coworkers internally. </p>
-    </div>
+      <p style="color: #c0392b;"><i class="fa fa-bell"></i><strong> Heads up! </strong> </p> <div style="border-left: 3px solid #c0392b; padding-left: 10px"> <p style="display: inline"> Even if you plan on generating single-use urls, we still return a reusable url from this call: the response to create a conversation <em> always </em> returns a valid url. Passing the default</p> <code>short_url: false</code> <p style="display:inline"> makes this more secure. An example of when you might want this? Ask a bunch of customers a question by sending them single use urls, then use the long link to share the results with your coworkers internally. </p> </div>
 
   </div>
   <div class="col-sm-7">
 
-<h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
+<h5 class="HeadingF HeadingF--light"> REQUEST </h5>
 <pre>
 <code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/api/v3/conversations" \
-      --user $POLIS_API_KEY: \
+      --user POLIS_API_KEY: \
       -F topic="Should we raise the minimum wage?" \
       -F description="It's currently under $10/hr, What do you think?" \
-      -F is_public=true \
+      -F short_url=true \
       -F strict_moderation=false 
 </code>
 <code class="code_sample code_ruby" style="display:none;" data-language="ruby">#NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend that you avoid putting your API key directly into your source code.
@@ -92,7 +82,7 @@ request.basic_auth ENV['POLIS_API_KEY'], ''
 data = {
     'topic' => "Should we raise the minimum wage?",
     'description' => "It's currently under $10/hr, What do you think?",
-    'is_public' => false,
+    'short_url' => false,
     'strict_moderation' => false,
 }
 
@@ -102,7 +92,7 @@ response = http.request(request)
 puts response.body
 </code>
 </pre>
-  <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
+  <h5 class="HeadingF HeadingF--light">RESPONSE</h5>
 <pre> <code data-language="javascript">{
   conversation_id: "1234abc",
   url: "pol.is/1234abc",
@@ -116,56 +106,104 @@ puts response.body
 
 
 
-{{!-- 
-        GET CONVERSATIONS
- --}}
-  <div id="getConversations" class="row">
-  <div class="col-sm-12">
-    <h3 ><a href="#getConversations"># Get a list of your conversations</a></h3>  
-  </div>
+{{!-- ********************* GET CONVERSATIONS ********************* --}}
 
+<div id="getConversations" class="row" style="margin-top: 20px; border-top: 2px solid lightgrey; padding-top: 50px">
+  <div class="col-sm-12">
+    <h3 ><a href="#getConversations"># Get conversation(s)</a></h3>  
+  </div>
+</div>
+
+<div class="row">
   <div class="col-sm-5">
-    <h5>API</h5>
-    <p> dfsoaijod ifjoaisjdf oijas dfoijasdoi</p>
+    <h5 class="HeadingH HeadingH--dark">GET ALL THE DATA FOR ONE CONVERSATION</h5>
+    <p>Get information for a single conversation. Assumes you know the <code>conversation_id</code></p>
   </div>
   <div class="col-sm-7">
-
-<h5> REQUEST </h5>
-<pre>
-
-<p>Get information on a single conversation which you have the conversation_id of</p>
-<div class="alert alert-warning">
-  <p><p><strong> Heads up! </strong> </p> <p style="display: inline">
-  If you don't suply a user_id, the URLs returned will not allow you to map the participants who follow the URLs back to users of your system.</p>
-</div>
-<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
-    --user $POLIS_API_KEY: \
+<h5 class="HeadingF HeadingF--light"> REQUEST </h5>
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user POLIS_API_KEY: \
     -d conversation_id="1234abc"
-</code>
+</code></pre>
+<h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
+<pre><code class="code_sample code_curl" data-language="shell">{
 
-<p>Get information on a single conversation which you have the conversation_id of, where the returned URL is customized to map  to a user in your system.</p>
-<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
-    --user $POLIS_API_KEY: \
+}
+</code></pre>
+</div>
+  
+</div>
+
+<div class="row" style="margin-top: 40px">
+  <div class="col-sm-5">
+    <h5 class="HeadingH HeadingH--dark">SINGLE CONVERSATION WITH UNIQUE URLS</h5>
+    <p>Get information on a single conversation for which you have the <code>conversation_id</code>. Each returned URL is customized to map to a user in your system.</p>
+      <p style="color: #c0392b;"><i class="fa fa-bell"></i><strong> Heads up! </strong> </p> <div style="border-left: 3px solid #c0392b; padding-left: 10px"><p style="display: inline; "> If you don't supply a <code>user_id</code>, the URLs returned will not allow you to map the participants who follow the URLs back to users of your system.</p></div>
+  </div>
+  <div class="col-sm-7">
+<h5 class="HeadingF HeadingF--light"> REQUEST </h5>
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user POLIS_API_KEY: \
     -d conversation_id="1234abc" \
     -d user_id="someUser123"
-</code>
+</code></pre>
+<h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
+<pre><code class="code_sample code_curl" data-language="shell">{
+
+}
+</code></pre>
+  </div>
+</div>
 
 
-<p>Get a list of the conversations created by your account, where each URL is customized to map to a user in your system.</p>
-<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
-    --user $POLIS_API_KEY: \
+
+
+<div class="row" style="margin-top: 40px">
+  <div class="col-sm-5">
+    <h5 class="HeadingH HeadingH--dark">LIST OF CONVERSATIONS WITH UNIQUE URLS</h5>
+    <p>Get a list of the conversations created by your account, where each URL is customized to map to a user in your system. By default, this request returns all conversations owned by the API key provided, and can be scoped down by providing a context, namely <code>user_id</code></p>
+    
+  </div>
+  <div class="col-sm-7">
+<h5 class="HeadingF HeadingF--light"> REQUEST </h5>
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user POLIS_API_KEY: \
     -d user_id="someUser123" \
     -d limit=10
-</code>
+</code></pre>
+<h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
+<pre><code class="code_sample code_curl" data-language="shell">{
 
-<p>Add <code>want_mod_url</code> if you are rendering the links for a user you would like to grand moderation access to. The result will return a <code>mod_url</code> for each conversation.</p>
-<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
-    --user $POLIS_API_KEY: \
+}
+</code></pre>
+  </div>
+</div>
+
+
+<div class="row" style="margin-top: 40px">
+  <div class="col-sm-5">
+    <h5 class="HeadingH HeadingH--dark">GRANTING ADDITIONAL MODERATOR PRIVILEGES</h5>
+    <p>What's the use of having a fancy commenting system if you can't keep up with the firehose of comments? Add <code>want_mod_url</code> if you are rendering the links for a user you would like to grant moderation access to. The result will return a <code>mod_url</code> for each conversation so the task can be parallelized. Good for TA's, staffers, other admins, etc. inside of your app.</p>
+  </div>
+  <div class="col-sm-7">
+<h5 class="HeadingF HeadingF--light"> REQUEST </h5>
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+    --user POLIS_API_KEY: \
     -d conversation_id="1234abc" \
     -d user_id="someUser123" \
     -d want_mod_url=true \
     -d limit=10
-</code>
+</code></pre>
+<h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
+<pre><code class="code_sample code_curl" data-language="shell">{
+
+}
+</code></pre>
+  </div>
+</div>
+
+
+
 <code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
 require 'net/http'
 require 'uri'
@@ -190,13 +228,7 @@ response = http.request(request)
 puts response.body
 </code>
 </pre>
-  <h5>RESPONSE</h5>
-<pre> <code data-language="javascript">
-  TODO add response
-</code></pre>
 
-  </div> <!--column-->
-</div> <!--row-->
 
 
 
@@ -210,27 +242,25 @@ puts response.body
 {{!-- 
         GET PARTICIPATION
  --}}
-  <div id="getParticipation" class="row">
+  <div id="getParticipation" class="row" style="margin-top: 20px; border-top: 2px solid lightgrey; padding-top: 50px">
   <div class="col-sm-12">
-    <h3 ><a href="#getParticipation"># Get Participation Stats</a></h3>  
+    <h3 ><a href="#getParticipation"># Get Participation Stats</a></h3>   
   </div>
 
   <div class="col-sm-5">
     <h5 class="HeadingH HeadingH--dark">API</h5>
     <p> Fetch stats about each participant's actions in the conversation</p>
 
-    <div class="alert alert-warning">
-      <p><p><strong> Heads up! </strong> </p> <p style="display: inline">
-      If users join without using a single use URL, they won't be returned in this request, so be careful about sharing the normal join URL returned when the conversation is created.</p>
-    </div>
+      <p style="color: #c0392b;"><i class="fa fa-bell"></i><strong> Heads up! </strong> </p> <div style="border-left: 3px solid #c0392b; padding-left: 10px"><p style="display: inline">
+      If users join without using a single use URL, they won't be returned in this request, so be careful about sharing the normal join URL returned when the conversation is created.</p> </div>
 
   </div>
   <div class="col-sm-7">
 
-<h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
+<h5 class="HeadingF HeadingF--light"> REQUEST </h5>
 <pre>
 <code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/participation" \
-    --user $POLIS_API_KEY: \
+    --user POLIS_API_KEY: \
     -d conversation_id="1234abc"
 </code>
 <code class="code_sample code_ruby" style="display:none;" data-language="ruby">#NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
@@ -257,7 +287,7 @@ response = http.request(request)
 puts response.body
 </code>
 </pre>
-  <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
+  <h5 class="HeadingF HeadingF--light">RESPONSE</h5>
 <pre> <code data-language="javascript">{
   "f2bc494c9b81056": {
     "votes": 5,
