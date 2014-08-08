@@ -393,7 +393,9 @@ $(el_queryResultSelector).hide();
 
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
-if (!isIE8) {
+var useForce = !isIE8;
+// var useForce = false;
+if (useForce) {
     force = d3.layout.force()
         .nodes(nodes)
         .links([])
@@ -1292,7 +1294,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     });
 
 
-      if (isIE8) {
+      if (force) {
+        force.nodes(nodes, key).start();
+      } else {
         // don't do force layout, do that stuff here once.
           nodes.forEach(function(o) {
               o.x = o.targetX;
@@ -1307,8 +1311,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
             bucket.transform(x, y);
           }
           updateHulls();
-      } else {
-        force.nodes(nodes, key).start();        
       }
 
 
