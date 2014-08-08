@@ -223,6 +223,7 @@ module.exports =  ConversationView.extend({
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
       that.updateLineToSelectedCluster();
+      vis.selectGroup(that.selectedGid);
       that.disableVisAffix();
 
 

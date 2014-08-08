@@ -1966,11 +1966,16 @@ function getSelectedGid() {
     return selectedCluster;
 }
 
+function selectGroup(gid) {
+    handleOnClusterClicked(gid);
+}
+
 return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
     selectComment: selectComment,
+    selectGroup: selectGroup,
     showLineToCluster: showLineToCluster,
     emphasizeParticipants: emphasizeParticipants,
     getSelectedGid: getSelectedGid,
