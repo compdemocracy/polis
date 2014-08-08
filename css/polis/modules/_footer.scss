@@ -2,21 +2,16 @@
 
 /* ---------- BEGIN STICKY FOOTER ---------- */
 
-html,
-body {
+[data-view-name="root"] {
   height: 100%;
-  /* The html and body elements cannot have any padding or margin. */
 }
 
 /* Wrapper for page content to push down footer */
 .wrap {
   min-height: 100%;
-  height: auto !important;
-  height: 100%;
   /* Negative indent footer by its height */
-  margin: 0 auto -320px;
+  margin: 0 auto -50px;
   /* Pad bottom by footer height */
-  padding: 0 0 320px;
 }
 
 /* Set the fixed height of the footer here */
@@ -36,14 +31,13 @@ body {
 }
 
 /* not yet applied! --remove this comment when applied-- */
-.footer-conversation-view-wrap {
-  min-height: 100%;
-  height: auto !important;
+.participationView {
+  // min-height: 100%;
+  // height: auto !important;
   height: 100%;
   /* Negative indent footer by its height */
-  margin: 0 auto -50px;
+  // margin: 0 auto -50px;
   /* Pad bottom by footer height */
-  padding: 0 0 50px;
 }
 
 #footer-conversation-view {

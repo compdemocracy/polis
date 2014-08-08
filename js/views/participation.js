@@ -41,6 +41,7 @@ function shouldHideVisWhenWriteTabShowing() {
 module.exports =  ConversationView.extend({
   name: "participationView",
   template: template,
+  className: "participationView",
   events: {
   },
   firstMathPollResultDeferred: $.Deferred(),

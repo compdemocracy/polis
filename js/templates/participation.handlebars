@@ -1,4 +1,4 @@
-<div class="{{#if use_background_content_class}}background_content{{/if}}">
+<div class="wrap {{#if use_background_content_class}}background_content{{/if}}">
   
 {{#ifNotEmbedded}}
 {{> header}}
@@ -13,8 +13,7 @@
   {{/if}}
 {{/ifTrial}}
 
-{{!-- alexlande -- this margin-bottom 0px seems to give a height to the conversation view page, otherwise the footer smashes up. any idea why? might it be the popover height being taken into account on page load or not?  --}}
-<section class="container wrap" style="margin-bottom: 0px;"> 
+<section class="container" style="margin-bottom: 0px;"> 
 
 <div class="row">
   <div class="col-sm-8 col-md-6 conversationViewHeadline">
