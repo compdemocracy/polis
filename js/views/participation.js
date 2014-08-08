@@ -32,9 +32,6 @@ var useRaphael =
   isIE8 || // because no support for svg
   isOldAndroid; // Gingerbread gets no vis.
 
-function shouldShowVisUnderTabs() {
-  return display.xs();
-}
 function shouldHideVisWhenWriteTabShowing() {
   return true;
   // return shouldShowVisUnderTabs();
@@ -109,6 +106,9 @@ module.exports =  ConversationView.extend({
         this.vis.showLineToCluster(gid);
       }
     }
+  },
+  shouldShowVisUnderTabs: function() {
+    return (display.xs() || display.sm()) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
@@ -435,7 +435,7 @@ module.exports =  ConversationView.extend({
 
     that.conversationTabs.on("beforeshow:analyze", function() {
       that.enableVisAffix();
-      if (shouldShowVisUnderTabs()) {
+      if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
       that.showVis();
@@ -447,7 +447,7 @@ module.exports =  ConversationView.extend({
       // that.analyzeGlobalView.showCarousel();
     });
       that.conversationTabs.on("beforeshow:group", function() {
-      if (shouldShowVisUnderTabs()) {
+      if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
       that.showVis();
@@ -460,7 +460,7 @@ module.exports =  ConversationView.extend({
     });
 
     that.conversationTabs.on("beforeshow:vote", function() {
-      if (shouldShowVisUnderTabs()) {
+      if (that.shouldShowVisUnderTabs()) {
         moveVisToBottom();
       }
       that.showVis();
@@ -579,7 +579,7 @@ module.exports =  ConversationView.extend({
 
         // This need to happen quickly, so no debounce
         $(window).resize(function() {
-          if (shouldShowVisUnderTabs()) {
+          if (that.shouldShowVisUnderTabs()) {
             // wait for layout
             setTimeout(
               moveVisAboveQueryResults,
