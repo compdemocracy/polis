@@ -505,9 +505,10 @@ function onClusterClicked(d) {
 }
 
 function handleOnClusterClicked(hullId) {
-    if (selectedCluster === hullId) {                 // if the cluster/hull just selected was already selected...
-      return resetSelection();
-    }
+    // // if the cluster/hull just selected was already selected...    
+    // if (selectedCluster === hullId) {                 
+    //   return resetSelection();
+    // }
 
 
     // resetSelectedComment();
