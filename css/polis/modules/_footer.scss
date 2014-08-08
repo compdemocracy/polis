@@ -1,22 +1,35 @@
+// STICKY FOOTER
 
-
-/* ---------- BEGIN STICKY FOOTER ---------- */
-
+// TO MAKE SHORT FOOTER STICKY...
 [data-view-name="root"] {
   height: 100%;
 }
 
-/* Wrapper for page content to push down footer */
 .wrap {
   min-height: 100%;
-  /* Negative indent footer by its height */
-  margin: 0 auto -50px;
-  /* Pad bottom by footer height */
+  margin: 0 auto (-$short-footer-height);
 }
 
-/* Set the fixed height of the footer here */
+.participationView {
+  height: 100%;
+}
+
+// SHORT FOOTER
+#footer-conversation-view {
+  height: $short-footer-height;
+  background-color: transparent;
+  border-color: #e7e7e7;
+  border-top: 1px solid lightgrey;
+}
+
+.footer-conversation-view-item {
+  position: relative;
+  top: 14px;
+}
+
+// TALL FOOTER
 #footer {
-  height: 320px;
+  height: $tall-footer-height;
   background-color: $header-footer-color;
   padding-top: 30px;
   border-color: #e7e7e7;
@@ -29,28 +42,3 @@
   top: 14px;
 
 }
-
-/* not yet applied! --remove this comment when applied-- */
-.participationView {
-  // min-height: 100%;
-  // height: auto !important;
-  height: 100%;
-  /* Negative indent footer by its height */
-  // margin: 0 auto -50px;
-  /* Pad bottom by footer height */
-}
-
-#footer-conversation-view {
-  height: 50px;
-  background-color: transparent;
-  border-color: #e7e7e7;
-  border-top: 1px solid lightgrey;
-}
-
-.footer-conversation-view-item {
-  position: relative;
-  top: 14px;
-}
-
-
-/* ---------- END STICKY FOOTER ---------- */
