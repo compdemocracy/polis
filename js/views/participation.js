@@ -109,7 +109,7 @@ module.exports =  ConversationView.extend({
     }
   },
   shouldShowVisUnderTabs: function() {
-    return (display.xs() || display.sm()) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
+    return (display.xs()/* || display.sm() */) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
