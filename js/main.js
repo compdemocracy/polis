@@ -74,13 +74,13 @@ function ifNotIE8(arg0) {
 }
 Handlebars.registerHelper("ifNotIE8", ifNotIE8);
 
-Handlebars.registerHelper("ifXs", function(arg0) {
-  return display.xs() ? arg0.fn(this) : "";
-});
+// Handlebars.registerHelper("ifXs", function(arg0) {
+//   return display.xs() ? arg0.fn(this) : "";
+// });
 
-Handlebars.registerHelper("ifNotXs", function(arg0) {
-  return display.xs() ? "" : arg0.fn(this);
-});
+// Handlebars.registerHelper("ifNotXs", function(arg0) {
+//   return display.xs() ? "" : arg0.fn(this);
+// });
 
 function useCarousel(arg0) {
   return !isIE8() && display.xs();
