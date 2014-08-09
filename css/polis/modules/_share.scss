@@ -1,0 +1,43 @@
+
+.share_page_url {
+	font-size: 40px;
+}
+
+/*XS XS XS XS XS XS XS */
+/*  @screen-sm-min  */
+@media(max-width:767px){
+
+  .share_page_url {
+	font-size: 20px;
+  }
+
+}
+
+/*SM SM SM SM SM SM SM */
+/* @screen-sm-min  */
+@media(min-width:768px){
+
+  // #vis_sibling_bottom {
+  //   margin-top: 30px;
+  // }
+
+  .share_page_url {
+	font-size: 40px;
+  }
+}
+
+/*MD MD MD MD MD MD MD MD */
+/* @screen-md-min */
+@media(min-width:992px){
+
+
+
+}
+
+/*LG LG LG LG LG LG LG LG */
+/* @screen-lg-min  */
+@media(min-width:1200px){
+
+
+
+}
