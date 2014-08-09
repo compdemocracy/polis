@@ -423,7 +423,6 @@ module.exports =  ConversationView.extend({
         vis.deselect();
       }
       that.analyzeGroupView.deselectComments();
-      vis.deselect();
       // eb.trigger(eb.commentSelected, false);
       // that.conversationTabs.doShowTabsUX();
     });
