@@ -288,7 +288,7 @@ var sql_conversations = sql.define({
     "is_anon",
     "is_active",
     "is_draft",
-    "is_public",
+    // "is_public",  // TODO remove this column
     "profanity_filter",
     "spam_filter",
     "strict_moderation",
@@ -3993,9 +3993,8 @@ app.put('/api/v3/conversations',
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
-    want('is_public', getBool, assignToP),
     want('profanity_filter', getBool, assignToP),
-    want('short_url', getBool, assignToP),
+    want('short_url', getBool, assignToP, false),
     want('spam_filter', getBool, assignToP),
     want('strict_moderation', getBool, assignToP),
     want('topic', getOptionalStringLimitLength(1000), assignToP),
@@ -4026,9 +4025,6 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.is_draft)) {
         fields.is_draft = req.p.is_draft;
-    }
-    if (!_.isUndefined(req.p.is_public)) {
-        fields.is_public = req.p.is_public;
     }
     if (!_.isUndefined(req.p.profanity_filter)) {
         fields.profanity_filter = req.p.profanity_filter;
@@ -4231,13 +4227,7 @@ function(req, res) {
     } else if (suzinvite) {
         checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
-        getConversationProperty(zid, "is_public", function(err, is_public) {
-            if (!err && is_public) {
-                doneChecking(false);
-            } else {
-                isOwnerOrParticipant(zid, uid, doneChecking);
-            }
-        });
+        doneChecking(false);
     }
 });
 
@@ -4352,13 +4342,7 @@ function(req, res) {
     } else if (suzinvite) {
         checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
-        getConversationProperty(zid, "is_public", function(err, is_public) {
-            if (!err && is_public) {
-                doneChecking(false);
-            } else {
-                isOwnerOrParticipant(zid, uid, doneChecking);
-            }
-        });
+        doneChecking(false);
     }
 });
 
@@ -4429,13 +4413,7 @@ function(req, res) {
     } else if (suzinvite) {
         checkSuzinviteCodeValidity(zid, suzinvite, doneChecking);
     } else {
-        getConversationProperty(zid, "is_public", function(err, is_public) {
-            if (!err && is_public) {
-                doneChecking(false);
-            } else {
-                isOwnerOrParticipant(zid, uid, doneChecking);
-            }
-        });
+        doneChecking(false);
     }
 });
 
@@ -4528,6 +4506,7 @@ function getConversations(req, res) {
 
   var fail = failNotWithin(500);
       // First fetch a list of conversations that the user is a participant in.
+
   pgQuery('select zid from participants where uid = ($1);', [uid], function(err, results) {
     if (err) { fail(res, 500, "polis_err_get_conversations_participated_in", err); return; }
 
@@ -4688,9 +4667,9 @@ app.post('/api/v3/conversations',
     auth(assignToP),
     want('is_active', getBool, assignToP, true),
     want('is_draft', getBool, assignToP, false),
-    want('is_public', getBool, assignToP, false),
     want('is_anon', getBool, assignToP, false),
     want('profanity_filter', getBool, assignToP, true),
+    want('short_url', getBool, assignToP, false),
     want('spam_filter', getBool, assignToP, true),
     want('strict_moderation', getBool, assignToP, false),
     want('context', getOptionalStringLimitLength(999), assignToP, ""),
@@ -4699,7 +4678,7 @@ app.post('/api/v3/conversations',
 function(req, res) {
 
     console.log("context", req.p.context);
-    var generateShortUrl = req.p.is_public;
+    var generateShortUrl = req.p.short_url;
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
     if (err) { fail(res, 403, "polis_err_add_conversation_failed_user_check", err); return; }
@@ -4712,7 +4691,7 @@ function(req, res) {
         description: req.p.description,
         is_active: req.p.is_active,
         is_draft: req.p.is_draft,
-        is_public: req.p.is_public,
+        is_public: req.p.short_url, // TODO remove this column
         is_anon: req.p.is_anon,
         profanity_filter: req.p.profanity_filter,
         spam_filter: req.p.spam_filter,
