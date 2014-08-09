@@ -715,33 +715,34 @@ var polisRouter = Backbone.Router.extend({
 
     return dfd.promise();
   },
-  doCreateUserFromGatekeeper: function(conversation_id, zinvite, singleUse) {
-    var dfd = $.Deferred();
+  // doCreateUserFromGatekeeper: function(conversation_id, zinvite, singleUse) {
+  //   var dfd = $.Deferred();
 
-    var data = {
-      create: true, // do we need this?
-      conversation_id: conversation_id
-    };
-    if (singleUse) {
-      data.suzinvite = suzinvite
-    }
-    // Assumes you have a pid already.
-    var model = new ConversationModel(data);
-    bbFetch(model, {
-      data: $.param(data),
-      processData: true
-    }).then(function() {
-      var view = new ConversationGatekeeperViewCreateUser({
-        model : model
-      });
-      view.on("authenticated", dfd.resolve);
-      RootView.getInstance().setView(view);
-    },function(e) {
-      console.error("error loading conversation model", e);
-      setTimeout(function() { that.participationView(conversation_id); }, 5000); // retry
-    });
-    return dfd.promise();
-  },
+  //   var data = {
+  //     create: true, // do we need this?
+      
+  //     conversation_id: conversation_id
+  //   };
+  //   if (singleUse) {
+  //     data.suzinvite = suzinvite
+  //   }
+  //   // Assumes you have a pid already.
+  //   var model = new ConversationModel(data);
+  //   bbFetch(model, {
+  //     data: $.param(data),
+  //     processData: true
+  //   }).then(function() {
+  //     var view = new ConversationGatekeeperViewCreateUser({
+  //       model : model
+  //     });
+  //     view.on("authenticated", dfd.resolve);
+  //     RootView.getInstance().setView(view);
+  //   },function(e) {
+  //     console.error("error loading conversation model", e);
+  //     setTimeout(function() { that.participationView(conversation_id); }, 5000); // retry
+  //   });
+  //   return dfd.promise();
+  // },
   redirect: function(path) {
     document.location = document.location.protocol + "//" + document.location.host + path;
   },
