@@ -368,6 +368,10 @@ $custom_gutter_pixels: 5px;
     padding-left: $custom_gutter_pixels;
     padding-right: $custom_gutter_pixels;
   }
+  // Prevent bootstrap tabs from wrapping
+  .nav > li > a {
+    padding: 10px 10px; // overriding from 10px 15px
+  }
 }
 
 /* BIG PHONE and down */
