@@ -279,8 +279,6 @@ svg {
   // margin-bottom: 14px;
 }
 
-$custom_gutter_pixels: 10px;
-
 .write-pane {
   // background-color: white;
   // border-style: solid;
@@ -294,6 +292,15 @@ $custom_gutter_pixels: 10px;
   margin-left: 0px;
   margin-right: 0px;
 }
+
+// .custom_gutter {
+//   margin-left: 0px;
+//   margin-right: 0px;
+// }
+// .custom_gutter_via_padding {
+//   padding-left: 0px;
+//   padding-right: 0px;
+// }
 
 /* Everything but mobile */
 @media (min-width: 767px) {
@@ -341,7 +348,7 @@ $custom_gutter_pixels: 10px;
 /* LITTLE TABLET to BIG TABLET and DESKTOP */
 @media (min-width: 1024px) and (max-width: 1199px) {
   #agreeButton, #starButton, #disagreeButton, #passButton, #trashButton {
-    padding: 10px 10px;
+    // padding: 10px 10px;
   }
 }
 
@@ -364,14 +371,6 @@ $custom_gutter_pixels: 10px;
     padding: 5px;
   }
 
-  .custom_gutter {
-    margin-left: $custom_gutter_pixels;
-    margin-right: $custom_gutter_pixels;
-  }
-  .custom_gutter_via_padding {
-    padding-left: $custom_gutter_pixels;
-    padding-right: $custom_gutter_pixels;
-  }
   // Prevent bootstrap tabs from wrapping
   .nav > li > a {
     padding: 10px 10px; // overriding from 10px 15px
@@ -384,14 +383,14 @@ $custom_gutter_pixels: 10px;
     margin: 0px;
   }
 
-  .custom_gutter {
-    margin-left: $custom_gutter_pixels;
-    margin-right: $custom_gutter_pixels;
-  }
-  .custom_gutter_via_padding {
-    padding-left: $custom_gutter_pixels;
-    padding-right: $custom_gutter_pixels;
-  }
+  // .custom_gutter {
+  //   margin-left: 10px;
+  //   margin-right: 10px;
+  // }
+  // .custom_gutter_via_padding {
+  //   padding-left: 10px;
+  //   padding-right: 10px;
+  // }
   
   #comment_shower {
     margin-top: 20px;
