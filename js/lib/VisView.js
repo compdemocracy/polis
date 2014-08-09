@@ -16,6 +16,7 @@ var getReactionsToComment = params.getReactionsToComment;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
+var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
 
 var dimensions = {
@@ -393,7 +394,7 @@ $(el_queryResultSelector).hide();
 
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
-var useForce = !isIE8;
+var useForce = !isMobile && !isIE8;
 // var useForce = false;
 if (useForce) {
     force = d3.layout.force()

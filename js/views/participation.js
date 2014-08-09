@@ -28,9 +28,9 @@ var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
 var isOldAndroid = Utils.isOldAndroid();
-var useRaphael =
-  isIE8 || // because no support for svg
-  isOldAndroid; // Gingerbread gets no vis.
+// var useRaphael =
+//   isIE8 || // because no support for svg
+//   isOldAndroid; // Gingerbread gets no vis.
 
 function shouldHideVisWhenWriteTabShowing() {
   return true;
@@ -216,7 +216,8 @@ module.exports =  ConversationView.extend({
             }
             return pid;
           },
-          isIE8: useRaphael,
+          isIE8: isIE8,
+          isMobile: isMobile,
           getCommentsForProjection: serverClient.getCommentsForProjection,
           getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
