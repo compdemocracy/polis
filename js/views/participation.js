@@ -120,6 +120,11 @@ module.exports =  ConversationView.extend({
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
 
+    // Hide the Intercom help widget in participation view
+    setTimeout(function() {
+      $("#IntercomDefaultWidget").hide();
+    }, 1000);
+
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
       if (gid === -1) {
