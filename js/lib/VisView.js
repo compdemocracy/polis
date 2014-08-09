@@ -1322,29 +1322,30 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
             bucket.transform(x, y);
           }
           updateHulls();
+      } else {
+        // see fa89dsjf8d
       }
 
 
 
 
 
-
-    // simplify debugging by looking at a single node
-    //nodes = nodes.slice(0, 1);
-    // check for unexpected changes in input
-    if (window.temp !== undefined) {
-        if (key(window.temp) !== key(nodes[0])) {
-            console.log("changed key");
-            console.dir(window.temp);
-            console.dir(nodes[0]);
-        }
-        if (!_.isEqual(window.temp.proj, nodes[0].proj)) {
-            console.log("changed projection");
-            console.dir(window.temp);
-            console.dir(nodes[0]);
-        }
-        window.temp = nodes[0];
-    }
+    // // simplify debugging by looking at a single node
+    // //nodes = nodes.slice(0, 1);
+    // // check for unexpected changes in input
+    // if (window.temp !== undefined) {
+    //     if (key(window.temp) !== key(nodes[0])) {
+    //         console.log("changed key");
+    //         console.dir(window.temp);
+    //         console.dir(nodes[0]);
+    //     }
+    //     if (!_.isEqual(window.temp.proj, nodes[0].proj)) {
+    //         console.log("changed projection");
+    //         console.dir(window.temp);
+    //         console.dir(nodes[0]);
+    //     }
+    //     window.temp = nodes[0];
+    // }
 
     function setupRaphaelNode(n) {
       // do each on a separate stack
