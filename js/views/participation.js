@@ -285,6 +285,8 @@ module.exports =  ConversationView.extend({
       //     })      
       //   },1500)
       // }) 
+
+      serverClient.updateMyProjection();
     } // end initPcaVis  
 
 

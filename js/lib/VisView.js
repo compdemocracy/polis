@@ -755,19 +755,27 @@ function updateHulls() {
 
 var hullFps = 20;
 var updateHullsThrottled = _.throttle(updateHulls, 1000/hullFps);
-if (force) {
-force.on("tick", function(e) {
+function updateNodesOnTick(e) {
       // Push nodes toward their designated focus.
-      var k = 0.1 * e.alpha;
-      // if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
-      nodes.forEach(function(o) {
+      if (e && _.isNumber(e.alpha)) {
+        // Force Layout scenario
+        var k = 0.1 * e.alpha;
+        // if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
+        nodes.forEach(function(o) {
           //o.x = o.targetX;
           //o.y = o.targetY;
           if (!o.x) { o.x = w/2; }
           if (!o.y) { o.y = h/2; }  
           o.x += (o.targetX - o.x) * k;
           o.y += (o.targetY - o.y) * k;
-      });
+        });
+      } else {
+        // move directly to destination scenario (no force)
+        nodes.forEach(function(o) {
+          o.x = o.targetX;
+          o.y = o.targetY;
+        });
+      }
 
 
       if (isIE8) {
@@ -785,7 +793,9 @@ force.on("tick", function(e) {
 
 
     updateHullsThrottled();
-});
+}
+if (force) {
+    force.on("tick", updateNodesOnTick);
 }
 
 function shouldDisplayCircle(d) {
@@ -1297,7 +1307,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
       if (force) {
         force.nodes(nodes, key).start();
-      } else {
+      } else if (isIE8) {
         // don't do force layout, do that stuff here once.
           nodes.forEach(function(o) {
               o.x = o.targetX;
@@ -1515,11 +1525,21 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
   //       .transition()
   //         .duration(500);
 
+
+        // fa89dsjf8d
+      if (!force && !isIE8) {
+        updateNodesOnTick();
+         // main_layer.selectAll(".node")
+            // .attr("transform", chooseTransformForRoots);
+      }
+
   updateHulls();
 
   if (commentIsSelected()) {
     selectComment(selectedTid);
   }
+
+
 
 } // END upsertNode
 
