@@ -66,6 +66,10 @@
   border-bottom: 0;
   background: #fafafa;
   -webkit-font-smoothing: antialiased;
+  
+  // prevent clipped right edge and extra padding on left edge on mobile
+  padding-left: 0px;
+  padding-right: 0px;
 
   // Only allow hovering when not on iOS ( see https://github.com/twbs/bootstrap/issues/12832 )
   &.vote-btn-w-hover {
