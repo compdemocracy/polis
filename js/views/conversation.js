@@ -72,6 +72,10 @@ module.exports = Handlebones.ModelView.extend({
     this.allCommentsCollection.firstFetchPromise = $.Deferred();
 
 
+    eb.on(eb.clusterSelectionChanged, function(gid) {
+      that.selectedGid = gid;
+    });
+    
     var metadataCollection = new MetadataQuestionsCollection([], {
         conversation_id: conversation_id
     });
