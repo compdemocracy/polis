@@ -63,7 +63,6 @@ module.exports = Handlebones.ModelView.extend({
     var conversation_id = this.conversation_id = this.model.get("conversation_id");
     var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
-    var is_public = this.model.get("is_public");
 
     this.tutorialController = new TutorialController();
 

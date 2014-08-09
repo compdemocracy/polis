@@ -58,9 +58,8 @@ module.exports = View.extend({
         serialize(this, function(attrs) {
 
           // !! to make sure these properties exist as 'false', instead of just being absent.
-          attrs.is_public = !!attrs.is_public;
           attrs.profanity_filter = !!attrs.profanity_filter;
-          attrs.short_url = !!attrs.is_public;
+          attrs.short_url = !!attrs.short_url;
           attrs.spam_filter = !!attrs.spam_filter;
           attrs.strict_moderation = !!attrs.strict_moderation;
           attrs.send_created_email = true;

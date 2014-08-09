@@ -61,6 +61,9 @@ module.exports = {
   isMobile: function() {
     return this.isIphone() || this.isIpad() || this.isAndroid();
   },
+  isShortConversationId: function(conversation_id) {
+    return conversation_id.length <= 6;
+  },
   supportsVis: function() {
     return this.supportsSVG() && !this.isIE8();
   },

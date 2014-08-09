@@ -320,7 +320,7 @@ module.exports =  ConversationView.extend({
         serverClient: serverClient,
         model: new CommentModel(),
         votesByMe: this.votesByMe,
-        is_public:  this.model.get("is_public"),
+        is_public: Utils.isShortConversationId(this.conversation_id),
         pid: pid,
         conversation_id: conversation_id
       }));
