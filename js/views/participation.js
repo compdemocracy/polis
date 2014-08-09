@@ -404,6 +404,7 @@ module.exports =  ConversationView.extend({
         // When we're switching to the write tab, hide the vis.
         that.hideVis();
       }
+      moveVisToBottom(); // just in case
       that.showWriteHints();
     });
     that.conversationTabs.on("beforehide:write", function() {
@@ -432,6 +433,7 @@ module.exports =  ConversationView.extend({
     });
     that.conversationTabs.on("beforeshow:legend", function() {
       that.conversationTabs.hideTabLabels();
+      moveVisToBottom();
       that.showVis();
     });
 
@@ -462,9 +464,7 @@ module.exports =  ConversationView.extend({
     });
 
     that.conversationTabs.on("beforeshow:vote", function() {
-      if (that.shouldShowVisUnderTabs()) {
-        moveVisToBottom();
-      }
+      moveVisToBottom();
       that.showVis();
     });
     that.conversationTabs.on("aftershow:analyze", function() {
