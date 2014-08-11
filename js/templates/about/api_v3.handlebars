@@ -56,7 +56,7 @@ description: ""
 
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
 <pre>
-<code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://pol.is/api/v3/conversations" \
+<code class="code_sample code_curl" data-language="shell">curl -X POST -s "https://api.pol.is/api/v3/conversations" \
       --user POLIS_API_KEY: \
       -F topic="Should we raise the minimum wage?" \
       -F description="It's currently under $10/hr, What do you think?" \
@@ -69,7 +69,7 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI.parse('https://pol.is/api/v3/conversations')
+uri = URI.parse('https://api.pol.is/api/v3/conversations')
 
 http = Net::HTTP.new(uri.host, uri.port)
 http.use_ssl = true
@@ -121,7 +121,7 @@ puts response.body
   </div>
   <div class="col-sm-7">
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
-<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://api.pol.is/api/v3/conversations" \
     --user POLIS_API_KEY: \
     -d conversation_id="1234abc"
 </code><code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
@@ -129,13 +129,13 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI('https://preprod.pol.is/api/v3/participation')
+uri = URI('https://api.pol.is/api/v3/participation')
 params = {
    'conversation_id' => '1234abc'
 }
 uri.query = URI.encode_www_form(params)
 
-http = Net::HTTP.new('preprod.pol.is', 443)
+http = Net::HTTP.new('api.pol.is', 443)
 http.use_ssl = true
 
 request = Net::HTTP::Get.new(uri, {
@@ -164,7 +164,7 @@ puts response.body
   </div>
   <div class="col-sm-7">
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
-<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://api.pol.is/api/v3/conversations" \
     --user POLIS_API_KEY: \
     -d conversation_id="1234abc" \
     -d user_id="someUser123"
@@ -188,7 +188,7 @@ puts response.body
   </div>
   <div class="col-sm-7">
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
-<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://api.pol.is/api/v3/conversations" \
     --user POLIS_API_KEY: \
     -d user_id="someUser123" \
     -d limit=10
@@ -209,7 +209,7 @@ puts response.body
   </div>
   <div class="col-sm-7">
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
-<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/conversations" \
+<pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://api.pol.is/api/v3/conversations" \
     --user POLIS_API_KEY: \
     -d conversation_id="1234abc" \
     -d user_id="someUser123" \
@@ -258,7 +258,7 @@ puts response.body
 
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
 <pre>
-<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://pol.is/api/v3/participation" \
+<code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://api.pol.is/api/v3/participation" \
     --user POLIS_API_KEY: \
     -d conversation_id="1234abc"
 </code>
@@ -267,13 +267,13 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-uri = URI('https://preprod.pol.is/api/v3/participation')
+uri = URI('https://api.pol.is/api/v3/participation')
 params = {
    'conversation_id' => '1234abc'
 }
 uri.query = URI.encode_www_form(params)
 
-http = Net::HTTP.new('preprod.pol.is', 443)
+http = Net::HTTP.new('api.pol.is', 443)
 http.use_ssl = true
 
 request = Net::HTTP::Get.new(uri, {
@@ -341,7 +341,7 @@ puts response.body
   </div>
   <div class="col-sm-7">
     <h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
-<pre> <code data-language="shell">curl -s "pol.is/api/v3/conversation_id/metadata" \
+<pre> <code data-language="shell">curl -s "https://api.pol.is/api/v3/conversation_id/metadata" \
   -X POST \
   -u app-id:api-key \
   -H "Content-Type: application/json" \
@@ -381,7 +381,7 @@ puts response.body
   </div>
   <div class="col-sm-7">
     <h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
-<pre> <code data-language="shell">curl -s "pol.is/api/v3/generateSingleUseTokens" \
+<pre> <code data-language="shell">curl -s "https://api.pol.is/api/v3/generateSingleUseTokens" \
   -X POST \
   -u app-id:api-key \
   -H "Content-Type: application/json" \
@@ -418,7 +418,7 @@ puts response.body
   </div>
   <div class="col-sm-7">
     <h5 class="HeadingH HeadingH--dark"> REQUEST </h5>
-<pre> <code data-language="javascript">curl -s "pol.is/api/v3/conversation_id/cohorts" \
+<pre> <code data-language="javascript">curl -s "https://api.pol.is/api/v3/conversation_id/cohorts" \
   -X GET \
   -u app-id:api-key
 </code></pre>
