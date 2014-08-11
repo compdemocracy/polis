@@ -1,6 +1,10 @@
 // STICKY FOOTER
 
 // TO MAKE SHORT FOOTER STICKY...
+
+// for #footer-conversation-view, root needs height: 100%;
+// but for #footer, it needs height: auto;
+// if [data-view-name="root"] ~ #footer then height: auto;
 [data-view-name="root"] {
   height: 100%;
 }
