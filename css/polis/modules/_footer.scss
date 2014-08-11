@@ -12,6 +12,13 @@
 .wrap {
   min-height: 100%;
   margin: 0 auto (-$short-footer-height);
+  height: auto;
+}
+
+.wrap:after {
+  height: 100px; /*short footerheight plus... svg translate plus a lil*/
+  content: "";
+  display: block;
 }
 
 .participationView {
