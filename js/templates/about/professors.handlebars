@@ -1,249 +1,238 @@
-<!DOCTYPE html> 
-<html>
-<head>
-<title>Polis for Professors</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link rel="stylesheet" href="bower_components/font-awesome/css/font-awesome.min.css">
-<link rel="stylesheet" href="bower_components/bootstrap/dist/css/bootstrap.css">
-<link rel="stylesheet" type="text/css" href="about.css">
-<script type="text/javascript" src="//use.typekit.net/ecj0qyr.js"></script>
-<script type="text/javascript">try{Typekit.load();}catch(e){}</script>
-<script>
-function setCookie(cname,cvalue,exdays) {
-    var d = new Date();
-    d.setTime(d.getTime()+(exdays*24*60*60*1000));
-    var expires = "expires="+d.toGMTString();
-    document.cookie = cname + "=" + cvalue + "; " + expires;
-}
-
-function getCookie(cname) {
-    var name = cname + "=";
-    var ca = document.cookie.split(';');
-    for(var i=0; i<ca.length; i++) 
-      {
-      var c = ca[i].trim();
-      if (c.indexOf(name)==0) return c.substring(name.length,c.length);
-    }
-    return "";
-}
-if (!getCookie("ref")) {
-    setCookie("ref", document.referrer, 365);
-}
-</script>
-<script>
-  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-
-  ga('create', 'UA-49459311-1', 'pol.is');
-  ga('require', 'displayfeatures');
-  ga('send', 'pageview');
-
-</script>
-<style type="text/css">
-	h1, h2, h3, h4, h5, h6, p, label {
-		color: rgba(52, 73, 94, .8);
-	}
-
-</style>
-
-</head>
-<body>
-
-<div class="container" style="margin-top: 50px">
-	<div id="polisHeader" class="row">
-		<div class="col-xs-12" >
-			<h1 class="" style="background-color: rgba(255,255,255,.9); padding: 20px; border-radius: 3px; display: inline-block"> CLASSROOM ENGAGEMENT REIMAGINED </h1> 
-		</div>
-		<div class="col-xs-12">
-			<h3 class="" style="margin-bottom: 30px; line-height: 1.5; background-color: rgba(255,255,255,.9); padding: 20px; border-radius: 3px; display: inline-block"> No more multiple choice: ask open ended questions. Let your students do the thinking. </h3> 
-		</div>
-		<div class="col-sm-6">
-			<iframe src="//player.vimeo.com/video/97355138?byline=0&amp;portrait=0" width="100%" style="min-height:350px" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
-		</div>
-
-		<div class="col-md-5 col-md-offset-1 col-xs-12" >
-			<div class="signUpForm"style="background-color: rgba(255,255,255,1); border-radius: 7px; color: black ">
-				<div class="row" style="margin-bottom: 20px; ">
-					<div class=" col-md-11 col-md-offset-1">
-						<h3 style="line-height: 1.5"><em>Start your first pol.is conversation in seconds, for free</em></h3>
-					</div>
-				</div>
-				<form class="form-horizontal" role="form">
-				<div class="form-group">
-					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_name">Full Name</label>
-					<div class="col-md-6">
-						<input type="text" id="startconvo_name" placeholder="Full Name" class="form-control">
-					</div>		
-				</div>
-				<div class="form-group">
-					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_org">Organization</label>
-					<div class="col-md-6">
-					<input type="text" id="startconvo_org" placeholder="Organization" class="form-control">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_email">Email</label>
-					<div class="col-md-6">
-					<input type="email" id="startconvo_email" placeholder="Email" class="form-control">
-					</div>
-				</div>
-				<div class="form-group">
-					<label class="col-md-offset-1 col-md-3  control-label" for="startconvo_password">Password</label>
-					<div class="col-md-6">
-					<input type="password" id="startconvo_password" placeholder="Password" class="form-control">
-					</div>
-				</div>
-				<div class="form-group">
-					<div class="col-md-offset-1 col-md-4">
-						<button style="margin-top: 20px" type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg">Start my first conversation</button>	
-					</div>	
-				</div>
-				</form> 
-				<div class="row" id="errorDiv">
-				</div>
-			</div>			
-		</div>
-	</div>
-
-
-	<div class="row" style=" margin-bottom: 300px">
-		<div class="col-sm-3 text-center feature">
-			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
-				<p><i class="fa fa-rocket fa-4x"></i></p>
-				<h3>Blazing Fast</h3>
-				<p>Start pol.is in seconds during class, finish in minutes. Ask the open ended questions you have rather than trying to twist them into boring MC questions. </p>			
-			</div>
-		</div>
-		<div class="col-sm-3 text-center feature">
-			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
-				<p><i class="fa fa-mobile fa-4x"></i>&nbsp;<i class="fa fa-tablet fa-4x"></i>&nbsp;<i class="fa fa-laptop fa-4x"></i>&nbsp;<i class="fa fa-desktop fa-4x"></i>&nbsp;</p>
-				<h3>Browser Based</h3>
-				<p>Pol.is is completely free for students - everyone can participate on devices they already bring to class. </p>
-			</div>
-		</div>
-		<div class="col-sm-3 text-center feature">
-			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
-				<p><i class="fa fa-lightbulb-o fa-4x"></i></p>
-				<h3>Interesting Insights</h3>
-				<p> We'll surface patterns you didn't expect to find. Consensus, divisive & wedge issues - fuel for conversation. </p>
-			</div>
-		</div>
-		<div class="col-sm-3 text-center feature">
-			<div style="background-color: white; border: 3px solid rgba(52, 73, 94, .8); padding: 15px; border-radius: 8px;">
-				<p><i class="fa fa-gears fa-4x"></i></p>
-				<h3>Just Works</h3>
-				<p> Built on rock solid cloud infrastructure, pol.is will be there when you need it. </p>
-			</div>	
-		</div>
-	</div>
- 
-
-
-<!-- 	<div class="row" style="border-radius: 7px">
-	<div class="col-xs-12">
-		<h2 class="text-center playWithExampleHeader"> Play with an example conversation 
-		<p style="padding-top: 10px"> <em>(This is the interface each participant sees)</em> </p>
-		</h2>
-		<iframe id="samplePolis" class="samplePolis" src="/demo/2demo" frameborder="0"></iframe>
-	</div>
-	</div> -->
-
-</div> <!-- container -->
-
-
-<img id="snowcity">
-
-<!--[if lte IE 8]>
-<script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
-<script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
-<![endif]-->
-<script type="text/javascript" src="node_modules/underscore/underscore-min.js"></script>
-<script type="text/javascript" src="bower_components/jquery/dist/jquery.min.js"></script>
-<script type="text/javascript">
+{{> top}}
+{{> header}}
 	
-$(document).ready(function(){
-
-	var initialwidth = $(window).width()
-	if (initialwidth >= 1200){
-			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
-		} else if (initialwidth > 768 && initialwidth < 1200 ) {
-			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
-		} else if (initialwidth <= 768 ) {
-			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
-	}
-
-	$(window).resize(_.debounce(imageOnResize, 300))
-
-	function imageOnResize(){
-		var ww = $(window).width()
-		console.log(ww)
-		console.log(ww)
-		if (ww >= 1200){
-			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
-		} else if (ww > 768 && ww < 1200 ) {
-			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
-		} else if (ww <= 768 ) {
-			$("#snowcity").attr("src", "/landerImages/chairs_retina.JPG")
-		}
-	}
-
+<script>
+$(document).ready(function() {
 	$("form").submit(function(e){
 		e.preventDefault();
-		var fullname = $('#startconvo_name').val();
-		var organization = $('#startconvo_org').val();
-		var email = $('#startconvo_email').val();
-		var password = $('#startconvo_password').val();
+        e.stopPropagation();
+		var email = $(this).find('#startconvo_email').val();
 
-		if (!fullname) {
-			$('').html();
-		}
-		if(!organization) {
-			$('').html();
-		}
 		if (!email) {
 			$('').html();
 		}
-		if (!password) {
-			$('').html();
+
+		var prod = "https://pol.is/";
+		var preprod = "https://preprod.pol.is/";
+		var localhost = "http://localhost:5000/";
+		var localhost8000 = "http://localhost:8000/";
+		var urlPrefix = prod;
+		if (document.domain.indexOf("preprod") >= 0) {
+		    urlPrefix = preprod;
 		}
-        if (!password.length || password.length < 8) {
-			$('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Password must be at least 8 characters long.</div>")
-            return;
-        }
+		if (-1 === document.domain.indexOf("pol.is")) {
+		    urlPrefix = localhost;
+		}
+		if (document.domain === "localhost" && document.location.port === "8000") { 
+			urlPrefix = localhost8000;
+		}
 
-		$.ajax({
-		  type: "POST",
-		  url: "/api/v3/auth/new",
-      contentType: "application/json; charset=utf-8",
-            headers: {
-          //"Cache-Control": "no-cache"  // no-cache
-          "Cache-Control": "max-age=0"
-      },
-      xhrFields: {
-          withCredentials: true
-      },
-
-      crossDomain: true,
-      dataType: "json",
-
-		  data: JSON.stringify({ 
-		  	hname: fullname,
-		  	organization: organization,
-		  	email: email,
-		  	password: password
-		  })
-		}).done(function( data ) {
-		  window.location = "/conversation/create";
-		}).fail(function(){
-			$('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
-		});
-	})
+        $.ajax({
+          type: "POST",
+          url: urlPrefix + "api/v3/einvites",
+          contentType: "application/json; charset=utf-8",
+          headers: {
+              //"Cache-Control": "no-cache"  // no-cache
+              "Cache-Control": "max-age=0"
+          },
+          xhrFields: {
+              withCredentials: true
+          },
+          crossDomain: true,
+          dataType: "json",
+          data: JSON.stringify({ 
+            email: email
+          })
+        }).done(function( data ) {
+            $("form").html('<div>' + 
+    '<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' + 
+    '<p> ' + 
+      '<strong> Welcome! </strong> We\'ve emailed you a confirmation. Follow the link provided in the email to verify your account.' +
+    '</p>' +
+    '</div>' +
+'</div>');
+        }).fail(function(){
+            $(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
+        });
+        return false;
 })
-
-
+});
 </script>
+<div style="background-color:white">
+	<div class="row video_section custom_container_for_large_screens" >
+		<div class="col-lg-6 col-md-5 col-sm-6 col-sm-offset-1 col-xs-10 col-xs-offset-1" style="padding-left: 0px">
+			<div class="row" >
+				<div class="col-lg-6 col-md-8 col-sm-10 col-xs-12">
+					<h1 class="lander-title HeadingL">CLASSROOM ENGAGEMENT REIMAGINED</h1>
+					<h3 style="margin-bottom: 30px;  line-height: 1.3em" class="text-center-mobile HeadingG">Get clear, open feedback from your whole class, all at once, effortlessly.</h3>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-lg-6 col-md-6 col-sm-offset-0 col-sm-7 col-xs-8 col-xs-offset-2">
+						<form class="form text-center-mobile" role="form">
+<!-- 							<div class="form-group">
+								<input type="text" id="startconvo_name" placeholder="Full Name" class="form-control trial_form_input">
+							</div>
+							<div class="form-group">
+								<input type="text" id="startconvo_org" placeholder="Organization" class="form-control trial_form_input">
+							</div> -->
+							<div class="form-group">
+								<input type="email" id="startconvo_email" placeholder="Email" class="form-control trial_form_input">
+							</div>
+<!-- 							<div class="form-group">
+								<input type="password" id="startconvo_password" placeholder="Password" class="form-control trial_form_input">
+							</div> -->
+							<div class="form-group">
+								<button type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg">Try pol.is for free</button>
+<!-- 								<p style="margin-top:7px"><em>10 day free trial</em></p>	
+ -->							</div>
+						</form> 
+					</div>
+			</div>
+				<div class="row" id="errorDiv">
+				</div>
+		</div>
+		<div class="col-lg-4 col-xs-10 col-xs-offset-1 col-md-5 col-sm-4 col-sm-offset-0 wistia_embed_border">
+			<div>
+	      <iframe src="//fast.wistia.net/embed/iframe/uthtzqaq3x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400" ></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+			</div>     	
+		</div>
+	</div>
+	<div class="row process " style="">
+	<div class="custom_container_for_large_screens">
+		<div class="col-sm-12 text-center">
+			<h3 class="process-title HeadingG">pol.is in a nutshell:</h3	>
+		</div>
+		<div class="col-sm-2 col-sm-offset-2 text-center">
+			<h3 class="process-item HeadingB">1</h3>
+			<h4 class="process-item-text HeadingD HeadingD--lineheight"><em>You ask an open ended question & share a link.</em></h4>
+		</div>
+		<div class="col-sm-2 col-sm-offset-1 text-center">
+			<h3 class="process-item HeadingB">2</h3>
+			<h4 class="process-item-text HeadingD HeadingD--lineheight"><em>Participants read, write & vote.</em></h4>
+		</div>
+		<div class="col-sm-2 col-sm-offset-1 text-center">
+			<h3 class="process-item HeadingB">3</h3>
+			<h4 class="process-item-text HeadingD HeadingD--lineheight"><em>Pol.is produces opinion groups. Explore in the app & export the data.</em></h4>
+		</div>
+	</div>
+	</div>
 
-</body>
-</html>
+
+	<div class="row custom_container_for_large_screens" style="margin-top: 50px; margin-bottom: 50px ">
+		<div class="col-sm-4 col-sm-offset-1 col-xs-offset-1 col-xs-10 ">
+			<h1 style="margin-top: 0px" class="HeadingL">Discover opinion groups</h1>
+
+			<h4 style="line-height:1.5em" class="HeadingG">The loudest participant in the conversation isn't the only voice heard - pol.is shows majority and minority sentiment groups and the comments that differentiate them.</h4>
+			<p class="explore_demo_link HeadingH"><a href="/demo/2demo" target="_blank">Explore the Seattle Minimum Wage conversation</a></p>
+		</div>
+		<div class="col-sm-5 col-sm-offset-1 col-xs-offset-1 col-xs-10 video">
+            <img src="landerImages/Screenshot_2014_06_23_16_19_03.png" width="100%" />
+		</div>	
+	</div>
+
+	<div class="row features_section ">
+	<div class="custom_container_for_large_screens">		
+		<div class="col-sm-2 col-xs-6 feature text-center">
+			<p><i class="fa fa-group fa-3x"></i></p>
+			<h4 class="HeadingG">Bottom up</h4>
+		</div>
+		<div class="col-sm-2 col-xs-6 feature text-center">
+			<p><i class="fa fa-rocket fa-3x"></i></p>
+			<h4 class="HeadingG">Start in seconds, end in minutes</h4>
+		</div>
+		<div class="col-sm-2 col-xs-6 feature text-center">
+			<p><i class="fa fa-lightbulb-o fa-3x"></i></p>
+			<h4 class="HeadingG">Interesting insights automatically</h4>
+		</div>
+		<div class="col-sm-2 col-xs-6 feature text-center">
+			<p><i class="fa fa-tag fa-3x"></i></p>
+			<h4 class="HeadingG">Sentiment groups</h4>			
+		</div>
+		<div class="col-sm-2 col-xs-12 feature text-center">
+			<p><i class="fa fa-mobile fa-3x"></i>&nbsp;<i class="fa fa-tablet fa-3x"></i>&nbsp;<i class="fa fa-laptop fa-3x"></i>&nbsp;<i class="fa fa-desktop fa-3x"></i>&nbsp;</p>
+			<h4 class="HeadingG">Browser based</h4>
+		</div>
+		<div class="col-sm-2 col-xs-12 feature text-center">
+			<p><i class="fa fa-code fa-3x"></i></p>
+			<h4 class="HeadingG">API & Embeddable</h4>
+		</div>	
+	</div>
+	</div>	
+
+	<div class="row custom_container_for_large_screens" style="margin-top: 50px; margin-bottom: 50px">
+		<div class="col-sm-4 col-sm-offset-1 col-xs-offset-1 col-xs-10">
+			<h1 style="margin-top: 0px" class="HeadingL">Discover consensus</h1>
+			<h4 style="line-height:1.5em" class="HeadingG">Discover consensus across groups. Exploring the conversation is simple and enjoyable - pol.is does the hard work of producing and displaying correlations.</h4>
+			<p class="explore_demo_link HeadingH"><a href="/demo/2demo" target="_blank">Explore the Seattle Minimum Wage conversation</a></p>
+		</div>
+
+	
+		<div class="col-sm-5 col-sm-offset-1 video col-xs-offset-1 col-xs-10">
+      <img src="landerImages/Screenshot_2014_06_23_16_19_30.png" width="100%" />
+		</div>	
+	</div>
+	<img src="http://cdn2.hubspot.net/hub/166399/file-18392739-jpg/images/new_logo_-_white_bkgrd.jpg?t=1407425970537">
+		<img src="http://www.shsu.edu/~dl_www/images/Blackboard_Learn.jpg">
+	<div class="row features_section">
+		<div class="col-sm-12 text-center">
+			<h3>As featured in: <a href="http://www.geekwire.com/2014/startup-spotlight-polis/" style="margin-left: 10px;position: relative;bottom: 7px;"> <img alt="GeekWire" src="landerImages/geekwire.png" width="200px	"> </a></h3>
+		</div>
+	</div>
+
+
+	<div class="row video_section custom_container_for_large_screens" >
+		<div class="col-md-4 col-md-offset-2 col-sm-5 col-xs-10 col-xs-offset-1">
+			<div class="panel panel-default">
+			  <!-- Default panel contents -->
+			  <div class="panel-heading" style="background-color: white; font-family:brandon-grotesque "><h4 class="HeadingB" style="padding-top:10px"> Individual License </h4></div>
+			  <!-- List group -->
+			  <ul class="list-group">
+			    <li class="list-group-item"><i class="fa fa-check" style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Conversations</li>
+			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Participants</li>
+			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;API</li>
+			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Moderation Tools</li>
+			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Hands On Customer Support</li>
+			    <li class="list-group-item" style="background-color: rgba(52, 152, 219,.1)"><h4 class="HeadingB" style="padding-top:10px"> $100 / month </h4></li>
+
+			  </ul>
+			</div>
+		</div>
+		<div class="col-sm-5 col-sm-offset-1">
+			<div class="row">
+				<div class="col-md-10 col-md-offset-0 col-sm-11 col-sm-offset-1 col-xs-8 col-xs-offset-2 ">
+					<h1 class="HeadingL">Start now </h1>
+				</div>
+			</div>
+			<div class="row">
+				<div class="col-md-5 col-md-offset-0 col-sm-7 col-sm-offset-1 col-xs-8 col-xs-offset-2 ">
+					<form class="form" role="form">
+						<!-- <div class="form-group">
+							<input type="text" id="startconvo_name" placeholder="Full Name" class="form-control trial_form_input">
+						</div>
+						<div class="form-group">
+							<input type="text" id="startconvo_org" placeholder="Organization" class="form-control trial_form_input">
+						</div> -->
+						<div class="form-group">
+							<input type="email" id="startconvo_email" placeholder="Email" class="form-control trial_form_input">
+						</div>
+						<!-- <div class="form-group">
+							<input type="password" id="startconvo_password" placeholder="Password" class="form-control trial_form_input">
+						</div> -->
+						<div class="form-group text-center-mobile">
+							<button type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg ">Try pol.is for free</button>
+							<!-- <p style="margin-top:7px" class="text-center-mobile"><em>10 day free trial</em></p>	 -->	
+						</div>
+					</form> 
+				</div>	
+				<div class="row" id="errorDiv">
+				</div>					
+			</div>
+		</div>
+	</div>
+</div> <!--background-color-->
+
+{{> footer}}
+
+
+

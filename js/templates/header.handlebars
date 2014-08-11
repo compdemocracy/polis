@@ -30,11 +30,11 @@
         {{/ifDefined}}
         <li class="divider"></li>
         {{#unless hideInboxLink}}
-        <li id="inboxLink"><a class="HeadingD" href="/inbox">Inbox</a></li>
+        <li id="inboxLink"><a class="HeadingD" href="/inbox"><i class="fa fa-inbox"></i>&nbsp;Inbox</a></li>
         {{/unless}}
         <li class="divider"></li>
         {{#ifAuthenticated}}
-            <li><a href="/settings" class="HeadingD">Settings</a></li>
+            <li><a href="/settings" class="HeadingD"><i class="fa fa-cog"></i>&nbsp;Settings</a></li>
             <li class="divider"></li>
             <li><a href="/user/logout" class="HeadingD">
               {{#ifNotIE8}}
