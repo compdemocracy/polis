@@ -123,7 +123,7 @@ puts response.body
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
 <pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://api.pol.is/api/v3/conversations" \
     --user POLIS_API_KEY: \
-    -d conversation_id="1234abc"
+    -d conversation_id="2fUcoJ6fo4hllv3U"
 </code><code class="code_sample code_ruby" style="display:none;" data-language="ruby"> #NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend you avoid putting your API key directly in your source code.
 require 'net/http'
 require 'uri'
@@ -131,7 +131,7 @@ require 'json'
 
 uri = URI('https://api.pol.is/api/v3/participation')
 params = {
-   'conversation_id' => '1234abc'
+   'conversation_id' => '2fUcoJ6fo4hllv3U'
 }
 uri.query = URI.encode_www_form(params)
 
@@ -149,7 +149,17 @@ puts response.body
 </code></pre>
 <h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
 <pre><code class="code_sample code_curl" data-language="shell">{
-
+    "topic": "Hey - how's the bootcamp going?",
+    "description": "Interested in your thoughts!",
+    "created": 1395337801981,
+    "strict_moderation": false,
+    "profanity_filter": true,
+    "spam_filter": true,
+    "context": null,
+    "modified": 1396122515983,
+    "conversation_id": "2fUcoJ6fo4hllv3U",
+    "is_owner": true,
+    "url": "https://pol.is/2fUcoJ6fo4hllv3U"
 }
 </code></pre>
 </div>
