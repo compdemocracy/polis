@@ -4594,6 +4594,8 @@ function getConversations(req, res) {
 
                     if (suurlData) {
                         conv.url = suurlData[conv.zid].suurl;
+                    } else {
+                        conv.url = buildConversationUrl(req, conv.conversation_id);
                     }
                     conv.created = Number(conv.created);
                     conv.modified = Number(conv.modified);
