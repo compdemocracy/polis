@@ -611,5 +611,13 @@ module.exports =  ConversationView.extend({
   }, 0); // end listenTo "render"
   });
   this.render();
+
+  // Prefetch the comments to speed up the first click on a group.
+  // (we don't want to slow down page load for this, so deferring,
+  //  but we don't want to wait until the user clicks the hull)
+  setTimeout(function() {
+    that.allCommentsCollection.doFetch({});
+  }, 3000)
+
   } // end initialize
 });
