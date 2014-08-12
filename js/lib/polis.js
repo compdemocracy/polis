@@ -1733,13 +1733,26 @@ function clientSideBaseCluster(things, N) {
             votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
 
             _.each(votesForTidBid, function(bidToVote, tid) {
+                var bid;
+                var inGroupRef = inGroup; // closure lookup optimization
+                var len;
+
+                var gA = [];
+                var A = bidToVote.A;
+                len = A.length;
+                for (bid = 0; bid < len; bid++) {
+                    gA.push(inGroupRef[bid] ? A[bid] : 0);
+                }
+
+                var gD = [];
+                var D = bidToVote.D;
+                len = D.length;
+                for (bid = 0; bid < len; bid++) {
+                    gD.push(inGroupRef[bid] ? D[bid] : 0);
+                }
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid] = {
-                    gA: bidToVote.A.map(function(votes, bid) {
-                        return inGroup[bid] ? votes : 0;
-                    }),
-                    gD: bidToVote.D.map(function(votes, bid) {
-                        return inGroup[bid] ? votes : 0;
-                    })
+                    gA: gA,
+                    gD: gD
                 };
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA_total = sum(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA),
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD)
