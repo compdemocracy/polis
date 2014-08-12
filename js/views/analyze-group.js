@@ -153,6 +153,7 @@ module.exports = Handlebones.View.extend({
   },
   renderWithCarousel: function(gid) {
     var that = this;
+    var owl;
     $(el_carouselSelector).html("");
     // $(el_carouselSelector).css("overflow", "hidden");        
 
@@ -163,7 +164,9 @@ module.exports = Handlebones.View.extend({
     results.addClass("owl-carousel");
     // results.css('background-color', 'yellow');
 
-    if (results.data('owlCarousel')) {
+
+    var owl = results.data('owlCarousel');
+    if (owl) {
       results.data('owlCarousel').destroy();
     }
     results.owlCarousel({
@@ -182,6 +185,13 @@ module.exports = Handlebones.View.extend({
 
       }}())
     });
+
+    $(el_carouselSelector).on("click", function(e) {
+      // var $comment = $(e);
+      owl.goTo($(e.target).data("idx"));
+      // alert(e);
+    });
+
     var indexToTid = [];
 
     var groupMode = gid !== -1;
@@ -206,7 +216,7 @@ module.exports = Handlebones.View.extend({
             "<span class='d'>&#9660; " + c.get("D") + "</span>";
         }
         var html = 
-          "<div style='margin:10px;' class='well query_result_item'>" + 
+          "<div style='margin:10px;' class='well query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
             "<p>" +
               header +
             "</p>" +
