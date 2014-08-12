@@ -1169,9 +1169,10 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     if (visBlockerOn) {
         var neededCount = MIN_PARTICIPANTS_FOR_VIS - participantCount;
         blocker_layer.selectAll(".visBlockerMainText")
-            .text("Waiting for " +neededCount+ " more participants to join & vote.")
-            .style("font-weight", 700)
-            .style("font-size", display.xs() ? ".9em" : "1em")
+            .text("Waiting for " +neededCount+ " more participants")
+            .attr("font-weight", 100)
+            .attr("font-family", "brandon-grotesque")
+            .attr("font-size", (display.xs()||display.sm()) ? ".9em" : "28px")
             ;
 
         blocker_layer.selectAll(".visBlockerGraphic")
@@ -1184,7 +1185,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
                     txt += "_ ";
                 });
                 return txt;
-            });
+            })
+            .attr("font-weight", 100)
+            .attr("font-size", "30px")
+            // .attr("font-family", "brandon-grotesque")
+            ;
     }
     //nodes.set(node.pid, node);
 
@@ -1784,34 +1789,34 @@ function showVisBlocker() {
 
     blocker_layer.append("rect")
         .classed("visBlocker", true)
-        .style("fill", "white")
+        .style("fill", "rgb(52, 152, 219)")
         .attr("x", 1) // inset so it doesn't get cut off on firefox
         .attr("y", 1) // inset so it doesn't get cut off on firefox
         .attr("width", w-2) // inset so it doesn't get cut off on firefox
         .attr("height", h-2) // inset so it doesn't get cut off on firefox
         .style("stroke", "lightgray")
-        .attr("rx", 10)
-        .attr("ry", 10)
+        .attr("rx", 5)
+        .attr("ry", 5)
     ;
     blocker_layer.append("text")
             .classed("visBlocker", true)
             .classed("visBlockerMainText", true)
             .attr("text-anchor", "middle")
-            .attr("fill", "#000")
-            .attr("strke", "#000")
+            .attr("fill", "#fff")
+            .attr("strke", "#fff")
             .attr("transform", "translate("+ 
                 w/2 +
-                "," + h/3 + ")")
+                "," + (9*h/24) + ")")
     ;
     blocker_layer.append("text")
             .classed("visBlocker", true)
             .classed("visBlockerGraphic", true)
             .attr("transform", "translate("+ 
                 w/2 +
-                "," + (2*h/3) +")")
+                "," + (15*h/24) +")")
             .attr("text-anchor", "middle")
-            .attr("fill", "#000")
-            .attr("strke", "#000")
+            .attr("fill", "#fff")
+            .attr("strke", "#fff")
         .attr('font-family', 'FontAwesome')
         .attr('font-size', function(d) { return '2em'} )
         ;
