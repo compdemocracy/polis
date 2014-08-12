@@ -274,7 +274,7 @@ $(el_selector)
                 "markerHeight='5'" +
                 "orient='auto'>" +
             // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
-            "<circle cx = '6' cy = '6' r = '5' style='fill:lightgray;'/>" +
+            "<circle cx = '6' cy = '6' r = '5' style='fill:darkgray;'/>" +
         "</marker>" +
     "</defs>" +
     // "<g>" +
