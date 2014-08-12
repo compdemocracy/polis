@@ -195,7 +195,6 @@ module.exports = Handlebones.View.extend({
 
     function doFetch(gid) {
       that.collection.firstFetchPromise.then(function() {
-        if (gid === -1) {
           that.$("#commentSearch").show();
           that.$("#commentSort").show();
           // that.$("#groupStats").hide();
@@ -207,26 +206,6 @@ module.exports = Handlebones.View.extend({
             that.analyzeCollectionView.updateModelFilter();
           }
           // that.selectFirst();
-        } else {
-          that.$("#commentSearch").hide();
-          that.$("#commentSort").hide();
-          // that.$("#groupStats").show();
-          that.sortEnabled = false;
-          that.searchEnabled = false;
-          getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
-
-            if (that.analyzeCollectionView) {
-              that.analyzeCollectionView.groupMode = true;
-            }
-            that.tidsForGroup = o.tids;
-            that.collection.updateRepness(o.tidToR);
-            that.sortRepness();
-            if (that.analyzeCollectionView) {
-              that.analyzeCollectionView.updateModelFilter();
-            }
-            // that.selectFirst();
-          });
-        }
       });
     } // End doFetch
 
