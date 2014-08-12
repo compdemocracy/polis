@@ -141,7 +141,6 @@ module.exports =  ConversationView.extend({
           },
           isIE8: isIE8,
           getCommentsForProjection: serverClient.getCommentsForProjection,
-          getCommentsForGroup: serverClient.getCommentsForGroup,
           getReactionsToComment: serverClient.getReactionsToComment,
           getPidToBidMapping: serverClient.getPidToBidMapping,
           w: w,

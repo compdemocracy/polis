@@ -1349,24 +1349,6 @@ function clientSideBaseCluster(things, N) {
         return dfd.promise();
     }
 
-    function getCommentsForGroup(gid, max) {
-        var tidToR;
-        return getTidsForGroup(gid, max).then(function(o) {
-                tidToR = o.tidToR;
-                delete o.tidToR;
-                return getComments(o);
-            }).then(function(comments) {
-            comments = _.map(comments, function(c) {
-                c.repness = tidToR[c.tid];
-                return c;
-            });
-            comments = comments.sort(function(a, b) {
-                return b.repness - a.repness;
-            });
-            return comments;
-        });
-    }
-
 
     function getReactionsToComment(tid) {
         var dfd = $.Deferred();
@@ -1771,7 +1753,6 @@ function clientSideBaseCluster(things, N) {
         authenticated: authenticated,
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
-        getCommentsForGroup: getCommentsForGroup,
         getTidsForGroup: getTidsForGroup,
         getGroupInfo: getGroupInfo,
         getFancyComments: getFancyComments,
