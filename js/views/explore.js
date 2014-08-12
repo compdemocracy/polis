@@ -157,7 +157,7 @@ module.exports =  ConversationView.extend({
       that.tutorialController.setHandler("blueDot", function(){
         that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
           title: "DOTS ARE PEOPLE",
-          content: "Each dot represent one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
+          content: "Each dot represents one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
           html: true,
           trigger: "manual",
           placement: "bottom"
