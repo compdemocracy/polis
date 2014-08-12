@@ -153,7 +153,6 @@ module.exports = Handlebones.View.extend({
   },
   renderWithCarousel: function(gid) {
     var that = this;
-    var owl;
     $(el_carouselSelector).html("");
     // $(el_carouselSelector).css("overflow", "hidden");        
 
@@ -165,8 +164,7 @@ module.exports = Handlebones.View.extend({
     // results.css('background-color', 'yellow');
 
 
-    var owl = results.data('owlCarousel');
-    if (owl) {
+    if (results.data('owlCarousel')) {
       results.data('owlCarousel').destroy();
     }
     results.owlCarousel({
@@ -177,6 +175,12 @@ module.exports = Handlebones.View.extend({
       // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
        singleItem : true,
        // autoHeight : true,
+      afterInit : function(elem){
+        var that = this;
+        if (!display.xs()) {
+          that.owlControls.prependTo(elem);
+        }
+      },
        afterMove: (function() {return function() {
           var tid = indexToTid[this.currentItem];
           setTimeout(function() {
@@ -187,8 +191,12 @@ module.exports = Handlebones.View.extend({
     });
 
     $(el_carouselSelector).on("click", function(e) {
+      var owl = $("#smallWindow").data('owlCarousel');
       // var $comment = $(e);
-      owl.goTo($(e.target).data("idx"));
+      var index = $(e.target).data("idx");
+      if (_.isNumber(index)) {
+        owl.goTo(index);
+      }
       // alert(e);
     });
 
