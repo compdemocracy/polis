@@ -1272,7 +1272,12 @@ function clientSideBaseCluster(things, N) {
     }
 
     function sum(arrayOfNumbers) {
-        return _.reduce(arrayOfNumbers, function(total, x) { return total+x; }, 0);
+        var count = 0;
+        var len = arrayOfNumbers.length;
+        for (var i = 0; i < len; i++) {
+            count += arrayOfNumbers[i];
+        }
+        return count;
     }
 
     function getFancyComments(options) {
