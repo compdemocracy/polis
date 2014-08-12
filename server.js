@@ -288,7 +288,7 @@ var sql_conversations = sql.define({
     "is_anon",
     "is_active",
     "is_draft",
-    // "is_public",  // TODO remove this column
+    "is_public",  // TODO remove this column
     "profanity_filter",
     "spam_filter",
     "strict_moderation",
