@@ -368,7 +368,9 @@ module.exports =  ConversationView.extend({
       var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
       this.analyzeGlobalView.on("searchChanged", function(o) {
         // serverClient.setTidSubsetForReprojection(o.tids);
-        doReproject();
+        if (that.conversationTabs.onAnalyzeTab()) {
+          doReproject();
+        }
       });
 
       eb.on(eb.commentSelected, function(tid) {
