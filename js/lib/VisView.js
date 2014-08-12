@@ -11,7 +11,6 @@ var VisView = function(params){
 var el_selector = params.el;
 var el_queryResultSelector = params.el_queryResultSelector;
 var el_raphaelSelector = params.el_raphaelSelector;
-var getCommentsForGroup = params.getCommentsForGroup;
 var getReactionsToComment = params.getReactionsToComment;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
