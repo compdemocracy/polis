@@ -151,7 +151,7 @@ module.exports = Handlebones.View.extend({
   deselectComments: function() {
     eb.trigger(eb.commentSelected, false);
   },
-  renderWithCarousel: function(gid) {
+  renderWithCarousel: function(gid, comparator, tidToR) {
     var that = this;
     $(el_carouselSelector).html("");
     // $(el_carouselSelector).css("overflow", "hidden");        
@@ -206,10 +206,21 @@ module.exports = Handlebones.View.extend({
     var groupMode = gid !== -1;
 
     var info = that.groupInfo();
-    _.each(this.collection.filter(function(item) {
-        return _.contains(that.tidsForGroup, item.get('tid'));
-      }),
-      function(c) {
+
+    // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
+    var comments = this.collection.models.slice(0);
+    comments = _.filter(comments, function(comment) {
+      return _.contains(that.tidsForGroup, comment.get('tid'));
+    });
+
+    if (tidToR) {
+      _.each(comments, function(model) {
+        model.repness = tidToR[model.get("tid")];
+      });
+    }
+    comments.sort(comparator);
+
+    _.each(comments, function(c) {
         var tid = c.get('tid');
         indexToTid.push(tid);
         var header;
@@ -253,17 +264,7 @@ module.exports = Handlebones.View.extend({
 
     function doFetch(gid) {
       that.collection.firstFetchPromise.then(function() {
-        if (gid === -1) {
-          that.$("#commentSearch").show();
-          that.$("#commentSort").show();
-          // that.$("#groupStats").hide();
-          that.sortEnabled = true;
-          that.searchEnabled = true;
-          that.tidsForGroup = null;
-          that.sortAgree();   
-          that.renderWithCarousel(gid);
-          // that.selectFirst();
-        } else {
+        if (gid >= 0) {
           that.$("#commentSearch").hide();
           that.$("#commentSort").hide();
           // that.$("#groupStats").show();
@@ -271,9 +272,7 @@ module.exports = Handlebones.View.extend({
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
             that.tidsForGroup = o.tids;
-            that.collection.updateRepness(o.tidToR);
-            that.sortRepness();
-            that.renderWithCarousel(gid);
+            that.renderWithCarousel(gid, sortRepness, o.tidToR);
             // that.selectFirst();
           });
         }

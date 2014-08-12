@@ -107,12 +107,6 @@ module.exports = Handlebones.ModelView.extend({
     this.serverClient.startPolling();
 
 
-    this.allCommentsCollection.updateRepness = function(tidToRepness) {
-      this.each(function(model) {
-        model.set("repness", tidToRepness[model.get("tid")], {silent: true});
-      });
-    };
-
     this.allCommentsCollection.fetch = this.allCommentsCollection.doFetch = function(o) {
       var thatCollection = this;
       var params = {
