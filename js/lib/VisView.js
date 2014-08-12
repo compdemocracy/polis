@@ -544,19 +544,20 @@ var hull_selection_stroke_width = hull_shadow_stroke_width + hull_seletion_thick
 
 function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
     return _.times(9, function(i) {
+        function handleClick(event) {
+            event.stopPropagation();
+            return onClusterClicked({
+                hullId: i
+            });
+        }
         var hull = paper.path()
             .attr('fill', color)
             .attr('stroke-width', strokeWidth)
             .attr('stroke-linejoin','round')
             .attr('stroke', color)
             .attr('stroke-linecap', 'round')
-            .click(function(i) {
-                return function(event) {
-                    event.stopPropagation();
-                    return onClusterClicked({
-                        hullId: i
-                    });
-                };}(i))
+            .on('touchstart', handleClick)
+            .on('mousedown', handleClick)            
             .toBack();
 
             // translate the shadow
