@@ -175,6 +175,7 @@ module.exports = Handlebones.View.extend({
       // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
        singleItem : true,
        // autoHeight : true,
+     //  transitionStyle: "fade", // this should enable CSS3 transitions
       afterInit : function(elem){
         var that = this;
         if (!display.xs()) {
