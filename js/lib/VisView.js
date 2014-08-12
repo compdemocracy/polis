@@ -1941,7 +1941,7 @@ function updateLineToCluster(gid) {
     center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
-        .style("stroke", "lightgray")
+        .style("stroke", "darkgray")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
         .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
