@@ -3,8 +3,8 @@ var $ = require("jquery");
 
 function isVisible(tag) {
   return function() {
-    console.log("body > #" + tag);
-    console.log($("body > #" + tag).css("display"));
+    // console.log("body > #" + tag);
+    // console.log($("body > #" + tag).css("display"));
     return /block/.exec($("body > #" + tag).css('display'));
   };
 }
