@@ -92,16 +92,5 @@ module.exports = Handlebones.CollectionView.extend({
   initialize: function() {
     var that = this;
     Handlebones.CollectionView.prototype.initialize.apply(this, arguments);
-
-    eb.on(eb.commentSelected, function(tid) {
-      that.collection.each(function(model) {
-        if (model.get("tid") === tid) {
-          model.set("selected", true);
-        } else {
-          model.set("selected", false);
-        }
-      });
-    });
-
   }
 });

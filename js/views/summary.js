@@ -273,9 +273,9 @@ module.exports =  Handlebones.ModelView.extend({
         collection: resultsCollection
       }));
 
-      eb.on(eb.commentSelected, function(tid) {
+      // eb.on(eb.commentSelected, function(tid) {
  
-      });
+      // });
 
       // this.votesByMe.on("all", function(x) {
       //   console.log("votesByMe.all", x);
