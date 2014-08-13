@@ -2,6 +2,9 @@
 {{> header}}
 
 <script>
+ ga('send', 'event', 'route', 'docs/api', {'nonInteraction': true});
+
+
 function switchLanguages() {
     if (window.location.hash && window.location.hash.length) {
         var lang = window.location.hash.slice(1);
