@@ -570,7 +570,7 @@ gulp.task("watchForDev", [
 
 
 
-gulp.task('deploy', [
+gulp.task('deploy_TO_PRODUCTION', [
   "dist"
 ], function() {
   return deploy({
