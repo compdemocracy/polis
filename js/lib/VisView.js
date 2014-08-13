@@ -1687,11 +1687,11 @@ function doUpdateNodes() {
 
               // var commonUpdate = update.selectAll(".node > .bktv")
               //     ;
-              var commonUpdateInner = update.selectAll(".node > .bktvi")
-                  // .style("stroke-width", strokeWidth)
-                  // .style("stroke", chooseStroke)
-                  // .style("transform", "scale(0.5)")
-                  ;
+              // var commonUpdateInner = update.selectAll(".node > .bktvi")
+              //     // .style("stroke-width", strokeWidth)
+              //     // .style("stroke", chooseStroke)
+              //     // .style("transform", "scale(0.5)")
+              //     ;
 
       // var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
       //     .style("display", chooseDisplayForArrows)
