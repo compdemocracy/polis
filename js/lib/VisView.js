@@ -1768,7 +1768,7 @@ function doUpdateNodes() {
 
           update.attr("fill-opacity", function(d) {
             if (clusterIsSelected()) {
-                return d.gid === selectedCluster ? "100%" : "25%";
+                return d.gid === selectedCluster ? "100%" : "40%";
             } else {
                 // nothing selected
                 return "100%";
