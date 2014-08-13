@@ -187,75 +187,28 @@ module.exports = Handlebones.View.extend({
   },
   renderWithCarousel: function(gid, comparator, tidToR) {
     var that = this;
-    $(el_carouselSelector).html("");
-    // $(el_carouselSelector).css("overflow", "hidden");        
-
-    // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
-    $(el_carouselSelector).append("<div id='smallWindow' style='left: 10%; width:80%'></div>");        
-
-    var results = $("#smallWindow");
-    results.addClass("owl-carousel");
-    // results.css('background-color', 'yellow');
-
-
-    if (results.data('owlCarousel')) {
-      results.data('owlCarousel').destroy();
-    }
-    results.owlCarousel({
-      items : NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW, //3 items above 1000px browser width
-      // itemsDesktop : [1000,5], //5 items between 1000px and 901px
-      // itemsDesktopSmall : [900,3], // betweem 900px and 601px
-      // itemsTablet: [600,2], //2 items between 600 and 0
-      // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
-       singleItem : true,
-       // autoHeight : true,
-     //  transitionStyle: "fade", // this should enable CSS3 transitions
-      afterInit : function(elem){
-        var that = this;
-        if (!display.xs()) {
-          that.owlControls.prependTo(elem);
-        }
-      },
-       afterMove: (function() {return function() {
-          var tid = indexToTid[this.currentItem];
-          setTimeout(function() {
-              eb.trigger(eb.commentSelected, tid);
-          }, 100);
-
-      }}())
-    });
-
-    $(el_carouselSelector).on("click", function(e) {
-      var owl = $("#smallWindow").data('owlCarousel');
-      // var $comment = $(e);
-      var index = $(e.target).data("idx");
-      if (_.isNumber(index)) {
-        owl.goTo(index);
-      }
-      // alert(e);
-    });
-
-    var indexToTid = [];
-
-    var groupMode = gid !== -1;
-
-    var info = that.groupInfo();
-
-    // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
-    var comments = this.collection.models.slice(0);
-    comments = _.filter(comments, function(comment) {
-      return _.contains(that.tidsForGroup, comment.get('tid'));
-    });
-
-    if (tidToR) {
-      _.each(comments, function(model) {
-        model.repness = tidToR[model.get("tid")];
-      });
-    }
-    comments.sort(comparator);
-
     // let stack breathe
     setTimeout(function() {
+
+      var indexToTid = [];
+
+      var groupMode = gid !== -1;
+
+      var info = that.groupInfo();
+
+      // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
+      var comments = that.collection.models.slice(0);
+      comments = _.filter(comments, function(comment) {
+        return _.contains(that.tidsForGroup, comment.get('tid'));
+      });
+
+      if (tidToR) {
+        _.each(comments, function(model) {
+          model.repness = tidToR[model.get("tid")];
+        });
+      }
+      comments.sort(comparator);
+
 
       var htmlStrings = _.map(comments, function(c) {
           var tid = c.get('tid');
@@ -284,6 +237,52 @@ module.exports = Handlebones.View.extend({
 
         // let stack breathe
         setTimeout(function() {
+          $(el_carouselSelector).html("");
+          // $(el_carouselSelector).css("overflow", "hidden");        
+
+          // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
+          $(el_carouselSelector).append("<div id='smallWindow' style='left: 10%; width:80%'></div>");        
+
+          var results = $("#smallWindow");
+          results.addClass("owl-carousel");
+          // results.css('background-color', 'yellow');
+
+
+          if (results.data('owlCarousel')) {
+            results.data('owlCarousel').destroy();
+          }
+          results.owlCarousel({
+            items : NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW, //3 items above 1000px browser width
+            // itemsDesktop : [1000,5], //5 items between 1000px and 901px
+            // itemsDesktopSmall : [900,3], // betweem 900px and 601px
+            // itemsTablet: [600,2], //2 items between 600 and 0
+            // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
+             singleItem : true,
+             // autoHeight : true,
+           //  transitionStyle: "fade", // this should enable CSS3 transitions
+            afterInit : function(elem){
+              if (!display.xs()) {
+                this.owlControls.prependTo(elem);
+              }
+            },
+             afterMove: (function() {return function() {
+                var tid = indexToTid[this.currentItem];
+                setTimeout(function() {
+                    eb.trigger(eb.commentSelected, tid);
+                }, 100);
+
+            }}())
+          });
+
+          $(el_carouselSelector).on("click", function(e) {
+            var owl = $("#smallWindow").data('owlCarousel');
+            // var $comment = $(e);
+            var index = $(e.target).data("idx");
+            if (_.isNumber(index)) {
+              owl.goTo(index);
+            }
+            // alert(e);
+          });
           addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings);
           // Auto-select the first comment.
           eb.trigger(eb.commentSelected, indexToTid[0]);
