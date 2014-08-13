@@ -1,7 +1,7 @@
 {{> top}}
 {{> header}}
-<script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/masonry/3.1.5/masonry.pkgd.min.js"></script>
-<div class="container js-masonry" id="container" style="margin-bottom: 50px" data-masonry-options='{  "itemSelector": ".item" }'>
+{{!-- <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/masonry/3.1.5/masonry.pkgd.min.js"></script>
+ --}}<div class="container js-masonry" id="container" style="margin-bottom: 50px" data-masonry-options='{  "itemSelector": ".item" }'>
 	<div class="row">
 		<div class="col-xs-12 item">
       <h1 class="HeadingA">Frequently Asked Questions</h1>
@@ -14,31 +14,31 @@
   	<div class="col-xs-12 item">
 			<h2 class="HeadingB"> Fundamentals </h2>
   	</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> What is pol.is? </h4>
 			<p class="foobar789">Pol.is is a web based tool for quickly gathering open ended feedback in response to an open ended question. Pol.is produces sentiment groups and other insights by running statistical analysis on voting patterns of participants in a 'conversation'.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> How does pol.is work?</h4>
 			<p class="foobar789">An individual starts a pol.is conversation by asking an open ended question and sharing a link with a group of participants. Participants write comments in response to the question, and react to each other's comments by voting. Pol.is generates a real-time visualization showing opinion groups that have formed. By clicking on the groups, everyone can see the comments that separate that group from the rest of the participants. pol.is shows you which comments were most agreed upon, disagreed upon and divisive. By exploring, you and your participants gain insights.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> What problem does pol.is solve?</h4>
 			<p class="foobar789">Asking an open ended question of 20, 200, or 2000 people using email, discussion threads or comment boards is problematic. It's time consuming to synthesize lots of open ended text and make meaning out of it. Pol.is synthesizes  open text automatically, producing majority and minority opinion groups and making it simple to tell which perspectives have broad consensus and which ones are divisive.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> What about upvoting/downvoting sites, such as Reddit, Stack Overflow and Quora? How is pol.is different than these?</h4>
 			<p class="foobar789">Sites that use upvoting and downvoting fail to account for the presence of opinion groups. They work well when there is one best answer, and only the best answer matters. The model doesn't work well when there are multiple right answers (ie., with more subjective questions) based on values - and there are a lot of important questions like that.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> How many people do I need to have a successful conversation?</h4>
 			<p class="foobar789">At least 10. Because pol.is depends on analyzing patterns of opinion, more participants means more opportunity for patterns to emerge. Pol.is works best when when you are trying to organize the opinions of tens, hundreds, or thousands of people.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> Can anyone join the conversation I create? Can I restrict access?</h4>
 			<p class="foobar789"> Anyone with a link can join the conversation. Short links (pol.is/123abc) are easy for an audience to type or tweet, and more discoverable. Long links (e.g. pol.is/789xyzTBaymEdigAxwDSP6), are harder to type, but provide a basic level of security by being impossible to guess, even for a computer.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> Do all participants see the visualization? Why?</h4>
 			<p class="foobar789">Yes - all participants are able to see the visualization and analyze the results. Discovering how you relate to others is a powerful motivation to give information about yourself.</p>
 		</div> 
@@ -66,7 +66,7 @@
 		<div class="col-xs-12 item">
 			<h2 class="HeadingB"> Analysis </h2>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> What does the visualization mean?</h4>
 			<ul class="foobar789"> 
 				<li class="foobar789"> Grey dots represent one or more participants in the conversation</li>
@@ -76,11 +76,11 @@
 			</ul>
 			<p class="foobar789"> A participant is counted as 'in the conversation' if they have reacted to enough comments (either 7 comments or 100% of comments, whichever comes first). Excluding those who didn't heavily participate improves the reliability of the statistical analysis. However, those participants who are not yet 'in the conversation' will still see a blue dot representing their position in the conversation.</p>
 		</div> 
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG">Groups </h4>
 			<p class="foobar789"> By clicking on a group, you can see the comments which are most representative of that group's opinion. Specifically, these comments are generally agreed upon within the selected group, but disagreed upon outside the group. </p>
 		</div>
-		<div class="col-md-6 item col">
+		<div class="col-md-7 item col">
 {{!-- 			<h4 class="HeadingG">The Analyze Tab</h4>
 			<p class="foobar789"> After clicking on the Analyze tab or on Group in the visualization, comments will show up next to the visualization. There are several ways you can gain insight into how these comments relate to the conversation. </p>
 			<ul class="foobar789">
@@ -106,11 +106,11 @@
 		<div class="col-xs-12 item">
 			<h2 class="HeadingB"> API &amp; Embedding </h2>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> Can I embed a pol.is conversation into a webpage?</h4>
 			<p class="foobar789"> Yes. Either manually by inserting the link into an iframe in your code, or doing the same programmatically using the API. Because pol.is is a responsive web application, it will resize to the container it is loaded inside of. The recommended minimum width is 320px.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> Can I integrate pol.is into an existing application?</h4>
 			<p class="foobar789"> Yes - it's as easy as a 'POST' to the API to create a new conversation. Because pol.is is a responsive web application, it will resize to the container it is loaded inside of. The recommended minimum width is 320px. </p> 
 		</div>
@@ -119,19 +119,19 @@
 		<div class="col-xs-12 item">
 			<h2 class="HeadingB"> Nuts &amp; Bolts </h2> 
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> How do I delete / modify conversations?</h4>
 			<p class="foobar789"> Conversations cannot be deleted or modified. If  Conversations can be concluded, which disables commenting and voting to all present and future participants. </p>
 		</div>
-		<div class="col-md-6 item col">
+		<div class="col-md-7 item col">
 			<h4 class="HeadingG"> How do I submit a feature/bug request?</h4>
 			<p class="foobar789"> Send us a message inside of pol.is by clicking the question mark on the lower right and corner of your screen.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> Do we need to have a new installation of pol.is at our (company/school/etc.)?</h4>
 			<p class="foobar789"> Pol.is is a web based tool and works completely online. No local installation is necessary.</p>
 		</div>
-		<div class=" col-md-6 item">
+		<div class=" col-md-7 item">
 			<h4 class="HeadingG"> Do all of the participants need logins, or just the user who starts the conversation? </h4>
 			<p class="foobar789"> This depends on the anonymity of a given conversation. By default, all participants are anonymous and do not need to login. </p>
 		</div>
