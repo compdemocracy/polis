@@ -279,7 +279,7 @@ module.exports = Handlebones.View.extend({
             // var $comment = $(e);
             var index = $(e.target).data("idx");
             if (_.isNumber(index)) {
-              owl.goTo(index);
+              owl.goTo(index, true);
             }
             // alert(e);
           });
