@@ -224,7 +224,7 @@ module.exports = Handlebones.View.extend({
             "<span class='d'>&#9660; " + c.get("D") + "</span>";
         }
         var html = 
-          "<div style='cursor: -moz-grab; cursor: -webkit-grab; cursor: grab; margin:10px;' class='well query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+          "<div style='cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
             "<p>" +
               header +
             "</p>" +
