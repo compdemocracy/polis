@@ -7,17 +7,17 @@
   -o-user-select: none;
 }
 .hull {
-  // fill: #eee;
-  // stroke: #eee;
-  // stroke-width: 6px;
+  fill: #eee;
+  stroke: #eee;
+  stroke-width: 6px;
   stroke-linejoin: round;
   z-index: 402;
   cursor: pointer;
 }
 .hull_shadow {
-  // fill: #d4d4d4;
-  // stroke: #d4d4d4;
-  // stroke-width: 8px;
+  fill: #d4d4d4;
+  stroke: #d4d4d4;
+  stroke-width: 8px;
   stroke-linejoin: round;
   z-index: 400;
 }
