@@ -1227,6 +1227,16 @@ function redirectIfWrongDomain(req, res, next) {
   }
   return next();
 }
+function redirectIfApiDomain(req, res, next) {
+  if(/api.pol.is/.test(req.headers.host) &&
+     (req.url === "/" || req.url === "")) {
+    res.writeHead(302, {
+        Location: "https://pol.is/docs/api"
+    });
+    return res.end();
+  }
+  return next();
+}
 
 function meter(name) {
     return function (req, res, next){
@@ -1306,6 +1316,7 @@ function MPromise(name, f) {
 app.use(meter("api.all"));
 app.use(express.logger());
 app.use(redirectIfWrongDomain);
+app.use(redirectIfApiDomain);
 app.use(redirectIfNotHttps);
 app.use(writeDefaultHead);
 app.use(express.cookieParser());
