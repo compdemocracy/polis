@@ -376,19 +376,19 @@ module.exports = function(params) {
     }
 
     function polisPost(api, data) {
-        setTimeout(function() {
-            metric("post", api);
-        });
+        // setTimeout(function() {
+        //     metric("post", api);
+        // });
         return polisAjax(api, data, "POST");
     }
 
     function polisGet(api, data) {
-        var shouldUploadMetric = [commentsPath, pcaPath].indexOf(api) < 0;
-        if (shouldUploadMetric) {
-            setTimeout(function() {
-                metric("get", api);
-            });
-        }
+        // var shouldUploadMetric = [commentsPath, pcaPath].indexOf(api) < 0;
+        // if (shouldUploadMetric) {
+        //     setTimeout(function() {
+        //         metric("get", api);
+        //     });
+        // }
         return polisAjax(api, data, "GET");
     }
 
