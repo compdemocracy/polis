@@ -10,6 +10,40 @@ var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 var el_carouselSelector = "#carousel";
 
 
+function addMultipleOwlItems(htmlStrings, targetPosition) {
+    var base = this,
+        i,
+        position;
+
+    if (!htmlStrings || !htmlStrings.length) {return false; }
+
+    if (base.$elem.children().length === 0) {
+        for (i = 0; i < htmlStrings.length; i++) {
+          base.$elem.append(htmlStrings[i]);
+        }
+        base.setVars();
+        return false;
+    }
+    base.unWrap();
+    if (targetPosition === undefined || targetPosition === -1) {
+        position = -1;
+    } else {
+        position = targetPosition;
+    }
+    if (position >= base.$userItems.length || position === -1) {
+      for (i = 0; i < htmlStrings.length; i++) {
+        base.$userItems.eq(-1).after(htmlStrings[i]);
+      }
+    } else {
+      for (i = 0; i < htmlStrings.length; i++) {
+        base.$userItems.eq(position).before(htmlStrings[i]);
+      }
+    }
+
+    base.setVars();
+}
+
+
 
 function bbCompare(propertyName, a, b) {
   var x = b.get(propertyName) - a.get(propertyName);
@@ -220,7 +254,7 @@ module.exports = Handlebones.View.extend({
     }
     comments.sort(comparator);
 
-    _.each(comments, function(c) {
+    var htmlStrings = _.map(comments, function(c) {
         var tid = c.get('tid');
         indexToTid.push(tid);
         var header;
@@ -242,8 +276,9 @@ module.exports = Handlebones.View.extend({
             "</p>" +
             c.get("txt") +
           "</div>";
-        results.data('owlCarousel').addItem(html);
+        return html;
       });
+      addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings)
       // Auto-select the first comment.
     eb.trigger(eb.commentSelected, indexToTid[0]);
     // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
