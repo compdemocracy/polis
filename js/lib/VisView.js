@@ -1698,46 +1698,56 @@ function doUpdateNodes() {
       //     .attr("points", chooseUpArrowPath)
       //     // .style("fill", colorPull)
       //     ;
-      var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
+      setTimeout(function() {
+        var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
+      });
 
       // var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
       //     .style("display", chooseDisplayForArrows)
       //     .attr("points", chooseDownArrowPath)
       //     // .style("fill", colorPush)
       //     ;
-      var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
+      setTimeout(function() {
+        var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
           ;
+      });
 
       // var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
       //     .style("display", chooseDisplayForCircle)
       //     .attr("r", chooseCircleRadiusOuter)
       //     // .style("fill", chooseFill)
       //     ;
-      var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
+      setTimeout(function() {
+        var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
           .style("display", chooseDisplayForCircle)
           .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
           ;
+      });
 
-      var selfNode = _.filter(nodes, isSelf)[0];
-      if (selfNode && !selfHasAppeared) {
-        selfHasAppeared = true;
-        onSelfAppearsCallbacks.fire();
+      setTimeout(function() {
+          var selfNode = _.filter(nodes, isSelf)[0];
+          if (selfNode && !selfHasAppeared) {
+            selfHasAppeared = true;
+            onSelfAppearsCallbacks.fire();
 
-        setupBlueDotHelpText(update.select(".selfDot"));
-      }
+            setupBlueDotHelpText(update.select(".selfDot"));
+          }
+      });
 
-      update.attr("fill-opacity", function(d) {
-        if (clusterIsSelected()) {
-            return d.gid === selectedCluster ? "100%" : "25%";
-        } else {
-            // nothing selected
-            return "100%";
-        }
+      setTimeout(function() {
+          update.attr("fill-opacity", function(d) {
+            if (clusterIsSelected()) {
+                return d.gid === selectedCluster ? "100%" : "25%";
+            } else {
+                // nothing selected
+                return "100%";
+            }
+          });
       });
   }
   // showLineToCluster("foo");
