@@ -718,28 +718,36 @@ function updateHulls() {
                     var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
                     var colorShadow = (clusters[i].length > 1) ? "#d4d4d4" : "#f7f7f7";
                     var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
+                    var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "43px";                    
+                    var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";                    
+
                     var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
-                    var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "70px";                    
+                    if (selectedCluster === i) {
+                        // no shadow, since we'll show dashed line
+                        shadowStrokeWidth = "0px";
+                        color = "#e9f0f7";
+                    }
 
                     d3Hulls[i].datum(points)
                         .attr("d", shape)
-                        // .attr("fill-opacity", hullOpacity)
-                        .attr("fill", color)
-                        .attr("stroke", color)
-                        // .attr("stroke-opacity", hullOpacity)
-                        .attr("stroke-width", strokeWidth)
+                        // .style("fill-opacity", hullOpacity)
+                        .style("fill", color)
+                        .style("stroke", color)
+                        // .style("stroke-opacity", hullOpacity)
+                        .style("stroke-width", strokeWidth)
                         .style("visibility", "visible");
                     d3HullSelections[i].datum(points)
                         .attr("d", shape)
-                        .attr("stroke-width", selectionStrokeWidth)
+                        .style("stroke-width", selectionStrokeWidth)
+                        .style("stroke-dasharray", selectionStrokeDashArray)
                         .style("visibility", "visible");
                     d3HullShadows[i].datum(points)
                         .attr("d", shape)
-                        .attr("fill", colorShadow)
-                        .attr("stroke", colorShadow)
-                        // .attr("fill-opacity", hullOpacity)
-                        // .attr("stroke-opacity", hullOpacity)
-                        .attr("stroke-width", shadowStrokeWidth)
+                        .style("fill", colorShadow)
+                        .style("stroke", colorShadow)
+                        // .style("fill-opacity", hullOpacity)
+                        // .style("stroke-opacity", hullOpacity)
+                        .style("stroke-width", shadowStrokeWidth)
                         .style("visibility", "visible");
                 }
             }
