@@ -712,14 +712,34 @@ function updateHulls() {
                     raphaelHulls[i].animate({path: _transformed}, 0);
                     raphaelHullsShadow[i].animate({path: _transformed}, 0);
                 } else {
+
+                    // If the cluster has only one participant, don't show the hull.
+                    // intead, make the hull into an extra large invisible touch target.
+                    var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
+                    var colorShadow = (clusters[i].length > 1) ? "#d4d4d4" : "#f7f7f7";
+                    var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
+                    var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
+                    var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "70px";                    
+
                     d3Hulls[i].datum(points)
                         .attr("d", shape)
+                        // .attr("fill-opacity", hullOpacity)
+                        .attr("fill", color)
+                        .attr("stroke", color)
+                        // .attr("stroke-opacity", hullOpacity)
+                        .attr("stroke-width", strokeWidth)
                         .style("visibility", "visible");
                     d3HullSelections[i].datum(points)
                         .attr("d", shape)
+                        .attr("stroke-width", selectionStrokeWidth)
                         .style("visibility", "visible");
                     d3HullShadows[i].datum(points)
                         .attr("d", shape)
+                        .attr("fill", colorShadow)
+                        .attr("stroke", colorShadow)
+                        // .attr("fill-opacity", hullOpacity)
+                        // .attr("stroke-opacity", hullOpacity)
+                        .attr("stroke-width", shadowStrokeWidth)
                         .style("visibility", "visible");
                 }
             }
