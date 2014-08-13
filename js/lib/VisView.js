@@ -1429,19 +1429,19 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       //   // .style("stroke", colorPushOutline)
       //   // .style("stroke-width", 1)
       //   ;
-      // var circleEnter = g.append("circle")
-      //   .classed("circle", true)
-      //   .classed("bktv", true)
-      //   .attr("cx", 0)
-      //   .attr("cy", 0)
+      var circleEnter = g.append("circle")
+        .classed("circle", true)
+        .classed("bktv", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
       //   .style("opacity", opacityOuter)
       //   .style("fill", chooseFill)
-      //   .filter(isSelf)
-      //       .style("fill", "rgba(0,0,0,0)")
-      //       .style("stroke", colorSelf)
-      //       .style("stroke-width", 1)
-      //       .style("opacity", 0.5)
-      //   ;
+        .filter(isSelf)
+            .style("fill", "rgba(0,0,0,0)")
+            .style("stroke", colorSelf)
+            .style("stroke-width", 1)
+            .style("opacity", 0.5)
+        ;
 
       // INNER SCALE-CHANGING SHAPES
       var upArrowEnterInner = g.append("polygon")
@@ -1698,38 +1698,34 @@ function doUpdateNodes() {
       //     .attr("points", chooseUpArrowPath)
       //     // .style("fill", colorPull)
       //     ;
-      setTimeout(function() {
         var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
-      });
 
       // var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
       //     .style("display", chooseDisplayForArrows)
       //     .attr("points", chooseDownArrowPath)
       //     // .style("fill", colorPush)
       //     ;
-      setTimeout(function() {
+    
         var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
           ;
-      });
+    
 
-      // var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
-      //     .style("display", chooseDisplayForCircle)
-      //     .attr("r", chooseCircleRadiusOuter)
-      //     // .style("fill", chooseFill)
-      //     ;
-      setTimeout(function() {
+        var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
+          .style("display", chooseDisplayForCircle)
+          .attr("r", chooseCircleRadiusOuter)
+          // .style("fill", chooseFill)
+          ;
         var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
           .style("display", chooseDisplayForCircle)
           .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
           ;
-      });
+     
 
-      setTimeout(function() {
           var selfNode = _.filter(nodes, isSelf)[0];
           if (selfNode && !selfHasAppeared) {
             selfHasAppeared = true;
@@ -1737,9 +1733,7 @@ function doUpdateNodes() {
 
             setupBlueDotHelpText(update.select(".selfDot"));
           }
-      });
 
-      setTimeout(function() {
           update.attr("fill-opacity", function(d) {
             if (clusterIsSelected()) {
                 return d.gid === selectedCluster ? "100%" : "25%";
@@ -1748,7 +1742,6 @@ function doUpdateNodes() {
                 return "100%";
             }
           });
-      });
   }
   // showLineToCluster("foo");
 
