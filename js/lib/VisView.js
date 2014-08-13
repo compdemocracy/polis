@@ -1716,10 +1716,14 @@ function doUpdateNodes() {
     
 
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
-          .style("display", chooseDisplayForCircle)
-          .attr("r", chooseCircleRadiusOuter)
-          // .style("fill", chooseFill)
-          ;
+          // .style("display", chooseDisplayForCircle)
+          // .attr("r", chooseCircleRadiusOuter)
+          // // .style("fill", chooseFill)
+          .filter(isSelf)
+              .style("display", chooseDisplayForCircle)
+              .attr("r", chooseCircleRadiusOuter)
+              // .style("fill", chooseFill)
+              ;
         var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
           .style("display", chooseDisplayForCircle)
           .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
