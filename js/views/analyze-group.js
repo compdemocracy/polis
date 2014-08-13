@@ -254,34 +254,42 @@ module.exports = Handlebones.View.extend({
     }
     comments.sort(comparator);
 
-    var htmlStrings = _.map(comments, function(c) {
-        var tid = c.get('tid');
-        indexToTid.push(tid);
-        var header;
-        if (groupMode) {
-          var v = info.votes[tid];
-          var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
-          header =
-              "<span class='a HeadingE' style='margin-right:3px'>&#9650; " + percent + "%</span>" +
-              "<span class='small' style='color:darkgray;'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
-        } else {
-          header = 
-            "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
-            "<span class='d'>&#9660; " + c.get("D") + "</span>";
-        }
-        var html = 
-          "<div style='cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
-            "<p>" +
-              header +
-            "</p>" +
-            c.get("txt") +
-          "</div>";
-        return html;
-      });
-      addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings)
-      // Auto-select the first comment.
-    eb.trigger(eb.commentSelected, indexToTid[0]);
-    // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
+    // let stack breathe
+    setTimeout(function() {
+
+      var htmlStrings = _.map(comments, function(c) {
+          var tid = c.get('tid');
+          indexToTid.push(tid);
+          var header;
+          if (groupMode) {
+            var v = info.votes[tid];
+            var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
+            header =
+                "<span class='a HeadingE' style='margin-right:3px'>&#9650; " + percent + "%</span>" +
+                "<span class='small' style='color:darkgray;'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
+          } else {
+            header = 
+              "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
+              "<span class='d'>&#9660; " + c.get("D") + "</span>";
+          }
+          var html = 
+            "<div style='cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+              "<p>" +
+                header +
+              "</p>" +
+              c.get("txt") +
+            "</div>";
+          return html;
+        });
+
+        // let stack breathe
+        setTimeout(function() {
+          addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings);
+          // Auto-select the first comment.
+          eb.trigger(eb.commentSelected, indexToTid[0]);
+          // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
+        }, 0);
+      }, 0);
   },
   initialize: function(options) {
     var that = this;

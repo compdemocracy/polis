@@ -1649,7 +1649,9 @@ function updateNodeVoteCounts() {
 }
 
 function updateNodes() {
-  
+    setTimeout(doUpdateNodes, 0);
+}
+function doUpdateNodes() {
 
   if (isIE8) {
       for (var i = 0; i < nodes.length; i++) {
