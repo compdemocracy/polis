@@ -315,7 +315,7 @@ $("#legendRoot").append("<p class=\"HeadingF HeadingF--light\" style=\"position:
 "<line x1='40' y1='287' x2='115' y2='287' style='stroke:#2ecc71;stroke-width:1'></line>" +
 "<line x1='70' y1='336' x2='115' y2='336' style='stroke:#e74c3c;stroke-width:1'></line>" +
 "<g class='ptpt node selfDot' fill-opacity='100%' transform='translate(65,76)'>"+
-  "<circle class='circle bktv' cx='0' cy='0' r='7.288888888888889' style='opacity: 0.5; fill: rgba(0, 0, 0, 0); stroke: rgb(0, 204, 255); stroke-width: 1px; display: inherit;'></circle>" +
+  // "<circle class='circle bktv' cx='0' cy='0' r='7.288888888888889' style='opacity: 0.5; fill: rgba(0, 0, 0, 0); stroke: rgb(0, 204, 255); stroke-width: 1px; display: inherit;'></circle>" +
   "<circle class='circle bktvi' r='3.6444444444444444' style='fill: rgb(0, 204, 255); display: inherit;'></circle>"+
 "</g>" +
 
@@ -1412,36 +1412,36 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       ;
 
       // OUTER TRANSLUCENT SHAPES
-      var opacityOuter = 0.2;
-      var upArrowEnter = g.append("polygon") 
-        .classed("up", true)
-        .classed("bktv", true)
-        .style("fill", colorPull)
-        .style("fill-opacity", opacityOuter)
-        // .style("stroke", colorPullOutline)
-        // .style("stroke-width", 1)
-        ;
-      var downArrowEnter = g.append("polygon")
-        .classed("down", true)
-        .classed("bktv", true)
-        .style("fill", colorPush)
-        .style("fill-opacity", opacityOuter)
-        // .style("stroke", colorPushOutline)
-        // .style("stroke-width", 1)
-        ;
-      var circleEnter = g.append("circle")
-        .classed("circle", true)
-        .classed("bktv", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .style("opacity", opacityOuter)
-        .style("fill", chooseFill)
-        .filter(isSelf)
-            .style("fill", "rgba(0,0,0,0)")
-            .style("stroke", colorSelf)
-            .style("stroke-width", 1)
-            .style("opacity", 0.5)
-        ;
+      // var opacityOuter = 0.2;
+      // var upArrowEnter = g.append("polygon") 
+      //   .classed("up", true)
+      //   .classed("bktv", true)
+      //   .style("fill", colorPull)
+      //   .style("fill-opacity", opacityOuter)
+      //   // .style("stroke", colorPullOutline)
+      //   // .style("stroke-width", 1)
+      //   ;
+      // var downArrowEnter = g.append("polygon")
+      //   .classed("down", true)
+      //   .classed("bktv", true)
+      //   .style("fill", colorPush)
+      //   .style("fill-opacity", opacityOuter)
+      //   // .style("stroke", colorPushOutline)
+      //   // .style("stroke-width", 1)
+      //   ;
+      // var circleEnter = g.append("circle")
+      //   .classed("circle", true)
+      //   .classed("bktv", true)
+      //   .attr("cx", 0)
+      //   .attr("cy", 0)
+      //   .style("opacity", opacityOuter)
+      //   .style("fill", chooseFill)
+      //   .filter(isSelf)
+      //       .style("fill", "rgba(0,0,0,0)")
+      //       .style("stroke", colorSelf)
+      //       .style("stroke-width", 1)
+      //       .style("opacity", 0.5)
+      //   ;
 
       // INNER SCALE-CHANGING SHAPES
       var upArrowEnterInner = g.append("polygon")
@@ -1683,39 +1683,39 @@ function updateNodes() {
   } else {
       var update = visualization.selectAll(".node");
 
-              var commonUpdate = update.selectAll(".node > .bktv")
-                  ;
+              // var commonUpdate = update.selectAll(".node > .bktv")
+              //     ;
               var commonUpdateInner = update.selectAll(".node > .bktvi")
                   // .style("stroke-width", strokeWidth)
                   // .style("stroke", chooseStroke)
                   // .style("transform", "scale(0.5)")
                   ;
 
-      var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
-          .style("display", chooseDisplayForArrows)
-          .attr("points", chooseUpArrowPath)
-          // .style("fill", colorPull)
-          ;
+      // var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
+      //     .style("display", chooseDisplayForArrows)
+      //     .attr("points", chooseUpArrowPath)
+      //     // .style("fill", colorPull)
+      //     ;
       var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
 
-      var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
-          .style("display", chooseDisplayForArrows)
-          .attr("points", chooseDownArrowPath)
-          // .style("fill", colorPush)
-          ;
+      // var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
+      //     .style("display", chooseDisplayForArrows)
+      //     .attr("points", chooseDownArrowPath)
+      //     // .style("fill", colorPush)
+      //     ;
       var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
           ;
 
-      var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
-          .style("display", chooseDisplayForCircle)
-          .attr("r", chooseCircleRadiusOuter)
-          // .style("fill", chooseFill)
-          ;
+      // var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
+      //     .style("display", chooseDisplayForCircle)
+      //     .attr("r", chooseCircleRadiusOuter)
+      //     // .style("fill", chooseFill)
+      //     ;
       var circleUpdateInner = update.selectAll(".circle.bktvi").data(nodes, key)
           .style("display", chooseDisplayForCircle)
           .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
