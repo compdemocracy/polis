@@ -263,9 +263,12 @@ var polisRouter = Backbone.Router.extend({
 
 
   },
-  r: function(pattern, methodToCall) {
-    metric("route", methodToCall);
-    this.route(pattern, methodToCall);
+  r: function(pattern, methodNameToCall) {
+    var that = this;
+    this.route(pattern, function() {
+      metric("route", methodNameToCall);
+      that[methodNameToCall].apply(that, arguments);
+    });
   },
   bail: function() {
     this.navigate("/", {trigger: true});
