@@ -181,9 +181,18 @@ puts response.body
 </code></pre>
 <h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
 <pre><code class="code_sample code_curl" data-language="shell">{
-
-}
-</code></pre>
+    "topic": "Hey - how's the bootcamp going?",
+    "description": "Interested in your thoughts!",
+    "created": 1395337801981,
+    "strict_moderation": false,
+    "profanity_filter": true,
+    "spam_filter": true,
+    "context": null,
+    "modified": 1396122515983,
+    "conversation_id": "2fUcoJ6fo4hllv3U",
+    "is_owner": true,
+    "url": "https://pol.is/2fUcoJ6fo4hllv3U/magicUrl_j9nd3H_for_someUser123"
+}</code></pre>
   </div>
 </div>
 
@@ -204,10 +213,32 @@ puts response.body
     -d limit=10
 </code></pre>
 <h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
-<pre><code class="code_sample code_curl" data-language="shell">{
-
-}
-</code></pre>
+<pre><code class="code_sample code_curl" data-language="shell">[{
+    "topic": "$15/hour",
+    "description": "How do you think the new minimum wage law will affect Seattle? Will it be for the better or for the worse? Why?",
+    "created": 1403054152585,
+    "strict_moderation": true,
+    "profanity_filter": true,
+    "spam_filter": true,
+    "context": null,
+    "modified": 1407571810065,
+    "conversation_id": "2hfd42",
+    "is_owner": true,
+    "url": "https://pol.is/2hfd42/magicUrl_3hf8Ea_for_someUser123"
+  },
+  {
+    "topic": "Hey - how's the bootcamp going?",
+    "description": "Interested in your thoughts!",
+    "created": 1395337801981,
+    "strict_moderation": false,
+    "profanity_filter": true,
+    "spam_filter": true,
+    "context": null,
+    "modified": 1396122515983,
+    "conversation_id": "2fUcoJ6fo4hllv3U",
+    "is_owner": true,
+    "url": "https://pol.is/2fUcoJ6fo4hllv3U/magicUrl_fDFuhe_for_someUser123"
+}]</code></pre>
   </div>
 </div>
 
@@ -221,15 +252,39 @@ puts response.body
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
 <pre><code class="code_sample code_curl" data-language="shell">curl -X GET -G "https://api.pol.is/api/v3/conversations" \
     --user POLIS_API_KEY: \
-    -d conversation_id="1234abc" \
     -d user_id="someUser123" \
     -d want_mod_url=true \
     -d limit=10
 </code></pre>
 <h5 class="HeadingF HeadingF--light"> RESPONSE </h5>
-<pre><code class="code_sample code_curl" data-language="shell">{
-
-}
+<pre><code class="code_sample code_curl" data-language="shell">[{
+    "topic": "$15/hour",
+    "description": "How do you think the new minimum wage law will affect Seattle? Will it be for the better or for the worse? Why?",
+    "created": 1403054152585,
+    "strict_moderation": true,
+    "profanity_filter": true,
+    "spam_filter": true,
+    "context": null,
+    "modified": 1407571810065,
+    "conversation_id": "2hfd42",
+    "is_owner": true, 
+    "url": "https://pol.is/2hfd42/magicUrl_3hf8Ea_for_someUser123",
+    "mod_url": "https://pol.is/m/2hfd42/magicUrl_r98y23_for_someUser123"
+  },
+  {
+    "topic": "Hey - how's the bootcamp going?",
+    "description": "Interested in your thoughts!",
+    "created": 1395337801981,
+    "strict_moderation": false,
+    "profanity_filter": true,
+    "spam_filter": true,
+    "context": null,
+    "modified": 1396122515983,
+    "conversation_id": "2fUcoJ6fo4hllv3U",
+    "is_owner": true,
+    "url": "https://pol.is/2fUcoJ6fo4hllv3U/magicUrl_fDFuhe_for_someUser123",
+    "mod_url": "https://pol.is/m/2fUcoJ6fo4hllv3U/magicUrl_98wrU2_for_someUser123"    
+}]
 </code></pre>
   </div>
 </div>
@@ -298,25 +353,30 @@ puts response.body
 </pre>
   <h5 class="HeadingF HeadingF--light">RESPONSE</h5>
 <pre> <code data-language="javascript">{
-  "f2bc494c9b81056": {
+  "someUser123": {
     "votes": 5,
-    "comments": 2
+    "comments": 2,
+    "group": 1
   },
-  "c1d0747a40c5135": {
+  "someUser234": {
     "votes": 6,
-    "comments": 0
+    "comments": 0,
+    "group": 0
   },
-  "8d50eb37ecd10d2": {
+  "someUser345": {
     "votes": 4,
-    "comments": 3
+    "comments": 3,
+    "group": 0    
   },
-  "a4835d18f0f19b0": {
+  "someUser456": {
     "votes": 5,
-    "comments": 1
+    "comments": 1,
+    "group": 1
   },
-  "16e64fabb16fa9a": {
+  "someUser567": {
     "votes": 2,
-    "comments": 0
+    "comments": 0,
+    "group": 1    
   }
 }
 </code></pre>
