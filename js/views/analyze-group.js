@@ -269,7 +269,7 @@ module.exports = Handlebones.View.extend({
                 var tid = indexToTid[this.currentItem];
                 setTimeout(function() {
                     eb.trigger(eb.commentSelected, tid);
-                }, 100);
+                }, 200);
 
             }}())
           });
