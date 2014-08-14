@@ -509,7 +509,7 @@ function handleOnClusterClicked(hullId) {
     // if (selectedCluster === hullId) {                 
     //   return resetSelection();
     // }
-
+    dismissHelp();
 
     // resetSelectedComment();
     // unhoverAll();
@@ -1307,12 +1307,12 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
     function sortWithSelfOnTop(a, b) {
         if (isSelf(a)) {
-            return 1;
+            return Infinity;
         }
         if (isSelf(b)) {
-            return -1;
+            return -Infinity;
         }
-        return key(b) - key(a);
+        return a.targetX - b.targetX;
     }
 
     var bidToOldNode = _.indexBy(nodes, getBid);
@@ -1326,6 +1326,14 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     }
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
+    var niceIndex = Math.floor(2*nodes.length/3);
+    if (isSelf(nodes[niceIndex])) {
+        // don't point to self
+        niceIndex += 1;
+    }
+    nodes[niceIndex].isChosenNodeForInVisLegend = true; // TODO find it
+    var nice = nodes.splice(niceIndex, 1);
+    nodes.push(nice[0]);
     console.log("number of people: " + nodes.length);
 
     oldpositions.forEach(function(oldNode) {
@@ -1422,7 +1430,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
       var update = main_layer.selectAll(".ptpt")
           .data(nodes, key)
-          .sort(sortWithSelfOnTop);
+          // .sort(sortWithSelfOnTop)
+          ;
 
       var exit = update.exit();
       exit.remove();
@@ -1438,6 +1447,41 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
           .on("mouseout", hideTip)
           // .call(force.drag)
       ;
+
+      var centermostNode = g.filter(function(d) {
+        return d.isChosenNodeForInVisLegend;
+      });
+      centermostNode.append("text")
+        .classed("help", true)
+        .text("participant")
+        .attr("text-anchor", "left")
+        .attr("fill", "#000")
+        .attr("transform", function(d) {
+            return "translate(50, -17)";
+        });
+      centermostNode.append("polyline")
+        .classed("help", true)
+        .style("display", "block")
+        .style("stroke", "black")
+        .style("stroke-width", "2px")
+        .style("z-index", 9999)
+        .style("fill", "rgba(0,0,0,0)")
+        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+        // .attr("marker-start", "url(#ArrowTip)")
+        .attr("points", function(d) {
+            return ["9, -9", "20, -20", "50,-20"].join(" ")
+        });
+      centermostNode.append("circle")
+        .classed("help", true)
+        // .classed("circle", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .attr("r", 12.727)
+        // .style("opacity", opacityOuter)
+        .style("fill", "rgba(0,0,0,0)")
+        .style("stroke", "black")
+        .style("stroke-width", 2)
+        ;
 
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
@@ -1577,6 +1621,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
 
 } // END upsertNode
+
+function dismissHelp() {
+    var help = visualization.selectAll(".help");
+    help.style("display", "none");
+}
 
 function selectComment(tid) {
     if (!_.isNumber(tid)) {
@@ -1818,6 +1867,7 @@ function selectBackground() {
 
     updateHullColors();
   }
+  dismissHelp();
 }
 
 var visBlockerOn = false;
