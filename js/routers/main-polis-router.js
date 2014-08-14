@@ -203,7 +203,6 @@ var polisRouter = Backbone.Router.extend({
     this.r("user/logout", "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r("settings", "settings");
-    this.r("plan/upgrade(/:plan_id)", "upgradePlan");
     this.r("inbox(/:filter)", "inbox");
     this.r("inboxApiTest(/:filter)", "inboxApiTest");
     this.r("faq", "faq");
@@ -212,22 +211,14 @@ var polisRouter = Backbone.Router.extend({
     this.r("", "landingPageView");
 
 
-
-    // backwards compatibility TODO remove after July 2014
-    this.r(/^([0-9]+)/, "participationViewDeprecated");  // zid
-    this.r(/^([0-9]+)\/(.*)/, "participationViewDeprecated"); // zid/zinvite
-    this.r(/^m\/([0-9]+)/, "moderationViewDeprecated");  // m/zid
-    this.r(/^m\/([0-9]+)\/(.*)/, "moderationViewDeprecated"); // m/zid/zinvite
-    // end backwards compatibility routes
-
     this.r(/^([0-9][0-9A-Za-z]+)$/, "participationView");  // conversation_id
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
 
-    this.r(/^explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/conversation_id
+    //this.r(/^explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/conversation_id
     this.r(/^share\/([0-9][0-9A-Za-z]+)$/, "shareView");  // share/conversation_id
-    this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/conversation_id
+    //this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/conversation_id
     this.r(/^m\/([0-9][0-9A-Za-z]+)$/, "moderationView");  // m/conversation_id
     // this.r(/^iip\/([0-9][0-9A-Za-z]+)$/, "inboxItemParticipant");
     // this.r(/^iim\/([0-9][0-9A-Za-z]+)$/, "inboxItemModerator");
@@ -266,7 +257,7 @@ var polisRouter = Backbone.Router.extend({
   r: function(pattern, methodNameToCall) {
     var that = this;
     this.route(pattern, function() {
-      metric("route", methodNameToCall);
+      routeEvent(methodNameToCall, arguments);
       that[methodNameToCall].apply(that, arguments);
     });
   },
