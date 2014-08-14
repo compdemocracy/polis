@@ -1312,7 +1312,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         if (isSelf(b)) {
             return -Infinity;
         }
-        return a.targetX - b.targetX;
+        return a.proj.x - b.proj.x;
     }
 
     var bidToOldNode = _.indexBy(nodes, getBid);
@@ -1326,7 +1326,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     }
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
-    var niceIndex = Math.floor(2*nodes.length/3);
+    var niceIndex = Math.floor(nodes.length/4);
     if (isSelf(nodes[niceIndex])) {
         // don't point to self
         niceIndex += 1;
@@ -1454,10 +1454,10 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       centermostNode.append("text")
         .classed("help", true)
         .text("participant")
-        .attr("text-anchor", "left")
+        .attr("text-anchor", "start")
         .attr("fill", "#000")
         .attr("transform", function(d) {
-            return "translate(50, -17)";
+            return "translate(52, -17)";
         });
       centermostNode.append("polyline")
         .classed("help", true)
