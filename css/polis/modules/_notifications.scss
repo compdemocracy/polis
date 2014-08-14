@@ -12,6 +12,11 @@
   color: $danger-text-color;
 }
 
+.Notification--positive {
+  background-color: $positive-bg-color;
+  color: $positive-text-color;
+}
+
 .Notification--warning {
   background-color: $warning-bg-color;
   color: $warning-text-color;

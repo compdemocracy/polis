@@ -66,7 +66,7 @@ var bidToBucket = {};
 var SELF_DOT_SHOW_INITIALLY = true;
 var selfDotTooltipShow = !SELF_DOT_SHOW_INITIALLY;
 var SELF_DOT_HINT_HIDE_AFTER_DELAY = 10*1000;
-var selfDotHintText = "This is you";
+var selfDotHintText = "you";
 
 var clusterPointerOriginY = 80;
 
@@ -509,7 +509,7 @@ function handleOnClusterClicked(hullId) {
     // if (selectedCluster === hullId) {                 
     //   return resetSelection();
     // }
-
+    dismissHelp();
 
     // resetSelectedComment();
     // unhoverAll();
@@ -1307,12 +1307,12 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
     function sortWithSelfOnTop(a, b) {
         if (isSelf(a)) {
-            return 1;
+            return Infinity;
         }
         if (isSelf(b)) {
-            return -1;
+            return -Infinity;
         }
-        return key(b) - key(a);
+        return a.proj.x - b.proj.x;
     }
 
     var bidToOldNode = _.indexBy(nodes, getBid);
@@ -1326,6 +1326,14 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     }
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
+    var niceIndex = Math.floor(nodes.length/4);
+    if (isSelf(nodes[niceIndex])) {
+        // don't point to self
+        niceIndex += 1;
+    }
+    nodes[niceIndex].isChosenNodeForInVisLegend = true; // TODO find it
+    var nice = nodes.splice(niceIndex, 1);
+    nodes.push(nice[0]);
     console.log("number of people: " + nodes.length);
 
     oldpositions.forEach(function(oldNode) {
@@ -1422,7 +1430,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
       var update = main_layer.selectAll(".ptpt")
           .data(nodes, key)
-          .sort(sortWithSelfOnTop);
+          // .sort(sortWithSelfOnTop)
+          ;
 
       var exit = update.exit();
       exit.remove();
@@ -1438,6 +1447,80 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
           .on("mouseout", hideTip)
           // .call(force.drag)
       ;
+
+      var centermostNode = g.filter(function(d) {
+        return d.isChosenNodeForInVisLegend;
+      });
+      centermostNode.append("text")
+        .classed("help", true)
+        .text("others")
+        .attr("text-anchor", "start")
+        .attr("fill", "#000")
+        // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
+        .attr("transform", function(d) {
+            return "translate(55, -17)";
+        });
+      centermostNode.append("polyline")
+        .classed("help", true)
+        .style("display", "block")
+        .style("stroke", "#555555")
+        .style("stroke-width", "2px")
+        .style("z-index", 9999)
+        .style("fill", "rgba(0,0,0,0)")
+        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+        // .attr("marker-start", "url(#ArrowTip)")
+        .attr("points", function(d) {
+            return ["9, -9", "20, -20", "50,-20"].join(" ")
+        });
+      centermostNode.append("circle")
+        .classed("help", true)
+        // .classed("circle", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .attr("r", 12.727)
+        // .style("opacity", opacityOuter)
+        .style("fill", "rgba(0,0,0,0)")
+        .style("stroke", "#555555")
+        .style("stroke-width", 2)
+        ;
+
+      var selfNode = g.filter(isSelf);
+      selfNode.append("text")
+        .classed("help", true)
+        .text("you")
+        .attr("text-anchor", "start")
+        .attr("fill", "rgba(0,0,0,1.0)")
+        .attr("transform", function(d) {
+            return "translate(55, 24)";
+        });
+      selfNode.append("polyline")
+        .classed("help", true)
+        .style("display", "block")
+        .style("stroke", "#555555")
+        .style("stroke-width", "2px")
+        .style("z-index", 9999)
+        .style("fill", "rgba(0,0,0,0)")
+        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+        // .attr("marker-start", "url(#ArrowTip)")
+        .attr("points", function(d) {
+            return ["9, 9", "20, 20", "50,20"].join(" ")
+        });
+      selfNode.append("circle")
+        .classed("help", true)
+        // .classed("circle", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .attr("r", 12.727)
+        // .style("opacity", opacityOuter)
+        .style("fill", "rgba(0,0,0,0)")
+        .style("stroke", "#555555")
+        .style("stroke-width", 2)
+        ;
+
+
+
+
+
 
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
@@ -1577,6 +1660,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
 
 } // END upsertNode
+
+function dismissHelp() {
+    var help = visualization.selectAll(".help");
+    help.style("display", "none");
+}
 
 function selectComment(tid) {
     if (!_.isNumber(tid)) {
@@ -1768,7 +1856,7 @@ function doUpdateNodes() {
 
           update.attr("fill-opacity", function(d) {
             if (clusterIsSelected()) {
-                return d.gid === selectedCluster ? "100%" : "25%";
+                return d.gid === selectedCluster ? "100%" : "40%";
             } else {
                 // nothing selected
                 return "100%";
@@ -1818,6 +1906,7 @@ function selectBackground() {
 
     updateHullColors();
   }
+  dismissHelp();
 }
 
 var visBlockerOn = false;
@@ -1840,7 +1929,6 @@ function showVisBlocker() {
             .classed("visBlockerMainText", true)
             .attr("text-anchor", "middle")
             .attr("fill", "#fff")
-            .attr("strke", "#fff")
             .attr("transform", "translate("+ 
                 w/2 +
                 "," + (9*h/24) + ")")
@@ -1853,7 +1941,6 @@ function showVisBlocker() {
                 "," + (15*h/24) +")")
             .attr("text-anchor", "middle")
             .attr("fill", "#fff")
-            .attr("strke", "#fff")
         .attr('font-family', 'FontAwesome')
         .attr('font-size', function(d) { return '2em'} )
         ;
