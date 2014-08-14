@@ -1890,7 +1890,7 @@ function showVisBlocker() {
             .classed("visBlockerMainText", true)
             .attr("text-anchor", "middle")
             .attr("fill", "#fff")
-            .attr("strke", "#fff")
+            .attr("stroke", "#fff")
             .attr("transform", "translate("+ 
                 w/2 +
                 "," + (9*h/24) + ")")
@@ -1903,7 +1903,7 @@ function showVisBlocker() {
                 "," + (15*h/24) +")")
             .attr("text-anchor", "middle")
             .attr("fill", "#fff")
-            .attr("strke", "#fff")
+            .attr("stroke", "#fff")
         .attr('font-family', 'FontAwesome')
         .attr('font-size', function(d) { return '2em'} )
         ;
