@@ -1483,6 +1483,44 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         .style("stroke-width", 2)
         ;
 
+      var selfNode = g.filter(isSelf);
+      selfNode.append("text")
+        .classed("help", true)
+        .text("This is you")
+        .attr("text-anchor", "start")
+        .attr("fill", "#000")
+        .attr("transform", function(d) {
+            return "translate(52, 24)";
+        });
+      selfNode.append("polyline")
+        .classed("help", true)
+        .style("display", "block")
+        .style("stroke", "black")
+        .style("stroke-width", "2px")
+        .style("z-index", 9999)
+        .style("fill", "rgba(0,0,0,0)")
+        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+        // .attr("marker-start", "url(#ArrowTip)")
+        .attr("points", function(d) {
+            return ["9, 9", "20, 20", "50,20"].join(" ")
+        });
+      selfNode.append("circle")
+        .classed("help", true)
+        // .classed("circle", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .attr("r", 12.727)
+        // .style("opacity", opacityOuter)
+        .style("fill", "rgba(0,0,0,0)")
+        .style("stroke", "black")
+        .style("stroke-width", 2)
+        ;
+
+
+
+
+
+
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
       // var upArrowEnter = g.append("polygon") 
