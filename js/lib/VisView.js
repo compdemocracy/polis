@@ -273,7 +273,7 @@ $(el_selector)
                 "markerHeight='5'" +
                 "orient='auto'>" +
             // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
-            "<circle cx = '6' cy = '6' r = '5' style='fill:darkgray;'/>" +
+            "<circle cx = '6' cy = '6' r = '5' style='fill:#222;'/>" +
         "</marker>" +
     "</defs>" +
     // "<g>" +
@@ -973,6 +973,26 @@ function moveTowardsTarget(x, y, targetX, targetY, dist) {
 function chooseDisplayForCircle(d) {
     return shouldDisplayCircle(d) ? "inherit" : "none";
 }
+
+
+function chooseDisplayForOuterCircle(d) {
+
+    return shouldDisplayOuterCircle(d) ? "inherit" : "none";
+}
+
+
+function shouldDisplayOuterCircle(d) {
+    // Hide the circle so we can show the up/down arrows
+    if ((commentIsSelected() &&
+        !isSelf(d) && // for now, always show circle - TODO fix up/down arrow for blue dot
+        !d.ups &&
+        !d.downs) || isSelf(d)
+        ) {
+        return true;
+    }
+    return false;
+}
+
 
 function shouldDisplayArrows(d) {
     // Hide the circle so we can show the up/down arrows
@@ -1832,11 +1852,13 @@ function doUpdateNodes() {
     
 
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
-          // .style("display", chooseDisplayForCircle)
-          // .attr("r", chooseCircleRadiusOuter)
-          // // .style("fill", chooseFill)
+          .style("display", chooseDisplayForOuterCircle)
+          .attr("r", chooseCircleRadiusOuter)
+          .style("fill", chooseFill)
+          .style("fill-opacity", 0.5)
           .filter(isSelf)
               .style("display", chooseDisplayForCircle)
+              .style("fill-opacity", 0)
               .attr("r", chooseCircleRadiusOuter)
               // .style("fill", chooseFill)
               ;
@@ -1856,7 +1878,7 @@ function doUpdateNodes() {
 
           update.attr("fill-opacity", function(d) {
             if (clusterIsSelected()) {
-                return d.gid === selectedCluster ? "100%" : "40%";
+                return d.gid === selectedCluster ? "100%" : "90%";
             } else {
                 // nothing selected
                 return "100%";
@@ -2065,7 +2087,7 @@ function updateLineToCluster(gid) {
     center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
-        .style("stroke", "darkgray")
+        .style("stroke", "#222")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
         .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
