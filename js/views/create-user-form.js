@@ -14,9 +14,11 @@ var ModelView = Handlebones.ModelView;
     template: template,
     gotoCreate: function() {
       this.model.set("create", true);
+      // EMIT_METRIC SIGNUP land
     },
     gotoSignIn: function() {
       this.model.set("create", false);
+      // EMIT_METRIC SESSION land      
     },
     events: {
       "click .gotoSignIn": "gotoSignIn",
@@ -71,8 +73,13 @@ var ModelView = Handlebones.ModelView;
         data: attrs
       }).then(function(data) {
         that.trigger("authenticated");
+        // EMIT_METRIC SIGNUP done
+        setTimeout(function() {
+          // EMIT_METRIC SESSION CREATED
+        }, 100);
       }, function(err) {
           that.onFail("login was unsuccessful");
+        // EMIT_METRIC SIGNUP fail
       });
     });
   },
@@ -93,8 +100,10 @@ var ModelView = Handlebones.ModelView;
         data: attrs
       }).then(function(data) {
         that.trigger("authenticated");
+        // EMIT_METRIC SESSION created
       }, function(err) {
           that.onFail("login was unsuccessful");
+        // EMIT_METRIC SESSION create_fail
       });
     });
   },

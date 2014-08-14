@@ -2,6 +2,9 @@
 {{> header}}
 	
 <script>
+ // EMIT_METRIC LANDER?EDU? LAND
+ // ga('send', 'event', 'route', 'docs/api', {'nonInteraction': true});
+
 $(document).ready(function() {
 	$("form").submit(function(e){
 		e.preventDefault();
@@ -44,6 +47,7 @@ $(document).ready(function() {
             email: email
           })
         }).done(function( data ) {
+			// EMIT_METRIC SIGNUP EMAIL_SUBMITTED        	
             $("form").html('<div>' + 
     '<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' + 
     '<p> ' + 
@@ -52,6 +56,7 @@ $(document).ready(function() {
     '</div>' +
 '</div>');
         }).fail(function(){
+            // EMIT_METRIC SIGNUP? EMAIL_SUBMIT_FAIL
             $(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
         });
         return false;
