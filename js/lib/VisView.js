@@ -66,7 +66,7 @@ var bidToBucket = {};
 var SELF_DOT_SHOW_INITIALLY = true;
 var selfDotTooltipShow = !SELF_DOT_SHOW_INITIALLY;
 var SELF_DOT_HINT_HIDE_AFTER_DELAY = 10*1000;
-var selfDotHintText = "This is you";
+var selfDotHintText = "you";
 
 var clusterPointerOriginY = 80;
 
@@ -1453,16 +1453,17 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       });
       centermostNode.append("text")
         .classed("help", true)
-        .text("participant")
+        .text("others")
         .attr("text-anchor", "start")
         .attr("fill", "#000")
+        // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
         .attr("transform", function(d) {
-            return "translate(52, -17)";
+            return "translate(55, -17)";
         });
       centermostNode.append("polyline")
         .classed("help", true)
         .style("display", "block")
-        .style("stroke", "black")
+        .style("stroke", "#555555")
         .style("stroke-width", "2px")
         .style("z-index", 9999)
         .style("fill", "rgba(0,0,0,0)")
@@ -1479,23 +1480,23 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         .attr("r", 12.727)
         // .style("opacity", opacityOuter)
         .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", "black")
+        .style("stroke", "#555555")
         .style("stroke-width", 2)
         ;
 
       var selfNode = g.filter(isSelf);
       selfNode.append("text")
         .classed("help", true)
-        .text("This is you")
+        .text("you")
         .attr("text-anchor", "start")
-        .attr("fill", "#000")
+        .attr("fill", "rgba(0,0,0,1.0)")
         .attr("transform", function(d) {
-            return "translate(52, 24)";
+            return "translate(55, 24)";
         });
       selfNode.append("polyline")
         .classed("help", true)
         .style("display", "block")
-        .style("stroke", "black")
+        .style("stroke", "#555555")
         .style("stroke-width", "2px")
         .style("z-index", 9999)
         .style("fill", "rgba(0,0,0,0)")
@@ -1512,7 +1513,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         .attr("r", 12.727)
         // .style("opacity", opacityOuter)
         .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", "black")
+        .style("stroke", "#555555")
         .style("stroke-width", 2)
         ;
 
