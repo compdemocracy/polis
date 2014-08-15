@@ -38,6 +38,7 @@ module.exports = function(params) {
     var loginPath = "api/v3/auth/login";
     var deregisterPath = "api/v3/auth/deregister";
     var pcaPath = "api/v3/math/pca";
+    var pcaPlaybackPath = "api/v3/math/pcaPlaybackByLastVoteTimestamp";
     var bidToPidPath = "api/v3/bidToPid";
     var bidPath = "api/v3/bid";
     var selectionPath = "api/v3/selection";
@@ -108,6 +109,8 @@ module.exports = function(params) {
     var BUCKETIZE_THRESH = 64;
     var BUCKETIZE_ROWS = 8;
     var BUCKETIZE_COLUMNS = 8;
+
+    var shouldPoll = true;
 
     function demoMode() {
         return getPid() < 0;
@@ -1052,9 +1055,17 @@ function clientSideBaseCluster(things, N) {
         return results;
     }
 
-    function fetchPca() {
-        return polisGet(pcaPath, {
-            lastVoteTimestamp: lastServerTokenForPCA,
+    function fetchLatestPca() {
+        return fetchPca(pcaPath, lastServerTokenForPCA);
+    }
+    function fetchPcaPlaybackByTimestamp(timestamp) {
+        return fetchPca(pcaPlaybackPath, timestamp);
+    }
+
+
+    function fetchPca(path, timestamp) {
+        return polisGet(path, {
+            lastVoteTimestamp: timestamp,
             conversation_id: conversation_id
         }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
@@ -1656,7 +1667,10 @@ function clientSideBaseCluster(things, N) {
     }
 
     function poll() {
-      var pcaPromise = fetchPca();
+      if (!shouldPoll) {
+        return;
+      }
+      var pcaPromise = fetchLatestPca();
       pcaPromise.done(updateMyProjection);
       pcaPromise.done(function() {
         // TODO Trigger based on votes themselves incrementing, not waiting on the PCA.
@@ -1741,9 +1755,16 @@ function clientSideBaseCluster(things, N) {
     
     // findRepresentativeMetadata();
 
+    function stopPolling() {
+        shouldPoll = false;
+    }
+
     function jumpTo(lastVoteTimestamp) {
-        // stopPolling();
-        console.log(lastVoteTimestamp);
+        stopPolling();
+        // console.log(lastVoteTimestamp);
+
+        var pcaPromise = fetchPcaPlaybackByTimestamp(lastVoteTimestamp);
+        pcaPromise.done(updateMyProjection);
     }
 
     return {
