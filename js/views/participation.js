@@ -490,7 +490,40 @@ module.exports =  ConversationView.extend({
       $("#comment_form_textarea").focus();
     });
 
+    window.playback = function() {
+      // $.get("/api/v3/math/pcaPlaybackList").then(function(list) {
 
+      // });
+      var result = [
+        {lastVoteTimestamp: 123, n: 5, "n-cmts": 100},
+        {lastVoteTimestamp: 135, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 136, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 137, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 138, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 139, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 149, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 155, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 165, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 175, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 185, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 195, n: 6, "n-cmts": 102},
+        {lastVoteTimestamp: 235, n: 6, "n-cmts": 102},
+        ];
+      $("#visualization_div > #playbackLinks").remove();
+      $("#visualization_div").append("<div id='playbackLinks' style='max-height:100px; overflow:scroll;'></div>");
+      _.each(result, function(r) {
+        var label = [r.lastVoteTimestamp, r.n+" ptpts", r["n-cmts"]+" comments", (new Date(r.lastVoteTimestamp)).toLocaleTimeString()].join(", ");
+        $("#playbackLinks").append(
+          "<button style='display:block' class='playbacklink' id='"+ r.lastVoteTimestamp+"'>" + label + "</button>");
+      });
+
+      $("#playbackLinks > .playbacklink").on("click", function(ev) {
+        var timestamp = Number(ev.target.id);
+        $("#playbackLinks > .playbacklink").css("background-color", "rgba(0,0,0,0)");
+        $(ev.target).css("background-color", "orange");
+        that.serverClient.jumpTo(timestamp);
+      });
+    };
 
 
     this.listenTo(this, "render", function(){

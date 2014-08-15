@@ -1741,6 +1741,11 @@ function clientSideBaseCluster(things, N) {
     
     // findRepresentativeMetadata();
 
+    function jumpTo(lastVoteTimestamp) {
+        // stopPolling();
+        console.log(lastVoteTimestamp);
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
@@ -1790,6 +1795,7 @@ function clientSideBaseCluster(things, N) {
         // simple way to centralize polling actions, and ensure they happen near each-other (to save battery)
         addPollingScheduledCallback: addPollingScheduledCallback,
 
+        jumpTo: jumpTo,
         submitComment: submitComment
     };
 };
