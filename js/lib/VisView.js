@@ -676,7 +676,13 @@ function updateHulls() {
 
             // var hullPoints_WillBeMutated = d3.geom.hull(pointsToFeedToD3);
 
-
+            if (!hull) {
+                // TODO figure out what's up here
+                hideHull(i);
+                console.error('cluster/hull count mismatch error');
+                dfd.resolve();
+                return;
+            }
             var pointsToFeedToCentroidFinder = hull.map(function(pt) { return pt;});
 
             // TODO PERF don't call computeClusterPointerTarget unless the pointer is visible!
