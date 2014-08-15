@@ -378,7 +378,7 @@ svg {
   }
 
   // Prevent bootstrap tabs from wrapping
-  .nav > li > a {
+  #commentViewTab, #commentFormTab, #analyzeTab {
     padding: 10px 10px; // overriding from 10px 15px
   }
 }
