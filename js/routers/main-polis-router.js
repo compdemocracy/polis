@@ -31,7 +31,8 @@ var PolisStorage = require("../util/polisStorage");
 var UserModel = require("../models/user");
 var _ = require("underscore");
 var $ = require("jquery");
-var gaEvent = require("gaMetric").gaEvent;
+var gaEvent = require("../util/gaMetric").gaEvent;
+
 
 var routeEvent = metric.routeEvent;
 
