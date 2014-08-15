@@ -1042,9 +1042,9 @@ function clientSideBaseCluster(things, N) {
                     outDisagree += bidToVote.D[bid];
                 }
             }
-            // repness score with + 1/2 psuedocounts/priors
-            var inAgreeProb = (inAgree + 1) / (inDisagree + inAgree + 2);
-            var repness = Math.pow(inAgreeProb, 2.0) / ((outAgree + 1) / (outDisagree + outAgree + 2));
+            // repness score with + 1 psuedocounts/priors
+            var inAgreeProb = (inAgree + 1) / (inDisagree + inAgree + 1);
+            var repness = inAgreeProb / ((outAgree + 1) / (outDisagree + outAgree + 1));
             // Agreement within the group is super important, so let's multiply it in there twice.
             results[tid] = {repness: repness, inAgreeProb: inAgreeProb};
         });
