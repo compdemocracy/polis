@@ -506,11 +506,14 @@ mongo.connect(process.env.MONGOLAB_URI, {
 
     db.collection('polismath_july30', function(err, collectionOfPcaResults) {
     db.collection('polismath_bidToPid_july30', function(err, collectionOfBidToPidResults) {
+    db.collection('polismath_pcaPlaybackResults_july30', function(err, collectionOfPcaPlaybackResults) {
 
         callback(null, {
             mongoCollectionOfPcaResults: collectionOfPcaResults,
             mongoCollectionOfBidToPidResults: collectionOfBidToPidResults,
+            mongoCollectionOfPcaPlaybackResults: collectionOfPcaPlaybackResults,
         });
+    });
     });
     });
 });
@@ -966,6 +969,7 @@ var collectionOfUsers = mongoParams.mongoCollectionOfUsers;
 var collectionOfStimuli = mongoParams.mongoCollectionOfStimuli;
 var collectionOfPcaResults = mongoParams.mongoCollectionOfPcaResults;
 var collectionOfBidToPidResults = mongoParams.mongoCollectionOfBidToPidResults;
+var collectionOfPcaPlaybackResults = mongoParams.mongoCollectionOfPcaPlaybackResults;
 
 var polisTypes = {
     reactions: {
@@ -1459,7 +1463,60 @@ function getPca(zid, lastVoteTimestamp) {
         });
     });
 }
+function getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp) {
+    return new Promise(function(resolve, reject) {
+        collectionOfPcaPlaybackResults.find({$and :[
+            {zid: zid},
+            {lastVoteTimestamp: lastVoteTimestamp},
+            ]}, function(err, cursor) {
+            if (err) {
+                reject(new Error("polis_err_get_pca_playback_result_find"));
+                return;
+            }
+            cursor.toArray( function(err, docs) {
+                if (err) {
+                    reject(new Error("polis_err_get_pca_playback_result_find_toarray"));
+                } else if (!docs.length) {
+                    resolve(null);
+                } else {
+                    resolve(docs[0]);
+                }
+            });
+        });
+    });
+}
 
+
+function getPcaPlaybackList(zid) {
+    return new Promise(function(resolve, reject) {
+        collectionOfPcaPlaybackResults.find({zid: zid}, function(err, cursor) {
+            if (err) {
+                reject(new Error("polis_err_get_pca_playback_results_list_find"));
+                return;
+            }
+            // TODO save some memory by using the cursor as a cursor
+            cursor.toArray( function(err, docs) {
+                if (err) {
+                    reject(new Error("polis_err_get_pca_playback_results_list_find_toarray"));
+                } else if (!docs.length) {
+                    resolve(null);
+                } else {
+                    var summaries = [];
+                    if (docs.length) {
+                        summaries = docs.map(function(doc) {
+                            return {
+                                lastVoteTimestamp: doc.lastVoteTimestamp,
+                                "n-cmts": doc["n-cmts"],
+                                n: doc.n,
+                            };
+                        });
+                    }
+                    resolve(summaries);
+                }
+            });
+        });
+    });
+}
 
 
 function redirectIfHasZidButNoConversationId(req, res, next) {
@@ -1527,6 +1584,33 @@ function(req, res) {
     });
 });
 
+app.get("/api/v3/math/pcaPlaybackList",
+    moveToBody,
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+    var zid = req.p.zid;
+
+    getPcaPlaybackList(zid).then(function(summaries) {
+        res.status(200).json(summaries);
+    }).catch(function(err) {
+        fail(res, 500, err);
+    });
+});
+
+app.get("/api/v3/math/pcaPlaybackByLastVoteTimestamp",
+    moveToBody,
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('lastVoteTimestamp', getInt, assignToP, 0),
+function(req, res) {
+    var zid = req.p.zid;
+    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+
+    getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp).then(function(data) {
+        res.status(200).json(data);
+    }).catch(function(err) {
+        fail(res, 500, err);
+    });
+});
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || 0;
