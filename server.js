@@ -2400,7 +2400,29 @@ function sendEmail(o) {
 
 }
 
+function emailFeatureRequest(message) {
+    var body = "" +
+        "Somebody clicked a dummy button!\n" +
+        message
+        ;
 
+    mailgun.sendText(
+        'Polis Support <mike@pol.is>',
+        ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
+        "Dummy button clicked!!!",
+        body,
+        'mike@pol.is', {},
+        function(err) {
+            if (err) {
+                console.error('mailgun send error: ' + err);
+            }
+            console.error(message);
+            yell("polis_err_failed_to_email_for_dummy_button");            
+            yell(message);
+        }
+    );
+
+}
 function emailBadProblemTime(message) {
     var body = "" +
         "Yo, there was a serious problem. Here's the message:\n" +
@@ -2568,6 +2590,15 @@ function(req, res) {
     });
 });
 
+app.get("/api/v3/dummyButton",
+    moveToBody,
+    need("button", getStringLimitLength(1,999), assignToP),
+    authOptional(assignToP),
+function(req, res) {
+    var message = req.p.button + " " + req.p.uid;
+    emailFeatureRequest(message);
+    res.status(200).end();
+});
 
 function userHasAnsweredZeQuestions(zid, answers) {
     return new Promise(function(resolve, reject) {
