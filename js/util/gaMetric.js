@@ -11,7 +11,7 @@ var methodToEventMap = {
   //login: ["Session"],
   //logout: ["Session"],
   createUserViewFromEinvite: ["Signup", "submit", "createUserViewFromEinvite"], // ???
-  settings: ["Account", "settings"], // ???
+  settings: ["Account"],
   inbox: ["Inbox", "land"],
   faq: ["Learning"],
   pwresetinit: ["Account"],
@@ -32,7 +32,8 @@ var methodToEventMap = {
 // Lander, land, general|edu
 // Session, land
 // Session, create, signIn|signUp|empty
-// Session, createFail, signIn|signUp
+// Session, createFail, signIn|signUp|polis_err_no_matching_suzinvite
+//
 
 function gaEvent() {
   // Sends all arguments to a ga('send', 'event', __) partial
