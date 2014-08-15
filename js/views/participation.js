@@ -497,8 +497,8 @@ module.exports =  ConversationView.extend({
       setTimeout(function() {
 
       $("#getDataButton").on("click", function() {
-        $.get("/api/v3/participation?conversation_id=" + that.conversation_id).then(function(data) {
-          alert(JSON.stringify(data));
+        $.get("/api/v3/dummyButton?button=getDataButton").then(function(data) {
+          alert("coming soon!");
         });
       });
 
