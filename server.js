@@ -1541,7 +1541,6 @@ app.get("/api/v3/math/pca",
     meter("api.math.pca.get"),
     moveToBody,
     redirectIfHasZidButNoConversationId, // TODO remove once 
-    authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
