@@ -62,6 +62,19 @@ var badwords = require('badwords/object'),
     _ = require('underscore');
 
 
+// log heap stats
+setInterval(function() {
+    var mem = process.memoryUsage();
+    var heapUsed = mem.heapUsed;
+    var rss = mem.rss;
+    var heapTotal = mem.heapTotal;
+    console.log("heapUsed: " + heapUsed);
+    var start = Date.now();
+    metric("api.process.mem.heapUsed", heapUsed, start);
+    metric("api.process.mem.rss", rss, start);
+    metric("api.process.mem.heapTotal", heapTotal, start);
+}, 10*1000)
+
 
 // BEGIN GITHUB OAUTH2
 var CLIENT_SECRET = "0b178e412a10fa023a0153bf7cefaf6dae0f74b9";
