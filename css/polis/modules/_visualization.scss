@@ -28,25 +28,25 @@
 
 .hull_selection {
   stroke: rgba(0,0,0,0);
-  border-color: #eee;
+  border-color: rgba(0,0,0,0);
   stroke-width: 9px;
-  border-width: 1px;  // for html elements
-  border-style: solid; // for html elements
+  border-width: 2px;  // for html elements
+  border-style: dashed; // for html elements
   border-radius: 5px; // for html elements
   stroke-linejoin: round;
-  // stroke-dasharray: 5px;
+  stroke-dasharray: 5px;
   // stroke-dashoffset: 1px;
   z-index: 401;
 }
 .hull_selection.active_group {
-  stroke: #eee;
-  border-color: #eee; // for html elements
+  stroke: #6FBAFF;
+  border-color: #6FBAFF; // for html elements
 }
 
 .active_group {
-  fill: #fff;
-  background-color: #fff; // for html elements
-  stroke: #fff;
+  fill: #e9f0f7;
+  background-color: #e9f0f7; // for html elements
+  stroke: #e9f0f7;
 }
 .ptpt {
   z-index: 500;
