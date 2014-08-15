@@ -47,16 +47,18 @@ function routeEvent(methodNameToCall, methodArgs) {
     gaEvent("Demo", "land", loc);
   } else {
     var args = methodToEventMap[methodNameToCall];
-    if (args.length < 2) {
-      // Apply action default as described above methodToEventMap
-      args.push(methodNameToCall);
+    if (args) {
+      if (args.length < 2) {
+        // Apply action default as described above methodToEventMap
+        args.push(methodNameToCall);
+      }
+      if (args[0] == "Participation" | args[0] == "Demo") {
+        // XXX - need to be careful in future if we introduce more Participation category actions that trigger
+        // from routes
+        args.push(methodArgs[0]);
+      }
+      gaEvent.apply(window, args);
     }
-    if (args[0] == "Participation" | args[0] == "Demo") {
-      // XXX - need to be careful in future if we introduce more Participation category actions that trigger
-      // from routes
-      args.push(methodArgs[0]);
-    }
-    gaEvent.apply(window, args);
   }
 }
 
