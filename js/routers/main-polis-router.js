@@ -68,9 +68,13 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
           }
         }).then(function(data) {
           that.participationView(conversation_id);
+          gaEvent("Session", "create", "empty");
         }, function(err) {
           if (err.responseText === "polis_err_no_matching_suzinvite") {
-            alert("Sorry, this single-use URL has been used.");
+            gaEvent("Session", "createFail", "polis_err_no_matching_suzinvite");
+            setTimeout(function() {
+              alert("Sorry, this single-use URL has been used.");
+            },99);
           } else {
             that.conversationGatekeeper(conversation_id, suzinvite, singleUse).done(function(ptptData) {
               doJoinConversation.call(that, onSuccess, conversation_id);
@@ -92,13 +96,17 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
           }
         }).then(function(data) {
           that.participationView(conversation_id);
+          gaEvent("Session", "create", "empty");
         }, function(err) {
           that.conversationGatekeeper(conversation_id, zinvite).done(function(ptptData) {
             doJoinConversation.call(that, onSuccess, conversation_id);
           });
         });
       } else {
-        alert("missing conversation ID in URL. Shouldn't hit this.");
+        gaEvent("Session", "createFail", "polis_err_unexpected_conv_join_condition_1");
+        setTimeout(function() {
+          alert("missing conversation ID in URL. Shouldn't hit this.");
+        },99);
         // this.doCreateUserFromGatekeeper(conversation_id, zinvite, singleUse).done(function() {
         //   // Try again, should be ready now.
         //   doJoinConversation.call(that, onSuccess, conversation_id, zinvite);
@@ -120,6 +128,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             // zinvite: zinvite
           }
         }).then(function(data) {
+          gaEvent("Session", "create", "empty");
           that.participationView(conversation_id);
         }, function(err) {
           that.conversationGatekeeper(conversation_id).done(function(ptptData) {
@@ -160,6 +169,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
           }
         }).then(function(data) {
           doJoinConversation.call(that, onSuccess, conversation_id);
+          // no ga session event, since they already have a uid
         }, function(err) {
           if (err.responseText === "polis_err_no_matching_suzinvite") {
             alert("Sorry, this single-use URL has been used.");
@@ -177,6 +187,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
         // Participant record was created, or already existed.
         // Go to the conversation.
         onSuccess(ptpt);
+        // no ga session event, since they already have a uid
       }, function(err) {
         that.conversationGatekeeper(conversation_id, zinvite).done(function(ptptData) {
           doJoinConversation.call(that, onSuccess, conversation_id, zinvite);
