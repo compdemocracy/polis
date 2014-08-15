@@ -496,6 +496,12 @@ module.exports =  ConversationView.extend({
     this.listenTo(this, "render", function(){
       setTimeout(function() {
 
+      $("#getDataButton").on("click", function() {
+        $.get("/api/v3/participation?conversation_id=" + that.conversation_id).then(function(data) {
+          alert(JSON.stringify(data));
+        });
+      });
+
       $("#closeLegendButton").on("click", function() {
         that.conversationTabs.hideLegend();
       });
