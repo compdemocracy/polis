@@ -725,7 +725,7 @@ function updateHulls() {
                     if (selectedCluster === i) {
                         // no shadow, since we'll show dashed line
                         shadowStrokeWidth = "0px";
-                        color = "#e9f0f7";
+                        color = "#fff";
                     }
 
                     d3Hulls[i].datum(points)
@@ -739,7 +739,7 @@ function updateHulls() {
                     d3HullSelections[i].datum(points)
                         .attr("d", shape)
                         .style("stroke-width", selectionStrokeWidth)
-                        .style("stroke-dasharray", selectionStrokeDashArray)
+                        // .style("stroke-dasharray", selectionStrokeDashArray)
                         .style("visibility", "visible");
                     d3HullShadows[i].datum(points)
                         .attr("d", shape)
