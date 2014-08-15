@@ -32,6 +32,8 @@ var UserModel = require("../models/user");
 var _ = require("underscore");
 var $ = require("jquery");
 
+var routeEvent = metric.routeEvent;
+
 
 function authenticated() { return PolisStorage.uid(); }
 function hasEmail() { return PolisStorage.hasEmail(); }

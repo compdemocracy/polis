@@ -42,7 +42,7 @@ function gaEvent() {
 
 function routeEvent(methodNameToCall, methodArgs) {
   // check for demo
-  var loc = navigator.location;
+  var loc = document.location + "";
   if (loc.match(/\/2demo/)) {
     gaEvent("Demo", "land", loc);
   } else {

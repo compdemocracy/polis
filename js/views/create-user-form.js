@@ -74,7 +74,7 @@ var ModelView = Handlebones.ModelView;
         data: attrs
       }).then(function(data) {
         that.trigger("authenticated");
-        gaEvent("SignUp", "done);
+        gaEvent("SignUp", "done");
         setTimeout(function() {
           gaEvent("Session", "create", "signUp");
         }, 100);
