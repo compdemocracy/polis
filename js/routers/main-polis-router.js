@@ -34,6 +34,14 @@ var $ = require("jquery");
 
 var routeEvent = metric.routeEvent;
 
+var authenticatedDfd = $.Deferred();
+authenticatedDfd.done(function() {
+  // link uid to GA userId
+  ga('set', 'userId', PolisStorage.uid());
+});
+if (authenticated()) {
+  authenticatedDfd.resolve();
+}
 
 function authenticated() { return PolisStorage.uid(); }
 function hasEmail() { return PolisStorage.hasEmail(); }
@@ -810,6 +818,7 @@ var polisRouter = Backbone.Router.extend({
     });
     gatekeeperView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
+    dfd.done(authenticatedDfd.resolve);
     return dfd.promise();
   },
   login: function(){
