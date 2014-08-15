@@ -432,7 +432,7 @@ module.exports = function(params) {
 
         promise.fail( function(jqXHR, message, errorType) {
 
-            sendEvent("Error", api, jqXHR.status);
+            // sendEvent("Error", api, jqXHR.status);
 
             logger.error("SEND ERROR");
             console.dir(arguments);
