@@ -5,6 +5,7 @@ var $ = require("jquery");
 var serialize = require("../util/serialize");
 var URLs = require("../util/url");
 var metric = require("../util/gaMetric");
+var gaEvent = metric.gaEvent;
 
 var urlPrefix = URLs.urlPrefix;
 
