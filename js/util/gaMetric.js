@@ -10,7 +10,7 @@ var methodToEventMap = {
   // XXX - currently emmited from view
   //login: ["Session"],
   //logout: ["Session"],
-  createUserViewFromEinvite: ["Session"], // ???
+  createUserViewFromEinvite: ["Signup", "submit", "createUserViewFromEinvite"], // ???
   settings: ["Account", "settings"], // ???
   inbox: ["Inbox", "land"],
   faq: ["Learning"],
@@ -23,6 +23,16 @@ var methodToEventMap = {
   shareView: ["Ownering"],
   moderationView: ["Ownering"]
 };
+
+// Elsewhere:
+// SignUp, land
+// SignUp, emailSubmitted, general|edu
+// SignUp, emailSubmitFail
+// SignUp, done
+// Lander, land, general|edu
+// Session, land
+// Session, create, signIn|signUp|empty
+// Session, createFail, signIn|signUp
 
 function gaEvent() {
   // Sends all arguments to a ga('send', 'event', __) partial

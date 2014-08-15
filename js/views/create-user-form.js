@@ -4,6 +4,7 @@ var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 var serialize = require("../util/serialize");
 var URLs = require("../util/url");
+var metric = require("../util/gaMetric");
 
 var urlPrefix = URLs.urlPrefix;
 
@@ -14,11 +15,11 @@ var ModelView = Handlebones.ModelView;
     template: template,
     gotoCreate: function() {
       this.model.set("create", true);
-      // EMIT_METRIC SIGNUP land
+      gaEvent("SignUp", "land");
     },
     gotoSignIn: function() {
       this.model.set("create", false);
-      // EMIT_METRIC SESSION land      
+      gaEvent("Session", "land");
     },
     events: {
       "click .gotoSignIn": "gotoSignIn",
@@ -73,13 +74,13 @@ var ModelView = Handlebones.ModelView;
         data: attrs
       }).then(function(data) {
         that.trigger("authenticated");
-        // EMIT_METRIC SIGNUP done
+        gaEvent("SignUp", "done);
         setTimeout(function() {
-          // EMIT_METRIC SESSION CREATED
+          gaEvent("Session", "create", "signUp");
         }, 100);
       }, function(err) {
           that.onFail("login was unsuccessful");
-        // EMIT_METRIC SIGNUP fail
+          gaEvent("SignUp", "createFail", "signUp");
       });
     });
   },
@@ -100,10 +101,10 @@ var ModelView = Handlebones.ModelView;
         data: attrs
       }).then(function(data) {
         that.trigger("authenticated");
-        // EMIT_METRIC SESSION created
+        gaEvent("Session", "create", "signIn");
       }, function(err) {
           that.onFail("login was unsuccessful");
-        // EMIT_METRIC SESSION create_fail
+          gaEvent("Session", "createFail", "signIn");
       });
     });
   },

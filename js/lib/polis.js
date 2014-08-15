@@ -1,5 +1,5 @@
 var eb = require("../eventBus");
-var metric = require("../util/metric");
+var metric = require("../util/gaMetric");
 var Utils = require("../util/utils")
 var shuffleWithSeed = require("../util/shuffleWithSeed");
 var brain = require("brain");

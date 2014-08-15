@@ -2,8 +2,7 @@
 {{> header}}
 	
 <script>
- // EMIT_METRIC LANDER?EDU? LAND
- // ga('send', 'event', 'route', 'docs/api', {'nonInteraction': true});
+  ga('send', 'event', 'Lander', 'land', 'edu');
 
 $(document).ready(function() {
 	$("form").submit(function(e){
@@ -47,7 +46,7 @@ $(document).ready(function() {
             email: email
           })
         }).done(function( data ) {
-			// EMIT_METRIC SIGNUP EMAIL_SUBMITTED        	
+          ga("send", "event", "SignUp", "emailSubmitted", "edu");
             $("form").html('<div>' + 
     '<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' + 
     '<p> ' + 
@@ -56,7 +55,7 @@ $(document).ready(function() {
     '</div>' +
 '</div>');
         }).fail(function(){
-            // EMIT_METRIC SIGNUP? EMAIL_SUBMIT_FAIL
+            ga("send", "event", "SignUp", "emailSubmitFail");
             $(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
         });
         return false;
