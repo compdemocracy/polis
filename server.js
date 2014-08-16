@@ -2275,7 +2275,15 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
     });
 }
 
+
+
 function joinConversation(zid, uid, pmaid_answers) {
+
+  return getPidPromise(zid, uid).then(function(pid) {
+    // already a ptpt, so don't create another
+    yell("polis_warn_participant_exists");
+  }, function(err) {
+    // there was no participant row, so create one
     return new Promise(function(resolve, reject) {
         pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
             if (err) {
@@ -2295,6 +2303,7 @@ function joinConversation(zid, uid, pmaid_answers) {
             });
         });
     });
+  });
 }
 
 function isOwnerOrParticipant(zid, uid, callback) { 
