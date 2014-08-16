@@ -73,7 +73,7 @@ setInterval(function() {
     metric("api.process.mem.heapUsed", heapUsed, start);
     metric("api.process.mem.rss", rss, start);
     metric("api.process.mem.heapTotal", heapTotal, start);
-}, 10*1000)
+}, 10*1000);
 
 
 // BEGIN GITHUB OAUTH2
