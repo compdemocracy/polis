@@ -3626,6 +3626,12 @@ function getConversationInfo(zid) {
     });
 }
 
+function commentExists(zid, txt) {
+  return pgQueryP("select zid from comments where zid = ($1) and txt = ($2);", [zid, txt]).then(function(rows) {
+    return rows && rows.length;
+  });
+}
+
 app.post("/api/v3/comments",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
@@ -3663,11 +3669,18 @@ function(req, res) {
     var conversationInfoPromise = getConversationInfo(zid);
 
     var pidPromise = getPidPromise(zid, uid);
+    var commentExistsPromise = commentExists(zid, txt);
 
-    Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise]).then(function(results) {
+    Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
         var pid = results[0];
         var conv = results[1];
         var is_moderator = results[2];
+        var commentExists = results[3];
+
+        if (commentExists) {
+            fail(res, 409, "polis_err_post_comment_duplicate", err);
+            return;
+        }
  
         var bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
