@@ -492,6 +492,9 @@ module.exports =  ConversationView.extend({
 
     window.playback = function() {
       $.get("/api/v3/math/pcaPlaybackList?conversation_id="+that.conversation_id).then(function(result) {
+        if (!result) {
+          alert("couldn't find playback data");
+        }
         result.sort(function(a, b) {
           return a.lastVoteTimestamp - b.lastVoteTimestamp;
         });
