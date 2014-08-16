@@ -1330,14 +1330,18 @@ function clientSideBaseCluster(things, N) {
             var tidToR = _.object(_.map(triples, function(t) {return [t[0], t[1]];}));
 
             // filter out comments with insufficient repness or agreement probability
-            triples = _.filter(triples, function(t) {
+            var filteredTriples = _.filter(triples, function(t) {
                 return (t[1] > 1.2) & (t[2] > 0.6);
             });
-            // sort, then map to tids
-            triples = triples.sort(function(a, b) {return b[1] - a[1];});
-            // limit to first `max` many if `max` is specified
-            if (_.isNumber(max)) {
-                triples = triples.slice(0, max);
+            // If nothing is left, just take the single best comment
+            if (filteredTriples.length == 0) {
+                triples = [_.max(triples, function(t) {return t[1]})];
+            } else {
+                // otherwise sort and take max many, if specified
+                triples = filteredTriples.sort(function(a, b) {return b[1] - a[1];});
+                if (_.isNumber(max)) {
+                    triples = triples.slice(0, max);
+                }
             }
             // extract tids
             var tids = _.map(triples, function(t) {
