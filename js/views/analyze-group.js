@@ -313,7 +313,6 @@ module.exports = Handlebones.View.extend({
           that.sortEnabled = false;
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
-
             that.tidsForGroup = o.tids;
             that.renderWithCarousel(gid, sortRepness, o.tidToR);
             // that.selectFirst();
