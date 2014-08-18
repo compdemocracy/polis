@@ -518,7 +518,7 @@ module.exports =  ConversationView.extend({
         _.each(result, function(r) {
           var label = [r.lastVoteTimestamp, r.n+" ptpts", r["n-cmts"]+" comments", (new Date(r.lastVoteTimestamp)).toLocaleTimeString()].join(", ");
           $("#playbackLinks").append(
-            "<button style='display:block' class='playbacklink' id='"+ r.lastVoteTimestamp+"'>" + label + "</button>");
+            "<a class='playbacklink' id='"+ r.lastVoteTimestamp+"' data-foo='"+label+"'>" + r.n + " </a>");
         });
 
         $("#playbackLinks > .playbacklink").on("click", function(ev) {
