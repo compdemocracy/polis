@@ -544,8 +544,13 @@ function pgQuery() {
             yell("pg_connect_pool_fail");
             return;
         }
-        client.query(queryString, params, function() {
-            done();
+        client.query(queryString, params, function(err) {
+            if (err) {
+                // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
+                done(err);
+            } else {
+                done();
+            }
             callback.apply(this, arguments);
         });
     });
