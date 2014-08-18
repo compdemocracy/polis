@@ -4,7 +4,7 @@ var Utils = require("../util/utils")
 var shuffleWithSeed = require("../util/shuffleWithSeed");
 var brain = require("brain");
 var URLs = require("../util/url");
-
+var mapObj = Utils.mapObj;
 var urlPrefix = URLs.urlPrefix;
 
 
@@ -1032,19 +1032,20 @@ function clientSideBaseCluster(things, N) {
             var inDisagree = 0;
             var outAgree = 0;
             var outDisagree = 0;
-            var len = bidToVote.A.length;
-            if (bidToVote.D.length !== len) {
-                console.error('mismatch');
-            }
-            for (var bid = 0; bid < len; bid++) {
+            _.each(bidToVote.A, function(vote, bid) {
                 if (inCluster[bid]) {
-                    inAgree += bidToVote.A[bid];
-                    inDisagree += bidToVote.D[bid];
+                    inAgree += vote;
                 } else {
-                    outAgree += bidToVote.A[bid];
-                    outDisagree += bidToVote.D[bid];
+                    outAgree += vote;
                 }
-            }
+            });
+            _.each(bidToVote.D, function(vote, bid) {
+                if (inCluster[bid]) {
+                    inDisagree += vote;
+                } else {
+                    outDisagree += vote;
+                }
+            });
             // repness score with + 1/2 psuedocounts/priors
             var inAgreeProb = (inAgree + 1) / (inDisagree + inAgree + 2);
             var repness = Math.pow(inAgreeProb, 2.0) / ((outAgree + 1) / (outDisagree + outAgree + 2));
@@ -1109,8 +1110,31 @@ function clientSideBaseCluster(things, N) {
                     pcX = pcX || [];
                     pcY = pcY || [];
 
-                    votesForTidBid = pcaData["votes-base"];
+                    var votesBase = pcaData["votes-base"];
+                    var indexToBid = pcaData["base-clusters"].id;
+
+                    votesForTidBid = {};
+                    var tids = _.map(_.keys(votesBase), Number);
+                    _.each(tids, function(tid) {
+                        // translate from the compact index format to bid->voteCount format
+                        var aOrig = votesBase[tid].A;
+                        var dOrig = votesBase[tid].D;
+                        var A = {};
+                        var D = {};
+                        var len = aOrig.length;
+                        for (var i = 0; i < len; i++) {
+                            A[indexToBid[i]] = aOrig[i];
+                            D[indexToBid[i]] = dOrig[i];
+                        }
+                        votesForTidBid[tid] = {
+                            A: A,
+                            D: D
+                        };
+                    });
+
                     votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
+
+
 
                     var clusters = pcaData["group-clusters"];
                     clusters = _.map(clusters, function(c) {
@@ -1742,25 +1766,22 @@ function clientSideBaseCluster(things, N) {
                 var inGroupRef = inGroup; // closure lookup optimization
                 var len;
 
-                var gA = [];
-                var A = bidToVote.A;
-                len = A.length;
-                for (bid = 0; bid < len; bid++) {
-                    gA.push(inGroupRef[bid] ? A[bid] : 0);
-                }
 
-                var gD = [];
-                var D = bidToVote.D;
-                len = D.length;
-                for (bid = 0; bid < len; bid++) {
-                    gD.push(inGroupRef[bid] ? D[bid] : 0);
-                }
+                var gA = mapObj(bidToVote.A, function(vote, bid) {
+                    return inGroupRef[bid] ? vote : 0;
+                });
+
+                var gD = mapObj(bidToVote.D, function(vote, bid) {
+                    return inGroupRef[bid] ? vote : 0;
+                });
+
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid] = {
                     gA: gA,
                     gD: gD
                 };
-                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA_total = sum(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA),
-                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD)
+
+                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA)),
+                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD))
             });
         }
 

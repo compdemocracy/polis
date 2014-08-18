@@ -18,10 +18,21 @@ function trialDaysRemaining() {
   return Math.max(0, numberOfDaysInTrial() - daysSinceJoin());
 }
 
+function mapObj(o, f) {
+  var out = {};
 
+  var ff = _.isFunction(f) ? function(val, key) {
+      out[key] = f(val, key);
+  } : function(val, key) {
+      out[key] = o[key];
+  };
+  _.each(o, ff);
+  return out;
+}
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
+  mapObj: mapObj,
   computeXySpans: function(points) {
     var spans = {
       x: { min: Infinity, max: -Infinity },
