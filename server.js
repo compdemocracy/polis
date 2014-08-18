@@ -1421,6 +1421,9 @@ app.all("/api/v3/*", function(req, res, next) {
 
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
       console.log('not whitelisted');
+      console.dir(req);
+      console.dir(req.headers);
+      console.dir(req.path);
       return next(new Error("unauthorized domain: " + host));
   }
   if (host === "") {
