@@ -1366,9 +1366,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         // don't point to self
         niceIndex += 1;
     }
-    nodes[niceIndex].isChosenNodeForInVisLegend = true; // TODO find it
-    var nice = nodes.splice(niceIndex, 1);
-    nodes.push(nice[0]);
+    if (niceIndex < nodes.length) {
+        nodes[niceIndex].isChosenNodeForInVisLegend = true; // TODO find it
+        var nice = nodes.splice(niceIndex, 1);
+        nodes.push(nice[0]);
+    }
     console.log("number of people: " + nodes.length);
 
     oldpositions.forEach(function(oldNode) {
