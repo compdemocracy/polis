@@ -91,7 +91,16 @@ var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 
 var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
 
 var colorPull = "rgb(0, 181, 77)"; // EMERALD
-var colorPush = "#e74c3c"; // ALIZARIN
+var colorPush = "#e74c3c";// ALIZARIN
+window.color = function() {
+    colorPull = "rgb(0, 214, 195)";
+    colorPush = "rgb(234, 77, 30)";
+
+    var update = visualization.selectAll(".node");
+    update.selectAll(".up.bktvi").style("fill", colorPull);
+    update.selectAll(".down.bktvi").style("fill", colorPush);
+}
+
 var colorPass = "#BDC3C7"; // SILVER
 var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
 var colorNoVote = colorPass;
