@@ -1783,23 +1783,35 @@ function(req, res) {
 
     var dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
     var pidPromise = getPidPromise(zid, uid);
+    var mathResultsPromise = getPca(zid, lastVoteTimestamp);
 
-    Promise.all([dataPromise, pidPromise]).then(function(items) {
+    Promise.all([dataPromise, pidPromise, mathResultsPromise]).then(function(items) {
         var b2p = items[0].bidToPid;
         var pid = items[1];
+        var mathResults = items[2];
 
-        var bid;
-        for (bid = 0; bid < b2p.length; bid++) {
-            var pids = b2p[bid];
-            var i = pids.indexOf(pid);
-            if (i !== -1) {
-                pid = pids[i];
+
+        var indexToBid = mathResults["base-clusters"].id;
+
+        var yourBidi = -1;
+        for (var bidi = 0; bidi < b2p.length; bidi++) {
+            var pids = b2p[bidi];
+            if (pids.indexOf(pid) !== -1) {
+                yourBidi = bidi;
                 break;
             }
         }
 
+        var yourBid = indexToBid[yourBidi];
+
+        if (yourBidi >= 0 && _.isUndefined(yourBid)) {
+            console.error("polis_err_math_index_mapping_mismatch");
+            yell("polis_err_math_index_mapping_mismatch");
+            yourBid = -1;
+        }
+
         res.json({
-            bid: bid // The user's current bid
+            bid: yourBid // The user's current bid
         });
 
     }, function(err) {
