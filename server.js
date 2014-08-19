@@ -1451,7 +1451,74 @@ app.all("/api/v3/*", function(req, res, next) {
 });
 
 
+var pcaCache = new SimpleCache({
+    maxSize: 9000,
+});
+
+var lastPrefetchedVoteTimestamp = 0;
+
+// this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
+function fetchAndCacheLatestPcaData() {
+    var lastPrefetchPollStartTime = Date.now();
+    function waitTime() {
+        var timePassed = Date.now() - lastPrefetchPollStartTime;
+        return Math.max(0, 2500 - timePassed);
+    }
+
+    console.log("mathpoll begin");
+    collectionOfPcaResults.find({
+        lastVoteTimestamp: {$gt: lastPrefetchedVoteTimestamp}
+    }, {
+        sort: "lastVoteTimestamp", // ascending is default
+    }, function(err, cursor) {
+        if (err) {
+            console.error("polis_err_prefetch_pca_results_find");
+            console.error(err);
+            console.error(err.stack);
+            setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
+        }
+        function processItem(err, item) {
+
+            if (err) {
+                console.error(err);
+                console.error("polis_err_prefetch_pca_results_iter");
+                setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
+                return;
+            }
+            if(item === null) {
+                // call again
+                console.log("mathpoll done");
+                setTimeout(fetchAndCacheLatestPcaData, waitTime());
+                return;
+            }
+
+            console.log("mathpoll", item.lastVoteTimestamp, item.zid);
+            var prev = pcaCache.get(item.zid);
+            pcaCache.set(item.zid, item);
+            if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
+                lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
+            }
+            cursor.nextObject(processItem);
+        }
+        cursor.nextObject(processItem);
+    });
+}
+
+// don't start immediately, let other things load first.
+setTimeout(fetchAndCacheLatestPcaData, 3000);
+
 function getPca(zid, lastVoteTimestamp) {
+    var cached = pcaCache.get(zid);
+    if (cached) {
+        console.log("mathpoll related", "math from cache", zid, lastVoteTimestamp);
+        return Promise.resolve(cached);
+    }
+
+    console.log("mathpoll cache miss", zid);
+
+    // NOTE: not caching results from this query for now, think about this later.
+    // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
+    // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
     return new MPromise("db.math.pca.get", function(resolve, reject) {
         collectionOfPcaResults.find({$and :[
             {zid: zid},
