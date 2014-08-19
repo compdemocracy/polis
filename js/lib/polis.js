@@ -1317,8 +1317,8 @@ function clientSideBaseCluster(things, N) {
                 // Count the agrees and disagrees for each comment.
                 var bidToVote = votesForTidBid[x.tid];
                 if (bidToVote) {
-                    x.A = sum(bidToVote.A);
-                    x.D = sum(bidToVote.D);
+                    x.A = sum(_.values(bidToVote.A));
+                    x.D = sum(_.values(bidToVote.D));
                 } else {
                     x.A = 0;
                     x.D = 0;
@@ -1358,6 +1358,7 @@ function clientSideBaseCluster(things, N) {
                 return (t[1] > 1.2) & (t[2] > 0.6);
             });
             // If nothing is left, just take the single best comment
+            // XXX HACK
             if (filteredTriples.length == 0) {
                 triples = [_.max(triples, function(t) {return t[1]})];
             } else {

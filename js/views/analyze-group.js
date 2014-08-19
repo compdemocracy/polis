@@ -185,7 +185,7 @@ module.exports = Handlebones.View.extend({
   deselectComments: function() {
     eb.trigger(eb.commentSelected, false);
   },
-  renderWithCarousel: function(gid, comparator, tidToR) {
+  renderWithCarousel: function(gid, tidToR) {
     var that = this;
     // let stack breathe
     setTimeout(function() {
@@ -207,7 +207,15 @@ module.exports = Handlebones.View.extend({
           model.repness = tidToR[model.get("tid")];
         });
       }
-      comments.sort(comparator);
+
+      // XXX HACK - should ideally be incorporated in the primary sort that we do before truncating the array.
+      comments.sort(function(a, b) {
+          var vA = info.votes[a.get('tid')];
+          var vB = info.votes[b.get('tid')];
+          var percentA = (vA.gA_total / info.count * 100);
+          var percentB = (vB.gA_total / info.count * 100);
+          return percentB - percentA;
+      });
 
 
       var htmlStrings = _.map(comments, function(c) {
@@ -314,7 +322,7 @@ module.exports = Handlebones.View.extend({
           that.searchEnabled = false;
           getTidsForGroup(gid, NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW).then(function(o) {
             that.tidsForGroup = o.tids;
-            that.renderWithCarousel(gid, sortRepness, o.tidToR);
+            that.renderWithCarousel(gid, o.tidToR);
             // that.selectFirst();
           });
         }
