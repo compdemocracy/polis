@@ -621,7 +621,9 @@ function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
         apikey=username;
     getUidForApiKey(apikey).then(function(rows) {
         if (!rows || !rows.length) {
-           throw new Error("no_such_apikey");
+            res.status(403);
+            next("polis_err_auth_no_such_api_token");
+            return;
         }
         assigner(req, "uid", Number(rows[0].uid));
         next();
