@@ -1510,6 +1510,9 @@ setTimeout(fetchAndCacheLatestPcaData, 3000);
 function getPca(zid, lastVoteTimestamp) {
     var cached = pcaCache.get(zid);
     if (cached) {
+        if (cached.lastVoteTimestamp <= lastVoteTimestamp) {
+            return Promise.resolve(null);
+        }
         console.log("mathpoll related", "math from cache", zid, lastVoteTimestamp);
         return Promise.resolve(cached);
     }
