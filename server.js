@@ -5313,13 +5313,21 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
     });
 }
 
+// team meetings - schedule with others, smart converence room
+// or redirect tool
+// students already pay an online fee
+// 
+// ADA? 508 compliance
+// accessibility - Teach Act: those who don't have dexterity
+// colors
+// screen readers
 
 app.post("/api/v3/LTI",
 function(req, res) {
     res.set({
         'Content-Type': 'text/html',
     });
-    fetchIndex(req, res);
+    res.status(200).send("<!DOCTYPE html><html lang='en'><body>Hello LTI from pol.is</body></html>");
 }); // TODO write an LTI post handler
 
 
