@@ -5313,6 +5313,16 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
     });
 }
 
+
+app.post("/api/v3/LTI",
+function(req, res) {
+    res.set({
+        'Content-Type': 'text/html',
+    });
+    fetchIndex(req, res);
+}); // TODO write an LTI post handler
+
+
 app.post("/api/v3/users/invite",
     // authWithApiKey(assignToP),
     auth(assignToP),
@@ -5668,9 +5678,6 @@ function(req, res) {
     });
 });
 // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
-
-
-app.post(/^\/api\/v3\/LTI$/, fetchIndex); // TODO write an LTI post handler
 
 app.get(/^\/inbox$/, fetchIndex);
 app.get(/^\/inboxApiTest/, fetchIndex);
