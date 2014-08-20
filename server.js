@@ -903,10 +903,30 @@ function assignToPCustom(name) {
 
 
 var prrrams = (function() {
-    function getParam(name, parserWhichReturnsPromise, assigner, required, defaultVal) {
+    function extractFromBody(req, name) {
+        if (!req.body) {
+            return void 0;
+        }
+        return req.body[name];
+    }
+    function extractFromCookie(req, name) {
+        if (!req.cookies) {
+            return void 0;
+        }
+        return req.cookies[name];
+    }
+    function buildCallback(config) {
+        var name = config.name;
+        var parserWhichReturnsPromise = config.parserWhichReturnsPromise;
+        var assigner = config.assigner;
+        var required = config.required;
+        var defaultVal = config.defaultVal;
+        var extractor = config.extractor;
+
         var f = function(req, res, next) {
-            if (req.body && !_.isUndefined(req.body[name])) {
-                parserWhichReturnsPromise(req.body[name]).then(function(parsed) {
+            var val = extractor(req, name);
+            if (!_.isUndefined(val)) {
+                parserWhichReturnsPromise(val).then(function(parsed) {
                     assigner(req, name, parsed);
                     next();
                 }, function(e) {
@@ -937,19 +957,26 @@ var prrrams = (function() {
         };
         return f;
     }
-    function need(name, parserWhichReturnsPromise, assigner) {
-        return getParam(name, parserWhichReturnsPromise, assigner, true);
-    }
-    function want(name, parserWhichReturnsPromise, assigner, defaultVal) {
-        return getParam(name, parserWhichReturnsPromise, assigner, false, defaultVal);
-    }
+    
     return {
-        need: need,
-        want: want,
+        need: function(name, parserWhichReturnsPromise, assigner) {
+            return buildCallback({name: name, extractor: extractFromBody, parserWhichReturnsPromise: parserWhichReturnsPromise, assigner: assigner, required: true});
+        },
+        want: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
+            return buildCallback({name: name, extractor: extractFromBody, parserWhichReturnsPromise: parserWhichReturnsPromise, assigner: assigner, required: false, defaultVal: defaultVal});
+        },
+        needCookie: function(name, parserWhichReturnsPromise, assigner) {
+            return buildCallback({name: name, extractor: extractFromCookie, parserWhichReturnsPromise: parserWhichReturnsPromise, assigner: assigner, required: true});
+        },
+        wantCookie: function(name, parserWhichReturnsPromise, assigner, defaultVal) {
+            return buildCallback({name: name, extractor: extractFromCookie, parserWhichReturnsPromise: parserWhichReturnsPromise, assigner: assigner, required: false, defaultVal: defaultVal});
+        },
     };
 }());
 var need = prrrams.need;
 var want = prrrams.want;
+var needCookie = prrrams.needCookie;
+var wantCookie = prrrams.wantCookie;
 
 var COOKIES = {
     HAS_EMAIL: 'e',
@@ -957,6 +984,7 @@ var COOKIES = {
     UID : 'uid2',
     REFERRER : 'ref',
     USER_CREATED_TIMESTAMP: 'uc',
+    PERMANENT_COOKIE: 'pc',
     PLAN_NUMBER: 'plan', // not set if trial user
 };
 var COOKIES_TO_CLEAR = {
@@ -1099,6 +1127,12 @@ function setUidCookie(res, setOnPolisDomain, uid) {
     });
 }
 
+function setPermanentCookie(res, setOnPolisDomain, token) {
+    setCookie(res, setOnPolisDomain, COOKIES.PERMANENT_COOKIE, token, {
+        httpOnly: true,
+    });
+}
+
 function addCookies(req, res, token, uid) {
     return getUserInfoForUid2(uid).then(function(o) {
         var email = o.email;
@@ -1116,8 +1150,12 @@ function addCookies(req, res, token, uid) {
         setPlanCookie(res, setOnPolisDomain, plan);
         setHasEmailCookie(res, setOnPolisDomain, email);
         setUserCreatedTimestampCookie(res, setOnPolisDomain, o.created);
+        if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
+            setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+        }
     });
 }
+
 
 function generateHashedPassword(password, callback) {
     bcrypt.genSalt(12, function(errSalt, salt) {
@@ -1174,6 +1212,24 @@ function getPidForParticipant(assigner, cache) {
     };
 }
 
+
+function recordPermanentCookieZidJoin(permanentCookieToken, zid) {
+    function doInsert() {
+        return pgQueryP("insert into permanentCookieZidJoins (cookie, zid) values ($1, $2);", [permanentCookieToken, zid]);    
+    }
+    return pgQueryP("select zid from permanentCookieZidJoins where cookie = ($1) and zid = ($2);", [permanentCookieToken, zid]).then(
+        function(rows) {
+            if (rows && rows.length) {
+                // already there
+            } else {
+                return doInsert();
+            }
+        },function(err) {
+            console.error(err);
+            // hmm, weird, try inserting anyway
+            return doInsert();
+        });
+}
 
 function votesPost(pid, zid, tid, voteType) {
     return new Promise(function(resolve, reject) {
@@ -2951,6 +3007,7 @@ function createDummyUser() {
 app.post("/api/v3/joinWithInvite",
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    wantCookie(COOKIES.PERMANENT_COOKIE, getOptionalStringLimitLength(32), assignToPCustom('permanentCookieToken')),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
@@ -2959,6 +3016,7 @@ function(req, res) {
         answers: req.p.answers,
         existingAuth: !!req.p.uid,
         suzinvite: req.p.suzinvite,
+        permanentCookieToken: req.p.permanentCookieToken,
         uid: req.p.uid,
         zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
     })
@@ -2972,6 +3030,18 @@ function(req, res) {
             });
         }
         return Promise.resolve(o);
+    })
+    .then(function(o) {
+        console.log("permanentCookieToken", o.permanentCookieToken);
+        if (o.permanentCookieToken) {
+            return recordPermanentCookieZidJoin(o.permanentCookieToken, o.zid).then(function() {
+                return o;
+            }, function() {
+                return o;
+            });
+        } else {
+            return o;
+        }
     })
     .then(function(o) {
         var pid = o.pid;

@@ -330,6 +330,14 @@ CREATE TABLE trashes(
 );
 
 
+-- used to force a login when someone signs out from a browser, and then joins the same conversation from that browser
+CREATE TABLE permanentCookieZidJoins(
+    zid INTEGER NOT NULL,
+    cookie VARCHAR(32),
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (zid, cookie)
+);
+
 CREATE TRIGGER pid_auto
     BEFORE INSERT ON participants
     FOR EACH ROW -- WHEN (NEW.pid = 0 || NEW.pid = null)
