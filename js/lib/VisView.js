@@ -1486,6 +1486,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
           // .call(force.drag)
       ;
 
+
+      var helpStrokeWidth = display.xs() ? 1 : 2;
+
       var centermostNode = g.filter(function(d) {
         return d.isChosenNodeForInVisLegend;
       });
@@ -1502,7 +1505,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         .classed("help", true)
         .style("display", "block")
         .style("stroke", "#555555")
-        .style("stroke-width", "2px")
+        .style("stroke-width", helpStrokeWidth)
         .style("z-index", 9999)
         .style("fill", "rgba(0,0,0,0)")
         // .attr("marker-end", "url(#ArrowTipOpenCircle)")
@@ -1519,7 +1522,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         // .style("opacity", opacityOuter)
         .style("fill", "rgba(0,0,0,0)")
         .style("stroke", "#555555")
-        .style("stroke-width", 2)
+        .style("stroke-width", helpStrokeWidth)
         ;
 
       var selfNode = g.filter(isSelf);
@@ -1535,7 +1538,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         .classed("help", true)
         .style("display", "block")
         .style("stroke", "#555555")
-        .style("stroke-width", "2px")
+        .style("stroke-width", helpStrokeWidth)
         .style("z-index", 9999)
         .style("fill", "rgba(0,0,0,0)")
         // .attr("marker-end", "url(#ArrowTipOpenCircle)")
@@ -1552,7 +1555,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         // .style("opacity", opacityOuter)
         .style("fill", "rgba(0,0,0,0)")
         .style("stroke", "#555555")
-        .style("stroke-width", 2)
+        .style("stroke-width", helpStrokeWidth)
         ;
 
 
