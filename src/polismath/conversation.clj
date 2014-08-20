@@ -110,7 +110,9 @@
                     (let [greedy-n 15
                           n-in-conv (count in-conv)]
                       (if (< n-in-conv greedy-n)
-                        (->> (hash-map-prune user-vote-counts in-conv)
+                        (->> user-vote-counts
+                          (remove
+                            (fn [[k v]] (in-conv k)))
                           (sort-by (comp - second))
                           (map first)
                           (take (- greedy-n n-in-conv))
@@ -202,7 +204,7 @@
       :group-clusters
             (plmb/fnk [group-clusterings group-clusterings-silhouettes]
               (get group-clusterings
-                (max-key group-clusterings-silhouettes (keys group-clusterings))))
+                (apply max-key group-clusterings-silhouettes (keys group-clusterings))))
 
       :bid-to-pid (plmb/fnk [base-clusters]
                      (time2 "bid-to-pid"
@@ -221,7 +223,8 @@
                              {:tid tid
                               :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
                               :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
-                          (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))))))
+                          (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))
+                                  {}))))
 
      ; End of large-update
      }))

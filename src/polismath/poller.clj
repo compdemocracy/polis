@@ -148,7 +148,7 @@
               (meter
                 "db.math.bidToPid.put"
                 (mongo-upsert-results
-                 "polismath_bidToPid_april9"
+                 "polismath_bidToPid_july30"
                  zid
                  lastVoteTimestamp
                  (assoc obj
@@ -166,7 +166,7 @@
               (meter
                "db.math.pca.put"
                (mongo-upsert-results
-                "polismath_test_april9"
+                "polismath_july30"
                 zid
                 lastVoteTimestamp
                 (assoc obj
