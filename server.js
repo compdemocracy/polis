@@ -3012,6 +3012,19 @@ app.post("/api/v3/joinWithInvite",
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
 function(req, res) {
 
+    // if they're already in the conv
+    //     this shouldn't get called
+    // else
+    //     not in conv.
+    //     need to join
+    //     has their permanentCookieToken already joined?
+    //         do they have an email attached?
+    //              hmm weird.. what to do?
+    //         else
+    //              force them to create a full account
+    //     else
+    //         let them join without forcing a sign in (assuming conversation allows that)
+
     joinWithZidOrSuzinvite({
         answers: req.p.answers,
         existingAuth: !!req.p.uid,
