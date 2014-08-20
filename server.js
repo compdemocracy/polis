@@ -1457,6 +1457,7 @@ var whitelistedDomains = [
   "http://preprod.pol.is",
   "https://preprod.pol.is",
   "http://localhost:8000",
+  "https://canvas.instructure.com", // LTI
   "", // for API
 ];
 
@@ -5669,6 +5670,7 @@ function(req, res) {
 // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
 
+app.post(/^\/api\/v3\/LTI$/, fetchIndex); // TODO write an LTI post handler
 
 app.get(/^\/inbox$/, fetchIndex);
 app.get(/^\/inboxApiTest/, fetchIndex);
