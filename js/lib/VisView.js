@@ -17,6 +17,7 @@ var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
 var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
+var inVisLegendCounter = params.inVisLegendCounter || 0;
 
 var dimensions = {
     width: params.w,
@@ -1487,6 +1488,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       ;
 
 
+    if (inVisLegendCounter === 0) {
+      inVisLegendCounter = 1;
       var helpStrokeWidth = display.xs() ? 1 : 2;
 
       var centermostNode = g.filter(function(d) {
@@ -1557,6 +1560,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         .style("stroke", "#555555")
         .style("stroke-width", helpStrokeWidth)
         ;
+      }
 
 
 
@@ -1618,7 +1622,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       self.classed("selfDot", true);
 
 
-      
+
       // var r = chooseCircleRadius(biggestNode);
       // var legendCirclesG = main_layer.selectAll(".legendCircle").data([biggestNode]);
       // legendCirclesG.enter()
@@ -1704,8 +1708,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 } // END upsertNode
 
 function dismissHelp() {
+    onInVisLegendShownCallbacks.fire(inVisLegendCounter);
+
     var help = visualization.selectAll(".help");
     help.style("display", "none");
+    
 }
 
 function selectComment(tid) {
@@ -2166,7 +2173,10 @@ function selectGroup(gid) {
     handleOnClusterClicked(gid);
 }
 
+onInVisLegendShownCallbacks = $.Callbacks();
+
 return {
+    onInVisLegendShown: onInVisLegendShownCallbacks.add,
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,

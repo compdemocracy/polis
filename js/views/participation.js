@@ -46,6 +46,7 @@ module.exports =  ConversationView.extend({
   },
   firstMathPollResultDeferred: $.Deferred(),
   shouldAffixVis: false,
+  inVisLegendCounter: 0,
   enableVisAffix: function() {
     this.shouldAffixVis = true;
     $("#visualization_parent_div").addClass("affix");
@@ -211,6 +212,7 @@ module.exports =  ConversationView.extend({
       $("#visualization_parent_div").height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
       vis = that.vis = new VisView({
+          inVisLegendCounter: that.inVisLegendCounter,
           getPid: function() {
             if (!_.isId(pid)) {
               //alert("bad pid: " + pid);
@@ -230,8 +232,13 @@ module.exports =  ConversationView.extend({
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
+      vis.onInVisLegendShown(function(counter) {
+        that.inVisLegendCounter = counter;
+      });
       that.updateLineToSelectedCluster();
-      vis.selectGroup(that.selectedGid);
+      if (that.selectedGid >= 0) {
+        vis.selectGroup(that.selectedGid);
+      }
       that.disableVisAffix();
 
 
