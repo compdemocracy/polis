@@ -161,11 +161,12 @@ module.exports =  ConversationView.extend({
 
     // HTTP PATCH - model.save({patch: true})
 
-    function onPersonUpdate() {
+    function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
       that.firstMathPollResultDeferred.resolve();
       if (vis) {
         vis.upsertNode.apply(vis, arguments);
       }
+      $(".participationCount").html(newParticipantCount + (newParticipantCount === 1 ? " person" : " people"));
     }
 
 
@@ -179,12 +180,12 @@ module.exports =  ConversationView.extend({
 
 
     function moveVisToBottom() {
-      var $vis = that.$(VIS_SELECTOR).detach();
+      var $vis = that.$("#visualization_parent_div").detach();
       $("#vis_sibling_bottom").append($vis);
     }
 
     function moveVisAboveQueryResults() {
-      var $vis = that.$(VIS_SELECTOR).detach();
+      var $vis = that.$("#visualization_parent_div").detach();
       $("#vis_sibling_above_tab_content").append($vis);
     }
 
@@ -200,14 +201,14 @@ module.exports =  ConversationView.extend({
 
 
 
-      var w = $(VIS_SELECTOR).width();
+      var w = $("#visualization_parent_div").width();
       if (isIE8) {
         w = 500;
-        $(VIS_SELECTOR).width(w);
+        $("#visualization_parent_div").width(w);
       }
       var xOffset = display.xs() ? 0 : 30;
       var h = w/2;
-      $(VIS_SELECTOR).height(h);
+      $("#visualization_parent_div").height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
       vis = that.vis = new VisView({
           getPid: function() {
