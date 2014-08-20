@@ -436,17 +436,24 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
 }
 
 function startSession(userID, cb) {
+    // NOTE: If you want to set this to true, be sure to make the cookies expire slightly before the token in redis.
+    var SHOULD_EXPIRE_SESSION_TOKENS = false;
+
     var sessionToken = makeSessionToken();
     //console.log('startSession: token will be: ' + sessionToken);
     console.log('startSession');
     redisForAuth.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
         if (errSetToken) { cb(errSetToken); return; }
         console.log('startSession: token set.');
-        redisForAuth.expire(sessionToken, 3*31*24*60*60, function(errSetTokenExpire, repliesExpire) {
-            if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
-            console.log('startSession: token will expire.');
+        if (SHOULD_EXPIRE_SESSION_TOKENS) {
+            redisForAuth.expire(sessionToken, 3*31*24*60*60, function(errSetTokenExpire, repliesExpire) {
+                if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
+                console.log('startSession: token will expire.');
+                cb(null, sessionToken);
+            });
+        } else {
             cb(null, sessionToken);
-        });
+        }
     });
 }
 
