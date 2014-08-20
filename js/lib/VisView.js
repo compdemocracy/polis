@@ -1618,48 +1618,49 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       self.classed("selfDot", true);
 
 
-      var r = chooseCircleRadius(biggestNode);
-      var legendCirclesG = main_layer.selectAll(".legendCircle").data([biggestNode]);
-      legendCirclesG.enter()
-        .append(groupTag)
-        .classed("legendCircle", true)
-        .attr("transform", "translate("+ (w-10) +","+ (h-10)+")");
-        ;
+      
+      // var r = chooseCircleRadius(biggestNode);
+      // var legendCirclesG = main_layer.selectAll(".legendCircle").data([biggestNode]);
+      // legendCirclesG.enter()
+      //   .append(groupTag)
+      //   .classed("legendCircle", true)
+      //   .attr("transform", "translate("+ (w-10) +","+ (h-10)+")");
+      //   ;
 
-      var USE_LEGEND_CIRCLES = false;
-      var legendCircles = !USE_LEGEND_CIRCLES ? false : legendCirclesG.selectAll("circle").data([biggestNode]);
-      if (legendCircles) {
-        legendCircles.enter().append("circle")
-          .style("fill", "rgba(0,0,0,0)")
-          .style("stroke", "#bbb")
-          .style("stroke-dasharray", "5,5")
-          .style("stroke-width", 1);
-      }
+      // var USE_LEGEND_CIRCLES = false;
+      // var legendCircles = !USE_LEGEND_CIRCLES ? false : legendCirclesG.selectAll("circle").data([biggestNode]);
+      // if (legendCircles) {
+      //   legendCircles.enter().append("circle")
+      //     .style("fill", "rgba(0,0,0,0)")
+      //     .style("stroke", "#bbb")
+      //     .style("stroke-dasharray", "5,5")
+      //     .style("stroke-width", 1);
+      // }
 
-      var legendText = legendCirclesG.selectAll("text").data([biggestNode]);
-        legendText.enter()
-          .append("text")
-          .attr("text-anchor", "end");
+    //   var legendText = legendCirclesG.selectAll("text").data([biggestNode]);
+    //     legendText.enter()
+    //       .append("text")
+    //       .attr("text-anchor", "end");
 
-    function labelText(d) {
-        return participantCount + (participantCount === 1 ? " person" : " people");
-    }
+    // function labelText(d) {
+    //     return participantCount + (participantCount === 1 ? " person" : " people");
+    // }
 
-    // update
-    if (legendCircles) {
-        legendCircles
-            .attr("cx", -(r+2))
-            .attr("cy", -r+2)
-            .attr("r", r)
-          ;
-    }
-    var legendCircleCircumference = legendCircles ? 2*r : 0;
-    legendText
-        .text(labelText)
-        .attr("fill", "#bbb")
-        .attr("transform", "translate("+ 
-            (-(legendCircleCircumference + 10)) +
-            ",0)");
+    // // update
+    // if (legendCircles) {
+    //     legendCircles
+    //         .attr("cx", -(r+2))
+    //         .attr("cy", -r+2)
+    //         .attr("r", r)
+    //       ;
+    // }
+    // var legendCircleCircumference = legendCircles ? 2*r : 0;
+    // legendText
+    //     .text(labelText)
+    //     .attr("fill", "#bbb")
+    //     .attr("transform", "translate("+ 
+    //         (-(legendCircleCircumference + 10)) +
+    //         ",0)");
 
   }
   updateNodes();
