@@ -2368,13 +2368,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
 }
 
 
-
-function joinConversation(zid, uid, pmaid_answers) {
-
-  return getPidPromise(zid, uid).then(function(pid) {
-    // already a ptpt, so don't create another
-    yell("polis_warn_participant_exists");
-  }, function(err) {
+function tryToJoinConversation(zid, uid, pmaid_answers) {
     // there was no participant row, so create one
     return new Promise(function(resolve, reject) {
         pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
@@ -2395,6 +2389,34 @@ function joinConversation(zid, uid, pmaid_answers) {
             });
         });
     });
+}
+
+function joinConversation(zid, uid, pmaid_answers) {
+    function tryJoin() {
+        return tryToJoinConversation(zid, uid, pmaid_answers);
+    }
+
+
+  return getPidPromise(zid, uid).then(function(pid) {
+    // already a ptpt, so don't create another
+    yell("polis_warn_participant_exists");
+  }, function(err) {
+    // retry up to 10 times
+    // NOTE: Shouldn't be needed, since we have an advisory lock in the insert trigger.
+    //       However, that doesn't seem to be preventing duplicate pid constraint errors.
+    //       Doing this retry in JS for now since it's quick and easy, rather than try to
+    //       figure what's wrong with the postgres locks.
+    var promise = tryJoin()
+        .catch(tryJoin)
+        .catch(tryJoin)
+        .catch(tryJoin)
+        .catch(tryJoin)
+        .catch(tryJoin)
+        .catch(tryJoin)
+        .catch(tryJoin)
+        .catch(tryJoin)
+        .catch(tryJoin);
+    return promise;
   });
 }
 
@@ -2954,6 +2976,26 @@ function(req, res) {
       fail(res, 500, err.message, err);
     });
 });
+
+
+// Test for deadlock condition
+// _.times(2, function() {
+// setInterval(function() {
+//         console.log("foobar test call begin");
+//         joinWithZidOrSuzinvite({
+//             answers: [],
+//             existingAuth: false,
+//             zid: 11580,
+//             // uid: req.p.uid,
+//         }).then(function() {
+//             console.log('foobar test ok');
+//         }).catch(function(err) {
+//             console.log('foobar test failed');
+//             console.dir(err);
+//         });
+
+// }, 10);
+// });
 
 
 function joinWithZidOrSuzinvite(o) {
@@ -3724,6 +3766,7 @@ function commentExists(zid, txt) {
   });
 }
 
+// TODO probably need to add a retry mechanism like on joinConversation to handle possibility of duplicate tid race-condition exception
 app.post("/api/v3/comments",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
