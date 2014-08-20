@@ -4313,37 +4313,40 @@ function(req, res){
                 }
                 var conv = result && result.rows && result.rows[0];
 
-                // send notification email
-                if (req.p.send_created_email) {
-                    Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req, req.p.zid)]).then(function(results) {
-                        var hname = results[0].hname;
-                        var url = results[1];
-                        sendTextToEmail(
-                            req.p.uid,
-                            "Conversation created",
-                            "Hi " + hname + ",\n" +
-                            "\n" +
-                            "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation:" +
-                            "\n" +
-                            url + "\n" +
-                            "\n" +
-                            "With gratitude,\n" +
-                            "\n" +
-                            "The team at pol.is\n"
-                            )
-                        .catch(function(err) {
-                            console.error(err);
-                        });
-                    }).catch(function(err) {
-                        yell("polis_err_sending_conversation_created_email");
-                        console.dir(err);
-                    });
-                }
                 var promise = generateShortUrl ?
                     generateAndReplaceZinvite(req.p.zid, generateShortUrl) :
                     Promise.resolve();
                 promise.then(function() {
+
+                     // send notification email
+                    if (req.p.send_created_email) {
+                        Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req, req.p.zid)]).then(function(results) {
+                            var hname = results[0].hname;
+                            var url = results[1];
+                            sendTextToEmail(
+                                req.p.uid,
+                                "Conversation created",
+                                "Hi " + hname + ",\n" +
+                                "\n" +
+                                "Here's a link to the conversation you just created. Use it to invite participants to the conversation. Share it by whatever network you prefer - Gmail, Facebook, Twitter, etc., or just post it to your website or blog. Try it now! Click this link to go to your conversation:" +
+                                "\n" +
+                                url + "\n" +
+                                "\n" +
+                                "With gratitude,\n" +
+                                "\n" +
+                                "The team at pol.is\n"
+                                )
+                            .catch(function(err) {
+                                console.error(err);
+                            });
+                        }).catch(function(err) {
+                            yell("polis_err_sending_conversation_created_email");
+                            console.dir(err);
+                        });
+                    }
+
                     finishOne(res, conv);
+                    
                 }).catch(function(err) {
                     fail(res, 500, "polis_err_update_conversation", err);
                 });
