@@ -1491,7 +1491,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       });
       centermostNode.append("text")
         .classed("help", true)
-        .text("others")
+        .text("another participant")
         .attr("text-anchor", "start")
         .attr("fill", "#000")
         // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
