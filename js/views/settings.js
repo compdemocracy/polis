@@ -12,17 +12,19 @@ module.exports = Handlebones.ModelView.extend({
 
     // -----------   BEGIN STRIPE CODE ----------------
     this.plan_id = "individuals";
-    this.plan_name = {
-      individuals: "Upgrade to Individual plan",
-      // sites: "Upgrade to Sites plan",
-      // orgs: "Upgrade to Orgs plan",
-    }[this.plan_id];
+    // this.plan_name = {
+    //   individuals: "Upgrade to Individual plan",
+    //   students: "Upgrade to Student plan",
+    //   // sites: "Upgrade to Sites plan",
+    //   // orgs: "Upgrade to Orgs plan",
+    // }[this.plan_id];
 
-    this.plan_amount = {
-      individuals: 100*100,
-      // sites: 1000*100,
-      // orgs:
-    }[this.plan_id];
+    // this.plan_amount = {
+    //   individuals: 100*100,
+    //   students: 3*100,
+    //   // sites: 1000*100,
+    //   // orgs:
+    // }[this.plan_id];
 
     var that = this;
 
@@ -39,10 +41,21 @@ module.exports = Handlebones.ModelView.extend({
           "data-key=\""+ that.stripeKey +"\" "+
           "data-image=\"https://pol.is/landerImages/clusters.png\" "+
           "data-name=\"pol.is\"  "+
-          "data-description=\""+ that.plan_name +"\"  "+
+          "data-description=\""+ "Upgrade to Individual plan" +"\"  "+
           "data-panel-label=\"Monthly\" "+
-          "data-amount\""+that.plan_amount +
-          "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + that.plan_id + "\"></input>");
+          "data-amount\""+100*100 +
+          "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "individuals" + "\"></input>");
+
+       $("#stripeFormStudents").html("<script "+
+          'src="https://checkout.stripe.com/checkout.js"'+
+          'class="stripe-button"'+
+          "data-key=\""+ that.stripeKey +"\" "+
+          "data-image=\"https://pol.is/landerImages/clusters.png\" "+
+          "data-name=\"pol.is\"  "+
+          "data-description=\""+ "Upgrade to Student plan" +"\"  "+
+          "data-panel-label=\"Monthly\" "+
+          "data-amount\""+3*100 +
+          "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "students" + "\"></input>");
 
       }, 200);
 

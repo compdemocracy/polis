@@ -116,6 +116,10 @@ Handlebars.registerHelper("ifTrial", function(arg0) {
 Handlebars.registerHelper("ifIndividual", function(arg0) {
   return Utils.isIndividualUser() ? arg0.fn(this) : "";
 });
+Handlebars.registerHelper("ifStudent", function(arg0) {
+  return Utils.isStudentUser() ? arg0.fn(this) : "";
+});
+
 
 
 // Partials

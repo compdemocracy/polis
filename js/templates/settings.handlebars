@@ -64,6 +64,15 @@
           </td>
         </tr>
         <tr>
+          <td>Student</td>
+          <td>$3/month</td>
+          <td> 
+            {{#ifTrial}}<form action="/charge" method="POST" id="stripeFormStudents"></form>
+             {{/ifTrial}}
+            {{#ifStudent}}Your plan{{/ifStudent}}
+          </td>
+        </tr>
+        <tr>
           <td>Trial</td>
           <td>Free for 10 days</td>
           <td>
