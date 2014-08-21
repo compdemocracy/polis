@@ -110,9 +110,18 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
-          that.conversationGatekeeper(conversation_id, zinvite).done(function(ptptData) {
-            doJoinConversation.call(that, onSuccess, conversation_id);
-          });
+          if (err.responseText === "polis_err_need_full_user") {
+            that.doCreateUserFromGatekeeper(conversation_id, zinvite, false).done(function(ptptData) {
+              doJoinConversation.call(that, onSuccess, conversation_id);
+            });
+          } else {
+            // TODO when does this happen?
+            that.conversationGatekeeper(conversation_id, zinvite, false).done(function(ptptData) {
+              doJoinConversation.call(that, onSuccess, conversation_id);
+            });
+          }
+          // console.dir(err);
+          // doCreateUserFromGatekeeper
         });
       } else {
         gaEvent("Session", "createFail", "polis_err_unexpected_conv_join_condition_1");
@@ -732,34 +741,34 @@ var polisRouter = Backbone.Router.extend({
 
     return dfd.promise();
   },
-  // doCreateUserFromGatekeeper: function(conversation_id, zinvite, singleUse) {
-  //   var dfd = $.Deferred();
+  doCreateUserFromGatekeeper: function(conversation_id, zinvite, singleUse) {
+    var dfd = $.Deferred();
 
-  //   var data = {
-  //     create: true, // do we need this?
+    var data = {
+      create: true, // do we need this?
       
-  //     conversation_id: conversation_id
-  //   };
-  //   if (singleUse) {
-  //     data.suzinvite = suzinvite
-  //   }
-  //   // Assumes you have a pid already.
-  //   var model = new ConversationModel(data);
-  //   bbFetch(model, {
-  //     data: $.param(data),
-  //     processData: true
-  //   }).then(function() {
-  //     var view = new ConversationGatekeeperViewCreateUser({
-  //       model : model
-  //     });
-  //     view.on("authenticated", dfd.resolve);
-  //     RootView.getInstance().setView(view);
-  //   },function(e) {
-  //     console.error("error loading conversation model", e);
-  //     setTimeout(function() { that.participationView(conversation_id); }, 5000); // retry
-  //   });
-  //   return dfd.promise();
-  // },
+      conversation_id: conversation_id
+    };
+    if (singleUse) {
+      data.suzinvite = suzinvite
+    }
+    // Assumes you have a pid already.
+    var model = new ConversationModel(data);
+    bbFetch(model, {
+      data: $.param(data),
+      processData: true
+    }).then(function() {
+      var view = new ConversationGatekeeperViewCreateUser({
+        model : model
+      });
+      view.on("authenticated", dfd.resolve);
+      RootView.getInstance().setView(view);
+    },function(e) {
+      console.error("error loading conversation model", e);
+      setTimeout(function() { that.participationView(conversation_id); }, 5000); // retry
+    });
+    return dfd.promise();
+  },
   redirect: function(path) {
     document.location = document.location.protocol + "//" + document.location.host + path;
   },
