@@ -36,6 +36,23 @@
     xss))
 
 
+(defn map-rest
+  "Like map, but the mapper function takes both the item and the rest of the items in the collection,
+  letting you operate on each item in comparison with all the others easily"
+  [f col]
+  (for [i (range (count col))]
+    (f (get col i)
+       (concat
+         (subvec col 0 i)
+         (subvec col (inc i))))))
+
+
+(defn mapv-rest
+  "Like map-rest, but returns a vector instead of a lazy seq"
+  [f col]
+  (vec (map-rest f col)))
+
+
 (let [greedy? true]
   (defn greedy [iter]
     (if greedy?

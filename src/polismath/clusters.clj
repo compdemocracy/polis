@@ -1,10 +1,14 @@
 (ns polismath.clusters
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
+            [plumbing.core :as pc
+             :refer (fnk)]
+            [plumbing.graph :as gr]
             [clojure.tools.trace :as tr]
             [alex-and-georges.debug-repl :as dbr])
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
+        polismath.stats
         polismath.named-matrix
         clojure.core.matrix
         clojure.core.matrix.stats
@@ -263,45 +267,62 @@
        (rownames distmat)))))
 
 
-; NOTE - repness is calculated on the client
-(defn repness
-  "Computes the representativeness of each of the columns for the split defined by in-part out-part,
-  each of which is a named-matrix of votes (with the same columns) which might contain nils."
-  [in-part out-part]
-  (letfn [(frac-up [votes]
-            "Computes the fraction of votes in arg that are positive and not zero, negative or nil."
-            (let [[up not-up]
-                    (reduce
-                      (fn [counts vote]
-                        (case vote
-                          -1       (assoc counts 0 (inc (first counts)))
-                          (0 1)  (assoc counts 1 (inc (second counts)))
-                                  counts))
-                      ; Start with psuedocount of 1, 1 as a prior to prevent division by zero (smoothing)
-                      [1 1] votes)]
-              (/ up not-up)))]
-    (let [in-cols  (columns (get-matrix in-part))
-          out-cols (columns (get-matrix out-part))]
-      (map #(/ (frac-up %1) (frac-up %2)) in-cols out-cols))))
+(defn group-members
+  "Given group-clusters group and base clusters, get the members for the group"
+  [group base-clusters]
+  (let [group-bids (set (:members group))]
+    (->> base-clusters
+         (filter #(group-bids (:id %)))
+         (map :members)
+         (apply concat))))
 
 
-; NOTE - repness is calculated on the client
-(defn conv-repness [data group-clusters base-clusters]
-  (map
-    (fn [group-cluster]
-      (let [
-            bids (:members group-cluster)
-            bids-set (set bids)
-            bucket-is-in-bids (fn [bucket] (contains? bids-set (:id bucket)))
-            pids (apply concat (map :members (filter bucket-is-in-bids base-clusters )))
-            
-            in-part  (rowname-subset data pids)
-            out-part (inv-rowname-subset data pids)
-            ]
-        {:id      (:id group-cluster)
-         :repness (repness in-part out-part)
-         }
-        )) group-clusters))
+(defn- count-votes [votes & [vote]]
+  (let [filt-fn (if vote #(= vote %) identity)]
+    (count (filter filt-fn votes))))
+
+
+(defn- initial-comment-stats [vote-col]
+  ((gr/eager-compile
+     {:na (fnk [votes] (count-votes votes -1))
+      :nd (fnk [votes] (count-votes votes  1))
+      :ns (fnk [votes] (count-votes votes))
+      ; XXX - Change when we flip votes!!!
+      :pa (fnk [na ns] (/ (+ 1 na) (+ 2 ns)))
+      :pd (fnk [nd ns] (/ (+ 1 nd) (+ 2 ns)))
+      :pat (fnk [na ns] (single-prop-test na ns))
+      :pdt (fnk [nd ns] (single-prop-test nd ns))})
+    {:votes vote-col}))
+
+
+(defn conv-repness
+  [data group-clusters base-clusters]
+  {:ids (map :id group-clusters)
+   :stats
+     (->> group-clusters
+       ; Base clusters may not be necessary if we use the already compute bucket vote stats
+       (mapv (comp columns get-matrix (partial rowname-subset data) #(group-members % base-clusters)))
+       (apply
+         map
+         ; This becomes a function that maps
+         ; legend: n=#, p=prob, r=rep, t=test, a=agree, d=disagree, s=seen
+         (fn [& vote-cols-for-groups]
+           (->>
+             (mapv initial-comment-stats vote-cols-for-groups)
+             (mapv-rest
+               (fn [grp-stats rest-stats]
+                 (assoc grp-stats
+                   :ra (/ (:pa grp-stats)
+                          (/ (+ 1 (pc/sum :na rest-stats))
+                             (+ 2 (pc/sum :ns rest-stats))))
+                   :rd (/ (:pd grp-stats)
+                          (/ (+ 1 (pc/sum :nd rest-stats))
+                             (+ 2 (pc/sum :ns rest-stats))))
+                   :rat (two-prop-test (:na grp-stats)         (:ns grp-stats)
+                                       (pc/sum :na rest-stats) (pc/sum :ns rest-stats))
+                   :rdt (two-prop-test (:nd grp-stats)         (:ns grp-stats)
+                                       (pc/sum :nd rest-stats) (pc/sum :ns rest-stats))
+                   )))))))})
 
 
 (defn xy-clusters-to-nmat [clusters]
