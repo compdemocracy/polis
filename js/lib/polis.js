@@ -1172,7 +1172,7 @@ function clientSideBaseCluster(things, N) {
                 if (404 === xhr.status) {
                     firstPcaCallPromise.resolve();
                 } else if (500 === xhr.status) {
-                    alert("failed to get pca data");
+                    // alert("failed to get pca data");
                 }
             }).then(function() {
                 firstPcaCallPromise.resolve();
