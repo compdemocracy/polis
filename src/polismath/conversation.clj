@@ -214,7 +214,8 @@
       ;; returns {tid {
       ;;           :agree [0 4 2 0 6 0 0 1]
       ;;           :disagree [3 0 0 1 0 23 0 ]}
-      ;; where the indices in the arrays are bids
+      ;; where the indices in the arrays correspond NOT directly to the bid, but to the index of the
+      ;; corresponding bid in a hypothetically sorted list of the base cluster ids
       :votes-base (plmb/fnk [bid-to-pid rating-mat]
                      (time2 "votes-base"
                        (->> rating-mat
