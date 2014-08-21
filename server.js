@@ -3366,6 +3366,66 @@ function setUsersPlanInIntercom(uid, planCode) {
 }
 
 
+function createStripeUser(o) {
+    return new Promise(function(resolve, reject) {
+        stripe.customers.create(o, function(err, customer) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(customer);
+            }
+        });
+    });
+}
+
+function getStripeUser(customerId) {
+    return new Promise(function(resolve, reject) {
+        stripe.customers.retrieve(customerId, function(err, customer) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(customer);
+            }
+        });
+    });
+}
+function createStripeSubscription(customerId, planId) {
+    return new Promise(function(resolve, reject) {
+        stripe.customers.createSubscription(customerId, {
+          plan: planId
+        },  function(err, subscription) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(subscription);
+            }
+        });
+    });
+}
+
+function updateStripePlan(user, stripeToken, stripeEmail, plan) {
+    var customerPromise = user.stripeCustomerId ? getStripeUser(user.stripeCustomerId) : createStripeUser({
+            card: stripeToken,
+            description: user.hname,
+            email: stripeEmail,
+            metadata: {
+                uid: user.uid,
+                polisEmail: user.email,
+            },
+        });
+
+    return customerPromise.then(function(customer) {
+        
+        // throw new Error("TODO"); // TODO is "plan" the right identifier?
+
+        // TODO may need to wrangle existing plans..
+
+        return createStripeSubscription(customer.id, plan).then(function(subscription) {
+            // done with stripe part
+        });
+    });
+}
+
 app.post("/charge",
     auth(assignToP),
     need('stripeToken', getOptionalStringLimitLength(999), assignToP),
@@ -3374,12 +3434,10 @@ app.post("/charge",
 function(req, res) {
 
     var stripeToken = req.p.stripeToken;
+    var stripeEmail = req.p.stripeEmail;
     var uid = req.p.uid;
     var plan = req.p.plan;
     var planCode = planCodes[plan];
-
-    console.dir(req.p);
-
 
     var prices = {
         mike: 50,
@@ -3389,27 +3447,9 @@ function(req, res) {
         students: 3 * 100,
     };
 
-    stripe.charges.create({
-      amount: prices[plan],
-      currency: "usd",
-      card: stripeToken,
-      description: "first month",
-      metadata: {
-        the_plan: plan,
-        uid: uid,
-      },
-      // currency: "usd",
-      // description: "payinguser@example.com",
-      // customer: uid,
-    }, function(err, charge) {
-        if (err) {
-            if (err.type === 'StripeCardError') {
-                return fail(res, 500, "polis_err_stripe_card_declined", err);
-            } else {
-                return fail(res, 500, "polis_err_stripe", err);
-            }
-        }
-
+    var userPromise = getUserInfoForUid2(uid).then(function(user) {
+        return updateStripePlan(user, stripeToken, stripeEmail, plan);
+    }).then(function() {
         setUsersPlanInIntercom(uid, planCode).catch(function(err) {
             emailBadProblemTime("User " + uid + " changed their plan, stripe was charged, but we failed to update Intercom");
         });
@@ -3417,7 +3457,6 @@ function(req, res) {
         // update DB and finish
         changePlan(uid, planCode).then(function() {
             var protocol = devMode ? "http" : "https";
-
 
             // Set cookie
             var setOnPolisDomain = !domainOverride;
@@ -3437,6 +3476,14 @@ function(req, res) {
             emailBadProblemTime("User changed their plan, stripe was charged, but we failed to update the DB.");
             fail(res, 500, "polis_err_changing_plan", err);
         });
+    }).catch(function(err) {
+        if (err) {
+            if (err.type === 'StripeCardError') {
+                return fail(res, 500, "polis_err_stripe_card_declined", err);
+            } else {
+                return fail(res, 500, "polis_err_stripe", err);
+            }
+        }
     });
 });
 
