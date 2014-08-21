@@ -307,6 +307,7 @@ var sql_conversations = sql.define({
     "strict_moderation",
     "email_domain",
     "owner",
+    "owner_sees_participation_stats",
     "context",
     "modified",
     "created",
@@ -3026,7 +3027,9 @@ function(req, res) {
     //     else
     //         let them join without forcing a sign in (assuming conversation allows that)
 
-    joinWithZidOrSuzinvite({
+    
+
+    return joinWithZidOrSuzinvite({
         answers: req.p.answers,
         existingAuth: !!req.p.uid,
         suzinvite: req.p.suzinvite,
@@ -3064,7 +3067,11 @@ function(req, res) {
         });
     })
     .catch(function(err) {
-      fail(res, 500, err.message, err);
+        if (err.message = "polis_err_need_full_user") {
+            userFail(res, 403, err.message, err);
+        } else {
+            fail(res, 500, err.message, err);
+        }
     });
 });
 
@@ -3103,6 +3110,38 @@ function joinWithZidOrSuzinvite(o) {
         }
     })
     .then(function(o) {
+        console.log("joinWithZidOrSuzinvite convinfo begin");
+        return getConversationInfo(o.zid).then(function(conv) {
+            console.log("joinWithZidOrSuzinvite convinfo done");
+            o.conv = conv;
+            return o;
+        });
+    })
+    .then(function(o) {
+        console.log("joinWithZidOrSuzinvite userinfo begin");
+        if (!o.uid) {
+            console.log("joinWithZidOrSuzinvite userinfo nope");
+            return o;
+        }
+        return getUserInfoForUid2(o.uid).then(function(user) {
+            console.log("joinWithZidOrSuzinvite userinfo done");
+            o.user = user;
+            return o;
+        });
+    })
+    .then(function(o) {
+        console.log("joinWithZidOrSuzinvite check email");
+      if (o.conv.owner_sees_participation_stats) {
+        // User stats can be provided either by having the users sign in with polis
+        // or by having them join via suurls.
+        if (!(o.user && o.user.email) && !o.suzinvite) { // may want to inspect the contenst of the suzinvite info object instead of just the suzinvite
+          throw new Error("polis_err_need_full_user");
+        }
+      }
+      return o;
+    })
+    .then(function(o) {
+        console.log("joinWithZidOrSuzinvite check email done");
       if (o.uid) {
         return o;
       } else {
@@ -4380,6 +4419,7 @@ app.put('/api/v3/conversations',
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
+    want('owner_sees_participation_stats', getBool, assignToP, false),
     want('profanity_filter', getBool, assignToP),
     want('short_url', getBool, assignToP, false),
     want('spam_filter', getBool, assignToP),
@@ -4428,6 +4468,10 @@ function(req, res){
     if (!_.isUndefined(req.p.description)) {
         fields.description = req.p.description;
     }
+    if (!_.isUndefined(req.p.owner_sees_participation_stats)) {
+        fields.owner_sees_participation_stats = !!req.p.owner_sees_participation_stats;
+    }
+
 
     var q = sql_conversations.update(
             fields
@@ -5060,6 +5104,7 @@ app.post('/api/v3/conversations',
     want('is_active', getBool, assignToP, true),
     want('is_draft', getBool, assignToP, false),
     want('is_anon', getBool, assignToP, false),
+    want('owner_sees_participation_stats', getBool, assignToP, false),
     want('profanity_filter', getBool, assignToP, true),
     want('short_url', getBool, assignToP, false),
     want('spam_filter', getBool, assignToP, true),
@@ -5089,6 +5134,7 @@ function(req, res) {
         spam_filter: req.p.spam_filter,
         strict_moderation: req.p.strict_moderation,
         context: req.p.context,
+        owner_sees_participation_stats: !!req.p.owner_sees_participation_stats,
     }).returning('*').toString();
 
     pgQuery(q, [], function(err, result) {

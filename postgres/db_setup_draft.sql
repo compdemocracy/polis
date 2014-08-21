@@ -135,6 +135,7 @@ CREATE TABLE conversations(
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ?? 
     context VARCHAR(1000), -- for things like a semester of a class, etc
+    owner_sees_participation_stats BOOLEAN DEFAULT FALSE, -- currently maps to users needing a polis account, or to requiring single use urls?
     modified BIGINT DEFAULT now_as_millis(),    
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
