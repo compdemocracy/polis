@@ -3319,6 +3319,7 @@ var planCodes = {
     mike: 9999,
     trial: 0,
     individuals: 1,
+    students: 2,
     sites: 100,
     orgs: 1000,
 };
@@ -3328,6 +3329,7 @@ var planCodeToPlanName = {
     9999: "MikePlan",
     0: "Trial",
     1: "Individual",
+    2: "Student",
     100: "Site",
     1000: "Organization",
 };
@@ -3384,6 +3386,7 @@ function(req, res) {
         individuals: 100 * 100,
         sites: 1000 * 100,
         orgs: 5000 * 100,
+        students: 3 * 100,
     };
 
     stripe.charges.create({
