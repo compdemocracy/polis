@@ -295,7 +295,22 @@
     {:votes vote-col}))
 
 
+(defn- add-comparitive-stats [in-stats rest-stats]
+  (assoc in-stats
+    :ra (/ (:pa in-stats)
+           (/ (+ 1 (pc/sum :na rest-stats))
+              (+ 2 (pc/sum :ns rest-stats))))
+    :rd (/ (:pd in-stats)
+           (/ (+ 1 (pc/sum :nd rest-stats))
+              (+ 2 (pc/sum :ns rest-stats))))
+    :rat (two-prop-test (:na in-stats) (pc/sum :na rest-stats)
+                        (:ns in-stats) (pc/sum :ns rest-stats))
+    :rdt (two-prop-test (:nd in-stats) (pc/sum :nd rest-stats) 
+                        (:ns in-stats) (pc/sum :ns rest-stats))))
+
+
 (defn conv-repness
+  ; output legend: n=#, p=prob, r=rep, t=test, a=agree, d=disagree, s=seen
   [data group-clusters base-clusters]
   {:ids (map :id group-clusters)
    :stats
@@ -304,25 +319,12 @@
        (mapv (comp columns get-matrix (partial rowname-subset data) #(group-members % base-clusters)))
        (apply
          map
-         ; This becomes a function that maps
-         ; legend: n=#, p=prob, r=rep, t=test, a=agree, d=disagree, s=seen
          (fn [& vote-cols-for-groups]
            (->>
              (mapv initial-comment-stats vote-cols-for-groups)
-             (mapv-rest
-               (fn [grp-stats rest-stats]
-                 (assoc grp-stats
-                   :ra (/ (:pa grp-stats)
-                          (/ (+ 1 (pc/sum :na rest-stats))
-                             (+ 2 (pc/sum :ns rest-stats))))
-                   :rd (/ (:pd grp-stats)
-                          (/ (+ 1 (pc/sum :nd rest-stats))
-                             (+ 2 (pc/sum :ns rest-stats))))
-                   :rat (two-prop-test (:na grp-stats)         (:ns grp-stats)
-                                       (pc/sum :na rest-stats) (pc/sum :ns rest-stats))
-                   :rdt (two-prop-test (:nd grp-stats)         (:ns grp-stats)
-                                       (pc/sum :nd rest-stats) (pc/sum :ns rest-stats))
-                   )))))))})
+             (mapv-rest add-comparitive-stats)))))})
+
+
 
 
 (defn xy-clusters-to-nmat [clusters]
