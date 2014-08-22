@@ -2,7 +2,7 @@
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
             [plumbing.core :as pc
-             :refer (fnk)]
+             :refer (fnk map-vals <-)]
             [plumbing.graph :as gr]
             [clojure.tools.trace :as tr]
             [alex-and-georges.debug-repl :as dbr])
@@ -290,8 +290,8 @@
       ; XXX - Change when we flip votes!!!
       :pa (fnk [na ns] (/ (+ 1 na) (+ 2 ns)))
       :pd (fnk [nd ns] (/ (+ 1 nd) (+ 2 ns)))
-      :pat (fnk [na ns] (single-prop-test na ns))
-      :pdt (fnk [nd ns] (single-prop-test nd ns))})
+      :pat (fnk [na ns] (prop-test na ns))
+      :pdt (fnk [nd ns] (prop-test nd ns))})
     {:votes vote-col}))
 
 
