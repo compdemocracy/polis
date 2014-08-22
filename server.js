@@ -1406,6 +1406,7 @@ app.use(express.logger());
 app.use(redirectIfWrongDomain);
 app.use(redirectIfApiDomain);
 app.use(redirectIfNotHttps);
+    app.use(express.compress());
 app.use(writeDefaultHead);
 app.use(express.cookieParser());
 app.use(express.bodyParser());
