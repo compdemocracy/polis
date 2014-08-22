@@ -28,6 +28,23 @@
      (println (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
 
+(defmacro f?>>
+  "Modified 'penguin' operator from plumbing.core, where do-it? is a function of the threaded value
+  instead of a static value. E.g.: (->> nums (?>> #(even? (count %)) (map inc)))"
+  [do-it? & args]
+  `(if (~do-it? ~(last args))
+     (->> ~(last args) ~@(butlast args))
+     ~(last args)))
+
+
+(defmacro f?>
+  "Modified 'penguin' operator from plumbing.core, where do-it? is a function of the threaded value
+  instead of a static value. E.g.: (-> n inc (?> even? (* 2)))"
+  [arg do-it? & rest]
+  `(if (~do-it? ~arg)
+     (-> ~arg ~@rest)
+     ~arg))
+
 
 (defn zip [& xss]
   ;;should we redo this like the with-indices below, using a map?
