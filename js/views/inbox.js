@@ -29,10 +29,16 @@ module.exports = Handlebones.View.extend({
       return -new Date(conversation.get("created")).getTime();
     };
     function onFetched() {
+      setTimeout(function() {
+        console.warn("inbox load time", Date.now() - t);
+      },0);
+      that.collection.trigger('reset', that.collection, {});
       that.$(".inboxEmpty").show();
       that.$(".inboxLoading").hide();
     }
+    var t = Date.now();
     this.collection.fetch({
+      silent: true, // will call reset once done
       data: $.param(this.filters)
     }).then(onFetched, onFetched);
     this.inboxCollectionView = this.addChild(new InboxCollectionView({
