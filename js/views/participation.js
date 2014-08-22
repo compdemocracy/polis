@@ -63,12 +63,10 @@ module.exports =  ConversationView.extend({
     }
   },
   hideVis: function() {
-    $(".visualization").hide();
-    $(".vis_container").hide();// TODO this is sloppy, should only need to hide/remove a single element
+    $("#vis_sibling_bottom").hide();
   },
   showVis: function() {
-    $(".visualization").show();
-    $(".vis_container").show(); // TODO this is sloppy, should only need to hide/remove a single element
+    $("#vis_sibling_bottom").show();
   },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
