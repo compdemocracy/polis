@@ -3320,6 +3320,7 @@ var planCodes = {
     trial: 0,
     individuals: 1,
     students: 2,
+    pp: 3,
     sites: 100,
     orgs: 1000,
 };
@@ -3330,6 +3331,7 @@ var planCodeToPlanName = {
     0: "Trial",
     1: "Individual",
     2: "Student",
+    3: "Participants Pay",
     100: "Site",
     1000: "Organization",
 };
@@ -3426,10 +3428,10 @@ function updateStripePlan(user, stripeToken, stripeEmail, plan) {
     });
 }
 
-app.post("/charge",
+app.post("/api/v3/charge",
     auth(assignToP),
-    need('stripeToken', getOptionalStringLimitLength(999), assignToP),
-    need('stripeEmail', getOptionalStringLimitLength(999), assignToP),
+    want('stripeToken', getOptionalStringLimitLength(999), assignToP),
+    want('stripeEmail', getOptionalStringLimitLength(999), assignToP),
     need('plan', getOptionalStringLimitLength(999), assignToP),    
 function(req, res) {
 
@@ -3445,11 +3447,27 @@ function(req, res) {
         sites: 1000 * 100,
         orgs: 5000 * 100,
         students: 3 * 100,
+        // pp: 0, // not sent to stripe
     };
 
-    var userPromise = getUserInfoForUid2(uid).then(function(user) {
-        return updateStripePlan(user, stripeToken, stripeEmail, plan);
-    }).then(function() {
+    if (plan !== "pp") {
+        if(!stripeToken) {
+            return fail(res, 500, "polis_err_changing_plan_missing_stripeToken");
+        }
+        if (!stripeEmail) {
+            return fail(res, 500, "polis_err_changing_plan_missing_stripeEmail");
+        }
+    }
+
+    var updateStripePromise = Promise.resolve();
+    if (plan !== "pp") {
+        // not a participant pays plan, so we actually have to update stripe.
+        getUserInfoForUid2(uid).then(function(user) {
+            return updateStripePlan(user, stripeToken, stripeEmail, plan);
+        });
+    }
+
+    updateStripePromise.then(function() {
         setUsersPlanInIntercom(uid, planCode).catch(function(err) {
             emailBadProblemTime("User " + uid + " changed their plan, stripe was charged, but we failed to update Intercom");
         });
