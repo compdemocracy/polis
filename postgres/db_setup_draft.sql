@@ -1,3 +1,6 @@
+-- NOTE: use \d TABLENAME to see info, like indexes
+
+
 CREATE OR REPLACE FUNCTION now_as_millis() RETURNS BIGINT AS $$
         DECLARE
             temp TIMESTAMP := now();
@@ -30,6 +33,7 @@ CREATE TABLE users(
     UNIQUE (email),
     UNIQUE (uid)
 );
+CREATE INDEX users_uid_idx ON users USING btree (uid);
 
 -- this is the password hashes table.
 -- the funny name is a bit of security by obscurity in case
@@ -41,6 +45,7 @@ CREATE TABLE jianiuevyew (
     UNIQUE(uid)
 );
 
+
 -- apikeys api key table
 -- the funny name is a bit of security by obscurity in case
 -- somehow we end up with a security hole that allows for
@@ -51,6 +56,7 @@ CREATE TABLE apikeysndvweifu (
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (apikey)
 );
+CREATE INDEX apikeysndvweifu_uid_idx ON apikeysndvweifu USING btree (uid);
 
 
 --CREATE TABLE orgs (
@@ -140,6 +146,7 @@ CREATE TABLE conversations(
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
 );
+CREATE INDEX conversations_owner_idx ON conversations USING btree (owner);
 
 --  invite codes for Owners
 CREATE TABLE oinvites (
@@ -165,6 +172,7 @@ CREATE TABLE zinvites (
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (zinvite)
 );
+CREATE INDEX zinvites_zid_idx ON zinvites USING btree (zid);
 
 -- TODO flush regularly
 CREATE TABLE password_reset_tokens (
@@ -192,8 +200,6 @@ CREATE TABLE participants(
     UNIQUE (zid, pid),
     UNIQUE (zid, uid) 
 );
--- TODO create indicies on uid and zid
-
 CREATE INDEX participants_conv_uid_idx ON participants USING btree (uid); -- speed up the inbox query
 CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed up the auto-increment trigger
 
@@ -206,6 +212,8 @@ CREATE TABLE xids (
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (owner, xid)
 );
+CREATE INDEX xids_owner_idx ON xids USING btree (owner);
+
 
 -- Single Use Invites
 -- These records should contain enough to populate a record in the xids table (in conjunction with creating a user, which provides a uid)
@@ -217,6 +225,7 @@ CREATE TABLE suzinvites (
     suzinvite VARCHAR(32), -- Be sure the URLs fit in Tweets.  pol.is/<xinvite>
     UNIQUE (suzinvite)
 );
+CREATE INDEX suzinvites_owner_zid_idx ON suzinvites USING btree (owner, zid);
 
 
 --CREATE TABLE permissions(
@@ -240,6 +249,8 @@ CREATE TABLE comments(
     UNIQUE(zid, txt),    --issued this: ALTER TABLE comments ADD CONSTRAINT comments_txt_unique_constraint UNIQUE (zid, txt);
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
+CREATE INDEX comments_zid_idx ON comments USING btree (zid);
+
 
 CREATE OR REPLACE FUNCTION tid_auto()
     RETURNS trigger AS $$
