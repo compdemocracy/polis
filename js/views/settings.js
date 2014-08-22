@@ -48,38 +48,38 @@ module.exports = Handlebones.ModelView.extend({
           "data-amount\""+100*100 +
           "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "individuals" + "\"></input>");
 
-      $("#participantsPayButton").on("click", function(ev) {
-        var attrs = {
-          plan: "pp", // Participants Pay
-        };
-        $.ajax({
-            url: urlPrefix + "api/v3/charge",
-            type: "POST",
-            dataType: "json",
-            xhrFields: {
-                withCredentials: true
-            },
-            // crossDomain: true,
-            data: attrs
-          }).then(function(data) {
-            // TODO ?
-          }, function(err) {
-            // TODO ?
-          });
-      });
+      // $("#participantsPayButton").on("click", function(ev) {
+      //   var attrs = {
+      //     plan: "pp", // Participants Pay
+      //   };
+      //   $.ajax({
+      //       url: urlPrefix + "api/v3/charge",
+      //       type: "POST",
+      //       dataType: "json",
+      //       xhrFields: {
+      //           withCredentials: true
+      //       },
+      //       // crossDomain: true,
+      //       data: attrs
+      //     }).then(function(data) {
+      //       // TODO ?
+      //     }, function(err) {
+      //       // TODO ?
+      //     });
+      // });
 
 
 
-       $("#stripeFormStudents").html("<script "+
-          'src="https://checkout.stripe.com/checkout.js"'+
-          'class="stripe-button"'+
-          "data-key=\""+ that.stripeKey +"\" "+
-          "data-image=\"https://pol.is/landerImages/clusters.png\" "+
-          "data-name=\"pol.is\"  "+
-          "data-description=\""+ "Upgrade to Student plan" +"\"  "+
-          "data-panel-label=\"Monthly\" "+
-          "data-amount\""+3*100 +
-          "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "students" + "\"></input>");
+      //  $("#stripeFormStudents").html("<script "+
+      //     'src="https://checkout.stripe.com/checkout.js"'+
+      //     'class="stripe-button"'+
+      //     "data-key=\""+ that.stripeKey +"\" "+
+      //     "data-image=\"https://pol.is/landerImages/clusters.png\" "+
+      //     "data-name=\"pol.is\"  "+
+      //     "data-description=\""+ "Upgrade to Student plan" +"\"  "+
+      //     "data-panel-label=\"Monthly\" "+
+      //     "data-amount\""+3*100 +
+      //     "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "students" + "\"></input>");
 
       }, 200);
 
