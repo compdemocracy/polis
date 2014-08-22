@@ -26,3 +26,15 @@
           (two-prop-test 15 56 24 71)
 
 
+(defn z-sig-90?
+  "Test whether z-statistic is significant at %90 confidence with alternative hypothesis >"
+  [z-val]
+  (> z-val 1.2816))
+
+
+(defn z-sig-95?
+  "Test whether z-statistic is significant at %95 confidence with alternative hypothesis >"
+  [z-val]
+  (> z-val 1.6449))
+
+

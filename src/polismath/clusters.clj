@@ -325,6 +325,76 @@
              (mapv-rest add-comparitive-stats)))))})
 
 
+(defn beats-best-by-test?
+  [{:keys [pat rat rdt] :as comment-conv-stats} current-best-z]
+  (or (nil? current-best-z)
+      (> (max rat rdt) current-best-z)))
+
+
+(defn passes-by-test?
+  [{:keys [pat rat pdt rdt] :as comment-conv-stats}]
+  (or (and (z-sig-90? rat) (z-sig-90? pat))
+      (and (z-sig-90? rdt) (z-sig-90? pdt))))
+
+
+(defn finalize-cmt-stats
+  [tid {:keys [na nd ns pa pd pat pdt ra rd rat rdt] :as comment-conv-stats}]
+  (let [[n-success n-trials p-success p-test repness repness-test repful-for]
+         (if (> rat rdt)
+           [na ns pa pat ra rat :agree]
+           [nd ns pd pdt rd rdt :disagree])]
+    {:tid          tid
+     :n-success    n-success
+     :n-trials     n-trials
+     :p-success    p-success
+     :p-test       p-test
+     :repness      repness
+     :repness-test (float repness-test)
+     :repful-for   repful-for}))
+
+
+(defn select-rep-comments
+  [{:keys [ids stats] :as repness-stats}]
+  ; Reduce statistics into a results hash mapping group ids to rep comments
+  (->>
+    ; reduce with indices, so we have tids
+    (with-indices stats)
+    (reduce
+      (fn [result [tid comment-stats]]
+        ; Inner reduce folds data into result for each group in comment stats
+        (reduce
+          (fn [inner-result [gid comment-conv-stats]]
+            ; Heplper functions for building our result
+            (letfn [(ir-get   [ir & ks]
+                      (get-in ir (into [gid] ks)))
+                    (ir-assoc [ir & ks-and-val] 
+                      (assoc-in ir (into [gid] (butlast ks-and-val)) (last ks-and-val)))]
+              (as-> inner-result ir
+                ; First check to see if the comment data passes, and add if it does
+                (if (passes-by-test? comment-conv-stats)
+                  (->> comment-conv-stats
+                       (finalize-cmt-stats tid)
+                       (conj (ir-get ir :sufficient))
+                       (ir-assoc ir :sufficient))
+                  ir)
+                ; Keep track of what the best comment so far is, even if it doesn't pass, so we always have at
+                ; least one comment
+                (if (and (empty? (ir-get ir :sufficient))
+                         (beats-best-by-test? comment-conv-stats (ir-get ir :test)))
+                  (ir-assoc ir :best (finalize-cmt-stats tid comment-conv-stats))
+                  ir))))
+          result
+          (zip ids comment-stats)))
+      ; initialize result hash
+      (into {} (map #(vector % {:best nil :sufficient []}) ids)))
+    ; If no sufficient, use best; otherwise sort sufficient and take 5
+    (map-vals
+      (fn [{:keys [best sufficient]}]
+        (if (empty? sufficient)
+          [best]
+          (->> sufficient
+               (sort-by :repness)
+               (take 5)))))))
 
 
 (defn xy-clusters-to-nmat [clusters]
