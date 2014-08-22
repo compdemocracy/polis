@@ -58,16 +58,25 @@
           <td>Individual</td>
           <td>$100/month</td>
           <td> 
-            {{#ifTrial}}<form action="/charge" method="POST" id="stripeForm"></form>
+            {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeForm"></form>
              {{/ifTrial}}
             {{#ifIndividual}}Your plan{{/ifIndividual}}
           </td>
         </tr>
         <tr>
+          <td>Teacher</td>
+          <td>Free (students will pay $3/month)</td>
+          <td> 
+            {{#ifTrial}}<button id="participantsPayButton">Choose</button>
+             {{/ifTrial}}
+            {{#ifParticipantPays}}Your plan{{/ifParticipantPays}}
+          </td>
+        </tr>        
+        <tr>
           <td>Student</td>
           <td>$3/month</td>
           <td> 
-            {{#ifTrial}}<form action="/charge" method="POST" id="stripeFormStudents"></form>
+            {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeFormStudents"></form>
              {{/ifTrial}}
             {{#ifStudent}}Your plan{{/ifStudent}}
           </td>

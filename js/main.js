@@ -119,6 +119,10 @@ Handlebars.registerHelper("ifIndividual", function(arg0) {
 Handlebars.registerHelper("ifStudent", function(arg0) {
   return Utils.isStudentUser() ? arg0.fn(this) : "";
 });
+Handlebars.registerHelper("ifParticipantPays", function(arg0) {
+  return Utils.isPpUser() ? arg0.fn(this) : "";
+});
+
 
 
 

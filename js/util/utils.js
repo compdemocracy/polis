@@ -87,6 +87,9 @@ module.exports = {
   isStudentUser: function() {
     return PolisStorage.plan() === 2;
   },
+  isPpUser: function() {
+    return PolisStorage.plan() === 3;
+  },
   numberOfDaysInTrial: numberOfDaysInTrial,
   trialDaysRemaining: trialDaysRemaining
 };

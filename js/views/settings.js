@@ -1,7 +1,9 @@
 var Handlebars = require("handlebars");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/settings");
+var URLs = require("../util/url");
 
+var urlPrefix = URLs.urlPrefix;
 
 module.exports = Handlebones.ModelView.extend({
   name: "settings",
@@ -45,6 +47,28 @@ module.exports = Handlebones.ModelView.extend({
           "data-panel-label=\"Monthly\" "+
           "data-amount\""+100*100 +
           "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "individuals" + "\"></input>");
+
+      $("#participantsPayButton").on("click", function(ev) {
+        var attrs = {
+          plan: "pp", // Participants Pay
+        };
+        $.ajax({
+            url: urlPrefix + "api/v3/charge",
+            type: "POST",
+            dataType: "json",
+            xhrFields: {
+                withCredentials: true
+            },
+            // crossDomain: true,
+            data: attrs
+          }).then(function(data) {
+            // TODO ?
+          }, function(err) {
+            // TODO ?
+          });
+      });
+
+
 
        $("#stripeFormStudents").html("<script "+
           'src="https://checkout.stripe.com/checkout.js"'+
