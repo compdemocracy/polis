@@ -1,4 +1,5 @@
-(ns polismath.pretty-printers)
+(ns polismath.pretty-printers
+  (:require 'clojure.pprint :refer :all))
 
 
 (defn str-repeat [s n]
@@ -15,5 +16,11 @@
     (prindent indent 0 gid)
     (doseq [c comments]
       (prindent indent 2 c))))
+
+
+(defn wide-pp [x]
+  (binding [*print-miser-width*  400
+            *print-right-margin* 400]
+    (pprint x)))
 
 
