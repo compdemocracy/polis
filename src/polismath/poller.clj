@@ -43,6 +43,12 @@
     (kdb/postgres settings)))
 
 
+(defn mongo-collection-name [basename]
+  (let [schema-date "2014_08_22"
+        env-name    (or (env/env :math-env) "dev")]
+    (str "math_" env-name "_" schema-date "_" basename)))
+
+
 (defn mongo-connect! [mongo-url]
   (monger.core/connect-via-uri! mongo-url))
 
@@ -148,7 +154,7 @@
               (meter
                 "db.math.bidToPid.put"
                 (mongo-upsert-results
-                 "polismath_bidToPid_july30"
+                  (mongo-collection-name "bidToPid")
                  zid
                  lastVoteTimestamp
                  (assoc obj
@@ -166,7 +172,7 @@
               (meter
                "db.math.pca.put"
                (mongo-upsert-results
-                "polismath_july30"
+                  (mongo-collection-name "main")
                 zid
                 lastVoteTimestamp
                 (assoc obj
