@@ -393,7 +393,7 @@
         (if (empty? sufficient)
           [best]
           (->> sufficient
-               (sort-by :repness)
+               (sort-by #(- (:repness %)))
                (take 5)))))))
 
 

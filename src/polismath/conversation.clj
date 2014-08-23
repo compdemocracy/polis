@@ -227,6 +227,10 @@
                           (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))
                                   {}))))
 
+      :repness    (plmb/fnk [rating-mat group-clusters base-clusters]
+                    (->> (conv-repness rating-mat group-clusters base-clusters)
+                         (select-rep-comments)))
+
      ; End of large-update
      }))
 

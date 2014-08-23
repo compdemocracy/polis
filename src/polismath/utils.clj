@@ -164,10 +164,6 @@
         "members" (map :members base-clusters)
         "count"   (map #(count (:members %)) base-clusters))
 
-      ; REFORMAT REPNESS
-      ; make the array position of each cluster imply the cluster id
-      (assoc :repness (map :repness (sort-by :id base-clusters)))
-
       ; Whitelist of keys to be included in sent data; removes intermediates
       (hash-map-subset #{
         :base-clusters
