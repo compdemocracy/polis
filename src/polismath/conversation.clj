@@ -16,6 +16,12 @@
         polismath.named-matrix))
 
 
+
+(defn new-conv []
+  "Minimal structure upon which to perform conversation updates"
+  {:rating-mat (named-matrix)})
+
+
 (defn choose-group-k [base-clusters]
   (let [len (count base-clusters)]
     (cond
@@ -68,33 +74,26 @@
                     opts))
 
    :rating-mat  (plmb/fnk [conv votes]
-                  (time2 "rating-mat"
                   (update-nmat (:rating-mat conv)
-                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes))))
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
 
    :n           (plmb/fnk [rating-mat]
-                  "count the participants"
-                  (time2 "counting-ptpts"
-                    (count (rownames rating-mat))))
+                  (count (rownames rating-mat)))
 
    :n-cmts      (plmb/fnk [rating-mat]
-                  "count comments"
-                  (time2 "counting-comments"
-                    (count (colnames rating-mat))))
+                  (count (colnames rating-mat)))
 
    :user-vote-counts
                 (plmb/fnk [rating-mat votes]
-                  "This counts the number of actual votes each user has"
-                  (time2 "user-vote-count"
-                    (mapv
-                      (fn [rowname row] [rowname (count (remove nil? row))])
-                      (rownames rating-mat)
-                      (get-matrix rating-mat))))
+                  (mapv
+                    (fn [rowname row] [rowname (count (remove nil? row))])
+                    (rownames rating-mat)
+                    (get-matrix rating-mat)))
 
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
-                  "This keeps track of which ptpts are in the conversation (to be considered
-                  for base-clustering) based on how many votes they have. Once a ptpt is in,
-                  they will remain in."
+                  ; This keeps track of which ptpts are in the conversation (to be considered
+                  ; for base-clustering) based on home many votes they have. Once a ptpt is in,
+                  ; they will remain in.
                   (as-> (or (:in-conv conv) #{}) in-conv
                     ; Start with whatever you have, and join it with anything that meets the criteria
                     (into in-conv
@@ -134,25 +133,22 @@
   (merge
      base-conv-update-graph
      {:mat (plmb/fnk [rating-mat]
-             "swap nils for zeros - most things need the 0s, but repness needs the nils"
-             (time2 "mat"
-               (greedy
+             ; swap nils for zeros - most things need the 0s, but repness needs the nils"
+             (greedy
                (map (fn [row] (map #(if (nil? %) 0 %) row))
-                 (get-matrix rating-mat)))))
+                 (get-matrix rating-mat))))
 
       :pca (plmb/fnk [conv mat opts']
-             (time2 "pca"
-               (wrapped-pca mat (:n-comps opts')
-                            :start-vectors (get-in conv [:pca :comps])
-                            :iters (:pca-iters opts'))))
+             (wrapped-pca mat (:n-comps opts')
+                          :start-vectors (get-in conv [:pca :comps])
+                          :iters (:pca-iters opts')))
 
       :proj (plmb/fnk [mat pca]
-              (time2 "proj" (pca-project mat pca)))
+              (pca-project mat pca))
 
       :base-clusters
             (plmb/fnk [conv rating-mat proj in-conv opts']
-              (time2 "base-clusters"
-                (greedy
+              (greedy
                 (let [proj-mat
                         (named-matrix (rownames rating-mat) ["x" "y"] proj)
                       in-conv-mat (rowname-subset proj-mat in-conv)]
@@ -160,7 +156,7 @@
                     (kmeans in-conv-mat
                       (:base-k opts')
                       :last-clusters (:base-clusters conv)
-                      :cluster-iters (:base-iters opts')))))))
+                      :cluster-iters (:base-iters opts'))))))
 
       :base-clusters-proj
             (plmb/fnk [base-clusters]
@@ -168,8 +164,7 @@
       
       :bucket-dists
             (plmb/fnk [base-clusters-proj]
-              (time2 "bucket-dists"
-                (named-dist-matrix base-clusters-proj)))
+              (named-dist-matrix base-clusters-proj))
 
       ; Compute group-clusters for multiple k values
       :group-clusterings
@@ -180,7 +175,6 @@
                   (fn [k]
                     [k
                       (sort-by :id
-                        (time2 (str "group-clusters-k=" k)
                         (kmeans base-clusters-proj k
                           :last-clusters
                             ; A little pedantic here in case no clustering yet for this k
@@ -188,7 +182,7 @@
                               (if last-clusterings
                                 (last-clusterings k)
                                 last-clusterings))
-                          :cluster-iters (:group-iters opts'))))])
+                          :cluster-iters (:group-iters opts')))])
                   (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts')))))))
 
       ; Compute silhouette values for the various clusterings
@@ -207,9 +201,8 @@
                 (apply max-key group-clusterings-silhouettes (keys group-clusterings))))
 
       :bid-to-pid (plmb/fnk [base-clusters]
-                     (time2 "bid-to-pid"
-                      (greedy
-                       (map :members (sort-by :id base-clusters)))))
+                    (greedy
+                      (map :members (sort-by :id base-clusters))))
 
       ;; returns {tid {
       ;;           :agree [0 4 2 0 6 0 0 1]
@@ -217,15 +210,13 @@
       ;; where the indices in the arrays correspond NOT directly to the bid, but to the index of the
       ;; corresponding bid in a hypothetically sorted list of the base cluster ids
       :votes-base (plmb/fnk [bid-to-pid rating-mat]
-                     (time2 "votes-base"
-                       (->> rating-mat
-                          colnames
-                          (map (fn [tid]
-                             {:tid tid
-                              :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
-                              :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
-                          (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid)))
-                                  {}))))
+                    (->> rating-mat
+                      colnames
+                      (map (fn [tid]
+                        {:tid tid
+                         :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
+                         :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
+                      (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))))))
 
       :repness    (plmb/fnk [rating-mat group-clusters base-clusters]
                     (->> (conv-repness rating-mat group-clusters base-clusters)
@@ -251,7 +242,7 @@
                                                        (dimension-count old-val 0)) 0))]
                   (+ (* forget-rate old-val) (* learning-rate new-val))))]
     (fn [pca']
-      "Actual updater lambda"
+      ; Actual updater lambda"
       {:center (learn (:center pca') (:center part-pca))
        :comps  (mapv #(learn %1 %2) (:comps pca') (:comps part-pca))})))
 
@@ -275,7 +266,6 @@
   "Same as small-conv-update-graph, but uses mini-batch PCA"
   (merge small-conv-update-graph
     {:pca (plmb/fnk [conv mat opts']
-            (time2 "mb-pca"
             (let [n-ptpts (matrix/dimension-count mat 0)
                   sample-size (sample-size n-ptpts)]
               (loop [pca (:pca conv) iter (:pca-iters opts')]
@@ -283,7 +273,7 @@
                       pca          ((partial-pca mat pca rand-indices) pca)]
                   (if (= iter 0)
                     (recur pca (dec iter))
-                    pca))))))}))
+                    pca)))))}))
 
 
 (def small-conv-update (graph/eager-compile small-conv-update-graph))
