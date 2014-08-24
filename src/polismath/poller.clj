@@ -93,6 +93,14 @@
       "lastVoteTimestamp" lastVoteTimestamp)))
 
 
+(defn log-update-error [conv start-time e]
+  (println "exception when processing zid: " (:zid conv))
+  (.printStackTrace e)
+  (let [end (System/currentTimeMillis)
+        duration (- end start-time)]
+    (metric "math.pca.compute.fail" duration)))
+
+
 (defn -main []
   (println "launching poller " (System/currentTimeMillis))
   (metric "math.process.launch" 1)
@@ -109,20 +117,16 @@
         ; For each conv...
         (doseq [[zid votes] zid-votes]
           (let [lastVoteTimestamp (:created (last votes))
-                start (System/currentTimeMillis)]
+                start-time        (System/currentTimeMillis)
+                conv              (or (@conversations zid) (new-conv))]
             (swap! conversations
               (fn [convs]
                 (try
-                  (assoc convs zid
-                    (conv-update (or (convs zid) (new-conv)) votes))
+                  (->> (conv-update conv votes)
+                       (assoc convs zid))
                   (catch Exception e
                     (do
-                      (println "exception when processing zid: " zid)
-                      (.printStackTrace e)
-                      (let [end (System/currentTimeMillis)
-                            duration (- end start)]
-                        (metric "math.pca.compute.fail" duration))
-
+                      (log-update-error conv start-time e)
                       ; Put things back the way they were
                       convs)))))
 
