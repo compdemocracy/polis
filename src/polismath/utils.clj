@@ -29,12 +29,46 @@
      (println (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
 
+(defmacro f?>>
+  "Modified 'penguin' operator from plumbing.core, where do-it? is a function of the threaded value
+  instead of a static value. E.g.: (->> nums (?>> #(even? (count %)) (map inc)))"
+  [do-it? & args]
+  `(if (~do-it? ~(last args))
+     (->> ~(last args) ~@(butlast args))
+     ~(last args)))
+
+
+(defmacro f?>
+  "Modified 'penguin' operator from plumbing.core, where do-it? is a function of the threaded value
+  instead of a static value. E.g.: (-> n inc (?> even? (* 2)))"
+  [arg do-it? & rest]
+  `(if (~do-it? ~arg)
+     (-> ~arg ~@rest)
+     ~arg))
+
 
 (defn zip [& xss]
   ;;should we redo this like the with-indices below, using a map?
   (if (> (count xss) 1)
     (partition (count xss) (apply interleave xss))
     xss))
+
+
+(defn map-rest
+  "Like map, but the mapper function takes both the item and the rest of the items in the collection,
+  letting you operate on each item in comparison with all the others easily"
+  [f col]
+  (for [i (range (count col))]
+    (f (get col i)
+       (concat
+         (subvec col 0 i)
+         (subvec col (inc i))))))
+
+
+(defn mapv-rest
+  "Like map-rest, but returns a vector instead of a lazy seq"
+  [f col]
+  (vec (map-rest f col)))
 
 
 (let [greedy? true]
@@ -130,10 +164,6 @@
         "id"      (map :id base-clusters)
         "members" (map :members base-clusters)
         "count"   (map #(count (:members %)) base-clusters))
-
-      ; REFORMAT REPNESS
-      ; make the array position of each cluster imply the cluster id
-      (assoc :repness (map :repness (sort-by :id base-clusters)))
 
       ; Whitelist of keys to be included in sent data; removes intermediates
       (hash-map-subset #{
