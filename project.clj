@@ -39,9 +39,6 @@
   
   :profiles {
     :dev {
-      ;:global-vars {
-        ;*warn-on-reflection* true
-      ;}
       :dependencies [
         [org.clojure/tools.trace "0.7.6"]
         [criterium "0.4.2"]

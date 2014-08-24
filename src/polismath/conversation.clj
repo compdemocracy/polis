@@ -16,6 +16,12 @@
         polismath.named-matrix))
 
 
+
+(defn new-conv []
+  "Minimal structure upon which to perform conversation updates"
+  {:rating-mat (named-matrix)})
+
+
 (defn choose-group-k [base-clusters]
   (let [len (count base-clusters)]
     (cond
@@ -201,7 +207,8 @@
       ;; returns {tid {
       ;;           :agree [0 4 2 0 6 0 0 1]
       ;;           :disagree [3 0 0 1 0 23 0 ]}
-      ;; where the indices in the arrays are bids
+      ;; where the indices in the arrays correspond NOT directly to the bid, but to the index of the
+      ;; corresponding bid in a hypothetically sorted list of the base cluster ids
       :votes-base (plmb/fnk [bid-to-pid rating-mat]
                     (->> rating-mat
                       colnames
@@ -210,6 +217,11 @@
                          :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
                          :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
                       (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))))))
+
+      :repness    (plmb/fnk [rating-mat group-clusters base-clusters]
+                    (->> (conv-repness rating-mat group-clusters base-clusters)
+                         (select-rep-comments)))
+
      ; End of large-update
      }))
 
@@ -293,11 +305,6 @@
       (throw e))))
 
 
-(defn new-conv []
-  {:rating-mat (named-matrix)})
-
-
-
 ;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
 ;; edn reader
 
@@ -324,7 +331,6 @@
 ; a reader that uses these custom printing formats
 (defn read-vectorz-edn [text]
   (edn/read-string
-  ;(clojure.core/read-string
     {:readers {'mikera.vectorz.Vector matrix
                'mikera.arrayz.NDArray matrix
                'mikera.matrixx.Matrix matrix

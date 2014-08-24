@@ -42,19 +42,20 @@
     (kdb/postgres settings)))
 
 
+(defn mongo-collection-name [basename]
+  (let [schema-date "2014_08_22"
+        env-name    (or (env/env :math-env) "dev")]
+    (str "math_" env-name "_" schema-date "_" basename)))
+
+
 (defn mongo-connect! [mongo-url]
   (monger.core/connect-via-uri! mongo-url))
 
 
-(defn mongo-upsert-results [collection-name zid timestamp new-results]
+(defn mongo-upsert-results [collection-name new-results]
   (monger.collection/update collection-name
-    {
-      :zid zid
-      ; "$gt" 92839182312
-    } 
-    (assoc new-results
-           "zid" zid
-           "lastVoteTimestamp" timestamp)
+    {:zid (:zid new-results)} 
+    new-results
     :multi false
     :upsert true))
 
@@ -81,15 +82,23 @@
                (encode-seq (into-array v) jsonGenerator)))
 
 
-(defn format-conv-for-mongo [conv zid lastVoteTimestamp]
+(defn format-conv-for-mongo [prep-fn conv zid lastVoteTimestamp]
   (-> conv
-    prep-for-uploading-bidToPid-mapping
+    prep-fn
     ; core.matrix & monger workaround: convert to str with cheshire then back
     generate-string
     parse-string
     (assoc
       "zid" zid
       "lastVoteTimestamp" lastVoteTimestamp)))
+
+
+(defn log-update-error [conv start-time e]
+  (println "exception when processing zid: " (:zid conv))
+  (.printStackTrace e)
+  (let [end (System/currentTimeMillis)
+        duration (- end start-time)]
+    (metric "math.pca.compute.fail" duration)))
 
 
 (defn -main []
@@ -108,35 +117,26 @@
         ; For each conv...
         (doseq [[zid votes] zid-votes]
           (let [lastVoteTimestamp (:created (last votes))
-                start (System/currentTimeMillis)]
+                start-time        (System/currentTimeMillis)
+                conv              (or (@conversations zid) (new-conv))]
             (swap! conversations
               (fn [convs]
                 (try
-                  (assoc convs zid
-                    (conv-update (or (convs zid) (new-conv)) votes))
+                  (->> (conv-update conv votes)
+                       (assoc convs zid))
                   (catch Exception e
                     (do
-                      (println "exception when processing zid: " zid)
-                      (.printStackTrace e)
-                      (let [end (System/currentTimeMillis)
-                            duration (- end start)]
-                        (metric "math.pca.compute.fail" duration))
+                      (log-update-error conv start-time e)
                       ; Put things back the way they were
                       convs)))))
 
-            ; Format and upload results
-            (doseq [[prep-fn mongo-k] [[prep-for-uploading-bidToPid-mapping "polismath_bidToPid_july30"]
-                                       [prep-for-uploading-to-client "polismath_july30"]]]
-              (->
-                (@conversations zid)
-                (prep-fn)
-                (generate-string)
-                (parse-string)
-                (assoc
-                  "zid" zid
-                  "lastVoteTimestamp" lastVoteTimestamp)
-                (->>
-                  (mongo-upsert-results mongo-k zid lastVoteTimestamp))))))
+            ; Format and upload main results
+            (->> (format-conv-for-mongo prep-for-uploading-to-client (@conversations zid) zid lastVoteTimestamp)
+              (mongo-upsert-results (mongo-collection-name "main")))
+
+            ; Format and upload bidToPid results
+            (->> (format-conv-for-mongo prep-for-uploading-bidToPid-mapping (@conversations zid) zid lastVoteTimestamp)
+              (mongo-upsert-results (mongo-collection-name "bidToPid")))))
 
         ; Update last-timestamp
         (swap! last-timestamp (fn [_] (:created (last new-votes))))))))
