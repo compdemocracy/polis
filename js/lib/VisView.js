@@ -368,9 +368,11 @@ if (isIE8) {
     $(el_selector).on("click", selectBackground);
 
     main_layer = visualization.append(groupTag)
+        .attr("id", "main_layer")
         .attr("transform", "translate("+ xOffset +")");
         
     blocker_layer = visualization.append(groupTag)
+        .attr("id", "blocker_layer")
         .attr("transform", "translate("+ xOffset +")");
 
     overlay_layer = visualization.append(groupTag);
