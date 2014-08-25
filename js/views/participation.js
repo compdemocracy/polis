@@ -83,6 +83,15 @@ module.exports =  ConversationView.extend({
       this.vis.emphasizeParticipants.apply(this, arguments);
     }
   },
+  updateHintVoteMoreBlocker: function() {
+    if (this.vis) {
+      if (this.votesByMe.length < 2) {
+        this.vis.showHintVoteMoreBlocker();
+      } else {
+        this.vis.hideHintVoteMoreBlocker();
+      }
+    }
+  },
   context: function() {
     var ctx = ConversationView.prototype.context.apply(this, arguments);
     ctx.use_background_content_class = display.xs();
@@ -205,6 +214,17 @@ module.exports =  ConversationView.extend({
     }
 
 
+    that.votesByMe.on("sync", function() {
+      that.updateHintVoteMoreBlocker();
+    });
+    that.votesByMe.on("change", function() {
+      that.updateHintVoteMoreBlocker();        
+    });
+    that.votesByMe.on("add", function() {
+      that.updateHintVoteMoreBlocker();        
+    });
+
+
     function initPcaVis() {
       if (!Utils.supportsVis()) {
         // Don't show vis for weird devices (Gingerbread, etc)
@@ -255,7 +275,7 @@ module.exports =  ConversationView.extend({
       }
       that.disableVisAffix();
 
-
+      that.updateHintVoteMoreBlocker();
       // if (display.xs()) {
       //   $("#commentView").addClass("floating-side-panel-gradients");
       // } else {

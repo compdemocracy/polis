@@ -2066,6 +2066,53 @@ function hideVisBlocker() {
 }
 
 
+var voteMoreOn = false;
+function showHintVoteMoreBlocker() {
+    voteMoreOn = true;
+
+    blocker_layer.append("rect")
+        .classed("hintVoteMore", true)
+        .style("fill", "rgb(52, 152, 219)")
+        .attr("x", 1) // inset so it doesn't get cut off on firefox
+        .attr("y", 1) // inset so it doesn't get cut off on firefox
+        .attr("width", w-2) // inset so it doesn't get cut off on firefox
+        .attr("height", h-2) // inset so it doesn't get cut off on firefox
+        .style("stroke", "lightgray")
+        .attr("rx", 5)
+        .attr("ry", 5)
+    ;
+    blocker_layer.append("text")
+            .text("Welcome! start by voting on a couple of comments")
+            .classed("hintVoteMore", true)
+            .classed("hintVoteMoreMainText", true)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fff")
+            .attr("transform", "translate("+ 
+                w/2 +
+                "," + (9*h/24) + ")")
+    ;
+    blocker_layer.append("text")
+            .classed("hintVoteMore", true)
+            .classed("hintVoteMoreGraphic", true)
+            .attr("transform", "translate("+ 
+                w/2 +
+                "," + (15*h/24) +")")
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fff")
+        .attr('font-family', 'FontAwesome')
+        .attr('font-size', function(d) { return '2em'} )
+        ;
+
+}
+
+function hideHintVoteMoreBlocker() {
+    voteMoreOn = false;
+
+    blocker_layer.selectAll(".hintVoteMore")
+        .remove()
+    ;
+}
+
 function showHintOthers() {
     blocker_layer.append("text")
             .text("other participants")
@@ -2262,6 +2309,8 @@ return {
     selectGroup: selectGroup,
     showLineToCluster: showLineToCluster,
     emphasizeParticipants: emphasizeParticipants,
+    showHintVoteMoreBlocker: showHintVoteMoreBlocker,
+    hideHintVoteMoreBlocker: hideHintVoteMoreBlocker,
     getSelectedGid: getSelectedGid,
 };
 
