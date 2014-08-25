@@ -312,6 +312,10 @@ svg {
 @media (min-width: 767px) {
 
 
+  #opinion_groups_label {
+    margin-left: 30px;
+  }
+  
   // make flush with tab pane so we can draw the arrow pointint to the selected hull
   #vis_sibling_bottom {
     margin-left: -30px;
@@ -397,7 +401,7 @@ svg {
   //   padding-left: 10px;
   //   padding-right: 10px;
   // }
-  
+
   #comment_shower {
     margin-top: 20px;
   }
