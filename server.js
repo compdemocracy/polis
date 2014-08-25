@@ -1406,7 +1406,13 @@ app.use(express.logger());
 app.use(redirectIfWrongDomain);
 app.use(redirectIfApiDomain);
 app.use(redirectIfNotHttps);
+if (devMode) {
     app.use(express.compress());
+} else {
+    // Cloudflare would apply gzip if we didn't
+    // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
+    app.use(express.compress());
+}
 app.use(writeDefaultHead);
 app.use(express.cookieParser());
 app.use(express.bodyParser());
