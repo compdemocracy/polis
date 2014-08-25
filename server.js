@@ -5173,6 +5173,26 @@ function isUserAllowedToCreateConversations(uid, callback) {
     // });
 }
 
+
+var millisPerDay = 1000 * 60 * 60 * 24;
+
+function millisSinceJoin(user) {
+  return Date.now() - user.created;
+}
+function daysSinceJoin(user) {
+  console.log('daysSinceJoin', millisSinceJoin(user), millisPerDay);
+  return (millisSinceJoin(user) / millisPerDay) >> 0;
+}
+function numberOfDaysInTrial() {
+  return 10;
+}
+function trialDaysRemaining(user) {
+  console.log('trial', numberOfDaysInTrial(), daysSinceJoin(user));
+
+  return Math.max(0, numberOfDaysInTrial() - daysSinceJoin(user));
+}
+
+
 // TODO check to see if ptpt has answered necessary metadata questions.
 app.post('/api/v3/conversations',
     auth(assignToP),
@@ -5192,10 +5212,19 @@ function(req, res) {
     console.log("context", req.p.context);
     var generateShortUrl = req.p.short_url;
 
-  isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
-    if (err) { fail(res, 403, "polis_err_add_conversation_failed_user_check", err); return; }
-    if (!isAllowed) { fail(res, 403, "polis_err_add_conversation_not_enabled", new Error("polis_err_add_conversation_not_enabled")); return; }
-
+  getUserInfoForUid2(req.p.uid).then(function(user) {
+    var canCreate = true;
+    if (user.plan === planCodes.students) {
+        canCreate = false;
+    }
+    if (user.plan === planCodes.trial && trialDaysRemaining(user) <= 0) {
+        canCreate = false;
+    }
+    if (!canCreate) {
+        console.log("tried_to_create_conv_after_trial_expired", user.uid, user.email, user.created, Date.now(), daysSinceJoin(user));
+        userFail(res, 403, "polis_err_add_conversation_trial_expired");
+        return;
+    }
 
     var q = sql_conversations.insert({
         owner: req.p.uid,
@@ -5235,6 +5264,10 @@ function(req, res) {
             fail(res, 500, "polis_err_zinvite_create", err);
         });
     }); // end insert
+  }, function(err) {
+    fail(res, 403, "polis_err_add_conversation_lookup_user_failed", err);    
+  }).catch(function(err) {
+    fail(res, 403, "polis_err_add_conversation_failed", err);
   }); // end isUserAllowedToCreateConversations
 }); // end post conversations
 
