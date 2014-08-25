@@ -1715,10 +1715,7 @@ function isNotSelf(d) {
     return !isSelf(d);
 }
 function dismissHelp() {
-    onInVisLegendShownCallbacks.fire(inVisLegendCounter);
 
-    var help = visualization.selectAll(".help");
-    help.style("display", "none");
 
 
     // var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
@@ -1733,14 +1730,19 @@ function dismissHelp() {
     //       .attr("r", chooseCircleRadiusOuter)
     //       // .style("fill", chooseFill)
     //       ;
-    if (inVisLegendCounter === 1) {
-        dotsShouldWiggle = true;
-        wiggleUp();
-        showHintOthers();
-        inVisLegendCounter += 1;
-    } else {
-        dotsShouldWiggle = false;
-        hideHintOthers();
+    if (!visBlockerOn && !voteMoreOn) {
+        var help = visualization.selectAll(".help");
+        help.style("display", "none");
+        onInVisLegendShownCallbacks.fire(inVisLegendCounter);
+        if (inVisLegendCounter === 1) {
+            dotsShouldWiggle = true;
+            wiggleUp();
+            showHintOthers();
+            inVisLegendCounter += 1;
+        } else {
+            dotsShouldWiggle = false;
+            hideHintOthers();
+        }
     }
 }
 var dotsShouldWiggle = false;
