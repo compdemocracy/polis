@@ -652,25 +652,26 @@ module.exports =  ConversationView.extend({
         });
       }
       */
-      that.commentView.on("showComment", _.once(function() {   
+      
+      // that.commentView.on("showComment", _.once(function() {   
 
-        that.$commentViewPopover = that.$("#commentView").popover({
-          title: "START HERE",
-          content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-          html: true, //XSS risk, not important for now
-          trigger: "manual",
-          placement: "bottom"
-        });
+      //   that.$commentViewPopover = that.$("#commentView").popover({
+      //     title: "START HERE",
+      //     content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+      //     html: true, //XSS risk, not important for now
+      //     trigger: "manual",
+      //     placement: "bottom"
+      //   });
 
-        setTimeout(function(){
-          if (that.conversationTabs.onVoteTab()) {
-            that.$commentViewPopover.popover("show");
-            $("#commentViewPopoverButton").click(function(){
-              that.$commentViewPopover.popover("destroy");
-            });
-          }
-        },2000);
-      }));
+      //   setTimeout(function(){
+      //     if (that.conversationTabs.onVoteTab()) {
+      //       that.$commentViewPopover.popover("show");
+      //       $("#commentViewPopoverButton").click(function(){
+      //         that.$commentViewPopover.popover("destroy");
+      //       });
+      //     }
+      //   },2000);
+      // }));
 
 
       
