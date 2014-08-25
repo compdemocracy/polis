@@ -1492,74 +1492,76 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       inVisLegendCounter = 1;
       var helpStrokeWidth = display.xs() ? 1 : 2;
 
-      var centermostNode = g.filter(function(d) {
-        return d.isChosenNodeForInVisLegend;
-      });
-      centermostNode.append("text")
-        .classed("help", true)
-        .text("another participant")
-        .attr("text-anchor", "start")
-        .attr("fill", "#000")
-        // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
-        .attr("transform", function(d) {
-            return "translate(55, -17)";
-        });
-      centermostNode.append("polyline")
-        .classed("help", true)
-        .style("display", "block")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        .style("z-index", 9999)
-        .style("fill", "rgba(0,0,0,0)")
-        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-        // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", function(d) {
-            return ["9, -9", "20, -20", "50,-20"].join(" ")
-        });
-      centermostNode.append("circle")
-        .classed("help", true)
-        // .classed("circle", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .attr("r", 12.727)
-        // .style("opacity", opacityOuter)
-        .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        ;
+      // var centermostNode = g.filter(function(d) {
+      //   return d.isChosenNodeForInVisLegend;
+      // });
+      // centermostNode.append("text")
+      //   .classed("help", true)
+      //   .text("another participant")
+      //   .attr("text-anchor", "start")
+      //   .attr("fill", "#000")
+      //   // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
+      //   .attr("transform", function(d) {
+      //       return "translate(55, -17)";
+      //   });
+      // centermostNode.append("polyline")
+      //   .classed("help", true)
+      //   .style("display", "block")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   .style("z-index", 9999)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+      //   // .attr("marker-start", "url(#ArrowTip)")
+      //   .attr("points", function(d) {
+      //       return ["9, -9", "20, -20", "50,-20"].join(" ")
+      //   });
+      // centermostNode.append("circle")
+      //   .classed("help", true)
+      //   // .classed("circle", true)
+      //   .attr("cx", 0)
+      //   .attr("cy", 0)
+      //   .attr("r", 12.727)
+      //   // .style("opacity", opacityOuter)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   ;
 
       var selfNode = g.filter(isSelf);
       selfNode.append("text")
         .classed("help", true)
         .text("you")
         .attr("text-anchor", "start")
-        .attr("fill", "rgba(0,0,0,1.0)")
+        // .attr("fill", "rgba(0,0,0,1.0)")
+        .attr("fill", colorSelf)
+        .attr("stroke", colorSelfOutline)
         .attr("transform", function(d) {
-            return "translate(55, 24)";
+            return "translate(12, 4)";
         });
-      selfNode.append("polyline")
-        .classed("help", true)
-        .style("display", "block")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        .style("z-index", 9999)
-        .style("fill", "rgba(0,0,0,0)")
-        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-        // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", function(d) {
-            return ["9, 9", "20, 20", "50,20"].join(" ")
-        });
-      selfNode.append("circle")
-        .classed("help", true)
-        // .classed("circle", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .attr("r", 12.727)
-        // .style("opacity", opacityOuter)
-        .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        ;
+      // selfNode.append("polyline")
+      //   .classed("help", true)
+      //   .style("display", "block")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   .style("z-index", 9999)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+      //   // .attr("marker-start", "url(#ArrowTip)")
+      //   .attr("points", function(d) {
+      //       return ["9, 9", "20, 20", "50,20"].join(" ")
+      //   });
+      // selfNode.append("circle")
+      //   .classed("help", true)
+      //   // .classed("circle", true)
+      //   .attr("cx", 0)
+      //   .attr("cy", 0)
+      //   .attr("r", 12.727)
+      //   // .style("opacity", opacityOuter)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   ;
       }
 
 
@@ -1707,12 +1709,69 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
 } // END upsertNode
 
+function isNotSelf(d) {
+    return !isSelf(d);
+}
 function dismissHelp() {
     onInVisLegendShownCallbacks.fire(inVisLegendCounter);
 
     var help = visualization.selectAll(".help");
     help.style("display", "none");
-    
+
+
+    // var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
+
+    //   .style("display", chooseDisplayForOuterCircle)
+    //   .attr("r", chooseCircleRadiusOuter)
+    //   .style("fill", chooseFill)
+    //   .style("fill-opacity", 0.5)
+    //   .filter(isSelf)
+    //       .style("display", chooseDisplayForCircle)
+    //       .style("fill-opacity", 0)
+    //       .attr("r", chooseCircleRadiusOuter)
+    //       // .style("fill", chooseFill)
+    //       ;
+    if (inVisLegendCounter === 1) {
+        dotsShouldWiggle = true;
+        wiggleUp();
+        showHintOthers();
+        inVisLegendCounter += 1;
+    } else {
+        dotsShouldWiggle = false;
+        hideHintOthers();
+    }
+}
+var dotsShouldWiggle = false;
+function wiggleUp() {
+    if (!dotsShouldWiggle) {
+        return;
+    }
+
+    var dfd = $.Deferred();
+    dfd.done(wiggleDown);    
+    var dfdDown = $.Deferred();
+    dfdDown.done(wiggleUp);
+    var update = visualization.selectAll(".node");
+    var circleUpdateInner = update.selectAll(".circle.bktvi");
+    circleUpdateInner
+      .filter(isNotSelf)
+      .transition()
+      .style("stroke-width", "2px") // NOTE: using tranform to select the scale
+      .style("stroke", "#777") // NOTE: using tranform to select the scale      
+      .duration(500)
+      .each("end", dfd.resolve);
+
+    function wiggleDown() {
+        circleUpdateInner
+        .filter(isNotSelf)
+        .transition()
+          .style("stroke-width", "0px") // NOTE: using tranform to select the scale
+          .style("stroke", "#777") // NOTE: using tranform to select the scale      
+          .duration(500)
+          .each("end", dfdDown.resolve)
+          ;
+          // dfd.resolve();
+    }
 }
 
 function selectComment(tid) {
@@ -2002,6 +2061,25 @@ function hideVisBlocker() {
     visBlockerOn = false;
 
     blocker_layer.selectAll(".visBlocker")
+        .remove()
+    ;
+}
+
+
+function showHintOthers() {
+    blocker_layer.append("text")
+            .text("other participants")
+            .classed("hintOthers", true)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#222")
+            .attr("transform", "translate("+ 
+                w/2 +
+                "," + (9*h/24) + ")")
+    ;
+}
+
+function hideHintOthers() {
+    blocker_layer.selectAll(".hintOthers")
         .remove()
     ;
 }
