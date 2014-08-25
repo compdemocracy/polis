@@ -104,12 +104,12 @@ window.color = function() {
 }
 
 var colorPass = "#BDC3C7"; // SILVER
-var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
+var colorSelf = "rgb(0, 186, 255)"; // blue - like the 'you are here' in mapping software
 var colorNoVote = colorPass;
 // var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
 // var colorPullOutline = d3.rgb(colorPull).darker().toString();
 // var colorPushOutline = d3.rgb(colorPush).darker().toString();
-
+var colorSelfOutline = "rgba(0, 0, 245, 0.25)";
 
 // Cached results of tunalbes - set during init
 var strokeWidth;
