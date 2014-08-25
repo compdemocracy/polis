@@ -43,17 +43,22 @@
   [conf context collector]
   (let [poll-interval   1000
         pg-spec         (poll/heroku-db-spec (env/env :database-url))
-        mg-db           (poll/mongo-connect! (env/env :mongo-url))
-        last-timestamp  (atom 0)]
+        mg-db           (poll/mongo-connect! (env/env :mongolab-uri))
+        last-timestamp  (atom 1408443417955)]
     (spout
       (nextTuple []
         (Thread/sleep poll-interval)
         (println "poll >" @last-timestamp)
         (let [new-votes (poll/poll pg-spec @last-timestamp)
-              grouped-votes (group-by :zid)]
+              grouped-votes (group-by :zid new-votes)]
           (doseq [[zid rxns] grouped-votes]
             (emit-spout! collector [zid @last-timestamp rxns]))
-          (swap! last-timestamp (fn [_] (:created (last new-votes))))))
+          (if-let [last-vote (last new-votes)]
+            (do
+              (println "XXX last..." last-vote)
+              (swap! last-timestamp (fn [_] (:created last-vote))))
+            (println "XXX no votes")
+            )))
       (ack [id]))))
 
 
