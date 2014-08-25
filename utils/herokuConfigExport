@@ -1,6 +1,0 @@
-#!/bin/sh
-
-# usage (unsafe!)
-#  eval `./bin/herokuConfigExport`
-
-heroku config --app polisapp | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | sed "s/^/export /"
