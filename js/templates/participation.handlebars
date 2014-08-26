@@ -154,13 +154,21 @@ col-lg-offset-0 col-lg-12
     {{/ifEmbedded}}
     >
     <div id="visualization_parent_div" style="text-align: right">
-      <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default; display: none">
-        <img src="https://pol.is/polis-favicon_favicon.png" height="20px">
+      <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default;">
+        <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
         Opinion Groups
       </div>
 
-<div class="center HeadingG" style="text-align: center; text-transform:uppercase">These are other participants
-<button id="legendToggle" class="btn Btn-alt" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white;">NEXT &nbsp; <i class="fa fa-step-forward"></i></button>
+<div class=" HeadingG" style="text-align: center; " >
+
+
+{{!-- The blue dot is you --}}
+{{!-- Grey dots are other participants --}}
+{{!-- Voted similarly --}}
+{{!-- Voted differently --}}
+
+
+<button id="legendToggle" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white;">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
 </div>
 
       <div class="participationCount HeadingF visible-xs"></div>

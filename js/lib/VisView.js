@@ -1530,16 +1530,20 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       //   .style("stroke-width", helpStrokeWidth)
       //   ;
 
+        $("#opinion_groups_label").html("<p class=\"HeadingG pull-left\"><i class=\"fa fa-dot-circle-o\" style=\"color: #3694E1;\"></i>&nbsp;The blue dot is you</p>");
+
+
       var selfNode = g.filter(isSelf);
       selfNode.append("text")
         .classed("help", true)
-        .text("you")
+        .classed("help_text_you", true)
+        .text("You")
         .attr("text-anchor", "start")
         // .attr("fill", "rgba(0,0,0,1.0)")
         .attr("fill", colorSelf)
         .attr("stroke", colorSelfOutline)
         .attr("transform", function(d) {
-            return "translate(12, 4)";
+            return "translate(12, 6)";
         });
       // selfNode.append("polyline")
       //   .classed("help", true)
@@ -1736,31 +1740,11 @@ function dismissHelp() {
         onInVisLegendShownCallbacks.fire(inVisLegendCounter);
         if (inVisLegendCounter === 1) {
             var dfdHideShadows = $.Deferred();
-            d3.selectAll(".hull_selection").transition().style("opacity", 0);
-            d3.selectAll(".hull_shadow").transition().style("opacity", 0).each("end", dfdHideShadows.resolve);
-            dfdHideShadows.done(function() {
-                var dfdHide = $.Deferred();
-                d3.selectAll(".hull").transition().style("opacity", 0).duration(500).each("end", dfdHide.resolve);
-                dfdHide.done(function() {
-                    d3.selectAll(".hull_selection").style("display", "none");
-                    d3.selectAll(".hull_shadow").style("display", "none");
-                    d3.selectAll(".hull").style("display", "none");
-                });
-            });
             dotsShouldWiggle = true;
             wiggleUp();
             showHintOthers();
             inVisLegendCounter += 1;
         } else {
-            d3.selectAll(".hull_selection").style("display", "");
-            d3.selectAll(".hull_shadow").style("display", "");
-            d3.selectAll(".hull").style("display", "");
-            var dfd = $.Deferred();
-            d3.selectAll(".hull").transition().style("opacity", 1).duration(500).each("end", dfd.resolve);
-            dfd.done(function() {
-                d3.selectAll(".hull_selection").transition().style("opacity", 1).duration(500);
-                d3.selectAll(".hull_shadow").transition().style("opacity", 1).duration(500);
-            });
             dotsShouldWiggle = false;
             hideHintOthers();
         }
@@ -2230,11 +2214,15 @@ function showHintOthers() {
         .style("opacity", 0)
         .duration(500);
 
-    blocker_layer.append("text")
-            .text("other participants")
+    $("#opinion_groups_label").html("<p class=\"HeadingG pull-left\"><i class=\"fa fa-group\" style=\"color: rgb(189, 195, 199)\"></i>&nbsp;Other participants</p>");
+
+
+    blocker_layer
+            // .append("text")
+            // .text("other participants")
             .style("cursor", "default")
             .classed("hintOthers", true)
-            .attr("text-anchor", "middle")
+            // .attr("text-anchor", "middle")
             .attr("fill", "#222")
             .attr("transform", "translate("+ 
                 w/2 +
