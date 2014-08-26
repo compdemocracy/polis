@@ -196,12 +196,16 @@ $(document).ready(function() {
 		'</p>' +
 		'</div>' +
 '</div>');
-		 ga("send", "event", "SignUp", "emailSubmitted", "general");
-				}).fail(function(){
-						ga("send", "event", "SignUp", "emailSubmitFail");
-						$(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
-				});
-				return false;
+     ga("send", "event", "SignUp", "emailSubmitted", "general");
+        }).fail(function(xhr){
+        	if (xhr && xhr.responseText === "polis_err_param_parse_failed_email") {
+	        	// email empty or didn't parse as email
+        	}
+
+            ga("send", "event", "SignUp", "emailSubmitFail");
+            $(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
+        });
+        return false;
 })
 });
 </script>
