@@ -24,11 +24,6 @@ var VotesCollection = require("../collections/votes");
 var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
 
-// function updateRepness(tidToRepness) {
-//   this.each(function(model) {
-//     model.set("repness", tidToRepness[model.get("tid")], {silent: true});
-//   });
-// }
 
     
 var groupNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -97,7 +92,6 @@ module.exports =  Handlebones.ModelView.extend({
 
         this.commentsCollection = new CommentsCollection();
         this.commentsCollection.firstFetchPromise = $.Deferred();
-        // this.commentsCollection.updateRepness = updateRepness;
         this.commentsCollection.fetch = this.commentsCollection.doFetch = doFetch;
 
         var gid = this.model.get("gid");

@@ -86,7 +86,7 @@ module.exports = function(params) {
     var pcY = {};
     var centerX = 0;
     var centerY = 0;
-    var repness = {}; // gid -> tid -> representativeness (bigger is more representative)
+    var repness; // gid -> [{data about most representative comments}]
     var votesForTidBid = {}; // tid -> bid -> {A: agree count, B: disagree count}
     var participantCount = 0;
     var bidToPid = [];
@@ -743,7 +743,6 @@ function clientSideBaseCluster(things, N) {
 
         console.dir(questionsWithAnswersWithChoices);
 
-        var repness = {};
 
         // ... 
 
@@ -1020,42 +1019,6 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    function groupVoteStats(bidsFromGroup, votesForTidBid) {
-        var inCluster = {};
-        _.each(bidsFromGroup, function(bid) {
-            inCluster[bid] = true;
-        });
-        var results = {};
-        _.each(votesForTidBid, function(bidToVote, tid) {
-            tid = Number(tid);
-            var inAgree = 0;
-            var inDisagree = 0;
-            var outAgree = 0;
-            var outDisagree = 0;
-            _.each(bidToVote.A, function(vote, bid) {
-                if (inCluster[bid]) {
-                    inAgree += vote;
-                } else {
-                    outAgree += vote;
-                }
-            });
-            _.each(bidToVote.D, function(vote, bid) {
-                if (inCluster[bid]) {
-                    inDisagree += vote;
-                } else {
-                    outDisagree += vote;
-                }
-            });
-            // repness score with + 1/2 psuedocounts/priors
-            var inAgreeProb = (inAgree + 1) / (inDisagree + inAgree + 2);
-            var repness = Math.pow(inAgreeProb, 2.0) / ((outAgree + 1) / (outDisagree + outAgree + 2));
-            // Agreement within the group is super important, so let's multiply it in there twice.
-            results[tid] = {repness: repness, inAgreeProb: inAgreeProb};
-        });
-
-        return results;
-    }
-
     function fetchLatestPca() {
         return fetchPca(pcaPath, lastServerTokenForPCA);
     }
@@ -1086,7 +1049,7 @@ function clientSideBaseCluster(things, N) {
                     }
                     var buckets = arraysToObjects(pcaData["base-clusters"]);
                     participantCount = sum(pcaData["base-clusters"].count);
-
+                    repness = pcaData["repness"];
                     // TODO we should include the vectors for each comment (with the comments?)
                     ///commentVectors = pcaData.commentVectors;
 
@@ -1112,6 +1075,17 @@ function clientSideBaseCluster(things, N) {
 
                     var votesBase = pcaData["votes-base"];
                     var indexToBid = pcaData["base-clusters"].id;
+
+                    // TEMP hack for bug in data
+                    if (!_.isUndefined(votesBase.tid)) {
+                        var tid = votesBase.tid
+                        votesBase[tid] = {};
+                        votesBase[tid].A = votesBase.A;
+                        votesBase[tid].D = votesBase.D;
+                        delete votesBase.tid;
+                        delete votesBase.A;
+                        delete votesBase.D;
+                    }
 
                     votesForTidBid = {};
                     var tids = _.map(_.keys(votesBase), Number);
@@ -1340,38 +1314,42 @@ function clientSideBaseCluster(things, N) {
         var dfd = $.Deferred();
         // delay since clustersCache might not be populated yet.
         $.when(votesForTidBidPromise, clustersCachePromise).done(function()  {
-            // Grab stats and turn into list of triples for easier mogrification
-            var tidToStats = groupVoteStats(clustersCache[gid], votesForTidBid);
 
-            var triples = _.map(tidToStats, function(stats, tid) {
-                tid = Number(tid);
-                return [tid, stats.repness, stats.inAgreeProb];
-            });
+            var tidToR = _.indexBy(repness[gid], "tid");
+            var tids = _.pluck(repness[gid], "tid");
+
+            // // Grab stats and turn into list of triples for easier mogrification
+            // var tidToStats = groupVoteStats(clustersCache[gid], votesForTidBid);
+
+            // var triples = _.map(tidToStats, function(stats, tid) {
+            //     tid = Number(tid);
+            //     return [tid, stats.repness, stats.inAgreeProb];
+            // });
             
-            // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
-            // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
-            // estimates, we can change the API
-            var tidToR = _.object(_.map(triples, function(t) {return [t[0], t[1]];}));
+            // // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
+            // // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
+            // // estimates, we can change the API
+            // var tidToR = _.object(_.map(triples, function(t) {return [t[0], t[1]];}));
 
-            // filter out comments with insufficient repness or agreement probability
-            var filteredTriples = _.filter(triples, function(t) {
-                return (t[1] > 1.2) & (t[2] > 0.6);
-            });
-            // If nothing is left, just take the single best comment
-            // XXX HACK
-            if (filteredTriples.length == 0) {
-                triples = [_.max(triples, function(t) {return t[1]})];
-            } else {
-                // otherwise sort and take max many, if specified
-                triples = filteredTriples.sort(function(a, b) {return b[1] - a[1];});
-                if (_.isNumber(max)) {
-                    triples = triples.slice(0, max);
-                }
-            }
-            // extract tids
-            var tids = _.map(triples, function(t) {
-                return t[0];
-            });
+            // // filter out comments with insufficient repness or agreement probability
+            // var filteredTriples = _.filter(triples, function(t) {
+            //     return (t[1] > 1.2) & (t[2] > 0.6);
+            // });
+            // // If nothing is left, just take the single best comment
+            // // XXX HACK
+            // if (filteredTriples.length == 0) {
+            //     triples = [_.max(triples, function(t) {return t[1]})];
+            // } else {
+            //     // otherwise sort and take max many, if specified
+            //     triples = filteredTriples.sort(function(a, b) {return b[1] - a[1];});
+            //     if (_.isNumber(max)) {
+            //         triples = triples.slice(0, max);
+            //     }
+            // }
+            // // extract tids
+            // var tids = _.map(triples, function(t) {
+            //     return t[0];
+            // });
             // resolve deferred
             dfd.resolve({
                 tidToR: tidToR,

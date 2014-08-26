@@ -182,8 +182,6 @@ module.exports = Handlebones.View.extend({
 
       var indexToTid = [];
 
-      var groupMode = gid !== -1;
-
       var info = that.groupInfo();
 
       // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
@@ -204,21 +202,37 @@ module.exports = Handlebones.View.extend({
 
       var htmlStrings = _.map(comments, function(c) {
           var tid = c.get('tid');
+          var repness = tidToR[tid];
+          var repfullForAgree = repness["repful-for"] === "agree";
           indexToTid.push(tid);
           var header;
-          if (groupMode) {
-            var v = info.votes[tid];
-            var percent = (v.gA_total / info.count * 100) >> 0; // WARNING duplicated in analyze-comment.js
-            header =
-                "<span class='a HeadingE' style='margin-right:3px'>&#9650; " + percent + "%</span>" +
-                "<span class='small' style='color:darkgray;'>("+ v.gA_total+"/"+info.count +") of this group agreed</span>";
-          } else {
-            header = 
-              "<span class='a' style='margin-right:10px'>&#9650; " + c.get("A") + "</span>" +
-              "<span class='d'>&#9660; " + c.get("D") + "</span>";
-          }
+          var v = info.votes[tid];
+
+          var percent = repfullForAgree ?
+            "&#9650; " + ((v.gA_total / info.count * 100) >> 0) : // WARNING duplicated in analyze-comment.js
+            "&#9660; " + ((v.gD_total / info.count * 100) >> 0); // WARNING duplicated in analyze-comment.js
+          var leClass = repfullForAgree ?
+            "a":
+            "d";
+          var count = repfullForAgree ?
+            v.gA_total :
+            v.gD_total;
+          // L10N gods forgive me
+          var word = repfullForAgree ?
+            "agreed" :
+            "disagreed";
+          var bodyColor = repfullForAgree ?
+            "#20442F" :
+            "rgb(68, 33, 33)";
+          var backgroundColor = repfullForAgree ?
+            "rgba(46, 204, 84, 0.07)" :
+            "rgba(231, 76, 60, 0.05)";
+          header =
+              "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% </span>" +
+              "<span class='small' style='color:darkgray;'>("+ count+"/"+info.count +") of this group "+ word + "</span>";
+
           var html = 
-            "<div style='cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+            "<div style='color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               "<p>" +
                 header +
               "</p>" +

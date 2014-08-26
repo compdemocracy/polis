@@ -474,7 +474,7 @@ module.exports =  ConversationView.extend({
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
-        that.analyzeGroupView.sortRepness();
+        // that.analyzeGroupView.sortRepness();
       });
       // that.analyzeGlobalView.showCarousel();
     });
