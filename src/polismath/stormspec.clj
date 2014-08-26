@@ -54,12 +54,9 @@
               grouped-votes (group-by :zid new-votes)]
           (doseq [[zid rxns] grouped-votes]
             (emit-spout! collector [zid @last-timestamp rxns]))
-          (if-let [last-vote (last new-votes)]
-            (do
-              (println "XXX last..." last-vote)
-              (swap! last-timestamp (fn [_] (:created last-vote))))
-            (println "XXX no votes")
-            )))
+          (swap! last-timestamp
+                 (fn [last-ts] (apply max 0 last-ts (map :created new-votes))))
+            ))
       (ack [id]))))
 
 
