@@ -2137,17 +2137,21 @@ function showHintVoteMoreBlocker() {
     //     .attr("ry", 5)
     // ;
 
+    var top = 5*h/18;
     blocker_layer.append("text")
             .classed("hintVoteMore", true)
             .classed("hintVoteMoreGraphic", true)
             .attr("transform", "translate("+ 
                 w/2 +
-                "," + 4*h/18 +")")
+                "," + top +")")
             .attr("text-anchor", "middle")
             .attr("fill", "#fff")
+            .style("cursor", "default")
+            .style("text-shadow", "0 1px 0 #fff")
             .text("\uf011 ") // uf011 fa-power-off
             .attr("font-weight", 100)
             .attr("font-size", "30px")
+            .style("-webkit-font-smoothing", "antialiased")
             .attr("fill", "#0a8200")
         .attr('font-family', 'FontAwesome')
         .attr('font-size', function(d) { return '4em'} )
@@ -2156,13 +2160,17 @@ function showHintVoteMoreBlocker() {
 
     blocker_layer.append("text")
             .style("font-size", "50px")
+            .style("cursor", "default")
             .classed("hintVoteMore", true)
             .classed("hintVoteMoreMainText", true)
             .attr("text-anchor", "middle")
             .attr("fill", "#000")
+            .attr('font-family', 'chaparral-pro')
+            .style("text-shadow", "0 1px 0 #fff")
+            .style("-webkit-font-smoothing", "antialiased")
             .attr("transform", "translate("+ 
                 w/2 +
-                "," + (8*h/18) + ")")
+                "," + (top + 50 + 20) + ")")
     ;
     blocker_layer.select(".hintVoteMoreMainText")
             .append("tspan")
@@ -2204,7 +2212,12 @@ function hideHintVoteMoreBlocker() {
     $("#main_layer").show();
     d3.selectAll("#main_layer").transition().style("opacity", 1).duration(500);
     blocker_layer.selectAll(".hintVoteMore")
-        .remove()
+    .transition()
+        .style("opacity", 0)
+        .duration(500)
+        .each("end", function() {
+            blocker_layer.selectAll(".hintVoteMore").remove();
+        })
     ;
 }
 
@@ -2213,7 +2226,9 @@ function showHintOthers() {
     // Don't show self when explaining others
     visualization.selectAll(".node")
         .filter(isSelf)
-        .style("opacity", 0);
+        .transition()
+        .style("opacity", 0)
+        .duration(500);
 
     blocker_layer.append("text")
             .text("other participants")
@@ -2231,8 +2246,10 @@ function hideHintOthers() {
 
     visualization.selectAll(".node")
         .filter(isSelf)
-        .style("opacity", 1);
-
+        .transition()
+        .style("opacity", 1)
+        .duration(500)
+    ;
     blocker_layer.selectAll(".hintOthers")
         .remove()
     ;

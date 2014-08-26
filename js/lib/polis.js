@@ -76,6 +76,9 @@ module.exports = function(params) {
 
     // collections
     var votesByMe = params.votesByMe;
+    if (demoMode()) {
+        votesByMe.trigger("change", votesByMe);
+    }
     var allComments = [];
 
     // allComments.on("add remove reset", function() {
