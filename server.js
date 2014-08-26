@@ -113,7 +113,19 @@ akismet.verifyKey(function(err, verified) {
 });
 
 
-pg.defaults.poolSize = 4; // max connections is 20 on current (basic) plan. so we can run 2 proxies, 2 dev proxies, and a few pollers. We'll have to upgrade the plan before we can safely bump up this pool size.
+// heroku pg standard plan has 120 connections
+// plus a dev poller connection and a direct db connection
+// 3 devs * (2 + 1 + 1) = 12 for devs
+// plus the prod and preprod pollers = 14
+// round up to 20
+// plus the preprod front-end server = 30
+// 100 remaining
+// so we can have up to 9 prod front-end servers
+if (devMode) {
+    pg.defaults.poolSize = 2;
+} else {
+    pg.defaults.poolSize = 10; 
+}
 
 
 
@@ -130,7 +142,7 @@ function isSpam(o) {
 }
 
 
-app.disable('x-powered-by'); // save a whale
+app.disable('x-powered-by');
 
 // airbrake.handleExceptions();
 
