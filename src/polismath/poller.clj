@@ -15,7 +15,6 @@
             [monger.collection :as mgcol]
             [environ.core :as env]))
 
-
 (def metric (make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
 
 (defmacro meter
@@ -138,7 +137,8 @@
             (->> (format-conv-for-mongo prep-for-uploading-bidToPid-mapping (@conversations zid) zid lastVoteTimestamp)
               (mongo-upsert-results (mongo-collection-name "bidToPid")))))
 
-        ; Update last-timestamp
-        (swap! last-timestamp (fn [_] (:created (last new-votes))))))))
+        ; Update last-timestamp, if needed
+        (when-let [last-vote (last new-votes)]
+          (swap! last-timestamp (fn [_] (:created last-vote))))))))
 
 

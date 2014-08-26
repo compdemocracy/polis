@@ -1,5 +1,5 @@
 (ns polismath.pretty-printers
-  (:require 'clojure.pprint :refer :all))
+  (:require [clojure.pprint :refer :all]))
 
 
 (defn str-repeat [s n]
