@@ -709,12 +709,16 @@ String.prototype.hashCode = function(){
 };
 
 function fail(res, httpCode, clientVisibleErrorString, err) {
-    userFail(res, httpCode, clientVisibleErrorString, err);
+    emitTheFailure(res, httpCode, "polis_err", clientVisibleErrorString, err);
     yell(clientVisibleErrorString);
 }
 
 function userFail(res, httpCode, clientVisibleErrorString, err) {
-    console.error(clientVisibleErrorString, err);
+    emitTheFailure(res, httpCode, "polis_user_err", clientVisibleErrorString, err);
+}
+
+function emitTheFailure(res, httpCode, extraErrorCodeForLogs, clientVisibleErrorString, err) {
+    console.error(clientVisibleErrorString, extraErrorCodeForLogs, err);
     if (err && err.stack) {
         console.error(err.stack);
     }
@@ -1899,7 +1903,7 @@ function(req, res) {
         var yourBid = indexToBid[yourBidi];
 
         if (yourBidi >= 0 && _.isUndefined(yourBid)) {
-            console.error("polis_err_math_index_mapping_mismatch");
+            console.error("polis_err_math_index_mapping_mismatch", "pid was", pid, "bidToPid was", JSON.stringify(b2p));
             yell("polis_err_math_index_mapping_mismatch");
             yourBid = -1;
         }
