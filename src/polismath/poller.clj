@@ -113,7 +113,6 @@
       ; Get and split new votes
       (let [new-votes (poll pg-spec @last-timestamp)
             zid-votes (group-by :zid new-votes)]
-        (println "XXXX - last:" (last new-votes) "max: " (apply max 0 @last-timestamp (map :created new-votes)))
         ; For each conv... 
         (doseq [[zid votes] zid-votes]
           (let [lastVoteTimestamp (:created (last votes))
