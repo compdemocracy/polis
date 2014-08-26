@@ -283,17 +283,23 @@
     (count (filter filt-fn votes))))
 
 
-(defn- initial-comment-stats [vote-col]
-  ((gr/eager-compile
-     {:na (fnk [votes] (count-votes votes -1))
-      :nd (fnk [votes] (count-votes votes  1))
-      :ns (fnk [votes] (count-votes votes))
-      ; XXX - Change when we flip votes!!!
-      :pa (fnk [na ns] (/ (+ 1 na) (+ 2 ns)))
-      :pd (fnk [nd ns] (/ (+ 1 nd) (+ 2 ns)))
-      :pat (fnk [na ns] (prop-test na ns))
-      :pdt (fnk [nd ns] (prop-test nd ns))})
-    {:votes vote-col}))
+(let [initial-comment-stats-graphimpl
+        (gr/eager-compile
+          {:na (fnk [votes] (count-votes votes -1))
+           :nd (fnk [votes] (count-votes votes  1))
+           :ns (fnk [votes] (count-votes votes))
+           ; XXX - Change when we flip votes!!!
+           :pa (fnk [na ns] (/ (+ 1 na) (+ 2 ns)))
+           :pd (fnk [nd ns] (/ (+ 1 nd) (+ 2 ns)))
+           :pat (fnk [na ns] (prop-test na ns))
+           :pdt (fnk [nd ns] (prop-test nd ns))})]
+  ; The graph implementation is in a closure so that we don't reify classes every time function is called.
+  ; This can cause PermGen space crashes.
+  (defn- initial-comment-stats
+    "Vote count stats for a given vote column. This vote column should represent the votes for a specific
+    comment and group. Group comparisons happen later."
+    [vote-col]
+    (initial-comment-stats-graphimpl {:votes vote-col})))
 
 
 (defn- add-comparitive-stats [in-stats rest-stats]
