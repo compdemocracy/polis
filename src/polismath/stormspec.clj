@@ -119,13 +119,13 @@
   (let [cluster (LocalCluster.)]
     (.submitTopology cluster
                      "online-pca"
-                     {TOPOLOGY-DEBUG true}
+                     {TOPOLOGY-DEBUG false}
                      (mk-topology sim write))))
 
 
 (defn submit-topology! [name {sim :sim write :write}]
   (StormSubmitter/submitTopology name
-    {TOPOLOGY-DEBUG true
+    {TOPOLOGY-DEBUG false
      TOPOLOGY-WORKERS 3}
     (mk-topology sim write)))
 
