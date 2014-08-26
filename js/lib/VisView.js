@@ -520,7 +520,14 @@ function onClusterClicked(d) {
 function exitTutorial() {
   dotsShouldWiggle = false;
   inVisLegendCounter = Infinity;
+  removeTutorialStepOne();
   onInVisLegendShownCallbacks.fire(inVisLegendCounter);
+}
+
+// TODO needs tutorial step advancement needs rethinking
+function removeTutorialStepOne() {
+    var help = visualization.selectAll(".help");
+    help.style("display", "none");
 }
 
 function handleOnClusterClicked(hullId) {
@@ -1741,8 +1748,7 @@ function tutorialNextClicked() {
     //       // .style("fill", chooseFill)
     //       ;
     if (!visBlockerOn && !voteMoreOn) {
-        var help = visualization.selectAll(".help");
-        help.style("display", "none");
+        removeTutorialStepOne();
         onInVisLegendShownCallbacks.fire(inVisLegendCounter);
         if (inVisLegendCounter === 1) {
             var dfdHideShadows = $.Deferred();
