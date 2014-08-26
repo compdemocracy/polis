@@ -59,10 +59,6 @@ function compareTieBreaker(a, b) {
   // x = x || (b.get("txt").toLowerCase() < a.get("txt").toLowerCase()) ? 1 : -1; // alphabetic
   return x;
 }
-// function sortRepness(a, b) {
-//   var x = bbCompare("repness", a, b);
-//   return x || compareTieBreaker(a, b);
-// }
 function comparatorAgree(a, b) {
   var x = bbCompare("A", a, b);
   x = x || bbCompareAscending("D", a, b);
@@ -159,12 +155,6 @@ module.exports = Handlebones.View.extend({
     // this.selectFirst();
     this.selectSortModes("#sortDivisive");
   },
-  // sortRepness: function(e) {
-  //   // There are no buttons associated with this.
-  //   this.collection.comparator = sortRepness;
-  //   this.collection.sort();
-  //   // this.selectFirst();
-  // },
   useCarousel: function() {
     return true;
     // return !Utils.isIE8() && display.xs();
@@ -201,12 +191,6 @@ module.exports = Handlebones.View.extend({
       comments = _.filter(comments, function(comment) {
         return _.contains(that.tidsForGroup, comment.get('tid'));
       });
-
-      // if (tidToR) {
-      //   _.each(comments, function(model) {
-      //     model.repness = tidToR[model.get("tid")];
-      //   });
-      // }
 
       // XXX HACK - should ideally be incorporated in the primary sort that we do before truncating the array.
       comments.sort(function(a, b) {
