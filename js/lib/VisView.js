@@ -1739,18 +1739,27 @@ function dismissHelp() {
             d3.selectAll(".hull_selection").transition().style("opacity", 0);
             d3.selectAll(".hull_shadow").transition().style("opacity", 0).each("end", dfdHideShadows.resolve);
             dfdHideShadows.done(function() {
-                d3.selectAll(".hull").transition().style("opacity", 0).duration(500);
+                var dfdHide = $.Deferred();
+                d3.selectAll(".hull").transition().style("opacity", 0).duration(500).each("end", dfdHide.resolve);
+                dfdHide.done(function() {
+                    d3.selectAll(".hull_selection").style("display", "none");
+                    d3.selectAll(".hull_shadow").style("display", "none");
+                    d3.selectAll(".hull").style("display", "none");
+                });
             });
             dotsShouldWiggle = true;
             wiggleUp();
             showHintOthers();
             inVisLegendCounter += 1;
         } else {
+            d3.selectAll(".hull_selection").style("display", "");
+            d3.selectAll(".hull_shadow").style("display", "");
+            d3.selectAll(".hull").style("display", "");
             var dfd = $.Deferred();
-            d3.selectAll(".hull").transition().style("opacity", 1).each("end", dfd.resolve);
+            d3.selectAll(".hull").transition().style("opacity", 1).duration(500).each("end", dfd.resolve);
             dfd.done(function() {
-                d3.selectAll(".hull_selection").transition().style("opacity", 1);
-                d3.selectAll(".hull_shadow").transition().style("opacity", 1);
+                d3.selectAll(".hull_selection").transition().style("opacity", 1).duration(500);
+                d3.selectAll(".hull_shadow").transition().style("opacity", 1).duration(500);
             });
             dotsShouldWiggle = false;
             hideHintOthers();
@@ -2081,31 +2090,96 @@ function hideVisBlocker() {
     ;
 }
 
+// http://bl.ocks.org/mbostock/7555321
+function wrap(text, width) {
+  text.each(function() {
+    var text = d3.select(this),
+        words = text.text().split(/\s+/).reverse(),
+        word,
+        line = [],
+        lineNumber = 0,
+        lineHeight = 1.1, // ems
+        y = text.attr("y"),
+        dy = parseFloat(text.attr("dy")),
+        tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
+    while (word = words.pop()) {
+      line.push(word);
+      tspan.text(line.join(" "));
+      if (tspan.node().getComputedTextLength() > width) {
+        line.pop();
+        tspan.text(line.join(" "));
+        line = [word];
+        tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
+      }
+    }
+  });
+}
+
 
 var voteMoreOn = false;
 function showHintVoteMoreBlocker() {
+    if (voteMoreOn) {
+        return;
+    }
     voteMoreOn = true;
+    $("#main_layer").hide();
+    $("#main_layer").css("opacity", 0);
 
-    blocker_layer.append("rect")
-        .classed("hintVoteMore", true)
-        .style("fill", "rgb(52, 152, 219)")
-        .attr("x", 1) // inset so it doesn't get cut off on firefox
-        .attr("y", 1) // inset so it doesn't get cut off on firefox
-        .attr("width", w-2) // inset so it doesn't get cut off on firefox
-        .attr("height", h-2) // inset so it doesn't get cut off on firefox
-        .style("stroke", "lightgray")
-        .attr("rx", 5)
-        .attr("ry", 5)
-    ;
+    // blocker_layer.append("rect")
+    //     .classed("hintVoteMore", true)
+    //     .style("fill", "rgb(52, 152, 219)")
+    //     .attr("x", 1) // inset so it doesn't get cut off on firefox
+    //     .attr("y", 1) // inset so it doesn't get cut off on firefox
+    //     .attr("width", w-2) // inset so it doesn't get cut off on firefox
+    //     .attr("height", h-2) // inset so it doesn't get cut off on firefox
+    //     .style("stroke", "lightgray")
+    //     .attr("rx", 5)
+    //     .attr("ry", 5)
+    // ;
+
     blocker_layer.append("text")
-            .text("Welcome! start by voting on a couple of comments")
+            .classed("hintVoteMore", true)
+            .classed("hintVoteMoreGraphic", true)
+            .attr("transform", "translate("+ 
+                w/2 +
+                "," + 4*h/18 +")")
+            .attr("text-anchor", "middle")
+            .attr("fill", "#fff")
+            .text("\uf011 ") // uf011 fa-power-off
+            .attr("font-weight", 100)
+            .attr("font-size", "30px")
+            .attr("fill", "#0a8200")
+        .attr('font-family', 'FontAwesome')
+        .attr('font-size', function(d) { return '4em'} )
+        ;
+
+
+    blocker_layer.append("text")
+            .style("font-size", "50px")
             .classed("hintVoteMore", true)
             .classed("hintVoteMoreMainText", true)
             .attr("text-anchor", "middle")
-            .attr("fill", "#fff")
+            .attr("fill", "#000")
             .attr("transform", "translate("+ 
                 w/2 +
-                "," + (9*h/24) + ")")
+                "," + (8*h/18) + ")")
+    ;
+    blocker_layer.select(".hintVoteMoreMainText")
+            .append("tspan")
+            .attr("x", 0)
+            .text("Welcome! Get started")
+    ;
+    blocker_layer.select(".hintVoteMoreMainText")
+            .append("tspan")
+            .attr("y", 50)
+            .attr("x", 0)
+            .text("by voting on a couple")
+    ;
+    blocker_layer.select(".hintVoteMoreMainText")
+            .append("tspan")
+            .attr("y", 100)
+            .attr("x", 0)
+            .text("of comments.")
     ;
     blocker_layer.append("text")
             .classed("hintVoteMore", true)
@@ -2122,8 +2196,13 @@ function showHintVoteMoreBlocker() {
 }
 
 function hideHintVoteMoreBlocker() {
+    if (!voteMoreOn) {
+        return;
+    }
     voteMoreOn = false;
 
+    $("#main_layer").show();
+    d3.selectAll("#main_layer").transition().style("opacity", 1).duration(500);
     blocker_layer.selectAll(".hintVoteMore")
         .remove()
     ;
@@ -2138,6 +2217,7 @@ function showHintOthers() {
 
     blocker_layer.append("text")
             .text("other participants")
+            .style("cursor", "default")
             .classed("hintOthers", true)
             .attr("text-anchor", "middle")
             .attr("fill", "#222")
