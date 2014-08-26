@@ -1735,11 +1735,23 @@ function dismissHelp() {
         help.style("display", "none");
         onInVisLegendShownCallbacks.fire(inVisLegendCounter);
         if (inVisLegendCounter === 1) {
+            var dfdHideShadows = $.Deferred();
+            d3.selectAll(".hull_selection").transition().style("opacity", 0);
+            d3.selectAll(".hull_shadow").transition().style("opacity", 0).each("end", dfdHideShadows.resolve);
+            dfdHideShadows.done(function() {
+                d3.selectAll(".hull").transition().style("opacity", 0).duration(500);
+            });
             dotsShouldWiggle = true;
             wiggleUp();
             showHintOthers();
             inVisLegendCounter += 1;
         } else {
+            var dfd = $.Deferred();
+            d3.selectAll(".hull").transition().style("opacity", 1).each("end", dfd.resolve);
+            dfd.done(function() {
+                d3.selectAll(".hull_selection").transition().style("opacity", 1);
+                d3.selectAll(".hull_shadow").transition().style("opacity", 1);
+            });
             dotsShouldWiggle = false;
             hideHintOthers();
         }
