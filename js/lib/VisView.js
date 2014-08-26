@@ -2130,6 +2130,12 @@ function hideHintVoteMoreBlocker() {
 }
 
 function showHintOthers() {
+
+    // Don't show self when explaining others
+    visualization.selectAll(".node")
+        .filter(isSelf)
+        .style("opacity", 0);
+
     blocker_layer.append("text")
             .text("other participants")
             .classed("hintOthers", true)
@@ -2142,6 +2148,11 @@ function showHintOthers() {
 }
 
 function hideHintOthers() {
+
+    visualization.selectAll(".node")
+        .filter(isSelf)
+        .style("opacity", 1);
+
     blocker_layer.selectAll(".hintOthers")
         .remove()
     ;
