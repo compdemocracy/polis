@@ -517,12 +517,18 @@ function onClusterClicked(d) {
     return handleOnClusterClicked(d.hullId);
 }
 
+function exitTutorial() {
+  dotsShouldWiggle = false;
+  inVisLegendCounter = Infinity;
+  onInVisLegendShownCallbacks.fire(inVisLegendCounter);
+}
+
 function handleOnClusterClicked(hullId) {
     // // if the cluster/hull just selected was already selected...    
     // if (selectedCluster === hullId) {                 
     //   return resetSelection();
     // }
-    dismissHelp();
+    exitTutorial();
 
     // resetSelectedComment();
     // unhoverAll();
@@ -1718,7 +1724,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 function isNotSelf(d) {
     return !isSelf(d);
 }
-function dismissHelp() {
+function tutorialNextClicked() {
 
 
 
@@ -2025,7 +2031,7 @@ function selectBackground() {
 
     updateHullColors();
   }
-  dismissHelp();
+  exitTutorial();
 }
 
 var visBlockerOn = false;
@@ -2412,6 +2418,7 @@ function selectGroup(gid) {
 
 onInVisLegendShownCallbacks = $.Callbacks();
 
+
 return {
     onInVisLegendShown: onInVisLegendShownCallbacks.add,
     upsertNode: upsertNode,
@@ -2423,6 +2430,7 @@ return {
     emphasizeParticipants: emphasizeParticipants,
     showHintVoteMoreBlocker: showHintVoteMoreBlocker,
     hideHintVoteMoreBlocker: hideHintVoteMoreBlocker,
+    tutorialNextClicked: tutorialNextClicked,
     getSelectedGid: getSelectedGid,
 };
 

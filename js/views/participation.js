@@ -89,6 +89,8 @@ module.exports =  ConversationView.extend({
         this.vis.showHintVoteMoreBlocker();
       } else {
         this.vis.hideHintVoteMoreBlocker();
+        $("#opinion_groups_label").fadeIn();
+        $("#nextTutorialStepButton").fadeIn();
       }
     }
   },
@@ -98,12 +100,6 @@ module.exports =  ConversationView.extend({
     ctx.xs = display.xs();
     ctx.showNewButton = true;
     return ctx;
-  },
-  changeLegendButtonToShow: function() {
-    this.$("#legendToggle").text("show legend");
-  },
-  changeLegendButtonToHide: function() {
-    this.$("#legendToggle").text("hide legend");
   },
   updateLineToSelectedCluster: function(gid) {
     if (this.vis) {
@@ -268,9 +264,11 @@ module.exports =  ConversationView.extend({
       });
       vis.onInVisLegendShown(function(counter) {
         that.inVisLegendCounter = counter;
-        // if (counter > 1) {
-        //   $("#opinion_groups_label").show();
-        // }
+        if (counter >= 2) {
+          // Done with tutorial
+          $("#opinion_groups_label").fadeOut();
+          $("#nextTutorialStepButton").fadeOut();
+        }
       });
       that.updateLineToSelectedCluster();
       if (that.selectedGid >= 0) {
@@ -474,15 +472,6 @@ module.exports =  ConversationView.extend({
       // eb.trigger(eb.commentSelected, false);
       // that.conversationTabs.doShowTabsUX();
     });
-    that.conversationTabs.on("beforehide:legend", function() {
-      that.changeLegendButtonToShow();
-      that.conversationTabs.showTabLabels();
-    });
-    that.conversationTabs.on("beforeshow:legend", function() {
-      that.conversationTabs.hideTabLabels();
-      moveVisToBottom();
-      that.showVis();
-    });
 
     that.conversationTabs.on("beforeshow:analyze", function() {
       that.enableVisAffix();
@@ -600,13 +589,8 @@ module.exports =  ConversationView.extend({
       $("#closeLegendButton").on("click", function() {
         that.conversationTabs.hideLegend();
       });
-      $("#legendToggle").on("click", function() {
-        that.conversationTabs.toggleLegend();
-        if (that.conversationTabs.onLegendTab()) {
-          that.changeLegendButtonToHide();
-        } else {
-          that.changeLegendButtonToShow();
-        }
+      $("#nextTutorialStepButton").on("click", function() {
+        that.vis.tutorialNextClicked();
       });
 
       scrollTopOnFirstShow();
