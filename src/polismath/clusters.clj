@@ -278,7 +278,10 @@
          (apply concat))))
 
 
-(defn- count-votes [votes & [vote]]
+(defn- count-votes
+  [votes & [vote]]
+  "Utility function for counting the number of votes matching `vote`. Not specifying `vote` returns
+  length of vote vector."
   (let [filt-fn (if vote #(= vote %) identity)]
     (count (filter filt-fn votes))))
 
@@ -297,12 +300,16 @@
   ; This can cause PermGen space crashes.
   (defn- initial-comment-stats
     "Vote count stats for a given vote column. This vote column should represent the votes for a specific
-    comment and group. Group comparisons happen later."
+    comment and group. Comparisons _between_ groups happen later. See `(doc conv-repness)` for key details."
     [vote-col]
     (initial-comment-stats-graphimpl {:votes vote-col})))
 
 
-(defn- add-comparitive-stats [in-stats rest-stats]
+(defn- add-comparitive-stats
+  "Builds on results of initial-comment-stats by doing comparisons _between_ groups. Args are
+  in group stats (as returned by initial-comment-stats), and list of stats for rest of groups.
+  See `(doc conv-repness)` for key details."
+  [in-stats rest-stats]
   (assoc in-stats
     :ra (/ (:pa in-stats)
            (/ (+ 1 (pc/sum :na rest-stats))
@@ -317,12 +324,19 @@
 
 
 (defn conv-repness
-  ; output legend: n=#, p=prob, r=rep, t=test, a=agree, d=disagree, s=seen
+  "Computes representativeness (repness) for a given data set, group clustering and base clustering,
+  returned as a map `{:ids __ :stats __}`. The `:stats` key maps to a sequences of results, one for each
+  group cluster, each of which is a sequence where the positional index corresponds to a particular
+  comment, and each value is a hash-map of statistics for the given group/comment. The hash keys obey the
+  following legend:
+    n=#, p=prob, r=rep, t=test, a=agree, d=disagree, s=seen
+  The :ids key maps to a vector of group ids in the same order they appear in the :stats sequence."
   [data group-clusters base-clusters]
   {:ids (map :id group-clusters)
    :stats
      (->> group-clusters
-       ; Base clusters may not be necessary if we use the already compute bucket vote stats
+       ; XXX - Base clusters may not be necessary if we use the already compute bucket vote stats
+       ; A lazy-seq of 
        (mapv (comp columns get-matrix (partial rowname-subset data) #(group-members % base-clusters)))
        (apply
          map
@@ -333,18 +347,24 @@
 
 
 (defn beats-best-by-test?
+  "Returns true if a given comment/group stat hash-map has a more representative z score than
+  current-best-z. Used for making sure we have at least _one_ representative comment for every group,
+  even if none are left over after the more thorough filters."
   [{:keys [pat rat rdt] :as comment-conv-stats} current-best-z]
   (or (nil? current-best-z)
       (> (max rat rdt) current-best-z)))
 
 
 (defn passes-by-test?
+  "Decide whether we should count a given comment-conv-stat hash-map as being representative."
   [{:keys [pat rat pdt rdt] :as comment-conv-stats}]
   (or (and (z-sig-90? rat) (z-sig-90? pat))
       (and (z-sig-90? rdt) (z-sig-90? pdt))))
 
 
 (defn finalize-cmt-stats
+  "Formats comment/repness stats to be consumable by clients. In particular, chooses between
+  agree/disagree as to which is more representative, and populates a more regular structure accordingly."
   [tid {:keys [na nd ns pa pd pat pdt ra rd rat rdt] :as comment-conv-stats}]
   (let [[n-success n-trials p-success p-test repness repness-test repful-for]
          (if (> rat rdt)
@@ -361,6 +381,9 @@
 
 
 (defn select-rep-comments
+  "Selects representative comments based on beats-best-by-test? and passes-by-test?. Always ensures
+  there is at least one representative comment for a given cluster. Takes the results of conv-repness
+  and returns a map of group cluster ids to representative comments and stats."
   [{:keys [ids stats] :as repness-stats}]
   ; Reduce statistics into a results hash mapping group ids to rep comments
   (->>
