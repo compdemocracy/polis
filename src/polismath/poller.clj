@@ -113,7 +113,8 @@
       ; Get and split new votes
       (let [new-votes (poll pg-spec @last-timestamp)
             zid-votes (group-by :zid new-votes)]
-        ; For each conv...
+        (println "XXXX - last:" (last new-votes) "max: " (apply max 0 @last-timestamp (map :created new-votes)))
+        ; For each conv... 
         (doseq [[zid votes] zid-votes]
           (let [lastVoteTimestamp (:created (last votes))
                 start-time        (System/currentTimeMillis)
@@ -138,7 +139,7 @@
               (mongo-upsert-results (mongo-collection-name "bidToPid")))))
 
         ; Update last-timestamp, if needed
-        (when-let [last-vote (last new-votes)]
-          (swap! last-timestamp (fn [_] (:created last-vote))))))))
+        (swap! last-timestamp
+               (fn [last-ts] (apply max 0 last-ts (map :created new-votes))))))))
 
 
