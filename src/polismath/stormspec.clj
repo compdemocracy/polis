@@ -44,7 +44,8 @@
   (let [poll-interval   1000
         pg-spec         (poll/heroku-db-spec (env/env :database-url))
         mg-db           (poll/mongo-connect! (env/env :mongolab-uri))
-        last-timestamp  (atom 1408443417955)]
+        ;last-timestamp  (atom 1408443417955)]
+        last-timestamp  (atom 0)]
     (spout
       (nextTuple []
         (Thread/sleep poll-interval)
