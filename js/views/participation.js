@@ -268,9 +268,9 @@ module.exports =  ConversationView.extend({
       });
       vis.onInVisLegendShown(function(counter) {
         that.inVisLegendCounter = counter;
-        if (counter > 1) {
-          $("#opinion_groups_label").show();
-        }
+        // if (counter > 1) {
+        //   $("#opinion_groups_label").show();
+        // }
       });
       that.updateLineToSelectedCluster();
       if (that.selectedGid >= 0) {
