@@ -1,8 +1,8 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [polismath.simulation :as sim]
-            [polismath.poller :as poll]
             [polismath.queued-agent :as qa]
+            [polismath.conv-man :as cm]
             [environ.core :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]])
@@ -32,7 +32,6 @@
               split-rxns (group-by :zid rxn-batch)
               last-timestamp (System/currentTimeMillis)]
           (Thread/sleep interval)
-          (println "RUNNING SPOUT")
           (swap! reaction-gen (partial drop at-a-time))
           (doseq [[zid rxns] split-rxns]
             (emit-spout! collector [zid last-timestamp rxns]))))
@@ -42,69 +41,40 @@
 (defspout reaction-spout ["zid" "last-timestamp" "reaction"] {:prepare true}
   [conf context collector]
   (let [poll-interval   1000
-        pg-spec         (poll/heroku-db-spec (env/env :database-url))
-        mg-db           (poll/mongo-connect! (env/env :mongolab-uri))
-        ;last-timestamp  (atom 1408443417955)]
+        pg-spec         (cm/heroku-db-spec (env/env :database-url))
+        mg-db           (cm/mongo-connect! (env/env :mongolab-uri))
         last-timestamp  (atom 0)]
     (spout
       (nextTuple []
         (Thread/sleep poll-interval)
         (println "poll >" @last-timestamp)
-        (let [new-votes (poll/poll pg-spec @last-timestamp)
+        (let [new-votes (cm/poll pg-spec @last-timestamp)
               grouped-votes (group-by :zid new-votes)]
+          ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid rxns] grouped-votes]
             (emit-spout! collector [zid @last-timestamp rxns]))
+          ; Update timestamp if needed
           (swap! last-timestamp
-                 (fn [last-ts] (apply max 0 last-ts (map :created new-votes))))
-            ))
+                 (fn [last-ts] (apply max 0 last-ts (map :created new-votes))))))
       (ack [id]))))
 
 
-(defn get-or-set!
-  "Either gets the key state of a collection atom, or sets it to a val"
-  [coll-atom key & [init-fn]]
-  (or (get @coll-atom key)
-      (do
-        (swap! coll-atom assoc key (init-fn))
-        (get-or-set! coll-atom key))))
-
-
-(defn update-fn-builder [zid write?]
-  (fn [conv values]
-    (let [votes (flatten (map :reactions values))
-          last-timestamp (apply max (map :last-timestamp values))
-          new-conv (conv-update conv votes)]
-      (Thread/sleep 5000)
-      ; Format and upload results
-      (when write?
-        (->> (poll/format-conv-for-mongo conv zid last-timestamp)
-          (poll/mongo-upsert-results "polismath_bidToPid_april9" zid last-timestamp)))
-      new-conv)))
-
-
-(defn new-conv-agent-builder [update-fn]
-  (fn []
-    (qa/queued-agent
-      :update-fn update-fn
-      :init-fn new-conv)))
-
-
-(defbolt conv-update-bolt [] {:prepare true :params [write?]}
+(defbolt conv-update-bolt [] {:prepare true}
   [conf context collector]
   (let [conv-agency (atom {})]
     (bolt
       (execute [tuple]
         (let [[zid last-timestamp rxns] (.getValues tuple)
-              conv-agent (->> (update-fn-builder zid write?)
-                              (new-conv-agent-builder)
-                              (get-or-set! conv-agency zid))]
+              conv-agent (->> (cm/update-fn-builder zid)
+                              (cm/new-conv-agent-builder)
+                              (cm/get-or-set! conv-agency zid))]
           (qa/enqueue conv-agent {:last-timestamp last-timestamp :reactions rxns})
           ; This just triggers the :update-watcher in case new votes are pending and nothing is running
           (qa/ping conv-agent))
         (ack! collector tuple)))))
 
 
-(defn mk-topology [sim? write?]
+(defn mk-topology [sim?]
   (topology
     ; Spouts:
     {"1" (spout-spec
@@ -112,22 +82,22 @@
     ; Bolts:
     {"2" (bolt-spec
            {"1"  ["zid"]}
-           (conv-update-bolt write?))}))
+           conv-update-bolt)}))
 
 
-(defn run-local! [{sim :sim write :write}]
+(defn run-local! [{sim :sim}]
   (let [cluster (LocalCluster.)]
     (.submitTopology cluster
                      "online-pca"
                      {TOPOLOGY-DEBUG false}
-                     (mk-topology sim write))))
+                     (mk-topology sim))))
 
 
-(defn submit-topology! [name {sim :sim write :write}]
+(defn submit-topology! [name {sim :sim}]
   (StormSubmitter/submitTopology name
     {TOPOLOGY-DEBUG false
      TOPOLOGY-WORKERS 3}
-    (mk-topology sim write)))
+    (mk-topology sim)))
 
 
 (def cli-options
