@@ -119,6 +119,7 @@
 
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    (println "Submitting storm topology")
     (cond
       (:help options)   (exit 0 (usage summary))
       (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
