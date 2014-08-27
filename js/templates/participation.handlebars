@@ -146,6 +146,9 @@ col-lg-offset-0 col-lg-12
   </div> {{! /column }}
 
 
+  <div id="voteMoreParent">
+    {{ view voteMoreView }}
+  </div>
   <span id="vis_sibling_bottom" class="col-xs-12 col-sm-6 col-md-7 col-lg-8"
     {{#ifEmbedded}}
     {{#ifIos}}
@@ -171,14 +174,14 @@ col-lg-offset-0 col-lg-12
 <button id="nextTutorialStepButton" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:none">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
 </div>
 
+    <div id="visualization_parent_div" style="text-align: left">
+      {{ view tutorialView }}
       <div class="participationCount HeadingF visible-xs"></div>
       <div id="visualization_div" class="vis_container">
       </div>
       <div class="participationCount HeadingF hidden-xs"></div>
-    </div>
+    </div> {{! /visualization_parent_div }}
   </span>
-
-
 
     <div
       id="write_hints_div"

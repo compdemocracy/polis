@@ -1407,8 +1407,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       //   .style("stroke-width", helpStrokeWidth)
       //   ;
 
-        $("#opinion_groups_label").html("<p class=\"HeadingG pull-left\"><i class=\"fa fa-dot-circle-o\" style=\"color: #3694E1;\"></i>&nbsp;The blue dot is you</p>");
-
 
       var selfNode = g.filter(isSelf);
       selfNode.append("text")
@@ -1711,37 +1709,14 @@ function doUpdateNodes() {
       }
   } else {
       var update = visualization.selectAll(".node");
-
-              // var commonUpdate = update.selectAll(".node > .bktv")
-              //     ;
-              // var commonUpdateInner = update.selectAll(".node > .bktvi")
-              //     // .style("stroke-width", strokeWidth)
-              //     // .style("stroke", chooseStroke)
-              //     // .style("transform", "scale(0.5)")
-              //     ;
-
-      // var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
-      //     .style("display", chooseDisplayForArrows)
-      //     .attr("points", chooseUpArrowPath)
-      //     // .style("fill", colorPull)
-      //     ;
         var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
-
-      // var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
-      //     .style("display", chooseDisplayForArrows)
-      //     .attr("points", chooseDownArrowPath)
-      //     // .style("fill", colorPush)
-      //     ;
-    
         var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
           ;
-    
-
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
           .style("display", chooseDisplayForOuterCircle)
           .attr("r", chooseCircleRadiusOuter)
@@ -1956,9 +1931,6 @@ function showHintOthers() {
         .transition()
         .style("opacity", 0)
         .duration(500);
-
-    $("#opinion_groups_label").html("<p class=\"HeadingG pull-left\"><i class=\"fa fa-group\" style=\"color: rgb(189, 195, 199)\"></i>&nbsp;Other participants</p>");
-
 
     blocker_layer
             // .append("text")

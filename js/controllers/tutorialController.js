@@ -44,7 +44,6 @@ module.exports = function() {
         }
     }
 
-
     function onClusterClicked(gid) {
       if (_.isNumber(gid) && gid >= 0) {
         clusterHasBeenClicked = true;
