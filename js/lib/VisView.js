@@ -24,8 +24,6 @@ var dimensions = {
     height: params.h
 };
 
-// var getPid = params.getPid;
-
 function getBid(d) {
     return d.bid;
 }
@@ -295,58 +293,6 @@ $(el_selector)
   ;
 }
 
-
-
-$("#legendRoot").html("");
-$("#legendRoot").append("<p class=\"HeadingF HeadingF--light\" style=\"position: absolute; font-size: 12px; text-align: center; width: 100%; top: 6px\"> Dots represent participants. The closer the participants are, the more alike they voted.</p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 67px\"> Your position in the conversation, close to those who voted like you did. </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 125px\"> One or more other participants. </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 162px\"> A larger number of other participants.  </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 200px\"> Shaded areas represent opinion groups. <strong> Click</strong> a group to learn which comments define them. </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 278px\"> These participants <span style=\"color:#2ecc71;\"> agreed </span> with the selected comment </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 328px\"> These participants <span style=\"color: #e74c3c;\">disagreed</span> with the selected comment </p>" +
-"<svg width='100%' height='400'>"+
-// "<path class='hull_shadow' gid='0' transform='translate(1, 1)' d='M50,50L200,100L175,250L25,200Z'></path>"+
-// "<path class='hull_shadow' gid='1' transform='translate(1, 1)' d='M30,250L165,350L100,350L40,275Z'></path>"+
-// "<path class='hull_selection' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
-// "<path class='hull_selection' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
-"<path class='hull' gid='0' d='M50,55L100,100L100,250L25,200Z'></path>"+
-"<path class='hull' gid='1' d='M30,250L90,330L60,360L20,275Z'></path>"+
-"<circle cx='82' cy='171' r='13' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='53' cy='100' r='9' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='53' cy='62' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='70' cy='90' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='70' cy='200' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='31' cy='197' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='88' cy='134' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<line x1='85' y1='208' x2='115' y2='208' style='stroke:#eee; stroke-width:2'></line>" +
-"<line x1='85' y1='134' x2='115' y2='134' style='stroke:#BDC3C7; stroke-width:1'></line>" +
-"<line x1='80' y1='171' x2='115' y2='171' style='stroke:#BDC3C7; stroke-width:1'></line>" +
-"<line x1='72' y1='76' x2='115' y2='76' style='stroke:#0CF;stroke-width:1'></line>" +
-"<line x1='40' y1='287' x2='115' y2='287' style='stroke:#2ecc71;stroke-width:1'></line>" +
-"<line x1='70' y1='336' x2='115' y2='336' style='stroke:#e74c3c;stroke-width:1'></line>" +
-"<g class='ptpt node selfDot' fill-opacity='100%' transform='translate(65,76)'>"+
-  // "<circle class='circle bktv' cx='0' cy='0' r='7.288888888888889' style='opacity: 0.5; fill: rgba(0, 0, 0, 0); stroke: rgb(0, 204, 255); stroke-width: 1px; display: inherit;'></circle>" +
-  "<circle class='circle bktvi' r='3.6444444444444444' style='fill: rgb(0, 204, 255); display: inherit;'></circle>"+
-"</g>" +
-
-/**** AGREE ****/
-"<g class='ptpt node' fill-opacity='100%' transform='translate(40.6975366341736,290.01621449977468) scale(2)'>"+
-  // "<polygon class='up bktv' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); fill-opacity: 0.2; display: inherit;'></polygon>"+
-  "<polygon class='up bktvi' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); display: inherit;'></polygon>"+
-"</g>"+
-
-/**** DISAGREE ****/
-"<g class='ptpt node' fill-opacity='100%' transform='translate(70.5164952631261,334.686456499723942) scale(2)'>"+
-  // "<polygon class='down bktv' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); fill-opacity: 0.2; display: inherit;'></polygon>"+
-  "<polygon class='down bktvi' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); display: inherit;'></polygon>"+
-"</g>"+
-
-
-
-"</svg>");
-
-
 if (isIE8) {
     $(el_raphaelSelector).on("click", selectBackground);
     w = $(el_raphaelSelector).width();
@@ -426,43 +372,6 @@ if (useForce) {
 //     .attr("transform", "" + "scale(" + 0.95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")" + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")");
 //     //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
 // }
-
-
-// compute how somilar the membership vectors are between two clusters.
-// similarity = (bothHave+1) / (longerArray.length + 1)
-function clusterSimilarity(a, b) {
-
-// clusters [[2,3,4],[1,5]]
-    var longerLength = Math.max(a.length, b.length);
-    var ai = 0;
-    var bi = 0;
-    var bothHave = 0;
-
-    while (ai < a.length) {
-
-        if (bi >= b.length) {
-            break;
-        }
-        var aa = a[ai];
-        var bb = b[bi];
-        if (aa === bb) {
-            bothHave += 1;
-            ai += 1;
-            bi += 1;
-        }
-        else if (aa > bb){
-            bi += 1;
-        }
-        else if (bb > aa) {
-            ai += 1;
-        }
-    }
-
-    return (bothHave + 1) / (longerLength + 1);
-}
-
-console.log("expect: " + (3/5));
-console.log(clusterSimilarity([2,3,4], [2,4,7,8]));
 
 
 function argMax(f, args) {
@@ -1271,25 +1180,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
             // .attr("font-family", "brandon-grotesque")
             ;
     }
-    //nodes.set(node.pid, node);
 
-
-    // migrate an existing cluster selection to the new similar cluster
-    // var readyToReselectComment = $.Deferred().resolve();
-    // if (selectedCluster !== false) {
-
-    //     var currentSelectedCluster = clusters[selectedCluster];
-
-    //     var nearestCluster = argMax(
-    //         _.partial(clusterSimilarity, currentSelectedCluster),
-    //         newClusters);
-
-    //     var nearestClusterId = newClusters.indexOf(nearestCluster);
-    //     clusters = newClusters;
-    //     readyToReselectComment = setClusterActive(nearestClusterId);
-    // } else {
-        clusters = newClusters;
-    // }
+    clusters = newClusters;
 
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
@@ -1297,13 +1189,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
             bidToGid[cluster[b]] = c;
         }
     }
-    
-    // readyToReselectComment.done(function() {
-    //     if (commentIsSelected()) {
-    //         selectComment(selectedTid);
-    //     }
-    // });
-
 
     function computeTarget(d) {
         //if (!isPersonNode(d)) {
@@ -1421,27 +1306,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       } else {
         // see fa89dsjf8d
       }
-
-
-
-
-
-    // // simplify debugging by looking at a single node
-    // //nodes = nodes.slice(0, 1);
-    // // check for unexpected changes in input
-    // if (window.temp !== undefined) {
-    //     if (key(window.temp) !== key(nodes[0])) {
-    //         console.log("changed key");
-    //         console.dir(window.temp);
-    //         console.dir(nodes[0]);
-    //     }
-    //     if (!_.isEqual(window.temp.proj, nodes[0].proj)) {
-    //         console.log("changed projection");
-    //         console.dir(window.temp);
-    //         console.dir(nodes[0]);
-    //     }
-    //     window.temp = nodes[0];
-    // }
 
     function setupRaphaelNode(n) {
       // do each on a separate stack
@@ -1641,75 +1505,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
       var self = g.filter(isSelf);
       self.classed("selfDot", true);
-
-
-
-      // var r = chooseCircleRadius(biggestNode);
-      // var legendCirclesG = main_layer.selectAll(".legendCircle").data([biggestNode]);
-      // legendCirclesG.enter()
-      //   .append(groupTag)
-      //   .classed("legendCircle", true)
-      //   .attr("transform", "translate("+ (w-10) +","+ (h-10)+")");
-      //   ;
-
-      // var USE_LEGEND_CIRCLES = false;
-      // var legendCircles = !USE_LEGEND_CIRCLES ? false : legendCirclesG.selectAll("circle").data([biggestNode]);
-      // if (legendCircles) {
-      //   legendCircles.enter().append("circle")
-      //     .style("fill", "rgba(0,0,0,0)")
-      //     .style("stroke", "#bbb")
-      //     .style("stroke-dasharray", "5,5")
-      //     .style("stroke-width", 1);
-      // }
-
-    //   var legendText = legendCirclesG.selectAll("text").data([biggestNode]);
-    //     legendText.enter()
-    //       .append("text")
-    //       .attr("text-anchor", "end");
-
-    // function labelText(d) {
-    //     return participantCount + (participantCount === 1 ? " person" : " people");
-    // }
-
-    // // update
-    // if (legendCircles) {
-    //     legendCircles
-    //         .attr("cx", -(r+2))
-    //         .attr("cy", -r+2)
-    //         .attr("r", r)
-    //       ;
-    // }
-    // var legendCircleCircumference = legendCircles ? 2*r : 0;
-    // legendText
-    //     .text(labelText)
-    //     .attr("fill", "#bbb")
-    //     .attr("transform", "translate("+ 
-    //         (-(legendCircleCircumference + 10)) +
-    //         ",0)");
-
   }
   updateNodes();
-
-
-  // update
-  //     .attr("transform", chooseTransform)
-  //     .selectAll("path")
-  //         .attr("d", chooseShape)
-  //         .style("stroke-width", strokeWidth)
-  //         .style("stroke", chooseStroke)
-  //         .style("fill", chooseFill)
-  //     ;
-
-
-
-
-  // visualization.selectAll(".ptpt")
-  //       .transition()
-  //       .duration(500)
-  //       .style("fill", chooseFill)
-  //       .transition()
-  //         .duration(500);
-
 
         // fa89dsjf8d
       if (!force && !isIE8) {
@@ -1731,22 +1528,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 function isNotSelf(d) {
     return !isSelf(d);
 }
+
 function tutorialNextClicked() {
-
-
-
-    // var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
-
-    //   .style("display", chooseDisplayForOuterCircle)
-    //   .attr("r", chooseCircleRadiusOuter)
-    //   .style("fill", chooseFill)
-    //   .style("fill-opacity", 0.5)
-    //   .filter(isSelf)
-    //       .style("display", chooseDisplayForCircle)
-    //       .style("fill-opacity", 0)
-    //       .attr("r", chooseCircleRadiusOuter)
-    //       // .style("fill", chooseFill)
-    //       ;
     if (!visBlockerOn && !voteMoreOn) {
         removeTutorialStepOne();
         onInVisLegendShownCallbacks.fire(inVisLegendCounter);
@@ -1762,6 +1545,7 @@ function tutorialNextClicked() {
         }
     }
 }
+
 var dotsShouldWiggle = false;
 function wiggleUp() {
     if (!dotsShouldWiggle) {
@@ -1868,7 +1652,6 @@ function renderComments(comments) {
 
 
 function onParticipantClicked(d) {
-    // alert(1);
     // d3.event.stopPropagation();
     // d3.event.preventDefault(); // prevent flashing on iOS
   var gid = bidToGid[d.bid];
@@ -1882,7 +1665,6 @@ function unhoverAll() {
 }
 
 function updateNodeVoteCounts() {
-
     if (isIE8) {
         for (var i = 0; i < nodes.length; i++) {
             var node = nodes[i];
@@ -1896,8 +1678,8 @@ function updateNodeVoteCounts() {
 function updateNodes() {
     setTimeout(doUpdateNodes, 0);
 }
-function doUpdateNodes() {
 
+function doUpdateNodes() {
   if (isIE8) {
       for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
@@ -1994,18 +1776,6 @@ function doUpdateNodes() {
             }
           });
   }
-  // showLineToCluster("foo");
-
-  // visualization.selectAll(".node")
-  //   .attr("transform", chooseTransform)
-  //   .selectAll("path")
-  //       .style("stroke", chooseStroke)
-  //       .style("fill", chooseFill)
-  //       .style("fill-opacity", chooseAlpha)
-  //       // .attr("r", chooseRadius)
-  //       .attr("d", chooseShape)
-  //   ;
-
 }
 
 function resetSelectedComment() {
@@ -2020,10 +1790,6 @@ function resetSelection() {
   }
   selectedCluster = -1;
   eb.trigger(eb.clusterSelectionChanged, selectedCluster);
-  // visualization.transition().duration(750).attr("transform", "");
-  // selectedBids = [];
-  // resetSelectedComment();
-  // unhoverAll();
 }
 
 
@@ -2086,32 +1852,6 @@ function hideVisBlocker() {
     ;
 }
 
-// http://bl.ocks.org/mbostock/7555321
-function wrap(text, width) {
-  text.each(function() {
-    var text = d3.select(this),
-        words = text.text().split(/\s+/).reverse(),
-        word,
-        line = [],
-        lineNumber = 0,
-        lineHeight = 1.1, // ems
-        y = text.attr("y"),
-        dy = parseFloat(text.attr("dy")),
-        tspan = text.text(null).append("tspan").attr("x", 0).attr("y", y).attr("dy", dy + "em");
-    while (word = words.pop()) {
-      line.push(word);
-      tspan.text(line.join(" "));
-      if (tspan.node().getComputedTextLength() > width) {
-        line.pop();
-        tspan.text(line.join(" "));
-        line = [word];
-        tspan = text.append("tspan").attr("x", 0).attr("y", y).attr("dy", ++lineNumber * lineHeight + dy + "em").text(word);
-      }
-    }
-  });
-}
-
-
 var voteMoreOn = false;
 function showHintVoteMoreBlocker() {
     if (voteMoreOn) {
@@ -2121,17 +1861,8 @@ function showHintVoteMoreBlocker() {
     $("#main_layer").hide();
     $("#main_layer").css("opacity", 0);
 
-    // blocker_layer.append("rect")
-    //     .classed("hintVoteMore", true)
-    //     .style("fill", "rgb(52, 152, 219)")
-    //     .attr("x", 1) // inset so it doesn't get cut off on firefox
-    //     .attr("y", 1) // inset so it doesn't get cut off on firefox
-    //     .attr("width", w-2) // inset so it doesn't get cut off on firefox
-    //     .attr("height", h-2) // inset so it doesn't get cut off on firefox
-    //     .style("stroke", "lightgray")
-    //     .attr("rx", 5)
-    //     .attr("ry", 5)
-    // ;
+    var fontSize = display.xs() ? 30 : 50;
+    var fontSizePx = fontSize + "px";
 
     var top = 5*h/18;
     blocker_layer.append("text")
@@ -2155,7 +1886,7 @@ function showHintVoteMoreBlocker() {
 
 
     blocker_layer.append("text")
-            .style("font-size", "50px")
+            .style("font-size", fontSizePx)
             .style("cursor", "default")
             .classed("hintVoteMore", true)
             .classed("hintVoteMoreMainText", true)
@@ -2175,13 +1906,13 @@ function showHintVoteMoreBlocker() {
     ;
     blocker_layer.select(".hintVoteMoreMainText")
             .append("tspan")
-            .attr("y", 50)
+            .attr("y", fontSize)
             .attr("x", 0)
             .text("by voting on a couple")
     ;
     blocker_layer.select(".hintVoteMoreMainText")
             .append("tspan")
-            .attr("y", 100)
+            .attr("y", fontSize*2)
             .attr("x", 0)
             .text("of comments.")
     ;
@@ -2243,7 +1974,6 @@ function showHintOthers() {
 }
 
 function hideHintOthers() {
-
     visualization.selectAll(".node")
         .filter(isSelf)
         .transition()
@@ -2374,7 +2104,6 @@ function updateLineToCluster(gid) {
 function onHelpTextClicked() {
     overlay_layer.selectAll(".helpArrow")
         .style("display", "none");
-    // $(".helpArrow").addClass("hidden");
     $("#helpTextBox").addClass("hidden");
 }
 
@@ -2411,8 +2140,6 @@ eb.on(eb.vote, function() {
           .attr("opacity", 1);
     }
 });
-
-// setTimeout(selectBackground, 1);
 
 function getSelectedGid() {
     return selectedCluster;
