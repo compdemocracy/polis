@@ -14,8 +14,6 @@ pom.xml.asc
 db/
 .lein-env
 .nrepl-port
-.lein-git-deps
 scratch
-.lein-git-deps
 src/polismath/play.clj
 old
