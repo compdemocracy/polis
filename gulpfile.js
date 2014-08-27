@@ -39,6 +39,7 @@ var request = require('request');
 var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
 var sass = require('gulp-sass');
+var spawn = require('child_process').spawn;
 var Stream = require('stream');
 var sys = require('sys');
 var url = require('url');
@@ -56,6 +57,13 @@ function destRoot() {
 var devMode = true;
 var preprodMode = false;
 var host;
+
+
+function showDesktopNotification(title, body) {
+  var child = spawn("osascript", ["-e", 'display notification "'+body+'" with title "'+title+'"'], {cwd: process.cwd()}),
+            stdout = '',
+            stderr = '';
+}
 
 
 function prepPathForTemplate(path) {
@@ -552,6 +560,7 @@ gulp.task('common', [
   "about",
   "embedJs",
   ], function() {
+    showDesktopNotification("BUILD UPDATED", "woohoo");
 });
 
 gulp.task('dev', [
