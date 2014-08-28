@@ -250,7 +250,9 @@ CREATE TABLE comments(
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );
 CREATE INDEX comments_zid_idx ON comments USING btree (zid);
-
+-- for a faster nextComment query (where pid != myPid)
+-- dropped it, didn't really help (Aug 27 2014, no real load on db at the moment)
+-- CREATE INDEX comments_zid_pid_idx ON comments USING btree (zid, pid);
 
 CREATE OR REPLACE FUNCTION tid_auto()
     RETURNS trigger AS $$
@@ -309,6 +311,12 @@ CREATE TABLE votes(
     vote SMALLINT,
     created BIGINT DEFAULT now_as_millis()
 );
+-- needed to make nextComment query fast
+-- If updating this index becomes slow, we might consider something else. not sure what.
+-- dropped it, didn't really help (Aug 27 2014, no real load on db at the moment)
+-- CREATE INDEX votes_zid_pid_idx ON votes USING btree (zid, pid);
+
+
 
 -- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
 -- CREATE TABLE stats_per_comment(

@@ -4320,6 +4320,14 @@ app.get("/api/v3/nextComment",
     need('not_voted_by_pid', getInt, assignToP),
     want('without', getArrayOfInt, assignToP),
 function(req, res) {
+
+    // NOTE: I tried to speed up this query by adding db indexes, and by removing queries like getConversationInfo and finishOne.
+    //          They didn't help much, at least under current load, which is negligible. pg:diagnose isn't complaining about indexes.
+    //      I think the direction to go as far as optimizing this is to asyncronously build up a synced in-ram list of next comments
+    //        for each participant, for currently active conversations. (this would probably be a math-poller-esque process on another
+    //         hostclass)
+    //         Along with this would be to cache in ram info about moderation status of each comment so we can filter before returning a comment.
+    
     getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
         if (c) {
             finishOne(res, c);
