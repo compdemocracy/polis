@@ -1,16 +1,9 @@
 (ns polismath.poller
   (:use clojure.pprint
-        clojure.core.matrix.impl.ndarray
-        polismath.conversation
-        polismath.named-matrix
-        polismath.utils
-        polismath.pca
-        polismath.metrics)
-  (:require [polismath.conv-man :as cm]
-            [korma.core :as ko]
-            [cheshire.core :refer :all]
-            [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
-            [environ.core :as env]))
+        polismath.utils)
+  (:require [korma.core :as ko]
+            [korma.db :as kdb]
+            [clojure.tools.logging :as log]))
 
 
 (defn heroku-db-spec [db-uri]

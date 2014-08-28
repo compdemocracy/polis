@@ -10,9 +10,7 @@
             [monger.collection :as mgcol]
             [cheshire.core :as ch]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
-            [korma.db :as kdb]
-            [clojure.tools.logging :as log]
-            [korma.core :as ko]))
+            [clojure.tools.logging :as log]))
 
 
 (add-encoder mikera.vectorz.Vector
