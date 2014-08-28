@@ -17,7 +17,6 @@ var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
 var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
-var inVisLegendCounter = params.inVisLegendCounter || 0;
 
 var dimensions = {
     width: params.w,
@@ -428,9 +427,7 @@ function onClusterClicked(d) {
 
 function exitTutorial() {
   dotsShouldWiggle = false;
-  inVisLegendCounter = Infinity;
   removeTutorialStepOne();
-  onInVisLegendShownCallbacks.fire(inVisLegendCounter);
 }
 
 // TODO needs tutorial step advancement needs rethinking
@@ -1367,85 +1364,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
       ;
 
 
-    if (inVisLegendCounter === 0) {
-      inVisLegendCounter = 1;
-      var helpStrokeWidth = display.xs() ? 1 : 2;
-
-      // var centermostNode = g.filter(function(d) {
-      //   return d.isChosenNodeForInVisLegend;
-      // });
-      // centermostNode.append("text")
-      //   .classed("help", true)
-      //   .text("another participant")
-      //   .attr("text-anchor", "start")
-      //   .attr("fill", "#000")
-      //   // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
-      //   .attr("transform", function(d) {
-      //       return "translate(55, -17)";
-      //   });
-      // centermostNode.append("polyline")
-      //   .classed("help", true)
-      //   .style("display", "block")
-      //   .style("stroke", "#555555")
-      //   .style("stroke-width", helpStrokeWidth)
-      //   .style("z-index", 9999)
-      //   .style("fill", "rgba(0,0,0,0)")
-      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-      //   // .attr("marker-start", "url(#ArrowTip)")
-      //   .attr("points", function(d) {
-      //       return ["9, -9", "20, -20", "50,-20"].join(" ")
-      //   });
-      // centermostNode.append("circle")
-      //   .classed("help", true)
-      //   // .classed("circle", true)
-      //   .attr("cx", 0)
-      //   .attr("cy", 0)
-      //   .attr("r", 12.727)
-      //   // .style("opacity", opacityOuter)
-      //   .style("fill", "rgba(0,0,0,0)")
-      //   .style("stroke", "#555555")
-      //   .style("stroke-width", helpStrokeWidth)
-      //   ;
-
-
-      var selfNode = g.filter(isSelf);
-      selfNode.append("text")
-        .classed("help", true)
-        .classed("help_text_you", true)
-        .text("You")
-        .attr("text-anchor", "start")
-        // .attr("fill", "rgba(0,0,0,1.0)")
-        .attr("fill", colorSelf)
-        .attr("stroke", colorSelfOutline)
-        .attr("transform", function(d) {
-            return "translate(12, 6)";
-        });
-      // selfNode.append("polyline")
-      //   .classed("help", true)
-      //   .style("display", "block")
-      //   .style("stroke", "#555555")
-      //   .style("stroke-width", helpStrokeWidth)
-      //   .style("z-index", 9999)
-      //   .style("fill", "rgba(0,0,0,0)")
-      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-      //   // .attr("marker-start", "url(#ArrowTip)")
-      //   .attr("points", function(d) {
-      //       return ["9, 9", "20, 20", "50,20"].join(" ")
-      //   });
-      // selfNode.append("circle")
-      //   .classed("help", true)
-      //   // .classed("circle", true)
-      //   .attr("cx", 0)
-      //   .attr("cy", 0)
-      //   .attr("r", 12.727)
-      //   // .style("opacity", opacityOuter)
-      //   .style("fill", "rgba(0,0,0,0)")
-      //   .style("stroke", "#555555")
-      //   .style("stroke-width", helpStrokeWidth)
-      //   ;
-      }
-
-
 
 
 
@@ -1527,21 +1445,96 @@ function isNotSelf(d) {
     return !isSelf(d);
 }
 
-function tutorialNextClicked() {
-    if (!visBlockerOn && !voteMoreOn) {
-        removeTutorialStepOne();
-        onInVisLegendShownCallbacks.fire(inVisLegendCounter);
-        if (inVisLegendCounter === 1) {
-            var dfdHideShadows = $.Deferred();
-            dotsShouldWiggle = true;
-            wiggleUp();
-            showHintOthers();
-            inVisLegendCounter += 1;
-        } else {
-            dotsShouldWiggle = false;
-            hideHintOthers();
-        }
-    }
+function showHintOthers() {
+    dotsShouldWiggle = true;
+    wiggleUp();
+}
+function hideHintOthers() {
+    dotsShouldWiggle = false;
+}
+
+function hideHintYou() {
+    // TODO
+}
+function showHintYou() {
+
+      var helpStrokeWidth = display.xs() ? 1 : 2;
+
+    var g = visualization.selectAll(".node");
+     
+
+      // var centermostNode = g.filter(function(d) {
+      //   return d.isChosenNodeForInVisLegend;
+      // });
+      // centermostNode.append("text")
+      //   .classed("help", true)
+      //   .text("another participant")
+      //   .attr("text-anchor", "start")
+      //   .attr("fill", "#000")
+      //   // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
+      //   .attr("transform", function(d) {
+      //       return "translate(55, -17)";
+      //   });
+      // centermostNode.append("polyline")
+      //   .classed("help", true)
+      //   .style("display", "block")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   .style("z-index", 9999)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+      //   // .attr("marker-start", "url(#ArrowTip)")
+      //   .attr("points", function(d) {
+      //       return ["9, -9", "20, -20", "50,-20"].join(" ")
+      //   });
+      // centermostNode.append("circle")
+      //   .classed("help", true)
+      //   // .classed("circle", true)
+      //   .attr("cx", 0)
+      //   .attr("cy", 0)
+      //   .attr("r", 12.727)
+      //   // .style("opacity", opacityOuter)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   ;
+
+
+      var selfNode = g.filter(isSelf);
+      selfNode.append("text")
+        .classed("help", true)
+        .classed("help_text_you", true)
+        .text("You")
+        .attr("text-anchor", "start")
+        // .attr("fill", "rgba(0,0,0,1.0)")
+        .attr("fill", colorSelf)
+        .attr("stroke", colorSelfOutline)
+        .attr("transform", function(d) {
+            return "translate(12, 6)";
+        });
+      // selfNode.append("polyline")
+      //   .classed("help", true)
+      //   .style("display", "block")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   .style("z-index", 9999)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+      //   // .attr("marker-start", "url(#ArrowTip)")
+      //   .attr("points", function(d) {
+      //       return ["9, 9", "20, 20", "50,20"].join(" ")
+      //   });
+      // selfNode.append("circle")
+      //   .classed("help", true)
+      //   // .classed("circle", true)
+      //   .attr("cx", 0)
+      //   .attr("cy", 0)
+      //   .attr("r", 12.727)
+      //   // .style("opacity", opacityOuter)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   ;
 }
 
 var dotsShouldWiggle = false;
@@ -1827,135 +1820,6 @@ function hideVisBlocker() {
     ;
 }
 
-var voteMoreOn = false;
-function showHintVoteMoreBlocker() {
-    if (voteMoreOn) {
-        return;
-    }
-    voteMoreOn = true;
-    $("#main_layer").hide();
-    $("#main_layer").css("opacity", 0);
-
-    var fontSize = display.xs() ? 30 : 50;
-    var fontSizePx = fontSize + "px";
-
-    var top = 5*h/18;
-    blocker_layer.append("text")
-            .classed("hintVoteMore", true)
-            .classed("hintVoteMoreGraphic", true)
-            .attr("transform", "translate("+ 
-                w/2 +
-                "," + top +")")
-            .attr("text-anchor", "middle")
-            .attr("fill", "#fff")
-            .style("cursor", "default")
-            .style("text-shadow", "0 1px 0 #fff")
-            .text("\uf011 ") // uf011 fa-power-off
-            .attr("font-weight", 100)
-            .attr("font-size", "30px")
-            .style("-webkit-font-smoothing", "antialiased")
-            .attr("fill", "#0a8200")
-        .attr('font-family', 'FontAwesome')
-        .attr('font-size', function(d) { return '4em'} )
-        ;
-
-
-    blocker_layer.append("text")
-            .style("font-size", fontSizePx)
-            .style("cursor", "default")
-            .classed("hintVoteMore", true)
-            .classed("hintVoteMoreMainText", true)
-            .attr("text-anchor", "middle")
-            .attr("fill", "#000")
-            .attr('font-family', 'chaparral-pro')
-            .style("text-shadow", "0 1px 0 #fff")
-            .style("-webkit-font-smoothing", "antialiased")
-            .attr("transform", "translate("+ 
-                w/2 +
-                "," + (top + 50 + 20) + ")")
-    ;
-    blocker_layer.select(".hintVoteMoreMainText")
-            .append("tspan")
-            .attr("x", 0)
-            .text("Welcome! Get started")
-    ;
-    blocker_layer.select(".hintVoteMoreMainText")
-            .append("tspan")
-            .attr("y", fontSize)
-            .attr("x", 0)
-            .text("by voting on a couple")
-    ;
-    blocker_layer.select(".hintVoteMoreMainText")
-            .append("tspan")
-            .attr("y", fontSize*2)
-            .attr("x", 0)
-            .text("of comments.")
-    ;
-    blocker_layer.append("text")
-            .classed("hintVoteMore", true)
-            .classed("hintVoteMoreGraphic", true)
-            .attr("transform", "translate("+ 
-                w/2 +
-                "," + (15*h/24) +")")
-            .attr("text-anchor", "middle")
-            .attr("fill", "#fff")
-        .attr('font-family', 'FontAwesome')
-        .attr('font-size', function(d) { return '2em'} )
-        ;
-
-}
-
-function hideHintVoteMoreBlocker() {
-    if (!voteMoreOn) {
-        return;
-    }
-    voteMoreOn = false;
-
-    $("#main_layer").show();
-    d3.selectAll("#main_layer").transition().style("opacity", 1).duration(500);
-    blocker_layer.selectAll(".hintVoteMore")
-    .transition()
-        .style("opacity", 0)
-        .duration(500)
-        .each("end", function() {
-            blocker_layer.selectAll(".hintVoteMore").remove();
-        })
-    ;
-}
-
-function showHintOthers() {
-
-    // Don't show self when explaining others
-    visualization.selectAll(".node")
-        .filter(isSelf)
-        .transition()
-        .style("opacity", 0)
-        .duration(500);
-
-    blocker_layer
-            // .append("text")
-            // .text("other participants")
-            .style("cursor", "default")
-            .classed("hintOthers", true)
-            // .attr("text-anchor", "middle")
-            .attr("fill", "#222")
-            .attr("transform", "translate("+ 
-                w/2 +
-                "," + (9*h/24) + ")")
-    ;
-}
-
-function hideHintOthers() {
-    visualization.selectAll(".node")
-        .filter(isSelf)
-        .transition()
-        .style("opacity", 1)
-        .duration(500)
-    ;
-    blocker_layer.selectAll(".hintOthers")
-        .remove()
-    ;
-}
 
 // TODO account for Buckets
 function emphasizeParticipants(pids) {
@@ -2121,11 +1985,7 @@ function selectGroup(gid) {
     handleOnClusterClicked(gid);
 }
 
-onInVisLegendShownCallbacks = $.Callbacks();
-
-
 return {
-    onInVisLegendShown: onInVisLegendShownCallbacks.add,
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
@@ -2133,9 +1993,10 @@ return {
     selectGroup: selectGroup,
     showLineToCluster: showLineToCluster,
     emphasizeParticipants: emphasizeParticipants,
-    showHintVoteMoreBlocker: showHintVoteMoreBlocker,
-    hideHintVoteMoreBlocker: hideHintVoteMoreBlocker,
-    tutorialNextClicked: tutorialNextClicked,
+    showHintOthers: showHintOthers,
+    hideHintOthers: hideHintOthers,
+    showHintYou: showHintYou,
+    hideHintYou: hideHintYou,
     getSelectedGid: getSelectedGid,
 };
 

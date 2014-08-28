@@ -175,6 +175,7 @@ module.exports =  ConversationView.extend({
     eb.on(eb.clusterClicked, function(gid) {
       if (_.isNumber(gid) && gid >= 0) {
         that.conversationTabs.gotoGroupTab();
+        that.tutorialModel.set("step", Infinity);
         // $("#groupTab").click();
       // $("#groupTab").tab("show");
       }
@@ -338,8 +339,22 @@ module.exports =  ConversationView.extend({
       /* child views */
       this.tutorialModel = new Backbone.Model({
         visible: false,
+        paused: false,
         step: 1
-      });  
+      });
+      this.tutorialModel.on("change:step", function() {
+        var step = that.tutorialModel.get("step");
+        if (step === 1) {
+          that.vis.showHintYou();
+        } else {
+          that.vis.hideHintYou();
+        }
+        if (step === 2) {
+          that.vis.showHintOthers();
+        } else {
+          that.vis.hideHintOthers();
+        }
+      });
       this.visModeModel = new Backbone.Model({
         visMode: VIS_MODE_WAITING
       });
