@@ -119,6 +119,28 @@ module.exports =  ConversationView.extend({
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
 
+    // initialize this first to ensure that the vote view is showing and populated ASAP
+    this.commentView = this.addChild(new CommentView({
+      serverClient: serverClient,
+      model: new CommentModel(),
+      votesByMe: this.votesByMe,
+      is_public: Utils.isShortConversationId(this.conversation_id),
+      pid: pid,
+      conversation_id: conversation_id
+    }));
+
+    // clicks to "the background" should delelect hulls.
+    // This is important because the edge of the vis is not visible.
+    $(document.body).on("click", function(e) {
+      var target = $(e.target);
+      if (target &&
+          target.hasClass("clickDeselectsHull")) {
+        if (that.vis) {
+          that.vis.deselect();
+        }
+      }
+    });
+
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
       if (gid === -1) {
@@ -317,14 +339,6 @@ module.exports =  ConversationView.extend({
         conversation_id: conversation_id
       });
 
-      this.commentView = this.addChild(new CommentView({
-        serverClient: serverClient,
-        model: new CommentModel(),
-        votesByMe: this.votesByMe,
-        is_public: Utils.isShortConversationId(this.conversation_id),
-        pid: pid,
-        conversation_id: conversation_id
-      }));
       // this.commentView.on("vote", this.tutorialController.onVote);
 
       this.commentsByMe = new CommentsCollection({
