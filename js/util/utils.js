@@ -30,6 +30,19 @@ function mapObj(o, f) {
   return out;
 }
 
+// http://stackoverflow.com/questions/8112634/jquery-detecting-cookies-enabled
+function are_cookies_enabled()
+{
+    var cookieEnabled = (navigator.cookieEnabled) ? true : false;
+
+    if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
+    { 
+        document.cookie="testcookie";
+        cookieEnabled = (document.cookie.indexOf("testcookie") != -1) ? true : false;
+    }
+    return (cookieEnabled);
+}
+
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
   mapObj: mapObj,
@@ -91,5 +104,6 @@ module.exports = {
     return PolisStorage.plan() === 3;
   },
   numberOfDaysInTrial: numberOfDaysInTrial,
-  trialDaysRemaining: trialDaysRemaining
+  trialDaysRemaining: trialDaysRemaining,
+  cookiesEnabled: are_cookies_enabled
 };

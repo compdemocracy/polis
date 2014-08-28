@@ -1,6 +1,7 @@
 var RootView = require("../views/root");
 var Backbone = require("backbone");
 var ConversationModel = require("../models/conversation");
+var CookiesDisabledView = require("../views/cookiesDisabledView");
 var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
@@ -29,6 +30,7 @@ var PlanUpgradeView = require("../views/plan-upgrade");
 var FaqView = require("../views/faq");
 var PolisStorage = require("../util/polisStorage");
 var UserModel = require("../models/user");
+var Utils = require("../util/utils");
 var _ = require("underscore");
 var $ = require("jquery");
 var gaEvent = require("../util/gaMetric").gaEvent;
@@ -55,6 +57,12 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
   var suzinvite;
   if (singleUse) {
     suzinvite = zinvite;
+  }
+
+  if (!Utils.cookiesEnabled()) {
+    var view = new CookiesDisabledView();
+    RootView.getInstance().setView(view);
+    return;
   }
 
   var uid = PolisStorage.uid();
