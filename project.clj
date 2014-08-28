@@ -25,6 +25,7 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.1"]
+                 [org.clojure/tools.logging "0.3.0"]
                  ;[org.clojure/tools.cli "0.3.1"]
                  [storm "0.9.0.1"]
                  [bigml/sampling "2.1.0"]

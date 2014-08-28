@@ -61,11 +61,12 @@
 
 (defbolt conv-update-bolt [] {:prepare true}
   [conf context collector]
-  (let [conv-agency (atom {})]
+  (let [conv-agency (atom {})
+        mg-db       (cm/mongo-connect! (env/env :mongolab-uri))]
     (bolt
       (execute [tuple]
         (let [[zid last-timestamp rxns] (.getValues tuple)
-              conv-agent (->> (cm/update-fn-builder zid)
+              conv-agent (->> cm/update-fn
                               (cm/new-conv-agent-builder)
                               (cm/get-or-set! conv-agency zid))]
           (qa/enqueue conv-agent {:last-timestamp last-timestamp :reactions rxns})

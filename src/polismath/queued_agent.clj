@@ -28,9 +28,10 @@
       (drainer! c))))
 
 
-(defn queued-agent [& {:keys [buffer update-fn init-fn] :or {:buffer 1000000}}]
-  (let [q (chan buffer)
-        a (agent (if init-fn (init-fn) {}))]
+(defn queued-agent [& {:keys [buffer update-fn init-fn error-handler-builder] :or {:buffer 1000000}}]
+  (let [q                (chan buffer)
+        a                (agent (if init-fn (init-fn) {}))
+        error-handler-fn (error-handler-builder q a)]
     ; Set up the queue
     (add-watch
       a
@@ -38,7 +39,7 @@
       (fn [k r o n]
         (let [queued (drain! q)]
           (when-not (empty? queued)
-            (send a update-fn queued)))))
+            (send a update-fn queued error-handler-fn)))))
     (QueuedAgent. a q)))
 
 

@@ -74,6 +74,10 @@
                           :group-iters 10}
                     opts))
 
+   :zid         (plmb/fnk [conv votes]
+                  (or (:zid conv)
+                      (:zid (first votes))))
+
    :rating-mat  (plmb/fnk [conv votes]
                   (update-nmat (:rating-mat conv)
                                (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))

@@ -4,12 +4,14 @@
             [polismath.metrics :as met]
             [polismath.utils :refer :all]
             [clojure.core.matrix.impl.ndarray]
+            [clojure.core.async :as as]
             [environ.core :as env]
             [monger.core :as mc]
             [monger.collection :as mgcol]
             [cheshire.core :as ch]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
             [korma.db :as kdb]
+            [clojure.tools.logging :as log]
             [korma.core :as ko]))
 
 
@@ -66,13 +68,6 @@
       (do
         (swap! coll-atom assoc key (init-fn))
         (get-or-set! coll-atom key))))
-
-
-(defn new-conv-agent-builder [update-fn]
-  (fn []
-    (qa/queued-agent
-      :update-fn update-fn
-      :init-fn conv/new-conv)))
 
 
 (defn prep-for-uploading-bidToPid-mapping [results]
@@ -133,27 +128,74 @@
     :upsert true))
 
 
-(defn update-fn-builder [zid]
-  (fn [conv values]
-    (let [votes (flatten (map :reactions values))
-          last-timestamp (apply max (map :last-timestamp values))
-          new-conv (conv/conv-update conv votes)]
-      ; Format and upload main results
-      (->> (format-conv-for-mongo prep-for-uploading-to-client new-conv zid last-timestamp)
-        (mongo-upsert-results (mongo-collection-name "main")))
-      ; format and upload bidtopid results
-      (->> (format-conv-for-mongo prep-for-uploading-bidToPid-mapping new-conv zid last-timestamp)
-        (mongo-upsert-results (mongo-collection-name "bidtopid")))
-      ; Return the updated conv
-      new-conv)))
+(defn update-fn
+  [conv vote-batches error-callback]
+  (let [start-time (System/currentTimeMillis)]
+    (try
+      (let [votes          (sort-by :created (flatten (map :reactions vote-batches)))
+            last-timestamp (apply max (map :last-timestamp vote-batches))
+            updated-conv   (conv/conv-update conv votes)
+            zid            (:zid updated-conv)]
+        ; Format and upload main results
+        (->> (format-conv-for-mongo prep-for-uploading-to-client updated-conv zid last-timestamp)
+          (mongo-upsert-results (mongo-collection-name "main")))
+        ; format and upload bidtopid results
+        (->> (format-conv-for-mongo prep-for-uploading-bidToPid-mapping updated-conv zid last-timestamp)
+          (mongo-upsert-results (mongo-collection-name "bidtopid")))
+        ; Return the updated conv
+        updated-conv)
+      ; In case anything happens, run the error-callback handler. Agent error handlers do not work here, since
+      ; they don't give us access to the votes.
+      (catch Exception e
+        (error-callback vote-batches start-time e)
+        ; Wait a second before returning the origin, unmodified conv, to throttle retries
+        (Thread/sleep 1000)
+        conv))))
 
 
-(defn log-update-error [conv start-time e]
+(defn log-update-error
+  "XXX - soon to be deprecated; from old poller"
+  [conv start-time e]
   (println "exception when processing zid: " (:zid conv))
   (.printStackTrace e)
   (let [end (System/currentTimeMillis)
         duration (- end start-time)]
     (metric "math.pca.compute.fail" duration)))
+
+
+(defn build-update-error-handler
+  "Returns a clojure that can be called in case there is an update error. The closure gives access to
+  the queue so votes can be requeued"
+  [queue conv-agent]
+  (fn [vote-batches start-time update-error]
+    (let [zid-str (str "zid=" (:zid @conv-agent))]
+      (log/error "Failed conversation update for" zid-str)
+      (.printStackTrace update-error)
+      ; Try requeing the votes that failed so that if we get more, they'll get replayed
+      ; XXX - this could lead to a recast vote being ignored, so maybe the sort should just always happen in
+      ; the conv update?
+      (try
+        (log/info "Preparing to re-queue vote-batches for failed conversation update for" zid-str)
+        (doseq [vote-batch vote-batches]
+          (as/go (as/>! queue vote-batch)))
+        (catch Exception qe
+          (log/error "Unable to re-queue vote-batches after conversation update failed for" zid-str)
+          (.printStackTrace qe)))
+      ; Try to send some failed conversation time metrics, but don't stress if it fails
+      (try
+        (let [end (System/currentTimeMillis)
+              duration (- end start-time)]
+          (metric "math.pca.compute.fail" duration))
+        (catch Exception e
+          (log/error "Unable to send metrics for failed compute for" zid-str))))))
+
+
+(defn new-conv-agent-builder [update-fn]
+  (fn []
+    (qa/queued-agent
+      :update-fn update-fn
+      :init-fn conv/new-conv
+      :error-handler-builder build-update-error-handler)))
 
 
 (defn poll [db-spec last-timestamp]
