@@ -39,18 +39,6 @@
      ret#))
 
 
-(defn heroku-db-spec [db-uri]
-  (let [[_ user password host port db] (re-matches #"postgres://(?:(.+):(.*)@)?([^:]+)(?::(\d+))?/(.+)" db-uri)
-        settings {:user user
-                  :password password
-                  :host host
-                  :port (or port 80)
-                  :db db
-                  :ssl true
-                  :sslfactory "org.postgresql.ssl.NonValidatingFactory"}]
-    (kdb/postgres settings)))
-
-
 (defn mongo-collection-name [basename]
   (let [schema-date "2014_08_22"
         env-name    (or (env/env :math-env) "dev")]
@@ -152,16 +140,6 @@
         conv))))
 
 
-(defn log-update-error
-  "XXX - soon to be deprecated; from old poller"
-  [conv start-time e]
-  (println "exception when processing zid: " (:zid conv))
-  (.printStackTrace e)
-  (let [end (System/currentTimeMillis)
-        duration (- end start-time)]
-    (metric "math.pca.compute.fail" duration)))
-
-
 (defn build-update-error-handler
   "Returns a clojure that can be called in case there is an update error. The closure gives access to
   the queue so votes can be requeued"
@@ -195,16 +173,5 @@
       :update-fn update-fn
       :init-fn conv/new-conv
       :error-handler-builder build-update-error-handler)))
-
-
-(defn poll [db-spec last-timestamp]
-  (try
-    (kdb/with-db db-spec
-      (ko/select "votes"
-        (ko/where {:created [> last-timestamp]})
-        (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
-    (catch Exception e (do
-        (println (str "polling failed " (.getMessage e)))
-        []))))
 
 
