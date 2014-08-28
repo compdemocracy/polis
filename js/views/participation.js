@@ -121,6 +121,7 @@ module.exports =  ConversationView.extend({
 
     // initialize this first to ensure that the vote view is showing and populated ASAP
     this.commentView = this.addChild(new CommentView({
+      firstCommentPromise: options.firstCommentPromise,
       serverClient: serverClient,
       model: new CommentModel(),
       votesByMe: this.votesByMe,

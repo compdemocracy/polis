@@ -62,9 +62,9 @@ module.exports = Handlebones.ModelView.extend({
     var that = this;
     var waitingForComments = true;
     var commentPollInterval = 5 * 1000;
-    function pollForComments() {
+    function pollForComments(optionalPromiseForPreExisingNextCommentCall) {
       if (waitingForComments) {
-          getNextAndShow();
+          getNextAndShow(optionalPromiseForPreExisingNextCommentCall);
       } else {
         // try to try again later
         setTimeout(pollForComments, commentPollInterval);
@@ -78,12 +78,13 @@ module.exports = Handlebones.ModelView.extend({
       that.trigger("showComment");
       waitingForComments = false;
     }
-    function getNextAndShow() {
+    function getNextAndShow(optionalPromiseForPreExisingNextCommentCall) {
       var params = {};
       if (that.model && that.model.get("tid")) {
         params.notTid = that.model.get("tid");
       }
-      serverClient.getNextComment(params).then(function(c) {
+      var promise = optionalPromiseForPreExisingNextCommentCall || serverClient.getNextComment(params);
+      promise.then(function(c) {
         if (!that.parent.model.get("is_active")) {
           showClosedConversationNotice();
         } else if (c && c.txt) {
@@ -221,7 +222,7 @@ module.exports = Handlebones.ModelView.extend({
           .then(onVote.bind(this), onFail.bind(this));
     };
 
-    pollForComments(); // call immediately
+    pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
     this.listenTo(this, "rendered", function(){
       // this.$("#agreeButton").tooltip({
       //   title: "This comment represents my opinion",
