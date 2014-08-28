@@ -129,8 +129,7 @@
 (defn max-k-fn
   [data max-max-k]
   (min max-max-k
-    (max 2
-      (int (/ (count (rownames data)) 3)))))
+    (int (/ (count (rownames data)) 8))))
 
 
 (def small-conv-update-graph
