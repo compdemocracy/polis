@@ -70,7 +70,7 @@
         (get-or-set! coll-atom key))))
 
 
-(defn prep-for-uploading-bidToPid-mapping [results]
+(defn prep-bidToPid [results]
   {"bidToPid" (:bid-to-pid results)})
 
 
@@ -83,7 +83,7 @@
       (apply assoc-in-bc this-part kvs))))
 
 
-(defn prep-for-uploading-to-client [results]
+(defn prep-main [results]
   (let [base-clusters (:base-clusters results)]
     (-> results
       ; REFORMAT BASE CLUSTERS
@@ -104,19 +104,18 @@
         :n-cmts
         :pca
         :repness
-        :sid
+        :zid
         :user-vote-counts
         :votes-base}))))
 
 
-(defn format-conv-for-mongo [prep-fn conv zid lastVoteTimestamp]
+(defn format-for-mongo [prep-fn conv lastVoteTimestamp]
   (-> conv
     prep-fn
     ; core.matrix & monger workaround: convert to str with cheshire then back
     ch/generate-string
     ch/parse-string
     (assoc
-      "zid" zid
       "lastVoteTimestamp" lastVoteTimestamp)))
 
 
@@ -137,10 +136,10 @@
             updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)]
         ; Format and upload main results
-        (->> (format-conv-for-mongo prep-for-uploading-to-client updated-conv zid last-timestamp)
+        (->> (format-for-mongo prep-main updated-conv last-timestamp)
           (mongo-upsert-results (mongo-collection-name "main")))
         ; format and upload bidtopid results
-        (->> (format-conv-for-mongo prep-for-uploading-bidToPid-mapping updated-conv zid last-timestamp)
+        (->> (format-for-mongo prep-bidToPid updated-conv last-timestamp)
           (mongo-upsert-results (mongo-collection-name "bidtopid")))
         ; Return the updated conv
         updated-conv)
