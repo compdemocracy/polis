@@ -3547,21 +3547,21 @@ function getComments(o) {
                 sql_comments.zid.equals(o.zid)
             );
         if (!_.isUndefined(o.pid)) {
-            q = q.where(sql_comments.pid.equals(o.pid));
+            q = q.and(sql_comments.pid.equals(o.pid));
         }
         if (!_.isUndefined(o.tids)) {
-            q = q.where(sql_comments.tid.in(o.tids));
+            q = q.and(sql_comments.tid.in(o.tids));
         }
         if (!_.isUndefined(o.not_pid)) {
-            q = q.where(sql_comments.pid.notEquals(o.not_pid));
+            q = q.and(sql_comments.pid.notEquals(o.not_pid));
         }
         if (!_.isUndefined(o.mod)) {
-            q = q.where(sql_comments.mod.equals(o.mod));
+            q = q.and(sql_comments.mod.equals(o.mod));
         }
         if (!_.isUndefined(o.not_voted_by_pid)) {
             // 'SELECT * FROM comments WHERE zid = 12 AND tid NOT IN (SELECT tid FROM votes WHERE pid = 1);'
             // Don't return comments the user has already voted on.
-            q = q.where(
+            q = q.and(
                 sql_comments.tid.notIn(
                     sql_votes.subQuery().select(sql_votes.tid)
                         .where(
@@ -3574,20 +3574,20 @@ function getComments(o) {
         }
 
         if (!_.isUndefined(o.withoutTids)) {
-            q = q.where(sql_comments.tid.notIn(o.withoutTids));
+            q = q.and(sql_comments.tid.notIn(o.withoutTids));
         }
         if (isModerationRequest) {
 
         } else {
-            q = q.where(sql_comments.active.equals(true));            
+            q = q.and(sql_comments.active.equals(true));            
             if (conv.strict_moderation) {
-                q = q.where(sql_comments.mod.equals(polisTypes.mod.ok));
+                q = q.and(sql_comments.mod.equals(polisTypes.mod.ok));
             } else {
-                q = q.where(sql_comments.mod.notEquals(polisTypes.mod.ban));
+                q = q.and(sql_comments.mod.notEquals(polisTypes.mod.ban));
             }
         }
 
-        q = q.where(sql_comments.velocity.gt(0)); // filter muted comments
+        q = q.and(sql_comments.velocity.gt(0)); // filter muted comments
 
         if (!_.isUndefined(o.random)) {
             q = q.order("random()");
