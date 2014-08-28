@@ -348,6 +348,8 @@ module.exports =  ConversationView.extend({
         if (visMode === VIS_MODE_VIS) {
           // that.vis.hideHintVoteMoreBlocker();
           $("#voteMoreParent").fadeOut();
+          $("#visualization_parent_div").css("visibility", "visible");
+          $("#visualization_div").css("display", "block");
           $("#visualization_parent_div").fadeIn();
           that.tutorialModel.set("visible", true);
           // hide others
@@ -367,7 +369,6 @@ module.exports =  ConversationView.extend({
 
         }
       });
-      this.visModeModel.set("visMode", VIS_MODE_WAITING);
 
       this.voteMoreModel = new Backbone.Model({
         remaining: 0
@@ -607,6 +608,8 @@ module.exports =  ConversationView.extend({
 
     this.listenTo(this, "render", function(){
       setTimeout(function() {
+
+      that.visModeModel.set("visMode", VIS_MODE_WAITING);
 
       $("#getDataButton").on("click", function() {
         $.get("/api/v3/dummyButton?button=getDataButton");

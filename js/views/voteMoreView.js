@@ -10,6 +10,8 @@ module.exports = Handlebones.ModelView.extend({
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx.oneMore = ctx.remaining === 1;
+    ctx.twoMore = ctx.remaining === 2;
     return ctx;
   },
   initialize: function(options) {

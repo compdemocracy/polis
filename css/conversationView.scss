@@ -308,6 +308,10 @@ svg {
 //   padding-right: 0px;
 // }
 
+.voteMoreText {
+  font-size: 30px;
+}
+
 /* Everything but mobile */
 @media (min-width: 767px) {
 
@@ -393,6 +397,10 @@ svg {
     margin: 0px;
   }
 
+  .voteMoreText {
+    // the vote more screen looks funny at the bottom of the page. There's nothing else to do but vote, so people should just get it.
+    display: none;
+  }
   // .custom_gutter {
   //   margin-left: 10px;
   //   margin-right: 10px;
