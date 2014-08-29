@@ -71,16 +71,45 @@
                           :base-iters 10
                           :base-k 50
                           :max-k 12
-                          :group-iters 10}
+                          :group-iters 10
+                          :max-ptpts 100000
+                          :max-cmts 1000}
                     opts))
 
    :zid         (plmb/fnk [conv votes]
                   (or (:zid conv)
                       (:zid (first votes))))
 
-   :rating-mat  (plmb/fnk [conv votes]
+   :customs     (plmb/fnk [conv votes opts']
+                  ; Decides whether there is room for new ptpts/cmts, and which votes should be allowed in
+                  ; based on which ptpts/cmts have already been seen. This is a simple prevention against
+                  ; conversations that get too large. Returns {:pids :tids :votes}, where the first two kv
+                  ; pairs are persisted and built upon and persisted; :votes is used downstream and tossed
+                  (reduce
+                    (fn [{:keys [pids tids] :as result}
+                         {:keys [pid  tid]  :as vote}]
+                      (let [pid-room (< (count pids) (:max-ptpts opts'))
+                            tid-room (< (count tids) (:max-cmts opts'))
+                            pid-in   (pids pid)
+                            tid-in   (tids tid)]
+                        (if (and (or pid-room pid-in)
+                                 (or tid-room tid-in))
+                          (assoc result
+                                 :pids  (conj (:pids result)  pid)
+                                 :tids  (conj (:tids result)  tid)
+                                 :votes (conj (:votes result) vote))
+                          result)))
+                    ; Customs collection off which to base reduction; note that votes get cleared out
+                    (assoc (or (:customs conv) {:pids #{} :tids #{}})
+                      :votes [])
+                    votes))
+
+   :keep-votes  (plmb/fnk [customs]
+                  (:votes customs))
+
+   :rating-mat  (plmb/fnk [conv keep-votes]
                   (update-nmat (:rating-mat conv)
-                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) votes)))
+                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) keep-votes)))
 
    :n           (plmb/fnk [rating-mat]
                   (count (rownames rating-mat)))
@@ -90,6 +119,7 @@
 
    :user-vote-counts
                 (plmb/fnk [rating-mat]
+                  ; For deciding in-conv below; filter ptpts based on how much they've voted
                   (mapv
                     (fn [rowname row] [rowname (count (remove nil? row))])
                     (rownames rating-mat)
@@ -298,11 +328,16 @@
     (let [ptpts   (rownames (:rating-mat conv))
           n-ptpts (count (distinct (into ptpts (map :pid votes))))]
       (println "N-ptpts:" n-ptpts)
-      ; dispatch to the appropriate function
-      ((cond
-         (> n-ptpts large-cutoff)   large-conv-update
-         :else             small-conv-update)
-            {:conv conv :votes votes :opts opts}))
+      (->
+        ; dispatch to the appropriate function
+        ((cond
+           (> n-ptpts large-cutoff)   large-conv-update
+           :else             small-conv-update)
+              {:conv conv :votes votes :opts opts})
+        ; Remove the :votes key from customs; not needed for persistence
+        (assoc-in
+          [:customs :votes]
+          [])))
     (catch Exception e
       ; XXX - hmm... have to figure out how to deal with this hook in production. Shouldn't save things to
       ; disk that are too big, and in fact won't be able to save to disk at all on heroku
