@@ -72,8 +72,8 @@
                           :base-k 50
                           :max-k 12
                           :group-iters 10
-                          :max-ptpts 100000
-                          :max-cmts 1000}
+                          :max-ptpts 80000
+                          :max-cmts 800}
                     opts))
 
    :zid         (plmb/fnk [conv votes]
@@ -335,9 +335,8 @@
            :else             small-conv-update)
               {:conv conv :votes votes :opts opts})
         ; Remove the :votes key from customs; not needed for persistence
-        (assoc-in
-          [:customs :votes]
-          [])))
+        (assoc-in [:customs :votes] [])
+        (dissoc :keep-votes)))
     (catch Exception e
       ; XXX - hmm... have to figure out how to deal with this hook in production. Shouldn't save things to
       ; disk that are too big, and in fact won't be able to save to disk at all on heroku
