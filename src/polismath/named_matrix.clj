@@ -87,9 +87,7 @@
     (update-nmat [this values]
       ; A bunch of profiling shit
       (let [values (into [] values)]
-      (println "count" (count values))
       (p :update-nmat
-      ; XXX - Start actual function
       ; First find the row and column names that aren't yet in the data
       (let [[missing-rows missing-cols]
               (reduce

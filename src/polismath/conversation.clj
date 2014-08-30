@@ -8,7 +8,7 @@
             [clojure.math.numeric-tower :as math]
             [bigml.sampling.simple :as sampling]
            ; [alex-and-georges.debug-repl :as dbr]
-            )
+            [clojure.tools.logging :as log])
   (:use clojure.core.matrix
         clojure.core.matrix.operators
         polismath.utils
@@ -323,26 +323,20 @@
   [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 10000}
                                  :as opts}]
-  (println "\nStarting new conv update!")
-  (try
-    (let [ptpts   (rownames (:rating-mat conv))
-          n-ptpts (count (distinct (into ptpts (map :pid votes))))]
-      (println "N-ptpts:" n-ptpts)
-      (->
-        ; dispatch to the appropriate function
-        ((cond
-           (> n-ptpts large-cutoff)   large-conv-update
-           :else             small-conv-update)
-              {:conv conv :votes votes :opts opts})
-        ; Remove the :votes key from customs; not needed for persistence
-        (assoc-in [:customs :votes] [])
-        (dissoc :keep-votes)))
-    (catch Exception e
-      ; XXX - hmm... have to figure out how to deal with this hook in production. Shouldn't save things to
-      ; disk that are too big, and in fact won't be able to save to disk at all on heroku
-      (println "Update Failure:" (.getMessage e))
-      (conv-update-dump conv votes opts e)
-      (throw e))))
+  (let [zid     (or (:zid conv) (:zid (first votes)))
+        ptpts   (rownames (:rating-mat conv))
+        n-ptpts (count (distinct (into ptpts (map :pid votes))))
+        n-cmts  (count (distinct (into (rownames (:rating-mat conv)) (map :tid votes))))]
+    (log/info (str "Starting conv-update for zid " zid ": N=" n-ptpts ", C=" n-cmts ", V=" (count votes)))
+    (->
+      ; dispatch to the appropriate function
+      ((cond
+         (> n-ptpts large-cutoff)   large-conv-update
+         :else             small-conv-update)
+            {:conv conv :votes votes :opts opts})
+      ; Remove the :votes key from customs; not needed for persistence
+      (assoc-in [:customs :votes] [])
+      (dissoc :keep-votes))))
 
 
 ;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
@@ -378,9 +372,10 @@
     text))
 
 
-(defn conv-update-dump [conv votes & [opts error]]
+(defn conv-update-dump
+  "Write out conversation state, votes, computational opts and error for debugging purposes."
+  [conv votes & [opts error]]
   (spit (str "errorconv." (. System (nanoTime)) ".edn")
-    ; XXX - not sure if the print-method calls will work just in this namespace or not...
     (prn-str
       {:conv  (into {}
                 (assoc-in conv [:pca :center] (matrix (into [] (:center (:pca conv))))))

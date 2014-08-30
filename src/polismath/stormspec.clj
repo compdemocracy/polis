@@ -6,7 +6,8 @@
             [polismath.poller :as poll]
             [environ.core :as env]
             [clojure.string :as string]
-            [clojure.newtools.cli :refer [parse-opts]])
+            [clojure.newtools.cli :refer [parse-opts]]
+            [clojure.tools.logging :as log])
   (:use [backtype.storm clojure config]
         polismath.named-matrix
         polismath.utils
@@ -48,7 +49,7 @@
     (spout
       (nextTuple []
         (Thread/sleep poll-interval)
-        (println "poll >" @last-timestamp)
+        (log/info "Polling :created >" @last-timestamp)
         (let [new-votes (poll/poll pg-spec @last-timestamp)
               grouped-votes (group-by :zid new-votes)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
@@ -121,7 +122,7 @@
 
 (defn -main [& args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
-    (println "Submitting storm topology")
+    (log/info "Submitting storm topology")
     (cond
       (:help options)   (exit 0 (usage summary))
       (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))

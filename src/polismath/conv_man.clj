@@ -33,7 +33,7 @@
          end# (System/currentTimeMillis)
          duration# (- end# start#)]
      (metric ~metric-name duration# end#)
-     (println (str end# " " ~metric-name " " duration# " millis"))
+     (log/debug (str end# " " ~metric-name " " duration# " millis"))
      ret#))
 
 
@@ -113,26 +113,37 @@
     :upsert true))
 
 
+(defn flatten-vote-batches
+  "Prep vote batches as the enter from a channel. Extract the actual votes, and flatten into a single coll,
+  sorted by :created so that changed votes are appropriately accounted for."
+  [vote-batches]
+  (sort-by :created (flatten (map :reactions vote-batches))))
+
+
 (defn update-fn
+  "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
+  up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv vote-batches error-callback]
   (let [start-time (System/currentTimeMillis)]
     (try
-      (let [votes          (sort-by :created (flatten (map :reactions vote-batches)))
+      (let [votes          (flatten-vote-batches vote-batches)
             last-timestamp (apply max (map :last-timestamp vote-batches))
             updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)]
+        (log/info "Finished computng conv-update for zid" zid)
         ; Format and upload main results
         (->> (format-for-mongo prep-main updated-conv last-timestamp)
           (mongo-upsert-results (mongo-collection-name "main")))
         ; format and upload bidtopid results
         (->> (format-for-mongo prep-bidToPid updated-conv last-timestamp)
           (mongo-upsert-results (mongo-collection-name "bidtopid")))
+        (log/info "Finished uploading mongo results for zid" zid)
         ; Return the updated conv
         updated-conv)
       ; In case anything happens, run the error-callback handler. Agent error handlers do not work here, since
       ; they don't give us access to the votes.
       (catch Exception e
-        (error-callback vote-batches start-time e)
+        (error-callback vote-batches (:opts' conv) start-time e)
         ; Wait a second before returning the origin, unmodified conv, to throttle retries
         (Thread/sleep 1000)
         conv))))
@@ -142,7 +153,7 @@
   "Returns a clojure that can be called in case there is an update error. The closure gives access to
   the queue so votes can be requeued"
   [queue conv-agent]
-  (fn [vote-batches start-time update-error]
+  (fn [vote-batches start-time opts update-error]
     (let [zid-str (str "zid=" (:zid @conv-agent))]
       (log/error "Failed conversation update for" zid-str)
       (.printStackTrace update-error)
@@ -162,7 +173,13 @@
               duration (- end start-time)]
           (metric "math.pca.compute.fail" duration))
         (catch Exception e
-          (log/error "Unable to send metrics for failed compute for" zid-str))))))
+          (log/error "Unable to send metrics for failed compute for" zid-str)))
+      ; Try to save conversation state for debugging purposes
+      (try
+        (let [votes (flatten-vote-batches vote-batches)]
+          (conv/conv-update-dump @conv-agent votes opts update-error))
+        (catch Exception e
+          (log/error "Unable to perform conv-update dump for" zid-str))))))
 
 
 (defn new-conv-agent-builder [update-fn]
