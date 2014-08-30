@@ -109,13 +109,13 @@
 
 
 (defn play [& args]
-  (let [big-ptpts    20000
-        big-comments 100
+  (let [big-ptpts    2000
+        big-comments 200
         a (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
-        a (time2 "CONVUP med" (conv-update a (random-votes 500 10)))
-        a (time2 "CONVUP big" (conv-update a (random-votes big-ptpts big-comments)))]
-    (profile :info :clusters
-      (time2 "CONVUP big-part" (conv-update a (random-votes big-ptpts (+ big-comments 2)) :large-cutoff 10000)))))
+        a (conv-update a (random-votes big-ptpts big-comments) :max-ptpts 1000 :max-cmts 100)]
+    (println "XXX" (:n a) (:n-cmts a))))
+    ;(profile :info :clusters
+      ;(conv-update a (random-votes big-ptpts (+ big-comments 2)) :large-cutoff 10000 :max-ptpts 10000))
 
 
 (defn replay-conv-update [filename]
