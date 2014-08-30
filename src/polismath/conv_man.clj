@@ -11,6 +11,8 @@
             [cheshire.core :as ch]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
             [clojure.tools.logging :as log]))
+(when-not (#{"prod" "production" "preprod"} (env/env :math-env))
+  (use 'alex-and-georges.debug-repl))
 
 
 (add-encoder mikera.vectorz.Vector
@@ -136,6 +138,14 @@
   (sort-by :created (flatten (map :reactions vote-batches))))
 
 
+(defn handle-profile-data
+  "For now, just log profile data. Eventually want to send to influxDB and graphite."
+  [conv]
+  (let [prof @(:profile-data conv)
+        tot  (apply + (map second prof))]
+    (log/debug "Profile data for zid" (:zid conv) ": " prof)))
+
+
 (defn update-fn
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
@@ -145,8 +155,10 @@
       (let [votes          (flatten-vote-batches vote-batches)
             last-timestamp (apply max (map :last-timestamp vote-batches))
             updated-conv   (conv/conv-update conv votes)
-            zid            (:zid updated-conv)]
-        (log/info "Finished computng conv-update for zid" zid)
+            zid            (:zid updated-conv)
+            finish-time    (System/currentTimeMillis)]
+        (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
+        (handle-profile-data updated-conv)
         ; Format and upload main results
         (->> (format-for-mongo prep-main updated-conv last-timestamp)
           (mongo-upsert-results (mongo-collection-name "main")))

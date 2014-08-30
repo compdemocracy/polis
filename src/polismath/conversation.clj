@@ -334,8 +334,11 @@
                     pca)))))}))
 
 
-(def small-conv-update (graph/eager-compile small-conv-update-graph))
-(def large-conv-update (graph/eager-compile large-conv-update-graph))
+(def eager-profiled-compiler
+  (comp graph/eager-compile (partial graph/profiled :profile-data)))
+
+(def small-conv-update (eager-profiled-compiler small-conv-update-graph))
+(def large-conv-update (eager-profiled-compiler large-conv-update-graph))
 
 
 (declare conv-update-dump)
