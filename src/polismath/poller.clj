@@ -6,7 +6,9 @@
             [clojure.tools.logging :as log]))
 
 
-(defn heroku-db-spec [db-uri]
+(defn heroku-db-spec
+  "Create a korma db-spec given a heroku db-uri"
+  [db-uri]
   (let [[_ user password host port db] (re-matches #"postgres://(?:(.+):(.*)@)?([^:]+)(?::(\d+))?/(.+)" db-uri)
         settings {:user user
                   :password password
@@ -18,7 +20,9 @@
     (kdb/postgres settings)))
 
 
-(defn poll [db-spec last-timestamp]
+(defn poll
+  "Query for all data since last-timestamp, given a db-spec"
+  [db-spec last-timestamp]
   (try
     (kdb/with-db db-spec
       (ko/select "votes"

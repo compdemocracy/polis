@@ -23,10 +23,12 @@
                (encode-seq (into-array v) jsonGenerator)))
 
 
+; Create graphite sender
 (def metric (met/make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
 
 
 (defmacro meter
+  "Send performance metrics to graphite"
   [metric-name & expr]
   `(let [start# (System/currentTimeMillis)
          ret# ~@expr
@@ -37,13 +39,18 @@
      ret#))
 
 
-(defn mongo-collection-name [basename]
+(defn mongo-collection-name
+  "Mongo collection name based on MATH_ENV env variable and hard-coded schema data. Makes sure that
+  prod, preprod, dev (and subdevs like chrisdev) have their own noninterfering collections."
+  [basename]
   (let [schema-date "2014_08_22"
         env-name    (or (env/env :math-env) "dev")]
     (str "math_" env-name "_" schema-date "_" basename)))
 
 
-(defn mongo-connect! [mongo-url]
+(defn mongo-connect!
+  "Connect to a mongo database given mongo-url"
+  [mongo-url]
   (mc/connect-via-uri! mongo-url))
 
 
@@ -56,7 +63,9 @@
         (get-or-set! coll-atom key))))
 
 
-(defn prep-bidToPid [results]
+(defn prep-bidToPid
+  "Prep function for passing to format-for-mongo given bidToPid data"
+  [results]
   {"bidToPid" (:bid-to-pid results)})
 
 
@@ -69,7 +78,9 @@
       (apply assoc-in-bc this-part kvs))))
 
 
-(defn prep-main [results]
+(defn prep-main
+  "Prep function for passing to format-for-mongo and on the main polismath collection."
+  [results]
   (let [base-clusters (:base-clusters results)]
     (-> results
       ; REFORMAT BASE CLUSTERS
@@ -95,7 +106,10 @@
         :votes-base}))))
 
 
-(defn format-for-mongo [prep-fn conv lastVoteTimestamp]
+(defn format-for-mongo
+  "Formats data for mongo, first passing through a prep function which may strip out uneeded junk or
+  reshape things. Takes conv and lastVoteTimestamp, though the latter may be moved into the former in update"
+  [prep-fn conv lastVoteTimestamp]
   (-> conv
     prep-fn
     ; core.matrix & monger workaround: convert to str with cheshire then back
@@ -105,7 +119,9 @@
       "lastVoteTimestamp" lastVoteTimestamp)))
 
 
-(defn mongo-upsert-results [collection-name new-results]
+(defn mongo-upsert-results
+  "Perform upsert of new results on mongo collection name"
+  [collection-name new-results]
   (monger.collection/update collection-name
     {:zid (:zid new-results)} 
     new-results
@@ -182,7 +198,10 @@
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
 
-(defn new-conv-agent-builder [update-fn]
+(defn new-conv-agent-builder
+  "Given an update function, creates a function which returns a queued agent with the given update function.
+  This eases some of the flow logic for using the queued agents in the stormspec"
+  [update-fn]
   (fn []
     (qa/queued-agent
       :update-fn update-fn
