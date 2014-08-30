@@ -73,7 +73,8 @@
                           :max-k 12
                           :group-iters 10
                           :max-ptpts 80000
-                          :max-cmts 800}
+                          :max-cmts 800
+                          :group-k-buffer 4}
                     opts))
 
    :zid         (plmb/fnk [conv votes]
@@ -230,11 +231,32 @@
                     [k (silhouette bucket-dists clsts)])
                   group-clusterings)))
 
-      ; Here we just pick the best K value, based on silhouette
+      ; This smooths changes in cluster counts (K-vals) by remembering what the last K was, and only changing
+      ; after (:group-k-buffer opts') many times on a new K value
+      :group-k-smoother
+            (plmb/fnk
+              [conv group-clusterings group-clusterings-silhouettes opts']
+              (let [{:keys [last-k last-k-count smoothed-k] :or {last-k-count 0}}
+                      (:group-k-smoother conv)
+                    count-buffer (:group-k-buffer opts')
+                                 ; Find best K value for current data, given silhouette
+                    this-k       (apply max-key group-clusterings-silhouettes (keys group-clusterings))
+                                 ; If this and last K values are the same, increment counter
+                    same         (if last-k (= this-k last-k) false)
+                    this-k-count (if same (+ last-k-count 1) 1)
+                                 ; if seen > buffer many times, switch, OW, take last smoothed
+                    smoothed-k   (if (>= this-k-count count-buffer)
+                                   this-k
+                                   (if smoothed-k smoothed-k this-k))]
+                {:last-k       this-k
+                 :last-k-count this-k-count
+                 :smoothed-k   smoothed-k}))
+
+      ; Pick the cluster corresponding to smoothed K value from group-k-smoother
       :group-clusters
-            (plmb/fnk [group-clusterings group-clusterings-silhouettes]
+            (plmb/fnk [group-clusterings group-k-smoother]
               (get group-clusterings
-                (apply max-key group-clusterings-silhouettes (keys group-clusterings))))
+                (:smoothed-k group-k-smoother)))
 
       :bid-to-pid (plmb/fnk [base-clusters]
                     (greedy
