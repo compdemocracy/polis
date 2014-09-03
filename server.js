@@ -1430,6 +1430,50 @@ app.use(express.logger());
 app.use(express.cookieParser());
 app.use(express.bodyParser());
 
+app.use(writeDefaultHead);
+
+
+function strToHex(str) {
+var hex, i;
+// var str = "\u6f22\u5b57"; // "\u6f22\u5b57" === "漢字"
+var result = "";
+for (i=0; i<str.length; i++) {
+  hex = str.charCodeAt(i).toString(16);
+  result += ("000"+hex).slice(-4);
+}
+return result;
+}
+function hexToStr(hexString) {
+var j;
+var hexes = hexString.match(/.{1,4}/g) || [];
+var str = "";
+for(j = 0; j<hexes.length; j++) {
+  str += String.fromCharCode(parseInt(hexes[j], 16));
+}
+return str;
+}
+
+// TODO this should probably be exempt from the CORS restrictions
+app.get("/api/v3/launchPrep",
+    moveToBody,
+    need("dest", getStringLimitLength(1, 10000), assignToP),
+function(req, res) {
+
+
+    var setOnPolisDomain = !domainOverride;
+    var origin = req.headers.origin || "";
+    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+        setOnPolisDomain = false;
+    }
+
+    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
+        setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+    }
+    var dest = hexToStr(req.p.dest);
+    res.redirect(dest);
+});
+
+
 app.get("/api/v3/setFirstCookie",
     moveToBody,
 function(req, res) {
@@ -1457,7 +1501,6 @@ if (devMode) {
     // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
     app.use(express.compress());
 }
-app.use(writeDefaultHead);
 app.use(function(req, res, next) {
     if (req.body) {
         console.log(req.path);
@@ -3750,45 +3793,6 @@ function(req, res) {
     });
 });
 
-
-function strToHex(str) {
-var hex, i;
-// var str = "\u6f22\u5b57"; // "\u6f22\u5b57" === "漢字"
-var result = "";
-for (i=0; i<str.length; i++) {
-  hex = str.charCodeAt(i).toString(16);
-  result += ("000"+hex).slice(-4);
-}
-return result;
-}
-function hexToStr(hexString) {
-var j;
-var hexes = hexString.match(/.{1,4}/g) || [];
-var str = "";
-for(j = 0; j<hexes.length; j++) {
-  str += String.fromCharCode(parseInt(hexes[j], 16));
-}
-return str;
-}
-
-app.get("/api/v3/launchPrep",
-    moveToBody,
-    need("dest", getStringLimitLength(1, 10000), assignToP),
-function(req, res) {
-
-
-    var setOnPolisDomain = !domainOverride;
-    var origin = req.headers.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-        setOnPolisDomain = false;
-    }
-
-    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-        setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
-    }
-    var dest = hexToStr(req.p.dest);
-    res.redirect(dest);
-});
 
 
 app.get("/api/v3/comments",
