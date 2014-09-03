@@ -1444,7 +1444,7 @@ function(req, res) {
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
     }
-    res.status(200).end();
+    res.status(200).json({});
 });
 
 app.use(redirectIfWrongDomain);
