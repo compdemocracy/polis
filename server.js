@@ -1426,6 +1426,25 @@ function MPromise(name, f) {
 
 app.use(meter("api.all"));
 app.use(express.logger());
+
+
+app.get("/api/v3/setFirstCookie",
+    moveToBody,
+function(req, res) {
+
+
+    var setOnPolisDomain = !domainOverride;
+    var origin = req.headers.origin || "";
+    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+        setOnPolisDomain = false;
+    }
+
+    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
+        setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+    }
+    res.status(200).end();
+});
+
 app.use(redirectIfWrongDomain);
 app.use(redirectIfApiDomain);
 app.use(redirectIfNotHttps);
