@@ -1427,6 +1427,8 @@ function MPromise(name, f) {
 app.use(meter("api.all"));
 app.use(express.logger());
 
+app.use(express.cookieParser());
+app.use(express.bodyParser());
 
 app.get("/api/v3/setFirstCookie",
     moveToBody,
@@ -1456,8 +1458,6 @@ if (devMode) {
     app.use(express.compress());
 }
 app.use(writeDefaultHead);
-app.use(express.cookieParser());
-app.use(express.bodyParser());
 app.use(function(req, res, next) {
     if (req.body) {
         console.log(req.path);
@@ -3789,6 +3789,7 @@ function(req, res) {
     var dest = hexToStr(req.p.dest);
     res.redirect(dest);
 });
+
 
 app.get("/api/v3/comments",
     moveToBody,
