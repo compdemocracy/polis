@@ -41,6 +41,7 @@ var routeEvent = metric.routeEvent;
 var authenticatedDfd = $.Deferred();
 authenticatedDfd.done(function() {
   // link uid to GA userId
+  // TODO update this whenever auth changes
   ga('set', 'userId', PolisStorage.uid());
 });
 if (authenticated()) {
@@ -231,7 +232,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
   //   that.doLaunchConversation(conversation_id);
   // }
 
-}
+} // end doJoinConversation
 
 
 var polisRouter = Backbone.Router.extend({
