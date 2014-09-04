@@ -63,7 +63,10 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
   if (!Utils.cookiesEnabled()) {
     var view = new CookiesDisabledView();
     RootView.getInstance().setView(view);
-    window.top.postMessage("cookieRedirect", "*");
+    // if our script is running on a page in which we're embedded, postmessage
+    if (top.postMessage) {
+      top.postMessage("cookieRedirect", "*");
+    }
     return;
   }
 
