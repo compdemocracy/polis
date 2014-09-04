@@ -42,6 +42,7 @@ var badwords = require('badwords/object'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
     Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
+    p3p = require('p3p'),
     Pushover = require( 'pushover-notifications' ),
     pushoverInstance = new Pushover( {
         user: process.env.PUSHOVER_GROUP_POLIS_DEV,
@@ -1431,6 +1432,14 @@ app.use(express.cookieParser());
 app.use(express.bodyParser());
 
 app.use(writeDefaultHead);
+var p3pFunction = p3p(p3p.recommended);
+app.use(function(req, res, next) {
+    if (isIE(req)) {
+        return p3pFunction(req, res, next);
+    } else {
+        return next();
+    }
+});
 
 
 function strToHex(str) {
@@ -5847,6 +5856,11 @@ function makeFileFetcher(hostname, port, path, contentType) {
         //     fail(res, 500, "polis_err_serving_file", new Error("polis_err_serving_file"));
         // });
     };
+}
+
+function isIE(req) {
+    var h = req.headers['user-agent'];
+    return /MSIE [0-9]/.test(h) || /Trident/.test(h);
 }
 
 function isUnsupportedBrowser(req) {

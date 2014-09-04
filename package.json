@@ -41,6 +41,7 @@
     "akismet": "0.0.11",
     "mimelib": "~0.2.16",
     "request": "~2.38.0",
-    "simple-oauth2": "~0.2.0"
+    "simple-oauth2": "~0.2.0",
+    "p3p": "0.0.2"
   }
 }
