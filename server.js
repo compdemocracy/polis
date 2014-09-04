@@ -1478,6 +1478,7 @@ function(req, res) {
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
     }
+    // using hex since it doesn't require escaping like base64.
     var dest = hexToStr(req.p.dest);
     res.redirect(dest);
 });
