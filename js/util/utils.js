@@ -33,13 +33,16 @@ function mapObj(o, f) {
 // http://stackoverflow.com/questions/8112634/jquery-detecting-cookies-enabled
 function are_cookies_enabled()
 {
-    var cookieEnabled = (navigator.cookieEnabled) ? true : false;
+  if ((""+document.cookie).length > 0) {
+    return true;
+  }
+    // var cookieEnabled = (navigator.cookieEnabled) ? true : false;
 
-    if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
-    { 
+    // if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
+    // { 
         document.cookie="testcookie";
         cookieEnabled = (document.cookie.indexOf("testcookie") != -1) ? true : false;
-    }
+    // }
     return (cookieEnabled);
 }
 

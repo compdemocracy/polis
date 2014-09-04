@@ -62,6 +62,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
   if (!Utils.cookiesEnabled()) {
     var view = new CookiesDisabledView();
     RootView.getInstance().setView(view);
+    window.top.postMessage("cookieRedirect", "*");
     return;
   }
 
