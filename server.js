@@ -3167,6 +3167,7 @@ function(req, res) {
         var pid = o.pid;
         res.status(200).json({
             pid: pid,
+            uid: req.p.uid,
         });
     })
     .catch(function(err) {
