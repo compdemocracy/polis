@@ -1917,6 +1917,25 @@ function getXids(zid) {
     });
 }
 
+
+
+app.get("/api/v3/config.js",
+    moveToBody,
+    authOptional(assignToP),
+function(req, res) {
+    var uid;
+    if (req.p && req.p.uid) {
+        uid = req.p.uid;
+    }
+    var config = {};
+    if (uid) {
+        config.uid = uid;
+    }
+    res.setHeader('Content-Type', 'application/javascript');
+    res.status(200).send("window.polisConfig = " + JSON.stringify(config) + ";");
+});
+
+
 app.get("/api/v3/xids",
     auth(assignToP),
     moveToBody,
