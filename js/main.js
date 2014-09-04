@@ -153,7 +153,17 @@ window.deregister = function() {
     });
 };
 
-initialize(function(next) {
+var uidPromise;
+if (PolisStorage.uidFromCookie()) {
+  uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
+} else {
+  uidPromise = $.get("/api/v3/users").then(function(user) {
+    window.userObject = $.extend(window.userObject, user);
+  });
+}
+uidPromise.always(function() {
+
+  initialize(function(next) {
     // Load any data that your app requires to boot
     // and initialize all routers here, the callback
     // `next` is provided in case the operations
@@ -183,7 +193,10 @@ initialize(function(next) {
     display.init();
 
     next();
+  });
+
 });
+
 
 function initialize(complete) {
     $(function() {

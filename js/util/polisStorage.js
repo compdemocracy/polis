@@ -157,8 +157,8 @@ var store = (function() {
     //     get: getPid
     // };
 
-function getUid() {
-    return window.polisConfig.uid;
+function getUidFromUserObject() {
+    return window.userObject && window.userObject.uid;
 }
 module.exports = {
         // pids: asNumber(makeCookieValueGetterForKeyWithSuffix("p")) // p for pid, expecting keys like 314p=2; 451p=12
@@ -169,7 +169,8 @@ module.exports = {
         hasEmail: makeAccessor("e").get,
         // email: makeAccessor("email").get,
         //username: makeAccessor("p_username"),
-        uid: getUid,
+        uidFromCookie: makeAccessor("uid2").get,
+        uid: getUidFromUserObject,
         plan: asNumberWithFalsyAsZero(makeAccessor("plan").get),
         userCreated: asNumberWithFalsyAsZero(makeAccessor("uc").get) // using asNumberWithFalsyAsZero to not break existing logged-in users July 2014
 

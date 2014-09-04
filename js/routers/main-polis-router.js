@@ -44,9 +44,6 @@ authenticatedDfd.done(function() {
   // TODO update this whenever auth changes
   ga('set', 'userId', PolisStorage.uid());
 });
-if (authenticated()) {
-  authenticatedDfd.resolve();
-}
 
 function authenticated() { return PolisStorage.uid(); }
 function hasEmail() { return PolisStorage.hasEmail(); }
@@ -92,6 +89,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             suzinvite: suzinvite
           }
         }).then(function(data) {
+          window.userObject = $.extend(window.userObject, {uid: data.uid});
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
@@ -120,6 +118,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             conversation_id: conversation_id
           }
         }).then(function(data) {
+          window.userObject = $.extend(window.userObject, {uid: data.uid});
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
@@ -162,8 +161,9 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             // zinvite: zinvite
           }
         }).then(function(data) {
-          gaEvent("Session", "create", "empty");
+          window.userObject = $.extend(window.userObject, {uid: data.uid});
           that.participationView(conversation_id);
+          gaEvent("Session", "create", "empty");
         }, function(err) {
           that.conversationGatekeeper(conversation_id).done(function(ptptData) {
             doJoinConversation.call(that, onSuccess, conversation_id);
@@ -202,6 +202,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             suzinvite: suzinvite
           }
         }).then(function(data) {
+          window.userObject = $.extend(window.userObject, {uid: data.uid});
           doJoinConversation.call(that, onSuccess, conversation_id);
           // no ga session event, since they already have a uid
         }, function(err) {
@@ -297,8 +298,11 @@ var polisRouter = Backbone.Router.extend({
       }
     });
 
+    if (authenticated()) {
+      authenticatedDfd.resolve();
+    }
 
-  },
+  }, // end initialize
   r: function(pattern, methodNameToCall) {
     var that = this;
     this.route(pattern, function() {
