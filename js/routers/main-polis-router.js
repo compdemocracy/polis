@@ -42,10 +42,10 @@ var authenticatedDfd = $.Deferred();
 authenticatedDfd.done(function() {
   // link uid to GA userId
   // TODO update this whenever auth changes
-  ga('set', 'userId', PolisStorage.uid());
+  ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
 });
 
-function authenticated() { return PolisStorage.uid(); }
+function authenticated() { return PolisStorage.uid() || PolisStorage.uidFromCookie(); }
 function hasEmail() { return PolisStorage.hasEmail(); }
 
 // TODO refactor this terrible recursive monster function.
@@ -67,8 +67,8 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
     return;
   }
 
-  var uid = PolisStorage.uid();
-
+  var uid = PolisStorage.uid() || PolisStorage.uidFromCookie();
+  console.log("have uid", !!uid);
   if (!uid) {
       console.log("trying to load conversation, but no auth");
       // Not signed in.
@@ -171,7 +171,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
         });
 
       }
-  } else {
+  } else { // uid defined
     var params = {
       conversation_id: conversation_id,
     };
@@ -215,7 +215,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
           }
         });
       });
-    } else {
+    } else { // !singleUse
       // join conversation (may already have joined)
       var ptpt = new ParticipantModel(params);
       ptpt.save().then(function() {
