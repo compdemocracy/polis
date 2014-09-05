@@ -48,6 +48,21 @@
     //iframe.seamless='seamless';
     parent.appendChild(iframe);
   }
+  function browserCompatibleWithReidrectTrick() {
+      var ua = navigator.userAgent;
+      if (ua.match(/Firefox/)) {
+        if (ua.match(/Android/)) {
+          return false;
+        }
+        return true;
+      } else if (ua.match(/Trident/)) { // IE8+
+        return true;
+      } else if (ua.match(/Safari/)) { // includes Chrome
+        return true;
+      } else {
+        return false
+      }
+  }
 
   if (firstRun) {
     window.addEventListener("message", function(event) {
@@ -56,9 +71,7 @@
         return;
       } 
     
-      var userAgent = navigator.userAgent;
-      var browserIncompatibleWithReidrectTrick = userAgent.match(/Android.*Firefox/)
-      if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel() && !browserIncompatibleWithReidrectTrick) {
+      if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel() && browserCompatibleWithReidrectTrick()) {
         // temporarily redirect to polis, which will set a cookie and redirect back
         window.location = "https://preprod.pol.is/api/v3/launchPrep?dest=" + strToHex(window.location+"");
       }
