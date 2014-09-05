@@ -54,6 +54,7 @@ function destRoot() {
   return root;
 }
 var devMode = true;
+var preprodMode = false;
 var host;
 
 
@@ -189,6 +190,15 @@ gulp.task('sparklines', function() {
   var s = gulp.src('sparklines.svg')
     .pipe(gulp.dest(destRoot()));
 });
+
+gulp.task('polisHost', function() {
+  return gulp.src('api/polisHost.js')
+  .pipe(template({
+    polisHostName: (preprodMode ? "preprod.pol.is" : "pol.is"),
+  }))
+  .pipe(gulp.dest(destRootBase));
+});
+
 gulp.task('index', [
   'sparklines',
 ], function() {
@@ -504,6 +514,10 @@ gulp.task('about', function () {
 // ----------------------- END ABOUT PAGE STUFF -------------------------
 
 
+gulp.task("preprodConfig", function() {
+  preprodMode = true;
+});
+
 gulp.task("configureForProduction", function(callback) {
   devMode = false;
   destRootBase = "dist";
@@ -534,6 +548,7 @@ gulp.task('common', [
   "fontawesome",
   "index",
   "about",
+  "polisHost",
   ], function() {
 });
 
@@ -579,6 +594,7 @@ gulp.task('deploy_TO_PRODUCTION', [
 });
 
 gulp.task('deployPreprod', [
+  "preprodConfig",
   "dist"
 ], function() {
   return deploy({
@@ -631,6 +647,22 @@ function deploy(params) {
           'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),          
         },
         makeUploadPath: makeUploadPath,
+      }));
+
+    // polisHost.js
+    gulp.src([
+      destRootBase + '/**/polisHost.js',
+      ], {read: false})
+    .pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+          'Content-Encoding': 'gzip',
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, 60),
+        },
+        makeUploadPath: function() {
+          return "/polisHost.js";
+        },
       }));
 
     // HTML files (uncached)
