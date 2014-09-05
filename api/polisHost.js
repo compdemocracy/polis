@@ -40,9 +40,7 @@
     }
     path.push(o.conversation_id);
     iframe.src = "https://<%= polisHostName %>/"+ path.join("/");
-    if (o.width) {
-        iframe.width = o.width;
-    }
+    iframe.width = o.width || 320;
     iframe.height = o.height || 1200;
     //iframe.frameBorder=0;
     //iframe.seamless='seamless';
