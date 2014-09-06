@@ -42,10 +42,10 @@
     iframe.src = "https://<%= polisHostName %>/"+ path.join("/");
     iframe.width = o.width || 480; // slightly less than iPhone width
     iframe.height = o.height || 900;
-    iframe.style.border = "none";
+    iframe.style.border = "1px solid #ccc";
     iframe.style.borderRadius = "5px";
-    iframe.style.borderTop = "2px solid #ccc";
-    iframe.style.borderLeft = "2px solid #ccc";
+    // iframe.style.borderTop = "2px solid #ccc";
+    // iframe.style.borderLeft = "2px solid #ccc";
     parent.appendChild(iframe);
   }
   function browserCompatibleWithReidrectTrick() {
