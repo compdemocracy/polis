@@ -535,7 +535,7 @@ mongo.connect(process.env.MONGOLAB_URI, {
 
     function mongoCollectionName(basename) {
       var schemaDate = "2014_08_22";
-      var envName = "mike" || "dev"; // ENV_NAME
+      var envName = process.env.MATH_ENV; // prod, preprod, chris, mike
       var name = ["math", envName, schemaDate, basename].join("_");
       return name;
     }
