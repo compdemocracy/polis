@@ -41,7 +41,7 @@
     path.push(o.conversation_id);
     iframe.src = "https://<%= polisHostName %>/"+ path.join("/");
     iframe.width = o.width || 480; // slightly less than iPhone width
-    iframe.height = o.height || 1200;
+    iframe.height = o.height || 900;
     iframe.style.border = "none";
     iframe.style.borderRadius = "5px";
     iframe.style.borderTop = "2px solid #ccc";
