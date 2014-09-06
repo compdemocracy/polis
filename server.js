@@ -1435,6 +1435,7 @@ function MPromise(name, f) {
 
 app.use(meter("api.all"));
 app.use(express.logger());
+app.use(redirectIfNotHttps);
 
 app.use(express.cookieParser());
 app.use(express.bodyParser());
@@ -1511,7 +1512,6 @@ function(req, res) {
 
 app.use(redirectIfWrongDomain);
 app.use(redirectIfApiDomain);
-app.use(redirectIfNotHttps);
 if (devMode) {
     app.use(express.compress());
 } else {
