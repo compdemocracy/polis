@@ -89,7 +89,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             suzinvite: suzinvite
           }
         }).then(function(data) {
-          window.userObject = $.extend(window.userObject, {uid: data.uid});
+          window.userObject = $.extend(window.userObject, data);
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
@@ -118,7 +118,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             conversation_id: conversation_id
           }
         }).then(function(data) {
-          window.userObject = $.extend(window.userObject, {uid: data.uid});
+          window.userObject = $.extend(window.userObject, data);
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
@@ -161,7 +161,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             // zinvite: zinvite
           }
         }).then(function(data) {
-          window.userObject = $.extend(window.userObject, {uid: data.uid});
+          window.userObject = $.extend(window.userObject, data);
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
@@ -202,7 +202,7 @@ function doJoinConversation(onSuccess, conversation_id, zinvite, singleUse) {
             suzinvite: suzinvite
           }
         }).then(function(data) {
-          window.userObject = $.extend(window.userObject, {uid: data.uid});
+          window.userObject = $.extend(window.userObject, data);
           doJoinConversation.call(that, onSuccess, conversation_id);
           // no ga session event, since they already have a uid
         }, function(err) {

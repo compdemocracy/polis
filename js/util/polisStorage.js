@@ -102,14 +102,17 @@ var store = (function() {
             return Number(getter(key));
         };
     }
+    function toNumberWithFalsyAsZero(val) {
+        if (_.isUndefined(val)) {
+            return 0;
+        } else {
+            return Number(val);
+        }
+    }
     function asNumberWithFalsyAsZero(getter) {
         return function(key) {
             var val = getter(key);
-            if (_.isUndefined(val)) {
-                return 0;
-            } else {
-                return Number(val);
-            }
+            toNumberWithFalsyAsZero(val);
         };
     }
 
@@ -160,6 +163,9 @@ var store = (function() {
 function getUidFromUserObject() {
     return window.userObject && window.userObject.uid;
 }
+function userCreated() {
+    return toNumberWithFalsyAsZero(window.userObject && window.userObject.created) || Date.now();
+}
 module.exports = {
         // pids: asNumber(makeCookieValueGetterForKeyWithSuffix("p")) // p for pid, expecting keys like 314p=2; 451p=12
         // pid: pidRamStore,
@@ -172,7 +178,7 @@ module.exports = {
         uidFromCookie: makeAccessor("uid2").get,
         uid: getUidFromUserObject,
         plan: asNumberWithFalsyAsZero(makeAccessor("plan").get),
-        userCreated: asNumberWithFalsyAsZero(makeAccessor("uc").get) // using asNumberWithFalsyAsZero to not break existing logged-in users July 2014
+        userCreated: userCreated
 
         //token: makeAccessor("p_authToken")
     };

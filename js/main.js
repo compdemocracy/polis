@@ -160,13 +160,13 @@ window.deregister = function() {
 };
 
 var uidPromise;
-if (PolisStorage.uidFromCookie()) {
-  uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
-} else {
+// if (PolisStorage.uidFromCookie()) {
+//   uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
+// } else {
   uidPromise = $.get("/api/v3/users").then(function(user) {
     window.userObject = $.extend(window.userObject, user);
   });
-}
+// }
 uidPromise.always(function() {
 
   initialize(function(next) {
