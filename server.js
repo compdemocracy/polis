@@ -63,6 +63,14 @@ var badwords = require('badwords/object'),
     _ = require('underscore');
 
 
+// so we can grant extra days to users
+// eventually we should probably move this to db.
+// for now, use git blame to see when these were added
+var usersToAdditionalTrialDays = {
+    50756: 10, // julien
+    85423: 100, // mike test
+};
+
 // log heap stats
 setInterval(function() {
     var mem = process.memoryUsage();
@@ -3404,6 +3412,8 @@ function(req, res) {
             uid: uid,
             email: info.email,
             hname: info.hname,
+            created: Number(info.created),
+            daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
             plan: planCodeToPlanName[info.plan],
         });
     }, function(err) {
