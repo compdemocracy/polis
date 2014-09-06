@@ -10,7 +10,7 @@ function daysSinceJoin() {
   return (millisSinceJoin() / millisPerDay) >> 0;
 }
 function numberOfDaysInTrial() {
-  return 10;
+  return (window.userObject && window.userObject.daysInTrial) || 10;
 }
 function trialDaysRemaining() {
   console.log('trial', numberOfDaysInTrial(), daysSinceJoin());

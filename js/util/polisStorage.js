@@ -112,7 +112,7 @@ var store = (function() {
     function asNumberWithFalsyAsZero(getter) {
         return function(key) {
             var val = getter(key);
-            toNumberWithFalsyAsZero(val);
+            return toNumberWithFalsyAsZero(val);
         };
     }
 
