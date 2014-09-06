@@ -221,12 +221,12 @@ module.exports = Handlebones.View.extend({
           var word = repfullForAgree ?
             "agreed" :
             "disagreed";
-          var bodyColor = repfullForAgree ?
-            "#20442F" :
-            "rgb(68, 33, 33)";
-          var backgroundColor = repfullForAgree ?
-            "rgba(46, 204, 84, 0.07)" :
-            "rgba(231, 76, 60, 0.05)";
+          var bodyColor = "black"; //repfullForAgree ?
+            // "#20442F" :
+            // "rgb(68, 33, 33)";
+          var backgroundColor = "none"; //repfullForAgree ?
+            // "rgba(46, 204, 84, 0.07)" :
+            // "rgba(231, 76, 60, 0.05)";
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% </span>" +
               "<span class='small' style='color:darkgray;'>("+ count+"/"+info.count +") of this group "+ word + "</span>";
