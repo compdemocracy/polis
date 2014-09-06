@@ -533,9 +533,16 @@ mongo.connect(process.env.MONGOLAB_URI, {
         process.exit(1);
     }
 
-    db.collection('polismath_july30', function(err, collectionOfPcaResults) {
-    db.collection('polismath_bidToPid_july30', function(err, collectionOfBidToPidResults) {
-    db.collection('polismath_pcaPlaybackResults_july30', function(err, collectionOfPcaPlaybackResults) {
+    function mongoCollectionName(basename) {
+      var schemaDate = "2014_08_22";
+      var envName = process.env.MATH_ENV; // prod, preprod, chris, mike
+      var name = ["math", envName, schemaDate, basename].join("_");
+      return name;
+    }
+
+    db.collection(mongoCollectionName('main'), function(err, collectionOfPcaResults) {
+    db.collection(mongoCollectionName('bidToPid'), function(err, collectionOfBidToPidResults) {
+    db.collection(mongoCollectionName('pcaPlaybackResults'), function(err, collectionOfPcaPlaybackResults) {
 
         callback(null, {
             mongoCollectionOfPcaResults: collectionOfPcaResults,
