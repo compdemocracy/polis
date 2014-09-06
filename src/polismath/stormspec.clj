@@ -15,7 +15,7 @@
   (:gen-class))
 
 
-(defspout sim-reaction-spout ["zid" "last-timestamp" "reaction"] {:prepare true}
+(defspout sim-reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
   [conf context collector]
   (let [at-a-time 10
         interval 1000
@@ -40,7 +40,7 @@
       (ack [id]))))
 
 
-(defspout reaction-spout ["zid" "last-timestamp" "reaction"] {:prepare true}
+(defspout reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
   [conf context collector]
   (let [poll-interval   1000
         pg-spec         (poll/heroku-db-spec (env/env :database-url))
@@ -48,7 +48,6 @@
         last-timestamp  (atom 0)]
     (spout
       (nextTuple []
-        (Thread/sleep poll-interval)
         (log/info "Polling :created >" @last-timestamp)
         (let [new-votes (poll/poll pg-spec @last-timestamp)
               grouped-votes (group-by :zid new-votes)]
@@ -57,7 +56,8 @@
             (emit-spout! collector [zid @last-timestamp rxns]))
           ; Update timestamp if needed
           (swap! last-timestamp
-                 (fn [last-ts] (apply max 0 last-ts (map :created new-votes))))))
+                 (fn [last-ts] (apply max 0 last-ts (map :created new-votes)))))
+        (Thread/sleep poll-interval))
       (ack [id]))))
 
 
