@@ -219,8 +219,8 @@ module.exports = Handlebones.View.extend({
             v.gD_total;
           // L10N gods forgive me
           var word = repfullForAgree ?
-            "agreed" :
-            "disagreed";
+            "<span class='HeadingF a'>agreed</span>" :
+            "<span class='HeadingF d'>disagreed</span>";
           var bodyColor = "black"; //repfullForAgree ?
             // "#20442F" :
             // "rgb(68, 33, 33)";
