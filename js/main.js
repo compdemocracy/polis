@@ -74,6 +74,12 @@ function ifNotIE8(arg0) {
 }
 Handlebars.registerHelper("ifNotIE8", ifNotIE8);
 
+function ifIos(arg0) {
+  return Utils.isIos()  ? arg0.fn(this): "";
+}
+Handlebars.registerHelper("ifIos", ifIos);
+
+
 // Handlebars.registerHelper("ifXs", function(arg0) {
 //   return display.xs() ? arg0.fn(this) : "";
 // });
