@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Replicates ENV config variables from one location to another
+# usage:
+#  eval `./bin/herokuConfigReplicate <herokuapp>`
+# where herokuapp is one of polismath, polismath-preprod, or polis-preprod
+
+exportedvars=`heroku config --app polisapp | grep ": " | grep -i mongo | grep -v MATH_ENV | \
+  sed "s/[:=] */='/" | \
+  sed "s/$/'/" | \
+  tr '\n' ' '`
+
+echo heroku config:set --app $1 $exportedvars
+
