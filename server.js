@@ -2560,7 +2560,7 @@ function joinConversation(zid, uid, pmaid_answers) {
 
   return getPidPromise(zid, uid).then(function(pid) {
     // already a ptpt, so don't create another
-    // This is by design for now, so no need to complain // yell("polis_warn_participant_exists");
+    yell("polis_warn_participant_exists");
   }, function(err) {
     // retry up to 10 times
     // NOTE: Shouldn't be needed, since we have an advisory lock in the insert trigger.
