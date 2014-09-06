@@ -40,10 +40,12 @@
     }
     path.push(o.conversation_id);
     iframe.src = "https://<%= polisHostName %>/"+ path.join("/");
-    iframe.width = o.width || 320;
+    iframe.width = o.width || 440; // slightly less than iPhone width
     iframe.height = o.height || 1200;
-    //iframe.frameBorder=0;
-    //iframe.seamless='seamless';
+    iframe.style.border = "none";
+    iframe.style.borderRadius = "5px";
+    iframe.style.borderTop = "2px solid #ccc";
+    iframe.style.borderLeft = "2px solid #ccc";
     parent.appendChild(iframe);
   }
   function browserCompatibleWithReidrectTrick() {

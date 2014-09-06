@@ -45,7 +45,10 @@ col-lg-offset-0 col-lg-12
 "> {{! fake container}}
   {{! overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. }}
 
-  <div class="col-xs-12 col-xs-offset-0 col-sm-offset-0 col-sm-6 col-md-5 col-lg-4"> {{! column }}
+  <div {{! column }}
+    class="col-xs-12 col-xs-offset-0 col-sm-offset-0 col-sm-6 col-md-5 col-lg-4"
+    style="max-width:480px" {{! prevent carousel from resizing window when we're in an iframe on iOS }}
+    > 
 
     <div class="tabbable"
     > {{! Only required for left/right tabs }}
