@@ -1766,6 +1766,7 @@ function clientSideBaseCluster(things, N) {
 
         return {
             count: count,
+            repness: repness[gid],
             votes: votesForTidBidWhereVotesOutsideGroupAreZeroed
         };
     }

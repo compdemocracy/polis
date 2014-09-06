@@ -183,21 +183,42 @@ module.exports = Handlebones.View.extend({
       var indexToTid = [];
 
       var info = that.groupInfo();
+      var repnessInfo = info.repness.slice(0);
+      repnessInfo.sort(function(a, b) {
+        if (a["repful-for"] === "agree" && b["repful-for"] === "disagree") {
+          return -1;
+        }
+        if (b["repful-for"] === "agree" && a["repful-for"] === "disagree") {
+          return 1;
+        }
+        // secondary sort is descending repness
+        // TODO condider confidence values
+        return b.repness - a.repness;
+      });
+      var tids = _.pluck(repnessInfo, "tid");
+
 
       // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
       var comments = that.collection.models.slice(0);
       comments = _.filter(comments, function(comment) {
-        return _.contains(that.tidsForGroup, comment.get('tid'));
+        return _.contains(tids, comment.get('tid'));
       });
 
-      // XXX HACK - should ideally be incorporated in the primary sort that we do before truncating the array.
-      comments.sort(function(a, b) {
-          var vA = info.votes[a.get('tid')];
-          var vB = info.votes[b.get('tid')];
-          var percentA = (vA.gA_total / info.count * 100);
-          var percentB = (vB.gA_total / info.count * 100);
-          return percentB - percentA;
+      comments = _.indexBy(comments, "id"); // id is tid
+      // use ordering of tids, but fetch out the comments we want.
+      comments = _.map(tids, function(tid) {
+        return comments[tid];
       });
+
+      // // XXX HACK - should ideally be incorporated in the primary sort that we do before truncating the array.
+      // comments.sort(function(a, b) {
+
+      //     var vA = info.votes[a.get('tid')];
+      //     var vB = info.votes[b.get('tid')];
+      //     var percentA = (vA.gA_total / info.count * 100);
+      //     var percentB = (vB.gA_total / info.count * 100);
+      //     return percentB - percentA;
+      // });
 
 
       var htmlStrings = _.map(comments, function(c) {
