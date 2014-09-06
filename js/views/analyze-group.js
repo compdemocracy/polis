@@ -247,7 +247,7 @@ module.exports = Handlebones.View.extend({
           // $(el_carouselSelector).css("overflow", "hidden");        
 
           // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
-          $(el_carouselSelector).append("<div id='smallWindow' style='left: 15%; width:70%'></div>");
+          $(el_carouselSelector).append("<div id='smallWindow' style='left: 10%; width:80%'></div>");
 
           var results = $("#smallWindow");
           results.addClass("owl-carousel");
