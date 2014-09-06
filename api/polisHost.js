@@ -40,7 +40,7 @@
     }
     path.push(o.conversation_id);
     iframe.src = "https://<%= polisHostName %>/"+ path.join("/");
-    iframe.width = o.width || 440; // slightly less than iPhone width
+    iframe.width = o.width || 480; // slightly less than iPhone width
     iframe.height = o.height || 1200;
     iframe.style.border = "none";
     iframe.style.borderRadius = "5px";
