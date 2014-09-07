@@ -1687,13 +1687,15 @@ function getPca(zid, lastVoteTimestamp) {
     var cached = pcaCache.get(zid);
     if (cached) {
         if (cached.lastVoteTimestamp <= lastVoteTimestamp) {
+            console.log("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
             return Promise.resolve(null);
+        } else {
+            console.log("mathpoll related", "math from cache", zid, lastVoteTimestamp);
+            return Promise.resolve(cached);
         }
-        console.log("mathpoll related", "math from cache", zid, lastVoteTimestamp);
-        return Promise.resolve(cached);
     }
 
-    console.log("mathpoll cache miss", zid);
+    console.log("mathpoll cache miss", zid, lastVoteTimestamp);
 
     // NOTE: not caching results from this query for now, think about this later.
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
