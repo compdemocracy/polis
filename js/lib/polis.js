@@ -55,10 +55,10 @@ module.exports = function(params) {
 
     var logger = params.logger;
 
-    var lastServerTokenForPCA = 0;
-    var lastServerTokenForComments = 0;
-    var lastServerTokenForBid = 0;
-    var lastServerTokenForBidToPid = 0;
+    var lastServerTokenForPCA = -1;
+    var lastServerTokenForComments = -1;
+    var lastServerTokenForBid = -1;
+    var lastServerTokenForBidToPid = -1;
 
     var initReadyCallbacks = $.Callbacks();
     var authStateChangeCallbacks = $.Callbacks();
