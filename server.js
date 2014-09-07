@@ -1631,7 +1631,7 @@ var pcaCache = new SimpleCache({
     maxSize: 9000,
 });
 
-var lastPrefetchedVoteTimestamp = 0;
+var lastPrefetchedVoteTimestamp = -1;
 
 // this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
 function fetchAndCacheLatestPcaData() {
@@ -1800,7 +1800,7 @@ app.get("/api/v3/math/pca",
     moveToBody,
     redirectIfHasZidButNoConversationId, // TODO remove once 
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('lastVoteTimestamp', getInt, assignToP, 0),
+    want('lastVoteTimestamp', getInt, assignToP, -1),
 function(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
@@ -1870,7 +1870,7 @@ function(req, res) {
 });
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
-    lastVoteTimestamp = lastVoteTimestamp || 0;
+    lastVoteTimestamp = lastVoteTimestamp || -1;
     return new MPromise("db.bidToPid.get", function(resolve, reject) {
         collectionOfBidToPidResults.find({$and :[
             {zid: zid},
