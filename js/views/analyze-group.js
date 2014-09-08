@@ -183,6 +183,10 @@ module.exports = Handlebones.View.extend({
       var indexToTid = [];
 
       var info = that.groupInfo();
+      if (!info.repness || !info.repness.length) {
+        console.error("missing repness");
+        return;
+      }
       var repnessInfo = info.repness.slice(0);
       repnessInfo.sort(function(a, b) {
         if (a["repful-for"] === "agree" && b["repful-for"] === "disagree") {
