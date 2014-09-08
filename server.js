@@ -1547,6 +1547,10 @@ app.use(function(err, req, res, next) {
         return next();
     }
     console.log("error found in middleware");
+    console.error(err);
+    if (err && err.stack) {
+        console.error(err.stack);
+    }
     yell(err);
     next(err);
 });
