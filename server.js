@@ -1341,6 +1341,7 @@ function redirectIfNotHttps(req, res, next) {
 
 function redirectIfWrongDomain(req, res, next) {
   if(/polis.io/.test(req.headers.host) ||
+     /polisapp.herokuapp.com/.test(req.headers.host) || // needed for heroku integrations (like slack?)
      /www.pol.is/.test(req.headers.host)
      ) {
     res.writeHead(302, {
