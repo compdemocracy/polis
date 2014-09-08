@@ -3418,9 +3418,14 @@ function(req, res) {
 
 app.get("/api/v3/users",
     moveToBody,
-    auth(assignToP),
+    authOptional(assignToP),
 function(req, res) {
     var uid = req.p.uid;
+    if (!uid) {
+        // this api may be called by a new user, so we don't want to trigger a failure here.
+        res.json({});
+        return;
+    }
     getUserInfoForUid2(uid).then(function(info) {
         res.json({
             uid: uid,
