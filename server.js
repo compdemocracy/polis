@@ -1351,12 +1351,18 @@ function redirectIfWrongDomain(req, res, next) {
   return next();
 }
 function redirectIfApiDomain(req, res, next) {
-  if(/api.pol.is/.test(req.headers.host) &&
-     (req.url === "/" || req.url === "")) {
-    res.writeHead(302, {
-        Location: "https://pol.is/docs/api"
-    });
-    return res.end();
+  if(/api.pol.is/.test(req.headers.host)) {
+    if (req.url === "/" || req.url === "") {
+        res.writeHead(302, {
+            Location: "https://pol.is/docs/api"
+        });
+        return res.end();
+    } else if (!req.url.match(/^\/?api/)) {
+        res.writeHead(302, {
+            Location: "https://pol.is/" + req.url
+        });
+        return res.end();
+    }
   }
   return next();
 }
