@@ -5085,7 +5085,7 @@ function failNotWithin(minDelay) {
 function getOneConversation(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
-    var fail = failNotWithin(500);
+    // var fail = failNotWithin(500);
     // no need for auth, since conversation_id was provided
     Promise.all([
         getConversationInfo(zid),
@@ -5132,7 +5132,7 @@ function getConversations(req, res) {
   var limit = req.p.limit;
   console.log("thecontext", context);
 
-  var fail = failNotWithin(500);
+  // var fail = failNotWithin(500);
       // First fetch a list of conversations that the user is a participant in.
 
   pgQuery('select zid from participants where uid = ($1);', [uid], function(err, results) {
