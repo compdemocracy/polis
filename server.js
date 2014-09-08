@@ -67,7 +67,7 @@ var badwords = require('badwords/object'),
 // eventually we should probably move this to db.
 // for now, use git blame to see when these were added
 var usersToAdditionalTrialDays = {
-    50756: 10, // julien
+    50756: 14, // julien
     85423: 100, // mike test
 };
 
