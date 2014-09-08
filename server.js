@@ -698,6 +698,8 @@ function moveToBody(req, res, next) {
         req.body = req.body || {};
         _.extend(req.body, req.params);
     }
+    // inti req.p if not there already
+    req.p = req.p || {};
     next();
 }
 
