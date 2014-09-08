@@ -1641,43 +1641,35 @@ function fetchAndCacheLatestPcaData() {
         return Math.max(0, 2500 - timePassed);
     }
 
-    console.log("mathpoll begin");
-    collectionOfPcaResults.find({
+    console.log("mathpoll begin", lastPrefetchedVoteTimestamp);
+    var cursor = collectionOfPcaResults.find({
         lastVoteTimestamp: {$gt: lastPrefetchedVoteTimestamp}
-    }, {
-        sort: "lastVoteTimestamp", // ascending is default
-    }, function(err, cursor) {
+    });
+    // cursor.sort([["lastVoteTimestamp", "asc"]]);
+
+    function processItem(err, item) {
         if (err) {
-            console.error("polis_err_prefetch_pca_results_find");
             console.error(err);
-            console.error(err.stack);
+            console.error("mathpoll err", "polis_err_prefetch_pca_results_iter");
             setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
+            return;
         }
-        function processItem(err, item) {
+        if(item === null) {
+            // call again
+            console.log("mathpoll done");
+            setTimeout(fetchAndCacheLatestPcaData, waitTime());
+            return;
+        }
 
-            if (err) {
-                console.error(err);
-                console.error("polis_err_prefetch_pca_results_iter");
-                setTimeout(fetchAndCacheLatestPcaData, 10 * waitTime());
-                return;
-            }
-            if(item === null) {
-                // call again
-                console.log("mathpoll done");
-                setTimeout(fetchAndCacheLatestPcaData, waitTime());
-                return;
-            }
-
-            console.log("mathpoll", item.lastVoteTimestamp, item.zid);
-            var prev = pcaCache.get(item.zid);
-            pcaCache.set(item.zid, item);
-            if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
-                lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
-            }
-            cursor.nextObject(processItem);
+        console.log("mathpoll updating", item.lastVoteTimestamp, item.zid);
+        // var prev = pcaCache.get(item.zid);
+        pcaCache.set(item.zid, item);
+        if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
+            lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
         }
         cursor.nextObject(processItem);
-    });
+    }
+    cursor.nextObject(processItem);
 }
 
 // don't start immediately, let other things load first.
@@ -1713,9 +1705,15 @@ function getPca(zid, lastVoteTimestamp) {
                 if (err) {
                     reject(new Error("polis_err_get_pca_results_find_toarray"));
                 } else if (!docs.length) {
+                    console.log("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
                     resolve(null);
                 } else {
-                    resolve(docs[0]);
+                    var item = docs[0];
+                    console.log("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
+                    // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
+                    pcaCache.set(zid, item);
+                    // return the item
+                    resolve(item);
                 }
             });
         });
