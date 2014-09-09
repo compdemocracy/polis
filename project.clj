@@ -21,6 +21,7 @@
                  [net.mikera/core.matrix.stats "0.3.0"]
                  [net.mikera/vectorz-clj "0.19.0"]
                  [criterium "0.4.2"]
+                 [clj-http "1.0.0"]
                  [org.clojure/clojure "1.5.1"]
                  [org.clojure/core.async "0.1.303.0-886421-alpha"]
                  [org.clojure/data.csv "0.1.2"]
