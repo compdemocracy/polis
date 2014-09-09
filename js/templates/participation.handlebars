@@ -51,7 +51,7 @@ col-lg-offset-0 col-lg-12
     class="col-xs-12 col-xs-offset-0 col-sm-offset-0 col-sm-6 col-md-5 col-lg-4"
     {{#ifEmbedded}}
     {{#ifIos}}
-    style="max-width:440px" {{! prevent carousel from resizing window when we're in an iframe on iOS (480 - (20*2)) to leave room forf margins}}
+    style="max-width:270px" {{! prevent carousel from resizing window when we're in an iframe on iOS (320 - (25*2)) to leave room for margins}}
     {{/ifIos}}
     {{/ifEmbedded}}
     > 
@@ -122,7 +122,13 @@ col-lg-offset-0 col-lg-12
   </div> {{! /column }}
 
 
-  <span id="vis_sibling_bottom" class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
+  <span id="vis_sibling_bottom" class="col-xs-12 col-sm-6 col-md-7 col-lg-8"
+    {{#ifEmbedded}}
+    {{#ifIos}}
+    style="max-width:270px" {{! when we're in an iframe on iOS (320 - (25*2)) to leave room for margins }}
+    {{/ifIos}}
+    {{/ifEmbedded}}
+    >
     <div id="visualization_parent_div" style="text-align: right">
         <button id="legendToggle" class="Btn-small Btn-alt hidden-xs" style="margin-bottom: 10px">SHOW LEGEND</button>
       <div class="participationCount HeadingF visible-xs"></div>
