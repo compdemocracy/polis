@@ -1344,6 +1344,8 @@ function redirectIfWrongDomain(req, res, next) {
      /polisapp.herokuapp.com/.test(req.headers.host) || // needed for heroku integrations (like slack?)
      /www.pol.is/.test(req.headers.host)
      ) {
+    console.log("req.headers.host", req.headers.host);
+    console.log("req.headers.host", (/www.pol.is/.test(req.headers.host)));
     res.writeHead(302, {
         Location: "https://pol.is" + req.url
     });
