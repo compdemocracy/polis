@@ -1693,7 +1693,7 @@ function(req, res) {
 
     if (!req.cookies[COOKIES.TRY_COOKIE]) {
         setCookie(res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
-            // not httpOnly - needed by JS
+            httpOnly: false,            // not httpOnly - needed by JS
         });
     }
     res.status(200).json({});
