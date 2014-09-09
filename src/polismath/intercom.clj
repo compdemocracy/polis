@@ -25,9 +25,11 @@
               (into {})))
         next-page (get-in return-data ["pages" "next"])
         users (get return-data "users")]
-    (if next-page
-      (into users (get-intercom-users next-page))
-      users)))
+    (sort-by 
+      (fn [u] (int (get u "created_at")))
+      (if next-page
+        (into users (get-intercom-users next-page))
+        users))))
 
 
 (defn user-id
