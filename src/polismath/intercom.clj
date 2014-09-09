@@ -47,13 +47,32 @@
   (get user "user_id"))
 
 
+(defn valid-user-ids
+  [users]
+  (->> users
+       (map user-id)
+       (filter identity)))
+
+
+(defn gets
+  "Like get, but gives a coll mapped from all the keys"
+  [m ks & [not-found]]
+  (mapv #(get m % not-found) ks))
+
+
 (defn -main
   []
-  (->
-    (get-intercom-users)
-    (->>
-      (sort-by #(get % "created_at"))
-      (map #(vector (get % "created_at") (user-id-str %))))
-    (pp/wide-pp)))
+  (let [users        (get-intercom-users)
+        valid-ids    (valid-user-ids users)
+        users-wo-ids (filter #(not (get % "user_id")) users)]
+    ; First some nice summary stats information
+    (println "Total number of users:         " (count users))
+    (println "Number of users with valid ids:" (count valid-ids))
+    (println "Number w/o:                    " (count users-wo-ids))
+    ; Digging in deeper
+    (pp/wide-pp users-wo-ids)
+    (doseq [u users]
+      (println (gets u ["created_at" "user_id" "remote_created_at"])))
+    ))
 
 
