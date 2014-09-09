@@ -1021,6 +1021,7 @@ var COOKIES = {
     REFERRER : 'ref',
     USER_CREATED_TIMESTAMP: 'uc',
     PERMANENT_COOKIE: 'pc',
+    TRY_COOKIE: 'tryCookie',
     PLAN_NUMBER: 'plan', // not set if trial user
 };
 var COOKIES_TO_CLEAR = {
@@ -1675,6 +1676,25 @@ function(req, res) {
 
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+    }
+    res.status(200).json({});
+});
+
+app.get("/api/v3/tryCookie",
+    moveToBody,
+function(req, res) {
+
+
+    var setOnPolisDomain = !domainOverride;
+    var origin = req.headers.origin || "";
+    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+        setOnPolisDomain = false;
+    }
+
+    if (!req.cookies[COOKIES.TRY_COOKIE]) {
+        setCookie(res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
+            // not httpOnly - needed by JS
+        });
     }
     res.status(200).json({});
 });
