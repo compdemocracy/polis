@@ -135,10 +135,6 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
         setTimeout(function() {
           alert("missing conversation ID in URL. Shouldn't hit this.");
         },99);
-        // this.doCreateUserFromGatekeeper(conversation_id, zinvite, singleUse).done(function() {
-        //   // Try again, should be ready now.
-        //   doJoinConversation.call(that, onSuccess, conversation_id, zinvite);
-        // });
 
 
         // !!!!!!!!!!TEMP CODE - JOIN WITHOUT A ZINVITE!!!!!
@@ -236,7 +232,6 @@ var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
     this.r("conversation/create", "createConversation");
-    this.r("conversation/view/:id(/:zinvite)", "participationView");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("user/logout", "deregister");

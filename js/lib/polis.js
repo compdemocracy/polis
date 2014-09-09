@@ -1402,21 +1402,6 @@ function clientSideBaseCluster(things, N) {
         return pid;
     }
 
-    // function doJoinConversation(zinvite) {
-    //     var params = {
-    //         conversation_id: conversation_id
-    //     };
-    //     if (zinvite) {
-    //         _.extend(params, {
-    //             zinvite: zinvite
-    //         });
-    //     }
-    //     return polisPost(participantsPath, params).pipe( function (response) {
-    //         pid = response.pid;
-    //         return response.pid;
-    //     });
-    // }
-
     function queryParticipantsByMetadata(pmaids) {
         return polisPost(queryParticipantsByMetadataPath, {
             pmaids: pmaids,
@@ -1687,13 +1672,6 @@ function clientSideBaseCluster(things, N) {
           });
       });
     }
-
-    // doJoinConversation(zinvite).then(
-    //     initReadyCallbacks.fire,
-    //     function(err) {
-    //         alert(err);
-    //     }
-    // );
 
     function startPolling() {
         setTimeout(poll, 0);
