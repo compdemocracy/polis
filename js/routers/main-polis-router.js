@@ -52,16 +52,6 @@ function hasEmail() { return PolisStorage.hasEmail(); }
 function doJoinConversation(onSuccess, conversation_id, suzinvite) {
   var that = this;
 
-  if (!Utils.cookiesEnabled()) {
-    var view = new CookiesDisabledView();
-    RootView.getInstance().setView(view);
-    // if our script is running on a page in which we're embedded, postmessage
-    if (top.postMessage) {
-      top.postMessage("cookieRedirect", "*");
-    }
-    return;
-  }
-
   var uid = PolisStorage.uid() || PolisStorage.uidFromCookie();
   console.log("have uid", !!uid);
   if (!uid) {
@@ -662,12 +652,28 @@ var polisRouter = Backbone.Router.extend({
       this.doLaunchModerationView.bind(this), // TODO
       conversation_id);
   },
+  cookiesDisabledView: function() {
+    var view = new CookiesDisabledView();
+    RootView.getInstance().setView(view);
+    // if our script is running on a page in which we're embedded, postmessage
+    if (top.postMessage) {
+      top.postMessage("cookieRedirect", "*");
+    }
+  },
   participationView: function(conversation_id, suzinvite) {
-    doJoinConversation.call(this, 
-      this.doLaunchConversation.bind(this),
-      conversation_id,
-      suzinvite);
-
+    var that = this;
+    Utils.cookiesEnabled().then(function(enabled) {
+      if (enabled) {
+        doJoinConversation.call(that, 
+          that.doLaunchConversation.bind(that),
+          conversation_id,
+          suzinvite);
+      } else {
+        that.cookiesDisabledView();
+      }
+    }, function() {
+        that.cookiesDisabledView();
+    });
   },
   getConversationModel: function(conversation_id, suzinvite) {
     return $.get("/api/v3/conversations?conversation_id=" + conversation_id).then(function(conv) {
