@@ -1524,6 +1524,8 @@ var whitelistedDomains = [
   "https://www.pol.is",
   "http://preprod.pol.is",
   "https://preprod.pol.is",
+  "http://embed.pol.is",
+  "https://embed.pol.is",
   "http://localhost:8000",
   "https://canvas.instructure.com", // LTI
   "", // for API
@@ -1531,6 +1533,7 @@ var whitelistedDomains = [
 
 var whitelistedBuckets = {
     "pol.is": "pol.is",
+    "embed.pol.is": "pol.is",
     "preprod.pol.is": "preprod.pol.is",
     "about.polis.io": "about.polis.io",
 };
@@ -1661,7 +1664,7 @@ function(req, res) {
     setCookie(res, setOnPolisDomain, "top", "ok", {
         httpOnly: false,            // not httpOnly - needed by JS
     });
-    
+
     // using hex since it doesn't require escaping like base64.
     var dest = hexToStr(req.p.dest);
     res.redirect(dest);
@@ -2109,6 +2112,9 @@ function getServerNameWithProtocol(req) {
 
     if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
         server = "https://preprod.pol.is";
+    }
+    if (req.headers.host.indexOf("embed.pol.is") >= 0) {
+        server = "https://embed.pol.is";
     }
     return server;
 }
