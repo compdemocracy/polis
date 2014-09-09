@@ -614,10 +614,12 @@ function deploy(params) {
       return fixed;
     }
 
-    function makeUploadPath(file) {
-      var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
-      console.log("upload path: " + fixed);
-      return fixed;
+    function makeUploadPathFactory(tagForLogging) {
+      return function(file) {
+        var fixed = file.path.match(RegExp(staticFilesPrefix + ".*"))[0];
+        console.log("upload path " + tagForLogging + ": " + fixed);
+        return fixed;
+      }
     }
 
     // Cached Files without Gzip
@@ -632,7 +634,7 @@ function deploy(params) {
           'x-amz-acl': 'public-read',
           'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),
         },
-        makeUploadPath: makeUploadPath,
+        makeUploadPath: makeUploadPathFactory("cached_no_gzip_"+cacheSecondsForContentWithCacheBuster),
       }));
 
     // Cached Gzipped Files
@@ -646,10 +648,11 @@ function deploy(params) {
           'Content-Encoding': 'gzip',
           'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, cacheSecondsForContentWithCacheBuster),          
         },
-        makeUploadPath: makeUploadPath,
+        makeUploadPath: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
       }));
 
     // polisHost.js
+    var polisHostCacheSeconds = 60;
     gulp.src([
       destRootBase + '/**/polisHost.js',
       ], {read: false})
@@ -658,9 +661,10 @@ function deploy(params) {
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, 60),
+          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, polisHostCacheSeconds),
         },
-        makeUploadPath: function() {
+        makeUploadPath: function(file) {
+          console.log("upload path cached_polishost_"+polisHostCacheSeconds+" /polisHost.js");
           return "/polisHost.js";
         },
       }));
