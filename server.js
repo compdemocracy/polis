@@ -1677,11 +1677,9 @@ function(req, res) {
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
     }
-    if (!req.cookies["top"]) {
-        setCookie(res, setOnPolisDomain, "top", "ok", {
-            httpOnly: false,            // not httpOnly - needed by JS
-        });
-    }
+    setCookie(res, setOnPolisDomain, "top", "ok", {
+        httpOnly: false,            // not httpOnly - needed by JS
+    });
     res.status(200).json({});
 });
 
