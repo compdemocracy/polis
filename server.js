@@ -5835,6 +5835,7 @@ function addStaticFileHeaders(res) {
 function proxy(req, res) {
     var hostname = buildStaticHostname(req, res);
     if (!hostname) {
+
         var host = req.headers.host || "";
         if (host.match(/polisapp.herokuapp.com$/)) {
             // don't alert for this, it's probably DNS related
@@ -5847,6 +5848,7 @@ function proxy(req, res) {
         console.error(req.path);
         return;
     }
+
     if (devMode) {
         addStaticFileHeaders(res);
     }
@@ -5861,7 +5863,8 @@ function proxy(req, res) {
 
 
         var port = process.env.STATIC_FILES_PORT;
-
+        // set the host header too, since S3 will look at that (or the routing proxy will patch up the request.. not sure which)
+        req.headers.host = hostname;
         routingProxy.proxyRequest(req, res, {
 
             host: hostname,
