@@ -1344,8 +1344,6 @@ function redirectIfWrongDomain(req, res, next) {
      /polisapp.herokuapp.com/.test(req.headers.host) || // needed for heroku integrations (like slack?)
      /www.pol.is/.test(req.headers.host)
      ) {
-    console.log("req.headers.host", req.headers.host);
-    console.log("req.headers.host", (/www.pol.is/.test(req.headers.host)));
     res.writeHead(302, {
         Location: "https://pol.is" + req.url
     });
@@ -1436,7 +1434,7 @@ function MPromise(name, f) {
 ////////////////////////////////////////////
 ////////////////////////////////////////////
 //
-//             BEGIN ROUTES
+//             BEGIN MIDDLEWARE
 //
 ////////////////////////////////////////////
 ////////////////////////////////////////////
@@ -1448,10 +1446,8 @@ function MPromise(name, f) {
 app.use(meter("api.all"));
 app.use(express.logger());
 app.use(redirectIfNotHttps);
-
 app.use(express.cookieParser());
 app.use(express.bodyParser());
-
 app.use(writeDefaultHead);
 var p3pFunction = p3p(p3p.recommended);
 app.use(function(req, res, next) {
@@ -1461,7 +1457,168 @@ app.use(function(req, res, next) {
         return next();
     }
 });
+app.use(redirectIfWrongDomain);
+app.use(redirectIfApiDomain);
+if (devMode) {
+    app.use(express.compress());
+} else {
+    // Cloudflare would apply gzip if we didn't
+    // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
+    app.use(express.compress());
+}
+app.use(function(req, res, next) {
+    if (req.body) {
+        console.log(req.path);
+        var temp = _.clone(req.body);
+        if (temp.email) {
+            temp.email = "foo@foo.com";
+        }
+        if (temp.password) {
+            temp.password = "some_password";
+        }
+        if (temp.newPassword) {
+            temp.newPassword = "some_password";
+        }
+        if (temp.hname) {
+            temp.hname = "somebody";
+        }
+        console.dir(req.body);
+    }
+    next();
+});
+app.use(function(err, req, res, next) {
+    if(!err) {
+        return next();
+    }
+    console.log("error found in middleware");
+    console.error(err);
+    if (err && err.stack) {
+        console.error(err.stack);
+    }
+    yell(err);
+    next(err);
+});
 
+
+var whitelistedCrossDomainRoutes = [
+    /^\/api\/v[0-9]+\/launchPrep/,
+    /^\/api\/v[0-9]+\/setFirstCookie/,  
+];
+
+var whitelistedDomains = [
+  "http://beta7816238476123.polis.io",
+  "https://beta7816238476123.polis.io",  
+  "http://about.polis.io",
+  "https://about.polis.io",  
+  "http://www.polis.io",
+  "https://www.polis.io",
+  "http://bonn83np5g4s6k2am.herokuapp.com/",
+  "http://polis.io",
+  "https://polis.io",
+  "http://pol.is",
+  "https://pol.is",
+  "http://api.pol.is", // TODO delete?
+  "https://api.pol.is",
+  "http://www.pol.is",
+  "https://www.pol.is",
+  "http://preprod.pol.is",
+  "https://preprod.pol.is",
+  "http://localhost:8000",
+  "https://canvas.instructure.com", // LTI
+  "", // for API
+];
+
+var whitelistedBuckets = {
+    "pol.is": "pol.is",
+    "preprod.pol.is": "preprod.pol.is",
+    "about.polis.io": "about.polis.io",
+};
+
+app.all("/api/v3/*", function(req, res, next) {
+ 
+  var host = "";
+  if (domainOverride) {
+      host = req.protocol + "://" + domainOverride;
+  } else {
+      // TODO does it make sense for this middleware to look
+      // at origin || referer? is Origin for CORS preflight?
+      // or for everything? 
+      // Origin was missing from FF, so added Referer.
+      host =  req.get("Origin") || req.get("Referer") || ""; 
+  }
+
+  // Somehow the fragment identifier is being sent by IE10????
+  // Remove unexpected fragment identifier
+  host = host.replace(/#.*$/, "");
+
+  // Remove characters starting with the first slash following the double slash at the beginning.
+  var result = /^[^\/]*\/\/[^\/]*/.exec(host);
+  if (result && result[0]) {
+      host = result[0];
+  }
+
+
+  // check if the route is on a special list that allows it to be called cross domain (by polisHost.js for example)
+  var routeIsWhitelistedForAnyDomain = _.some(whitelistedCrossDomainRoutes, function(regex) { return regex.test(req.path);});
+
+  if (!domainOverride && -1 === whitelistedDomains.indexOf(host) && !routeIsWhitelistedForAnyDomain) {
+      console.log('not whitelisted');
+      console.dir(req);
+      console.dir(req.headers);
+      console.dir(req.path);
+      return next(new Error("unauthorized domain: " + host));
+  }
+  if (host === "") {
+    // API
+  } else {
+      res.header("Access-Control-Allow-Origin", host);
+      res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
+      res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
+      res.header("Access-Control-Allow-Credentials", true);
+  }
+  return next();
+});
+app.all("/api/v3/*", function(req, res, next) {
+  if (req.method.toLowerCase() !== "options") {
+    return next();
+  }
+  return res.send(204);
+});
+
+
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+//
+//             END MIDDLEWARE
+//
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+
+
+
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+//
+//             BEGIN ROUTES
+//
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+////////////////////////////////////////////
 
 function strToHex(str) {
 var hex, i;
@@ -1520,125 +1677,6 @@ function(req, res) {
         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
     }
     res.status(200).json({});
-});
-
-app.use(redirectIfWrongDomain);
-app.use(redirectIfApiDomain);
-if (devMode) {
-    app.use(express.compress());
-} else {
-    // Cloudflare would apply gzip if we didn't
-    // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
-    app.use(express.compress());
-}
-app.use(function(req, res, next) {
-    if (req.body) {
-        console.log(req.path);
-        var temp = _.clone(req.body);
-        if (temp.email) {
-            temp.email = "foo@foo.com";
-        }
-        if (temp.password) {
-            temp.password = "some_password";
-        }
-        if (temp.newPassword) {
-            temp.newPassword = "some_password";
-        }
-        if (temp.hname) {
-            temp.hname = "somebody";
-        }
-        console.dir(req.body);
-    }
-    next();
-});
-app.use(function(err, req, res, next) {
-    if(!err) {
-        return next();
-    }
-    console.log("error found in middleware");
-    console.error(err);
-    if (err && err.stack) {
-        console.error(err.stack);
-    }
-    yell(err);
-    next(err);
-});
-
-
-var whitelistedDomains = [
-  "http://beta7816238476123.polis.io",
-  "https://beta7816238476123.polis.io",  
-  "http://about.polis.io",
-  "https://about.polis.io",  
-  "http://www.polis.io",
-  "https://www.polis.io",
-  "http://bonn83np5g4s6k2am.herokuapp.com/",
-  "http://polis.io",
-  "https://polis.io",
-  "http://pol.is",
-  "https://pol.is",
-  "http://api.pol.is", // TODO delete?
-  "https://api.pol.is",
-  "http://www.pol.is",
-  "https://www.pol.is",
-  "http://preprod.pol.is",
-  "https://preprod.pol.is",
-  "http://localhost:8000",
-  "https://canvas.instructure.com", // LTI
-  "", // for API
-];
-
-var whitelistedBuckets = {
-    "pol.is": "pol.is",
-    "preprod.pol.is": "preprod.pol.is",
-    "about.polis.io": "about.polis.io",
-};
-
-app.all("/api/v3/*", function(req, res, next) {
- 
-  var host = "";
-  if (domainOverride) {
-      host = req.protocol + "://" + domainOverride;
-  } else {
-      // TODO does it make sense for this middleware to look
-      // at origin || referer? is Origin for CORS preflight?
-      // or for everything? 
-      // Origin was missing from FF, so added Referer.
-      host =  req.get("Origin") || req.get("Referer") || ""; 
-  }
-
-  // Somehow the fragment identifier is being sent by IE10????
-  // Remove unexpected fragment identifier
-  host = host.replace(/#.*$/, "");
-
-  // Remove characters starting with the first slash following the double slash at the beginning.
-  var result = /^[^\/]*\/\/[^\/]*/.exec(host);
-  if (result && result[0]) {
-      host = result[0];
-  }
-
-  if (!domainOverride && -1 === whitelistedDomains.indexOf(host)) {
-      console.log('not whitelisted');
-      console.dir(req);
-      console.dir(req.headers);
-      console.dir(req.path);
-      return next(new Error("unauthorized domain: " + host));
-  }
-  if (host === "") {
-    // API
-  } else {
-      res.header("Access-Control-Allow-Origin", host);
-      res.header("Access-Control-Allow-Headers", "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With");
-      res.header("Access-Control-Allow-Methods", "GET, PUT, POST, DELETE, OPTIONS");
-      res.header("Access-Control-Allow-Credentials", true);
-  }
-  return next();
-});
-app.all("/api/v3/*", function(req, res, next) {
-  if (req.method.toLowerCase() !== "options") {
-    return next();
-  }
-  return res.send(204);
 });
 
 
