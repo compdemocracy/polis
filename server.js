@@ -1533,7 +1533,7 @@ var whitelistedDomains = [
 
 var whitelistedBuckets = {
     "pol.is": "pol.is",
-    "embed.pol.is": "pol.is",
+    "embed.pol.is": "preprod.pol.is",
     "preprod.pol.is": "preprod.pol.is",
     "about.polis.io": "about.polis.io",
 };
