@@ -1657,31 +1657,36 @@ function(req, res) {
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
     }
+
+    setCookie(res, setOnPolisDomain, "top", "ok", {
+        httpOnly: false,            // not httpOnly - needed by JS
+    });
+    
     // using hex since it doesn't require escaping like base64.
     var dest = hexToStr(req.p.dest);
     res.redirect(dest);
 });
 
 
-app.get("/api/v3/setFirstCookie",
-    moveToBody,
-function(req, res) {
+// app.get("/api/v3/setFirstCookie",
+//     moveToBody,
+// function(req, res) {
 
 
-    var setOnPolisDomain = !domainOverride;
-    var origin = req.headers.origin || "";
-    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-        setOnPolisDomain = false;
-    }
+//     var setOnPolisDomain = !domainOverride;
+//     var origin = req.headers.origin || "";
+//     if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+//         setOnPolisDomain = false;
+//     }
 
-    if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-        setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
-    }
-    setCookie(res, setOnPolisDomain, "top", "ok", {
-        httpOnly: false,            // not httpOnly - needed by JS
-    });
-    res.status(200).json({});
-});
+//     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
+//         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+//     }
+//     setCookie(res, setOnPolisDomain, "top", "ok", {
+//         httpOnly: false,            // not httpOnly - needed by JS
+//     });
+//     res.status(200).json({});
+// });
 
 app.get("/api/v3/tryCookie",
     moveToBody,
