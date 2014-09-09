@@ -321,40 +321,40 @@ var polisRouter = Backbone.Router.extend({
     });
 
   },
-  inboxItemParticipant: function(conversation_id) {
-    var model = new Backbone.Model({
-      conversation_id: conversation_id,
-      participant_count: 0,
-      topic: "Placeholder Topic",
-      description: "Placeholder Description",
-      url_name: "https://preprod.pol.is/" + conversation_id,
-      url_name_with_hostname: "https://preprod.pol.is/" + conversation_id,
-      // url_moderate: "https://pol.is/m/" + conversation_id,
-      target: "_blank",
-      is_owner: false,
-    })
-    var view = new InboxItemForApiView({
-      model: model
-    });
-    RootView.getInstance().setView(view);
-  },
-  inboxItemModerator: function(conversation_id) {
-    var model = new Backbone.Model({
-      conversation_id: conversation_id,
-      participant_count: 0,
-      topic: "Placeholder Topic",
-      description: "Placeholder Description",
-      url_name: "https://pol.is/" + conversation_id,
-      url_name_with_hostname: "https://pol.is/" + conversation_id,
-      url_moderate: "https://pol.is/m/" + conversation_id,
-      target: "_blank",
-      is_owner: true,
-    })
-    var view = new InboxItemForApiView({ // TODO moderator specific
-      model: model
-    });
-    RootView.getInstance().setView(view);
-  },
+  // inboxItemParticipant: function(conversation_id) {
+  //   var model = new Backbone.Model({
+  //     conversation_id: conversation_id,
+  //     participant_count: 0,
+  //     topic: "Placeholder Topic",
+  //     description: "Placeholder Description",
+  //     url_name: "https://preprod.pol.is/" + conversation_id,
+  //     url_name_with_hostname: "https://preprod.pol.is/" + conversation_id,
+  //     // url_moderate: "https://pol.is/m/" + conversation_id,
+  //     target: "_blank",
+  //     is_owner: false,
+  //   })
+  //   var view = new InboxItemForApiView({
+  //     model: model
+  //   });
+  //   RootView.getInstance().setView(view);
+  // },
+  // inboxItemModerator: function(conversation_id) {
+  //   var model = new Backbone.Model({
+  //     conversation_id: conversation_id,
+  //     participant_count: 0,
+  //     topic: "Placeholder Topic",
+  //     description: "Placeholder Description",
+  //     url_name: "https://pol.is/" + conversation_id,
+  //     url_name_with_hostname: "https://pol.is/" + conversation_id,
+  //     url_moderate: "https://pol.is/m/" + conversation_id,
+  //     target: "_blank",
+  //     is_owner: true,
+  //   })
+  //   var view = new InboxItemForApiView({ // TODO moderator specific
+  //     model: model
+  //   });
+  //   RootView.getInstance().setView(view);
+  // },
   landingPageView: function() {
     if (!authenticated()) {
       this.navigate("user/create", {trigger: true});
