@@ -39,7 +39,7 @@
       path.push("demo");
     }
     path.push(o.conversation_id);
-    iframe.src = "https://<%= polisHostName %>/"+ path.join("/");
+    iframe.src = "https://embed.pol.is/"+ path.join("/");
     iframe.width = o.width || "100%"; // slightly less than iPhone width
     iframe.height = o.height || 900;
     iframe.style.border = "1px solid #ccc";
@@ -73,7 +73,7 @@
     
       if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel() && browserCompatibleWithReidrectTrick()) {
         // temporarily redirect to polis, which will set a cookie and redirect back
-        window.location = "https://<%= polisHostName %>/api/v3/launchPrep?dest=" + strToHex(window.location+"");
+        window.location = "https://embed.pol.is/api/v3/launchPrep?dest=" + strToHex(window.location+"");
       }
     }, false);
   }

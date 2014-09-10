@@ -17,11 +17,15 @@ $(document).ready(function() {
 
 		var prod = "https://pol.is/";
 		var preprod = "https://preprod.pol.is/";
+		var embed = "https://embed.pol.is/";
 		var localhost = "http://localhost:5000/";
 		var localhost8000 = "http://localhost:8000/";
 		var urlPrefix = prod;
 		if (document.domain.indexOf("preprod") >= 0) {
 		    urlPrefix = preprod;
+		}
+		if (document.domain.indexOf("embed") >= 0) {
+		    urlPrefix = embed;
 		}
 		if (-1 === document.domain.indexOf("pol.is")) {
 		    urlPrefix = localhost;

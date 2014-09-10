@@ -193,9 +193,9 @@ gulp.task('sparklines', function() {
 
 gulp.task('polisHost', function() {
   return gulp.src('api/polisHost.js')
-  .pipe(template({
-    polisHostName: (preprodMode ? "preprod.pol.is" : "pol.is"),
-  }))
+  // .pipe(template({
+  //   polisHostName: (preprodMode ? "preprod.pol.is" : "pol.is"),
+  // }))
   .pipe(gulp.dest(destRootBase));
 });
 
