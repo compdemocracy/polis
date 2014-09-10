@@ -653,12 +653,15 @@ var polisRouter = Backbone.Router.extend({
       conversation_id);
   },
   cookiesDisabledView: function() {
-    var view = new CookiesDisabledView();
-    RootView.getInstance().setView(view);
     // if our script is running on a page in which we're embedded, postmessage
     if (top.postMessage) {
       top.postMessage("cookieRedirect", "*");
     }
+    // give the polisHost script enough time to navigate away (if it's listening) before showing the cookiesDisabledView
+    setTimeout(function() {
+      var view = new CookiesDisabledView();
+      RootView.getInstance().setView(view);
+    }, 500);
   },
   participationView: function(conversation_id, suzinvite) {
     var that = this;
