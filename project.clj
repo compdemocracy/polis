@@ -30,7 +30,7 @@
                  [org.clojure/tools.logging "0.3.0"]
                  [org.clojure/tools.trace "0.7.6"]
                  ;[org.clojure/tools.cli "0.3.1"]
-                 [storm "0.9.0.1"]
+                 [org.apache.storm/storm-core "0.9.2-incubating"]
                  [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "1.5.0"]
