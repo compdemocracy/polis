@@ -661,7 +661,7 @@ function deploy(params) {
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-transform,public,max-age=MAX_AGE,s-maxage=MAX_AGE'.replace(/MAX_AGE/g, polisHostCacheSeconds),
+          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, polisHostCacheSeconds),
         },
         makeUploadPath: function(file) {
           console.log("upload path cached_polishost_"+polisHostCacheSeconds+" /polisHost.js");
