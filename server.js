@@ -671,6 +671,28 @@ function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
     });
 }
 
+function doHeaderAuth(assigner, isOptional, req, res, next) {
+    var token = req.headers["x-polis"];
+    
+    //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
+    getUserInfoForSessionToken(token, res, function(err, uid) {
+
+        if (err) {
+            res.status(403);
+            next("polis_err_auth_no_such_token");
+            return;
+        }
+        if ( req.body.uid && req.body.uid !== uid) {
+            res.status(401);
+            next("polis_err_auth_mismatch_uid");
+            return;
+        }
+        assigner(req, "uid", Number(uid));
+        next();
+    });
+}
+
+
 function auth(assigner, isOptional) {
     return function(req, res, next) {
         //var token = req.body.token;
@@ -679,6 +701,8 @@ function auth(assigner, isOptional) {
             doCookieAuth(assigner, isOptional, req, res, next);
         } else if (req.headers.authorization) {
             doApiKeyBasicAuth(assigner, isOptional, req, res, next);
+        } else if (req.headers["x-polis"]) {
+            doHeaderAuth(assigner, isOptional, req, res, next);
         }  else if (isOptional) {
             next();
         } else {
@@ -1190,6 +1214,7 @@ function addCookies(req, res, token, uid) {
         if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
             setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
         }
+        res.header("x-polis", token);
     });
 }
 
