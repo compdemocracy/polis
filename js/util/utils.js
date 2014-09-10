@@ -58,7 +58,8 @@ function mapObj(o, f) {
 // }
 
 function areServerSetCookiesEnabled() {
-  return $.get("/api/v3/tryCookie").then(function() {
+  console.log(Url.urlPrefix);
+  return $.get(Url.urlPrefix + "api/v3/tryCookie").then(function() {
     return document.cookie.indexOf("tryCookie") >= 0;
   });
 }
