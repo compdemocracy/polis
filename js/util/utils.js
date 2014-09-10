@@ -57,12 +57,6 @@ function are_cookies_enabled()
     return cookieEnabled;
 }
 
-function areCookiesEnabled() {
-  // return $.get(Url.urlPrefix + "api/v3/tryCookie").then(function() {
-  //   return document.cookie.indexOf("tryCookie") >= 0;
-  // });
-  return $.Deferred().resolve(are_cookies_enabled());
-}
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
@@ -126,5 +120,5 @@ module.exports = {
   },
   numberOfDaysInTrial: numberOfDaysInTrial,
   trialDaysRemaining: trialDaysRemaining,
-  cookiesEnabled: areCookiesEnabled
+  cookiesEnabled: are_cookies_enabled
 };

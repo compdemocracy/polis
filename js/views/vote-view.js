@@ -3,9 +3,9 @@ var Handlebones = require("handlebones");
 var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
 var serverClient = require("../lib/polis");
-var utils = require("../util/utils");
+var Utils = require("../util/utils");
 
-var iOS = utils.isIos();
+var iOS = Utils.isIos();
 
 module.exports = Handlebones.ModelView.extend({
     name: "vote-view",
@@ -91,7 +91,13 @@ module.exports = Handlebones.ModelView.extend({
     function onFail(err) {
       this.animateIn();
       console.error(err);
-      alert("Apologies, your vote failed to send. Please check your connection and try again.");
+
+      if (!Utils.cookiesEnabled()) {
+        // TODO send GA event
+        alert("Sorry, voting requires cookies to be enabled. If you do enable cookies, be sure to reload the page after.");
+      } else {
+        alert("Apologies, your vote failed to send. Please check your connection and try again.");
+      }
     }
     function onVote(result) {
       var that = this;

@@ -652,7 +652,7 @@ var polisRouter = Backbone.Router.extend({
       this.doLaunchModerationView.bind(this), // TODO
       conversation_id);
   },
-  considerCookiesDisabledView: function() {
+  tryCookieThing: function() {
     function browserCompatibleWithRedirectTrick() {
       var ua = navigator.userAgent;
       if (ua.match(/Firefox/)) {
@@ -676,27 +676,24 @@ var polisRouter = Backbone.Router.extend({
     if (top.postMessage && browserCompatibleWithRedirectTrick()) {
       top.postMessage("cookieRedirect", "*");
     }
-    // give the polisHost script enough time to navigate away (if it's listening) before showing the cookiesDisabledView
-    setTimeout(function() {
-      // TODO emit GA event here
-      var view = new CookiesDisabledView();
-      RootView.getInstance().setView(view);
-    }, 500);
+    
+    // don't need this view, since we have the auth header, which lets us set up a temporary session.
+
+    // // give the polisHost script enough time to navigate away (if it's listening) before showing the cookiesDisabledView
+    // setTimeout(function() {
+    //   // TODO emit GA event here
+    //   var view = new CookiesDisabledView();
+    //   RootView.getInstance().setView(view);
+    // }, 500);
   },
   participationView: function(conversation_id, suzinvite) {
-    var that = this;
-    Utils.cookiesEnabled().then(function(enabled) {
-      if (enabled) {
-        doJoinConversation.call(that, 
-          that.doLaunchConversation.bind(that),
-          conversation_id,
-          suzinvite);
-      } else {
-        that.considerCookiesDisabledView();
-      }
-    }, function() {
-        that.considerCookiesDisabledView();
-    });
+    if (!Utils.cookiesEnabled()) {
+      this.tryCookieThing();
+    }
+    doJoinConversation.call(this, 
+      this.doLaunchConversation.bind(this),
+      conversation_id,
+      suzinvite);
   },
   getConversationModel: function(conversation_id, suzinvite) {
     return $.get("/api/v3/conversations?conversation_id=" + conversation_id).then(function(conv) {
