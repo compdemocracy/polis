@@ -652,13 +652,33 @@ var polisRouter = Backbone.Router.extend({
       this.doLaunchModerationView.bind(this), // TODO
       conversation_id);
   },
-  cookiesDisabledView: function() {
+  considerCookiesDisabledView: function() {
+    function browserCompatibleWithRedirectTrick() {
+      var ua = navigator.userAgent;
+      if (ua.match(/Firefox/)) {
+        // if (ua.match(/Android/)) {
+        //   return false;
+        // }
+        // return true;
+        return false;
+      } else if (ua.match(/Trident/)) { // IE8+
+        return true;
+      } else if (ua.match(/Chrome/)) {
+        return false;
+      } else if (ua.match(/Safari/)) { // would include Chrome, but we handled Chrome above
+        return true;
+      } else {
+        return false
+      }
+    }
+
     // if our script is running on a page in which we're embedded, postmessage
-    if (top.postMessage) {
+    if (top.postMessage && browserCompatibleWithRedirectTrick()) {
       top.postMessage("cookieRedirect", "*");
     }
     // give the polisHost script enough time to navigate away (if it's listening) before showing the cookiesDisabledView
     setTimeout(function() {
+      // TODO emit GA event here
       var view = new CookiesDisabledView();
       RootView.getInstance().setView(view);
     }, 500);
@@ -672,10 +692,10 @@ var polisRouter = Backbone.Router.extend({
           conversation_id,
           suzinvite);
       } else {
-        that.cookiesDisabledView();
+        that.considerCookiesDisabledView();
       }
     }, function() {
-        that.cookiesDisabledView();
+        that.considerCookiesDisabledView();
     });
   },
   getConversationModel: function(conversation_id, suzinvite) {

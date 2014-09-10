@@ -30,38 +30,38 @@ function mapObj(o, f) {
   return out;
 }
 
-// // http://stackoverflow.com/questions/8112634/jquery-detecting-cookies-enabled
-// function are_cookies_enabled()
-// {
-//   if ((""+document.cookie).length > 0) {
-//     console.log("cookieEnabled true " + document.cookie);
-//     return true;
-//   }
-//     // var cookieEnabled = (navigator.cookieEnabled) ? true : false;
+// http://stackoverflow.com/questions/8112634/jquery-detecting-cookies-enabled
+function are_cookies_enabled()
+{
+  if ((""+document.cookie).length > 0) {
+    console.log("cookieEnabled true " + document.cookie);
+    return true;
+  }
+    // var cookieEnabled = (navigator.cookieEnabled) ? true : false;
 
-//     // if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
-//     // { 
+    // if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
+    // { 
 
-//     // create a temporary cookie 
-//     var soon = new Date(Date.now() + 1000).toUTCString();
-//     var teststring = "_polistest_cookiesenabled";
-//     document.cookie = teststring + "=1; expires=" + soon;
-//     // see if it worked
-//     var cookieEnabled = document.cookie.indexOf(teststring) != -1;
-//     console.log("cookieEnabled  " + cookieEnabled + " "+ document.cookie);
+    // create a temporary cookie 
+    var soon = new Date(Date.now() + 1000).toUTCString();
+    var teststring = "_polistest_cookiesenabled";
+    document.cookie = teststring + "=1; expires=" + soon;
+    // see if it worked
+    var cookieEnabled = document.cookie.indexOf(teststring) != -1;
+    console.log("cookieEnabled  " + cookieEnabled + " "+ document.cookie);
 
-//     // clear the cookie
-//     document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();
+    // clear the cookie
+    document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();
 
-//     // }
-//     return cookieEnabled;
-// }
+    // }
+    return cookieEnabled;
+}
 
-function areServerSetCookiesEnabled() {
-  console.log(Url.urlPrefix);
-  return $.get(Url.urlPrefix + "api/v3/tryCookie").then(function() {
-    return document.cookie.indexOf("tryCookie") >= 0;
-  });
+function areCookiesEnabled() {
+  // return $.get(Url.urlPrefix + "api/v3/tryCookie").then(function() {
+  //   return document.cookie.indexOf("tryCookie") >= 0;
+  // });
+  return $.Deferred().resolve(are_cookies_enabled());
 }
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
@@ -126,5 +126,5 @@ module.exports = {
   },
   numberOfDaysInTrial: numberOfDaysInTrial,
   trialDaysRemaining: trialDaysRemaining,
-  cookiesEnabled: areServerSetCookiesEnabled
+  cookiesEnabled: areCookiesEnabled
 };

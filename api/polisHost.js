@@ -48,21 +48,6 @@
     // iframe.style.borderLeft = "2px solid #ccc";
     parent.appendChild(iframe);
   }
-  function browserCompatibleWithReidrectTrick() {
-      var ua = navigator.userAgent;
-      if (ua.match(/Firefox/)) {
-        if (ua.match(/Android/)) {
-          return false;
-        }
-        return true;
-      } else if (ua.match(/Trident/)) { // IE8+
-        return true;
-      } else if (ua.match(/Safari/)) { // includes Chrome
-        return true;
-      } else {
-        return false
-      }
-  }
 
   if (firstRun) {
     window.addEventListener("message", function(event) {
