@@ -34,6 +34,29 @@ var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var FooterPartial = require("./tmpl/footer")
 
+
+(function() {
+  // auth token. keep this in this closure, don't put it on a global. used for cases where cookies are disabled.
+  var token;
+
+  $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
+    if ( !options.beforeSend) {
+      options.beforeSend = function (xhr) { 
+        // TODO assert that ajax request is going to our servers (in case of XSS)
+        if (token) {
+          xhr.setRequestHeader('x-polis', token);
+        }
+      };
+    }
+  });
+  $(document).ajaxSuccess(function( event, xhr, settings ) {
+    var t = xhr.getResponseHeader('x-polis');
+    if (t) {
+      token = t;
+    }
+  });
+}());
+
 function ifDefined(context, options) {
   return "undefined" !== typeof context ? options.fn(this) : "";
 }
