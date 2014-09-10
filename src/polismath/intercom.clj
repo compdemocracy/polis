@@ -11,6 +11,12 @@
             [polismath.poller :as poll]))
 
 
+(def intercom-http-params
+  {:accept :json
+   :basic-auth ["nb5hla8s" (env/env :intercom-api-key)]
+   :content-type :json})
+ 
+
 (defn get-intercom-users
   "Get the list of users from intercom (don't want to create intercom users for users that haven't
   actually signed up"
@@ -18,9 +24,7 @@
   (let [return-data
           (->
             (or page "https://api.intercom.io/users")
-            (client/get
-              {:accept :json
-               :basic-auth ["nb5hla8s" (env/env :intercom-api-key)]})
+            (client/get intercom-http-params)
             :body
             (ch/parse-string)
             (->>
@@ -78,6 +82,15 @@
       "users"
       (ko/fields :uid :hname :username :email :is_owner :created :plan)
       (ko/where {:email [in emails]}))))
+
+
+(defn update-intercom-user
+  [params]
+  (->>
+    params
+    (ch/generate-string)
+    (assoc intercom-http-params :body)
+    (client/post "https://api.intercom.io/users")))
 
 
 (defn -main
