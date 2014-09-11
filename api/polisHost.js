@@ -50,6 +50,7 @@
   }
 
   if (firstRun) {
+    console.log("polisHost init");
     window.addEventListener("message", function(event) {
   
       if (!event.origin.match(/pol.is$/)) {
@@ -62,6 +63,8 @@
       }
     }, false);
   }
+  console.log("polisHost running");
+
 
   // Add iframes to any polis divs that don't already have iframes.
   // (check needed since this script may be included multiple times)
@@ -73,6 +76,7 @@
       } else {
          var config = getConfig(d);
          createPolisIframe(d, config);
+         console.log("polisHost found iframe");
       }
   }
 }());
