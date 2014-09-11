@@ -2,18 +2,6 @@
   var firstRun = !window.polis;
   window.polis = window.polis || {};
 
-  function cookiesEnabledAtTopLevel() {
-    // create a temporary cookie 
-    var soon = new Date(Date.now() + 1000).toUTCString();
-    var teststring = "_polistest_cookiesenabled";
-    document.cookie = teststring + "=1; expires=" + soon;  
-    // see if it worked
-    var cookieEnabled = document.cookie.indexOf(teststring) != -1;
-    // clear the cookie
-    document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();  
-    return cookieEnabled;
-  }
-
   function getConfig(d) {
      return {
          demo: d.getAttribute("data-demo"),
@@ -22,6 +10,7 @@
          conversation_id: d.getAttribute("data-conversation_id")
      };
   }
+
   function createPolisIframe(parent, o) {
     var iframe = document.createElement("iframe");
     var path = [];
@@ -37,6 +26,17 @@
     parent.appendChild(iframe);
   }
 
+  function cookiesEnabledAtTopLevel() {
+    // create a temporary cookie 
+    var soon = new Date(Date.now() + 1000).toUTCString();
+    var teststring = "_polistest_cookiesenabled";
+    document.cookie = teststring + "=1; expires=" + soon;  
+    // see if it worked
+    var cookieEnabled = document.cookie.indexOf(teststring) != -1;
+    // clear the cookie
+    document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();  
+    return cookieEnabled;
+  }
 
   function encodeReturnUrl(str) {
     var x, i;
@@ -61,7 +61,6 @@
       }
     }, false);
   }
-
 
   // Add iframes to any polis divs that don't already have iframes.
   // (check needed since this script may be included multiple times)
