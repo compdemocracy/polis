@@ -4,10 +4,9 @@
 
   function getConfig(d) {
      return {
-         demo: d.getAttribute("data-demo"),
-         width: d.getAttribute("data-width"),
+         conversation_id: d.getAttribute("data-conversation_id"),
          height: d.getAttribute("data-height"),
-         conversation_id: d.getAttribute("data-conversation_id")
+         demo: d.getAttribute("data-demo")
      };
   }
 
