@@ -7,6 +7,7 @@
             [environ.core :as env]
             [alex-and-georges.debug-repl :as dbr]
             [clojure.tools.trace :as tr]
+            [polismath.utils :refer :all]
             [polismath.pretty-printers :as pp]
             [polismath.poller :as poll]))
 
@@ -84,7 +85,7 @@
       (ko/where {:email [in emails]}))))
 
 
-(defn update-intercom-user
+(defn update-icuser
   [params]
   (->>
     params
@@ -92,35 +93,25 @@
     (assoc intercom-http-params :body)
     (client/post "https://api.intercom.io/users")))
 
-
-
-(def db-spec      (poll/heroku-db-spec (env/env :database-url)))
-(def users        (get-intercom-users))
-(def valid-ids    (valid-user-ids users))
-(def users-w-ids  (filter #(get % "user_id") users))
-(def users-wo-ids (filter #(not (get % "user_id")) users))
-
-(def good-id-by-email (get-db-users-by-email db-spec (map #(get % "email") users-w-ids)))
-(def good-id-by-email-ids (set (map :uid good-id-by-email)))
-(def bad-emails-good-ids-users (remove #(good-id-by-email-ids (Integer/parseInt (get % "user_id"))) users-w-ids))
-(def bad-emails-good-ids-ids (set (map #(get % "user_id") bad-emails-good-ids-users)))
-(def bad-emails-good-ids-dbrecs
-  (get-db-users-by-uid
-    db-spec
-    (map #(Integer/parseInt (get % "user_id")) bad-emails-good-ids-users)))
-
-(map :email bad-emails-good-ids-dbrecs)
-(map #(get % "email") bad-emails-good-ids-users)
-
-(filter #(= "27306" (get % "user_id")) users)
+(defn update-icuser-from-dbuser
+  [dbuser]
+  (update-icuser
+    (into
+      {}
+      (map
+        (fn [[ic-key db-key]]
+          [ic-key (db-key db-user)])
+        [[:name              :hname]
+         [:user_id           :uid]
+         [:email             :email]
+         [:remate_created_at #(/ (:created %) 1000)]]))))
 
 
 ;(update-intercom-user {:email "chris@pol.is" :remote_created_at (/ 1408088823591 1000)})
 
 ;(get (first (filter #(= "kelly.baumeister@bigfishgames.com" (get % "email")) users)) "id")
-;(update-intercom-user {:id "531a50cb9db3ee100400b450"
-                       ;:user_id 26371
-                       ;:remote_created_at (/ 1395873111736 1000)})
+(update-intercom-user {:user_id 7546390821987
+                       :remote_created_at (/ 1395873111736 1000)})
 
 (defn -main
   []
