@@ -191,8 +191,8 @@ gulp.task('sparklines', function() {
     .pipe(gulp.dest(destRoot()));
 });
 
-gulp.task('polisHost', function() {
-  return gulp.src('api/polisHost.js')
+gulp.task('embedJs', function() {
+  return gulp.src('api/embed.js')
   // .pipe(template({
   //   polisHostName: (preprodMode ? "preprod.pol.is" : "pol.is"),
   // }))
@@ -548,7 +548,7 @@ gulp.task('common', [
   "fontawesome",
   "index",
   "about",
-  "polisHost",
+  "embedJs",
   ], function() {
 });
 
@@ -651,21 +651,21 @@ function deploy(params) {
         makeUploadPath: makeUploadPathFactory("cached_gzipped_"+cacheSecondsForContentWithCacheBuster),
       }));
 
-    // polisHost.js
-    var polisHostCacheSeconds = 60;
+    // embed.js
+    var embedJsCacheSeconds = 60;
     gulp.src([
-      destRootBase + '/**/polisHost.js',
+      destRootBase + '/**/embed.js',
       ], {read: false})
     .pipe(s3(creds, {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
           'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, polisHostCacheSeconds),
+          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
         },
         makeUploadPath: function(file) {
-          console.log("upload path cached_polishost_"+polisHostCacheSeconds+" /polisHost.js");
-          return "/polisHost.js";
+          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed.js");
+          return "/embed.js";
         },
       }));
 
