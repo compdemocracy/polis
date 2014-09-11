@@ -2,16 +2,6 @@
   var firstRun = !window.polis;
   window.polis = window.polis || {};
 
-  function strToHex(str) {
-    var hex, i;
-    var result = "";
-    for (i=0; i<str.length; i++) {
-      hex = str.charCodeAt(i).toString(16);
-      result += ("000"+hex).slice(-4);
-    }
-    return result;
-  }
-
   function cookiesEnabledAtTopLevel() {
     // create a temporary cookie 
     var soon = new Date(Date.now() + 1000).toUTCString();
@@ -44,9 +34,18 @@
     iframe.height = o.height || 900;
     iframe.style.border = "1px solid #ccc";
     iframe.style.borderRadius = "4px";
-    // iframe.style.borderTop = "2px solid #ccc";
-    // iframe.style.borderLeft = "2px solid #ccc";
     parent.appendChild(iframe);
+  }
+
+
+  function encodeReturnUrl(str) {
+    var x, i;
+    var result = "";
+    for (i=0; i<str.length; i++) {
+      x = str.charCodeAt(i).toString(16);
+      result += ("000"+x).slice(-4);
+    }
+    return result;
   }
 
   if (firstRun) {
@@ -58,7 +57,7 @@
     
       if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
         // temporarily redirect to polis, which will set a cookie and redirect back
-        window.location = "https://embed.pol.is/api/v3/launchPrep?dest=" + strToHex(window.location+"");
+        window.location = "https://embed.pol.is/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       }
     }, false);
   }
