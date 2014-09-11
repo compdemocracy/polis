@@ -11,6 +11,7 @@
   (:require [gorilla-plot.core :as plot]
             [polismath.intercom :as ic]
             [polismath.poller :as poll]
+            [polismath.pretty-printers :as pp]
             [polismath.utils :refer :all]
             [environ.core :as env]))
 ;; @@
@@ -20,7 +21,7 @@
 
 ;; @@
 ; Defining some helpers
-(defn head [data [& n]] (take (or n 10) data))
+(defn head [data & [n]] (take (or n 10) data))
 ;; @@
 ;; =>
 ;;; {"type":"html","content":"<span class='clj-var'>#&#x27;intercom-cleanup/head</span>","value":"#'intercom-cleanup/head"}
@@ -42,35 +43,159 @@
 
 ; Now digging down a little more... We'd like to find out what's going on with the various discrepencies
 
-(def good-id-by-email (get-db-users-by-email db-spec (map #(get % "email") users-w-ids)))
+(def good-id-by-email (ic/get-db-users-by-email db-spec (map #(get % "email") users-w-ids)))
 (def good-id-by-email-ids (set (map :uid good-id-by-email)))
 (def bad-emails-good-ids-users (remove #(good-id-by-email-ids (Integer/parseInt (get % "user_id"))) users-w-ids))
 (def bad-emails-good-ids-ids (set (map #(get % "user_id") bad-emails-good-ids-users)))
 (def bad-emails-good-ids-dbrecs
-  (get-db-users-by-uid
+  (ic/get-db-users-by-uid
     db-spec
     (map #(Integer/parseInt (get % "user_id")) bad-emails-good-ids-users)))
 
-(map :email bad-emails-good-ids-dbrecs)
+(println (map :email bad-emails-good-ids-dbrecs))
+(println (map #(get % "email") bad-emails-good-ids-users))
 
+
+;; @@
+;; ->
+;;; (light24bulbs@gmail.com m@bjorkegren.com colinmegill@gmail.com timo.erkkila@gmail.com metasoarous@gmail.com sameubank@gmail.com andrew.j.smith@outlook.com mike@pol.is rosas.ben@gmail.com nina@elanprojects.com.au adrian@principalcreative.com.au rosiehoyem@gmail.com oasidjfoiasdjfio@aosidjfiosjdf nil nil nil nil)
+;;; (                )
+;;; 
+;; <-
+;; =>
+;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
+;; <=
+
+;; **
+;;; 
+;; **
+
+;; **
+;;; There are a number of ways we could hack this up. It seems like we have those ic records for which there are `user_id`s, and those for whom there are not. For the former, updating the emails and times based on the records fetched by the `user_id -> uid` mapping, should be good, as long as there aren't any such mappings that are bad. On the other hand, for the set fetched by email, they should have the correct `user_id` values, so doing the matching by email should be fine. It's really then just the last set, which don't match by ID or email that we have to worry about. 
+;;; 
+;;; Let's see what those look like as well.
+;;; 
+;;; ## Those matching by id have either no email or the correct email?
+;; **
+
+;; @@
+; This is for figuring out if all the email matching for the good IDs work
+
+(let [ic-users users-w-ids
+      db-users (ic/get-db-users-by-uid
+                 db-spec
+                 (map #(Integer/parseInt (get % "user_id")) ic-users))
+      get-dbuser-email-from-icuser-by-id
+        (fn [u]
+          (->> db-users
+               (filter #(= (:uid %) (Integer/parseInt (get u "user_id"))))
+               (first)
+               (:email)))]
+  (doseq [u ic-users]
+    (let [ic-email (get u "email")
+          db-email (get-dbuser-email-from-icuser-by-id u)]
+      (when-not
+        (or (empty? ic-email)
+            (= ic-email db-email))
+        (println [ic-email db-email])))))
 
 ;; @@
 ;; =>
-;;; {"type":"html","content":"<span class='clj-var'>#&#x27;intercom-cleanup/bad-emails-good-ids-users</span>","value":"#'intercom-cleanup/bad-emails-good-ids-users"}
+;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
 ;; <=
 
-;; @@
-; This is how we get a specific user out of the intercom data based on a uid. This in particular is Rosie Hayam
-(filter #(= "27306" (get % "user_id")) users)
+;; **
+;;; OK! That seems to settle it! For every ic user for which we have an id that maps to a user in the db, either we don't have the email for the ic record, or the email matches. That means we should be able to safely just update these by passing the email and id together in the update hash, and it will take care of the emails.
+;;; 
+;;; ## Now for the ones without ID or email matches:
+;; **
 
 ;; @@
+; Now we figure out what's going on with the ones without ID or email matches
+(let [ic-users users-wo-ids
+      db-users (ic/get-db-users-by-email
+                 db-spec
+                 (map #(get % "email") ic-users))
+      db-users-emails (set (map :email db-users))
+      ic-users-bademail (filter
+                 #(not (db-users-emails (get % "email")))
+                 ic-users)]
+  (println "Count difference of" (count ic-users)
+           "in intercom and" (count db-users) "in db is"
+           (- (count ic-users) (count db-users)))
+  (doseq [u ic-users-bademail]
+    (println
+      (ic/gets u ["id" "name" "email"]))))
+;; @@
+;; ->
+;;; Count difference of 87 in intercom and 83 in db is 4
+;;; [53518179fd3643755a00a286 Brian Hayashi brian.hayashi@realtimevegas.co]
+;;; [5352186115e25868ca030190 Sheikh Shuvo sheikh@startupweekend.org]
+;;; [53ce51450083083acd0003d2 Matti Nelimarkka matti.nelimarkka@hiit.fi]
+;;; [53ff62bb7f4310150100083d Julien Brinas julien@castle.ventures]
+;;; 
+;; <-
 ;; =>
-;;; {"type":"list-like","open":"<span class='clj-lazy-seq'>(</span>","close":"<span class='clj-lazy-seq'>)</span>","separator":" ","items":[{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;unsubscribed_from_emails&quot;</span>","value":"\"unsubscribed_from_emails\""},{"type":"html","content":"<span class='clj-unkown'>false</span>","value":"false"}],"value":"[\"unsubscribed_from_emails\" false]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;segments&quot;</span>","value":"\"segments\""},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;segment.list&quot;</span>","value":"\"segment.list\""}],"value":"[\"type\" \"segment.list\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;segments&quot;</span>","value":"\"segments\""},{"type":"list-like","open":"<span class='clj-vector'>[</span>","close":"<span class='clj-vector'>]</span>","separator":" ","items":[{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;segment&quot;</span>","value":"\"segment\""}],"value":"[\"type\" \"segment\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;id&quot;</span>","value":"\"id\""},{"type":"html","content":"<span class='clj-string'>&quot;53096101db346636b5000037&quot;</span>","value":"\"53096101db346636b5000037\""}],"value":"[\"id\" \"53096101db346636b5000037\"]"}],"value":"{\"type\" \"segment\", \"id\" \"53096101db346636b5000037\"}"},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;segment&quot;</span>","value":"\"segment\""}],"value":"[\"type\" \"segment\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;id&quot;</span>","value":"\"id\""},{"type":"html","content":"<span class='clj-string'>&quot;53096101db346636b5000038&quot;</span>","value":"\"53096101db346636b5000038\""}],"value":"[\"id\" \"53096101db346636b5000038\"]"}],"value":"{\"type\" \"segment\", \"id\" \"53096101db346636b5000038\"}"}],"value":"[{\"type\" \"segment\", \"id\" \"53096101db346636b5000037\"} {\"type\" \"segment\", \"id\" \"53096101db346636b5000038\"}]"}],"value":"[\"segments\" [{\"type\" \"segment\", \"id\" \"53096101db346636b5000037\"} {\"type\" \"segment\", \"id\" \"53096101db346636b5000038\"}]]"}],"value":"{\"type\" \"segment.list\", \"segments\" [{\"type\" \"segment\", \"id\" \"53096101db346636b5000037\"} {\"type\" \"segment\", \"id\" \"53096101db346636b5000038\"}]}"}],"value":"[\"segments\" {\"type\" \"segment.list\", \"segments\" [{\"type\" \"segment\", \"id\" \"53096101db346636b5000037\"} {\"type\" \"segment\", \"id\" \"53096101db346636b5000038\"}]}]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;remote_created_at&quot;</span>","value":"\"remote_created_at\""},{"type":"html","content":"<span class='clj-long'>1409755549546</span>","value":"1409755549546"}],"value":"[\"remote_created_at\" 1409755549546]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;custom_attributes&quot;</span>","value":"\"custom_attributes\""},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[],"value":"{}"}],"value":"[\"custom_attributes\" {}]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;session_count&quot;</span>","value":"\"session_count\""},{"type":"html","content":"<span class='clj-unkown'>3</span>","value":"3"}],"value":"[\"session_count\" 3]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;created_at&quot;</span>","value":"\"created_at\""},{"type":"html","content":"<span class='clj-unkown'>1409754749</span>","value":"1409754749"}],"value":"[\"created_at\" 1409754749]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;name&quot;</span>","value":"\"name\""},{"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}],"value":"[\"name\" nil]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;last_request_at&quot;</span>","value":"\"last_request_at\""},{"type":"html","content":"<span class='clj-unkown'>1409768749</span>","value":"1409768749"}],"value":"[\"last_request_at\" 1409768749]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;user_id&quot;</span>","value":"\"user_id\""},{"type":"html","content":"<span class='clj-string'>&quot;27306&quot;</span>","value":"\"27306\""}],"value":"[\"user_id\" \"27306\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;location_data&quot;</span>","value":"\"location_data\""},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;postal_code&quot;</span>","value":"\"postal_code\""},{"type":"html","content":"<span class='clj-string'>&quot;55102&quot;</span>","value":"\"55102\""}],"value":"[\"postal_code\" \"55102\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;latitude&quot;</span>","value":"\"latitude\""},{"type":"html","content":"<span class='clj-double'>44.92779999999999</span>","value":"44.92779999999999"}],"value":"[\"latitude\" 44.92779999999999]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;longitude&quot;</span>","value":"\"longitude\""},{"type":"html","content":"<span class='clj-double'>-93.1162</span>","value":"-93.1162"}],"value":"[\"longitude\" -93.1162]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;country_name&quot;</span>","value":"\"country_name\""},{"type":"html","content":"<span class='clj-string'>&quot;United States&quot;</span>","value":"\"United States\""}],"value":"[\"country_name\" \"United States\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;region_name&quot;</span>","value":"\"region_name\""},{"type":"html","content":"<span class='clj-string'>&quot;Minnesota&quot;</span>","value":"\"Minnesota\""}],"value":"[\"region_name\" \"Minnesota\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;country_code&quot;</span>","value":"\"country_code\""},{"type":"html","content":"<span class='clj-string'>&quot;USA&quot;</span>","value":"\"USA\""}],"value":"[\"country_code\" \"USA\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;continent_code&quot;</span>","value":"\"continent_code\""},{"type":"html","content":"<span class='clj-string'>&quot;NA&quot;</span>","value":"\"NA\""}],"value":"[\"continent_code\" \"NA\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;timezone&quot;</span>","value":"\"timezone\""},{"type":"html","content":"<span class='clj-string'>&quot;America/Chicago&quot;</span>","value":"\"America/Chicago\""}],"value":"[\"timezone\" \"America/Chicago\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;location_data&quot;</span>","value":"\"location_data\""}],"value":"[\"type\" \"location_data\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;city_name&quot;</span>","value":"\"city_name\""},{"type":"html","content":"<span class='clj-string'>&quot;Saint Paul&quot;</span>","value":"\"Saint Paul\""}],"value":"[\"city_name\" \"Saint Paul\"]"}],"value":"{\"postal_code\" \"55102\", \"latitude\" 44.92779999999999, \"longitude\" -93.1162, \"country_name\" \"United States\", \"region_name\" \"Minnesota\", \"country_code\" \"USA\", \"continent_code\" \"NA\", \"timezone\" \"America/Chicago\", \"type\" \"location_data\", \"city_name\" \"Saint Paul\"}"}],"value":"[\"location_data\" {\"postal_code\" \"55102\", \"latitude\" 44.92779999999999, \"longitude\" -93.1162, \"country_name\" \"United States\", \"region_name\" \"Minnesota\", \"country_code\" \"USA\", \"continent_code\" \"NA\", \"timezone\" \"America/Chicago\", \"type\" \"location_data\", \"city_name\" \"Saint Paul\"}]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;updated_at&quot;</span>","value":"\"updated_at\""},{"type":"html","content":"<span class='clj-unkown'>1409768749</span>","value":"1409768749"}],"value":"[\"updated_at\" 1409768749]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;user_agent_data&quot;</span>","value":"\"user_agent_data\""},{"type":"html","content":"<span class='clj-string'>&quot;Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:33.0) Gecko/20100101 Firefox/33.0&quot;</span>","value":"\"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:33.0) Gecko/20100101 Firefox/33.0\""}],"value":"[\"user_agent_data\" \"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:33.0) Gecko/20100101 Firefox/33.0\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;tags&quot;</span>","value":"\"tags\""},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;tag.list&quot;</span>","value":"\"tag.list\""}],"value":"[\"type\" \"tag.list\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;tags&quot;</span>","value":"\"tags\""},{"type":"list-like","open":"<span class='clj-vector'>[</span>","close":"<span class='clj-vector'>]</span>","separator":" ","items":[],"value":"[]"}],"value":"[\"tags\" []]"}],"value":"{\"type\" \"tag.list\", \"tags\" []}"}],"value":"[\"tags\" {\"type\" \"tag.list\", \"tags\" []}]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;avatar&quot;</span>","value":"\"avatar\""},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;avatar&quot;</span>","value":"\"avatar\""}],"value":"[\"type\" \"avatar\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;image_url&quot;</span>","value":"\"image_url\""},{"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}],"value":"[\"image_url\" nil]"}],"value":"{\"type\" \"avatar\", \"image_url\" nil}"}],"value":"[\"avatar\" {\"type\" \"avatar\", \"image_url\" nil}]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;app_id&quot;</span>","value":"\"app_id\""},{"type":"html","content":"<span class='clj-string'>&quot;nb5hla8s&quot;</span>","value":"\"nb5hla8s\""}],"value":"[\"app_id\" \"nb5hla8s\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;user&quot;</span>","value":"\"user\""}],"value":"[\"type\" \"user\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;id&quot;</span>","value":"\"id\""},{"type":"html","content":"<span class='clj-string'>&quot;5407267d7898790e5a001789&quot;</span>","value":"\"5407267d7898790e5a001789\""}],"value":"[\"id\" \"5407267d7898790e5a001789\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;companies&quot;</span>","value":"\"companies\""},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;company.list&quot;</span>","value":"\"company.list\""}],"value":"[\"type\" \"company.list\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;companies&quot;</span>","value":"\"companies\""},{"type":"list-like","open":"<span class='clj-vector'>[</span>","close":"<span class='clj-vector'>]</span>","separator":" ","items":[],"value":"[]"}],"value":"[\"companies\" []]"}],"value":"{\"type\" \"company.list\", \"companies\" []}"}],"value":"[\"companies\" {\"type\" \"company.list\", \"companies\" []}]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;social_profiles&quot;</span>","value":"\"social_profiles\""},{"type":"list-like","open":"<span class='clj-map'>{</span>","close":"<span class='clj-map'>}</span>","separator":", ","items":[{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;type&quot;</span>","value":"\"type\""},{"type":"html","content":"<span class='clj-string'>&quot;social_profile.list&quot;</span>","value":"\"social_profile.list\""}],"value":"[\"type\" \"social_profile.list\"]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;social_profiles&quot;</span>","value":"\"social_profiles\""},{"type":"list-like","open":"<span class='clj-vector'>[</span>","close":"<span class='clj-vector'>]</span>","separator":" ","items":[],"value":"[]"}],"value":"[\"social_profiles\" []]"}],"value":"{\"type\" \"social_profile.list\", \"social_profiles\" []}"}],"value":"[\"social_profiles\" {\"type\" \"social_profile.list\", \"social_profiles\" []}]"},{"type":"list-like","open":"","close":"","separator":" ","items":[{"type":"html","content":"<span class='clj-string'>&quot;email&quot;</span>","value":"\"email\""},{"type":"html","content":"<span class='clj-string'>&quot;&quot;</span>","value":"\"\""}],"value":"[\"email\" \"\"]"}],"value":"{\"unsubscribed_from_emails\" false, \"segments\" {\"type\" \"segment.list\", \"segments\" [{\"type\" \"segment\", \"id\" \"53096101db346636b5000037\"} {\"type\" \"segment\", \"id\" \"53096101db346636b5000038\"}]}, \"remote_created_at\" 1409755549546, \"custom_attributes\" {}, \"session_count\" 3, \"created_at\" 1409754749, \"name\" nil, \"last_request_at\" 1409768749, \"user_id\" \"27306\", \"location_data\" {\"postal_code\" \"55102\", \"latitude\" 44.92779999999999, \"longitude\" -93.1162, \"country_name\" \"United States\", \"region_name\" \"Minnesota\", \"country_code\" \"USA\", \"continent_code\" \"NA\", \"timezone\" \"America/Chicago\", \"type\" \"location_data\", \"city_name\" \"Saint Paul\"}, \"updated_at\" 1409768749, \"user_agent_data\" \"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:33.0) Gecko/20100101 Firefox/33.0\", \"tags\" {\"type\" \"tag.list\", \"tags\" []}, \"avatar\" {\"type\" \"avatar\", \"image_url\" nil}, \"app_id\" \"nb5hla8s\", \"type\" \"user\", \"id\" \"5407267d7898790e5a001789\", \"companies\" {\"type\" \"company.list\", \"companies\" []}, \"social_profiles\" {\"type\" \"social_profile.list\", \"social_profiles\" []}, \"email\" \"\"}"}],"value":"({\"unsubscribed_from_emails\" false, \"segments\" {\"type\" \"segment.list\", \"segments\" [{\"type\" \"segment\", \"id\" \"53096101db346636b5000037\"} {\"type\" \"segment\", \"id\" \"53096101db346636b5000038\"}]}, \"remote_created_at\" 1409755549546, \"custom_attributes\" {}, \"session_count\" 3, \"created_at\" 1409754749, \"name\" nil, \"last_request_at\" 1409768749, \"user_id\" \"27306\", \"location_data\" {\"postal_code\" \"55102\", \"latitude\" 44.92779999999999, \"longitude\" -93.1162, \"country_name\" \"United States\", \"region_name\" \"Minnesota\", \"country_code\" \"USA\", \"continent_code\" \"NA\", \"timezone\" \"America/Chicago\", \"type\" \"location_data\", \"city_name\" \"Saint Paul\"}, \"updated_at\" 1409768749, \"user_agent_data\" \"Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:33.0) Gecko/20100101 Firefox/33.0\", \"tags\" {\"type\" \"tag.list\", \"tags\" []}, \"avatar\" {\"type\" \"avatar\", \"image_url\" nil}, \"app_id\" \"nb5hla8s\", \"type\" \"user\", \"id\" \"5407267d7898790e5a001789\", \"companies\" {\"type\" \"company.list\", \"companies\" []}, \"social_profiles\" {\"type\" \"social_profile.list\", \"social_profiles\" []}, \"email\" \"\"})"}
+;;; {"type":"html","content":"<span class='clj-nil'>nil</span>","value":"nil"}
 ;; <=
 
-;; @@
-
-;; @@
+;; **
+;;; 
+;;; Ah... I think these may be more bad email uniformity issues. I find this:
+;;; 
+;;; 
+;;;     polisapp::BLUE=> select uid, hname, username, email, is_owner, created, plan from users where email like '%clark%';                                               
+;;;       uid  |     hname      | username |           email           | is_owner |    created    | plan 
+;;;     -------+----------------+----------+---------------------------+----------+---------------+------
+;;;       3021 | Arianna Clark  |          | arianna.clark@example.com | f        | 1383284862972 |    0
+;;;      26566 | Don            |          | Donclark@gmail.com        | t        | 1397801313466 |    0
+;;;      26630 | Andrew Clarke  |          | aclarke@samuelfrench.com  | t        | 1398110554656 |    0
+;;;      50862 | Clark Mitchell |          | clarkcsmitchell@gmail.com | t        | 1409111052941 |    0
+;;;      84497 | Quinn Rohlf    |          | qrohlf@lclark.edu         | t        | 1409672505722 |    0
+;;;     (5 rows)
+;;; 
+;;; I'm guessing the others are going to have similar issues. Time to normalize...
+;;; 
+;;; Interesting...
+;;; 
+;;;     polisapp::BLUE=> select uid, hname, username, email, is_owner, created, plan from users where hname = 'Brian Hayashi';                                            
+;;;       uid  |     hname     | username |         email          | is_owner |    created    | plan 
+;;;     -------+---------------+----------+------------------------+----------+---------------+------
+;;;      26586 | Brian Hayashi |          | brian@realtimevegas.co | t        | 1397845450433 |    0
+;;;     (1 row)
+;;; 
+;;; Looks like maybe we need to catch email updates? brian vs brian.hayashi works. Will have to manually take care of this one through our intercom update function.
+;;; 
+;;; Also this one:
+;;; 
+;;;     polisapp::BLUE=> select uid, hname, username, email, is_owner, created, plan from users where hname = 'Sheikh Shuvo';
+;;;       uid  |    hname     | username |    email     | is_owner |    created    | plan 
+;;;     -------+--------------+----------+--------------+----------+---------------+------
+;;;      26571 | Sheikh Shuvo |          | sheikh@up.co | t        | 1397823287771 |    0
+;;;     (1 row)
+;;; 
+;;; ### Caps fixes
+;;; * Don (donclark)
+;;; * Don/Dave Evins
+;;; * Loki Astari
+;;; 
+;;; > Note: I reran the panel above this to get the intercom ids, and now only 4 show up there. There were 7 before.
+;;; 
+;;; ### Wrong address period:
+;;; * **Brian Hayashi**: brian@realtimevegas.co -> brian.hayashi@realtimevegas.co
+;;; * **Sheikh Shuvo**: sheikh@startupweekend.org -> sheikh@up.co
+;;; * **Matti**: matti.nelimarkka@hiit.fi -> matti.nelimarkka@gmail.com
+;;; * **Julien Brinas**: julien@castle.ventures -> julien@togetheraway.com
+;;; 
+;;; Woah.. Wait, ok. There are two entries in Intercom for Julien. One with the bad address, the other not. So did he put his email address in incorrectly, leaving the user not in the database? Cause I can't find the other email address in the database (`castle.ventures`). Let's see if we have this problem with the others:
+;;; 
+;;; Ah... interesting. Those names appear elsewhere in the IC db. So people are entering bad/old email addresses that don't save to the DB, and then correcting with more recent ones? OR something!!!
+;;; 
+;;; In any case, it seems like we can ignore these 4, since there are updated records for them. We _should_ probably delete the old ones though.
+;;; 
+;;; 
+;;; 
+;; **
 
 ;; @@
 
