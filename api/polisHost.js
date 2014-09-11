@@ -40,10 +40,10 @@
     }
     path.push(o.conversation_id);
     iframe.src = "https://embed.pol.is/"+ path.join("/");
-    iframe.width = o.width || "100%"; // slightly less than iPhone width
+    iframe.width = "100%"; // may be constrained by parent div
     iframe.height = o.height || 900;
     iframe.style.border = "1px solid #ccc";
-    iframe.style.borderRadius = "5px";
+    iframe.style.borderRadius = "4px";
     // iframe.style.borderTop = "2px solid #ccc";
     // iframe.style.borderLeft = "2px solid #ccc";
     parent.appendChild(iframe);
