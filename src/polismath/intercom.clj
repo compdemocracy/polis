@@ -93,23 +93,54 @@
     (client/post "https://api.intercom.io/users")))
 
 
+
+(def db-spec      (poll/heroku-db-spec (env/env :database-url)))
+(def users        (get-intercom-users))
+(def valid-ids    (valid-user-ids users))
+(def users-w-ids  (filter #(get % "user_id") users))
+(def users-wo-ids (filter #(not (get % "user_id")) users))
+
+(def good-id-by-email (get-db-users-by-email db-spec (map #(get % "email") users-w-ids)))
+(def good-id-by-email-ids (set (map :uid good-id-by-email)))
+(def bad-emails-good-ids-users (remove #(good-id-by-email-ids (Integer/parseInt (get % "user_id"))) users-w-ids))
+(def bad-emails-good-ids-ids (set (map #(get % "user_id") bad-emails-good-ids-users)))
+(def bad-emails-good-ids-dbrecs
+  (get-db-users-by-uid
+    db-spec
+    (map #(Integer/parseInt (get % "user_id")) bad-emails-good-ids-users)))
+
+(map :email bad-emails-good-ids-dbrecs)
+(map #(get % "email") bad-emails-good-ids-users)
+
+(filter #(= "27306" (get % "user_id")) users)
+
+
+;(update-intercom-user {:email "chris@pol.is" :remote_created_at (/ 1408088823591 1000)})
+
+;(get (first (filter #(= "kelly.baumeister@bigfishgames.com" (get % "email")) users)) "id")
+;(update-intercom-user {:id "531a50cb9db3ee100400b450"
+                       ;:user_id 26371
+                       ;:remote_created_at (/ 1395873111736 1000)})
+
 (defn -main
   []
   (let [db-spec      (poll/heroku-db-spec (env/env :database-url))
         users        (get-intercom-users)
         valid-ids    (valid-user-ids users)
+        users-w-ids  (filter #(get % "user_id") users)
         users-wo-ids (filter #(not (get % "user_id")) users)]
     ; First some nice summary stats information
     (println "Total number of users:         " (count users))
     (println "Number of users with valid ids:" (count valid-ids))
     (println "Number w/o:                    " (count users-wo-ids))
     ; Getting to work...
-    ; First take care of all the ones which have valid ids. These tend to be more recent, but also
+    ; First take care of all the ones which have valid ids. These tend to be more recent.
+    ; It appears that all of the users with
+    (doseq [u users-w-ids]
+      (println (gets u ["email"])))
     (->>
       valid-ids
-      (get-db-users-by-uid db-spec)
-      (count)
-      (println "Fetched users w/ ids:"))
+      (get-db-users-by-uid db-spec))
     ; Now we deal with the ones without valid uids. For these we match with email.
     (->>
       users-wo-ids
