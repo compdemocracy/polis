@@ -56,7 +56,7 @@
         return;
       } 
     
-      if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel() && browserCompatibleWithReidrectTrick()) {
+      if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
         // temporarily redirect to polis, which will set a cookie and redirect back
         window.location = "https://embed.pol.is/api/v3/launchPrep?dest=" + strToHex(window.location+"");
       }
