@@ -6,6 +6,8 @@
             [korma.db :as kdb]
             [environ.core :as env]
             [alex-and-georges.debug-repl :as dbr]
+            [clojure.stacktrace :refer :all]
+            [clojure.tools.logging :as log]
             [clojure.tools.trace :as tr]
             [polismath.utils :refer :all]
             [polismath.pretty-printers :as pp]
@@ -37,28 +39,6 @@
       (if next-page
         (into users (get-intercom-users next-page))
         users))))
-
-
-(defn user-id
-  [user]
-  (try
-    (-> user
-        (get "user_id")
-        (Integer/parseInt))
-    (catch Exception e
-      nil)))
-
-
-(defn user-id-str
-  [user]
-  (get user "user_id"))
-
-
-(defn valid-user-ids
-  [users]
-  (->> users
-       (map user-id)
-       (filter identity)))
 
 
 (defn gets
@@ -93,6 +73,7 @@
     (assoc intercom-http-params :body)
     (client/post "https://api.intercom.io/users")))
 
+
 (defn update-icuser-from-dbuser
   [dbuser]
   (update-icuser
@@ -100,47 +81,49 @@
       {}
       (map
         (fn [[ic-key db-key]]
-          [ic-key (db-key db-user)])
+          [ic-key (db-key dbuser)])
         [[:name              :hname]
          [:user_id           :uid]
          [:email             :email]
-         [:remate_created_at #(/ (:created %) 1000)]]))))
+         [:remote_created_at #(/ (:created %) 1000)]]))))
 
 
-;(update-intercom-user {:email "chris@pol.is" :remote_created_at (/ 1408088823591 1000)})
 
-;(get (first (filter #(= "kelly.baumeister@bigfishgames.com" (get % "email")) users)) "id")
-(update-intercom-user {:user_id 7546390821987
-                       :remote_created_at (/ 1395873111736 1000)})
+; Main functions:
+; ===============
 
-(defn -main
+
+(defn backup-intercom-users
+  "Backup intercom users to json file specified by filename arg."
+  [filename]
+  (let [icusers (get-intercom-users)]
+    (spit filename (ch/generate-string icusers))))
+
+
+(defn update-intercom-db
+  "Update intercom records by grabbing existing records, and from those the corresponding PG DB records
+  so tha twe have enough information to flesh out missing information."
   []
-  (let [db-spec      (poll/heroku-db-spec (env/env :database-url))
-        users        (get-intercom-users)
-        valid-ids    (valid-user-ids users)
-        users-w-ids  (filter #(get % "user_id") users)
-        users-wo-ids (filter #(not (get % "user_id")) users)]
+  (let [db-spec          (poll/heroku-db-spec (env/env :database-url))
+        ; Get intercom users and break down by those that have id and those that don't, but have email
+        icusers          (get-intercom-users)
+        icusers-by-id    (filter #(get % "user_id") icusers)
+        icusers-by-email (filter #(not (get % "user_id")) icusers)
+        ; Get users by id, then by email for those without id, then put them all together in one collection
+        dbusers-by-id    (get-db-users-by-uid db-spec
+                           (map #(Integer/parseInt (get % "user_id")) icusers-by-id))
+        dbusers-by-email (get-db-users-by-email db-spec
+                           (map #(get % "email") icusers-by-email)) 
+        all-users        (into dbusers-by-id dbusers-by-email)]
     ; First some nice summary stats information
-    (println "Total number of users:         " (count users))
-    (println "Number of users with valid ids:" (count valid-ids))
-    (println "Number w/o:                    " (count users-wo-ids))
-    ; Getting to work...
-    ; First take care of all the ones which have valid ids. These tend to be more recent.
-    ; It appears that all of the users with
-    (doseq [u users-w-ids]
-      (println (gets u ["email"])))
-    (->>
-      valid-ids
-      (get-db-users-by-uid db-spec))
-    ; Now we deal with the ones without valid uids. For these we match with email.
-    (->>
-      users-wo-ids
-      (map #(get % "email"))
-      ((fn [emails] (println "N emails from noids:" (count emails)) emails))
-      (get-db-users-by-email db-spec)
-      (map :email)
-      (count)
-      (println "Fetched users w/o ids:"))
+    (println "Total number of intercom users:" (count icusers))
+    (println "Number of users with valid ids:" (count icusers-by-id))
+    (println "Number w/o:                    " (count icusers-by-email))
+    ; Now getting to work
+    (println "Now updating all user records in intercom")
+    (doseq [u all-users]
+      (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
+      (update-icuser-from-dbuser u))
     ; Call it a night
     (println "Done!")))
 
