@@ -74,6 +74,74 @@
     (client/post "https://api.intercom.io/users")))
 
 
+(declare users conversations votes participants)
+
+(ko/defentity users
+  (ko/pk :uid)
+  (ko/entity-fields :uid :hname :username :email :is_owner :created :plan)
+  (ko/has-many conversations)
+  (ko/has-many votes))
+
+(ko/defentity conversations
+  (ko/pk :zid)
+  (ko/entity-fields :zid :owner)
+  (ko/has-many votes)
+  (ko/belongs-to user (:fk :owner)))
+
+(ko/defentity votes
+  (ko/entity-fields :zid :pid :tid :vote :created)
+  (ko/belongs-to participants (:fk :pid))
+  (ko/belongs-to conversations (:fk :zid)))
+
+(ko/defentity participants
+  (ko/entity-fields :pid :uid :zid :created)
+  (ko/belongs-to user (:fk :uid))
+  (ko/belongs-to conversations (:fk :zid)))
+
+(defn get-db-users-with-stats-by-uid
+  [uids]
+  (kdb/with-db (poll/heroku-db-spec (env/env :database-url))
+    (ko/select
+      users
+      (ko/fields :uid
+                 :created
+                 :email
+                 :owned_convs.avg_n_ptpts
+                 :owned_convs.n_owned_convs
+                 :ptpt_summary.n_ptptd_convs)
+      ; Join summary stats of owned conversations
+      (ko/join :left
+        [(ko/subselect
+           conversations
+           (ko/fields :owner)
+           ; Join participant count summaries per conv
+           (ko/join
+             [(ko/subselect
+                participants
+                (ko/fields :zid)
+                (ko/aggregate (count (ko/raw "DISTINCT pid")) :n_ptpts :zid))
+              ; as conv_summary
+              :conv_summary]
+             (= :conv_summary.zid :zid))
+           ; Average participant counts, and count number of conversations
+           (ko/aggregate (avg :conv_summary.n_ptpts) :avg_n_ptpts)
+           (ko/aggregate (count (ko/raw "DISTINCT conversations.zid")) :n_owned_convs)
+           (ko/group :owner))
+         ; as owned_convs
+         :owned_convs]
+        (= :owned_convs.owner :uid))
+      ; Join summary stats on participation
+      (ko/join
+        :left
+        [(ko/subselect
+           participants
+           (ko/fields :uid)
+           (ko/aggregate (count (ko/raw "DISTINCT zid")) :n_ptptd_convs :uid))
+         :ptpt_summary]
+        (= :ptpt_summary.uid :uid))
+      (ko/where (in :uid uids)))))
+
+
 (defn update-icuser-from-dbuser
   [dbuser]
   (update-icuser
