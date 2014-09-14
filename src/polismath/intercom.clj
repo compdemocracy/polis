@@ -195,9 +195,11 @@
     ; Now getting to work
     (println "Now updating all user records in intercom")
     (doseq [u all-users]
-      (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
-      (update-icuser-from-dbuser u))
+      (future
+        (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
+        (update-icuser-from-dbuser u)))
     ; Call it a night
-    (println "Done!")))
+    (println "Done!")
+    (shutdown-agents)))
 
 
