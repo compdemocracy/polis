@@ -58,6 +58,12 @@ CREATE TABLE apikeysndvweifu (
 );
 CREATE INDEX apikeysndvweifu_uid_idx ON apikeysndvweifu USING btree (uid);
 
+CREATE TABLE coupons_for_free_upgrades (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    plan SMALLINT DEFAULT 0,
+    code VARCHAR(32) NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+);
 
 --CREATE TABLE orgs (
     --oid SERIAL,

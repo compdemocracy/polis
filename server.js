@@ -3661,6 +3661,89 @@ function updateStripePlan(user, stripeToken, stripeEmail, plan) {
     });
 }
 
+// use this to generate coupons for free upgrades
+app.get("/api/v3/createPlanChangeCoupon_aiudhfaiodufy78sadtfiasdf",
+    moveToBody,
+    need('uid', getInt, assignToP),
+    need('planCode', getOptionalStringLimitLength(999), assignToP), 
+function(req, res) {
+    var uid = req.p.uid;
+    var planCode = req.p.planCode;
+    generateTokenP(30, false).then(function(code) {
+        return pgQueryP("insert into coupons_for_free_upgrades (uid, code, plan) values ($1, $2, $3) returning *;",[uid, code, planCode]).then(function(rows) {
+            var row = rows[0];
+            row.url = "https://pol.is/api/v3/changePlanWithCoupon?code=" + row.code;
+            res.status(200).json(row);
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_creating_coupon", err);
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_creating_coupon_code", err);
+    });
+});
+
+app.get("/api/v3/changePlanWithCoupon",
+    moveToBody,
+    authOptional(assignToP),
+    need('code', getOptionalStringLimitLength(999), assignToP),    
+function(req, res) {
+    var uid = req.p.uid;
+    var code = req.p.code;
+    var isCurrentUser = true;
+    getCouponInfo(code).then(function(infos) {
+        var info = infos[0];
+        if (uid) {
+            if (uid !== info.uid) {
+                // signed in user is someone else!
+                // This could easily happen if someone is testing an auto-join conversation in another browser.
+                // So don't set the cookies in this case.
+                isCurrentUser = false;
+            }
+        }
+        updatePlan(req, res, info.uid, info.plan, isCurrentUser);
+    }).catch(function(err) {
+        emailBadProblemTime("changePlanWithCoupon failed");
+        fail(res, 500, "polis_err_changing_plan_with_coupon", err);
+    });
+});
+
+function getCouponInfo(couponCode) {
+    return pgQueryP("select * from coupons_for_free_upgrades where code = ($1);", [couponCode]);
+}
+
+
+function updatePlan(req, res, uid, planCode, isCurrentUser) {
+    console.log('updatePlan', uid, planCode);
+    setUsersPlanInIntercom(uid, planCode).catch(function(err) {
+        emailBadProblemTime("User " + uid + " changed their plan, but we failed to update Intercom");
+    });
+
+    // update DB and finish
+    changePlan(uid, planCode).then(function() {
+        // Set cookie
+        if (isCurrentUser) {
+            var protocol = devMode ? "http" : "https";
+            var setOnPolisDomain = !domainOverride;
+            var origin = req.headers.origin || "";
+            if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+                setOnPolisDomain = false;
+            }
+            setPlanCookie(res, setOnPolisDomain, planCode);
+
+            // Redirect to the same URL with the path behind the fragment "#"
+            res.writeHead(302, {
+                Location: protocol + "://" + req.headers.host +"/settings",
+            });
+            return res.end();
+        } else {
+            res.status(200).json({status: "upgraded!"});
+        }
+    }).catch(function(err) {
+        emailBadProblemTime("User changed their plan, but we failed to update the DB.");
+        fail(res, 500, "polis_err_changing_plan", err);
+    });
+}
+
 app.post("/api/v3/charge",
     auth(assignToP),
     want('stripeToken', getOptionalStringLimitLength(999), assignToP),
@@ -3701,32 +3784,7 @@ function(req, res) {
     }
 
     updateStripePromise.then(function() {
-        setUsersPlanInIntercom(uid, planCode).catch(function(err) {
-            emailBadProblemTime("User " + uid + " changed their plan, stripe was charged, but we failed to update Intercom");
-        });
-
-        // update DB and finish
-        changePlan(uid, planCode).then(function() {
-            var protocol = devMode ? "http" : "https";
-
-            // Set cookie
-            var setOnPolisDomain = !domainOverride;
-            var origin = req.headers.origin || "";
-            if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
-                setOnPolisDomain = false;
-            }
-            setPlanCookie(res, setOnPolisDomain, planCode);
-
-            // Redirect to the same URL with the path behind the fragment "#"
-            res.writeHead(302, {
-                Location: protocol + "://" + req.headers.host +"/settings",
-            });
-
-            return res.end();
-        }).catch(function(err) {
-            emailBadProblemTime("User changed their plan, stripe was charged, but we failed to update the DB.");
-            fail(res, 500, "polis_err_changing_plan", err);
-        });
+        updatePlan(req, res, uid, planCode, true);
     }).catch(function(err) {
         if (err) {
             if (err.type === 'StripeCardError') {
