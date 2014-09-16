@@ -4636,7 +4636,7 @@ function(req, res) {
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     var token = req.cookies[COOKIES.TOKEN];
-    var apiToken = req.headers.authorization
+    var apiToken = req.headers.authorization;
     if (!token && !apiToken) {
         fail(res, 403, "polis_err_vote_noauth");
         return;
