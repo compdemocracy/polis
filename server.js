@@ -782,7 +782,7 @@ function getPassword(s) {
 
 function getPasswordWithCreatePasswordRules(s) {
     return getPassword(s).then(function(s) {
-        if (s.length < 6) {
+        if (typeof s !== "string" || s.length < 6) {
             throw new Error("polis_err_password_too_short");
         }
         return s;
@@ -985,7 +985,7 @@ var prrrams = (function() {
 
         var f = function(req, res, next) {
             var val = extractor(req, name);
-            if (!_.isUndefined(val)) {
+            if (!_.isUndefined(val) && !_.isNull(val)) {
                 parserWhichReturnsPromise(val).then(function(parsed) {
                     assigner(req, name, parsed);
                     next();
