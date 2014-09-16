@@ -23,8 +23,6 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
 var badwords = require('badwords/object'),
     dgram = require('dgram'),
-    emailTemplatePwReset = require('./email/pwreset.js'),
-    emailTemplateValidate = require('./email/validate.js'),
     http = require('http'),
     httpProxy = require('http-proxy'),
     https = require('https'),
@@ -2163,11 +2161,14 @@ function(req, res) {
     
         setupPwReset(uid, function(err, pwresettoken) {
 
-            sendPasswordResetEmail(uid, pwresettoken, server).then(function() {
+            sendPasswordResetEmail(uid, pwresettoken, server, function(err) {
+                if (err) {
+                    console.error(err);
+                    fail(res, 500, "Error: Couldn't send password reset email.");
+                    return;
+                }
                 finish();
-            }).catch(function(err) {
-                fail(res, 500, "Error: Couldn't send password reset email.", err);
-            });
+            });            
         });
     }, function() {
         sendPasswordResetEmailFailure(email, server);
@@ -2955,28 +2956,40 @@ function emailBadProblemTime(message) {
 }
 
 
-function sendPasswordResetEmail(uid, pwresettoken, serverName) {
-    return getUserInfoForUid2(uid).then(function(userInfo) {
-        // var body = "" +
-        //     "Hi " + userInfo.hname + ",\n" +
-        //     "\n" +
-        //     "We have just received a password reset request for " + userInfo.email + "\n" +
-        //     "\n" +
-        //     "To reset your password, visit this url:\n" +
-        //      + "\n" +
-        //     "\n" +
-        //     "Thank you for using Polis\n";
+function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
+    getUserInfoForUid(uid, function(err, userInfo) {
+        if (err) {
+            return callback(err);
+        }
+        if (!userInfo) {
+            return callback('missing user info');
+        }
+        var body = "" +
+            "Hi " + userInfo.hname + ",\n" +
+            "\n" +
+            "We have just received a password reset request for " + userInfo.email + "\n" +
+            "\n" +
+            "To reset your password, visit this url:\n" +
+            serverName + "/pwreset/" + pwresettoken + "\n" +
+            "\n" +
+            "Thank you for using Polis\n";
 
-        userInfo.url = serverName + "/pwreset/" + pwresettoken;
-
-        var html = emailTemplatePwReset(userInfo);
-
-        return sendHtmlToEmail(uid,
+        mailgun.sendText(
+            'Polis Team <mike@pol.is>',
+            [userInfo.email],
             "Polis Password Reset",
-            html);
-
+            body,
+            'mike@pol.is', {},
+            function(err) {
+                if (err) {
+                    console.error('mailgun send error: ' + err);
+                }
+                callback(err);
+            }
+        );
     });
 }
+
 
 
 function sendEinviteEmail(email, einvite, serverName) {
@@ -3062,15 +3075,18 @@ function sendTextToEmail(uid, subject, body) {
     });
 }
 
-function sendHtmlToEmail(uid, subject, html) {
-    return getUserInfoForUid2(uid).then(function(userInfo) {
-        return sendEmail({
-            to: userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
-            subject: subject,
-            html: html,
-        });
-    });
-}
+//
+// !!! be sure to test with text-only email clients before using this !!!
+//
+// function sendHtmlToEmail(uid, subject, html) {
+//     return getUserInfoForUid2(uid).then(function(userInfo) {
+//         return sendEmail({
+//             to: userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
+//             subject: subject,
+//             html: html,
+//         });
+//     });
+// }
 
 // tags: ANON_RELATED
 app.get("/api/v3/participants",
