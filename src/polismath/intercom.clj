@@ -56,6 +56,14 @@
         users))))
 
 
+(defn get-icuser-by-email
+  "Get the list of users from intercom (don't want to create intercom users for users that haven't
+  actually signed up"
+  [email]
+  (->
+    (str "https://api.intercom.io/users?email=" email)
+    (client/get intercom-http-params)
+    (parse-json-resp)))
 
 
 (defn update-icuser
