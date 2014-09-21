@@ -14,13 +14,28 @@
             [polismath.poller :as poll]))
 
 
+
+(defn gets
+  "Like get, but gives a coll mapped from all the keys"
+  [m ks & [not-found]]
+  (mapv #(get m % not-found) ks))
+
+
 (def intercom-http-params
   {:accept :json
    :basic-auth ["nb5hla8s" (env/env :intercom-api-key)]
    :content-type :json})
- 
 
-(defn get-intercom-users
+
+(defn parse-json-resp
+  [resp]
+  (->> resp
+       :body
+       ch/parse-string
+       (into {})))
+
+
+(defn get-icusers
   "Get the list of users from intercom (don't want to create intercom users for users that haven't
   actually signed up"
   [& [page]]
@@ -37,14 +52,10 @@
     (sort-by 
       (fn [u] (int (get u "created_at")))
       (if next-page
-        (into users (get-intercom-users next-page))
+        (into users (get-icusers next-page))
         users))))
 
 
-(defn gets
-  "Like get, but gives a coll mapped from all the keys"
-  [m ks & [not-found]]
-  (mapv #(get m % not-found) ks))
 
 
 (defn update-icuser
@@ -185,7 +196,7 @@
 (defn backup-intercom-users
   "Backup intercom users to json file specified by filename arg."
   [filename]
-  (let [icusers (get-intercom-users)]
+  (let [icusers (get-icusers)]
     (spit filename (ch/generate-string icusers))))
 
 
@@ -195,10 +206,12 @@
   []
   (let [db-spec          (poll/heroku-db-spec (env/env :database-url))
         ; Get intercom users and break down by those that have id and those that don't, but have email
-        icusers          (get-intercom-users)
+        _                (println "Fetching data from intercom")
+        icusers          (get-icusers)
         icusers-by-id    (filter #(get % "user_id") icusers)
         icusers-by-email (filter #(not (get % "user_id")) icusers)
         ; Get users by id, then by email for those without id, then put them all together in one collection
+        _                (println "Fetching pg db records")
         dbusers-by-id    (get-db-users-by-uid db-spec
                            (map #(Integer/parseInt (get % "user_id")) icusers-by-id))
         dbusers-by-email (get-db-users-by-email db-spec
