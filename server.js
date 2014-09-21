@@ -328,6 +328,7 @@ var sql_conversations = sql.define({
     "owner",
     "owner_sees_participation_stats",
     "context",
+    "course_id",
     "modified",
     "created",
     ]
@@ -367,6 +368,17 @@ var sql_participant_metadata_answers = sql.define({
     ]
 });
 
+var sql_courses = sql.define({
+  name: 'courses',
+  columns: [
+    "course_id",
+    "course_invite",
+    "topic",
+    "description",
+    "owner",
+    "created",
+    ]
+});
 // var sql_otzinvites = sql.define({
 //   name: 'otzinvites',
 //   columns: [
@@ -5347,6 +5359,7 @@ function getConversations(req, res) {
   var uid = req.p.uid;
   var zid = req.p.zid;
   var xid = req.p.xid;
+  var course_invite = req.p.course_invite;
   var include_all_conversations_i_am_in = req.p.include_all_conversations_i_am_in;
   var want_mod_url = req.p.want_mod_url;
   var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
@@ -5373,6 +5386,9 @@ function getConversations(req, res) {
         orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
     }
     query = query.where(orClauses);
+    if (!_.isUndefined(req.p.course_invite)) {
+        query = query.and(sql_conversations.course_id.equals(req.p.course_id));
+    }
     // query = query.where("("+ or_clauses.join(" OR ") + ")");
     if (!_.isUndefined(req.p.is_active)) {
         query = query.and(sql_conversations.is_active.equals(req.p.is_active));
@@ -5386,6 +5402,7 @@ function getConversations(req, res) {
     if (!_.isUndefined(req.p.context)) {
         query = query.and(sql_conversations.context.equals(req.p.context));
     }
+
     //query = whereOptional(query, req.p, 'owner');
     query = query.order(sql_conversations.created.descending);
 
@@ -5486,6 +5503,7 @@ app.get('/api/v3/conversations',
     want('include_all_conversations_i_am_in', getBool, assignToP),
     want('is_active', getBool, assignToP),
     want('is_draft', getBool, assignToP),
+    want('course_invite', getStringLimitLength(1, 32), assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('want_mod_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_admin_url', getBool, assignToP), // NOTE - use this for API only!
@@ -5496,13 +5514,24 @@ app.get('/api/v3/conversations',
     want('context', getStringLimitLength(1, 999), assignToP),
     want('xid', getStringLimitLength(1, 999), assignToP),
 function(req, res) {
-  if (req.p.zid) {
-    getOneConversation(req, res);
-  } else if (req.p.uid) {
-    getConversations(req, res);
-  } else {
-    fail(res, 403, "polis_err_need_auth", new Error("polis_err_need_auth"));
+  var courseIdPromise = Promise.resolve();
+  if (req.p.course_invite) {
+    courseIdPromise = pgQueryP("select course_id from courses where course_invite = ($1);", [req.p.course_invite]).then(function(rows) {
+        return rows[0].course_id;
+    });
   }
+  courseIdPromise.then(function(course_id) {
+    if (course_id) {
+        req.p.course_id = course_id;
+    }
+    if (req.p.zid) {
+      getOneConversation(req, res);
+    } else if (req.p.uid) {
+      getConversations(req, res);
+    } else {
+      fail(res, 403, "polis_err_need_auth", new Error("polis_err_need_auth"));
+    }
+  });
 });
 
 
@@ -5787,13 +5816,22 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 // colors
 // screen readers
 
-app.post("/api/v3/LTI",
+app.post("/api/v3/LTI/course_setup",
 function(req, res) {
     res.set({
         'Content-Type': 'text/html',
     });
-    res.status(200).send("<!DOCTYPE html><html lang='en'><body>Hello LTI from pol.is</body></html>");
+    res.status(200).send("<!DOCTYPE html><html lang='en'><body>Hello LTI from pol.is This is course_setup</body></html>");
 }); // TODO write an LTI post handler
+
+app.post("/api/v3/LTI/conversation",
+function(req, res) {
+    res.set({
+        'Content-Type': 'text/html',
+    });
+    res.status(200).send("<!DOCTYPE html><html lang='en'><body>Hello LTI from pol.is This is a conversation</body></html>");
+}); // TODO write an LTI post handler
+
 
 
 app.post("/api/v3/users/invite",

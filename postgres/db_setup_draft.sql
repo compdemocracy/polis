@@ -127,6 +127,18 @@ CREATE TABLE participant_metadata_choices (
 ----}
 
 
+CREATE TABLE courses(
+    course_id SERIAL,
+    topic VARCHAR(1000),
+    description VARCHAR(1000),
+    owner INTEGER REFERENCES users(uid),
+    course_invite VARCHAR(32),
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE(invite),
+    UNIQUE(course_id)
+);
+CREATE UNIQUE INDEX course_id_idx ON courses USING btree (course_id);
+
 
 -- This is a light table that's used exclusively for generating IDs
 CREATE TABLE conversations(
@@ -147,6 +159,7 @@ CREATE TABLE conversations(
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ?? 
     context VARCHAR(1000), -- for things like a semester of a class, etc
+    course_id INTEGER REFERENCES courses(course_id),
     owner_sees_participation_stats BOOLEAN DEFAULT FALSE, -- currently maps to users needing a polis account, or to requiring single use urls?
     modified BIGINT DEFAULT now_as_millis(),    
     created BIGINT DEFAULT now_as_millis(),
