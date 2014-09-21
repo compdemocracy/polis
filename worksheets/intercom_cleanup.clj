@@ -10,7 +10,7 @@
 (ns intercom-cleanup
   (:require [gorilla-plot.core :as plot]
             [polismath.intercom :as ic]
-            [polismath.poller :as poll]
+            [polismath.db :as db]
             [polismath.pretty-printers :as pp]
             [polismath.utils :refer :all]
             [environ.core :as env]))
@@ -29,7 +29,6 @@
 
 ;; @@
 ; Load the data, and do preliminary parsing
-(def db-spec      (poll/heroku-db-spec (env/env :database-url)))
 (def users        (ic/get-intercom-users))
 (def valid-ids    (ic/valid-user-ids users))
 (def users-w-ids  (filter #(get % "user_id") users))
@@ -43,13 +42,12 @@
 
 ; Now digging down a little more... We'd like to find out what's going on with the various discrepencies
 
-(def good-id-by-email (ic/get-db-users-by-email db-spec (map #(get % "email") users-w-ids)))
+(def good-id-by-email (db/get-users-by-email (map #(get % "email") users-w-ids)))
 (def good-id-by-email-ids (set (map :uid good-id-by-email)))
 (def bad-emails-good-ids-users (remove #(good-id-by-email-ids (Integer/parseInt (get % "user_id"))) users-w-ids))
 (def bad-emails-good-ids-ids (set (map #(get % "user_id") bad-emails-good-ids-users)))
 (def bad-emails-good-ids-dbrecs
-  (ic/get-db-users-by-uid
-    db-spec
+  (db/get-users-by-uid
     (map #(Integer/parseInt (get % "user_id")) bad-emails-good-ids-users)))
 
 (println (map :email bad-emails-good-ids-dbrecs))
@@ -82,8 +80,7 @@
 ; This is for figuring out if all the email matching for the good IDs work
 
 (let [ic-users users-w-ids
-      db-users (ic/get-db-users-by-uid
-                 db-spec
+      db-users (db/get-users-by-uid
                  (map #(Integer/parseInt (get % "user_id")) ic-users))
       get-dbuser-email-from-icuser-by-id
         (fn [u]
@@ -113,8 +110,7 @@
 ;; @@
 ; Now we figure out what's going on with the ones without ID or email matches
 (let [ic-users users-wo-ids
-      db-users (ic/get-db-users-by-email
-                 db-spec
+      db-users (db/get-users-by-email
                  (map #(get % "email") ic-users))
       db-users-emails (set (map :email db-users))
       ic-users-bademail (filter

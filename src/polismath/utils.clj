@@ -10,6 +10,12 @@
 (set-current-implementation :vectorz)
 
 
+(defn gets
+  "Like get, but gives a coll mapped from all the keys"
+  [m ks & [not-found]]
+  (mapv #(get m % not-found) ks))
+
+
 (defn exit [status msg]
   (println msg)
   (System/exit status))
@@ -33,6 +39,7 @@
          ret# ~@expr]
      (println (str (System/currentTimeMillis) " " ~tag " " (/ (double (- (. System (nanoTime)) start#)) 1000000.0) " msecs"))
      ret#))
+
 
 (defmacro f?>>
   "Modified 'penguin' operator from plumbing.core, where do-it? is a function of the threaded value

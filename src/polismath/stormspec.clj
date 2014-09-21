@@ -3,7 +3,7 @@
   (:require [polismath.simulation :as sim]
             [polismath.queued-agent :as qa]
             [polismath.conv-man :as cm]
-            [polismath.poller :as poll]
+            [polismath.db :as db]
             [environ.core :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]]
@@ -43,13 +43,12 @@
 (defspout reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
   [conf context collector]
   (let [poll-interval   1000
-        pg-spec         (poll/heroku-db-spec (env/env :database-url))
         mg-db           (cm/mongo-connect! (env/env :mongolab-uri))
         last-timestamp  (atom 0)]
     (spout
       (nextTuple []
         (log/info "Polling :created >" @last-timestamp)
-        (let [new-votes (poll/poll pg-spec @last-timestamp)
+        (let [new-votes (db/poll @last-timestamp)
               grouped-votes (group-by :zid new-votes)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid rxns] grouped-votes]
