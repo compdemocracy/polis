@@ -3220,12 +3220,23 @@ function(req, res) {
 });
 
 
+function addLtiUserifNeeded(uid, lti_user_id) {
+    return pgQueryP("select * from lti_users where lti_user_id = ($1);", [lti_user_id]).then(function(rows) {
+        if (!rows || !rows.length) {
+            return pgQueryP("insert into lti_users (uid, lti_user_id) values ($1, $2);", [uid, lti_user_id]);
+        }
+    });
+}
+
 app.post("/api/v3/auth/login",
     need('password', getPassword, assignToP),
     want('email', getEmail, assignToP),
+    want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
+    var lti_user_id = req.p.lti_user_id;
+
     email = email.toLowerCase();
     if (!_.isString(password) || !password.length) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
     pgQuery("SELECT * FROM users WHERE LOWER(email) = ($1);", [email], function(err, docs) {
@@ -3253,7 +3264,15 @@ function(req, res) {
                         token: token
                     };
                     addCookies(req, res, token, uid).then(function() {
-                        res.json(response_data);
+                        var ltiPromise = lti_user_id ?
+                            addLtiUserifNeeded(uid, lti_user_id) :
+                            Promise.resolve();
+                        ltiPromise.then(function() {
+                            res.json(response_data);
+                        }).catch(function(err) {
+                            fail(res, 500, "polis_err_adding_associating_with_lti_user", err);
+                        });
+
                     }).catch(function(err) {
                         fail(res, 500, "polis_err_adding_cookies", err);
                     });
@@ -5817,12 +5836,120 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 // screen readers
 
 app.post("/api/v3/LTI/course_setup",
+    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP),
+    need("user_id", getStringLimitLength(1, 9999), assignToP),    
+    want("roles", getStringLimitLength(1, 9999), assignToP),
+    want("user_image", getStringLimitLength(1, 9999), assignToP),        
 function(req, res) {
-    res.set({
-        'Content-Type': 'text/html',
+    var roles = req.p.roles;
+    var isInstructor = /[iI]nstructor/.exec(roles);
+    var user_id = req.p.user_id;    
+    var user_image = req.p.user_image || "";
+
+    // TODO SECURITY we need to verify the signature
+    var oauth_consumer_key = req.p.oauth_consumer_key;
+
+    var owner = 125;
+    // if (oauth_consumer_key === 'asdfasdf') {
+    //     uid = 125;
+    // }
+
+    console.log('course_setup');
+    console.log(req.body);
+    console.dir(req.body);
+
+// A compromise would be this:
+// Instructors see a custom inbox for the course, and can create conversations there. make it easy to copy and paste links..
+// how do we deal with sections? can't do this.
+// Conversations created here will be under the uid of the account owner... which may be problematic later with school-wide accounts... if we ever offer that
+
+
+/* 
+2014-09-21T23:16:15.351247+00:00 app[web.1]: course_setup
+2014-09-21T23:16:15.188414+00:00 app[web.1]: { oauth_consumer_key: 'asdfasdf',
+2014-09-21T23:16:15.188418+00:00 app[web.1]:   oauth_signature_method: 'HMAC-SHA1',
+2014-09-21T23:16:15.188420+00:00 app[web.1]:   oauth_timestamp: '1411341372',
+2014-09-21T23:16:15.188422+00:00 app[web.1]:   oauth_nonce: 'JHnE7tcVBHYx9MjLcQS2jWNTGCD56F5wqwePk4tnk',
+2014-09-21T23:16:15.188423+00:00 app[web.1]:   oauth_version: '1.0',
+2014-09-21T23:16:15.188425+00:00 app[web.1]:   context_id: '543f4cb8ba0ad2939faa5b2643cb1415d3ada3c5',
+2014-09-21T23:16:15.188426+00:00 app[web.1]:   context_label: 'polis_demo_course_code',
+2014-09-21T23:16:15.188428+00:00 app[web.1]:   context_title: 'polis demo course',
+2014-09-21T23:16:15.188430+00:00 app[web.1]:   custom_canvas_enrollment_state: 'active',
+2014-09-21T23:16:15.188432+00:00 app[web.1]:   custom_canvas_xapi_url: 'https://canvas.instructure.com/api/lti/v1/tools/46849/xapi',
+2014-09-21T23:16:15.188433+00:00 app[web.1]:   launch_presentation_document_target: 'iframe',
+2014-09-21T23:16:15.188435+00:00 app[web.1]:   launch_presentation_height: '400',
+2014-09-21T23:16:15.188436+00:00 app[web.1]:   launch_presentation_locale: 'en',
+2014-09-21T23:16:15.188437+00:00 app[web.1]:   launch_presentation_return_url: 'https://canvas.instructure.com/courses/875179',
+2014-09-21T23:16:15.188439+00:00 app[web.1]:   launch_presentation_width: '800',
+2014-09-21T23:16:15.188441+00:00 app[web.1]:   lti_message_type: 'basic-lti-launch-request',
+2014-09-21T23:16:15.188442+00:00 app[web.1]:   lti_version: 'LTI-1p0',
+2014-09-21T23:16:15.188443+00:00 app[web.1]:   oauth_callback: 'about:blank',
+2014-09-21T23:16:15.188445+00:00 app[web.1]:   resource_link_id: '543f4cb8ba0ad2939faa5b2643cb1415d3ada3c5',
+2014-09-21T23:16:15.188447+00:00 app[web.1]:   resource_link_title: 'polis nav',
+2014-09-21T23:16:15.188448+00:00 app[web.1]:   roles: 'Instructor',
+2014-09-21T23:16:15.188450+00:00 app[web.1]:   tool_consumer_info_product_family_code: 'canvas',
+2014-09-21T23:16:15.188451+00:00 app[web.1]:   tool_consumer_info_version: 'cloud',
+2014-09-21T23:16:15.188453+00:00 app[web.1]:   tool_consumer_instance_contact_email: 'notifications@instructure.com',
+2014-09-21T23:16:15.188454+00:00 app[web.1]:   tool_consumer_instance_guid: '07adb3e60637ff02d9ea11c7c74f1ca921699bd7.canvas.instructure.com',
+2014-09-21T23:16:15.188456+00:00 app[web.1]:   tool_consumer_instance_name: 'Free For Teachers',
+2014-09-21T23:16:15.188457+00:00 app[web.1]:   user_id: '15bbe33bd1cf5355011a9ce6ebe1072256beea01',
+2014-09-21T23:16:15.188459+00:00 app[web.1]:   user_image: 'https://secure.gravatar.com/avatar/256caee7b9886c54155ef0d316dffabc?s=50&d=https%3A%2F%2Fcanvas.instructure.com%2Fimages%2Fmessages%2Favatar-50.png',
+2014-09-21T23:16:15.188461+00:00 app[web.1]:   oauth_signature: 'jJ3TbKvalDUYvELXNvnzOfdCwGo=' }
+*/
+    pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
+
+        var greeting = "";
+        var form = "";
+        if (!rows || !rows.length) {
+            greeting = "<h1>please sign in to pol.is</h1>";
+            
+            form = '' +
+'<form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">' +
+'</div>' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginPassword">' +
+'Password' +
+'</label>' +
+'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
+'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
+'</div>' +
+'' +
+'<div class="row" id="errorDiv"></div>' +
+'<div class="FormVertical-group">' +
+'<button type="submit" class="Btn Btn-primary">Sign In</button>' +
+'</div>' +
+'</form>';
+
+        } else {
+            var user = rows[0];
+            greeting = "<h1>Welcome "+ user.hname +" (with uid " + user.uid + ")</h1>";
+        }
+
+        res.set({
+            'Content-Type': 'text/html',
+        });
+        var customPart = isInstructor ? "you are the instructor" : "you are a Student";
+
+        var html = "" +
+        "<!DOCTYPE html><html lang='en'>"+
+        "<body>"+ 
+            greeting +
+            form +
+            " this is LTI from pol.is This is course_setup "+customPart+
+            " <div>"+ JSON.stringify(req.body)+"</div>"+
+            "<img src='"+user_image+"'></img>"+
+        "</body></html>";
+
+        res.status(200).send(html);
+
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_launching_lti", err);
     });
-    res.status(200).send("<!DOCTYPE html><html lang='en'><body>Hello LTI from pol.is This is course_setup</body></html>");
-}); // TODO write an LTI post handler
+});
 
 app.post("/api/v3/LTI/conversation",
 function(req, res) {
@@ -5831,6 +5958,106 @@ function(req, res) {
     });
     res.status(200).send("<!DOCTYPE html><html lang='en'><body>Hello LTI from pol.is This is a conversation</body></html>");
 }); // TODO write an LTI post handler
+
+
+app.get("/api/v3/LTI/course_setup.xml",
+function(req, res) {
+var xml = '' +
+'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+'<blti:title>Polis Setup Assignment</blti:title>' +
+'<blti:description>' +
+'polis assignment button' +
+'</blti:description>' +
+
+'<blti:extensions platform="canvas.instructure.com">' +
+'<lticm:property name="privacy_level">public</lticm:property>' +
+'<lticm:property name="domain">preprod.pol.is</lticm:property>' +
+'<lticm:property name="text">setup pol.is</lticm:property>' +
+'<lticm:options name="editor_button">' +
+'<lticm:property name="enabled">true</lticm:property>' +
+'<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
+'<lticm:property name="selection_width">100</lticm:property>' +
+'<lticm:property name="selection_height">100</lticm:property>' +
+'</lticm:options>' +
+'</blti:extensions>' +
+
+'<blti:icon>' +
+'http://static.pixton.com/_v2_/platform/canvas/img/icon-pixton-16x16.png' +
+'</blti:icon>' +
+'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/course_setup</blti:launch_url>' +
+'<blti:extensions platform="preprod.pol.is">' +
+'<lticm:property name="tool_id">Polis</lticm:property>' +
+'<lticm:property name="privacy_level">public</lticm:property>' +
+'<lticm:options name="homework_submission">' +
+'<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission_url_maybe</lticm:property>' + // TODO
+'<lticm:property name="icon_url">' +
+'http://static.pixton.com/_v2_/platform/canvas/img/icon-pixton-16x16.png' +
+'</lticm:property>' +
+'<lticm:property name="text">Polis Assignment</lticm:property>' +
+'<lticm:property name="selection_width">1000</lticm:property>' +
+'<lticm:property name="selection_height">590</lticm:property>' +
+'<lticm:property name="enabled">true</lticm:property>' +
+'</lticm:options>' +
+'</blti:extensions>' +
+'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+'<cartridge_icon identifierref="BLTI001_Icon"/>' +
+'</cartridge_basiclti_link>';
+
+res.set('Content-Type', 'text/xml');
+res.status(200).send(xml);
+});
+
+
+app.get("/api/v3/LTI/nav.xml",
+function(req, res) {
+var xml = '' +
+'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+
+'<blti:title>Polis Setup 1</blti:title>' +
+'<blti:description>based on Minecraft LMS integration</blti:description>' +
+'<blti:icon>' +
+'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+'</blti:icon>' +
+'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/course_setup</blti:launch_url>' +
+
+'<blti:custom>' +
+'<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
+'</blti:custom>' +
+
+'<blti:extensions platform="canvas.instructure.com">' +
+    // homework
+    '<lticm:property name="tool_id">polis_setup_lti</lticm:property>' +
+    '<lticm:property name="privacy_level">anonymous</lticm:property>' +
+
+    '<lticm:options name="homework_submission">' +
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission</lticm:property>' +
+        '<lticm:property name="icon_url">' +
+        'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+        '</lticm:property>' +
+
+        '<lticm:property name="text">polis setup</lticm:property>' +
+        '<lticm:property name="selection_width">400</lticm:property>' +
+        '<lticm:property name="selection_height">300</lticm:property>' +
+        '<lticm:property name="enabled">true</lticm:property>' +
+        '</lticm:options>' +
+
+    '<lticm:options name="course_navigation">' +
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +
+        '<lticm:property name="text">polis setup from nav</lticm:property>' +
+        '<lticm:property name="visibility">public</lticm:property>' +
+        '<lticm:property name="default">enabled</lticm:property>' +
+        '<lticm:property name="enabled">true</lticm:property>' +
+    '</lticm:options>' +
+
+'</blti:extensions>' +
+
+'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+'<cartridge_icon identifierref="BLTI001_Icon"/>' +
+'</cartridge_basiclti_link>';
+
+res.set('Content-Type', 'text/xml');
+res.status(200).send(xml);
+});
 
 
 

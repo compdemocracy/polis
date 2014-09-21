@@ -227,11 +227,19 @@ CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed u
 CREATE TABLE xids (
     uid INTEGER NOT NULL REFERENCES users(uid),
     owner INTEGER NOT NULL REFERENCES users(uid),
-    xid VARCHAR(32) NOT NULL,
+    xid TEXT NOT NULL, -- TODO add constraint to limit length
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (owner, xid)
 );
 CREATE INDEX xids_owner_idx ON xids USING btree (owner);
+
+CREATE TABLE lti_users (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
+    lti_user_image TEXT, -- TODO add constraint to limit length, and ensure it's a URL (for an image?)..?
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (lti_user_id)
+);
 
 
 -- Single Use Invites
