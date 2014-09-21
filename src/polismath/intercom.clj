@@ -91,7 +91,9 @@
   (->
     get-db-users
     (ko/fields :owned_convs.avg_n_ptpts
+               :owned_convs.avg_n_visitors
                :owned_convs.n_owned_convs
+               :owned_convs.n_owned_convs_ptptd
                :ptpt_summary.n_ptptd_convs)
     ; Join summary stats of owned conversations
     (ko/join :left
@@ -103,13 +105,26 @@
            [(ko/subselect
               participants
               (ko/fields :zid)
-              (ko/aggregate (count (ko/raw "DISTINCT pid")) :n_ptpts :zid))
-            ; as conv_summary
-            :conv_summary]
-           (= :conv_summary.zid :zid))
+              (ko/aggregate (count (ko/raw "DISTINCT pid")) :n_visitors :zid))
+            ; as visitor_summary
+            :visitor_summary]
+           (= :visitor_summary.zid :zid))
+         (ko/join
+           :left
+           [(ko/subselect
+              participants
+              (ko/fields :participants.zid [(ko/raw "COUNT(DISTINCT votes.pid) > 0") :any_votes])
+              (ko/join votes (and (= :votes.pid :participants.pid)
+                                  (= :votes.zid :participants.zid)))
+              (ko/aggregate (count (ko/raw "DISTINCT votes.pid")) :n_ptpts :participants.zid))
+            ; as ptpt_summary
+            :ptpt_summary]
+           (= :ptpt_summary.zid :zid))
          ; Average participant counts, and count number of conversations
-         (ko/aggregate (avg :conv_summary.n_ptpts) :avg_n_ptpts)
+         (ko/aggregate (avg :visitor_summary.n_visitors) :avg_n_visitors)
+         (ko/aggregate (avg :ptpt_summary.n_ptpts) :avg_n_ptpts)
          (ko/aggregate (count (ko/raw "DISTINCT conversations.zid")) :n_owned_convs)
+         (ko/aggregate (sum (ko/raw "CASE WHEN ptpt_summary.any_votes THEN 1 ELSE 0 END")) :n_owned_convs_ptptd)
          (ko/group :owner))
        ; as owned_convs
        :owned_convs]
@@ -142,6 +157,7 @@
       (ko/where (in :email emails))
       (ko/select))))
 
+
 (defn update-icuser-from-dbuser
   [dbuser]
   (update-icuser
@@ -156,7 +172,7 @@
          [:custom_attributes
             (pc/fn->
               (hash-map-subset
-                [:avg_n_ptpts :n_owned_convs :n_ptptd_convs]))]
+                [:avg_n_ptpts :n_owned_convs :n_ptptd_convs :n_owned_convs_ptptd :avg_n_visitors]))]
          [:remote_created_at
             #(/ (:created %) 1000)]]))))
 
