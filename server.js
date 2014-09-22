@@ -5848,14 +5848,18 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 // screen readers
 
 app.post("/api/v3/LTI/course_setup",
-    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP),
+    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
     want("roles", getStringLimitLength(1, 9999), assignToP),
-    want("user_image", getStringLimitLength(1, 9999), assignToP),        
+    want("user_image", getStringLimitLength(1, 9999), assignToP),
+
+    // per assignment stuff
+    want("custom_canvas_assignment_id", getInt, assignToP),
+
 function(req, res) {
     var roles = req.p.roles;
-    var isInstructor = /[iI]nstructor/.exec(roles);
+    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     var user_id = req.p.user_id;    
     var context_id = req.p.context_id;    
     var user_image = req.p.user_image || "";
@@ -5876,6 +5880,10 @@ function(req, res) {
 // Instructors see a custom inbox for the course, and can create conversations there. make it easy to copy and paste links..
 // how do we deal with sections? can't do this.
 // Conversations created here will be under the uid of the account owner... which may be problematic later with school-wide accounts... if we ever offer that
+// 
+// Complication: sections -- are they needed this quarter? maybe better to just do the linkage, and then try to make it easy to post the stuff...
+//  it is possible for teachers to create a duplicate assignment, and have it show for certain sections...
+//     so we can rely on custom_canvas_assignment_id
 
 
 /* 
@@ -5910,6 +5918,20 @@ function(req, res) {
 2014-09-21T23:16:15.188459+00:00 app[web.1]:   user_image: 'https://secure.gravatar.com/avatar/256caee7b9886c54155ef0d316dffabc?s=50&d=https%3A%2F%2Fcanvas.instructure.com%2Fimages%2Fmessages%2Favatar-50.png',
 2014-09-21T23:16:15.188461+00:00 app[web.1]:   oauth_signature: 'jJ3TbKvalDUYvELXNvnzOfdCwGo=' }
 */
+
+    if (req.p.custom_canvas_assignment_id) {
+        // this is within an assignment
+
+        res.set({
+            'Content-Type': 'text/html',
+        });
+        if (isInstructor) {
+            res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are an instructor <div>"+ JSON.stringify(req.body)+"</div></body></html>");
+        } else {
+            res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are a student <div>"+ JSON.stringify(req.body)+"</div></body></html>");            
+        }
+        return;
+    }
     pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
 
         var greeting = "";

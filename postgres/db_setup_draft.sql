@@ -233,6 +233,7 @@ CREATE TABLE xids (
 );
 CREATE INDEX xids_owner_idx ON xids USING btree (owner);
 
+-- this could probably be called external_user_links, and should have a scope for the user identities, like "canvas.instructure.com" or something like that
 CREATE TABLE lti_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
     lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
