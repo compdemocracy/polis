@@ -241,6 +241,14 @@ CREATE TABLE lti_users (
     UNIQUE (lti_user_id)
 );
 
+CREATE TABLE lti_context_memberships (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    lti_context_id TEXT
+);
+
+
+
+
 
 -- Single Use Invites
 -- These records should contain enough to populate a record in the xids table (in conjunction with creating a user, which provides a uid)

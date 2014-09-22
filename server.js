@@ -3227,15 +3227,24 @@ function addLtiUserifNeeded(uid, lti_user_id) {
         }
     });
 }
+function addLtiContextMembership(uid, lti_context_id) {
+    return pgQueryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $1;", [uid, lti_context_id]).then(function(rows) {
+        if (!rows || !rows.length) {
+            return pgQueryP("insert into lti_context_memberships (uid, lti_context_id) values ($1, $2);", [uid, lti_context_id]);
+        }
+    });
+}
 
 app.post("/api/v3/auth/login",
     need('password', getPassword, assignToP),
     want('email', getEmail, assignToP),
     want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
+    want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
     var lti_user_id = req.p.lti_user_id;
+    var lti_context_id = req.p.lti_context_id;
 
     email = email.toLowerCase();
     if (!_.isString(password) || !password.length) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
@@ -3264,10 +3273,13 @@ function(req, res) {
                         token: token
                     };
                     addCookies(req, res, token, uid).then(function() {
-                        var ltiPromise = lti_user_id ?
+                        var ltiUserPromise = lti_user_id ?
                             addLtiUserifNeeded(uid, lti_user_id) :
                             Promise.resolve();
-                        ltiPromise.then(function() {
+                        var ltiContextMembershipPromise = lti_context_id ?
+                            addLtiContextMembership(uid, lti_context_id) :
+                            Promise.resolve();
+                        Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
                             res.json(response_data);
                         }).catch(function(err) {
                             fail(res, 500, "polis_err_adding_associating_with_lti_user", err);
@@ -5838,12 +5850,14 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 app.post("/api/v3/LTI/course_setup",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP),
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
+    need("context_id", getStringLimitLength(1, 9999), assignToP),    
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),        
 function(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles);
     var user_id = req.p.user_id;    
+    var context_id = req.p.context_id;    
     var user_image = req.p.user_image || "";
 
     // TODO SECURITY we need to verify the signature
@@ -5903,6 +5917,9 @@ function(req, res) {
         if (!rows || !rows.length) {
             greeting = "<h1>please sign in to pol.is</h1>";
             
+
+            // TODO If we're doing this basic form, we can't just return json from the /login call
+
             form = '' +
 '<form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
 '<div class="FormVertical-group">' +
@@ -5915,6 +5932,7 @@ function(req, res) {
 '</label>' +
 '<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
 '</div>' +
 '' +
