@@ -3228,7 +3228,7 @@ function addLtiUserifNeeded(uid, lti_user_id) {
     });
 }
 function addLtiContextMembership(uid, lti_context_id) {
-    return pgQueryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $1;", [uid, lti_context_id]).then(function(rows) {
+    return pgQueryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $2;", [uid, lti_context_id]).then(function(rows) {
         if (!rows || !rows.length) {
             return pgQueryP("insert into lti_context_memberships (uid, lti_context_id) values ($1, $2);", [uid, lti_context_id]);
         }
