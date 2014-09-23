@@ -5924,18 +5924,19 @@ function(req, res) {
     pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
 
         var greeting = "";
-        var form = "";
+        var form1 = "";
+        var form2 = "";        
         if (!rows || !rows.length) {
-            greeting = "<h1>please sign in to pol.is</h1>";
+            greeting = "<h1>please sign in to pol.is, or create a new pol.is account</h1>";
             
 
             // TODO If we're doing this basic form, we can't just return json from the /login call
 
-            form = '' +
+            form1 = '' +
 '<form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">' +
 '</div>' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginPassword">' +
@@ -5953,6 +5954,32 @@ function(req, res) {
 '</div>' +
 '</form>';
 
+            form2 = '' +
+'<form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
+'</div>' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginPassword">' +
+'Password' +
+'</label>' +
+'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
+'<label class="FormLabel" for="gatekeeperLoginPassword2">' +
+'Repeat Password' +
+'</label>' +
+'<input type="password" id="password2" name="password" id="gatekeeperLoginPassword2" class="FormControl">' +
+'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
+'<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
+'</div>' +
+'' +
+'<div class="row" id="errorDiv"></div>' +
+'<div class="FormVertical-group">' +
+'<button type="submit" class="Btn Btn-primary">Create new pol.is account</button>' +
+'</div>' +
+'</form>';
+
         } else {
             var user = rows[0];
             greeting = "<h1>Welcome "+ user.hname +" (with uid " + user.uid + ")</h1>";
@@ -5967,7 +5994,8 @@ function(req, res) {
         "<!DOCTYPE html><html lang='en'>"+
         "<body>"+ 
             greeting +
-            form +
+            form1 +
+            form2 +            
             " this is LTI from pol.is This is course_setup "+customPart+
             " <div>"+ JSON.stringify(req.body)+"</div>"+
             "<img src='"+user_image+"'></img>"+
