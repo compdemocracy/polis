@@ -5847,6 +5847,9 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 // colors
 // screen readers
 
+// TODO rename to LTI/launch
+// TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
+// TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
 app.post("/api/v3/LTI/course_setup",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
@@ -5925,6 +5928,13 @@ function(req, res) {
         res.set({
             'Content-Type': 'text/html',
         });
+
+
+        // consider some kind of conversation url scheme like this:
+        //  pol.is/auto?oauth_consumer_key=foofoo&context_id=foo&custom_canvas_assignment_id=bar
+        // it would generate a conversation if one didn't already exist, assuming the owner has conversation create priviledges, or has a 'students pay' plan.
+        // ideally it wouldn't have to allocate a row in the db, since this would make an easy attack vector. TODO SECURITY
+
         if (isInstructor) {
             res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are an instructor <div>"+ JSON.stringify(req.body)+"</div></body></html>");
         } else {
@@ -6000,52 +6010,55 @@ function(req, res) {
 }); // TODO write an LTI post handler
 
 
-app.get("/api/v3/LTI/course_setup.xml",
-function(req, res) {
-var xml = '' +
-'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
-'<blti:title>Polis Setup Assignment</blti:title>' +
-'<blti:description>' +
-'polis assignment button' +
-'</blti:description>' +
+// app.get("/api/v3/LTI/course_setup.xml",
+// function(req, res) {
+// var xml = '' +
+// '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+// '<blti:title>Polis Setup Assignment</blti:title>' +
+// '<blti:description>' +
+// 'polis assignment button' +
+// '</blti:description>' +
 
-'<blti:extensions platform="canvas.instructure.com">' +
-'<lticm:property name="privacy_level">public</lticm:property>' +
-'<lticm:property name="domain">preprod.pol.is</lticm:property>' +
-'<lticm:property name="text">setup pol.is</lticm:property>' +
-'<lticm:options name="editor_button">' +
-'<lticm:property name="enabled">true</lticm:property>' +
-'<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
-'<lticm:property name="selection_width">100</lticm:property>' +
-'<lticm:property name="selection_height">100</lticm:property>' +
-'</lticm:options>' +
-'</blti:extensions>' +
+// '<blti:extensions platform="canvas.instructure.com">' +
+// '<lticm:property name="privacy_level">public</lticm:property>' +
+// '<lticm:property name="domain">preprod.pol.is</lticm:property>' +
+// '<lticm:property name="text">setup pol.is</lticm:property>' +
+// '<lticm:options name="editor_button">' +
+//     '<lticm:property name="enabled">true</lticm:property>' +
+//     '<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
+//     '<lticm:property name="selection_width">100</lticm:property>' +
+//     '<lticm:property name="selection_height">100</lticm:property>' +
+// '</lticm:options>' +
+// '</blti:extensions>' +
 
-'<blti:icon>' +
-'http://static.pixton.com/_v2_/platform/canvas/img/icon-pixton-16x16.png' +
-'</blti:icon>' +
-'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/course_setup</blti:launch_url>' +
-'<blti:extensions platform="preprod.pol.is">' +
-'<lticm:property name="tool_id">Polis</lticm:property>' +
-'<lticm:property name="privacy_level">public</lticm:property>' +
-'<lticm:options name="homework_submission">' +
-'<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission_url_maybe</lticm:property>' + // TODO
-'<lticm:property name="icon_url">' +
-'http://static.pixton.com/_v2_/platform/canvas/img/icon-pixton-16x16.png' +
-'</lticm:property>' +
-'<lticm:property name="text">Polis Assignment</lticm:property>' +
-'<lticm:property name="selection_width">1000</lticm:property>' +
-'<lticm:property name="selection_height">590</lticm:property>' +
-'<lticm:property name="enabled">true</lticm:property>' +
-'</lticm:options>' +
-'</blti:extensions>' +
-'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-'<cartridge_icon identifierref="BLTI001_Icon"/>' +
-'</cartridge_basiclti_link>';
+// '<blti:icon>' +
+// 'http://static.pixton.com/_v2_/platform/canvas/img/icon-pixton-16x16.png' +
+// '</blti:icon>' +
 
-res.set('Content-Type', 'text/xml');
-res.status(200).send(xml);
-});
+// '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/course_setup</blti:launch_url>' +
+
+// '<blti:extensions platform="canvas.instructure.com">' +
+// '<lticm:property name="tool_id">Polis</lticm:property>' +
+// '<lticm:property name="privacy_level">public</lticm:property>' +
+// '<lticm:options name="homework_submission">' +
+//     '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission_url_maybe</lticm:property>' + // TODO
+//     '<lticm:property name="icon_url">' +
+//     'http://static.pixton.com/_v2_/platform/canvas/img/icon-pixton-16x16.png' +
+//     '</lticm:property>' +
+//     '<lticm:property name="text">Polis Assignment</lticm:property>' +
+//     '<lticm:property name="selection_width">1000</lticm:property>' +
+//     '<lticm:property name="selection_height">590</lticm:property>' +
+//     '<lticm:property name="enabled">true</lticm:property>' +
+// '</lticm:options>' +
+// '</blti:extensions>' +
+
+// '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+// '<cartridge_icon identifierref="BLTI001_Icon"/>' +
+// '</cartridge_basiclti_link>';
+
+// res.set('Content-Type', 'text/xml');
+// res.status(200).send(xml);
+// });
 
 
 app.get("/api/v3/LTI/nav.xml",
@@ -6065,12 +6078,30 @@ var xml = '' +
 '</blti:custom>' +
 
 '<blti:extensions platform="canvas.instructure.com">' +
-    // homework
-    '<lticm:property name="tool_id">polis_setup_lti</lticm:property>' +
-    '<lticm:property name="privacy_level">anonymous</lticm:property>' +
 
+    '<lticm:property name="tool_id">polis_lti</lticm:property>' +
+    '<lticm:property name="privacy_level">public</lticm:property>' +
+
+    // homework 1 (link accounts)
+    // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
     '<lticm:options name="homework_submission">' +
-        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission</lticm:property>' +
+        // This is the URL that will be POSTed to when users click the button in any rich editor.
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +        
+        '<lticm:property name="icon_url">' +
+        'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+        '</lticm:property>' +
+
+        '<lticm:property name="text">polis accout setup (first assignment)</lticm:property>' +
+        '<lticm:property name="selection_width">400</lticm:property>' +
+        '<lticm:property name="selection_height">300</lticm:property>' +
+        '<lticm:property name="enabled">true</lticm:property>' +
+    '</lticm:options>' +
+
+    // homework 2 (polis discussions)
+    // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
+    '<lticm:options name="homework_submission">' +
+        // '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission</lticm:property>' +
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +                
         '<lticm:property name="icon_url">' +
         'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
         '</lticm:property>' +
@@ -6079,8 +6110,9 @@ var xml = '' +
         '<lticm:property name="selection_width">400</lticm:property>' +
         '<lticm:property name="selection_height">300</lticm:property>' +
         '<lticm:property name="enabled">true</lticm:property>' +
-        '</lticm:options>' +
+    '</lticm:options>' +
 
+    // nav
     '<lticm:options name="course_navigation">' +
         '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +
         '<lticm:property name="text">polis setup from nav</lticm:property>' +
