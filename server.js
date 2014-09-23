@@ -5857,8 +5857,7 @@ app.post("/api/v3/LTI/course_setup",
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
 
-    // per assignment stuff
-    want("custom_canvas_assignment_id", getInt, assignToP),
+    want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
 
 function(req, res) {
     var roles = req.p.roles;
@@ -5936,7 +5935,7 @@ function(req, res) {
 '<form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
 '</div>' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginPassword">' +
