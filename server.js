@@ -3273,6 +3273,9 @@ function(req, res) {
                         token: token
                     };
                     addCookies(req, res, token, uid).then(function() {
+                        console.log("uid", uid);                        
+                        console.log("lti_user_id", lti_user_id);
+                        console.log("lti_context_id", lti_context_id);
                         var ltiUserPromise = lti_user_id ?
                             addLtiUserifNeeded(uid, lti_user_id) :
                             Promise.resolve();
