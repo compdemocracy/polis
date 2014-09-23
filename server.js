@@ -5927,7 +5927,7 @@ function(req, res) {
         var form1 = "";
         var form2 = "";        
         if (!rows || !rows.length) {
-            greeting = "<h1>Welcome to pol.is</h1>";
+            greeting = '<h1><img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is</h1>';
             
 
             // TODO If we're doing this basic form, we can't just return json from the /login call
@@ -5999,7 +5999,7 @@ function(req, res) {
             form1 +
             form2 +            
             " this is LTI from pol.is This is course_setup "+customPart+
-            " <div>"+ JSON.stringify(req.body)+"</div>"+
+            " <p style='background-color: yellow;'>"+ JSON.stringify(req.body)+"</p>"+
             "<img src='"+user_image+"'></img>"+
         "</body></html>";
 
