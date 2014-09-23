@@ -5927,35 +5927,14 @@ function(req, res) {
         var form1 = "";
         var form2 = "";        
         if (!rows || !rows.length) {
-            greeting = "<h1>please sign in to pol.is, or create a new pol.is account</h1>";
+            greeting = "<h1>Welcome to pol.is</h1>";
             
 
             // TODO If we're doing this basic form, we can't just return json from the /login call
 
             form1 = '' +
-'<form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
-'<div class="FormVertical-group">' +
-'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">' +
-'</div>' +
-'<div class="FormVertical-group">' +
-'<label class="FormLabel" for="gatekeeperLoginPassword">' +
-'Password' +
-'</label>' +
-'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
-'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
-'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
-'<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
-'</div>' +
-'' +
-'<div class="row" id="errorDiv"></div>' +
-'<div class="FormVertical-group">' +
-'<button type="submit" class="Btn Btn-primary">Sign In</button>' +
-'</div>' +
-'</form>';
-
-            form2 = '' +
-'<form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
+'<h2>create a new pol.is account</h2>' +
+'<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
 '<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
@@ -5977,7 +5956,31 @@ function(req, res) {
 '<div class="FormVertical-group">' +
 '<button type="submit" class="Btn Btn-primary">Create new pol.is account</button>' +
 '</div>' +
-'</form>';
+'</form></p>';
+
+            form2 = '' +
+'<p> - OR - </p>' +
+'<h2>sign in with an existing pol.is account</h2>' +
+'<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">' +
+'</div>' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginPassword">' +
+'Password' +
+'</label>' +
+'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
+'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
+'<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
+'</div>' +
+'' +
+'<div class="row" id="errorDiv"></div>' +
+'<div class="FormVertical-group">' +
+'<button type="submit" class="Btn Btn-primary">Sign In</button>' +
+'</div>' +
+'</form></p>';
 
         } else {
             var user = rows[0];
