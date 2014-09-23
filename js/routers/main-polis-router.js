@@ -2,6 +2,7 @@ var RootView = require("../views/root");
 var Backbone = require("backbone");
 var ConversationModel = require("../models/conversation");
 var CookiesDisabledView = require("../views/cookiesDisabledView");
+var CourseView = require("../views/course");
 var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
@@ -234,6 +235,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("prototype", "prototype");
     this.r("", "landingPageView");
 
+    this.r(/^course\/(.*)/, "courseView");
 
     this.r(/^([0-9][0-9A-Za-z]+)$/, "participationView");  // conversation_id
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
@@ -443,6 +445,30 @@ var polisRouter = Backbone.Router.extend({
         filters: filterAttrs
       });
       RootView.getInstance().setView(inboxView);
+    });
+  },
+
+  courseView: function(course_invite){
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(false);
+    } else if (!hasEmail()) {
+      promise = this.doLogin(true);
+    }
+    promise.then(function() {
+      var filterAttrs = {
+        course_invite: course_invite
+      };
+      // Not just the ones I started.
+      filterAttrs.include_all_conversations_i_am_in = true;
+
+      var conversationsCollection = new ConversationsCollection();
+      // Let the InboxView filter the conversationsCollection.
+      var view = new CourseView({
+        collection: conversationsCollection,
+        filters: filterAttrs
+      });
+      RootView.getInstance().setView(view);
     });
   },
   inboxApiTest: function(filter){

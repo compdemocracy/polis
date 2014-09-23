@@ -102,6 +102,7 @@ gulp.task('connect', [], function() {
   app.use(/^\/iip\/[0-9][0-9A-Za-z]+/, fetchIndex);
   app.use(/^\/iim\/[0-9][0-9A-Za-z]+/, fetchIndex);
 
+  app.use(/^\/course\/[0-9][0-9A-Za-z]+/, fetchIndex); // course view
 
   // TODO consider putting static files on /static, and then using a catch-all to serve the index.
   app.use(/^\/conversation\/create.*/, fetchIndex);
