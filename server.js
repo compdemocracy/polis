@@ -5971,7 +5971,6 @@ function(req, res) {
 '<input type="password" id="password2" name="password" id="gatekeeperLoginPassword2" class="FormControl">' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
-'<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
 '</div>' +
 '' +
 '<div class="row" id="errorDiv"></div>' +
