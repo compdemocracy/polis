@@ -6001,7 +6001,7 @@ function(req, res) {
     });
 });
 
-app.post("/api/v3/LTI/conversation",
+app.post("/api/v3/LTI/conversation_assignment",
 function(req, res) {
     res.set({
         'Content-Type': 'text/html',
@@ -6061,7 +6061,11 @@ function(req, res) {
 // });
 
 
-app.get("/api/v3/LTI/nav.xml",
+/*
+for easy copy and paste
+https://preprod.pol.is/api/v3/LTI/link_accounts_assignment.xml
+*/
+app.get("/api/v3/LTI/course_setup.xml",
 function(req, res) {
 var xml = '' +
 '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
@@ -6097,21 +6101,6 @@ var xml = '' +
         '<lticm:property name="enabled">true</lticm:property>' +
     '</lticm:options>' +
 
-    // homework 2 (polis discussions)
-    // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
-    '<lticm:options name="homework_submission">' +
-        // '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission</lticm:property>' +
-        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +                
-        '<lticm:property name="icon_url">' +
-        'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
-        '</lticm:property>' +
-
-        '<lticm:property name="text">polis setup</lticm:property>' +
-        '<lticm:property name="selection_width">400</lticm:property>' +
-        '<lticm:property name="selection_height">300</lticm:property>' +
-        '<lticm:property name="enabled">true</lticm:property>' +
-    '</lticm:options>' +
-
     // nav
     '<lticm:options name="course_navigation">' +
         '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +
@@ -6131,6 +6120,56 @@ res.set('Content-Type', 'text/xml');
 res.status(200).send(xml);
 });
 
+
+/*
+for easy copy and paste
+https://preprod.pol.is/api/v3/LTI/conversation_assignment.xml
+*/
+app.get("/api/v3/LTI/conversation_assignment.xml",
+function(req, res) {
+var xml = '' +
+'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+
+'<blti:title>Polis Setup 1</blti:title>' +
+'<blti:description>based on Minecraft LMS integration</blti:description>' +
+'<blti:icon>' +
+'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+'</blti:icon>' +
+'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/conversation_assignment</blti:launch_url>' +
+
+'<blti:custom>' +
+'<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
+'</blti:custom>' +
+
+'<blti:extensions platform="canvas.instructure.com">' +
+
+    '<lticm:property name="tool_id">polis_conversation_lti</lticm:property>' +
+    '<lticm:property name="privacy_level">public</lticm:property>' +
+
+    // homework 2 (polis discussions)
+    // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
+    '<lticm:options name="homework_submission">' +
+        // '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission</lticm:property>' +
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/conversation_assignment</lticm:property>' +  // ?
+        '<lticm:property name="icon_url">' +
+        'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+        '</lticm:property>' +
+
+        '<lticm:property name="text">polis setup</lticm:property>' +
+        '<lticm:property name="selection_width">400</lticm:property>' +
+        '<lticm:property name="selection_height">300</lticm:property>' +
+        '<lticm:property name="enabled">true</lticm:property>' +
+    '</lticm:options>' +
+
+'</blti:extensions>' +
+
+'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+'<cartridge_icon identifierref="BLTI001_Icon"/>' +
+'</cartridge_basiclti_link>';
+
+res.set('Content-Type', 'text/xml');
+res.status(200).send(xml);
+});
 
 
 app.post("/api/v3/users/invite",
