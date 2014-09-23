@@ -5997,10 +5997,11 @@ function(req, res) {
         "<body>"+ 
             greeting +
             form1 +
-            form2 +            
-            " this is LTI from pol.is This is course_setup "+customPart+
-            " <p style='background-color: yellow;'>"+ JSON.stringify(req.body)+"</p>"+
-            "<img src='"+user_image+"'></img>"+
+            form2 +    
+            " <p style='background-color: yellow;'>" +
+                JSON.stringify(req.body)+
+                "<img src='"+user_image+"'></img>"+
+            "</p>"+
         "</body></html>";
 
         res.status(200).send(html);
