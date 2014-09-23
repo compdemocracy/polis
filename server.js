@@ -5922,26 +5922,6 @@ function(req, res) {
 2014-09-21T23:16:15.188461+00:00 app[web.1]:   oauth_signature: 'jJ3TbKvalDUYvELXNvnzOfdCwGo=' }
 */
 
-    if (req.p.custom_canvas_assignment_id) {
-        // this is within an assignment
-
-        res.set({
-            'Content-Type': 'text/html',
-        });
-
-
-        // consider some kind of conversation url scheme like this:
-        //  pol.is/auto?oauth_consumer_key=foofoo&context_id=foo&custom_canvas_assignment_id=bar
-        // it would generate a conversation if one didn't already exist, assuming the owner has conversation create priviledges, or has a 'students pay' plan.
-        // ideally it wouldn't have to allocate a row in the db, since this would make an easy attack vector. TODO SECURITY
-
-        if (isInstructor) {
-            res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are an instructor <div>"+ JSON.stringify(req.body)+"</div></body></html>");
-        } else {
-            res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are a student <div>"+ JSON.stringify(req.body)+"</div></body></html>");            
-        }
-        return;
-    }
     pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
 
         var greeting = "";
@@ -6002,11 +5982,38 @@ function(req, res) {
 });
 
 app.post("/api/v3/LTI/conversation_assignment",
+    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+    need("user_id", getStringLimitLength(1, 9999), assignToP),    
+    need("context_id", getStringLimitLength(1, 9999), assignToP),    
+    want("roles", getStringLimitLength(1, 9999), assignToP),
+    want("user_image", getStringLimitLength(1, 9999), assignToP),
+    // per assignment stuff
+    want("custom_canvas_assignment_id", getInt, assignToP),
 function(req, res) {
+    var roles = req.p.roles;
+    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    var user_id = req.p.user_id;    
+    var context_id = req.p.context_id;    
+    var user_image = req.p.user_image || "";
+
+    // TODO SECURITY we need to verify the signature
+    var oauth_consumer_key = req.p.oauth_consumer_key;
+
+    // consider some kind of conversation url scheme like this:
+    //  pol.is/auto?oauth_consumer_key=foofoo&context_id=foo&custom_canvas_assignment_id=bar
+    // it would generate a conversation if one didn't already exist, assuming the owner has conversation create priviledges, or has a 'students pay' plan.
+    // ideally it wouldn't have to allocate a row in the db, since this would make an easy attack vector. TODO SECURITY
+
     res.set({
         'Content-Type': 'text/html',
     });
-    res.status(200).send("<!DOCTYPE html><html lang='en'><body>Hello LTI from pol.is This is a conversation</body></html>");
+    if (isInstructor) {
+        res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are an instructor <div>"+ JSON.stringify(req.body)+"</div></body></html>");
+    } else {
+        res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are a student <div>"+ JSON.stringify(req.body)+"</div></body></html>");            
+    }
+    return;
+
 }); // TODO write an LTI post handler
 
 
@@ -6063,7 +6070,7 @@ function(req, res) {
 
 /*
 for easy copy and paste
-https://preprod.pol.is/api/v3/LTI/link_accounts_assignment.xml
+https://preprod.pol.is/api/v3/LTI/course_setup.xml
 */
 app.get("/api/v3/LTI/course_setup.xml",
 function(req, res) {
