@@ -421,17 +421,9 @@ var polisRouter = Backbone.Router.extend({
       // });
       var filterAttrs = {};
       if (filter) {
-        switch(filter) {
-          case "closed":
-            filterAttrs.is_active = false;
-            filterAttrs.is_draft = false;
-          break;
-          case "active":
-            filterAttrs.is_active = true;
-          break;
-          default:
-            filterAttrs.is_active = true;
-          break;
+        // check for context
+        if (filter.match(/context=([^=?]+)/).length > 1) {
+          filterAttrs.context = filter.match(/context=([^=?]+)/)[1];
         }
       }
 
