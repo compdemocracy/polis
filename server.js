@@ -3283,7 +3283,16 @@ function(req, res) {
                             addLtiContextMembership(uid, lti_context_id) :
                             Promise.resolve();
                         Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
-                            res.json(response_data);
+                            if (lti_user_id) {
+                                renderLtiLinkageSuccessPage(req, res, {
+                                    // may include token here too
+                                    uid: uid,
+                                    // hname: hname,
+                                    email: email,
+                                });
+                            } else {
+                                res.json(response_data);
+                            }
                         }).catch(function(err) {
                             fail(res, 500, "polis_err_adding_associating_with_lti_user", err);
                         });
@@ -3507,6 +3516,18 @@ function startSessionAndAddCookies(req, res, uid) {
     });
 }
 
+function renderLtiLinkageSuccessPage(req, res, o) {
+    res.set({
+        'Content-Type': 'text/html',
+    });
+    var greeting = "OK! you are signed in as polis user " + o.email;
+    var html = "" +
+    "<!DOCTYPE html><html lang='en'>"+
+    "<body>"+ 
+        greeting +
+    "</body></html>";
+}
+
 app.post("/api/v3/auth/new",
     want('anon', getBool, assignToP),
     want('password', getPasswordWithCreatePasswordRules, assignToP),
@@ -3516,6 +3537,8 @@ app.post("/api/v3/auth/new",
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
     want('organization', getOptionalStringLimitLength(999), assignToP),
     want('gatekeeperTosPrivacy', getBool, assignToP),
+    want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
+    want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
@@ -3525,6 +3548,10 @@ function(req, res) {
     var referrer = req.cookies[COOKIES.REFERRER];
     var organization = req.p.organization;
     var gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
+    var lti_user_id = req.p.lti_user_id;
+    var lti_context_id = req.p.lti_context_id;
+
+
 
     if (!gatekeeperTosPrivacy) { fail(res, 400, "polis_err_reg_need_tos"); return; }
     if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
@@ -3557,11 +3584,31 @@ function(req, res) {
                             startSession(uid, function(err,token) {
                               if (err) { fail(res, 500, "polis_err_reg_failed_to_start_session", err); return; }
                               addCookies(req, res, token, uid).then(function() {
-                                res.json({
-                                    uid: uid,
-                                    hname: hname,
-                                    email: email,
-                                    // token: token
+
+                                var ltiUserPromise = lti_user_id ?
+                                  addLtiUserifNeeded(uid, lti_user_id) :
+                                  Promise.resolve();
+                                var ltiContextMembershipPromise = lti_context_id ?
+                                  addLtiContextMembership(uid, lti_context_id) :
+                                  Promise.resolve();
+                                Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
+                                  if (lti_user_id) {
+                                    renderLtiLinkageSuccessPage(req, res, {
+                                        // may include token here too
+                                        uid: uid,
+                                        hname: hname,
+                                        email: email,
+                                    });
+                                  } else {
+                                      res.json({
+                                          uid: uid,
+                                          hname: hname,
+                                          email: email,
+                                          // token: token
+                                      });
+                                  }
+                                }).catch(function(err) {
+                                  fail(res, 500, "polis_err_creating_user_associating_with_lti_user", err);
                                 });
 
                                 var params = {
@@ -5860,7 +5907,12 @@ app.post("/api/v3/LTI/course_setup",
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
 
+// lis_outcome_service_url: send grades here!
+
     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
+
+    want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
+    want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 
 function(req, res) {
     var roles = req.p.roles;
@@ -5868,6 +5920,24 @@ function(req, res) {
     var user_id = req.p.user_id;    
     var context_id = req.p.context_id;    
     var user_image = req.p.user_image || "";
+
+    // rich text editor tool embed
+    var ext_content_return_types = req.p.ext_content_return_types;
+    var launch_presentation_return_url = req.p.launch_presentation_return_url;
+
+    // TODO wait to redirect
+    //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
+    if (/iframe/.exec(ext_content_return_types)) {
+        res.redirect(launch_presentation_return_url + "?" + [
+            ["return_type", "iframe"].join("="),
+            ["url", getServerNameWithProtocol(req) + "/2demo"].join("="),
+            ["width", 320].join("="),
+            ["height", 900].join("="),
+            ].join("&"));
+        return;
+    } else if (ext_content_return_types) {
+        fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
+    }
 
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
@@ -5988,6 +6058,7 @@ function(req, res) {
         } else {
             var user = rows[0];
             greeting = "<h1>Welcome "+ user.hname +" (with uid " + user.uid + ")</h1>";
+            // 98327982374 render the OK page instead.
         }
 
         res.set({
@@ -6150,6 +6221,8 @@ var xml = '' +
         '<lticm:property name="enabled">true</lticm:property>' +
     '</lticm:options>' +
 
+
+
 '</blti:extensions>' +
 
 '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
@@ -6159,6 +6232,56 @@ var xml = '' +
 res.set('Content-Type', 'text/xml');
 res.status(200).send(xml);
 });
+
+
+/*
+for easy copy and paste
+https://preprod.pol.is/api/v3/LTI/course_setup.xml
+*/
+app.get("/api/v3/LTI/editor_tool.xml",
+function(req, res) {
+var xml = '' +
+'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+
+'<blti:title>Polis Setup 1</blti:title>' +
+'<blti:description>based on Minecraft LMS integration</blti:description>' +
+'<blti:icon>' +
+'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+'</blti:icon>' +
+'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/course_setup</blti:launch_url>' +
+
+'<blti:custom>' +
+'<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
+'</blti:custom>' +
+
+'<blti:extensions platform="canvas.instructure.com">' +
+
+    '<lticm:property name="tool_id">polis_lti</lticm:property>' +
+    '<lticm:property name="privacy_level">public</lticm:property>' +
+
+    // editor button
+    '<lticm:property name="domain">preprod.pol.is</lticm:property>' +
+    '<lticm:property name="text">Polis Foo Test</lticm:property>' +
+    '<lticm:options name="editor_button">' +
+        '<lticm:property name="enabled">true</lticm:property>' +
+        '<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
+        '<lticm:property name="selection_width">500</lticm:property>' +
+        '<lticm:property name="selection_height">300</lticm:property>' +
+    '</lticm:options>' +
+
+
+'</blti:extensions>' +
+
+'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+'<cartridge_icon identifierref="BLTI001_Icon"/>' +
+'</cartridge_basiclti_link>';
+
+res.set('Content-Type', 'text/xml');
+res.status(200).send(xml);
+});
+
+
+
 
 
 /*
