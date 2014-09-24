@@ -222,7 +222,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
 var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
-    this.r("conversation/create", "createConversation");
+    this.r("conversation/create(/context=:context)", "createConversation");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("user/logout", "deregister");
@@ -522,7 +522,7 @@ var polisRouter = Backbone.Router.extend({
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
-  createConversation: function(){
+  createConversation: function(context){
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
@@ -537,10 +537,14 @@ var polisRouter = Backbone.Router.extend({
       }
       conversationsCollection = new ConversationsCollection();
 
-      var model = new ConversationModel({
+      var o = {
         is_draft: true,
         is_active: true // TODO think
-      });
+      };
+      if (!_.isUndefined(context)) {
+        o.context =context;
+      }
+      var model = new ConversationModel(o);
 
       model.save().then(function(data) {
         var conversation_id = data[0][0].conversation_id;
