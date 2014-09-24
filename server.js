@@ -3520,12 +3520,18 @@ function renderLtiLinkageSuccessPage(req, res, o) {
     res.set({
         'Content-Type': 'text/html',
     });
-    var greeting = "OK! you are signed in as polis user " + o.email;
+    var greeting = "You are signed in as polis user " + o.email;
     var html = "" +
     "<!DOCTYPE html><html lang='en'>"+
     "<body>"+ 
         greeting +
+            "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
+            "<p style='background-color: yellow;'>" +
+                JSON.stringify(req.body)+
+                (o.user_image ? "<img src='"+o.user_image+"'></img>" : "") +
+            "</p>"+
     "</body></html>";
+    res.status(200).send(html);
 }
 
 app.post("/api/v3/auth/new",
@@ -5906,14 +5912,10 @@ app.post("/api/v3/LTI/course_setup",
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
-
 // lis_outcome_service_url: send grades here!
-
     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
-
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-
 function(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
@@ -5999,13 +6001,20 @@ function(req, res) {
         var greeting = "";
         var form1 = "";
         var form2 = "";        
-        if (!rows || !rows.length) {
-            greeting = '<h1><img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is</h1>';
+        if (rows && rows.length) {
+            var user = rows[0];
+            greeting = "<h1>Welcome "+ user.hname +" (with uid " + user.uid + ")</h1>";
+            renderLtiLinkageSuccessPage(req, res, {
+                user_image: user.user_image,
+                email: user.email,
+            });
+        }
+        greeting = '<h1><img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is</h1>';
             
 
-            // TODO If we're doing this basic form, we can't just return json from the /login call
+        // TODO If we're doing this basic form, we can't just return json from the /login call
 
-            form1 = '' +
+        form1 = '' +
 '<h2>create a new pol.is account</h2>' +
 '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
 '<div class="FormVertical-group">' +
@@ -6031,7 +6040,7 @@ function(req, res) {
 '</div>' +
 '</form></p>';
 
-            form2 = '' +
+        form2 = '' +
 '<p> - OR - </p>' +
 '<h2>sign in with an existing pol.is account</h2>' +
 '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
@@ -6055,12 +6064,7 @@ function(req, res) {
 '</div>' +
 '</form></p>';
 
-        } else {
-            var user = rows[0];
-            greeting = "<h1>Welcome "+ user.hname +" (with uid " + user.uid + ")</h1>";
-            // 98327982374 render the OK page instead.
-        }
-
+        
         res.set({
             'Content-Type': 'text/html',
         });
