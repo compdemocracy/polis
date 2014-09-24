@@ -3286,6 +3286,7 @@ function(req, res) {
                             if (lti_user_id) {
                                 renderLtiLinkageSuccessPage(req, res, {
                                     // may include token here too
+                                    context_id: lti_context_id,
                                     uid: uid,
                                     // hname: hname,
                                     email: email,
@@ -3525,7 +3526,9 @@ function renderLtiLinkageSuccessPage(req, res, o) {
     "<!DOCTYPE html><html lang='en'>"+
     "<body>"+ 
         greeting +
+            "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
             "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
+            "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
             "<p style='background-color: yellow;'>" +
                 JSON.stringify(req.body)+
                 (o.user_image ? "<img src='"+o.user_image+"'></img>" : "") +
@@ -3601,6 +3604,7 @@ function(req, res) {
                                   if (lti_user_id) {
                                     renderLtiLinkageSuccessPage(req, res, {
                                         // may include token here too
+                                        context_id: lti_context_id,
                                         uid: uid,
                                         hname: hname,
                                         email: email,
@@ -6005,6 +6009,7 @@ function(req, res) {
             var user = rows[0];
             greeting = "<h1>Welcome "+ user.hname +" (with uid " + user.uid + ")</h1>";
             renderLtiLinkageSuccessPage(req, res, {
+                context_id: context_id,
                 user_image: user.user_image,
                 email: user.email,
             });
