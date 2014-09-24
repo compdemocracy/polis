@@ -6243,6 +6243,75 @@ res.status(200).send(xml);
 });
 
 
+
+
+
+
+
+
+// team meetings - schedule with others, smart converence room
+// or redirect tool
+// students already pay an online fee
+// 
+// ADA? 508 compliance
+// accessibility - Teach Act: those who don't have dexterity
+// colors
+// screen readers
+
+// TODO rename to LTI/launch
+// TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
+// TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
+app.post("/api/v3/LTI/editor_tool",
+    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+    need("user_id", getStringLimitLength(1, 9999), assignToP),    
+    need("context_id", getStringLimitLength(1, 9999), assignToP),    
+    want("roles", getStringLimitLength(1, 9999), assignToP),
+    want("user_image", getStringLimitLength(1, 9999), assignToP),
+// lis_outcome_service_url: send grades here!
+    want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
+    want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
+    want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+function(req, res) {
+    var roles = req.p.roles;
+    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    var user_id = req.p.user_id;    
+    var context_id = req.p.context_id;    
+    var user_image = req.p.user_image || "";
+
+
+
+    // TODO SECURITY we need to verify the signature
+    var oauth_consumer_key = req.p.oauth_consumer_key;
+
+    var owner = 125;
+    // if (oauth_consumer_key === 'asdfasdf') {
+    //     uid = 125;
+    // }
+
+    // rich text editor tool embed
+    var ext_content_return_types = req.p.ext_content_return_types;
+    var launch_presentation_return_url = req.p.launch_presentation_return_url;
+
+    // TODO wait to redirect
+    //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
+    if (/iframe/.exec(ext_content_return_types)) {
+        res.redirect(launch_presentation_return_url + "?" + [
+            ["return_type", "iframe"].join("="),
+            ["url", getServerNameWithProtocol(req) + "/2demo"].join("="),
+            ["width", 320].join("="),
+            ["height", 900].join("="),
+            ].join("&"));
+        return;
+    } else if (ext_content_return_types) {
+        fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
+    } else (ext_content_return_types) {
+        fail(res, 500, "polis_err_unexpected_launch_params", err);
+    }
+
+}); // end editor_tool
+
+
+
 /*
 for easy copy and paste
 https://preprod.pol.is/api/v3/LTI/editor_tool.xml
@@ -6252,12 +6321,12 @@ function(req, res) {
 var xml = '' +
 '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
 
-'<blti:title>Polis Setup 1</blti:title>' +
+'<blti:title>Polis Editor Tool</blti:title>' +
 '<blti:description>based on Minecraft LMS integration</blti:description>' +
 '<blti:icon>' +
 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
 '</blti:icon>' +
-'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/course_setup</blti:launch_url>' +
+'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/editor_tool</blti:launch_url>' +
 
 '<blti:custom>' +
 '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
