@@ -5910,7 +5910,7 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 // TODO rename to LTI/launch
 // TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
 // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
-app.post("/api/v3/LTI/course_setup",
+app.post("/api/v3/LTI/setup_assignment",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
@@ -5953,7 +5953,7 @@ function(req, res) {
     //     uid = 125;
     // }
 
-    console.log('course_setup');
+    console.log('setup_assignment');
     console.log(req.body);
     console.dir(req.body);
 
@@ -6183,9 +6183,9 @@ function(req, res) {
 
 /*
 for easy copy and paste
-https://preprod.pol.is/api/v3/LTI/course_setup.xml
+https://preprod.pol.is/api/v3/LTI/setup_assignment.xml
 */
-app.get("/api/v3/LTI/course_setup.xml",
+app.get("/api/v3/LTI/setup_assignment.xml",
 function(req, res) {
 var xml = '' +
 '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
@@ -6195,7 +6195,7 @@ var xml = '' +
 '<blti:icon>' +
 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
 '</blti:icon>' +
-'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/course_setup</blti:launch_url>' +
+'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/setup_assignment</blti:launch_url>' +
 
 '<blti:custom>' +
 '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
@@ -6210,7 +6210,7 @@ var xml = '' +
     // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
     '<lticm:options name="homework_submission">' +
         // This is the URL that will be POSTed to when users click the button in any rich editor.
-        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +        
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/setup_assignment</lticm:property>' +        
         '<lticm:property name="icon_url">' +
         'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
         '</lticm:property>' +
@@ -6222,13 +6222,13 @@ var xml = '' +
     '</lticm:options>' +
 
     // nav
-    '<lticm:options name="course_navigation">' +
-        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/course_setup</lticm:property>' +
-        '<lticm:property name="text">polis setup from nav</lticm:property>' +
-        '<lticm:property name="visibility">public</lticm:property>' +
-        '<lticm:property name="default">enabled</lticm:property>' +
-        '<lticm:property name="enabled">true</lticm:property>' +
-    '</lticm:options>' +
+    // '<lticm:options name="course_navigation">' +
+    //     '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/setup_assignment</lticm:property>' +
+    //     '<lticm:property name="text">polis setup from nav</lticm:property>' +
+    //     '<lticm:property name="visibility">public</lticm:property>' +
+    //     '<lticm:property name="default">enabled</lticm:property>' +
+    //     '<lticm:property name="enabled">true</lticm:property>' +
+    // '</lticm:options>' +
 
 
 
@@ -6245,7 +6245,7 @@ res.status(200).send(xml);
 
 /*
 for easy copy and paste
-https://preprod.pol.is/api/v3/LTI/course_setup.xml
+https://preprod.pol.is/api/v3/LTI/editor_tool.xml
 */
 app.get("/api/v3/LTI/editor_tool.xml",
 function(req, res) {
