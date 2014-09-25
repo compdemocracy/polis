@@ -5096,11 +5096,30 @@ function(req, res){
                     }
 
                     if (req.p.launch_presentation_return_url_hex) {
+                        // conv.lti_redirect = {
+                        //     return_type: "iframe",
+                        //     launch_presentation_return_url: hexToStr(req.p.launch_presentation_return_url_hex),
+                        //     width: 320,
+                        //     height: 900,
+                        //     url: getServerNameWithProtocol(req) + "/" + req.p.conversation_id,
+                        // };
+
+                        // using links because iframes are pretty crappy within Canvas assignments.
+                        var linkText = "Join Conversation";
+                        if (req.p.topic) {
+                            linkText += " (" + req.p.topic + ")";
+                        }
+                        var linkTitle = "";
+                        if (req.p.description) {
+                            linkTitle += req.p.description;
+                        }
                         conv.lti_redirect = {
+                            return_type: "url",
                             launch_presentation_return_url: hexToStr(req.p.launch_presentation_return_url_hex),
-                            width: 320,
-                            height: 900,
                             url: getServerNameWithProtocol(req) + "/" + req.p.conversation_id,
+                            text: linkText,
+                            title: linkTitle,
+                            target: "_blank", // Open in a new window.
                         };
                     }
                         // LTI redirect to create e
