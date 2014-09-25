@@ -6245,6 +6245,94 @@ function(req, res) {
 }); // end /api/v3/LTI/setup_assignment
 
 
+app.post("/api/v3/LTI/canvas_nav",
+    authOptional(assignToP),
+    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+    need("user_id", getStringLimitLength(1, 9999), assignToP),    
+    need("context_id", getStringLimitLength(1, 9999), assignToP),    
+    want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
+    want("roles", getStringLimitLength(1, 9999), assignToP),
+    want("user_image", getStringLimitLength(1, 9999), assignToP),
+    want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
+    want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
+    want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
+    want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
+    want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+function(req, res) {
+    console.dir(req);
+    var roles = req.p.roles;
+    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    var user_id = req.p.user_id;    
+    var context_id = req.p.context_id;    
+    var user_image = req.p.user_image || "";
+    // if (!req.p.tool_consumer_instance_guid) {
+    //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
+    // }
+    res.redirect("https://preprod.pol.is/inbox");
+    
+    // // TODO SECURITY we need to verify the signature
+    // var oauth_consumer_key = req.p.oauth_consumer_key;
+
+    // var dataSavedPromise = pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);", [
+    //     user_id,
+    //     context_id,
+    //     req.p.lis_outcome_service_url || "",
+    //     JSON.stringify(req.p),
+    // ]);
+
+    // Promise.all([
+    //     dataSavedPromise,
+    // ]).then(function() {
+    //     // check if signed in (NOTE that if they're in the Canvas mobile app, the cookies may be shared with the browser on the device)
+    //     if (req.p.uid) {
+
+    //         // Check if linked to this uid.
+    //         pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
+
+    //             // find the correct one - note: this loop may be useful in warning when people have multiple linkages
+    //             var userForLtiUserId = null;
+    //             (rows||[]).forEach(function(row) {
+    //                 if (row.uid === req.p.uid) {
+    //                     userForLtiUserId = row;
+    //                 }
+    //             });
+    //             if (userForLtiUserId) {
+    //                 // if (teacher pays) {
+    //                 //     // you're good!
+    //                 // } else {
+    //                 //     if (you paid) {
+    //                         renderLtiLinkageSuccessPage(req, res, {
+    //                             context_id: context_id,
+    //                             // user_image: userForLtiUserId.user_image,                                
+    //                             email: userForLtiUserId.email,
+    //                         });
+    //                     // } else { // you (student) have not yet paid
+    //                     //     // gotta pay
+    //                     // }
+    //                 // }
+    //             } else {
+    //                 // you are signed in, but not linked to the signed in user
+    //                 // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
+    //                 clearCookies(req, res);
+    //                 console.log('lti_linkage didnt exist');
+    //                 // Have them sign in again, since they weren't linked.
+    //                 // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
+    //                 renderLtiLinkagePage(req, res);
+    //             }
+    //         }).catch(function(err) {
+    //             fail(res, 500, "polis_err_launching_lti_finding_user", err);
+    //         });
+    //     } else { // no uid (no cookies)
+    //         // Have them sign in to set up the linkage
+    //         console.log('lti_linkage - no uid');            
+    //         renderLtiLinkagePage(req, res);
+    //     }
+    // }).catch(function(err) {
+    //     fail(res, 500, "polis_err_launching_lti_save", err);
+    // });
+}); // end /api/v3/LTI/canvas_nav
+
+
 app.post("/api/v3/LTI/conversation_assignment",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
@@ -6344,6 +6432,51 @@ res.status(200).send(xml);
 });
 
 
+
+/*
+https://preprod.pol.is/api/v3/LTI/canvas_nav.xml
+*/
+app.get("/api/v3/LTI/canvas_nav.xml",
+function(req, res) {
+var xml = '' +
+'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+
+'<blti:title>Pol.is Nav</blti:title>' +
+'<blti:description>Pol.is Conversations</blti:description>' +
+'<blti:icon>' +
+'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+'</blti:icon>' +
+// '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/canvas_nav</blti:launch_url>' +
+
+'<blti:custom>' +
+'<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
+'</blti:custom>' +
+
+'<blti:extensions platform="canvas.instructure.com">' +
+
+    '<lticm:property name="tool_id">polis_lti</lticm:property>' +
+    '<lticm:property name="privacy_level">public</lticm:property>' +
+
+    // nav
+    '<lticm:options name="course_navigation">' +
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/canvas_nav</lticm:property>' +
+        '<lticm:property name="text">pol.is conversations</lticm:property>' +
+        '<lticm:property name="visibility">public</lticm:property>' +
+        '<lticm:property name="default">enabled</lticm:property>' +
+        '<lticm:property name="enabled">true</lticm:property>' +
+    '</lticm:options>' +
+
+
+
+'</blti:extensions>' +
+
+'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+'<cartridge_icon identifierref="BLTI001_Icon"/>' +
+'</cartridge_basiclti_link>';
+
+res.set('Content-Type', 'text/xml');
+res.status(200).send(xml);
+});
 
 
 
