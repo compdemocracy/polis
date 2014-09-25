@@ -6102,7 +6102,7 @@ function(req, res) {
         // TODO If we're doing this basic form, we can't just return json from the /login call
 
         form1 = '' +
-'<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is account</h2>' +
+'<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="20px"> pol<span class="Logo--blue">.</span>is account</h2>' +
 '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
@@ -6113,10 +6113,12 @@ function(req, res) {
 'Password' +
 '</label>' +
 '<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
+'<div>' +
 '<label class="FormLabel" for="gatekeeperLoginPassword2">' +
 'Repeat Password' +
 '</label>' +
 '<input type="password" id="password2" name="password" id="gatekeeperLoginPassword2" class="FormControl">' +
+'</div>' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '</div>' +
