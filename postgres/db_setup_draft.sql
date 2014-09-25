@@ -235,12 +235,12 @@ CREATE TABLE xids (
 CREATE INDEX xids_owner_idx ON xids USING btree (owner);
 
 -- this could probably be called external_user_links, and should have a scope for the user identities, like "canvas.instructure.com" or something like that
+-- NOTE, there may be multiple uids for a given lti_user_id
 CREATE TABLE lti_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
     lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
-    lti_user_image TEXT, -- TODO add constraint to limit length, and ensure it's a URL (for an image?)..?
     created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (lti_user_id)
+    UNIQUE (uid, lti_user_id)
 );
 
 CREATE TABLE lti_context_memberships (
