@@ -2252,6 +2252,7 @@ function clearCookies(req, res) {
 }
 
 app.post("/api/v3/auth/deregister",
+    want("showPage", getStringLimitLength(1, 99), assignToP),
 function(req, res) {
     var token = req.cookies[COOKIES.TOKEN];
 
@@ -2259,7 +2260,20 @@ function(req, res) {
     clearCookies(req, res);
 
     function finish() {
-        res.status(200).end();
+        if (!req.p.showPage) {
+            res.status(200).end();
+        } else if (req.p.showPage === "canvas_assignment_deregister") {
+            res.set({
+                'Content-Type': 'text/html',
+            });
+            var html = "" +
+            "<!DOCTYPE html><html lang='en'>"+
+            "<body>"+ 
+                "<h1>You are now signed out of pol.is</h1>" +
+                "<p>Please return to the 'setup pol.is' assignment to sign in as another user.</p>" +
+            "</body></html>";
+            res.status(200).send(html);
+        }
     }
     if (!token) {
         // nothing to do
@@ -3577,6 +3591,13 @@ function renderLtiLinkageSuccessPage(req, res, o) {
             "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
             "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
             "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
+
+            // form for sign out
+            '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/deregister" method="POST">' +
+            '<input type="hidden" name="showPage" value="canvas_assignment_deregister">' +
+            '<button type="submit" class="Btn Btn-primary">Change pol.is users</button>' +
+            '</form></p>' +
+
             // "<p style='background-color: yellow;'>" +
             //     JSON.stringify(req.body)+
             //     (o.user_image ? "<img src='"+o.user_image+"'></img>" : "") +
