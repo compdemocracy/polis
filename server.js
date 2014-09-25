@@ -6142,6 +6142,7 @@ app.post("/api/v3/LTI/setup_assignment",
     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
     want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
+    want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
