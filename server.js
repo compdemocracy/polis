@@ -6163,10 +6163,10 @@ function(req, res) {
             greeting +
             form1 +
             form2 +    
-            // " <p style='background-color: yellow;'>" +
-            //     JSON.stringify(req.body)+
-            //     "<img src='"+user_image+"'></img>"+
-            // "</p>"+
+            " <p style='background-color: yellow;'>" +
+                JSON.stringify(req.body)+
+                "<img src='"+user_image+"'></img>"+
+            "</p>"+
         "</body></html>";
 
         res.status(200).send(html);
