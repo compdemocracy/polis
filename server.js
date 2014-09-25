@@ -5046,7 +5046,7 @@ function(req, res){
                         });
                     }
 
-                    if (req.p.launch_presentation_return_url) {
+                    if (req.p.launch_presentation_return_url_hex) {
                         conv.lti_redirect = {
                             launch_presentation_return_url: hexToStr(req.p.launch_presentation_return_url_hex),
                             width: 320,
