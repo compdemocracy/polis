@@ -6000,6 +6000,7 @@ app.post("/api/v3/LTI/setup_assignment",
     want("user_image", getStringLimitLength(1, 9999), assignToP),
 // lis_outcome_service_url: send grades here!
     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
+    want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
@@ -6108,6 +6109,8 @@ function(req, res) {
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
 '<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;"  class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
 '</div>' +
+'<label class="FormLabel" for="gatekeeperLoginName">Full Name</label>' +
+'<input type="text" id="hname" name="hname" id="gatekeeperLoginName" style="width: 100%;"  class="FormControl" value="'+ (req.p.lis_person_name_full||"") +'">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginPassword">' +
 'Password' +
