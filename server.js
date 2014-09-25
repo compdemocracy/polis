@@ -839,9 +839,9 @@ function getBool(s) {
             return resolve(s);
         }
         s = s.toLowerCase();
-        if (s === 't' || s === 'true') {
+        if (s === 't' || s === 'true' || s === 'on') {
             return resolve(true);
-        } else if (s === 'f' || s === 'false') {
+        } else if (s === 'f' || s === 'false' || s === 'off') {
             return resolve(false);
         }
         reject("polis_fail_parse_boolean");
