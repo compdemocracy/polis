@@ -329,6 +329,7 @@ var sql_conversations = sql.define({
     "owner_sees_participation_stats",
     "context",
     "course_id",
+    "lti_users_only",
     "modified",
     "created",
     ]
