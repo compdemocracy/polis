@@ -4950,7 +4950,7 @@ app.put('/api/v3/conversations',
     want('description', getOptionalStringLimitLength(50000), assignToP),
     want('verifyMeta', getBool, assignToP),
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
-    want('launch_presentation_return_url', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
+    want('launch_presentation_return_url_hex', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
 function(req, res){
   var generateShortUrl = req.p.short_url;
   isOwner(req.p.zid, req.p.uid).then(function(ok) {
@@ -5046,9 +5046,9 @@ function(req, res){
                         });
                     }
 
-                    if (req.p.launch_presentation_return_url) {
+                    if (req.p.launch_presentation_return_url_hex) {
                         conv.lti_redirect = {
-                            launch_presentation_return_url: strToHex(req.p.launch_presentation_return_url),
+                            launch_presentation_return_url: hexToStr(req.p.launch_presentation_return_url_hex),
                             width: 320,
                             height: 900,
                             url: getServerNameWithProtocol(req) + "/" + req.p.conversation_id,
