@@ -6137,12 +6137,12 @@ app.post("/api/v3/LTI/setup_assignment",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
+    want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
     want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
-    want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
@@ -6152,6 +6152,9 @@ function(req, res) {
     var user_id = req.p.user_id;    
     var context_id = req.p.context_id;    
     var user_image = req.p.user_image || "";
+    if (!req.p.tool_consumer_instance_guid) {
+        emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
+    }
 
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
