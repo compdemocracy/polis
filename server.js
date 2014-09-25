@@ -6163,7 +6163,7 @@ function(req, res) {
             // Check if linked to this uid.
             pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
 
-                var linkedToThisUid = (rows && rows.length);
+                var linkedToThisUid = (rows && rows.length) && rows[0].uid === req.p.uid;
                 if (linkedToThisUid) {
                     var userForLtiUserId = rows[0];
                     // if (teacher pays) {
