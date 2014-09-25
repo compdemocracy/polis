@@ -4938,6 +4938,7 @@ app.put('/api/v3/conversations',
     moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
     want('is_draft', getBool, assignToP),
