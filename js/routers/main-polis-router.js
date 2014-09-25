@@ -37,6 +37,26 @@ var $ = require("jquery");
 var gaEvent = require("../util/gaMetric").gaEvent;
 
 
+function strToHex(str) {
+var hex, i;
+var result = "";
+for (i=0; i<str.length; i++) {
+  hex = str.charCodeAt(i).toString(16);
+  result += ("000"+hex).slice(-4);
+}
+return result;
+}
+function hexToStr(hexString) {
+var j;
+var hexes = hexString.match(/.{1,4}/g) || [];
+var str = "";
+for(j = 0; j<hexes.length; j++) {
+  str += String.fromCharCode(parseInt(hexes[j], 16));
+}
+return str;
+}
+
+
 var routeEvent = metric.routeEvent;
 
 var authenticatedDfd = $.Deferred();
@@ -222,7 +242,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
 var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
-    this.r("conversation/create(/context=:context)", "createConversation");
+    this.r("conversation/create(/context=:context/launch_presentation_return_url=:launch_presentation_return_url)", "createConversation");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("user/logout", "deregister");
@@ -514,7 +534,8 @@ var polisRouter = Backbone.Router.extend({
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
-  createConversation: function(context){
+  createConversation: function(context, launch_presentation_return_url){
+    launch_presentation_return_url = hexToStr(launch_presentation_return_url);
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
@@ -535,6 +556,9 @@ var polisRouter = Backbone.Router.extend({
       };
       if (!_.isUndefined(context)) {
         o.context =context;
+      }
+      if (!_.isUndefined(launch_presentation_return_url)) {
+        o.launch_presentation_return_url = launch_presentation_return_url;
       }
       var model = new ConversationModel(o);
 

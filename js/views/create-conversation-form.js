@@ -72,6 +72,19 @@ module.exports = View.extend({
 
           attrs.verifyMeta = true; // make sure there are answers for each question.
           bbSave(that.model, attrs).then(function(data) {
+            // LTI redirect
+            if (data.lti_redirect) {
+              // Tell the LTI tool about the new conversation, so it can generate an iframe embed code.
+              window.location = data.lti_redirect.launch_presentation_return_url + "?" + [
+                ["return_type", "iframe"].join("="),
+                ["url", data.lti_redirect.url].join("="),
+                ["width", data.lti_redirect.width].join("="),
+                ["height", data.lti_redirect.height].join("="),
+                ].join("&");
+
+                return;
+
+            }
             // NOTE: the suurl generation must take place after the PUT conversations call, since the conversation_id may change (and the conversation_id is included in the suurls)
             var promise = !!xids ? 
               $.ajax({
