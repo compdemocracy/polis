@@ -6226,7 +6226,7 @@ function(req, res) {
                     // you are signed in, but not linked to the signed in user
                     // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
                     clearCookies(req, res);
-
+                    console.log('lti_linkage didnt exist');
                     // Have them sign in again, since they weren't linked.
                     // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
                     renderLtiLinkagePage(req, res);
@@ -6236,6 +6236,7 @@ function(req, res) {
             });
         } else { // no uid (no cookies)
             // Have them sign in to set up the linkage
+            console.log('lti_linkage - no uid');            
             renderLtiLinkagePage(req, res);
         }
     }).catch(function(err) {
