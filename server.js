@@ -6096,13 +6096,13 @@ function(req, res) {
                 email: user.email,
             });
         }
-        greeting = '<h1><img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is</h1>';
+        greeting = '';
             
 
         // TODO If we're doing this basic form, we can't just return json from the /login call
 
         form1 = '' +
-'<h2>create a new pol.is account</h2>' +
+'<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is account</h2>' +
 '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
