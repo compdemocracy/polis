@@ -3248,17 +3248,17 @@ function(req, res) {
 });
 
 
-function addLtiUserifNeeded(uid, lti_user_id) {
-    return pgQueryP("select * from lti_users where lti_user_id = ($1);", [lti_user_id]).then(function(rows) {
+function addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid) {
+    return pgQueryP("select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);", [lti_user_id, tool_consumer_instance_guid]).then(function(rows) {
         if (!rows || !rows.length) {
-            return pgQueryP("insert into lti_users (uid, lti_user_id) values ($1, $2);", [uid, lti_user_id]);
+            return pgQueryP("insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid) values ($1, $2, $3);", [uid, lti_user_id, tool_consumer_instance_guid]);
         }
     });
 }
-function addLtiContextMembership(uid, lti_context_id) {
-    return pgQueryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $2;", [uid, lti_context_id]).then(function(rows) {
+function addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) {
+    return pgQueryP("select * from lti_context_memberships where uid = $1 and lti_context_id = $2 and tool_consumer_instance_guid = $3;", [uid, lti_context_id, tool_consumer_instance_guid]).then(function(rows) {
         if (!rows || !rows.length) {
-            return pgQueryP("insert into lti_context_memberships (uid, lti_context_id) values ($1, $2);", [uid, lti_context_id]);
+            return pgQueryP("insert into lti_context_memberships (uid, lti_context_id, tool_consumer_instance_guid) values ($1, $2, $3);", [uid, lti_context_id, tool_consumer_instance_guid]);
         }
     });
 }
@@ -3268,11 +3268,13 @@ app.post("/api/v3/auth/login",
     want('email', getEmail, assignToP),
     want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
+    want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
     var lti_user_id = req.p.lti_user_id;
     var lti_context_id = req.p.lti_context_id;
+    var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
 
     email = email.toLowerCase();
     if (!_.isString(password) || !password.length) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
@@ -3305,10 +3307,10 @@ function(req, res) {
                         console.log("lti_user_id", lti_user_id);
                         console.log("lti_context_id", lti_context_id);
                         var ltiUserPromise = lti_user_id ?
-                            addLtiUserifNeeded(uid, lti_user_id) :
+                            addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid) :
                             Promise.resolve();
                         var ltiContextMembershipPromise = lti_context_id ?
-                            addLtiContextMembership(uid, lti_context_id) :
+                            addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
                             Promise.resolve();
                         Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
                             if (lti_user_id) {
@@ -3595,6 +3597,7 @@ app.post("/api/v3/auth/new",
     want('gatekeeperTosPrivacy', getBool, assignToP),
     want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
+    want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
@@ -3607,6 +3610,7 @@ function(req, res) {
     var gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
     var lti_user_id = req.p.lti_user_id;
     var lti_context_id = req.p.lti_context_id;
+    var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
 
 
     if (password2 && (password !== password2)) { fail(res, 400, "Passwords do not match."); return; }
@@ -3643,10 +3647,10 @@ function(req, res) {
                               addCookies(req, res, token, uid).then(function() {
 
                                 var ltiUserPromise = lti_user_id ?
-                                  addLtiUserifNeeded(uid, lti_user_id) :
+                                  addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid) :
                                   Promise.resolve();
                                 var ltiContextMembershipPromise = lti_context_id ?
-                                  addLtiContextMembership(uid, lti_context_id) :
+                                  addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
                                   Promise.resolve();
                                 Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
                                   if (lti_user_id) {
@@ -5991,6 +5995,7 @@ function renderLtiLinkagePage(req, res) {
     var context_id = req.p.context_id;
     var user_id = req.p.user_id;
     var user_image = req.p.user_image;
+    var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
 
     var greeting = '';
         
@@ -6019,6 +6024,7 @@ function renderLtiLinkagePage(req, res) {
 '</div>' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
+'<input type="hidden" name="tool_consumer_instance_guid" value="' + tool_consumer_instance_guid + '">' +
 '</div>' +
 '<input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a>' +
 '<div class="row" id="errorDiv"></div>' +
@@ -6042,6 +6048,7 @@ function renderLtiLinkagePage(req, res) {
 '<input type="password" id="password" name="password" id="gatekeeperLoginPassword" style="width: 100%;" class="FormControl">' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
+'<input type="hidden" name="tool_consumer_instance_guid" value="' + tool_consumer_instance_guid + '">' +
 '<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
 '</div>' +
 '' +

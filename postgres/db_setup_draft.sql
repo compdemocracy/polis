@@ -239,6 +239,7 @@ CREATE INDEX xids_owner_idx ON xids USING btree (owner);
 CREATE TABLE lti_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
     lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
+    tool_consumer_instance_guid TEXT NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE (uid, lti_user_id)
 );
