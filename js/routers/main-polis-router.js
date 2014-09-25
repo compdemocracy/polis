@@ -224,9 +224,14 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
         onSuccess(ptpt);
         // no ga session event, since they already have a uid
       }, function(err) {
-        that.conversationGatekeeper(conversation_id, zinvite).done(function(ptptData) {
-          doJoinConversation.call(that, onSuccess, conversation_id);
-        });
+        if (err && err.length && err[0] && err[0].length && err[0][0].responseText.match("lti_user")) {
+          alert("Before joining, you must link this account to your Canvas account. There should be a special assignment for this.");
+        } else {
+          // not sure if this path works, or ever occurs
+          that.conversationGatekeeper(conversation_id).done(function(ptptData) {
+            doJoinConversation.call(that, onSuccess, conversation_id);
+          });
+        }
       });
     }
   }
