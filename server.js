@@ -6164,9 +6164,14 @@ function(req, res) {
             // Check if linked to this uid.
             pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
 
-                var linkedToThisUid = (rows && rows.length) && rows[0].uid === req.p.uid;
-                if (linkedToThisUid) {
-                    var userForLtiUserId = rows[0];
+                // find the correct one - note: this loop may be useful in warning when people have multiple linkages
+                var userForLtiUserId = null;
+                (rows||[]).forEach(function(row) {
+                    if (row.uid === req.p.uid) {
+                        userForLtiUserId = row;
+                    }
+                });
+                if (userForLtiUserId) {
                     // if (teacher pays) {
                     //     // you're good!
                     // } else {
