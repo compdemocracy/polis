@@ -6059,7 +6059,7 @@ function renderLtiLinkagePage(req, res) {
 
         var html = "" +
         "<!DOCTYPE html><html lang='en'>"+
-        "<body style='max-width:320px'>"+ 
+        "<body style='max-width:320px; font-family: Futura, Helvetica, sans-serif;'>"+ 
             greeting +
             form1 +
             form2 +    
