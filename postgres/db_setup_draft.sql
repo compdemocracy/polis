@@ -160,6 +160,7 @@ CREATE TABLE conversations(
     -- owner_group_id ?? 
     context VARCHAR(1000), -- for things like a semester of a class, etc
     course_id INTEGER REFERENCES courses(course_id),
+    lti_users_only BOOLEAN DEFAULT FALSE,
     owner_sees_participation_stats BOOLEAN DEFAULT FALSE, -- currently maps to users needing a polis account, or to requiring single use urls?
     modified BIGINT DEFAULT now_as_millis(),    
     created BIGINT DEFAULT now_as_millis(),

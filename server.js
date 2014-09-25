@@ -3197,6 +3197,10 @@ function(req, res) {
     }
 
     function doJoin() {
+
+
+
+
         userHasAnsweredZeQuestions(zid, answers).then(function() {
             joinConversation(zid, uid, answers).then(function(pid) {
                 finish(pid);
@@ -3215,7 +3219,30 @@ function(req, res) {
             finish(pid);
             return;
         }
-        doJoin();
+
+        getConversationInfo(zid).then(function(conv) {
+            if (conv.lti_users_only) {
+                if (uid) {
+                    pgQueryP("select * from lti_users where uid = ($1)", [uid]).then(function(rows) {
+                        if (rows && rows.length) {
+                            // found a record in lti_users
+                            doJoin();
+                        } else {
+                            fail(res, 403, "polis_err_post_participants_missing_lti_user_for_uid_1");
+                        }
+                    }).catch(function(err) {
+                        fail(res, 500, "polis_err_post_participants_missing_lti_user_for_uid_2", err);
+                    });
+                } else {
+                    fail(res, 403, "polis_err_post_participants_need_uid_to_check_lti_users_3");                
+                }
+            } else {
+                // no LTI stuff to worry about
+                doJoin();
+            }
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_post_participants_need_uid_to_check_lti_users_4", err);
+        });
     });
 });
 
@@ -3431,6 +3458,23 @@ function joinWithZidOrSuzinvite(o) {
             o.conv = conv;
             return o;
         });
+    })
+    .then(function(o) {
+        if (o.lti_users_only) {
+            if (o.uid) {
+                return pgQueryP("select * from lti_users where uid = ($1)", [o.uid]).then(function(rows) {
+                    if (rows && rows.length) {
+                        return o;
+                    } else {
+                        throw new Error("polis_err_missing_lti_user_for_uid");
+                    }
+                });
+            } else {
+                throw new Error("polis_err_need_uid_to_check_lti_users");
+            }
+        } else {
+            return o;
+        }
     })
     .then(function(o) {
         console.log("joinWithZidOrSuzinvite userinfo begin");
@@ -4994,6 +5038,9 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.owner_sees_participation_stats)) {
         fields.owner_sees_participation_stats = !!req.p.owner_sees_participation_stats;
+    }
+    if (!_.isUndefined(req.p.launch_presentation_return_url_hex)) {
+        fields.lti_users_only = true;
     }
 
 
