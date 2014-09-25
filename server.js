@@ -3575,10 +3575,10 @@ function renderLtiLinkageSuccessPage(req, res, o) {
             "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
             "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
             "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
-            "<p style='background-color: yellow;'>" +
-                JSON.stringify(req.body)+
-                (o.user_image ? "<img src='"+o.user_image+"'></img>" : "") +
-            "</p>"+
+            // "<p style='background-color: yellow;'>" +
+            //     JSON.stringify(req.body)+
+            //     (o.user_image ? "<img src='"+o.user_image+"'></img>" : "") +
+            // "</p>"+
     "</body></html>";
     res.status(200).send(html);
 }
