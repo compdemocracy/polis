@@ -74,15 +74,28 @@ module.exports = View.extend({
           bbSave(that.model, attrs).then(function(data, response) {
             // LTI redirect
             if (response.lti_redirect) {
-              // Tell the LTI tool about the new conversation, so it can generate an iframe embed code.
-              window.location = response.lti_redirect.launch_presentation_return_url + "?" + [
-                ["return_type", "iframe"].join("="),
-                ["url", response.lti_redirect.url].join("="),
-                ["width", response.lti_redirect.width].join("="),
-                ["height", response.lti_redirect.height].join("="),
-                ].join("&");
-
-                return;
+              var o = response.lti_redirect;
+              if (o.return_type === "iframe") {
+                // Tell the LTI tool about the new conversation, so it can generate an iframe embed code.
+                window.location = o.launch_presentation_return_url + "?" + [
+                  ["return_type", o.return_type].join("="),
+                  ["url", o.url].join("="),
+                  ["width", o.width].join("="),
+                  ["height", o.height].join("="),
+                  ].join("&");
+              } else if (o.return_type === "url"){
+                // Tell the LTI tool about the new conversation, so it can generate an iframe embed code.
+                window.location = o.launch_presentation_return_url + "?" + [
+                  ["return_type", o.return_type].join("="),
+                  ["url", o.url].join("="),
+                  ["title", o.title].join("="),
+                  ["text", o.text].join("="),
+                  ["target", o.target].join("="),
+                  ].join("&");
+              } else {
+                alert("LTI error 42");
+              }
+              return;
 
             }
             // NOTE: the suurl generation must take place after the PUT conversations call, since the conversation_id may change (and the conversation_id is included in the suurls)

@@ -225,7 +225,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
         // no ga session event, since they already have a uid
       }, function(err) {
         if (err && err.length && err[0] && err[0].length && err[0][0].responseText.match("lti_user")) {
-          alert("Before joining, you must link this account to your Canvas account. There should be a special assignment for this.");
+          alert("Before joining, you must link this account to your Canvas account. Look for an assignment called \"setup pol.is\".");
         } else {
           // not sure if this path works, or ever occurs
           that.conversationGatekeeper(conversation_id).done(function(ptptData) {
