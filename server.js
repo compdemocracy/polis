@@ -6096,7 +6096,7 @@ function(req, res) {
                 email: user.email,
             });
         }
-        greeting = '<h1><img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is</h1>';
+        greeting = ''; //'<h1><img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is</h1>';
             
 
         // TODO If we're doing this basic form, we can't just return json from the /login call
