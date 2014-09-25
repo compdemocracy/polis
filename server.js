@@ -6138,6 +6138,7 @@ app.post("/api/v3/LTI/setup_assignment",
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
+    console.dir(req);
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     var user_id = req.p.user_id;    
