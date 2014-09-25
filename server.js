@@ -6159,7 +6159,7 @@ function(req, res) {
 
         var html = "" +
         "<!DOCTYPE html><html lang='en'>"+
-        "<body>"+ 
+        "<body style='max-width:320px'>"+ 
             greeting +
             form1 +
             form2 +    
