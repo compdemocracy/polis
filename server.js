@@ -5048,7 +5048,7 @@ function(req, res){
 
                     if (req.p.launch_presentation_return_url) {
                         conv.lti_redirect = {
-                            launch_presentation_return_url: req.p.launch_presentation_return_url,
+                            launch_presentation_return_url: strToHex(req.p.launch_presentation_return_url),
                             width: 320,
                             height: 900,
                             url: getServerNameWithProtocol(req) + "/" + req.p.conversation_id,
