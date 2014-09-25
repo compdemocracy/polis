@@ -4950,6 +4950,7 @@ app.put('/api/v3/conversations',
     want('description', getOptionalStringLimitLength(50000), assignToP),
     want('verifyMeta', getBool, assignToP),
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
+    want ('launch_presentation_return_url', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
 function(req, res){
   var generateShortUrl = req.p.short_url;
   isOwner(req.p.zid, req.p.uid).then(function(ok) {
@@ -5045,7 +5046,20 @@ function(req, res){
                         });
                     }
 
+                    if (req.p.launch_presentation_return_url) {
+                        conv.lti_redirect = {
+                            launch_presentation_return_url: req.p.launch_presentation_return_url,
+                            width: 320,
+                            height: 900,
+                            url: getServerNameWithProtocol(req) + "/" + req.p.conversation_id,
+                        };
+                    }
+                        // LTI redirect to create e
+                        // var url = getServerNameWithProtocol(req) + "/" + req.p.conversation_id;
+                        // redirectToLtiEditorDestinationWithDetailsAboutIframe(req, res, req.p.launch_presentation_return_url, url, 320, 900);
+                    // } else {
                     finishOne(res, conv);
+                    // }
                     
                 }).catch(function(err) {
                     fail(res, 500, "polis_err_update_conversation", err);
@@ -6295,20 +6309,25 @@ function(req, res) {
     // TODO wait to redirect
     //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
     if (/iframe/.exec(ext_content_return_types)) {
-        res.redirect(launch_presentation_return_url + "?" + [
-            ["return_type", "iframe"].join("="),
-            ["url", getServerNameWithProtocol(req) + "/2demo"].join("="),
-            ["width", 320].join("="),
-            ["height", 900].join("="),
-            ].join("&"));
+        res.redirect(getServerNameWithProtocol(req) + "/inbox/context=" + context_id + "/launch_presentation_return_url=" + launch_presentation_return_url);
         return;
     } else if (ext_content_return_types) {
         fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
-    } else (ext_content_return_types) {
+    } else {
         fail(res, 500, "polis_err_unexpected_launch_params", err);
     }
 
 }); // end editor_tool
+
+
+function redirectToLtiEditorDestinationWithDetailsAboutIframe(req, res, launch_presentation_return_url, url, width, height) {
+    res.redirect(launch_presentation_return_url + "?" + [
+        ["return_type", "iframe"].join("="),
+        ["url", url].join("="),
+        ["width", width].join("="),
+        ["height", height].join("="),
+        ].join("&"));
+}
 
 
 
