@@ -242,7 +242,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
 var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
-    this.r("conversation/create(/context=:context/launch_presentation_return_url=:launch_presentation_return_url)", "createConversation");
+    this.r("conversation/create(/context=:context/launch_presentation_return_url_hex=:launch_presentation_return_url_hex)", "createConversation");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("user/logout", "deregister");
@@ -534,8 +534,7 @@ var polisRouter = Backbone.Router.extend({
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
-  createConversation: function(context, launch_presentation_return_url){
-    launch_presentation_return_url = hexToStr(launch_presentation_return_url);
+  createConversation: function(context, launch_presentation_return_url_hex){
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
@@ -557,8 +556,8 @@ var polisRouter = Backbone.Router.extend({
       if (!_.isUndefined(context)) {
         o.context =context;
       }
-      if (!_.isUndefined(launch_presentation_return_url)) {
-        o.launch_presentation_return_url = launch_presentation_return_url;
+      if (!_.isUndefined(launch_presentation_return_url_hex)) {
+        o.launch_presentation_return_url_hex = launch_presentation_return_url_hex;
       }
       var model = new ConversationModel(o);
 
