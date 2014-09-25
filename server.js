@@ -6106,18 +6106,18 @@ function(req, res) {
 '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;"  class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
 '</div>' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginPassword">' +
 'Password' +
 '</label>' +
-'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
+'<input type="password" id="password" name="password" style="width: 100%;" id="gatekeeperLoginPassword" class="FormControl">' +
 '<div>' +
 '<label class="FormLabel" for="gatekeeperLoginPassword2">' +
 'Repeat Password' +
 '</label>' +
-'<input type="password" id="password2" name="password" id="gatekeeperLoginPassword2" class="FormControl">' +
+'<input type="password" id="password2" name="password" style="width: 100%;" id="gatekeeperLoginPassword2" class="FormControl">' +
 '</div>' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
@@ -6135,13 +6135,13 @@ function(req, res) {
 '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;" class="FormControl">' +
 '</div>' +
 '<div class="FormVertical-group">' +
 '<label class="FormLabel" for="gatekeeperLoginPassword">' +
 'Password' +
 '</label>' +
-'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">' +
+'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" style="width: 100%;" class="FormControl">' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
@@ -6165,10 +6165,10 @@ function(req, res) {
             greeting +
             form1 +
             form2 +    
-            // " <p style='background-color: yellow;'>" +
-            //     JSON.stringify(req.body)+
-            //     "<img src='"+user_image+"'></img>"+
-            // "</p>"+
+            " <p style='background-color: yellow;'>" +
+                JSON.stringify(req.body)+
+                "<img src='"+user_image+"'></img>"+
+            "</p>"+
         "</body></html>";
 
         res.status(200).send(html);
