@@ -6127,7 +6127,7 @@ function(req, res) {
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '</div>' +
-'' +
+'<input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a>' +
 '<div class="row" id="errorDiv"></div>' +
 '<div class="FormVertical-group">' +
 '<button type="submit" class="Btn Btn-primary">Create new pol.is account</button>' +
