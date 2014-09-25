@@ -3585,6 +3585,7 @@ function renderLtiLinkageSuccessPage(req, res, o) {
 app.post("/api/v3/auth/new",
     want('anon', getBool, assignToP),
     want('password', getPasswordWithCreatePasswordRules, assignToP),
+    want('password2', getPasswordWithCreatePasswordRules, assignToP),    
     want('email', getOptionalStringLimitLength(999), assignToP),
     want('hname', getOptionalStringLimitLength(999), assignToP),
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
@@ -3596,6 +3597,7 @@ app.post("/api/v3/auth/new",
 function(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
+    var password2 = req.p.password2; // for verification
     var email = req.p.email;
     var oinvite = req.p.oinvite;
     var zinvite = req.p.zinvite;
@@ -3606,7 +3608,7 @@ function(req, res) {
     var lti_context_id = req.p.lti_context_id;
 
 
-
+    if (password2 && (password !== password2)) { fail(res, 400, "Passwords do not match."); return; }
     if (!gatekeeperTosPrivacy) { fail(res, 400, "polis_err_reg_need_tos"); return; }
     if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
     if (!hname) { fail(res, 400, "polis_err_reg_need_name"); return; }
@@ -6120,7 +6122,7 @@ function(req, res) {
 '<label class="FormLabel" for="gatekeeperLoginPassword2">' +
 'Repeat Password' +
 '</label>' +
-'<input type="password" id="password2" name="password" style="width: 100%;" id="gatekeeperLoginPassword2" class="FormControl">' +
+'<input type="password" id="password2" name="password2" style="width: 100%;" id="gatekeeperLoginPassword2" class="FormControl">' +
 '</div>' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
