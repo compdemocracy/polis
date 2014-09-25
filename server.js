@@ -3229,13 +3229,13 @@ function(req, res) {
                             // found a record in lti_users
                             doJoin();
                         } else {
-                            fail(res, 403, "polis_err_post_participants_missing_lti_user_for_uid_1");
+                            userFail(res, 403, "polis_err_post_participants_missing_lti_user_for_uid_1");
                         }
                     }).catch(function(err) {
                         fail(res, 500, "polis_err_post_participants_missing_lti_user_for_uid_2", err);
                     });
                 } else {
-                    fail(res, 403, "polis_err_post_participants_need_uid_to_check_lti_users_3");                
+                    userFail(res, 403, "polis_err_post_participants_need_uid_to_check_lti_users_3");                
                 }
             } else {
                 // no LTI stuff to worry about
@@ -5105,7 +5105,7 @@ function(req, res){
                         // };
 
                         // using links because iframes are pretty crappy within Canvas assignments.
-                        var linkText = "Join Conversation";
+                        var linkText = "pol.is conversation";
                         if (req.p.topic) {
                             linkText += " (" + req.p.topic + ")";
                         }
@@ -6884,6 +6884,7 @@ app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", "text/html"));
 app.get(/^\/blog$/, makeFileFetcher(hostname, port, "/blog.html", "text/html"));
 app.get(/^\/tos$/, makeFileFetcher(hostname, port, "/tos.html", "text/html"));
 app.get(/^\/privacy$/, makeFileFetcher(hostname, port, "/privacy.html", "text/html"));
+app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, port, "/canvas_setup_backup_instructions.html", "text/html"));
 app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", "text/html"));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
 app.get(/^\/about$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
