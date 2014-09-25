@@ -248,6 +248,16 @@ CREATE TABLE lti_context_memberships (
     lti_context_id TEXT
 );
 
+-- the use-case for this table is that there are many conversations, but a single grading callback for the whole course
+-- allowing for duplicates (for now) by using 'created' field
+CREATE TABLE lti_single_assignment_callback_info (
+    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
+    lti_context_id TEXT NOT NULL, -- TODO add constraint to limit length
+    lis_outcome_service_url TEXT, -- TODO add constraint to limit length
+    stringified_json_of_post_content TEXT, -- TODO add constraint to limit length
+    created BIGINT DEFAULT now_as_millis()    
+);
+
 
 
 

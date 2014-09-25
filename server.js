@@ -5983,77 +5983,105 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
     });
 }
 
-// team meetings - schedule with others, smart converence room
-// or redirect tool
-// students already pay an online fee
-// 
-// ADA? 508 compliance
-// accessibility - Teach Act: those who don't have dexterity
-// colors
-// screen readers
-
-// TODO rename to LTI/launch
-// TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
-// TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
-app.post("/api/v3/LTI/setup_assignment",
-    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-    need("user_id", getStringLimitLength(1, 9999), assignToP),    
-    need("context_id", getStringLimitLength(1, 9999), assignToP),    
-    want("roles", getStringLimitLength(1, 9999), assignToP),
-    want("user_image", getStringLimitLength(1, 9999), assignToP),
-// lis_outcome_service_url: send grades here!
-    want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
-    want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
-    want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
-    want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-function(req, res) {
-    var roles = req.p.roles;
-    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    var user_id = req.p.user_id;    
-    var context_id = req.p.context_id;    
-    var user_image = req.p.user_image || "";
-
-    // rich text editor tool embed
-    var ext_content_return_types = req.p.ext_content_return_types;
-    var launch_presentation_return_url = req.p.launch_presentation_return_url;
-
-    // TODO wait to redirect
-    //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
-    if (/iframe/.exec(ext_content_return_types)) {
-        res.redirect(launch_presentation_return_url + "?" + [
-            ["return_type", "iframe"].join("="),
-            ["url", getServerNameWithProtocol(req) + "/2demo"].join("="),
-            ["width", 320].join("="),
-            ["height", 900].join("="),
-            ].join("&"));
-        return;
-    } else if (ext_content_return_types) {
-        fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
-    }
-
-    // TODO SECURITY we need to verify the signature
-    var oauth_consumer_key = req.p.oauth_consumer_key;
-
-    var owner = 125;
-    // if (oauth_consumer_key === 'asdfasdf') {
-    //     uid = 125;
-    // }
-
-    console.log('setup_assignment');
-    console.log(req.body);
-    console.dir(req.body);
-
-// A compromise would be this:
-// Instructors see a custom inbox for the course, and can create conversations there. make it easy to copy and paste links..
-// how do we deal with sections? can't do this.
-// Conversations created here will be under the uid of the account owner... which may be problematic later with school-wide accounts... if we ever offer that
-// 
-// Complication: sections -- are they needed this quarter? maybe better to just do the linkage, and then try to make it easy to post the stuff...
-//  it is possible for teachers to create a duplicate assignment, and have it show for certain sections...
-//     so we can rely on custom_canvas_assignment_id
 
 
-/* 
+
+
+function renderLtiLinkagePage(req, res) {
+    var context_id = req.p.context_id;
+    var user_id = req.p.user_id;
+    var user_image = req.p.user_image;
+
+    var greeting = '';
+        
+
+    // TODO If we're doing this basic form, we can't just return json from the /login call
+
+    var form1 = '' +
+'<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="20px"> pol<span class="Logo--blue">.</span>is account</h2>' +
+'<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;"  class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
+'</div>' +
+'<label class="FormLabel" for="gatekeeperLoginName">Full Name</label>' +
+'<input type="text" id="hname" name="hname" id="gatekeeperLoginName" style="width: 100%;"  class="FormControl" value="'+ (req.p.lis_person_name_full||"") +'">' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginPassword">' +
+'Password' +
+'</label>' +
+'<input type="password" id="password" name="password" style="width: 100%;" id="gatekeeperLoginPassword" class="FormControl">' +
+'<div>' +
+'<label class="FormLabel" for="gatekeeperLoginPassword2">' +
+'Repeat Password' +
+'</label>' +
+'<input type="password" id="password2" name="password2" style="width: 100%;" id="gatekeeperLoginPassword2" class="FormControl">' +
+'</div>' +
+'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
+'</div>' +
+'<input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a>' +
+'<div class="row" id="errorDiv"></div>' +
+'<div class="FormVertical-group">' +
+'<button type="submit" class="Btn Btn-primary">Create new pol.is account</button>' +
+'</div>' +
+'</form></p>';
+
+    var form2 = '' +
+'<p> - OR - </p>' +
+'<h2>sign in with an existing pol.is account</h2>' +
+'<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
+'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;" class="FormControl">' +
+'</div>' +
+'<div class="FormVertical-group">' +
+'<label class="FormLabel" for="gatekeeperLoginPassword">' +
+'Password' +
+'</label>' +
+'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" style="width: 100%;" class="FormControl">' +
+'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
+'<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
+'</div>' +
+'' +
+'<div class="row" id="errorDiv"></div>' +
+'<div class="FormVertical-group">' +
+'<button type="submit" class="Btn Btn-primary">Sign In</button>' +
+'</div>' +
+'</form></p>';
+
+        
+        res.set({
+            'Content-Type': 'text/html',
+        });
+        // var customPart = isInstructor ? "you are the instructor" : "you are a Student";
+
+        var html = "" +
+        "<!DOCTYPE html><html lang='en'>"+
+        "<body style='max-width:320px'>"+ 
+            greeting +
+            form1 +
+            form2 +    
+            " <p style='background-color: yellow;'>" +
+                JSON.stringify(req.body)+
+                "<img src='"+req.p.user_image+"'></img>"+
+            "</p>"+
+        "</body></html>";
+
+        res.status(200).send(html);
+}
+
+
+        // team meetings - schedule with others, smart converence room
+        // or redirect tool
+        // students already pay an online fee
+
+        // ADA? 508 compliance
+        // accessibility - Teach Act: those who don't have dexterity
+        // colors
+        // screen readers
+        /* 
 2014-09-21T23:16:15.351247+00:00 app[web.1]: course_setup
 2014-09-21T23:16:15.188414+00:00 app[web.1]: { oauth_consumer_key: 'asdfasdf',
 2014-09-21T23:16:15.188418+00:00 app[web.1]:   oauth_signature_method: 'HMAC-SHA1',
@@ -6085,104 +6113,93 @@ function(req, res) {
 2014-09-21T23:16:15.188459+00:00 app[web.1]:   user_image: 'https://secure.gravatar.com/avatar/256caee7b9886c54155ef0d316dffabc?s=50&d=https%3A%2F%2Fcanvas.instructure.com%2Fimages%2Fmessages%2Favatar-50.png',
 2014-09-21T23:16:15.188461+00:00 app[web.1]:   oauth_signature: 'jJ3TbKvalDUYvELXNvnzOfdCwGo=' }
 */
+// A compromise would be this:
+// Instructors see a custom inbox for the course, and can create conversations there. make it easy to copy and paste links..
+// how do we deal with sections? can't do this.
+// Conversations created here will be under the uid of the account owner... which may be problematic later with school-wide accounts... if we ever offer that
+// 
+// Complication: sections -- are they needed this quarter? maybe better to just do the linkage, and then try to make it easy to post the stuff...
+//  it is possible for teachers to create a duplicate assignment, and have it show for certain sections...
+//     so we can rely on custom_canvas_assignment_id
 
-    pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
+// TODO rename to LTI/launch
+// TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
+// TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
+app.post("/api/v3/LTI/setup_assignment",
+    authOptional(assignToP),
+    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+    need("user_id", getStringLimitLength(1, 9999), assignToP),    
+    need("context_id", getStringLimitLength(1, 9999), assignToP),    
+    want("roles", getStringLimitLength(1, 9999), assignToP),
+    want("user_image", getStringLimitLength(1, 9999), assignToP),
+    want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
+    want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
+    want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
+    want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
+    want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+function(req, res) {
+    var roles = req.p.roles;
+    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    var user_id = req.p.user_id;    
+    var context_id = req.p.context_id;    
+    var user_image = req.p.user_image || "";
 
-        var greeting = "";
-        var form1 = "";
-        var form2 = "";        
-        if (rows && rows.length) {
-            var user = rows[0];
-            greeting = "<h1>Welcome "+ user.hname +" (with uid " + user.uid + ")</h1>";
-            renderLtiLinkageSuccessPage(req, res, {
-                context_id: context_id,
-                user_image: user.user_image,
-                email: user.email,
+    // TODO SECURITY we need to verify the signature
+    var oauth_consumer_key = req.p.oauth_consumer_key;
+
+    var dataSavedPromise = pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);", [
+        user_id,
+        context_id,
+        req.p.lis_outcome_service_url || "",
+        JSON.stringify(req.p),
+    ]);
+
+    Promise.all([
+        dataSavedPromise,
+    ]).then(function() {
+        // check if signed in (NOTE that if they're in the Canvas mobile app, the cookies may be shared with the browser on the device)
+        if (req.p.uid) {
+
+            // Check if linked to this uid.
+            pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
+
+                var linkedToThisUid = (rows && rows.length);
+                if (linkedToThisUid) {
+                    var userForLtiUserId = rows[0];
+                    // if (teacher pays) {
+                    //     // you're good!
+                    // } else {
+                    //     if (you paid) {
+                            renderLtiLinkageSuccessPage(req, res, {
+                                context_id: context_id,
+                                // user_image: userForLtiUserId.user_image,                                
+                                email: userForLtiUserId.email,
+                            });
+                        // } else { // you (student) have not yet paid
+                        //     // gotta pay
+                        // }
+                    // }
+                } else {
+                    // you are signed in, but not linked to the signed in user
+                    // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
+                    clearCookies(req, res);
+
+                    // Have them sign in again, since they weren't linked.
+                    // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
+                    renderLtiLinkagePage(req, res);
+                }
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_launching_lti_finding_user", err);
             });
+        } else { // no uid (no cookies)
+            // Have them sign in to set up the linkage
+            renderLtiLinkagePage(req, res);
         }
-        greeting = '';
-            
-
-        // TODO If we're doing this basic form, we can't just return json from the /login call
-
-        form1 = '' +
-'<h2>create a new <img src="https://pol.is/polis-favicon_favicon.png" height="20px"> pol<span class="Logo--blue">.</span>is account</h2>' +
-'<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/new" method="POST">' +
-'<div class="FormVertical-group">' +
-'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;"  class="FormControl" value="'+ (req.p.lis_person_contact_email_primary||"") +'">' +
-'</div>' +
-'<label class="FormLabel" for="gatekeeperLoginName">Full Name</label>' +
-'<input type="text" id="hname" name="hname" id="gatekeeperLoginName" style="width: 100%;"  class="FormControl" value="'+ (req.p.lis_person_name_full||"") +'">' +
-'<div class="FormVertical-group">' +
-'<label class="FormLabel" for="gatekeeperLoginPassword">' +
-'Password' +
-'</label>' +
-'<input type="password" id="password" name="password" style="width: 100%;" id="gatekeeperLoginPassword" class="FormControl">' +
-'<div>' +
-'<label class="FormLabel" for="gatekeeperLoginPassword2">' +
-'Repeat Password' +
-'</label>' +
-'<input type="password" id="password2" name="password2" style="width: 100%;" id="gatekeeperLoginPassword2" class="FormControl">' +
-'</div>' +
-'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
-'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
-'</div>' +
-'<input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a>' +
-'<div class="row" id="errorDiv"></div>' +
-'<div class="FormVertical-group">' +
-'<button type="submit" class="Btn Btn-primary">Create new pol.is account</button>' +
-'</div>' +
-'</form></p>';
-
-        form2 = '' +
-'<p> - OR - </p>' +
-'<h2>sign in with an existing pol.is account</h2>' +
-'<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/login" method="POST">' +
-'<div class="FormVertical-group">' +
-'<label class="FormLabel" for="gatekeeperLoginEmail">Email</label>' +
-'<input type="text" id="email" name="email" id="gatekeeperLoginEmail" style="width: 100%;" class="FormControl">' +
-'</div>' +
-'<div class="FormVertical-group">' +
-'<label class="FormLabel" for="gatekeeperLoginPassword">' +
-'Password' +
-'</label>' +
-'<input type="password" id="password" name="password" id="gatekeeperLoginPassword" style="width: 100%;" class="FormControl">' +
-'<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
-'<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
-'<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
-'</div>' +
-'' +
-'<div class="row" id="errorDiv"></div>' +
-'<div class="FormVertical-group">' +
-'<button type="submit" class="Btn Btn-primary">Sign In</button>' +
-'</div>' +
-'</form></p>';
-
-        
-        res.set({
-            'Content-Type': 'text/html',
-        });
-        var customPart = isInstructor ? "you are the instructor" : "you are a Student";
-
-        var html = "" +
-        "<!DOCTYPE html><html lang='en'>"+
-        "<body style='max-width:320px'>"+ 
-            greeting +
-            form1 +
-            form2 +    
-            " <p style='background-color: yellow;'>" +
-                JSON.stringify(req.body)+
-                "<img src='"+user_image+"'></img>"+
-            "</p>"+
-        "</body></html>";
-
-        res.status(200).send(html);
-
     }).catch(function(err) {
-        fail(res, 500, "polis_err_launching_lti", err);
+        fail(res, 500, "polis_err_launching_lti_save", err);
     });
-});
+}); // end /api/v3/LTI/setup_assignment
+
 
 app.post("/api/v3/LTI/conversation_assignment",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
