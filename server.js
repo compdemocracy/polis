@@ -3582,15 +3582,17 @@ function renderLtiLinkageSuccessPage(req, res, o) {
     res.set({
         'Content-Type': 'text/html',
     });
-    var greeting = "You are signed in as polis user " + o.email;
     var html = "" +
     "<!DOCTYPE html><html lang='en'>"+
-    "<body>"+ 
-        greeting +
-            "<p><a href='https://pol.is/user/logout'>Change pol.is users</a></p>" +
-            "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
-            "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
-            "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
+    '<head>' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
+    '</head>' +
+    "<body style='max-width:320px'>"+ 
+            "<p>You are signed in as polis user " + o.email + "</p>" +
+            // "<p><a href='https://pol.is/user/logout'>Change pol.is users</a></p>" +
+            // "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
+            // "<p><a href='https://preprod.pol.is/2demo' target='_blank'>2demo</a></p>" +
+            // "<p><a href='https://preprod.pol.is/conversation/create/context="+ o.context_id +"'>create</a></p>" +
 
             // form for sign out
             '<p><form role="form" class="FormVertical" action="'+getServerNameWithProtocol(req)+'/api/v3/auth/deregister" method="POST">' +
@@ -6087,6 +6089,9 @@ function renderLtiLinkagePage(req, res) {
 
         var html = "" +
         "<!DOCTYPE html><html lang='en'>"+
+        '<head>' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
+        '</head>' +
         "<body style='max-width:320px; font-family: Futura, Helvetica, sans-serif;'>"+ 
             greeting +
             form1 +
