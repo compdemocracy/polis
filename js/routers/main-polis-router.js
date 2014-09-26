@@ -411,7 +411,10 @@ var polisRouter = Backbone.Router.extend({
   },
   inbox: function(encodedStringifiedJson){
     var promise = $.Deferred().resolve();
-    if (!authenticated()) {
+
+    if (Utils.decodeParams(encodedStringifiedJson).xPolisLti) {
+      // nice! you've got an auth token in the params. move along
+    } else if (!authenticated()) {
       promise = this.doLogin(false);
     } else if (!hasEmail()) {
       promise = this.doLogin(true);
