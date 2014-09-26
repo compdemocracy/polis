@@ -5582,15 +5582,18 @@ function getConversations(req, res) {
     var participantIn = results && results.rows && _.pluck(results.rows, "zid") || null;
 
     var query = sql_conversations.select(sql_conversations.star());
-    var orClauses = sql_conversations.owner.equals(uid);
+
+    var orClauses;
+    if (!_.isUndefined(req.p.context)) {
+        // knowing a context grants access to those conversations (for now at least)
+        orClauses = sql_conversations.context.equals(req.p.context);
+    } else {
+        orClauses = sql_conversations.owner.equals(uid);
+    }
 
     // TODO_PERF Check include_all_conversations_i_am_in before making the above DB query.
     if (include_all_conversations_i_am_in && participantIn.length) {
         orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
-    }
-    // knowing a context grants access to those conversations (for now at least)
-    if (!_.isUndefined(req.p.context)) {
-        orClauses = orClauses.or(sql_conversations.context.equals(req.p.context));
     }
 
     query = query.where(orClauses);
