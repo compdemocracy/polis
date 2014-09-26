@@ -6393,7 +6393,7 @@ function(req, res) {
 }); // end /api/v3/LTI/canvas_nav
 
 
-function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZeroToOne) {
+function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZeroToOne, consumerKey, consumerSecret) {
     return new Promise(function(resolve, reject) {
         var replaceResultRequestBody = '' +
         '<?xml version="1.0" encoding="UTF-8"?>' +
@@ -6408,11 +6408,11 @@ function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZero
                 '<replaceResultRequest>' +
                     '<resultRecord>' +
                     '<sourcedGUID>' +
-                        '<sourcedId>'+ lis_result_sourcedid +'</sourcedId>' +
+                        '<sourcedId>0.7</sourcedId>' +
                     '</sourcedGUID>' +
                     '<result>' +
                     '<resultScore>' +
-                        '<language>en</language>' +
+                        '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
                         '<textString>'+gradeFromZeroToOne+'</textString>' +
                     '</resultScore>' +
                     '</result>' +
@@ -6420,6 +6420,9 @@ function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZero
                 '</replaceResultRequest>' +
             '</imsx_POXBody>' +
         '</imsx_POXEnvelopeRequest>';
+
+        // sign with consumer key and consumer secret...
+
 
         request.post(lis_outcome_service_url, {
             body: replaceResultRequestBody,
@@ -6458,9 +6461,11 @@ function(req, res) {
 
     // console.dir(req.body);
 
+    console.log("grades req.body " + JSON.stringify(req.body));
     console.log("grades req.p " + JSON.stringify(req.p));
 
-    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9).then(function(response, body) {
+    var consumerSecret = "demo_consumer_secret_123";
+    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, req.p.oauth_consumer_key, consumerSecret).then(function(response, body) {
         console.log("grade_send_ok");
         console.dir(response);
         console.dir(body);
