@@ -3778,6 +3778,14 @@ function updatePlan(req, res, uid, planCode, isCurrentUser) {
     });
 }
 
+
+// Just for testing that the new custom stripe form is submitting properly
+app.post("/post-payment-form", function(req, res) {
+  console.log("XXX - Got the params!");
+  console.log("XXX - Got the params!" + res);
+});
+
+
 app.post("/api/v3/charge",
     auth(assignToP),
     want('stripeToken', getOptionalStringLimitLength(999), assignToP),
