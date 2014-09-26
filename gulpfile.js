@@ -679,7 +679,8 @@ function deploy(params) {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
-          'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
+          'Cache-Control': 'no-cache',
+          // 'Cache-Control': 'no-transform,public,max-age=0,s-maxage=300', // NOTE: s-maxage is small for now, we could bump this up later once confident in cloudflare's cache purge workflow
         },
         makeUploadPath: makeUploadPathHtml,
       }));
