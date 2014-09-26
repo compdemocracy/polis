@@ -35,14 +35,20 @@ var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var FooterPartial = require("./tmpl/footer")
 
 
+var encodedParams = window.location.pathname.match(/[^\/]*$/)[0];
+
 (function() {
   // auth token. keep this in this closure, don't put it on a global. used for cases where cookies are disabled.
   var token;
 
+var p = window.location.pathname;
   // check for token within URL
-  if (window.location.pathname.match(/^\/inbox\//)) {
+  if (p.match(/^\/inbox\//) ||
+      p.match(/^\/settings\//) ||
+      p.match(/^\/conversation\/create\//)
+    ) {
     // expecting params (added to support LTI)
-    var encodedParams = window.location.pathname.match(/[^\/]*$/)[0]; // get the end
+    encodedParams = window.location.pathname.match(/[^\/]*$/)[0]; // get the end
     var params = Utils.decodeParams(encodedParams);
     if (params.xPolisLti) {
       token = params.xPolisLti;
@@ -150,6 +156,19 @@ Handlebars.registerHelper('logo_href', function(arg0, options) {
   // return shouldSeeInbox ? "/inbox" : "/about";
   return "/about";
 });
+
+Handlebars.registerHelper('settings_href', function(arg0, options) {
+  return "/settings" + (encodedParams ? ("/" + encodedParams) : "");
+});
+
+Handlebars.registerHelper('createConversationHref', function(arg0, options) {
+  return "/conversation/create" + (encodedParams ? ("/" + encodedParams) : "");
+});
+
+Handlebars.registerHelper('inboxHref', function(arg0, options) {
+  return "/inbox" + (encodedParams ? ("/" + encodedParams) : "");
+});
+
 
 
 Handlebars.registerHelper("trialDaysRemaining", function(arg0, options) {

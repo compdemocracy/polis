@@ -38,6 +38,8 @@ var gaEvent = require("../util/gaMetric").gaEvent;
 
 
 
+var encodedParams = window.location.pathname.match(/[^\/]*$/)[0];
+
 var routeEvent = metric.routeEvent;
 
 var authenticatedDfd = $.Deferred();
@@ -228,12 +230,12 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
 var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
-    this.r("conversation/create(/context=:context/launch_presentation_return_url_hex=:launch_presentation_return_url_hex)", "createConversation");
+    this.r("conversation/create(/:encodedStringifiedJson)", "createConversation");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("user/logout", "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
-    this.r("settings", "settings");
+    this.r("settings(/:encodedStringifiedJson)", "settings");
     this.r("inbox", "inbox");
     this.r("inbox/:encodedStringifiedJson", "inboxLti");
     
@@ -381,7 +383,7 @@ var polisRouter = Backbone.Router.extend({
       this.navigate("inbox", {trigger: true});
     }
   },
-  settings: function() {
+  settings: function(encodedStringifiedJson) {
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
@@ -574,7 +576,7 @@ var polisRouter = Backbone.Router.extend({
     var homepage = new HomepageView();
     RootView.getInstance().setView(homepage);
   },
-  createConversation: function(context, launch_presentation_return_url_hex){
+  createConversation: function(encodedStringifiedJson){
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
@@ -593,11 +595,11 @@ var polisRouter = Backbone.Router.extend({
         is_draft: true,
         is_active: true // TODO think
       };
-      if (!_.isUndefined(context)) {
-        o.context =context;
-      }
-      if (!_.isUndefined(launch_presentation_return_url_hex)) {
-        o.launch_presentation_return_url_hex = launch_presentation_return_url_hex;
+
+      var paramsFromPath = Utils.decodeParams(encodedStringifiedJson);
+
+      if (!_.isUndefined(paramsFromPath.context)) {
+        o.context = paramsFromPath.context;
       }
       var model = new ConversationModel(o);
 
@@ -819,7 +821,7 @@ var polisRouter = Backbone.Router.extend({
     return dfd.promise();
   },
   redirect: function(path) {
-    document.location = document.location.protocol + "//" + document.location.host + path;
+    document.location = document.location.protocol + "//" + document.location.host + path + (encodedParams ? ("/"+encodedParams): "");
   },
   createUser: function(){
     var that = this;
