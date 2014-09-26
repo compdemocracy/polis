@@ -6589,7 +6589,11 @@ function(req, res) {
     // TODO wait to redirect
     //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
     if (/iframe/.exec(ext_content_return_types)) {
-        res.redirect(getServerNameWithProtocol(req) + "/conversation/create/context=" + context_id + "/launch_presentation_return_url_hex=" + strToHex(launch_presentation_return_url));
+        var path = encodeParams({
+            context: context_id,
+            launch_presentation_return_url_hex: strToHex(launch_presentation_return_url),
+        });
+        res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + path);
         return;
     } else if (ext_content_return_types) {
         fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
