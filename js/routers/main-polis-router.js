@@ -311,7 +311,7 @@ var polisRouter = Backbone.Router.extend({
     if (!authenticated()) {
       window.planId = plan_id;
       promise = this.doLogin(false);
-    } else if (!hasEmail()) {
+    } else if (!hasEmail() && !window.authenticatedByHeader) {
       window.planId = plan_id;
       promise = this.doLogin(true);
     } else {
@@ -385,7 +385,7 @@ var polisRouter = Backbone.Router.extend({
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
-    } else if (!hasEmail()) {
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
     promise.then(function() {
@@ -417,7 +417,7 @@ var polisRouter = Backbone.Router.extend({
 
     if (!authenticated()) {
       promise = this.doLogin(false);
-    } else if (!hasEmail()) {
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
     promise.then(function() {
@@ -504,7 +504,7 @@ var polisRouter = Backbone.Router.extend({
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
-    } else if (!hasEmail()) {
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
     promise.then(function() {
@@ -527,7 +527,7 @@ var polisRouter = Backbone.Router.extend({
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
-    } else if (!hasEmail()) {
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
     promise.then(function() {
@@ -578,7 +578,7 @@ var polisRouter = Backbone.Router.extend({
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
-    } else if (!hasEmail()) {
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
     var that = this;
