@@ -241,7 +241,7 @@ CREATE TABLE lti_users (
     lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
     tool_consumer_instance_guid TEXT NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (uid, lti_user_id, tool_consumer_instance_guid)
+    UNIQUE (lti_user_id, tool_consumer_instance_guid)
 );
 
 CREATE TABLE lti_context_memberships (
