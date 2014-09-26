@@ -262,6 +262,7 @@ var polisRouter = Backbone.Router.extend({
       /^settings/,
       /^summaryView/,
       /^inbox(\/.*)?$/,
+      /^inboxLti/,      
       /^inboxApiTest$/,
       /^moderationView/,
       /^pwResetInit/,

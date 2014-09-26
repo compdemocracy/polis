@@ -41,13 +41,15 @@ var FooterPartial = require("./tmpl/footer")
 
   // check for token within URL
   if (window.location.pathname.match(/^\/inbox\//)) {
-    debugger;
     // expecting params (added to support LTI)
     var encodedParams = window.location.pathname.match(/[^\/]*$/)[0]; // get the end
     var params = Utils.decodeParams(encodedParams);
     if (params.xPolisLti) {
       token = params.xPolisLti;
       window.authenticatedByHeader = true;
+    }
+    if (params.context) {
+      window.context = context;
     }
   }
 
