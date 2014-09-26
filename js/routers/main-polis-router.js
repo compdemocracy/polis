@@ -47,7 +47,7 @@ authenticatedDfd.done(function() {
   ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
 });
 
-function authenticated() { return PolisStorage.uid() || PolisStorage.uidFromCookie(); }
+function authenticated() { return PolisStorage.uid() || PolisStorage.uidFromCookie() || window.authenticatedByHeader;}
 function hasEmail() { return PolisStorage.hasEmail(); }
 
 // TODO refactor this terrible recursive monster function.
@@ -234,7 +234,9 @@ var polisRouter = Backbone.Router.extend({
     this.r("user/logout", "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r("settings", "settings");
-    this.r("inbox(/:encodedStringifiedJson)", "inbox");
+    this.r("inbox", "inbox");
+    this.r("inbox/:encodedStringifiedJson", "inboxLti");
+    
     this.r("inboxApiTest(/:filter)", "inboxApiTest");
     this.r("faq", "faq");
     this.r("pwresetinit", "pwResetInit");
@@ -412,12 +414,53 @@ var polisRouter = Backbone.Router.extend({
   inbox: function(encodedStringifiedJson){
     var promise = $.Deferred().resolve();
 
-    if (Utils.decodeParams(encodedStringifiedJson).xPolisLti) {
-      // nice! you've got an auth token in the params. move along
-    } else if (!authenticated()) {
+    if (!authenticated()) {
       promise = this.doLogin(false);
     } else if (!hasEmail()) {
       promise = this.doLogin(true);
+    }
+    promise.then(function() {
+      // TODO add to inboxview init
+      // conversationsCollection.fetch({
+      //     data: $.param({
+      //         is_active: false,
+      //         is_draft: false,
+      //     }),
+      //     processData: true,
+      // });
+      var filterAttrs = {};
+      if (encodedStringifiedJson) {
+        console.log(encodedStringifiedJson);
+        // // check for context
+        // if (filter.match(/context=([^=?]+)/).length > 1) {
+        //   filterAttrs.context = filter.match(/context=([^=?]+)/)[1];
+        // }
+        var o = Utils.decodeParams(encodedStringifiedJson);
+        console.dir(o);
+        filterAttrs = $.extend(filterAttrs, o);
+      } else {
+
+        // Default inbox behavior
+        
+        // Not just the ones I started.
+        filterAttrs.include_all_conversations_i_am_in = true;
+      }
+
+      var conversationsCollection = new ConversationsCollection();
+      // Let the InboxView filter the conversationsCollection.
+      var inboxView = new InboxView({
+        collection: conversationsCollection,
+        filters: filterAttrs
+      });
+      RootView.getInstance().setView(inboxView);
+    });
+  },
+
+  inboxLti: function(encodedStringifiedJson){
+    var promise = $.Deferred().resolve();
+
+    if (!authenticated()) {
+      promise = this.doLogin(false);
     }
     promise.then(function() {
       // TODO add to inboxview init

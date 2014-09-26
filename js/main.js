@@ -47,6 +47,7 @@ var FooterPartial = require("./tmpl/footer")
     var params = Utils.decodeParams(encodedParams);
     if (params.xPolisLti) {
       token = params.xPolisLti;
+      window.authenticatedByHeader = true;
     }
   }
 
