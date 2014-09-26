@@ -6401,12 +6401,15 @@ app.post("/api/v3/LTI/conversation_assignment",
     want("user_image", getStringLimitLength(1, 9999), assignToP),
     // per assignment stuff
     want("custom_canvas_assignment_id", getInt, assignToP),
+    want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
 function(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     var user_id = req.p.user_id;    
     var context_id = req.p.context_id;    
     var user_image = req.p.user_image || "";
+
+    console.dir(req.body);
 
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
