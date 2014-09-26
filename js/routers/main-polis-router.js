@@ -56,6 +56,12 @@ for(j = 0; j<hexes.length; j++) {
 return str;
 }
 
+function decodeParams(encodedStringifiedJson) {
+    var stringifiedJson = hexToStr(encodedStringifiedJson);
+    var o = JSON.parse(stringifiedJson);
+    return o;
+}
+
 
 var routeEvent = metric.routeEvent;
 
@@ -253,7 +259,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("user/logout", "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r("settings", "settings");
-    this.r("inbox(/:filter)", "inbox");
+    this.r("inbox(/:encodedStringifiedJson)", "inbox");
     this.r("inboxApiTest(/:filter)", "inboxApiTest");
     this.r("faq", "faq");
     this.r("pwresetinit", "pwResetInit");
@@ -278,7 +284,7 @@ var polisRouter = Backbone.Router.extend({
       /^faq/,
       /^settings/,
       /^summaryView/,
-      /^inbox$/,
+      /^inbox(\/.*)?$/,
       /^inboxApiTest$/,
       /^moderationView/,
       /^pwResetInit/,
@@ -428,7 +434,7 @@ var polisRouter = Backbone.Router.extend({
       console.error("error2 loading conversation model");
     });
   },
-  inbox: function(filter){
+  inbox: function(encodedStringifiedJson){
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
       promise = this.doLogin(false);
@@ -445,15 +451,22 @@ var polisRouter = Backbone.Router.extend({
       //     processData: true,
       // });
       var filterAttrs = {};
-      if (filter) {
-        // check for context
-        if (filter.match(/context=([^=?]+)/).length > 1) {
-          filterAttrs.context = filter.match(/context=([^=?]+)/)[1];
-        }
-      }
+      if (encodedStringifiedJson) {
+        console.log(encodedStringifiedJson);
+        // // check for context
+        // if (filter.match(/context=([^=?]+)/).length > 1) {
+        //   filterAttrs.context = filter.match(/context=([^=?]+)/)[1];
+        // }
+        var o = decodeParams(encodedStringifiedJson);
+        console.dir(o);
+        filterAttrs = $.extend(filterAttrs, o);
+      } else {
 
-      // Not just the ones I started.
-      filterAttrs.include_all_conversations_i_am_in = true;
+        // Default inbox behavior
+        
+        // Not just the ones I started.
+        filterAttrs.include_all_conversations_i_am_in = true;
+      }
 
       var conversationsCollection = new ConversationsCollection();
       // Let the InboxView filter the conversationsCollection.
