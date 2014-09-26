@@ -6331,6 +6331,7 @@ function(req, res) {
     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
     // }
 
+    console.dir(req.p);
 
     // // TODO SECURITY we need to verify the signature
     // var oauth_consumer_key = req.p.oauth_consumer_key;
@@ -6345,13 +6346,15 @@ function(req, res) {
                 userForLtiUserId = row;
             }
         });
+        console.log('got user for lti_user_id');
+        console.dir(userForLtiUserId);
         if (userForLtiUserId) {
             // if (teacher pays) {
             //     // you're good!
             // } else {
             //     if (you paid) {
 
-                
+
                     // renderLtiLinkageSuccessPage(req, res, {
                     //     context_id: context_id,
                     //     // user_image: userForLtiUserId.user_image,                                
