@@ -3407,6 +3407,14 @@ function createDummyUser() {
         });
     });
 }
+function createLtiUser(email) {
+    return pgQueryP("INSERT INTO users (email) VALUES ($1) RETURNING uid;",[email]).then(function(rows) {
+        if (!rows || !rows.length) {
+            throw new Error("polis_err_create_lti_user");
+        }
+        return rows[0].uid;
+    });
+}
 
 app.post("/api/v3/joinWithInvite",
     authOptional(assignToP),
@@ -6301,7 +6309,6 @@ function(req, res) {
 
 
 app.post("/api/v3/LTI/canvas_nav",
-    authOptional(assignToP),
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
@@ -6333,63 +6340,45 @@ function(req, res) {
     // // TODO SECURITY we need to verify the signature
     // var oauth_consumer_key = req.p.oauth_consumer_key;
 
-    // var dataSavedPromise = pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, stringified_json_of_post_content) values ($1, $2, $3, $4);", [
-    //     user_id,
-    //     context_id,
-    //     req.p.lis_outcome_service_url || "",
-    //     JSON.stringify(req.p),
-    // ]);
+    // Check if linked to this uid.
+    pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
 
-    // Promise.all([
-    //     dataSavedPromise,
-    // ]).then(function() {
-    //     // check if signed in (NOTE that if they're in the Canvas mobile app, the cookies may be shared with the browser on the device)
-    //     if (req.p.uid) {
+        // find the correct one - note: this loop may be useful in warning when people have multiple linkages
+        var userForLtiUserId = null;
+        (rows||[]).forEach(function(row) {
+            if (row.uid === req.p.uid) {
+                userForLtiUserId = row;
+            }
+        });
+        if (userForLtiUserId) {
+            // if (teacher pays) {
+            //     // you're good!
+            // } else {
+            //     if (you paid) {
+                    renderLtiLinkageSuccessPage(req, res, {
+                        context_id: context_id,
+                        // user_image: userForLtiUserId.user_image,                                
+                        email: userForLtiUserId.email,
+                    });
+                // } else { // you (student) have not yet paid
+                //     // gotta pay
+                // }
+            // }
+        } else {
+            // not linked yet. send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
 
-    //         // Check if linked to this uid.
-    //         pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
+            // you are signed in, but not linked to the signed in user
+            // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
+            clearCookies(req, res);
+            console.log('lti_linkage didnt exist');
+            // Have them sign in again, since they weren't linked.
+            // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
+            renderLtiLinkagePage(req, res);
+        }
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_launching_lti_finding_user", err);
+    });
 
-    //             // find the correct one - note: this loop may be useful in warning when people have multiple linkages
-    //             var userForLtiUserId = null;
-    //             (rows||[]).forEach(function(row) {
-    //                 if (row.uid === req.p.uid) {
-    //                     userForLtiUserId = row;
-    //                 }
-    //             });
-    //             if (userForLtiUserId) {
-    //                 // if (teacher pays) {
-    //                 //     // you're good!
-    //                 // } else {
-    //                 //     if (you paid) {
-    //                         renderLtiLinkageSuccessPage(req, res, {
-    //                             context_id: context_id,
-    //                             // user_image: userForLtiUserId.user_image,                                
-    //                             email: userForLtiUserId.email,
-    //                         });
-    //                     // } else { // you (student) have not yet paid
-    //                     //     // gotta pay
-    //                     // }
-    //                 // }
-    //             } else {
-    //                 // you are signed in, but not linked to the signed in user
-    //                 // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
-    //                 clearCookies(req, res);
-    //                 console.log('lti_linkage didnt exist');
-    //                 // Have them sign in again, since they weren't linked.
-    //                 // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
-    //                 renderLtiLinkagePage(req, res);
-    //             }
-    //         }).catch(function(err) {
-    //             fail(res, 500, "polis_err_launching_lti_finding_user", err);
-    //         });
-    //     } else { // no uid (no cookies)
-    //         // Have them sign in to set up the linkage
-    //         console.log('lti_linkage - no uid');            
-    //         renderLtiLinkagePage(req, res);
-    //     }
-    // }).catch(function(err) {
-    //     fail(res, 500, "polis_err_launching_lti_save", err);
-    // });
 }); // end /api/v3/LTI/canvas_nav
 
 
