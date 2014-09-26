@@ -23,6 +23,7 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
 var badwords = require('badwords/object'),
     dgram = require('dgram'),
+    hmacsign = require('oauth-sign').hmacsign,
     http = require('http'),
     httpProxy = require('http-proxy'),
     https = require('https'),
@@ -6393,7 +6394,7 @@ function(req, res) {
 }); // end /api/v3/LTI/canvas_nav
 
 
-function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZeroToOne, consumerKey, consumerSecret) {
+function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZeroToOne, headers) {
     return new Promise(function(resolve, reject) {
         var replaceResultRequestBody = '' +
         '<?xml version="1.0" encoding="UTF-8"?>' +
@@ -6421,14 +6422,11 @@ function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZero
             '</imsx_POXBody>' +
         '</imsx_POXEnvelopeRequest>';
 
-        // sign with consumer key and consumer secret...
-
+       
 
         request.post(lis_outcome_service_url, {
             body: replaceResultRequestBody,
-            headers: {
-                'content-type': 'text/xml',
-            },
+            headers: headers,
         }, function (err, response, body) {
             if (err) {
                 reject(err, response, body);
@@ -6442,7 +6440,15 @@ function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZero
 }
 
 app.post("/api/v3/LTI/conversation_assignment",
-    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+    need("oauth_signature_method", getStringLimitLength(1, 9999), assignToP), // probably "HMAC-SHA-1"
+    need("oauth_nonce", getStringLimitLength(1, 9999), assignToP), //rK81yoLBZhxVeaQHOUQQV8Ug5AObZtWv4R0ezQN20
+    need("oauth_version", getStringLimitLength(1, 9999), assignToP), //'1.0'    
+    need("oauth_timestamp", getStringLimitLength(1, 9999), assignToP), //?      
+    need("oauth_callback", getStringLimitLength(1, 9999), assignToP), // about:blank      
+
+
+    
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
     want("roles", getStringLimitLength(1, 9999), assignToP),
@@ -6464,8 +6470,28 @@ function(req, res) {
     console.log("grades req.body " + JSON.stringify(req.body));
     console.log("grades req.p " + JSON.stringify(req.p));
 
-    var consumerSecret = "demo_consumer_secret_123";
-    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, req.p.oauth_consumer_key, consumerSecret).then(function(response, body) {
+    var consumerSecret = "demo_consumer_secret_123"; // TODO lookup in db
+
+ // sign with consumer key and consumer secret...
+
+        var token_secret = ""; // not using?
+
+        var headers = {
+            oauth_callback: req.p.oauth_callback,
+            oauth_consumer_key: req.p.oauth_consumer_key,
+            oauth_nonce: req.p.oauth_nonce,
+            oauth_signature_method: req.p.oauth_signature_method,
+            oauth_timestamp: req.p.oauth_timestamp, // or generate one?
+            oauth_version: req.p.oauth_version,
+            "content-type":'text/xml',
+        };
+        var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
+        headers.oauth_signature = signature;
+        console.log("oauth_signature: " + signature);
+
+
+
+    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, headers).then(function(response, body) {
         console.log("grade_send_ok");
         console.dir(response);
         console.dir(body);
