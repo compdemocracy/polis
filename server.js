@@ -468,6 +468,33 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
     });
 }
 
+function createPolisLtiToken(tool_consumer_instance_guid, lti_user_id) {
+    return ["xPolisLtiToken", tool_consumer_instance_guid, lti_user_id].join(":::");
+}
+function isPolisLtiToken(token) {
+    return token.match(/^xPolisLtiToken/);
+}
+function parsePolisLtiToken(token) {
+    var parts = token.split(/:::/);
+    var o = {
+        // parts[0] === "xPolisLtiToken", don't need that
+        tool_consumer_instance_guid: parts[1],
+        lti_user_id: parts[2],
+    };
+    return o;
+}
+
+
+function getUserInfoForPolisLtiToken(token) {
+    var o = parsePolisLtiToken(token);
+    return pgQueryP("select uid from lti_users where tool_consumer_instance_guid = $1 and lti_user_id = $2", [
+        o.tool_consumer_instance_guid,
+        o.lti_user_id,
+    ]).then(function(rows) {
+        return rows[0].uid;
+    });
+}
+
 function startSession(userID, cb) {
     // NOTE: If you want to set this to true, be sure to make the cookies expire slightly before the token in redis.
     var SHOULD_EXPIRE_SESSION_TOKENS = false;
@@ -703,18 +730,34 @@ function doHeaderAuth(assigner, isOptional, req, res, next) {
     });
 }
 
+function doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next) {
+    var token = req.headers["x-polis"];
+    
+    getUserInfoForPolisLtiToken(token).then(function(uid) {
+        assigner(req, "uid", Number(uid));
+        next();
+    }).catch(function(err) {
+        res.status(403);
+        next("polis_err_auth_no_such_token");
+        return;
+    });
+}
 
 function auth(assigner, isOptional) {
     return function(req, res, next) {
         //var token = req.body.token;
         var token = req.cookies[COOKIES.TOKEN];
-        if (token) {
+        var xPolisToken = req.headers["x-polis"];
+
+        if (xPolisToken && isPolisLtiToken(xPolisToken)) {
+            doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
+        } else if (xPolisToken) {
+            doHeaderAuth(assigner, isOptional, req, res, next);
+        } else if (token) {
             doCookieAuth(assigner, isOptional, req, res, next);
         } else if (req.headers.authorization) {
             doApiKeyBasicAuth(assigner, isOptional, req, res, next);
-        } else if (req.headers["x-polis"]) {
-            doHeaderAuth(assigner, isOptional, req, res, next);
-        }  else if (isOptional) {
+        } else if (isOptional) {
             next();
         } else {
             res.status(401);
@@ -6261,7 +6304,7 @@ app.post("/api/v3/LTI/canvas_nav",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
-    want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
+    need("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
@@ -6281,6 +6324,7 @@ function(req, res) {
     // }
     var inboxLaunchParams = encodeParams({
         context: context_id, // we're using the LTI context_id as a polis conversation context. scope the inbox to the course
+        xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header
         // TODO add token
     });
     res.redirect("https://preprod.pol.is/inbox/" + inboxLaunchParams);
