@@ -2297,6 +2297,7 @@ function clearCookies(req, res) {
 app.post("/api/v3/auth/deregister",
     want("showPage", getStringLimitLength(1, 99), assignToP),
 function(req, res) {
+    req.p = req.p || {};
     var token = req.cookies[COOKIES.TOKEN];
 
     // clear cookies regardless of auth status
