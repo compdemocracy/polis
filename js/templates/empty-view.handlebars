@@ -8,13 +8,13 @@
         <span class="fa fa-bar"></span>
         <span class="fa fa-bar"></span> 
       </button>
-      <a href="/inbox" class="navbar-brand">Polis</a>
+      <a href="{{inboxHref}}" class="navbar-brand">Polis</a>
     </div>
     <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
         <li><a href="h/about">About</a></li>
         <li><a href="mailto:colin@pol.is?subject=Polis%20Feedback">Contact</a></li>
-        <li><a href="/settings">
+        <li><a href="{{settings_href}}">
           {{#ifNotIE8}}
           <i class="fa fa-signout"></i>
           {{/ifNotIE8}}
