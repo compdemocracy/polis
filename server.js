@@ -6337,15 +6337,14 @@ function(req, res) {
     // var oauth_consumer_key = req.p.oauth_consumer_key;
 
     // Check if linked to this uid.
-    pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1);", [user_id]).then(function(rows) {
+    pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
 
-        // find the correct one - note: this loop may be useful in warning when people have multiple linkages
+
         var userForLtiUserId = null;
-        (rows||[]).forEach(function(row) {
-            if (row.uid === req.p.uid) {
-                userForLtiUserId = row;
-            }
-        });
+        if (rows.length) {
+            userForLtiUserId = rows[0];
+        }
+
         console.log('got user for lti_user_id');
         console.dir(userForLtiUserId);
         if (userForLtiUserId) {
