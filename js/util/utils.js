@@ -58,6 +58,33 @@ function are_cookies_enabled()
 }
 
 
+function strToHex(str) {
+var hex, i;
+var result = "";
+for (i=0; i<str.length; i++) {
+  hex = str.charCodeAt(i).toString(16);
+  result += ("000"+hex).slice(-4);
+}
+return result;
+}
+function hexToStr(hexString) {
+var j;
+var hexes = hexString.match(/.{1,4}/g) || [];
+var str = "";
+for(j = 0; j<hexes.length; j++) {
+  str += String.fromCharCode(parseInt(hexes[j], 16));
+}
+return str;
+}
+
+function decodeParams(encodedStringifiedJson) {
+    var stringifiedJson = hexToStr(encodedStringifiedJson);
+    var o = JSON.parse(stringifiedJson);
+    return o;
+}
+
+
+
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
   mapObj: mapObj,
@@ -118,6 +145,9 @@ module.exports = {
   isPpUser: function() {
     return PolisStorage.plan() === 3;
   },
+  hexToStr: hexToStr,
+  strToHex: strToHex,
+  decodeParams: decodeParams,
   numberOfDaysInTrial: numberOfDaysInTrial,
   trialDaysRemaining: trialDaysRemaining,
   cookiesEnabled: are_cookies_enabled

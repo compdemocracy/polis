@@ -37,31 +37,6 @@ var $ = require("jquery");
 var gaEvent = require("../util/gaMetric").gaEvent;
 
 
-function strToHex(str) {
-var hex, i;
-var result = "";
-for (i=0; i<str.length; i++) {
-  hex = str.charCodeAt(i).toString(16);
-  result += ("000"+hex).slice(-4);
-}
-return result;
-}
-function hexToStr(hexString) {
-var j;
-var hexes = hexString.match(/.{1,4}/g) || [];
-var str = "";
-for(j = 0; j<hexes.length; j++) {
-  str += String.fromCharCode(parseInt(hexes[j], 16));
-}
-return str;
-}
-
-function decodeParams(encodedStringifiedJson) {
-    var stringifiedJson = hexToStr(encodedStringifiedJson);
-    var o = JSON.parse(stringifiedJson);
-    return o;
-}
-
 
 var routeEvent = metric.routeEvent;
 
@@ -457,7 +432,7 @@ var polisRouter = Backbone.Router.extend({
         // if (filter.match(/context=([^=?]+)/).length > 1) {
         //   filterAttrs.context = filter.match(/context=([^=?]+)/)[1];
         // }
-        var o = decodeParams(encodedStringifiedJson);
+        var o = Utils.decodeParams(encodedStringifiedJson);
         console.dir(o);
         filterAttrs = $.extend(filterAttrs, o);
       } else {

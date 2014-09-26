@@ -39,6 +39,19 @@ var FooterPartial = require("./tmpl/footer")
   // auth token. keep this in this closure, don't put it on a global. used for cases where cookies are disabled.
   var token;
 
+  // check for token within URL
+  if (window.location.pathname.match(/^\/inbox\//)) {
+    debugger;
+    // expecting params (added to support LTI)
+    var encodedParams = window.location.pathname.match(/[^\/]*$/)[0]; // get the end
+    var params = Utils.decodeParams(encodedParams);
+    if (params.xPolisLti) {
+      token = params.xPolisLti;
+    }
+  }
+
+
+
   $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
     if ( !options.beforeSend) {
       options.beforeSend = function (xhr) { 
