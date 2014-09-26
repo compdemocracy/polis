@@ -7128,19 +7128,19 @@ function fetchIndex(req, res) {
 }
 
 
-app.get(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
-app.get(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
-app.get(/^\/share\/[0-9][0-9A-Za-z]+/, fetchIndex); // share view
-app.get(/^\/summary\/[0-9][0-9A-Za-z]+/, fetchIndex); // summary view
-app.get(/^\/m\/[0-9][0-9A-Za-z]+/, fetchIndex); // moderation view
-app.get(/^\/ot\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view, one-time url
+app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // conversation view
+app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // power view
+app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // share view
+app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // summary view
+app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // moderation view
+app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
-app.get(/^\/conversation\/create.*/, fetchIndex);
-app.get(/^\/user\/create$/, fetchIndex);
-app.get(/^\/user\/login$/, fetchIndex);
+app.get(/^\/conversation\/create(\/.*)?/, fetchIndex);
+app.get(/^\/user\/create(\/.*)?$/, fetchIndex);
+app.get(/^\/user\/login(\/.*)?$/, fetchIndex);
 app.get(/^\/welcome\/.*$/, fetchIndex);
-app.get(/^\/settings$/, fetchIndex);
-app.get(/^\/user\/logout$/, fetchIndex);
+app.get(/^\/settings(\/.*)?$/, fetchIndex);
+app.get(/^\/user\/logout(\/.*)?$/, fetchIndex);
 
 
 app.get("/iip/:conversation_id",
