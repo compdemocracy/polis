@@ -6393,6 +6393,51 @@ function(req, res) {
 }); // end /api/v3/LTI/canvas_nav
 
 
+function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZeroToOne) {
+    return new Promise(function(resolve, reject) {
+        var replaceResultRequestBody = '' +
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
+            '<imsx_POXHeader>' +
+                '<imsx_POXRequestHeaderInfo>' +
+                    '<imsx_version>V1.0</imsx_version>' +
+                    '<imsx_messageIdentifier>999999123</imsx_messageIdentifier>' +
+                '</imsx_POXRequestHeaderInfo>' +
+            '</imsx_POXHeader>' +
+            '<imsx_POXBody>' +
+                '<replaceResultRequest>' +
+                    '<resultRecord>' +
+                    '<sourcedGUID>' +
+                        '<sourcedId>'+ lis_result_sourcedid +'</sourcedId>' +
+                    '</sourcedGUID>' +
+                    '<result>' +
+                    '<resultScore>' +
+                        '<language>en</language>' +
+                        '<textString>'+gradeFromZeroToOne+'</textString>' +
+                    '</resultScore>' +
+                    '</result>' +
+                    '</resultRecord>' +
+                '</replaceResultRequest>' +
+            '</imsx_POXBody>' +
+        '</imsx_POXEnvelopeRequest>';
+
+        request.post(lis_outcome_service_url, {
+            body: replaceResultRequestBody,
+            headers: {
+                'content-type': 'text/xml',
+            },
+        }, function (err, response, body) {
+            if (err) {
+                reject(err, response, body);
+            } else if (response.statusCode > 400) {
+                reject(err, response, body);
+            } else {
+                resolve(response, body);
+            }
+        });
+    });
+}
+
 app.post("/api/v3/LTI/conversation_assignment",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
@@ -6402,14 +6447,32 @@ app.post("/api/v3/LTI/conversation_assignment",
     // per assignment stuff
     want("custom_canvas_assignment_id", getInt, assignToP),
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
+    want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
+
 function(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    var user_id = req.p.user_id;    
-    var context_id = req.p.context_id;    
+    var user_id = req.p.user_id;
+    var context_id = req.p.context_id;
     var user_image = req.p.user_image || "";
 
-    console.dir(req.body);
+    // console.dir(req.body);
+
+    console.log("grades req.p " + JSON.stringify(req.p));
+
+    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9).then(function(response, body) {
+        console.log("grade_send_ok");
+        console.dir(response);
+        console.dir(body);
+    }, function(err, response, body) {
+        console.log("grade_send_failed3");
+        console.log(err);
+        console.dir(response);
+        console.dir(body);
+    }).catch(function(err) {
+        console.log("grade_send_failed2");
+        console.dir(err);
+    });
 
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
