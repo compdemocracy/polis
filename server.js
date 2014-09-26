@@ -6269,7 +6269,7 @@ function(req, res) {
     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
     // }
     res.redirect("https://preprod.pol.is/inbox");
-    
+
     // // TODO SECURITY we need to verify the signature
     // var oauth_consumer_key = req.p.oauth_consumer_key;
 
@@ -6460,7 +6460,7 @@ var xml = '' +
     // nav
     '<lticm:options name="course_navigation">' +
         '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/canvas_nav</lticm:property>' +
-        '<lticm:property name="text">pol.is conversations</lticm:property>' +
+        '<lticm:property name="text">pol.is</lticm:property>' +
         '<lticm:property name="visibility">public</lticm:property>' +
         '<lticm:property name="default">enabled</lticm:property>' +
         '<lticm:property name="enabled">true</lticm:property>' +
