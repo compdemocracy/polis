@@ -49,7 +49,7 @@ var FooterPartial = require("./tmpl/footer")
       window.authenticatedByHeader = true;
     }
     if (params.context) {
-      window.context = context;
+      window.context = params.context;
     }
   }
 
