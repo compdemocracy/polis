@@ -6419,11 +6419,12 @@ function(req, res) {
     res.set({
         'Content-Type': 'text/html',
     });
-    if (isInstructor) {
-        res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are an instructor <div>"+ JSON.stringify(req.body)+"</div></body></html>");
-    } else {
-        res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are a student <div>"+ JSON.stringify(req.body)+"</div></body></html>");            
-    }
+    // if (isInstructor) {
+    //     res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are an instructor <div>"+ JSON.stringify(req.body)+"</div></body></html>");
+    // } else {
+    //     res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are a student <div>"+ JSON.stringify(req.body)+"</div></body></html>");            
+    // }
+    res.redirect("https://preprod.pol.is/demo/2demo");
     return;
 
 }); // TODO write an LTI post handler
