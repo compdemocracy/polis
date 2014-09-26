@@ -5588,6 +5588,11 @@ function getConversations(req, res) {
     if (include_all_conversations_i_am_in && participantIn.length) {
         orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
     }
+    // knowing a context grants access to those conversations (for now at least)
+    if (!_.isUndefined(req.p.context)) {
+        orClauses = orClauses.or(sql_conversations.context.equals(req.p.context));
+    }
+
     query = query.where(orClauses);
     if (!_.isUndefined(req.p.course_invite)) {
         query = query.and(sql_conversations.course_id.equals(req.p.course_id));
@@ -5601,9 +5606,6 @@ function getConversations(req, res) {
     }
     if (!_.isUndefined(req.p.zid)) {
         query = query.and(sql_conversations.zid.equals(req.p.zid));
-    }
-    if (!_.isUndefined(req.p.context)) {
-        query = query.and(sql_conversations.context.equals(req.p.context));
     }
 
     //query = whereOptional(query, req.p, 'owner');
@@ -5698,6 +5700,12 @@ function getConversations(req, res) {
         });
     });
   });
+}
+
+function encodeParams(o) {
+    var stringifiedJson = JSON.stringify(o);
+    var encoded = strToHex(stringifiedJson);
+    return encoded;
 }
 
 app.get('/api/v3/conversations',
@@ -6268,7 +6276,11 @@ function(req, res) {
     // if (!req.p.tool_consumer_instance_guid) {
     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
     // }
-    res.redirect("https://preprod.pol.is/inbox");
+    var inboxLaunchParams = encodeParams({
+        context: context_id, // we're using the LTI context_id as a polis conversation context. scope the inbox to the course
+        // TODO add token
+    });
+    res.redirect("https://preprod.pol.is/inbox/" + inboxLaunchParams);
 
     // // TODO SECURITY we need to verify the signature
     // var oauth_consumer_key = req.p.oauth_consumer_key;
