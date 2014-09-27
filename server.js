@@ -6424,22 +6424,45 @@ function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZero
 
        
 
-        request.post(lis_outcome_service_url, {
-            body: replaceResultRequestBody,
-            headers: headers,
-        }, function (err, response, body) {
-            console.log("grades post callback");
-            console.log("grades post callback "+response);
-            console.log("grades post callback "+body);
-            // if (err) {
-            //     reject(err, response, body);
-            // } else if (response.statusCode > 400) {
-            //     reject(err, response, body);
-            // } else {
-            //     resolve(response, body);
-            // }
-        });
-    // });
+var options = {
+  hostname: 'canvas.instructure.com',
+  port: 443,
+  path: '/api/lti/v1/tools/47209/grade_passback',
+  method: 'POST',
+  headers: headers,
+};
+
+var req = https.request(options, function(res) {
+  console.log("grades statusCode: ", res.statusCode);
+  console.log("grades headers: ", res.headers);
+
+  res.on('data', function(d) {
+    console.log("grades data");
+    process.stdout.write(d);
+    console.log("grades data end");    
+  });
+});
+req.write(replaceResultRequestBody);
+req.end();
+
+
+
+    //     request.post(lis_outcome_service_url, {
+    //         body: replaceResultRequestBody,
+    //         headers: headers,
+    //     }, function (err, response, body) {
+    //         console.log("grades post callback");
+    //         console.log("grades post callback "+response);
+    //         console.log("grades post callback "+body);
+    //         // if (err) {
+    //         //     reject(err, response, body);
+    //         // } else if (response.statusCode > 400) {
+    //         //     reject(err, response, body);
+    //         // } else {
+    //         //     resolve(response, body);
+    //         // }
+    //     });
+    // // });
 }
 
 app.post("/api/v3/LTI/conversation_assignment",
@@ -6491,7 +6514,6 @@ function(req, res) {
         var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
         headers.oauth_signature = signature;
         console.log("oauth_signature: " + signature);
-
 
 
     sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, headers);
