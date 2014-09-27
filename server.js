@@ -6437,9 +6437,9 @@ var req = https.request(options, function(res) {
   console.log("grades headers: ", res.headers);
 
   res.on('data', function(d) {
-    console.log("grades data");
+    console.log("\n\ngrades data chunk begin\n\n");
     process.stdout.write(d);
-    console.log("grades data end");    
+    console.log("\n\ngrades data chunk end\n\n");
   });
 });
 req.write(replaceResultRequestBody);
@@ -6511,6 +6511,7 @@ function(req, res) {
             oauth_version: req.p.oauth_version,
             "content-type":'text/xml',
         };
+        console.dir(headers);
         var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
         headers.oauth_signature = signature;
         console.log("oauth_signature: " + signature);
