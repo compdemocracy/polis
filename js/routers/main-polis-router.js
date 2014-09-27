@@ -601,6 +601,9 @@ var polisRouter = Backbone.Router.extend({
       if (!_.isUndefined(paramsFromPath.context)) {
         o.context = paramsFromPath.context;
       }
+      if (!_.isUndefined(paramsFromPath.launch_presentation_return_url_hex)) {
+        o.launch_presentation_return_url_hex = paramsFromPath.launch_presentation_return_url_hex;
+      }
       var model = new ConversationModel(o);
 
       model.save().then(function(data) {
