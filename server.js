@@ -6395,7 +6395,7 @@ function(req, res) {
 
 
 function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZeroToOne, headers) {
-    return new Promise(function(resolve, reject) {
+    // return new Promise(function(resolve, reject) {
         var replaceResultRequestBody = '' +
         '<?xml version="1.0" encoding="UTF-8"?>' +
         '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
@@ -6428,15 +6428,18 @@ function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZero
             body: replaceResultRequestBody,
             headers: headers,
         }, function (err, response, body) {
-            if (err) {
-                reject(err, response, body);
-            } else if (response.statusCode > 400) {
-                reject(err, response, body);
-            } else {
-                resolve(response, body);
-            }
+            console.log("grades post callback");
+            console.log("grades post callback "+response);
+            console.log("grades post callback "+body);
+            // if (err) {
+            //     reject(err, response, body);
+            // } else if (response.statusCode > 400) {
+            //     reject(err, response, body);
+            // } else {
+            //     resolve(response, body);
+            // }
         });
-    });
+    // });
 }
 
 app.post("/api/v3/LTI/conversation_assignment",
@@ -6491,19 +6494,20 @@ function(req, res) {
 
 
 
-    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, headers).then(function(response, body) {
-        console.log("grade_send_ok");
-        console.dir(response);
-        console.dir(body);
-    }, function(err, response, body) {
-        console.log("grade_send_failed3");
-        console.log(err);
-        console.dir(response);
-        console.dir(body);
-    }).catch(function(err) {
-        console.log("grade_send_failed2");
-        console.dir(err);
-    });
+    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, headers);
+    // .then(function(response, body) {
+    //     console.log("grade_send_ok");
+    //     console.dir(response);
+    //     console.dir(body);
+    // }, function(err, response, body) {
+    //     console.log("grade_send_failed3");
+    //     console.log(err);
+    //     console.dir(response);
+    //     console.dir(body);
+    // }).catch(function(err) {
+    //     console.log("grade_send_failed2");
+    //     console.dir(err);
+    // });
 
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
