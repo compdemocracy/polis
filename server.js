@@ -6509,10 +6509,10 @@ function(req, res) {
             oauth_signature_method: req.p.oauth_signature_method,
             oauth_timestamp: req.p.oauth_timestamp, // or generate one?
             oauth_version: req.p.oauth_version,
-            "content-type":'text/xml',
         };
         console.dir(headers);
         var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
+        headers["content-type"] = 'text/xml';
         headers.oauth_signature = signature;
         console.log("oauth_signature: " + signature);
 
