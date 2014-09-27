@@ -50,13 +50,31 @@ module.exports = Handlebones.ModelView.extend({
 
 
         // New stripe hotness with fully custom forms for canvas integration
-        $('#payment-form').submit(function(event) {
-          var $form = $(this);
+        $('#stripeSubmitButton').on('click', function(event) {
+          var $form = $('#payment-form');
 
           // Disable the submit button to prevent repeated clicks
           $form.find('button').prop('disabled', true);
 
-          Stripe.card.createToken($form, stripeResponseHandler);
+          Stripe.card.createToken($form, function(status, response) {
+            alert(status);
+            alert(JSON.stringify(response));
+            /*
+            status should look like a code from https://stripe.com/docs/api#errors
+            */
+
+            /* Response should look like this:
+              {
+                id: "tok_u5dg20Gra", // String of token identifier,
+                card: {...}, // Dictionary of the card used to create the token
+                created: 1411706790, // Integer of date token was created
+                currency: "usd", // String currency that the token was created in
+                livemode: true, // Boolean of whether this token was created with a live or test API key
+                object: "token", // String identifier of the type of object, always "token"
+                used: false // Boolean of whether this token has been used
+              }
+            */
+          });
 
           // Prevent the form from submitting with the default action
           return false;
