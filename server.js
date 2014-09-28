@@ -6845,10 +6845,12 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
 // polis_shared_secret_abcd
 
 // mine
-//POST&https%3A%2F%2Fcanvas.instructure.com%2Fapi%2Flti%2Fv1%2Ftools%2F47209%2Fgrade_passback&oauth_consumer_key%3Dafe87f8e7g%26oauth_nonce%3Di6xTFEL6lhL%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1411866983%26oauth_version%3D1.0
+//POST&https%3A%2F%2Fcanvas.instructure.com%2Fapi%2Flti%2Fv1%2Ftools%2F47209%2Fgrade_passback&oauth_consumer_key%3Dpolis_consumer_key_abcd%26oauth_nonce%3Di6xTFEL6lhL%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1411866983%26oauth_version%3D1.0
 //POST&https%3A%2F%2Fcanvas.instructure.com%2Fapi%2Flti%2Fv1%2Ftools%2F47209%2Fgrade_passback&oauth_consumer_key%3Dpolis_consumer_key_abcd%26oauth_nonce%3Di6xTFEL6lhL%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1411866983%26oauth_version%3D1.0
 // google's
 
+//OAuth realm="",oauth_consumer_key="polis_consumer_key_abcd",oauth_timestamp="1411866983",oauth_nonce="i6xTFEL6lhL",oauth_signature_method="HMAC-SHA1",oauth_signature="Jd1wqCXibCTXT7kq5l%2Fg8Py%2FHHI%3D"oauth_version="1.0",
+//OAuth realm="",oauth_consumer_key="polis_consumer_key_abcd",oauth_timestamp="1411866983",oauth_nonce="i6xTFEL6lhL",oauth_signature_method="HMAC-SHA1",oauth_signature="Jd1wqCXibCTXT7kq5l%2Fg8Py%2FHHI%3D",oauth_version="1.0",
         var oauthHeaders = {
             oauth_consumer_key: 'polis_consumer_key_abcd', //req.p.oauth_consumer_key,
             oauth_signature_method: req.p.oauth_signature_method,
@@ -6877,6 +6879,7 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
                 callback: oauthHeaders.oauth_callback, // needed?
             }
         );
+        signature = encodeURIComponent(signature);
 
         // var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
         oauthHeaders.oauth_signature = signature;
