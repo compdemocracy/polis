@@ -6438,6 +6438,8 @@ function conversationExistsForThisCanvasAssignment(tool_consumer_instance_guid, 
         lti_context_id,
         custom_canvas_assignment_id,
     ]).then(function(rows) {
+        console.log('grades canvas_assignment_conversation_info query returned with ' + rows.length);
+        console.dir(rows);
         return rows && rows.length;
     });
 }
