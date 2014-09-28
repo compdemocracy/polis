@@ -6747,7 +6747,7 @@ var gradeFromZeroToOne = 0.7;
                     '<result>' +
                     '<resultScore>' +
                         '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
-                        '<textString>1.0</textString>' +
+                        '<textString>'+gradeFromZeroToOne+'</textString>' +
                     '</resultScore>' +
                     '</result>' +
                     '</resultRecord>' +
