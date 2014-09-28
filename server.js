@@ -6895,7 +6895,7 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
             "Authorization": authorizationHeader,
         };
 
-    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, replaceResultRequestBody, headers);
+    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, replaceResultRequestBody, headers);
     // .then(function(response, body) {
     //     console.log("grade_send_ok");
     //     console.dir(response);
