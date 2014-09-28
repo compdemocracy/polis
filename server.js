@@ -5083,7 +5083,7 @@ app.put('/api/v3/conversations',
     want('launch_presentation_return_url_hex', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
     want('context', getOptionalStringLimitLength(999), assignToP),
     want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),    
-    want('custom_canvas_assignment_id', getOptionalStringLimitLength(999), assignToP),        
+    want('custom_canvas_assignment_id', getInt, assignToP),        
 function(req, res){
   var generateShortUrl = req.p.short_url;
   isOwner(req.p.zid, req.p.uid).then(function(ok) {
@@ -6455,7 +6455,7 @@ app.post("/api/v3/LTI/conversation_assignment",
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
     // per assignment stuff
-    want("custom_canvas_assignment_id", getInt, assignToP),
+    want("custom_canvas_assignment_id", getInt, assignToP), // NOTE: it enters our system as an int, but we'll 
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
     want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
 

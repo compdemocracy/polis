@@ -267,7 +267,7 @@ CREATE TABLE canvas_assignment_conversation_info (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     tool_consumer_instance_guid VARCHAR(999) NOT NULL,
     lti_context_id VARCHAR(999) NOT NULL,    
-    custom_canvas_assignment_id VARCHAR(999) NOT NULL,
+    custom_canvas_assignment_id BIGINT NOT NULL,
     UNIQUE(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id)
 );
 
