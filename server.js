@@ -6847,10 +6847,10 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
         var oauthHeaders = {
             oauth_consumer_key: req.p.oauth_consumer_key,
             oauth_signature_method: req.p.oauth_signature_method,
-            oauth_timestamp: ''+(Date.now()/1000>>0),
-            oauth_nonce: req.p.oauth_nonce,
+            oauth_timestamp: "1411866983", //''+(Date.now()/1000>>0),
+            oauth_nonce: "i6xTFEL6lhL", //''+((Math.random()*99999999999)>>0),
             oauth_version: req.p.oauth_version,
-            oauth_callback: req.p.oauth_callback,
+            // oauth_callback: req.p.oauth_callback,
             // oauth_body_hash: sha1(replaceResultRequestBody), // section 4.3 http://www.imsglobal.org/LTI/v1p1/ltiIMGv1p1.html#_Toc319560469
         };
         console.dir(oauthHeaders);
