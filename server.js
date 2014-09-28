@@ -6841,6 +6841,8 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
 
 */
 
+console.log('oauth_consumer_key ' + req.p.oauth_consumer_key);
+
 // polis_consumer_key_abcd
 // polis_shared_secret_abcd
 
@@ -6852,7 +6854,7 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
 //OAuth realm="",oauth_consumer_key="polis_consumer_key_abcd",oauth_timestamp="1411866983",oauth_nonce="i6xTFEL6lhL",oauth_signature_method="HMAC-SHA1",oauth_signature="Jd1wqCXibCTXT7kq5l%2Fg8Py%2FHHI%3D"oauth_version="1.0",
 //OAuth realm="",oauth_consumer_key="polis_consumer_key_abcd",oauth_timestamp="1411866983",oauth_nonce="i6xTFEL6lhL",oauth_signature_method="HMAC-SHA1",oauth_signature="Jd1wqCXibCTXT7kq5l%2Fg8Py%2FHHI%3D",oauth_version="1.0",
         var oauthHeaders = {
-            oauth_consumer_key: 'polis_consumer_key_abcd', //req.p.oauth_consumer_key,
+            oauth_consumer_key: req.p.oauth_consumer_key,
             oauth_signature_method: req.p.oauth_signature_method,
             oauth_timestamp: "1411866983", //''+(Date.now()/1000>>0),
             oauth_nonce: "i6xTFEL6lhL", //''+((Math.random()*99999999999)>>0),
