@@ -6638,6 +6638,7 @@ function normalizedRequestParameters(uri, body, protocolParams) {
 // HMAC-SHA1 signing key
 //
 function signingKey(consumerSecret, tokenSecret) {
+    console.log("mike3");
     var key = encode(consumerSecret) + '&' + encode(tokenSecret);
     console.log("signingKey", key);
     return key;
@@ -6647,6 +6648,7 @@ function signingKey(consumerSecret, tokenSecret) {
 // get signature
 //
 function signature(consumerSecret, tokenSecret, requestMethod, url, body, protocolParams) {
+    console.log("mike1");
     var signatureMethod = protocolParams.oauth_signature_method;
     if (signatureMethod === 'HMAC-SHA1') {
         return crypto.createHmac('sha1', signingKey(consumerSecret, tokenSecret))
@@ -6659,6 +6661,7 @@ function signature(consumerSecret, tokenSecret, requestMethod, url, body, protoc
 // helper
 //
 function getSignature(requestMethod, url, body, oauthOpts) {
+    console.log("mike2");
     return signature(
         oauthOpts.consumerSecret,
         oauthOpts.tokenSecret,
@@ -6844,6 +6847,8 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
             // oauth_body_hash: sha1(replaceResultRequestBody), // section 4.3 http://www.imsglobal.org/LTI/v1p1/ltiIMGv1p1.html#_Toc319560469
         };
         console.dir(oauthHeaders);
+    console.log("mike0");
+
         var signature = oauth_rfc5849.signature(
             'POST', // requestMethod
             req.p.lis_outcome_service_url,  //'http://example.com/request?b5=%3D%253D&a3=a&c%40=&a2=r%20b', // url
