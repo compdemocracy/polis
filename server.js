@@ -6844,8 +6844,13 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
 // polis_consumer_key_abcd
 // polis_shared_secret_abcd
 
+// mine
+//POST&https%3A%2F%2Fcanvas.instructure.com%2Fapi%2Flti%2Fv1%2Ftools%2F47209%2Fgrade_passback&oauth_consumer_key%3Dafe87f8e7g%26oauth_nonce%3Di6xTFEL6lhL%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1411866983%26oauth_version%3D1.0
+//POST&https%3A%2F%2Fcanvas.instructure.com%2Fapi%2Flti%2Fv1%2Ftools%2F47209%2Fgrade_passback&oauth_consumer_key%3Dpolis_consumer_key_abcd%26oauth_nonce%3Di6xTFEL6lhL%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1411866983%26oauth_version%3D1.0
+// google's
+
         var oauthHeaders = {
-            oauth_consumer_key: req.p.oauth_consumer_key,
+            oauth_consumer_key: 'polis_consumer_key_abcd', //req.p.oauth_consumer_key,
             oauth_signature_method: req.p.oauth_signature_method,
             oauth_timestamp: "1411866983", //''+(Date.now()/1000>>0),
             oauth_nonce: "i6xTFEL6lhL", //''+((Math.random()*99999999999)>>0),
