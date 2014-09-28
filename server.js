@@ -23,7 +23,6 @@ console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
 
 var badwords = require('badwords/object'),
     dgram = require('dgram'),
-    hmacsign = require('oauth-sign').hmacsign,
     http = require('http'),
     httpProxy = require('http-proxy'),
     https = require('https'),
@@ -41,7 +40,6 @@ var badwords = require('badwords/object'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
     Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
-    // oauth_rfc5849 = require('oauth-toolkit'),
     p3p = require('p3p'),
     OAuth = require('oauth'),
     Pushover = require( 'pushover-notifications' ),
@@ -6396,55 +6394,6 @@ function(req, res) {
 }); // end /api/v3/LTI/canvas_nav
 
 
-function sendGrades(lis_outcome_service_url, lis_result_sourcedid, body, headers) {
-    // return new Promise(function(resolve, reject) {
-
-
-       
-
-    var options = {
-      hostname: 'canvas.instructure.com',
-      port: 443,
-      path: '/api/lti/v1/tools/47209/grade_passback',
-      method: 'POST',
-      headers: headers,
-    };
-
-    var req = https.request(options, function(res) {
-      console.log("grades statusCode: ", res.statusCode);
-      console.log("grades headers: ", res.headers);
-
-      res.on('data', function(d) {
-        console.log("\n\ngrades data chunk begin\n\n");
-        process.stdout.write(d);
-        console.log("\n\ngrades data chunk end\n\n");
-      });
-    });
-    req.write(body);
-    req.end();
-
-
-
-    //     request.post(lis_outcome_service_url, {
-    //         body: replaceResultRequestBody,
-    //         headers: headers,
-    //     }, function (err, response, body) {
-    //         console.log("grades post callback");
-    //         console.log("grades post callback "+response);
-    //         console.log("grades post callback "+body);
-    //         // if (err) {
-    //         //     reject(err, response, body);
-    //         // } else if (response.statusCode > 400) {
-    //         //     reject(err, response, body);
-    //         // } else {
-    //         //     resolve(response, body);
-    //         // }
-    //     });
-    // // });
-}
-
-
-
 var url = require('url');
 var qs = require('querystring');
 var crypto = require('crypto');
@@ -6698,8 +6647,6 @@ app.post("/api/v3/LTI/conversation_assignment",
     need("oauth_timestamp", getStringLimitLength(1, 9999), assignToP), //?      
     need("oauth_callback", getStringLimitLength(1, 9999), assignToP), // about:blank      
 
-
-    
     need("user_id", getStringLimitLength(1, 9999), assignToP),    
     need("context_id", getStringLimitLength(1, 9999), assignToP),    
     want("roles", getStringLimitLength(1, 9999), assignToP),
@@ -6716,240 +6663,62 @@ function(req, res) {
     var context_id = req.p.context_id;
     var user_image = req.p.user_image || "";
 
-    // console.dir(req.body);
-
     console.log("grades req.body " + JSON.stringify(req.body));
     console.log("grades req.p " + JSON.stringify(req.p));
 
+    // TODO SECURITY we need to verify the signature
+    var oauth_consumer_key = req.p.oauth_consumer_key;
+
     var consumerSecret = "polis_shared_secret_abcd"; // TODO lookup in db
 
+    var token_secret = ""; // not using?
 
- // sign with consumer key and consumer secret...
+    var gradeFromZeroToOne = 0.6;
+    var replaceResultRequestBody = '' +
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
+        '<imsx_POXHeader>' +
+            '<imsx_POXRequestHeaderInfo>' +
+                '<imsx_version>V1.0</imsx_version>' +
+                '<imsx_messageIdentifier>999999123</imsx_messageIdentifier>' +
+            '</imsx_POXRequestHeaderInfo>' +
+        '</imsx_POXHeader>' +
+        '<imsx_POXBody>' +
+            '<replaceResultRequest>' + // parser has???  xml.at_css('imsx_POXBody *:first').name.should == 'replaceResultResponse'
+                '<resultRecord>' +
+                '<sourcedGUID>' +
+                    '<sourcedId>' + req.p.lis_result_sourcedid + '</sourcedId>' +
+                '</sourcedGUID>' +
+                '<result>' +
+                '<resultScore>' +
+                    '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
+                    '<textString>'+gradeFromZeroToOne+'</textString>' +
+                '</resultScore>' +
+                '</result>' +
+                '</resultRecord>' +
+            '</replaceResultRequest>' +
+        '</imsx_POXBody>' +
+    '</imsx_POXEnvelopeRequest>';
 
-        var token_secret = ""; // not using?
+    // polis_consumer_key_abcd
+    // polis_shared_secret_abcd
 
-var gradeFromZeroToOne = 0.7;
-        var replaceResultRequestBody = '' +
-        '<?xml version="1.0" encoding="UTF-8"?>' +
-        '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
-            '<imsx_POXHeader>' +
-                '<imsx_POXRequestHeaderInfo>' +
-                    '<imsx_version>V1.0</imsx_version>' +
-                    '<imsx_messageIdentifier>999999123</imsx_messageIdentifier>' +
-                '</imsx_POXRequestHeaderInfo>' +
-            '</imsx_POXHeader>' +
-            '<imsx_POXBody>' +
-                '<replaceResultRequest>' + // parser has???  xml.at_css('imsx_POXBody *:first').name.should == 'replaceResultResponse'
-                    '<resultRecord>' +
-                    '<sourcedGUID>' +
-                        '<sourcedId>' + req.p.lis_result_sourcedid + '</sourcedId>' +
-                    '</sourcedGUID>' +
-                    '<result>' +
-                    '<resultScore>' +
-                        '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
-                        '<textString>'+gradeFromZeroToOne+'</textString>' +
-                    '</resultScore>' +
-                    '</result>' +
-                    '</resultRecord>' +
-                '</replaceResultRequest>' +
-            '</imsx_POXBody>' +
-        '</imsx_POXEnvelopeRequest>';
-
-/* 
-
-Example from canvas_lti source
-
-    def make_call(opts = {})
-      opts['path'] ||= "/api/lti/v1/tools/#{@tool.id}/ext_grade_passback"
-      opts['key'] ||= @tool.consumer_key
-      opts['secret'] ||= @tool.shared_secret
-      consumer = OAuth::Consumer.new(opts['key'], opts['secret'], :site => "https://www.example.com", :signature_method => "HMAC-SHA1")
-      req = consumer.create_signed_request(:post, opts['path'], nil, { :scheme => 'header', :timestamp => opts['timestamp'], :nonce => opts['nonce'] }, opts['body'])
-      post "https://www.example.com#{req.path}",
-        req.body,
-        { 'CONTENT_TYPE' => 'application/x-www-form-urlencoded', "HTTP_AUTHORIZATION" => req['Authorization'] }
-    end
-
-
-    def verify_oauth
-    # load the external tool to grab the key and secret
-    @tool = ContextExternalTool.find(params[:tool_id])
-
-    # verify the request oauth signature, timestamp and nonce
-    begin
-      @signature = OAuth::Signature.build(request, :consumer_secret => @tool.shared_secret)
-      @signature.verify() or raise OAuth::Unauthorized
-    rescue OAuth::Signature::UnknownSignatureMethod,
-           OAuth::Unauthorized
-      raise BasicLTI::BasicOutcomes::Unauthorized, "Invalid authorization header"
-    end
-
-    timestamp = Time.zone.at(@signature.request.timestamp.to_i)
-    # 90 minutes is suggested by the LTI spec
-    allowed_delta = Setting.get('oauth.allowed_timestamp_delta', 90.minutes.to_s).to_i
-    if timestamp < allowed_delta.ago || timestamp > allowed_delta.from_now
-      raise BasicLTI::BasicOutcomes::Unauthorized, "Timestamp too old or too far in the future, request has expired"
-    end
-
-    nonce = @signature.request.nonce
-    unless Canvas::Redis.lock("nonce:#{@tool.asset_string}:#{nonce}", allowed_delta)
-      raise BasicLTI::BasicOutcomes::Unauthorized, "Duplicate nonce detected"
-    end
-  end
-
-
-
-# File canvas-lms / app / controllers / lti_api_controller.rb
-
-    # verify the request oauth signature, timestamp and nonce
-    begin
-      @signature = OAuth::Signature.build(request, :consumer_secret => @tool.shared_secret)
-      @signature.verify() or raise OAuth::Unauthorized
-    rescue OAuth::Signature::UnknownSignatureMethod,
-           OAuth::Unauthorized
-      raise BasicLTI::BasicOutcomes::Unauthorized, "Invalid authorization header"
-    end
-
-
-# File 'lib/oauth/signature.rb', line 11
-
-def self.build(request, options = {}, &block)
-  request = OAuth::RequestProxy.proxy(request, options)
-  klass = available_methods[
-    (request.signature_method ||
-    ((c = request.options[:consumer]) && c.options[:signature_method]) ||
-    "").downcase]
-  raise UnknownSignatureMethod, request.signature_method unless klass
-  klass.new(request, options, &block)
-end
-
-Here are the parameters that the Ruby oauth library will allow to be considered for the hash
-PARAMETERS =
-required parameters, per sections 6.1.1, 6.3.1, and 7
-%w(
-    oauth_callback
-    oauth_consumer_key
-    oauth_token
-    oauth_signature_method
-    oauth_timestamp
-    oauth_nonce
-    oauth_verifier
-    oauth_version
-    oauth_signature        -- do not include this one, obviously
-    oauth_body_hash
-    )
-
-
-*/
-
-console.log('oauth_consumer_key ' + req.p.oauth_consumer_key);
-
-// polis_consumer_key_abcd
-// polis_shared_secret_abcd
-
-// mine
-//POST&https%3A%2F%2Fcanvas.instructure.com%2Fapi%2Flti%2Fv1%2Ftools%2F47209%2Fgrade_passback&oauth_consumer_key%3Dpolis_consumer_key_abcd%26oauth_nonce%3Di6xTFEL6lhL%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1411866983%26oauth_version%3D1.0
-//POST&https%3A%2F%2Fcanvas.instructure.com%2Fapi%2Flti%2Fv1%2Ftools%2F47209%2Fgrade_passback&oauth_consumer_key%3Dpolis_consumer_key_abcd%26oauth_nonce%3Di6xTFEL6lhL%26oauth_signature_method%3DHMAC-SHA1%26oauth_timestamp%3D1411866983%26oauth_version%3D1.0
-// google's
-
-//OAuth realm="",oauth_consumer_key="polis_consumer_key_abcd",oauth_timestamp="1411866983",oauth_nonce="i6xTFEL6lhL",oauth_signature_method="HMAC-SHA1",oauth_signature="Jd1wqCXibCTXT7kq5l%2Fg8Py%2FHHI%3D"oauth_version="1.0",
-//OAuth realm="",oauth_consumer_key="polis_consumer_key_abcd",oauth_timestamp="1411866983",oauth_nonce="i6xTFEL6lhL",oauth_signature_method="HMAC-SHA1",oauth_signature="Jd1wqCXibCTXT7kq5l%2Fg8Py%2FHHI%3D",oauth_version="1.0",
-        var oauthHeaders = {
-            oauth_consumer_key: req.p.oauth_consumer_key,
-            oauth_signature_method: req.p.oauth_signature_method,
-            oauth_timestamp: ''+(Date.now()/1000>>0),
-            oauth_nonce: ''+((Math.random()*99999999999)>>0),
-            oauth_version: req.p.oauth_version,
-            oauth_callback: req.p.oauth_callback,
-            // oauth_body_hash: sha1(replaceResultRequestBody), // section 4.3 http://www.imsglobal.org/LTI/v1p1/ltiIMGv1p1.html#_Toc319560469
-        };
-        console.dir(oauthHeaders);
-    console.log("mike0");
-
-
-// try to replicate Canvas's signature
-        var canvasSignature = oauth_rfc5849.signature(
-            'POST', // requestMethod
-            'https://preprod.pol.is/api/v3/LTI/conversation_assignment',
-            '', //c2&a3=2+q', // body
-            {
-                consumerKey: req.p.oauth_consumer_key, //'9djdj82h48djs9d2',
-                consumerSecret: consumerSecret, //'j49sk3j29djd',
-                // token: '', //kkk9d7dh3k39sjv7',  maps to oauth_token, optional
-                tokenSecret: '', // dh893hdasih9', // this is the "shared secret" may be empty? (see 3.4.2 key) http://tools.ietf.org/html/rfc5849
-                nonce: req.p.oauth_nonce, //'7d8f3e4a',
-                signatureMethod: req.p.oauth_signature_method, //'HMAC-SHA1',
-                timestamp: req.p.oauth_timestamp, //'137131201',
-                version: req.p.oauth_version, // must be '1.0'
-                callback: req.p.oauth_callback, // needed?
-            }
-        );
-        console.log('canvasSignature ' + canvasSignature);
-
-        var signature = oauth_rfc5849.signature(
-            'POST', // requestMethod
-            req.p.lis_outcome_service_url,  //'http://example.com/request?b5=%3D%253D&a3=a&c%40=&a2=r%20b', // url
-            replaceResultRequestBody, //c2&a3=2+q', // body
-            {
-                consumerKey: oauthHeaders.oauth_consumer_key, //'9djdj82h48djs9d2',
-                consumerSecret: consumerSecret, //'j49sk3j29djd',
-                // token: '', //kkk9d7dh3k39sjv7',  maps to oauth_token, optional
-                tokenSecret: '', // dh893hdasih9', // this is the "shared secret" may be empty? (see 3.4.2 key) http://tools.ietf.org/html/rfc5849
-                nonce: oauthHeaders.oauth_nonce, //'7d8f3e4a',
-                signatureMethod: oauthHeaders.oauth_signature_method, //'HMAC-SHA1',
-                timestamp: oauthHeaders.oauth_timestamp, //'137131201',
-                version: oauthHeaders.oauth_version, // must be '1.0'
-                callback: oauthHeaders.oauth_callback, // needed?
-            }
-        );
-        // signature = encodeURIComponent(signature);
-
-        // var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
-        oauthHeaders.oauth_signature = signature;
-
-        console.log("oauth_signature: " + signature);
-
-        // NOTE: oauth headers need to go in the Authorization header. http://tools.ietf.org/html/rfc5849#section-3.5.1
-        /*
-        Authorization: OAuth realm="Example",
-            oauth_consumer_key="0685bd9184jfhq22",
-            oauth_token="ad180jjd733klru7",
-            oauth_signature_method="HMAC-SHA1",
-            oauth_signature="wOJIO9A2W5mFwDgiDvZbTSMK%2FPY%3D",
-            oauth_timestamp="137131200",
-            oauth_nonce="4572616e48616d6d65724c61686176",
-            oauth_version="1.0"
-        */
-        var authorizationHeader = 'OAuth ' + 'realm="",' + 
-            _.map(_.pairs(oauthHeaders), function(pair) {
-                pair[1] = '"' + pair[1] + '"';
-                return pair.join("=");
-            }).join(",");
-
-        console.log("grades " + authorizationHeader);
-
-        var headers = {
-            "content-type": 'application/xml', // (not text/xml) see http://www.imsglobal.org/LTI/v1p1/ltiIMGv1p1.html#_Toc319560469
-            "Authorization": authorizationHeader,
-        };
-
-        console.log('grades will post');
-        var oauth = new OAuth.OAuth(
-          null,//'https://api.twitter.com/oauth/request_token',
-          null,//'https://api.twitter.com/oauth/access_token',
-          req.p.oauth_consumer_key,//'your application consumer key',
-          consumerSecret,//'your application secret',
-          '1.0',//'1.0A',
-          null,
-          'HMAC-SHA1'
-        );
-         oauth.post(
-          req.p.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
-          void 0, //'your user token for this app', //test user token
-          void 0, //'your user secret for this app', //test user secret            
-          replaceResultRequestBody,
-          "application/xml",
-          function (e, data, res){
+    var oauth = new OAuth.OAuth(
+        null,//'https://api.twitter.com/oauth/request_token',
+        null,//'https://api.twitter.com/oauth/access_token',
+        req.p.oauth_consumer_key,//'your application consumer key',
+        consumerSecret,//'your application secret',
+        '1.0',//'1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    oauth.post(
+        req.p.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
+        void 0, //'your user token for this app', //test user token
+        void 0, //'your user secret for this app', //test user secret            
+        replaceResultRequestBody,
+        "application/xml",
+        function (e, data, res){
             if (e) {
                 console.log("grades foo failed")
                 console.error(e);        
@@ -6957,28 +6726,8 @@ console.log('oauth_consumer_key ' + req.p.oauth_consumer_key);
                 console.log('grades foo ok!');
             }
             console.log(require('util').inspect(data));
-          });
-                console.log('grades just posted');
-
-
-
-    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, replaceResultRequestBody, headers);
-    // .then(function(response, body) {
-    //     console.log("grade_send_ok");
-    //     console.dir(response);
-    //     console.dir(body);
-    // }, function(err, response, body) {
-    //     console.log("grade_send_failed3");
-    //     console.log(err);
-    //     console.dir(response);
-    //     console.dir(body);
-    // }).catch(function(err) {
-    //     console.log("grade_send_failed2");
-    //     console.dir(err);
-    // });
-
-    // TODO SECURITY we need to verify the signature
-    var oauth_consumer_key = req.p.oauth_consumer_key;
+        }
+    );
 
     // consider some kind of conversation url scheme like this:
     //  pol.is/auto?oauth_consumer_key=foofoo&context_id=foo&custom_canvas_assignment_id=bar
@@ -6996,7 +6745,7 @@ console.log('oauth_consumer_key ' + req.p.oauth_consumer_key);
     res.redirect("https://preprod.pol.is/demo/2demo");
     return;
 
-}); // TODO write an LTI post handler
+});
 
 
 
