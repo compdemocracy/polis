@@ -6897,7 +6897,7 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
             oauth_nonce="4572616e48616d6d65724c61686176",
             oauth_version="1.0"
         */
-        var authorizationHeader = 'OAuth ' + 'realm="Example",' + 
+        var authorizationHeader = 'OAuth ' + 'realm="",' + 
             _.map(_.pairs(oauthHeaders), function(pair) {
                 pair[1] = '"' + pair[1] + '"';
                 return pair.join("=");
