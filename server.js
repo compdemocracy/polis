@@ -6523,7 +6523,7 @@ function(req, res) {
       req.p.custom_canvas_assignment_id).then(function(rows) {
         var exists = rows && rows.length;
         if (exists) {
-            // sweet!
+            // sweet! the instructor has created the conversation. send them there. (instructors too)
             getZinvite(rows[0].zid).then(function(zinvite) {
                 res.redirect("https://preprod.pol.is/" + zinvite);
             });
@@ -6542,6 +6542,7 @@ function(req, res) {
 
                 // TODO email polis team, email instructor?
                 // TODO or just auto-generate a conversation for the instructor, and have no topic and description, then show that?
+                // TODO or make a dummy "not ready yet" page
                 res.redirect(getServerNameWithProtocol(req) + "/about");                
             }
         }
