@@ -6521,8 +6521,8 @@ function(req, res) {
 
 
     conversationExistsForThisCanvasAssignment(
-      req.p.tool_consumer_instance_guid, 
-      req.p.lti_context_id, 
+      req.p.tool_consumer_instance_guid,
+      req.p.context_id,
       req.p.custom_canvas_assignment_id).then(function(exists) {
         if (exists) {
             // sweet!
