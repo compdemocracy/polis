@@ -6544,8 +6544,11 @@ function(req, res) {
     // polis_consumer_key_abcd
     // polis_shared_secret_abcd
 
-    addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, JSON.stringify(req.body)).then(function() {
-
+    addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, JSON.stringify(req.body)).then(function() {
+        console.log("grading info added");
+    }).catch(function(err) {
+        console.log("grading info error ");
+        console.dir(err);
     });
 
 
