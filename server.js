@@ -6865,6 +6865,26 @@ console.log('oauth_consumer_key ' + req.p.oauth_consumer_key);
         console.dir(oauthHeaders);
     console.log("mike0");
 
+
+// try to replicate Canvas's signature
+        var canvasSignature = oauth_rfc5849.signature(
+            'POST', // requestMethod
+            'https://preprod.pol.is/api/v3/LTI/conversation_assignment',
+            '', //c2&a3=2+q', // body
+            {
+                consumerKey: req.p.oauth_consumer_key, //'9djdj82h48djs9d2',
+                consumerSecret: consumerSecret, //'j49sk3j29djd',
+                // token: '', //kkk9d7dh3k39sjv7',  maps to oauth_token, optional
+                tokenSecret: '', // dh893hdasih9', // this is the "shared secret" may be empty? (see 3.4.2 key) http://tools.ietf.org/html/rfc5849
+                nonce: req.p.oauth_nonce, //'7d8f3e4a',
+                signatureMethod: req.p.oauth_signature_method, //'HMAC-SHA1',
+                timestamp: req.p.oauth_timestamp, //'137131201',
+                version: req.p.oauth_version, // must be '1.0'
+                callback: req.p.oauth_callback, // needed?
+            }
+        );
+        console.log('canvasSignature ' + canvasSignature);
+
         var signature = oauth_rfc5849.signature(
             'POST', // requestMethod
             req.p.lis_outcome_service_url,  //'http://example.com/request?b5=%3D%253D&a3=a&c%40=&a2=r%20b', // url
