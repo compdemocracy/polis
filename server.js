@@ -6442,6 +6442,44 @@ function getCanvasAssignmentInfo(tool_consumer_instance_guid, lti_context_id, cu
     ]);
 }
 
+function addCanvasAssignmentConversationCallbackParamsIfNeeded(lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid, lis_outcome_service_url, lis_result_sourcedid, stringified_json_of_post_content) {
+    return getCanvasAssignmentConversationCallbackParams(lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid).then(function(rows) {
+        if (rows && rows.length) {
+            // update
+            return pgQueryP("update canvas_assignment_callback_info set lis_outcome_service_url = ($5) and lis_result_sourcedid = ($6) and stringified_json_of_post_content = ($7) and where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);", [
+                lti_user_id,
+                lti_context_id,
+                custom_canvas_assignment_id,
+                tool_consumer_instance_guid,
+                lis_outcome_service_url,
+                lis_result_sourcedid,
+                stringified_json_of_post_content,
+            ]);
+        } else {
+            // insert
+            return pgQueryP("insert into canvas_assignment_callback_info (lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid, lis_outcome_service_url, lis_result_sourcedid, stringified_json_of_post_content) values ($1, $2, $3, $4, $5, $6, $7);", [
+                lti_user_id,
+                lti_context_id,
+                custom_canvas_assignment_id,
+                tool_consumer_instance_guid,
+                lis_outcome_service_url,
+                lis_result_sourcedid,
+                stringified_json_of_post_content,
+            ]);
+        }
+    });
+}
+
+function getCanvasAssignmentConversationCallbackParams(lti_user_id, lti_context_id, lis_outcome_service_url, lis_result_sourcedid, custom_canvas_assignment_id, tool_consumer_instance_guid, stringified_json_of_post_content) {
+    return pgQueryP("select * from canvas_assignment_callback_info where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);", [
+        lti_user_id, 
+        lti_context_id,
+        custom_canvas_assignment_id,
+        tool_consumer_instance_guid,
+    ]);
+}
+
+
 app.post("/api/v3/LTI/conversation_assignment",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("oauth_signature_method", getStringLimitLength(1, 9999), assignToP), // probably "HMAC-SHA-1"
@@ -6505,6 +6543,11 @@ function(req, res) {
 
     // polis_consumer_key_abcd
     // polis_shared_secret_abcd
+
+    addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, JSON.stringify(req.body)).then(function() {
+
+    });
+
 
     // pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, lis_result_sourcedid, custom_canvas_assignment_id, tool_consumer_instance_guid, stringified_json_of_post_content) values ($1, $2, $3, $4, $5, $6, $7);", [
     //     req.p.lti_user_id,

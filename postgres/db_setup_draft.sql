@@ -253,15 +253,16 @@ CREATE TABLE lti_context_memberships (
 -- the use-case for this table is that there are many conversations, but a single grading callback for the whole course
 -- allowing for duplicates (for now) by using 'created' field
 -- TODO don't allow for duplicates
-CREATE TABLE lti_single_assignment_callback_info (
+CREATE TABLE canvas_assignment_callback_info (
     lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
     lti_context_id TEXT NOT NULL, -- TODO add constraint to limit length
     lis_outcome_service_url TEXT, -- TODO add constraint to limit length
     lis_result_sourcedid VARCHAR(256),
+    custom_canvas_assignment_id BIGINT NOT NULL,
+    tool_consumer_instance_guid VARCHAR(999) NOT NULL,
     stringified_json_of_post_content TEXT, -- TODO add constraint to limit length
-    created BIGINT DEFAULT now_as_millis()    
+    created BIGINT DEFAULT now_as_millis()
 );
-
 
 CREATE TABLE canvas_assignment_conversation_info (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
