@@ -6720,7 +6720,8 @@ function(req, res) {
     console.log("grades req.body " + JSON.stringify(req.body));
     console.log("grades req.p " + JSON.stringify(req.p));
 
-    var consumerSecret = "demo_consumer_secret_123"; // TODO lookup in db
+    var consumerSecret = "polis_shared_secret_abcd"; // TODO lookup in db
+
 
  // sign with consumer key and consumer secret...
 
@@ -6839,6 +6840,10 @@ required parameters, per sections 6.1.1, 6.3.1, and 7
 
 
 */
+
+// polis_consumer_key_abcd
+// polis_shared_secret_abcd
+
         var oauthHeaders = {
             oauth_consumer_key: req.p.oauth_consumer_key,
             oauth_signature_method: req.p.oauth_signature_method,
