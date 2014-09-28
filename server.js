@@ -6433,7 +6433,7 @@ function addCanvasAssignmentConversationInfoIfNeeded(zid, tool_consumer_instance
 }
 
 function conversationExistsForThisCanvasAssignment(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
-    return pgQueryP("select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = ($2) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3);", [
+    return pgQueryP("select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3);", [
         tool_consumer_instance_guid,
         lti_context_id,
         custom_canvas_assignment_id,
