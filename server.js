@@ -6418,7 +6418,8 @@ function(req, res) {
 
 
 function addCanvasAssignmentConversationInfoIfNeeded(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
-    return conversationExistsForThisCanvasAssignment(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id).then(function(exists) {
+    return getCanvasAssignmentInfo(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id).then(function(rows) {
+        var exists = rows && rows.length;        
         if (exists) {
             return exists;
         } else {
@@ -6432,17 +6433,13 @@ function addCanvasAssignmentConversationInfoIfNeeded(zid, tool_consumer_instance
     });
 }
 
-function conversationExistsForThisCanvasAssignment(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
+function getCanvasAssignmentInfo(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
     console.log('grades select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = '+tool_consumer_instance_guid+' and lti_context_id = '+lti_context_id+' and custom_canvas_assignment_id = '+custom_canvas_assignment_id+';');
     return pgQueryP("select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3);", [
         tool_consumer_instance_guid,
         lti_context_id,
         custom_canvas_assignment_id,
-    ]).then(function(rows) {
-        console.log('grades canvas_assignment_conversation_info query returned with ' + rows.length);
-        console.dir(rows);
-        return rows && rows.length;
-    });
+    ]);
 }
 
 app.post("/api/v3/LTI/conversation_assignment",
@@ -6520,16 +6517,16 @@ function(req, res) {
     // ]).thennnnn
 
 
-    conversationExistsForThisCanvasAssignment(
+    getCanvasAssignmentInfo(
       req.p.tool_consumer_instance_guid,
       req.p.context_id,
-      req.p.custom_canvas_assignment_id).then(function(exists) {
+      req.p.custom_canvas_assignment_id).then(function(rows) {
+        var exists = rows && rows.length;
         if (exists) {
             // sweet!
-
-            // TODO something?
-            res.redirect("https://preprod.pol.is/demo/2demo");
-
+            getZinvite(rows[0].zid).then(function(zinvite) {
+                res.redirect("https://preprod.pol.is/" + zinvite);
+            });
         } else {
             // uh oh, not ready. If this is an instructor, we'll send them to the create/conversation page.
             if (isInstructor) {
