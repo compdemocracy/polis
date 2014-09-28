@@ -598,12 +598,6 @@ var polisRouter = Backbone.Router.extend({
 
       var paramsFromPath = Utils.decodeParams(encodedStringifiedJson);
 
-      if (!_.isUndefined(paramsFromPath.context)) {
-        o.context = paramsFromPath.context;
-      }
-      if (!_.isUndefined(paramsFromPath.launch_presentation_return_url_hex)) {
-        o.launch_presentation_return_url_hex = paramsFromPath.launch_presentation_return_url_hex;
-      }
       var model = new ConversationModel(o);
 
       model.save().then(function(data) {
@@ -617,6 +611,7 @@ var polisRouter = Backbone.Router.extend({
       }).then(function(ptptAttrs) {
         var createConversationFormView = new CreateConversationFormView({
           model: model,
+          paramsFromPath: paramsFromPath,
           collection: conversationsCollection,
           pid: ptptAttrs.pid,
           add: true

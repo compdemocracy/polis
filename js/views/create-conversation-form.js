@@ -74,6 +74,9 @@ module.exports = View.extend({
           delete attrs.xidsTextarea;
 
           attrs.verifyMeta = true; // make sure there are answers for each question.
+
+          attrs = $.extend(attrs, that.paramsFromPath);
+
           bbSave(that.model, attrs).then(function(data, response) {
             // LTI redirect
             if (response.lti_redirect) {
@@ -145,6 +148,7 @@ module.exports = View.extend({
 
       // ConversationModel
       this.model = options.model;
+      this.paramsFromPath = options.paramsFromPath;
       var conversation_id = this.model.get("conversation_id");
       var pid = options.pid;
 
