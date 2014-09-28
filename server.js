@@ -6590,9 +6590,11 @@ function toArray(obj) {
 //
 function paramSources(uri, body, protocolParams) {
     var queryObj = url.parse(uri, true).query;
-    var bodyObj = querystring.parse(body);
+    // var bodyObj = querystring.parse(body);
     return Array.prototype.concat.apply([], [
-        queryObj, bodyObj, protocolParams
+        queryObj, 
+        // bodyObj,
+         protocolParams
     ].map(toArray));
 }
 
