@@ -6458,7 +6458,7 @@ app.post("/api/v3/LTI/conversation_assignment",
     want("custom_canvas_assignment_id", getInt, assignToP), // NOTE: it enters our system as an int, but we'll 
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
     want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
-
+    want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  canvas instance
 function(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
