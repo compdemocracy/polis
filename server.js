@@ -6545,6 +6545,8 @@ function(req, res) {
                 res.redirect(getServerNameWithProtocol(req) + "/about");                
             }
         }
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_checking_grading_context", err);
     });
 
     // store info about class, if not there already
