@@ -6742,12 +6742,12 @@ var gradeFromZeroToOne = 0.7;
                 '<replaceResultRequest>' + // parser has???  xml.at_css('imsx_POXBody *:first').name.should == 'replaceResultResponse'
                     '<resultRecord>' +
                     '<sourcedGUID>' +
-                        '<sourcedId>0.7</sourcedId>' +
+                        '<sourcedId>' + req.p.lis_result_sourcedid + '</sourcedId>' +
                     '</sourcedGUID>' +
                     '<result>' +
                     '<resultScore>' +
                         '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
-                        '<textString>'+gradeFromZeroToOne+'</textString>' +
+                        '<textString>1.0</textString>' +
                     '</resultScore>' +
                     '</result>' +
                     '</resultRecord>' +
