@@ -6901,7 +6901,7 @@ console.log('oauth_consumer_key ' + req.p.oauth_consumer_key);
                 callback: oauthHeaders.oauth_callback, // needed?
             }
         );
-        signature = encodeURIComponent(signature);
+        // signature = encodeURIComponent(signature);
 
         // var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
         oauthHeaders.oauth_signature = signature;
