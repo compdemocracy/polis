@@ -44,6 +44,7 @@
     "simple-oauth2": "~0.2.0",
     "p3p": "0.0.2",
     "oauth-sign": "~0.4.0",
-    "oauth-toolkit": "0.0.0"
+    "oauth-toolkit": "0.0.0",
+    "oauth": "~0.9.12"
   }
 }

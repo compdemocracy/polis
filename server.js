@@ -43,6 +43,7 @@ var badwords = require('badwords/object'),
     Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
     // oauth_rfc5849 = require('oauth-toolkit'),
     p3p = require('p3p'),
+    OAuth = require('oauth'),
     Pushover = require( 'pushover-notifications' ),
     pushoverInstance = new Pushover( {
         user: process.env.PUSHOVER_GROUP_POLIS_DEV,
@@ -6931,6 +6932,35 @@ console.log('oauth_consumer_key ' + req.p.oauth_consumer_key);
             "content-type": 'application/xml', // (not text/xml) see http://www.imsglobal.org/LTI/v1p1/ltiIMGv1p1.html#_Toc319560469
             "Authorization": authorizationHeader,
         };
+
+        console.log('grades will post');
+        var oauth = new OAuth.OAuth(
+          null,//'https://api.twitter.com/oauth/request_token',
+          null,//'https://api.twitter.com/oauth/access_token',
+          req.p.oauth_consumer_key,//'your application consumer key',
+          consumerSecret,//'your application secret',
+          '1.0',//'1.0A',
+          null,
+          'HMAC-SHA1'
+        );
+         oauth.post(
+          req.p.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
+          void 0, //'your user token for this app', //test user token
+          void 0, //'your user secret for this app', //test user secret            
+          replaceResultRequestBody,
+          "application/xml",
+          function (e, data, res){
+            if (e) {
+                console.log("grades foo failed")
+                console.error(e);        
+            } else {
+                console.log('grades foo ok!');
+            }
+            console.log(require('util').inspect(data));
+          });
+                console.log('grades just posted');
+
+
 
     sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, replaceResultRequestBody, headers);
     // .then(function(response, body) {
