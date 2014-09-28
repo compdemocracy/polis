@@ -41,6 +41,7 @@ var badwords = require('badwords/object'),
     bcrypt = require('bcrypt'),
     crypto = require('crypto'),
     Intercom = require('intercom.io'), // https://github.com/tarunc/intercom.io
+    oauth_rfc5849 = require('oauth-toolkit'),
     p3p = require('p3p'),
     Pushover = require( 'pushover-notifications' ),
     pushoverInstance = new Pushover( {
@@ -6394,56 +6395,32 @@ function(req, res) {
 }); // end /api/v3/LTI/canvas_nav
 
 
-function sendGrades(lis_outcome_service_url, lis_result_sourcedid, gradeFromZeroToOne, headers) {
+function sendGrades(lis_outcome_service_url, lis_result_sourcedid, body, headers) {
     // return new Promise(function(resolve, reject) {
-        var replaceResultRequestBody = '' +
-        '<?xml version="1.0" encoding="UTF-8"?>' +
-        '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
-            '<imsx_POXHeader>' +
-                '<imsx_POXRequestHeaderInfo>' +
-                    '<imsx_version>V1.0</imsx_version>' +
-                    '<imsx_messageIdentifier>999999123</imsx_messageIdentifier>' +
-                '</imsx_POXRequestHeaderInfo>' +
-            '</imsx_POXHeader>' +
-            '<imsx_POXBody>' +
-                '<replaceResultRequest>' +
-                    '<resultRecord>' +
-                    '<sourcedGUID>' +
-                        '<sourcedId>0.7</sourcedId>' +
-                    '</sourcedGUID>' +
-                    '<result>' +
-                    '<resultScore>' +
-                        '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
-                        '<textString>'+gradeFromZeroToOne+'</textString>' +
-                    '</resultScore>' +
-                    '</result>' +
-                    '</resultRecord>' +
-                '</replaceResultRequest>' +
-            '</imsx_POXBody>' +
-        '</imsx_POXEnvelopeRequest>';
+
 
        
 
-var options = {
-  hostname: 'canvas.instructure.com',
-  port: 443,
-  path: '/api/lti/v1/tools/47209/grade_passback',
-  method: 'POST',
-  headers: headers,
-};
+    var options = {
+      hostname: 'canvas.instructure.com',
+      port: 443,
+      path: '/api/lti/v1/tools/47209/grade_passback',
+      method: 'POST',
+      headers: headers,
+    };
 
-var req = https.request(options, function(res) {
-  console.log("grades statusCode: ", res.statusCode);
-  console.log("grades headers: ", res.headers);
+    var req = https.request(options, function(res) {
+      console.log("grades statusCode: ", res.statusCode);
+      console.log("grades headers: ", res.headers);
 
-  res.on('data', function(d) {
-    console.log("\n\ngrades data chunk begin\n\n");
-    process.stdout.write(d);
-    console.log("\n\ngrades data chunk end\n\n");
-  });
-});
-req.write(replaceResultRequestBody);
-req.end();
+      res.on('data', function(d) {
+        console.log("\n\ngrades data chunk begin\n\n");
+        process.stdout.write(d);
+        console.log("\n\ngrades data chunk end\n\n");
+      });
+    });
+    req.write(body);
+    req.end();
 
 
 
@@ -6502,22 +6479,176 @@ function(req, res) {
 
         var token_secret = ""; // not using?
 
-        var headers = {
-            oauth_callback: req.p.oauth_callback,
+var gradeFromZeroToOne = 0.7;
+        var replaceResultRequestBody = '' +
+        '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
+            '<imsx_POXHeader>' +
+                '<imsx_POXRequestHeaderInfo>' +
+                    '<imsx_version>V1.0</imsx_version>' +
+                    '<imsx_messageIdentifier>999999123</imsx_messageIdentifier>' +
+                '</imsx_POXRequestHeaderInfo>' +
+            '</imsx_POXHeader>' +
+            '<imsx_POXBody>' +
+                '<replaceResultRequest>' + // parser has???  xml.at_css('imsx_POXBody *:first').name.should == 'replaceResultResponse'
+                    '<resultRecord>' +
+                    '<sourcedGUID>' +
+                        '<sourcedId>0.7</sourcedId>' +
+                    '</sourcedGUID>' +
+                    '<result>' +
+                    '<resultScore>' +
+                        '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
+                        '<textString>'+gradeFromZeroToOne+'</textString>' +
+                    '</resultScore>' +
+                    '</result>' +
+                    '</resultRecord>' +
+                '</replaceResultRequest>' +
+            '</imsx_POXBody>' +
+        '</imsx_POXEnvelopeRequest>';
+
+/* 
+
+Example from canvas_lti source
+
+    def make_call(opts = {})
+      opts['path'] ||= "/api/lti/v1/tools/#{@tool.id}/ext_grade_passback"
+      opts['key'] ||= @tool.consumer_key
+      opts['secret'] ||= @tool.shared_secret
+      consumer = OAuth::Consumer.new(opts['key'], opts['secret'], :site => "https://www.example.com", :signature_method => "HMAC-SHA1")
+      req = consumer.create_signed_request(:post, opts['path'], nil, { :scheme => 'header', :timestamp => opts['timestamp'], :nonce => opts['nonce'] }, opts['body'])
+      post "https://www.example.com#{req.path}",
+        req.body,
+        { 'CONTENT_TYPE' => 'application/x-www-form-urlencoded', "HTTP_AUTHORIZATION" => req['Authorization'] }
+    end
+
+
+    def verify_oauth
+    # load the external tool to grab the key and secret
+    @tool = ContextExternalTool.find(params[:tool_id])
+
+    # verify the request oauth signature, timestamp and nonce
+    begin
+      @signature = OAuth::Signature.build(request, :consumer_secret => @tool.shared_secret)
+      @signature.verify() or raise OAuth::Unauthorized
+    rescue OAuth::Signature::UnknownSignatureMethod,
+           OAuth::Unauthorized
+      raise BasicLTI::BasicOutcomes::Unauthorized, "Invalid authorization header"
+    end
+
+    timestamp = Time.zone.at(@signature.request.timestamp.to_i)
+    # 90 minutes is suggested by the LTI spec
+    allowed_delta = Setting.get('oauth.allowed_timestamp_delta', 90.minutes.to_s).to_i
+    if timestamp < allowed_delta.ago || timestamp > allowed_delta.from_now
+      raise BasicLTI::BasicOutcomes::Unauthorized, "Timestamp too old or too far in the future, request has expired"
+    end
+
+    nonce = @signature.request.nonce
+    unless Canvas::Redis.lock("nonce:#{@tool.asset_string}:#{nonce}", allowed_delta)
+      raise BasicLTI::BasicOutcomes::Unauthorized, "Duplicate nonce detected"
+    end
+  end
+
+
+
+# File canvas-lms / app / controllers / lti_api_controller.rb
+
+    # verify the request oauth signature, timestamp and nonce
+    begin
+      @signature = OAuth::Signature.build(request, :consumer_secret => @tool.shared_secret)
+      @signature.verify() or raise OAuth::Unauthorized
+    rescue OAuth::Signature::UnknownSignatureMethod,
+           OAuth::Unauthorized
+      raise BasicLTI::BasicOutcomes::Unauthorized, "Invalid authorization header"
+    end
+
+
+# File 'lib/oauth/signature.rb', line 11
+
+def self.build(request, options = {}, &block)
+  request = OAuth::RequestProxy.proxy(request, options)
+  klass = available_methods[
+    (request.signature_method ||
+    ((c = request.options[:consumer]) && c.options[:signature_method]) ||
+    "").downcase]
+  raise UnknownSignatureMethod, request.signature_method unless klass
+  klass.new(request, options, &block)
+end
+
+Here are the parameters that the Ruby oauth library will allow to be considered for the hash
+PARAMETERS =
+required parameters, per sections 6.1.1, 6.3.1, and 7
+%w(
+    oauth_callback
+    oauth_consumer_key
+    oauth_token
+    oauth_signature_method
+    oauth_timestamp
+    oauth_nonce
+    oauth_verifier
+    oauth_version
+    oauth_signature        -- do not include this one, obviously
+    oauth_body_hash
+    )
+
+
+*/
+        var oauthHeaders = {
             oauth_consumer_key: req.p.oauth_consumer_key,
-            oauth_nonce: req.p.oauth_nonce,
             oauth_signature_method: req.p.oauth_signature_method,
             oauth_timestamp: req.p.oauth_timestamp, // or generate one?
+            oauth_nonce: req.p.oauth_nonce,
             oauth_version: req.p.oauth_version,
+            oauth_callback: req.p.oauth_callback,
+            // oauth_body_hash: sha1(replaceResultRequestBody), // section 4.3 http://www.imsglobal.org/LTI/v1p1/ltiIMGv1p1.html#_Toc319560469
         };
-        console.dir(headers);
-        var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
-        headers["content-type"] = 'text/xml';
-        headers.oauth_signature = signature;
+        console.dir(oauthHeaders);
+        var signature = oauth_rfc5849.signature(
+            'POST', // requestMethod
+            req.p.lis_outcome_service_url,  //'http://example.com/request?b5=%3D%253D&a3=a&c%40=&a2=r%20b', // url
+            replaceResultRequestBody, //c2&a3=2+q', // body
+            {
+                consumerKey: req.p.oauth_consumer_key, //'9djdj82h48djs9d2',
+                consumerSecret: consumerSecret, //'j49sk3j29djd',
+                // token: '', //kkk9d7dh3k39sjv7',  maps to oauth_token, optional
+                tokenSecret: '', // dh893hdasih9', // this is the "shared secret" may be empty? (see 3.4.2 key) http://tools.ietf.org/html/rfc5849
+                nonce: req.p.oauth_nonce, //'7d8f3e4a',
+                signatureMethod: req.p.oauth_signature_method, //'HMAC-SHA1',
+                timestamp: req.p.oauth_timestamp, //'137131201',
+                version: req.p.oauth_version, // must be '1.0'
+                callback: req.p.oauth_callback, // needed?
+            }
+        );
+
+        // var signature = hmacsign("POST", req.p.lis_outcome_service_url, headers, consumerSecret, token_secret);
+        oauthHeaders.oauth_signature = signature;
+
         console.log("oauth_signature: " + signature);
 
+        // NOTE: oauth headers need to go in the Authorization header. http://tools.ietf.org/html/rfc5849#section-3.5.1
+        /*
+        Authorization: OAuth realm="Example",
+            oauth_consumer_key="0685bd9184jfhq22",
+            oauth_token="ad180jjd733klru7",
+            oauth_signature_method="HMAC-SHA1",
+            oauth_signature="wOJIO9A2W5mFwDgiDvZbTSMK%2FPY%3D",
+            oauth_timestamp="137131200",
+            oauth_nonce="4572616e48616d6d65724c61686176",
+            oauth_version="1.0"
+        */
+        var authorizationHeader = 'OAuth ' + 'realm="Example",' + 
+            _.map(_.pairs(oauthHeaders), function(pair) {
+                pair[1] = '"' + pair[1] + '"';
+                return pair.join("=");
+            }).join(",");
 
-    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, headers);
+        console.log("grades " + authorizationHeader);
+
+        var headers = {
+            "content-type": 'application/xml', // (not text/xml) see http://www.imsglobal.org/LTI/v1p1/ltiIMGv1p1.html#_Toc319560469
+            "Authorization": authorizationHeader,
+        };
+
+    sendGrades(req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, 0.9, replaceResultRequestBody, headers);
     // .then(function(response, body) {
     //     console.log("grade_send_ok");
     //     console.dir(response);
