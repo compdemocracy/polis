@@ -6525,6 +6525,7 @@ function(req, res) {
             // sweet!
 
             // TODO something?
+            res.redirect("https://preprod.pol.is/demo/2demo");
 
         } else {
             // uh oh, not ready. If this is an instructor, we'll send them to the create/conversation page.
@@ -6535,11 +6536,13 @@ function(req, res) {
                     custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
                 });
                 res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + encodedParams);
+                return;
             } else {
                 // double uh-oh, a student is seeing this before the instructor created a conversation...
 
                 // TODO email polis team, email instructor?
                 // TODO or just auto-generate a conversation for the instructor, and have no topic and description, then show that?
+                res.redirect(getServerNameWithProtocol(req) + "/about");                
             }
         }
     });
@@ -6568,48 +6571,33 @@ function(req, res) {
     // wait! how do we know what the conversation should have for topic / description?
 
 
-
-    var oauth = new OAuth.OAuth(
-        null,//'https://api.twitter.com/oauth/request_token',
-        null,//'https://api.twitter.com/oauth/access_token',
-        req.p.oauth_consumer_key,//'your application consumer key',
-        consumerSecret,//'your application secret',
-        '1.0',//'1.0A',
-        null,
-        'HMAC-SHA1'
-    );
-    oauth.post(
-        req.p.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
-        void 0, //'your user token for this app', //test user token
-        void 0, //'your user secret for this app', //test user secret            
-        replaceResultRequestBody,
-        "application/xml",
-        function (e, data, res){
-            if (e) {
-                console.log("grades foo failed");
-                console.error(e);        
-            } else {
-                console.log('grades foo ok!');
+    function postGrades() {
+        var oauth = new OAuth.OAuth(
+            null,//'https://api.twitter.com/oauth/request_token',
+            null,//'https://api.twitter.com/oauth/access_token',
+            req.p.oauth_consumer_key,//'your application consumer key',
+            consumerSecret,//'your application secret',
+            '1.0',//'1.0A',
+            null,
+            'HMAC-SHA1'
+        );
+        oauth.post(
+            req.p.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret            
+            replaceResultRequestBody,
+            "application/xml",
+            function (e, data, res){
+                if (e) {
+                    console.log("grades foo failed");
+                    console.error(e);        
+                } else {
+                    console.log('grades foo ok!');
+                }
+                console.log(require('util').inspect(data));
             }
-            console.log(require('util').inspect(data));
-        }
-    );
-
-    // consider some kind of conversation url scheme like this:
-    //  pol.is/auto?oauth_consumer_key=foofoo&context_id=foo&custom_canvas_assignment_id=bar
-    // it would generate a conversation if one didn't already exist, assuming the owner has conversation create priviledges, or has a 'students pay' plan.
-    // ideally it wouldn't have to allocate a row in the db, since this would make an easy attack vector. TODO SECURITY
-
-    res.set({
-        'Content-Type': 'text/html',
-    });
-    // if (isInstructor) {
-    //     res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are an instructor <div>"+ JSON.stringify(req.body)+"</div></body></html>");
-    // } else {
-    //     res.status(200).send("<!DOCTYPE html><html lang='en'><body>here is a conversation. you are a student <div>"+ JSON.stringify(req.body)+"</div></body></html>");            
-    // }
-    res.redirect("https://preprod.pol.is/demo/2demo");
-    return;
+        );
+    }
 
 });
 
