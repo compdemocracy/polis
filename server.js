@@ -6459,88 +6459,88 @@ function(req, res) {
 }); // end /api/v3/LTI/setup_assignment
 
 
-app.post("/api/v3/LTI/canvas_nav",
-    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-    need("user_id", getStringLimitLength(1, 9999), assignToP),    
-    need("context_id", getStringLimitLength(1, 9999), assignToP),    
-    need("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
-    want("roles", getStringLimitLength(1, 9999), assignToP),
-    want("user_image", getStringLimitLength(1, 9999), assignToP),
-    want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
-    want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
-    want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
-    want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
-    want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-function(req, res) {
-    console.dir(req);
-    var roles = req.p.roles;
-    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    var user_id = req.p.user_id;    
-    var context_id = req.p.context_id;    
-    var user_image = req.p.user_image || "";
-    // if (!req.p.tool_consumer_instance_guid) {
-    //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
-    // }
+// app.post("/api/v3/LTI/canvas_nav",
+//     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+//     need("user_id", getStringLimitLength(1, 9999), assignToP),    
+//     need("context_id", getStringLimitLength(1, 9999), assignToP),    
+//     need("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
+//     want("roles", getStringLimitLength(1, 9999), assignToP),
+//     want("user_image", getStringLimitLength(1, 9999), assignToP),
+//     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
+//     want("lis_person_name_full", getStringLimitLength(1, 9999), assignToP),
+//     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
+//     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
+//     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+// function(req, res) {
+//     console.dir(req);
+//     var roles = req.p.roles;
+//     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+//     var user_id = req.p.user_id;    
+//     var context_id = req.p.context_id;    
+//     var user_image = req.p.user_image || "";
+//     // if (!req.p.tool_consumer_instance_guid) {
+//     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
+//     // }
 
-    console.dir(req.p);
+//     console.dir(req.p);
 
-    // // TODO SECURITY we need to verify the signature
-    // var oauth_consumer_key = req.p.oauth_consumer_key;
+//     // // TODO SECURITY we need to verify the signature
+//     // var oauth_consumer_key = req.p.oauth_consumer_key;
 
-    // Check if linked to this uid.
-    pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
-
-
-        var userForLtiUserId = null;
-        if (rows.length) {
-            userForLtiUserId = rows[0];
-        }
-
-        console.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
-
-        if (userForLtiUserId) {
-            // if (teacher pays) {
-            //     // you're good!
-            // } else {
-            //     if (you paid) {
+//     // Check if linked to this uid.
+//     pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
 
 
-                    // renderLtiLinkageSuccessPage(req, res, {
-                    //     context_id: context_id,
-                    //     // user_image: userForLtiUserId.user_image,                                
-                    //     email: userForLtiUserId.email,
-                    // });
+//         var userForLtiUserId = null;
+//         if (rows.length) {
+//             userForLtiUserId = rows[0];
+//         }
+
+//         console.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
+
+//         if (userForLtiUserId) {
+//             // if (teacher pays) {
+//             //     // you're good!
+//             // } else {
+//             //     if (you paid) {
 
 
-                    var inboxLaunchParams = encodeParams({
-                        context: context_id, // we're using the LTI context_id as a polis conversation context. scope the inbox to the course
-                        xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header
-                        // TODO add token
-                    });
-                    res.redirect("https://preprod.pol.is/inbox/" + inboxLaunchParams);
+//                     // renderLtiLinkageSuccessPage(req, res, {
+//                     //     context_id: context_id,
+//                     //     // user_image: userForLtiUserId.user_image,                                
+//                     //     email: userForLtiUserId.email,
+//                     // });
+
+
+//                     var inboxLaunchParams = encodeParams({
+//                         context: context_id, // we're using the LTI context_id as a polis conversation context. scope the inbox to the course
+//                         xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header
+//                         // TODO add token
+//                     });
+//                     res.redirect("https://preprod.pol.is/inbox/" + inboxLaunchParams);
 
 
 
-                // } else { // you (student) have not yet paid
-                //     // gotta pay
-                // }
-            // }
-        } else {
-            // not linked yet. send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
+//                 // } else { // you (student) have not yet paid
+//                 //     // gotta pay
+//                 // }
+//             // }
+//         } else {
+//             // not linked yet. send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
 
-            // you are signed in, but not linked to the signed in user
-            // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
-            clearCookies(req, res);
-            console.log('lti_linkage didnt exist');
-            // Have them sign in again, since they weren't linked.
-            // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
-            renderLtiLinkagePage(req, res);
-        }
-    }).catch(function(err) {
-        fail(res, 500, "polis_err_launching_lti_finding_user", err);
-    });
+//             // you are signed in, but not linked to the signed in user
+//             // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
+//             clearCookies(req, res);
+//             console.log('lti_linkage didnt exist');
+//             // Have them sign in again, since they weren't linked.
+//             // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
+//             renderLtiLinkagePage(req, res);
+//         }
+//     }).catch(function(err) {
+//         fail(res, 500, "polis_err_launching_lti_finding_user", err);
+//     });
 
-}); // end /api/v3/LTI/canvas_nav
+// }); // end /api/v3/LTI/canvas_nav
 
 
 
@@ -6666,7 +6666,7 @@ function(req, res) {
         if (exists) {
             // sweet! the instructor has created the conversation. send them there. (instructors too)
             getZinvite(rows[0].zid).then(function(zinvite) {
-                res.redirect("https://preprod.pol.is/" + zinvite + "/" + encodedParams({
+                res.redirect("https://preprod.pol.is/" + zinvite + "/" + encodeParams({
                     forceEmbedded: true,
                 }));
             });
@@ -6783,115 +6783,115 @@ res.status(200).send(xml);
 
 
 
-/*
-https://preprod.pol.is/api/v3/LTI/canvas_nav.xml
-*/
-app.get("/api/v3/LTI/canvas_nav.xml",
-function(req, res) {
-var xml = '' +
-'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+// /*
+// https://preprod.pol.is/api/v3/LTI/canvas_nav.xml
+// */
+// app.get("/api/v3/LTI/canvas_nav.xml",
+// function(req, res) {
+// var xml = '' +
+// '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
 
-'<blti:title>Pol.is Nav</blti:title>' +
-'<blti:description>Pol.is Conversations</blti:description>' +
-'<blti:icon>' +
-'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
-'</blti:icon>' +
-// '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/canvas_nav</blti:launch_url>' +
+// '<blti:title>Pol.is Nav</blti:title>' +
+// '<blti:description>Pol.is Conversations</blti:description>' +
+// '<blti:icon>' +
+// 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+// '</blti:icon>' +
+// // '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/canvas_nav</blti:launch_url>' +
 
-'<blti:custom>' +
-'<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
-'</blti:custom>' +
+// '<blti:custom>' +
+// '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
+// '</blti:custom>' +
 
-'<blti:extensions platform="canvas.instructure.com">' +
+// '<blti:extensions platform="canvas.instructure.com">' +
 
-    '<lticm:property name="tool_id">polis_lti</lticm:property>' +
-    '<lticm:property name="privacy_level">public</lticm:property>' +
+//     '<lticm:property name="tool_id">polis_lti</lticm:property>' +
+//     '<lticm:property name="privacy_level">public</lticm:property>' +
 
-    // nav
-    '<lticm:options name="course_navigation">' +
-        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/canvas_nav</lticm:property>' +
-        '<lticm:property name="text">pol.is</lticm:property>' +
-        '<lticm:property name="visibility">public</lticm:property>' +
-        '<lticm:property name="default">enabled</lticm:property>' +
-        '<lticm:property name="enabled">true</lticm:property>' +
-    '</lticm:options>' +
-
-
-
-'</blti:extensions>' +
-
-'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-'<cartridge_icon identifierref="BLTI001_Icon"/>' +
-'</cartridge_basiclti_link>';
-
-res.set('Content-Type', 'text/xml');
-res.status(200).send(xml);
-});
+//     // nav
+//     '<lticm:options name="course_navigation">' +
+//         '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/canvas_nav</lticm:property>' +
+//         '<lticm:property name="text">pol.is</lticm:property>' +
+//         '<lticm:property name="visibility">public</lticm:property>' +
+//         '<lticm:property name="default">enabled</lticm:property>' +
+//         '<lticm:property name="enabled">true</lticm:property>' +
+//     '</lticm:options>' +
 
 
+
+// '</blti:extensions>' +
+
+// '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+// '<cartridge_icon identifierref="BLTI001_Icon"/>' +
+// '</cartridge_basiclti_link>';
+
+// res.set('Content-Type', 'text/xml');
+// res.status(200).send(xml);
+// });
 
 
 
 
-// team meetings - schedule with others, smart converence room
-// or redirect tool
-// students already pay an online fee
-// 
-// ADA? 508 compliance
-// accessibility - Teach Act: those who don't have dexterity
-// colors
-// screen readers
-
-// TODO rename to LTI/launch
-// TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
-// TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
-app.post("/api/v3/LTI/editor_tool",
-    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-    need("user_id", getStringLimitLength(1, 9999), assignToP),    
-    need("context_id", getStringLimitLength(1, 9999), assignToP),    
-    want("roles", getStringLimitLength(1, 9999), assignToP),
-    want("user_image", getStringLimitLength(1, 9999), assignToP),
-// lis_outcome_service_url: send grades here!
-    want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
-    want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
-    want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
-function(req, res) {
-    var roles = req.p.roles;
-    var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    var user_id = req.p.user_id;    
-    var context_id = req.p.context_id;    
-    var user_image = req.p.user_image || "";
 
 
+// // team meetings - schedule with others, smart converence room
+// // or redirect tool
+// // students already pay an online fee
+// // 
+// // ADA? 508 compliance
+// // accessibility - Teach Act: those who don't have dexterity
+// // colors
+// // screen readers
 
-    // TODO SECURITY we need to verify the signature
-    var oauth_consumer_key = req.p.oauth_consumer_key;
+// // TODO rename to LTI/launch
+// // TODO save launch contexts in mongo. For now, to err on the side of collecting extra data, let them be duplicated. Attach a timestamp too.
+// // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
+// app.post("/api/v3/LTI/editor_tool",
+//     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
+//     need("user_id", getStringLimitLength(1, 9999), assignToP),    
+//     need("context_id", getStringLimitLength(1, 9999), assignToP),    
+//     want("roles", getStringLimitLength(1, 9999), assignToP),
+//     want("user_image", getStringLimitLength(1, 9999), assignToP),
+// // lis_outcome_service_url: send grades here!
+//     want("lis_person_contact_email_primary", getStringLimitLength(1, 9999), assignToP),
+//     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
+//     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
+// function(req, res) {
+//     var roles = req.p.roles;
+//     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+//     var user_id = req.p.user_id;    
+//     var context_id = req.p.context_id;    
+//     var user_image = req.p.user_image || "";
 
-    var owner = 125;
-    // if (oauth_consumer_key === 'asdfasdf') {
-    //     uid = 125;
-    // }
 
-    // rich text editor tool embed
-    var ext_content_return_types = req.p.ext_content_return_types;
-    var launch_presentation_return_url = req.p.launch_presentation_return_url;
 
-    // TODO wait to redirect
-    //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
-    if (/iframe/.exec(ext_content_return_types)) {
-        var path = encodeParams({
-            context: context_id,
-            launch_presentation_return_url_hex: strToHex(launch_presentation_return_url),
-        });
-        res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + path);
-        return;
-    } else if (ext_content_return_types) {
-        fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
-    } else {
-        fail(res, 500, "polis_err_unexpected_launch_params", err);
-    }
+//     // TODO SECURITY we need to verify the signature
+//     var oauth_consumer_key = req.p.oauth_consumer_key;
 
-}); // end editor_tool
+//     var owner = 125;
+//     // if (oauth_consumer_key === 'asdfasdf') {
+//     //     uid = 125;
+//     // }
+
+//     // rich text editor tool embed
+//     var ext_content_return_types = req.p.ext_content_return_types;
+//     var launch_presentation_return_url = req.p.launch_presentation_return_url;
+
+//     // TODO wait to redirect
+//     //https://canvas.instructure.com/doc/api/file.editor_button_tools.html
+//     if (/iframe/.exec(ext_content_return_types)) {
+//         var path = encodeParams({
+//             context: context_id,
+//             launch_presentation_return_url_hex: strToHex(launch_presentation_return_url),
+//         });
+//         res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + path);
+//         return;
+//     } else if (ext_content_return_types) {
+//         fail(res, 500, "polis_err_unexpected_lti_return_type_for_ext_content_return_types", err);
+//     } else {
+//         fail(res, 500, "polis_err_unexpected_launch_params", err);
+//     }
+
+// }); // end editor_tool
 
 
 function redirectToLtiEditorDestinationWithDetailsAboutIframe(req, res, launch_presentation_return_url, url, width, height) {
@@ -6914,51 +6914,51 @@ function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_
 
 
 
-/*
-for easy copy and paste
-https://preprod.pol.is/api/v3/LTI/editor_tool.xml
-*/
-app.get("/api/v3/LTI/editor_tool.xml",
-function(req, res) {
-var xml = '' +
-'<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
+// /*
+// for easy copy and paste
+// https://preprod.pol.is/api/v3/LTI/editor_tool.xml
+// */
+// app.get("/api/v3/LTI/editor_tool.xml",
+// function(req, res) {
+// var xml = '' +
+// '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
 
-'<blti:title>Polis Editor Tool</blti:title>' +
-'<blti:description>based on Minecraft LMS integration</blti:description>' +
-'<blti:icon>' +
-'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
-'</blti:icon>' +
-'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/editor_tool</blti:launch_url>' +
+// '<blti:title>Polis Editor Tool</blti:title>' +
+// '<blti:description>based on Minecraft LMS integration</blti:description>' +
+// '<blti:icon>' +
+// 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
+// '</blti:icon>' +
+// '<blti:launch_url>https://preprod.pol.is/api/v3/LTI/editor_tool</blti:launch_url>' +
 
-'<blti:custom>' +
-'<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
-'</blti:custom>' +
+// '<blti:custom>' +
+// '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
+// '</blti:custom>' +
 
-'<blti:extensions platform="canvas.instructure.com">' +
+// '<blti:extensions platform="canvas.instructure.com">' +
 
-    '<lticm:property name="tool_id">polis_lti</lticm:property>' +
-    '<lticm:property name="privacy_level">public</lticm:property>' +
+//     '<lticm:property name="tool_id">polis_lti</lticm:property>' +
+//     '<lticm:property name="privacy_level">public</lticm:property>' +
 
-    // editor button
-    '<lticm:property name="domain">preprod.pol.is</lticm:property>' +
-    '<lticm:property name="text">Polis Foo Test</lticm:property>' +
-    '<lticm:options name="editor_button">' +
-        '<lticm:property name="enabled">true</lticm:property>' +
-        '<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
-        '<lticm:property name="selection_width">500</lticm:property>' +
-        '<lticm:property name="selection_height">300</lticm:property>' +
-    '</lticm:options>' +
+//     // editor button
+//     '<lticm:property name="domain">preprod.pol.is</lticm:property>' +
+//     '<lticm:property name="text">Polis Foo Test</lticm:property>' +
+//     '<lticm:options name="editor_button">' +
+//         '<lticm:property name="enabled">true</lticm:property>' +
+//         '<lticm:property name="icon_url">https://preprod.pol.is/polis-favicon_favicon.png</lticm:property>' +
+//         '<lticm:property name="selection_width">500</lticm:property>' +
+//         '<lticm:property name="selection_height">300</lticm:property>' +
+//     '</lticm:options>' +
 
 
-'</blti:extensions>' +
+// '</blti:extensions>' +
 
-'<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
-'<cartridge_icon identifierref="BLTI001_Icon"/>' +
-'</cartridge_basiclti_link>';
+// '<cartridge_bundle identifierref="BLTI001_Bundle"/>' +
+// '<cartridge_icon identifierref="BLTI001_Icon"/>' +
+// '</cartridge_basiclti_link>';
 
-res.set('Content-Type', 'text/xml');
-res.status(200).send(xml);
-});
+// res.set('Content-Type', 'text/xml');
+// res.status(200).send(xml);
+// });
 
 
 
