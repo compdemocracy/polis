@@ -3328,12 +3328,14 @@ app.post("/api/v3/auth/login",
     want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
+    want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
     var lti_user_id = req.p.lti_user_id;
     var lti_context_id = req.p.lti_context_id;
     var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
+    var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
     email = email.toLowerCase();
     if (!_.isString(password) || !password.length) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
@@ -3373,13 +3375,17 @@ function(req, res) {
                             Promise.resolve();
                         Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
                             if (lti_user_id) {
-                                renderLtiLinkageSuccessPage(req, res, {
-                                    // may include token here too
-                                    context_id: lti_context_id,
-                                    uid: uid,
-                                    // hname: hname,
-                                    email: email,
-                                });
+                                if (afterJoinRedirectUrl) {
+                                    res.redirect(afterJoinRedirectUrl);
+                                } else {
+                                    renderLtiLinkageSuccessPage(req, res, {
+                                        // may include token here too
+                                        context_id: lti_context_id,
+                                        uid: uid,
+                                        // hname: hname,
+                                        email: email,
+                                    });
+                                }
                             } else {
                                 res.json(response_data);
                             }
@@ -3674,6 +3680,7 @@ app.post("/api/v3/auth/new",
     want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
+    want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
     var hname = req.p.hname;
     var password = req.p.password;
@@ -3687,7 +3694,7 @@ function(req, res) {
     var lti_user_id = req.p.lti_user_id;
     var lti_context_id = req.p.lti_context_id;
     var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
-
+    var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
     if (password2 && (password !== password2)) { fail(res, 400, "Passwords do not match."); return; }
     if (!gatekeeperTosPrivacy) { fail(res, 400, "polis_err_reg_need_tos"); return; }
@@ -3730,13 +3737,17 @@ function(req, res) {
                                   Promise.resolve();
                                 Promise.all([ltiUserPromise, ltiContextMembershipPromise]).then(function() {
                                   if (lti_user_id) {
-                                    renderLtiLinkageSuccessPage(req, res, {
-                                        // may include token here too
-                                        context_id: lti_context_id,
-                                        uid: uid,
-                                        hname: hname,
-                                        email: email,
-                                    });
+                                    if (afterJoinRedirectUrl) {
+                                        res.redirect(afterJoinRedirectUrl);
+                                    } else {
+                                        renderLtiLinkageSuccessPage(req, res, {
+                                            // may include token here too
+                                            context_id: lti_context_id,
+                                            uid: uid,
+                                            hname: hname,
+                                            email: email,
+                                        });
+                                    }
                                   } else {
                                       res.json({
                                           uid: uid,
@@ -6228,7 +6239,7 @@ function createOneSuzinvite(xid, zid, owner, generateSingleUseUrl) {
 
 
 
-function renderLtiLinkagePage(req, res) {
+function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
     var context_id = req.p.context_id;
     var user_id = req.p.user_id;
     var user_image = req.p.user_image;
@@ -6262,6 +6273,7 @@ function renderLtiLinkagePage(req, res) {
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '<input type="hidden" name="tool_consumer_instance_guid" value="' + tool_consumer_instance_guid + '">' +
+'<input type="hidden" name="afterJoinRedirectUrl" value="' + afterJoinRedirectUrl + '">' +
 '</div>' +
 '<input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a>' +
 '<div class="row" id="errorDiv"></div>' +
@@ -6286,6 +6298,7 @@ function renderLtiLinkagePage(req, res) {
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '<input type="hidden" name="tool_consumer_instance_guid" value="' + tool_consumer_instance_guid + '">' +
+'<input type="hidden" name="afterJoinRedirectUrl" value="' + afterJoinRedirectUrl + '">' +
 '<a href="/pwresetinit" class="FormLink">Forgot your password?</a>' +
 '</div>' +
 '' +
@@ -6628,6 +6641,7 @@ app.post("/api/v3/LTI/conversation_assignment",
 function(req, res) {
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
+    var isLearner = /[lL]earner/.exec(roles);
     var user_id = req.p.user_id;
     var context_id = req.p.context_id;
     var user_image = req.p.user_image || "";
@@ -6639,13 +6653,61 @@ function(req, res) {
     var oauth_consumer_key = req.p.oauth_consumer_key;
 
 
-    addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, JSON.stringify(req.body)).then(function() {
-        console.log("grading info added");
-    }).catch(function(err) {
-        console.log("grading info error ");
-        console.dir(err);
-    });
+    function getPolisUserForLtiUser() {
+        return pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
+            var userForLtiUserId = null;
+            if (rows.length) {
+                userForLtiUserId = rows[0];
+                console.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
+            }
+            return userForLtiUserId;
+        });
+    }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    if (req.p.lis_result_sourcedid) {
+        addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, JSON.stringify(req.body)).then(function() {
+            console.log("grading info added");
+        }).catch(function(err) {
+            console.log("grading info error ");
+            console.dir(err);
+        });
+    }
+
+
+    function generateConversationUrl() {
+        // sweet! the instructor has created the conversation. send students here. (instructors too)
+        return getZinvite(rows[0].zid).then(function(zinvite) {
+            return getServerNameWithProtocol(req) +"/" + zinvite + "/" + encodeParams({
+                forceEmbedded: true,
+                // this token is used to support cookie-less participation, mainly needed within Canvas's Android webview
+                xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header                    
+            });
+        });
+    }
 
     // pgQueryP("insert into lti_single_assignment_callback_info (lti_user_id, lti_context_id, lis_outcome_service_url, lis_result_sourcedid, custom_canvas_assignment_id, tool_consumer_instance_guid, stringified_json_of_post_content) values ($1, $2, $3, $4, $5, $6, $7);", [
     //     req.p.lti_user_id,
@@ -6664,12 +6726,29 @@ function(req, res) {
       req.p.custom_canvas_assignment_id).then(function(rows) {
         var exists = rows && rows.length;
         if (exists) {
-            // sweet! the instructor has created the conversation. send them there. (instructors too)
-            getZinvite(rows[0].zid).then(function(zinvite) {
-                res.redirect("https://preprod.pol.is/" + zinvite + "/" + encodeParams({
-                    forceEmbedded: true,
-                }));
+            return generateConversationUrl().then(function(url) {
+                return getPolisUserForLtiUser().then(function(user) {
+                    if (userForLtiUserId) {
+                        // we're in business, user can join the conversation
+                        res.redirect(url);
+                    } else {
+                        // not linked yet.
+                        // send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
+
+                        // you are signed in, but not linked to the signed in user
+                        // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
+                        clearCookies(req, res);
+                        console.log('lti_linkage didnt exist');
+                        // Have them sign in again, since they weren't linked.
+                        // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
+                        renderLtiLinkagePage(req, res, url);
+                    }
+                });
+
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_lti_generating_conversation_url", err);
             });
+
         } else {
             // uh oh, not ready. If this is an instructor, we'll send them to the create/conversation page.
             if (isInstructor) {
