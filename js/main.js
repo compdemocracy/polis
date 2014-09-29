@@ -47,7 +47,7 @@ var p = window.location.pathname;
   if (p.match(/^\/inbox\//) ||
       p.match(/^\/settings\//) ||
       p.match(/^\/conversation\/create\//) ||
-      p.match(/^\/[0-9][A-Za-z0-9]\//)      
+      p.match(/^\/[0-9][A-Za-z0-9]+\/[A-Za-z0-9]+/)      
     ) {
     // expecting params (added to support LTI)
     encodedParams = window.location.pathname.match(/[^\/]*$/)[0]; // get the end
@@ -59,8 +59,8 @@ var p = window.location.pathname;
     if (params.context) {
       window.context = params.context;
     }
-    if (params.forceEmbedded) {
-      forceEmbedded = true;
+    if (!_.isUndefined(params.forceEmbedded)) {
+      forceEmbedded = !!params.forceEmbedded;
     }
   }
 
@@ -107,7 +107,7 @@ Handlebars.registerHelper("ifEmbedded", ifEmbedded);
 
 function ifNotEmbedded(arg0) {
   // NOTE == instead of === for IE
-  return window.top == window ? arg0.fn(this) : "";
+  return isEmbedded() ? "" : arg0.fn(this);
 }
 Handlebars.registerHelper("ifNotEmbedded", ifNotEmbedded);
 

@@ -247,7 +247,7 @@ var polisRouter = Backbone.Router.extend({
 
     this.r(/^course\/(.*)/, "courseView");
 
-    this.r(/^([0-9][0-9A-Za-z]+)$/, "participationView");  // conversation_id
+    this.r(/^([0-9][0-9A-Za-z]+)(\/[0-9A-Za-z]+)*$/, "participationView");  // conversation_id / encodedStringifiedJson
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
@@ -725,7 +725,7 @@ var polisRouter = Backbone.Router.extend({
   },
   participationViewWithSuzinvite: function(conversation_id, suzinvite) {
     window.suzinvite = suzinvite;
-    return this.participationView(conversation_id, suzinvite);
+    return this.participationView(conversation_id, null, suzinvite);
   },
   exploreView: function(conversation_id, zinvite) {
     doJoinConversation.call(this, 
@@ -777,10 +777,16 @@ var polisRouter = Backbone.Router.extend({
     //   RootView.getInstance().setView(view);
     // }, 500);
   },
-  participationView: function(conversation_id, suzinvite) {
+  participationView: function(conversation_id, encodedStringifiedJson,suzinvite) {
     if (!Utils.cookiesEnabled()) {
       this.tryCookieThing();
     }
+    var params = {};
+    encodedStringifiedJson = encodedStringifiedJson.slice(1);
+    if (encodedStringifiedJson) {
+      params = Utils.decodeParams(encodedStringifiedJson);
+    }
+
     doJoinConversation.call(this, 
       this.doLaunchConversation.bind(this),
       conversation_id,
