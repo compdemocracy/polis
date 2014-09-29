@@ -5062,6 +5062,135 @@ function generateAndReplaceZinvite(zid, generateShortZinvite) {
     });
 }
 
+function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, params) {
+
+    var replaceResultRequestBody = '' +
+    '<?xml version="1.0" encoding="UTF-8"?>' +
+    '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
+        '<imsx_POXHeader>' +
+            '<imsx_POXRequestHeaderInfo>' +
+                '<imsx_version>V1.0</imsx_version>' +
+                '<imsx_messageIdentifier>999999123</imsx_messageIdentifier>' +
+            '</imsx_POXRequestHeaderInfo>' +
+        '</imsx_POXHeader>' +
+        '<imsx_POXBody>' +
+            '<replaceResultRequest>' + // parser has???  xml.at_css('imsx_POXBody *:first').name.should == 'replaceResultResponse'
+                '<resultRecord>' +
+                '<sourcedGUID>' +
+                    '<sourcedId>' + params.lis_result_sourcedid + '</sourcedId>' +
+                '</sourcedGUID>' +
+                '<result>' +
+                '<resultScore>' +
+                    '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
+                    '<textString>'+ params.gradeFromZeroToOne+'</textString>' +
+                '</resultScore>' +
+                '</result>' +
+                '</resultRecord>' +
+            '</replaceResultRequest>' +
+        '</imsx_POXBody>' +
+    '</imsx_POXEnvelopeRequest>';
+
+    var oauth = new OAuth.OAuth(
+        null,//'https://api.twitter.com/oauth/request_token',
+        null,//'https://api.twitter.com/oauth/access_token',
+        oauth_consumer_key,//'your application consumer key',
+        oauth_consumer_secret,//'your application secret',
+        '1.0',//'1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    return new Promise(function(resolve, reject) {
+        oauth.post(
+            params.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret            
+            replaceResultRequestBody,
+            "application/xml",
+            function (e, data, res){
+                if (e) {
+                    console.log("grades foo failed");
+                    console.error(e);     
+                    reject(e);
+                } else {
+                    console.log('grades foo ok!');
+                    resolve(params, data);
+                }
+                // console.log(require('util').inspect(data));
+            }
+        );
+    });
+}
+
+function sendGradesIfNeeded(zid) {
+    pgQueryP(
+        "select * from canvas_assignment_conversation_info ai "+
+        "left join canvas_assignment_callback_info ci "+
+        "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id "+
+        "where ai.zid = ($1);", [zid]).then(function(rows) {
+        if (!rows || !rows.length) {
+            return;
+        }
+        // TODO fetch these from DB
+        var consumerKey = "polis_consumer_key_abcd";
+        var consumerSecret = "polis_shared_secret_abcd";
+        var gradeFromZeroToOne = 0.7; // TODO compute this
+        var promises = rows.map(function(assignmentCallbackInfo) {
+            assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
+            return sendGradeForAssignment(consumerKey, consumerSecret, assignmentCallbackInfo);
+        });
+    });
+}
+function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
+    listOfGradingContexts = listOfGradingContexts || [];
+    return Promise.all(listOfGradingContexts.map(function(gradingContext) {
+        return pgQueryP("update canvas_assignment_callback_info set grade_assigned = ($1) where tool_consumer_instance_guid = ($2) andlti_context_id = ($3) andlti_user_id = ($4) andcustom_canvas_assignment_id = ($5);", [
+            gradingContext.gradeFromZeroToOne,
+            gradingContext.tool_consumer_instance_guid,
+            gradingContext.lti_context_id,
+            gradingContext.lti_user_id,
+            gradingContext.custom_canvas_assignment_id,
+        ]);
+    }));
+}
+
+app.post('/api/v3/conversation/close',
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+
+    // TODO check uid is owner
+
+    pgQueryP("select * from conversations where zid = ($1);", [req.p.zid]).then(function(rows) {
+        if (!rows || !rows.length) {
+            fail(res, 500, "polis_err_closing_conversation_no_such_conversation", err);
+            return;
+        }
+        var conv = rows[0];
+        if (conv.is_active) {
+            pgQueryP("update conversations set is_active = false where zid = ($1);", [req.p.zid]).then(function() {
+                if (conv.context) {
+                    // might need to send some grades
+                    sendGradesIfNeeded(conv.zid).then(function(listOfContexts) {
+                        return updateLocalRecordsToReflectPostedGrades(listOfContexts);
+                    }).catch(function(err) {
+                        fail(res, 500, "polis_err_closing_conversation_sending_grades", err);
+                    });
+                } else {
+                    // no post-close operations
+                    res.status(200).send("");
+                }
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_closing_conversation2", err);
+            });
+        } else {
+            // was already closed.
+            res.status(204).send("");
+        }
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_closing_conversation", err);
+    });
+});
 
 app.put('/api/v3/conversations',
     moveToBody,
@@ -6470,7 +6599,7 @@ function addCanvasAssignmentConversationCallbackParamsIfNeeded(lti_user_id, lti_
     });
 }
 
-function getCanvasAssignmentConversationCallbackParams(lti_user_id, lti_context_id, lis_outcome_service_url, lis_result_sourcedid, custom_canvas_assignment_id, tool_consumer_instance_guid, stringified_json_of_post_content) {
+function getCanvasAssignmentConversationCallbackParams(lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid) {
     return pgQueryP("select * from canvas_assignment_callback_info where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);", [
         lti_user_id, 
         lti_context_id,
@@ -6510,39 +6639,6 @@ function(req, res) {
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
 
-    var consumerSecret = "polis_shared_secret_abcd"; // TODO lookup in db
-
-    var token_secret = ""; // not using?
-
-    var gradeFromZeroToOne = 0.6;
-    var replaceResultRequestBody = '' +
-    '<?xml version="1.0" encoding="UTF-8"?>' +
-    '<imsx_POXEnvelopeRequest xmlns="http://www.imsglobal.org/services/ltiv1p1/xsd/imsoms_v1p0">' +
-        '<imsx_POXHeader>' +
-            '<imsx_POXRequestHeaderInfo>' +
-                '<imsx_version>V1.0</imsx_version>' +
-                '<imsx_messageIdentifier>999999123</imsx_messageIdentifier>' +
-            '</imsx_POXRequestHeaderInfo>' +
-        '</imsx_POXHeader>' +
-        '<imsx_POXBody>' +
-            '<replaceResultRequest>' + // parser has???  xml.at_css('imsx_POXBody *:first').name.should == 'replaceResultResponse'
-                '<resultRecord>' +
-                '<sourcedGUID>' +
-                    '<sourcedId>' + req.p.lis_result_sourcedid + '</sourcedId>' +
-                '</sourcedGUID>' +
-                '<result>' +
-                '<resultScore>' +
-                    '<language>en</language>' + // this is the formatting of the resultScore (for example europe might use a comma. Just stick to en formatting here.)
-                    '<textString>'+gradeFromZeroToOne+'</textString>' +
-                '</resultScore>' +
-                '</result>' +
-                '</resultRecord>' +
-            '</replaceResultRequest>' +
-        '</imsx_POXBody>' +
-    '</imsx_POXEnvelopeRequest>';
-
-    // polis_consumer_key_abcd
-    // polis_shared_secret_abcd
 
     addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, JSON.stringify(req.body)).then(function() {
         console.log("grading info added");
@@ -6618,35 +6714,6 @@ function(req, res) {
 
 
     // wait! how do we know what the conversation should have for topic / description?
-
-
-    function postGrades() {
-        var oauth = new OAuth.OAuth(
-            null,//'https://api.twitter.com/oauth/request_token',
-            null,//'https://api.twitter.com/oauth/access_token',
-            req.p.oauth_consumer_key,//'your application consumer key',
-            consumerSecret,//'your application secret',
-            '1.0',//'1.0A',
-            null,
-            'HMAC-SHA1'
-        );
-        oauth.post(
-            req.p.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
-            void 0, //'your user token for this app', //test user token
-            void 0, //'your user secret for this app', //test user secret            
-            replaceResultRequestBody,
-            "application/xml",
-            function (e, data, res){
-                if (e) {
-                    console.log("grades foo failed");
-                    console.error(e);        
-                } else {
-                    console.log('grades foo ok!');
-                }
-                console.log(require('util').inspect(data));
-            }
-        );
-    }
 
 });
 

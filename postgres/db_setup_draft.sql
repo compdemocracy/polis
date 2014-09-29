@@ -254,14 +254,17 @@ CREATE TABLE lti_context_memberships (
 -- allowing for duplicates (for now) by using 'created' field
 -- TODO don't allow for duplicates
 CREATE TABLE canvas_assignment_callback_info (
-    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
-    lti_context_id TEXT NOT NULL, -- TODO add constraint to limit length
-    lis_outcome_service_url TEXT, -- TODO add constraint to limit length
-    lis_result_sourcedid VARCHAR(256),
-    custom_canvas_assignment_id BIGINT NOT NULL,
     tool_consumer_instance_guid VARCHAR(999) NOT NULL,
+    lti_context_id TEXT NOT NULL, -- TODO add constraint to limit length
+    lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
+    custom_canvas_assignment_id BIGINT NOT NULL,
+    
+    lis_result_sourcedid VARCHAR(256),
+    lis_outcome_service_url TEXT, -- TODO add constraint to limit length
     stringified_json_of_post_content TEXT, -- TODO add constraint to limit length
-    created BIGINT DEFAULT now_as_millis()
+    created BIGINT DEFAULT now_as_millis(),
+    grade_assigned DOUBLE PRECISION DEFAULT NULL, -- leave this null until we assign a grade, we want to keep track of which of these are resolved.
+    UNIQUE (lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid)
 );
 
 CREATE TABLE canvas_assignment_conversation_info (
