@@ -5154,7 +5154,7 @@ function sendCanvasGradesIfNeeded(zid) {
     ]).then(function(results) {
         console.log('grades asdf');
         console.dir(results[0]);
-        var isFullPointsEarningLtiUserId = _.indexBy("lti_user_id", results[0]);
+        var isFullPointsEarningLtiUserId = _.indexBy(results[0], "lti_user_id");
         console.dir(isFullPointsEarningLtiUserId);        
         console.log('grades asdf2');        
         var rows = results[1];
