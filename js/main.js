@@ -36,6 +36,7 @@ var FooterPartial = require("./tmpl/footer")
 
 
 var encodedParams = window.location.pathname.match(/[^\/]*$/)[0];
+var forceEmbedded = false;
 
 (function() {
   // auth token. keep this in this closure, don't put it on a global. used for cases where cookies are disabled.
@@ -45,7 +46,8 @@ var p = window.location.pathname;
   // check for token within URL
   if (p.match(/^\/inbox\//) ||
       p.match(/^\/settings\//) ||
-      p.match(/^\/conversation\/create\//)
+      p.match(/^\/conversation\/create\//) ||
+      p.match(/^\/[0-9][A-Za-z0-9]\//)      
     ) {
     // expecting params (added to support LTI)
     encodedParams = window.location.pathname.match(/[^\/]*$/)[0]; // get the end
@@ -56,6 +58,9 @@ var p = window.location.pathname;
     }
     if (params.context) {
       window.context = params.context;
+    }
+    if (params.forceEmbedded) {
+      forceEmbedded = true;
     }
   }
 
@@ -91,7 +96,7 @@ Handlebars.registerHelper("ifNotDefined", ifNotDefined);
 
 
 function isEmbedded() {
-  return window.top != window;
+  return (window.top != window) || forceEmbedded;
 }
 
 function ifEmbedded(arg0) {
