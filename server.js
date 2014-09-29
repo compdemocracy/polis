@@ -5155,6 +5155,7 @@ function sendCanvasGradesIfNeeded(zid) {
 function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
     listOfGradingContexts = listOfGradingContexts || [];
     return Promise.all(listOfGradingContexts.map(function(gradingContext) {
+        console.log("grading set to " + gradingContext.gradeFromZeroToOne);
         return pgQueryP("update canvas_assignment_callback_info set grade_assigned = ($1) where tool_consumer_instance_guid = ($2) and lti_context_id = ($3) and lti_user_id = ($4) and custom_canvas_assignment_id = ($5);", [
             gradingContext.gradeFromZeroToOne,
             gradingContext.tool_consumer_instance_guid,
@@ -5171,9 +5172,7 @@ app.post('/api/v3/conversation/close',
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
 
-    // TODO check uid is owner
-
-    pgQueryP("select * from conversations where zid = ($1);", [req.p.zid]).then(function(rows) {
+    pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
         if (!rows || !rows.length) {
             fail(res, 500, "polis_err_closing_conversation_no_such_conversation", err);
             return;
@@ -5181,7 +5180,7 @@ function(req, res) {
         var conv = rows[0];
         // if (conv.is_active) {
             // regardless of old state, go ahead and close it, and update grades. will make testing easier.
-            pgQueryP("update conversations set is_active = false where zid = ($1);", [req.p.zid]).then(function() {
+            pgQueryP("update conversations set is_active = false where zid = ($1);", [conv.zid]).then(function() {
                 // might need to send some grades
                 sendCanvasGradesIfNeeded(conv.zid).then(function(listOfContexts) {
                     return updateLocalRecordsToReflectPostedGrades(listOfContexts);
