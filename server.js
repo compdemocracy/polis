@@ -5144,7 +5144,7 @@ function sendCanvasGradesIfNeeded(zid) {
 function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
     listOfGradingContexts = listOfGradingContexts || [];
     return Promise.all(listOfGradingContexts.map(function(gradingContext) {
-        return pgQueryP("update canvas_assignment_callback_info set grade_assigned = ($1) where tool_consumer_instance_guid = ($2) andlti_context_id = ($3) andlti_user_id = ($4) andcustom_canvas_assignment_id = ($5);", [
+        return pgQueryP("update canvas_assignment_callback_info set grade_assigned = ($1) where tool_consumer_instance_guid = ($2) and lti_context_id = ($3) and lti_user_id = ($4) and custom_canvas_assignment_id = ($5);", [
             gradingContext.gradeFromZeroToOne,
             gradingContext.tool_consumer_instance_guid,
             gradingContext.lti_context_id,
