@@ -1348,7 +1348,8 @@ function recordPermanentCookieZidJoin(permanentCookieToken, zid) {
         });
 }
 
-function votesPost(pid, zid, tid, voteType) {
+
+function doVotesPost(pid, zid, tid, voteType) {
     return new Promise(function(resolve, reject) {
         var query = "INSERT INTO votes (pid, zid, tid, vote, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
         var params = [pid, zid, tid, voteType];
@@ -1366,6 +1367,19 @@ function votesPost(pid, zid, tid, voteType) {
     });
 }
 
+function votesPost(pid, zid, tid, voteType) {
+    return pgQueryP("select is_active from conversations where zid = ($1);", [zid]).then(function(rows) {
+        if (!rows || !rows.length) {
+            throw "polis_err_unknown_conversation";
+        }
+        var conv = rows[0];
+        if (!conv.is_active) {
+            throw "polis_err_conversation_is_closed";
+        }
+    }).then(function() {
+        return doVotesPost(pid, zid, tid, voteType);
+    });
+}
 
 function votesGet(res, p) {
     return new Promise(function(resolve, reject) {
@@ -4592,6 +4606,10 @@ function(req, res) {
             fail(res, 409, "polis_err_post_comment_duplicate", err);
             return;
         }
+
+        if (!conv.is_active) {
+            fail(res, 403, "polis_err_conversation_is_closed", err);
+        }
  
         var bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
@@ -4924,6 +4942,8 @@ function(req, res) {
     }).catch(function(err) {
         if (err === "polis_err_vote_duplicate") {
             fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
+        } else if (err === "polis_err_conversation_is_closed") {
+            fail(res, 403, "polis_err_conversation_is_closed", err);
         } else {
             fail(res, 500, "polis_err_vote", err);
         }
