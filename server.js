@@ -6698,9 +6698,9 @@ function(req, res) {
     }
 
 
-    function generateConversationUrl() {
+    function constructConversationUrl(zid) {
         // sweet! the instructor has created the conversation. send students here. (instructors too)
-        return getZinvite(rows[0].zid).then(function(zinvite) {
+        return getZinvite(zid).then(function(zinvite) {
             return getServerNameWithProtocol(req) +"/" + zinvite + "/" + encodeParams({
                 forceEmbedded: true,
                 // this token is used to support cookie-less participation, mainly needed within Canvas's Android webview
@@ -6725,10 +6725,11 @@ function(req, res) {
       req.p.context_id,
       req.p.custom_canvas_assignment_id).then(function(rows) {
         var exists = rows && rows.length;
+        var info = rows[0];
         if (exists) {
-            return generateConversationUrl().then(function(url) {
+            return constructConversationUrl(info.zid).then(function(url) {
                 return getPolisUserForLtiUser().then(function(user) {
-                    if (userForLtiUserId) {
+                    if (user) {
                         // we're in business, user can join the conversation
                         res.redirect(url);
                     } else {
