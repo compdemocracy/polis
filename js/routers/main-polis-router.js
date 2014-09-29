@@ -583,6 +583,7 @@ var polisRouter = Backbone.Router.extend({
     } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
+    var paramsFromPath = Utils.decodeParams(encodedStringifiedJson);
     var that = this;
     promise.then(function() {
       function onFail(err) {
@@ -596,7 +597,6 @@ var polisRouter = Backbone.Router.extend({
         is_active: true // TODO think
       };
 
-      var paramsFromPath = Utils.decodeParams(encodedStringifiedJson);
 
       var model = new ConversationModel(o);
 
@@ -631,7 +631,13 @@ var polisRouter = Backbone.Router.extend({
             //   model.set("suurls", suurlsCsv);
             // }
 
-            that.navigate("share/" + model.get("conversation_id"), {trigger: true});
+            if (paramsFromPath.custom_canvas_assignment_id) {
+              // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
+              that.navigate("/" + model.get("conversation_id"), {trigger: true});
+            } else {
+              // The usual case, show the share page.
+              that.navigate("share/" + model.get("conversation_id"), {trigger: true});
+            }
           }
         });
         RootView.getInstance().setView(createConversationFormView);
