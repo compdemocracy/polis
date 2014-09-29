@@ -547,6 +547,14 @@ module.exports =  ConversationView.extend({
         });
       });
 
+      $("#closeConversationButton").on("click", function() {
+        $.post("/api/v3/conversation/close", {conversation_id: '76hctpjwgw'}).then(function() {
+          alert("closed!");
+        }, function(err) {
+          alert("error closing conversation");
+        });
+      });
+
       $("#closeLegendButton").on("click", function() {
         that.conversationTabs.hideLegend();
       });
