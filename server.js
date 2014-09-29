@@ -6666,7 +6666,9 @@ function(req, res) {
         if (exists) {
             // sweet! the instructor has created the conversation. send them there. (instructors too)
             getZinvite(rows[0].zid).then(function(zinvite) {
-                res.redirect("https://preprod.pol.is/" + zinvite);
+                res.redirect("https://preprod.pol.is/" + zinvite + "/" + encodedParams({
+                    forceEmbedded: true,
+                }));
             });
         } else {
             // uh oh, not ready. If this is an instructor, we'll send them to the create/conversation page.
