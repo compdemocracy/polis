@@ -5141,7 +5141,7 @@ function sendCanvasGradesIfNeeded(zid) {
              "select distinct pid from comments where zid = ($1)) as x "+
         "inner join participants p on x.pid = p.pid where p.zid = ($1)) as good_uids "+
       "inner join lti_users on good_uids.uid = lti_users.uid;", [zid]);
-    
+
     var callbackInfoPromise = pgQueryP(
         "select * from canvas_assignment_conversation_info ai " +
         "inner join canvas_assignment_callback_info ci " +
@@ -5152,7 +5152,11 @@ function sendCanvasGradesIfNeeded(zid) {
         goodLtiUserIdsPromise,
         callbackInfoPromise,
     ]).then(function(results) {
+        console.log('grades asdf');
+        console.dir(results[0]);
         var isFullPointsEarningLtiUserId = _.indexBy("lti_user_id", results[0]);
+        console.dir(isFullPointsEarningLtiUserId);        
+        console.log('grades asdf2');        
         var rows = results[1];
         if (!rows || !rows.length) {
             return;
