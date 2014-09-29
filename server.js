@@ -5133,23 +5133,39 @@ function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, param
 }
 
 function sendCanvasGradesIfNeeded(zid) {
-    return pgQueryP(
-        "select * from canvas_assignment_conversation_info ai "+
-        "left join canvas_assignment_callback_info ci "+
-        "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id "+
-        "where ai.zid = ($1);", [zid]).then(function(rows) {
-            if (!rows || !rows.length) {
-                return;
-            }
-            // TODO fetch these from DB
-            var consumerKey = "polis_consumer_key_abcd";
-            var consumerSecret = "polis_shared_secret_abcd";
-            var gradeFromZeroToOne = 0.8; // TODO compute this
-            var promises = rows.map(function(assignmentCallbackInfo) {
-                assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
-                return sendGradeForAssignment(consumerKey, consumerSecret, assignmentCallbackInfo);
-            });
-            return Promise.all(promises);
+    // get the lti_user_ids for participants who voted or commented
+    var goodLtiUserIdsPromise = pgQueryP(
+        "select lti_user_id from "+
+        "(select distinct uid from "+
+            "(select distinct pid from votes where zid = ($1) UNION "+
+             "select distinct pid from comments where zid = ($1)) as x "+
+        "inner join participants p on x.pid = p.pid where p.zid = ($1)) as good_uids "+
+      "inner join lti_users on good_uids.uid = lti_users.uid;", [zid]);
+    
+    var callbackInfoPromise = pgQueryP(
+        "select * from canvas_assignment_conversation_info ai " +
+        "inner join canvas_assignment_callback_info ci " +
+        "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id " +
+        "where ai.zid = ($1);", [zid]);
+
+    return Promise.all([
+        goodLtiUserIdsPromise,
+        callbackInfoPromise,
+    ]).then(function(results) {
+        var isFullPointsEarningLtiUserId = _.indexBy("lti_user_id", results[0]);
+        var rows = results[1];
+        if (!rows || !rows.length) {
+            return;
+        }
+        // TODO fetch these from DB
+        var consumerKey = "polis_consumer_key_abcd";
+        var consumerSecret = "polis_shared_secret_abcd";
+        var promises = rows.map(function(assignmentCallbackInfo) {
+            var gradeFromZeroToOne = isFullPointsEarningLtiUserId[assignmentCallbackInfo.lti_user_id] ? 1.0 : 0.0;
+            assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
+            return sendGradeForAssignment(consumerKey, consumerSecret, assignmentCallbackInfo);
+        });
+        return Promise.all(promises);
     });
 }
 function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
