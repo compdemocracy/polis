@@ -13,6 +13,8 @@
     ">
 	<div class="form-group" style="position:relative">
 
+   {{#if is_active}}
+
 		<textarea
       class="form-control comment_form_textarea_width"
       id="comment_form_textarea"
@@ -32,6 +34,12 @@
       >
       Send
     </button>
+   {{else}}
+      <div  style="margin: 20px;" class="Notification Notification--warning">
+        <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>This conversation is closed.</strong></p>
+        <p>No further commenting is allowed.</p>
+      </div>
+   {{/if}}
   </div>
 </form>
 

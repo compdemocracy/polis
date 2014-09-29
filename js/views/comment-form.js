@@ -26,7 +26,9 @@ module.exports = Handlebones.View.extend({
   buttonActive: true,
 
   context: function() {
-    return _.extend({}, this, this.model&&this.model.attributes);
+    var ctx = _.extend({}, this, this.model&&this.model.attributes);
+    ctx.is_active = this.parent.model.get("is_active");
+    return ctx;
   },
   events: {
     "click #comment_button": function(e){

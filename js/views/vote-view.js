@@ -81,7 +81,9 @@ module.exports = Handlebones.ModelView.extend({
         params.notTid = this.model.get("tid");
       }
       serverClient.getNextComment(params).then(function(c) {
-        if (c && c.txt) {
+        if (!that.parent.model.get("is_active")) {
+          showClosedConversationNotice();
+        } else if (c && c.txt) {
           showComment(c);
         } else {
           showEmpty();
@@ -113,6 +115,14 @@ module.exports = Handlebones.ModelView.extend({
       // Remove when this is fix is accepted
       // https://github.com/twbs/bootstrap/issues/12832
       this.$(".btn-vote").blur();
+    }
+    function showClosedConversationNotice() {
+      that.model.set({
+        empty: true,
+        txt1: "This conversation is closed.",
+        txt2: "No further voting is allowed."
+      });
+      that.render();
     }
     function showEmpty() {
       var userHasVoted = !!votesByMe.size();
