@@ -5121,7 +5121,7 @@ function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, param
     });
 }
 
-function sendGradesIfNeeded(zid) {
+function sendCanvasGradesIfNeeded(zid) {
     pgQueryP(
         "select * from canvas_assignment_conversation_info ai "+
         "left join canvas_assignment_callback_info ci "+
@@ -5169,17 +5169,14 @@ function(req, res) {
         var conv = rows[0];
         if (conv.is_active) {
             pgQueryP("update conversations set is_active = false where zid = ($1);", [req.p.zid]).then(function() {
-                if (conv.context) {
-                    // might need to send some grades
-                    sendGradesIfNeeded(conv.zid).then(function(listOfContexts) {
-                        return updateLocalRecordsToReflectPostedGrades(listOfContexts);
-                    }).catch(function(err) {
-                        fail(res, 500, "polis_err_closing_conversation_sending_grades", err);
-                    });
-                } else {
-                    // no post-close operations
+                // might need to send some grades
+                sendCanvasGradesIfNeeded(conv.zid).then(function(listOfContexts) {
+                    return updateLocalRecordsToReflectPostedGrades(listOfContexts);
+                }).then(function() {
                     res.status(200).send("");
-                }
+                }).catch(function(err) {
+                    fail(res, 500, "polis_err_closing_conversation_sending_grades", err);
+                });
             }).catch(function(err) {
                 fail(res, 500, "polis_err_closing_conversation2", err);
             });
