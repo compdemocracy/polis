@@ -5171,9 +5171,6 @@ function sendCanvasGradesIfNeeded(zid, ownerUid) {
             throw new Error("polis_err_lti_oauth_credentials_are_bad " + ownerUid);
         }
 
-        // TODO fetch these from DB
-        var consumerKey = "polis_consumer_key_abcd";
-        var consumerSecret = "polis_shared_secret_abcd";
         var promises = callbackInfos.map(function(assignmentCallbackInfo) {
             var gradeFromZeroToOne = isFullPointsEarningLtiUserId[assignmentCallbackInfo.lti_user_id] ? 1.0 : 0.0;
             assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
@@ -5199,6 +5196,29 @@ function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
         ]);
     }));
 }
+
+// use this to generate them
+app.get('/api/v3/lti_oauthv1_credentials',
+    moveToBody,
+    want('uid', getInt, assignToP),
+function(req, res) {
+    var uid = "FOO";
+    if (req.p && req.p.uid) {
+        uid = req.p.uid;
+    }
+    Promise.all([
+        generateTokenP(40, false),
+        generateTokenP(40, false),
+    ]).then(function(results) {
+        var key = "polis_oauth_consumer_key_" + results[0];
+        var secret =  "polis_oauth_shared_secret_" + results[1];
+        var x = [uid, "'"+key+"'", "'"+secret+"'"].join(",");
+        // return the query, they we can manually run this in the pg shell, and email? the keys to the instructor
+        res.status(200).json("INSERT INTO lti_oauthv1_credentials (uid, oauth_consumer_key, oauth_shared_secret) values ("+x+") returning oauth_consumer_key, oauth_shared_secret;");
+    });
+});
+
+
 
 app.post('/api/v3/conversation/close',
     moveToBody,
