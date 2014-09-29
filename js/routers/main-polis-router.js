@@ -782,8 +782,8 @@ var polisRouter = Backbone.Router.extend({
       this.tryCookieThing();
     }
     var params = {};
-    encodedStringifiedJson = encodedStringifiedJson.slice(1);
     if (encodedStringifiedJson) {
+      encodedStringifiedJson = encodedStringifiedJson.slice(1);
       params = Utils.decodeParams(encodedStringifiedJson);
     }
 
