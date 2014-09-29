@@ -5122,22 +5122,23 @@ function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, param
 }
 
 function sendCanvasGradesIfNeeded(zid) {
-    pgQueryP(
+    return pgQueryP(
         "select * from canvas_assignment_conversation_info ai "+
         "left join canvas_assignment_callback_info ci "+
         "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id "+
         "where ai.zid = ($1);", [zid]).then(function(rows) {
-        if (!rows || !rows.length) {
-            return;
-        }
-        // TODO fetch these from DB
-        var consumerKey = "polis_consumer_key_abcd";
-        var consumerSecret = "polis_shared_secret_abcd";
-        var gradeFromZeroToOne = 0.7; // TODO compute this
-        var promises = rows.map(function(assignmentCallbackInfo) {
-            assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
-            return sendGradeForAssignment(consumerKey, consumerSecret, assignmentCallbackInfo);
-        });
+            if (!rows || !rows.length) {
+                return;
+            }
+            // TODO fetch these from DB
+            var consumerKey = "polis_consumer_key_abcd";
+            var consumerSecret = "polis_shared_secret_abcd";
+            var gradeFromZeroToOne = 0.7; // TODO compute this
+            var promises = rows.map(function(assignmentCallbackInfo) {
+                assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
+                return sendGradeForAssignment(consumerKey, consumerSecret, assignmentCallbackInfo);
+            });
+            return Promise.all(promises);
     });
 }
 function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
