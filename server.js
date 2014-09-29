@@ -5175,7 +5175,7 @@ function(req, res) {
                 sendCanvasGradesIfNeeded(conv.zid).then(function(listOfContexts) {
                     return updateLocalRecordsToReflectPostedGrades(listOfContexts);
                 }).then(function() {
-                    res.status(200).send("");
+                    res.status(200).json({});
                 }).catch(function(err) {
                     fail(res, 500, "polis_err_closing_conversation_sending_grades", err);
                 });
