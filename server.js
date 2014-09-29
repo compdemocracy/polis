@@ -5133,7 +5133,7 @@ function sendCanvasGradesIfNeeded(zid) {
             // TODO fetch these from DB
             var consumerKey = "polis_consumer_key_abcd";
             var consumerSecret = "polis_shared_secret_abcd";
-            var gradeFromZeroToOne = 0.7; // TODO compute this
+            var gradeFromZeroToOne = 0.8; // TODO compute this
             var promises = rows.map(function(assignmentCallbackInfo) {
                 assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
                 return sendGradeForAssignment(consumerKey, consumerSecret, assignmentCallbackInfo);
@@ -5168,7 +5168,8 @@ function(req, res) {
             return;
         }
         var conv = rows[0];
-        if (conv.is_active) {
+        // if (conv.is_active) {
+            // regardless of old state, go ahead and close it, and update grades. will make testing easier.
             pgQueryP("update conversations set is_active = false where zid = ($1);", [req.p.zid]).then(function() {
                 // might need to send some grades
                 sendCanvasGradesIfNeeded(conv.zid).then(function(listOfContexts) {
@@ -5181,10 +5182,10 @@ function(req, res) {
             }).catch(function(err) {
                 fail(res, 500, "polis_err_closing_conversation2", err);
             });
-        } else {
-            // was already closed.
-            res.status(204).send("");
-        }
+        // } else {
+        //     // was already closed.
+        //     res.status(204).send("");
+        // }
     }).catch(function(err) {
         fail(res, 500, "polis_err_closing_conversation", err);
     });
