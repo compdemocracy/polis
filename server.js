@@ -5132,7 +5132,7 @@ function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, param
     });
 }
 
-function sendCanvasGradesIfNeeded(zid) {
+function sendCanvasGradesIfNeeded(zid, ownerUid) {
     // get the lti_user_ids for participants who voted or commented
     var goodLtiUserIdsPromise = pgQueryP(
         "select lti_user_id from "+
@@ -5148,26 +5148,40 @@ function sendCanvasGradesIfNeeded(zid) {
         "on ai.custom_canvas_assignment_id = ci.custom_canvas_assignment_id " +
         "where ai.zid = ($1);", [zid]);
 
+    var ownerLtiCredsPromise = pgQueryP(
+        "select * from lti_oauthv1_credentials where uid = ($1);", [ownerUid]);
+
     return Promise.all([
         goodLtiUserIdsPromise,
         callbackInfoPromise,
+        ownerLtiCredsPromise,
     ]).then(function(results) {
-        console.log('grades asdf');
-        console.dir(results[0]);
         var isFullPointsEarningLtiUserId = _.indexBy(results[0], "lti_user_id");
-        console.dir(isFullPointsEarningLtiUserId);        
-        console.log('grades asdf2');        
-        var rows = results[1];
-        if (!rows || !rows.length) {
+        var callbackInfos = results[1];
+        if (!callbackInfos || !callbackInfos.length) {
+            // TODO may be able to check for scenarios like missing callback infos, where votes and comments and canvas_assignment_conversation_info exist, and then throw an error
             return;
         }
+        var ownerLtiCreds = results[2];
+        if (!ownerLtiCreds || !ownerLtiCreds.length) {
+            throw new Error("polis_err_lti_oauth_credentials_are_missing " + ownerUid);            
+        }
+        ownerLtiCreds = ownerLtiCreds[0];
+        if (!ownerLtiCreds.oauth_shared_secret || !ownerLtiCreds.oauth_consumer_key) {
+            throw new Error("polis_err_lti_oauth_credentials_are_bad " + ownerUid);
+        }
+
         // TODO fetch these from DB
         var consumerKey = "polis_consumer_key_abcd";
         var consumerSecret = "polis_shared_secret_abcd";
-        var promises = rows.map(function(assignmentCallbackInfo) {
+        var promises = callbackInfos.map(function(assignmentCallbackInfo) {
             var gradeFromZeroToOne = isFullPointsEarningLtiUserId[assignmentCallbackInfo.lti_user_id] ? 1.0 : 0.0;
             assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
-            return sendGradeForAssignment(consumerKey, consumerSecret, assignmentCallbackInfo);
+            console.log("grades assigned" + gradeFromZeroToOne + " lti_user_id " + assignmentCallbackInfo.lti_user_id);
+            return sendGradeForAssignment(
+                ownerLtiCreds.oauth_consumer_key,
+                ownerLtiCreds.oauth_shared_secret,
+                assignmentCallbackInfo);
         });
         return Promise.all(promises);
     });
@@ -5202,7 +5216,8 @@ function(req, res) {
             // regardless of old state, go ahead and close it, and update grades. will make testing easier.
             pgQueryP("update conversations set is_active = false where zid = ($1);", [conv.zid]).then(function() {
                 // might need to send some grades
-                sendCanvasGradesIfNeeded(conv.zid).then(function(listOfContexts) {
+                var ownerUid = req.p.uid;
+                sendCanvasGradesIfNeeded(conv.zid, ownerUid).then(function(listOfContexts) {
                     return updateLocalRecordsToReflectPostedGrades(listOfContexts);
                 }).then(function() {
                     res.status(200).json({});

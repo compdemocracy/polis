@@ -275,6 +275,12 @@ CREATE TABLE canvas_assignment_conversation_info (
     UNIQUE(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id)
 );
 
+CREATE TABLE lti_oauthv1_credentials (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    oauth_consumer_key VARCHAR(999) NOT NULL,
+    oauth_shared_secret VARCHAR(999) NOT NULL,
+    UNIQUE(uid) -- NOTE: if we want to allow multiple keys per instructor, we'd need to scope to tool_consumer_instance_guid, and maybe lti_context_id, but let's not go there yet
+);
 
 
 -- Single Use Invites
