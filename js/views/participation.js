@@ -548,7 +548,7 @@ module.exports =  ConversationView.extend({
       });
 
       $("#closeConversationButton").on("click", function() {
-        $.post("/api/v3/conversation/close", {conversation_id: '76hctpjwgw'}).then(function() {
+        $.post("/api/v3/conversation/close", {conversation_id: that.conversation_id}).then(function() {
           alert("closed!");
         }, function(err) {
           alert("error closing conversation");
