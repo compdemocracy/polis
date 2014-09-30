@@ -223,6 +223,10 @@ window.deregister = function() {
     });
 };
 
+function isParticipationView() {
+  return !!window.location.pathname.match(/^\/[0-9][A-Za-z0-9]+/);
+}
+
 var uidPromise;
 // if (PolisStorage.uidFromCookie()) {
 //   uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
@@ -241,17 +245,13 @@ uidPromise.always(function() {
     var router = new MainPolisRouter();
 
     Metrics.boot();
-    if (isEmbedded()) {
-      // since we don't know when the question mark will appear, try multiple times over a 5 second span :D
-      _.each(_.range(0, 5000, 250), function(t) { 
-        setTimeout(function() {
-          // Hide the Intercom help widget in participation view
-          $("#IntercomDefaultWidget").hide();
-        }, t);
-      });
+    if (!isEmbedded() && !isParticipationView()) {
+      // load intercom widget
+      (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',intercomSettings);}else{var d=document;var i=function(){i.c(arguments)};i.q=[];i.c=function(args){i.q.push(args)};w.Intercom=i;function l(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://static.intercomcdn.com/intercom.v1.js';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);}if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
+      
+      IntercomModalHack.init();
     }
 
-    IntercomModalHack.init();
 
     // set up the "exitConv" event
     var currentRoute;
