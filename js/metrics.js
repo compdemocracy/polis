@@ -5,7 +5,7 @@ function useIntercom() {
 }
 
 function boot() {
-  if (Intercom && useIntercom()) {
+  if (window.Intercom && useIntercom()) {
     Intercom('boot', {
       app_id: 'nb5hla8s',
       created_at: Date.now(),
