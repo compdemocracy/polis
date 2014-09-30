@@ -549,11 +549,22 @@ module.exports =  ConversationView.extend({
 
       $("#closeConversationButton").on("click", function() {
         $.post("/api/v3/conversation/close", {conversation_id: that.conversation_id}).then(function() {
-          alert("closed!");
+          alert("Conversation closed! Writing and voting are disabled.");
+          document.location.reload();
         }, function(err) {
           alert("error closing conversation");
         });
       });
+
+      $("#reopenConversationButton").on("click", function() {
+        $.post("/api/v3/conversation/reopen", {conversation_id: that.conversation_id}).then(function() {
+          alert("Conversation reopened! Writing and voting are enabled.");
+          document.location.reload();
+        }, function(err) {
+          alert("error reopening conversation");
+        });
+      });
+
 
       $("#closeLegendButton").on("click", function() {
         that.conversationTabs.hideLegend();

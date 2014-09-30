@@ -28,7 +28,11 @@
     <div style="padding: 10px 0px 20px 0px">
         <a href="share{{url_name}}" class="Btn Btn-alt" ><i class="fa fa-link"></i>&nbsp;SHARE</a>
         <a href="{{url_moderate}}" class="Btn Btn-alt" >MODERATE</a>
-        <a id="closeConversationButton" class="Btn Btn-alt" >CLOSE</a>        
+        {{#if is_active}}
+          <a id="closeConversationButton" class="Btn Btn-alt" >CLOSE</a>        
+        {{ else }}
+          <a id="reopenConversationButton" class="Btn Btn-alt" >REOPEN</a>                
+        {{/if}}
         <a id="getDataButton" class="Btn Btn-alt hidden-xs" ><i class="fa fa-cloud-download "></i>&nbsp;DATA (CSV)</a>
     </div>
     {{/if}}
