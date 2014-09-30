@@ -3622,6 +3622,11 @@ function(req, res) {
     var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
     var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
+    var shouldAddToIntercom = true;
+    if (req.p.lti_user_id) {
+        shouldAddToIntercom = false;
+    }
+
     if (password2 && (password !== password2)) { fail(res, 400, "Passwords do not match."); return; }
     if (!gatekeeperTosPrivacy) { fail(res, 400, "polis_err_reg_need_tos"); return; }
     if (!email) { fail(res, 400, "polis_err_reg_need_email"); return; }
@@ -3686,31 +3691,33 @@ function(req, res) {
                                   fail(res, 500, "polis_err_creating_user_associating_with_lti_user", err);
                                 });
 
-                                var params = {
-                                    "email" : email,
-                                    "name" : hname,
-                                    "user_id": uid,
-                                };
-                                var customData = {};
-                                if (referrer) {
-                                    customData.referrer = referrer;
-                                }
-                                if (organization) {
-                                    customData.org = organization;
-                                }
-                                customData.uid = uid;
-                                if (_.keys(customData).length) {
-                                    params.custom_data = customData;
-                                }
-                                intercom.createUser(params, function(err, res) {
-                                    if (err) {
-                                        console.log(err);
-                                        console.error("polis_err_intercom_create_user_fail");
-                                        console.dir(params);
-                                        yell("polis_err_intercom_create_user_fail");
-                                        return;
+                                if (shouldAddToIntercom) {
+                                    var params = {
+                                        "email" : email,
+                                        "name" : hname,
+                                        "user_id": uid,
+                                    };
+                                    var customData = {};
+                                    if (referrer) {
+                                        customData.referrer = referrer;
                                     }
-                                });
+                                    if (organization) {
+                                        customData.org = organization;
+                                    }
+                                    customData.uid = uid;
+                                    if (_.keys(customData).length) {
+                                        params.custom_data = customData;
+                                    }
+                                    intercom.createUser(params, function(err, res) {
+                                        if (err) {
+                                            console.log(err);
+                                            console.error("polis_err_intercom_create_user_fail");
+                                            console.dir(params);
+                                            yell("polis_err_intercom_create_user_fail");
+                                            return;
+                                        }
+                                    });
+                                }
                               }, function(err) {
                                   fail(res, 500, "polis_err_adding_cookies", err);
                               }).catch(function(err) {
