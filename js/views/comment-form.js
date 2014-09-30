@@ -79,8 +79,15 @@ module.exports = Handlebones.View.extend({
         that.trigger("commentSubmitted"); // view.trigger
         that.updateCollection();
       }, function(args) {
-        if (args[0] && args[0][0] && args[0][0].status === 409) {
+        if (!args || !args.length || !args[0].length) {
+          alert("failed to send");
+          return;
+        }
+        var err = args[0][0];
+        if (err.status === 409) {
           alert("Duplicate! That comment already exists.");
+        } else if (err.responseText === "polis_err_conversation_is_closed"){
+          alert("This conversation is closed. No further commenting is allowed.");
         } else {
           alert("failed to send");
         }

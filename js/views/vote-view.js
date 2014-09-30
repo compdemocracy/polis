@@ -97,6 +97,8 @@ module.exports = Handlebones.ModelView.extend({
       if (!Utils.cookiesEnabled()) {
         // TODO send GA event
         alert("Sorry, voting requires cookies to be enabled. If you do enable cookies, be sure to reload the page after.");
+      } else if (err && err.responseText === "polis_err_conversation_is_closed"){
+        alert("This conversation is closed. No further voting is allowed.");
       } else {
         alert("Apologies, your vote failed to send. Please check your connection and try again.");
       }
