@@ -35,7 +35,9 @@ var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var FooterPartial = require("./tmpl/footer")
 
 
-var encodedParams = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/)[0];
+var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
+var encodedParams = match ? match[0] : void 0;
+
 var forceEmbedded = false;
 
 (function() {
