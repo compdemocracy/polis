@@ -78,6 +78,10 @@ return str;
 }
 
 function decodeParams(encodedStringifiedJson) {
+    if (!encodedStringifiedJson.match(/^ep1_/)) {
+      throw new Error("wrong encoded params prefix");
+    }
+    encodedStringifiedJson = encodedStringifiedJson.slice(4);
     var stringifiedJson = hexToStr(encodedStringifiedJson);
     var o = JSON.parse(stringifiedJson);
     return o;

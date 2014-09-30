@@ -35,7 +35,7 @@ var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var FooterPartial = require("./tmpl/footer")
 
 
-var encodedParams = window.location.pathname.match(/[^\/]*$/)[0];
+var encodedParams = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/)[0];
 var forceEmbedded = false;
 
 (function() {
@@ -50,7 +50,6 @@ var p = window.location.pathname;
       p.match(/^\/[0-9][A-Za-z0-9]+\/[A-Za-z0-9]+/)      
     ) {
     // expecting params (added to support LTI)
-    encodedParams = window.location.pathname.match(/[^\/]*$/)[0]; // get the end
     var params = Utils.decodeParams(encodedParams);
     if (params.xPolisLti) {
       token = params.xPolisLti;
