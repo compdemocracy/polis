@@ -102,7 +102,7 @@
     // ...
   </script>
   <div class="new-payment-form-container">
-    <form id="payment-form">
+    <form action="post-payment-form" method="POST" id="payment-form">
       <span class="payment-errors"></span>
 
       <div class="form-row">
@@ -128,7 +128,7 @@
         <input type="text" size="4" data-stripe="exp-year"/>
       </div>
 
-      <button id="stripeSubmitButton">Submit Payment</button>
+      <button type="submit">Submit Payment</button>
     </form>
   </div>
 
