@@ -5188,6 +5188,28 @@ function(req, res) {
     });
 });
 
+app.post('/api/v3/conversation/reopen',
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+
+    pgQueryP("select * from conversations where zid = ($1) and owner = ($2);", [req.p.zid, req.p.uid]).then(function(rows) {
+        if (!rows || !rows.length) {
+            fail(res, 500, "polis_err_closing_conversation_no_such_conversation", err);
+            return;
+        }
+        var conv = rows[0];
+        pgQueryP("update conversations set is_active = true where zid = ($1);", [conv.zid]).then(function() {
+            res.status(200).json({});
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_reopening_conversation2", err);
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_reopening_conversation", err);
+    });
+});
+
 app.put('/api/v3/conversations',
     moveToBody,
     auth(assignToP),
