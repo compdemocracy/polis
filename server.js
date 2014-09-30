@@ -5907,8 +5907,7 @@ function getConversations(req, res) {
 
 function encodeParams(o) {
     var stringifiedJson = JSON.stringify(o);
-    var encoded = strToHex(stringifiedJson);
-    enoded = "ep1_" + encodedParams;
+    var encoded = "ep1_" + strToHex(stringifiedJson);
     return encoded;
 }
 
