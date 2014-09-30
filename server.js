@@ -54,6 +54,7 @@ var badwords = require('badwords/object'),
     // ),
     Mailgun = require('mailgun').Mailgun,
     mailgun = new Mailgun(process.env.MAILGUN_API_KEY),
+    postmark = require("postmark")(process.env.POSTMARK_API_KEY),
     querystring = require('querystring'),
     devMode = "localhost" === process.env.STATIC_FILES_HOST,
     request = require('request'),
@@ -151,37 +152,6 @@ function isSpam(o) {
 
 
 app.disable('x-powered-by');
-
-// airbrake.handleExceptions();
-
-// sendgrid.send({
-//   to: 'm@bjorkegren.com',
-//   from: 'noreply@polis.io',
-//   subject: 'Hello World',
-//   text: 'Sending email with NodeJS through SendGrid!'
-// }, function(err, json) {
-//     if (err) { 
-//         console.log("sendgrid");
-//         console.error(err);
-
-//         return;
-//     }
-//     console.log(json);
-// });
-
-// mailgun.sendText('noreply@polis.io', ['Mike <m@bjorkegren.com>', 'michael@bjorkegren.com'],
-//   'This is the subject',
-//   'This is the text',
-//   'noreply@polis.io', {},
-//   function(err) {
-//     if (err) {
-//         console.log('mailgun Oh noes: ' + err);
-//         console.dir(arguments);
-//     } else {
-//         console.log('mailgun success');
-//     }
-// });
-
 
 
 // basic defaultdict implementation
@@ -2248,18 +2218,20 @@ function(req, res) {
 });
 
 function sendPasswordResetEmailFailure(email, server) {
-     return sendEmail({
-        to: email,
-        subject: "Password Reset Failed",
-        text: 
-            "We were unable to find a pol.is account registered with the email address: " + email + "\n" +
-            "\n" +
-            "You may have used another email address to create your account.\n" +
-            "\n" +            
-            "If you need to create a new account, you can do that here " + server + "/user/create\n" +
-            "\n" +
-            "Feel free to reply to this email if you need help."
-    });
+    var body = "" +
+    "We were unable to find a pol.is account registered with the email address: " + email + "\n" +
+    "\n" +
+    "You may have used another email address to create your account.\n" +
+    "\n" +            
+    "If you need to create a new account, you can do that here " + server + "/user/create\n" +
+    "\n" +
+    "Feel free to reply to this email if you need help.";
+
+    return sendTextEmail(
+        'Polis Team <mike@pol.is>',
+        email,
+        "Password Reset Failed",
+        body);
 }
 
 function getUidByEmail(email) {
@@ -2900,145 +2872,35 @@ function getUserInfoForUid2(uid, callback) {
 }
 
 
-// function sendEmailToUser(uid, subject, bodyText, callback) {
-//     getEmailForUid(uid, function(err, email) {
-//         if (err) { return callback(err);}
-//         if (!email) { return callback('missing email');}
-//         // mailgun.sendText('noreply@polis.io', ['Mike <m@bjorkegren.com>', 'michael@bjorkegren.com'],        
-//         mailgun.sendText(
-//             'noreply@polis.io',
-//             [email],
-//             subject,
-//             bodyText,
-//             'noreply@polis.io', {},
-//             function(err) {
-//                 if (err) {
-//                  console.error('mailgun send error: ' + err);
-//                 }
-//                 callback(err);
-//             }
-//         ); 
-//     });
-// }
-
-
-function sendEmail(o) {
-    console.log(1234567);
-
-    return new Promise(function(resolve, reject) {
-        if (!o.to ||
-            !o.subject ||
-            (!o.text && !o.html)
-        ) {
-    console.log(123456777);
-            throw new Error("polis_err_sending_email_missing_params");
-        }
-
-    console.log(12345678);
-
-        o.from = o.from || 'Pol.is Support <mike@pol.is>';
-        
-        var post_data = querystring.stringify(o);
-
-        var username = "api";
-        var password = "key-1wbdbnhfs-qn42bmjo2a9glbzka86z16";
-        var auth = 'Basic ' + new Buffer(username + ":" + password).toString('base64');
-        var headers = {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Content-Length': post_data.length,
-            // 'Host': 'www.example.com',
-            'Authorization': auth
-        };
-
-        // An object of options to indicate where to post to
-        var post_options = {
-            host: 'api.mailgun.net',
-            port: '443', // ? 80? SECURITY
-            path: '/v2/pol.is/messages',// + useMime ? '.mime': '', // NOTE: the v2 is mailgun's v2, not ours!
-            method: 'POST',
-            headers: headers
-        };
-    console.log(123456789);
-
-        var result = "";
-        // Set up the request
-        var post_req = https.request(post_options, function(res) {
-            res.setEncoding('utf8');
-            res.on('data', function (chunk) {
-    console.log(1234567890);
-                result += chunk;
-            });
-            res.on('end', function() {
-    console.log(12345678901);
-    console.log(result);
-                resolve(result);
-            });
-            res.on('errors', function(err){
-                console.error("======= begin received: =======");
-                console.log(result);
-                console.error("======= end received: =======");
-                reject(err);
-            });
-        });
-
-        post_req.on('error', function(err) {
-    console.log(123456789012);
-            reject(err);
-        });
-
-        // post the data
-        post_req.write(post_data);
-        post_req.end();
-    console.log(1234567890123);
-
-    });
-
-}
 
 function emailFeatureRequest(message) {
     var body = "" +
         "Somebody clicked a dummy button!\n" +
-        message
-        ;
+        message;
 
-    mailgun.sendText(
-        'Polis Support <mike@pol.is>',
+    return sendMultipleTextEmails(
+        'Polis Team <mike@pol.is>',
         ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
         "Dummy button clicked!!!",
-        body,
-        'mike@pol.is', {},
-        function(err) {
-            if (err) {
-                console.error('mailgun send error: ' + err);
-            }
-            console.error(message);
+        body).catch(function(err) {
             yell("polis_err_failed_to_email_for_dummy_button");            
             yell(message);
-        }
-    );
-
+        });
 }
+
 function emailBadProblemTime(message) {
     var body = "" +
         "Yo, there was a serious problem. Here's the message:\n" +
-        message
-        ;
+        message;
 
-    mailgun.sendText(
-        'Polis Support <mike@pol.is>',
+    return sendMultipleTextEmails(
+        'Polis Team <mike@pol.is>',
         ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
         "Polis Bad Problems!!!",
-        body,
-        'mike@pol.is', {},
-        function(err) {
-            if (err) {
-                console.error('mailgun send error: ' + err);
-            }
-            console.error(message);
+        body).catch(function(err) {
             yell("polis_err_failed_to_email_bad_problem_time");            
             yell(message);
-        }
-    );
+        });
 }
 
 
@@ -3060,52 +2922,109 @@ function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
             "\n" +
             "Thank you for using Polis\n";
 
-        mailgun.sendText(
+        sendTextEmail(
             'Polis Team <mike@pol.is>',
-            [userInfo.email],
+            userInfo.email,
             "Polis Password Reset",
-            body,
-            'mike@pol.is', {},
-            function(err) {
-                if (err) {
-                    console.error('mailgun send error: ' + err);
-                }
+            body).then(function() {
+                callback();
+            }).catch(function(err) {
+                yell("polis_err_failed_to_email_password_reset_code");
                 callback(err);
-            }
-        );
+            });
     });
 }
 
 
-
-function sendEinviteEmail(email, einvite, serverName) {
+function sendTextEmailWithMailgun(sender, recipient, subject, text) {
+    var servername = "";
+    var options = {};
     return new Promise(function(resolve, reject) {
-        var server = devMode ? "http://localhost:5000" : "https://pol.is";
-        var body = "" +
-            "Welcome to pol.is!\n" +
-            "\n" +
-            "Click this link to open your account:\n" +
-            "\n" +
-            serverName + "/welcome/" + einvite + "\n" +
-            "\n" +
-            "Thank you for using Polis\n";
-
-        mailgun.sendText(
-            'The Team at Polis <mike@pol.is>',
-            [email],
-            "Get Started with Polis",
-            body,
-            'mike@pol.is', {},
-            function(err) {
-                if (err) {
-                    console.error('mailgun send error: ' + err);
-                    reject(err);
-                    return;
-                }
+        mailgun.sendText(sender, [recipient], subject, text, servername, options, function(err) {
+            if (err) {
+                console.error("Unable to send via mailgun: " + err);                
+                yell("polis_err_mailgun_email_send_failed");                
+                reject(err);
+            } else {
                 resolve();
             }
-        );
+        });
     });
+}
+
+function sendTextEmailWithPostmark(sender, recipient, subject, text) {
+    return new Promise(function(resolve, reject) {
+        postmark.send({
+            "From": sender,
+            "To": recipient,
+            "Subject": subject,
+            "TextBody": text,
+        }, function(error, success) {
+            if(error) {
+                console.error("Unable to send via postmark: " + error.message);
+                yell("polis_err_postmark_email_send_failed");
+                reject(error);
+            } else {
+                resolve();
+            }
+        });
+    });
+}
+
+function sendTextEmail(sender, recipient, subject, text) {
+    var promise = sendTextEmailWithPostmark(sender, recipient, subject, text).catch(function(err) {
+        yell("polis_err_primary_email_sender_failed");
+        return sendTextEmailWithMailgun(sender, recipient, subject, text);
+    });
+    promise.catch(function(err) {
+        yell("polis_err_backup_email_sender_failed");
+    });
+    return promise;
+}
+
+function sendMultipleTextEmails(sender, recipientArray, subject, text) {
+    recipientArray = recipientArray || [];
+    return Promise.all(recipientArray.map(function(email) {
+        var promise = sendTextEmail(
+            sender,
+            email,
+            subject,
+            text);
+        promise.catch(function(err) {
+            yell("polis_err_failed_to_email_for_user " + email);            
+        });
+        return promise;
+    }));
+}
+
+function trySendingBackupEmailTest() {
+    var d = new Date();
+    if (d.getDay() === 1) {
+        // send the monday backup email system test
+        // If the sending fails, we should get an error ping.
+        sendTextEmailWithMailgun("Polis Team <mike@pol.is>", "mike@pol.is", "monday backup email system test (mailgun)", "seems to be working");
+    }
+}
+setInterval(trySendingBackupEmailTest, 1000*60*60*23); // try every 23 hours (so it should only try roughly once a day)
+trySendingBackupEmailTest();
+
+
+function sendEinviteEmail(req, email, einvite) {
+    var serverName = getServerNameWithProtocol(req);
+    var body = "" +
+        "Welcome to pol.is!\n" +
+        "\n" +
+        "Click this link to open your account:\n" +
+        "\n" +
+        serverName + "/welcome/" + einvite + "\n" +
+        "\n" +
+        "Thank you for using Polis\n";
+
+    return sendTextEmail(
+        'Polis Team <mike@pol.is>',
+        email,
+        "Get Started with Polis",
+        body);
 }
 
 
@@ -3151,28 +3070,16 @@ function verifyHmacForQueryParams(path, params) {
     });
 }
 
-function sendTextToEmail(uid, subject, body) {
+function sendEmailByUid(uid, subject, body) {
     return getUserInfoForUid2(uid).then(function(userInfo) {
-        return sendEmail({
-            to: userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
-            subject: subject,
-            text: body,
-        });
+        return sendTextEmail(
+            'Polis Team <mike@pol.is>',
+            userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
+            subject,
+            body);
     });
 }
 
-//
-// !!! be sure to test with text-only email clients before using this !!!
-//
-// function sendHtmlToEmail(uid, subject, html) {
-//     return getUserInfoForUid2(uid).then(function(userInfo) {
-//         return sendEmail({
-//             to: userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
-//             subject: subject,
-//             html: html,
-//         });
-//     });
-// }
 
 // tags: ANON_RELATED
 app.get("/api/v3/participants",
@@ -4378,7 +4285,7 @@ function sendCommentModerationEmail(req, uid, zid, unmoderatedCommentCount) {
              // "Sent: " + Date.now() + "\n";
 
         // NOTE: Adding zid to the subject to force the email client to create a new email thread.
-        return sendTextToEmail(uid, "Waiting for review (conversation " + zid + ")", body);
+        return sendEmailByUid(uid, "Waiting for review (conversation " + zid + ")", body);
     }).catch(function(err) {
         console.error(err);
     });
@@ -5373,7 +5280,7 @@ function(req, res){
                         Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req, req.p.zid)]).then(function(results) {
                             var hname = results[0].hname;
                             var url = results[1];
-                            sendTextToEmail(
+                            sendEmailByUid(
                                 req.p.uid,
                                 "Conversation created",
                                 "Hi " + hname + ",\n" +
@@ -6176,7 +6083,7 @@ function(req, res){
         var fullname = results.rows[0].hname;
         pgQuery("select * from zinvites where zid = $1", [req.p.zid], function(err, results){
             var zinvite = results.rows[0].zinvite;
-            var server = devMode ? "http://localhost:5000" : "https://pol.is";
+            var server = getServerNameWithProtocol(req);
             var createdLink = server + "/#"+ req.p.zid +"/"+ zinvite;
             var body = "" +
                 "Hi " + fullname + ",\n" +
@@ -6189,20 +6096,15 @@ function(req, res){
                 "\n" + 
                 "The team at pol.is";
     
-            mailgun.sendText(
-                'pol.is <noreply@pol.is>',
+            return sendTextEmail(
+                'Polis Team <mike@pol.is>',
                 email,
-                "Link: " + createdLink,
-                body,
-                'noreply@polis.io', {},
-                function(err) {
-                    if (err) {
-                        console.error('mailgun send error: ' + err);
-                        fail(res, 500, "mailgun_error", err);
-                    }
+                "Link: " + createdLink,                
+                body).then(function() {
                     res.status(200).json({});
-                }
-            );
+                }).catch(function(err) {
+                    fail(res, 500, "polis_err_sending_created_link_to_email", err);
+                });
         });
     });
 });
@@ -6217,13 +6119,7 @@ function(req, res) {
     var email = req.p.email;
     generateTokenP(30, false).then(function(einvite) {
         return pgQueryP("insert into einvites (email, einvite) values ($1, $2);", [email, einvite]).then(function(rows) {
-
-            var server = devMode ? "http://localhost:5000" : "https://pol.is";
-            if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
-                server = "https://preprod.pol.is";
-            }
-
-            return sendEinviteEmail(email, einvite, server).then(function() {
+            return sendEinviteEmail(req, email, einvite).then(function() {
                 res.status(200).json({});
             });
         });
