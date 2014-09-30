@@ -37,8 +37,8 @@ var $ = require("jquery");
 var gaEvent = require("../util/gaMetric").gaEvent;
 
 
-
-var encodedParams = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/)[0];
+var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
+var encodedParams = match ? match[0] : void 0;
 
 var routeEvent = metric.routeEvent;
 
@@ -230,12 +230,12 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
 var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
-    this.r(/^conversation\/create(\/ep1_[0-9A-Za-z]+)/, "createConversation");
+    this.r(/^conversation\/create(\/ep1_[0-9A-Za-z]+)?/, "createConversation");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("user/logout", "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
-    this.r(/^settings(\/ep1_[0-9A-Za-z]+)/, "settings");
+    this.r(/^settings(\/ep1_[0-9A-Za-z]+)?/, "settings");
     this.r("inbox", "inbox");
     this.r(/^inbox\/(ep1_[0-9A-Za-z]+)$/, "inboxLti");
     
@@ -247,7 +247,7 @@ var polisRouter = Backbone.Router.extend({
 
     this.r(/^course\/(.*)/, "courseView");
 
-    this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)*$/, "participationView");  // conversation_id / encodedStringifiedJson
+    this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView");  // conversation_id / encodedStringifiedJson
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
     this.r(/^demo\/([0-9][0-9A-Za-z]+)/, "demoConversation");
