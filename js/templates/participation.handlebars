@@ -37,7 +37,22 @@
     </div>
     {{/if}}
     {{!-- {{/ifNotEmbedded}} --}}
-      <h3 class="HeadingA" title="Conversation topic">{{topic}}{{#unless is_active}} (closed) {{/unless}}</h3>
+      <h3 class="HeadingA" title="Conversation topic">{{topic}}
+        {{#unless is_active}}
+        <span class="no_you_vote" style="
+         color: white;
+         background-color: rgb(231, 76, 60);
+         /* font-size: 0.7em; */
+         /* padding: .2em; */
+         font-size: 20px;
+         padding: 0px 10px;
+         border-radius: 3px;
+         position: relative;
+         top: -5px;
+         left: 6px;
+        ">closed</span>
+      {{/unless}}
+      </h3>
       <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{description}} </p>
     </div>
   </div> {{! /fake container }}
