@@ -2937,15 +2937,17 @@ function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
 
 
 function sendTextEmailWithMailgun(sender, recipient, subject, text) {
+    console.log("sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
     var servername = "";
     var options = {};
     return new Promise(function(resolve, reject) {
         mailgun.sendText(sender, [recipient], subject, text, servername, options, function(err) {
             if (err) {
-                console.error("Unable to send via mailgun: " + err);                
+                console.error("Unable to send email via mailgun to " + recipient + " " + err);                
                 yell("polis_err_mailgun_email_send_failed");                
                 reject(err);
             } else {
+                console.log("sent email with mailgun to " + recipient);
                 resolve();
             }
         });
@@ -2953,6 +2955,7 @@ function sendTextEmailWithMailgun(sender, recipient, subject, text) {
 }
 
 function sendTextEmailWithPostmark(sender, recipient, subject, text) {
+    console.log("sending email with postmark: " + [sender, recipient, subject, text].join(" "));
     return new Promise(function(resolve, reject) {
         postmark.send({
             "From": sender,
@@ -2961,10 +2964,11 @@ function sendTextEmailWithPostmark(sender, recipient, subject, text) {
             "TextBody": text,
         }, function(error, success) {
             if(error) {
-                console.error("Unable to send via postmark: " + error.message);
+                console.error("Unable to send email via postmark to " + recipient + " " + error.message);
                 yell("polis_err_postmark_email_send_failed");
                 reject(error);
             } else {
+                console.log("sent email with postmark to " + recipient);
                 resolve();
             }
         });
