@@ -106,6 +106,7 @@ var authorization_uri = oauth2.AuthCode.authorizeURL({
 // END GITHUB OAUTH2
 
 
+var POLIS_FROM_ADDRESS = "Polis Team <mike@pol.is>";
 
 
 var akismet = require('akismet').client({
@@ -2228,7 +2229,7 @@ function sendPasswordResetEmailFailure(email, server) {
     "Feel free to reply to this email if you need help.";
 
     return sendTextEmail(
-        'Polis Team <mike@pol.is>',
+        POLIS_FROM_ADDRESS,
         email,
         "Password Reset Failed",
         body);
@@ -2879,7 +2880,7 @@ function emailFeatureRequest(message) {
         message;
 
     return sendMultipleTextEmails(
-        'Polis Team <mike@pol.is>',
+        POLIS_FROM_ADDRESS,
         ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
         "Dummy button clicked!!!",
         body).catch(function(err) {
@@ -2894,7 +2895,7 @@ function emailBadProblemTime(message) {
         message;
 
     return sendMultipleTextEmails(
-        'Polis Team <mike@pol.is>',
+        POLIS_FROM_ADDRESS,
         ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
         "Polis Bad Problems!!!",
         body).catch(function(err) {
@@ -2923,7 +2924,7 @@ function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
             "Thank you for using Polis\n";
 
         sendTextEmail(
-            'Polis Team <mike@pol.is>',
+            POLIS_FROM_ADDRESS,
             userInfo.email,
             "Polis Password Reset",
             body).then(function() {
@@ -3006,7 +3007,7 @@ function trySendingBackupEmailTest() {
     if (d.getDay() === 1) {
         // send the monday backup email system test
         // If the sending fails, we should get an error ping.
-        sendTextEmailWithMailgun("Polis Team <mike@pol.is>", "mike@pol.is", "monday backup email system test (mailgun)", "seems to be working");
+        sendTextEmailWithMailgun(POLIS_FROM_ADDRESS, "mike@pol.is", "monday backup email system test (mailgun)", "seems to be working");
     }
 }
 setInterval(trySendingBackupEmailTest, 1000*60*60*23); // try every 23 hours (so it should only try roughly once a day)
@@ -3025,7 +3026,7 @@ function sendEinviteEmail(req, email, einvite) {
         "Thank you for using Polis\n";
 
     return sendTextEmail(
-        'Polis Team <mike@pol.is>',
+        POLIS_FROM_ADDRESS,
         email,
         "Get Started with Polis",
         body);
@@ -3077,7 +3078,7 @@ function verifyHmacForQueryParams(path, params) {
 function sendEmailByUid(uid, subject, body) {
     return getUserInfoForUid2(uid).then(function(userInfo) {
         return sendTextEmail(
-            'Polis Team <mike@pol.is>',
+            POLIS_FROM_ADDRESS,
             userInfo.hname ? (userInfo.hname + "<" + userInfo.email + ">") : userInfo.email,
             subject,
             body);
@@ -6101,7 +6102,7 @@ function(req, res){
                 "The team at pol.is";
     
             return sendTextEmail(
-                'Polis Team <mike@pol.is>',
+                POLIS_FROM_ADDRESS,
                 email,
                 "Link: " + createdLink,                
                 body).then(function() {
