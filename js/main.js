@@ -242,10 +242,13 @@ uidPromise.always(function() {
 
     Metrics.boot();
     if (isEmbedded()) {
-      setTimeout(function() {
-        // Hide the Intercom help widget in participation view
-        $("#IntercomDefaultWidget").hide();
-      }, 1000);
+      // since we don't know when the question mark will appear, try multiple times over a 5 second span :D
+      _.each(_.range(0, 5000, 250), function(t) { 
+        setTimeout(function() {
+          // Hide the Intercom help widget in participation view
+          $("#IntercomDefaultWidget").hide();
+        }, t);
+      });
     }
 
     IntercomModalHack.init();
