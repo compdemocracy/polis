@@ -3233,10 +3233,11 @@ function(req, res) {
 });
 
 
-function addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid) {
+function addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) {
+    lti_user_image = lti_user_image || null;
     return pgQueryP("select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);", [lti_user_id, tool_consumer_instance_guid]).then(function(rows) {
         if (!rows || !rows.length) {
-            return pgQueryP("insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid) values ($1, $2, $3);", [uid, lti_user_id, tool_consumer_instance_guid]);
+            return pgQueryP("insert into lti_users (uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) values ($1, $2, $3, $4);", [uid, lti_user_id, tool_consumer_instance_guid, lti_user_image]);
         }
     });
 }
@@ -3252,6 +3253,7 @@ app.post("/api/v3/auth/login",
     need('password', getPassword, assignToP),
     want('email', getEmail, assignToP),
     want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
+    want('lti_user_image', getStringLimitLength(1, 9999), assignToP),
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
     want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
@@ -3259,6 +3261,7 @@ function(req, res) {
     var password = req.p.password;
     var email = req.p.email || "";
     var lti_user_id = req.p.lti_user_id;
+    var lti_user_image = req.p.lti_user_image;
     var lti_context_id = req.p.lti_context_id;
     var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
     var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
@@ -3294,7 +3297,7 @@ function(req, res) {
                         console.log("lti_user_id", lti_user_id);
                         console.log("lti_context_id", lti_context_id);
                         var ltiUserPromise = lti_user_id ?
-                            addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid) :
+                            addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
                             Promise.resolve();
                         var ltiContextMembershipPromise = lti_context_id ?
                             addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
@@ -3604,6 +3607,7 @@ app.post("/api/v3/auth/new",
     want('organization', getOptionalStringLimitLength(999), assignToP),
     want('gatekeeperTosPrivacy', getBool, assignToP),
     want('lti_user_id', getStringLimitLength(1, 9999), assignToP),
+    want('lti_user_image', getStringLimitLength(1, 9999), assignToP),
     want('lti_context_id', getStringLimitLength(1, 9999), assignToP),
     want('tool_consumer_instance_guid', getStringLimitLength(1, 9999), assignToP),
     want('afterJoinRedirectUrl', getStringLimitLength(1, 9999), assignToP),
@@ -3618,6 +3622,7 @@ function(req, res) {
     var organization = req.p.organization;
     var gatekeeperTosPrivacy = req.p.gatekeeperTosPrivacy;
     var lti_user_id = req.p.lti_user_id;
+    var lti_user_image = req.p.lti_user_image;
     var lti_context_id = req.p.lti_context_id;
     var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
     var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
@@ -3661,7 +3666,7 @@ function(req, res) {
                               addCookies(req, res, token, uid).then(function() {
 
                                 var ltiUserPromise = lti_user_id ?
-                                  addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid) :
+                                  addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
                                   Promise.resolve();
                                 var ltiContextMembershipPromise = lti_context_id ?
                                   addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_guid) :
@@ -6275,6 +6280,7 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
 '<input type="password" id="password2" name="password2" style="width: 100%;" id="gatekeeperLoginPassword2" class="FormControl">' +
 '</div>' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<input type="hidden" name="lti_user_image" value="' + user_image + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '<input type="hidden" name="tool_consumer_instance_guid" value="' + tool_consumer_instance_guid + '">' +
 '<input type="hidden" name="afterJoinRedirectUrl" value="' + afterJoinRedirectUrl + '">' +
@@ -6300,6 +6306,7 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
 '</label>' +
 '<input type="password" id="password" name="password" id="gatekeeperLoginPassword" style="width: 100%;" class="FormControl">' +
 '<input type="hidden" name="lti_user_id" value="' + user_id + '">' +
+'<input type="hidden" name="lti_user_image" value="' + user_image + '">' +
 '<input type="hidden" name="lti_context_id" value="' + context_id + '">' +
 '<input type="hidden" name="tool_consumer_instance_guid" value="' + tool_consumer_instance_guid + '">' +
 '<input type="hidden" name="afterJoinRedirectUrl" value="' + afterJoinRedirectUrl + '">' +
