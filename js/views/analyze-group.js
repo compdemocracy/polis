@@ -188,17 +188,18 @@ module.exports = Handlebones.View.extend({
         return;
       }
       var repnessInfo = info.repness.slice(0);
-      repnessInfo.sort(function(a, b) {
-        if (a["repful-for"] === "agree" && b["repful-for"] === "disagree") {
-          return -1;
-        }
-        if (b["repful-for"] === "agree" && a["repful-for"] === "disagree") {
-          return 1;
-        }
-        // secondary sort is descending repness
-        // TODO condider confidence values
-        return b.repness - a.repness;
-      });
+      // repnessInfo.sort(function(a, b) {
+      //   if (a["repful-for"] === "agree" && b["repful-for"] === "disagree") {
+      //     return -1;
+      //   }
+      //   if (b["repful-for"] === "agree" && a["repful-for"] === "disagree") {
+      //     return 1;
+      //   }
+      //   // secondary sort is descending repness
+      //   // TODO condider confidence values
+      //   return b.repness - a.repness;
+      // });
+
       var tids = _.pluck(repnessInfo, "tid");
 
 
