@@ -27,7 +27,7 @@
 
 
 (def db-spec
-  (heroku-db-spec (env/env :database-url)))
+  (memoize #(heroku-db-spec (env/env :database-url))))
 
 
 (declare users conversations votes participants)
@@ -59,7 +59,7 @@
   "Query for all data since last-timestamp, given a db-spec"
   [last-timestamp]
   (try
-    (kdb/with-db db-spec
+    (kdb/with-db (db-spec)
       (ko/select votes
         (ko/where {:created [> last-timestamp]})
         (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
@@ -129,7 +129,7 @@
 
 (defn get-users-by-uid
   [uids]
-  (kdb/with-db db-spec
+  (kdb/with-db (db-spec)
     (->
       get-users-with-stats
       (ko/where (in :uid uids))
@@ -138,7 +138,7 @@
 
 (defn get-users-by-email
   [emails]
-  (kdb/with-db db-spec
+  (kdb/with-db (db-spec)
     (->
       get-users-with-stats
       (ko/where (in :email emails))
