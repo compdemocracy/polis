@@ -29,11 +29,11 @@
         <a href="share{{url_name}}" class="Btn Btn-alt" ><i class="fa fa-link"></i>&nbsp;SHARE</a>
         <a href="{{url_moderate}}" class="Btn Btn-alt" >MODERATE</a>
         {{#if is_active}}
-          <a id="closeConversationButton" class="Btn Btn-alt" >CLOSE</a>        
+          <a id="closeConversationButton" class="Btn Btn-alt" style="cursor:pointer">CLOSE</a>
         {{ else }}
-          <a id="reopenConversationButton" class="Btn Btn-alt" >REOPEN</a>                
+          <a id="reopenConversationButton" class="Btn Btn-alt" style="cursor:pointer">REOPEN</a>
         {{/if}}
-        <a id="getDataButton" class="Btn Btn-alt hidden-xs" ><i class="fa fa-cloud-download "></i>&nbsp;DATA</a>
+        <a id="getDataButton" class="Btn Btn-alt hidden-xs" style="cursor:pointer"><i class="fa fa-cloud-download "></i>&nbsp;DATA</a>
     </div>
     {{/if}}
     {{!-- {{/ifNotEmbedded}} --}}
