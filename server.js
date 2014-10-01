@@ -6777,7 +6777,15 @@ function(req, res) {
                 // TODO email polis team, email instructor?
                 // TODO or just auto-generate a conversation for the instructor, and have no topic and description, then show that?
                 // TODO or make a dummy "not ready yet" page
-                res.redirect(getServerNameWithProtocol(req) + "/about");                
+
+                console.error("Student saw conversation before it was set up. For instructor with key: oauth_consumer_key: " + req.p.oauth_consumer_key);
+                res.set({
+                    'Content-Type': 'text/html',
+                });
+                res.send(
+                    '<head><meta name="viewport" content="width=device-width, initial-scale=1;"></head>' + 
+                    "<body><h1 style='max-width:320px'>Sorry, the pol.is conversation has not been created yet. Please try back later.</h1></body>"
+                );
             }
         }
     }).catch(function(err) {
