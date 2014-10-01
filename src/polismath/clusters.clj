@@ -380,6 +380,25 @@
      :repful-for   repful-for}))
 
 
+(defn repness-sort
+  [repdata]
+  (sort-by
+    (fn [data] (- (* (:repness data)
+                     (:repness-test data)
+                     (:p-success data)
+                     (:p-test data))))
+    repdata))
+
+
+(defn agrees-before-disagrees
+  "Always put agrees before disagrees"
+  [repdata]
+  (concat
+    ; Need vector so into appends, not prepends
+    (filter #(= :agree (:repful-for %)) repdata)
+    (filter #(= :disagree (:repful-for %)) repdata)))
+
+
 (defn select-rep-comments
   "Selects representative comments based on beats-best-by-test? and passes-by-test?. Always ensures
   there is at least one representative comment for a given cluster. Takes the results of conv-repness
@@ -423,8 +442,9 @@
         (if (empty? sufficient)
           [best]
           (->> sufficient
-               (sort-by #(- (:repness %)))
-               (take 5)))))))
+               (repness-sort)
+               (take 5)
+               (agrees-before-disagrees)))))))
 
 
 (defn xy-clusters-to-nmat [clusters]
