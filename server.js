@@ -7162,10 +7162,13 @@ function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_
 
 /*
 for easy copy and paste
+https://pol.is/api/v3/LTI/conversation_assignment.xml
 https://preprod.pol.is/api/v3/LTI/conversation_assignment.xml
 */
 app.get("/api/v3/LTI/conversation_assignment.xml",
 function(req, res) {
+    var serverName = getServerNameWithProtocol(req);
+
 var xml = '' +
 '<cartridge_basiclti_link xmlns="http://www.imsglobal.org/xsd/imslticc_v1p0" xmlns:blti="http://www.imsglobal.org/xsd/imsbasiclti_v1p0" xmlns:lticm="http://www.imsglobal.org/xsd/imslticm_v1p0" xmlns:lticp="http://www.imsglobal.org/xsd/imslticp_v1p0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imslticc_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticc_v1p0.xsd http://www.imsglobal.org/xsd/imsbasiclti_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imsbasiclti_v1p0.xsd http://www.imsglobal.org/xsd/imslticm_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticm_v1p0.xsd http://www.imsglobal.org/xsd/imslticp_v1p0 http://www.imsglobal.org/xsd/lti/ltiv1p0/imslticp_v1p0.xsd">' +
 
@@ -7174,7 +7177,7 @@ var xml = '' +
 // '<blti:icon>' +
 // 'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
 // '</blti:icon>' +
-'<blti:launch_url>https://preprod.pol.is/api/v3/LTI/conversation_assignment</blti:launch_url>' +
+'<blti:launch_url>'+serverName+'/api/v3/LTI/conversation_assignment</blti:launch_url>' +
 
 '<blti:custom>' +
 '<lticm:property name="custom_canvas_xapi_url">$Canvas.xapi.url</lticm:property>' +
@@ -7189,7 +7192,7 @@ var xml = '' +
     // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
     '<lticm:options name="homework_submission">' +
         // '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/homework_submission</lticm:property>' +
-        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/conversation_assignment</lticm:property>' +  // ?
+        '<lticm:property name="url">'+serverName+'/api/v3/LTI/conversation_assignment</lticm:property>' +  // ?
         '<lticm:property name="icon_url">' +
         'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
         '</lticm:property>' +
