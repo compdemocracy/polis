@@ -1942,12 +1942,20 @@ function redirectIfHasZidButNoConversationId(req, res, next) {
 
 
 
+
+app.get("/api/v3/math/pca",
+function(req, res) {
+    // migrated off this path, old clients were causing timeout issues by polling repeatedly without waiting for a result for a previous poll.
+    res.status(304).end();
+});
+
 // Cache the knowledge of whether there are any pca results for a given zid.
 // Needed to determine whether to return a 404 or a 304.
 // zid -> boolean
 var pcaResultsExistForZid = {};
 
-app.get("/api/v3/math/pca",
+
+app.get("/api/v3/math/pca2",
     function(req, res, next) {
         console.log('pca_foo first middleware');
         next();
