@@ -13,9 +13,6 @@
 
 */
 
-console.log('redisAuth url ' +process.env.REDISTOGO_URL);
-console.log('redisCloud url ' +process.env.REDISCLOUD_URL);
-
 //require('nodefly').profile(
     //process.env.NODEFLY_APPLICATION_KEY,
     //[process.env.APPLICATION_NAME,'Heroku']
@@ -256,25 +253,6 @@ var errorNotifications = (function() {
 var yell = errorNotifications.add;
 
 
-
-var redisForAuth;
-if (process.env.REDISTOGO_URL) {
-    var rtg   = url.parse(process.env.REDISTOGO_URL);
-    redisForAuth = require("redis").createClient(rtg.port, rtg.hostname);
-    redisForAuth.auth(rtg.auth.split(":")[1]);
-} else {
-    redisForAuth = require('redis').createClient();
-}
-
-// var redisForMathResults;
-// if (process.env.REDISCLOUD_URL) {
-//     var rc   = url.parse(process.env.REDISCLOUD_URL);
-//     var redisForMathResults= require("redis").createClient(rc.port, rc.hostname);
-//     redisForMathResults.auth(rc.auth.split(":")[1]);
-// } else {
-//     redisForMathResults = require('redis').createClient();
-// }
-
 var intercom = new Intercom({
   apiKey: process.env.INTERCOM_API_KEY,
   appId: "nb5hla8s"
@@ -432,11 +410,15 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
     //     cb(null, uid);
     //     return;
     // }
-    redisForAuth.get(sessionToken, function(errGetToken, uid) {
-        if (errGetToken) { console.error("token_fetch_error"); cb(500); return; }
-        if (!uid) { console.error("token_expired_or_missing"); cb(403); return; }
+    pgQuery("select uid from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
+        if (err) { console.error("token_fetch_error"); cb(500); return; }
+        if (!results || !results.rows || !results.rows.length) {
+            console.error("token_expired_or_missing");
+            cb(403);
+            return;
+        }
         // userTokenCache.set(sessionToken, uid);
-        cb(null, uid);
+        cb(null, results.rows[0].uid);
     });
 }
 
@@ -467,31 +449,21 @@ function getUserInfoForPolisLtiToken(token) {
     });
 }
 
-function startSession(userID, cb) {
-    // NOTE: If you want to set this to true, be sure to make the cookies expire slightly before the token in redis.
-    var SHOULD_EXPIRE_SESSION_TOKENS = false;
-
-    var sessionToken = makeSessionToken();
+function startSession(uid, cb) {
+    var token = makeSessionToken();
     //console.log('startSession: token will be: ' + sessionToken);
     console.log('startSession');
-    redisForAuth.set(sessionToken, userID, function(errSetToken, repliesSetToken) {
-        if (errSetToken) { cb(errSetToken); return; }
+    pgQuery("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
+        if (err) { cb(err); return; }
         console.log('startSession: token set.');
-        if (SHOULD_EXPIRE_SESSION_TOKENS) {
-            redisForAuth.expire(sessionToken, 3*31*24*60*60, function(errSetTokenExpire, repliesExpire) {
-                if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
-                console.log('startSession: token will expire.');
-                cb(null, sessionToken);
-            });
-        } else {
-            cb(null, sessionToken);
-        }
+        cb(null, token);
     });
 }
 
+
 function endSession(sessionToken, cb) {
-    redisForAuth.del(sessionToken, function(errDelToken, repliesSetToken) {
-        if (errDelToken) { cb(errDelToken); return; }
+    pgQuery("delete from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
+        if (err) { cb(err); return; }
         cb(null);
     });
 }
@@ -503,24 +475,25 @@ function setupPwReset(uid, cb) {
         return crypto.randomBytes(140).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 100);
     }
     var token = makePwResetToken();
-    redisForAuth.set(token, uid, function(errSetToken, repliesSetToken) {
+    pgQuery("insert into pwreset_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(errSetToken, repliesSetToken) {
         if (errSetToken) { cb(errSetToken); return; }
-        var seconds = 2*60*60;
-        redisForAuth.expire(token, seconds, function(errSetTokenExpire, repliesExpire) {
-            if (errSetTokenExpire) { cb(errSetTokenExpire); return; }
-            cb(null, token);
-        });
+        cb(null, token);
     });
 }
 function getUidForPwResetToken(pwresettoken, cb) {
-    redisForAuth.get(pwresettoken, function(errGetToken, replies) {
+    // TODO "and created > timestamp - x"
+    pgQuery("select uid from pwreset_tokens where token = ($1);", [pwresettoken], function(errGetToken, results) {
         if (errGetToken) { console.error("pwresettoken_fetch_error"); cb(500); return; }
-        if (!replies) { console.error("token_expired_or_missing"); cb(403); return; }
-        cb(null, {uid: replies});
+        if (!results || !results.rows || !results.rows.length) {
+            console.error("token_expired_or_missing");
+            cb(403);
+            return;
+        }
+        cb(null, {uid: results.rows[0].uid});
     });
 }
 function clearPwResetToken(pwresettoken, cb) {
-    redisForAuth.del(pwresettoken, function(errDelToken, repliesSetToken) {
+    pgQuery("delete from pwreset_tokens where token = ($1);", [pwresettoken], function(errDelToken, repliesSetToken) {
         if (errDelToken) { cb(errDelToken); return; }
         cb(null);
     });

@@ -35,6 +35,15 @@ CREATE TABLE users(
 );
 CREATE INDEX users_uid_idx ON users USING btree (uid);
 
+
+CREATE TABLE auth_tokens(
+    token VARCHAR(32),
+    uid INTEGER REFERENCES users(uid),
+    created BIGINT DEFAULT now_as_millis(),    
+    UNIQUE(token)
+);
+
+
 -- this is the password hashes table.
 -- the funny name is a bit of security by obscurity in case
 -- somehow we end up with a security hole that allows for
