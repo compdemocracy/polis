@@ -7183,6 +7183,21 @@ res.status(200).send(xml);
 });
 
 
+app.get("/canvas_app_instructions.png",
+function(req, res) {
+    var path = "/landerImages/";
+    if (/Android/.exec(req.headers['user-agent'])) {
+        path += "app_instructions_android.png";
+    } else if (/iPhone.*like Mac OS X/.exec(req.headers['user-agent'])) {
+        path += "app_instructions_ios.png";
+    } else {
+        path += "app_instructions_blank.png";
+    }
+    var doFetch = makeFileFetcher(hostname, port, path, "image/png");
+    doFetch(req, res);
+});
+
+
 app.post("/api/v3/users/invite",
     // authWithApiKey(assignToP),
     auth(assignToP),
