@@ -1798,10 +1798,8 @@ function fetchAndCacheLatestPcaData() {
 setTimeout(fetchAndCacheLatestPcaData, 3000);
 
 function getPca(zid, lastVoteTimestamp) {
-    console.log('pca_foo getPca begin');
     var cached = pcaCache.get(zid);
     if (cached) {
-        console.log('pca_foo getPca cached');
         if (cached.lastVoteTimestamp <= lastVoteTimestamp) {
             console.log("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
             return Promise.resolve(null);
@@ -1813,17 +1811,14 @@ function getPca(zid, lastVoteTimestamp) {
 
     console.log("mathpoll cache miss", zid, lastVoteTimestamp);
 
-    console.log('pca_foo getPca MPromise begin');
     // NOTE: not caching results from this query for now, think about this later.
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
     // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
     return new MPromise("db.math.pca.get", function(resolve, reject) {
-    console.log('pca_foo getPca before find');
         collectionOfPcaResults.find({$and :[
             {zid: zid},
             {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
             ]}, function(err, cursor) {
-                console.log('pca_foo getPca find callback');
             if (err) {
                 reject(new Error("polis_err_get_pca_results_find"));
                 return;
@@ -1927,21 +1922,12 @@ function(req, res) {
 // zid -> boolean
 var pcaResultsExistForZid = {};
 
-
 app.get("/api/v3/math/pca2",
-    function(req, res, next) {
-        console.log('pca_foo first middleware');
-        next();
-    },
     meter("api.math.pca.get"),
     moveToBody,
     redirectIfHasZidButNoConversationId, // TODO remove once 
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
-    function(req, res, next) {
-        console.log('pca_foo last middleware');
-        next();
-    },
 function(req, res) {
     var zid = req.p.zid;
     var lastVoteTimestamp = req.p.lastVoteTimestamp;
@@ -1958,10 +1944,7 @@ function(req, res) {
         }
     }
 
-    console.log('pca_foo before getPca');
-
     getPca(zid, lastVoteTimestamp).then(function(data) {
-        console.log('pca_foo resolved');
         if (data) {
             finishOne(res, data);
         } else {
@@ -1981,7 +1964,6 @@ function(req, res) {
             }
         }
     }).catch(function(err) {
-        console.log('pca_foo failed');
         fail(res, 500, err);
     });
 });
@@ -3735,16 +3717,8 @@ function(req, res) {
 
 
 app.get("/api/v3/users",
-    function(req, res, next) {
-        console.log('users_foo first middleware');
-        next();
-    },
     moveToBody,
     authOptional(assignToP),
-    function(req, res, next) {
-        console.log('users_foo last middleware');
-        next();
-    },
 function(req, res) {
     var uid = req.p.uid;
     if (!uid) {
@@ -3752,9 +3726,7 @@ function(req, res) {
         res.json({});
         return;
     }
-    console.log('users_foo 123');
     getUserInfoForUid2(uid).then(function(info) {
-        console.log('users_foo 333');
         res.json({
             uid: uid,
             email: info.email,
