@@ -6644,7 +6644,6 @@ function(req, res) {
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
 
-
     function getPolisUserForLtiUser() {
         return pgQueryP("select * from lti_users left join users on lti_users.uid = users.uid where lti_users.lti_user_id = ($1) and lti_users.tool_consumer_instance_guid = ($2);", [user_id, req.p.tool_consumer_instance_guid]).then(function(rows) {
             var userForLtiUserId = null;
@@ -6655,30 +6654,6 @@ function(req, res) {
             return userForLtiUserId;
         });
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     if (req.p.lis_result_sourcedid) {
         addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, JSON.stringify(req.body)).then(function() {
@@ -6711,33 +6686,36 @@ function(req, res) {
     //     JSON.stringify(req.body),
     // ]).thennnnn
 
+    Promise.all([
+        getCanvasAssignmentInfo(
+          req.p.tool_consumer_instance_guid,
+          req.p.context_id,
+          req.p.custom_canvas_assignment_id),
+        getPolisUserForLtiUser(),
+    ]).then(function(results) {
+        var infos = results[0];
+        var exists = infos && infos.length;
+        var info = infos[0];
 
-    getCanvasAssignmentInfo(
-      req.p.tool_consumer_instance_guid,
-      req.p.context_id,
-      req.p.custom_canvas_assignment_id).then(function(rows) {
-        var exists = rows && rows.length;
-        var info = rows[0];
+        var user = results[1];
+
         if (exists) {
             return constructConversationUrl(info.zid).then(function(url) {
-                return getPolisUserForLtiUser().then(function(user) {
-                    if (user) {
-                        // we're in business, user can join the conversation
-                        res.redirect(url);
-                    } else {
-                        // not linked yet.
-                        // send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
+                if (user) {
+                    // we're in business, user can join the conversation
+                    res.redirect(url);
+                } else {
+                    // not linked yet.
+                    // send them to an auth page, which should do the linkage, then send them to inbox with the funky params...
 
-                        // you are signed in, but not linked to the signed in user
-                        // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
-                        clearCookies(req, res);
-                        console.log('lti_linkage didnt exist');
-                        // Have them sign in again, since they weren't linked.
-                        // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
-                        renderLtiLinkagePage(req, res, url);
-                    }
-                });
-
+                    // you are signed in, but not linked to the signed in user
+                    // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
+                    clearCookies(req, res);
+                    console.log('lti_linkage didnt exist');
+                    // Have them sign in again, since they weren't linked.
+                    // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
+                    renderLtiLinkagePage(req, res, url);
+                }
             }).catch(function(err) {
                 fail(res, 500, "polis_err_lti_generating_conversation_url", err);
             });
@@ -6745,13 +6723,24 @@ function(req, res) {
         } else {
             // uh oh, not ready. If this is an instructor, we'll send them to the create/conversation page.
             if (isInstructor) {
-                var encodedParams = encodeParams({
-                    tool_consumer_instance_guid: req.p.tool_consumer_instance_guid, 
-                    context: context_id,
-                    custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
-                });
-                res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + encodedParams);
-                return;
+                if (user) {                
+                    res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + encodeParams({
+                        forceEmbedded: true,                    
+                        // this token is used to support cookie-less participation, mainly needed within Canvas's Android webview. It is needed to ensure the canvas user is bound to the polis user, regardless of who is signed in on pol.is
+                        xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header                    
+                        tool_consumer_instance_guid: req.p.tool_consumer_instance_guid, 
+                        context: context_id,
+                        custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
+                    }));
+                } else {
+                    var url = getServerNameWithProtocol(req) + "/conversation/create/" +  encodeParams({
+                        forceEmbedded: true,                    
+                        tool_consumer_instance_guid: req.p.tool_consumer_instance_guid, 
+                        context: context_id,
+                        custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
+                    });
+                    renderLtiLinkagePage(req, res, url);
+                }
             } else {
                 // double uh-oh, a student is seeing this before the instructor created a conversation...
 
