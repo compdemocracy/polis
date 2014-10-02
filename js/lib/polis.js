@@ -1671,7 +1671,7 @@ function clientSideBaseCluster(things, N) {
             f();
           });
       });
-      pcaPromise.done(function() {
+      pcaPromise.always(function() {
           setTimeout(poll, 5000); // could compute remaining part of interval.
       });
     }
