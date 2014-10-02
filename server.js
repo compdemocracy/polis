@@ -3754,8 +3754,16 @@ function(req, res) {
 
 
 app.get("/api/v3/users",
+    function(req, res, next) {
+        console.log('users_foo first middleware');
+        next();
+    },
     moveToBody,
     authOptional(assignToP),
+    function(req, res, next) {
+        console.log('users_foo last middleware');
+        next();
+    },
 function(req, res) {
     var uid = req.p.uid;
     if (!uid) {
@@ -3763,7 +3771,9 @@ function(req, res) {
         res.json({});
         return;
     }
+    console.log('users_foo 123');
     getUserInfoForUid2(uid).then(function(info) {
+        console.log('users_foo 333');
         res.json({
             uid: uid,
             email: info.email,
