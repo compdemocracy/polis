@@ -1671,11 +1671,14 @@ function clientSideBaseCluster(things, N) {
             f();
           });
       });
+      pcaPromise.done(function() {
+          setTimeout(poll, 5000); // could compute remaining part of interval.
+      });
     }
 
     function startPolling() {
         setTimeout(poll, 0);
-        setInterval(poll, 5000);
+        // setInterval(poll, 5000);
     }
 
     function prepProjection(buckets) {
