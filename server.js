@@ -7201,54 +7201,134 @@ function(req, res) {
 });
 
 
+// app.post("/api/v3/users/invite",
+//     // authWithApiKey(assignToP),
+//     auth(assignToP),
+//     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+//     need('single_use_tokens', getBool, assignToP),
+//     need('xids', getArrayOfStringNonEmpty, assignToP),
+// function(req, res) {
+//     var owner = req.p.uid;
+//     var xids = req.p.xids;
+//     var zid = req.p.zid;
+
+
+//     // generate some tokens
+//     // add them to a table paired with user_ids
+//     // return URLs with those.
+//     generateSUZinvites(xids.length).then(function(suzinviteArray) {
+//         var pairs = _.zip(xids, suzinviteArray);
+
+//         var valuesStatements = pairs.map(function(pair) {
+//             var xid = escapeLiteral(pair[0]);
+//             var suzinvite = escapeLiteral(pair[1]);
+//             var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
+//             console.log(statement);
+//             return statement;
+//         });
+//         var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
+//         console.log(query);
+//         pgQuery(query, [], function(err, results) {
+//             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
+//             getZinvite(zid).then(function(conversation_id) {
+//                 res.json({
+//                     urls: suzinviteArray.map(function(suzinvite) {
+//                         return generateSingleUseUrl(req, conversation_id, suzinvite);
+//                     }),
+//                     xids: xids,
+//                 });
+//             }, function(err) {
+//                 fail(res, 500, "polis_err_generating_single_use_invites_missing_conversation_id", err);
+//             }).catch(function(err) {
+//                 fail(res, 500, "polis_err_generating_single_use_invites", err);
+//             });
+//         });
+//     }).catch(function(err) {
+//         fail(res, 500, "polis_err_generating_single_use_invites", err);
+//     });
+// });
+
+function sendSuzinviteEmail(req, email, conversation_id, suzinvite) {
+    var serverName = getServerNameWithProtocol(req);
+    var body = "" +
+        "Welcome to pol.is!\n" +
+        "\n" +
+        "Click this link to open your account:\n" +
+        "\n" +
+        serverName + "/ot/"+ conversation_id +"/" + suzinvite + "\n" +
+        "\n" +
+        "Thank you for using Polis\n";
+
+    return sendTextEmail(
+        POLIS_FROM_ADDRESS,
+        email,
+        "Join the pol.is conversation!",
+        body);
+}
+
+function addInviter(inviter_uid, invited_email) {
+    return pgQueryP("insert into inviters (inviter_uid, invited_email) VALUES ($1, $2);", [inviter_uid, invited_email]);
+}
+
 app.post("/api/v3/users/invite",
     // authWithApiKey(assignToP),
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    need('single_use_tokens', getBool, assignToP),
-    need('xids', getArrayOfStringNonEmpty, assignToP),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+    // need('single_use_tokens', getBool, assignToP),
+    need('emails', getArrayOfStringNonEmpty, assignToP),
 function(req, res) {
-    var owner = req.p.uid;
-    var xids = req.p.xids;
+    var uid = req.p.uid;
+    var emails = req.p.emails;
     var zid = req.p.zid;
+    var conversation_id = req.p.conversation_id;
 
+    getConversationInfo(zid).then(function(conv) {
 
-    // generate some tokens
-    // add them to a table paired with user_ids
-    // return URLs with those.
-    generateSUZinvites(xids.length).then(function(suzinviteArray) {
-        var pairs = _.zip(xids, suzinviteArray);
+        var owner = conv.owner;
 
-        var valuesStatements = pairs.map(function(pair) {
-            var xid = escapeLiteral(pair[0]);
-            var suzinvite = escapeLiteral(pair[1]);
-            var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
-            console.log(statement);
-            return statement;
-        });
-        var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
-        console.log(query);
-        pgQuery(query, [], function(err, results) {
-            if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
-            getZinvite(zid).then(function(conversation_id) {
-                res.json({
-                    urls: suzinviteArray.map(function(suzinvite) {
-                        return generateSingleUseUrl(req, conversation_id, suzinvite);
-                    }),
-                    xids: xids,
-                });
-            }, function(err) {
-                fail(res, 500, "polis_err_generating_single_use_invites_missing_conversation_id", err);
-            }).catch(function(err) {
-                fail(res, 500, "polis_err_generating_single_use_invites", err);
+        // generate some tokens
+        // add them to a table paired with user_ids
+        // return URLs with those.
+        generateSUZinvites(emails.length).then(function(suzinviteArray) {
+            var pairs = _.zip(emails, suzinviteArray);
+
+            var valuesStatements = pairs.map(function(pair) {
+                var xid = escapeLiteral(pair[0]);
+                var suzinvite = escapeLiteral(pair[1]);
+                var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
+                console.log(statement);
+                return statement;
             });
+            var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
+            console.log(query);
+            pgQuery(query, [], function(err, results) {
+                if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
+
+                Promise.all(pairs.map(function(pair) {
+                    var email = pair[0];
+                    var suzinvite = pair[1];
+                    return sendSuzinviteEmail(req, email, conversation_id, suzinvite).then(function() {
+                        return addInviter(uid, email);
+                    }, function(err) {
+                        fail(res, 500, "polis_err_sending_invite", err);
+                    });
+                })).then(function() {
+                    res.status(200).json({
+                        status: ":-)",
+                    });
+                }).catch(function(err) {
+                    fail(res, 500, "polis_err_sending_invite", err);
+                });
+
+            });
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_generating_invites", err);
         });
     }).catch(function(err) {
-        fail(res, 500, "polis_err_generating_single_use_invites", err);
+        fail(res, 500, "polis_err_getting_conversation_info", err);
     });
 });
-
-
 
 
 

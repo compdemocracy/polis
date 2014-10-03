@@ -179,6 +179,15 @@ CREATE TABLE conversations(
 );
 CREATE INDEX conversations_owner_idx ON conversations USING btree (owner);
 
+CREATE TABLE inviters (
+    inviter_uid INTEGER REFERENCES users(uid),
+    invited_email VARCHAR(999),
+    created BIGINT DEFAULT now_as_millis()
+);
+
+
+
+
 --  invite codes for Owners
 CREATE TABLE oinvites (
     oinvite VARCHAR(300) NOT NULL,
