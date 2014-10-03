@@ -1570,6 +1570,10 @@ var whitelistedDomains = [
   "https://embed.pol.is",
   "http://localhost:8000",
   "https://canvas.instructure.com", // LTI
+  "https://www.facebook.com",
+  "https://facebook.com",
+  "http://www.facebook.com",
+  "http://facebook.com",
   "", // for API
 ];
 
