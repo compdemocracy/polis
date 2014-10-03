@@ -215,7 +215,7 @@ Handlebars.registerHelper('linkExternal', function(text, url) {
   text = Handlebars.Utils.escapeExpression(text);
   url = addProtocolToLinkIfNeeded(url);
   url  = Handlebars.Utils.escapeExpression(url);
-  var result = '<a style="color:black" href="' + url + '">' + text + ' <i class="fa fa-external-link" style="font-size: 0.7em;"></i></a>';
+  var result = '<a style="color:black" href="' + url + '">' + text + ' &nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></a>';
 
   return new Handlebars.SafeString(result);
 });
