@@ -180,11 +180,11 @@
                           :start-vectors (get-in conv [:pca :comps])
                           :iters (:pca-iters opts')))
 
-      ;:proj (plmb/fnk [rating-mat pca]
-              ;(sparsity-aware-project-ptpts (get-matrix rating-mat) pca))
+      :proj (plmb/fnk [rating-mat pca]
+              (sparsity-aware-project-ptpts (get-matrix rating-mat) pca))
 
-      :proj (plmb/fnk [mat pca]
-              (pca-project mat pca))
+;      :proj (plmb/fnk [mat pca]
+              ;(pca-project mat pca))
 
       :base-clusters
             (plmb/fnk [conv rating-mat proj in-conv opts']
@@ -277,7 +277,7 @@
                         {:tid tid
                          :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
                          :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
-                      (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))))))
+                      (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))) {})))
 
       :repness    (plmb/fnk [rating-mat group-clusters base-clusters]
                     (->> (conv-repness rating-mat group-clusters base-clusters)
