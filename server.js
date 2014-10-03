@@ -7566,6 +7566,8 @@ function(req, res) {
 // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
 app.get(/^\/inbox(\/.*)?$/, fetchIndex);
+app.get(/^\/hk/, fetchIndex);
+app.get(/^\/hk\/new/, fetchIndex);
 app.get(/^\/inboxApiTest/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
 app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);

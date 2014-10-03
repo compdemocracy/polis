@@ -156,6 +156,8 @@ CREATE TABLE conversations(
     zid SERIAL,
     topic VARCHAR(1000), -- default as time in the presentation layer
     description VARCHAR(50000),
+    link VARCHAR(9999), -- a url to some other page
+    upvotes INTEGER NOT NULL DEFAULT 0, -- upvotes for the conversation as a whole
     participant_count INTEGER DEFAULT 0,
     is_anon BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT FALSE,
