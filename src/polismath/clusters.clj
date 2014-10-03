@@ -413,7 +413,7 @@
         ; Inner reduce folds data into result for each group in comment stats
         (reduce
           (fn [inner-result [gid comment-conv-stats]]
-            ; Heplper functions for building our result
+            ; Heplper functions for building our result; ir = inner-result
             (letfn [(ir-get   [ir & ks]
                       (get-in ir (into [gid] ks)))
                     (ir-assoc [ir & ks-and-val] 
