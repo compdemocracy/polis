@@ -1509,19 +1509,22 @@ app.use(function(req, res, next) {
     if (req.body) {
         console.log(req.path);
         var temp = _.clone(req.body);
-        if (temp.email) {
-            temp.email = "foo@foo.com";
-        }
+        // if (temp.email) {
+        //     temp.email = "foo@foo.com";
+        // }
         if (temp.password) {
             temp.password = "some_password";
         }
         if (temp.newPassword) {
             temp.newPassword = "some_password";
         }
+        if (temp.password2) {
+            temp.password2 = "some_password";
+        }
         if (temp.hname) {
             temp.hname = "somebody";
         }
-        console.dir(req.body);
+        console.dir(temp);
     }
     next();
 });
