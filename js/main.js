@@ -193,24 +193,31 @@ Handlebars.registerHelper("ifParticipantPays", function(arg0) {
   return Utils.isPpUser() ? arg0.fn(this) : "";
 });
 
+function addProtocolToLinkIfNeeded(url) {
+  if (url.match(/https?:\/\//)) {
+    return url;
+  } else {
+    return "http://" + url;
+  }
+}
 
 Handlebars.registerHelper('link', function(text, url) {
   text = Handlebars.Utils.escapeExpression(text);
   url  = Handlebars.Utils.escapeExpression(url);
-
   var result = '<a href="' + url + '">' + text + '</a>';
 
   return new Handlebars.SafeString(result);
 });
 
-Handlebars.registerHelper('linkTargetBlank', function(text, url) {
+Handlebars.registerHelper('linkExternal', function(text, url) {
   text = Handlebars.Utils.escapeExpression(text);
+  url = addProtocolToLinkIfNeeded(url);
   url  = Handlebars.Utils.escapeExpression(url);
-
-  var result = '<a href="' + url + '" target="_blank">' + text + '</a>';
+  var result = '<a href="' + url + '">' + text + '</a>';
 
   return new Handlebars.SafeString(result);
 });
+
 
 // Partials
 Handlebars.registerPartial("header", HeaderPartial);
