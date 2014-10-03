@@ -10,10 +10,12 @@ var CourseCollectionView = Handlebones.CollectionView.extend({
       "click .upvote": "upvote",
     },
     upvote: function() {
+      var that = this;
       $.post("/api/v3/upvotes", {
         conversation_id: this.model.get("conversation_id")
       }).then(function() {
-        alert("upvote accepted");
+        // alert("upvote accepted");
+        that.model.set("upvoted", true);
       }, function(err) {
         alert("upvote failed");
         console.dir(err);
