@@ -49,7 +49,7 @@ var p = window.location.pathname;
   if (p.match(/^\/inbox\//) ||
       p.match(/^\/settings\//) ||
       p.match(/^\/conversation\/create\//) ||
-      p.match(/^\/[0-9][A-Za-z0-9]+\/[A-Za-z0-9]+/)      
+      p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)      
     ) {
     // expecting params (added to support LTI)
     var params = Utils.decodeParams(encodedParams);
