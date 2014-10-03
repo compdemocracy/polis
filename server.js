@@ -5790,7 +5790,7 @@ function getOneConversation(req, res) {
             if (convHasMetadata) {
                 conv.hasMetadata = true;
             }
-            if (!_.isUndefined(ownername)) {
+            if (!_.isUndefined(ownername) && conv.context !== "hongkong2014") {
                 conv.ownername = ownername;
             }
 
@@ -5893,7 +5893,7 @@ function getConversations(req, res) {
             } else {
                 suurlsPromise = Promise.resolve();
             }
-            var upvotesPromise = want_upvoted ? pgQueryP("select zid from upvotes where uid = ($1);", [uid]) : Promise.resolve();
+            var upvotesPromise = (uid && want_upvoted) ? pgQueryP("select zid from upvotes where uid = ($1);", [uid]) : Promise.resolve();
 
             return Promise.all([
                 suurlsPromise,
@@ -6009,7 +6009,7 @@ function(req, res) {
     }
     if (req.p.zid) {
       getOneConversation(req, res);
-    } else if (req.p.uid) {
+    } else if (req.p.uid || req.p.context) {
       getConversations(req, res);
     } else {
       fail(res, 403, "polis_err_need_auth", new Error("polis_err_need_auth"));
