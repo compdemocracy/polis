@@ -6,6 +6,19 @@ var emptyTemplate = require("../tmpl/course-empty");
 
 var CourseCollectionView = Handlebones.CollectionView.extend({
   modelView: Handlebones.ModelView.extend({
+    events: {
+      "click .upvote": "upvote",
+    },
+    upvote: function() {
+      $.post("/api/v3/upvotes", {
+        conversation_id: this.model.get("conversation_id")
+      }).then(function() {
+        alert("upvote accepted");
+      }, function(err) {
+        alert("upvote failed");
+        console.dir(err);
+      });
+    },
     template: courseCollectionItemTemplate
   }),
   emptyView: Handlebones.View.extend({
@@ -13,6 +26,10 @@ var CourseCollectionView = Handlebones.CollectionView.extend({
     template: emptyTemplate
   })
 });
+
+
+
+
 
 module.exports = Handlebones.View.extend({
   name: "course",
@@ -22,11 +39,14 @@ module.exports = Handlebones.View.extend({
     this.showNewButton = true;
     this.hideInboxLink = true;
     this.collection = options.collection;
+
+
+
     this.filters = options.filters;
     // this.filters.is_active = options.is_active;
     // this.filters.is_draft = options.is_draft;
     this.collection.comparator = function(conversation) {
-      return -new Date(conversation.get("created")).getTime();
+      return -conversation.get("upvotes");
     };
     function onFetched() {
       setTimeout(function() {

@@ -507,6 +507,7 @@ var polisRouter = Backbone.Router.extend({
   hk: function() {
     var filterAttrs = {
       is_draft: false,
+      want_upvoted: true,
       context: "hongkong2014"
     };
     var conversationsCollection = new ConversationsCollection();
