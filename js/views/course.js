@@ -17,6 +17,7 @@ var CourseCollectionView = Handlebones.CollectionView.extend({
       }).then(function() {
         // alert("upvote accepted");
         that.model.set("upvoted", true);
+        that.model.set("upvotes",  that.model.get("upvotes")+1);
       }, function(err) {
         if (err.responseText === "polis_err_auth_token_not_supplied") {
           eb.trigger("upvote_but_no_auth", {
