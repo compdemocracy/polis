@@ -20,6 +20,7 @@
       </a>
     </div>
 
+
     <h2 class="navbar-header" style="background-color: black; padding-bottom: 4px; padding-left: 4px; border-radius: 3px;">
     	<i class="fa fa-umbrella" style="color: black;background-color: #f1c40f;padding: 10px; border-radius: 2px"></i> &nbsp;
     	<span class="HeadingA" style="color:#f1c40f; {{#ifXs}}font-size: 20px;{{/ifXs}}">#umbrellaMovement</span> 
@@ -35,6 +36,12 @@
 
     <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
+        {{!-- {{#ifDefined showNewButton}}
+        <li>
+          <a href="/hk/new" title="Post a new link" class="HeadingD"><i class="fa fa-plus-square"> </i> NEW</a>
+        </li>
+        {{/ifDefined}} --}}
+
         <li class="divider"></li>
         {{#unless hideInboxLink}}
         <li id="inboxLink"><a class="HeadingD" href="{{inboxHref}}"><i class="fa fa-inbox"></i>&nbsp;Inbox</a></li>
@@ -59,7 +66,6 @@
 
 
 <section class="container" >
-
 
     {{view courseCollectionView}}
 </section>
