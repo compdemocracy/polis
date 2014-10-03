@@ -1753,7 +1753,7 @@ function(req, res) {
 
 
 var pcaCache = new SimpleCache({
-    maxSize: 9000,
+    maxSize: 3000,
 });
 
 var lastPrefetchedVoteTimestamp = -1;
