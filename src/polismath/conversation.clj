@@ -180,11 +180,10 @@
                           :start-vectors (get-in conv [:pca :comps])
                           :iters (:pca-iters opts')))
 
-      :proj (plmb/fnk [rating-mat pca]
-              (sparsity-aware-project-ptpts (get-matrix rating-mat) pca))
+      ;:proj (plmb/fnk [rating-mat pca]
+              ;(sparsity-aware-project-ptpts (get-matrix rating-mat) pca))
 
-      :old-proj
-            (plmb/fnk [mat pca]
+      :proj (plmb/fnk [mat pca]
               (pca-project mat pca))
 
       :base-clusters
