@@ -1443,6 +1443,15 @@ function clientSideBaseCluster(things, N) {
             y += (vote - pcaCenter[tid]) * (pcY[tid] || 0);
         });
 
+        var numComments = pcaCenter.length;
+        var numVotes = votesByMe.length;
+
+        // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
+        if (numVotes > 0) {
+            var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
+            x *= jetpack_aka_sparsity_compensation_factor;
+            y *= jetpack_aka_sparsity_compensation_factor;
+        }
 
         return {
             pid : getPid(),
