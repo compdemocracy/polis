@@ -65,6 +65,9 @@ module.exports = Handlebones.ModelView.extend({
     function pollForComments() {
       if (waitingForComments) {
           getNextAndShow();
+      } else {
+        // try to try again later
+        setTimeout(pollForComments, commentPollInterval);
       }
     }
     function showComment(model) {
@@ -88,6 +91,9 @@ module.exports = Handlebones.ModelView.extend({
         } else {
           showEmpty();
         }
+        setTimeout(pollForComments, commentPollInterval);
+      }, function(err) {
+        setTimeout(pollForComments, commentPollInterval);
       });
     }
     function onFail(err) {
@@ -216,7 +222,6 @@ module.exports = Handlebones.ModelView.extend({
     };
 
     pollForComments(); // call immediately
-    setInterval(pollForComments, commentPollInterval);
     this.listenTo(this, "rendered", function(){
       // this.$("#agreeButton").tooltip({
       //   title: "This comment represents my opinion",
