@@ -4865,12 +4865,14 @@ app.post("/api/v3/upvotes",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
+    var uid = req.p.uid;
+    var zid = req.p.zid;
 
     pgQueryP("select * from upvotes where uid = ($1) and zid = ($2);", [uid, zid]).then(function(rows) {
         if (rows && rows.length) {
             fail(res, 403, "polis_err_upvote_already_upvoted", err);
         } else {
-            pgQueryP("insert into upvotes (uid, zid) where uid = ($1) and zid = ($2);", [uid, zid]).then(function() {
+            pgQueryP("insert into upvotes (uid, zid) VALUES ($1, $2);", [uid, zid]).then(function() {
                 pgQueryP("update conversations set upvotes = (select count(*) from upvotes where zid = ($1)) where zid = ($1);", [zid]).then(function() {
                     res.status(200).json({});
                 }, function(err) {
@@ -5811,6 +5813,7 @@ function getConversations(req, res) {
   var course_invite = req.p.course_invite;
   var include_all_conversations_i_am_in = req.p.include_all_conversations_i_am_in;
   var want_mod_url = req.p.want_mod_url;
+  var want_upvoted = req.p.want_upvoted;
   var want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
   var want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
   var want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
@@ -5885,9 +5888,19 @@ function getConversations(req, res) {
             } else {
                 suurlsPromise = Promise.resolve();
             }
-            return suurlsPromise.then(function(suurlData) {
+            var upvotesPromise = want_upvoted ? pgQueryP("select zid from upvotes where uid = ($1);", [uid]) : Promise.resolve();
+
+            return Promise.all([
+                suurlsPromise,
+                upvotesPromise,
+            ]).then(function(x) {
+                var suurlData = x[0];
+                var upvotes = x[1];
                 if (suurlData) {
                     suurlData = _.indexBy(suurlData, "zid");
+                }
+                if (upvotes) {
+                    upvotes = _.indexBy(upvotes, "zid");
                 }
                 data.forEach(function(conv) {
                     conv.is_owner = conv.owner === uid;
@@ -5920,6 +5933,9 @@ function getConversations(req, res) {
                     } else {
                         conv.url = buildConversationUrl(req, conv.conversation_id);
                     }
+                    if (upvotes && upvotes[conv.zid]) {
+                        conv.upvoted = true;
+                    }
                     conv.created = Number(conv.created);
                     conv.modified = Number(conv.modified);
 
@@ -5939,6 +5955,7 @@ function getConversations(req, res) {
                         delete conv.context;
                     }
                 });
+
                 res.status(200).json(data);
 
             }, function(err) {
@@ -5965,6 +5982,7 @@ app.get('/api/v3/conversations',
     want('is_draft', getBool, assignToP),
     want('course_invite', getStringLimitLength(1, 32), assignToP),
     want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('want_upvoted', getBool, assignToP),
     want('want_mod_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_admin_url', getBool, assignToP), // NOTE - use this for API only!
     want('want_inbox_item_participant_url', getBool, assignToP), // NOTE - use this for API only!
