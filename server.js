@@ -282,6 +282,7 @@ var sql_conversations = sql.define({
     "lti_users_only",
     "modified",
     "created",
+    "link_url",
     ]
 });
 var sql_votes = sql.define({
@@ -5257,6 +5258,7 @@ app.put('/api/v3/conversations',
     want('context', getOptionalStringLimitLength(999), assignToP),
     want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),    
     want('custom_canvas_assignment_id', getInt, assignToP),        
+    want('link_url', getStringLimitLength(1, 9999), assignToP),
 function(req, res){
   var generateShortUrl = req.p.short_url;
   isOwner(req.p.zid, req.p.uid).then(function(ok) {
@@ -5302,6 +5304,9 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.launch_presentation_return_url_hex)) {
         fields.lti_users_only = true;
+    }
+    if (!_.isUndefined(req.p.link_url)) {
+        fields.link_url = req.p.link_url;   
     }
 
 
