@@ -1,24 +1,10 @@
-<div class="row" style="margin-top: 12px; border-top: 1px solid lightgrey; padding-top: 20px; padding-bottom: 20px;word-wrap:break-word;">
+<div class="row" style="margin-top: 7px; padding-top: 20px; padding-bottom: 20px;word-wrap:break-word;">
     <div class="col-xs-7">
     <!-- <p><span class="badge" style="font-weight: 500; color: white">{{participant_count}} &nbsp;<i class="fa fa-group"></i></span></p> -->
-      <h5 class="HeadingB">{{#unless upvoted}}<i class="fa fa-caret-up upvote" style=" cursor: pointer;"> </i>{{/unless}}&nbsp;{{topic}}&nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></h5>
-      <p class="blockquote">{{description}}</p>
-      <div>
+      <h5 class="HeadingB"><i class="fa fa-caret-up upvote" style="cursor: pointer; {{#if hasUpvoted}} color:#f1c40f {{/if}}"> </i>&nbsp;{{topic}}&nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></h5>
+{{!--       <p class="blockquote">{{description}}</p>
+ --}}      <div>
         <span class="HeadingF"> 222 upvotes </span> &nbsp; | &nbsp; <a href="{{url_name}}" {{#if target}}target={{target}}{{/if}} class="HeadingF"> Discuss </a>
-      </div>
-    </div>
-    <div class="col-xs-4 col-xs-offset-1">
-      <div>
-        {{#if is_owner}}
-        <a href="{{url_moderate}}" {{#if target}}target={{target}}{{/if}} class="Btn Btn-alt pull-right">Moderate</a>
-        {{/if}}
-        <div style="clear: both;"></div>
-      </div>
-      <div style="margin-top: 20px">
-        {{#if is_owner}}
-        <a href="share{{url_name}}" class="Btn Btn-alt pull-right"><i class="fa fa-link hidden-xs"></i>&nbsp;Share</a>
-        {{/if}} 
-        <div style="clear: both;"></div>
       </div>
     </div>
 </div>
