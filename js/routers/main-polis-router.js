@@ -13,6 +13,7 @@ var InboxView = require("../views/inbox");
 var InboxApiTestView = require("../views/inboxApiTest");
 var HomepageView = require("../views/homepage");
 var CreateConversationFormView = require("../views/create-conversation-form");
+var HkNewView = require("../views/hkNew");
 var ConversationDetailsView = require("../views/conversation-details");
 var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
 var ConversationGatekeeperViewCreateUser = require("../views/conversationGatekeeperViewCreateUser");
@@ -231,6 +232,7 @@ var polisRouter = Backbone.Router.extend({
   initialize: function(options) {
     this.r("homepage", "homepageView");
     this.r(/^conversation\/create(\/ep1_[0-9A-Za-z]+)?/, "createConversation");
+    this.r(/^hk\/new\/?$/, "hkNew");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
     this.r("user/logout", "deregister");
@@ -246,6 +248,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("", "landingPageView");
 
     this.r(/^course\/(.*)/, "courseView");
+    this.r(/^hk\/?$/, "hk");
 
     this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView");  // conversation_id / encodedStringifiedJson
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
@@ -501,7 +504,19 @@ var polisRouter = Backbone.Router.extend({
       RootView.getInstance().setView(inboxView);
     });
   },
-
+  hk: function() {
+    var filterAttrs = {
+      is_draft: false,
+      context: "hongkong2014"
+    };
+    var conversationsCollection = new ConversationsCollection();
+    // Let the InboxView filter the conversationsCollection.
+    var view = new CourseView({
+      collection: conversationsCollection,
+      filters: filterAttrs
+    });
+    RootView.getInstance().setView(view);
+  },
   courseView: function(course_invite){
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
@@ -651,6 +666,81 @@ var polisRouter = Backbone.Router.extend({
       }, onFail);
     });
   },
+
+  hkNew: function(){
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(false);
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
+      promise = this.doLogin(true);
+    }
+    var paramsFromPath = {};
+    var that = this;
+    promise.then(function() {
+      function onFail(err) {
+        alert("failed to create new conversation");
+        console.dir(err);
+      }
+      conversationsCollection = new ConversationsCollection();
+
+      var o = {
+        context: "hongkong2014",
+        is_draft: true,
+        is_active: true // TODO think
+      };
+
+
+      var model = new ConversationModel(o);
+
+      model.save().then(function(data) {
+        var conversation_id = data[0][0].conversation_id;
+        model.set("conversation_id", conversation_id);
+
+        var ptpt = new ParticipantModel({
+          conversation_id: conversation_id
+        });
+        return ptpt.save();
+      }).then(function(ptptAttrs) {
+        var createConversationFormView = new HkNewView({
+          model: model,
+          paramsFromPath: paramsFromPath,
+          collection: conversationsCollection,
+          pid: ptptAttrs.pid,
+          add: true
+        });
+        that.listenTo(createConversationFormView, "all", function(eventName, data) {
+          if (eventName === "done") {
+            // NOTE suurls broken for now
+            // var suurls = data;
+            //   if (suurls) {
+            //   var suurlsCsv = [];
+            //   var len = suurls.xids.length;
+            //   var xids = suurls.xids;
+            //   var urls = suurls.urls;
+            //   for (var i = 0; i < len; i++) {
+            //     suurlsCsv.push({xid: xids[i], url: urls[i]});
+            //   }
+            //   model.set("suurls", suurlsCsv);
+            // }
+
+            if (paramsFromPath.custom_canvas_assignment_id) {
+              // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
+              that.navigate("/" + model.get("conversation_id"), {trigger: true});
+            } else {
+              // The usual case, show the share page.
+              that.navigate("share/" + model.get("conversation_id"), {trigger: true});
+            }
+          }
+        });
+        RootView.getInstance().setView(createConversationFormView);
+        $("[data-toggle='checkbox']").each(function() {
+          var $checkbox = $(this);
+          $checkbox.checkbox();
+        });
+      }, onFail);
+    });
+  },
+
   doLaunchConversation: function(ptptModel) {
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");

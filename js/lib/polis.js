@@ -1436,6 +1436,16 @@ function clientSideBaseCluster(things, N) {
     function projectSelf() {
         var x = 0;
         var y = 0;
+        if (!votesByMe.length) {
+            return {
+                pid : getPid(),
+                isBlueDot: true,
+                proj: {
+                    x: x,
+                    y: y
+                }
+            };
+        }
         votesByMe.each(function(v) {
             var vote = v.get("vote");
             var tid = v.get("tid");
