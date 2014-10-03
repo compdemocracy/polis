@@ -1,7 +1,7 @@
 <div class="row" style="margin-top: 12px; border-top: 1px solid lightgrey; padding-top: 20px; padding-bottom: 20px;word-wrap:break-word;">
     <div class="col-xs-7">
     <!-- <p><span class="badge" style="font-weight: 500; color: white">{{participant_count}} &nbsp;<i class="fa fa-group"></i></span></p> -->
-      <h5 class="HeadingB">{{#unless userHasntUpvoted}}<i class="fa fa-caret-up" style=" cursor: pointer;"> </i>{{/unless}}&nbsp;{{topic}}&nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></h5>
+      <h5 class="HeadingB">{{#unless upvoted}}<i class="fa fa-caret-up upvote" style=" cursor: pointer;"> </i>{{/unless}}&nbsp;{{topic}}&nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></h5>
       <p class="blockquote">{{description}}</p>
       <div>
         <span class="HeadingF"> 222 upvotes </span> &nbsp; | &nbsp; <a href="{{url_name}}" {{#if target}}target={{target}}{{/if}} class="HeadingF"> Discuss </a>
@@ -20,8 +20,5 @@
         {{/if}} 
         <div style="clear: both;"></div>
       </div>
-      {{#unless upvoted}}
-      <div class="upvote">upvote</div>
-      {{/unless}}
     </div>
 </div>
