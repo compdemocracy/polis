@@ -4858,6 +4858,34 @@ function(req, res) {
     });
 });
 
+
+
+
+app.post("/api/v3/upvotes",
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+
+    pgQueryP("select * from upvotes where uid = ($1) and zid = ($2);", [uid, zid]).then(function(rows) {
+        if (rows && rows.length) {
+            fail(res, 403, "polis_err_upvote_already_upvoted", err);
+        } else {
+            pgQueryP("insert into upvotes (uid, zid) where uid = ($1) and zid = ($2);", [uid, zid]).then(function() {
+                pgQueryP("update conversations set upvotes = (select count(*) from upvotes where zid = ($1)) where zid = ($1);", [zid]).then(function() {
+                    res.status(200).json({});
+                }, function(err) {
+                    fail(res, 500, "polis_err_upvote_update", err);
+                });
+            }, function(err) {
+                fail(res, 500, "polis_err_upvote_insert", err);                
+            });
+        }
+    }, function(err) {
+        fail(res, 500, "polis_err_upvote_check", err);
+    });
+});
+
+
 app.post("/api/v3/stars",
     auth(assignToP),
     need('tid', getInt, assignToP),

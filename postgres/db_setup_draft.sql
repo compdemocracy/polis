@@ -185,7 +185,11 @@ CREATE TABLE inviters (
     created BIGINT DEFAULT now_as_millis()
 );
 
-
+CREATE TABLE upvotes (
+    uid INTEGER REFERENCES users(uid),
+    zid INTEGER REFERENCES conversations(zid),
+    UNIQUE(uid, zid)
+);
 
 
 --  invite codes for Owners
