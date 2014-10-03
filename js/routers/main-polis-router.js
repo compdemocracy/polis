@@ -728,8 +728,8 @@ var polisRouter = Backbone.Router.extend({
               // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
               that.navigate("/" + model.get("conversation_id"), {trigger: true});
             } else {
-              // The usual case, show the share page.
-              that.navigate("share/" + model.get("conversation_id"), {trigger: true});
+              // The usual case, show the hk index
+              that.navigate("/hk", {trigger: true});
             }
           }
         });
