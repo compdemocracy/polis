@@ -5,9 +5,10 @@
             [polismath.utils :refer :all]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async :as as]
+            [clojure.tools.trace :as tr]
             [environ.core :as env]
-            [monger.core :as mc]
-            [monger.collection :as mgcol]
+            [monger.core :as mg]
+            [monger.collection :as mc]
             [cheshire.core :as ch]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
             [clojure.tools.logging :as log]))
@@ -50,10 +51,24 @@
     (str "math_" env-name "_" schema-date "_" basename)))
 
 
-(defn mongo-connect!
-  "Connect to a mongo database given mongo-url"
-  [mongo-url]
-  (mc/connect-via-uri! mongo-url))
+(def
+  ^{:doc "Memoized; returns a db object for connecting to mongo"}
+  mongo-db
+  (memoize
+    (fn [mongo-url]
+      (let [db (if mongo-url
+                 (let [{:keys [conn db]} (mg/connect-via-uri mongo-url)]
+                   db)
+                 (let [conn (mg/connect)
+                       db (mg/get-db conn "local-db")]
+                   db))
+            ; When we set up the database connection, make sure indexs are set up
+            bidtopid (mongo-collection-name "bidtopid")
+            main (mongo-collection-name "main")]
+        (mc/ensure-index db bidtopid (array-map :zid 1) {:name (str bidtopid "_zid_index") :unique true})
+        (mc/ensure-index db main (array-map :zid 1) {:name (str main "_zid_index") :unique true})
+        ; make sure to return db
+        db))))
 
 
 (defn get-or-set!
@@ -68,7 +83,8 @@
 (defn prep-bidToPid
   "Prep function for passing to format-for-mongo given bidToPid data"
   [results]
-  {"bidToPid" (:bid-to-pid results)})
+  {:zid (:zid results)
+   :bidToPid (:bid-to-pid results)})
 
 
 (defn- assoc-in-bc
@@ -124,11 +140,14 @@
 (defn mongo-upsert-results
   "Perform upsert of new results on mongo collection name"
   [collection-name new-results]
-  (monger.collection/update collection-name
-    {:zid (:zid new-results)} 
+  (mc/update
+    ; Bleg; not the cleanest separation here; should at least try to make this something rebindable
+    (mongo-db (env/env :mongolab-uri))
+    collection-name
+    {:zid (or (:zid new-results) ; covering our bases for strings or keywords due to cheshire hack
+              (get new-results "zid"))}
     new-results
-    :multi false
-    :upsert true))
+    {:upsert true}))
 
 
 (defn flatten-vote-batches

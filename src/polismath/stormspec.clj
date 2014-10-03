@@ -43,7 +43,6 @@
 (defspout reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
   [conf context collector]
   (let [poll-interval   1000
-        mg-db           (cm/mongo-connect! (env/env :mongolab-uri))
         last-timestamp  (atom 0)]
     (spout
       (nextTuple []
@@ -62,8 +61,7 @@
 
 (defbolt conv-update-bolt [] {:prepare true}
   [conf context collector]
-  (let [conv-agency (atom {})
-        mg-db       (cm/mongo-connect! (env/env :mongolab-uri))]
+  (let [conv-agency (atom {})]
     (bolt
       (execute [tuple]
         (let [[zid last-timestamp rxns] (.getValues tuple)

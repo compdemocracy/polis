@@ -35,7 +35,7 @@
                  [org.apache.storm/storm-core "0.9.2-incubating"]
                  [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
-                 [com.novemberain/monger "1.5.0"]
+                 [com.novemberain/monger "2.0.0"]
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
                  [korma "0.3.0-RC5"]
                  [clj-time "0.6.0"]
