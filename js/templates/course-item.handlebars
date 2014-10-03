@@ -1,10 +1,10 @@
-<div class="row" style="margin-top: 30px; border-top: 1px solid lightgrey; padding-top: 20px; padding-bottom: 20px;word-wrap:break-word;">
+<div class="row" style="margin-top: 12px; border-top: 1px solid lightgrey; padding-top: 20px; padding-bottom: 20px;word-wrap:break-word;">
     <div class="col-xs-7">
     <!-- <p><span class="badge" style="font-weight: 500; color: white">{{participant_count}} &nbsp;<i class="fa fa-group"></i></span></p> -->
-      <h5 class="HeadingB">{{topic}}</h5>
-      <p class="blockquote" >{{description}}</p>
+      <h5 class="HeadingB">{{#unless userHasntUpvoted}}<i class="fa fa-caret-up" style=" cursor: pointer;"> </i>{{/unless}}&nbsp;{{topic}}&nbsp;<i class="fa fa-external-link" style="font-size: 0.7em;"></i></h5>
+      <p class="blockquote">{{description}}</p>
       <div>
-        <a href="{{url_name}}" {{#if target}}target={{target}}{{/if}} style="font-weight:500"> {{url_name_with_hostname}} </a>
+        <span class="HeadingF"> 222 upvotes </span> &nbsp; | &nbsp; <a href="{{url_name}}" {{#if target}}target={{target}}{{/if}} class="HeadingF"> Discuss </a>
       </div>
     </div>
     <div class="col-xs-4 col-xs-offset-1">
