@@ -54,7 +54,9 @@
       {{/unless}}
       </h3>
       <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{description}} </p>
-      <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;">{{link link_url link_url}}</p>
+      {{#if link_url}}
+      <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;">{{linkExternal link_url link_url}}</p>
+      {{/if}}
 
     </div>
   </div> {{! /fake container }}
