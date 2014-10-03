@@ -17,7 +17,11 @@ var CourseCollectionView = Handlebones.CollectionView.extend({
         // alert("upvote accepted");
         that.model.set("upvoted", true);
       }, function(err) {
-        alert("upvote failed");
+        if (err.responseText === "polis_err_auth_token_not_supplied") {
+          alert("no auth");
+        } else {
+          alert("upvote failed");
+        }
         console.dir(err);
       });
     },
