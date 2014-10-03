@@ -3,6 +3,7 @@ var Handlebones = require("handlebones");
 var template = require("../tmpl/course");
 var courseCollectionItemTemplate = require("../tmpl/course-item");
 var emptyTemplate = require("../tmpl/course-empty");
+var eb = require("../eventBus");
 
 var CourseCollectionView = Handlebones.CollectionView.extend({
   modelView: Handlebones.ModelView.extend({
@@ -18,7 +19,10 @@ var CourseCollectionView = Handlebones.CollectionView.extend({
         that.model.set("upvoted", true);
       }, function(err) {
         if (err.responseText === "polis_err_auth_token_not_supplied") {
-          alert("no auth");
+          eb.trigger("upvote_but_no_auth", {
+            conversation_id: that.model.get("conversation_id"),
+            pathname: window.location.pathname
+          });
         } else {
           alert("upvote failed");
         }

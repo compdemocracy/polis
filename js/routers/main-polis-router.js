@@ -6,6 +6,7 @@ var CourseView = require("../views/course");
 var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
+var eb = require("../eventBus");
 var FaqCollection = require("../collections/faqs");
 var FaqContent = require("../faqContent");
 var InboxItemForApiView = require('../views/inboxItemForApi');
@@ -36,6 +37,7 @@ var Utils = require("../util/utils");
 var _ = require("underscore");
 var $ = require("jquery");
 var gaEvent = require("../util/gaMetric").gaEvent;
+
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
@@ -290,6 +292,18 @@ var polisRouter = Backbone.Router.extend({
         $("#footer").hide();
         $('[data-view-name="root"]').removeClass("wrap");
       }
+    });
+
+    var that = this;
+    eb.on("upvote_but_no_auth", function(o) {
+        var promise = that.doLogin(true);
+        promise.then(function() {
+          $.post("/api/v3/upvotes", {
+            conversation_id: o.conversation_id
+          }).always(function() {
+            that.redirect(o.pathname);
+          });
+        });
     });
 
     if (authenticated()) {
@@ -671,7 +685,7 @@ var polisRouter = Backbone.Router.extend({
   hkNew: function(){
     var promise = $.Deferred().resolve();
     if (!authenticated()) {
-      promise = this.doLogin(false);
+      promise = this.doLogin(true);
     } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
