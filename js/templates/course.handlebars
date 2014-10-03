@@ -1,14 +1,64 @@
-<section class="container" >
-		<h1 class="HeadingA">{{topic}}</h1>
-        {{description}}
-        <h2 style="background-color: black; padding-bottom: 4px; padding-left: 4px; border-radius: 3px;">
+
+<div class="navbar navbar-default logo_and_login_section" role="navigation">
+  <div class="
+  col-xs-offset-0 col-xs-12
+  col-sm-offset-0 col-xs-12
+  col-md-offset-0 col-md-12
+  col-lg-offset-0 col-lg-12">
+
+    <div class="navbar-header" style="margin-right: 30px">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="fa fa-bars"></span>
+      </button>
+      <a
+        id="polisLogo"
+        class="Logo"
+        href="{{logo_href}}"
+        >
+        <img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is
+      </a>
+    </div>
+        <h2 class="navbar-header" style="background-color: black; padding-bottom: 4px; padding-left: 4px; border-radius: 3px;">
         	<i class="fa fa-umbrella" style="color: black;background-color: #f1c40f;padding: 10px; border-radius: 2px"></i> &nbsp;
-        	<span class="HeadingA" style="color:#f1c40f">#umbrellaMovement</span> 
+        	<span class="HeadingA" style="color:#f1c40f; {{#ifXs}}font-size: 20px;{{/ifXs}}">#umbrellaMovement</span> 
         	
         	<span class="pull-right HeadingB" style="color:#f1c40f; padding:19px">
-        	<i class="fa fa-plus-square-o"></i>
+        {{#ifDefined showNewButton}}
         	&nbsp;
-        	Submit</span>
+        	
+        	<a href="/hk/new" title="Post a new link"  style="color:#f1c40f; {{#ifXs}}font-size: 14px;{{/ifXs}}"><i class="fa fa-plus-square"> </i> Submit</a>
+        {{/ifDefined}}
+        </span>
         </h2>
+
+    <div class="navbar-collapse collapse">
+      <ul class="nav navbar-nav navbar-right">
+        <li class="divider"></li>
+        {{#unless hideInboxLink}}
+        <li id="inboxLink"><a class="HeadingD" href="{{inboxHref}}"><i class="fa fa-inbox"></i>&nbsp;Inbox</a></li>
+        {{/unless}}
+        <li class="divider"></li>
+        {{#ifAuthenticated}}
+            <li><a href="{{settings_href}}" class="HeadingD"><i class="fa fa-cog"></i>&nbsp;Settings</a></li>
+            <li class="divider"></li>
+            <li><a href="/user/logout" class="HeadingD">
+              {{#ifNotIE8}}
+              <i class="fa fa-sign-out"></i>
+              {{/ifNotIE8}}
+              &nbsp; Signout</a></li>
+        {{/ifAuthenticated}}
+      </ul>
+    </div>{{! /.nav-collapse }}
+  </div> {{! /.container }}
+</div> {{! navbar }}
+
+
+
+
+
+<section class="container" >
+
+
     {{view courseCollectionView}}
 </section>

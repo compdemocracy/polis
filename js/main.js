@@ -131,13 +131,13 @@ function ifIos(arg0) {
 Handlebars.registerHelper("ifIos", ifIos);
 
 
-// Handlebars.registerHelper("ifXs", function(arg0) {
-//   return display.xs() ? arg0.fn(this) : "";
-// });
+Handlebars.registerHelper("ifXs", function(arg0) {
+  return display.xs() ? arg0.fn(this) : "";
+});
 
-// Handlebars.registerHelper("ifNotXs", function(arg0) {
-//   return display.xs() ? "" : arg0.fn(this);
-// });
+Handlebars.registerHelper("ifNotXs", function(arg0) {
+  return display.xs() ? "" : arg0.fn(this);
+});
 
 function useCarousel(arg0) {
   return !isIE8() && display.xs();

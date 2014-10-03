@@ -64,6 +64,8 @@ module.exports = View.extend({
           attrs.strict_moderation = !!attrs.strict_moderation;
           attrs.send_created_email = true;
           attrs.is_draft = false;
+          attrs.owner_sees_participation_stats = true;
+
           attrs.short_url = true;          
           if (window.context) {
             attrs.context = window.context;
