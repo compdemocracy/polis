@@ -128,3 +128,36 @@
   (mmul (- data center) (transpose comps)))
 
 
+(defn sparsity-aware-project-ptpt
+  [votes {:keys [comps center]}]
+  ; reduce into the projected point [p1, p2]
+  (let [n-cmnts   (count votes)
+        [pc1 pc2] comps
+        [n-votes p1 p2] ; (p1, p2) is the projection we build
+          (reduce
+            ; _-n is the nth entry in _
+            (fn [[n-votes p1 p2] [x-n cntr-n pc1-n pc2-n]]
+              ; if we have voted, do the thing
+              (if x-n
+                ; first subtract center
+                (let [x-n' (- x-n cntr-n)]
+                  ; then do a step in the dot product, and inc n-votes seen
+                  [(inc n-votes)
+                   (+ p1 (* x-n' pc1-n))
+                   (+ p2 (* x-n' pc2-n))])
+                ; ... ow (if haven't voted) return what was there
+                [n-votes p1 p2]))
+            [0 0.0 0.0]
+            (zip votes center pc1 pc2))]
+    ; Now scale the projection by the following value, which pushes us out from the center
+    (* (Math/sqrt (/ n-cmnts (max n-votes 1)))
+       [p1 p2])))
+
+
+(defn sparsity-aware-project-ptpts
+  "Like pca-project, but only performs the projection on non-null values, and scales the projection
+  according to how many responses we have gotten"
+  [data pca]
+  (mapv #(sparsity-aware-project-ptpt % pca) data))
+
+
