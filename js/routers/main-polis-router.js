@@ -519,8 +519,9 @@ var polisRouter = Backbone.Router.extend({
     });
   },
   hk: function() {
-    if (!Utils.cookiesEnabled()) {
-      this.tryCookieThing();
+    if (Utils.isIos() && (window.top != window)) {
+      // this.tryCookieThing();
+      window.top.location = "https://pol.is/hk";
     }
     var filterAttrs = {
       is_draft: false,
