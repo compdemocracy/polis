@@ -194,7 +194,7 @@ gulp.task('sparklines', function() {
 });
 
 gulp.task('embedJs', function() {
-  return gulp.src('api/embed.js')
+  return gulp.src(['api/embed.js', 'api/embed_helper.js'])
   // .pipe(template({
   //   polisHostName: (preprodMode ? "preprod.pol.is" : "pol.is"),
   // }))
@@ -671,6 +671,24 @@ function deploy(params) {
         },
       }));
 
+    // TODO remove this duplication!
+    var embedJsCacheSeconds = 60;
+    gulp.src([
+      destRootBase + '/**/embed_helper.js',
+      ], {read: false})
+    .pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+          'Content-Encoding': 'gzip',
+          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
+        },
+        makeUploadPath: function(file) {
+          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed_helper.js");
+          return "/embed_helper.js";
+        },
+      }));
+    
     // HTML files (uncached)
     // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
     gulp.src([
