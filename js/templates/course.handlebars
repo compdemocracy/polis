@@ -17,20 +17,14 @@
         href="{{logo_href}}"
         >
         <img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is
-      </a>
+      </a> 
     </div>
-
 
     <h2 class="navbar-header" style="background-color: black; padding-bottom: 4px; padding-left: 4px; border-radius: 3px;">
     	<i class="fa fa-umbrella" style="color: black;background-color: #f1c40f;padding: 10px; border-radius: 2px"></i> &nbsp;
     	<span class="HeadingA" style="color:#f1c40f; {{#ifXs}}font-size: 20px;{{/ifXs}}">#umbrellaMovement</span> 
-    	
-    	<span class="pull-right HeadingB" style="color:#f1c40f; padding:19px">
-    {{#ifDefined showNewButton}}
-    	&nbsp; &nbsp; 
-    	
-    	<a href="/hk/new" title="Post a new link"  style="color:#f1c40f; {{#ifXs}}font-size: 14px;{{/ifXs}}"><i class="fa fa-plus-square"> </i> Submit</a>
-    {{/ifDefined}}
+    	<span class="pull-right" style=" padding: 12px 22px 0px 31px;">
+    	<img src="http://www.code4.hk/img/logo.png" {{#ifNotXs}} height="30px" {{/ifNotXs}} {{#ifXs}} height="15px" {{/ifXs}}></span>
     </span>
     </h2>
 
@@ -61,27 +55,11 @@
   </div> {{! /.container }}
 </div> {{! navbar }}
 
-
-
-
-
 <section class="container" >
-<<<<<<< HEAD
-=======
-		<h1 class="HeadingA">{{topic}}</h1>
-        {{description}}
-        <h2 style="background-color: black; padding-bottom: 4px; padding-left: 4px; border-radius: 3px;">
-        	<i class="fa fa-umbrella" style="color: black;background-color: #f1c40f;padding: 10px; border-radius: 2px"></i> &nbsp;
-        	<span class="HeadingA" style="color:#f1c40f">#umbrellaMovement</span> 
-        	&nbsp;
-        	<span class=""><img src="http://www.code4.hk/img/logo.png" height="30px"></span>
-        	
-        	
-        </h2>
-        <p class=" HeadingB" style="color: #2c3e50; border: 3px solid #2c3e50;padding: 7px;border-radius: 7px;">
-        	<i class="fa fa-plus-square-o"></i>
-        	Submit</p>
-        
->>>>>>> adding log
+	<div>
+	  {{#ifDefined showNewButton}}
+	   	<a class="Btn Btn-primary" href="/hk/new" title="Post a new link"><i class="fa fa-plus-square"> </i> Submit a new link</a>
+	  {{/ifDefined}}
+	</div>
     {{view courseCollectionView}}
 </section>
