@@ -519,6 +519,9 @@ var polisRouter = Backbone.Router.extend({
     });
   },
   hk: function() {
+    if (!Utils.cookiesEnabled()) {
+      this.tryCookieThing();
+    }
     var filterAttrs = {
       is_draft: false,
       want_upvoted: true,
