@@ -3630,9 +3630,12 @@ function(req, res) {
     if (password.length < 6) { fail(res, 400, "polis_err_reg_password_too_short"); return; }
     if (!_.contains(email, "@") || email.length < 3) { fail(res, 400, "polis_err_reg_bad_email"); return; }
 
-    pgQuery("SELECT * FROM users WHERE email = ($1)", [email], function(err, docs) {
-        if (err) { fail(res, 500, "polis_err_reg_checking_existing_users", err); return; }
-            if (docs.length > 0) { fail(res, 403, "polis_err_reg_user_exists", new Error("polis_err_reg_user_exists")); return; }
+    pgQueryP("SELECT * FROM users WHERE email = ($1)", [email]).then(function(rows) {
+
+            if (rows.length > 0) {
+                fail(res, 403, "polis_err_reg_user_with_that_email_exists", new Error("polis_err_reg_user_exists")); 
+                return;
+            }
 
             generateHashedPassword(password, function(err, hashedPassword) {
                 if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
@@ -3722,7 +3725,10 @@ function(req, res) {
                         }); // end insert pwhash
                     }); // end insert user
             }); // end generateHashedPassword
-    }); // end find existing users
+
+    }, function(err) {
+        fail(res, 500, "polis_err_reg_checking_existing_users", err);
+    });
 }); // end /api/v3/auth/new
 
 
