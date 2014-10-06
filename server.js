@@ -1574,6 +1574,8 @@ var whitelistedDomains = [
   "https://canvas.uw.edu", // LTI
   "http://canvas.shoreline.edu", // LTI
   "https://canvas.shoreline.edu", // LTI
+  "http://shoreline.instructure.com", // LTI
+  "https://shoreline.instructure.com", // LTI
   "https://www.facebook.com",
   "https://facebook.com",
   "http://www.facebook.com",
