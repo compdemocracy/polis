@@ -1570,6 +1570,8 @@ var whitelistedDomains = [
   "https://embed.pol.is",
   "http://localhost:8000",
   "https://canvas.instructure.com", // LTI
+  "http://canvas.uw.edu", // LTI
+  "https://canvas.uw.edu", // LTI
   "https://www.facebook.com",
   "https://facebook.com",
   "http://www.facebook.com",
