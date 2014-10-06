@@ -1566,6 +1566,8 @@ var whitelistedDomains = [
   "https://www.pol.is",
   "http://preprod.pol.is",
   "https://preprod.pol.is",
+  "http://gamma.pol.is",
+  "https://gamma.pol.is",
   "http://embed.pol.is",
   "https://embed.pol.is",
   "http://localhost:8000",
