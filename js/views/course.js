@@ -10,6 +10,12 @@ var CourseCollectionView = Handlebones.CollectionView.extend({
     events: {
       "click .upvote": "upvote",
     },
+    context: function() {
+      var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+      var d = new Date(ctx.created);
+      ctx.createdString = d.toLocaleDateString() + " " + d.toLocaleTimeString();
+      return ctx;
+    },
     upvote: function() {
       var that = this;
       $.post("/api/v3/upvotes", {
@@ -57,8 +63,17 @@ module.exports = Handlebones.View.extend({
     this.filters = options.filters;
     // this.filters.is_active = options.is_active;
     // this.filters.is_draft = options.is_draft;
-    this.collection.comparator = function(conversation) {
-      return -conversation.get("upvotes");
+    // this.collection.comparator = function(cA, cB) {
+    //   var now = Date.now();
+    //   var forA = (now - cB.get("created")) *  cA.get("upvotes");
+    //   var forB = (now - cA.get("created")) *  cB.get("upvotes");
+    //   return forB - forA;
+    // };
+    this.collection.comparator = function(c) {
+      var age = Date.now() - c.get("created");
+      var itemHourAge = age / 1000 / 60 / 60;
+      var gravity = 1.8; // https://news.ycombinator.com/item?id=1781013
+      return -(c.get("upvotes") - 1) / Math.pow(itemHourAge, gravity);
     };
     function onFetched() {
       setTimeout(function() {
