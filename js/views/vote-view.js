@@ -80,8 +80,8 @@ module.exports = Handlebones.ModelView.extend({
     }
     function getNextAndShow() {
       var params = {};
-      if (this.model && this.model.get("tid")) {
-        params.notTid = this.model.get("tid");
+      if (that.model && that.model.get("tid")) {
+        params.notTid = that.model.get("tid");
       }
       serverClient.getNextComment(params).then(function(c) {
         if (!that.parent.model.get("is_active")) {
