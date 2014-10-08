@@ -2408,6 +2408,10 @@ function generateToken(len, pseudoRandomOk, callback) {
             .replace(/1/g, 'G') // looks like 'l'
             .replace(/0/g, 'H') // looks like 'O'
             .replace(/I/g, 'J') // looks like 'l'
+            .replace(/g/g, 'K') // looks like 'g'
+            .replace(/G/g, 'M') // looks like 'g'
+            .replace(/q/g, 'N') // looks like 'q'
+            .replace(/Q/g, 'R') // looks like 'q'
         ;
         // replace first character with a number between 2 and 9 (avoiding 0 and 1 since they look like l and O)
         prettyToken = _.random(2,9) + prettyToken.slice(1);
