@@ -32,7 +32,8 @@ var HeaderPartial = require("./tmpl/header");
 var BannerPartial = require("./tmpl/banner");
 var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
-var FooterPartial = require("./tmpl/footer")
+var FooterPartial = require("./tmpl/footer");
+var PolisLogoPartial = require("./tmpl/polisLogo");
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
@@ -222,6 +223,7 @@ Handlebars.registerHelper('linkExternal', function(text, url) {
 
 
 // Partials
+Handlebars.registerPartial("polisLogo", PolisLogoPartial);
 Handlebars.registerPartial("header", HeaderPartial);
 Handlebars.registerPartial("banner", BannerPartial);
 Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);

@@ -93,3 +93,62 @@
     box-shadow: none;
   }
 }
+
+.facebook-button {
+  -webkit-background-clip: border-box;
+  -webkit-background-origin: padding-box;
+  -webkit-background-size: auto;
+  -webkit-user-select: none;
+  background-attachment: scroll;
+  background-clip: border-box;
+  background-color: rgb(59, 89, 152);
+  background-image: none;
+  background-origin: padding-box;
+  background-size: auto;
+  border-bottom-color: rgb(59, 89, 152);
+  border-bottom-left-radius: 500px;
+  border-bottom-right-radius: 500px;
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  border-image-outset: 0px;
+  border-image-repeat: stretch;
+  border-image-slice: 100%;
+  border-image-source: none;
+  border-image-width: 1;
+  border-left-color: rgb(59, 89, 152);
+  border-left-style: solid;
+  border-left-width: 1px;
+  border-right-color: rgb(59, 89, 152);
+  border-right-style: solid;
+  border-right-width: 1px;
+  border-top-color: rgb(59, 89, 152);
+  border-top-left-radius: 500px;
+  border-top-right-radius: 500px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  box-sizing: border-box;
+  color: rgb(255, 255, 255);
+  cursor: pointer;
+  display: inline-block; // so it can be centered
+  font-family: proxima_nova, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  font-weight: normal;
+  height: 40px;
+  letter-spacing: normal;
+  line-height: 24px;
+  margin-bottom: 16px;
+  margin-left: 0px;
+  margin-right: 0px;
+  margin-top: 0px;
+  padding-bottom: 6px;
+  padding-left: 56px;
+  padding-right: 25px;
+  padding-top: 8px;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  text-transform: none;
+  vertical-align: middle;
+  white-space: normal;
+  width:320px;
+}

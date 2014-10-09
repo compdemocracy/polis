@@ -5,6 +5,11 @@
 }}
 
 <div class="navbar navbar-default logo_and_login_section" role="navigation">
+  {{#if authStyleHeader}}
+    <div style="text-align: center">
+      {{> polisLogo}}
+    </div>
+  {{else}}
   <div class="
   col-xs-offset-0 col-xs-12
   col-sm-offset-0 col-xs-12
@@ -16,15 +21,8 @@
         <span class="sr-only">Toggle navigation</span>
         <span class="fa fa-bars"></span>
       </button>
-      <a
-        id="polisLogo"
-        class="Logo"
-        href="{{logo_href}}"
-        >
-        <img src="https://pol.is/polis-favicon_favicon.png" height="30px"> pol<span class="Logo--blue">.</span>is
-      </a>
+      {{> polisLogo}}
     </div>
-
     <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
         {{#ifDefined showNewButton}}
@@ -49,4 +47,5 @@
       </ul>
     </div>{{! /.nav-collapse }}
   </div> {{! /.container }}
+  {{/if}} {{! /else !authStyleHeader}}
 </div> {{! navbar }}

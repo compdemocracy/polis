@@ -3,22 +3,47 @@
 // between Sign up/Log in
 //
 .SwitchForms {
-  position: relative;
+    position: relative;
+    text-align: center;
 }
 
 .SwitchForms-text {
     text-align: center;
-    position: absolute;
-    width: 40px;
-    left: 20px; /* since the form is left-aligned */
-    top: -13px;
-
+    position: relative;
+    padding-left: 10px;
+    padding-right: 10px;
     background-color: $bg-color;
     font-weight: 400;
+}
+
+.SwitchForms-line {
+    border-bottom: 1px solid #dfe0e6;
+    content: '';
+    display: block;
+    position: absolute;
+    top: 49%;
+    width: 100%;
+    z-index: -2;
 }
 
 .SwitchForms-submit {
     padding-top: $default-whitespace + ($default-whitespace/2);
 
     border-top: 1px solid $default-border-color;
+}
+
+.line-thru {
+    box-sizing: border-box;
+    color: rgb(136, 137, 140);
+    display: block;
+    font-family: proxima_nova, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    height: 21px;
+    line-height: 21px;
+    margin-bottom: 14px;
+    position: relative;
+    text-align: center;
+    width: 430px;
+    z-index: 1;
 }

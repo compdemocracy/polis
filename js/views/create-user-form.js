@@ -118,6 +118,7 @@ var ModelView = Handlebones.ModelView;
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    this.authStyleHeader = true;
     var that = this;
     // this.model = options.model;
     this.listenTo(this, "render", function() {

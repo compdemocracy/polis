@@ -7,50 +7,82 @@
     </br>
     {{/if}}
 
-    <div class="fb-login-button" data-max-rows="1" data-size="large" data-show-faces="false" data-auto-logout-link="false"></div>
 
 
   {{#if create}}
 
-    <h1 class="HeadingA">
       {{#if showEmailWelcome}}
-      Email verified, create your account:
+	    <h1 class="HeadingA">
+	      Email verified, create your account:
+	    </h1>
       {{else}}
-      Create an account to get started:
       {{/if}}
-    </h1>
 
-    <div class="fb-login-button" data-max-rows="1" data-size="large" data-show-faces="false" data-auto-logout-link="false"></div>
+{{!--     <div style="float:center; width=100%">
+	    <div tyle="float:center" class="fb-login-button" data-max-rows="1" data-size="large" data-show-faces="false" data-auto-logout-link="false"></div>
+	</div> --}}
+<div style="text-align:center">
+<a href="#" class="facebook-button" style="color:#fff" id="login-button-login-fb">
+        <span style="
+  width: 22px;
+  height: 22px;
+  left: 25px;
+  position: absolute;
+  top: 8px;
+  content: '';
+  background-image: url(data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4NCjwhRE9DVFlQRSBzdmcgUFVCTElDICItLy9XM0MvL0RURCBTVkcgMS4xIFRpbnkvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEtdGlueS5kdGQiPg0KPHN2ZyB2ZXJzaW9uPSIxLjEiIGJhc2VQcm9maWxlPSJ0aW55IiBpZD0iTGF5ZXJfMSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayINCgkgeD0iMHB4IiB5PSIwcHgiIHdpZHRoPSIyMnB4IiBoZWlnaHQ9IjIycHgiIHZpZXdCb3g9IjAgMCAyMiAyMiIgeG1sOnNwYWNlPSJwcmVzZXJ2ZSI+DQo8cGF0aCBmaWxsPSIjRkZGRkZGIiBkPSJNMjAuNzksMEgxLjIxQzAuNTQsMCwwLDAuNTQsMCwxLjIxdjE5LjU3QzAsMjEuNDYsMC41NCwyMiwxLjIxLDIybDEwLjMxLDB2LTguNUg4LjV2LTMuMzRoMy4wNVY3LjcxDQoJYzAtMi44NCwxLjc0LTQuMzksNC4yNy00LjM5YzEuMjEsMCwyLjI2LDAuMDksMi41NiwwLjEzdjIuOTdsLTEuNzYsMGMtMS4zOCwwLTEuNjUsMC42NS0xLjY1LDEuNjJ2Mi4xMmgzLjI5bC0wLjQzLDMuMzRoLTIuODZWMjINCgloNS44YzAuNjcsMCwxLjIxLTAuNTQsMS4yMS0xLjIxVjEuMjFDMjIsMC41NCwyMS40NiwwLDIwLjc5LDB6Ii8+DQo8L3N2Zz4=)
+"></span>Sign up with Facebook</a>
+</div>
 
+{{!-- <strong class="line-thru">or</strong> --}}
+
+    <div class="SwitchForms">
+      <span class="SwitchForms-text">or</span>
+      <div class="SwitchForms-line"></div>
+    </div>
+
+{{!--     <div class="SwitchForms">
+      <span class="SwitchForms-text">OR</span>
+    </div> --}}
 
     {{#if showEmailWelcome}}
+    {{else}}
+    {{!-- <h3 class="HeadingC" style="text-align:center; border: none;">Sign up with your email address</h3> --}}
     {{/if}}
     <form role="form" class="FormVertical">
       <div class="FormVertical-group">
-        <label class="FormLabel" for="gatekeeperNameCreate">Full Name</label>
-        <input type="text" id="hname" name="hname" id="gatekeeperNameCreate" class="FormControl">
+        <label class="FormLabel" for="gatekeeperNameCreate" >Your name</label>
+        <input tabindex="1" type="text" id="hname" name="hname" id="gatekeeperNameCreate" class="FormControl">
       </div>
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperEmailCreate">Email</label>
-        <input type="text" id="email" name="email" id="gatekeeperEmailCreate" class="FormControl" {{#if readonlyEmail}}readonly{{/if}}>
+        <input tabindex="2" type="text" id="email" name="email" id="gatekeeperEmailCreate" class="FormControl" {{#if readonlyEmail}}readonly{{/if}}>
       </div>
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperPasswordCreate">Password</label>
-        <input type="password" id="password" name="password" id="gatekeeperPasswordCreate" class="FormControl">
+        <input tabindex="3" type="password" id="password" name="password" id="gatekeeperPasswordCreate" class="FormControl">
       </div>
       <div class="FormVertical-group">
-        <input type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms of use</a> and <a href="https://pol.is/privacy"> privacy policy </a> .
+        <input tabindex="4" type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms</a> and <a href="https://pol.is/privacy"> privacy</a> policy.
       </div>
       <div class="row" id="errorDiv"> </div>
-      <div class="FormVertical-group">
-        <button type="submit" class="Btn Btn-primary">Create New Account</button>
+      <div class="FormVertical-group text-center">
+        <button tabindex="5" type="submit" class="Btn Btn-primary" style="display:inline-block">Sign up</button>
+        {{!-- <button tabindex="5" type="submit" class="Btn Btn-primary" style="display:inline-block">Create your pol.is account</button> --}}
       </div>
     </form>
+
+    <div style="margin-bottom: 30px" class="text-center">Already have an account? <a tabindex="6" id="login-link-signup-email" href="/user/login" class="js-link" data-section="signup-select">Sign in</a>
+    </div>
+
   {{else}}
-    <h1 class="HeadingA">Sign in</h1>
+    {{!-- <h1 class="HeadingA">Sign in</h1> --}}
     {{#if conversation_id}}
     <p> To participate in this conversation, you'll need to sign in with a Polis account. </p>
     {{/if}}
+
+    <div class="fb-login-button" data-max-rows="1" data-size="large" data-show-faces="false" data-auto-logout-link="false"></div>
+
     <form role="form" class="FormVertical">
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperLoginEmail">Email</label>
@@ -59,22 +91,24 @@
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperLoginPassword">
           Password
+        <a style="float:right" href="/pwresetinit" >Forgot password</a>
         </label>
         <input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">
-        <a href="/pwresetinit" class="FormLink">Forgot your password?</a>
       </div>
 
       <div class="row" id="errorDiv"></div>
       <div class="FormVertical-group">
-        <button type="submit" class="Btn Btn-primary">Sign In</button>
+        <button type="submit" class="Btn Btn-primary">Log In</button>
       </div>
     </form>
 
 
+    <p class="primary">Don't have an account?      <a id="login-link-signup-email" href="/user/create" class="js-link" data-section="signup-select">Sign up</a>
+    </p>
 
   {{/if}}
   {{#unless hideHaveAccount}}
-    <div class="SwitchForms">
+{{!--     <div class="SwitchForms">
       <span class="SwitchForms-text">OR</span>
       <div class="SwitchForms-submit">
         {{#if create}}
@@ -83,8 +117,16 @@
           <button class="gotoCreate Btn Btn-alt">Create new account</button>
         {{/if}}
       </div>
-    </div>
+    </div> --}}
     {{/unless}}
+
+    <div class="SwitchForms">
+      <div class="SwitchForms-line"></div>
+    </div>
+
+    <h5 style="padding: 30px">If you click "Sign up with Facebook" and are not a pol.is user, you will be registered and you agree to the pol.is <a href="https://pol.is/tos"> terms</a> and <a href="https://pol.is/privacy"> privacy</a> policy</h5>
+
   </div> <!-- span -->
+
 </div> <!-- row -->
 </section> <!-- container -->
