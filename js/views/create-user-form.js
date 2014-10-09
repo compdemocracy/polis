@@ -25,6 +25,7 @@ var ModelView = Handlebones.ModelView;
     events: {
       "click .gotoSignIn": "gotoSignIn",
       "click .gotoCreate": "gotoCreate",
+      "click .facebook-button": "facebookButtonClicked",
       "submit form": function(event){
         if (this.model.get("create")) {
           return this.createUser.call(this, event);
@@ -115,6 +116,16 @@ var ModelView = Handlebones.ModelView;
       errors.push({name: "description",  message: "hey there... you need an email"});
     }
     return errors;
+  },
+  facebookButtonClicked: function() {
+    // FB.getLoginStatus(function(response) {
+    //   if (response.status === 'connected') {
+    //     alert(1);
+    //     console.log('Logged in.');
+    //   }
+    //   else {
+          FB.login();
+      // }
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
