@@ -1,5 +1,4 @@
 var template = require("../tmpl/conversationGatekeeper");
-//var UserCreateView = require(".views/userCreateView");
 var MetadataQuestionsView = require("../views/metadataQuestionsView");
 var MetadataQuestionCollection = require("../collections/metadataQuestions");
 var MetadataQuestion = require("../models/metadataQuestion");
@@ -98,8 +97,5 @@ module.exports = Handlebones.ModelView.extend({
       suzinvite: suzinvite,
       conversation_id: conversation_id
     }));
-    // this.gatekeeperAuthView = new UserCreateView({
-    //   zinvite: zinvite,
-    // });
   }
 });
