@@ -17,7 +17,7 @@ var CreateConversationFormView = require("../views/create-conversation-form");
 var HkNewView = require("../views/hkNew");
 var ConversationDetailsView = require("../views/conversation-details");
 var ConversationGatekeeperView = require("../views/conversationGatekeeperView");
-var ConversationGatekeeperViewCreateUser = require("../views/conversationGatekeeperViewCreateUser");
+var CreateUserForm = require("../views/create-user-form");
 var ParticipationView = require("../views/participation");
 var ExploreView = require("../views/explore");
 var EmptyView = require("../views/empty-view");
@@ -931,7 +931,7 @@ var polisRouter = Backbone.Router.extend({
 
     this.getConversationModel(conversation_id).then(function(model) {
       model.set("create", true); // do we need this?
-      var view = new ConversationGatekeeperViewCreateUser({
+      var view = new CreateUserForm({
         model : model
       });
       view.on("authenticated", dfd.resolve);
@@ -973,7 +973,7 @@ var polisRouter = Backbone.Router.extend({
       console.error("einvite lookup failed");
       return $.Deferred().resolve(model);
     }).then(function(model) {
-      var view = new ConversationGatekeeperViewCreateUser({
+      var view = new CreateUserForm({
         model: new Backbone.Model(model)
       });
       view.on("authenticated", function() {
@@ -995,7 +995,7 @@ var polisRouter = Backbone.Router.extend({
   },
   doLogin: function(create) {
     var dfd = $.Deferred();
-    var gatekeeperView = new ConversationGatekeeperViewCreateUser({
+    var gatekeeperView = new CreateUserForm({
       model: new Backbone.Model({
         create: create
       })
