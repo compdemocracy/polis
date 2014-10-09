@@ -9,7 +9,7 @@
 
 
 <div style="text-align:center">
-<div class="facebook-button" style="color:#fff" id="login-button-login-fb">
+<div class="facebook-button" style="color:#fff" id="login-button-login-fb" tabindex="100" >
         <span style="
   width: 22px;
   height: 22px;
@@ -65,7 +65,7 @@
         <input tabindex="3" type="password" id="password" name="password" id="gatekeeperPasswordCreate" class="FormControl">
       </div>
       <div class="FormVertical-group">
-        <input tabindex="4" type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos"> terms</a> and <a href="https://pol.is/privacy"> privacy</a> policy.
+        <input tabindex="4" type="checkbox" name="gatekeeperTosPrivacy" id="gatekeeperTosPrivacy" style="position: relative; top: -1px"> &nbsp; By signing up, you agree to our <a href="https://pol.is/tos" tabindex="110" > terms</a> and <a href="https://pol.is/privacy" tabindex="111" > privacy</a> policy.
       </div>
       <div class="row" id="errorDiv"> </div>
       <div class="FormVertical-group text-center">
@@ -88,21 +88,21 @@
     <form role="form" class="FormVertical">
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperLoginEmail">Email</label>
-        <input type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">
+        <input tabindex="1" type="text" id="email" name="email" id="gatekeeperLoginEmail" class="FormControl">
       </div>
       <div class="FormVertical-group">
         <label class="FormLabel" for="gatekeeperLoginPassword">
           Password
-        <a style="float:right" href="/pwresetinit" >Forgot password</a>
+        <a tabindex="4" style="float:right" href="/pwresetinit" >Forgot password</a>
         </label>
-        <input type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">
+        <input tabindex="2" type="password" id="password" name="password" id="gatekeeperLoginPassword" class="FormControl">
       </div>
 
       <div class="row" id="errorDiv"></div>
       <div class="FormVertical-group text-center">
-        <button type="submit" class="Btn Btn-primary">Log In</button>
+        <button tabindex="3" type="submit" class="Btn Btn-primary">Log In</button>
       </div>
-      <p class="primary text-center">Don't have an account?      <a id="login-link-signup-email" href="/user/create" class="js-link" data-section="signup-select">Sign up</a>
+      <p class="primary text-center">Don't have an account?      <a tabindex="5" id="login-link-signup-email" href="/user/create" class="js-link" data-section="signup-select">Sign up</a>
     </form>
 
 
@@ -126,7 +126,7 @@
       <div class="SwitchForms-line"></div>
     </div>
 
-    <h5 style="padding: 30px">If you click "Log in with Facebook" and are not a pol.is user, you will be registered and you agree to the pol.is <a href="https://pol.is/tos"> terms</a> and <a href="https://pol.is/privacy"> privacy</a> policy</h5>
+    <h5 style="padding: 30px">If you click "Log in with Facebook" and are not a pol.is user, you will be registered and you agree to the pol.is <a href="https://pol.is/tos" tabindex="112" > terms</a> and <a href="https://pol.is/privacy" tabindex="113" > privacy</a> policy</h5>
 
   </div> <!-- span -->
 
