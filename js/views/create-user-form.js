@@ -125,6 +125,12 @@ var ModelView = Handlebones.ModelView;
       if (email) {
         that.$("#email").val(email);
       }
+
+      // TODO do this differently
+      setTimeout(function() {
+        FB.XFBML.parse();
+      }, 100);
+
     });
   }
 });

@@ -54,6 +54,11 @@ module.exports = View.extend({
       return errors;
     },
     context: function() {
+      // TODO do this differently
+      setTimeout(function() {
+        FB.XFBML.parse();
+      }, 100);
+
       return _.extend(this.options, this);
     },
     initialize: function(options) {
