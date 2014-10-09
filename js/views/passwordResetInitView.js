@@ -46,5 +46,8 @@ module.exports = View.extend({
       errors.push({name: "description",  message: "Please fill in your email address."});
     }
     return errors;
+  },
+  initialize: function(options) {
+    this.authStyleHeader = true;
   }
 });

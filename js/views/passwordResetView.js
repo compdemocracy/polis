@@ -43,6 +43,7 @@ module.exports = View.extend({
     }
   },
   initialize: function(options) {
+    this.authStyleHeader = true;
     this.pwresettoken = options.pwresettoken;
   }
 });
