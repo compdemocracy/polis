@@ -313,11 +313,11 @@ function initialize(complete) {
   RootView.getInstance(document.body);
 
 
-FB.Event.subscribe('auth.authResponseChange', function(response) {
-    console.dir(response);
-    console.log('The status of the session changed to: '+response.status);
-    alert(response.status);
-});
+// FB.Event.subscribe('auth.authResponseChange', function(response) {
+//     console.dir(response);
+//     console.log('The status of the session changed to: '+response.status);
+//     alert(response.status);
+// });
 
 
 // setTimeout(function() {
