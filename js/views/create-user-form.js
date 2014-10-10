@@ -149,10 +149,16 @@ var ModelView = Handlebones.ModelView;
           });
       // }
   },
+  context: function() {
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx.social = ctx.fb; // || ctx.twitter || ...
+    return ctx;
+  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.authStyleHeader = true;
     var that = this;
+    this.model.set('fb', false);
     // this.model = options.model;
     this.listenTo(this, "render", function() {
       var email = that.model.get("email");
