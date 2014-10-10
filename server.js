@@ -3608,7 +3608,8 @@ app.post("/api/v3/facebookAuthClicked",
     need('response', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
 
-    var fb_user_id = req.p.fb_auth_response.userID;
+    var response = JSON.parse(req.p.response);
+    var fb_user_id = response.authResponse.userID;
 
     pgQueryP("insert into fb_temp_info (fb_user_id, fb_granted_scopes, response) values ($1, $2, $3);", [
         fb_user_id,
