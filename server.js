@@ -3596,15 +3596,18 @@ function renderLtiLinkageSuccessPage(req, res, o) {
 }
 
 app.post("/api/v3/facebookAuthClicked",
-    need('fb_user_id', getStringLimitLength(9999), assignToP),
+    // need('fb_user_id', getStringLimitLength(9999), assignToP),
     need('fb_login_status', getStringLimitLength(9999), assignToP),
     need('fb_auth_response', getStringLimitLength(9999), assignToP),
     need('fb_access_token', getStringLimitLength(9999), assignToP),
     need('fb_granted_scopes', getStringLimitLength(9999), assignToP),
     need('response', getStringLimitLength(9999), assignToP),
 function(req, res) {
+    
+    var fb_user_id = req.p.fb_auth_response.userID;
+
     pgQueryP("insert into fb_temp_info (fb_user_id, fb_login_status, fb_auth_response, fb_access_token, fb_granted_scopes, response) values ($1, $2, $3, $4, $5);", [
-        req.p.fb_user_id,
+        fb_user_id,
         req.p.fb_login_status,
         req.p.fb_auth_response,
         req.p.fb_access_token,
