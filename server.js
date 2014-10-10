@@ -3413,7 +3413,7 @@ function(req, res) {
         });
     })
     .catch(function(err) {
-        if (err.message = "polis_err_need_full_user") {
+        if (err.message && err.message.match(/polis_err_need_full_user/)) {
             userFail(res, 403, err.message, err);
         } else {
             fail(res, 500, err.message, err);
@@ -3498,7 +3498,7 @@ function joinWithZidOrSuzinvite(o) {
         // User stats can be provided either by having the users sign in with polis
         // or by having them join via suurls.
         if (!(o.user && o.user.email) && !o.suzinvite) { // may want to inspect the contenst of the suzinvite info object instead of just the suzinvite
-          throw new Error("polis_err_need_full_user");
+          throw new Error("polis_err_need_full_user_for_zid_" + o.conv.zid + "_and_uid_" + o.user.uid);
         }
       }
       return o;
