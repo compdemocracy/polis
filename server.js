@@ -3610,12 +3610,15 @@ function(req, res) {
 
     var response = JSON.parse(req.p.response);
     var fb_user_id = response.authResponse.userID;
+    var fb_login_status = response.status;
+    // var fb_auth_response = response.authResponse.
+    var fb_access_token = response.authResponse.accessToken;
 
-    pgQueryP("insert into fb_temp_info (fb_user_id, fb_granted_scopes, response) values ($1, $2, $3);", [
+    pgQueryP("insert into fb_temp_info (fb_user_id, fb_login_status, fb_access_token, fb_granted_scopes, response) values ($1, $2, $3, $4, $5);", [
         fb_user_id,
-        // req.p.fb_login_status,
-        // req.p.fb_auth_response,
-        // req.p.fb_access_token,
+        fb_login_status,
+        // fb_auth_response,
+        fb_access_token,
         req.p.fb_granted_scopes,
         req.p.response,
     ]).then(function() {
