@@ -275,6 +275,16 @@ CREATE TABLE lti_context_memberships (
     tool_consumer_instance_guid TEXT NOT NULL
 );
 
+CREATE TABLE fb_temp_info (
+    fb_user_id TEXT,
+    fb_login_status TEXT,
+    fb_auth_response TEXT,
+    fb_access_token TEXT,
+    fb_granted_scopes TEXT,
+    response TEXT
+);
+
+
 -- the use-case for this table is that there are many conversations, but a single grading callback for the whole course
 -- allowing for duplicates (for now) by using 'created' field
 -- TODO don't allow for duplicates
