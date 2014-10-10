@@ -803,6 +803,10 @@ function getOptionalStringLimitLength(limit) {
 }
 
 function getStringLimitLength(min, max) {
+    if (_.isUndefined(max)) {
+        max = min;
+        min = 1;
+    }
     return function(s) {
         return new Promise(function(resolve, reject) {
             if (typeof s !== "string") {
@@ -3596,12 +3600,12 @@ function renderLtiLinkageSuccessPage(req, res, o) {
 }
 
 app.post("/api/v3/facebookAuthClicked",
-    // need('fb_user_id', getStringLimitLength(9999), assignToP),
-    // need('fb_login_status', getStringLimitLength(9999), assignToP),
-    // need('fb_auth_response', getStringLimitLength(9999), assignToP),
-    // need('fb_access_token', getStringLimitLength(9999), assignToP),
-    need('fb_granted_scopes', getStringLimitLength(9999), assignToP),
-    need('response', getStringLimitLength(9999), assignToP),
+    // need('fb_user_id', getStringLimitLength(1, 9999), assignToP),
+    // need('fb_login_status', getStringLimitLength(1, 9999), assignToP),
+    // need('fb_auth_response', getStringLimitLength(1, 9999), assignToP),
+    // need('fb_access_token', getStringLimitLength(1, 9999), assignToP),
+    need('fb_granted_scopes', getStringLimitLength(1, 9999), assignToP),
+    need('response', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
 
     var fb_user_id = req.p.fb_auth_response.userID;
