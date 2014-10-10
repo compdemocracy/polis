@@ -20,14 +20,6 @@
       </a> 
     </div>
 
-    <h2 class="navbar-header" style="background-color: black; padding-bottom: 4px; padding-left: 4px; border-radius: 3px;">
-    	<i class="fa fa-umbrella" style="color: black;background-color: #f1c40f;padding: 10px; border-radius: 2px"></i> &nbsp;
-    	<span class="HeadingA" style="color:#f1c40f; {{#ifXs}}font-size: 20px;{{/ifXs}}">#umbrellaMovement</span> 
-    	<span class="pull-right" style=" padding: 12px 22px 0px 31px;">
-    	<img src="https://pol.is/landerImages/c4hk_logo.png" {{#ifNotXs}} height="30px" {{/ifNotXs}} {{#ifXs}} height="15px" {{/ifXs}}></span>
-    </span>
-    </h2>
-
     <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
         {{!-- {{#ifDefined showNewButton}}
@@ -56,10 +48,27 @@
 </div> {{! navbar }}
 
 <section class="container" >
-	<div>
-	  {{#ifDefined showNewButton}}
-	   	<a class="Btn Btn-alt" href="/hk/new" title="Post a new link"><i class="fa fa-plus-square"> </i> Submit a new link</a>
-	  {{/ifDefined}}
-	</div>
-    {{view courseCollectionView}}
+  <div class="row">
+    <div class="col-sm-12 col-md-6 col-md-push-6">
+      <div id="hkExplainer" class="well">
+        <h2 class="" style="background-color: black; padding-bottom: 4px; padding-left: 4px; border-radius: 3px;">
+          <i class="fa fa-umbrella" style="color: black;background-color: #f1c40f;padding: 10px; border-radius: 2px"></i> &nbsp;
+          <span class="HeadingA" style="color:#f1c40f; {{#ifXs}}font-size: 18px;{{/ifXs}}">#umbrellaMovement</span> 
+        </h2>
+        <p class="HeadingA"> WELCOME </p>
+        <p class=""><em>Lau Chun Yin Vincent, CODE4HK</em></p>
+        <iframe width="100%" style="min-height:350px" src="//www.youtube.com/embed/Ez78ZEneP0M?rel=0" frameborder="0" allowfullscreen=""></iframe><p style="margin-top: 20px;"> <a href="foo">Polis簡介及使用教學</a> </p>  
+        <p> <a href="foo">pol.is tutorial</a> </p>
+        <img src="https://pol.is/landerImages/c4hk_logo.png" width="100%"></span>
+      </div>
+    </div>
+    <div class="col-sm-12 col-md-6 col-md-pull-6">
+      <div>
+        {{#ifDefined showNewButton}}
+          <a class="Btn Btn-alt" href="/hk/new" title="Post a new link"><i class="fa fa-plus-square"> </i> Submit a new link</a>
+        {{/ifDefined}}
+      </div>
+        {{view courseCollectionView}}
+      </div>
+  </div>
 </section>
