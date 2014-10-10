@@ -3605,6 +3605,7 @@ app.post("/api/v3/facebookAuthClicked",
     // need('fb_auth_response', getStringLimitLength(1, 9999), assignToP),
     // need('fb_access_token', getStringLimitLength(1, 9999), assignToP),
     want('fb_granted_scopes', getStringLimitLength(1, 9999), assignToP),
+    want('fb_friends_response', getStringLimitLength(1, 99999), assignToP),
     need('response', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
 
@@ -3614,12 +3615,13 @@ function(req, res) {
     // var fb_auth_response = response.authResponse.
     var fb_access_token = response.authResponse.accessToken;
 
-    pgQueryP("insert into fb_temp_info (fb_user_id, fb_login_status, fb_access_token, fb_granted_scopes, response) values ($1, $2, $3, $4, $5);", [
+    pgQueryP("insert into fb_temp_info (fb_user_id, fb_login_status, fb_access_token, fb_granted_scopes, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6);", [
         fb_user_id,
         fb_login_status,
         // fb_auth_response,
         fb_access_token,
         req.p.fb_granted_scopes,
+        req.p.fb_friends_response || "",
         req.p.response,
     ]).then(function() {
         res.status(200).json({});
