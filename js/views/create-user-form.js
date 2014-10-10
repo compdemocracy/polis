@@ -124,7 +124,12 @@ var ModelView = Handlebones.ModelView;
     //     console.log('Logged in.');
     //   }
     //   else {
-          FB.login();
+          FB.login(function(response) {
+            alert(response);
+          }, {
+            return_scopes: true, // response should contain the scopes the user allowed
+            scope: 'email,user_friends'
+          });
       // }
   },
   initialize: function(options) {
@@ -139,9 +144,9 @@ var ModelView = Handlebones.ModelView;
       }
 
       // TODO do this differently
-      setTimeout(function() {
-        FB.XFBML.parse();
-      }, 100);
+      // setTimeout(function() {
+      //   FB.XFBML.parse();
+      // }, 100);
 
     });
   }

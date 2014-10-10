@@ -312,15 +312,13 @@ function initialize(complete) {
   // actually execute the route
   RootView.getInstance(document.body);
 
-setTimeout(function() {
-
 
 FB.Event.subscribe('auth.authResponseChange', function(response) {
+    console.dir(response);
     console.log('The status of the session changed to: '+response.status);
     alert(response.status);
 });
 
-}, 5000); // TODO do this once FB loads
 
 // setTimeout(function() {
 //       $(document.body).on("click", function() {
