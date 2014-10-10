@@ -3604,7 +3604,7 @@ app.post("/api/v3/facebookAuthClicked",
     // need('fb_login_status', getStringLimitLength(1, 9999), assignToP),
     // need('fb_auth_response', getStringLimitLength(1, 9999), assignToP),
     // need('fb_access_token', getStringLimitLength(1, 9999), assignToP),
-    need('fb_granted_scopes', getStringLimitLength(1, 9999), assignToP),
+    want('fb_granted_scopes', getStringLimitLength(1, 9999), assignToP),
     need('response', getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
 

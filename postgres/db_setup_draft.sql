@@ -281,7 +281,8 @@ CREATE TABLE fb_temp_info (
     fb_auth_response TEXT,
     fb_access_token TEXT,
     fb_granted_scopes TEXT,
-    response TEXT
+    response TEXT,
+    created BIGINT DEFAULT now_as_millis()
 );
 
 
