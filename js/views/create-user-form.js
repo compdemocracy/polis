@@ -124,8 +124,25 @@ var ModelView = Handlebones.ModelView;
     //     console.log('Logged in.');
     //   }
     //   else {
+
+      function getFriends() {
+        FB.api('/me/friends',function (response) {
+          if (response && !response.error) {
+            alert(JSON.stringify(response));
+            if (response.data) {
+              for (var i = 0; i < response.data.length; i++) {
+                alert(response.data[i]);
+              }
+            }
+          } else {
+            alert('failed');
+          }
+        });
+      }
+
           FB.login(function(response) {
-            alert(response);
+            alert(JSON.stringify(response));
+            getFriends();
           }, {
             return_scopes: true, // response should contain the scopes the user allowed
             scope: 'email,user_friends'
