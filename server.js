@@ -6654,7 +6654,8 @@ function addCanvasAssignmentConversationCallbackParamsIfNeeded(lti_user_id, lti_
     return getCanvasAssignmentConversationCallbackParams(lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid).then(function(rows) {
         if (rows && rows.length) {
             // update
-            return pgQueryP("update canvas_assignment_callback_info set lis_outcome_service_url = ($5) and lis_result_sourcedid = ($6) and stringified_json_of_post_content = ($7) and where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);", [
+            // this is failing, but it has been ok, since the insert worked (i assume)
+            return pgQueryP("update canvas_assignment_callback_info set lis_outcome_service_url = ($5), lis_result_sourcedid = ($6), stringified_json_of_post_content = ($7) where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);", [
                 lti_user_id,
                 lti_context_id,
                 custom_canvas_assignment_id,
