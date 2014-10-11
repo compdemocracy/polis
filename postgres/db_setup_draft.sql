@@ -277,6 +277,7 @@ CREATE TABLE lti_context_memberships (
 
 CREATE TABLE fb_temp_info (
     fb_user_id TEXT,
+    fb_public_profile TEXT,
     fb_login_status TEXT,
     fb_auth_response TEXT,
     fb_access_token TEXT,
