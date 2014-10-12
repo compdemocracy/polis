@@ -73,7 +73,10 @@ module.exports = Handlebones.View.extend({
       var age = Date.now() - c.get("created");
       var itemHourAge = age / 1000 / 60 / 60;
       var gravity = 1.8; // https://news.ycombinator.com/item?id=1781013
-      return -(c.get("upvotes") - 1) / Math.pow(itemHourAge, gravity);
+      var selfVotePenalty = 0; //1; // currently zero to give weight to all stories, even those with only the vote from the poster. HN removes that vote, and relies on the "new" tab for initial visibility.
+      var val = -(c.get("upvotes") - selfVotePenalty) / 
+          (Math.pow(itemHourAge, gravity));
+      return val;
     };
     function onFetched() {
       setTimeout(function() {
