@@ -270,7 +270,7 @@ var ModelView = Handlebones.ModelView;
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.authStyleHeader = true;
     var that = this;
-    this.fb = true;
+    this.fb = false;
     // this.model = options.model;
     this.listenTo(this, "render", function() {
       var email = that.model.get("email");
