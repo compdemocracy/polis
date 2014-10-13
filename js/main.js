@@ -259,7 +259,23 @@ var uidPromise;
 //   uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
 // } else {
   uidPromise = $.get("/api/v3/users").then(function(user) {
+    // set up global userObject
     window.userObject = $.extend(window.userObject, user);
+    window.intercomOptions = {
+        app_id: 'nb5hla8s',
+        widget: {
+          activator: '#IntercomDefaultWidget'
+        }  
+    };
+    if (user.uid) {
+      intercomOptions.user_id = user.uid + "";
+    }
+    if (user.email) {
+      intercomOptions.email = user.email;
+    }
+    if (user.created) {
+      intercomOptions.created_at = user.created / 1000 >> 0;
+    }
   });
 // }
 uidPromise.always(function() {
@@ -274,11 +290,16 @@ uidPromise.always(function() {
     Metrics.boot();
     if (!isEmbedded() && !isParticipationView()) {
       // load intercom widget
-      (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',intercomSettings);}else{var d=document;var i=function(){i.c(arguments)};i.q=[];i.c=function(args){i.q.push(args)};w.Intercom=i;function l(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://static.intercomcdn.com/intercom.v1.js';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);}if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
+      // (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',intercomSettings);}else{var d=document;var i=function(){i.c(arguments)};i.q=[];i.c=function(args){i.q.push(args)};w.Intercom=i;function l(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://static.intercomcdn.com/intercom.v1.js';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);}if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
       
-      IntercomModalHack.init();
+      // IntercomModalHack.init();
     }
 
+    if (!window.Intercom) {
+      if (!isEmbedded() && !isParticipationView()) {
+        window.initIntercom();
+      }
+    }
 
     // set up the "exitConv" event
     var currentRoute;
@@ -288,6 +309,23 @@ uidPromise.always(function() {
         eb.trigger(eb.exitConv);
       }
       currentRoute = route;
+
+      var intercomWait = 0;
+      uidPromise.then(function() {
+        
+        // debugger;
+        if (!isEmbedded() && !isParticipationView()) {
+          var intercomWait = 0;
+          if (!window.Intercom) {
+            intercomWait = 4000;
+          }
+          setTimeout(function() {
+            window.Intercom('boot', window.intercomOptions);
+            window.Intercom('update');
+            window.Intercom('reattach_activator');
+          }, intercomWait);
+        }
+      });
     });
 
     display.init();
