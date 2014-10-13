@@ -275,7 +275,8 @@ CREATE TABLE lti_context_memberships (
     tool_consumer_instance_guid TEXT NOT NULL
 );
 
-CREATE TABLE fb_temp_info (
+CREATE TABLE facebook_users (
+    uid INTEGER NOT NULL REFERENCES users(uid),
     fb_user_id TEXT,
     fb_public_profile TEXT,
     fb_login_status TEXT,
@@ -284,7 +285,9 @@ CREATE TABLE fb_temp_info (
     fb_granted_scopes TEXT,
     response TEXT,
     fb_friends_response TEXT,
-    created BIGINT DEFAULT now_as_millis()
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE(uid),
+    UNIQUE(fb_user_id)
 );
 
 

@@ -461,6 +461,17 @@ function startSession(uid, cb) {
     });
 }
 
+function startSessionP(uid) {
+    return new Promise(function(resolve, reject) {
+        startSession(uid, function(err, token) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(token);
+            }
+        });
+    });
+}
 
 function endSession(sessionToken, cb) {
     pgQuery("delete from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
@@ -3599,7 +3610,18 @@ function renderLtiLinkageSuccessPage(req, res, o) {
     res.status(200).send(html);
 }
 
-app.post("/api/v3/facebookAuthClicked",
+function getUserByEmail(email) {
+    return pgQueryP("select * from users where email = ($1);", [email]).then(function(rows) {
+        if (rows && rows.length) {
+            return rows[0];
+        } else {
+            return null;
+        }
+    });
+}
+
+app.post("/api/v3/auth/facebook",
+    // authOptional(assignToP),
     // need('fb_user_id', getStringLimitLength(1, 9999), assignToP),
     // need('fb_login_status', getStringLimitLength(1, 9999), assignToP),
     // need('fb_auth_response', getStringLimitLength(1, 9999), assignToP),
@@ -3607,7 +3629,12 @@ app.post("/api/v3/facebookAuthClicked",
     want('fb_granted_scopes', getStringLimitLength(1, 9999), assignToP),
     want('fb_friends_response', getStringLimitLength(1, 99999), assignToP),
     want('fb_public_profile', getStringLimitLength(1, 99999), assignToP),
+    want('fb_email', getEmail, assignToP),
+    want('hname', getOptionalStringLimitLength(9999), assignToP),
+    want('provided_email', getEmail, assignToP),
+    want('conversation_id', getOptionalStringLimitLength(999), assignToP),
     need('response', getStringLimitLength(1, 9999), assignToP),
+
 function(req, res) {
 
     var response = JSON.parse(req.p.response);
@@ -3616,21 +3643,142 @@ function(req, res) {
     var fb_login_status = response.status;
     // var fb_auth_response = response.authResponse.
     var fb_access_token = response.authResponse.accessToken;
+    var fb_email = req.p.fb_email;
+    var provided_email = req.p.provided_email;
+    var email = fb_email || provided_email;
+    var existingUid = req.p.existingUid;
+    var hname = req.p.hname;
+    var referrer = req.cookies[COOKIES.REFERRER];
 
-    pgQueryP("insert into fb_temp_info (fb_user_id, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7);", [
-        fb_user_id,
-        fb_public_profile,
-        fb_login_status,
-        // fb_auth_response,
-        fb_access_token,
-        req.p.fb_granted_scopes,
-        req.p.fb_friends_response || "",
-        req.p.response,
-    ]).then(function() {
-        res.status(200).json({});
+
+
+    var shouldAddToIntercom = true;
+    if (req.p.conversation_id) {
+        shouldAddToIntercom = false;
+    }
+
+
+    // if signed in:
+    //  why are we showing them the button then? we should probably just start a new session.
+
+    pgQueryP("select * from users left join facebook_users on users.uid = facebook_users.uid where users.email = ($1);", [email]).then(function(rows) {
+        var user = rows && rows.length && rows[0] || null;
+        if (user) {
+            if (user.fb_user_id) {
+                // user has FB account linked
+                if (user.fb_user_id === fb_user_id) {
+                    // OK! start a session, etc, maybe update some facebook info
+                    startSessionAndAddCookies(req, res, user.uid)
+                    .then(function() {
+                        res.json({
+                            uid: user.uid,
+                            hname: user.hname,
+                            email: user.email,
+                            // token: token
+                        });
+                    }).catch(function(err) {
+                        fail(res, 500, "polis_err_reg_fb_start_session", err); 
+                    });
+                } else {
+                    // the user with that email has a different FB account attached
+                    // ruh roh..  probably rare
+                    fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account", new Error("polis_err_reg_fb_user_exists_with_different_account")); 
+                    emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
+                }
+            } else {
+                // user for this email exists, but does not have FB account linked.
+                    // maybe for later: somehow request old password to link account to fb/
+                        // fail(res, 409, "polis_err_reg_user_exits_with_email_but_has_no_facebook_linked")
+                fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
+            }
+        } else {
+            // no polis user with that email exists yet.
+            // ok, so create a user with all the info we have and link to the fb info table
+
+            var query = "insert into users " +
+                    "(email, hname) VALUES "+
+                    "($1, $2) "+
+                    "returning *;";
+            // Create user record
+            pgQueryP(query, [email, hname])
+            .then(function(rows) {
+                var user = rows && rows.length && rows[0] || null;
+
+                // Create facebook user record
+                return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8);", [
+                    user.uid,
+                    fb_user_id,
+                    fb_public_profile,
+                    fb_login_status,
+                    // fb_auth_response,
+                    fb_access_token,
+                    req.p.fb_granted_scopes,
+                    req.p.fb_friends_response || "",
+                    req.p.response,
+                ]).then(function() {
+                    return user;
+                });
+            })
+            .then(function(user) {
+                var uid = user.uid;
+                return startSessionAndAddCookies(req, res, uid).then(function() {
+                    return user;
+                });
+              }, function(err) {
+                    fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
+                })
+            .then(function(user) {
+                res.json({
+                    uid: user.uid,
+                    hname: user.hname,
+                    email: user.email,
+                    // token: token
+                });
+                if (shouldAddToIntercom) {
+                    var params = {
+                        "email" : user.email,
+                        "name" : user.hname,
+                        "user_id": user.uid,
+                    };
+                    var customData = {};
+                    if (referrer) {
+                        customData.referrer = referrer;
+                    }
+                    // if (organization) {
+                    //     customData.org = organization;
+                    // }
+                    customData.fb = true; // mark this user as a facebook auth user
+                    customData.uid = user.uid;
+                    if (_.keys(customData).length) {
+                        params.custom_data = customData;
+                    }
+                    intercom.createUser(params, function(err, res) {
+                        if (err) {
+                            console.log(err);
+                            console.error("polis_err_intercom_create_user_fb_fail");
+                            console.dir(params);
+                            yell("polis_err_intercom_create_user_fb_fail");
+                            return;
+                        }
+                    });
+                }
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_reg_fb_user_misc2", err); 
+            });
+        }
+    }, function(err) {
+        fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err); 
     }).catch(function(err) {
-         fail(res, 500, "polis_err_facebook_misc", err);
+        fail(res, 500, "polis_err_reg_fb_user_misc", err); 
     });
+
+/*
+
+    THOUGHTS: will FB auth work everywhere we need it to? within iframes (seems so)..  in webviews? not sure.
+
+
+*/
+
 });
 
 app.post("/api/v3/auth/new",
