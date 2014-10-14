@@ -3760,6 +3760,7 @@ function(req, res) {
                 if (!password) {
                     fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
                 } else {
+                    console.log("checkPassword " + user.uid);
                     checkPassword(user.uid, password).then(function(ok) {
                         if (ok) {
                             createFacebookUserRecord(_.extend({}, {
@@ -3778,7 +3779,7 @@ function(req, res) {
                                 fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
                             });
                         } else {
-                            fail(res, 403, "polis_err_password_mismatch " + ok, new Error("polis_err_password_mismatch " + ok));
+                            fail(res, 403, "polis_err_password_mismatch " + ok+ " " + user.uid, new Error("polis_err_password_mismatch " + ok + " " + user.uid));
                         }
                     }, function(err) {
                         fail(res, 500, "polis_err_password_check", new Error("polis_err_password_check"));
