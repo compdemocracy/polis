@@ -308,10 +308,7 @@ var ModelView = Handlebones.ModelView;
     // second time, user may have populated password field in reponse to "polis_err_user_with_this_email_exists" error
     var password = this.$("#password").val() || void 0;
 
-    FB.getLoginStatus(function(x) {
-      if (x.status === "connected") {
-        that.onFbLoginOk(x, password);
-      } else {
+    function fbLoginPrompt() {
         FB.login(
           function(x) {
             return that.onFbLoginOk(x, password);
@@ -325,8 +322,22 @@ var ModelView = Handlebones.ModelView;
               'email'
             ].join(',')
           });
-      }
-    });
+    }
+
+    if (FB.getUserID()) {
+      FB.getLoginStatus(function(x) {
+        if (x.status === "connected") {
+          that.onFbLoginOk(x, password);
+        } else {
+          // this code path may trigger popup blockers.
+          // ideally the fbLoginPrompt call below is called instead.
+          fbLoginPrompt();
+        }
+      });
+    } else {
+      // test for FB.getUserID() so we can show the prompt on the same stack, preventing the popup-blocker from showing.
+      fbLoginPrompt();
+    }
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
