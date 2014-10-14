@@ -3658,7 +3658,7 @@ function createFacebookUserRecord(o) {
 
 function addFacebookFriends(uid, fb_friends_response) {
     var fbFriendIds = fb_friends_response.map(function(friend) {
-        return friend.id;
+        return friend.id + '';
     }).filter(function(id) {
         // NOTE: would just store facebook IDs as numbers, but they're too big for JS numbers.
         var hasNonNumericalCharacters = /[^0-9]/.test(id);
@@ -3666,6 +3666,8 @@ function addFacebookFriends(uid, fb_friends_response) {
             emailBadProblemTime("found facebook ID with non-numerical characters " + id);
         }
         return !hasNonNumericalCharacters;
+    }).map(function(id) {
+        return '\'' + id + '\''; // wrap in quotes to force pg to treat them as strings
     });
     // add friends to the table
     // TODO periodically remove duplicates from the table, and pray for postgres upsert to arrive soon.
@@ -3760,9 +3762,6 @@ function(req, res) {
                 if (!password) {
                     fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
                 } else {
-                    console.dir(user);
-                    console.log("checkPassword " + user.uid);
-                    console.dir(user);
                     checkPassword(user.uid, password).then(function(ok) {
                         if (ok) {
                             createFacebookUserRecord(_.extend({}, {
@@ -3776,12 +3775,16 @@ function(req, res) {
                                         email: user.email,
                                         // token: token
                                     });
+                                }, function(err) {
+                                    fail(res, 500, "polis_err_linking_fb_friends", err);
                                 });
-                            }).catch(function(err) {
+                            }, function(err) {
                                 fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
+                            }).catch(function(err) {
+                                fail(res, 500, "polis_err_linking_fb_to_existing_polis_account_misc", err);
                             });
                         } else {
-                            fail(res, 403, "polis_err_password_mismatch " + ok+ " " + user.uid, new Error("polis_err_password_mismatch " + ok + " " + user.uid));
+                            fail(res, 403, "polis_err_password_mismatch", new Error("polis_err_password_mismatch"));
                         }
                     }, function(err) {
                         fail(res, 500, "polis_err_password_check", new Error("polis_err_password_check"));
