@@ -3650,7 +3650,7 @@ function(req, res) {
     var hname = req.p.hname;
     var referrer = req.cookies[COOKIES.REFERRER];
 
-
+    var fb_friends_response = req.p.fb_friends_response ? JSON.parse(req.p.fb_friends_response) : null;
 
     var shouldAddToIntercom = true;
     if (req.p.conversation_id) {
@@ -3720,14 +3720,28 @@ function(req, res) {
                 });
             })
             .then(function(user) {
-                // add friends to the table
-                // TODO periodically remove duplicates from the table, and pray for postgres upsert to arrive soon.
-                return pgQueryP("insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in ($2);", [
-                    user.uid,
-                    user.fb_user_id,
-                ]).then(function() {
+                if (fb_friends_response) {
+                    var fbFriendIds = fb_friends_response.map(function(friend) {
+                        return friend.id;
+                    }).filter(function(id) {
+                        // NOTE: would just store facebook IDs as numbers, but they're too big for JS numbers.
+                        var hasNonNumericalCharacters = /[^0-9]/.test(id);
+                        if (hasNonNumericalCharacters) {
+                            emailBadProblemTime("found facebook ID with non-numerical characters " + id);
+                        }
+                        return !hasNonNumericalCharacters;
+                    });
+                    // add friends to the table
+                    // TODO periodically remove duplicates from the table, and pray for postgres upsert to arrive soon.
+                    return pgQueryP("insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in ("+ fbFriendIds.join(",")+");", [
+                        user.uid,
+                    ]).then(function() {
+                        return user;
+                    });
+                } else {
+                    // no friends, or this user is first polis user among his/her friends.
                     return user;
-                });
+                }
             })
             .then(function(user) {
                 var uid = user.uid;
