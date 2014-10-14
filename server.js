@@ -3274,7 +3274,7 @@ function checkPassword(uid, password) {
                 if (errCompare) {
                     reject(errCompare);
                 } else {
-                    resolve(result);
+                    resolve(result ? "ok" : 0);
                 }
             });
         });
@@ -3704,7 +3704,7 @@ function(req, res) {
     var hname = req.p.hname;
     var referrer = req.cookies[COOKIES.REFERRER];
     var password = req.p.password;
-    
+
     var fb_friends_response = req.p.fb_friends_response ? JSON.parse(req.p.fb_friends_response) : null;
 
     var shouldAddToIntercom = true;
@@ -3776,7 +3776,7 @@ function(req, res) {
                                 fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
                             });
                         } else {
-                            fail(res, 403, "polis_err_password_mismatch", new Error("polis_err_password_mismatch"));
+                            fail(res, 403, "polis_err_password_mismatch " + ok, new Error("polis_err_password_mismatch " + ok));
                         }
                     }, function(err) {
                         fail(res, 500, "polis_err_password_check", new Error("polis_err_password_check"));
