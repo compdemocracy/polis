@@ -3769,9 +3769,11 @@ function(req, res) {
                             }, fbUserRecord)).then(function() {
                                 var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
                                 return friendsAddedPromise.then(function() {
-                                    return startSessionAndAddCookies(req, res, uid).then(function() {
+                                    return startSessionAndAddCookies(req, res, user.uid).then(function() {
                                         return user;
                                     });
+                                }, function(err) {
+                                    fail(res, 500, "polis_err_linking_fb_friends", err);
                                 })
                                 .then(function(user) {
                                     res.status(200).json({
@@ -3781,7 +3783,7 @@ function(req, res) {
                                         // token: token
                                     });
                                 }, function(err) {
-                                    fail(res, 500, "polis_err_linking_fb_friends", err);
+                                    fail(res, 500, "polis_err_linking_fb_misc", err);
                                 });
                             }, function(err) {
                                 fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
