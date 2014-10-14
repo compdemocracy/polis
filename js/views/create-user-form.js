@@ -324,7 +324,7 @@ var ModelView = Handlebones.ModelView;
           });
     }
 
-    if (FB.getUserID()) {
+    if (FB.getAuthResponse()) {
       FB.getLoginStatus(function(x) {
         if (x.status === "connected") {
           that.onFbLoginOk(x, password);
