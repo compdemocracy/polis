@@ -292,6 +292,8 @@ var ModelView = Handlebones.ModelView;
               email: data.fb_email,
             });
           } else {
+            alert("unknown error");
+            alert(JSON.stringify(err));
             alert(err.responseText);
           }
         });
