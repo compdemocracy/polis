@@ -3263,6 +3263,25 @@ function addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_gui
     });
 }
 
+function checkPassword(uid, password) {
+    return pgQueryP("select pwhash from jianiuevyew where uid = ($1);", [uid]).then(function(rows) {
+        if (!rows || !rows.length || !rows[0].pwhash) {
+            return false;
+        }
+        var hashedPassword  = rows[0].pwhash;
+        return new Promise(function(resolve, reject) {
+            bcrypt.compare(password, hashedPassword, function(errCompare, result) {
+                if (errCompare) {
+                    reject(errCompare);
+                } else {
+                    resolve(result);
+                }
+            });
+        });
+    });
+}
+
+
 app.post("/api/v3/auth/login",
     need('password', getPassword, assignToP),
     want('email', getEmail, assignToP),
@@ -3620,6 +3639,40 @@ function getUserByEmail(email) {
     });
 }
 
+function createFacebookUserRecord(o) {
+    // Create facebook user record
+    return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8);", [
+        o.uid,
+        o.fb_user_id,
+        o.fb_public_profile,
+        o.fb_login_status,
+        // o.fb_auth_response,
+        o.fb_access_token,
+        o.fb_granted_scopes,
+        o.fb_friends_response || "",
+        o.response,
+    ]);
+}
+
+function addFacebookFriends(uid, fb_friends_response) {
+    var fbFriendIds = fb_friends_response.map(function(friend) {
+        return friend.id;
+    }).filter(function(id) {
+        // NOTE: would just store facebook IDs as numbers, but they're too big for JS numbers.
+        var hasNonNumericalCharacters = /[^0-9]/.test(id);
+        if (hasNonNumericalCharacters) {
+            emailBadProblemTime("found facebook ID with non-numerical characters " + id);
+        }
+        return !hasNonNumericalCharacters;
+    });
+    // add friends to the table
+    // TODO periodically remove duplicates from the table, and pray for postgres upsert to arrive soon.
+    return pgQueryP("insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in ("+ fbFriendIds.join(",")+");", [
+        uid,
+    ]);
+}
+
+
 app.post("/api/v3/auth/facebook",
     // authOptional(assignToP),
     // need('fb_user_id', getStringLimitLength(1, 9999), assignToP),
@@ -3633,6 +3686,7 @@ app.post("/api/v3/auth/facebook",
     want('hname', getOptionalStringLimitLength(9999), assignToP),
     want('provided_email', getEmail, assignToP),
     want('conversation_id', getOptionalStringLimitLength(999), assignToP),
+    want('password', getPassword, assignToP),
     need('response', getStringLimitLength(1, 9999), assignToP),
 
 function(req, res) {
@@ -3649,7 +3703,8 @@ function(req, res) {
     var existingUid = req.p.existingUid;
     var hname = req.p.hname;
     var referrer = req.cookies[COOKIES.REFERRER];
-
+    var password = req.p.password;
+    
     var fb_friends_response = req.p.fb_friends_response ? JSON.parse(req.p.fb_friends_response) : null;
 
     var shouldAddToIntercom = true;
@@ -3657,6 +3712,17 @@ function(req, res) {
         shouldAddToIntercom = false;
     }
 
+    var fbUserRecord = {
+        // uid provided later
+        fb_user_id: fb_user_id,
+        fb_public_profile: fb_public_profile,
+        fb_login_status: fb_login_status,
+        // fb_auth_response: fb_auth_response,
+        fb_access_token: fb_access_token,
+        fb_granted_scopes: req.p.fb_granted_scopes,
+        fb_friends_response: req.p.fb_friends_response || "",
+        response: req.p.response,
+    };
 
     // if signed in:
     //  why are we showing them the button then? we should probably just start a new session.
@@ -3687,9 +3753,35 @@ function(req, res) {
                 }
             } else {
                 // user for this email exists, but does not have FB account linked.
-                    // maybe for later: somehow request old password to link account to fb/
+                    // user will be prompted for their password, and client will repeat the call with password
                         // fail(res, 409, "polis_err_reg_user_exits_with_email_but_has_no_facebook_linked")
-                fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
+                if (!password) {
+                    fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
+                } else {
+                    checkPassword(user.uid, password).then(function(ok) {
+                        if (ok) {
+                            createFacebookUserRecord(_.extend({}, {
+                                uid: user.uid
+                            }, fbUserRecord)).then(function() {
+                                var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
+                                return friendsAddedPromise.then(function() {
+                                    res.status(200).json({
+                                        uid: user.uid,
+                                        hname: user.hname,
+                                        email: user.email,
+                                        // token: token
+                                    });
+                                });
+                            }).catch(function(err) {
+                                fail(res, 500, "polis_err_linking_fb_to_existing_polis_account", err);
+                            });
+                        } else {
+                            fail(res, 403, "polis_err_password_mismatch", new Error("polis_err_password_mismatch"));
+                        }
+                    }, function(err) {
+                        fail(res, 500, "polis_err_password_check", new Error("polis_err_password_check"));
+                    });
+                }
             }
         } else {
             // no polis user with that email exists yet.
@@ -3704,38 +3796,15 @@ function(req, res) {
             .then(function(rows) {
                 var user = rows && rows.length && rows[0] || null;
 
-                // Create facebook user record
-                return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8);", [
-                    user.uid,
-                    fb_user_id,
-                    fb_public_profile,
-                    fb_login_status,
-                    // fb_auth_response,
-                    fb_access_token,
-                    req.p.fb_granted_scopes,
-                    req.p.fb_friends_response || "",
-                    req.p.response,
-                ]).then(function() {
+                return createFacebookUserRecord(_.extend({}, {
+                    uid: user.uid
+                }, fbUserRecord)).then(function() {
                     return user;
                 });
             })
             .then(function(user) {
                 if (fb_friends_response) {
-                    var fbFriendIds = fb_friends_response.map(function(friend) {
-                        return friend.id;
-                    }).filter(function(id) {
-                        // NOTE: would just store facebook IDs as numbers, but they're too big for JS numbers.
-                        var hasNonNumericalCharacters = /[^0-9]/.test(id);
-                        if (hasNonNumericalCharacters) {
-                            emailBadProblemTime("found facebook ID with non-numerical characters " + id);
-                        }
-                        return !hasNonNumericalCharacters;
-                    });
-                    // add friends to the table
-                    // TODO periodically remove duplicates from the table, and pray for postgres upsert to arrive soon.
-                    return pgQueryP("insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in ("+ fbFriendIds.join(",")+");", [
-                        user.uid,
-                    ]).then(function() {
+                    return addFacebookFriends(user.uid, fb_friends_response).then(function() {
                         return user;
                     });
                 } else {
@@ -3748,9 +3817,9 @@ function(req, res) {
                 return startSessionAndAddCookies(req, res, uid).then(function() {
                     return user;
                 });
-              }, function(err) {
-                    fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
-                })
+            }, function(err) {
+                fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
+            })
             .then(function(user) {
                 res.json({
                     uid: user.uid,
