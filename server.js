@@ -3729,7 +3729,7 @@ function(req, res) {
     // if signed in:
     //  why are we showing them the button then? we should probably just start a new session.
 
-    pgQueryP("select * from users left join facebook_users on users.uid = facebook_users.uid where users.email = ($1);", [email]).then(function(rows) {
+    pgQueryP("select users.*, facebook_users.fb_user_id from users left join facebook_users on users.uid = facebook_users.uid where users.email = ($1);", [email]).then(function(rows) {
         var user = rows && rows.length && rows[0] || null;
         if (user) {
             if (user.fb_user_id) {
@@ -3760,7 +3760,9 @@ function(req, res) {
                 if (!password) {
                     fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
                 } else {
+                    console.dir(user);
                     console.log("checkPassword " + user.uid);
+                    console.dir(user);
                     checkPassword(user.uid, password).then(function(ok) {
                         if (ok) {
                             createFacebookUserRecord(_.extend({}, {
