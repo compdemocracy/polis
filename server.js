@@ -3265,8 +3265,10 @@ function addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_gui
 
 function checkPassword(uid, password) {
     return pgQueryP("select pwhash from jianiuevyew where uid = ($1);", [uid]).then(function(rows) {
-        if (!rows || !rows.length || !rows[0].pwhash) {
-            return false;
+        if (!rows || !rows.length) {
+            return null;
+        } else if (!rows[0].pwhash) {
+            return void 0;
         }
         var hashedPassword  = rows[0].pwhash;
         return new Promise(function(resolve, reject) {
