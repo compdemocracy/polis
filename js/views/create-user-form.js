@@ -9,6 +9,116 @@ var gaEvent = metric.gaEvent;
 
 var urlPrefix = URLs.urlPrefix;
 
+
+
+
+
+
+
+// FB.getLoginStatus(function(response) {
+    //   if (response.status === 'connected') {
+    //     alert(1);
+    //     console.log('Logged in.');
+    //   }
+    //   else {
+
+
+function getFriends() {
+  var dfd = $.Deferred();
+
+  function getMoreFriends(friendsSoFar, urlForNextCall) {
+    console.log("getMoreFriends");
+
+    return $.get(urlForNextCall).then(function(response) {
+      if (response.data.length) {
+        for (var i = 0; i < response.data.length; i++) {
+          friendsSoFar.push(response.data[i]);
+        }
+        if (response.paging.next) {
+          return getMoreFriends(friendsSoFar, response.paging.next);
+        }
+        return friendsSoFar;
+      } else {
+        return friendsSoFar;
+      }
+    });
+  }
+
+  FB.api('/me/friends',function (response) {
+    console.log("/me/friends returned");
+    if (response && !response.error) {
+      // alert(JSON.stringify(response));
+      // if (response.data) {
+      //   for (var i = 0; i < response.data.length; i++) {
+      //     alert(response.data[i]);
+      //   }
+      // }
+
+      var friendsSoFar = response.data;
+      if (response.data.length && response.paging.next) {
+        getMoreFriends(friendsSoFar, response.paging.next).then(
+          dfd.resolve,
+          dfd.reject);
+      } else {
+        dfd.resolve(friendsSoFar || []);
+      }
+    } else {
+      // alert('failed to find friends');
+      dfd.reject(response);
+    }
+  });
+  return dfd.promise();
+} // end getFriends
+
+function getInfo() {
+  var dfd = $.Deferred();
+
+  FB.api('/me',function (response) {
+    console.log("/me done");
+    // {"id":"10152802017421079"
+    //   "email":"michael@bjorkegren.com"
+    //   "first_name":"Mike"
+    //   "gender":"male"
+    //   "last_name":"Bjorkegren"
+    //   "link":"https://www.facebook.com/app_scoped_user_id/10152802017421079/"
+    //   "locale":"en_US"
+    //   "name":"Mike Bjorkegren"
+    //   "timezone":-7
+    //   "updated_time":"2014-07-03T06:38:02+0000"
+    //   "verified":true}
+
+    if (response && !response.error) {
+      // alert(JSON.stringify(response));
+      // if (response.data) {
+      //   for (var i = 0; i < response.data.length; i++) {
+      //     alert(response.data[i]);
+      //   }
+      // }
+      dfd.resolve(response);
+    } else {
+      // alert('failed to find data');
+      dfd.reject(response);
+    }
+  });
+  return dfd.promise();
+} // end getInfo
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 var ModelView = Handlebones.ModelView;
 
   module.exports = ModelView.extend({
@@ -117,149 +227,90 @@ var ModelView = Handlebones.ModelView;
     }
     return errors;
   },
-  facebookButtonClicked: function() {
-    // FB.getLoginStatus(function(response) {
-    //   if (response.status === 'connected') {
-    //     alert(1);
-    //     console.log('Logged in.');
-    //   }
-    //   else {
+  onFbLoginOk: function(response) {
+    var that = this;
+    console.log("onFbLoginOk");
+    console.dir(response);
+    $.when(
+      getInfo(),
+      getFriends()).then(function(fb_public_profile, friendsData) {
 
+        // alert(JSON.stringify(friendsData));
+        console.log("got info and friends");
 
-      function getFriends() {
-        var dfd = $.Deferred();
-
-        function getMoreFriends(friendsSoFar, urlForNextCall) {
-          return $.get(urlForNextCall).then(function(response) {
-            if (response.data.length) {
-              for (var i = 0; i < response.data.length; i++) {
-                friendsSoFar.push(response.data[i]);
-              }
-              if (response.paging.next) {
-                return getMoreFriends(friendsSoFar, response.paging.next);
-              }
-              return friendsSoFar;
-            } else {
-              return friendsSoFar;
-            }
-          });
+        var data = {
+            // fb_user_id: FB.getUserID(),
+            // fb_login_status: FB.getLoginStatus(),
+            // fb_auth_response: JSON.stringify(FB.getAuthResponse()),
+            // fb_access_token: FB.getAccessToken(),
+            fb_public_profile: JSON.stringify(fb_public_profile),
+            fb_friends_response: JSON.stringify(friendsData),
+            response: JSON.stringify(response)
+        };
+        if (fb_public_profile.email) {
+          data.fb_email = fb_public_profile.email;
+        } else {
+          data.provided_email = prompt("Please enter your email address.");
+        }
+        var hname = [fb_public_profile.first_name, fb_public_profile.last_name].join(" ");
+        if (hname.length) {
+          data.hname = hname;
+        }
+        if (response && response.authResponse && response.authResponse.grantedScopes) {
+          data.fb_granted_scopes = response.authResponse.grantedScopes;
         }
 
-        FB.api('/me/friends',function (response) {
-          if (response && !response.error) {
-            // alert(JSON.stringify(response));
-            // if (response.data) {
-            //   for (var i = 0; i < response.data.length; i++) {
-            //     alert(response.data[i]);
-            //   }
-            // }
-
-            var friendsSoFar = response.data;
-            if (response.data.length && response.paging.next) {
-              getMoreFriends(friendsSoFar, response.paging.next).then(
-                dfd.resolve,
-                dfd.reject);
-            }
+        $.ajax({
+          url: "/api/v3/auth/facebook",
+          contentType: "application/json; charset=utf-8",
+          headers: {
+              //"Cache-Control": "no-cache"  // no-cache
+              "Cache-Control": "max-age=0"
+          },
+          xhrFields: {
+              withCredentials: true
+          },
+          // crossDomain: true,
+          dataType: "json",
+          data: JSON.stringify(data),
+          type: "POST"
+        }).then(function() {
+          that.trigger("authenticated");
+          gaEvent("Session", "create", "signIn");
+        }, function(err) {
+          console.dir(err);
+          if (err.responseText && /polis_err_user_with_this_email_exists/.test(err.responseText)) {
+            alert("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. For now, please sign in with your email and password.");
           } else {
-            // alert('failed to find friends');
-            dfd.reject(response);
+            alert(err.responseText);
           }
         });
-        return dfd.promise();
-      }
-      function getInfo() {
-        var dfd = $.Deferred();
 
-        FB.api('/me',function (response) {
-
-          // {"id":"10152802017421079"
-          //   "email":"michael@bjorkegren.com"
-          //   "first_name":"Mike"
-          //   "gender":"male"
-          //   "last_name":"Bjorkegren"
-          //   "link":"https://www.facebook.com/app_scoped_user_id/10152802017421079/"
-          //   "locale":"en_US"
-          //   "name":"Mike Bjorkegren"
-          //   "timezone":-7
-          //   "updated_time":"2014-07-03T06:38:02+0000"
-          //   "verified":true}
-
-          if (response && !response.error) {
-            // alert(JSON.stringify(response));
-            // if (response.data) {
-            //   for (var i = 0; i < response.data.length; i++) {
-            //     alert(response.data[i]);
-            //   }
-            // }
-            dfd.resolve(response);
-          } else {
-            // alert('failed to find data');
-            dfd.reject(response);
-          }
+        // alert(JSON.stringify(response));
+        // getFriends();
+    }, function(err) {
+      console.error(err);
+      console.dir(arguments);
+    });
+  }, // end onFbLoginOk
+  facebookButtonClicked: function() {
+    var that = this;
+    FB.getLoginStatus(function(x) {
+      if (x.status === "connected") {
+        that.onFbLoginOk(x);
+      } else {
+        FB.login(_.bind(onFbLoginOk, that), {
+          return_scopes: true, // response should contain the scopes the user allowed
+          scope: [
+            // 'taggable_friends', // requires review.
+            // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
+            'public_profile',
+            'user_friends',
+            'email'
+          ].join(',')
         });
-        return dfd.promise();
       }
-
-//https://graph.facebook.com/v2.1/10152802017421079/friends?access_token=CAAJZANu53gpEBAJzmrKzNZCu812nPia7pr47z2aKM74DG5567S02lwyJrZAGSubqzstj9itkvx45FN4bKSQfCZB9rZBfWCwJY40sC7H0hK3rIyno4sX0L0FOoYl0KBHtl2hOI7hwatnujahooNLPTDHBFuVoDlLnEQa0Ln3xemkGlZAoEhfFyUvePrQqQyY1oH1KgvTPeMOVXrZB1kqZBu5E6W8ZC8fAmMJQZD&limit=5000&offset=5000&__after_id=enc_Aey5scmiSEQup9MDgY71iuvgmZFvkaw93AvYWftT7uS3KIgTi1sn2qDz9TqcHOiYcG0
-
-
-
-
-          FB.login(function(response) {
-            // alert(JSON.stringify(response));
-
-            // console.dir(response);
-            $.when(
-              getInfo(),
-              getFriends()).then(function(fb_public_profile, friendsData) {
-
-              // alert(JSON.stringify(friendsData));
-
-              $.ajax({
-                url: "/api/v3/facebookAuthClicked",
-                contentType: "application/json; charset=utf-8",
-                headers: {
-                    //"Cache-Control": "no-cache"  // no-cache
-                    "Cache-Control": "max-age=0"
-                },
-                xhrFields: {
-                    withCredentials: true
-                },
-                // crossDomain: true,
-                dataType: "json",
-                data: JSON.stringify({
-                  // fb_user_id: FB.getUserID(),
-                  // fb_login_status: FB.getLoginStatus(),
-                  // fb_auth_response: JSON.stringify(FB.getAuthResponse()),
-                  // fb_access_token: FB.getAccessToken(),
-                  fb_public_profile: JSON.stringify(fb_public_profile),
-                  fb_friends_response: JSON.stringify(friendsData),
-                  fb_granted_scopes: response && response.authResponse && response.authResponse.grantedScopes,
-                  response: JSON.stringify(response)
-                }),
-                type: "POST"
-              }).then(function() {
-                alert("thanks :)");
-              }, function(err) {
-                alert("eek! there was an error");
-                console.dir(err);
-              });
-
-              // alert(JSON.stringify(response));
-              // getFriends();
-            }, {
-              return_scopes: true, // response should contain the scopes the user allowed
-              scope: [
-                // 'taggable_friends', // requires review.
-                // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
-                'public_profile',
-                'user_friends',
-                'email'
-              ].join(',')
-            });
-
-        });
-      // }
+    });
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
