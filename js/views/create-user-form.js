@@ -136,6 +136,7 @@ var ModelView = Handlebones.ModelView;
       "click .gotoSignIn": "gotoSignIn",
       "click .gotoCreate": "gotoCreate",
       "click .facebook-button": "facebookButtonClicked",
+      "click #connectFb": "facebookButtonClicked",
       "submit form": function(event){
         if (this.model.get("create")) {
           return this.createUser.call(this, event);
@@ -227,7 +228,7 @@ var ModelView = Handlebones.ModelView;
     }
     return errors;
   },
-  onFbLoginOk: function(response) {
+  onFbLoginOk: function(response, optionalPassword) {
     var that = this;
     console.log("onFbLoginOk");
     console.dir(response);
@@ -259,6 +260,9 @@ var ModelView = Handlebones.ModelView;
         if (response && response.authResponse && response.authResponse.grantedScopes) {
           data.fb_granted_scopes = response.authResponse.grantedScopes;
         }
+        if (optionalPassword) {
+          data.password = optionalPassword;
+        }
 
         $.ajax({
           url: "/api/v3/auth/facebook",
@@ -280,7 +284,13 @@ var ModelView = Handlebones.ModelView;
         }, function(err) {
           console.dir(err);
           if (err.responseText && /polis_err_user_with_this_email_exists/.test(err.responseText)) {
-            alert("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. For now, please sign in with your email and password.");
+            // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
+            // that.linkMode = true;
+            that.model.set({
+              create: false, // don't show create account stuff, account exists.
+              linkMode: true,
+              email: data.fb_email,
+            });
           } else {
             alert(err.responseText);
           }
@@ -295,20 +305,26 @@ var ModelView = Handlebones.ModelView;
   }, // end onFbLoginOk
   facebookButtonClicked: function() {
     var that = this;
+    // second time, user may have populated password field in reponse to "polis_err_user_with_this_email_exists" error
+    var password = this.$("#password").val() || void 0;
+
     FB.getLoginStatus(function(x) {
       if (x.status === "connected") {
-        that.onFbLoginOk(x);
+        that.onFbLoginOk(x, password);
       } else {
-        FB.login(_.bind(onFbLoginOk, that), {
-          return_scopes: true, // response should contain the scopes the user allowed
-          scope: [
-            // 'taggable_friends', // requires review.
-            // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
-            'public_profile',
-            'user_friends',
-            'email'
-          ].join(',')
-        });
+        FB.login(
+          function(x) {
+            return that.onFbLoginOk(x, password);
+          }, {
+            return_scopes: true, // response should contain the scopes the user allowed
+            scope: [
+              // 'taggable_friends', // requires review.
+              // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
+              'public_profile',
+              'user_friends',
+              'email'
+            ].join(',')
+          });
       }
     });
   },
@@ -321,7 +337,7 @@ var ModelView = Handlebones.ModelView;
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.authStyleHeader = true;
     var that = this;
-    this.fb = true;
+    this.fb = !this.model.get("showEmailWelcome");
     // this.model = options.model;
     this.listenTo(this, "render", function() {
       var email = that.model.get("email");
