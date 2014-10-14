@@ -3769,6 +3769,11 @@ function(req, res) {
                             }, fbUserRecord)).then(function() {
                                 var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
                                 return friendsAddedPromise.then(function() {
+                                    return startSessionAndAddCookies(req, res, uid).then(function() {
+                                        return user;
+                                    });
+                                })
+                                .then(function(user) {
                                     res.status(200).json({
                                         uid: user.uid,
                                         hname: user.hname,
