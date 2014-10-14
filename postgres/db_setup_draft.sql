@@ -290,6 +290,14 @@ CREATE TABLE facebook_users (
     UNIQUE(fb_user_id)
 );
 
+-- we may have duplicates, since no upsert. We should periodically remove duplicates.
+-- there may also be duplicates in the reverse direction
+-- or we may have a one-way mapping because one user signed on before their friend.
+CREATE TABLE facebook_friends (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    friend INTEGER NOT NULL REFERENCES users(uid)
+    -- UNIQUE(uid, friend)
+);
 
 -- the use-case for this table is that there are many conversations, but a single grading callback for the whole course
 -- allowing for duplicates (for now) by using 'created' field
