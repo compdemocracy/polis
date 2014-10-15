@@ -3676,6 +3676,66 @@ function addFacebookFriends(uid, fb_friends_response) {
     ]);
 }
 
+app.get("/snapshot",
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+    var uid = req.p.uid;
+    var zid = req.p.zid;
+
+    if (uid === 125 || uid === 186 || uid === 302) {
+        // is polis developer
+    } else {
+        fail(res, 403, "polis_err_permissions");
+    }
+
+    pgQuery(
+        "insert into conversations (topic, description, link_url, owner, modified, created, participant_count) "+ 
+        "(select '(SNAPSHOT) ' || topic, description, link_url, $2, now_as_millis(), created, participant_count from conversations where zid = $1) returning *;", [
+        zid,
+        uid,
+    ], function(err, result) {
+        if (err) {
+            fail(res, 500, "polis_err_cloning_conversation", err);
+        }
+        // console.dir(rows);
+        var conv = result.rows[0];
+
+        // var conv = rows[0];
+        var newZid = conv.zid;
+        return pgQueryP(
+            "insert into participants (pid, zid, uid, created) "+ 
+            "select pid, ($2), uid, created from participants where zid = ($1);", [
+            zid,
+            newZid,
+        ]).then(function() {
+            return pgQueryP(
+                "insert into comments (pid, tid, zid, txt, velocity, mod, active, created) "+ 
+                "select pid, tid, ($2), txt, velocity, mod, active, created from comments where zid = ($1);", [
+                zid,
+                newZid,
+            ]).then(function() {
+                return pgQueryP(
+                    "insert into votes (pid, tid, zid, vote, created) "+ 
+                    "select pid, tid, ($2), vote, created from votes where zid = ($1);", [
+                    zid,
+                    newZid,
+                ]).then(function() {
+                    return generateAndRegisterZinvite(newZid, true).then(function(zinvite) {
+                        res.status(200).json({
+                            zid: newZid,
+                            zinvite: zinvite,
+                            url: getServerNameWithProtocol(req) + "/" + zinvite,
+                        });
+                    })
+                })
+            });
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_cloning_conversation_misc", err);
+        });
+    });
+});
 
 app.post("/api/v3/auth/facebook",
     // authOptional(assignToP),
