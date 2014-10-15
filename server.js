@@ -3728,8 +3728,8 @@ function(req, res) {
                             zinvite: zinvite,
                             url: getServerNameWithProtocol(req) + "/" + zinvite,
                         });
-                    })
-                })
+                    });
+                });
             });
         }).catch(function(err) {
             fail(res, 500, "polis_err_cloning_conversation_misc", err);
