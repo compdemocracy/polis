@@ -146,41 +146,7 @@ col-lg-offset-0 col-lg-12
   </div> {{! /column }}
 
 
-  <div id="voteMoreParent">
-    {{ view voteMoreView }}
-  </div>
-  <span id="vis_sibling_bottom" class="col-xs-12 col-sm-6 col-md-7 col-lg-8"
-    {{#ifEmbedded}}
-    {{#ifIos}}
-    style="max-width:270px" {{! when we're in an iframe on iOS (320 - (25*2)) to leave room for margins }}
-    {{/ifIos}}
-    {{/ifEmbedded}}
-    >
-    <div style="text-align: right">
-      <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default; display: none">
-        <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
-        Opinion Groups
-      </div>
-
-      <div class=" HeadingG" style="text-align: center; " >
-
-
-      {{!-- The blue dot is you --}}
-      {{!-- Grey dots are other participants --}}
-      {{!-- Voted similarly --}}
-      {{!-- Voted differently --}}
-
-
-        <button id="nextTutorialStepButton" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:none">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
-      </div>
-
-    <div id="visualization_parent_div" style="text-align: left; visibility: hidden">
-      {{ view tutorialView }}
-      <div class="participationCount HeadingF visible-xs"></div>
-      <div id="visualization_div" class="vis_container" style="display:none"></div>
-      <div class="participationCount HeadingF hidden-xs"></div>
-    </div> {{! /visualization_parent_div }}
-  </span> {{! /vis_sibling_bottom }}
+  <span id="right_panel" class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
 
     <div
       id="write_hints_div"
@@ -191,11 +157,11 @@ col-lg-offset-0 col-lg-12
 
       "
       class="
-        col-xs-10 
-        col-sm-6
+        {{!-- col-xs-10  --}}
+        {{!-- col-sm-6 --}}
         col-md-offset-1
-        col-md-6
-        col-lg-7
+        col-md-10
+        {{!-- col-lg-7 --}}
         hidden-xs
       ">
 
@@ -225,7 +191,46 @@ col-lg-offset-0 col-lg-12
       <p class="write-hint-pane"> Anonymity varies in pol.is from conversation to conversation. Commenting is anonymous, unless you reveal anything that can be used to deanonymize you. Your voting patterns can also be used to deanonymize you in certain circumstances, given the content of other comments. For more information, please see our <a href="/privacy" class="write-hint-pane">Privacy Policy</a>.</p>
 
 
+    </div>{{! /write_hints_div }}
+
+  <div id="vis_sibling_bottom"
+    {{#ifEmbedded}}
+    {{#ifIos}}
+    style="max-width:270px" {{! when we're in an iframe on iOS (320 - (25*2)) to leave room for margins }}
+    {{/ifIos}}
+    {{/ifEmbedded}}
+    >
+    <div id="voteMoreParent">
+      {{ view voteMoreView }}
     </div>
+    <div style="text-align: right">
+      <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default; display: none">
+        <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
+        Opinion Groups
+      </div>
+
+      <div class=" HeadingG" style="text-align: center; " >
+
+
+      {{!-- The blue dot is you --}}
+      {{!-- Grey dots are other participants --}}
+      {{!-- Voted similarly --}}
+      {{!-- Voted differently --}}
+
+
+        <button id="nextTutorialStepButton" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:none">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
+      </div>
+
+    <div id="visualization_parent_div" style="text-align: left; visibility: hidden">
+      {{ view tutorialView }}
+      <div class="participationCount HeadingF visible-xs"></div>
+      <div id="visualization_div" class="vis_container" style="display:none"></div>
+      <div class="participationCount HeadingF hidden-xs"></div>
+    </div> {{! /visualization_parent_div }}
+  </div> {{! /vis_sibling_bottom }}
+
+    
+  </span> {{! /right_panel }}
 
 </div> {{! /fake container}}
 </div> {{! /row }}

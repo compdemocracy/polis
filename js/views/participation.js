@@ -363,7 +363,7 @@ module.exports =  ConversationView.extend({
         var visMode = that.visModeModel.get("visMode");
         if (visMode === VIS_MODE_VIS) {
           // that.vis.hideHintVoteMoreBlocker();
-          $("#voteMoreParent").fadeOut();
+          $("#voteMoreParent").hide();
           $("#visualization_parent_div").css("visibility", "visible");
           $("#visualization_parent_div").css("display", "block");
           $("#visualization_div").css("display", "block");
@@ -373,7 +373,7 @@ module.exports =  ConversationView.extend({
         }
         if (visMode === VIS_MODE_WAITING) {
           that.tutorialModel.set("visible", false);
-          $("#voteMoreParent").fadeOut();
+          $("#voteMoreParent").hide();
           $("#visualization_parent_div").fadeOut();
           // hide others
         }
