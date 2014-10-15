@@ -292,9 +292,7 @@ var ModelView = Handlebones.ModelView;
               email: data.fb_email,
             });
           } else {
-            alert("unknown error");
-            alert(JSON.stringify(err));
-            alert(err.responseText);
+            alert("error logging in with Facebook");
           }
         });
 
