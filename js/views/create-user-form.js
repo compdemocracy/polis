@@ -305,7 +305,8 @@ var ModelView = Handlebones.ModelView;
       console.dir(arguments);
     });
   }, // end onFbLoginOk
-  facebookButtonClicked: function() {
+  facebookButtonClicked: function(e) {
+    if (e.preventDefault) { e.preventDefault(); }
     var that = this;
     // second time, user may have populated password field in reponse to "polis_err_user_with_this_email_exists" error
     var password = this.$("#password").val() || void 0;
@@ -340,6 +341,7 @@ var ModelView = Handlebones.ModelView;
       // test for FB.getUserID() so we can show the prompt on the same stack, preventing the popup-blocker from showing.
       fbLoginPrompt();
     }
+    return false;
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
