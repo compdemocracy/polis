@@ -156,32 +156,31 @@ col-lg-offset-0 col-lg-12
     {{/ifIos}}
     {{/ifEmbedded}}
     >
-    <div id="visualization_parent_div" style="text-align: right">
+    <div style="text-align: right">
       <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default; display: none">
         <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
         Opinion Groups
       </div>
 
-<div class=" HeadingG" style="text-align: center; " >
+      <div class=" HeadingG" style="text-align: center; " >
 
 
-{{!-- The blue dot is you --}}
-{{!-- Grey dots are other participants --}}
-{{!-- Voted similarly --}}
-{{!-- Voted differently --}}
+      {{!-- The blue dot is you --}}
+      {{!-- Grey dots are other participants --}}
+      {{!-- Voted similarly --}}
+      {{!-- Voted differently --}}
 
 
-<button id="nextTutorialStepButton" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:none">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
-</div>
+        <button id="nextTutorialStepButton" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:none">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
+      </div>
 
     <div id="visualization_parent_div" style="text-align: left; visibility: hidden">
       {{ view tutorialView }}
       <div class="participationCount HeadingF visible-xs"></div>
-      <div id="visualization_div" class="vis_container" style="display:none">
-      </div>
+      <div id="visualization_div" class="vis_container" style="display:none"></div>
       <div class="participationCount HeadingF hidden-xs"></div>
     </div> {{! /visualization_parent_div }}
-  </span>
+  </span> {{! /vis_sibling_bottom }}
 
     <div
       id="write_hints_div"

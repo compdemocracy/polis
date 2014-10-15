@@ -365,6 +365,7 @@ module.exports =  ConversationView.extend({
           // that.vis.hideHintVoteMoreBlocker();
           $("#voteMoreParent").fadeOut();
           $("#visualization_parent_div").css("visibility", "visible");
+          $("#visualization_parent_div").css("display", "block");
           $("#visualization_div").css("display", "block");
           $("#visualization_parent_div").fadeIn();
           that.tutorialModel.set("visible", true);
