@@ -1,5 +1,6 @@
 (ns polismath.conv-man
   (:require [polismath.queued-agent :as qa]
+            [polismath.named-matrix :as nm]
             [polismath.conversation :as conv]
             [polismath.metrics :as met]
             [polismath.utils :refer :all]
@@ -61,12 +62,11 @@
                    db)
                  (let [conn (mg/connect)
                        db (mg/get-db conn "local-db")]
-                   db))
-            ; When we set up the database connection, make sure indexs are set up
-            bidtopid (mongo-collection-name "bidtopid")
-            main (mongo-collection-name "main")]
-        (mc/ensure-index db bidtopid (array-map :zid 1) {:name (str bidtopid "_zid_index") :unique true})
-        (mc/ensure-index db main (array-map :zid 1) {:name (str main "_zid_index") :unique true})
+                   db))]
+        ; Create indices, in case they don't exist
+        (doseq [c ["bidtopid" "main" "cache"]]
+          (let [c (mongo-collection-name c)]
+            (mc/ensure-index db c (array-map :zid 1) {:name (str c "_zid_index") :unique true})))
         ; make sure to return db
         db))))
 
@@ -179,11 +179,10 @@
         (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
         (handle-profile-data updated-conv)
         ; Format and upload main results
-        (->> (format-for-mongo prep-main updated-conv last-timestamp)
-          (mongo-upsert-results (mongo-collection-name "main")))
-        ; format and upload bidtopid results
-        (->> (format-for-mongo prep-bidToPid updated-conv last-timestamp)
-          (mongo-upsert-results (mongo-collection-name "bidtopid")))
+        (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
+                                    ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
+          (->> (format-for-mongo prep-fn updated-conv last-timestamp)
+               (mongo-upsert-results (mongo-collection-name col-name))))
         (log/info "Finished uploading mongo results for zid" zid)
         ; Return the updated conv
         updated-conv)
@@ -194,6 +193,14 @@
         ; Wait a second before returning the origin, unmodified conv, to throttle retries
         (Thread/sleep 1000)
         conv))))
+
+
+;(defmacro try-with-error-log
+  ;[zid message & body]
+  ;`(try
+     ;~@body
+     ;(catch
+       ;(log/error ~message (str "(for zid=" ~zid ")")))))
 
 
 (defn build-update-error-handler
@@ -229,14 +236,31 @@
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
 
+(defn load-or-init
+  "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
+  [zid]
+  (if-let [conv (mc/find-one-as-map
+                  (mongo-db (env/env :mongolab-uri))
+                  (mongo-collection-name "main")
+                  {:zid zid})]
+    (-> conv
+        (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts})
+        ; Make sure there is an empty named matrix to operate on
+        (assoc :rating-mat (nm/named-matrix))
+        ; Make sure in-conv is a set
+        (update-in [:in-conv] set))
+    (assoc (conv/new-conv) :zid zid)))
+
+
 (defn new-conv-agent-builder
   "Given an update function, creates a function which returns a queued agent with the given update function.
   This eases some of the flow logic for using the queued agents in the stormspec"
-  [update-fn]
+  [zid]
   (fn []
     (qa/queued-agent
       :update-fn update-fn
-      :init-fn conv/new-conv
-      :error-handler-builder build-update-error-handler)))
+      :init-fn   (partial load-or-init zid)
+      :error-handler-builder
+                 build-update-error-handler)))
 
 

@@ -61,12 +61,13 @@
 
 (defbolt conv-update-bolt [] {:prepare true}
   [conf context collector]
-  (let [conv-agency (atom {})]
+  (let [conv-agency (atom {})] ; collection of convs (conv-agents)
     (bolt
       (execute [tuple]
         (let [[zid last-timestamp rxns] (.getValues tuple)
-              conv-agent (->> cm/update-fn
-                              (cm/new-conv-agent-builder)
+              ; First construct a new conversation builder. Then either find a conversation, or call that
+              ; builder in conv-agency
+              conv-agent (->> (cm/new-conv-agent-builder zid)
                               (cm/get-or-set! conv-agency zid))]
           (qa/enqueue conv-agent {:last-timestamp last-timestamp :reactions rxns})
           ; This just triggers the :update-watcher in case new votes are pending and nothing is running
