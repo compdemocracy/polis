@@ -46,7 +46,8 @@ module.exports = Handlebones.ModelView.extend({
     var serverClient = options.serverClient;
     var votesByMe = options.votesByMe;
     var votesByMeFetched = $.Deferred();
-
+    this.conversationModel = options.conversationModel;
+    
     var is_public = options.is_public;
     var conversation_id = this.conversation_id = options.conversation_id;
     var pid = this.pid = options.pid;
@@ -85,7 +86,7 @@ module.exports = Handlebones.ModelView.extend({
       }
       var promise = optionalPromiseForPreExisingNextCommentCall || serverClient.getNextComment(params);
       promise.then(function(c) {
-        if (!that.parent.model.get("is_active")) {
+        if (!that.conversationModel.get("is_active")) {
           showClosedConversationNotice();
         } else if (c && c.txt) {
           showComment(c);

@@ -140,6 +140,7 @@ module.exports =  ConversationView.extend({
       firstCommentPromise: options.firstCommentPromise,
       serverClient: serverClient,
       model: new CommentModel(),
+      conversationModel: this.model,
       votesByMe: this.votesByMe,
       is_public: Utils.isShortConversationId(this.conversation_id),
       pid: pid,
@@ -418,6 +419,7 @@ module.exports =  ConversationView.extend({
 
       this.commentForm = this.addChild(new CommentFormView({
         pid: pid,
+        conversationModel: this.model,
         collection: this.commentsByMe,
         conversation_id: conversation_id
       }));
