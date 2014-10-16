@@ -4,6 +4,7 @@
             [polismath.queued-agent :as qa]
             [polismath.conv-man :as cm]
             [polismath.db :as db]
+            [clojure.core.matrix :as ccm]
             [environ.core :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]]
@@ -13,6 +14,12 @@
         polismath.utils
         polismath.conversation)
   (:gen-class))
+
+
+; XXX - storm hack. Solves issue where one process or thread has started loading vectorz, but the other
+; doesn't know to wait (at least this is what seems to be the case)
+(ccm/set-current-implementation :vectorz)
+(ccm/matrix [[1 2 3] [4 5 6]])
 
 
 (defspout sim-reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
