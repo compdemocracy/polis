@@ -316,8 +316,21 @@ svg {
   float: right;
 }
 
+#carousel {
+  overflow: hidden;
+}
+
+/* mobile */
+@media (max-width: 767px) {
+
+  #carousel {
+    overflow: visible;
+  }
+
+}
+
 /* Everything but mobile */
-@media (min-width: 767px) {
+@media (min-width: 768px) {
 
 
   #opinion_groups_label {

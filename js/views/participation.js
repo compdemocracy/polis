@@ -234,13 +234,17 @@ module.exports =  ConversationView.extend({
 
 
       var w = $("#visualization_div").width();
+      var xOffset = 30;
       if (isIE8) {
         w = 500;
-        $("#visualization_div").width(w);
+        // $("#visualization_div").width(w);
       }
-      var xOffset = display.xs() ? 0 : 30;
+      if (display.xs()) {
+        xOffset = 0;
+        w = $(document.body).width() - 30;
+      }
       var h = w/2;
-      $("#visualization_div").height(h);
+      // $("#visualization_div").height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
       vis = that.vis = new VisView({
           inVisLegendCounter: that.inVisLegendCounter,
