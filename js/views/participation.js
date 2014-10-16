@@ -157,6 +157,12 @@ module.exports =  ConversationView.extend({
       }
     });
 
+    eb.on(eb.deselectGroups, function() {
+      if (that.vis) {
+        that.vis.deselect();
+      }
+    });
+    
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
       if (gid === -1) {

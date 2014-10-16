@@ -61,6 +61,8 @@ module.exports = Handlebones.ModelView.extend({
     this.model.set("step", this.findNext());
   },
   resetTutorial: function() {
+    initSeen();
+    eb.trigger(eb.deselectGroups);
     this.model.set({
       section: "A",
       step: 1
