@@ -1,14 +1,127 @@
 {{> top}}
-{{> header}}
+
+<body>
 
 <script>
-  ga('send', 'event', 'Lander', 'land', 'general');
+function setCookie(cname,cvalue,exdays) {
+		var d = new Date();
+		d.setTime(d.getTime()+(exdays*24*60*60*1000));
+		var expires = "expires="+d.toGMTString();
+		document.cookie = cname + "=" + cvalue + "; " + expires;
+}
+
+function getCookie(cname) {
+		var name = cname + "=";
+		var ca = document.cookie.split(';');
+		for(var i=0; i<ca.length; i++)
+			{
+			var c = ca[i].trim();
+			if (c.indexOf(name)==0) return c.substring(name.length,c.length);
+		}
+		return "";
+}
+if (!getCookie("ref")) {
+		setCookie("ref", document.referrer, 365);
+}
+
+$(document).ready(function() {
+	if (getCookie("uid2")) {
+		$(".ifNoAuth").hide();
+	} else {
+		$(".ifAuth").hide();
+	}
+});
+</script>
+
+
+<!-- facebook code for share link -->
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+var js, fjs = d.getElementsByTagName(s)[0];
+if (d.getElementById(id)) return;
+js = d.createElement(s); js.id = id;
+js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=328354915742&version=v2.0";
+fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+<section class="hero">
+	<div class="container">
+		<header class="hero-header navbar" role="navigation">
+			<div class="navbar-header">
+				<button type="button" class="navbar-toggle" style="padding: 3px 10px;" data-toggle="collapse" data-target=".navbar-collapse">
+					<span class="sr-only">Toggle navigation</span>
+					<span class="fa fa-bars" style="position: relative; top: 2px"></span>
+				</button>
+				<a id="polisLogo"
+					class="Logo{{#if authStyleHeader}}text-center{{/if}}"
+					href="{{logo_href}}">
+					<img
+						src="https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&format=png&w=600&h=208">
+				</a>
+			</div>
+
+			<div class="navbar-collapse collapse">
+				<ul class="primaryNav navbar-nav">
+					<li class="ifNoAuth">
+						<a class="navIcon icon--login" href="/user/login">Login</a>
+					</li>
+					<li class="ifAuth">
+						<a class="navIcon icon--inbox" href="/inbox">Inbox</a>
+					</li>
+					<li class="ifAuth">
+						<a class="navIcon icon--settings" href="/settings">Settings</a>
+					</li>
+					<li class="ifAuth">
+						<a class="navIcon icon--signout" href="/user/logout">Signout</a>
+					</li>
+				</ul>
+			</div>
+		</header>
+		<h1 class="hero-heading">
+			Class discussions <br>
+			worthy <em>of</em> your students <br>
+			and <em>of</em> your university’s mission.
+		</h1>
+		<div class="row">
+			<div class="col-sm-4 col-xs-12">
+				<div class="spot">
+					<p class="spot-text">
+						<span class="smallcaps">In class</span><br>
+						<em>or</em><br>
+						<span class="smallcaps">online</span>
+					</p>
+				</div>
+			</div>
+			<div class="col-sm-4 col-xs-12">
+				<div class="spot">
+					<p class="spot-text">
+						classes<br>
+						<em>of</em><br>
+						<span class="smallcaps">any size</span>
+					</p>
+				</div>
+			</div>
+			<div class="col-sm-4 col-xs-12">
+				<ul class="spotList">
+					<li><span class="smallcaps">No</span> discussion threads</li>
+					<li><span class="smallcaps">No</span> multiple choice</li>
+					<li><span class="smallcaps">No</span> expensive devices</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</section>
+
+
+<script>
+	ga('send', 'event', 'Lander', 'land', 'general');
 
 
 $(document).ready(function() {
 	$("form").submit(function(e){
 		e.preventDefault();
-        e.stopPropagation();
+				e.stopPropagation();
 		var email = $(this).find('#startconvo_email').val();
 
 		if (!email) {
@@ -22,69 +135,59 @@ $(document).ready(function() {
 		var localhost8000 = "http://localhost:8000/";
 		var urlPrefix = prod;
 		if (document.domain.indexOf("preprod") >= 0) {
-		    urlPrefix = preprod;
+				urlPrefix = preprod;
 		}
 		if (document.domain.indexOf("embed") >= 0) {
-		    urlPrefix = embed;
+				urlPrefix = embed;
 		}
 		if (-1 === document.domain.indexOf("pol.is")) {
-		    urlPrefix = localhost;
+				urlPrefix = localhost;
 		}
 		if (document.domain === "localhost" && document.location.port === "8000") {
 			urlPrefix = localhost8000;
 		}
 
-        $.ajax({
-          type: "POST",
-          url: urlPrefix + "api/v3/einvites",
-          contentType: "application/json; charset=utf-8",
-          headers: {
-              //"Cache-Control": "no-cache"  // no-cache
-              "Cache-Control": "max-age=0"
-          },
-          xhrFields: {
-              withCredentials: true
-          },
-          crossDomain: true,
-          dataType: "json",
-          data: JSON.stringify({
-            email: email
-          })
-        }).done(function( data ) {
-            $("form").html('<div>' +
-    '<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' +
-    '<p> ' +
-      '<strong> Welcome! </strong> We\'ve emailed you a confirmation. Follow the link provided in the email to verify your account.' +
-    '</p>' +
-    '</div>' +
+				$.ajax({
+					type: "POST",
+					url: urlPrefix + "api/v3/einvites",
+					contentType: "application/json; charset=utf-8",
+					headers: {
+							//"Cache-Control": "no-cache"	// no-cache
+							"Cache-Control": "max-age=0"
+					},
+					xhrFields: {
+							withCredentials: true
+					},
+					crossDomain: true,
+					dataType: "json",
+					data: JSON.stringify({
+						email: email
+					})
+				}).done(function( data ) {
+						$("form").html('<div>' +
+		'<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' +
+		'<p> ' +
+			'<strong> Welcome! </strong> We\'ve emailed you a confirmation. Follow the link provided in the email to verify your account.' +
+		'</p>' +
+		'</div>' +
 '</div>');
-     ga("send", "event", "SignUp", "emailSubmitted", "general");
-        }).fail(function(){
-            ga("send", "event", "SignUp", "emailSubmitFail");
-            $(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
-        });
-        return false;
+		 ga("send", "event", "SignUp", "emailSubmitted", "general");
+				}).fail(function(){
+						ga("send", "event", "SignUp", "emailSubmitFail");
+						$(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
+				});
+				return false;
 })
 });
 </script>
-		  <div class="Notification Notification--positive text-center" style="border-radius: 0px; margin-bottom: 0px; padding: 20px 0px;">
-		      <h3 style="display: inline; margin-right: 15px; " > <i class="fa fa-university"></i>&nbsp; .edu? Check out pol.is for professors </h3> <a href="/professors" class="Btn Btn-alt">Go</a>
-		  </div>
-{{!-- <div style="
-  background: url('https://s3.amazonaws.com/ooomf-com-files/2EsHHwmRswlLYnaG07Ew_paris-motionbug.com.jpg') no-repeat center center fixed;
-  -webkit-background-size: cover;
-  -moz-background-size: cover;
-  -o-background-size: cover;
-  background-size: cover;
-  background-position-y: -200px;
-"> --}}
+
 <div style="background-color: rgba(255,255,255,0.8)">
 	<div class="row video_section custom_container_for_large_screens" >
 		<div class="col-lg-6 col-md-5 col-sm-6 col-sm-offset-1 col-xs-10 col-xs-offset-1" style="padding-left: 0px">
 			<div class="row" >
 				<div class="col-lg-6 col-md-8 col-sm-10 col-xs-12">
-					<h1 class="lander-title HeadingL">Your decisions matter.</h1>
-					<h3 style="margin-bottom: 30px;  line-height: 1.3em" class="text-center-mobile HeadingG">Get clear feedback from large groups effortlessly.</h3>
+					<h1 class="lander-title HeadingL">Classrooms</h1>
+					<h3 style="margin-bottom: 30px;	line-height: 1.3em" class="text-center-mobile HeadingG">Get clear feedback from large groups effortlessly.</h3>
 				</div>
 			</div>
 			<div class="row">
@@ -114,21 +217,21 @@ $(document).ready(function() {
 		</div>
 		<div class="col-lg-4 col-xs-10 col-xs-offset-1 col-md-5 col-sm-4 col-sm-offset-0 wistia_embed_border">
 			<div>
-	      <iframe src="//fast.wistia.net/embed/iframe/uthtzqaq3x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400" ></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+				<iframe src="//fast.wistia.net/embed/iframe/uthtzqaq3x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400" ></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
 			</div>
 		</div>
 
 		<script src="https://fast.wistia.net/static/embed_shepherd-v1.js"></script>
 		<script>
-		  wistiaEmbeds.onFind(function(video){
-		    video.bind("play", function(){
-		      ga('send', 'event', 'Video', 'Play', video.name());
-		      return this.unbind;
-		    }).bind("end", function(){
-		      ga('send', 'event', 'Video', 'Complete', video.name());
-		      return this.unbind;
-		    });
-		  });
+			wistiaEmbeds.onFind(function(video){
+				video.bind("play", function(){
+					ga('send', 'event', 'Video', 'Play', video.name());
+					return this.unbind;
+				}).bind("end", function(){
+					ga('send', 'event', 'Video', 'Complete', video.name());
+					return this.unbind;
+				});
+			});
 		</script>
 
 	</div>
@@ -160,7 +263,7 @@ $(document).ready(function() {
 			<p class="explore_demo_link HeadingH"><a href="/demo/2demo" target="_blank">Explore the Seattle Minimum Wage conversation</a></p>
 		</div>
 		<div class="col-sm-5 col-sm-offset-1 col-xs-offset-1 col-xs-10 video">
-        <img src="landerImages/Screenshot_2014_08_13_04.30.03.png" width="100%" />
+				<img src="landerImages/Screenshot_2014_08_13_04.30.03.png" width="100%" />
 		</div>
 	</div>
 
@@ -200,7 +303,7 @@ $(document).ready(function() {
 			<p class="explore_demo_link HeadingH"><a href="/demo/2demo" target="_blank">Explore the Seattle Minimum Wage conversation</a></p>
 		</div>
 		<div class="col-sm-5 col-sm-offset-1 video col-xs-offset-1 col-xs-10">
-      <img src="landerImages/Screenshot_2014_08_13_04.25.38.png" width="100%" />
+			<img src="landerImages/Screenshot_2014_08_13_04.25.38.png" width="100%" />
 		</div>
 	</div>
 
@@ -214,18 +317,18 @@ $(document).ready(function() {
 	<div class="row video_section custom_container_for_large_screens" >
 		<div class="col-md-4 col-md-offset-2 col-sm-5 col-xs-10 col-xs-offset-1">
 			<div class="panel panel-default">
-			  <!-- Default panel contents -->
-			  <div class="panel-heading" style="background-color: white; font-family:brandon-grotesque "><h4 class="HeadingB" style="padding-top:10px"> Individual License </h4></div>
-			  <!-- List group -->
-			  <ul class="list-group">
-			    <li class="list-group-item"><i class="fa fa-check" style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Conversations</li>
-			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Participants</li>
-			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;API</li>
-			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Moderation Tools</li>
-			    <li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Hands On Customer Support</li>
-			    <li class="list-group-item" style="background-color: rgba(52, 152, 219,.1)"><h4 class="HeadingB" style="padding-top:10px"> $100 / month </h4></li>
+				<!-- Default panel contents -->
+				<div class="panel-heading" style="background-color: white; font-family:brandon-grotesque "><h4 class="HeadingB" style="padding-top:10px"> Individual License </h4></div>
+				<!-- List group -->
+				<ul class="list-group">
+					<li class="list-group-item"><i class="fa fa-check" style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Conversations</li>
+					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Participants</li>
+					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;API</li>
+					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Moderation Tools</li>
+					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Hands On Customer Support</li>
+					<li class="list-group-item" style="background-color: rgba(52, 152, 219,.1)"><h4 class="HeadingB" style="padding-top:10px"> $100 / month </h4></li>
 
-			  </ul>
+				</ul>
 			</div>
 		</div>
 		<div class="col-sm-5 col-sm-offset-1">

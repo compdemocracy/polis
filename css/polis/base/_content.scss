@@ -65,15 +65,15 @@
   font-weight: 700;
   font-size: 18px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;  
+  letter-spacing: 0.04em;
 }
 
 //micro caps
 .HeadingF {
   font-family: $headline-font;
   font-size: 12px;
-  text-transform: uppercase; 
-  letter-spacing: 0.04em;  
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .HeadingF--light {
@@ -115,7 +115,10 @@
 .HeadingH--dark {
   color: $dark-gray;
 }
-
-
 /**** End Lander Headings ****/
 
+.smallcaps {
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

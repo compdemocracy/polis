@@ -53,13 +53,15 @@ $default-leading: 1.5;
 $headline-font: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
 $sans-font: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
 //  alternate sans-serif (?): "Droid Sans", sans-serif;
-$serif-font: "Chaparral Pro", serif;
+$serif-font: "chaparral-pro", "Chaparral Pro", serif;
+$serif-headline-font: "chaparral-pro-display", "Chaparral Pro", serif;
 
 //
 // LAYOUT
 //
-$large-screen: 960px;
-$medium-screen: 600px;
+$lg-screen: 1200px;
+$md-screen: 992px;
+$sm-screen: 768px;
 
 // FOOTER
 $short-footer-height: 50px;

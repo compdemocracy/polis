@@ -1,0 +1,43 @@
+// MIXINS
+// Created by Ms Mix A Lot
+//
+// Icons
+
+// Icons
+// fa()           include FontAwesome
+// fa-login       icon for Login link
+// fa-inbox       icon for Inbox link
+// fa-settings    icon for Settings link
+// fa-signout     icon for Sign out link
+
+@mixin fa() {
+  display: inline-block;
+  font-family: FontAwesome;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@mixin fa-login() {
+  @include fa();
+  content: "\f090";
+}
+
+@mixin fa-inbox() {
+  @include fa();
+  content: "\f01c";
+}
+
+@mixin fa-settings() {
+  @include fa();
+  content: "\f013";
+}
+
+@mixin fa-signout() {
+  @include fa();
+  content: "\f08b";
+}
+
+// end icon mixins

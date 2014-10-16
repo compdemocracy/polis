@@ -1,14 +1,58 @@
 // NAVIGATION
-// styles for the navigation bar
+// styles for the navigation bar or nav or navbar
 //
+// .primaryNav           <ul> navigation for entire site
 
-//
-// Primary navigation
-//
-.Nav {
+.primaryNav {
   float: right;
-  margin-top: 10px;
+  padding: 10px 0 0 0;
+  list-style: none;
+  vertical-align: middle;
 
   font-family: $sans-font;
   font-size: 20px;
+  text-transform: uppercase;
+}
+
+.primaryNav > li {
+  margin-left: $default-whitespace;
+
+  &:first-child {
+    margin-left: 0;
+  }
+  a {
+    padding: 0;
+  }
+}
+
+.navIcon {
+  padding: 0;
+
+  &:before {
+    margin-right: 0.33em;
+  }
+}
+
+.icon--login {
+  &:before {
+    @include fa-login();
+  }
+}
+
+.icon--inbox {
+  &:before {
+    @include fa-inbox();
+  }
+}
+
+.icon--settings {
+  &:before {
+    @include fa-settings();
+  }
+}
+
+.icon--signout {
+  &:before {
+    @include fa-signout();
+  }
 }

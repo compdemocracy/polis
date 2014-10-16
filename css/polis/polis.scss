@@ -8,6 +8,7 @@
 @import 'base/variables';
 @import 'base/base';
 @import 'base/content';
+@import 'base/mixins';
 
 //LAYOUT
 @import 'layout/grid';
@@ -20,10 +21,12 @@
 @import 'modules/formSwitch';
 @import 'modules/intercom';
 @import 'modules/header';
+@import 'modules/hero';
 @import 'modules/legend';
 @import 'modules/lists';
 @import 'modules/navigation';
 @import 'modules/notifications';
+@import 'modules/section';
 @import 'modules/share';
 @import 'modules/toggle';
 @import 'modules/visualization';

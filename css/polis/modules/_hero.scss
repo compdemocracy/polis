@@ -1,0 +1,79 @@
+// HERO
+// The best part of the page, the winner, the gold medalist
+//
+
+.hero {
+  margin: 0;
+  padding: $default-whitespace 0;
+  width: 100%;
+
+  background: url("http://pol.is/landerImages/profBg_xlarge.jpg") top center;
+  background-size: $sm-screen;
+
+  @media screen and (min-width: $sm-screen) {
+    padding: $default-whitespace*2 $default-whitespace;
+
+    background-size: 100%;
+  }
+}
+
+.hero-heading {
+  margin: 5% 0;
+
+  color: $gray;
+  font-family: $serif-headline-font;
+  font-size: 36px;
+  font-weight: 100;
+  letter-spacing: 0;
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    font-size: 60px;
+  }
+
+  @media screen and (min-width: $md-screen) {
+    margin: 10% 0;
+
+    font-size: 72px;
+  }
+}
+
+.spotList {
+  margin: ($default-gutter + 30px) auto;
+  padding: 0;
+  list-style: none;
+
+  color: #000;
+  li {
+    margin: 0 auto;
+    text-align: center;
+  }
+}
+
+.spot {
+  margin: $default-gutter auto;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+
+  background-color: rgba(255,255,255,0.5);
+  text-align: center;
+  vertical-align: middle;
+
+  @media screen and (min-width: $sm-screen) {
+  }
+}
+
+.spot-text {
+  margin: 9px auto;
+  padding: 30px 10px;
+  width: 132px;
+  height: 132px;
+  display: inline-block;
+  border-radius: 50%;
+
+  background-color: #FFFFFF;
+  color: #000;
+  font-weight: normal;
+  line-height: 1.25em;
+}

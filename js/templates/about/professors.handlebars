@@ -1,6 +1,6 @@
 {{> top}}
 {{> header}}
-	
+
 <script>
   ga('send', 'event', 'Lander', 'land', 'edu');
 
@@ -29,7 +29,7 @@ $(document).ready(function() {
 		if (-1 === document.domain.indexOf("pol.is")) {
 		    urlPrefix = localhost;
 		}
-		if (document.domain === "localhost" && document.location.port === "8000") { 
+		if (document.domain === "localhost" && document.location.port === "8000") {
 			urlPrefix = localhost8000;
 		}
 
@@ -46,14 +46,14 @@ $(document).ready(function() {
           },
           crossDomain: true,
           dataType: "json",
-          data: JSON.stringify({ 
+          data: JSON.stringify({
             email: email
           })
         }).done(function( data ) {
           ga("send", "event", "SignUp", "emailSubmitted", "edu");
-            $("form").html('<div>' + 
-    '<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' + 
-    '<p> ' + 
+            $("form").html('<div>' +
+    '<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' +
+    '<p> ' +
       '<strong> Welcome! </strong> We\'ve emailed you a confirmation. Follow the link provided in the email to verify your account.' +
     '</p>' +
     '</div>' +
@@ -68,8 +68,8 @@ $(document).ready(function() {
 </script>
 <div style="background-color: white">
 
- 
- {{!--  background: url('http://666a658c624a3c03a6b2-25cda059d975d2f318c03e90bcf17c40.r92.cf1.rackcdn.com/unsplash_525d7892901ff_1.JPG') no-repeat center center fixed; 
+
+ {{!--  background: url('http://666a658c624a3c03a6b2-25cda059d975d2f318c03e90bcf17c40.r92.cf1.rackcdn.com/unsplash_525d7892901ff_1.JPG') no-repeat center center fixed;
   -webkit-background-size: cover;
   -moz-background-size: cover;
   -o-background-size: cover;
@@ -80,7 +80,9 @@ $(document).ready(function() {
 		<div class="col-lg-5 col-md-5 col-sm-5 col-sm-offset-1 col-xs-10 col-xs-offset-1" style="padding-left: 0px">
 			<div class="row" >
 				<div class="col-lg-10 col-md-8 col-sm-12 col-xs-12">
-					<h1 class="lander-title HeadingL">Classroom Engagement Reimagined</h1>
+					<h1 class="lander-title HeadingL">
+						Class discussions worthy <em>of</em> your students and </em>of<em> your university’s mission.
+					</h1>
 					<h3 style="margin-bottom: 30px;  line-height: 1.3em" class="text-center-mobile HeadingG">Get clear, open-ended feedback from your whole class, all at once, effortlessly. </h3> <h3 style="margin-bottom: 30px;  line-height: 1.3em" class="text-center-mobile HeadingG"> Works in class or online in minutes, with 10's, 100's, or 1000's of students.</h3> {{!-- <h3 style="margin-bottom: 30px;  line-height: 1.3em" class="text-center-mobile HeadingG"> (No, seriously, we fixed it - no more bar charts, discussion threads or clickers).</h3> --}}
 				</div>
 			</div>
@@ -101,9 +103,9 @@ $(document).ready(function() {
 							</div> -->
 							<div class="form-group">
 								<button type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg">Try pol.is for free</button>
-<!-- 								<p style="margin-top:7px"><em>10 day free trial</em></p>	
+<!-- 								<p style="margin-top:7px"><em>10 day free trial</em></p>
  -->							</div>
-						</form> 
+						</form>
 					</div>
 			</div>
 				<div class="row" id="errorDiv">
@@ -112,7 +114,7 @@ $(document).ready(function() {
 		<div class="col-lg-5 col-md-5 col-sm-5 col-sm-offset-0 col-xs-10 col-xs-offset-1 wistia_embed_border">
 			<div>
 	      <iframe src="//fast.wistia.net/embed/iframe/uthtzqaq3x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400" ></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
-			</div>     	
+			</div>
 		</div>
 		<script src="https://fast.wistia.net/static/embed_shepherd-v1.js"></script>
 		<script>
@@ -157,11 +159,11 @@ $(document).ready(function() {
 		</div>
 		<div class="col-sm-5 col-sm-offset-1 col-xs-offset-1 col-xs-10 video">
         <img src="landerImages/Screenshot_2014_08_13_04.30.03.png" width="100%" />
-		</div>	
+		</div>
 	</div>
 
 	<div class="row features_section ">
-	<div class="custom_container_for_large_screens">		
+	<div class="custom_container_for_large_screens">
 		<div class="col-sm-2 col-xs-6 feature text-center">
 			<p><i class="fa fa-group fa-3x"></i></p>
 			<h4 class="HeadingG">Bottom up</h4>
@@ -176,7 +178,7 @@ $(document).ready(function() {
 		</div>
 		<div class="col-sm-2 col-xs-6 feature text-center">
 			<p><i class="fa fa-tag fa-3x"></i></p>
-			<h4 class="HeadingG">Data for grading</h4>			
+			<h4 class="HeadingG">Data for grading</h4>
 		</div>
 		<div class="col-sm-2 col-xs-12 feature text-center">
 			<p><i class="fa fa-mobile fa-3x"></i>&nbsp;<i class="fa fa-tablet fa-3x"></i>&nbsp;<i class="fa fa-laptop fa-3x"></i>&nbsp;<i class="fa fa-desktop fa-3x"></i>&nbsp;</p>
@@ -185,7 +187,7 @@ $(document).ready(function() {
 		<div class="col-sm-2 col-xs-12 feature text-center">
 			<p><i class="fa fa-link fa-3x"></i></p>
 			<h4 class="HeadingG">Short, typeable links</h4>
-		</div>	
+		</div>
 	</div>
 	</div>
 
@@ -196,10 +198,10 @@ $(document).ready(function() {
 			<p class="explore_demo_link HeadingH"><a href="/demo/2demo" target="_blank">Explore the Seattle Minimum Wage conversation</a></p>
 		</div>
 
-	
+
 		<div class="col-sm-5 col-sm-offset-1 video col-xs-offset-1 col-xs-10">
       <img src="landerImages/Screenshot_2014_08_13_04.25.38.png" width="100%" />
-		</div>	
+		</div>
 	</div>
 	<div class="row features_section">
 		<div class="col-sm-12 text-center">
@@ -261,18 +263,15 @@ $(document).ready(function() {
 						</div> -->
 						<div class="form-group text-center-mobile">
 							<button type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg ">Try pol.is for free</button>
-							<!-- <p style="margin-top:7px" class="text-center-mobile"><em>10 day free trial</em></p>	 -->	
+							<!-- <p style="margin-top:7px" class="text-center-mobile"><em>10 day free trial</em></p>	 -->
 						</div>
-					</form> 
-				</div>	
+					</form>
+				</div>
 				<div class="row" id="errorDiv">
-				</div>					
+				</div>
 			</div>
 		</div>
 	</div>
 </div> <!--background-color-->
 
 {{> footer}}
-
-
-

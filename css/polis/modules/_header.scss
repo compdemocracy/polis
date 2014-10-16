@@ -9,7 +9,26 @@
   vertical-align: bottom;
 }
 
-.Logo, #polisLogo {
+#polisLogo {
+  position: relative;
+  left: 0;
+  top: 2px;
+  height: 30px;
+
+  img {
+    height: 100%;
+  }
+
+  @media screen and (min-width: $sm-screen) {
+    height: 37px;
+  }
+
+  @media screen and (min-width: $md-screen) {
+    height: 40px;
+  }
+}
+
+.Logo {
   display: inline-block;
 
   color: $medium-gray;
@@ -17,9 +36,6 @@
   font-size: 28px;
   font-weight: normal;
   letter-spacing: 0.07em;
-  position: relative;
-  left: 10px;
-  top: 5px;
 }
 
 .Logo--blue {
