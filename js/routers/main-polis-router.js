@@ -114,7 +114,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
           that.participationView(conversation_id);
           gaEvent("Session", "create", "empty");
         }, function(err) {
-          if (err.responseText === "polis_err_need_full_user") {
+          if (/polis_err_need_full_user/.test(err.responseText)) {
             that.doCreateUserFromGatekeeper(conversation_id).done(function(ptptData) {
               doJoinConversation.call(that, onSuccess, conversation_id);
             });
