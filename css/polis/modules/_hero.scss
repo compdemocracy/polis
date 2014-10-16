@@ -11,7 +11,7 @@
   background-size: $sm-screen;
 
   @media screen and (min-width: $sm-screen) {
-    padding: $default-whitespace*2 $default-whitespace;
+    padding: $default-whitespace*2 0 $default-whitespace;
 
     background-size: 100%;
   }
@@ -90,4 +90,31 @@
   color: #000;
   font-weight: normal;
   line-height: 1.25em;
+}
+
+.bgOverlay {
+  padding: $default-whitespace;
+
+  background-color: rgba(255,255,255,0.7);
+}
+
+.learnMore {
+  padding: $default-whitespace 0 0;
+
+  text-align: center;
+  font-family: $sans-font;
+}
+
+.learnMore-link {
+  position: relative;
+
+  &:after {
+    position: absolute;
+    top: 100%;
+    left: 60%;
+    @include fa-angle-down();
+    width: 18px;
+    margin-left: -18px;
+    font-size: 2em;
+  }
 }

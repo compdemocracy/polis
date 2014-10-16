@@ -122,3 +122,15 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+.subheading {
+  color: $dark-gray;
+  font-family: $sans-font;
+  font-size: 36px;
+  line-height: 48px;
+}
+
+.largeText {
+  font-size: 24px;
+  line-height: 32px;
+}

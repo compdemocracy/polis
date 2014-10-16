@@ -45,4 +45,9 @@
   content: "\f00c";
 }
 
+@mixin fa-angle-down() {
+  @include fa();
+  content: "\f107";
+}
+
 // end icon mixins
