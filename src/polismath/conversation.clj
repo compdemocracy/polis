@@ -70,7 +70,7 @@
                           :pca-iters 10
                           :base-iters 10
                           :base-k 50
-                          :max-k 12
+                          :max-k 5
                           :group-iters 10
                           :max-ptpts 80000
                           :max-cmts 800
@@ -162,7 +162,7 @@
   (min
     max-max-k
     (+ 2
-       (int (/ (count (rownames data)) 8)))))
+       (int (/ (count (rownames data)) 12)))))
 
 
 (def small-conv-update-graph
