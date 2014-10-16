@@ -6,6 +6,7 @@ var utils = require("../util/utils");
 var STEPS = {
   1: true,
   2: true,
+  3: true,
 };
 
 module.exports = Handlebones.ModelView.extend({
