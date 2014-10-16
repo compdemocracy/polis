@@ -62,7 +62,8 @@ module.exports = Handlebones.ModelView.extend({
   },
   resetTutorial: function() {
     this.model.set({
-      "step": 1
+      section: "A",
+      step: 1
     });
   },
   render: function() {
