@@ -2,10 +2,17 @@
 // styles for the navigation bar or nav or navbar
 //
 // .primaryNav           <ul> navigation for entire site
+// .navIcon              <a> links with icon
+// .icon--login          specific icon for login
+// .icon--inbox          specific icon for inbox
+// .icon--settings       specific icon for settings
+// .icon--signout        specific icon for signout
+//
+
 
 .primaryNav {
   float: right;
-  padding: 10px 0 0 0;
+  padding: 12px 0 0 0;
   list-style: none;
   vertical-align: middle;
 

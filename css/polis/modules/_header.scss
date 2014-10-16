@@ -1,24 +1,18 @@
 //
 // Header/banner
 //
+// .Header            <header> element
+// .Logo              <a> container
+// .Logo--blue        for the blue dot !
+// .polisLogo         <img> of the logo
+//
+
 .Header {
   margin: 0;
   padding: 30px 0 15px 0;
   border-bottom: 3px solid #eeeff0;
 
   vertical-align: bottom;
-}
-
-.polisLogo {
-  height: 30px;
-
-  @media screen and (min-width: $sm-screen) {
-    height: 37px;
-  }
-
-  @media screen and (min-width: $md-screen) {
-    height: 40px;
-  }
 }
 
 .Logo {
@@ -34,4 +28,16 @@
 .Logo--blue {
   color: $brand-color;
   font-weight: bold;
+}
+
+.polisLogo {
+  height: 30px;
+
+  @media screen and (min-width: $sm-screen) {
+    height: 37px;
+  }
+
+  @media screen and (min-width: $md-screen) {
+    height: 40px;
+  }
 }
