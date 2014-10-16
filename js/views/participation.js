@@ -170,15 +170,18 @@ module.exports =  ConversationView.extend({
         if (that.conversationTabs.onGroupTab()) { // TODO check if needed
           that.conversationTabs.gotoVoteTab();
         }
+
+        that.tutorialView.endAnalyzeTutorial();
       }
     });
 
     eb.on(eb.clusterClicked, function(gid) {
       if (_.isNumber(gid) && gid >= 0) {
         that.conversationTabs.gotoGroupTab();
-        that.tutorialModel.set("step", Infinity);
+        // that.tutorialModel.set("step", Infinity);
         // $("#groupTab").click();
       // $("#groupTab").tab("show");
+        that.tutorialView.startAnalyzeTutorial();
       }
 
       that.onClusterTapped.apply(that, arguments);

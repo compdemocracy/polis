@@ -19,18 +19,23 @@
 	     </span>
 		<span style="float: right; cursor: pointer"><span id="resetTutorial"><i class="fa fa-graduation-cap"></i></span></span>
     {{/if}}
-    {{#if step1}}
+    {{#if A_step1}}
        	<i class="fa fa-dot-circle-o" style="color: #3694E1;"></i>&nbsp;The blue dot is you
     {{/if}}
-    {{#if step2}}
+    {{#if A_step2}}
     	<i class="fa fa-group" style="color: rgb(189, 195, 199)"></i>&nbsp;Other participants
     {{/if}}
-    {{#if step3}}
+    {{#if A_step3}}
+    	<i class="fa fa-group" style="color: rgb(189, 195, 199)"></i>&nbsp;Click a group to see how they voted
+    {{/if}}
+    {{#if B_step1}}
     	<span class="a">&#9650; agreed</span>, <span class="d">&#9660; disagreed</span> with selected comment
     {{/if}}
 	</span>
 	{{#unless nostep}}
-		<button id="nextTutorialStepButton" class="btn Btn-alt" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:inline">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
+	  {{#if showButton}}
+		<button id="nextTutorialStepButton" class="btn Btn-alt" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:inline">{{nxtBtnTxt}} &nbsp; <i class="fa fa-step-forward"></i></button>
+	  {{/if}}
 	{{/unless}}
 </div>
 
