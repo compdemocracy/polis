@@ -40,4 +40,9 @@
   content: "\f08b";
 }
 
+@mixin fa-checkmark() {
+  @include fa();
+  content: "\f00c";
+}
+
 // end icon mixins

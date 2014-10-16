@@ -39,14 +39,28 @@
 }
 
 .spotList {
-  margin: ($default-gutter + 30px) auto;
+  margin: $default-gutter auto;
   padding: 0;
+  width: 250px;
   list-style: none;
 
   color: #000;
-  li {
-    margin: 0 auto;
-    text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    margin: ($default-gutter + 30px) auto;
+  }
+}
+
+.spotList-item {
+  &:before {
+    color: $green;
+    @include fa-checkmark();
+    margin-right: 0.5em;
+  }
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    text-align: left;
   }
 }
 
