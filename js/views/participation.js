@@ -150,9 +150,7 @@ module.exports =  ConversationView.extend({
     // clicks to "the background" should delelect hulls.
     // This is important because the edge of the vis is not visible.
     $(document.body).on("click", function(e) {
-      if (e.target &&
-          e.target.className &&
-          e.target.className.match(/clickDeselectsHull/)) {
+      if ($(e.target).hasClass("clickDeselectsHull")) {
         if (that.vis) {
           that.vis.deselect();
         }
