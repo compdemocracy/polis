@@ -184,7 +184,11 @@ module.exports =  ConversationView.extend({
         // that.tutorialModel.set("step", Infinity);
         // $("#groupTab").click();
       // $("#groupTab").tab("show");
-        that.tutorialView.startAnalyzeTutorial();
+
+        if (that.selectedGid === -1) {
+          // on transition from no selection to selection
+          that.tutorialView.startAnalyzeTutorial();
+        }
       }
 
       that.onClusterTapped.apply(that, arguments);

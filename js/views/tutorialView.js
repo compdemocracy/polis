@@ -43,6 +43,7 @@ module.exports = Handlebones.ModelView.extend({
     while (SEEN[section][step]) {
       step++;
     }
+    this.shouldFade = SECTIONS[section][step];
     this.model.set({
       section: section,
       step: step
@@ -58,9 +59,11 @@ module.exports = Handlebones.ModelView.extend({
     return this.model.get("step") + 1;
   },
   next: function() {
+    this.shouldFade = true;
     this.model.set("step", this.findNext());
   },
   resetTutorial: function() {
+    this.shouldFade = true;
     initSeen();
     eb.trigger(eb.deselectGroups);
     this.model.set({
@@ -70,10 +73,19 @@ module.exports = Handlebones.ModelView.extend({
   },
   render: function() {
     var that = this;
-    this.$el.fadeTo("fast", 0.001, function() {
+    function doRender() {
       Handlebones.ModelView.prototype.render.apply(that, arguments);
-      that.$el.fadeTo("fast", 1);
-    });
+    }
+
+    if (this.shouldFade) {
+      this.$el.fadeTo("fast", 0.001, function() {
+        doRender();
+        that.shouldFade = false;
+        that.$el.fadeTo("fast", 1);
+      });
+    } else {
+      doRender();
+    }
     return this;
   },
   context: function() {
