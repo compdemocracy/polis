@@ -44,6 +44,11 @@
   text-align: right;
 }
 
+// Display
+.u-inlineBlock {
+  display: inline-block;
+}
+
 // Margin
 .u-space-below {
   margin-bottom: $default-whitespace !important;

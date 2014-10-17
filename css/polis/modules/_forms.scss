@@ -1,6 +1,23 @@
 // FORMS
 //
 
+.FormHorizontal {
+  margin: 0 auto ($default-whitespace*2);
+  border: 0;
+
+  text-align: center;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.FormHorizontal-group {
+  .FormLabel {
+    width: 50%;
+  }
+}
+
 .FormVertical {
   margin-bottom: ($default-whitespace*2);
   border: 0;
@@ -25,6 +42,7 @@
   font-family: $sans-font;
   font-size: 22px;
   font-weight: 400;
+  text-align: left;
 }
 
 .FormControl {

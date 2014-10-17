@@ -7,7 +7,7 @@
 
 .SectionLander {
   margin: 0;
-  padding: ($default-whitespace*2) 10px;
+  padding: ($default-whitespace*2) 5px;
   width: 100%;
 
   color: $light-blue-gray;
@@ -43,8 +43,14 @@
 }
 
 .SectionLander--spark {
+  padding-left: 0;
+  padding-right: 0;
   background: #686b6c url("/img/bg-spark_max.jpg") center center no-repeat;
   color: #fff;
+
+  @media screen and (min-width: $sm-screen) {
+    padding: ($default-whitespace*5) $default-whitespace;
+  }
 }
 
 .SectionLander-Heading {
@@ -65,9 +71,20 @@
 }
 
 .SectionLander-Heading--spark {
+  margin-bottom: 0.5em;
+
   color: #fff;
+  font-family: $serif-headline-font;
+  @include font-size(30px);
+  line-height: 1.25em;
+  font-weight: 100;
   letter-spacing: 0;
+  text-align: center;
   text-transform: none;
+
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(60px);
+  }
 }
 
 .LanderSubheading {
@@ -88,4 +105,50 @@
   @media screen and (min-width: $sm-screen) {
     margin-left: 4.5rem;
   }
+}
+
+.spot--align {
+  @media screen and (min-width: $sm-screen) {
+    display: inline-block;
+    margin-right: 25px;
+    vertical-align: middle;
+  }
+}
+
+.spotIcon {
+  color: $dark-blue-gray;
+  transition: 1s color;
+
+  &:hover {
+    color: $green;
+  }
+}
+
+.spotText {
+  margin: 0 auto;
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    display: inline-block;
+    vertical-align: middle;
+    width: calc(100% - 200px);
+
+    text-align: left;
+  }
+}
+
+.SparkList {
+  text-align: center;
+}
+
+.SparkList-item {
+  @include font-size(30px);
+}
+
+.NewsFeature-text {
+  margin-right: 0.5em;
+  vertical-align: text-bottom;
+}
+.logoGeekWire-link {
+  vertical-align: text-top;
 }
