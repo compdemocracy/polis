@@ -5,10 +5,10 @@
 @import 'normalize';
 
 // BASE
+@import 'base/mixins';
 @import 'base/variables';
 @import 'base/base';
 @import 'base/content';
-@import 'base/mixins';
 
 //LAYOUT
 @import 'layout/grid';
@@ -22,11 +22,12 @@
 @import 'modules/intercom';
 @import 'modules/header';
 @import 'modules/hero';
+@import 'modules/icons';
+@import 'modules/lander';
 @import 'modules/legend';
 @import 'modules/lists';
 @import 'modules/navigation';
 @import 'modules/notifications';
-@import 'modules/section';
 @import 'modules/share';
 @import 'modules/toggle';
 @import 'modules/visualization';

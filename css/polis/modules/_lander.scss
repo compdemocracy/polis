@@ -1,0 +1,91 @@
+// LANDER
+// The first page when you first visit pol.is
+//
+// .SectionLander               <section> on the homepage
+// .SectionLander-Heading       main title for <section>
+//
+
+.SectionLander {
+  margin: 0;
+  padding: ($default-whitespace*2) 10px;
+  width: 100%;
+
+  color: $light-blue-gray;
+  @include font-size(18px);
+  line-height: 24px;
+
+  p {
+    margin-bottom: 1.5em;
+
+    @include font-size(18px);
+    line-height: 24px;
+  }
+
+  @media screen and (min-width: $sm-screen) {
+    padding: ($default-whitespace*3) $default-whitespace;
+
+    @include font-size(24px);
+    line-height: 32px;
+
+    p {
+      @include font-size(24px);
+      line-height: 32px;
+    }
+  }
+}
+
+.SectionLander--white {
+  background-color: #fff;
+}
+
+.SectionLander--alt {
+  background-color: #ebedee;
+}
+
+.SectionLander--spark {
+  background: #686b6c url("/img/bg-spark_max.jpg") center center no-repeat;
+  color: #fff;
+}
+
+.SectionLander-Heading {
+  margin-bottom: 1.5em;
+
+  color: $dark-blue-gray;
+  font-family: $sans-font;
+  @include font-size(24px);
+  line-height: 32px;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(32px);
+    line-height: 48px;
+  }
+}
+
+.SectionLander-Heading--spark {
+  color: #fff;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.LanderSubheading {
+  font-family: $sans-font;
+  color: $dark-blue-gray;
+  @include font-size(20px);
+  line-height: 24px;
+
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(30px);
+    line-height: 36px;
+  }
+}
+
+.LanderText--indent {
+  margin-left: 0;
+
+  @media screen and (min-width: $sm-screen) {
+    margin-left: 4.5rem;
+  }
+}
