@@ -1,0 +1,42 @@
+// ICONS
+// Classes to use for particular icons
+//
+// .icon--check          Display a green checkmark
+// .icon--login          specific icon for login
+// .icon--inbox          specific icon for inbox
+// .icon--settings       specific icon for settings
+// .icon--signout        specific icon for signout
+//
+//
+
+.icon--check {
+  &:before {
+    color: $green;
+    @include fa-checkmark();
+    margin-right: 0.5em;
+  }
+}
+
+.icon--login {
+  &:before {
+    @include fa-login();
+  }
+}
+
+.icon--inbox {
+  &:before {
+    @include fa-inbox();
+  }
+}
+
+.icon--settings {
+  &:before {
+    @include fa-settings();
+  }
+}
+
+.icon--signout {
+  &:before {
+    @include fa-signout();
+  }
+}

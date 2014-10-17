@@ -3,10 +3,6 @@
 //
 // .primaryNav           <ul> navigation for entire site
 // .navIcon              <a> links with icon
-// .icon--login          specific icon for login
-// .icon--inbox          specific icon for inbox
-// .icon--settings       specific icon for settings
-// .icon--signout        specific icon for signout
 //
 
 
@@ -37,29 +33,5 @@
 
   &:before {
     margin-right: 0.33em;
-  }
-}
-
-.icon--login {
-  &:before {
-    @include fa-login();
-  }
-}
-
-.icon--inbox {
-  &:before {
-    @include fa-inbox();
-  }
-}
-
-.icon--settings {
-  &:before {
-    @include fa-settings();
-  }
-}
-
-.icon--signout {
-  &:before {
-    @include fa-signout();
   }
 }
