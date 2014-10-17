@@ -18,6 +18,7 @@ You'll also need mongodb and postgresql (client) installed.
 * Affix `*` to the end of names of impure functions (particularly anything random)
 * Affix `!` to the end of names of functions that specifically change something state
 * For now, let's prefer maps over records unless we realize there is a really good reason we should go the other direction (reduces complexity until it doesn't...)
+* Use `#(...)` candied functions only when one liners; `(fn [..] ...)` otherwise
 
 ## Storm
 
