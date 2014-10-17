@@ -162,7 +162,7 @@ module.exports =  ConversationView.extend({
         that.vis.deselect();
       }
     });
-    
+
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
       if (gid === -1) {
@@ -174,7 +174,6 @@ module.exports =  ConversationView.extend({
         if (that.conversationTabs.onGroupTab()) { // TODO check if needed
           that.conversationTabs.gotoVoteTab();
         }
-
         that.tutorialView.endAnalyzeTutorial();
       }
     });
