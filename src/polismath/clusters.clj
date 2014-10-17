@@ -411,27 +411,28 @@
     (reduce
       (fn [result [tid comment-stats]]
         ; Inner reduce folds data into result for each group in comment stats
+        ; XXX - could this be an assoc-in?
         (reduce
-          (fn [inner-result [gid comment-conv-stats]]
-            ; Heplper functions for building our result; ir = inner-result
-            (letfn [(ir-get   [ir & ks]
-                      (get-in ir (into [gid] ks)))
-                    (ir-assoc [ir & ks-and-val] 
-                      (assoc-in ir (into [gid] (butlast ks-and-val)) (last ks-and-val)))]
-              (as-> inner-result ir
+          (fn [group-result [gid comment-conv-stats]]
+            ; Heplper functions for building our result; abbrv. gr = group-result
+            (letfn [(gr-get   [gr & ks]
+                      (get-in gr (into [gid] ks)))
+                    (gr-assoc [gr & ks-and-val]
+                      (assoc-in gr (into [gid] (butlast ks-and-val)) (last ks-and-val)))]
+              (as-> group-result gr
                 ; First check to see if the comment data passes, and add if it does
                 (if (passes-by-test? comment-conv-stats)
                   (->> comment-conv-stats
                        (finalize-cmt-stats tid)
-                       (conj (ir-get ir :sufficient))
-                       (ir-assoc ir :sufficient))
-                  ir)
+                       (conj (gr-get gr :sufficient))
+                       (gr-assoc gr :sufficient))
+                  gr)
                 ; Keep track of what the best comment so far is, even if it doesn't pass, so we always have at
                 ; least one comment
-                (if (and (empty? (ir-get ir :sufficient))
-                         (beats-best-by-test? comment-conv-stats (ir-get ir :test)))
-                  (ir-assoc ir :best (finalize-cmt-stats tid comment-conv-stats))
-                  ir))))
+                (if (and (empty? (gr-get gr :sufficient))
+                         (beats-best-by-test? comment-conv-stats (gr-get gr :test)))
+                  (gr-assoc gr :best (finalize-cmt-stats tid comment-conv-stats))
+                  gr))))
           result
           (zip ids comment-stats)))
       ; initialize result hash
