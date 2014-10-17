@@ -92,50 +92,9 @@ col-lg-offset-0 col-lg-12
   col-md-7 col-md-push-5
   col-lg-8 col-lg-push-4
   ">
-    <div
-      id="write_hints_div"
-
-      style="
-        display:none;
-        border-left: 3px solid #3498db;
-
-      "
-      class="
-        {{!-- col-xs-10  --}}
-        {{!-- col-sm-6 --}}
-        col-md-offset-1
-        col-md-10
-        {{!-- col-lg-7 --}}
-        {{!-- hidden-xs --}}
-      ">
-
-      <h3 class="HeadingB " style="margin-bottom: 20px"> Writing Comments </h3>
-
-      <h5 class="HeadingH HeadingH--dark"> Tips for writing great comments </h5> 
-
-      <ul class="write-hint-pane"> 
-        <li style="margin-left: -23px" class="write-hint-pane"> Your comment will be sent out randomly. You are not replying directly to anyone else in the conversation.</li>
-        <li style="margin-left: -23px" class="write-hint-pane"> The shorter the better: each comment should include only a single idea or opinion.</li>
-        <li style="margin-left: -23px" class="write-hint-pane"> Phrase questions as statements. Not: "What about x & y?", rather: "We need more information about x & y." This allows other participants to agree that the question is important, rather than pass.</li>
-        <li style="margin-left: -23px" class="write-hint-pane"> Articulate, well-informed & relevant comments fare best. </li> 
-      </ul> 
-
-      <h5 class="HeadingH HeadingH--dark" style="margin-top: 20px"> When and where will my comment be displayed? </h5> 
-
-      <p class="write-hint-pane"> Your comment may or may not be moderated. Comments may appear to immediately to other participants, or there may be a delay, pending moderator approval. Approved comments will appear, at random, to other participants in this conversation only. </p>
-
-      <h5 class="HeadingH HeadingH--dark" style="margin-top: 20px">Will my words be edited? </h5>
-      <p class="write-hint-pane"> No. Comments are either approved or rejected during moderation, but cannot be edited. </p> 
-
-      <h5 class="HeadingH HeadingH--dark" style="margin-top: 20px"> Can I remove a comment I've written? </h5> 
-
-      <p class="write-hint-pane"> Once a comment is submitted, it cannot be withdrawn. </p>
-
-      <h5 class="HeadingH HeadingH--dark" style="margin-top: 20px">Will others know who I am?</h5>
-      <p class="write-hint-pane"> Anonymity varies in pol.is from conversation to conversation. Commenting is anonymous, unless you reveal anything that can be used to deanonymize you. Your voting patterns can also be used to deanonymize you in certain circumstances, given the content of other comments. For more information, please see our <a href="/privacy" class="write-hint-pane">Privacy Policy</a>.</p>
-
-
-    </div>
+    {{#ifNotXs}}
+      {{ view writingTips }}
+    {{/ifNotXs}}
 
   <div id="vis_sibling_bottom"
     {{#ifEmbedded}}
