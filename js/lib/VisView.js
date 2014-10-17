@@ -327,8 +327,8 @@ if (isIE8) {
         .classed("helpArrowLine", true)
         .style("display", "none")
         ;
-    w = $(el_selector).width() - xOffset;
-    h = $(el_selector).height();
+    w = dimensions.width - xOffset; // $(el_selector).width() - xOffset;
+    h = dimensions.height; //$(el_selector).height();
 }
 
 
