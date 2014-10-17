@@ -1,47 +1,61 @@
 <div id="footer" class="hidden-xs">
   	<div class="row custom_container_for_large_screens" style="padding-top: 30px">
   		<div class="col-sm-2 col-sm-offset-2">
-				<h3 class="Logo"><img src="https://pol.is/polis-favicon_favicon.png" height="30px">pol<span class="Logo--blue">.</span>is</h3>
+				<a class="Logo" href="{{logo_href}}">
+          <img src="https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&format=png&w=600&h=208"
+            class="polisLogo"
+            alt="">
+        </a>
   		</div>
-	  	<div class="col-sm-2">
-	  		<h5 style="HeadingB">COMPANY</h5>
+	  	<div class="col-sm-2 footerCol">
+	  		<h5 class="HeadingB Heading--gray">Company</h5>
 	  		{{! <p><a href="/press" id="apiButton" class="footer_item">Press</a></p> }}
-				<p><a href="/tos" id="TOS" class="footer_item">TOS</a></p>
-				<p><a href="/privacy" id="PP" class="footer_item">PRIVACY</a></p>
+        <ul class="ListPlain">
+          <li><a href="/tos" id="TOS">Terms of Service</a></li>
+          <li><a href="/privacy" id="PP">Privacy</a></li>
+        </ul>
 	  	</div>
-	  	<div class="col-sm-2">
-	  		<h5 style="HeadingB">LEARN</h5>
+	  	<div class="col-sm-2 footerCol">
+	  		<h5 class="HeadingB Heading--gray">Learn</h5>
+        <ul class="ListPlain">
+          <li><a href="/faq" id="FAQ">FAQ</a></li>
+        </ul>
 	  		{{!-- <p><a href="/docs/api" id="apiButton" class="footer_item">API</a></p> --}}
-	  		<p><a href="/faq" id="FAQ" class="footer_item">FAQ</a></p> 
 	  		{{! <p><a href="/blog" id="FAQ" class="footer_item">Blog</a></p> }}
 	  		<p></p>
 	  	</div>
 
-  		<div class="col-sm-4">
-	  		<h5 style="HeadingB">SHARE</h5>
-	  		<div>
-		      <div class="footer_item social" style="display: inline-block; vertical-align: middle">
-            <!-- twitter -->
-            <span class="twitter" style="margin-right: 10px">
-            <a href="https://twitter.com/share" class="twitter-share-button" data-url="http://pol.is" data-text="Polis is going to change communication with #machinelearning" data-count="none" data-hashtags="getpolis" data-dnt="true"><i class="" ></i></a>
-						<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
-            </span>
-            <!-- linked in -->
-            <span class="linkedin" style="margin-right: 10px">
-                <script src="//platform.linkedin.com/in.js" type="text/javascript">
-                  lang: en_US
-              </script><script type="IN/Share" data-url="http://pol.is"></script>
-            </span>
-            <!-- Facebook -->
-            <span class="facebook" style="margin-right: 10px">
-                <div class="fb-share-button" data-href="http://pol.is" data-type="button"></div>
-            </span>
-          </div>
+  		<div class="col-sm-4 footerCol">
+	  		<h5 class="HeadingB Heading--gray u-noMargin">SHARE</h5>
+	      <div class="footerSocial footer_item social">
+          {{!-- Twitter --}}
+          <span class="twitter" style="margin-right: 10px">
+            <a href="https://twitter.com/share" class="twitter-share-button" data-url="http://pol.is" data-text="Polis is going to change communication with #machinelearning" data-count="none" data-hashtags="getpolis" data-dnt="true">
+              <i class="" ></i>
+            </a>
+					<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');
+          </script>
+          </span>
+          {{!-- LinkedIn --}}
+          <span class="linkedin" style="margin-right: 10px">
+              <script src="//platform.linkedin.com/in.js" type="text/javascript">
+                lang: en_US
+              </script>
+              <script type="IN/Share" data-url="http://pol.is"></script>
+          </span>
+          {{!-- Facebook --}}
+          <span class="facebook" style="margin-right: 10px">
+              <div class="fb-share-button" data-href="http://pol.is" data-type="button"></div>
+          </span>
 	  		</div>
-	  		<p style="margin-top: 50px">&#169; 2014 Polis Technology Inc.</p>
 	  	</div>
 
   	</div>
+    <div class="row">
+      <div class="col-sm-4 col-sm-offset-8">
+        <p>&#169; 2014 Polis Technology Inc.</p>
+      </div>
+    </div>
 </div>
 
 
