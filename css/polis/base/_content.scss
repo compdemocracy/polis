@@ -84,6 +84,13 @@
   font-weight: 700;
 }
 
+.Heading--darkgray {
+  color: $dark-gray;
+}
+
+.Heading--gray {
+  color: $gray;
+}
 
 /**** Begin Lander Headings ****/
 .HeadingL {
@@ -117,20 +124,19 @@
 }
 /**** End Lander Headings ****/
 
-.smallcaps {
+.Smallcaps {
   font-size: 0.85em;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.subheading {
-  color: $dark-gray;
-  font-family: $sans-font;
-  font-size: 36px;
-  line-height: 48px;
-}
+.LargeText {
+  color: $blue-gray;
+  @include font-size(18px);
+  line-height: 24px;
 
-.largeText {
-  font-size: 24px;
-  line-height: 32px;
+  @media screen and (min-width: $sm-screen) {
+    @include font-size(24px);
+    line-height: 32px;
+  }
 }

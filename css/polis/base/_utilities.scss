@@ -37,7 +37,18 @@
   float: right;
 }
 
+.align-left {
+  text-align: left;
+}
+.align-right {
+  text-align: right;
+}
+
 // Margin
 .u-space-below {
   margin-bottom: $default-whitespace !important;
+}
+
+.u-noMargin {
+  margin: 0 !important;
 }

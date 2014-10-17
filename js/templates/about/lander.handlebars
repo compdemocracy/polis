@@ -53,11 +53,12 @@ fjs.parentNode.insertBefore(js, fjs);
 					<span class="sr-only">Toggle navigation</span>
 					<span class="fa fa-bars" style="position: relative; top: 2px"></span>
 				</button>
-				<a id="polisLogo"
-					class="Logo{{#if authStyleHeader}}text-center{{/if}}"
+				<a class="Logo {{#if authStyleHeader}}text-center{{/if}}"
 					href="{{logo_href}}">
 					<img
-						src="https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&format=png&w=600&h=208">
+						src="https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&format=png&w=600&h=208"
+						class="polisLogo"
+						alt="">
 				</a>
 			</div>
 			<div class="navbar-collapse collapse">
@@ -77,35 +78,39 @@ fjs.parentNode.insertBefore(js, fjs);
 				</ul>
 			</div>
 		</header>
-		<h1 class="hero-heading">
-			Class discussions <br>
-			worthy <em>of</em> your students <br>
-			and <em>of</em> your university&rsquo;s mission.
-		</h1>
 		<div class="row">
-			<div class="col-sm-4 col-xs-12">
-				<div class="spot">
-					<p class="spot-text">
-						<span class="smallcaps">In class</span><br>
+			<div class="col-xs-12">
+				<h1 class="hero-heading">
+					Class discussions <br>
+					worthy <em>of</em> your students <br>
+					and your university&rsquo;s mission.
+				</h1>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-sm-4 col-xs-6">
+				<div class="spot--exterior">
+					<p class="spot--interior">
+						<span class="Smallcaps">In class</span><br>
 						<em>or</em><br>
-						<span class="smallcaps">online</span>
+						<span class="Smallcaps">online</span>
 					</p>
 				</div>
 			</div>
-			<div class="col-sm-4 col-xs-12">
-				<div class="spot">
-					<p class="spot-text">
+			<div class="col-sm-4 col-xs-6">
+				<div class="spot--exterior">
+					<p class="spot--interior">
 						classes<br>
 						<em>of</em><br>
-						<span class="smallcaps">any size</span>
+						<span class="Smallcaps">any size</span>
 					</p>
 				</div>
 			</div>
 			<div class="col-sm-4 col-xs-12">
 				<ul class="spotList">
-					<li class="spotList-item"><span class="smallcaps">No</span> discussion threads</li>
-					<li class="spotList-item"><span class="smallcaps">No</span> multiple choice</li>
-					<li class="spotList-item"><span class="smallcaps">No</span> expensive devices</li>
+					<li class="spotList-item"><span class="Smallcaps">No</span> discussion threads</li>
+					<li class="spotList-item"><span class="Smallcaps">No</span> multiple choice</li>
+					<li class="spotList-item"><span class="Smallcaps">No</span> expensive devices</li>
 				</ul>
 			</div>
 		</div>
@@ -113,10 +118,10 @@ fjs.parentNode.insertBefore(js, fjs);
 	<div class="bgOverlay">
 		<div class="container">
 			<div class="row">
-				<div class="col-xs-10 col-xs-offset-1 text-center">
-					<p class="subheading">Perhaps something lovely &amp; fun:</p>
-					<p class="largeText">
-						We&rsquo;ve bottled the socratic method in a web app. Now you can use it in your classroom effortlessly.
+				<div class="col-sm-10 col-sm-offset-1 col-xs-12 text-center">
+					<h2 class="SectionLander-Heading u-noMargin">Upgrade your classroom&nbsp;engagement</h2>
+					<p class="LargeText">
+						We&rsquo;ve bottled the Socratic method in an app. Polis is the next generation of class discussion.
 					</p>
 				</div>
 			</div>
@@ -126,7 +131,7 @@ fjs.parentNode.insertBefore(js, fjs);
 		<div class="row">
 			<div class="col-xs-12">
 				<p class="learnMore">
-					<a href="/" class="learnMore-link smallcaps">Learn more</a>
+					<a href="/" class="learnMore-link Smallcaps">Learn more</a>
 				</p>
 			</div>
 		</div>
@@ -201,190 +206,190 @@ $(document).ready(function() {
 });
 </script>
 
-<div style="background-color: rgba(255,255,255,0.8)">
-	<div class="row video_section custom_container_for_large_screens" >
-		<div class="col-lg-6 col-md-5 col-sm-6 col-sm-offset-1 col-xs-10 col-xs-offset-1" style="padding-left: 0px">
-			<div class="row" >
-				<div class="col-lg-6 col-md-8 col-sm-10 col-xs-12">
-					<h1 class="lander-title HeadingL">Classrooms</h1>
-					<h3 style="margin-bottom: 30px;	line-height: 1.3em" class="text-center-mobile HeadingG">Get clear feedback from large groups effortlessly.</h3>
-				</div>
-			</div>
-			<div class="row">
-				<div class="col-lg-6 col-md-6 col-sm-offset-0 col-sm-7 col-xs-8 col-xs-offset-2">
-						<form class="form text-center-mobile" role="form">
-<!-- 							<div class="form-group">
-								<input type="text" id="startconvo_name" placeholder="Full Name" class="form-control trial_form_input">
-							</div>
-							<div class="form-group">
-								<input type="text" id="startconvo_org" placeholder="Organization" class="form-control trial_form_input">
-							</div> -->
-							<div class="form-group">
-								<input type="email" id="startconvo_email" placeholder="Email" class="form-control trial_form_input">
-							</div>
-<!-- 							<div class="form-group">
-								<input type="password" id="startconvo_password" placeholder="Password" class="form-control trial_form_input">
-							</div> -->
-							<div class="form-group">
-								<button type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg">Try pol.is for free</button>
-<!-- 								<p style="margin-top:7px"><em>10 day free trial</em></p>
- -->							</div>
-						</form>
-					</div>
-			</div>
-				<div class="row" id="errorDiv">
-				</div>
-		</div>
-		<div class="col-lg-4 col-xs-10 col-xs-offset-1 col-md-5 col-sm-4 col-sm-offset-0 wistia_embed_border">
-			<div>
-				<iframe src="//fast.wistia.net/embed/iframe/uthtzqaq3x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400" ></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+<section class="SectionLander SectionLander--white">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					Schools already using&nbsp;Polis:
+				</h2>
 			</div>
 		</div>
+		<div class="row">
+			<div class="col-md-3 col-xs-6">
+				<img class="SchoolLogo" alt="">
+			</div>
+			<div class="col-md-3 col-xs-6">
+				<img class="SchoolLogo" alt="">
+			</div>
+			<div class="col-md-3 col-xs-6">
+				<img class="SchoolLogo" alt="">
+			</div>
+			<div class="col-md-3 col-xs-6">
+				<img class="SchoolLogo" alt="">
+			</div>
+		</div>
+	</div>
+</section>
 
-		<script src="https://fast.wistia.net/static/embed_shepherd-v1.js"></script>
-		<script>
-			wistiaEmbeds.onFind(function(video){
-				video.bind("play", function(){
-					ga('send', 'event', 'Video', 'Play', video.name());
-					return this.unbind;
-				}).bind("end", function(){
-					ga('send', 'event', 'Video', 'Complete', video.name());
-					return this.unbind;
+<section class="SectionLander">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					How are we&nbsp;different?
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">Thread free</h3>
+				<p class="LanderText--indent">Traditional forum discussions are hard to follow and encourage “me too” answers. Polis&rsquo;s alternative approach fosters critical thinking.</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">Student-led</h3>
+				<p class="LanderText--indent">Students write comments and vote on comments created by other students.</p>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">Immediate Feedback</h3>
+				<p class="LanderText--indent">Polis shows groups of students who voted similarly in real time. You can see which comments have broad consensus and which issues are divisive.</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">No Expensive Clickers</h3>
+				<p class="LanderText--indent">Accessible on the web (smartphone, tablet, laptop), Polis is a winning alternative in classroom polling and attendance.</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander SectionLander--alt">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					People love&nbsp;Polis
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-4 col-xs-6">
+				Engages <em>all</em> students
+			</div>
+			<div class="col-md-4 col-xs-6">
+				Powerful insights into consensus &amp; disagreement
+			</div>
+			<div class="col-md-4 col-xs-6">
+				Start a conversation in seconds. See updates in real time.
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-4 col-xs-6">
+				Integrates with your LMS for effortless grading of open ended discussions
+			</div>
+			<div class="col-md-4 col-xs-6">
+				Meaningful attendance taking without clickers
+			</div>
+			<div class="col-md-4 col-xs-6">
+				Moderation tools put you in control of the discussion
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander SectionLander--spark">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading SectionLander-Heading--spark">
+					Technology that lets you be yourself in the classroom and online. Ask your students meaningful, open-ended&nbsp;questions.
+				</h2>
+				<p>* Have a dialogue on ethics.
+* Check in with your students to assess understanding.
+* Discuss a lecture online after class.</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+
+<section class="SectionLander SectionLander--alt">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					Tour&nbsp;Polis
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-xs-12 wistia_embed_border">
+				<h3>video video</h3>
+				<p>Easy as 1-2-3.</p>
+				<div>
+					<iframe src="//fast.wistia.net/embed/iframe/uthtzqaq3x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400" >
+					</iframe>
+					<script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+				</div>
+			</div>
+			<script src="https://fast.wistia.net/static/embed_shepherd-v1.js"></script>
+			<script>
+				wistiaEmbeds.onFind(function(video){
+					video.bind("play", function(){
+						ga('send', 'event', 'Video', 'Play', video.name());
+						return this.unbind;
+					}).bind("end", function(){
+						ga('send', 'event', 'Video', 'Complete', video.name());
+						return this.unbind;
+					});
 				});
-			});
-		</script>
-
-	</div>
-	<div class="row process " style="">
-	<div class="custom_container_for_large_screens">
-		<div class="col-sm-12 text-center">
-			<h3 class="process-title HeadingG">pol.is in a nutshell:</h3	>
-		</div>
-		<div class="col-sm-2 col-sm-offset-2 text-center">
-			<h3 class="process-item HeadingB">1</h3>
-			<h4 class="process-item-text HeadingD HeadingD--lineheight"><em>You ask an open ended question & share a link.</em></h4>
-		</div>
-		<div class="col-sm-2 col-sm-offset-1 text-center">
-			<h3 class="process-item HeadingB">2</h3>
-			<h4 class="process-item-text HeadingD HeadingD--lineheight"><em>Participants read, write & vote.</em></h4>
-		</div>
-		<div class="col-sm-2 col-sm-offset-1 text-center">
-			<h3 class="process-item HeadingB">3</h3>
-			<h4 class="process-item-text HeadingD HeadingD--lineheight"><em>Pol.is produces opinion groups. Explore in the app & export the data.</em></h4>
+			</script>
 		</div>
 	</div>
-	</div>
+</section>
 
-
-	<div class="row custom_container_for_large_screens" style="margin-top: 50px; margin-bottom: 50px ">
-		<div class="col-sm-4 col-sm-offset-1 col-xs-offset-1 col-xs-10 ">
-			<h1 style="margin-top: 0px" class="HeadingL">Discover opinion groups</h1>
-			<h4 style="line-height:1.5em" class="HeadingG">The loudest participant in the conversation isn't the only voice heard - pol.is shows majority and minority sentiment groups and the comments that differentiate them.</h4>
-			<p class="explore_demo_link HeadingH"><a href="/demo/2demo" target="_blank">Explore the Seattle Minimum Wage conversation</a></p>
-		</div>
-		<div class="col-sm-5 col-sm-offset-1 col-xs-offset-1 col-xs-10 video">
-				<img src="landerImages/Screenshot_2014_08_13_04.30.03.png" width="100%" />
-		</div>
-	</div>
-
-	<div class="row features_section ">
-	<div class="custom_container_for_large_screens">
-		<div class="col-sm-2 col-xs-6 feature text-center">
-			<p><i class="fa fa-group fa-3x"></i></p>
-			<h4 class="HeadingG">Bottom up</h4>
-		</div>
-		<div class="col-sm-2 col-xs-6 feature text-center">
-			<p><i class="fa fa-rocket fa-3x"></i></p>
-			<h4 class="HeadingG">Start in seconds, end in minutes</h4>
-		</div>
-		<div class="col-sm-2 col-xs-6 feature text-center">
-			<p><i class="fa fa-lightbulb-o fa-3x"></i></p>
-			<h4 class="HeadingG">Interesting insights automatically</h4>
-		</div>
-		<div class="col-sm-2 col-xs-6 feature text-center">
-			<p><i class="fa fa-tag fa-3x"></i></p>
-			<h4 class="HeadingG">Sentiment groups</h4>
-		</div>
-		<div class="col-sm-2 col-xs-12 feature text-center">
-			<p><i class="fa fa-mobile fa-3x"></i>&nbsp;<i class="fa fa-tablet fa-3x"></i>&nbsp;<i class="fa fa-laptop fa-3x"></i>&nbsp;<i class="fa fa-desktop fa-3x"></i>&nbsp;</p>
-			<h4 class="HeadingG">Browser based</h4>
-		</div>
-		<div class="col-sm-2 col-xs-12 feature text-center">
-			<p><i class="fa fa-code fa-3x"></i></p>
-			<h4 class="HeadingG">API & Embeddable</h4>
-		</div>
-	</div>
-	</div>
-
-	<div class="row custom_container_for_large_screens" style="margin-top: 50px; margin-bottom: 50px">
-		<div class="col-sm-4 col-sm-offset-1 col-xs-offset-1 col-xs-10">
-			<h1 style="margin-top: 0px" class="HeadingL">Discover consensus</h1>
-			<h4 style="line-height:1.5em" class="HeadingG">Discover consensus across groups. Exploring the conversation is simple and enjoyable - pol.is does the hard work of producing and displaying correlations.</h4>
-			<p class="explore_demo_link HeadingH"><a href="/demo/2demo" target="_blank">Explore the Seattle Minimum Wage conversation</a></p>
-		</div>
-		<div class="col-sm-5 col-sm-offset-1 video col-xs-offset-1 col-xs-10">
-			<img src="landerImages/Screenshot_2014_08_13_04.25.38.png" width="100%" />
-		</div>
-	</div>
-
-	<div class="row features_section">
-		<div class="col-sm-12 text-center">
-			<h3>As featured in: <a href="http://www.geekwire.com/2014/startup-spotlight-polis/" style="margin-left: 10px;position: relative;bottom: 7px;"> <img alt="GeekWire" src="landerImages/geekwire.png" width="200px	"> </a></h3>
-		</div>
-	</div>
-{{!--
-
-	<div class="row video_section custom_container_for_large_screens" >
-		<div class="col-md-4 col-md-offset-2 col-sm-5 col-xs-10 col-xs-offset-1">
-			<div class="panel panel-default">
-				<!-- Default panel contents -->
-				<div class="panel-heading" style="background-color: white; font-family:brandon-grotesque "><h4 class="HeadingB" style="padding-top:10px"> Individual License </h4></div>
-				<!-- List group -->
-				<ul class="list-group">
-					<li class="list-group-item"><i class="fa fa-check" style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Conversations</li>
-					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Unlimited Participants</li>
-					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;API</li>
-					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Moderation Tools</li>
-					<li class="list-group-item"><i class="fa fa-check"style="color: rgba(39, 174, 96,1.0)"></i>&nbsp;Hands On Customer Support</li>
-					<li class="list-group-item" style="background-color: rgba(52, 152, 219,.1)"><h4 class="HeadingB" style="padding-top:10px"> $100 / month </h4></li>
-
-				</ul>
+<section class="SectionLander">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					Free&nbsp;trial!
+				</h2>
 			</div>
 		</div>
-		<div class="col-sm-5 col-sm-offset-1">
-			<div class="row">
-				<div class="col-md-10 col-md-offset-0 col-sm-11 col-sm-offset-1 col-xs-8 col-xs-offset-2 ">
-					<h1 class="HeadingL">Start now </h1>
-				</div>
-			</div>
-			<div class="row">
-				<div class="col-md-5 col-md-offset-0 col-sm-7 col-sm-offset-1 col-xs-8 col-xs-offset-2 ">
-					<form class="form" role="form">
-						<!-- <div class="form-group">
-							<input type="text" id="startconvo_name" placeholder="Full Name" class="form-control trial_form_input">
-						</div>
-						<div class="form-group">
-							<input type="text" id="startconvo_org" placeholder="Organization" class="form-control trial_form_input">
-						</div> -->
-						<div class="form-group">
-							<input type="email" id="startconvo_email" placeholder="Email" class="form-control trial_form_input">
-						</div>
-						<!-- <div class="form-group">
-							<input type="password" id="startconvo_password" placeholder="Password" class="form-control trial_form_input">
-						</div> -->
-						<div class="form-group text-center-mobile">
-							<button type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg ">Try pol.is for free</button>
-							<!-- <p style="margin-top:7px" class="text-center-mobile"><em>10 day free trial</em></p>	 -->
-						</div>
-					</form>
-				</div>
-				<div class="row" id="errorDiv">
+		<div class="row">
+			<div class="col-xs-12">
+				<form class="form text-center-mobile" role="form">
+					<div class="form-group">
+						<input type="email" id="startconvo_email" placeholder="Email" class="form-control trial_form_input">
+					</div>
+					<div class="form-group">
+						<button type="submit" id="startconvo_submitbutton" class="btn btn-danger btn-lg">Try pol.is for free</button>
+					</div>
+				</form>
+				<div id="errorDiv">
 				</div>
 			</div>
 		</div>
-	</div>--}}
 	</div>
-</div> <!--background-color-->
+</section>
+
+<section class="SectionLander">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12 text-center">
+				<h3>
+					As featured in:
+					<a href="http://www.geekwire.com/2014/startup-spotlight-polis/" style="margin-left: 10px;position: relative;bottom: 7px;">
+						<img alt="GeekWire" src="landerImages/geekwire.png" width="200px	">
+					</a>
+				</h3>
+			</div>
+		</div>
+	</div>
+</section>
+
 
 <script type="text/javascript">
 

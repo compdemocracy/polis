@@ -1,15 +1,15 @@
 // MIXINS
-// Created by Ms Mix A Lot
+// Created by Dame Mix A Lot
 //
+//-----------------------------------------------------------------------------
 // Icons
-
-// Icons
+//-----------------------------------------------------------------------------
 // fa()           include FontAwesome
 // fa-login       icon for Login link
 // fa-inbox       icon for Inbox link
 // fa-settings    icon for Settings link
 // fa-signout     icon for Sign out link
-
+//
 @mixin fa() {
   display: inline-block;
   font-family: FontAwesome;
@@ -49,5 +49,24 @@
   @include fa();
   content: "\f107";
 }
-
 // end icon mixins
+
+//-----------------------------------------------------------------------------
+// Font sizing
+//-----------------------------------------------------------------------------
+// calculateRem($size)          convert 16px -> 1rem
+// font-size($size)             use rem & fall-back pixel styles
+//
+// @function calculateRem($size) {
+//   $remSize: $size / 16px;
+//   @return #{$remSize}rem;
+// }
+// @mixin font-size($size) {
+//   font-size: $size;
+//   font-size: calculateRem($size);
+// }
+@mixin font-size($sizeValue: 16px) {
+  font-size: $sizeValue;
+  font-size: ($sizeValue / 10px) + rem;
+}
+// end font sizing

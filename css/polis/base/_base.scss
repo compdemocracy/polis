@@ -6,13 +6,16 @@ html {
   box-sizing: border-box;
 }
 
+// Responsive typography
+html {
+  font-size: 62.5%;
+}
+
 /* necessary for footer */
 html,
 body {
   height: 100%;
   /* The html and body elements cannot have any padding or margin. */
-
-  font-size: 18px;
 }
 
 *, *:before, *:after {

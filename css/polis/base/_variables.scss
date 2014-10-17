@@ -1,12 +1,17 @@
 // VARIABLES
 //
 
-//
+// ----------------------------------------------------------------------------
 // COLORS
+// ----------------------------------------------------------------------------
 //
 $light-gray: #717171;
 $medium-gray: #555555;
 $dark-gray: #171717;
+
+$light-blue-gray: #6f7c80;
+$blue-gray: #555f61;
+$dark-blue-gray: #373d3f;
 
 $green: #2ecc71;
 $dark-green: #27ae60;
@@ -40,38 +45,40 @@ $danger-text-color: white;
 $positive-bg-color: $green;
 $positive-text-color: white;
 
-//
+// ----------------------------------------------------------------------------
 // CONTENT
-//
+// ----------------------------------------------------------------------------
 $default-gutter: 12px;
 
 $default-whitespace: 24px;
 $default-leading: 1.5;
 
-//
+// ----------------------------------------------------------------------------
 // FONTS
-//
+// ----------------------------------------------------------------------------
 // weight options: thin: 100; light: 300; regular: 400; medium: 500; bold: 700; black: 900
 $headline-font: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
 $sans-font: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
 //  alternate sans-serif (?): "Droid Sans", sans-serif;
-$serif-font: "chaparral-pro", "Chaparral Pro", serif;
-$serif-headline-font: "chaparral-pro-display", "Chaparral Pro", serif;
+$serif-font: "chaparral-pro", "Chaparral Pro", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
+$serif-headline-font: "chaparral-pro-display", "Chaparral Pro", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
 
-//
+// ----------------------------------------------------------------------------
 // LAYOUT
-//
+// ----------------------------------------------------------------------------
 $lg-screen: 1200px;
 $md-screen: 992px;
 $sm-screen: 768px;
 
+// ----------------------------------------------------------------------------
 // FOOTER
+// ----------------------------------------------------------------------------
 $short-footer-height: 50px;
-$tall-footer-height: 320px;
+$tall-footer-height: 250px;
 
+// ----------------------------------------------------------------------------
 // VISUALIZATIONS
-//
-
+// ----------------------------------------------------------------------------
 $color_agree: #2ecc71; // EMERALD
 $color_disagree: #e74c3c; // ALIZARIN
 $color_pass: #BDC3C7; // SILVER
