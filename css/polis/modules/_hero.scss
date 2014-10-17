@@ -1,6 +1,16 @@
 // HERO
 // The best part of the page, the winner, the gold medalist
 //
+// .hero                  <section>
+// .hero-heading          Heading in <section>
+// .spot                  lil white bubble!
+// .spot-text             the content of bubble w/manual vertical-align
+// .spotList              <ul> of checks
+// .spotList-item         <li> descendant of above
+// .bgOverlay             100% wide white band, outside of .container
+// .learnMore             Learn More
+// .learnMore-link        <a>
+//
 
 .hero {
   margin: 0;
@@ -18,36 +28,82 @@
 }
 
 .hero-heading {
-  margin: 5% 0;
+  margin: 0.5em 0;
+  padding: 0;
 
-  color: $gray;
+  color: $dark-blue-gray;
   font-family: $serif-headline-font;
-  font-size: 36px;
+  @include font-size(30px);
   font-weight: 100;
   letter-spacing: 0;
   text-align: center;
 
   @media screen and (min-width: $sm-screen) {
-    font-size: 60px;
+    margin: 0.5em 0 1em 0;
+
+    @include font-size(60px);
   }
 
   @media screen and (min-width: $md-screen) {
-    margin: 10% 0;
+    @include font-size(72px);
+  }
+}
 
-    font-size: 72px;
+.spot--exterior {
+  position: relative;
+
+  margin: $default-gutter auto;
+  padding: 0;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+
+  background-color: rgba(255,255,255,0.5);
+
+  @media screen and (min-width: $sm-screen) {
+    width: 160px;
+    height: 160px;
+  }
+}
+
+.spot--interior {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+
+  margin: -60px 0 0 -60px;
+  padding: 27px 5px;
+  width: 120px;
+  height: 120px;
+  display: inline-block;
+  border-radius: 50%;
+
+  background-color: #FFFFFF;
+  color: #000;
+  @include font-size(18px);
+  font-weight: normal;
+  line-height: 1.25em;
+  text-align: center;
+
+  @media screen and (min-width: $sm-screen) {
+    margin: -70px 0 0 -70px;
+    padding: 35px 10px;
+    width: 140px;
+    height: 140px;
   }
 }
 
 .spotList {
-  margin: $default-gutter auto;
+  margin: $default-gutter auto 0 auto;
   padding: 0;
   width: 250px;
   list-style: none;
 
-  color: #000;
+  color: $dark-blue-gray;
+  @include font-size(18px);
 
   @media screen and (min-width: $sm-screen) {
-    margin: ($default-gutter + 30px) auto;
+    margin: 50px auto 0 auto;
   }
 }
 
@@ -64,36 +120,8 @@
   }
 }
 
-.spot {
-  margin: $default-gutter auto;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-
-  background-color: rgba(255,255,255,0.5);
-  text-align: center;
-  vertical-align: middle;
-
-  @media screen and (min-width: $sm-screen) {
-  }
-}
-
-.spot-text {
-  margin: 9px auto;
-  padding: 30px 10px;
-  width: 132px;
-  height: 132px;
-  display: inline-block;
-  border-radius: 50%;
-
-  background-color: #FFFFFF;
-  color: #000;
-  font-weight: normal;
-  line-height: 1.25em;
-}
-
 .bgOverlay {
-  padding: $default-whitespace;
+  padding: $default-whitespace 0;
 
   background-color: rgba(255,255,255,0.7);
 }
@@ -107,6 +135,8 @@
 
 .learnMore-link {
   position: relative;
+
+  font-weight: bold;
 
   &:after {
     position: absolute;
