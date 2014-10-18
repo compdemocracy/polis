@@ -1780,8 +1780,9 @@ function(req, res) {
 });
 
 
+var pcaCacheSize = process.env.CACHE_MATH_RESULTS ? 3000 : 0;
 var pcaCache = new SimpleCache({
-    maxSize: 3000,
+    maxSize: pcaCacheSize,
 });
 
 var lastPrefetchedVoteTimestamp = -1;
