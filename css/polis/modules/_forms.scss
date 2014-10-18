@@ -13,8 +13,10 @@
 }
 
 .FormHorizontal-group {
-  .FormLabel {
-    width: 50%;
+  @media screen and (min-width: $sm-screen) {
+    .FormLabel {
+      width: 50%;
+    }
   }
 }
 

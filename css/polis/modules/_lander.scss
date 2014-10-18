@@ -45,11 +45,16 @@
 .SectionLander--spark {
   padding-left: 0;
   padding-right: 0;
-  background: #686b6c url("/img/bg-spark_max.jpg") center center no-repeat;
+  background: #686b6c url("https://pol.is/landerImages/bg-spark_medium.jpg") center center no-repeat;
   color: #fff;
 
   @media screen and (min-width: $sm-screen) {
     padding: ($default-whitespace*5) $default-whitespace;
+    background-image: url("https://pol.is/landerImages/bg-spark_large.jpg");
+  }
+
+  @media screen and (min-width: $md-screen) {
+    background-image: url("https://pol.is/landerImages/bg-spark_xlarge.jpg");
   }
 }
 
@@ -99,6 +104,12 @@
   }
 }
 
+.LanderSubheading--spark {
+  color: #000;
+  @include font-size(30px);
+}
+
+
 .LanderText--indent {
   margin-left: 0;
 
@@ -135,6 +146,14 @@
 
     text-align: left;
   }
+}
+
+.SchoolLogo {
+  margin: 0 auto;
+  display: block;
+  max-width: 250px;
+  max-height: 100px;
+  opacity: 0.7;
 }
 
 .SparkList {
