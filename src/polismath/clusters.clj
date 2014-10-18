@@ -460,7 +460,9 @@
     ; If no sufficient, use best; otherwise sort sufficient and take 5
     (map-vals
       (fn [{:keys [best best-agree sufficient]}]
-        (let [best-agree (finalize-cmt-stats (:tid best-agree) best-agree)]
+        (let [best-agree (if best-agree
+                           (finalize-cmt-stats (:tid best-agree) best-agree)
+                           best-agree)]
           (if (empty? sufficient)
             ; If there weren't any matches of the criteria, just take the best match, and take the best agree if
             ; possible, and if not just the best general
