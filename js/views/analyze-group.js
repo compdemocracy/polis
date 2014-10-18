@@ -205,9 +205,9 @@ module.exports = Handlebones.View.extend({
 
       // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
       var comments = that.collection.models.slice(0);
-      comments = _.filter(comments, function(comment) {
-        return _.contains(tids, comment.get('tid'));
-      });
+      // comments = _.filter(comments, function(comment) {
+      //   return _.contains(tids, comment.get('tid'));
+      // });
 
       comments = _.indexBy(comments, "id"); // id is tid
       // use ordering of tids, but fetch out the comments we want.
