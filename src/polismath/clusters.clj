@@ -346,7 +346,7 @@
              (mapv-rest add-comparitive-stats)))))})
 
 
-(defn beats-best-by-test?
+(defn- beats-best-by-test?
   "Returns true if a given comment/group stat hash-map has a more representative z score than
   current-best-z. Used for making sure we have at least _one_ representative comment for every group,
   even if none are left over after the more thorough filters."
@@ -355,12 +355,20 @@
       (> (max rat rdt) current-best-z)))
 
 
-(defn beats-best-agrr-by-test?
-  "Like beats-best-by-test?, but only considers agrees."
-  [{:keys [repful-for rat] :as comment-conv-stats} current-best-z]
-  (and (= :agree repful-for)
-       (or (nil? current-best-z)
-           (> rat current-best-z))))
+(defn- beats-best-agrr?
+  "Like beats-best-by-test?, but only considers agrees. Additionally, doesn't focus solely on repness,
+  but also on raw probability of agreement, so as to ensure that there is some representation of what
+  people in the group agree on. Also, note that this takes the current-best, instead of just current-best-z."
+  [{:keys [ra rat pa pat] :as comment-conv-stats} current-best]
+  (cond
+    (and current-best (> (:ra current-best) 1.0))
+        ; XXX - a litte messy, since we're basicaly reimplimenting the repness sort function
+        (> (* ra rat pa pat) (apply * (map current-best [:ra :rat :pa :pat])))
+    current-best
+        (> (* pa pat) (apply * (map current-best [:pa :pat])))
+    :else
+        (or (> ra 1.0)
+            (> pa 0.5))))
 
 
 (defn passes-by-test?
@@ -438,12 +446,12 @@
                 ; Keep track of what the best comment so far is, even if it doesn't pass, so we always have at
                 ; least one comment
                 (if (and (empty? (gr-get gr :sufficient))
-                         (beats-best-by-test? comment-conv-stats (gr-get gr :test)))
+                         (beats-best-by-test? comment-conv-stats (gr-get gr :best :repness-test)))
                   (gr-assoc gr :best (finalize-cmt-stats tid comment-conv-stats))
                   gr)
                 ; Also keep track of best agree comment is, so we can throw that the front preferentially
-                (if (beats-best-agrr-by-test? comment-conv-stats (gr-get gr :test))
-                  (gr-assoc gr :best-agree (finalize-cmt-stats tid comment-conv-stats))
+                (if (beats-best-agrr? comment-conv-stats (gr-get gr :best-agree))
+                  (gr-assoc gr :best-agree (assoc comment-conv-stats :tid tid))
                   gr))))
           result
           (zip ids comment-stats)))
@@ -452,19 +460,20 @@
     ; If no sufficient, use best; otherwise sort sufficient and take 5
     (map-vals
       (fn [{:keys [best best-agree sufficient]}]
-        (if (empty? sufficient)
-          ; If there weren't any matches of the criteria, just take the best match, and take the best agree if
-          ; possible, and if not just the best general
-          (if best-agree
-            [best-agree]
-            [best])
-          (->> sufficient
-               ; Remove best agree if in list, since we'll be putting it in manually
-               (remove #(= best-agree %))
-               (repness-sort) ; sort by our complicated repness metric
-               (concat [best-agree]) ; put best agree at front, regardless
-               (take 5) ; take the top 5
-               (agrees-before-disagrees))))))) ; put the agrees before the disagrees
+        (let [best-agree (finalize-cmt-stats (:tid best-agree) best-agree)]
+          (if (empty? sufficient)
+            ; If there weren't any matches of the criteria, just take the best match, and take the best agree if
+            ; possible, and if not just the best general
+            (if best-agree
+              [best-agree]
+              [best])
+            (->> sufficient
+                 ; Remove best agree if in list, since we'll be putting it in manually
+                 (remove #(= best-agree %))
+                 (repness-sort) ; sort by our complicated repness metric
+                 (concat [best-agree]) ; put best agree at front, regardless
+                 (take 5) ; take the top 5
+                 (agrees-before-disagrees))))))))
 
 
 (defn xy-clusters-to-nmat [clusters]
