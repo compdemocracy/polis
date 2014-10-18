@@ -344,7 +344,6 @@
 (def large-conv-update (eager-profiled-compiler large-conv-update-graph))
 
 
-(declare conv-update-dump)
 (defn conv-update
   "This function dispatches to either small- or large-conv-update, depending on the number
   of participants (as decided by call to sample-size-fn)."
