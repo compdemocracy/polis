@@ -3756,6 +3756,9 @@ app.post("/api/v3/auth/facebook",
 
 function(req, res) {
 
+    // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
+    var TRUST_FB_TO_VALIDATE_EMAIL = true;
+
     var response = JSON.parse(req.p.response);
     var fb_public_profile = req.p.fb_public_profile;
     var fb_user_id = response.authResponse.userID;
@@ -3820,10 +3823,11 @@ function(req, res) {
                 // user for this email exists, but does not have FB account linked.
                     // user will be prompted for their password, and client will repeat the call with password
                         // fail(res, 409, "polis_err_reg_user_exits_with_email_but_has_no_facebook_linked")
-                if (!password) {
+                if (!TRUST_FB_TO_VALIDATE_EMAIL && !password) {
                     fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
                 } else {
-                    checkPassword(user.uid, password).then(function(ok) {
+                    var pwPromise = TRUST_FB_TO_VALIDATE_EMAIL ? Promise.resolve(true) : checkPassword(user.uid, password||"");
+                    pwPromise.then(function(ok) {
                         if (ok) {
                             createFacebookUserRecord(_.extend({}, {
                                 uid: user.uid
