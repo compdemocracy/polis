@@ -8,6 +8,7 @@
             [korma.core :as ko]
             [korma.db :as kdb]
             [environ.core :as env]
+            [clojure.tools.trace :as tr]
             [clojure.tools.logging :as log]
             [clojure.newtools.cli :refer [parse-opts]]))
 
@@ -28,11 +29,13 @@
 
 (defn get-zid-from-zinvite
   [zinvite]
-  (:zid
+  (-> 
     (kdb/with-db (db/db-spec)
       (ko/select "zinvites"
-        (ko/fields [:zid :zinvite])
-        (ko/where {:zinvite zinvite})))))
+        (ko/fields :zid :zinvite)
+        (ko/where {:zinvite zinvite})))
+    first
+    :zid))
 
 
 (defn -main
