@@ -10,6 +10,13 @@
 (set-current-implementation :vectorz)
 
 
+(defn xor
+  [a b]
+  (and
+    (or a b)
+    (not (and a b))))
+
+
 (defn gets
   "Like get, but gives a coll mapped from all the keys"
   [m ks & [not-found]]
