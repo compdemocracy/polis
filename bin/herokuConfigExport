@@ -7,4 +7,5 @@ heroku config --app polisapp | grep ": " | sed "s/[:=] */='/" | sed "s/$/'/" | s
 
 # Set developer enviroment ("Beta") vars here:
 echo "export APPLICATION_NAME=PolisWebServerBeta"
+echo "export MATH_ENV=prod"
 
