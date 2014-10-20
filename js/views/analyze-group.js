@@ -210,6 +210,13 @@ module.exports = Handlebones.View.extend({
       // });
 
       comments = _.indexBy(comments, "id"); // id is tid
+
+      // remove tids that are not present in the comments list (for example, tids that were moderated out)
+      // TODO exclude moderated-out comments from the repfull list
+      tids = _.filter(tids, function(tid) {
+        return !!comments[tid];
+      });
+      
       // use ordering of tids, but fetch out the comments we want.
       comments = _.map(tids, function(tid) {
         return comments[tid];
