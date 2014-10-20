@@ -5,6 +5,7 @@
             [polismath.conversation :as conv]
             [polismath.named-matrix :as nm]
             [polismath.utils :refer :all]
+            [plumbing.core :as pc]
             [korma.core :as ko]
             [korma.db :as kdb]
             [environ.core :as env]
@@ -48,11 +49,23 @@
     (:agent conv-agent)))
 
 
+(defn kw->int
+  [kw]
+  (-> kw
+      (str)
+      (clojure.string/replace ":" "")
+      (Integer/parseInt)))
+
+
 (defn load-conv
   [& {:keys [zid zinvite] :as args}]
   (assert (xor zid zinvite))
   (let [zid (or zid (get-zid-from-zinvite zinvite))]
-    (db/load-conv zid)))
+    (->
+      (db/load-conv zid)
+      (update-in
+        [:repness]
+        (partial pc/map-keys kw->int)))))
 
 
 (def cli-options

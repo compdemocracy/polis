@@ -176,6 +176,8 @@
 
 
 (defn load-conv
+  "Very bare bones reloading of the conversation; no cleanup for keyword/int hash-map key mismatches,
+  as found in the :repness"
   [zid]
   (mc/find-one-as-map
     (mongo-db (env/env :mongolab-uri))
