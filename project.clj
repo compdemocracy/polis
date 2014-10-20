@@ -29,6 +29,7 @@
                  [org.clojure/data.csv "0.1.2"]
                  [org.clojure/math.numeric-tower "0.0.4"]
                  [org.clojure/core.match "0.2.1"]
+                 [org.clojure/tools.namespace "0.2.7"]
                  [org.clojure/tools.logging "0.3.0"]
                  [org.clojure/tools.trace "0.7.6"]
                  ;[org.clojure/tools.cli "0.3.1"]
