@@ -44,8 +44,7 @@
       (:agent conv-agent)
       :complete-watch
       (fn [k r o n]
-        (println "Done recomputing")
-        (shutdown-agents)))
+        (println "Done recomputing")))
     (:agent conv-agent)))
 
 
@@ -63,8 +62,12 @@
 
 (defn -main
   [& args]
-  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
-    (apply-kwargs recompute options)))
-
+  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)
+        conv-agent (apply-kwargs recompute options)]
+    (add-watch
+      conv-agent
+      :shutdown-watch
+      (fn [k r o n]
+        (shutdown-agents)))))
 
 
