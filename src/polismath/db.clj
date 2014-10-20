@@ -3,6 +3,8 @@
             [cheshire.core :as ch]
             [korma.core :as ko]
             [korma.db :as kdb]
+            [monger.core :as mg]
+            [monger.collection :as mc]
             [environ.core :as env]
             [alex-and-georges.debug-repl :as dbr]
             [clojure.stacktrace :refer :all]
@@ -143,5 +145,41 @@
       get-users-with-stats
       (ko/where (in :email emails))
       (ko/select))))
+
+
+(defn mongo-collection-name
+  "Mongo collection name based on MATH_ENV env variable and hard-coded schema data. Makes sure that
+  prod, preprod, dev (and subdevs like chrisdev) have their own noninterfering collections."
+  [basename]
+  (let [schema-date "2014_08_22"
+        env-name    (or (env/env :math-env) "dev")]
+    (str "math_" env-name "_" schema-date "_" basename)))
+
+
+(def
+  ^{:doc "Memoized; returns a db object for connecting to mongo"}
+  mongo-db
+  (memoize
+    (fn [mongo-url]
+      (let [db (if mongo-url
+                 (let [{:keys [conn db]} (mg/connect-via-uri mongo-url)]
+                   db)
+                 (let [conn (mg/connect)
+                       db (mg/get-db conn "local-db")]
+                   db))]
+        ; Create indices, in case they don't exist
+        (doseq [c ["bidtopid" "main" "cache"]]
+          (let [c (mongo-collection-name c)]
+            (mc/ensure-index db c (array-map :zid 1) {:name (str c "_zid_index") :unique true})))
+        ; make sure to return db
+        db))))
+
+
+(defn load-conv
+  [zid]
+  (mc/find-one-as-map
+    (mongo-db (env/env :mongolab-uri))
+    (mongo-collection-name "main")
+    {:zid zid}))
 
 

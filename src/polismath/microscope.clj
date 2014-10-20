@@ -38,7 +38,7 @@
     :zid))
 
 
-(defn -main
+(defn recompute
   [& args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)
         {:keys [zid zinvite]} options
@@ -53,6 +53,14 @@
       :complete-watch
       (fn [k r o n]
         (println "Done recomputing")
-        (shutdown-agents)))))
+        (shutdown-agents)))
+    (:agent conv-agent)))
+
+
+(defn load-conv
+  [& {:keys [zid zinvite] :as args}]
+  (assert (xor zid zinvite))
+  (let [zid (or zid (get-zid-from-zinvite zinvite))]
+    (load-conv zid)))
 
 

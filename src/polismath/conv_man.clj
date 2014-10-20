@@ -3,6 +3,7 @@
             [polismath.named-matrix :as nm]
             [polismath.conversation :as conv]
             [polismath.metrics :as met]
+            [polismath.db :as db]
             [polismath.utils :refer :all]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async :as as]
@@ -41,34 +42,6 @@
      (metric ~metric-name duration# end#)
      (log/debug (str end# " " ~metric-name " " duration# " millis"))
      ret#))
-
-
-(defn mongo-collection-name
-  "Mongo collection name based on MATH_ENV env variable and hard-coded schema data. Makes sure that
-  prod, preprod, dev (and subdevs like chrisdev) have their own noninterfering collections."
-  [basename]
-  (let [schema-date "2014_08_22"
-        env-name    (or (env/env :math-env) "dev")]
-    (str "math_" env-name "_" schema-date "_" basename)))
-
-
-(def
-  ^{:doc "Memoized; returns a db object for connecting to mongo"}
-  mongo-db
-  (memoize
-    (fn [mongo-url]
-      (let [db (if mongo-url
-                 (let [{:keys [conn db]} (mg/connect-via-uri mongo-url)]
-                   db)
-                 (let [conn (mg/connect)
-                       db (mg/get-db conn "local-db")]
-                   db))]
-        ; Create indices, in case they don't exist
-        (doseq [c ["bidtopid" "main" "cache"]]
-          (let [c (mongo-collection-name c)]
-            (mc/ensure-index db c (array-map :zid 1) {:name (str c "_zid_index") :unique true})))
-        ; make sure to return db
-        db))))
 
 
 (defn get-or-set!
@@ -142,7 +115,7 @@
   [collection-name new-results]
   (mc/update
     ; Bleg; not the cleanest separation here; should at least try to make this something rebindable
-    (mongo-db (env/env :mongolab-uri))
+    (db/mongo-db (env/env :mongolab-uri))
     collection-name
     {:zid (or (:zid new-results) ; covering our bases for strings or keywords due to cheshire hack
               (get new-results "zid"))}
@@ -182,7 +155,7 @@
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
           (->> (format-for-mongo prep-fn updated-conv last-timestamp)
-               (mongo-upsert-results (mongo-collection-name col-name))))
+               (mongo-upsert-results (db/mongo-collection-name col-name))))
         (log/info "Finished uploading mongo results for zid" zid)
         ; Return the updated conv
         updated-conv)
@@ -239,10 +212,7 @@
 (defn load-or-init
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
   [zid]
-  (if-let [conv (mc/find-one-as-map
-                  (mongo-db (env/env :mongolab-uri))
-                  (mongo-collection-name "main")
-                  {:zid zid})]
+  (if-let [conv (db/load-conv zid)]
     (-> conv
         (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts})
         ; Make sure there is an empty named matrix to operate on

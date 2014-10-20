@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [* -  + == /])
   (:require [plumbing.core :as plmb]
             [plumbing.graph :as graph]
+            [monger.collection :as mc]
             [clojure.core.matrix :as matrix]
             [clojure.tools.trace :as tr]
             [clojure.tools.reader.edn :as edn]
