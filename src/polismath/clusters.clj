@@ -81,7 +81,7 @@
               (dissoc :positions)))))
 
 
-(defnp recenter-clusters
+(defn recenter-clusters
   "Replace cluster centers with a center computed from new positions"
   [data clusters]
   (greedy
@@ -90,7 +90,7 @@
     clusters)))
 
 
-(defnp safe-recenter-clusters
+(defn safe-recenter-clusters
   "Replace cluster centers with a center computed from new positions"
   [data clusters]
   (as-> clusters clsts
@@ -125,7 +125,7 @@
      :center (mean (map :center [clst1 clst2]))}))
 
 
-(defnp most-distal
+(defn most-distal
   "Finds the most distal point in all clusters"
   [data clusters]
   (let [[dist clst-id id]
@@ -153,7 +153,7 @@
     [] clusters))
 
 
-(defnp clean-start-clusters
+(defn clean-start-clusters
   "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
@@ -192,7 +192,7 @@
 
  
 ; Each cluster should have the shape {:id :members :center}
-(defnp kmeans
+(defn kmeans
   "Performs a k-means clustering."
   [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
   (let [data-iter (zip (rownames data) (matrix (get-matrix data)))
