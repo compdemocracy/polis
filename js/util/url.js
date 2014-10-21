@@ -4,6 +4,7 @@
 var prod = "https://pol.is/";
 var preprod = "https://preprod.pol.is/";
 var embed = "https://embed.pol.is/";
+var polisio = "https://www.polis.io/";
 var localhost = "http://localhost:5000/";
 var localhost8000 = "http://localhost:8000/";
 var urlPrefix = prod;
@@ -13,7 +14,10 @@ if (document.domain.indexOf("preprod") >= 0) {
 if (document.domain.indexOf("embed") >= 0) {
     urlPrefix = embed;
 }
-if (-1 === document.domain.indexOf("pol.is")) {
+if (document.domain.indexOf("polis.io") >= 0) {
+    urlPrefix = polisio;
+}
+if ((-1 === document.domain.indexOf("pol.is")) && (-1 === document.domain.indexOf("polis.io"))) {
     urlPrefix = localhost;
 }
 
