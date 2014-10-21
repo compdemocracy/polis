@@ -1156,55 +1156,58 @@ polisTypes.starValues = _.values(polisTypes.staractions);
 
 var oneYear = 1000*60*60*24*365;
 
-function setCookie(res, setOnPolisDomain, name, value, options) {
+function setCookie(req, res, setOnPolisDomain, name, value, options) {
     var o = _.clone(options||{});
     o.path = _.isUndefined(o.path) ? '/' : o.path;
     o.maxAge = _.isUndefined(o.maxAge) ? oneYear : o.maxAge;
     if (setOnPolisDomain) {
         o.secure = _.isUndefined(o.secure) ? true : o.secure;
         o.domain = _.isUndefined(o.domain) ? '.pol.is' : o.domain;
+        if (/polis.io/.test(req.headers.host)) {
+            o.domain = '.polis.io';
+        }
     }
     res.cookie(name, value, o);
 }
 
-function setPlanCookie(res, setOnPolisDomain, planNumber) {
+function setPlanCookie(req, res, setOnPolisDomain, planNumber) {
     if (planNumber > 0) {
-        setCookie(res, setOnPolisDomain, COOKIES.PLAN_NUMBER, planNumber, {
+        setCookie(req, res, setOnPolisDomain, COOKIES.PLAN_NUMBER, planNumber, {
             // not httpOnly - needed by JS
         });
     }
     // else falsy
 
 }
-function setHasEmailCookie(res, setOnPolisDomain, email) {
+function setHasEmailCookie(req, res, setOnPolisDomain, email) {
     if (email) {
-        setCookie(res, setOnPolisDomain, COOKIES.HAS_EMAIL, 1, {
+        setCookie(req, res, setOnPolisDomain, COOKIES.HAS_EMAIL, 1, {
             // not httpOnly - needed by JS
         });
     }
     // else falsy
 }
 
-function setUserCreatedTimestampCookie(res, setOnPolisDomain, timestamp) {
-    setCookie(res, setOnPolisDomain, COOKIES.USER_CREATED_TIMESTAMP, timestamp, {
+function setUserCreatedTimestampCookie(req, res, setOnPolisDomain, timestamp) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.USER_CREATED_TIMESTAMP, timestamp, {
         // not httpOnly - needed by JS
     });
 }
 
-function setTokenCookie(res, setOnPolisDomain, token) {
-    setCookie(res, setOnPolisDomain, COOKIES.TOKEN, token, {
+function setTokenCookie(req, res, setOnPolisDomain, token) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.TOKEN, token, {
         httpOnly: true,
     });
 }
 
-function setUidCookie(res, setOnPolisDomain, uid) {
-    setCookie(res, setOnPolisDomain, COOKIES.UID, uid, {
+function setUidCookie(req, res, setOnPolisDomain, uid) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.UID, uid, {
         // not httpOnly - needed by JS
     });
 }
 
-function setPermanentCookie(res, setOnPolisDomain, token) {
-    setCookie(res, setOnPolisDomain, COOKIES.PERMANENT_COOKIE, token, {
+function setPermanentCookie(req, res, setOnPolisDomain, token) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.PERMANENT_COOKIE, token, {
         httpOnly: true,
     });
 }
@@ -1221,13 +1224,13 @@ function addCookies(req, res, token, uid) {
             setOnPolisDomain = false;
         }
 
-        setTokenCookie(res, setOnPolisDomain, token);
-        setUidCookie(res, setOnPolisDomain, uid);
-        setPlanCookie(res, setOnPolisDomain, plan);
-        setHasEmailCookie(res, setOnPolisDomain, email);
-        setUserCreatedTimestampCookie(res, setOnPolisDomain, o.created);
+        setTokenCookie(req, res, setOnPolisDomain, token);
+        setUidCookie(req, res, setOnPolisDomain, uid);
+        setPlanCookie(req, res, setOnPolisDomain, plan);
+        setHasEmailCookie(req, res, setOnPolisDomain, email);
+        setUserCreatedTimestampCookie(req, res, setOnPolisDomain, o.created);
         if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-            setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+            setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
         }
         res.header("x-polis", token);
     });
@@ -1729,10 +1732,10 @@ function(req, res) {
     }
 
     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-        setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+        setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
     }
 
-    setCookie(res, setOnPolisDomain, "top", "ok", {
+    setCookie(req, res, setOnPolisDomain, "top", "ok", {
         httpOnly: false,            // not httpOnly - needed by JS
     });
 
@@ -1754,9 +1757,9 @@ function(req, res) {
 //     }
 
 //     if (!req.cookies[COOKIES.PERMANENT_COOKIE]) {
-//         setPermanentCookie(res, setOnPolisDomain, makeSessionToken());
+//         setPermanentCookie(req, res, setOnPolisDomain, makeSessionToken());
 //     }
-//     setCookie(res, setOnPolisDomain, "top", "ok", {
+//     setCookie(req, res, setOnPolisDomain, "top", "ok", {
 //         httpOnly: false,            // not httpOnly - needed by JS
 //     });
 //     res.status(200).json({});
@@ -1774,7 +1777,7 @@ function(req, res) {
     }
 
     if (!req.cookies[COOKIES.TRY_COOKIE]) {
-        setCookie(res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
+        setCookie(req, res, setOnPolisDomain, COOKIES.TRY_COOKIE, "ok", {
             httpOnly: false,            // not httpOnly - needed by JS
         });
     }
@@ -4308,7 +4311,7 @@ function updatePlan(req, res, uid, planCode, isCurrentUser) {
             if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
                 setOnPolisDomain = false;
             }
-            setPlanCookie(res, setOnPolisDomain, planCode);
+            setPlanCookie(req, res, setOnPolisDomain, planCode);
 
             // Redirect to the same URL with the path behind the fragment "#"
             res.writeHead(302, {
