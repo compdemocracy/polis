@@ -95,7 +95,6 @@
   [data clusters]
   (as-> clusters clsts
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
-    (p :safe-recenter-map (greedy
     (map
       (fn [clst]
         (let [rns (safe-rowname-subset data (:members clst))]
@@ -103,7 +102,6 @@
             nil
             (assoc clst :center (mean (matrix (get-matrix rns)))))))
       clsts)
-      ))
     ; Remove the nils, they break the math
     (remove nil? clsts)
     ; If nothing is left, make one great big cluster - so that things don't break in most-distal later
@@ -112,9 +110,7 @@
       [{:id (inc (apply max (map :id clusters)))
         :members (rownames data)
         :center (mean (matrix (get-matrix data)))}]
-      clsts)
-    ; XXX - for profiling
-    (greedy clsts)))
+      clsts)))
 
 
 (defn merge-clusters [clst1 clst2]
@@ -173,7 +169,6 @@
             (if (> (:dist outlier) 0)
               ; There is work to be done, so do it
               (recur
-              (p :usr/inner-clean
                 (->
                   ; first remove the most distal point from the cluster it was in;
                   (map
@@ -184,7 +179,7 @@
                   ; next add a new cluster containing only said point.
                   (conj {:id (inc (apply max (map :id clusters)))
                          :members [(:id outlier)]
-                         :center (get-row-by-name data (:id outlier))}))))
+                         :center (get-row-by-name data (:id outlier))})))
               ; Else just return recentered clusters
               clusters))
           ; Else just return recentered clusters
