@@ -322,6 +322,9 @@ svg {
 .participationCount {
   // float: right;
 }
+#write_hints_div {
+  display: block;
+}
 
 #carousel {
   overflow: hidden;
@@ -333,6 +336,11 @@ svg {
   #carousel {
     overflow: visible;
   }
+
+  #write_hints_div {
+    display: hidden;
+  }
+
 
 }
 
