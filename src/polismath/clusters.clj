@@ -65,11 +65,47 @@
   (into {} (map #(vector (:id %) (assoc % :members [])) clusters)))
 
 
+(defmulti weighted-mean
+  "Compute either the mean or weighted mean (if :weights is passed) of either a matrix or
+  named matrix. For a matrix, :weights should be vector, the ith element of which is the
+  weight corresponding to row i of mat. For a named matrix, it should be a hash."
+  (fn [& args]
+    [(matrix? (first args))
+     (vec? (first args))]))
+; It's a matrix
+(defmethod weighted-mean [true false]
+  [mat & {:keys [weights]}]
+  (if weights
+    (mean
+      (reduce
+        (fn [m [row-i weight]]
+          (multiply-row m row-i weight))
+        mat
+        (with-indices weights)))
+    (mean mat)))
+; It's a vector...
+(defmethod weighted-mean [false true]
+  [v & {:keys [weights]}]
+  (if weights
+    (/ (dot weights v) (pc/sum weights))
+    (mean v)))
+; It's a named matrix...
+(defmethod weighted-mean [false false]
+  [nmat & {:keys [weights]}]
+  (weighted-mean (get-matrix nmat)
+                 :weights
+                 (when weights
+                   (reduce
+                     #(conj %1 (weights %2))
+                     []
+                     (rownames nmat)))))
+
+
 (defn cluster-step
   "Performs one step of an iterative K-means:
   data-iter: seq of pairs (id, position), eg (pid, person-rating-row)
   clusters: array of clusters"
-  [data-iter k clusters]
+  [data-iter k clusters & {:keys [weights]}]
   (->> data-iter
     ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
     (reduce add-to-closest (cleared-clusters clusters))
@@ -77,22 +113,21 @@
     ; Filter out clusters that don't have any members (should maybe log on verbose?)
     (filter #(> (count (:members %)) 0))
     ; Apply mean to get updated centers
-    (map #(-> (assoc % :center (mean (:positions %)))
+    (map #(-> (assoc % :center (weighted-mean (:positions %)))
               (dissoc :positions)))))
 
 
 (defn recenter-clusters
   "Replace cluster centers with a center computed from new positions"
-  [data clusters]
-  (greedy
+  [data clusters & {:keys [weights]}]
   (map
-    #(assoc % :center (mean (matrix (get-matrix (rowname-subset data (:members %))))))
-    clusters)))
+    #(assoc % :center (weighted-mean (matrix (get-matrix (rowname-subset data (:members %))))))
+    clusters))
 
 
 (defn safe-recenter-clusters
   "Replace cluster centers with a center computed from new positions"
-  [data clusters]
+  [data clusters & {:keys [weights]}]
   (as-> clusters clsts
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
     (map
@@ -100,7 +135,7 @@
         (let [rns (safe-rowname-subset data (:members clst))]
           (if (empty? (rownames rns))
             nil
-            (assoc clst :center (mean (matrix (get-matrix rns)))))))
+            (assoc clst :center (weighted-mean (matrix (get-matrix rns)))))))
       clsts)
     ; Remove the nils, they break the math
     (remove nil? clsts)
@@ -109,16 +144,15 @@
     (if (empty? clsts)
       [{:id (inc (apply max (map :id clusters)))
         :members (rownames data)
-        :center (mean (matrix (get-matrix data)))}]
+        :center (weighted-mean (matrix (get-matrix data)))}]
       clsts)))
 
 
 (defn merge-clusters [clst1 clst2]
   (let [new-id (:id (max-key #(count (:members %)) clst1 clst2))]
-    ; XXX - instead of using mean should really do a weighted thing that looks at # members
     {:id new-id
      :members (into (:members clst1) (:members clst2))
-     :center (mean (map :center [clst1 clst2]))}))
+     :center (weighted-mean (map :center [clst1 clst2]))}))
 
 
 (defn most-distal
@@ -153,16 +187,16 @@
   "This function takes care of some possible messy situations which can crop up with using 'last-clusters'
   in kmeans computation, and generally gets the last set of clusters ready as the basis for a new round of
   clustering given the latest set of data."
-  [data clusters k]
+  [data clusters k & {:keys [weights]}]
   ; First recenter clusters (replace cluster center with a center computed from new positions)
-  (let [clusters (into [] (safe-recenter-clusters data clusters))
+  (let [clusters (into [] (safe-recenter-clusters data clusters :weights weights))
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
         possible-clusters (min k (count (distinct (rows (get-matrix data)))))]
     (loop [clusters uniq-clusters]
       ; Whatever the case here, we want to do one more recentering
-      (let [clusters (recenter-clusters data clusters)]
+      (let [clusters (recenter-clusters data clusters :weights weights)]
         (if (> possible-clusters (count clusters))
           ; first find the most distal point, and the cluster to which it's closest
           (let [outlier (most-distal data clusters)]
@@ -189,7 +223,7 @@
 ; Each cluster should have the shape {:id :members :center}
 (defn kmeans
   "Performs a k-means clustering."
-  [data k & {:keys [last-clusters max-iters] :or {max-iters 20}}]
+  [data k & {:keys [last-clusters max-iters weights] :or {max-iters 20}}]
   (let [data-iter (zip (rownames data) (matrix (get-matrix data)))
         clusters  (if last-clusters
                     (clean-start-clusters data last-clusters k)
@@ -247,7 +281,7 @@
                      (get-matrix data)
                      ; This is a 2D row vector; we want 1D, so take first
                      (first data)
-                     ; Take the mean of the entries
+                     ; Take the weighted-mean of the entries
                      (mean data)
                      (if memb-clst?
                        [data b]
@@ -257,7 +291,7 @@
      ; The actual silhouette computation
      (/ (- b a) (max b a))))
   ([distmat clusters]
-   (mean
+   (weighted-mean
      (map
        (partial silhouette distmat clusters)
        (rownames distmat)))))
