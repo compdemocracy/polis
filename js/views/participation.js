@@ -22,6 +22,7 @@ var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
 var TutorialView = require("../views/tutorialView");
+var WritingTipsView = require("../views/writingTips");
 
 var VIS_SELECTOR = "#visualization_div";
 
@@ -418,7 +419,7 @@ module.exports =  ConversationView.extend({
         })
       }));
 
-
+      this.writingTips = this.addChild(new WritingTipsView());
 
       this.changeVotes = new ChangeVotesView({
         serverClient: serverClient,
