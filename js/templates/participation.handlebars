@@ -150,9 +150,10 @@ col-lg-offset-0 col-lg-12
 
   <span id="right_panel" class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
 
-    {{#ifNotXs}}
-      {{ view writingTips }}
-    {{/ifNotXs}}
+  <div class="writingTipsParent">
+    {{ view writingTips }}
+  </div>
+
 
 
   <div id="vis_sibling_bottom"

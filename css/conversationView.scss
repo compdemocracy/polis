@@ -322,10 +322,9 @@ svg {
 .participationCount {
   // float: right;
 }
-#write_hints_div {
+.writingTipsParent {
   display: block;
 }
-
 #carousel {
   overflow: hidden;
 }
@@ -337,11 +336,9 @@ svg {
     overflow: visible;
   }
 
-  #write_hints_div {
-    display: hidden;
+  .writingTipsParent {
+    display: none;
   }
-
-
 }
 
 /* Everything but mobile */
