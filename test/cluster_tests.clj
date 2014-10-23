@@ -176,3 +176,71 @@
     (is (kmeans nmat 3 :last-clusters last-clusters))))
 
 
+
+(def rand-gen
+  (java.util.Random. 1234))
+
+
+(defn random-vec
+  [n]
+  (for [_ (range n)]
+    (.nextFloat rand-gen)))
+
+
+(defn rand-int*
+  [n]
+  (.nextInt rand-gen n))
+
+(defn dup-matrix-from-weights
+  [mat weights]
+  (reduce
+    (fn [duped-mat [weight row]]
+      (concat duped-mat (replicate weight row)))
+    []
+    (map vector weights mat)))
+
+(defn dup-rownames-from-weights
+  [rownames weights]
+  (reduce
+    (fn [duped-rownames [weight rowname]]
+      (concat duped-rownames
+              (for [i (range weight)]
+                [rowname i])))
+    []
+    (map vector weights rownames)))
+
+(defn setify-members
+  [clsts & {:keys [trans] :or {trans identity}}]
+  (->> clsts
+       (map
+         (fn [clst]
+           (->>
+             (:members clst)
+             (map trans)
+             (set))))
+       (set)))
+
+(defn print-mat [names mat]
+  (doseq [[n r] (map vector names mat)]
+    (println n ":" r)))
+
+
+(deftest weighted-kmeans
+  (doseq [_ (range 1)]
+    (let [n-uniq       20
+          n-dups-max   5
+          n-cmnts      3
+          uniq-positions   (for [_ (range n-uniq)] (random-vec n-cmnts))
+          ptpt-names       (for [i (range n-uniq)] (str "p" i))
+          weights          (for [_ (range n-uniq)] (inc (rand-int* n-dups-max)))
+          duped-positions  (dup-matrix-from-weights uniq-positions weights)
+          duped-names      (dup-rownames-from-weights ptpt-names weights)
+          duped-data       (named-matrix duped-names [:x :y :z] duped-positions)
+          deduped-data     (named-matrix ptpt-names [:x :y :z] uniq-positions)
+          weighted-clsts   (kmeans deduped-data 3 :weights weights)
+          unweighted-clsts (kmeans deduped-data 3)
+          duped-clsts      (kmeans duped-data 3)]
+      (is (= (setify-members weighted-clsts)
+             (setify-members duped-clsts :trans first))))))
+
+
