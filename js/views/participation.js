@@ -223,13 +223,13 @@ module.exports =  ConversationView.extend({
 
 
     function moveVisToBottom() {
-      // var $vis = that.$("#visualization_parent_div").detach();
-      // $("#vis_sibling_bottom").append($vis);
+      var $vis = that.$("#visualization_parent_div").detach();
+      $("#vis_sibling_bottom").append($vis);
     }
 
     function moveVisAboveQueryResults() {
-      // var $vis = that.$("#visualization_parent_div").detach();
-      // $("#vis_sibling_above_tab_content").append($vis);
+      var $vis = that.$("#visualization_parent_div").detach();
+      $("#vis_sibling_above_tab_content").append($vis);
     }
 
     function initPcaVis() {
