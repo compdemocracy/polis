@@ -160,7 +160,7 @@
     ; Now getting to work
     (println "Now updating all user records in intercom")
     (doseq [u all-users]
-      (Thread/sleep 1200)
+      (Thread/sleep 500)
       (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
       (try
         (update-icuser-from-dbuser! u)
