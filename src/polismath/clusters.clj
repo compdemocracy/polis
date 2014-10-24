@@ -137,7 +137,9 @@
   "Replace cluster centers with a center computed from new positions"
   [data clusters & {:keys [weights]}]
   (map
-    #(assoc % :center (weighted-mean (matrix (get-matrix (rowname-subset data (:members %))))))
+    (fn [clst]
+      (assoc clst :center (weighted-mean (rowname-subset data (:members clst))
+                                         :weights weights)))
     clusters))
 
 
