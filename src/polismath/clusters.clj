@@ -153,7 +153,7 @@
         (let [rns (safe-rowname-subset data (:members clst))]
           (if (empty? (rownames rns))
             nil
-            (assoc clst :center (weighted-mean (matrix (get-matrix rns)))))))
+            (assoc clst :center (weighted-mean rns :weights weights)))))
       clsts)
     ; Remove the nils, they break the math
     (remove nil? clsts)
@@ -162,7 +162,7 @@
     (if (empty? clsts)
       [{:id (inc (apply max (map :id clusters)))
         :members (rownames data)
-        :center (weighted-mean (matrix (get-matrix data)))}]
+        :center (weighted-mean data :weights weights)}]
       clsts)))
 
 
