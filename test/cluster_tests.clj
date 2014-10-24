@@ -1,6 +1,7 @@
 (ns cluster-tests
   (:use polismath.utils)
   (:require [clojure.test :refer :all]
+            [plumbing.core :as pc]
             [polismath.named-matrix :refer :all]
             [polismath.clusters :refer :all]))
 
@@ -213,11 +214,10 @@
   [clsts & {:keys [trans] :or {trans identity}}]
   (->> clsts
        (map
-         (fn [clst]
-           (->>
-             (:members clst)
-             (map trans)
-             (set))))
+         (pc/fn->>
+           (:members)
+           (map trans)
+           (set)))
        (set)))
 
 (defn print-mat [names mat]
