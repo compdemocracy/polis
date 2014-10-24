@@ -10,6 +10,9 @@ module.exports =  Handlebones.ModelView.extend({
   context: function() {
     var c = Handlebones.ModelView.prototype.context.apply(this, arguments);
     // c.use_background_content_class = display.xs();
+
+    var step = 2;
+    c["step" + step] = true;
     return c;
   },
 
