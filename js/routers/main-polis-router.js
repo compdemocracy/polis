@@ -32,6 +32,7 @@ var SummaryView = require("../views/summary.js");
 var PlanUpgradeView = require("../views/plan-upgrade");
 var FaqView = require("../views/faq");
 var PolisStorage = require("../util/polisStorage");
+var TutorialSlidesView = require("../views/tutorialSlides");
 var UserModel = require("../models/user");
 var Utils = require("../util/utils");
 var _ = require("underscore");
@@ -245,6 +246,7 @@ var polisRouter = Backbone.Router.extend({
     
     this.r("inboxApiTest(/:filter)", "inboxApiTest");
     this.r("faq", "faq");
+    this.r("tut", "doShowTutorial");
     this.r("pwresetinit", "pwResetInit");
     this.r("prototype", "prototype");
     this.r("", "landingPageView");
@@ -903,10 +905,22 @@ var polisRouter = Backbone.Router.extend({
       params = Utils.decodeParams(encodedStringifiedJson);
     }
 
-    doJoinConversation.call(this, 
-      this.doLaunchConversation.bind(this),
-      conversation_id,
-      suzinvite);
+    var that = this;
+    // this.doShowTutorial().then(function() {
+      doJoinConversation.call(that, 
+        that.doLaunchConversation.bind(that),
+        conversation_id,
+        suzinvite);
+    // });
+  },
+  doShowTutorial: function() {
+    var dfd = $.Deferred();
+    var view = new TutorialSlidesView({
+        model: new Backbone.Model({})
+      });
+    view.on("done", dfd.resolve);
+    RootView.getInstance().setView(view);
+    return dfd.promise();
   },
   getConversationModel: function(conversation_id, suzinvite) {
     return $.get("/api/v3/conversations?conversation_id=" + conversation_id).then(function(conv) {
