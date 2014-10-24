@@ -23,6 +23,8 @@
   "Append an item to a cluster, where item is a (mem_id, vector) pair"
   [clst item]
   (assoc clst
+         ; Note that order is important here, and assumed to be the same for the weighted-mean call in
+         ; `cluster-step`.
          :members (conj (:members clst) (first item))
          :positions (conj (:positions clst) (last item))))
 
@@ -72,6 +74,7 @@
   (fn [& args]
     [(matrix? (first args))
      (vec? (first args))]))
+
 ; It's a matrix
 (defmethod weighted-mean [true false]
   [mat & {:keys [weights]}]
@@ -83,12 +86,14 @@
         mat
         (with-indices weights)))
     (mean mat)))
+
 ; It's a vector...
 (defmethod weighted-mean [false true]
   [v & {:keys [weights]}]
   (if weights
     (/ (dot weights v) (pc/sum weights))
     (mean v)))
+
 ; It's a named matrix...
 (defmethod weighted-mean [false false]
   [nmat & {:keys [weights]}]
@@ -99,6 +104,14 @@
                      #(conj %1 (weights %2))
                      []
                      (rownames nmat)))))
+
+(defn cluster-weights
+  "Get a weights seq given a cluster with :members and a hash-map of weights. Returns nil
+  if hm-weights is falsey."
+  [cluster hm-weights]
+  (when hm-weights
+    (->> (:members cluster)
+         (map hm-weights))))
 
 
 (defn cluster-step
@@ -113,8 +126,11 @@
     ; Filter out clusters that don't have any members (should maybe log on verbose?)
     (filter #(> (count (:members %)) 0))
     ; Apply mean to get updated centers
-    (map #(-> (assoc % :center (weighted-mean (:positions %)))
-              (dissoc :positions)))))
+    (map (fn [clst]
+           (-> clst
+               (assoc :center (weighted-mean (:positions clst)
+                                             :weights (cluster-weights clst weights)))
+               (dissoc :positions))))))
 
 
 (defn recenter-clusters
@@ -226,7 +242,7 @@
   [data k & {:keys [last-clusters max-iters weights] :or {max-iters 20}}]
   (let [data-iter (zip (rownames data) (matrix (get-matrix data)))
         clusters  (if last-clusters
-                    (clean-start-clusters data last-clusters k)
+                    (clean-start-clusters data last-clusters k :weights weights)
                     (init-clusters data k))]
     (loop [clusters clusters iter max-iters]
       (let [new-clusters (cluster-step data-iter k clusters)]
