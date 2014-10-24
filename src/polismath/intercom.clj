@@ -159,16 +159,14 @@
     (println "Number w/o:                    " (count icusers-by-email))
     ; Now getting to work
     (println "Now updating all user records in intercom")
-    (let [jobs (mapv
-                 (fn [u]
-                   [u (future
-                        (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
-                        (update-icuser-from-dbuser! u))])
-                   all-users)
-          failed-jobs (filterv (comp future-failed? second) jobs)]
-      (println "Number of failed jobs:" (count failed-jobs))
-      (doseq [[u _] failed-jobs]
-        (println u)))
+    (doseq [u all-users]
+      (Thread/sleep 1200)
+      (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
+      (try
+        (update-icuser-from-dbuser! u)
+        (catch Exception e
+          (log/error "Problem with update for user" (hash-map-subset u [:uid :email :hname :created]))
+          (.printStackTrace e *out*))))
     ; Stab at doing batched runs
     ;(let [jobs (mapv
                  ;(fn [us]
