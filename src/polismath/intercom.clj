@@ -60,7 +60,8 @@
     (parse-json-resp)))
 
 
-(defn update-icuser
+(defn update-icuser!
+  "Update an icuser given params for that user"
   [params]
   (->>
     params
@@ -69,24 +70,52 @@
     (client/post "https://api.intercom.io/users")))
 
 
-(defn update-icuser-from-dbuser
-  [dbuser]
-  (update-icuser
-    (into
-      {}
-      (map
-        (fn [[ic-key db-key]]
-          [ic-key (db-key dbuser)])
-        [[:name              :hname]
-         [:user_id           :uid]
-         [:email             :email]
-         [:custom_attributes
-            (pc/fn->
-              (hash-map-subset
-                [:avg_n_ptpts :n_owned_convs :n_ptptd_convs :n_owned_convs_ptptd :avg_n_visitors]))]
-         [:remote_created_at
-            #(/ (:created %) 1000)]]))))
+; XXX - This won't actually work yet, since they don't support updating parameters through the batch post.
+; It's now written for when they do though.
+(defn update-icusers!
+  "WARNING - API not yet implemented! In theory, once it is though, this will update multiple icusers."
+  [users]
+  (->>
+    users
+    (assoc {} :users)
+    (ch/generate-string)
+    (assoc intercom-http-params :body)
+    (client/post "https://api.intercom.io/users/bulk")))
 
+
+(defn icuser-from-dbuser
+  "Translates a dbuser into an icuser suitable for uploading to the intercom db."
+  [dbuser]
+  (into
+    {}
+    (map
+      (fn [[ic-key db-key]]
+        [ic-key (db-key dbuser)])
+      [[:name              :hname]
+       [:user_id           :uid]
+       [:email             :email]
+       [:custom_attributes
+          (pc/fn->
+            (hash-map-subset
+              [:avg_n_ptpts :n_owned_convs :n_ptptd_convs :n_owned_convs_ptptd :avg_n_visitors]))]
+       [:remote_created_at
+          #(/ (:created %) 1000)]])))
+
+
+(defn update-icuser-from-dbuser!
+  "Update a single icuser record from a single dbuser record."
+  [dbuser]
+  (update-icuser! (icuser-from-dbuser dbuser)))
+
+
+; XXX - This won't actually work yet, since they don't support updating parameters through the batch post.
+; It's now written for when they do though.
+(defn update-icusers-from-dbusers!
+  "WARNING - API not yet implemented! In theory, once it is though, this will update all users based on dbusers."
+  [dbusers]
+  (->> dbusers
+       (map icuser-from-dbuser)
+       (update-icusers!)))
 
 
 ; Main functions:
@@ -130,7 +159,7 @@
                  (fn [u]
                    [u (future
                         (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
-                        (update-icuser-from-dbuser u))])
+                        (update-icuser-from-dbuser! u))])
                    all-users)
           failed-jobs (filterv (comp future-failed? second) jobs)]
       (println "Number of failed jobs:" (count failed-jobs))
