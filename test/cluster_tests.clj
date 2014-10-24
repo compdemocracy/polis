@@ -177,22 +177,26 @@
     (is (kmeans nmat 3 :last-clusters last-clusters))))
 
 
-
+; Reproducible random generator for weighted kmeans test; if this gets used anywhere else, need to move
+; to a closure
 (def rand-gen
   (java.util.Random. 1234))
 
 
-(defn random-vec
+(defn random-vec*
+  "Reproducible random vector"
   [n]
   (for [_ (range n)]
     (.nextFloat rand-gen)))
 
 
 (defn rand-int*
+  "Reproducible random integer"
   [n]
   (.nextInt rand-gen n))
 
 (defn dup-matrix-from-weights
+  "Take a matrix and weights, and produce a new matrix with duplicate rows according to `weights` integers."
   [mat weights]
   (reduce
     (fn [duped-mat [weight row]]
@@ -201,6 +205,7 @@
     (map vector weights mat)))
 
 (defn dup-rownames-from-weights
+  "Create a new rownames vector with names duplicated according to weights, as with dup-matrix-from-weights."
   [rownames weights]
   (reduce
     (fn [duped-rownames [weight rowname]]
@@ -211,6 +216,9 @@
     (map vector weights rownames)))
 
 (defn setify-members
+  "Given a clustering, creates a set of member sets. This makes it easy to compare clusters for equality.
+  Optional `:trans` keyword args lets you perform a transformation to the member names included in member
+  sets."
   [clsts & {:keys [trans] :or {trans identity}}]
   (->> clsts
        (map
@@ -220,27 +228,33 @@
            (set)))
        (set)))
 
-(defn print-mat [names mat]
+(defn print-mat
+  "Helper for looking at matrices"
+  [names mat]
   (doseq [[n r] (map vector names mat)]
     (println n ":" r)))
 
 
 (deftest weighted-kmeans
-  (doseq [_ (range 1)]
-    (let [n-uniq       20
-          n-dups-max   5
-          n-cmnts      3
-          uniq-positions   (for [_ (range n-uniq)] (random-vec n-cmnts))
-          ptpt-names       (for [i (range n-uniq)] (str "p" i))
-          weights          (for [_ (range n-uniq)] (inc (rand-int* n-dups-max)))
-          duped-positions  (dup-matrix-from-weights uniq-positions weights)
-          duped-names      (dup-rownames-from-weights ptpt-names weights)
-          duped-data       (named-matrix duped-names [:x :y :z] duped-positions)
-          deduped-data     (named-matrix ptpt-names [:x :y :z] uniq-positions)
-          weighted-clsts   (kmeans deduped-data 3 :weights weights)
-          unweighted-clsts (kmeans deduped-data 3)
-          duped-clsts      (kmeans duped-data 3)]
-      (is (= (setify-members weighted-clsts)
-             (setify-members duped-clsts :trans first))))))
+  (testing (str "Should give the same result as regular kmeans where rows have been duplicated according to a set "
+             "of integer weights")
+    (doseq [_ (range 1)]
+      (let [n-uniq       20
+            n-dups-max   5
+            n-cmnts      3
+            ; First create the base matrix, and a random set of integer weights
+            uniq-positions   (for [_ (range n-uniq)] (random-vec* n-cmnts))
+            ptpt-names       (for [i (range n-uniq)] (str "p" i))
+            weights          (for [_ (range n-uniq)] (inc (rand-int* n-dups-max)))
+            ; Use the weights to create 
+            duped-positions  (dup-matrix-from-weights uniq-positions weights)
+            duped-names      (dup-rownames-from-weights ptpt-names weights)
+            duped-data       (named-matrix duped-names [:x :y :z] duped-positions)
+            deduped-data     (named-matrix ptpt-names [:x :y :z] uniq-positions)
+            weighted-clsts   (kmeans deduped-data 3 :weights weights)
+            unweighted-clsts (kmeans deduped-data 3)
+            duped-clsts      (kmeans duped-data 3)]
+        (is (= (setify-members weighted-clsts)
+               (setify-members duped-clsts :trans first)))))))
 
 
