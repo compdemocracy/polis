@@ -100,6 +100,10 @@
     (spit filename (ch/generate-string icusers))))
 
 
+(defn future-failed? [fu]
+  (try @fu false (catch Exception e true)))
+
+
 (defn update-intercom-db
   "Update intercom records by grabbing existing records, and from those the corresponding PG DB records
   so tha twe have enough information to flesh out missing information."
@@ -122,10 +126,16 @@
     (println "Number w/o:                    " (count icusers-by-email))
     ; Now getting to work
     (println "Now updating all user records in intercom")
-    (doseq [u all-users]
-      (future
-        (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
-        (update-icuser-from-dbuser u)))
+    (let [jobs (mapv
+                 (fn [u]
+                   [u (future
+                        (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
+                        (update-icuser-from-dbuser u))])
+                   all-users)
+          failed-jobs (filterv (comp future-failed? second) jobs)]
+      (println "Number of failed jobs:" (count failed-jobs))
+      (doseq [[u _] failed-jobs]
+        (println u)))
     ; Call it a night
     (println "Done!")
     (shutdown-agents)))
