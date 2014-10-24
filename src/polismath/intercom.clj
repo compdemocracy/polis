@@ -148,7 +148,11 @@
                            (map #(Integer/parseInt (get % "user_id")) icusers-by-id))
         dbusers-by-email (db/get-users-by-email
                            (map #(get % "email") icusers-by-email)) 
-        all-users        (into dbusers-by-id dbusers-by-email)]
+        all-users        (into dbusers-by-id dbusers-by-email)
+        ; User updates have to be batched, since there is a limit of 240 requests per one minute. Their API
+        ; suggests limiting batch size to </= 50.
+        batch-size       50
+        batched-users    (partition-all 50 all-users)]
     ; First some nice summary stats information
     (println "Total number of intercom users:" (count icusers))
     (println "Number of users with valid ids:" (count icusers-by-id))
@@ -165,6 +169,18 @@
       (println "Number of failed jobs:" (count failed-jobs))
       (doseq [[u _] failed-jobs]
         (println u)))
+    ; Stab at doing batched runs
+    ;(let [jobs (mapv
+                 ;(fn [us]
+                   ;[us
+                    ;(future
+                      ;(log/info "Running update for" (count us) "users:"
+                               ;(map (pc/fn-> (hash-map-subset [:uid :email :hname :created])) us))
+                      ;(update-icuser-from-dbuser! us))])
+                   ;batched-users)
+          ;failed-jobs (filterv (comp future-failed? second) jobs)]
+      ;(println "Number of failed jobs:" (count failed-jobs))
+      ;(println "Failed for users:" (apply concat (map first failed-jobs))))
     ; Call it a night
     (println "Done!")
     (shutdown-agents)))
