@@ -249,7 +249,7 @@
                     (clean-start-clusters data last-clusters k :weights weights)
                     (init-clusters data k))]
     (loop [clusters clusters iter max-iters]
-      (let [new-clusters (cluster-step data-iter k clusters)]
+      (let [new-clusters (cluster-step data-iter k clusters :weights weights)]
         (if (or (= iter 0) (same-clustering? clusters new-clusters))
           new-clusters
           (recur new-clusters (dec iter)))))))
