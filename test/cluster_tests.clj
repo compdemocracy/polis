@@ -246,10 +246,11 @@
             uniq-positions   (for [_ (range n-uniq)] (random-vec* n-cmnts))
             ptpt-names       (for [i (range n-uniq)] (str "p" i))
             weights          (for [_ (range n-uniq)] (inc (rand-int* n-dups-max)))
-            ; Use the weights to create 
+            ; Use the weights to create a matrix where the rows have been duplicated according to weights
             duped-positions  (dup-matrix-from-weights uniq-positions weights)
             duped-names      (dup-rownames-from-weights ptpt-names weights)
             duped-data       (named-matrix duped-names [:x :y :z] duped-positions)
+            ; Run kmeans on the various data
             deduped-data     (named-matrix ptpt-names [:x :y :z] uniq-positions)
             weighted-clsts   (kmeans deduped-data 3 :weights weights)
             unweighted-clsts (kmeans deduped-data 3)

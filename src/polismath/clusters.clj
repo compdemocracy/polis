@@ -300,7 +300,7 @@
                      (get-matrix data)
                      ; This is a 2D row vector; we want 1D, so take first
                      (first data)
-                     ; Take the weighted-mean of the entries
+                     ; Take the mean of the entries
                      (mean data)
                      (if memb-clst?
                        [data b]
