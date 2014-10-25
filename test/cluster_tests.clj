@@ -234,6 +234,11 @@
   (doseq [[n r] (map vector names mat)]
     (println n ":" r)))
 
+(defn init-clsts
+  [f coll]
+  (->> coll
+       (group-by f)
+       (map (fn [[i mems]] {:id i :members mems}))))
 
 (deftest weighted-kmeans
   (testing (str "Should give the same result as regular kmeans where rows have been duplicated according to a set "
@@ -244,17 +249,23 @@
             n-cmnts      3
             ; First create the base matrix, and a random set of integer weights
             uniq-positions   (for [_ (range n-uniq)] (random-vec* n-cmnts))
-            ptpt-names       (for [i (range n-uniq)] (str "p" i))
+            ptpt-names       (for [i (range n-uniq)] i)
             weights          (for [_ (range n-uniq)] (inc (rand-int* n-dups-max)))
+            uniq-init        (init-clsts #(mod % 3) ptpt-names)
             ; Use the weights to create a matrix where the rows have been duplicated according to weights
             duped-positions  (dup-matrix-from-weights uniq-positions weights)
             duped-names      (dup-rownames-from-weights ptpt-names weights)
             duped-data       (named-matrix duped-names [:x :y :z] duped-positions)
+            duped-init       (init-clsts #(mod (first %) 3) duped-names)
             ; Run kmeans on the various data
             deduped-data     (named-matrix ptpt-names [:x :y :z] uniq-positions)
-            weighted-clsts   (kmeans deduped-data 3 :weights weights)
-            unweighted-clsts (kmeans deduped-data 3)
-            duped-clsts      (kmeans duped-data 3)]
+            weighted-clsts   (kmeans deduped-data 3 
+                                     :last-clusters uniq-init
+                                     :weights (into {} (map vector ptpt-names weights)))
+            unweighted-clsts (kmeans deduped-data 3
+                                     :last-clusters uniq-init)
+            duped-clsts      (kmeans duped-data 3
+                                     :last-clusters duped-init)]
         (is (= (setify-members weighted-clsts)
                (setify-members duped-clsts :trans first)))))))
 
