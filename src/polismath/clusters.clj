@@ -79,13 +79,14 @@
 (defmethod weighted-mean [true false]
   [mat & {:keys [weights]}]
   (if weights
-    (mean
-      (reduce
-        (fn [m [row-i weight]]
-          (multiply-row m row-i weight))
-        mat
-        (with-indices weights)))
-    (mean mat)))
+    (weighted-mean
+      (* (/ (count weights) (pc/sum weights))
+         (reduce
+           (fn [m [row-i weight]]
+             (multiply-row m row-i weight))
+           mat
+           (with-indices weights))))
+    (mean (matrix mat))))
 
 ; It's a vector...
 (defmethod weighted-mean [false true]
@@ -97,7 +98,7 @@
 ; It's a named matrix...
 (defmethod weighted-mean [false false]
   [nmat & {:keys [weights]}]
-  (weighted-mean (matrix (get-matrix nmat))
+  (weighted-mean (get-matrix nmat)
                  :weights
                  (when weights
                    (reduce
