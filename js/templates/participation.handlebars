@@ -154,7 +154,9 @@ col-lg-offset-0 col-lg-12
     {{ view writingTips }}
   </div>
 
-
+{{#if true}}
+  {{view tutorialSlidesView}}
+{{else}}
 
   <div id="vis_sibling_bottom"
     {{#ifEmbedded}}
@@ -163,6 +165,7 @@ col-lg-offset-0 col-lg-12
     {{/ifIos}}
     {{/ifEmbedded}}
     >
+
     <div id="voteMoreParent">
       {{ view voteMoreView }}
     </div>
@@ -191,7 +194,7 @@ col-lg-offset-0 col-lg-12
       <div class="participationCount HeadingF hidden-xs"></div>
     </div> {{! /visualization_parent_div }}
   </div> {{! /vis_sibling_bottom }}
-
+{{/if}}
     
   </span> {{! /right_panel }}
 

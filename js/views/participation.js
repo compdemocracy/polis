@@ -22,6 +22,7 @@ var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
 var TutorialView = require("../views/tutorialView");
+var TutorialSlidesView = require("../views/tutorialSlides");
 var WritingTipsView = require("../views/writingTips");
 
 var VIS_SELECTOR = "#visualization_div";
@@ -135,6 +136,13 @@ module.exports =  ConversationView.extend({
     var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
+
+
+    this.tutorialSlidesView = this.addChild(new TutorialSlidesView({
+      model: new Backbone.Model({
+        step: 2
+      })
+    }));
 
     // initialize this first to ensure that the vote view is showing and populated ASAP
     this.commentView = this.addChild(new CommentView({
