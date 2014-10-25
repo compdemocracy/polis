@@ -170,7 +170,8 @@
   (let [new-id (:id (max-key #(count (:members %)) clst1 clst2))]
     {:id new-id
      :members (into (:members clst1) (:members clst2))
-     :center (weighted-mean (map :center [clst1 clst2]))}))
+     :center (weighted-mean (map :center [clst1 clst2])
+                            :weights (map (comp count :members) [clst1 clst2]))}))
 
 
 (defn most-distal
