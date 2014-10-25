@@ -97,7 +97,7 @@
 ; It's a named matrix...
 (defmethod weighted-mean [false false]
   [nmat & {:keys [weights]}]
-  (weighted-mean (get-matrix nmat)
+  (weighted-mean (matrix (get-matrix nmat))
                  :weights
                  (when weights
                    (reduce
