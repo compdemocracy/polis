@@ -140,7 +140,7 @@ module.exports =  ConversationView.extend({
 
     this.tutorialSlidesView = this.addChild(new TutorialSlidesView({
       model: new Backbone.Model({
-        step: 2
+        step: 1
       })
     }));
 
