@@ -32,6 +32,11 @@ var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
 var VIS_MODE_VIS = 0;
 var VIS_MODE_WAITING = 1;
 var VIS_MODE_VOTEMORE = 2;
+var VIS_MODE_TUT = 3;
+
+var useAboveVisTutorial = false;
+var useVisBlockingTutorial = true;
+var useVoteMoreBlocker = false;
 
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
@@ -137,13 +142,6 @@ module.exports =  ConversationView.extend({
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
 
-
-    this.tutorialSlidesView = this.addChild(new TutorialSlidesView({
-      model: new Backbone.Model({
-        step: 1
-      })
-    }));
-
     // initialize this first to ensure that the vote view is showing and populated ASAP
     this.commentView = this.addChild(new CommentView({
       firstCommentPromise: options.firstCommentPromise,
@@ -183,7 +181,9 @@ module.exports =  ConversationView.extend({
         if (that.conversationTabs.onGroupTab()) { // TODO check if needed
           that.conversationTabs.gotoVoteTab();
         }
-        that.tutorialView.endAnalyzeTutorial();
+        if (that.tutorialView) {
+          that.tutorialView.endAnalyzeTutorial();
+        }
       }
     });
 
@@ -196,7 +196,9 @@ module.exports =  ConversationView.extend({
 
         if (that.selectedGid === -1) {
           // on transition from no selection to selection
-          that.tutorialView.startAnalyzeTutorial();
+          if (that.tutorialView) {
+            that.tutorialView.startAnalyzeTutorial();
+          }
         }
       }
 
@@ -364,7 +366,7 @@ module.exports =  ConversationView.extend({
       this.tutorialModel = new Backbone.Model({
         visible: false,
         paused: false,
-        step: 1
+        step: useAboveVisTutorial ? 1 : Infinity
       });
       this.tutorialModel.on("change:step", function() {
         var step = that.tutorialModel.get("step");
@@ -379,14 +381,31 @@ module.exports =  ConversationView.extend({
           that.vis.hideHintOthers();
         }
       });
+      var mode = VIS_MODE_VIS;
+      if (useVoteMoreBlocker) {
+        mode = VIS_MODE_VOTEMORE;
+      } else if (useVisBlockingTutorial) {
+        mode = VIS_MODE_TUT;
+      } else {
+        mode = VIS_MODE_VIS;
+      }
       this.visModeModel = new Backbone.Model({
-        visMode: VIS_MODE_WAITING
+        visMode: mode
       });
       this.visModeModel.on("change:visMode", function() {
         var visMode = that.visModeModel.get("visMode");
+        if (visMode === VIS_MODE_TUT) {
+          $("#tutorialSlides").show();
+          $("#afterTutorial").hide();
+          $("#voteMoreParent").hide();
+          $("#visualization_parent_div").hide();
+          // hide others
+        }
         if (visMode === VIS_MODE_VIS) {
           // that.vis.hideHintVoteMoreBlocker();
           $("#voteMoreParent").hide();
+          $("#tutorialSlides").hide();
+          $("#afterTutorial").show();
           $("#visualization_parent_div").css("visibility", "visible");
           $("#visualization_parent_div").css("display", "block");
           $("#visualization_div").css("display", "block");
@@ -410,6 +429,19 @@ module.exports =  ConversationView.extend({
         }
       });
 
+
+      if (useVisBlockingTutorial) {
+        this.tutorialSlidesModel = new Backbone.Model({
+          step: 1
+        });
+        this.tutorialSlidesView = this.addChild(new TutorialSlidesView({
+          model: this.tutorialSlidesModel
+        }));
+        this.tutorialSlidesView.on("done", function() {
+          that.visModeModel.set("visMode", VIS_MODE_VIS);
+        });
+      }
+
       this.voteMoreModel = new Backbone.Model({
         remaining: 0
       });
@@ -417,9 +449,11 @@ module.exports =  ConversationView.extend({
         model: this.voteMoreModel
       }));
 
-      this.tutorialView = this.addChild(new TutorialView({
-        model: this.tutorialModel
-      }));
+      if (useAboveVisTutorial) {
+        this.tutorialView = this.addChild(new TutorialView({
+          model: this.tutorialModel
+        }));
+      }
 
       this.conversationTabs = this.addChild(new ConversationTabsView({
         model: new Backbone.Model({
@@ -650,7 +684,22 @@ module.exports =  ConversationView.extend({
     this.listenTo(this, "render", function(){
       setTimeout(function() {
 
-      that.visModeModel.set("visMode", VIS_MODE_WAITING);
+      if (false) {
+        $("#voteMoreParent").show();
+      }
+
+      if (true) {
+        $("#tutorialSlides").show();
+      }
+
+      $("#resetVisBlockerTutorial").on("click", function() {
+        that.tutorialSlidesModel.set("step", 1);
+        that.visModeModel.set("visMode", VIS_MODE_TUT);
+      });
+
+      that.updateVisMode();
+
+      // that.visModeModel.set("visMode", VIS_MODE_WAITING);
 
       $("#getDataButton").on("click", function() {
         $.get("/api/v3/dummyButton?button=getDataButton");

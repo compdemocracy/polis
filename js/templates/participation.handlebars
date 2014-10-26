@@ -148,16 +148,15 @@ col-lg-offset-0 col-lg-12
   </div> {{! /column }}
 
 
-  <span id="right_panel" class="col-xs-12 col-sm-6 col-md-7 col-lg-8">
+  <span id="right_panel" class="col-xs-12 col-sm-6 col-md-7 col-lg-8 unselectable">
 
   <div class="writingTipsParent">
     {{ view writingTips }}
   </div>
 
-{{#if true}}
-  {{view tutorialSlidesView}}
-{{else}}
-
+ <div id="tutorialSlides" style="display:none" class="unselectable">
+   {{view tutorialSlidesView}}
+ </div>
   <div id="vis_sibling_bottom"
     {{#ifEmbedded}}
     {{#ifIos}}
@@ -166,7 +165,7 @@ col-lg-offset-0 col-lg-12
     {{/ifEmbedded}}
     >
 
-    <div id="voteMoreParent">
+    <div id="voteMoreParent" style="display:none">
       {{ view voteMoreView }}
     </div>
     <div style="text-align: right">
@@ -174,6 +173,8 @@ col-lg-offset-0 col-lg-12
         <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
         Opinion Groups
       </div>
+      <span style="float: right; cursor: pointer; display: none"><button id="resetTutorial" class="btn Btn-alt">Tutorial</button></span>
+
 
       <div class=" HeadingG" style="text-align: center; " >
 
@@ -188,13 +189,21 @@ col-lg-offset-0 col-lg-12
       </div>
 
     <div id="visualization_parent_div" style="text-align: right; visibility: hidden">
+      {{#unless tutorialView}}
+        <span class="HeadingG" style="display: inline; width:100%">
+          <span id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default;">
+            <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
+            Opinion Groups
+          </span>
+          <span style="float: right; cursor: pointer"><button id="resetVisBlockerTutorial" class="btn Btn-alt">Tutorial</button></span>
+        </span>
+      {{/unless}}
       {{ view tutorialView }}
       <div class="participationCount HeadingF visible-xs"></div>
       <div id="visualization_div" class="vis_container" style="display:none"></div>
       <div class="participationCount HeadingF hidden-xs"></div>
     </div> {{! /visualization_parent_div }}
   </div> {{! /vis_sibling_bottom }}
-{{/if}}
     
   </span> {{! /right_panel }}
 
