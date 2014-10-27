@@ -77,9 +77,11 @@ module.exports =  ConversationView.extend({
   },
   hideVis: function() {
     $("#vis_sibling_bottom").hide();
+    $("#tutorialSlides").hide();
   },
   showVis: function() {
     $("#vis_sibling_bottom").show();
+    $("#tutorialSlides").show();
   },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
@@ -630,6 +632,9 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("aftershow:analyze", function() {
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
         $(".query_result_item").first().trigger("click");
+      }
+      if (display.xs() || display.sm()) {
+        $("#tutorialSlides").hide();
       }
     });
     that.conversationTabs.on("aftershow:group", function() {

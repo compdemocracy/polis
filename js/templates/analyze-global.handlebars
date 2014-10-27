@@ -42,7 +42,18 @@ border-top-left-radius: 10px;
 {{!-- <div id="carousel" style="overflow:hidden;">
 </div> --}}
 
-<div id="commentListView">
+<div id="commentListView" style="
+  {{#ifEmbedded}}
+    {{#ifXs}}
+      max-height: 400px;
+      overflow: auto;
+    {{/ifXs}}
+    {{#ifSm}}
+      max-height: 400px;
+      overflow: auto;
+    {{/ifSm}}  
+  {{/ifEmbedded}}
+  ">
 {{view analyzeCollectionView}}
 </div>
 
