@@ -77,11 +77,9 @@ module.exports =  ConversationView.extend({
   },
   hideVis: function() {
     $("#vis_sibling_bottom").hide();
-    $("#tutorialSlides").hide();
   },
   showVis: function() {
     $("#vis_sibling_bottom").show();
-    $("#tutorialSlides").show();
   },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
