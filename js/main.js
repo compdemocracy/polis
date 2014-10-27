@@ -34,6 +34,8 @@ var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var FooterPartial = require("./tmpl/footer");
 var PolisLogoPartial = require("./tmpl/polisLogo");
+var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial");
+var TutorialSlidesButtonsLeftPartial = require("./tmpl/tutorialSlidesButtonsLeftPartial");
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
@@ -229,6 +231,8 @@ Handlebars.registerPartial("banner", BannerPartial);
 Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
 Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementPartial);
 Handlebars.registerPartial("footer", FooterPartial);
+Handlebars.registerPartial("tutorialSlidesButtons", TutorialSlidesButtonsPartial);
+Handlebars.registerPartial("tutorialSlidesButtonsLeft", TutorialSlidesButtonsLeftPartial);
 
 
 _.mixin({
