@@ -92,7 +92,9 @@ module.exports =  ConversationView.extend({
   },
 
   updateVoteRemaining: function() {
-    this.voteMoreModel.set("remaining", Math.max(0, 2 - this.votesByMe.length));
+    if (useVoteMoreBlocker) {
+      this.voteMoreModel.set("remaining", Math.max(0, 2 - this.votesByMe.length));
+    }
   },
 
   emphasizeParticipants: function() {
