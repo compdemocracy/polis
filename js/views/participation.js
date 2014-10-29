@@ -81,6 +81,11 @@ module.exports =  ConversationView.extend({
   showVis: function() {
     $("#vis_sibling_bottom").show();
   },
+  showTutorial: function() {
+    if (this.visModeModel.get("visMode") === VIS_MODE_TUT) {
+      $("#tutorialSlides").show();
+    }
+  },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
   },
@@ -600,6 +605,7 @@ module.exports =  ConversationView.extend({
     });
 
     that.conversationTabs.on("beforeshow:analyze", function() {
+      that.showTutorial();
       that.enableVisAffix();
       if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
@@ -628,6 +634,7 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("beforeshow:vote", function() {
       moveVisToBottom();
       that.showVis();
+      that.showTutorial();
     });
     that.conversationTabs.on("aftershow:analyze", function() {
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
@@ -642,6 +649,7 @@ module.exports =  ConversationView.extend({
     });
     that.conversationTabs.on("aftershow:write", function() {
       // Put the comment textarea in focus (should pop up the keyboard on mobile)
+      $("#tutorialSlides").hide();
       $("#comment_form_textarea").focus();
     });
 
