@@ -35,7 +35,7 @@ var VIS_MODE_VOTEMORE = 2;
 var VIS_MODE_TUT = 3;
 
 var useAboveVisTutorial = false;
-var useVisBlockingTutorial = true;
+var useVisBlockingTutorial = !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
 var useVoteMoreBlocker = false;
 
 var isIE8 = Utils.isIE8();

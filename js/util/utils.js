@@ -91,6 +91,10 @@ function decodeParams(encodedStringifiedJson) {
     return o;
 }
 
+function isInIframe() {
+  return window.top != window;
+}
+
 
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
@@ -153,6 +157,7 @@ module.exports = {
   isPpUser: function() {
     return PolisStorage.plan() === 3;
   },
+  isInIframe: isInIframe,
   hexToStr: hexToStr,
   strToHex: strToHex,
   decodeParams: decodeParams,
