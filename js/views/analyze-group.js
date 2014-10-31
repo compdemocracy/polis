@@ -267,6 +267,7 @@ module.exports = Handlebones.View.extend({
           var html = 
             "<div style='color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               "<p>" +
+                (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
               "</p>" +
               c.get("txt") +

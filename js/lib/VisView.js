@@ -2,7 +2,7 @@ var eb = require("../eventBus");
 var owl = require("owl");
 var display = require("../util/display");
 var Raphael = require("raphael");
-
+var Utils = require("../util/utils");
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
 
@@ -115,42 +115,13 @@ $(el_selector + " > .visualization").remove();
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 var tip = null;
-var SHOW_TIP = false;
+var SHOW_TIP = true;
 var tipPreviousTarget = null; // Sorry God!
 if (SHOW_TIP && !isIE8) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
         function(d) {
-            d.getPeople().then(function(people) {
-                // use the email address as the html
-                var html = people.map(function(p) {
-                    if (isSelf(d)) {
-                        var hint = selfDotTooltipShow ? selfDotHintText : "";
-                        return {
-                            email: hint
-                        };
-                    }
-                    return p;
-                })
-                .map(function(p) {
-                    if (!p) {
-                        console.warn("missing user info");
-                        return "";
-                    }
-                    return p.email;
-                }).join("<br/>");
-                setTimeout(function() {
-                    $("#tipContents").html(html);
-                }, 10);
-            });
-            if (d === tipPreviousTarget) {
-                var oldHtml = $("#tipContents").html();
-                if (oldHtml) {
-                    return oldHtml;
-                }
-            }
-            tipPreviousTarget = d;
-            return "<div id='tipContents'></div>";
+            return d.tid;
         }
     );
 }
@@ -1140,7 +1111,7 @@ function getParticipantCount(nodes) {
 }
 
 // clusters [[2,3,4],[1,5]]
-function upsertNode(updatedNodes, newClusters, newParticipantCount) {
+function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     console.log("upsert");
 
     participantCount = newParticipantCount;
@@ -1236,6 +1207,14 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     var scales = createScales(updatedNodes);
     var scaleX = scales.x;
     var scaleY = scales.y;
+
+    comments = comments.map(function(c) {
+        c.target = {
+            x: scaleX(-2*c.proj.x),
+            y: scaleY(-1*c.proj.y)
+        };
+        return c;
+    });
 
     var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, bid: node.bid }; });
 
@@ -1363,10 +1342,27 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
           // .call(force.drag)
       ;
 
-
-
-
-
+      if (Utils.projectComments) {
+          var foo = main_layer.selectAll(".c").data(comments);
+          var commentWidth = 2;
+          var commentWidthHalf = commentWidth/2;
+          var bar = foo.enter()
+            .append("rect")
+            .attr("x", function(d) {
+                return d.target.x - commentWidthHalf;
+            })
+            .attr("y", function(d) {
+                return d.target.y - commentWidthHalf;
+            })
+            .attr("width", commentWidth)
+            .attr("height", commentWidth)
+            .style("stroke", "darkgray")
+            .style("fill", "darkgray");
+          if (Utils.debugCommentProjection) {
+            bar.on("mouseover", showTip);
+            bar.on("mouseout", hideTip);
+          }
+      }
 
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;

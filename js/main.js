@@ -196,6 +196,10 @@ Handlebars.registerHelper("ifParticipantPays", function(arg0) {
   return Utils.isPpUser() ? arg0.fn(this) : "";
 });
 
+Handlebars.registerHelper("ifDebugCommentProjection", function(arg0) {
+  return Utils.debugCommentProjection ? arg0.fn(this) : "";
+});
+
 function addProtocolToLinkIfNeeded(url) {
   if (!url) {
     return url;

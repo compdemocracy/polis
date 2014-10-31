@@ -158,6 +158,8 @@ module.exports = {
     return PolisStorage.plan() === 3;
   },
   isInIframe: isInIframe,
+  projectComments: false,
+  debugCommentProjection: false,
   hexToStr: hexToStr,
   strToHex: strToHex,
   decodeParams: decodeParams,
