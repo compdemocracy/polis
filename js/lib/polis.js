@@ -1789,6 +1789,17 @@ function clientSideBaseCluster(things, N) {
         if (!Utils.projectComments) {
             return [];
         }
+        var repfulTids = {};
+        if (Utils.projectRepfulTids) {
+            for (var gid in repness) {
+                _.each(repness[gid], function(c) {
+                    if (c['repful-for'] === "agree") {
+                        repfulTids[c.tid] = true;
+                    }
+                });
+            }
+        }
+        
         var numComments = pcaCenter.length;
 
             // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
@@ -1799,17 +1810,23 @@ function clientSideBaseCluster(things, N) {
             var projectedComments = [];
             if (pcX.length && pcY.length) {
                 for (var i = 0; i < pcX.length; i++) {
-                    var x = pcX[i];
-                    var y = pcY[i];
-                    x *= jetpack_aka_sparsity_compensation_factor;
-                    y *= jetpack_aka_sparsity_compensation_factor;
-                    projectedComments.push({
-                        tid: i,
-                        proj: {
-                            x: x,
-                            y: y
-                        }
-                    });
+                    var shouldAdd = true;
+                    if (Utils.projectRepfulTids && !repfulTids[i]){
+                        shouldAdd = false;
+                    }
+                    if (shouldAdd) {
+                        var x = pcX[i];
+                        var y = pcY[i];
+                        x *= jetpack_aka_sparsity_compensation_factor;
+                        y *= jetpack_aka_sparsity_compensation_factor;
+                        projectedComments.push({
+                            tid: i,
+                            proj: {
+                                x: x,
+                                y: y
+                            }
+                        });
+                    }
                 }
             }
         return projectedComments;

@@ -160,6 +160,7 @@ module.exports = {
   isInIframe: isInIframe,
   projectComments: false,
   debugCommentProjection: false,
+  projectRepfulTids: true,
   hexToStr: hexToStr,
   strToHex: strToHex,
   decodeParams: decodeParams,
