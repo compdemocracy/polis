@@ -1,0 +1,496 @@
+{{> top}}
+
+<body>
+
+<script>
+function setCookie(cname,cvalue,exdays) {
+		var d = new Date();
+		d.setTime(d.getTime()+(exdays*24*60*60*1000));
+		var expires = "expires="+d.toGMTString();
+		document.cookie = cname + "=" + cvalue + "; " + expires;
+}
+
+function getCookie(cname) {
+		var name = cname + "=";
+		var ca = document.cookie.split(';');
+		for(var i=0; i<ca.length; i++)
+			{
+			var c = ca[i].trim();
+			if (c.indexOf(name)==0) return c.substring(name.length,c.length);
+		}
+		return "";
+}
+if (!getCookie("ref")) {
+		setCookie("ref", document.referrer, 365);
+}
+
+$(document).ready(function() {
+	if (getCookie("uid2")) {
+		$(".ifNoAuth").hide();
+	} else {
+		$(".ifAuth").hide();
+	}
+});
+</script>
+
+
+<!-- facebook code for share link -->
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+var js, fjs = d.getElementsByTagName(s)[0];
+if (d.getElementById(id)) return;
+js = d.createElement(s); js.id = id;
+js.src = "//connect.facebook.net/en_US/sdk.js#xfbml=1&appId=328354915742&version=v2.0";
+fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+
+
+<section class="hero">
+	<div class="container u-space-below">
+		<header class="hero-header navbar" role="navigation">
+			<div class="navbar-header">
+				<button type="button" class="navbar-toggle" style="padding: 3px 10px;" data-toggle="collapse" data-target=".navbar-collapse">
+					<span class="sr-only">Toggle navigation</span>
+					<span class="fa fa-bars" style="position: relative; top: 2px"></span>
+				</button>
+				<a class="Logo {{#if authStyleHeader}}text-center{{/if}}"
+					href="{{logo_href}}">
+					<img
+						src="https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&format=png&w=600&h=208"
+						class="polisLogo"
+						alt="">
+				</a>
+			</div>
+			<div class="navbar-collapse collapse">
+				<ul class="primaryNav navbar-nav">
+					<li class="ifNoAuth">
+						<a class="navIcon icon--login" href="/user/login">Login</a>
+					</li>
+					<li class="ifAuth">
+						<a class="navIcon icon--inbox" href="/inbox">Inbox</a>
+					</li>
+					<li class="ifAuth">
+						<a class="navIcon icon--settings" href="/settings">Settings</a>
+					</li>
+					<li class="ifAuth">
+						<a class="navIcon icon--signout" href="/user/logout">Signout</a>
+					</li>
+				</ul>
+			</div>
+		</header>
+		<div class="row">
+			<div class="col-xs-12">
+				<h1 class="hero-heading">
+					It's the dawn <br>
+					of the bottom up survey.
+				</h1>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-sm-4 col-xs-6">
+				<div class="spot--exterior">
+					<p class="spot--interior">
+						<span class="Smallcaps">In class</span><br>
+						<em>or</em><br>
+						<span class="Smallcaps">online</span>
+					</p>
+				</div>
+			</div>
+			<div class="col-sm-4 col-xs-6">
+				<div class="spot--exterior">
+					<p class="spot--interior">
+						classes<br>
+						<em>of</em><br>
+						<span class="Smallcaps">any size</span>
+					</p>
+				</div>
+			</div>
+			<div class="col-sm-4 col-xs-12">
+				<ul class="spotList">
+					<li class="spotList-item"><span class="Smallcaps">No</span> discussion threads</li>
+					<li class="spotList-item"><span class="Smallcaps">No</span> multiple choice</li>
+					<li class="spotList-item"><span class="Smallcaps">No</span> expensive devices</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+	<div class="bgOverlay">
+		<div class="container">
+			<div class="row">
+				<div class="col-sm-10 col-sm-offset-1 col-xs-12 text-center">
+					<h2 class="SectionLander-Heading u-noMargin">Upgrade your classroom engagement</h2>
+					<p class="LargeText">
+						We&rsquo;ve bottled the Socratic method in an app. Polis is the next generation of class discussion.
+					</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<p class="learnMore">
+					<a href="/" class="learnMore-link Smallcaps">Learn more</a>
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+
+<script>
+	ga('send', 'event', 'Lander', 'land', 'general');
+
+
+$(document).ready(function() {
+	$("form").submit(function(e){
+		e.preventDefault();
+				e.stopPropagation();
+		var email = $(this).find('#startconvo_email').val();
+
+		if (!email) {
+			$('').html();
+		}
+
+		var prod = "https://pol.is/";
+		var preprod = "https://preprod.pol.is/";
+		var embed = "https://embed.pol.is/";
+		var polisio = "https://www.polis.io/";
+		var localhost = "http://localhost:5000/";
+		var localhost8000 = "http://localhost:8000/";
+		var urlPrefix = prod;
+		if (document.domain.indexOf("preprod") >= 0) {
+				urlPrefix = preprod;
+		}
+		if (document.domain.indexOf("embed") >= 0) {
+				urlPrefix = embed;
+		}
+		if (document.domain.indexOf("polis.io") >= 0) {
+			    urlPrefix = polisio;
+		}
+		if ((-1 === document.domain.indexOf("pol.is")) && (-1 === document.domain.indexOf("polis.io"))) {
+				urlPrefix = localhost;
+		}
+		if (document.domain === "localhost" && document.location.port === "8000") {
+			urlPrefix = localhost8000;
+		}
+
+				$.ajax({
+					type: "POST",
+					url: urlPrefix + "api/v3/einvites",
+					contentType: "application/json; charset=utf-8",
+					headers: {
+							//"Cache-Control": "no-cache"	// no-cache
+							"Cache-Control": "max-age=0"
+					},
+					xhrFields: {
+							withCredentials: true
+					},
+					crossDomain: true,
+					dataType: "json",
+					data: JSON.stringify({
+						email: email
+					})
+				}).done(function( data ) {
+						$("form").html('<div>' +
+		'<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' +
+		'<p> ' +
+			'<strong> Welcome! </strong> We\'ve emailed you a confirmation. Follow the link provided in the email to verify your account.' +
+		'</p>' +
+		'</div>' +
+'</div>');
+     ga("send", "event", "SignUp", "emailSubmitted", "general");
+        }).fail(function(xhr){
+        	if (xhr && xhr.responseText === "polis_err_param_parse_failed_email") {
+	        	// email empty or didn't parse as email
+        	}
+
+            ga("send", "event", "SignUp", "emailSubmitFail");
+            $(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
+        });
+        return false;
+})
+});
+</script>
+
+<section class="SectionLander SectionLander--white">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					Schools already using&nbsp;Polis:
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-4 col-xs-6">
+				<img src="https://pol.is/landerImages/logo-duke.jpg" class="SchoolLogo" alt="">
+			</div>
+			<div class="col-md-4 col-xs-6">
+				<img src="https://pol.is/landerImages/logo-shoreline.jpg" class="SchoolLogo" alt="">
+			</div>
+			<div class="col-md-4 col-xs-6">
+				<img src="https://pol.is/landerImages/logo-uw.jpg" class="SchoolLogo" alt="">
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					How are we&nbsp;different?
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">Thread free</h3>
+				<p class="LanderText--indent">Traditional forum discussions are hard to follow and encourage “me too” answers. Polis&rsquo;s alternative approach fosters critical thinking.</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">Student-led</h3>
+				<p class="LanderText--indent">Students write comments and vote on comments created by other students.</p>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">Immediate Feedback</h3>
+				<p class="LanderText--indent">Polis shows groups of students who voted similarly in real time. You can see which comments have broad consensus and which issues are divisive.</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<h3 class="LanderSubheading icon--check">No Expensive Clickers</h3>
+				<p class="LanderText--indent">Accessible on the web (smartphone, tablet, laptop), Polis is a winning alternative in classroom polling and attendance.</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander SectionLander--alt">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					People love&nbsp;Polis
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-6 col-xs-12">
+				<div class="spot--exterior spot--align">
+					<div class="spot--interior">
+						<i class="spotIcon fa fa-4x fa-users"></i>
+					</div>
+				</div>
+				<p class="spotText">
+					Engages <em>all</em>&nbsp;students.
+				</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<div class="spot--exterior spot--align">
+					<div class="spot--interior">
+						<i class="spotIcon fa fa-4x fa-flask"></i>
+					</div>
+				</div>
+				<p class="spotText">
+					Powerful insights into consensus &amp;&nbsp;disagreement.
+				</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<div class="spot--exterior spot--align">
+					<div class="spot--interior">
+						<i class="spotIcon fa fa-4x fa-clock-o"></i>
+					</div>
+				</div>
+				<p class="spotText">
+					Start a conversation in seconds. See updates in real&nbsp;time.
+				</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<div class="spot--exterior spot--align">
+					<div class="spot--interior">
+						<i class="spotIcon fa fa-4x fa-link"></i>
+					</div>
+				</div>
+				<p class="spotText">
+					Integrates with your LMS for <em>effortless</em> grading of open ended&nbsp;discussions.
+				</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<div class="spot--exterior spot--align">
+					<div class="spot--interior">
+						<i class="spotIcon fa fa-4x fa-gavel"></i>
+					</div>
+				</div>
+				<p class="spotText">
+					Meaningful attendance taking without&nbsp;clickers.
+				</p>
+			</div>
+			<div class="col-md-6 col-xs-12">
+				<div class="spot--exterior spot--align">
+					<div class="spot--interior">
+						<i class="spotIcon fa fa-4x fa-gear"></i>
+					</div>
+				</div>
+				<p class="spotText">
+					Moderation tools put you in control of the&nbsp;discussion.
+				</p>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander SectionLander--spark">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12 text-center">
+				<h2 class="SectionLander-Heading SectionLander-Heading--spark">
+					Technology that lets you be yourself<br>in the classroom &amp;&nbsp;online.
+				</h2>
+				<h3 class="SectionLander-Heading LanderSubheading--spark">
+					Ask your students meaningful, open&#45;ended questions.
+				</h3>
+				<ul class="ListHorizontal SparkList">
+					<li class="SparkList-item">Have a dialogue on ethics.</li>
+					<li class="SparkList-item">Discuss a lecture online after class.</li>
+					<li class="SparkList-item">Check in with your students to assess understanding.</li>
+					<li class="SparkList-item">Discuss a short story.</li>
+					<li class="SparkList-item">Discuss a non-fiction reading.</li>
+					<li class="SparkList-item">Discuss a play.</li>
+				</ul>
+			</div>
+		</div>
+	</div>
+</section>
+
+
+<section class="SectionLander SectionLander--alt">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					How it works
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-xs-12">
+				<h3 class="LanderSubheading text-center">
+					Tour Polis
+				</h3>
+				<div>
+					<iframe src="//fast.wistia.net/embed/iframe/uthtzqaq3x?videoFoam=true"
+						allowtransparency="true"
+						frameborder="0" scrolling="no" class="wistia_embed"
+						name="wistia_embed"
+						allowfullscreen mozallowfullscreen webkitallowfullscreen
+						oallowfullscreen msallowfullscreen
+						width="640" height="400" >
+					</iframe>
+					<script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+				</div>
+			</div>
+			<script src="https://fast.wistia.net/static/embed_shepherd-v1.js"></script>
+			<script>
+				wistiaEmbeds.onFind(function(video){
+					video.bind("play", function(){
+						ga('send', 'event', 'Video', 'Play', video.name());
+						return this.unbind;
+					}).bind("end", function(){
+						ga('send', 'event', 'Video', 'Complete', video.name());
+						return this.unbind;
+					});
+				});
+			</script>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					Educators
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-xs-12">
+				<p class="LargeText text-center">
+					Pilot Polis for free today, no strings attached.
+				</p>
+				<form class="FormHorizontal" role="form">
+					<div class="FormHorizontal-group">
+						<label class="FormLabel">
+							Email
+							<input type="email" id="startconvo_email" placeholder="WEBDuBois@umass.edu" class="FormControl">
+						</label>
+						<button type="submit" id="startconvo_submitbutton"
+						class="Btn Btn-primary">Start now</button>
+					</div>
+				</form>
+				<div id="errorDiv">
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander SectionLander--alt">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<h2 class="SectionLander-Heading">
+					Administrators
+				</h2>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-xs-12">
+				<p class="LargeText text-center">
+					Learn more about bringing Polis to your campus.
+				</p>
+				<form class="FormHorizontal" role="form">
+					<div class="FormHorizontal-group">
+						<label class="FormLabel">
+							Email
+							<input type="email" id="startconvo_email" placeholder="WEBDuBois@umass.edu" class="FormControl">
+						</label>
+						<button type="submit" id="startconvo_submitbutton"
+						class="Btn Btn-primary">Learn more</button>
+					</div>
+				</form>
+				<div id="errorDiv">
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section class="SectionLander SectionLander--white">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12 text-center">
+				<h3 class="HeadingB">
+					<span class="NewsFeature-text">As featured in</span>
+					<a href="http://www.geekwire.com/2014/startup-spotlight-polis/"
+						class="logoGeekWire-link">
+						<img alt="GeekWire" src="landerImages/geekwire.png" width="200px">
+					</a>
+				</h3>
+			</div>
+		</div>
+	</div>
+</section>
+
+
+<script type="text/javascript">
+
+
+
+</script>
+
+{{> footer}}
