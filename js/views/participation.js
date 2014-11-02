@@ -398,7 +398,7 @@ module.exports =  ConversationView.extend({
         mode = VIS_MODE_VIS;
       }
       this.visModeModel = new Backbone.Model({
-        visMode: mode
+        visMode: -1
       });
       this.visModeModel.on("change:visMode", function() {
         var visMode = that.visModeModel.get("visMode");
@@ -449,6 +449,11 @@ module.exports =  ConversationView.extend({
           that.visModeModel.set("visMode", VIS_MODE_VIS);
         });
       }
+      setTimeout(function() {
+
+      that.visModeModel.set("visMode", mode);
+      },10)
+
 
       this.voteMoreModel = new Backbone.Model({
         remaining: 0
@@ -702,9 +707,9 @@ module.exports =  ConversationView.extend({
         $("#voteMoreParent").show();
       }
 
-      if (true) {
-        $("#tutorialSlides").show();
-      }
+      // if (launchWithTutorial) {
+      //   $("#tutorialSlides").show();
+      // }
 
       $("#resetVisBlockerTutorial").on("click", function() {
         that.tutorialSlidesModel.set("step", 1);
