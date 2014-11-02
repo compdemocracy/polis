@@ -35,7 +35,8 @@ var VIS_MODE_VOTEMORE = 2;
 var VIS_MODE_TUT = 3;
 
 var useAboveVisTutorial = false;
-var useVisBlockingTutorial = !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
+var useVisBlockingTutorial = true; 
+var launchWithTutorial = false; // !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
 var useVoteMoreBlocker = false;
 
 var isIE8 = Utils.isIE8();
@@ -391,7 +392,7 @@ module.exports =  ConversationView.extend({
       var mode = VIS_MODE_VIS;
       if (useVoteMoreBlocker) {
         mode = VIS_MODE_VOTEMORE;
-      } else if (useVisBlockingTutorial) {
+      } else if (launchWithTutorial) {
         mode = VIS_MODE_TUT;
       } else {
         mode = VIS_MODE_VIS;
