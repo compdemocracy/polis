@@ -119,6 +119,7 @@ gulp.task('connect', [], function() {
   app.use(/^\/prototype.*/, fetchIndex);
   app.use(/^\/plan.*/, fetchIndex);
   app.use(/^\/professors$/, express.static(path.join(destRootBase, "professors.html")));
+  app.use(/^\/news$/, express.static(path.join(destRootBase, "news.html")));
   app.use(/^\/pricing$/, express.static(path.join(destRootBase, "pricing.html")));
   app.use(/^\/company$/, express.static(path.join(destRootBase, "company.html")));
   app.use(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
