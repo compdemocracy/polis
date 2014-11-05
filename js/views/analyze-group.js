@@ -205,11 +205,18 @@ module.exports = Handlebones.View.extend({
 
       // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
       var comments = that.collection.models.slice(0);
-      comments = _.filter(comments, function(comment) {
-        return _.contains(tids, comment.get('tid'));
-      });
+      // comments = _.filter(comments, function(comment) {
+      //   return _.contains(tids, comment.get('tid'));
+      // });
 
       comments = _.indexBy(comments, "id"); // id is tid
+
+      // remove tids that are not present in the comments list (for example, tids that were moderated out)
+      // TODO exclude moderated-out comments from the repfull list
+      tids = _.filter(tids, function(tid) {
+        return !!comments[tid];
+      });
+      
       // use ordering of tids, but fetch out the comments we want.
       comments = _.map(tids, function(tid) {
         return comments[tid];
@@ -260,9 +267,12 @@ module.exports = Handlebones.View.extend({
           var html = 
             "<div style='color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               "<p>" +
+                (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
               "</p>" +
-              c.get("txt") +
+              "<p>" +
+                c.get("txt") +
+              "</p>" +
             "</div>";
           return html;
         });

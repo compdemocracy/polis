@@ -1,3 +1,73 @@
+//TUTORIAL OCTOBER 2014
+
+.tutorial-slide {
+  // border: 1px dotted $medium-gray;
+  border-radius: 4px;
+  text-align: center;
+  padding: 20px;
+  height:100%;
+  position: relative;
+}
+
+.tutorial-title {
+  border-bottom: 1px dotted $medium-gray;
+  padding-bottom: 15px;
+  margin-bottom: 15px;
+}
+
+.tutorial-body {
+  font-size: 1.5em;
+}
+
+.tutorial-svg {
+  margin-top: 10px;
+  // border: 1px dotted $medium-gray;
+  width: 250px;
+  height: 125px;
+  margin: auto;
+
+}
+
+.circle {
+
+}
+
+.tutorial-pointer {
+  cursor: pointer;
+}
+
+.tutorial-hull {
+  fill: #eee;
+  stroke: #eee;
+  stroke-width: 6px;
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+
+.tutorial-arrow {
+  font-size: 3em;
+  position: relative;
+  // top: 22px;
+  color: rgba(52, 152, 219, 0.4);
+  cursor: pointer;
+
+}
+
+.tutorial-arrow:hover {
+  color: rgba(52, 152, 219, 0.8);
+}
+
+.tutorial-arrow-container {
+  height: 100%;
+}
+
+.tutSlidesBtn {
+  position: absolute;
+  top: 45px;
+}
+
+//VISUALIZATION
+
 .visualization {
   border: none;
   background: $bg-color;
@@ -72,6 +142,9 @@
   padding-left:0;
 }
 
+.help_text_you {
+  font-family: $sans-font;
+}
 
 
 

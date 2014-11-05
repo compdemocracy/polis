@@ -2,7 +2,7 @@ var eb = require("../eventBus");
 var owl = require("owl");
 var display = require("../util/display");
 var Raphael = require("raphael");
-
+var Utils = require("../util/utils");
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
 
@@ -17,14 +17,11 @@ var getPidToBidMapping = params.getPidToBidMapping;
 var isIE8 = params.isIE8;
 var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
-var inVisLegendCounter = params.inVisLegendCounter || 0;
 
 var dimensions = {
     width: params.w,
     height: params.h
 };
-
-// var getPid = params.getPid;
 
 function getBid(d) {
     return d.bid;
@@ -104,12 +101,12 @@ window.color = function() {
 }
 
 var colorPass = "#BDC3C7"; // SILVER
-var colorSelf = "#0CF"; // blue - like the 'you are here' in mapping software
+var colorSelf = "rgb(0, 186, 255)"; // blue - like the 'you are here' in mapping software
 var colorNoVote = colorPass;
 // var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
 // var colorPullOutline = d3.rgb(colorPull).darker().toString();
 // var colorPushOutline = d3.rgb(colorPush).darker().toString();
-
+var colorSelfOutline = "rgba(0, 0, 245, 0.25)";
 
 // Cached results of tunalbes - set during init
 var strokeWidth;
@@ -118,42 +115,13 @@ $(el_selector + " > .visualization").remove();
 
 /* d3-tip === d3 tooltips... [[$ bower install --save d3-tip]] api docs avail at https://github.com/Caged/d3-tip */
 var tip = null;
-var SHOW_TIP = false;
+var SHOW_TIP = true;
 var tipPreviousTarget = null; // Sorry God!
 if (SHOW_TIP && !isIE8) {
     $("#ptpt-tip").remove();
     tip = d3.tip().attr("id", "ptpt-tip").attr("stroke", "rgb(52,73,94)").html(
         function(d) {
-            d.getPeople().then(function(people) {
-                // use the email address as the html
-                var html = people.map(function(p) {
-                    if (isSelf(d)) {
-                        var hint = selfDotTooltipShow ? selfDotHintText : "";
-                        return {
-                            email: hint
-                        };
-                    }
-                    return p;
-                })
-                .map(function(p) {
-                    if (!p) {
-                        console.warn("missing user info");
-                        return "";
-                    }
-                    return p.email;
-                }).join("<br/>");
-                setTimeout(function() {
-                    $("#tipContents").html(html);
-                }, 10);
-            });
-            if (d === tipPreviousTarget) {
-                var oldHtml = $("#tipContents").html();
-                if (oldHtml) {
-                    return oldHtml;
-                }
-            }
-            tipPreviousTarget = d;
-            return "<div id='tipContents'></div>";
+            return d.tid;
         }
     );
 }
@@ -295,58 +263,6 @@ $(el_selector)
   ;
 }
 
-
-
-$("#legendRoot").html("");
-$("#legendRoot").append("<p class=\"HeadingF HeadingF--light\" style=\"position: absolute; font-size: 12px; text-align: center; width: 100%; top: 6px\"> Dots represent participants. The closer the participants are, the more alike they voted.</p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 67px\"> Your position in the conversation, close to those who voted like you did. </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 125px\"> One or more other participants. </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 162px\"> A larger number of other participants.  </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 200px\"> Shaded areas represent opinion groups. <strong> Click</strong> a group to learn which comments define them. </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 278px\"> These participants <span style=\"color:#2ecc71;\"> agreed </span> with the selected comment </p>" +
-"<p style=\"position: absolute; font-size: 12px; text-align: left; width: 63%; right:10px; top: 328px\"> These participants <span style=\"color: #e74c3c;\">disagreed</span> with the selected comment </p>" +
-"<svg width='100%' height='400'>"+
-// "<path class='hull_shadow' gid='0' transform='translate(1, 1)' d='M50,50L200,100L175,250L25,200Z'></path>"+
-// "<path class='hull_shadow' gid='1' transform='translate(1, 1)' d='M30,250L165,350L100,350L40,275Z'></path>"+
-// "<path class='hull_selection' gid='0' d='M50,50L200,100L175,250L25,200Z'></path>"+
-// "<path class='hull_selection' gid='1' d='M30,250L165,350L100,350L40,275Z'></path>"+
-"<path class='hull' gid='0' d='M50,55L100,100L100,250L25,200Z'></path>"+
-"<path class='hull' gid='1' d='M30,250L90,330L60,360L20,275Z'></path>"+
-"<circle cx='82' cy='171' r='13' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='53' cy='100' r='9' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='53' cy='62' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='70' cy='90' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='70' cy='200' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='31' cy='197' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<circle cx='88' cy='134' r='4' class='circle bktvi' style='fill: #BDC3C7;'></circle>"+
-"<line x1='85' y1='208' x2='115' y2='208' style='stroke:#eee; stroke-width:2'></line>" +
-"<line x1='85' y1='134' x2='115' y2='134' style='stroke:#BDC3C7; stroke-width:1'></line>" +
-"<line x1='80' y1='171' x2='115' y2='171' style='stroke:#BDC3C7; stroke-width:1'></line>" +
-"<line x1='72' y1='76' x2='115' y2='76' style='stroke:#0CF;stroke-width:1'></line>" +
-"<line x1='40' y1='287' x2='115' y2='287' style='stroke:#2ecc71;stroke-width:1'></line>" +
-"<line x1='70' y1='336' x2='115' y2='336' style='stroke:#e74c3c;stroke-width:1'></line>" +
-"<g class='ptpt node selfDot' fill-opacity='100%' transform='translate(65,76)'>"+
-  // "<circle class='circle bktv' cx='0' cy='0' r='7.288888888888889' style='opacity: 0.5; fill: rgba(0, 0, 0, 0); stroke: rgb(0, 204, 255); stroke-width: 1px; display: inherit;'></circle>" +
-  "<circle class='circle bktvi' r='3.6444444444444444' style='fill: rgb(0, 204, 255); display: inherit;'></circle>"+
-"</g>" +
-
-/**** AGREE ****/
-"<g class='ptpt node' fill-opacity='100%' transform='translate(40.6975366341736,290.01621449977468) scale(2)'>"+
-  // "<polygon class='up bktv' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); fill-opacity: 0.2; display: inherit;'></polygon>"+
-  "<polygon class='up bktvi' points='-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687' style='fill: rgb(0, 181, 77); display: inherit;'></polygon>"+
-"</g>"+
-
-/**** DISAGREE ****/
-"<g class='ptpt node' fill-opacity='100%' transform='translate(70.5164952631261,334.686456499723942) scale(2)'>"+
-  // "<polygon class='down bktv' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); fill-opacity: 0.2; display: inherit;'></polygon>"+
-  "<polygon class='down bktvi' points='-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687' style='fill: rgb(231, 76, 60); display: inherit;'></polygon>"+
-"</g>"+
-
-
-
-"</svg>");
-
-
 if (isIE8) {
     $(el_raphaelSelector).on("click", selectBackground);
     w = $(el_raphaelSelector).width();
@@ -368,9 +284,11 @@ if (isIE8) {
     $(el_selector).on("click", selectBackground);
 
     main_layer = visualization.append(groupTag)
+        .attr("id", "main_layer")
         .attr("transform", "translate("+ xOffset +")");
         
     blocker_layer = visualization.append(groupTag)
+        .attr("id", "blocker_layer")
         .attr("transform", "translate("+ xOffset +")");
 
     overlay_layer = visualization.append(groupTag);
@@ -380,8 +298,8 @@ if (isIE8) {
         .classed("helpArrowLine", true)
         .style("display", "none")
         ;
-    w = $(el_selector).width() - xOffset;
-    h = $(el_selector).height();
+    w = dimensions.width - xOffset; // $(el_selector).width() - xOffset;
+    h = dimensions.height; //$(el_selector).height();
 }
 
 
@@ -424,43 +342,6 @@ if (useForce) {
 //     .attr("transform", "" + "scale(" + 0.95 / Math.max((b[1][0] - b[0][0]) / w, (b[1][1] - b[0][1]) / h) + ")" + "translate(" + -(b[1][0] + b[0][0]) / 2 + "," + -(b[1][1] + b[0][1]) / 2 + ")");
 //     //visualization.attr("transform", "translate(10,10)scale(" + d3.event.scale + ")");
 // }
-
-
-// compute how somilar the membership vectors are between two clusters.
-// similarity = (bothHave+1) / (longerArray.length + 1)
-function clusterSimilarity(a, b) {
-
-// clusters [[2,3,4],[1,5]]
-    var longerLength = Math.max(a.length, b.length);
-    var ai = 0;
-    var bi = 0;
-    var bothHave = 0;
-
-    while (ai < a.length) {
-
-        if (bi >= b.length) {
-            break;
-        }
-        var aa = a[ai];
-        var bb = b[bi];
-        if (aa === bb) {
-            bothHave += 1;
-            ai += 1;
-            bi += 1;
-        }
-        else if (aa > bb){
-            bi += 1;
-        }
-        else if (bb > aa) {
-            ai += 1;
-        }
-    }
-
-    return (bothHave + 1) / (longerLength + 1);
-}
-
-console.log("expect: " + (3/5));
-console.log(clusterSimilarity([2,3,4], [2,4,7,8]));
 
 
 function argMax(f, args) {
@@ -515,12 +396,23 @@ function onClusterClicked(d) {
     return handleOnClusterClicked(d.hullId);
 }
 
+function exitTutorial() {
+  dotsShouldWiggle = false;
+  removeTutorialStepOne();
+}
+
+// TODO needs tutorial step advancement needs rethinking
+function removeTutorialStepOne() {
+    var help = visualization.selectAll(".help");
+    help.style("display", "none");
+}
+
 function handleOnClusterClicked(hullId) {
     // // if the cluster/hull just selected was already selected...    
     // if (selectedCluster === hullId) {                 
     //   return resetSelection();
     // }
-    dismissHelp();
+    exitTutorial();
 
     // resetSelectedComment();
     // unhoverAll();
@@ -1219,7 +1111,7 @@ function getParticipantCount(nodes) {
 }
 
 // clusters [[2,3,4],[1,5]]
-function upsertNode(updatedNodes, newClusters, newParticipantCount) {
+function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     console.log("upsert");
 
     participantCount = newParticipantCount;
@@ -1256,25 +1148,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
             // .attr("font-family", "brandon-grotesque")
             ;
     }
-    //nodes.set(node.pid, node);
 
-
-    // migrate an existing cluster selection to the new similar cluster
-    // var readyToReselectComment = $.Deferred().resolve();
-    // if (selectedCluster !== false) {
-
-    //     var currentSelectedCluster = clusters[selectedCluster];
-
-    //     var nearestCluster = argMax(
-    //         _.partial(clusterSimilarity, currentSelectedCluster),
-    //         newClusters);
-
-    //     var nearestClusterId = newClusters.indexOf(nearestCluster);
-    //     clusters = newClusters;
-    //     readyToReselectComment = setClusterActive(nearestClusterId);
-    // } else {
-        clusters = newClusters;
-    // }
+    clusters = newClusters;
 
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
@@ -1282,13 +1157,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
             bidToGid[cluster[b]] = c;
         }
     }
-    
-    // readyToReselectComment.done(function() {
-    //     if (commentIsSelected()) {
-    //         selectComment(selectedTid);
-    //     }
-    // });
-
 
     function computeTarget(d) {
         //if (!isPersonNode(d)) {
@@ -1339,6 +1207,14 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
     var scales = createScales(updatedNodes);
     var scaleX = scales.x;
     var scaleY = scales.y;
+
+    comments = comments.map(function(c) {
+        c.target = {
+            x: scaleX(-2*c.proj.x),
+            y: scaleY(-1*c.proj.y)
+        };
+        return c;
+    });
 
     var oldpositions = nodes.map( function(node) { return { x: node.x, y: node.y, bid: node.bid }; });
 
@@ -1407,27 +1283,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
         // see fa89dsjf8d
       }
 
-
-
-
-
-    // // simplify debugging by looking at a single node
-    // //nodes = nodes.slice(0, 1);
-    // // check for unexpected changes in input
-    // if (window.temp !== undefined) {
-    //     if (key(window.temp) !== key(nodes[0])) {
-    //         console.log("changed key");
-    //         console.dir(window.temp);
-    //         console.dir(nodes[0]);
-    //     }
-    //     if (!_.isEqual(window.temp.proj, nodes[0].proj)) {
-    //         console.log("changed projection");
-    //         console.dir(window.temp);
-    //         console.dir(nodes[0]);
-    //     }
-    //     window.temp = nodes[0];
-    // }
-
     function setupRaphaelNode(n) {
       // do each on a separate stack
       setTimeout(function() {
@@ -1487,85 +1342,27 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
           // .call(force.drag)
       ;
 
-
-    if (inVisLegendCounter === 0) {
-      inVisLegendCounter = 1;
-      var helpStrokeWidth = display.xs() ? 1 : 2;
-
-      var centermostNode = g.filter(function(d) {
-        return d.isChosenNodeForInVisLegend;
-      });
-      centermostNode.append("text")
-        .classed("help", true)
-        .text("another participant")
-        .attr("text-anchor", "start")
-        .attr("fill", "#000")
-        // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
-        .attr("transform", function(d) {
-            return "translate(55, -17)";
-        });
-      centermostNode.append("polyline")
-        .classed("help", true)
-        .style("display", "block")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        .style("z-index", 9999)
-        .style("fill", "rgba(0,0,0,0)")
-        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-        // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", function(d) {
-            return ["9, -9", "20, -20", "50,-20"].join(" ")
-        });
-      centermostNode.append("circle")
-        .classed("help", true)
-        // .classed("circle", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .attr("r", 12.727)
-        // .style("opacity", opacityOuter)
-        .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        ;
-
-      var selfNode = g.filter(isSelf);
-      selfNode.append("text")
-        .classed("help", true)
-        .text("you")
-        .attr("text-anchor", "start")
-        .attr("fill", "rgba(0,0,0,1.0)")
-        .attr("transform", function(d) {
-            return "translate(55, 24)";
-        });
-      selfNode.append("polyline")
-        .classed("help", true)
-        .style("display", "block")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        .style("z-index", 9999)
-        .style("fill", "rgba(0,0,0,0)")
-        // .attr("marker-end", "url(#ArrowTipOpenCircle)")
-        // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", function(d) {
-            return ["9, 9", "20, 20", "50,20"].join(" ")
-        });
-      selfNode.append("circle")
-        .classed("help", true)
-        // .classed("circle", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .attr("r", 12.727)
-        // .style("opacity", opacityOuter)
-        .style("fill", "rgba(0,0,0,0)")
-        .style("stroke", "#555555")
-        .style("stroke-width", helpStrokeWidth)
-        ;
+      if (Utils.projectComments) {
+          var foo = main_layer.selectAll(".c").data(comments);
+          var commentWidth = 2;
+          var commentWidthHalf = commentWidth/2;
+          var bar = foo.enter()
+            .append("rect")
+            .attr("x", function(d) {
+                return d.target.x - commentWidthHalf;
+            })
+            .attr("y", function(d) {
+                return d.target.y - commentWidthHalf;
+            })
+            .attr("width", commentWidth)
+            .attr("height", commentWidth)
+            .style("stroke", "darkgray")
+            .style("fill", "darkgray");
+          if (Utils.debugCommentProjection) {
+            bar.on("mouseover", showTip);
+            bar.on("mouseout", hideTip);
+          }
       }
-
-
-
-
-
 
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
@@ -1620,75 +1417,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
       var self = g.filter(isSelf);
       self.classed("selfDot", true);
-
-
-
-      // var r = chooseCircleRadius(biggestNode);
-      // var legendCirclesG = main_layer.selectAll(".legendCircle").data([biggestNode]);
-      // legendCirclesG.enter()
-      //   .append(groupTag)
-      //   .classed("legendCircle", true)
-      //   .attr("transform", "translate("+ (w-10) +","+ (h-10)+")");
-      //   ;
-
-      // var USE_LEGEND_CIRCLES = false;
-      // var legendCircles = !USE_LEGEND_CIRCLES ? false : legendCirclesG.selectAll("circle").data([biggestNode]);
-      // if (legendCircles) {
-      //   legendCircles.enter().append("circle")
-      //     .style("fill", "rgba(0,0,0,0)")
-      //     .style("stroke", "#bbb")
-      //     .style("stroke-dasharray", "5,5")
-      //     .style("stroke-width", 1);
-      // }
-
-    //   var legendText = legendCirclesG.selectAll("text").data([biggestNode]);
-    //     legendText.enter()
-    //       .append("text")
-    //       .attr("text-anchor", "end");
-
-    // function labelText(d) {
-    //     return participantCount + (participantCount === 1 ? " person" : " people");
-    // }
-
-    // // update
-    // if (legendCircles) {
-    //     legendCircles
-    //         .attr("cx", -(r+2))
-    //         .attr("cy", -r+2)
-    //         .attr("r", r)
-    //       ;
-    // }
-    // var legendCircleCircumference = legendCircles ? 2*r : 0;
-    // legendText
-    //     .text(labelText)
-    //     .attr("fill", "#bbb")
-    //     .attr("transform", "translate("+ 
-    //         (-(legendCircleCircumference + 10)) +
-    //         ",0)");
-
   }
   updateNodes();
-
-
-  // update
-  //     .attr("transform", chooseTransform)
-  //     .selectAll("path")
-  //         .attr("d", chooseShape)
-  //         .style("stroke-width", strokeWidth)
-  //         .style("stroke", chooseStroke)
-  //         .style("fill", chooseFill)
-  //     ;
-
-
-
-
-  // visualization.selectAll(".ptpt")
-  //       .transition()
-  //       .duration(500)
-  //       .style("fill", chooseFill)
-  //       .transition()
-  //         .duration(500);
-
 
         // fa89dsjf8d
       if (!force && !isIE8) {
@@ -1707,12 +1437,133 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount) {
 
 } // END upsertNode
 
-function dismissHelp() {
-    onInVisLegendShownCallbacks.fire(inVisLegendCounter);
+function isNotSelf(d) {
+    return !isSelf(d);
+}
 
-    var help = visualization.selectAll(".help");
-    help.style("display", "none");
-    
+function showHintOthers() {
+    dotsShouldWiggle = true;
+    wiggleUp();
+}
+function hideHintOthers() {
+    dotsShouldWiggle = false;
+}
+
+function hideHintYou() {
+    // TODO
+}
+function showHintYou() {
+
+      var helpStrokeWidth = display.xs() ? 1 : 2;
+
+    var g = visualization.selectAll(".node");
+     
+
+      // var centermostNode = g.filter(function(d) {
+      //   return d.isChosenNodeForInVisLegend;
+      // });
+      // centermostNode.append("text")
+      //   .classed("help", true)
+      //   .text("another participant")
+      //   .attr("text-anchor", "start")
+      //   .attr("fill", "#000")
+      //   // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
+      //   .attr("transform", function(d) {
+      //       return "translate(55, -17)";
+      //   });
+      // centermostNode.append("polyline")
+      //   .classed("help", true)
+      //   .style("display", "block")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   .style("z-index", 9999)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+      //   // .attr("marker-start", "url(#ArrowTip)")
+      //   .attr("points", function(d) {
+      //       return ["9, -9", "20, -20", "50,-20"].join(" ")
+      //   });
+      // centermostNode.append("circle")
+      //   .classed("help", true)
+      //   // .classed("circle", true)
+      //   .attr("cx", 0)
+      //   .attr("cy", 0)
+      //   .attr("r", 12.727)
+      //   // .style("opacity", opacityOuter)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   ;
+
+
+      var selfNode = g.filter(isSelf);
+      selfNode.append("text")
+        .classed("help", true)
+        .classed("help_text_you", true)
+        .text("You")
+        .attr("text-anchor", "start")
+        // .attr("fill", "rgba(0,0,0,1.0)")
+        .attr("fill", colorSelf)
+        .attr("stroke", colorSelfOutline)
+        .attr("transform", function(d) {
+            return "translate(12, 6)";
+        });
+      // selfNode.append("polyline")
+      //   .classed("help", true)
+      //   .style("display", "block")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   .style("z-index", 9999)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   // .attr("marker-end", "url(#ArrowTipOpenCircle)")
+      //   // .attr("marker-start", "url(#ArrowTip)")
+      //   .attr("points", function(d) {
+      //       return ["9, 9", "20, 20", "50,20"].join(" ")
+      //   });
+      // selfNode.append("circle")
+      //   .classed("help", true)
+      //   // .classed("circle", true)
+      //   .attr("cx", 0)
+      //   .attr("cy", 0)
+      //   .attr("r", 12.727)
+      //   // .style("opacity", opacityOuter)
+      //   .style("fill", "rgba(0,0,0,0)")
+      //   .style("stroke", "#555555")
+      //   .style("stroke-width", helpStrokeWidth)
+      //   ;
+}
+
+var dotsShouldWiggle = false;
+function wiggleUp() {
+    if (!dotsShouldWiggle) {
+        return;
+    }
+
+    var dfd = $.Deferred();
+    dfd.done(wiggleDown);    
+    var dfdDown = $.Deferred();
+    dfdDown.done(wiggleUp);
+    var update = visualization.selectAll(".node");
+    var circleUpdateInner = update.selectAll(".circle.bktvi");
+    circleUpdateInner
+      .filter(isNotSelf)
+      .transition()
+      .style("stroke-width", "2px") // NOTE: using tranform to select the scale
+      .style("stroke", "#777") // NOTE: using tranform to select the scale      
+      .duration(500)
+      .each("end", dfd.resolve);
+
+    function wiggleDown() {
+        circleUpdateInner
+        .filter(isNotSelf)
+        .transition()
+          .style("stroke-width", "0px") // NOTE: using tranform to select the scale
+          .style("stroke", "#777") // NOTE: using tranform to select the scale      
+          .duration(500)
+          .each("end", dfdDown.resolve)
+          ;
+          // dfd.resolve();
+    }
 }
 
 function selectComment(tid) {
@@ -1788,7 +1639,6 @@ function renderComments(comments) {
 
 
 function onParticipantClicked(d) {
-    // alert(1);
     // d3.event.stopPropagation();
     // d3.event.preventDefault(); // prevent flashing on iOS
   var gid = bidToGid[d.bid];
@@ -1802,7 +1652,6 @@ function unhoverAll() {
 }
 
 function updateNodeVoteCounts() {
-
     if (isIE8) {
         for (var i = 0; i < nodes.length; i++) {
             var node = nodes[i];
@@ -1816,8 +1665,8 @@ function updateNodeVoteCounts() {
 function updateNodes() {
     setTimeout(doUpdateNodes, 0);
 }
-function doUpdateNodes() {
 
+function doUpdateNodes() {
   if (isIE8) {
       for (var i = 0; i < nodes.length; i++) {
         var node = nodes[i];
@@ -1849,37 +1698,14 @@ function doUpdateNodes() {
       }
   } else {
       var update = visualization.selectAll(".node");
-
-              // var commonUpdate = update.selectAll(".node > .bktv")
-              //     ;
-              // var commonUpdateInner = update.selectAll(".node > .bktvi")
-              //     // .style("stroke-width", strokeWidth)
-              //     // .style("stroke", chooseStroke)
-              //     // .style("transform", "scale(0.5)")
-              //     ;
-
-      // var upArrowUpdate = update.selectAll(".up.bktv").data(nodes, key)
-      //     .style("display", chooseDisplayForArrows)
-      //     .attr("points", chooseUpArrowPath)
-      //     // .style("fill", colorPull)
-      //     ;
         var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
-
-      // var downArrowUpdate = update.selectAll(".down.bktv").data(nodes, key)
-      //     .style("display", chooseDisplayForArrows)
-      //     .attr("points", chooseDownArrowPath)
-      //     // .style("fill", colorPush)
-      //     ;
-    
         var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
           ;
-    
-
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
           .style("display", chooseDisplayForOuterCircle)
           .attr("r", chooseCircleRadiusOuter)
@@ -1914,18 +1740,6 @@ function doUpdateNodes() {
             }
           });
   }
-  // showLineToCluster("foo");
-
-  // visualization.selectAll(".node")
-  //   .attr("transform", chooseTransform)
-  //   .selectAll("path")
-  //       .style("stroke", chooseStroke)
-  //       .style("fill", chooseFill)
-  //       .style("fill-opacity", chooseAlpha)
-  //       // .attr("r", chooseRadius)
-  //       .attr("d", chooseShape)
-  //   ;
-
 }
 
 function resetSelectedComment() {
@@ -1940,10 +1754,6 @@ function resetSelection() {
   }
   selectedCluster = -1;
   eb.trigger(eb.clusterSelectionChanged, selectedCluster);
-  // visualization.transition().duration(750).attr("transform", "");
-  // selectedBids = [];
-  // resetSelectedComment();
-  // unhoverAll();
 }
 
 
@@ -1957,7 +1767,7 @@ function selectBackground() {
 
     updateHullColors();
   }
-  dismissHelp();
+  exitTutorial();
 }
 
 var visBlockerOn = false;
@@ -2005,6 +1815,7 @@ function hideVisBlocker() {
         .remove()
     ;
 }
+
 
 // TODO account for Buckets
 function emphasizeParticipants(pids) {
@@ -2125,7 +1936,6 @@ function updateLineToCluster(gid) {
 function onHelpTextClicked() {
     overlay_layer.selectAll(".helpArrow")
         .style("display", "none");
-    // $(".helpArrow").addClass("hidden");
     $("#helpTextBox").addClass("hidden");
 }
 
@@ -2163,8 +1973,6 @@ eb.on(eb.vote, function() {
     }
 });
 
-// setTimeout(selectBackground, 1);
-
 function getSelectedGid() {
     return selectedCluster;
 }
@@ -2173,10 +1981,7 @@ function selectGroup(gid) {
     handleOnClusterClicked(gid);
 }
 
-onInVisLegendShownCallbacks = $.Callbacks();
-
 return {
-    onInVisLegendShown: onInVisLegendShownCallbacks.add,
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
     deselect: selectBackground,
@@ -2184,6 +1989,10 @@ return {
     selectGroup: selectGroup,
     showLineToCluster: showLineToCluster,
     emphasizeParticipants: emphasizeParticipants,
+    showHintOthers: showHintOthers,
+    hideHintOthers: hideHintOthers,
+    showHintYou: showHintYou,
+    hideHintYou: hideHintYou,
     getSelectedGid: getSelectedGid,
 };
 

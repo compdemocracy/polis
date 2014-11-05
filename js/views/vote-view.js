@@ -46,7 +46,8 @@ module.exports = Handlebones.ModelView.extend({
     var serverClient = options.serverClient;
     var votesByMe = options.votesByMe;
     var votesByMeFetched = $.Deferred();
-
+    this.conversationModel = options.conversationModel;
+    
     var is_public = options.is_public;
     var conversation_id = this.conversation_id = options.conversation_id;
     var pid = this.pid = options.pid;
@@ -62,9 +63,9 @@ module.exports = Handlebones.ModelView.extend({
     var that = this;
     var waitingForComments = true;
     var commentPollInterval = 5 * 1000;
-    function pollForComments() {
+    function pollForComments(optionalPromiseForPreExisingNextCommentCall) {
       if (waitingForComments) {
-          getNextAndShow();
+          getNextAndShow(optionalPromiseForPreExisingNextCommentCall);
       } else {
         // try to try again later
         setTimeout(pollForComments, commentPollInterval);
@@ -78,13 +79,14 @@ module.exports = Handlebones.ModelView.extend({
       that.trigger("showComment");
       waitingForComments = false;
     }
-    function getNextAndShow() {
+    function getNextAndShow(optionalPromiseForPreExisingNextCommentCall) {
       var params = {};
       if (that.model && that.model.get("tid")) {
         params.notTid = that.model.get("tid");
       }
-      serverClient.getNextComment(params).then(function(c) {
-        if (!that.parent.model.get("is_active")) {
+      var promise = optionalPromiseForPreExisingNextCommentCall || serverClient.getNextComment(params);
+      promise.then(function(c) {
+        if (!that.conversationModel.get("is_active")) {
           showClosedConversationNotice();
         } else if (c && c.txt) {
           showComment(c);
@@ -221,7 +223,7 @@ module.exports = Handlebones.ModelView.extend({
           .then(onVote.bind(this), onFail.bind(this));
     };
 
-    pollForComments(); // call immediately
+    pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
     this.listenTo(this, "rendered", function(){
       // this.$("#agreeButton").tooltip({
       //   title: "This comment represents my opinion",

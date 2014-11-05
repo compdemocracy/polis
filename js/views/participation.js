@@ -20,10 +20,24 @@ var CommentsCollection = require("../collections/comments");
 var ResultsCollection = require("../collections/results");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
+var VoteMoreView = require("../views/voteMoreView");
+var TutorialView = require("../views/tutorialView");
+var TutorialSlidesView = require("../views/tutorialSlides");
+var WritingTipsView = require("../views/writingTips");
 
 var VIS_SELECTOR = "#visualization_div";
 
 var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
+
+var VIS_MODE_VIS = 0;
+var VIS_MODE_WAITING = 1;
+var VIS_MODE_VOTEMORE = 2;
+var VIS_MODE_TUT = 3;
+
+var useAboveVisTutorial = false;
+var useVisBlockingTutorial = true; 
+var launchWithTutorial = false; // !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
+var useVoteMoreBlocker = false;
 
 var isIE8 = Utils.isIE8();
 var isMobile = Utils.isMobile();
@@ -68,6 +82,11 @@ module.exports =  ConversationView.extend({
   showVis: function() {
     $("#vis_sibling_bottom").show();
   },
+  showTutorial: function() {
+    if (this.visModeModel.get("visMode") === VIS_MODE_TUT) {
+      $("#tutorialSlides").show();
+    }
+  },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
   },
@@ -76,6 +95,12 @@ module.exports =  ConversationView.extend({
   },
   allowMetadataFiltering: function() {
     return this.conversationTabs.onAnalyzeTab();
+  },
+
+  updateVoteRemaining: function() {
+    if (useVoteMoreBlocker) {
+      this.voteMoreModel.set("remaining", Math.max(0, 2 - this.votesByMe.length));
+    }
   },
 
   emphasizeParticipants: function() {
@@ -90,11 +115,17 @@ module.exports =  ConversationView.extend({
     ctx.showNewButton = true;
     return ctx;
   },
-  changeLegendButtonToShow: function() {
-    this.$("#legendToggle").text("show legend");
-  },
-  changeLegendButtonToHide: function() {
-    this.$("#legendToggle").text("hide legend");
+  updateVisMode: function() {
+    if (!this.vis) {
+      return;
+    }
+    if (this.voteMoreModel.get("remaining") >= 1) {
+      this.visModeModel.set("visMode", VIS_MODE_VOTEMORE);
+    } else if (false) { // TODO
+
+    } else {
+      this.visModeModel.set("visMode", VIS_MODE_VIS);
+    }
   },
   updateLineToSelectedCluster: function(gid) {
     if (this.vis) {
@@ -119,6 +150,34 @@ module.exports =  ConversationView.extend({
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
 
+    // initialize this first to ensure that the vote view is showing and populated ASAP
+    this.commentView = this.addChild(new CommentView({
+      firstCommentPromise: options.firstCommentPromise,
+      serverClient: serverClient,
+      model: new CommentModel(),
+      conversationModel: this.model,
+      votesByMe: this.votesByMe,
+      is_public: Utils.isShortConversationId(this.conversation_id),
+      pid: pid,
+      conversation_id: conversation_id
+    }));
+
+    // clicks to "the background" should delelect hulls.
+    // This is important because the edge of the vis is not visible.
+    $(document.body).on("click", function(e) {
+      if ($(e.target).hasClass("clickDeselectsHull")) {
+        if (that.vis) {
+          that.vis.deselect();
+        }
+      }
+    });
+
+    eb.on(eb.deselectGroups, function() {
+      if (that.vis) {
+        that.vis.deselect();
+      }
+    });
+
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
       if (gid === -1) {
@@ -130,14 +189,25 @@ module.exports =  ConversationView.extend({
         if (that.conversationTabs.onGroupTab()) { // TODO check if needed
           that.conversationTabs.gotoVoteTab();
         }
+        if (that.tutorialView) {
+          that.tutorialView.endAnalyzeTutorial();
+        }
       }
     });
 
     eb.on(eb.clusterClicked, function(gid) {
       if (_.isNumber(gid) && gid >= 0) {
         that.conversationTabs.gotoGroupTab();
+        // that.tutorialModel.set("step", Infinity);
         // $("#groupTab").click();
       // $("#groupTab").tab("show");
+
+        if (that.selectedGid === -1) {
+          // on transition from no selection to selection
+          if (that.tutorialView) {
+            that.tutorialView.startAnalyzeTutorial();
+          }
+        }
       }
 
       that.onClusterTapped.apply(that, arguments);
@@ -181,7 +251,6 @@ module.exports =  ConversationView.extend({
       $("#vis_sibling_above_tab_content").append($vis);
     }
 
-
     function initPcaVis() {
       if (!Utils.supportsVis()) {
         // Don't show vis for weird devices (Gingerbread, etc)
@@ -193,14 +262,18 @@ module.exports =  ConversationView.extend({
 
 
 
-      var w = $("#visualization_parent_div").width();
+      var w = $("#visualization_div").width();
+      var xOffset = 30;
       if (isIE8) {
         w = 500;
-        $("#visualization_parent_div").width(w);
+        // $("#visualization_div").width(w);
       }
-      var xOffset = display.xs() ? 0 : 30;
+      if (display.xs()) {
+        xOffset = 0;
+        w = $(document.body).width() - 30;
+      }
       var h = w/2;
-      $("#visualization_parent_div").height(h);
+      // $("#visualization_div").height(h);
       that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
       vis = that.vis = new VisView({
           inVisLegendCounter: that.inVisLegendCounter,
@@ -223,15 +296,11 @@ module.exports =  ConversationView.extend({
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
-      vis.onInVisLegendShown(function(counter) {
-        that.inVisLegendCounter = counter;
-      });
       that.updateLineToSelectedCluster();
       if (that.selectedGid >= 0) {
         vis.selectGroup(that.selectedGid);
       }
       that.disableVisAffix();
-
 
       // if (display.xs()) {
       //   $("#commentView").addClass("floating-side-panel-gradients");
@@ -241,30 +310,30 @@ module.exports =  ConversationView.extend({
 
       that.serverClient.addPersonUpdateListener(onPersonUpdate) // TODO REMOVE DUPLICATE
 
-      that.tutorialController.setHandler("blueDot", function(){
-        that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
-          title: "DOTS ARE PEOPLE",
-          content: "Each dot represents one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-          html: true,
-          trigger: "manual",
-          placement: "bottom"
-        }).popover("show");
-        $('#blueDotPopoverButton').click(function(){
-          that.$blueDotPopover.popover("destroy");
-        });
-      });
-      that.tutorialController.setHandler("shadedGroup", function(){
-        that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
-          title: "CLICK ON GROUPS",
-          content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-          html: true, 
-          trigger: "manual",
-          placement: "bottom"
-        }).popover("show");
-        $('#shadedGroupPopoverButton').click(function(){
-          that.$shadedGroupPopover.popover("destroy");
-        });
-      });
+      // that.tutorialController.setHandler("blueDot", function(){
+      //   that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
+      //     title: "DOTS ARE PEOPLE",
+      //     content: "Each dot represents one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+      //     html: true,
+      //     trigger: "manual",
+      //     placement: "bottom"
+      //   }).popover("show");
+      //   $('#blueDotPopoverButton').click(function(){
+      //     that.$blueDotPopover.popover("destroy");
+      //   });
+      // });
+      // that.tutorialController.setHandler("shadedGroup", function(){
+      //   that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
+      //     title: "CLICK ON GROUPS",
+      //     content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+      //     html: true, 
+      //     trigger: "manual",
+      //     placement: "bottom"
+      //   }).popover("show");
+      //   $('#shadedGroupPopoverButton').click(function(){
+      //     that.$shadedGroupPopover.popover("destroy");
+      //   });
+      // });
       // that.tutorialController.setHandler("analyzePopover", function(){
       //   setTimeout(function(){
       //     if (!that.$el) {
@@ -288,6 +357,7 @@ module.exports =  ConversationView.extend({
       // serverClient.updateMyProjection();
     } // end initPcaVis  
 
+    this.initPcaVis = initPcaVis;
 
 
 
@@ -302,7 +372,103 @@ module.exports =  ConversationView.extend({
 
 
       /* child views */
+      this.tutorialModel = new Backbone.Model({
+        visible: false,
+        paused: false,
+        step: useAboveVisTutorial ? 1 : Infinity
+      });
+      this.tutorialModel.on("change:step", function() {
+        var step = that.tutorialModel.get("step");
+        if (step === 1) {
+          that.vis.showHintYou();
+        } else {
+          that.vis.hideHintYou();
+        }
+        if (step === 2) {
+          that.vis.showHintOthers();
+        } else {
+          that.vis.hideHintOthers();
+        }
+      });
+      var mode = VIS_MODE_VIS;
+      if (useVoteMoreBlocker) {
+        mode = VIS_MODE_VOTEMORE;
+      } else if (launchWithTutorial) {
+        mode = VIS_MODE_TUT;
+      } else {
+        mode = VIS_MODE_VIS;
+      }
+      this.visModeModel = new Backbone.Model({
+        visMode: -1
+      });
+      this.visModeModel.on("change:visMode", function() {
+        var visMode = that.visModeModel.get("visMode");
+        if (visMode === VIS_MODE_TUT) {
+          $("#tutorialSlides").show();
+          $("#afterTutorial").hide();
+          $("#voteMoreParent").hide();
+          $("#visualization_parent_div").hide();
+          // hide others
+        }
+        if (visMode === VIS_MODE_VIS) {
+          // that.vis.hideHintVoteMoreBlocker();
+          $("#voteMoreParent").hide();
+          $("#tutorialSlides").hide();
+          $("#afterTutorial").show();
+          $("#visualization_parent_div").css("visibility", "visible");
+          $("#visualization_parent_div").css("display", "block");
+          $("#visualization_div").css("display", "block");
+          $("#visualization_parent_div").fadeIn();
+          that.tutorialModel.set("visible", true);
+          that.initPcaVis();
+          // hide others
+        }
+        if (visMode === VIS_MODE_WAITING) {
+          that.tutorialModel.set("visible", false);
+          $("#voteMoreParent").hide();
+          $("#visualization_parent_div").fadeOut();
+          // hide others
+        }
+        if (visMode === VIS_MODE_VOTEMORE) {
+          // that.vis.showHintVoteMoreBlocker();
+          $("#voteMoreParent").fadeIn();
+          $("#visualization_parent_div").fadeOut();
+          that.tutorialModel.set("visible", false);
+          // hide others
 
+        }
+      });
+
+
+      if (useVisBlockingTutorial) {
+        this.tutorialSlidesModel = new Backbone.Model({
+          step: 1
+        });
+        this.tutorialSlidesView = this.addChild(new TutorialSlidesView({
+          model: this.tutorialSlidesModel
+        }));
+        this.tutorialSlidesView.on("done", function() {
+          that.visModeModel.set("visMode", VIS_MODE_VIS);
+        });
+      }
+      setTimeout(function() {
+
+      that.visModeModel.set("visMode", mode);
+      },10)
+
+
+      this.voteMoreModel = new Backbone.Model({
+        remaining: 0
+      });
+      this.voteMoreView = this.addChild(new VoteMoreView({
+        model: this.voteMoreModel
+      }));
+
+      if (useAboveVisTutorial) {
+        this.tutorialView = this.addChild(new TutorialView({
+          model: this.tutorialModel
+        }));
+      }
 
       this.conversationTabs = this.addChild(new ConversationTabsView({
         model: new Backbone.Model({
@@ -310,21 +476,13 @@ module.exports =  ConversationView.extend({
         })
       }));
 
-
+      this.writingTips = this.addChild(new WritingTipsView());
 
       this.changeVotes = new ChangeVotesView({
         serverClient: serverClient,
         conversation_id: conversation_id
       });
 
-      this.commentView = this.addChild(new CommentView({
-        serverClient: serverClient,
-        model: new CommentModel(),
-        votesByMe: this.votesByMe,
-        is_public: Utils.isShortConversationId(this.conversation_id),
-        pid: pid,
-        conversation_id: conversation_id
-      }));
       // this.commentView.on("vote", this.tutorialController.onVote);
 
       this.commentsByMe = new CommentsCollection({
@@ -334,6 +492,7 @@ module.exports =  ConversationView.extend({
 
       this.commentForm = this.addChild(new CommentFormView({
         pid: pid,
+        conversationModel: this.model,
         collection: this.commentsByMe,
         conversation_id: conversation_id
       }));
@@ -362,6 +521,22 @@ module.exports =  ConversationView.extend({
 
       this.legendView = this.addChild(new LegendView({
       }));
+
+      this.voteMoreModel.on("change", function() {
+        that.updateVisMode();
+      });
+
+      that.updateVoteRemaining();
+      that.votesByMe.on("sync", function() {
+        that.updateVoteRemaining();
+      });
+      that.votesByMe.on("change", function() {
+        that.updateVoteRemaining();
+      });
+      that.votesByMe.on("add", function() {
+        that.updateVoteRemaining();
+      });
+
 
       var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
       this.analyzeGlobalView.on("searchChanged", function(o) {
@@ -436,17 +611,9 @@ module.exports =  ConversationView.extend({
       // eb.trigger(eb.commentSelected, false);
       // that.conversationTabs.doShowTabsUX();
     });
-    that.conversationTabs.on("beforehide:legend", function() {
-      that.changeLegendButtonToShow();
-      that.conversationTabs.showTabLabels();
-    });
-    that.conversationTabs.on("beforeshow:legend", function() {
-      that.conversationTabs.hideTabLabels();
-      moveVisToBottom();
-      that.showVis();
-    });
 
     that.conversationTabs.on("beforeshow:analyze", function() {
+      that.showTutorial();
       that.enableVisAffix();
       if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
@@ -475,10 +642,14 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("beforeshow:vote", function() {
       moveVisToBottom();
       that.showVis();
+      that.showTutorial();
     });
     that.conversationTabs.on("aftershow:analyze", function() {
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
         $(".query_result_item").first().trigger("click");
+      }
+      if (display.xs()) {
+        $("#tutorialSlides").hide();
       }
     });
     that.conversationTabs.on("aftershow:group", function() {
@@ -486,6 +657,7 @@ module.exports =  ConversationView.extend({
     });
     that.conversationTabs.on("aftershow:write", function() {
       // Put the comment textarea in focus (should pop up the keyboard on mobile)
+      $("#tutorialSlides").hide();
       $("#comment_form_textarea").focus();
     });
 
@@ -533,6 +705,24 @@ module.exports =  ConversationView.extend({
     this.listenTo(this, "render", function(){
       setTimeout(function() {
 
+      if (false) {
+        $("#voteMoreParent").show();
+      }
+
+      // if (launchWithTutorial) {
+      //   $("#tutorialSlides").show();
+      // }
+
+      $("#resetVisBlockerTutorial").on("click", function() {
+        that.tutorialSlidesModel.set("step", 1);
+        that.visModeModel.set("visMode", VIS_MODE_TUT);
+        $("#commentViewTab").click();
+      });
+
+      that.updateVisMode();
+
+      // that.visModeModel.set("visMode", VIS_MODE_WAITING);
+
       $("#getDataButton").on("click", function() {
         $.get("/api/v3/dummyButton?button=getDataButton");
         setTimeout(function() {
@@ -562,13 +752,8 @@ module.exports =  ConversationView.extend({
       $("#closeLegendButton").on("click", function() {
         that.conversationTabs.hideLegend();
       });
-      $("#legendToggle").on("click", function() {
-        that.conversationTabs.toggleLegend();
-        if (that.conversationTabs.onLegendTab()) {
-          that.changeLegendButtonToHide();
-        } else {
-          that.changeLegendButtonToShow();
-        }
+      $("#nextTutorialStepButton").on("click", function() {
+        that.vis.tutorialNextClicked();
       });
 
       scrollTopOnFirstShow();
@@ -617,25 +802,26 @@ module.exports =  ConversationView.extend({
         });
       }
       */
-      that.commentView.on("showComment", _.once(function() {   
 
-        that.$commentViewPopover = that.$("#commentView").popover({
-          title: "START HERE",
-          content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-          html: true, //XSS risk, not important for now
-          trigger: "manual",
-          placement: "bottom"
-        });
+      // that.commentView.on("showComment", _.once(function() {   
 
-        setTimeout(function(){
-          if (that.conversationTabs.onVoteTab()) {
-            that.$commentViewPopover.popover("show");
-            $("#commentViewPopoverButton").click(function(){
-              that.$commentViewPopover.popover("destroy");
-            });
-          }
-        },2000);
-      }));
+      //   that.$commentViewPopover = that.$("#commentView").popover({
+      //     title: "START HERE",
+      //     content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
+      //     html: true, //XSS risk, not important for now
+      //     trigger: "manual",
+      //     placement: "bottom"
+      //   });
+
+      //   setTimeout(function(){
+      //     if (that.conversationTabs.onVoteTab()) {
+      //       that.$commentViewPopover.popover("show");
+      //       $("#commentViewPopoverButton").click(function(){
+      //         that.$commentViewPopover.popover("destroy");
+      //       });
+      //     }
+      //   },2000);
+      // }));
 
 
       

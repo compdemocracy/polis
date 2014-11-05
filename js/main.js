@@ -34,6 +34,8 @@ var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
 var FooterPartial = require("./tmpl/footer");
 var PolisLogoPartial = require("./tmpl/polisLogo");
+var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial");
+var TutorialSlidesButtonsLeftPartial = require("./tmpl/tutorialSlidesButtonsLeftPartial");
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
@@ -194,6 +196,10 @@ Handlebars.registerHelper("ifParticipantPays", function(arg0) {
   return Utils.isPpUser() ? arg0.fn(this) : "";
 });
 
+Handlebars.registerHelper("ifDebugCommentProjection", function(arg0) {
+  return Utils.debugCommentProjection ? arg0.fn(this) : "";
+});
+
 function addProtocolToLinkIfNeeded(url) {
   if (!url) {
     return url;
@@ -229,6 +235,8 @@ Handlebars.registerPartial("banner", BannerPartial);
 Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
 Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementPartial);
 Handlebars.registerPartial("footer", FooterPartial);
+Handlebars.registerPartial("tutorialSlidesButtons", TutorialSlidesButtonsPartial);
+Handlebars.registerPartial("tutorialSlidesButtonsLeft", TutorialSlidesButtonsLeftPartial);
 
 
 _.mixin({

@@ -58,6 +58,8 @@ module.exports = Handlebones.ModelView.extend({
   },
 
   initialize: function(options) {
+    // init this pronto so we can load the votes view asap
+    this.votesByMe = new VotesCollection();
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     var conversation_id = this.conversation_id = this.model.get("conversation_id");
@@ -66,7 +68,6 @@ module.exports = Handlebones.ModelView.extend({
 
     this.tutorialController = new TutorialController();
 
-    this.votesByMe = new VotesCollection();
     this.allCommentsCollection = new CommentsCollection();
     this.allCommentsCollection.firstFetchPromise = $.Deferred();
 

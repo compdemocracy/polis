@@ -76,6 +76,9 @@ module.exports = function(params) {
 
     // collections
     var votesByMe = params.votesByMe;
+    if (demoMode()) {
+        votesByMe.trigger("change", votesByMe);
+    }
     var allComments = [];
 
     // allComments.on("add remove reset", function() {
@@ -1211,8 +1214,8 @@ function clientSideBaseCluster(things, N) {
         return people;
     }
 
-    function sendUpdatedVisData(people, clusters, participantCount) {
-        personUpdateCallbacks.fire(people || [], clusters || [], participantCount);
+    function sendUpdatedVisData(people, clusters, participantCount, projectedComments) {
+        personUpdateCallbacks.fire(people || [], clusters || [], participantCount, projectedComments);
     }
 
     function authenticated() {
@@ -1475,7 +1478,8 @@ function clientSideBaseCluster(things, N) {
     function updateMyProjection() {
         console.log("updateMyProjection");
         var people = prepProjection(projectionPeopleCache);
-        sendUpdatedVisData(people, clustersCache, participantCount);
+        var projectedComments = prepCommentsProjection();
+        sendUpdatedVisData(people, clustersCache, participantCount, projectedComments);
     }
 
     function getPidToBidMappingFromCache() {
@@ -1781,6 +1785,53 @@ function clientSideBaseCluster(things, N) {
         pcaPromise.done(updateMyProjection);
     }
 
+    function prepCommentsProjection() {
+        if (!Utils.projectComments) {
+            return [];
+        }
+        var repfulTids = {};
+        if (Utils.projectRepfulTids) {
+            for (var gid in repness) {
+                _.each(repness[gid], function(c) {
+                    if (c['repful-for'] === "agree") {
+                        repfulTids[c.tid] = true;
+                    }
+                });
+            }
+        }
+        
+        var numComments = pcaCenter.length;
+
+            // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
+
+            var numVotes = 1; // pretend the comment is a person who voted for only itself
+            var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
+
+            var projectedComments = [];
+            if (pcX.length && pcY.length) {
+                for (var i = 0; i < pcX.length; i++) {
+                    var shouldAdd = true;
+                    if (Utils.projectRepfulTids && !repfulTids[i]){
+                        shouldAdd = false;
+                    }
+                    if (shouldAdd) {
+                        var x = pcX[i];
+                        var y = pcY[i];
+                        x *= jetpack_aka_sparsity_compensation_factor;
+                        y *= jetpack_aka_sparsity_compensation_factor;
+                        projectedComments.push({
+                            tid: i,
+                            proj: {
+                                x: x,
+                                y: y
+                            }
+                        });
+                    }
+                }
+            }
+        return projectedComments;
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
@@ -1809,8 +1860,9 @@ function clientSideBaseCluster(things, N) {
 
             firstPcaCallPromise.then(function() {
                 var buckets = prepProjection(projectionPeopleCache);
+                var projectedComments = prepCommentsProjection();
                 if (buckets.length) {
-                    sendUpdatedVisData(buckets, clustersCache, participantCount);
+                    sendUpdatedVisData(buckets, clustersCache, participantCount, projectedComments);
                 }
             });
         },

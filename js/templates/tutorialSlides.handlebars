@@ -1,0 +1,176 @@
+<div class="row tutorial-slide">
+
+
+
+{{> tutorialSlidesButtonsLeft}}
+
+
+
+
+	<div style="height:100%; width: 79%; display: inline-block">
+
+{{#if step1}}
+			
+			<p class="HeadingB tutorial-title"> WELCOME </p>
+			
+			<p class="tutorial-body">Polis is a new kind of online discussion. Click the <span style="white-space: nowrap; font-family: brandon-grotesque; font-size: .6em; border: 1px dotted lightgrey; border-radius:4px; padding: 4px; position: relative; top:-2px; color:rgba(52, 152, 219, 0.7);"><i class="fa fa-arrow-circle-o-right	"></i>&nbsp;BLUE ARROW</span> to begin the tutorial.</p>
+{{/if}}
+
+{{#if step2}}
+			<p class="HeadingB tutorial-title"><i class="fa fa-align-justify"></i>&nbsp; READ & REACT</p>
+			<p class="tutorial-body">Read & react to comments written by other participants like you.</p>
+{{/if}}
+
+{{#if step3}}
+			<p class="HeadingB tutorial-title"><i class="fa fa-pencil"></i>&nbsp;WRITE</p>
+			<p class="tutorial-body">If you have something to say that hasn't already been said, write a comment for others to react to.</p>
+{{/if}}
+
+{{#if step4}}
+			<p class="HeadingB tutorial-title"><i class="fa fa-gears	"></i>&nbsp;MATH</p>
+			<p class="tutorial-body">As everyone writes and reacts, we're doing lots of statistics behind the scenes. Here's what we'll show you.</p>
+{{/if}}
+
+{{#if step5}}
+			<p class="HeadingB tutorial-title">DOTS ARE PEOPLE</p>
+			<svg class="tutorial-svg">
+				{{!-- bottom left --}}
+				<circle cx="23" cy="50" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="80" cy="67" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="40" cy="65" r="6" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="63" cy="45" r="5" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="48" cy="78" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="38" cy="94" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				{{!-- upper right --}}
+				<circle cx="210" cy="20" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="195" cy="40" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="225" cy="30" r="6" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+			</svg>
+			<p class="tutorial-body">People who reacted similarly to comments are shown closer together. Reacted differently? Further apart.</p>
+{{/if}}
+
+{{#if step6}}
+			<p class="HeadingB tutorial-title">YOU</p>
+			<svg class="tutorial-svg">
+				{{!-- bottom left --}}
+				<circle cx="23" cy="50" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="80" cy="67" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="40" cy="65" r="6" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="63" cy="45" r="5" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="48" cy="78" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="38" cy="94" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				{{!-- upper right --}}
+				<circle cx="210" cy="20" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="195" cy="40" r="4" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				<circle cx="225" cy="30" r="6" class="circle bktvi" style="fill: #BDC3C7;"></circle>
+				{{!-- you dot --}}
+				<circle cx="60" cy="65" r="4" class="circle bktvi" style="fill:rgb(0, 204, 255);"></circle>
+				<circle cx="60" cy="65" r="8" class="circle bktvi" style="stroke: rgb(0, 204, 255); fill:none;"></circle>
+			</svg>
+			<p class="tutorial-body">The blue dot is you. You will appear closer to those who reacted similarly.</p>
+{{/if}}
+
+{{#if step7}}
+			<p class="HeadingB tutorial-title">GROUPS</p>
+			<svg class="tutorial-svg">
+				{{!-- hulls --}}
+
+				<path class="hull" style="stroke: #d4d4d4; stroke-width: 8px" gid="0" d="M20,49L68,40L87,70L38,102Z"></path>
+				<path class="hull" style="stroke: #d4d4d4; stroke-width: 8px"  gid="0" d="M210,17L241,34L188,48Z"></path>
+				<path class="hull" gid="0" d="M18,47L66,38L85,68L36,100Z"></path>
+				<path class="hull" gid="0" d="M208,15L239,32L186,46Z"></path>
+				{{!-- bottom left --}}
+				<circle cx="23" cy="50" r="4" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				<circle cx="80" cy="67" r="4" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				<circle cx="40" cy="65" r="6" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				<circle cx="63" cy="45" r="5" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				<circle cx="48" cy="78" r="4" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				<circle cx="38" cy="94" r="4" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				{{!-- upper right --}}
+				<circle cx="210" cy="20" r="4" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				<circle cx="195" cy="40" r="4" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				<circle cx="225" cy="30" r="6" class="circle bktvi tutorial-pointer" style="fill: #BDC3C7;"></circle>
+				{{!-- you dot --}}
+				<circle cx="60" cy="65" r="4" class="circle bktvi tutorial-pointer" style="fill:rgb(0, 204, 255);"></circle>
+				<circle cx="60" cy="65" r="8" class="circle bktvi tutorial-pointer" style="stroke: rgb(0, 204, 255); fill:none;"></circle>
+			</svg>
+			<p class="tutorial-body">Shaded areas are groups of participants that have a similar 'worldview'. Click on a group to find out how they reacted. </p>
+{{/if}}
+
+{{#if step8}}
+			<p class="HeadingB tutorial-title">WORLDVIEWS</p>
+			<svg class="tutorial-svg">
+				{{!-- hulls --}}
+				<path class="hull" style="stroke: #d4d4d4; stroke-width: 8px" gid="0" d="M20,49L68,40L87,70L38,102Z"></path>
+				<path class="hull" style="stroke: #d4d4d4; stroke-width: 8px"  gid="0" d="M210,17L241,34L188,48Z"></path>
+				<path class="hull" gid="0" d="M18,47L66,38L85,68L36,100Z"></path>
+				<path class="hull" gid="0" d="M208,15L239,32L186,46Z"></path>
+				{{!-- bottom left --}}
+				<g class="ptpt node" fill-opacity="100%" transform="translate(23,50) ">
+					<polygon class="up bktvi" points="-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687" style="fill: rgb(0, 181, 77); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(80,67)">
+					<polygon class="up bktvi" points="-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687" style="fill: rgb(0, 181, 77); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(40,65) scale(1.5)">
+					<polygon class="up bktvi" points="-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687" style="fill: rgb(0, 181, 77); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(63,45) scale(1.3)">
+					<polygon class="up bktvi" points="-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687" style="fill: rgb(0, 181, 77); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(48,78) ">
+					<polygon class="up bktvi" points="-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687" style="fill: rgb(0, 181, 77); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(38,94) ">
+					<polygon class="up bktvi" points="-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687" style="fill: rgb(0, 181, 77); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(60,65)">
+					<polygon class="up bktvi" points="-3.6444444444444444,1.8222222222222222 3.6444444444444444,1.8222222222222222 0,-4.490140720917687" style="fill: rgb(0, 181, 77); display: inherit;">
+					</polygon>
+				</g>
+				{{!-- upper right --}}
+				<g class="ptpt node" fill-opacity="100%" transform="translate(210,20) ">
+					<polygon class="down bktvi" points="-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687" style="fill: rgb(231, 76, 60); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(195,40) ">
+					<polygon class="down bktvi" points="-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687" style="fill: rgb(231, 76, 60); display: inherit;">
+					</polygon>
+				</g>
+				<g class="ptpt node" fill-opacity="100%" transform="translate(225,30) scale(1.5)">
+					<polygon class="down bktvi" points="-3.6444444444444444,-1.8222222222222222 3.6444444444444444,-1.8222222222222222 0,4.490140720917687" style="fill: rgb(231, 76, 60); display: inherit;">
+					</polygon>
+				</g>
+			</svg>
+			<p class="tutorial-body">Explore the comments that form a group's worldview. See how other groups reacted to those comments. </p>
+{{/if}}
+
+{{!-- {{#if stepChangeOthersIfInUse}}
+			<p class="HeadingB tutorial-title"><i class="fa fa-coffee"></i>&nbsp;ANALYZE</p>
+			<p class="tutorial-body">You can also click <span style="font-family: brandon-grotesque; font-size: .6em; border: 1px dotted lightgrey; border-radius:4px; padding: 4px; position: relative; top:-2px;"><i class="fa fa-coffee	"></i>&nbsp;ANALYZE</span> to see all the comments in the conversation and how people reacted to them. Try finding comments that had consensus among all participants.</p>
+{{/if}}
+ --}}
+
+{{#if step9}}
+			<p class="HeadingB tutorial-title">RETURN FREQUENTLY</p>
+			<p class="tutorial-body">
+				<ul style="text-align: left">
+					<li>Polis is simple, but the possibilities are as varied as the prompt and the participants.</li>
+					<li>Check back frequently and vote a lot! There will be new comments to react to and new insights to explore as the conversation grows. </li>
+				</ul>
+			</p>
+{{/if}}
+
+
+			
+	</div> {{!-- end column --}}
+
+{{> tutorialSlidesButtons}}
+</div> {{!-- end row --}}
+

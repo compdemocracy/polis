@@ -18,8 +18,9 @@ border-top-left-radius: 10px;
   
 <div id="analyzeHeader">
 
-<div class="Notification Notification--warning" style="margin: 15px"> <p><i class="fa fa-coffee"></i>&nbsp; Below, you'll see all of the comments in the conversation, and all of the votes for each. Try searching!</p></div>
+<div class="hidden-xs hidden-sm Notification Notification--warning" style="margin: 15px"> <p><i class="fa fa-coffee"></i>&nbsp; Below, you'll see all of the comments in the conversation, and all of the votes for each. Try searching!</p></div>
 
+  <div class="visible-xs visible-sm" style="height:20px"></div>
   <form id="commentSearch" role="form" style="
       margin: 0px 15px 0px 15px
   ">
@@ -41,7 +42,18 @@ border-top-left-radius: 10px;
 {{!-- <div id="carousel" style="overflow:hidden;">
 </div> --}}
 
-<div id="commentListView">
+<div id="commentListView" style="
+  {{#ifEmbedded}}
+    {{#ifXs}}
+      max-height: 400px;
+      overflow: auto;
+    {{/ifXs}}
+    {{#ifSm}}
+      max-height: 400px;
+      overflow: auto;
+    {{/ifSm}}  
+  {{/ifEmbedded}}
+  ">
 {{view analyzeCollectionView}}
 </div>
 

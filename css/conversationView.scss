@@ -1,3 +1,7 @@
+.conversationViewRoot {
+  overflow: hidden; // trim carousel contents. carousel lives in an overflow: visible container, this crops it.
+}
+
 .write-hint-pane {
   font-size: 16px;
 }
@@ -99,11 +103,14 @@
 }
 
 .conversationViewHeadline {
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 #making_meaning_of_viz {
   display: inline;
+}
+#visualization_div {
+  width: 100%;
 }
 .vis_container {
   margin: 0px;
@@ -308,10 +315,40 @@ svg {
 //   padding-right: 0px;
 // }
 
+.voteMoreText {
+  font-size: 30px;
+  margin: 20px;
+}
+.participationCount {
+  // float: right;
+}
+.writingTipsParent {
+  display: block;
+}
+#carousel {
+  overflow: hidden;
+}
+
+/* mobile */
+@media (max-width: 767px) {
+
+  #carousel {
+    overflow: visible;
+  }
+
+  .writingTipsParent {
+    display: none;
+  }
+}
+
 /* Everything but mobile */
-@media (min-width: 767px) {
+@media (min-width: 768px) {
 
 
+  #opinion_groups_label {
+    margin-left: 30px;
+  }
+  
   // make flush with tab pane so we can draw the arrow pointint to the selected hull
   #vis_sibling_bottom {
     margin-left: -30px;
@@ -389,6 +426,10 @@ svg {
     margin: 0px;
   }
 
+  .voteMoreText {
+    // the vote more screen looks funny at the bottom of the page. There's nothing else to do but vote, so people should just get it.
+    // display: none;
+  }
   // .custom_gutter {
   //   margin-left: 10px;
   //   margin-right: 10px;
@@ -397,9 +438,9 @@ svg {
   //   padding-left: 10px;
   //   padding-right: 10px;
   // }
-  
+
   #comment_shower {
-    margin-top: 20px;
+    // margin-top: 20px;
   }
   .nav-tabs > li > a {
     padding-left: 12px !important;

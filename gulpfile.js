@@ -39,6 +39,7 @@ var request = require('request');
 var rimraf = require("rimraf");
 var runSequence = require('run-sequence');
 var sass = require('gulp-sass');
+var spawn = require('child_process').spawn;
 var Stream = require('stream');
 var sys = require('sys');
 var url = require('url');
@@ -56,6 +57,13 @@ function destRoot() {
 var devMode = true;
 var preprodMode = false;
 var host;
+
+
+function showDesktopNotification(title, body) {
+  var child = spawn("osascript", ["-e", 'display notification "'+body+'" with title "'+title+'"'], {cwd: process.cwd()}),
+            stdout = '',
+            stderr = '';
+}
 
 
 function prepPathForTemplate(path) {
@@ -110,6 +118,8 @@ gulp.task('connect', [], function() {
   app.use(/^\/user\/login$/, fetchIndex);
   app.use(/^\/welcome\/.*$/, fetchIndex);
   app.use(/^\/settings$/, fetchIndex);
+  app.use(/^\/tut$/, fetchIndex);
+  app.use(/^\/hk$/, fetchIndex);
   app.use(/^\/user\/logout$/, fetchIndex);
   app.use(/^\/inbox$/, fetchIndex);
   app.use(/^\/inboxApiTest$/, fetchIndex);
@@ -121,6 +131,7 @@ gulp.task('connect', [], function() {
   app.use(/^\/professors$/, express.static(path.join(destRootBase, "professors.html")));
   app.use(/^\/news$/, express.static(path.join(destRootBase, "news.html")));
   app.use(/^\/pricing$/, express.static(path.join(destRootBase, "pricing.html")));
+  app.use(/^\/survey$/, express.static(path.join(destRootBase, "survey.html")));
   app.use(/^\/company$/, express.static(path.join(destRootBase, "company.html")));
   app.use(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
   app.use(/^\/api$/, function (req, res) { res.redirect("/docs/api");});  
@@ -553,6 +564,7 @@ gulp.task('common', [
   "about",
   "embedJs",
   ], function() {
+    showDesktopNotification("BUILD UPDATED", "woohoo");
 });
 
 gulp.task('dev', [
