@@ -716,6 +716,7 @@ module.exports =  ConversationView.extend({
       $("#resetVisBlockerTutorial").on("click", function() {
         that.tutorialSlidesModel.set("step", 1);
         that.visModeModel.set("visMode", VIS_MODE_TUT);
+        $("#commentViewTab").click();
       });
 
       that.updateVisMode();
