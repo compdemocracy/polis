@@ -648,7 +648,7 @@ module.exports =  ConversationView.extend({
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
         $(".query_result_item").first().trigger("click");
       }
-      if (display.xs() || display.sm()) {
+      if (display.xs()) {
         $("#tutorialSlides").hide();
       }
     });
