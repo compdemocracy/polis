@@ -357,6 +357,7 @@ module.exports =  ConversationView.extend({
       // serverClient.updateMyProjection();
     } // end initPcaVis  
 
+    this.initPcaVis = initPcaVis;
 
 
 
@@ -419,6 +420,7 @@ module.exports =  ConversationView.extend({
           $("#visualization_div").css("display", "block");
           $("#visualization_parent_div").fadeIn();
           that.tutorialModel.set("visible", true);
+          that.initPcaVis();
           // hide others
         }
         if (visMode === VIS_MODE_WAITING) {
