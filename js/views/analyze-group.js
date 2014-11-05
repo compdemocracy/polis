@@ -270,7 +270,9 @@ module.exports = Handlebones.View.extend({
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
               "</p>" +
-              c.get("txt") +
+              "<p>" +
+                c.get("txt") +
+              "</p>" +
             "</div>";
           return html;
         });
