@@ -713,11 +713,14 @@ module.exports =  ConversationView.extend({
       //   $("#tutorialSlides").show();
       // }
 
-      $("#resetVisBlockerTutorial").on("click", function() {
+      function tutorialStart() {
         that.tutorialSlidesModel.set("step", 1);
         that.visModeModel.set("visMode", VIS_MODE_TUT);
         $("#commentViewTab").click();
-      });
+      }
+
+      $("#resetVisBlockerTutorial").on("click", tutorialStart);
+      setTimeout(tutorialStart, 1)
 
       that.updateVisMode();
 
