@@ -3896,11 +3896,15 @@ function(req, res) {
                     // no friends, or this user is first polis user among his/her friends.
                     return user;
                 }
+            }, function(err) {
+                fail(res, 500, "polis_err_reg_fb_user_creating_record2", err); 
             })
             .then(function(user) {
                 var uid = user.uid;
                 return startSessionAndAddCookies(req, res, uid).then(function() {
                     return user;
+                }, function(err) {
+                    fail(res, 500, "polis_err_reg_fb_user_creating_record3", err); 
                 });
             }, function(err) {
                 fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
