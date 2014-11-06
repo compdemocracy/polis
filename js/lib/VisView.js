@@ -1129,7 +1129,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             .text("Waiting for " +neededCount+ " more participants")
             .attr("font-weight", 100)
             .attr("font-family", "brandon-grotesque")
-            .attr("font-size", (display.xs()||display.sm()) ? ".9em" : "28px")
+            .attr("font-size", (display.xs()||display.sm()) ? "1.5em" : "28px")
             ;
 
         blocker_layer.selectAll(".visBlockerGraphic")
@@ -1776,12 +1776,12 @@ function showVisBlocker() {
 
     blocker_layer.append("rect")
         .classed("visBlocker", true)
-        .style("fill", "rgb(52, 152, 219)")
+        .style("fill", "#f7f7f7")
         .attr("x", 1) // inset so it doesn't get cut off on firefox
         .attr("y", 1) // inset so it doesn't get cut off on firefox
         .attr("width", w-2) // inset so it doesn't get cut off on firefox
         .attr("height", h-2) // inset so it doesn't get cut off on firefox
-        .style("stroke", "lightgray")
+        // .style("stroke", "lightgray")
         .attr("rx", 5)
         .attr("ry", 5)
     ;
@@ -1789,7 +1789,7 @@ function showVisBlocker() {
             .classed("visBlocker", true)
             .classed("visBlockerMainText", true)
             .attr("text-anchor", "middle")
-            .attr("fill", "#fff")
+            .attr("fill", "#black")
             .attr("transform", "translate("+ 
                 w/2 +
                 "," + (9*h/24) + ")")
@@ -1801,7 +1801,7 @@ function showVisBlocker() {
                 w/2 +
                 "," + (15*h/24) +")")
             .attr("text-anchor", "middle")
-            .attr("fill", "#fff")
+            .attr("fill", "#black")
         .attr('font-family', 'FontAwesome')
         .attr('font-size', function(d) { return '2em'} )
         ;
