@@ -8114,7 +8114,7 @@ app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
 
 
 var conditionalIndexFetcher = (function() {
-    var fetchLander = makeFileFetcher(hostname, port, "/lander.html", "text/html");
+    var fetchLander = makeFileFetcher(hostname, port, "/news.html", "text/html");
     return function(req, res) {
         if (hasAuthToken(req)) {
             // user is signed in, serve the app
