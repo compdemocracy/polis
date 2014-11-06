@@ -19,7 +19,7 @@
     path.push(o.conversation_id);
     iframe.src = "https://embed.pol.is/"+ path.join("/");
     iframe.width = "100%"; // may be constrained by parent div
-    iframe.height = o.height || 900;
+    iframe.height = o.height || 930;
     iframe.style.border = "1px solid #ccc";
     iframe.style.borderRadius = "4px";
     parent.appendChild(iframe);
