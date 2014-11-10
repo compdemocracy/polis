@@ -207,9 +207,17 @@
             (plmb/fnk [base-clusters-proj]
               (named-dist-matrix base-clusters-proj))
 
+      :base-clusters-weights
+            (plmb/fnk [base-clusters]
+              (into {}
+                    (map
+                      (fn [clst]
+                        [(:id clst) (count (:members clst))])
+                      base-clusters)))
+
       ; Compute group-clusters for multiple k values
       :group-clusterings
-            (plmb/fnk [conv base-clusters-proj opts']
+            (plmb/fnk [conv base-clusters-weights base-clusters-proj opts']
               (into {}
                 ; XXX - should test pmap out
                 (map
@@ -223,7 +231,8 @@
                               (if last-clusterings
                                 (last-clusterings k)
                                 last-clusterings))
-                          :cluster-iters (:group-iters opts')))])
+                          :cluster-iters (:group-iters opts')
+                          :weights base-clusters-weights))])
                   (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts')))))))
 
       ; Compute silhouette values for the various clusterings
