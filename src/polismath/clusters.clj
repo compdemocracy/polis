@@ -247,6 +247,19 @@
        (set)))
 
 
+(defn simplify-clsts
+  "Given a clustering, creates a set of member sets. This makes it easy to compare clusters for equality.
+  Optional `:trans` keyword args lets you perform a transformation to the member names included in member
+  sets."
+  [clsts & {:keys [trans] :or {trans identity}}]
+  {:members (map
+              (pc/fn->> :members (map trans) set)
+              clsts)
+   :center (map
+             (pc/fn->> :center (mapv #(round-to % 4)))
+             clsts)})
+
+
 ; Each cluster should have the shape {:id :members :center}
 (defn kmeans
   "Performs a k-means clustering."

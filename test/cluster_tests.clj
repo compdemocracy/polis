@@ -232,7 +232,6 @@
 (deftest weighted-kmeans
   (testing (str "Should give the same result as regular kmeans where rows have been duplicated according to a set "
              "of integer weights")
-    ;(doseq [j (range 4 5)]
     (let [j 5]
       (swap! rand-gen (fn [_] (java.util.Random. j)))
       (let [n-uniq       20
@@ -249,7 +248,6 @@
             duped-names      (dup-rownames-from-weights ptpt-names weights)
             duped-data       (named-matrix duped-names [:x :y :z] duped-positions)
             ; Some initial data to play with
-            ;uniq-init        (init-clsts #(mod % 3) ptpt-names)
             uniq-init        (recenter-clusters
                                deduped-data
                                (init-clsts #(mod % 3) ptpt-names))
@@ -264,8 +262,6 @@
             weighted-clsts   (kmeans deduped-data 3 
                                      :last-clusters uniq-init
                                      :weights weights-hash)
-            ;unweighted-clsts (kmeans deduped-data 3
-                                     ;:last-clusters uniq-init)
             duped-clsts      (kmeans duped-data 3
                                      :last-clusters duped-init)]
         (is (= (setify-members weighted-clsts)
