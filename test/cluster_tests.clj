@@ -1,5 +1,6 @@
 (ns cluster-tests
-  (:use polismath.utils)
+  (:use polismath.utils
+        test-helpers)
   (:require [clojure.test :refer :all]
             [plumbing.core :as pc]
             [polismath.named-matrix :refer :all]
@@ -180,20 +181,21 @@
 ; Reproducible random generator for weighted kmeans test; if this gets used anywhere else, need to move
 ; to a closure
 (def rand-gen
-  (java.util.Random. 1234))
+  (atom
+    (java.util.Random. 1234)))
 
 
 (defn random-vec*
   "Reproducible random vector"
   [n]
   (for [_ (range n)]
-    (.nextFloat rand-gen)))
+    (.nextFloat @rand-gen)))
 
 
 (defn rand-int*
   "Reproducible random integer"
   [n]
-  (.nextInt rand-gen n))
+  (.nextInt @rand-gen n))
 
 (defn dup-matrix-from-weights
   "Take a matrix and weights, and produce a new matrix with duplicate rows according to `weights` integers."
@@ -215,19 +217,6 @@
     []
     (map vector weights rownames)))
 
-(defn setify-members
-  "Given a clustering, creates a set of member sets. This makes it easy to compare clusters for equality.
-  Optional `:trans` keyword args lets you perform a transformation to the member names included in member
-  sets."
-  [clsts & {:keys [trans] :or {trans identity}}]
-  (->> clsts
-       (map
-         (pc/fn->>
-           (:members)
-           (map trans)
-           (set)))
-       (set)))
-
 (defn print-mat
   "Helper for looking at matrices"
   [names mat]
@@ -243,30 +232,47 @@
 (deftest weighted-kmeans
   (testing (str "Should give the same result as regular kmeans where rows have been duplicated according to a set "
              "of integer weights")
-    (doseq [_ (range 1)]
+    ;(doseq [j (range 4 5)]
+    (let [j 5]
+      (swap! rand-gen (fn [_] (java.util.Random. j)))
       (let [n-uniq       20
             n-dups-max   5
             n-cmnts      3
             ; First create the base matrix, and a random set of integer weights
-            uniq-positions   (for [_ (range n-uniq)] (random-vec* n-cmnts))
-            ptpt-names       (for [i (range n-uniq)] i)
-            weights          (for [_ (range n-uniq)] (inc (rand-int* n-dups-max)))
-            uniq-init        (init-clsts #(mod % 3) ptpt-names)
+            uniq-positions   (into [] (for [_ (range n-uniq)] (random-vec* n-cmnts)))
+            ptpt-names       (into [] (for [i (range n-uniq)] i))
+            weights          (into [] (for [_ (range n-uniq)] (inc (rand-int* n-dups-max))))
+            weights-hash     (into {} (map vector ptpt-names weights))
+            deduped-data     (named-matrix ptpt-names [:x :y :z] uniq-positions)
             ; Use the weights to create a matrix where the rows have been duplicated according to weights
             duped-positions  (dup-matrix-from-weights uniq-positions weights)
             duped-names      (dup-rownames-from-weights ptpt-names weights)
             duped-data       (named-matrix duped-names [:x :y :z] duped-positions)
-            duped-init       (init-clsts #(mod (first %) 3) duped-names)
+            ; Some initial data to play with
+            ;uniq-init        (init-clsts #(mod % 3) ptpt-names)
+            uniq-init        (recenter-clusters
+                               deduped-data
+                               (init-clsts #(mod % 3) ptpt-names))
+            weighted-init    (recenter-clusters
+                               deduped-data
+                               (init-clsts #(mod % 3) ptpt-names)
+                               :weights weights-hash)
+            duped-init       (recenter-clusters
+                               duped-data
+                               (init-clsts #(mod (first %) 3) duped-names))
             ; Run kmeans on the various data
-            deduped-data     (named-matrix ptpt-names [:x :y :z] uniq-positions)
             weighted-clsts   (kmeans deduped-data 3 
                                      :last-clusters uniq-init
-                                     :weights (into {} (map vector ptpt-names weights)))
-            unweighted-clsts (kmeans deduped-data 3
-                                     :last-clusters uniq-init)
+                                     :weights weights-hash)
+            ;unweighted-clsts (kmeans deduped-data 3
+                                     ;:last-clusters uniq-init)
             duped-clsts      (kmeans duped-data 3
                                      :last-clusters duped-init)]
         (is (= (setify-members weighted-clsts)
-               (setify-members duped-clsts :trans first)))))))
+               (setify-members duped-clsts :trans first)))
+        (doseq [[weighted-clst duped-clst]
+                  (map vector weighted-init duped-init)]
+          (is (almost=? (:center weighted-clst)
+                        (:center weighted-clst))))))))
 
 

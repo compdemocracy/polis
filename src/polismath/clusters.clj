@@ -64,7 +64,7 @@
 (defn cleared-clusters
   "Clears a cluster's members so that new ones can be assoced on a new clustering step"
   [clusters]
-  (into {} (map #(vector (:id %) (assoc % :members [])) clusters)))
+  (into {} (map #(vector (:id %) (assoc % :members [] :positions [])) clusters)))
 
 
 (defmulti weighted-mean
@@ -239,7 +239,14 @@
           ; Else just return recentered clusters
           clusters)))))
 
- 
+
+(defn setify-members
+  [clsts & {:keys [trans] :or {trans identity}}]
+  (->> clsts
+       (map (pc/fn->> :members (map trans) set))
+       (set)))
+
+
 ; Each cluster should have the shape {:id :members :center}
 (defn kmeans
   "Performs a k-means clustering."

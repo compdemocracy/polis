@@ -4,6 +4,7 @@
         clojure.core.matrix)
   (:require [taoensso.timbre.profiling :as profiling
                :refer (pspy pspy* profile defnp p p*)]
+            [clojure.math.numeric-tower :as math]
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr]))
 
@@ -15,6 +16,15 @@
   (and
     (or a b)
     (not (and a b))))
+
+
+(defn round-to
+  "Round x to n demical places"
+  [x n]
+  (let [tens (math/expt 10.0 n)]
+    (-> (* x tens)
+        (math/round)
+        (/ tens))))
 
 
 (defn gets
