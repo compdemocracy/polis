@@ -30,6 +30,7 @@ CREATE TABLE users(
     zinvite VARCHAR(300), -- The initial zinvite used to create the user, can be used for attribution (may be null)
     oinvite VARCHAR(300), -- The oinvite used to create the user, or to upgrade the user to a conversation owner.
     plan SMALLINT DEFAULT 0,
+    tut SMALLINT DEFAULT 0,
     UNIQUE (email),
     UNIQUE (uid)
 );

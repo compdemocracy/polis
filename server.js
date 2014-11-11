@@ -4108,6 +4108,18 @@ function(req, res) {
     });
 }); // end /api/v3/auth/new
 
+app.post("/api/v3/tutorial",
+    auth(assignToP),
+    need("step", getInt, assignToP),
+function(req, res) {
+    var uid = req.p.uid;
+    var step = req.p.step;
+    pgQueryP("update users set tut = ($1) where uid = ($2);", [step, uid]).then(function() {
+        res.status(200).json({});
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_saving_tutorial_state", err);
+    });
+});
 
 app.get("/api/v3/users",
     moveToBody,
@@ -4124,6 +4136,7 @@ function(req, res) {
             uid: uid,
             email: info.email,
             hname: info.hname,
+            finishedTutorial: !!info.tut,
             created: Number(info.created),
             daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
             plan: planCodeToPlanName[info.plan],
