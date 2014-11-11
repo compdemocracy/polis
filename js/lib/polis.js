@@ -33,6 +33,7 @@ module.exports = function(params) {
     var trashesPath = "api/v3/trashes";
     var commentsPath = "api/v3/comments";
     var nextCommentPath = "api/v3/nextComment";
+    var finishedTutorialPath = "api/v3/tutorial";
 
     var createAccountPath = "api/v3/auth/new";
     var loginPath = "api/v3/auth/login";
@@ -1832,6 +1833,12 @@ function clientSideBaseCluster(things, N) {
         return projectedComments;
     }
 
+    function finishedTutorial() {
+        return polisPost(finishedTutorialPath, {
+            step: 1
+        });
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
@@ -1866,6 +1873,7 @@ function clientSideBaseCluster(things, N) {
                 }
             });
         },
+        finishedTutorial: finishedTutorial,
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
         //addModeChangeEventListener: addModeChangeEventListener,
         //getLatestEvents: getLatestEvents,

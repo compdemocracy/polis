@@ -773,6 +773,7 @@ var polisRouter = Backbone.Router.extend({
       var participationView = new ParticipationView({
         pid: pid,
         model: model,
+        finishedTutorial: userObject.finishedTutorial,
         firstCommentPromise: firstCommentPromise
       });
       RootView.getInstance().setView(participationView);

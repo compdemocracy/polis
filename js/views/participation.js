@@ -390,6 +390,10 @@ module.exports =  ConversationView.extend({
           that.vis.hideHintOthers();
         }
       });
+
+      if (!_.isUndefined(options.finishedTutorial)) {
+        launchWithTutorial = !options.finishedTutorial;
+      }
       var mode = VIS_MODE_VIS;
       if (useVoteMoreBlocker) {
         mode = VIS_MODE_VOTEMORE;
@@ -449,12 +453,16 @@ module.exports =  ConversationView.extend({
         }));
         this.tutorialSlidesView.on("done", function() {
           that.visModeModel.set("visMode", VIS_MODE_VIS);
+          that.serverClient.finishedTutorial();
         });
       }
       setTimeout(function() {
-
-      that.visModeModel.set("visMode", mode);
-      },10)
+        if (mode === VIS_MODE_TUT) {
+          tutorialStart();
+        } else {
+          that.visModeModel.set("visMode", mode);
+        }
+      },1);
 
 
       this.voteMoreModel = new Backbone.Model({
@@ -701,6 +709,11 @@ module.exports =  ConversationView.extend({
       });
     };
 
+    function tutorialStart() {
+      that.tutorialSlidesModel.set("step", 1);
+      that.visModeModel.set("visMode", VIS_MODE_TUT);
+      $("#commentViewTab").click();
+    }
 
     this.listenTo(this, "render", function(){
       setTimeout(function() {
@@ -713,14 +726,9 @@ module.exports =  ConversationView.extend({
       //   $("#tutorialSlides").show();
       // }
 
-      function tutorialStart() {
-        that.tutorialSlidesModel.set("step", 1);
-        that.visModeModel.set("visMode", VIS_MODE_TUT);
-        $("#commentViewTab").click();
-      }
 
       $("#resetVisBlockerTutorial").on("click", tutorialStart);
-      setTimeout(tutorialStart, 1)
+      
 
       that.updateVisMode();
 
