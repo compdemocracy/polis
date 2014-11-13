@@ -22,7 +22,9 @@
   col-sm-offset-0 col-xs-12
   col-md-offset-0 col-md-12
   col-lg-offset-0 col-lg-12
-  "> {{! fake container}}
+  "
+  style="padding-left: 5px; padding-right: 5px"
+  > {{! fake container}}
     <div class="col-sm-8 col-md-7 conversationViewHeadline" >
     {{!-- {{#ifNotEmbedded}} --}}
     {{#if is_owner}}
@@ -70,14 +72,16 @@ col-xs-offset-0 col-xs-12
 col-sm-offset-0 col-xs-12
 col-md-offset-0 col-md-12
 col-lg-offset-0 col-lg-12
-"> {{! fake container}}
+"
+style="padding-left: 5px; padding-right: 5px"
+> {{! fake container}}
   {{! overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. }}
 
   <div {{! column }}
     class="col-xs-12 col-xs-offset-0 col-sm-offset-0 col-sm-6 col-md-5 col-lg-4"
     {{#ifEmbedded}}
     {{#ifIos}}
-    style="max-width:270px" {{! prevent carousel from resizing window when we're in an iframe on iOS (320 - (25*2)) to leave room for margins}}
+    style="max-width:300px" {{! prevent carousel from resizing window when we're in an iframe on iOS (320 - (10*2)) to leave room for margins}}
     {{/ifIos}}
     {{/ifEmbedded}}
     > 
@@ -160,7 +164,7 @@ col-lg-offset-0 col-lg-12
   <div id="vis_sibling_bottom"
     {{#ifEmbedded}}
     {{#ifIos}}
-    style="max-width:270px" {{! when we're in an iframe on iOS (320 - (25*2)) to leave room for margins }}
+    style="max-width:300px" {{! when we're in an iframe on iOS (320 - (10*2)) to leave room for margins }}
     {{/ifIos}}
     {{/ifEmbedded}}
     >
