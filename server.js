@@ -6586,6 +6586,72 @@ function(req, res){
 });
 
 
+function getTwitterRequestToken(returnUrl) {
+    var oauth = new OAuth.OAuth(
+        'https://api.twitter.com/oauth/request_token', // null
+        'https://api.twitter.com/oauth/access_token', // null
+        process.env.TWITTER_CONSUMER_KEY,//'your application consumer key',
+        process.env.TWITTER_CONSUMER_SECRET,//'your application secret',
+        '1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    var body = {
+        oauth_callback: returnUrl,
+    };
+    return new Promise(function(resolve, reject) {
+        oauth.post(
+            'https://api.twitter.com/oauth/request_token',
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret            
+            body,
+            "multipart/form-data",
+            function (e, data, res){
+                if (e) {
+                    console.error("get twitter token failed");
+                    console.error(e);     
+                    reject(e);
+                } else {
+                    resolve(data);
+                }
+                // console.log(require('util').inspect(data));
+            }
+        );
+    });
+}
+
+app.get("/api/v3/twitterBtn",
+    moveToBody,
+    authOptional(assignToP),
+    want("dest", getStringLimitLength(9999), assignToP),
+function(req, res) {
+    var uid = req.p.uid;
+
+    var dest = req.p.dest || "/inbox";
+    var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?dest=" + dest;
+
+    getTwitterRequestToken(returnUrl).then(function(data) {        
+        console.dir(data);
+        data += "&callback_url=" + "https://pol.is/foobar";
+        // data += "&callback_url=" + encodeURIComponent(getServerNameWithProtocol(req) + "/foo");
+        res.redirect("https://api.twitter.com/oauth/authenticate?" + data);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_twitter_auth_01", err);
+    });
+});
+
+    
+app.get("/api/v3/twitter_oauth_callback",
+    moveToBody,
+    authOptional(assignToP),
+    need("dest", getStringLimitLength(9999), assignToP),
+    want("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
+    want("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
+
+function(req, res) {
+    var dest = req.p.dest;
+    res.redirect(dest);
+});
 
 
 
