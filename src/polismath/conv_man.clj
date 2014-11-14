@@ -8,7 +8,7 @@
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async :as as]
             [clojure.tools.trace :as tr]
-            [environ.core :as env]
+            [polismath.env :as env]
             [monger.core :as mg]
             [monger.collection :as mc]
             [cheshire.core :as ch]

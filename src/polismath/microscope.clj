@@ -8,7 +8,7 @@
             [plumbing.core :as pc]
             [korma.core :as ko]
             [korma.db :as kdb]
-            [environ.core :as env]
+            [polismath.env :as env]
             [clojure.tools.trace :as tr]
             [clojure.tools.logging :as log]
             [clojure.newtools.cli :refer [parse-opts]]))

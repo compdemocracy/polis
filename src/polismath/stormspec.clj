@@ -5,7 +5,7 @@
             [polismath.conv-man :as cm]
             [polismath.db :as db]
             [clojure.core.matrix :as ccm]
-            [environ.core :as env]
+            [polismath.env :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]]
             [clojure.tools.logging :as log])

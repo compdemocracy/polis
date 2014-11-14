@@ -4,11 +4,11 @@
             [cheshire.core :as ch]
             [korma.core :as ko]
             [korma.db :as kdb]
-            [environ.core :as env]
             [alex-and-georges.debug-repl :as dbr]
             [clojure.stacktrace :refer :all]
             [clojure.tools.logging :as log]
             [clojure.tools.trace :as tr]
+            [polismath.env :as env]
             [polismath.utils :refer :all]
             [polismath.pretty-printers :as pp]
             [polismath.db :as db]))
