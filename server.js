@@ -6640,6 +6640,38 @@ function(req, res) {
     });
 });
 
+
+function getTwitterAccessToken(body) {
+    var oauth = new OAuth.OAuth(
+        'https://api.twitter.com/oauth/request_token', // null
+        'https://api.twitter.com/oauth/access_token', // null
+        process.env.TWITTER_CONSUMER_KEY,//'your application consumer key',
+        process.env.TWITTER_CONSUMER_SECRET,//'your application secret',
+        '1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    return new Promise(function(resolve, reject) {
+        oauth.post(
+            'https://api.twitter.com/oauth/access_token',
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret            
+            body,
+            "multipart/form-data",
+            function (e, data, res){
+                if (e) {
+                    console.error("get twitter token failed");
+                    console.error(e);     
+                    reject(e);
+                } else {
+                    resolve(data);
+                }
+                // console.log(require('util').inspect(data));
+            }
+        );
+    });
+}
+
     
 app.get("/api/v3/twitter_oauth_callback",
     moveToBody,
@@ -6649,8 +6681,22 @@ app.get("/api/v3/twitter_oauth_callback",
     want("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
 
 function(req, res) {
+
+    // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
+
     var dest = req.p.dest;
-    res.redirect(dest);
+    // console.dir(req.p);
+    getTwitterAccessToken({
+        oauth_verifier: req.p.oauth_verifier,
+        oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
+    }).then(function(o) {
+        console.log("TWITTER ACCESS TOKEN");
+        console.dir(o);
+        console.log("TWITTER ACCESS TOKEN");
+        res.redirect(dest);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_twitter_auth_02", err);
+    });
 });
 
 
