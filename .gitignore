@@ -20,3 +20,4 @@ old
 .gorilla-port
 .lein-git-deps/hiphip
 wiki
+.lein-git-deps/debug-repl
