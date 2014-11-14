@@ -36,7 +36,7 @@ var VIS_MODE_TUT = 3;
 
 var useAboveVisTutorial = false;
 var useVisBlockingTutorial = true; 
-var launchWithTutorial = false; // !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
+var launchWithTutorial = true; // !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
 var useVoteMoreBlocker = false;
 
 var isIE8 = Utils.isIE8();
