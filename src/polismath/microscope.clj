@@ -58,14 +58,15 @@
 
 
 (defn load-conv
-  [& {:keys [zid zinvite] :as args}]
+  [& {:keys [zid zinvite env-overrides] :or {env-overrides {}} :as args}]
   (assert (xor zid zinvite))
   (let [zid (or zid (get-zid-from-zinvite zinvite))]
-    (->
-      (db/load-conv zid)
-      (update-in
-        [:repness]
-        (partial pc/map-keys kw->int)))))
+    (env/with-env-overrides env-overrides
+      (->
+        (db/load-conv zid)
+        (update-in
+          [:repness]
+          (partial pc/map-keys kw->int))))))
 
 
 (def cli-options
