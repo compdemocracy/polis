@@ -1,6 +1,9 @@
+var Backbone = require("backbone");
 var Handlebars = require("handlebars");
 var Handlebones = require("handlebones");
+var TwitterUserModel = require("../models/twitterUser");
 var template = require("../tmpl/settings");
+var SettingsTwitterView = require("./settingsTwitter");
 var URLs = require("../util/url");
 
 var urlPrefix = URLs.urlPrefix;
@@ -11,6 +14,13 @@ module.exports = Handlebones.ModelView.extend({
   initialize: function(options) {
     this.model = options.model;
 
+    var twitterUserModel = new TwitterUserModel({});
+
+    twitterUserModel.fetch();
+
+    this.settingsTwitter = this.addChild(new SettingsTwitterView({
+      model: twitterUserModel
+    }));
 
     // -----------   BEGIN STRIPE CODE ----------------
     this.plan_id = "individuals";

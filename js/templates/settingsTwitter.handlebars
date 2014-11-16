@@ -1,0 +1,17 @@
+{{#if twitter_user_id}}
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title HeadingB">Twitter</h3>
+    </div>
+    <div class="panel-body">
+		<span><img src="{{profile_image_url_https}}"></img></span>
+		<span>{{screen_name_w_at}}</span>
+		<div>Followers: {{followers_count}}</div>
+    </div>
+  </div>
+{{else}}
+    <div><a href="/api/v3/twitterBtn?dest=/settings">Attach your Twitter Account</a></div>
+    Attaching your Twitter account will make your position visible to others.
+{{/if}}
+
+
