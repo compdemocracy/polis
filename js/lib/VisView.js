@@ -926,6 +926,8 @@ function chooseFill(d) {
 
     if (isSelf(d)) {
         return colorSelf;
+    } else if (isParticipantOfInterest(d)) {
+        return "rgba(255,0,0,0.5)";
     } else {
 
         // var gid = bidToGid[d.bid];
@@ -1074,6 +1076,10 @@ function chooseCircleRadiusOuter(d) {
 
 function isSelf(d) {
     return !!d.containsSelf;
+}
+
+function isParticipantOfInterest(d) {
+    return !!d.ptptoi;
 }
 
 function hashCode(s){
@@ -1495,7 +1501,6 @@ function showHintYou() {
       //   .style("stroke-width", helpStrokeWidth)
       //   ;
 
-
       var selfNode = g.filter(isSelf);
       selfNode.append("text")
         .classed("help", true)
@@ -1730,6 +1735,7 @@ function doUpdateNodes() {
 
             setupBlueDotHelpText(update.select(".selfDot"));
           }
+
 
           update.attr("fill-opacity", function(d) {
             if (clusterIsSelected()) {

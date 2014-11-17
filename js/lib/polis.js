@@ -39,6 +39,7 @@ module.exports = function(params) {
     var loginPath = "api/v3/auth/login";
     var deregisterPath = "api/v3/auth/deregister";
     var pcaPath = "api/v3/math/pca2";
+    var votesFamousPath = "api/v3/votes/famous";
     var pcaPlaybackPath = "api/v3/math/pcaPlaybackByLastVoteTimestamp";
     var bidToPidPath = "api/v3/bidToPid";
     var bidPath = "api/v3/bid";
@@ -461,11 +462,14 @@ module.exports = function(params) {
             };
         } else {
             var o = arguments[0];
-            this.bid = o.id;
+            this.bid = o.id || o.bid;
             this.proj = o.proj;
             this.count = o.count;
             if (o.containsSelf) {
                 this.containsSelf = true;
+            }
+            if (o.ptptoi) {
+                this.ptptoi = true;
             }
         }
 
@@ -541,6 +545,17 @@ module.exports = function(params) {
             proj: self.proj,
             count: 1,
             bid: selfDotBid
+        });
+        return bucket;
+    }
+
+    function bucketizeParticipantOfInterest(o) {
+        var bucket = new Bucket({
+            // containsSelf: false, // undefined for falsy
+            ptptoi: true,
+            proj: o.proj,
+            count: 1,
+            bid: 777 // TODO decide what the bid should be
         });
         return bucket;
     }
@@ -1043,7 +1058,7 @@ function clientSideBaseCluster(things, N) {
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
 
-                return updateBid().then(function() {
+                return $.when(getFamousVotes(), updateBid()).then(function() {
 
                     // Check for missing comps... TODO solve 
                     if (!pcaData.pca || !pcaData.pca.comps) {
@@ -1208,11 +1223,30 @@ function clientSideBaseCluster(things, N) {
         people = _.clone(people); // shallow copy
 
         people.unshift(bucketizeSelf(projectSelf(), 0));
-        // remove empty buckets
-        people = _.filter(people, function(bucket) {
-            return bucket.count > 0;
-        });
         return people;
+    }
+
+    function withParticipantsOfInterest(people) {
+        if (!participantsOfInterestVotes) {
+            return people;
+        }
+        people = people || [];
+        people = _.clone(people); // shallow copy
+
+
+        for (var pid in participantsOfInterestVotes) {
+            var votesVectorInAscii_adpu_format = participantsOfInterestVotes[pid];
+            pid = parseInt(pid);
+            pid += 1000000; // TODO remove this line
+            var temp = projectParticipant(
+                pid,
+                votesVectorInAscii_adpu_format
+            );
+            var p = bucketizeParticipantOfInterest(temp);
+            people.unshift(p);
+        }
+        return people;
+
     }
 
     function sendUpdatedVisData(people, clusters, participantCount, projectedComments) {
@@ -1437,28 +1471,82 @@ function clientSideBaseCluster(things, N) {
         return [];
     }
 
+
+    function getFamousVotes() {
+        return polisGet(votesFamousPath, {
+            conversation_id: conversation_id
+        }).then(function(x) {
+            participantsOfInterestVotes = x;
+        });
+    }
+
     function projectSelf() {
+        var votesToUseForProjection = votesByMe.map(function(v) {
+            return {
+                vote: v.get("vote"),
+                tid: v.get("tid")
+            };
+        });
+        return project({
+            pid: getPid(),
+            isBlueDot: true,
+            votes: votesToUseForProjection
+        });
+    }
+
+    function projectParticipant(pid, votesVectorInAscii_adpu_format) {
+        var votesToUseForProjection = [];
+        var len = votesVectorInAscii_adpu_format.length;
+        for (var i = 0; i < len; i++) {
+            var c = votesVectorInAscii_adpu_format[i];
+            if (c !== "u" && c !== "p") { // TODO think about "p", and whether it should be counted in the jetpack vote count
+                if (c === "a") {
+                    votesToUseForProjection.push({
+                        vote: -1,
+                        tid: i
+                    });
+                } else if (c === "d") {
+                    votesToUseForProjection.push({
+                        vote: 1,
+                        tid: i
+                    });
+                } else {
+                    alert("bad vote encoding " + c);
+                }
+            }
+        }
+        return project({
+            pid: pid,
+            isBlueDot: false,
+            votes: votesToUseForProjection
+        });
+    }
+
+
+    function project(o) {
         var x = 0;
         var y = 0;
-        if (!votesByMe.length) {
+        if (!o.votes.length) {
             return {
-                pid : getPid(),
-                isBlueDot: true,
+                pid : o.pid,
+                isBlueDot: o.isBlueDot,
                 proj: {
                     x: x,
                     y: y
                 }
             };
         }
-        votesByMe.each(function(v) {
-            var vote = v.get("vote");
-            var tid = v.get("tid");
+
+        for (var i = 0; i < o.votes.length; i++) {
+            var v = o.votes[i];
+            var vote = v.vote;
+            var tid = v.tid;
             x += (vote - pcaCenter[tid]) * (pcX[tid] || 0);
             y += (vote - pcaCenter[tid]) * (pcY[tid] || 0);
-        });
+        }
 
         var numComments = pcaCenter.length;
-        var numVotes = votesByMe.length;
+        var numVotes = o.votes.length;
 
         // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
         if (numVotes > 0) {
@@ -1468,14 +1556,15 @@ function clientSideBaseCluster(things, N) {
         }
 
         return {
-            pid : getPid(),
-            isBlueDot: true,
+            pid : o.pid,
+            isBlueDot: o.isBlueDot,
             proj: {
                 x: x,
                 y: y
             }
         };
     }
+
     function updateMyProjection() {
         console.log("updateMyProjection");
         var people = prepProjection(projectionPeopleCache);
@@ -1703,7 +1792,13 @@ function clientSideBaseCluster(things, N) {
 
     function prepProjection(buckets) {
         // buckets = reprojectForSubsetOfComments(buckets);
+        buckets = withParticipantsOfInterest(buckets);
         buckets = withProjectedSelf(buckets);
+
+        // remove empty buckets
+        buckets = _.filter(buckets, function(bucket) {
+            return bucket.count > 0;
+        });
         return buckets;
     }
 
