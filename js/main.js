@@ -262,6 +262,16 @@ function isParticipationView() {
   return !!window.location.pathname.match(/^\/[0-9][A-Za-z0-9]+/);
 }
 
+
+
+if (isEmbedded()) {
+  $(document.body).css("background-color", "#fff");
+} else {
+  $(document.body).css("background-color", "#f7f7f7");
+}
+
+
+
 var uidPromise;
 // if (PolisStorage.uidFromCookie()) {
 //   uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
