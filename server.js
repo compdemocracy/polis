@@ -6768,7 +6768,11 @@ function(req, res) {
                 res.redirect(dest);
             });
         }).catch(function(err) {
-            fail(res, 500, "polis_err_twitter_auth_03", err);
+            if (isDuplicateKey(err)) {
+                fail(res, 500, "Sorry, that user is already attached to another Polis user account.", err);
+            } else {
+                fail(res, 500, "polis_err_twitter_auth_03", err);
+            }
         });
     }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_02", err);
