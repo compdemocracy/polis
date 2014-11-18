@@ -1601,6 +1601,7 @@ var whitelistedDomains = [
   "https://facebook.com",
   "http://www.facebook.com",
   "http://facebook.com",
+  "https://api.twitter.com",
   "", // for API
 ];
 
