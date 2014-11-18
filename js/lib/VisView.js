@@ -254,6 +254,9 @@ $(el_selector)
             // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
             "<circle cx = '6' cy = '6' r = '5' style='fill:#222;'/>" +
         "</marker>" +
+        "<clipPath id=\"clipCircle\">" +
+            "<circle r=\"16\" cx=\"0\" cy=\"0\"/>" +
+        "</clipPath>" +
     "</defs>" +
     // "<g>" +
     // '<rect x="'+ (w-150) +'" y="0" width="150" height="25" rx="3" ry="3" fill="#e3e4e5"/>'+
@@ -927,7 +930,8 @@ function chooseFill(d) {
     if (isSelf(d)) {
         return colorSelf;
     } else if (isParticipantOfInterest(d)) {
-        return "rgba(255,0,0,0.5)";
+        // return "rgba(255,0,0,0.5)";
+        return "rgba(0,0,0,0)";
     } else {
 
         // var gid = bidToGid[d.bid];
@@ -1388,11 +1392,18 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   // .style("stroke", colorPushOutline)
       //   // .style("stroke-width", 1)
       //   ;
-      var circleEnter = g.append("circle")
-        .classed("circle", true)
+      var picEnter = g.append("image")
+      picEnter
+        // .classed("circle", true)
         .classed("bktv", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
+        .attr("x", -16)
+        .attr("y", -16)
+        .attr("height", 32)
+        .attr("width", 32)
+        .attr("clip-path", "url(#clipCircle)")
+        .attr("xlink:href", function(d) {
+            return d.pic;
+        })
       //   .style("opacity", opacityOuter)
       //   .style("fill", chooseFill)
         .filter(isSelf)

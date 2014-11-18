@@ -471,6 +471,7 @@ module.exports = function(params) {
             if (o.ptptoi) {
                 this.ptptoi = true;
             }
+            this.pic = o.pic;
         }
 
     }
@@ -549,13 +550,14 @@ module.exports = function(params) {
         return bucket;
     }
 
-    function bucketizeParticipantOfInterest(o) {
+    function bucketizeParticipantOfInterest(o, ptptoiData) {
         var bucket = new Bucket({
+            pic: ptptoiData.profile_image_url_https,
             // containsSelf: false, // undefined for falsy
             ptptoi: true,
             proj: o.proj,
             count: 1,
-            bid: 777 // TODO decide what the bid should be
+            bid: o.pid // TODO decide what the bid should be, pid is currently a large number
         });
         return bucket;
     }
@@ -1235,15 +1237,16 @@ function clientSideBaseCluster(things, N) {
 
 
         for (var pid in participantsOfInterestVotes) {
-            var votesVectorInAscii_adpu_format = participantsOfInterestVotes[pid];
+            var ptpt = participantsOfInterestVotes[pid];
+            var votesVectorInAscii_adpu_format = ptpt.votes;
             pid = parseInt(pid);
-            pid += 1000000; // TODO remove this line
+            pid += 1000000000; // TODO figure out what bids to assign to ptptoi buckets, these fake pids are currently used for that
             var temp = projectParticipant(
                 pid,
                 votesVectorInAscii_adpu_format
             );
-            var p = bucketizeParticipantOfInterest(temp);
-            people.unshift(p);
+            var p = bucketizeParticipantOfInterest(temp, ptpt);
+            people.push(p);
         }
         return people;
 
