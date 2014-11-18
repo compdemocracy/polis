@@ -6672,7 +6672,41 @@ function getTwitterAccessToken(body) {
     });
 }
 
-    
+function getTwitterUserInfo(twitter_user_id) {
+    var oauth = new OAuth.OAuth(
+        'https://api.twitter.com/oauth/request_token', // null
+        'https://api.twitter.com/oauth/access_token', // null
+        process.env.TWITTER_CONSUMER_KEY,//'your application consumer key',
+        process.env.TWITTER_CONSUMER_SECRET,//'your application secret',
+        '1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    return new Promise(function(resolve, reject) {
+        oauth.post(
+            'https://api.twitter.com/1.1/users/lookup.json',
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret            
+            {
+                // oauth_verifier: req.p.oauth_verifier,
+                // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
+                user_id: twitter_user_id,
+            },
+            "multipart/form-data",
+            function (e, data, res){
+                if (e) {
+                    console.error("get twitter token failed");
+                    console.error(e);     
+                    reject(e);
+                } else {
+                    resolve(data);
+                }
+                // console.log(require('util').inspect(data));
+            }
+        );
+    });
+}
+
 app.get("/api/v3/twitter_oauth_callback",
     moveToBody,
     authOptional(assignToP),
@@ -6681,6 +6715,7 @@ app.get("/api/v3/twitter_oauth_callback",
     want("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
 
 function(req, res) {
+    var uid = req.p.uid;
 
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
@@ -6691,15 +6726,137 @@ function(req, res) {
         oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
     }).then(function(o) {
         console.log("TWITTER ACCESS TOKEN");
-        console.dir(o);
-        console.log("TWITTER ACCESS TOKEN");
-        res.redirect(dest);
+        var pairs = o.split("&");
+        var kv = {};
+        pairs.forEach(function(pair) {
+            var pairSplit = pair.split("=");
+            var k = pairSplit[0];
+            var v = pairSplit[1];
+            if (k === "user_id") {
+                v = parseInt(v);
+            }
+            kv[k] = v;
+        });
+        console.dir(kv);
+        console.log("/TWITTER ACCESS TOKEN");
+
+        // TODO - if no auth, generate a new user.
+
+        getTwitterUserInfo(kv.user_id).then(function(u) {
+            u = JSON.parse(u)[0];
+            console.log("TWITTER USER INFO");
+            console.dir(u);
+            console.log("/TWITTER USER INFO");
+            return pgQueryP("insert into twitter_users ("+
+                "uid," +
+                "twitter_user_id," +
+                "screen_name," +
+                "followers_count," +
+                "friends_count," +
+                "verified," +
+                "profile_image_url_https" +
+                ") VALUES ($1, $2, $3, $4, $5, $6, $7);",[
+                    uid,
+                    u.id,
+                    u.screen_name,
+                    u.followers_count,
+                    u.friends_count,
+                    u.verified,
+                    u.profile_image_url_https,
+            ]).then(function() {
+                res.redirect(dest);
+            });
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_twitter_auth_03", err);
+        });
     }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_02", err);
     });
 });
 
+app.get("/api/v3/votes/famous",
+    moveToBody,
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+    var zid = req.p.zid;
+    pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1);", [zid]).then(function(twitterParticipants) {
+        var pids = twitterParticipants.map(function(p) {
+            return p.pid;
+        });
+        var pidToData = {};
+        twitterParticipants.forEach(function(p) {
+            pidToData[p.pid] = p;
+        });
+        function createEmptyVoteVector(greatestTid) {
+            var a = [];
+            for (var i = 0; i <= greatestTid; i++) {
+                a[i] = "u"; // (u)nseen
+            }
+            return a;
+        }
+        return pgQueryP("select * from votes where zid = ($1) and pid in (" + pids.join(",") + ") order by pid, tid, created;", [zid]).then(function(votes) {
+            var i = 0;
+            var greatestTid = 0;
+            for (i = 0; i < votes.length; i++) {
+                if (votes[i].tid > greatestTid) {
+                    greatestTid = votes[i].tid;
+                }
+            }
+            
+            // use arrays or strings?
+            var vectors = {}; // pid -> sparse array
+            for (var i = 0; i < votes.length; i++) {
+                var v = votes[i];
+                // set up a vector for the participant, if not there already
 
+                vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
+                // assign a vote value at that location
+                var vote = v.vote;
+                if (polisTypes.reactions.push === vote) {
+                    vectors[v.pid][v.tid] = 'd';
+                } else if (polisTypes.reactions.pull === vote) {
+                    vectors[v.pid][v.tid] = 'a';
+                } else if (polisTypes.reactions.pass === vote) {
+                    vectors[v.pid][v.tid] = 'p';
+                } else {
+                    console.error("unknown vote value")
+                    // let it stay 'u'
+                }
+            }
+            _.each(vectors, function(value, pid, list) {
+                pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
+            });
+            res.status(200).json(pidToData);
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_famous_proj_get02", err);
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_famous_proj_get01", err);
+    });
+});
+
+app.get("/api/v3/twitter_users",
+    moveToBody,
+    authOptional(assignToP),
+    want("twitter_user_id", getInt, assignToP), // if not provided, returns info for the signed-in user
+function(req, res) {
+    var uid = req.p.uid;
+    var p;
+    if (uid) {
+        p = pgQueryP("select * from twitter_users where uid = ($1);", [uid]);
+    } else if (req.p.twitter_user_id) {
+        p = pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [req.p.twitter_user_id]);
+    } else {
+        fail(res, 401, "polis_err_missing_uid_or_twitter_user_id", err);
+        return;
+    }
+    p.then(function(data) {
+        data = data[0];
+        res.status(200).json(data);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_twitter_user_info_get", err);
+    });
+});
 
 app.post("/api/v3/einvites",
     need('email', getEmail, assignToP),
