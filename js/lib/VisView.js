@@ -1332,6 +1332,13 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
     // TODO use key to guarantee unique items
 
+
+      main_layer.selectAll(".node")
+        .attr("visibility", function(d) {
+            return (d.count >= 1) ? "visbile" : "hidden";
+        })
+        ;
+
       var update = main_layer.selectAll(".ptpt")
           .data(nodes, key)
           // .sort(sortWithSelfOnTop)

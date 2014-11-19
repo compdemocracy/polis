@@ -121,6 +121,21 @@ module.exports = function(params) {
     function demoMode() {
         return getPid() < 0;
     }
+    function removeEmptyBucketsFromClusters(clusters) {
+        var buckets = projectionPeopleCache;
+        for (var i = 0; i < buckets.length; i++) {
+            var bucket = buckets[i];
+            if (bucket.count <= 0 && 
+                !bucket.containsSelf // but don't remove PTPTOIs from cluster
+            ) {
+                clusters = _.map(clusters, function(cluster) {
+                    removeItemFromArray(bucket.bid, cluster);
+                    return cluster;
+                });
+            }
+        }
+        return clusters;
+    }
 
     function getClusters() {
         // deep copy (sorry, verbose)
@@ -130,7 +145,8 @@ module.exports = function(params) {
             });
         });
 
-        // clusters = addParticipantsOfInterestToClusters(clusters);
+        clusters = addParticipantsOfInterestToClusters(clusters);
+        clusters = removeEmptyBucketsFromClusters(clusters);
         return clusters;
     }
 
@@ -1154,6 +1170,18 @@ function clientSideBaseCluster(things, N) {
                         return c.members;
                     });
 
+                    // remove the buckets that only contain a ptptoi
+                    buckets = _.filter(buckets, function(b) {
+                        var hasPtptOI = _.contains(participantsOfInterestBids, b.id);
+                        if (hasPtptOI) {
+                                debugger;
+                            if (b.count === 1) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
+
                     // mutate - move x and y into a proj sub-object, so the vis can animate x and y
                     _.each(buckets, function(b) {
                         b.proj = {
@@ -1206,13 +1234,13 @@ function clientSideBaseCluster(things, N) {
             var originalBid = data.bid;
             for (var c = 0; c < clusters.length; c++) {
                 var cluster = clusters[c];
-                // debugger;
-                if (cluster.indexOf(originalBid)) {
+                if (cluster.indexOf(originalBid) >= 0) {
                     cluster.push(data.fakeBid);
                 }
+                clusters[c] = _.without(cluster, originalBid);
             }
         }
-        // debugger;
+        return clusters;
     }
     function removeSelfFromBucketsAndClusters(buckets, clusters) {
         for (var b = 0; b < buckets.length; b++) {
@@ -1229,15 +1257,6 @@ function clientSideBaseCluster(things, N) {
             if (bucket.bid === bid) {
                 bucket.count -= 1;
             }
-            // remove self from cluster
-            // if (bucket.count <= 0 && 
-            //     !bucket.containsSelf // but don't remove PTPTOIs from cluster
-            // ) {
-            //     clusters = _.map(clusters, function(cluster) {
-            //         removeItemFromArray(bucket.bid, cluster);
-            //         return cluster;
-            //     });
-            // }
         }
         return {
             buckets: buckets,
@@ -1530,7 +1549,7 @@ function clientSideBaseCluster(things, N) {
                 x[pid].fakeBid = x[pid].pid + 1e10; // should be safe to say there aren't 10 billion buckets, so we can use this range
             }
             participantsOfInterestVotes = x;
-            participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes));
+            participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes), "bid");
         });
     }
 
