@@ -73,6 +73,8 @@ module.exports = function(params) {
 
     var projectionPeopleCache = [];
     var clustersCache = [];
+    var participantsOfInterestVotes = null;
+    var participantsOfInterestBids = [];
 
     var tidSubsetForReprojection = [];
 
@@ -118,6 +120,18 @@ module.exports = function(params) {
 
     function demoMode() {
         return getPid() < 0;
+    }
+
+    function getClusters() {
+        // deep copy (sorry, verbose)
+        var clusters = _.map(clustersCache, function(cluster) {
+            return _.map(cluster, function(bid) {
+                return bid;
+            });
+        });
+
+        // clusters = addParticipantsOfInterestToClusters(clusters);
+        return clusters;
     }
 
     // TODO if we decide to do manifest the chain of comments in a discussion, then we might want discussionClients that spawn discussionClients..?
@@ -502,27 +516,31 @@ module.exports = function(params) {
         }
         return false;
     };
-    Bucket.prototype.update = function() {
-        if (!this.ppl) {
-            // TODO remove update method?
-            return;
-        }
-        this.proj.x = average(this.ppl, getX);
-        this.proj.y = average(this.ppl, getY);
-        this.count = this.ppl.length;
-        if (this.containsPid(getPid())) {
-            this.containsSelf = true;
-            // Decrease the size of the bucket which contains self...
-            this.count -= 1;
-            for (var i = 0; i < this.ppl.length; i++) {
-                if (this.ppl[i].isBlueDot) {
-                    // ... but if this is the blue dot, we don't want it to have a zero count.
-                    this.count += 1;
-                    break;
-                }
-            }
-        }
-    };
+    // Bucket.prototype.update = function() {
+    //     if (!this.ppl) {
+    //         // TODO remove update method?
+    //         return;
+    //     }
+    //     this.proj.x = average(this.ppl, getX);
+    //     this.proj.y = average(this.ppl, getY);
+    //     this.count = this.ppl.length;
+
+    //     for (var i = 0; i < participantsWhoHaveTheirOwnBucket.length; i++) {
+    //         if (this.containsPid(getPid())) {
+    //             this.containsSelf = true;
+
+    //             // Decrease the size of the bucket which contains self...
+    //             this.count -= 1;
+    //             for (var i = 0; i < this.ppl.length; i++) {
+    //                 if (this.ppl[i].isBlueDot || this.ppl[i].isPtptoi) {
+    //                     // ... but if this is the blue dot, we don't want it to have a zero count.
+    //                     this.count += 1;
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //     }
+    // };
     Bucket.prototype.getPeople = function() {
         // return getUserInfoByBid(this.bid);
         // TODO make service call instead.
@@ -557,7 +575,7 @@ module.exports = function(params) {
             ptptoi: true,
             proj: o.proj,
             count: 1,
-            bid: o.pid // TODO decide what the bid should be, pid is currently a large number
+            bid: ptptoiData.fakeBid
         });
         return bucket;
     }
@@ -711,8 +729,9 @@ function clientSideBaseCluster(things, N) {
 
     function getBidToGid() {
         var bidToGid = {};
-        for (var gid = 0; gid < clustersCache.length; gid++) {
-            var cluster = clustersCache[gid];
+        var clusters = getClusters();
+        for (var gid = 0; gid < clusters.length; gid++) {
+            var cluster = clusters[gid];
             for (var i = 0; i < cluster.length; i++) {
                 var bid = cluster[i];
                 bidToGid[bid] = gid;
@@ -1181,18 +1200,44 @@ function clientSideBaseCluster(things, N) {
         return cluster;
     }
 
+    function addParticipantsOfInterestToClusters(clusters) {
+        for (var pid in participantsOfInterestVotes) {
+            var data = participantsOfInterestVotes[pid];
+            var originalBid = data.bid;
+            for (var c = 0; c < clusters.length; c++) {
+                var cluster = clusters[c];
+                // debugger;
+                if (cluster.indexOf(originalBid)) {
+                    cluster.push(data.fakeBid);
+                }
+            }
+        }
+        // debugger;
+    }
     function removeSelfFromBucketsAndClusters(buckets, clusters) {
         for (var b = 0; b < buckets.length; b++) {
             var bucket = buckets[b];
+
+            // remove PTPTOIs from their buckets
+            for (var i = 0; i < participantsOfInterestBids.length; i++) {
+                if (participantsOfInterestBids.indexOf(bucket.bid) >= 0) {
+                    bucket.count -= 1;
+                }
+            }
+
+            // remove self
             if (bucket.bid === bid) {
                 bucket.count -= 1;
             }
-            if (bucket.count <= 0) {
-                clusters = _.map(clusters, function(cluster) {
-                    removeItemFromArray(bucket.bid, cluster);
-                    return cluster;
-                });
-            }
+            // remove self from cluster
+            // if (bucket.count <= 0 && 
+            //     !bucket.containsSelf // but don't remove PTPTOIs from cluster
+            // ) {
+            //     clusters = _.map(clusters, function(cluster) {
+            //         removeItemFromArray(bucket.bid, cluster);
+            //         return cluster;
+            //     });
+            // }
         }
         return {
             buckets: buckets,
@@ -1238,7 +1283,7 @@ function clientSideBaseCluster(things, N) {
 
         for (var pid in participantsOfInterestVotes) {
             var ptpt = participantsOfInterestVotes[pid];
-            var votesVectorInAscii_adpu_format = ptpt.votes;
+            var votesVectorInAscii_adpu_format = ptpt.votes || "";
             pid = parseInt(pid);
             pid += 1000000000; // TODO figure out what bids to assign to ptptoi buckets, these fake pids are currently used for that
             var temp = projectParticipant(
@@ -1479,7 +1524,13 @@ function clientSideBaseCluster(things, N) {
         return polisGet(votesFamousPath, {
             conversation_id: conversation_id
         }).then(function(x) {
+            x = x || {};
+            // assign fake bids for these projected participants
+            for (var pid in x) {
+                x[pid].fakeBid = x[pid].pid + 1e10; // should be safe to say there aren't 10 billion buckets, so we can use this range
+            }
             participantsOfInterestVotes = x;
+            participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes));
         });
     }
 
@@ -1502,7 +1553,7 @@ function clientSideBaseCluster(things, N) {
         var len = votesVectorInAscii_adpu_format.length;
         for (var i = 0; i < len; i++) {
             var c = votesVectorInAscii_adpu_format[i];
-            if (c !== "u" && c !== "p") { // TODO think about "p", and whether it should be counted in the jetpack vote count
+            if (c !== "u" /* && c !== "p" */) { // TODO think about "p", and whether it should be counted in the jetpack vote count
                 if (c === "a") {
                     votesToUseForProjection.push({
                         vote: -1,
@@ -1513,6 +1564,11 @@ function clientSideBaseCluster(things, N) {
                         vote: 1,
                         tid: i
                     });
+                } else if (c === "p") {
+                    votesToUseForProjection.push({
+                        vote: 0,
+                        tid: i
+                    });
                 } else {
                     alert("bad vote encoding " + c);
                 }
@@ -1521,6 +1577,7 @@ function clientSideBaseCluster(things, N) {
         return project({
             pid: pid,
             isBlueDot: false,
+            isPtptoi: true,
             votes: votesToUseForProjection
         });
     }
@@ -1533,6 +1590,7 @@ function clientSideBaseCluster(things, N) {
             return {
                 pid : o.pid,
                 isBlueDot: o.isBlueDot,
+                isPtptoi: o.isPtptoi,
                 proj: {
                     x: x,
                     y: y
@@ -1572,7 +1630,8 @@ function clientSideBaseCluster(things, N) {
         console.log("updateMyProjection");
         var people = prepProjection(projectionPeopleCache);
         var projectedComments = prepCommentsProjection();
-        sendUpdatedVisData(people, clustersCache, participantCount, projectedComments);
+        var clusters = getClusters();
+        sendUpdatedVisData(people, clusters, participantCount, projectedComments);
     }
 
     function getPidToBidMappingFromCache() {
@@ -1810,8 +1869,9 @@ function clientSideBaseCluster(things, N) {
             return {count: 0, votes: {A:[],D:[],gA:0,gD:0}};
         }
         var count = 0;
-        if (clustersCache[gid]) {
-            _.each(clustersCache[gid], function(bid, gid) {
+        var clusters = getClusters();
+        if (clusters[gid]) {
+            _.each(clusters[gid], function(bid, gid) {
                 var bucket = _.findWhere(projectionPeopleCache, {bid: bid});
                 if (!bucket) {
                     console.error('missing bucket for bid: ' + bid);
@@ -1831,7 +1891,8 @@ function clientSideBaseCluster(things, N) {
         if(votesForTidBidPromise.state() === "resolved" &&
             clustersCachePromise.state() === "resolved") {
 
-            var group = clustersCache[gid];
+            var clusters = getClusters();
+            var group = clusters[gid];
             var inGroup = {};
             for (var i = 0; i < group.length; i++) {
                 inGroup[group[i]] = true;
@@ -1967,7 +2028,8 @@ function clientSideBaseCluster(things, N) {
                 var buckets = prepProjection(projectionPeopleCache);
                 var projectedComments = prepCommentsProjection();
                 if (buckets.length) {
-                    sendUpdatedVisData(buckets, clustersCache, participantCount, projectedComments);
+                    var clusters = getClusters();
+                    sendUpdatedVisData(buckets, clusters, participantCount, projectedComments);
                 }
             });
         },
