@@ -1269,7 +1269,7 @@ function clientSideBaseCluster(things, N) {
         people = people || [];
         people = _.clone(people); // shallow copy
 
-        people.unshift(bucketizeSelf(projectSelf(), 0));
+        people.unshift(bucketizeSelf(projectSelf(), -1));
         return people;
     }
 
