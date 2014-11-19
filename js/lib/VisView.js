@@ -1126,7 +1126,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
     participantCount = newParticipantCount;
 
-    var MIN_PARTICIPANTS_FOR_VIS = 8;
+    var MIN_PARTICIPANTS_FOR_VIS = 0;
     if (participantCount < MIN_PARTICIPANTS_FOR_VIS && !visBlockerOn) {
         showVisBlocker();
     }
