@@ -17,7 +17,7 @@
       path.push("demo");
     }
     path.push(o.conversation_id);
-    iframe.src = "https://embed.pol.is/"+ path.join("/");
+    iframe.src = "https://preprod.pol.is/"+ path.join("/");
     iframe.width = "100%"; // may be constrained by parent div
     iframe.height = o.height || 930;
     iframe.style.border = "1px solid #ccc";
