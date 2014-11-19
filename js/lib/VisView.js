@@ -1398,6 +1398,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("bktv", true)
         .attr("x", -16)
         .attr("y", -16)
+        // .style("visibility", "hidden")
         .attr("height", 32)
         .attr("width", 32)
         .attr("clip-path", "url(#clipCircle)")
