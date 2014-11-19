@@ -1855,7 +1855,7 @@ function clientSideBaseCluster(things, N) {
     function prepProjection(buckets) {
         // buckets = reprojectForSubsetOfComments(buckets);
         buckets = withParticipantsOfInterest(buckets);
-        buckets = withProjectedSelf(buckets);
+        // buckets = withProjectedSelf(buckets);
 
         // remove empty buckets
         buckets = _.filter(buckets, function(bucket) {
