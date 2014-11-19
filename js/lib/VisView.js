@@ -1434,6 +1434,24 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
       var self = g.filter(isSelf);
       self.classed("selfDot", true);
+
+
+      g.append("text")
+        // .classed("help", true)
+        // .classed("help_text_you", true)
+        .text(function(d) {
+            return d.bid;
+        })
+        .attr("text-anchor", "start")
+        // .attr("fill", "rgba(0,0,0,1.0)")
+        .attr("fill", colorSelf)
+        .attr("stroke", colorSelfOutline)
+        .attr("transform", function(d) {
+            return "translate(12, 6)";
+        });
+
+
+
   }
   updateNodes();
 
