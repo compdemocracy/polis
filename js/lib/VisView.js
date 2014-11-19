@@ -1072,6 +1072,9 @@ function chooseCircleRadiusOuter(d) {
     if (isSelf(d)) {
         r *= 2;
     }
+    if (isParticipantOfInterest(d)) {
+        r = 16;
+    }
     return r;
 }
 
