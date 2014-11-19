@@ -1237,6 +1237,7 @@ function clientSideBaseCluster(things, N) {
                 if (cluster.indexOf(originalBid) >= 0) {
                     cluster.push(data.fakeBid);
                 }
+                // TODO only if emtpy!
                 clusters[c] = _.without(cluster, originalBid);
             }
         }
