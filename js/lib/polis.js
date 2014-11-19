@@ -1174,7 +1174,6 @@ function clientSideBaseCluster(things, N) {
                     buckets = _.filter(buckets, function(b) {
                         var hasPtptOI = _.contains(participantsOfInterestBids, b.id);
                         if (hasPtptOI) {
-                                debugger;
                             if (b.count === 1) {
                                 return false;
                             }
