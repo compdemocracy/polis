@@ -508,7 +508,7 @@ function updateHulls() {
         var left = Infinity;
         var temp = _.map(cluster, function(bid) {
             var bucket = bidToBucket[bid];
-            if (!bucket) {
+            if (_.isUndefined(bucket)) {
                 return null;
             }
             var x = bucket.x;
