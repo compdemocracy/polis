@@ -537,7 +537,7 @@ mongo.connect(process.env.MONGOLAB_URI, {
     }
 
     db.collection(mongoCollectionName('main'), function(err, collectionOfPcaResults) {
-    db.collection(mongoCollectionName('bidToPid'), function(err, collectionOfBidToPidResults) {
+    db.collection(mongoCollectionName('bidtopid'), function(err, collectionOfBidToPidResults) {
     db.collection(mongoCollectionName('pcaPlaybackResults'), function(err, collectionOfPcaPlaybackResults) {
 
         callback(null, {
@@ -2116,6 +2116,44 @@ function(req, res) {
         fail(res, 500, "polis_err_get_xids", err);
     });
 });
+
+
+function getBidsForPids(zid, lastVoteTimestamp, pids) {
+    console.log("FOOO " + zid + " " + lastVoteTimestamp + " " + pids);
+    var dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
+    var mathResultsPromise = getPca(zid, lastVoteTimestamp);
+
+    return Promise.all([dataPromise, mathResultsPromise]).then(function(items) {
+        var b2p = items[0].bidToPid;
+        var mathResults = items[1];
+
+
+        function findBidForPid(pid) {
+            var yourBidi = -1;
+            for (var bidi = 0; bidi < b2p.length; bidi++) {
+                var pids = b2p[bidi];
+                if (pids.indexOf(pid) !== -1) {
+                    yourBidi = bidi;
+                    break;
+                }
+            }
+
+            var yourBid = indexToBid[yourBidi];
+
+            if (yourBidi >= 0 && _.isUndefined(yourBid)) {
+                console.error("polis_err_math_index_mapping_mismatch", "pid was", pid, "bidToPid was", JSON.stringify(b2p));
+                yell("polis_err_math_index_mapping_mismatch");
+                yourBid = -1;
+            }
+            return yourBid;
+        }
+
+        var indexToBid = mathResults["base-clusters"].id;
+        var bids = pids.map(findBidForPid);
+        var pidToBid = _.object(pids, bids);
+        return pidToBid;
+    });
+}
 
 // TODO cache
 app.get("/api/v3/bid",
@@ -6810,7 +6848,7 @@ function(req, res) {
             
             // use arrays or strings?
             var vectors = {}; // pid -> sparse array
-            for (var i = 0; i < votes.length; i++) {
+            for (i = 0; i < votes.length; i++) {
                 var v = votes[i];
                 // set up a vector for the participant, if not there already
 
@@ -6824,14 +6862,20 @@ function(req, res) {
                 } else if (polisTypes.reactions.pass === vote) {
                     vectors[v.pid][v.tid] = 'p';
                 } else {
-                    console.error("unknown vote value")
+                    console.error("unknown vote value");
                     // let it stay 'u'
                 }
             }
-            _.each(vectors, function(value, pid, list) {
-                pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
+            getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
+                _.each(vectors, function(value, pid, list) {
+                    pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
+                    pidToData[pid].bid = pidsToBids[pid];
+                });
+                res.status(200).json(pidToData);
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_famous_proj_get03", err);
             });
-            res.status(200).json(pidToData);
+
         }).catch(function(err) {
             fail(res, 500, "polis_err_famous_proj_get02", err);
         });
