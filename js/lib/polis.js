@@ -1135,40 +1135,7 @@ function clientSideBaseCluster(things, N) {
                     pcX = pcX || [];
                     pcY = pcY || [];
 
-                    var votesBase = pcaData["votes-base"];
-                    var indexToBid = pcaData["base-clusters"].id;
 
-                    // TEMP hack for bug in data
-                    if (!_.isUndefined(votesBase.tid)) {
-                        var tid = votesBase.tid
-                        votesBase[tid] = {};
-                        votesBase[tid].A = votesBase.A;
-                        votesBase[tid].D = votesBase.D;
-                        delete votesBase.tid;
-                        delete votesBase.A;
-                        delete votesBase.D;
-                    }
-
-                    votesForTidBid = {};
-                    var tids = _.map(_.keys(votesBase), Number);
-                    _.each(tids, function(tid) {
-                        // translate from the compact index format to bid->voteCount format
-                        var aOrig = votesBase[tid].A;
-                        var dOrig = votesBase[tid].D;
-                        var A = {};
-                        var D = {};
-                        var len = aOrig.length;
-                        for (var i = 0; i < len; i++) {
-                            A[indexToBid[i]] = aOrig[i];
-                            D[indexToBid[i]] = dOrig[i];
-                        }
-                        votesForTidBid[tid] = {
-                            A: A,
-                            D: D
-                        };
-                    });
-
-                    votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
 
 
 
@@ -1276,6 +1243,44 @@ function clientSideBaseCluster(things, N) {
                     });
 
 
+                    // -------------- PROCESS VOTES INFO --------------------------
+
+                    var votesBase = pcaData["votes-base"];
+                    var indexToBid = pcaData["base-clusters"].id;
+
+                    // TEMP hack for bug in data
+                    if (!_.isUndefined(votesBase.tid)) {
+                        var tid = votesBase.tid
+                        votesBase[tid] = {};
+                        votesBase[tid].A = votesBase.A;
+                        votesBase[tid].D = votesBase.D;
+                        delete votesBase.tid;
+                        delete votesBase.A;
+                        delete votesBase.D;
+                    }
+
+                    votesForTidBid = {};
+                    var tids = _.map(_.keys(votesBase), Number);
+                    _.each(tids, function(tid) {
+                        // translate from the compact index format to bid->voteCount format
+                        var aOrig = votesBase[tid].A;
+                        var dOrig = votesBase[tid].D;
+                        var A = {};
+                        var D = {};
+                        var len = aOrig.length;
+                        for (var i = 0; i < len; i++) {
+                            A[indexToBid[i]] = aOrig[i];
+                            D[indexToBid[i]] = dOrig[i];
+                        }
+                        votesForTidBid[tid] = {
+                            A: A,
+                            D: D
+                        };
+                    });
+
+                    votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
+                    
+                    // -------------- END PROCESS VOTES INFO --------------------------
 
 
 
