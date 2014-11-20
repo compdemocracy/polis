@@ -1075,6 +1075,9 @@ function chooseCircleRadiusOuter(d) {
     if (isParticipantOfInterest(d)) {
         r = 16;
     }
+    if (d.isSummaryBucket) {
+        r = 60;
+    }
     return r;
 }
 

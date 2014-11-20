@@ -482,25 +482,31 @@ module.exports = function(params) {
 
     function Bucket() {
         if (_.isNumber(arguments[0])) {
-            var bid = arguments[0];
-            var people = arguments[1];
-            this.ppl = _.isArray(people) ? people : [];
-            this.bid = bid;
-            this.proj = {
-                x: 0,
-                y: 0
-            };
+            alert("honeybadger");
+            // var bid = arguments[0];
+            // var people = arguments[1];
+            // this.ppl = _.isArray(people) ? people : [];
+            // this.bid = bid;
+            // this.proj = {
+            //     x: 0,
+            //     y: 0
+            // };
         } else {
             var o = arguments[0];
             this.bid = o.id || o.bid;
             this.proj = o.proj;
             this.count = o.count;
-            if (o.containsSelf) {
-                this.containsSelf = true;
+            if (o.containsSelf) {// TODO stop with this pattern
+                this.containsSelf = true;// TODO stop with this pattern
             }
-            if (o.ptptoi) {
-                this.ptptoi = true;
+            if (o.ptptoi) {// TODO stop with this pattern
+                this.ptptoi = true;// TODO stop with this pattern
             }
+
+            if (o.isSummaryBucket) { // TODO stop with this pattern
+                this.isSummaryBucket = true;// TODO stop with this pattern
+            }
+
             this.pic = o.pic;
         }
 
@@ -743,9 +749,9 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    function getBidToGid() {
+    function getBidToGid(clusters) {
         var bidToGid = {};
-        var clusters = getClusters();
+        var clusters = clusters || getClusters(); // TODO cleanup
         for (var gid = 0; gid < clusters.length; gid++) {
             var cluster = clusters[gid];
             for (var i = 0; i < cluster.length; i++) {
@@ -1092,6 +1098,7 @@ function clientSideBaseCluster(things, N) {
                     firstPcaCallPromise.resolve();
                     return $.Deferred().reject();
                 }
+                cachedPcaData = pcaData;
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
 
@@ -1170,6 +1177,7 @@ function clientSideBaseCluster(things, N) {
                         return c.members;
                     });
 
+
                     // remove the buckets that only contain a ptptoi
                     buckets = _.filter(buckets, function(b) {
                         var hasPtptOI = _.contains(participantsOfInterestBids, b.id);
@@ -1180,6 +1188,56 @@ function clientSideBaseCluster(things, N) {
                         }
                         return true;
                     });
+
+
+                    // buckets = _.map(pcaData["group-clusters"], function(cluster) {
+                    //     var anonBucket = _.clone(cluster);
+                    //     anonBucket.x = anonBucket.center[0];
+                    //     anonBucket.y = anonBucket.center[1];
+                    //     anonBucket.id = 4;
+                    //     return anonBucket;
+                    // });
+
+
+                    var bidToGid = getBidToGid(clusters);
+                    var bucketPerGroup = {};
+                    _.each(buckets, function(bucket) {
+                        var gid = bidToGid[bucket.id]
+                        bucketPerGroup[gid] = bucketPerGroup[gid] || [];
+                        bucketPerGroup[gid].push(bucket);
+                    });
+
+
+                    var pairs = [_.keys(buckets), _.values(buckets)];
+                    var buckets2 = _.map(bucketPerGroup,
+                        function(bucketsForGid, gid) {
+
+
+                            var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
+                                o.members = _.union(o.members, bucket.members)
+                                o.count += bucket.count;
+                                o.bids.push(bucket.id); // not currently consumed by vis
+
+                                // cumulative moving average
+                                // bucket.count makes larger buckets weigh more.
+                                // o.x = ((bucket.x - o.x)) / o.bucketCount;
+                                // o.y = ((bucket.y - o.y)) / o.bucketCount;
+                                o.id = o.id * bucket.id; // TODO not sure, but this is proof-of-concept code
+                                return o;
+                            }, {
+                                members: [],
+                                id: 1,
+                                bids: [],
+                                count: 0, // total ptpt count
+                                x: cachedPcaData["group-clusters"][gid].center[0],
+                                y: cachedPcaData["group-clusters"][gid].center[1],
+                                isSummaryBucket: true
+                            });
+                            return bigBucket;
+                        }
+                    );
+                    // buckets = _.values(gidToBuckets);
+                    buckets = buckets2;
 
                     // mutate - move x and y into a proj sub-object, so the vis can animate x and y
                     _.each(buckets, function(b) {
