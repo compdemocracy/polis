@@ -7,6 +7,8 @@ var URLs = require("../util/url");
 var mapObj = Utils.mapObj;
 var urlPrefix = URLs.urlPrefix;
 
+var PTPOI_BID_OFFSET = 1e10;
+
 
 module.exports = function(params) {
 
@@ -73,6 +75,7 @@ module.exports = function(params) {
 
     var projectionPeopleCache = [];
     var bigBuckets = [];
+    var bidToBigBucket = {};
     var clustersCache = [];
     var participantsOfInterestVotes = null;
     var participantsOfInterestBids = [];
@@ -506,6 +509,13 @@ module.exports = function(params) {
 
             if (o.isSummaryBucket) { // TODO stop with this pattern
                 this.isSummaryBucket = true;// TODO stop with this pattern
+                if (_.isUndefined(o.gid)) {
+                    alert("bug ID 'cricket'");
+                }
+            }
+
+            if (!_.isUndefined(o.gid)) { // TODO stop with this pattern
+                this.gid = parseInt(o.gid);// TODO stop with this pattern
             }
 
             this.pic = o.pic;
@@ -1145,19 +1155,6 @@ function clientSideBaseCluster(things, N) {
                         return c.members;
                     });
 
-
-                    // remove the buckets that only contain a ptptoi
-                    buckets = _.filter(buckets, function(b) {
-                        var hasPtptOI = _.contains(participantsOfInterestBids, b.id);
-                        if (hasPtptOI) {
-                            if (b.count === 1) {
-                                return false;
-                            }
-                        }
-                        return true;
-                    });
-
-
                     // buckets = _.map(pcaData["group-clusters"], function(cluster) {
                     //     var anonBucket = _.clone(cluster);
                     //     anonBucket.x = anonBucket.center[0];
@@ -1176,37 +1173,57 @@ function clientSideBaseCluster(things, N) {
                     });
 
 
+                    bidToBigBucket = {};
                     var pairs = [_.keys(buckets), _.values(buckets)];
                     bigBuckets = _.map(bucketPerGroup,
                         function(bucketsForGid, gid) {
-
+                            gid = parseInt(gid);
 
                             var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
                                 o.members = _.union(o.members, bucket.members)
                                 o.count += bucket.count;
                                 o.bids.push(bucket.id); // not currently consumed by vis
 
-                                // cumulative moving average
+                                // cumulative moving average  (SHOULD PROBABLY BE WEIGHTED)
                                 // bucket.count makes larger buckets weigh more.
                                 // o.x = ((bucket.x - o.x)) / o.bucketCount;
                                 // o.y = ((bucket.y - o.y)) / o.bucketCount;
-                                o.id = o.id * bucket.id; // TODO not sure, but this is proof-of-concept code
+                                o.id = o.id + "_" + bucket.id; // TODO not sure, but this is proof-of-concept code
                                 return o;
                             }, {
                                 members: [],
-                                id: 1,
+                                id: "bigBucketBid_",
                                 bids: [],
+                                gid: gid,
                                 count: 0, // total ptpt count
                                 x: cachedPcaData["group-clusters"][gid].center[0],
                                 y: cachedPcaData["group-clusters"][gid].center[1],
                                 isSummaryBucket: true
                             });
+                            for (var i = 0; i < bigBucket.bids.length; i++) {
+                                console.log("bidToBigBucket "+bigBucket.bids[i]);
+                                bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
+                            }
+                            clusters[gid] = _.union(clusters[gid], [bigBucket.id]);
                             return bigBucket;
                         }
                     );
                     // buckets = _.values(gidToBuckets);
                     // buckets = buckets2;
 
+
+
+
+                    // remove the buckets that only contain a ptptoi
+                    buckets = _.filter(buckets, function(b) {
+                        var hasPtptOI = _.contains(participantsOfInterestBids, b.id);
+                        if (hasPtptOI) {
+                            if (b.count === 1) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
 
 
 
@@ -1268,10 +1285,14 @@ function clientSideBaseCluster(things, N) {
                         var A = {};
                         var D = {};
                         var len = aOrig.length;
+                        var bid;
                         for (var i = 0; i < len; i++) {
-                            A[indexToBid[i]] = aOrig[i];
-                            D[indexToBid[i]] = dOrig[i];
+                            bid = indexToBid[i];
+                            bid = bidToBigBucket[bid]; // convert to big bucket id
+                            A[bid] = A[bid] ? (A[bid] + aOrig[i]) : aOrig[i];
+                            D[bid] = D[bid] ? (D[bid] + dOrig[i]) : dOrig[i];
                         }
+                        // bidToBigBucket needed here
                         votesForTidBid[tid] = {
                             A: A,
                             D: D
@@ -1279,7 +1300,7 @@ function clientSideBaseCluster(things, N) {
                     });
 
                     votesForTidBidPromise.resolve(); // NOTE this may already be resolved.
-                    
+
                     // -------------- END PROCESS VOTES INFO --------------------------
 
 
@@ -1634,7 +1655,7 @@ function clientSideBaseCluster(things, N) {
             x = x || {};
             // assign fake bids for these projected participants
             for (var pid in x) {
-                x[pid].fakeBid = x[pid].pid + 1e10; // should be safe to say there aren't 10 billion buckets, so we can use this range
+                x[pid].fakeBid = x[pid].pid + PTPOI_BID_OFFSET; // should be safe to say there aren't 10 billion buckets, so we can use this range
             }
             participantsOfInterestVotes = x;
             participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes), "bid");
@@ -1959,37 +1980,41 @@ function clientSideBaseCluster(things, N) {
         // setInterval(poll, 5000);
     }
 
-    function prepProjection(buckets) {
+    function prepProjection(buckets2) {
         if (bigBuckets) {
-            buckets = bigBuckets;
+            buckets2 = bigBuckets;
         }
-        // buckets = reprojectForSubsetOfComments(buckets);
-        buckets = withParticipantsOfInterest(buckets);
-        buckets = withProjectedSelf(buckets);
+        // buckets = reprojectForSubsetOfComments(buckets2);
+        buckets2 = withParticipantsOfInterest(buckets2);
+        buckets2 = withProjectedSelf(buckets2);
 
         // remove empty buckets
-        buckets = _.filter(buckets, function(bucket) {
+        buckets2 = _.filter(buckets2, function(bucket) {
             return bucket.count > 0;
         });
-        return buckets;
+        return buckets2;
     }
 
     function getGroupInfo(gid) {
         if (gid === -1) {
             return {count: 0, votes: {A:[],D:[],gA:0,gD:0}};
         }
-        var count = 0;
+        var count = cachedPcaData["group-clusters"][gid].members.length;
         var clusters = getClusters();
-        if (clusters[gid]) {
-            _.each(clusters[gid], function(bid, gid) {
-                var bucket = _.findWhere(projectionPeopleCache, {bid: bid});
-                if (!bucket) {
-                    console.error('missing bucket for bid: ' + bid);
-                } else {
-                    count += bucket.count;
-                }
-            });
-        }
+        // if (clusters[gid]) {
+        //     _.each(clusters[gid], function(bid, gid) {
+        //         var bucket = _.findWhere(projectionPeopleCache, {bid: bid});
+               
+        //         if (!bucket) {
+        //             console.error('missing bucket for bid: ' + bid);
+        //         } else if (parseInt(bid) >= PTPOI_BID_OFFSET) {
+        //             count += 1;
+        //         } else {
+        //             count += bucket.count;
+        //         }
+        //     });
+        // }
+
 
 
         var votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
@@ -2004,9 +2029,16 @@ function clientSideBaseCluster(things, N) {
             var clusters = getClusters();
             var group = clusters[gid];
             var inGroup = {};
-            for (var i = 0; i < group.length; i++) {
+            var i;
+            for (i = 0; i < group.length; i++) {
                 inGroup[group[i]] = true;
             }
+            // var bigBucket = _.filter(bigBuckets, function(bb) {
+            //     return bb.gid  === gid;
+            // })[0];
+            // if (bigBucket) {
+            //     inGroup[bigBucket.bid] = true;
+            // }
             
             votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
 
@@ -2014,6 +2046,18 @@ function clientSideBaseCluster(things, N) {
                 var bid;
                 var inGroupRef = inGroup; // closure lookup optimization
                 var len;
+
+
+
+        // var buckets = votesForTidBid[tid];
+        // if (!buckets) {
+        //     console.warn("no votes found for tid: " + tid);
+        //     buckets = {
+        //         A:[],
+        //         D:[]
+        //     };
+
+
 
 
                 var gA = mapObj(bidToVote.A, function(vote, bid) {
@@ -2033,7 +2077,7 @@ function clientSideBaseCluster(things, N) {
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD))
             });
         }
-
+        // debugger;
         return {
             count: count,
             repness: repness[gid],
