@@ -72,6 +72,7 @@ module.exports = function(params) {
     var votesForTidBidPromise = $.Deferred();
 
     var projectionPeopleCache = [];
+    var bigBuckets = [];
     var clustersCache = [];
     var participantsOfInterestVotes = null;
     var participantsOfInterestBids = [];
@@ -1209,7 +1210,7 @@ function clientSideBaseCluster(things, N) {
 
 
                     var pairs = [_.keys(buckets), _.values(buckets)];
-                    var buckets2 = _.map(bucketPerGroup,
+                    bigBuckets = _.map(bucketPerGroup,
                         function(bucketsForGid, gid) {
 
 
@@ -1237,7 +1238,12 @@ function clientSideBaseCluster(things, N) {
                         }
                     );
                     // buckets = _.values(gidToBuckets);
-                    buckets = buckets2;
+                    // buckets = buckets2;
+
+
+
+
+
 
                     // mutate - move x and y into a proj sub-object, so the vis can animate x and y
                     _.each(buckets, function(b) {
@@ -1254,6 +1260,25 @@ function clientSideBaseCluster(things, N) {
                         return new Bucket(b);
                     });
 
+                    // ----------------- AGAIN for bigBuckets ---------------------
+                    _.each(bigBuckets, function(b) {
+                        b.proj = {
+                            x: b.x,
+                            y: b.y
+                        };
+                        delete b.x;
+                        delete b.y;
+                    });
+
+                    // Convert to Bucket objects.
+                    bigBuckets = _.map(bigBuckets, function(b) {
+                        return new Bucket(b);
+                    });
+
+
+
+
+
                     var temp = removeSelfFromBucketsAndClusters(buckets, clusters);
                     buckets = temp.buckets;
                     clustersCache = temp.clusters;
@@ -1261,7 +1286,7 @@ function clientSideBaseCluster(things, N) {
                     projectionPeopleCache = buckets;
                     clustersCachePromise.resolve();
 
-                    buckets = prepProjection(buckets);
+                    // buckets = prepProjection(buckets);
                     return null;
                 });
             },
@@ -1930,6 +1955,9 @@ function clientSideBaseCluster(things, N) {
     }
 
     function prepProjection(buckets) {
+        if (bigBuckets) {
+            buckets = bigBuckets;
+        }
         // buckets = reprojectForSubsetOfComments(buckets);
         buckets = withParticipantsOfInterest(buckets);
         buckets = withProjectedSelf(buckets);

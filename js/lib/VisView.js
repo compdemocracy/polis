@@ -1065,7 +1065,11 @@ function getInsetTarget(d) {
 
 
 function chooseCircleRadius(d) {
-    return bucketRadiusForCount(d.count);
+    if (d.isSummaryBucket) {
+        return 16;
+    } else {
+        return bucketRadiusForCount(d.count);
+    }
 }
 function chooseCircleRadiusOuter(d) {
     var r = chooseCircleRadius(d);
@@ -1074,9 +1078,6 @@ function chooseCircleRadiusOuter(d) {
     }
     if (isParticipantOfInterest(d)) {
         r = 16;
-    }
-    if (d.isSummaryBucket) {
-        r = 60;
     }
     return r;
 }
@@ -1359,6 +1360,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .append(groupTag)
           .classed("ptpt", true)
           .classed("node", true)
+          .attr("data-bid", function(d) {
+            return d.bid;
+          })
           .on("click", onParticipantClicked)
           .on("mouseover", showTip)
           .on("mouseout", hideTip)
