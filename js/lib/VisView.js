@@ -116,7 +116,7 @@ window.color = function() {
     update.selectAll(".down.bktvi").style("stroke", colorPush);
 }
 
-var colorPass = "#BDC3C7"; // SILVER
+var colorPass = "#bbb"; //#BDC3C7"; // SILVER
 var colorSelf = "rgb(0, 186, 255)"; // blue - like the 'you are here' in mapping software
 var colorNoVote = colorPass;
 // var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
