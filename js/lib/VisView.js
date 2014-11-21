@@ -59,7 +59,19 @@ var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 
+var ptptOiRadius = 16;
 var haloWidth = 4;
+var haloVoteWidth = 6;
+var anonBlobRadius = 22;
+var anonBlobHaloWidth = 8;
+var anonBlobHaloVoteWidth = 10;
+var maxRad = _.max([
+    ptptOiRadius + haloWidth, // not sure if halowidth should be /2
+    ptptOiRadius + haloVoteWidth, // not sure if haloVoteWidth should be /2
+    anonBlobRadius + anonBlobHaloWidth,  // not sure if anonBlobHaloWidth should be /2
+    anonBlobRadius + anonBlobHaloVoteWidth  // not sure if anonBlobHaloVoteWidth should be /2
+]);
+
 
 
 var bidToGid = {};
@@ -924,7 +936,8 @@ function chooseDisplayForArrows(d) {
 }
 
 function chooseDisplayForGrayHalo(d) {
-    return !shouldDisplayArrows(d) ? "inherit" : "none";
+    return "inherit";
+    // return !shouldDisplayArrows(d) ? "inherit" : "none";
 }
 
 
@@ -1016,7 +1029,7 @@ function chooseUpArrowPath(d) {
     var ratio =  d.ups / (d.ups + d.downs);
     ratio = Math.min(ratio, 0.99999);
 
-    var r = 18;
+    var r = chooseCircleRadius(d);
     var start = pieChartOrigin - (TAU*ratio/2);//degrees/2;
     var end = pieChartOrigin + (TAU*ratio/2); // -degrees/2;
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
@@ -1060,7 +1073,7 @@ function chooseDownArrowPath(d) {
     var ratio =  d.downs / (d.ups + d.downs);
     ratio = Math.min(ratio, 0.99999);
 
-    var r = 18;
+    var r = chooseCircleRadius(d);
     var TAU = Math.PI*2;
     var start = (pieChartOrigin - Math.PI) - (TAU*ratio/2);//degrees/2;
     var end = (pieChartOrigin - Math.PI) + (TAU*ratio/2); // -degrees/2;
@@ -1126,24 +1139,28 @@ function getInsetTarget(d) {
     return {x: d.x, y: d.y}
 }
 
+function isSummaryBucket(d) {
+    return d.isSummaryBucket;
+}
 
 function chooseCircleRadius(d) {
-    if (d.isSummaryBucket) {
-        return 16;
+    if (isSummaryBucket(d)) {
+        return anonBlobRadius;
     } else {
-        return bucketRadiusForCount(d.count);
+        return ptptOiRadius;  //bucketRadiusForCount(d.count);
     }
 }
+
 function chooseCircleRadiusOuter(d) {
     var r = chooseCircleRadius(d);
     if (isSelf(d)) {
         r *= 2;
     }
     if (isParticipantOfInterest(d)) {
-        r = 16;
+        r = ptptOiRadius;
     }
     if (d.isSummaryBucket) {
-        r = 16;
+        r = anonBlobRadius;
     }
     return r;
 }
@@ -1276,7 +1293,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         // sqrt(base**2 * count)
         return Math.sqrt(baseSquared * count);
     };
-    var maxRad = bucketRadiusForCount(maxCount);
+    // var maxRad = bucketRadiusForCount(maxCount);
 
   function createScales(updatedNodes) {
     var spans = computeXySpans(updatedNodes);
@@ -1502,13 +1519,21 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("grayHalo", true)
         .attr("cx", 0)
         .attr("cy", 0)
-        .attr("r", 18)
+        .attr("r", function(d) {
+            if (isSummaryBucket(d)) {
+                return anonBlobRadius;
+            }
+            if (isParticipantOfInterest(d)) {
+                return ptptOiRadius;
+            }
+            return ptptOiRadius;
+        })
         .attr("stroke", "lightgray")
         .attr("stroke-width", function(d) {
-            if (isParticipantOfInterest(d)) {
-                return haloWidth;
+            if (d.isSummaryBucket) {
+                return anonBlobHaloWidth;
             } else {
-                return haloWidth + 4;
+                return haloWidth;
             }
         })
         .attr("fill", "rgba(0,0,0,0)")
@@ -1517,6 +1542,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             // .style("opacity", 0.5)
         ;
 
+       
+
 
       // INNER SCALE-CHANGING SHAPES
       var upArrowEnterInner = g.append("path")
@@ -1524,10 +1551,10 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("bktvi", true)
         .style("fill", "rgba(0,0,0,0)")
         .attr("stroke-width", function(d) {
-            if (isParticipantOfInterest(d)) {
-                return haloWidth;
+            if (isSummaryBucket(d)) {
+                return anonBlobHaloVoteWidth;
             } else {
-                return haloWidth + 4;
+                return haloVoteWidth;
             }
         })
         .style("stroke", colorPull)
@@ -1539,10 +1566,10 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("bktvi", true)
         .style("fill", "rgba(0,0,0,0)")
         .attr("stroke-width", function(d) {
-            if (isParticipantOfInterest(d)) {
-                return haloWidth;
+            if (d.isSummaryBucket) {
+                return anonBlobHaloVoteWidth;
             } else {
-                return haloWidth + 4;
+                return haloVoteWidth;
             }
         })
         .style("stroke", colorPush)
@@ -1572,6 +1599,26 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   .attr("transform", function(d) {
       //       return "translate(12, 6)";
       //   });
+
+
+        g.filter(isSummaryBucket)
+        .append("text")
+        // .classed("help", true)
+        // .classed("help_text_you", true)
+        .text(function(d) {
+            return "+1.4K"; //"+" + d.count;
+        })
+        .style("font-family", "helvetica") // TODO
+        .style("font-size", "14px")
+        .attr("text-anchor", "middle")
+        .attr("alignment-baseline", "middle")
+        // .attr("fill", "rgba(0,0,0,1.0)")
+        // .attr("fill", colorSelf)
+        // .attr("stroke", colorSelfOutline)
+        // .attr("transform", function(d) {
+        //     return "translate(12, 6)";
+        // });
+        ;
 
 
 
