@@ -1574,7 +1574,24 @@ function clientSideBaseCluster(things, N) {
 
     function getReactionsToComment(tid) {
         var dfd = $.Deferred();
-        var buckets = votesForTidBid[tid];
+        var buckets = $.extend({}, votesForTidBid[tid]);
+
+        _.each(participantsOfInterestVotes, function(o, pid) {
+            var votesVectorInAscii_adpu_format = o.votes;
+            var voteForPtpoi = votesVectorInAscii_adpu_format[tid];
+            if (voteForPtpoi === "a") {
+                // buckets.A[pid] = buckets.A[pid] || {};
+                buckets.A[o.fakeBid] = 1;
+                buckets.D[o.fakeBid] = 0;
+            }
+            if (voteForPtpoi === "d") {
+                // buckets.D[pid] = buckets.D[pid] || {};
+                buckets.A[o.fakeBid] = 0;
+                buckets.D[o.fakeBid] = 1;
+            }
+            // buckets[o.fakeBid] = votesVectorInAscii_adpu_format[tid];
+        });
+        // debugger;
         // var myVotes = votesByMe.filter(function() { return true; });
 
 //         // Splice my votes in for self group.

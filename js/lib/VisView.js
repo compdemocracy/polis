@@ -59,7 +59,7 @@ var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 
-var haloWidth = 8;
+var haloWidth = 4;
 
 
 var bidToGid = {};
@@ -542,7 +542,7 @@ function updateHulls() {
     function tesselatePoint(xyPair) {
         var x = xyPair[0];
         var y = xyPair[1];
-        var r = chooseCircleRadiusOuter(xyPair[2]);  // + 5?
+        var r = chooseCircleRadiusOuter(xyPair[2]) + 5;
         var points = [];
         var theta = 0;
         var tau = 6.28318;
@@ -887,7 +887,8 @@ function moveTowardsTarget(x, y, targetX, targetY, dist) {
 }
 
 function chooseDisplayForCircle(d) {
-    return shouldDisplayCircle(d) ? "inherit" : "none";
+    return "inherit";
+    // return shouldDisplayCircle(d) ? "inherit" : "none";
 }
 
 
@@ -921,6 +922,12 @@ function shouldDisplayArrows(d) {
 function chooseDisplayForArrows(d) {
     return shouldDisplayArrows(d) ? "inherit" : "none";
 }
+
+function chooseDisplayForGrayHalo(d) {
+    return !shouldDisplayArrows(d) ? "inherit" : "none";
+}
+
+
 
 function chooseFill(d) {
     // if (commentIsSelected()) {
@@ -1133,6 +1140,9 @@ function chooseCircleRadiusOuter(d) {
         r *= 2;
     }
     if (isParticipantOfInterest(d)) {
+        r = 16;
+    }
+    if (d.isSummaryBucket) {
         r = 16;
     }
     return r;
@@ -1487,21 +1497,56 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             .style("opacity", 0.5)
         ;
 
+        var grayHaloEnter = g.append("circle")
+          grayHaloEnter
+        .classed("grayHalo", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .attr("r", 18)
+        .attr("stroke", "lightgray")
+        .attr("stroke-width", function(d) {
+            if (isParticipantOfInterest(d)) {
+                return haloWidth;
+            } else {
+                return haloWidth + 4;
+            }
+        })
+        .attr("fill", "rgba(0,0,0,0)")
+        .filter(isSelf)
+            .style("stroke", colorSelf)
+            // .style("opacity", 0.5)
+        ;
+
+
       // INNER SCALE-CHANGING SHAPES
       var upArrowEnterInner = g.append("path")
         .classed("up", true)
         .classed("bktvi", true)
         .style("fill", "rgba(0,0,0,0)")
-        .style("stroke-width", haloWidth + "px")
+        .attr("stroke-width", function(d) {
+            if (isParticipantOfInterest(d)) {
+                return haloWidth;
+            } else {
+                return haloWidth + 4;
+            }
+        })
         .style("stroke", colorPull)
+        .style("opacity", 0.5)
         ;
 
       var downArrowEnterInner = g.append("path")
         .classed("down", true)
         .classed("bktvi", true)
         .style("fill", "rgba(0,0,0,0)")
-        .style("stroke-width", haloWidth + "px")
+        .attr("stroke-width", function(d) {
+            if (isParticipantOfInterest(d)) {
+                return haloWidth;
+            } else {
+                return haloWidth + 4;
+            }
+        })
         .style("stroke", colorPush)
+        .style("opacity", 0.5)
         ;
 
       var circleEnterInner = g.append("circle")
@@ -1812,12 +1857,17 @@ function doUpdateNodes() {
       var update = visualization.selectAll(".node");
         var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
-          .attr("d", chooseUpArrowPath)
+          .attr("d", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
         var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
-          .attr("d", chooseDownArrowPath)
+          .attr("d", chooseDownArrowPath) // NOTE: using tranform to select the scale
           ;
+        var grayHaloUpdate = update.selectAll(".grayHalo").data(nodes, key)
+          .style("display", chooseDisplayForGrayHalo)
+          ;
+
+
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
           .style("display", chooseDisplayForOuterCircle)
           .attr("r", chooseCircleRadiusOuter)
