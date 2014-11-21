@@ -58,6 +58,10 @@ var selectedTid = -1;
 var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
+
+var haloWidth = 8;
+
+
 var bidToGid = {};
 var bidToBucket = {};
 
@@ -96,8 +100,8 @@ window.color = function() {
     colorPush = "rgb(234, 77, 30)";
 
     var update = visualization.selectAll(".node");
-    update.selectAll(".up.bktvi").style("fill", colorPull);
-    update.selectAll(".down.bktvi").style("fill", colorPush);
+    update.selectAll(".up.bktvi").style("stroke", colorPull);
+    update.selectAll(".down.bktvi").style("stroke", colorPush);
 }
 
 var colorPass = "#BDC3C7"; // SILVER
@@ -988,63 +992,115 @@ function makeArrowPoints(scale, yOffset, shouldFlipY) {
     return leftBottom + " " + rightBottom + " " + center;
 }
 
+var TAU = Math.PI*2;
+var pieChartOrigin = 3/4*TAU;
+
 function chooseUpArrowPath(d) {
     if (!d.ups) { return; }
-    var scale = bucketRadiusForCount(d.ups || 0);
+    // var scale = bucketRadiusForCount(d.ups || 0);
 
-    var scaleDowns = bucketRadiusForCount(d.downs || 0);
+    // var scaleDowns = bucketRadiusForCount(d.downs || 0);
 
-    var sum = scale + scaleDowns;
-    var yOffset = scale - sum/2;
+    // var sum = scale + scaleDowns;
+    // var yOffset = scale - sum/2;
 
-    return makeArrowPoints(scale, yOffset, true);
+    // return makeArrowPoints(scale, yOffset, true);
+
+    var ratio =  d.ups / (d.ups + d.downs);
+    ratio = Math.min(ratio, 0.99999);
+
+    var r = 18;
+    var start = pieChartOrigin - (TAU*ratio/2);//degrees/2;
+    var end = pieChartOrigin + (TAU*ratio/2); // -degrees/2;
+    var largeArcFlag = ratio > 0.5 ? 1 : 0;
+    return generateWedgeString(0, 0, start, end, r, largeArcFlag, false);
+
+
 }
+
+
+var generateWedgeString = function(startX, startY, startAngle, endAngle, radius, largeArcFlag, shouldClose){
+        var x1 = startX + radius * Math.cos(startAngle);
+        var y1 = startY + radius * Math.sin(startAngle);
+        var x2 = startX + radius * Math.cos(endAngle);
+        var y2 = startY + radius * Math.sin(endAngle);
+
+        var pathString = "M";
+        if (shouldClose) {
+            pathString += startX + " " + startY + " L" + x1 + " " + y1;
+        } else {
+            pathString += x1 + " " + y1;
+        }
+        var sweepFlag = 1;
+        pathString += " A" + radius + " " + radius + " 0 " + largeArcFlag + " " + sweepFlag + " " + x2 + " " + y2;
+        if (shouldClose) {
+            pathString += " z";
+        }
+        return pathString;
+
+    }
 
 function chooseDownArrowPath(d) {
     if (!d.downs) { return; }
-    var scale = bucketRadiusForCount(d.downs || 0);
-    var scaleUps = bucketRadiusForCount(d.ups || 0);
-    var sum = scale + scaleUps;
-    var yOffset = scaleUps - sum/2;
-    return makeArrowPoints(scale, yOffset, false);
+    // var scale = bucketRadiusForCount(d.downs || 0);
+    // var scaleUps = bucketRadiusForCount(d.ups || 0);
+    // var sum = scale + scaleUps;
+    // var yOffset = scaleUps - sum/2;
+    // return makeArrowPoints(scale, yOffset, false);
+
+
+
+    var ratio =  d.downs / (d.ups + d.downs);
+    ratio = Math.min(ratio, 0.99999);
+
+    var r = 18;
+    var TAU = Math.PI*2;
+    var start = (pieChartOrigin - Math.PI) - (TAU*ratio/2);//degrees/2;
+    var end = (pieChartOrigin - Math.PI) + (TAU*ratio/2); // -degrees/2;
+
+    console.log(ratio, start, end);
+    var largeArcFlag = ratio > 0.5 ? 1 : 0;
+    return generateWedgeString(0, 0, start, end, r, largeArcFlag, false);
+
+
 }
 
 
-function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
-    var left = -scale;
-    var right = scale;
-    // equilateral triangle
-    var top = Math.sqrt(3 * right * right);
-    if (shouldFlipY) {
-        top *= -1;
-    }
-    top += originY;
-    var bottom = originY;
-    right += originX;
-    left += originX;
+// function makeArrowPoints2(scale, shouldFlipY, originX, originY) {
+//     var left = -scale;
+//     var right = scale;
+//     // equilateral triangle
+//     var top = Math.sqrt(3 * right * right);
+//     if (shouldFlipY) {
+//         top *= -1;
+//     }
+//     top += originY;
+//     var bottom = originY;
+//     right += originX;
+//     left += originX;
 
-    var f = function(x) {
-        return Math.floor(x*10)/10;
-    };
+//     var f = function(x) {
+//         return Math.floor(x*10)/10;
+//     };
 
-    var leftBottom = f(left) + " " + f(bottom);
-    var rightBottom = f(right) + " " + f(bottom);
-    var center = f(originX) + " " + f(top);
-    var s =  "M " + leftBottom + " L " + rightBottom + " L " + center + " L " + leftBottom + " Z";
-    return s;
-}
+//     var leftBottom = f(left) + " " + f(bottom);
+//     var rightBottom = f(right) + " " + f(bottom);
+//     var center = f(originX) + " " + f(top);
+//     var s =  "M " + leftBottom + " L " + rightBottom + " L " + center + " L " + leftBottom + " Z";
+//     return s;
+// }
 
-function chooseUpArrowPath2(ups, originX, originY) {
-    if (!ups) { return; }
-    var scale = bucketRadiusForCount(ups || 0);
-    return makeArrowPoints2(scale, true, originX, originY);
-}
+// function chooseUpArrowPath2(ups, originX, originY) {
+//     if (!ups) { return; }
+//     var scale = bucketRadiusForCount(ups || 0);
+//     return makeArrowPoints2(scale, true, originX, originY);
+// }
 
-function chooseDownArrowPath2(downs, originX, originY) {
-    if (!downs) { return; }    
-    var scale = bucketRadiusForCount(downs || 0);
-    return makeArrowPoints2(scale, false, originX, originY);
-}
+// function chooseDownArrowPath2(downs, originX, originY) {
+//     if (!downs) { return; }    
+//     var scale = bucketRadiusForCount(downs || 0);
+//     return makeArrowPoints2(scale, false, originX, originY);
+// }
 
 
 
@@ -1432,16 +1488,20 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         ;
 
       // INNER SCALE-CHANGING SHAPES
-      var upArrowEnterInner = g.append("polygon")
+      var upArrowEnterInner = g.append("path")
         .classed("up", true)
         .classed("bktvi", true)
-        .style("fill", colorPull)
+        .style("fill", "rgba(0,0,0,0)")
+        .style("stroke-width", haloWidth + "px")
+        .style("stroke", colorPull)
         ;
 
-      var downArrowEnterInner = g.append("polygon")
+      var downArrowEnterInner = g.append("path")
         .classed("down", true)
         .classed("bktvi", true)
-        .style("fill", colorPush)
+        .style("fill", "rgba(0,0,0,0)")
+        .style("stroke-width", haloWidth + "px")
+        .style("stroke", colorPush)
         ;
 
       var circleEnterInner = g.append("circle")
@@ -1752,11 +1812,11 @@ function doUpdateNodes() {
       var update = visualization.selectAll(".node");
         var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
-          .attr("points", chooseUpArrowPath) // NOTE: using tranform to select the scale
+          .attr("d", chooseUpArrowPath)
           ;
         var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
-          .attr("points", chooseDownArrowPath) // NOTE: using tranform to select the scale
+          .attr("d", chooseDownArrowPath)
           ;
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
           .style("display", chooseDisplayForOuterCircle)
