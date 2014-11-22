@@ -1786,7 +1786,7 @@ function(req, res) {
 });
 
 
-var pcaCacheSize = process.env.CACHE_MATH_RESULTS ? 3000 : 0;
+var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 3000 : 0;
 var pcaCache = new SimpleCache({
     maxSize: pcaCacheSize,
 });
@@ -1989,8 +1989,8 @@ function(req, res) {
             // check whether we should return a 304 or a 404
             if (_.isUndefined(pcaResultsExistForZid[zid])) {
                 // This server doesn't know yet if there are any PCA results in the DB
-                // So try querying from 0
-                getPca(zid, 0).then(function(data) {
+                // So try querying from -1
+                getPca(zid, -1).then(function(data) {
                     var exists = !!data;
                     pcaResultsExistForZid[zid] = exists;
                     finishWith304or404();
