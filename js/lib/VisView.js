@@ -1613,7 +1613,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         // .classed("help", true)
         // .classed("help_text_you", true)
         .text(function(d) {
-            return d.count;
+            return "+" + d.count;
         })
         .style("font-family", "helvetica") // TODO
         .style("font-size", "14px")
