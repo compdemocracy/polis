@@ -1615,7 +1615,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .text(function(d) {
             return "+" + d.count;
         })
-        .style("font-family", "helvetica") // TODO
+        .style("font-family", "chaparral-pro, helvetica") // TODO
         .style("font-size", "14px")
         .attr("text-anchor", "middle")
         .attr("alignment-baseline", "middle")
