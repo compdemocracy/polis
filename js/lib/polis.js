@@ -1102,7 +1102,8 @@ function clientSideBaseCluster(things, N) {
     function fetchPca(path, timestamp) {
         return polisGet(path, {
             lastVoteTimestamp: timestamp,
-            conversation_id: conversation_id
+            conversation_id: conversation_id,
+            cacheBust: (Math.random()*1e9 >> 0)
         }).pipe( function(pcaData, textStatus, xhr) {
                 if (304 === xhr.status) {
                     // not nodified

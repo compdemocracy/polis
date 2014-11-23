@@ -1610,11 +1610,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
         g.filter(isSummaryBucket)
         .append("text")
+        .classed("summaryLabel", true)
         // .classed("help", true)
         // .classed("help_text_you", true)
-        .text(function(d) {
-            return "+" + d.count;
-        })
         .style("font-family", "chaparral-pro, helvetica") // TODO
         .style("font-size", "14px")
         .attr("text-anchor", "middle")
@@ -1956,6 +1954,15 @@ function doUpdateNodes() {
                 return "100%";
             }
           });
+
+          update.selectAll(".summaryLabel")
+            .text(function(d) {
+                var s = "+";
+                if (!_.isUndefined(d.ups) && !_.isUndefined(d.downs)) {
+                    return s + (d.ups + d.downs);
+                }
+                return "+" + d.count;
+            });
   }
 }
 
