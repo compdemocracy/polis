@@ -112,7 +112,7 @@ module.exports = function(params) {
 
     var conversation_id = params.conversation_id;
     var zinvite = params.zinvite;
-    var pid = params.pid;
+    var myPid = params.pid;
 
     var means = null; // TODO move clustering into a separate file
 
@@ -604,7 +604,7 @@ module.exports = function(params) {
     function bucketizeParticipantOfInterest(o, ptptoiData) {
         var bucket = new Bucket({
             pic: ptptoiData.profile_image_url_https,
-            // containsSelf: false, // undefined for falsy
+            containsSelf: o.containsSelf,
             ptptoi: true,
             proj: o.proj,
             count: 1,
@@ -1412,12 +1412,29 @@ function clientSideBaseCluster(things, N) {
         people = people || [];
         people = _.clone(people); // shallow copy
 
+        if(demoMode()) {
+            participantsOfInterestVotes[myPid] = {
+                bid: -1,
+                // created: "1416276055476"
+                // followers_count: 23
+                // friends_count: 47
+                // modified: "1416276055476"
+                pid: myPid,
+                profile_image_url_https: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
+                // screen_name: "mbjorkegren"
+                // twitter_user_id: 1131541
+                // uid: 91268
+                verified: false
+                //votes: "daaauduuuuuuudauu" // Votes will be found in a local collection
+                // zid: 12460
+            };
+        }
 
         for (var pid in participantsOfInterestVotes) {
             var ptpt = participantsOfInterestVotes[pid];
             var votesVectorInAscii_adpu_format = ptpt.votes || "";
             pid = parseInt(pid);
-            pid += 1000000000; // TODO figure out what bids to assign to ptptoi buckets, these fake pids are currently used for that
+            // pid += 1000000000; // TODO figure out what bids to assign to ptptoi buckets, these fake pids are currently used for that
             var temp = projectParticipant(
                 pid,
                 votesVectorInAscii_adpu_format
@@ -1629,10 +1646,10 @@ function clientSideBaseCluster(things, N) {
     }
 
     function getPid() {
-        if (!_.isId(pid)) {
+        if (!_.isId(myPid)) {
        //     alert("bad pid: " + pid);
         }
-        return pid;
+        return myPid;
     }
 
     function queryParticipantsByMetadata(pmaids) {
@@ -1699,33 +1716,43 @@ function clientSideBaseCluster(things, N) {
 
     function projectParticipant(pid, votesVectorInAscii_adpu_format) {
         var votesToUseForProjection = [];
-        var len = votesVectorInAscii_adpu_format.length;
-        for (var i = 0; i < len; i++) {
-            var c = votesVectorInAscii_adpu_format[i];
-            if (c !== "u" /* && c !== "p" */) { // TODO think about "p", and whether it should be counted in the jetpack vote count
-                if (c === "a") {
-                    votesToUseForProjection.push({
-                        vote: -1,
-                        tid: i
-                    });
-                } else if (c === "d") {
-                    votesToUseForProjection.push({
-                        vote: 1,
-                        tid: i
-                    });
-                } else if (c === "p") {
-                    votesToUseForProjection.push({
-                        vote: 0,
-                        tid: i
-                    });
-                } else {
-                    alert("bad vote encoding " + c);
+        if (pid === myPid) {
+            votesToUseForProjection = votesByMe.map(function(v) {
+                return {
+                    vote: v.get("vote"),
+                    tid: v.get("tid")
+                };
+            });
+        } else {
+            var len = votesVectorInAscii_adpu_format.length;
+            for (var i = 0; i < len; i++) {
+                var c = votesVectorInAscii_adpu_format[i];
+                if (c !== "u" /* && c !== "p" */) { // TODO think about "p", and whether it should be counted in the jetpack vote count
+                    if (c === "a") {
+                        votesToUseForProjection.push({
+                            vote: -1,
+                            tid: i
+                        });
+                    } else if (c === "d") {
+                        votesToUseForProjection.push({
+                            vote: 1,
+                            tid: i
+                        });
+                    } else if (c === "p") {
+                        votesToUseForProjection.push({
+                            vote: 0,
+                            tid: i
+                        });
+                    } else {
+                        alert("bad vote encoding " + c);
+                    }
                 }
             }
         }
         return project({
             pid: pid,
-            isBlueDot: false,
+            containsSelf: (pid === myPid),
+            isBlueDot: (pid === myPid), // TODO needed?
             isPtptoi: true,
             votes: votesToUseForProjection
         });
@@ -1739,6 +1766,7 @@ function clientSideBaseCluster(things, N) {
             return {
                 pid : o.pid,
                 isBlueDot: o.isBlueDot,
+                containsSelf: o.containsSelf,
                 isPtptoi: o.isPtptoi,
                 proj: {
                     x: x,
@@ -1768,6 +1796,7 @@ function clientSideBaseCluster(things, N) {
         return {
             pid : o.pid,
             isBlueDot: o.isBlueDot,
+            containsSelf: o.containsSelf,
             proj: {
                 x: x,
                 y: y
@@ -2007,7 +2036,7 @@ function clientSideBaseCluster(things, N) {
         }
         // buckets = reprojectForSubsetOfComments(buckets2);
         buckets2 = withParticipantsOfInterest(buckets2);
-        buckets2 = withProjectedSelf(buckets2);
+        // buckets2 = withProjectedSelf(buckets2);
 
         // remove empty buckets
         buckets2 = _.filter(buckets2, function(bucket) {

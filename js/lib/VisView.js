@@ -951,11 +951,11 @@ function chooseFill(d) {
     //     }
     // }
 
-    if (isSelf(d)) {
-        return colorSelf;
-    } else if (isParticipantOfInterest(d)) {
+    if (isParticipantOfInterest(d)) {
         // return "rgba(255,0,0,0.5)";
         return "rgba(0,0,0,0)";
+    } else if (isSelf(d)) {
+        return "rgba(0,0,0,0)"; //colorSelf;
     } else {
 
         // var gid = bidToGid[d.bid];
@@ -1507,11 +1507,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         })
       //   .style("opacity", opacityOuter)
       //   .style("fill", chooseFill)
-        .filter(isSelf)
-            .style("fill", "rgba(0,0,0,0)")
-            .style("stroke", colorSelf)
-            .style("stroke-width", 1)
-            .style("opacity", 0.5)
+        // .filter(isSelf)
+        //     .style("fill", "rgba(0,0,0,0)")
+        //     .style("stroke", colorSelf)
+        //     .style("stroke-width", 1)
+        //     .style("opacity", 0.5)
         ;
 
         var grayHaloEnter = g.append("circle")
@@ -1526,6 +1526,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             if (isParticipantOfInterest(d)) {
                 return ptptOiRadius;
             }
+            // if (isSelf(d)) {
+            //     return ptptOiRadius;
+            // }
             return ptptOiRadius;
         })
         .attr("stroke", "lightgray")
