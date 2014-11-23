@@ -116,21 +116,14 @@ window.color = function() {
     update.selectAll(".down.bktvi").style("stroke", colorPush);
 }
 
-var hideSelf = true;
-
 var colorPass = "#bbb"; //#BDC3C7"; // SILVER
 var colorSelf = "rgb(0, 186, 255)"; // blue - like the 'you are here' in mapping software
-if (hideSelf) {
-    colorSelf = "rgba(0,0,0,0)";
-}
 var colorNoVote = colorPass;
 // var colorSelfOutline = d3.rgb(colorSelf).darker().toString();
 // var colorPullOutline = d3.rgb(colorPull).darker().toString();
 // var colorPushOutline = d3.rgb(colorPush).darker().toString();
 var colorSelfOutline = "rgba(0, 0, 245, 0.25)";
-if (hideSelf) {
-    colorSelfOutline = "rgba(0,0,0,0)";
-}
+
 // Cached results of tunalbes - set during init
 var strokeWidth;
 // Since initialize is called on resize, clear the old vis before setting up the new one.
