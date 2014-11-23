@@ -101,7 +101,7 @@ module.exports = function(params) {
     var participantCount = 0;
     var bidToPid = [];
     var pidToBidCache = null;
-    var bid;
+    var myBid;
 
     var pollingScheduledCallbacks = [];
 
@@ -1598,6 +1598,10 @@ function clientSideBaseCluster(things, N) {
         var buckets = $.extend({}, votesForTidBid[tid]);
 
         _.each(participantsOfInterestVotes, function(o, pid) {
+            pid = parseInt(pid);
+            if (!o.votes || pid === myPid) {
+                return;
+            }
             var votesVectorInAscii_adpu_format = o.votes;
             var voteForPtpoi = votesVectorInAscii_adpu_format[tid];
             if (voteForPtpoi === "a") {
@@ -1612,16 +1616,10 @@ function clientSideBaseCluster(things, N) {
             }
             // buckets[o.fakeBid] = votesVectorInAscii_adpu_format[tid];
         });
-        // debugger;
-        // var myVotes = votesByMe.filter(function() { return true; });
+        var myVotes = votesByMe.filter(function(vote) { return tid === vote.get("tid"); });
+        buckets.A[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.pull; }).length > 0) ? 1:0;
+        buckets.D[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.push; }).length > 0) ? 1:0;
 
-//         // Splice my votes in for self group.
-//         buckets["self"] = {
-//             bid: "self",
-// //            ppl: [getPid()],
-//             A: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.pull; }),
-//             D: _.filter(myVotes, function(v) { return v.vote === polisTypes.reactions.push; })
-//         };
         // TODO reduce vote count for the bucket self is in.
         if (!buckets) {
             console.warn("no votes found for tid: " + tid);
@@ -1693,7 +1691,12 @@ function clientSideBaseCluster(things, N) {
             x = x || {};
             // assign fake bids for these projected participants
             for (var pid in x) {
-                x[pid].fakeBid = x[pid].pid + PTPOI_BID_OFFSET; // should be safe to say there aren't 10 billion buckets, so we can use this range
+                pid = parseInt(pid);
+                var bucketId = pid + PTPOI_BID_OFFSET; // should be safe to say there aren't 10 billion buckets, so we can use this range
+                if (pid === myPid) {
+                    myBid = bucketId;
+                }
+                x[pid].fakeBid = bucketId;
             }
             participantsOfInterestVotes = x;
             participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes), "bid");
