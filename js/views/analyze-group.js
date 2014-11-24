@@ -306,6 +306,24 @@ module.exports = Handlebones.View.extend({
               if (!display.xs()) {
                 this.owlControls.prependTo(elem);
               }
+
+                $(".owl-pagination").prepend('<a id="carouselPrev" style="vertical-align: super; cursor: pointer;">PREVIOUS</a>');
+
+                $(".owl-pagination").append('<a id="carouselNext" style="vertical-align: super; cursor: pointer;">NEXT</a>');
+              // <div id="carouselNext">next</div>")
+
+              $("#carouselNext").on("click", function(e) {
+                var owl = $("#smallWindow").data('owlCarousel');
+                owl.next();
+              });
+
+              $("#carouselPrev").on("click", function(e) {
+                var owl = $("#smallWindow").data('owlCarousel');
+                owl.prev();
+              });
+
+
+              
             },
              afterMove: (function() {return function() {
                 var tid = indexToTid[this.currentItem];
@@ -325,6 +343,7 @@ module.exports = Handlebones.View.extend({
             }
             // alert(e);
           });
+
           addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings);
           // Auto-select the first comment.
           eb.trigger(eb.commentSelected, indexToTid[0]);
