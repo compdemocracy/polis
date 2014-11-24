@@ -62,7 +62,7 @@ var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 var ptptOiRadius = 16;
 var haloWidth = 4;
 var haloVoteWidth = 6;
-var anonBlobRadius = 22;
+var anonBlobRadius = 24;
 var anonBlobHaloWidth = 8;
 var anonBlobHaloVoteWidth = 10;
 var maxRad = _.max([
@@ -330,7 +330,7 @@ if (isIE8) {
 window.vis = visualization; // TODO why? may prevent GC
 
 strokeWidth = strokeWidthGivenVisWidth(w);
-charge = chargeForGivenVisWidth(w);
+charge = -30; //chargeForGivenVisWidth(w);
 
 queryResults = $(el_queryResultSelector).html("");
 
@@ -1609,8 +1609,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("summaryLabel", true)
         // .classed("help", true)
         // .classed("help_text_you", true)
-        .style("font-family", "chaparral-pro, helvetica") // TODO
-        .style("font-size", "14px")
+        .style("font-family", "Tahoma") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+        .style("font-size", "9px")
+        // .style("font-weight", "bold")
         .attr("text-anchor", "middle")
         .attr("alignment-baseline", "middle")
         // .attr("fill", "rgba(0,0,0,1.0)")
@@ -1953,6 +1954,7 @@ function doUpdateNodes() {
 
           update.selectAll(".summaryLabel")
             .text(function(d) {
+                // return "Disagreed";
                 var s = "+";
                 if (!_.isUndefined(d.ups) && !_.isUndefined(d.downs)) {
                     return s + (d.ups + d.downs);
