@@ -75,6 +75,9 @@ var maxRad = _.max([
 ]);
 
 
+// framerate can be low on mobile, so make it quick
+var speed = d3.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(width);
+
 
 var bidToGid = {};
 var bidToBucket = {};
@@ -354,9 +357,9 @@ if (useForce) {
         .charge(function(d) {
             // slight overlap allowed
             if (isSummaryBucket(d)) {
-                return -20;
+                return -90;
             } else {
-                return -10;
+                return -40;
             }
         })
         .size([w, h]);
@@ -725,7 +728,7 @@ function updateNodesOnTick(e) {
       // Push nodes toward their designated focus.
       if (e && _.isNumber(e.alpha)) {
         // Force Layout scenario
-        var k = 0.1 * e.alpha;
+        var k = speed * e.alpha;
         // if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
         nodes.forEach(function(o) {
           //o.x = o.targetX;
@@ -1306,7 +1309,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
   function createScales(updatedNodes) {
     var spans = computeXySpans(updatedNodes);
-    var border = maxRad + strokeWidth + 0;
+    var border = maxRad + strokeWidth + 10;
     return {
         x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
         y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
