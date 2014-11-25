@@ -642,6 +642,9 @@ module.exports =  ConversationView.extend({
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
+          setTimeout(function() {
+            $("#carousel").fadeIn("slow");
+          }, 100);
         // that.analyzeGroupView.sortRepness();
       });
       // that.analyzeGlobalView.showCarousel();
