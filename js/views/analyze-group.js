@@ -307,9 +307,9 @@ module.exports = Handlebones.View.extend({
                 this.owlControls.prependTo(elem);
               }
 
-                $(".owl-pagination").prepend('<a id="carouselPrev" style="vertical-align: super; cursor: pointer;">PREVIOUS</a>');
+                $(".owl-pagination").prepend('<a id="carouselPrev" class="HeadingD" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-right: 10px">PREVIOUS</a>');
+                $(".owl-pagination").append( '<a id="carouselNext" class="HeadingD" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-left: 10px;">NEXT</a>');
 
-                $(".owl-pagination").append('<a id="carouselNext" style="vertical-align: super; cursor: pointer;">NEXT</a>');
               // <div id="carouselNext">next</div>")
 
               $("#carouselNext").on("click", function(e) {
