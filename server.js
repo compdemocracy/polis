@@ -6817,19 +6817,56 @@ function(req, res) {
     });
 });
 
+
+function getFacebookFriendsInConversation(zid, uid) {
+    if (!uid) {
+        return Promise.resolve([]);
+    }
+    return pgQueryP("select * from (select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends) as fb natural left join facebook_users) as fb2 inner join (select * from participants where zid = ($1)) as p on fb2.uid = p.uid;", [zid, uid]);
+        //"select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends where uid in (select uid from participants where zid = ($1))) as fb natural left join facebook_users;", [zid, uid]);
+}
+
+function getTwitterUsersInConversation(zid) {
+    return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1);", [zid]);
+}
+
+function getVotesForPids(zid, pids) {
+    if (pids.length === 0) {
+        return Promise.resolve([]);
+    }
+    return pgQueryP("select * from votes where zid = ($1) and pid in (" + pids.join(",") + ") order by pid, tid, created;", [zid]);
+}
+
 app.get("/api/v3/votes/famous",
     moveToBody,
+    authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
+    var uid = req.p.uid;
     var zid = req.p.zid;
-    pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1);", [zid]).then(function(twitterParticipants) {
+    Promise.all([
+        getFacebookFriendsInConversation(zid, uid),
+        getTwitterUsersInConversation(zid),
+    ]).then(function(stuff) {
+        var facebookFriends = stuff[0];
+        var twitterParticipants = stuff[1];
+        var pidToData = {};
         var pids = twitterParticipants.map(function(p) {
             return p.pid;
         });
-        var pidToData = {};
-        twitterParticipants.forEach(function(p) {
-            pidToData[p.pid] = p;
+        facebookFriends.forEach(function(p) {
+            pids.push(p.pid);
+            pidToData[p.pid] = pidToData[p.pid] || {};
+            pidToData[p.pid].facebook = p;
         });
+        twitterParticipants.forEach(function(p) {
+            pids.push(p.pid);
+            pidToData[p.pid] = pidToData[p.pid] || {};
+            pidToData[p.pid].twitter = p;
+        });
+        pids.sort();
+        pids = _.uniq(pids, true);
+
         function createEmptyVoteVector(greatestTid) {
             var a = [];
             for (var i = 0; i <= greatestTid; i++) {
@@ -6837,7 +6874,8 @@ function(req, res) {
             }
             return a;
         }
-        return pgQueryP("select * from votes where zid = ($1) and pid in (" + pids.join(",") + ") order by pid, tid, created;", [zid]).then(function(votes) {
+
+        return getVotesForPids(zid, pids).then(function(votes) {
             var i = 0;
             var greatestTid = 0;
             for (i = 0; i < votes.length; i++) {
