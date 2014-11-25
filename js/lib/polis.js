@@ -1447,6 +1447,11 @@ function clientSideBaseCluster(things, N) {
     }
 
     function sendUpdatedVisData(people, clusters, participantCount, projectedComments) {
+        // make deep copy so the vis doesn't muck with the model
+        people = _.map(people, function(p) {
+            var deep = true;
+            return $.extend(deep, {}, p);
+        });
         personUpdateCallbacks.fire(people || [], clusters || [], participantCount, projectedComments);
     }
 
