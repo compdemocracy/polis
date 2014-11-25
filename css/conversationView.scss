@@ -271,6 +271,7 @@ svg {
   padding-bottom: 4px;
   cursor: pointer;
   font-size: 12px;
+  white-space: nowrap;
 }
 #sortAgree.sort.enabled {
   color: $color_agree;
