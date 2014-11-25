@@ -59,12 +59,14 @@ var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 
-var ptptOiRadius = 16;
-var haloWidth = 4;
-var haloVoteWidth = 6;
+var width = $(el_raphaelSelector).width();
+
+var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
+var haloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
+var haloVoteWidth = d3.scale.linear().range([4, 6]).domain([350, 800]).clamp(true)(width);
 var anonBlobRadius = 24;
-var anonBlobHaloWidth = 8;
-var anonBlobHaloVoteWidth = 10;
+var anonBlobHaloWidth = d3.scale.linear().range([4, 8]).domain([350, 800]).clamp(true)(width);
+var anonBlobHaloVoteWidth = d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
 var maxRad = _.max([
     ptptOiRadius + haloWidth, // not sure if halowidth should be /2
     ptptOiRadius + haloVoteWidth, // not sure if haloVoteWidth should be /2
@@ -271,7 +273,7 @@ $(el_selector)
             "<circle cx = '6' cy = '6' r = '5' style='fill:#222;'/>" +
         "</marker>" +
         "<clipPath id=\"clipCircle\">" +
-            "<circle r=\"16\" cx=\"0\" cy=\"0\"/>" +
+            "<circle r=\"" + ptptOiRadius +"\" cx=\"0\" cy=\"0\"/>" +
         "</clipPath>" +
     "</defs>" +
     // "<g>" +
@@ -330,7 +332,7 @@ if (isIE8) {
 window.vis = visualization; // TODO why? may prevent GC
 
 strokeWidth = strokeWidthGivenVisWidth(w);
-charge = -30; //chargeForGivenVisWidth(w);
+charge = -60; //chargeForGivenVisWidth(w);
 
 queryResults = $(el_queryResultSelector).html("");
 
@@ -341,7 +343,7 @@ $(el_queryResultSelector).hide();
 
     //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
-var useForce = !isMobile && !isIE8;
+var useForce = !isIE8;
 // var useForce = false;
 if (useForce) {
     force = d3.layout.force()
@@ -349,7 +351,14 @@ if (useForce) {
         .links([])
         .friction(0.9) // more like viscosity [0,1], defaults to 0.9
         .gravity(0)
-        .charge(charge) // slight overlap allowed
+        .charge(function(d) {
+            // slight overlap allowed
+            if (isSummaryBucket(d)) {
+                return -20;
+            } else {
+                return -10;
+            }
+        })
         .size([w, h]);
 }
 
@@ -1496,11 +1505,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       picEnter
         // .classed("circle", true)
         .classed("bktv", true)
-        .attr("x", -16)
-        .attr("y", -16)
+        .attr("x", -ptptOiRadius)
+        .attr("y", -ptptOiRadius)
         // .style("visibility", "hidden")
-        .attr("height", 32)
-        .attr("width", 32)
+        .attr("height", ptptOiRadius*2)
+        .attr("width", ptptOiRadius*2)
         .attr("clip-path", "url(#clipCircle)")
         .attr("xlink:href", function(d) {
             return d.pic;
