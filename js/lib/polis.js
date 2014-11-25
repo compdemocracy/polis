@@ -603,7 +603,7 @@ module.exports = function(params) {
 
     function bucketizeParticipantOfInterest(o, ptptoiData) {
         var bucket = new Bucket({
-            pic: ptptoiData.profile_image_url_https,
+            pic: ptptoiData.picture,
             containsSelf: o.containsSelf,
             ptptoi: true,
             proj: o.proj,
@@ -1416,17 +1416,23 @@ function clientSideBaseCluster(things, N) {
             participantsOfInterestVotes[myPid] = {
                 bid: -1,
                 // created: "1416276055476"
-                // followers_count: 23
-                // friends_count: 47
                 // modified: "1416276055476"
-                pid: myPid,
-                profile_image_url_https: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
-                // screen_name: "mbjorkegren"
-                // twitter_user_id: 1131541
                 // uid: 91268
-                verified: false
-                //votes: "daaauduuuuuuudauu" // Votes will be found in a local collection
                 // zid: 12460
+                //votes: "daaauduuuuuuudauu" // Votes will be found in a local collection
+                picture: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
+                twitter: {
+                    pid: myPid,
+                    // followers_count: 23
+                    // friends_count: 47
+                    profile_image_url_https: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
+                    // screen_name: "mbjorkegren"
+                    // twitter_user_id: 1131541
+                    verified: false
+                },
+                facebook: {
+                    // ... 
+                }
             };
         }
 
@@ -1701,7 +1707,20 @@ function clientSideBaseCluster(things, N) {
                 if (pid === myPid) {
                     myBid = bucketId;
                 }
-                x[pid].fakeBid = bucketId;
+                var ptpt = x[pid];
+                ptpt.fakeBid = bucketId;
+
+                if (ptpt.twitter) {
+                    ptpt.picture = ptpt.twitter.profile_image_url_https;
+                }
+
+                // override with FB if they have it
+                if (ptpt.facebook && 
+                    ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
+                    ) {
+                    ptpt.facebook.picture = "https://graph.facebook.com/v2.2/"+ ptpt.facebook.fb_user_id +"/picture";
+                    ptpt.picture = ptpt.facebook.picture;
+                }
             }
             participantsOfInterestVotes = x;
             participantsOfInterestBids = _.pluck(_.values(participantsOfInterestVotes), "bid");
