@@ -6822,7 +6822,7 @@ function getFacebookFriendsInConversation(zid, uid) {
     if (!uid) {
         return Promise.resolve([]);
     }
-    return pgQueryP("select * from (select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends) as fb natural left join facebook_users) as fb2 inner join (select * from participants where zid = ($1)) as p on fb2.uid = p.uid;", [zid, uid]);
+    return pgQueryP("select * from (select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2) union select uid from facebook_users where uid = ($2)) as friends) as fb natural left join facebook_users) as fb2 inner join (select * from participants where zid = ($1)) as p on fb2.uid = p.uid;", [zid, uid]);
         //"select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends where uid in (select uid from participants where zid = ($1))) as fb natural left join facebook_users;", [zid, uid]);
 }
 
