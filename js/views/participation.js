@@ -3,7 +3,7 @@ var AnalyzeGroupView = require("../views/analyze-group");
 var Backbone = require("backbone");
 var eb = require("../eventBus");
 var template = require('../tmpl/participation');
-var CommentView = require('../views/vote-view');
+var ReadReactView = require('../views/ReadReactView');
 var CommentFormView = require("../views/comment-form");
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
@@ -14,7 +14,6 @@ var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
 var ParticipantModel = require("../models/participant");
 var ConversationView = require("../views/conversation");
-var CommentModel = require("../models/comment");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
 var ResultsCollection = require("../collections/results");
@@ -151,10 +150,10 @@ module.exports =  ConversationView.extend({
     var serverClient = this.serverClient;
 
     // initialize this first to ensure that the vote view is showing and populated ASAP
-    this.commentView = this.addChild(new CommentView({
+    this.readReactView = this.addChild(new ReadReactView({
       firstCommentPromise: options.firstCommentPromise,
       serverClient: serverClient,
-      model: new CommentModel(),
+      model: new Backbone.Model(),
       conversationModel: this.model,
       votesByMe: this.votesByMe,
       is_public: Utils.isShortConversationId(this.conversation_id),
