@@ -308,20 +308,28 @@ module.exports = Handlebones.View.extend({
                 this.owlControls.prependTo(elem);
               }
 
+           // setTimeout(function() {
+              $("#carousel").fadeIn("slow", function() {
+
+
                 $(".owl-pagination").prepend('<button id="carouselPrev" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-right: 10px">PREVIOUS</button>');
                 $(".owl-pagination").append( '<button id="carouselNext" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-left: 10px;">NEXT</button>');
 
-              // <div id="carouselNext">next</div>")
+                // <div id="carouselNext">next</div>")
 
-              $("#carouselNext").on("click", function(e) {
-                var owl = $("#smallWindow").data('owlCarousel');
-                owl.next();
-              });
+                $("#carouselNext").on("click", function(e) {
+                  var owl = $("#smallWindow").data('owlCarousel');
+                  owl.next();
+                });
 
-              $("#carouselPrev").on("click", function(e) {
-                var owl = $("#smallWindow").data('owlCarousel');
-                owl.prev();
+                $("#carouselPrev").on("click", function(e) {
+                  var owl = $("#smallWindow").data('owlCarousel');
+                  owl.prev();
+                });
+
+
               });
+            // }, 100);
 
 
               
