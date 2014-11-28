@@ -293,6 +293,7 @@ module.exports = Handlebones.View.extend({
           if (results.data('owlCarousel')) {
             results.data('owlCarousel').destroy();
           }
+
           results.owlCarousel({
             items : NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW, //3 items above 1000px browser width
             // itemsDesktop : [1000,5], //5 items between 1000px and 901px
