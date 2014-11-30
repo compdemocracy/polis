@@ -37,6 +37,35 @@ CREATE TABLE users(
 CREATE INDEX users_uid_idx ON users USING btree (uid);
 
 
+CREATE TABLE twitter_users (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    twitter_user_id INTEGER NOT NULL,
+
+    -- Fields from here: https://api.twitter.com/1.1/users/lookup.json
+    -- NOTE: there are more fields we could fetch
+    -- [{"id":1131541,"id_str":"1131541","name":"mbjorkegren","screen_name":"mbjorkegren","location":"","profile_location":null,"description":"","url":null,"entities":{"description":{"urls":[]}},"protected":false,"followers_count":23,"friends_count":47,"listed_count":0,"created_at":"Wed Mar 14 01:52:44 +0000 2007","favourites_count":81,"utc_offset":-28800,"time_zone":"Pacific Time (US & Canada)","geo_enabled":false,"verified":false,"statuses_count":66,"lang":"en","status":{"created_at":"Wed Dec 19 00:58:20 +0000 2012","id":281201767100858369,"id_str":"281201767100858369","text":"Test http:\/\/t.co\/7D0KUDOj Two Systems","source":"\u003ca href=\"https:\/\/kindle.amazon.com\" rel=\"nofollow\"\u003eKindle\u003c\/a\u003e","truncated":false,"in_reply_to_status_id":null,"in_reply_to_status_id_str":null,"in_reply_to_user_id":null,"in_reply_to_user_id_str":null,"in_reply_to_screen_name":null,"geo":null,"coordinates":null,"place":null,"contributors":null,"retweet_count":0,"favorite_count":0,"entities":{"hashtags":[],"symbols":[],"user_mentions":[],"urls":[{"url":"http:\/\/t.co\/7D0KUDOj","expanded_url":"http:\/\/amzn.com\/k\/3a1lRsZGQzuI9xucpcrVNA","display_url":"amzn.com\/k\/3a1lRsZGQzuI\u2026","indices":[5,25]}]},"favorited":false,"retweeted":false,"possibly_sensitive":false,"lang":"en"},"contributors_enabled":false,"is_translator":false,"is_translation_enabled":false,"profile_background_color":"9AE4E8","profile_background_image_url":"http:\/\/abs.twimg.com\/images\/themes\/theme1\/bg.png","profile_background_image_url_https":"https:\/\/abs.twimg.com\/images\/themes\/theme1\/bg.png","profile_background_tile":false,"profile_image_url":"http:\/\/pbs.twimg.com\/profile_images\/2293381619\/image_normal.jpg","profile_image_url_https":"https:\/\/pbs.twimg.com\/profile_images\/2293381619\/image_normal.jpg","profile_link_color":"0000FF","profile_sidebar_border_color":"87BC44","profile_sidebar_fill_color":"E0FF92","profile_text_color":"000000","profile_use_background_image":true,"default_profile":false,"default_profile_image":false,"following":false,"follow_request_sent":false,"notifications":false}]
+    screen_name VARCHAR(999) NOT NULL,
+    followers_count INTEGER NOT NULL,
+    friends_count INTEGER NOT NULL, -- followees
+    verified BOOLEAN NOT NULL,
+    profile_image_url_https VARCHAR(9999),
+
+    modified BIGINT NOT NULL DEFAULT now_as_millis(),
+    created BIGINT NOT NULL DEFAULT now_as_millis(),
+    UNIQUE(uid), -- In theory someone could have multiple twitter accounts, so we might remove this restriction if we add support for that.
+    UNIQUE(twitter_user_id)
+);
+
+
+-- simple, compact metrics storage. Don't put any bulky stuff like strings here.
+-- We'll probably need to replace this with something that scales better.
+CREATE TABLE metrics (
+    uid INTEGER REFERENCES users(uid),
+    type INTEGER NOT NULL,
+    dur INTEGER,
+    created BIGINT DEFAULT now_as_millis()
+);
+
 CREATE TABLE auth_tokens(
     token VARCHAR(32),
     uid INTEGER REFERENCES users(uid),
@@ -291,14 +320,27 @@ CREATE TABLE facebook_users (
     UNIQUE(fb_user_id)
 );
 
+CREATE TABLE social_settings (
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    polis_pic VARCHAR(3000), -- profile picture url (should be https)
+);
+
 -- we may have duplicates, since no upsert. We should periodically remove duplicates.
 -- there may also be duplicates in the reverse direction
 -- or we may have a one-way mapping because one user signed on before their friend.
+
+------------ sample "get all friends" query ---------
+-- select friend from facebook_friends where uid = 302 union select uid from facebook_friends where friend = 302;
+------------------------------------------------------
+
 CREATE TABLE facebook_friends (
     uid INTEGER NOT NULL REFERENCES users(uid),
     friend INTEGER NOT NULL REFERENCES users(uid)
     -- UNIQUE(uid, friend)
 );
+
+
+
 
 -- the use-case for this table is that there are many conversations, but a single grading callback for the whole course
 -- allowing for duplicates (for now) by using 'created' field
