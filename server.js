@@ -3911,17 +3911,29 @@ function(req, res) {
             // no polis user with that email exists yet.
             // ok, so create a user with all the info we have and link to the fb info table
 
-            var query = "insert into users " +
+
+            var promise;
+            if (uid) {
+                // user record already exists
+                promise = Promise.resolve(uid);
+                // TODO - the user record might not have any info about the user
+                // We should probably populate it from the facebook info.
+            } else {
+                var query = "insert into users " +
                     "(email, hname) VALUES "+
                     "($1, $2) "+
                     "returning *;";
+                promise = pgQueryP(query, [email, hname])
+                .then(function(rows) {
+                    var user = rows && rows.length && rows[0] || null;
+                    return user.uid;
+                });
+            }
             // Create user record
-            pgQueryP(query, [email, hname])
-            .then(function(rows) {
-                var user = rows && rows.length && rows[0] || null;
-
+            promise
+            .then(function(uid) {
                 return createFacebookUserRecord(_.extend({}, {
-                    uid: user.uid
+                    uid: uid
                 }, fbUserRecord)).then(function() {
                     return user;
                 });
