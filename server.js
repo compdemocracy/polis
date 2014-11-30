@@ -3714,11 +3714,15 @@ function addFacebookFriends(uid, fb_friends_response) {
     }).map(function(id) {
         return '\'' + id + '\''; // wrap in quotes to force pg to treat them as strings
     });
-    // add friends to the table
-    // TODO periodically remove duplicates from the table, and pray for postgres upsert to arrive soon.
-    return pgQueryP("insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in ("+ fbFriendIds.join(",")+");", [
-        uid,
-    ]);
+    if (!fbFriendIds.length) {
+        return Promise.resolve();
+    } else {
+        // add friends to the table
+        // TODO periodically remove duplicates from the table, and pray for postgres upsert to arrive soon.
+        return pgQueryP("insert into facebook_friends (uid, friend) select ($1), uid from facebook_users where fb_user_id in ("+ fbFriendIds.join(",")+");", [
+            uid,
+        ]);
+    }
 }
 
 app.get("/snapshot",
