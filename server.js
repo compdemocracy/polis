@@ -6842,6 +6842,10 @@ function getTwitterUsersInConversation(zid) {
     return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1);", [zid]);
 }
 
+function getPolisSocialSettings(zid) {
+    return pgQueryP("select * from participants inner join social_settings on social_settings.uid = participants.uid where participants.zid = ($1);", [zid]);    
+}
+
 function getVotesForPids(zid, pids) {
     if (pids.length === 0) {
         return Promise.resolve([]);
@@ -6859,9 +6863,11 @@ function(req, res) {
     Promise.all([
         getFacebookFriendsInConversation(zid, uid),
         getTwitterUsersInConversation(zid),
+        getPolisSocialSettings(zid),
     ]).then(function(stuff) {
         var facebookFriends = stuff[0];
         var twitterParticipants = stuff[1];
+        var polisSocialSettings = stuff[2];
         var pidToData = {};
         var pids = twitterParticipants.map(function(p) {
             return p.pid;
@@ -6875,6 +6881,11 @@ function(req, res) {
             pids.push(p.pid);
             pidToData[p.pid] = pidToData[p.pid] || {};
             pidToData[p.pid].twitter = p;
+        });
+        polisSocialSettings.forEach(function(p) {
+            pids.push(p.pid);
+            pidToData[p.pid] = pidToData[p.pid] || {};
+            pidToData[p.pid].polis = p;
         });
         pids.sort();
         pids = _.uniq(pids, true);
