@@ -2373,6 +2373,40 @@ function(req, res) {
     });
 });
 
+// app.post("/api/v3/metrics",
+//     authOptional(assignToP),
+//     need('types', getArrayOfInt, assignToP),
+//     need('times', getArrayOfInt, assignToP),
+//     need('durs', getArrayOfInt, assignToP),
+//     need('clientTimestamp', getInt, assignToP),
+// function(req, res) {
+//     var uid = req.p.uid || null;
+//     var durs = req.p.durs.map(function(dur) {
+//         if (dur === -1) {
+//             dur = null;
+//         }
+//         return dur;
+//     });
+//     var clientTimestamp = req.p.clientTimestamp;
+//     var ages = req.p.times.map(function(t) {
+//         return clientTimestamp - t;
+//     });
+//     var now = Date.now();
+//     var timesInTermsOfServerTime = ages.map(function(a) {
+//         return now - a;
+//     });
+//     var len = timesInTermsOfServerTime.length;
+//     var entries = [];
+//     for (var i = 0; i < len; i++) {
+//         entries.push([uid, types[i], durs[i], timesInTermsOfServerTime[i]].join(','));
+//     }
+//     pgQueryP("insert into metrics (uid, type, dur, created) values ("+ entries +");", []).then(function(result) {
+//         res.json({});
+//     }).catch(function(err) {
+//         fail(res, 500, "polis_err_metrics_post", err);        
+//     });
+// });
+
 
 app.get("/api/v3/zinvites/:zid",
     auth(assignToP),
