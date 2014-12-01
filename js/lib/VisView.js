@@ -109,6 +109,7 @@ var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
 var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
 
+var grayHaloColor = "lightgray";
 var colorPull = "rgb(0, 181, 77)"; // EMERALD
 var colorPush = "#e74c3c";// ALIZARIN
 window.color = function() {
@@ -1543,7 +1544,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             // }
             return ptptOiRadius;
         })
-        .attr("stroke", "lightgray")
+        .attr("stroke", grayHaloColor)
         .attr("stroke-width", function(d) {
             if (d.isSummaryBucket) {
                 return anonBlobHaloWidth;
@@ -1973,6 +1974,17 @@ function doUpdateNodes() {
                 }
                 return "+" + d.count;
             });
+
+        update.selectAll(".grayHalo")
+            .filter(isSelf)
+                .style("stroke", function(d) {
+                    if (commentIsSelected()) {
+                        return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
+                    } else {
+                        return colorSelf;
+                    }
+                })
+        ;
   }
 }
 
