@@ -4220,11 +4220,20 @@ function(req, res) {
         res.json({});
         return;
     }
-    getUserInfoForUid2(uid).then(function(info) {
+    Promise.all([
+        getUserInfoForUid2(uid),
+        getFacebookInfo(uid),
+    ]).then(function(o) {
+        var info = o[0];
+        var fbInfo = o[1];
+
+        var hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
+
         res.json({
             uid: uid,
             email: info.email,
             hname: info.hname,
+            hasFacebook: !!hasFacebook,
             finishedTutorial: !!info.tut,
             created: Number(info.created),
             daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
