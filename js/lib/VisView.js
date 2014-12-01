@@ -1555,9 +1555,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             }
         })
         .attr("fill", "rgba(0,0,0,0)")
-        .filter(isSelf)
-            .style("stroke", colorSelf)
-            // .style("opacity", 0.5)
         ;
 
        
