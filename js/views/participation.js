@@ -390,7 +390,7 @@ module.exports =  ConversationView.extend({
         }
       });
 
-      if (!_.isUndefined(options.finishedTutorial)) {
+      if (launchWithTutorial && !_.isUndefined(options.finishedTutorial)) {
         launchWithTutorial = !options.finishedTutorial;
       }
       var mode = VIS_MODE_VIS;
