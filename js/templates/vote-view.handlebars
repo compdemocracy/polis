@@ -1,23 +1,5 @@
 
-<div
-  class="custom_gutter"
-  style="border-radius: 0px 10px 10px 10px; border: 3px; border-top: 1px; border-left: 1px; border-style:solid; border-color: lightgray; background-color: white;
-  ">
-
 <div id="comment_shower">
-  {{#if promptFacebook}}
-
-      <div  style="margin: 20px;" class="Notification Notification--warning">
-        <p class="HeadingF HeadingF--light">
-          <p>Connect your Facebook account to see what your friends think. Only your friends who join the conversation will be able to see how you voted. </p>
-
-           <p style="text-align: center;">
-            <img width="150" src="http://blog.3dcart.com/wp-content/uploads/2013/10/FB-Connect.jpg" />
-          </p>
-          <p><strong>We will not post on your behalf</strong>.</p>
-        </p>
-      </div>
-  {{else}}
     {{#if empty}}
       <div  style="margin: 20px;" class="Notification Notification--warning">
         <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>{{txt1}}</strong></p>
@@ -27,30 +9,11 @@
     <!-- there is a comment to show -->
       <p style="padding: 20px 20px 20px 20px; min-height: 100px; margin-bottom: 0px"> {{txt}} </p>
     {{/if}}
-  {{/if}}
 </div>
 
-  <div
+<div
     class="reactionButtons"
   >
-  {{#if promptFacebook}}
-    <div class="btn-group btn-group-justified">
-          <div
-            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-            id="agreeButton"
-            role="button"
-            type="button"
-          ><p class="btn-vote">NOT NOW</p> </div>
-
-          <div
-            id="passButton"
-            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-            role="button"
-            type="button"
-          ><p class="btn-vote">I DON'T USE FACEBOOK</p> </div>
-
-  {{else}}
-
     {{#if empty}}
       {{!-- nothing --}}
     {{else}}
@@ -89,6 +52,4 @@
           /&nbsp;<p class="btn-vote">PASS</p> </div>
       </div>
     {{/if}}
-  {{/if}}
-</div>
 </div>

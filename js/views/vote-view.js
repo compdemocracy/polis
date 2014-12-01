@@ -23,8 +23,6 @@ module.exports = Handlebones.ModelView.extend({
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx.iOS = iOS;
-
-    ctx.promptFacebook = this.voteCount > 1;
     return ctx;
   },
   animateOut: function() {
@@ -39,7 +37,6 @@ module.exports = Handlebones.ModelView.extend({
     }, 200);
   },
   initialize: function(options) {
-    this.voteCount = 0;
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
       eb.on(eb.exitConv, cleanup);
     function cleanup() {
@@ -116,7 +113,6 @@ module.exports = Handlebones.ModelView.extend({
     }
     function onVote(result) {
       var that = this;
-      this.voteCount += 1;
       eb.trigger(eb.vote);
       if (result.nextComment) {
         showComment(result.nextComment);

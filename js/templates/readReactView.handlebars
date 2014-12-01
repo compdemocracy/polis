@@ -1,1 +1,44 @@
-{{view voteView}}
+
+<div
+  class="custom_gutter"
+  style="border-radius: 0px 10px 10px 10px; border: 3px; border-top: 1px; border-left: 1px; border-style:solid; border-color: lightgray; background-color: white;
+  ">
+
+
+  {{#if promptFacebook}}
+    <div  style="margin: 20px;" class="Notification Notification--warning">
+        <p class="HeadingF HeadingF--light">
+          <p class="text-center">See what your friends think! {{!-- Only your friends who join the conversation will be able to see how you voted. --}} </p>
+
+           <p style="text-align: center;">
+           	<a id="fbConnectBtn">
+	            <img width="150" src="http://blog.3dcart.com/wp-content/uploads/2013/10/FB-Connect.jpg" />
+	        </a>
+          </p>
+          <p class="text-center"><strong>We will not post on your behalf</strong>.</p>
+        </p>
+    </div>
+	<div
+	    class="reactionButtons"
+	  >
+	    <div class="btn-group btn-group-justified">
+	          <div
+	            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
+	            id="fbNotNowBtn"
+	            role="button"
+	            type="button"
+	          ><p class="btn-vote">NOT NOW</p> </div>
+
+	          <div
+	            id="fbNoUseBtn"
+	            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
+	            role="button"
+	            type="button"
+	          ><p class="btn-vote">I DON'T USE FACEBOOK</p> </div>
+	</div>
+  {{else}}
+	{{view voteView}}
+  {{/if}}
+
+
+</div>
