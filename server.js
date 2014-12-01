@@ -6807,6 +6807,45 @@ function getTwitterUserInfo(twitter_user_id) {
     });
 }
 
+
+function getTwitterUserInfoBulk(list_of_twitter_user_id) {
+    list_of_twitter_user_id = list_of_twitter_user_id || [];
+    var oauth = new OAuth.OAuth(
+        'https://api.twitter.com/oauth/request_token', // null
+        'https://api.twitter.com/oauth/access_token', // null
+        process.env.TWITTER_CONSUMER_KEY,//'your application consumer key',
+        process.env.TWITTER_CONSUMER_SECRET,//'your application secret',
+        '1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    return new Promise(function(resolve, reject) {
+        oauth.post(
+            'https://api.twitter.com/1.1/users/lookup.json',
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret            
+            {
+                // oauth_verifier: req.p.oauth_verifier,
+                // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
+                user_id: list_of_twitter_user_id.join(","),
+            },
+            "multipart/form-data",
+            function (e, data, res){
+                if (e) {
+                    console.error("get twitter token failed");
+                    console.error(e);     
+                    reject(e);
+                } else {
+                    data = JSON.parse(data);
+                    // console.dir(data);
+                // console.log(require('util').inspect(data));
+                    resolve(data);
+                }
+            }
+        );
+    });
+}
+
 app.get("/api/v3/twitter_oauth_callback",
     moveToBody,
     authOptional(assignToP),
@@ -6901,6 +6940,27 @@ function getFacebookFriendsInConversation(zid, uid) {
 
 function getTwitterUsersInConversation(zid, uid) {
     return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]);
+    // return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]).then(function(twitterParticipants) {
+    //     if (!twitterParticipants || !twitterParticipants.length) {
+    //         return Promise.resolve([]);
+    //     }
+    //     var twitterIds = _.pluck(twitterParticipants, "twitter_user_id");
+    //     return getTwitterUserInfoBulk(twitterIds).then(function(freshTwitterInfos) {
+    //         console.log("catsfood", freshTwitterInfos.length);
+    //         var twitterIdToIndex = {};
+    //         for (var i = 0; i < twitterIds.length; i++) {
+    //             twitterIdToIndex[twitterIds[i]] = parseInt(i);
+    //         }
+    //         console.dir("catsfoods");
+    //         console.dir(twitterIdToIndex);
+    //         for (var t = 0; t < freshTwitterInfos.length; t++) {
+    //             var info = freshTwitterInfos[t];
+    //             var index = twitterIdToIndex[info.id_str];
+    //             twitterParticipants[index] = _.extend(twitterParticipants[index], info);
+    //         }
+    //         return twitterParticipants;
+    //     });
+    // });
 }
 
 function getPolisSocialSettings(zid, uid) {
