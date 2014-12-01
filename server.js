@@ -7031,6 +7031,11 @@ function(req, res) {
             pidToData[p.pid].facebook = p;
         });
         twitterParticipants.forEach(function(p) {
+            // clobber the reference for the twitter profile pic, with our proxied version.
+            // This is done because the reference we have can be stale.
+            // Twitter has a bulk info API, which would work, except that it's slow, so proxying these and letting CloudFlare cache them seems better.
+            p.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + p.twitter_user_id;
+
             pids.push(p.pid);
             pidToData[p.pid] = pidToData[p.pid] || {};
             pidToData[p.pid].twitter = p;
@@ -8660,6 +8665,31 @@ app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", "t
 app.get(/^\/about$/, makeFileFetcher(hostname, port, "/news.html", "text/html"));
 app.get(/^\/edu$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
 app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
+
+// proxy for fetching twitter profile images
+// Needed because Twitter doesn't provide profile pics in response to a request - you have to fetch the user info, then parse that to get the URL, requiring two round trips.
+// There is a bulk user data API, but it's too slow to block on in our /famous route.
+// So references to this route are injected into the twitter part of the /famous response.
+app.get("/twitter_image",
+    moveToBody,
+    need('id', getStringLimitLength(999), assignToP),
+function(req, res) {
+    getTwitterUserInfo(req.p.id).then(function(data) {
+        data = JSON.parse(data);
+        if (!data || !data.length) {
+            fail()
+        }
+        data = data[0];
+        var url = data.profile_image_url; // not https to save a round-trip
+        var x = request.get(url);
+        // req.pipe(x);
+        res.setHeader('Cache-Control', 'no-transform,public,max-age=3600,s-maxage=3600');
+        x.pipe(res);
+        x.on("error", function(err) {
+            fail(res, 500, "polis_err_finding_file " + path, err);
+        });
+    });
+});
 
 
 var conditionalIndexFetcher = (function() {
