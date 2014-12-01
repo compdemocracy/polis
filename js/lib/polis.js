@@ -1718,9 +1718,16 @@ function clientSideBaseCluster(things, N) {
                 if (ptpt.facebook && 
                     ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
                     ) {
+
+                    var width = 48; // same as twitter, normally 50x50
+                    var height = 48; // same as twitter, normally 50x50
+                    if (window.devicePixelRatio > 1) {
+                        // on retina, we'll show 32x32, but fetch 64x64 images
+                        width = 32;  // facebook will return 64x64 images if we're on a retina device
+                        height = 32; // facebook will return 64x64 images if we're on a retina device
+                    }
                     // https://developers.facebook.com/docs/graph-api/reference/v2.2/user/picture
-                    ptpt.facebook.picture = "https://graph.facebook.com/v2.2/"+ ptpt.facebook.fb_user_id +"/picture";
-                        // "?width=32&height=32";
+                    ptpt.facebook.picture = "https://graph.facebook.com/v2.2/"+ ptpt.facebook.fb_user_id +"/picture?width="+width+"&height=" + height;
                     ptpt.picture = ptpt.facebook.picture;
                 }
                 // override with custom polis picture if they have it

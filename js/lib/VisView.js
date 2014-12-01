@@ -61,7 +61,9 @@ var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
 var width = $(el_raphaelSelector).width();
 
-var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
+// var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
+var retina = window.devicePixelRatio > 1;
+var ptptOiRadius = retina ? 16 : 24; // go smaller on retina, the image should be higher res
 var haloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
 var haloVoteWidth = d3.scale.linear().range([4, 6]).domain([350, 800]).clamp(true)(width);
 var anonBlobRadius = 24;
