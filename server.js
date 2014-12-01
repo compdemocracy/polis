@@ -5330,6 +5330,8 @@ function(req, res) {
     votesPost(req.p.pid, req.p.zid, req.p.tid, req.p.vote).then(function(createdTime) {
         setTimeout(function() {
             updateConversationModifiedTime(req.p.zid, createdTime);
+            // NOTE: may be greater than number of comments, if they change votes
+            incrementVoteCount(req.p.zid, req.p.pid);
         }, 100);
         return getNextComment(req.p.zid, req.p.pid);
     }).then(function(nextComment) {
@@ -6867,22 +6869,66 @@ function(req, res) {
     });
 });
 
+function getFacebookInfo(uid) {
+    return pgQueryP("select * from facebook_users where uid = ($1);", [uid]);
+}
 
 function getFacebookFriendsInConversation(zid, uid) {
     if (!uid) {
         return Promise.resolve([]);
     }
-    return pgQueryP("select * from (select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2) union select uid from facebook_users where uid = ($2)) as friends) as fb natural left join facebook_users) as fb2 inner join (select * from participants where zid = ($1)) as p on fb2.uid = p.uid;", [zid, uid]);
+    var p = pgQueryP(
+        "select * from "+
+         "(select * from "+
+            "(select * from " +
+                "(select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2) union select uid from facebook_users where uid = ($2)) as friends) "+
+                // ^ as friends
+            "as fb natural left join facebook_users) as fb2 "+
+              "inner join (select * from participants where zid = ($1) and (vote_count > 0 OR uid = ($2))) as p on fb2.uid = p.uid;", 
+              [zid, uid]);
         //"select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends where uid in (select uid from participants where zid = ($1))) as fb natural left join facebook_users;", [zid, uid]);
+    return p;
 }
 
-function getTwitterUsersInConversation(zid) {
-    return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1);", [zid]);
+function getTwitterUsersInConversation(zid, uid) {
+    return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]);
 }
 
-function getPolisSocialSettings(zid) {
-    return pgQueryP("select * from participants inner join social_settings on social_settings.uid = participants.uid where participants.zid = ($1);", [zid]);    
+function getPolisSocialSettings(zid, uid) {
+    return pgQueryP("select * from participants inner join social_settings on social_settings.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]);
 }
+
+function incrementVoteCount(zid, pid) {
+    return pgQueryP("update particpants set vote_count = vote_count + 1 where zid = ($1) and pid = ($1);",[zid, pid]);
+}
+
+
+// function dbMigrationAddVoteCount() {
+//     function process(x) {
+//         console.log("freefood" + x.zid, x.count, x.pid);
+//         pgQueryP("update participants set vote_count = ($1) where zid = ($2) and pid = ($3);", [
+//                 x.count,
+//                 x.zid,
+//                 x.pid,
+//             ]);
+//     }
+//     pgQueryP("select zid, pid, count(*) from votes group by zid, pid order by zid, pid, count;",[]).then(function(counts) {
+//         // var tasks = [];
+//         // for (var i =0; i < counts.length; i++) {
+//         //     var x = counts[i];
+//         //     tas
+//         // }
+//         var asdf = setInterval(function() {
+//             var x = counts.pop();
+//             if (x) {
+//                 process(x);
+//             } else {
+//                 clearInterval(asdf);
+//             }
+//         }, 20);
+//     });
+// }
+// setTimeout(dbMigrationAddVoteCount, 9999);
 
 function getVotesForPids(zid, pids) {
     if (pids.length === 0) {
@@ -6900,8 +6946,8 @@ function(req, res) {
     var zid = req.p.zid;
     Promise.all([
         getFacebookFriendsInConversation(zid, uid),
-        getTwitterUsersInConversation(zid),
-        getPolisSocialSettings(zid),
+        getTwitterUsersInConversation(zid, uid),
+        getPolisSocialSettings(zid, uid),
     ]).then(function(stuff) {
         var facebookFriends = stuff[0];
         var twitterParticipants = stuff[1];

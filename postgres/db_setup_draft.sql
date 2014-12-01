@@ -268,6 +268,7 @@ CREATE TABLE participants(
     pid INTEGER NOT NULL, -- populated by trigger pid_auto
     uid INTEGER NOT NULL REFERENCES users(uid),
     zid INTEGER NOT NULL REFERENCES conversations(zid),
+    vote_count INTEGER NOT NULL DEFAULT 0, -- May be greater than number of comments, if they change votes
     -- server admin bool
     created BIGINT DEFAULT now_as_millis(),
     -- archived (not included because creator might not be a participant) will add later somewhere else
