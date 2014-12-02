@@ -1041,7 +1041,7 @@ function chooseUpArrowPath(d) {
 
     // return makeArrowPoints(scale, yOffset, true);
 
-    var ratio =  d.ups / (d.ups + d.downs);
+    var ratio =  d.ups / (d.count);
     ratio = Math.min(ratio, 0.99999);
 
     var r = chooseCircleRadius(d);
@@ -1085,7 +1085,7 @@ function chooseDownArrowPath(d) {
 
 
 
-    var ratio =  d.downs / (d.ups + d.downs);
+    var ratio =  d.downs / (d.count);
     ratio = Math.min(ratio, 0.99999);
 
     var r = chooseCircleRadius(d);
