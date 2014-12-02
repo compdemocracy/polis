@@ -1964,12 +1964,11 @@ function doUpdateNodes() {
             }
           });
 
-          update.selectAll(".summaryLabel")
+          update.selectAll(".summaryLabel").data(nodes, key)
             .text(function(d) {
                 // return "Disagreed";
-                var s = "+";
-                if (!_.isUndefined(d.ups) && !_.isUndefined(d.downs)) {
-                    return s + (d.ups + d.downs);
+                if (commentIsSelected()) {
+                    return ((d.ups / d.count * 100) >> 0) + "%";
                 }
                 return "+" + d.count;
             });
