@@ -1,7 +1,6 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [polismath.simulation :as sim]
-            [polismath.queued-agent :as qa]
             [polismath.conv-man :as cm]
             [polismath.db :as db]
             [clojure.core.matrix :as ccm]
@@ -68,17 +67,17 @@
 
 (defbolt conv-update-bolt [] {:prepare true}
   [conf context collector]
-  (let [conv-agency (atom {})] ; collection of convs (conv-agents)
+  (let [conv-agency (atom {})] ; collection of conv-actors
     (bolt
       (execute [tuple]
         (let [[zid last-timestamp rxns] (.getValues tuple)
               ; First construct a new conversation builder. Then either find a conversation, or call that
               ; builder in conv-agency
-              conv-agent (->> (cm/new-conv-agent-builder zid)
-                              (cm/get-or-set! conv-agency zid))]
-          (qa/enqueue conv-agent {:last-timestamp last-timestamp :reactions rxns})
-          ; This just triggers the :update-watcher in case new votes are pending and nothing is running
-          (qa/ping conv-agent))
+              conv-actor (cm/get-or-set!
+                           conv-agency zid (fn []
+                                             (cm/new-conv-actor
+                                               (partial cm/load-or-init zid))))]
+          (cm/send-votes conv-actor {:last-timestamp last-timestamp :reactions rxns}))
         (ack! collector tuple)))))
 
 

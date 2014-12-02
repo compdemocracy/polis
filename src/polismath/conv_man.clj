@@ -6,7 +6,10 @@
             [polismath.db :as db]
             [polismath.utils :refer :all]
             [clojure.core.matrix.impl.ndarray]
-            [clojure.core.async :as as]
+            [clojure.core.async
+             :as as
+             :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer
+                     put! take!]]
             [clojure.tools.trace :as tr]
             [polismath.env :as env]
             [monger.core :as mg]
@@ -14,6 +17,7 @@
             [cheshire.core :as ch]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
             [clojure.tools.logging :as log]))
+
 (when-not (#{"prod" "production" "preprod"} (env/env :math-env))
   (use 'alex-and-georges.debug-repl))
 
@@ -162,7 +166,7 @@
       ; In case anything happens, run the error-callback handler. Agent error handlers do not work here, since
       ; they don't give us access to the votes.
       (catch Exception e
-        (error-callback vote-batches (:opts' conv) start-time e)
+        (error-callback vote-batches start-time (:opts' conv) e)
         ; Wait a second before returning the origin, unmodified conv, to throttle retries
         (Thread/sleep 1000)
         conv))))
@@ -179,14 +183,14 @@
 (defn build-update-error-handler
   "Returns a clojure that can be called in case there is an update error. The closure gives access to
   the queue so votes can be requeued"
-  [queue conv-agent]
+  [queue conv-actor]
   (fn [vote-batches start-time opts update-error]
-    (let [zid-str (str "zid=" (:zid @conv-agent))]
+    (let [zid-str (str "zid=" (:zid @conv-actor))]
       (log/error "Failed conversation update for" zid-str)
       (.printStackTrace update-error)
       ; Try requeing the votes that failed so that if we get more, they'll get replayed
       ; XXX - this could lead to a recast vote being ignored, so maybe the sort should just always happen in
-      ; the conv update?
+      ; the conv-actor update?
       (try
         (log/info "Preparing to re-queue vote-batches for failed conversation update for" zid-str)
         (doseq [vote-batch vote-batches]
@@ -204,7 +208,7 @@
       ; Try to save conversation state for debugging purposes
       (try
         (let [votes (flatten-vote-batches vote-batches)]
-          (conv/conv-update-dump @conv-agent votes opts update-error))
+          (conv/conv-update-dump @conv-actor votes opts update-error))
         (catch Exception e
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
@@ -220,6 +224,49 @@
         ; Make sure in-conv is a set
         (update-in [:in-conv] set))
     (assoc (conv/new-conv) :zid zid)))
+
+
+(defmacro take-all! [c]
+  "Given a channel, takes all values currently in channel and places in a vector. Must be called
+  within a go block."
+  `(loop [acc# []]
+     (let [[v# ~c] (alts! [~c] :default nil)]
+       (if (not= ~c :default)
+         (recur (conj acc# v#))
+         acc#))))
+
+
+(defprotocol IConvActor
+  (send-votes [this votes]))
+
+
+(defrecord ConvActor [msgbox conv]
+  IConvActor
+  (send-votes [_ votes]
+    (>!! msgbox votes))
+  clojure.lang.IRef
+  (deref [_]
+    @conv))
+
+
+(defn new-conv-actor [init-fn & opts]
+  (let [msgbox (chan 1024)
+        conv (atom (init-fn))
+        status (atom :parked)
+        ca (ConvActor. msgbox conv)
+        err-handler (build-update-error-handler msgbox ca)]
+    (go (loop []
+          (try
+            (let [first-msg (<! msgbox) ; do this so we park efficiently
+                  msgs      (take-all! msgbox)
+                  msgs      (concat [first-msg] msgs)
+                  new-conv  (update-fn @conv msgs err-handler)]
+              (swap! conv (fn [_] new-conv)))
+            (catch Exception e
+              (println "Excpetion not handler by err-handler:" e)
+              (.printStackTrace e)))
+          (recur)))
+    ca))
 
 
 (defn new-conv-agent-builder

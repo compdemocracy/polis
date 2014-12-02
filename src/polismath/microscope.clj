@@ -35,18 +35,18 @@
 
 (defn recompute
   [& {:keys [zid zinvite] :as args}]
-  (let [_          (assert (xor zid zinvite))
-        zid        (or zid (get-zid-from-zinvite zinvite))
+  (assert (xor zid zinvite))
+  (let [zid        (or zid (get-zid-from-zinvite zinvite))
         new-votes  (conv-poll zid)
-        conv-agent ((cm/new-conv-agent-builder zid))]
-    (qa/enqueue conv-agent {:last-timestamp 0 :reactions new-votes})
-    (qa/ping conv-agent)
+        conv-actor (cm/new-conv-actor (partial cm/load-or-init zid))]
+    (println zid zinvite)
+    (cm/send-votes conv-actor {:last-timestamp 0 :reactions new-votes})
     (add-watch
-      (:agent conv-agent)
+      (:conv conv-actor)
       :complete-watch
       (fn [k r o n]
         (println "Done recomputing")))
-    (:agent conv-agent)))
+    conv-actor))
 
 
 (defn kw->int
@@ -77,11 +77,18 @@
 (defn -main
   [& args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)
-        conv-agent (apply-kwargs recompute options)]
+        conv-actor (apply-kwargs recompute options)
+        done? (atom false)]
     (add-watch
-      conv-agent
+      (:conv conv-actor)
       :shutdown-watch
       (fn [k r o n]
-        (shutdown-agents)))))
+        (println n)
+        (swap! done? (fn [_] true))
+        (shutdown-agents)))
+    (loop []
+      (Thread/sleep 1000)
+      (when-not @done?
+        (recur)))))
 
 
