@@ -1346,11 +1346,13 @@ function clientSideBaseCluster(things, N) {
             var originalBid = data.bid;
             for (var c = 0; c < clusters.length; c++) {
                 var cluster = clusters[c];
-                if (cluster.indexOf(originalBid) >= 0) {
+                var indexOfOriginalBid = cluster.indexOf(originalBid);
+                if (indexOfOriginalBid >= 0) {
+                    cluster.splice(indexOfOriginalBid, 1);
                     cluster.push(data.fakeBid);
                 }
                 // TODO only if emtpy!
-                clusters[c] = _.without(cluster, originalBid);
+                // clusters[c] = _.without(cluster, originalBid);
             }
         }
         return clusters;
