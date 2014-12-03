@@ -1622,16 +1622,32 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         // .classed("help", true)
         // .classed("help_text_you", true)
         .style("font-family", "Tahoma") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", "9px")
-        // .style("font-weight", "bold")
+        .style("font-size", "12px")
+        .style("font-weight", "bold")
         .attr("text-anchor", "middle")
-        .attr("alignment-baseline", "middle")
+        .attr("alignment-baseline", "bottom")
+        // .attr("alignment-baseline", "middle")
         // .attr("fill", "rgba(0,0,0,1.0)")
         // .attr("fill", colorSelf)
         // .attr("stroke", colorSelfOutline)
         // .attr("transform", function(d) {
         //     return "translate(12, 6)";
         // });
+        ;
+
+        g.filter(isSummaryBucket)
+        .append("text")
+        .classed("summaryLabelBottom", true)
+        .style("font-family", "Tahoma") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+        .style("font-size", "10px")
+        // .style("font-weight", "bold")
+        .style("fill", "gray")
+        .text("people")
+        .attr("text-anchor", "middle")
+        .attr("alignment-baseline", "top")
+        .attr("transform", function(d) {
+            return "translate(0, 11)";
+        });
         ;
 
 
@@ -1964,14 +1980,81 @@ function doUpdateNodes() {
             }
           });
 
+          function toPercent(ratio) {
+            return ((ratio * 100) >> 0) + "%";
+          }
           update.selectAll(".summaryLabel").data(nodes, key)
             .text(function(d) {
+                var txt;
                 // return "Disagreed";
                 if (commentIsSelected()) {
-                    return ((d.ups / d.count * 100) >> 0) + "%";
+                    var txt;
+                    if (d.ups === 0 && d.downs === 0) {
+                        txt = "\u2014"; // em dash
+                    } 
+                    else if (d.ups >= d.downs) {
+                        txt = toPercent(d.ups / d.count);
+                    } else if (d.downs > d.ups) {
+                        txt = toPercent(d.downs / d.count);
+                    } else {
+                        txt = "?";
+                        console.error("missing d.ups or d.downs");
+                    }
+                    d._txtType = "c";
+                } else {
+                    txt = "+" + d.count;
                 }
-                return "+" + d.count;
-            });
+                d._txt = txt;
+                return txt;
+            })
+            .attr("alignment-baseline", function(d) {
+                if (commentIsSelected()) {
+                    return "middle";
+                }
+                return "bottom";
+            })
+            .attr("fill", function(d) {
+                // return "Disagreed";
+                if (commentIsSelected()) {
+                    var color = "gray";
+                    if (d.ups === 0 && d.downs === 0) {
+                        color = "gray";
+                    } else if (d.ups >= d.downs) {
+                        color = "green";
+                    } else if (d.downs > d.ups) {
+                        color = "red";
+                    } else {
+                        console.error("missing d.ups or d.downs");
+                    }
+                    return color;
+                }
+                return "gray";
+            })
+            .style("font-size", function(d) {
+                var size = 12;
+                if (d._txt) {
+                    var len = d._txt.length;
+                    if (len === 2) {
+                        size = 18;
+                    } else if (len === 3) {
+                        size = 16;
+                    } else if (len === 4) {
+                        size = 12;
+                    }
+                }
+                return size + "px";
+            })
+            ;
+
+
+        update.selectAll(".summaryLabelBottom").data(nodes, key)
+           .style("visibility", function(d) {
+                if (commentIsSelected()) {
+                    return "hidden";
+                }
+                return "visible";
+            })
+        ;
 
         update.selectAll(".grayHalo")
             .filter(isSelf)
