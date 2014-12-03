@@ -1,6 +1,5 @@
 (ns polismath.microscope
   (:require [polismath.conv-man :as cm]
-            [polismath.queued-agent :as qa]
             [polismath.db :as db]
             [polismath.conversation :as conv]
             [polismath.named-matrix :as nm]

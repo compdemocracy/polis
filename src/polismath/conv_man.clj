@@ -1,6 +1,5 @@
 (ns polismath.conv-man
-  (:require [polismath.queued-agent :as qa]
-            [polismath.named-matrix :as nm]
+  (:require [polismath.named-matrix :as nm]
             [polismath.conversation :as conv]
             [polismath.metrics :as met]
             [polismath.db :as db]
@@ -263,21 +262,9 @@
                   new-conv  (update-fn @conv msgs err-handler)]
               (swap! conv (fn [_] new-conv)))
             (catch Exception e
-              (println "Excpetion not handler by err-handler:" e)
+              (log/error "Excpetion not handler by err-handler:" e)
               (.printStackTrace e)))
           (recur)))
     ca))
-
-
-(defn new-conv-agent-builder
-  "Given an update function, creates a function which returns a queued agent with the given update function.
-  This eases some of the flow logic for using the queued agents in the stormspec"
-  [zid]
-  (fn []
-    (qa/queued-agent
-      :update-fn update-fn
-      :init-fn   (partial load-or-init zid)
-      :error-handler-builder
-                 build-update-error-handler)))
 
 
