@@ -1316,7 +1316,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
   function createScales(updatedNodes) {
     var spans = computeXySpans(updatedNodes);
-    var border = maxRad + strokeWidth + 10;
+    var border = maxRad + strokeWidth + 15; // this fudge factor has to account for the extra padding needed for the hulls
     return {
         x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
         y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
