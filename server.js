@@ -8684,15 +8684,17 @@ function(req, res) {
         var x = request.get(url);
         // req.pipe(x);
         res.setHeader('Cache-Control', 'no-transform,public,max-age=3600,s-maxage=3600');
-        res.setHeader('etag', undefined);
-        res.setHeader('server', undefined);
-        res.setHeader('surrogate-key:', undefined);
-        res.setHeader('via', undefined);
-        res.setHeader('x-cache', undefined);
-        res.setHeader('x-connection-hash', undefined);
-        res.setHeader('x-content-type-options', undefined);
-        res.setHeader('x-ton-expected-size', undefined);
-        res.setHeader('content-md5', undefined);
+        res.setHeader('etag', '');
+        res.setHeader('server', '');
+        res.setHeader('surrogate-key:', '');
+        res.setHeader('via', '');
+        res.setHeader('x-cache', '');
+        res.setHeader('x-connection-hash', '');
+        res.setHeader('x-content-type-options', '');
+        res.setHeader('x-ton-expected-size', '');
+        res.setHeader('x-served-by', '');
+        res.setHeader('server', '');
+        res.setHeader('content-md5', '');
         x.pipe(res);
         x.on("error", function(err) {
             fail(res, 500, "polis_err_finding_file " + path, err);
