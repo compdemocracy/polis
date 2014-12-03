@@ -113,10 +113,14 @@ var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350,
 
 var grayHaloColor = "lightgray";
 var colorPull = "rgb(0, 181, 77)"; // EMERALD
+var colorPullLabel = "rgb(147,196,125)";
 var colorPush = "#e74c3c";// ALIZARIN
+var colorPushLabel = "rgb(224,102,102)";
+var colorSummaryBlob = "#F9F9F9";
 window.color = function() {
     // colorPull = "rgb(0, 214, 195)";
     colorPull = "rgb(0, 182, 214)";
+    colorPullLabel = "#6d9eeb";
     colorPush = "rgb(234, 77, 30)";
 
     var update = visualization.selectAll(".node");
@@ -983,7 +987,7 @@ function chooseFill(d) {
         // }
         // return "#0CF";
 
-        return colorNoVote;
+        return colorSummaryBlob;
     }
 }
 function chooseStroke(d) {
@@ -2020,9 +2024,9 @@ function doUpdateNodes() {
                     if (d.ups === 0 && d.downs === 0) {
                         color = "gray";
                     } else if (d.ups >= d.downs) {
-                        color = "green";
+                        color = colorPullLabel;
                     } else if (d.downs > d.ups) {
-                        color = "red";
+                        color = colorPushLabel;
                     } else {
                         console.error("missing d.ups or d.downs");
                     }
