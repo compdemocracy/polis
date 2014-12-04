@@ -9,6 +9,8 @@ var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
 var el_carouselSelector = "#carousel";
 
+var isMobile = Utils.isMobile();
+
 
 function addMultipleOwlItems(htmlStrings, targetPosition) {
     var base = this,
@@ -311,21 +313,22 @@ module.exports = Handlebones.View.extend({
            // setTimeout(function() {
               $("#carousel").fadeIn("slow", function() {
 
+                if (!isMobile) {
+                  $(".owl-pagination").prepend('<button id="carouselPrev" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-right: 10px">PREVIOUS</button>');
+                  $(".owl-pagination").append( '<button id="carouselNext" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-left: 10px;">NEXT</button>');
 
-                $(".owl-pagination").prepend('<button id="carouselPrev" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-right: 10px">PREVIOUS</button>');
-                $(".owl-pagination").append( '<button id="carouselNext" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-left: 10px;">NEXT</button>');
+                  // <div id="carouselNext">next</div>")
 
-                // <div id="carouselNext">next</div>")
+                  $("#carouselNext").on("click", function(e) {
+                    var owl = $("#smallWindow").data('owlCarousel');
+                    owl.next();
+                  });
 
-                $("#carouselNext").on("click", function(e) {
-                  var owl = $("#smallWindow").data('owlCarousel');
-                  owl.next();
-                });
-
-                $("#carouselPrev").on("click", function(e) {
-                  var owl = $("#smallWindow").data('owlCarousel');
-                  owl.prev();
-                });
+                  $("#carouselPrev").on("click", function(e) {
+                    var owl = $("#smallWindow").data('owlCarousel');
+                    owl.prev();
+                  });
+                }
 
 
               });
