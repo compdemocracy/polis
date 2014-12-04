@@ -65,10 +65,10 @@ var width = $(el_raphaelSelector).width();
 var retina = window.devicePixelRatio > 1;
 var ptptOiRadius = retina ? 16 : 24; // go smaller on retina, the image should be higher res
 var haloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
-var haloVoteWidth = d3.scale.linear().range([4, 6]).domain([350, 800]).clamp(true)(width);
+var haloVoteWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
 var anonBlobRadius = 24;
-var anonBlobHaloWidth = d3.scale.linear().range([4, 8]).domain([350, 800]).clamp(true)(width);
-var anonBlobHaloVoteWidth = d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
+var anonBlobHaloWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
+var anonBlobHaloVoteWidth = anonBlobHaloWidth; //d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
 var maxRad = _.max([
     ptptOiRadius + haloWidth, // not sure if halowidth should be /2
     ptptOiRadius + haloVoteWidth, // not sure if haloVoteWidth should be /2
@@ -364,7 +364,7 @@ if (useForce) {
         .charge(function(d) {
             // slight overlap allowed
             if (isSummaryBucket(d)) {
-                return -90;
+                return -130;
             } else {
                 return -40;
             }
@@ -1344,6 +1344,12 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         if (isSelf(b)) {
             return -Infinity;
         }
+        if (isSummaryBucket(a)) {
+            return 999999;
+        }
+        if (isSummaryBucket(b)) {
+            return -999999;
+        }
         return a.proj.x - b.proj.x;
     }
 
@@ -1558,7 +1564,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
                 return haloWidth;
             }
         })
-        .attr("fill", "rgba(0,0,0,0)")
+        .attr("fill", chooseFill)
         ;
 
        
@@ -1595,11 +1601,12 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .style("opacity", 0.5)
         ;
 
-      var circleEnterInner = g.append("circle")
-        .classed("circle", true)
-        .classed("bktvi", true)
-        .style("fill", chooseFill)
-        ;
+      // var circleEnterInner = g.append("circle")
+      //   .classed("circle", true)
+      //   .classed("bktvi", true)
+      //   .style("stroke-width", 0)
+      //   .style("fill", chooseFill)
+      //   ;
 
       var self = g.filter(isSelf);
       self.classed("selfDot", true);
@@ -2039,9 +2046,9 @@ function doUpdateNodes() {
                 if (d._txt) {
                     var len = d._txt.length;
                     if (len === 2) {
-                        size = 18;
-                    } else if (len === 3) {
                         size = 16;
+                    } else if (len === 3) {
+                        size = 14;
                     } else if (len === 4) {
                         size = 12;
                     }
