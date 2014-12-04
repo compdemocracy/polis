@@ -342,6 +342,8 @@ if (isIE8) {
 window.vis = visualization; // TODO why? may prevent GC
 
 strokeWidth = strokeWidthGivenVisWidth(w);
+var padding = maxRad + strokeWidth + 35;
+
 charge = -60; //chargeForGivenVisWidth(w);
 
 queryResults = $(el_queryResultSelector).html("");
@@ -364,9 +366,9 @@ if (useForce) {
         .charge(function(d) {
             // slight overlap allowed
             if (isSummaryBucket(d)) {
-                return -130;
+                return -480;
             } else {
-                return -40;
+                return -180;
             }
         })
         .size([w, h]);
@@ -744,6 +746,8 @@ function updateNodesOnTick(e) {
           if (!o.y) { o.y = h/2; }  
           o.x += (o.targetX - o.x) * k;
           o.y += (o.targetY - o.y) * k;
+          // o.x = Math.max(padding, Math.min(w - padding, o.x));
+          // o.y = Math.max(padding, Math.min(h - padding, o.y));
         });
       } else {
         // move directly to destination scenario (no force)
@@ -1316,7 +1320,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
   function createScales(updatedNodes) {
     var spans = computeXySpans(updatedNodes);
-    var border = maxRad + strokeWidth + 15; // this fudge factor has to account for the extra padding needed for the hulls
+    var border = padding; // this fudge factor has to account for the extra padding needed for the hulls
     return {
         x: d3.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
         y: d3.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
