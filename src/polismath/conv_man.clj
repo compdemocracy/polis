@@ -248,6 +248,11 @@
     @conv))
 
 
+(defn add-conv-actor-watch
+  [conv-actor key f]
+  (add-watch (:conv conv-actor) key f))
+
+
 (defn new-conv-actor [init-fn & opts]
   (let [msgbox (chan Long/MAX_VALUE) ; we want this to be as big as possible, since backpressure doesn't really work
         conv (atom (init-fn)) ; keep track of conv state in atom so it can be dereffed
