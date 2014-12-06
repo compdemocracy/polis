@@ -1,6 +1,6 @@
 <div class="conversationViewRoot wrap clickDeselectsHull {{#if use_background_content_class}}background_content{{/if}}">
   
-{{#ifNotEmbedded}}
+{{!-- {{#ifNotEmbedded}}
 {{> header}}
 {{/ifNotEmbedded}}
 {{#ifTrial}}
@@ -12,7 +12,7 @@
     {{/if}}
   {{/if}}
 {{/ifTrial}}
-
+ --}}
 <section class="custom_container_for_large_screens" style="margin-bottom: 0px; margin-top:10px"> 
 
 <div class="row ">
@@ -40,7 +40,7 @@
     </div>
     {{/if}}
     {{!-- {{/ifNotEmbedded}} --}}
-      <h3 class="HeadingA" title="Conversation topic">{{topic}}
+  {{!--     <h3 class="HeadingA" title="Conversation topic">{{topic}}
         {{#unless is_active}}
         <span class="no_you_vote" style="
          color: white;
@@ -55,8 +55,8 @@
          left: 6px;
         ">closed</span>
       {{/unless}}
-      </h3>
-      <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{description}} </p>
+      </h3> --}}
+     {{!--  <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{description}} </p> --}}
       {{#if link_url}}
       <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;">{{linkExternal link_url link_url}}</p>
       {{/if}}
@@ -173,11 +173,13 @@ style="padding-left: 5px; padding-right: 5px"
       {{ view voteMoreView }}
     </div>
     <div style="text-align: right">
-      <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default; display: none">
+{{!--       <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default; display: none; color: #555">
         <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
         Opinion Groups
-      </div>
-      <span style="float: right; cursor: pointer; display: none"><button id="resetTutorial" class="btn Btn-alt">Tutorial</button></span>
+      </div> --}}
+      <span style="float: right; cursor: pointer; display: none">
+        {{!-- <button id="resetTutorial" class="Btn Btn-alt Btn-small">Tutorial</button> --}}
+      </span>
 
 
       <div class=" HeadingG" style="text-align: center; " >
@@ -197,15 +199,15 @@ style="padding-left: 5px; padding-right: 5px"
         <table style="width: 100%" class="HeadingG">
           <tr>
             <td>
-              <span id="opinion_groups_label" class="HeadingB" style="text-transform:none; cursor: default; white-space: nowrap;">
+{{!--               <span id="opinion_groups_label" class="HeadingB" style="text-transform:none; cursor: default; white-space: nowrap; color: #555">
                 <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
                 Opinion Groups
-              </span>
+              </span> --}}
             </td>
             <td style="width:100%; text-align: right; cursor: pointer;">
-              <button id="resetVisBlockerTutorial" class="btn Btn-alt btn-sm"> 
+           {{!--    <button id="resetVisBlockerTutorial" class="Btn Btn-alt Btn-small"> 
                 Tutorial
-              </button>
+              </button> --}}
             </td>
           </tr>
         </table>

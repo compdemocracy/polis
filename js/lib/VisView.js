@@ -65,7 +65,7 @@ var width = $(el_raphaelSelector).width();
 var retina = window.devicePixelRatio > 1;
 var ptptOiRadius = retina ? 16 : 24; // go smaller on retina, the image should be higher res
 if (isMobile) {
-    ptptOiRadius = 12;
+    ptptOiRadius = 9;
 }
 var haloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
 var haloVoteWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);

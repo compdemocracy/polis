@@ -11,10 +11,11 @@
       <a
         href="#commentView"
         id="commentViewTab"
-        class="HeadingD polis-tab"
-        style="padding: 10px 5px !important; border: none"
+        class="HeadingC polis-tab"
+        style="padding: 10px 10px !important; border: none;  text-transform: none;"
         data-toggle="tab">
-        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}{{#if showTabs}} READ &amp; REACT{{/if}}
+        {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}{{#if showTabs}}READ &amp; REACT{{/if}} --}}
+        Read
       </a>
     </li>
     <li
@@ -23,10 +24,11 @@
       <a
         href="#commentForm"
         id="commentFormTab"
-        class="HeadingD polis-tab"
-        style="padding: 10px 5px !important; border: none"
+        class="HeadingC polis-tab"
+        style="padding: 10px 10px !important; border: none; text-transform: none;"
         data-toggle="tab">
-        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}{{#if showTabs}} WRITE{{/if}}
+        {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}{{#if showTabs}} WRITE{{/if}} --}}
+        Write
       </a>
     </li>
     <li
@@ -35,10 +37,11 @@
       <a
         href="#analyze"
         id="analyzeTab"
-        class="HeadingD polis-tab"
-        style="padding: 10px 5px !important; border: none"
+        class="HeadingC polis-tab"
+        style="padding: 10px 10px !important; border: none;  text-transform: none;"
         data-toggle="tab">
-        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}{{#if showTabs}} ANALYZE{{/if}}
+        See Consensus
+        {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}{{#if showTabs}} ANALYZE{{/if}} --}}
       </a>
     </li>
     <li
@@ -65,10 +68,23 @@
         legend
       {{! nothing to show }}
       </a>
-    </li>    
+    </li>  
   </ul>
+
+  <a
+    href="#commentForm"
+    id="commentFormTab"
+    class="HeadingD polis-tab pull-right"
+    style="padding: 10px 5px !important; border: none; margin-top: -42px; color: #777"
+    data-toggle="tab">
+
+    <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo">
+  Login
+  </a>
+
+
 </div>
 
-<div style="border-bottom: solid 2px gray"></div>
+<div style="border-bottom: solid 2px #ccc"></div>
 
 

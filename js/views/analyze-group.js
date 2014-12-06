@@ -256,10 +256,10 @@ module.exports = Handlebones.View.extend({
           var word = repfullForAgree ?
             "<span class='HeadingF a'>agreed</span>" :
             "<span class='HeadingF d'>disagreed</span>";
-          var bodyColor = "black"; //repfullForAgree ?
+          var bodyColor = "#333"; //repfullForAgree ?
             // "#20442F" :
             // "rgb(68, 33, 33)";
-          var backgroundColor = "none"; //repfullForAgree ?
+          var backgroundColor = "#f5f5f5"; //"none"; //repfullForAgree ?
             // "rgba(46, 204, 84, 0.07)" :
             // "rgba(231, 76, 60, 0.05)";
           header =
@@ -267,7 +267,7 @@ module.exports = Handlebones.View.extend({
               "<span class='small' style='color:darkgray;'>("+ count+"/"+info.count +") of this group "+ word + "</span>";
 
           var html = 
-            "<div style='color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               // "<p>" +
               //   (Utils.debugCommentProjection ? c.get("tid") : "")+
               //   header +
@@ -314,8 +314,8 @@ module.exports = Handlebones.View.extend({
               $("#carousel").fadeIn("slow", function() {
 
                 if (!isMobile) {
-                  $(".owl-pagination").prepend('<button id="carouselPrev" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-right: 10px">PREVIOUS</button>');
-                  $(".owl-pagination").append( '<button id="carouselNext" class="btn Btn-alt btn-sm" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-left: 10px;">NEXT</button>');
+                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-right: 10px">PREVIOUS</button>');
+                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; padding-left: 10px;">NEXT</button>');
 
                   // <div id="carouselNext">next</div>")
 
