@@ -64,9 +64,12 @@ var width = $(el_raphaelSelector).width();
 // var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
 var retina = window.devicePixelRatio > 1;
 var ptptOiRadius = retina ? 16 : 24; // go smaller on retina, the image should be higher res
+if (isMobile) {
+    ptptOiRadius = 12;
+}
 var haloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
 var haloVoteWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
-var anonBlobRadius = 24;
+var anonBlobRadius = isMobile ? 18 : 24;
 var anonBlobHaloWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
 var anonBlobHaloVoteWidth = anonBlobHaloWidth; //d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
 var maxRad = _.max([
@@ -342,7 +345,7 @@ if (isIE8) {
 window.vis = visualization; // TODO why? may prevent GC
 
 strokeWidth = strokeWidthGivenVisWidth(w);
-var padding = maxRad + strokeWidth + 35;
+var padding = maxRad + strokeWidth + 15;
 
 charge = -60; //chargeForGivenVisWidth(w);
 
@@ -366,9 +369,9 @@ if (useForce) {
         .charge(function(d) {
             // slight overlap allowed
             if (isSummaryBucket(d)) {
-                return -480;
+                return -450;
             } else {
-                return -180;
+                return -120;
             }
         })
         .size([w, h]);
@@ -734,6 +737,7 @@ function updateHulls() {
 var hullFps = 20;
 var updateHullsThrottled = _.throttle(updateHulls, 1000/hullFps);
 function updateNodesOnTick(e) {
+
       // Push nodes toward their designated focus.
       if (e && _.isNumber(e.alpha)) {
         // Force Layout scenario
@@ -746,8 +750,8 @@ function updateNodesOnTick(e) {
           if (!o.y) { o.y = h/2; }  
           o.x += (o.targetX - o.x) * k;
           o.y += (o.targetY - o.y) * k;
-          // o.x = Math.max(padding, Math.min(w - padding, o.x));
-          // o.y = Math.max(padding, Math.min(h - padding, o.y));
+          o.x = Math.max(padding, Math.min(w - padding, o.x));
+          o.y = Math.max(padding, Math.min(h - padding, o.y));
         });
       } else {
         // move directly to destination scenario (no force)
