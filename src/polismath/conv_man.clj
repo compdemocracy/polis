@@ -249,11 +249,12 @@
 
 
 (defn new-conv-actor [init-fn & opts]
-  (let [msgbox (chan 1024)
-        conv (atom (init-fn))
-        status (atom :parked)
+  (let [msgbox (chan Long/MAX_VALUE) ; we want this to be as big as possible, since backpressure doesn't really work
+        conv (atom (init-fn)) ; keep track of conv state in atom so it can be dereffed
         ca (ConvActor. msgbox conv)
         err-handler (build-update-error-handler msgbox ca)]
+    ; Initialize the go loop which watches the mailbox, and runs updates all all pending messages when they
+    ; arrive
     (go (loop []
           (try
             (let [first-msg (<! msgbox) ; do this so we park efficiently
