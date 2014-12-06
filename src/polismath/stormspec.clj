@@ -4,6 +4,7 @@
             [polismath.conv-man :as cm]
             [polismath.db :as db]
             [clojure.core.matrix :as ccm]
+            [plumbing.core :as pc]
             [polismath.env :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]]
@@ -20,22 +21,45 @@
 (ccm/set-current-implementation :vectorz)
 (ccm/matrix [[1 2 3] [4 5 6]])
 
+(let [at-a-time 100
+      interval  1000
+      reaction-gen
+        (atom
+          (sim/make-vote-gen 
+            {:n-convs 3
+             :vote-rate interval
+             :person-count-start 4
+             :person-count-growth 5
+             :comment-count-start 3
+             :comment-count-growth 3}))]
+  (defn sim-poll! [& {:keys [last-timestamp] :as opts}]
+    (let [results (take at-a-time @reaction-gen)]
+      (swap! reaction-gen (partial drop at-a-time))
+      (map (pc/fn-> (assoc :created (- last-timestamp (rand 500)))) results)))
+
+  (defn poll [last-timestamp]
+    (let [db-results (db/poll last-timestamp)
+          last-timestamp (reduce max last-timestamp (map :created db-results))
+          sim-results (sim-poll! :last-timestamp last-timestamp)]
+      (concat db-results sim-results))))
+
 
 (defspout sim-reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
   [conf context collector]
-  (let [at-a-time 10
-        interval 1000
+  (let [at-a-time 100
+        interval  1000
         reaction-gen
           (atom
             (sim/make-vote-gen 
               {:n-convs 3
                :vote-rate interval
                :person-count-start 4
-               :person-count-growth 3
+               :person-count-growth 5
                :comment-count-start 3
-               :comment-count-growth 1}))]
+               :comment-count-growth 3}))]
     (spout
       (nextTuple []
+        (log/info "Polling simutated reaction spout")
         (let [rxn-batch (take at-a-time @reaction-gen)
               split-rxns (group-by :zid rxn-batch)
               last-timestamp (System/currentTimeMillis)]
@@ -53,7 +77,7 @@
     (spout
       (nextTuple []
         (log/info "Polling :created >" @last-timestamp)
-        (let [new-votes (db/poll @last-timestamp)
+        (let [new-votes (poll @last-timestamp)
               grouped-votes (group-by :zid new-votes)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid rxns] grouped-votes]
@@ -73,10 +97,16 @@
         (let [[zid last-timestamp rxns] (.getValues tuple)
               ; First construct a new conversation builder. Then either find a conversation, or call that
               ; builder in conv-agency
-              conv-actor (cm/get-or-set!
-                           conv-agency zid (fn []
-                                             (cm/new-conv-actor
-                                               (partial cm/load-or-init zid))))]
+              conv-actor (cm/get-or-set! conv-agency zid
+                           (fn []
+                             (let [ca (cm/new-conv-actor (partial cm/load-or-init zid))]
+                               (add-watch
+                                 (:conv ca)
+                                 :size-watcher
+                                 (fn [k r o n]
+                                   (when ((set (range 4)) (:zid n))
+                                     (log/info "Size of conversation" (:zid n) "is" (:n n) (:n-cmts n)))))
+                               ca)))]
           (cm/send-votes conv-actor {:last-timestamp last-timestamp :reactions rxns}))
         (ack! collector tuple)))))
 
