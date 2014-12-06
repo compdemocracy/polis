@@ -23,6 +23,12 @@ module.exports = Handlebones.ModelView.extend({
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx.iOS = iOS;
+    ctx.customStyles = "";    
+    // if (ctx.txt && ctx.txt.length < 30) {
+      ctx.customStyles += "text-align: center; ";
+      ctx.customStyles += "padding-top: 39px; ";
+      ctx.customStyles += "font-size: 22px; ";
+    // }
     return ctx;
   },
   animateOut: function() {

@@ -264,11 +264,11 @@ function isParticipationView() {
 
 
 
-if (isEmbedded()) {
+// if (isEmbedded()) {
   $(document.body).css("background-color", "#fff");
-} else {
-  $(document.body).css("background-color", "#f7f7f7");
-}
+// } else {
+  // $(document.body).css("background-color", "#f7f7f7");
+// }
 
 
 

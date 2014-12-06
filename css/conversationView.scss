@@ -148,10 +148,27 @@ svg {
 
 /* Comment Shower */
 
+.nav-tabs > li.active {
+  background-color: rgba(0,0,0,0) !important;
+  border-bottom: 4px solid rgb(13, 121, 192);
+}
+
+
+.nav-tabs > li > a, .nav-tabs > li > a:hover, .nav-tabs > li > a:focus {
+  color: #777;
+}
+
+
+.nav-tabs > li.active > a, .nav-tabs > li.active > a:hover, .nav-tabs > li.active > a:focus {
+  background-color: rgba(0,0,0,0) !important;
+  color: #0a77bf;
+}
 
 #comment_shower p, #comment_shower h3 {
    font-weight: normal;
    line-height: normal;
+   background-color: #fcfcfc;
+   border-radius: 10px;
 }
 
 /* Comment Input Form */
