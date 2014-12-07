@@ -17,10 +17,10 @@
 }
 
 .helpArrow {
-  fill: darkgray;
+  fill: gray;
 }
 .helpArrowLine {
-  stroke: darkgray;
+  stroke: gray;
   stroke-width: 2px;
 }
 
@@ -351,6 +351,11 @@ svg {
   overflow: hidden;
 }
 
+.owl-wrapper-outer, .owl-controls {
+  margin-top: 20px !important;
+}
+
+
 /* mobile */
 @media (max-width: 767px) {
 
@@ -381,16 +386,10 @@ svg {
   }
 
   .analyze-group-pane {
-    border-style: solid;
-    border-width: 0px;
+    -webkit-box-shadow: 4px 5px 11px 4px #ACACAC;
+    position: relative;
     background-color: white;
-    border-top-width: 1px;
-    border-color: lightgray;
-    border-right: 3px solid lightgrey;
-    border-bottom: 3px solid lightgrey;
-    border-left: 1px solid lightgrey;
-    border-top-right-radius: 10px;
-    border-top-left-radius: 10px;
+    top:-2px;
   }
 
   .write-pane {

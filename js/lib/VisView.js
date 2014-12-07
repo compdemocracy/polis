@@ -283,7 +283,7 @@ $(el_selector)
                 "markerHeight='5'" +
                 "orient='auto'>" +
             // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
-            "<circle cx = '6' cy = '6' r = '5' style='fill:#222;'/>" +
+            "<circle cx = '6' cy = '6' r = '5' />" +
         "</marker>" +
         "<clipPath id=\"clipCircle\">" +
             "<circle r=\"" + ptptOiRadius +"\" cx=\"0\" cy=\"0\"/>" +
@@ -2273,7 +2273,6 @@ function updateLineToCluster(gid) {
     center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
-        .style("stroke", "#222")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
         .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
