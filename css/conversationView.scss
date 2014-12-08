@@ -353,6 +353,7 @@ svg {
 
 .owl-wrapper-outer, .owl-controls {
   margin-top: 20px !important;
+  margin-bottom: 20px !important;
 }
 
 
@@ -369,7 +370,7 @@ svg {
 }
 
 /* Everything but mobile */
-@media (min-width: 768px) {
+// @media (min-width: 768px) {
 
 
   #opinion_groups_label {
@@ -392,6 +393,52 @@ svg {
     top:-2px;
   }
 
+  .analyze-group-pane img {
+    width: 100%;
+  }
+
+  .analyze-group-member-container {
+    position: relative;
+    top: -130px;
+    padding-left: 83px;
+  }
+
+  .analyze-group-member {
+    margin-bottom: 5px;
+  }
+
+  .analyze-group-member p {
+    display: inline;
+  }
+
+  // .analyze-group-member-name {
+  // }
+
+  .analyze-group-member-city {
+    font-style: italic;
+    font-family: $sans-font;
+    font-size: 14px;
+  }
+
+  .analyze-group-member img {
+    width: 40px;
+    border-radius: 20px;
+    position: relative;
+    top: -2px;
+  }
+
+  .analyze-group-member-others p {
+    
+  }
+
+  .fa-twitter {
+    color: #55ACEE;
+  }
+
+  .fa-facebook {
+    color: #3b5998;
+  }
+
   .write-pane {
   //   border-right: 3px solid lightgrey;
   //   border-bottom: 3px solid lightgrey;
@@ -402,7 +449,7 @@ svg {
   //   border-top-right-radius: 10px;
   //   border-top-left-radius: 10px;
   }
-}
+// }
 
 /* Large desktop */
 @media (min-width: 1200px) {
