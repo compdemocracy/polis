@@ -8,7 +8,11 @@
             [polismath.env :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [clojure.core.async
+             :as as
+             :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer
+                     put! take!]])
   (:use [backtype.storm clojure config]
         polismath.named-matrix
         polismath.utils
@@ -21,59 +25,41 @@
 (ccm/set-current-implementation :vectorz)
 (ccm/matrix [[1 2 3] [4 5 6]])
 
-(let [at-a-time 100
-      interval  1000
-      reaction-gen
-        (atom
-          (sim/make-vote-gen 
-            {:n-convs 3
-             :vote-rate interval
-             :person-count-start 4
-             :person-count-growth 5
-             :comment-count-start 3
-             :comment-count-growth 3}))]
-  (defn sim-poll! [& {:keys [last-timestamp] :as opts}]
-    (let [results (take at-a-time @reaction-gen)]
-      (swap! reaction-gen (partial drop at-a-time))
-      (map (pc/fn-> (assoc :created (- last-timestamp (rand 500)))) results)))
-
-  (defn poll [last-timestamp]
-    (let [db-results (db/poll last-timestamp)
-          last-timestamp (reduce max last-timestamp (map :created db-results))
-          sim-results (sim-poll! :last-timestamp last-timestamp)]
-      (concat db-results sim-results))))
 
 
-(defspout sim-reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
-  [conf context collector]
-  (let [at-a-time 100
-        interval  1000
-        reaction-gen
-          (atom
-            (sim/make-vote-gen 
-              {:n-convs 3
-               :vote-rate interval
-               :person-count-start 4
-               :person-count-growth 5
-               :comment-count-start 3
-               :comment-count-growth 3}))]
-    (spout
-      (nextTuple []
-        (log/info "Polling simutated reaction spout")
-        (let [rxn-batch (take at-a-time @reaction-gen)
-              split-rxns (group-by :zid rxn-batch)
-              last-timestamp (System/currentTimeMillis)]
-          (Thread/sleep interval)
-          (swap! reaction-gen (partial drop at-a-time))
-          (doseq [[zid rxns] split-rxns]
-            (emit-spout! collector [zid last-timestamp rxns]))))
-      (ack [id]))))
+(if (env/env :poll-redis)
+  (let [sim-vote-chan (chan 10e5)]
+    (log/warn "XXX: Going to be polling redis for simulated votes")
+    ; Function that starts a service which polls redis and throws it onto a queue
+    (defn start-sim-poller!
+      []
+      (sim/wcar-worker*
+        "simvotes"
+        {:handler (fn [{:keys [message attempt]}]
+                    (log/debug "Have some sim votes")
+                    (let [[_ vote-batch] message]
+                      (>!! sim-vote-chan vote-batch))
+                    {:status :success})}))
+    ; Construct a poller that also check the channel for simulated messages and passes them through
+    (defn poll
+      "Do stuff with the fake comments and sim comments"
+      [last-timestamp]
+      (let [db-results (db/poll last-timestamp)
+            last-timestamp (reduce max last-timestamp (map :created db-results))
+            sim-batches (cm/take-all!! sim-vote-chan)
+            combined-results (concat db-results sim-batches)]
+        (concat db-results sim-batches))))
+  ; Else, defer to regular poller
+  (def poll db/poll))
 
 
 (defspout reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
   [conf context collector]
   (let [poll-interval   1000
         last-timestamp  (atom 0)]
+    (when (env/env :poll-redis)
+      (log/info "Starting sim poller!")
+      (start-sim-poller!))
     (spout
       (nextTuple []
         (log/info "Polling :created >" @last-timestamp)
@@ -89,7 +75,7 @@
       (ack [id]))))
 
 
-(defbolt conv-update-bolt [] {:prepare true}
+(defbolt conv-update-bolt [] {:params [recompute] :prepare true}
   [conf context collector]
   (let [conv-agency (atom {})] ; collection of conv-actors
     (bolt
@@ -99,7 +85,7 @@
               ; builder in conv-agency
               conv-actor (cm/get-or-set! conv-agency zid
                            (fn []
-                             (let [ca (cm/new-conv-actor (partial cm/load-or-init zid))]
+                             (let [ca (cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute))]
                                (add-watch
                                  (:conv ca)
                                  :size-watcher
@@ -111,37 +97,39 @@
         (ack! collector tuple)))))
 
 
-(defn mk-topology [sim?]
+(defn mk-topology [sim recompute]
   (topology
     ; Spouts:
     {"1" (spout-spec
-           (if sim? sim-reaction-spout reaction-spout))}
+           ;(if sim sim-reaction-spout reaction-spout))}
+           reaction-spout)}
     ; Bolts:
     {"2" (bolt-spec
            {"1"  ["zid"]}
-           conv-update-bolt)}))
+           (conv-update-bolt recompute))}))
 
 
-(defn run-local! [{sim :sim}]
+(defn run-local! [{:keys [sim recompute]}]
   (let [cluster (LocalCluster.)]
     (.submitTopology cluster
                      "online-pca"
                      {TOPOLOGY-DEBUG false}
-                     (mk-topology sim))))
+                     (mk-topology sim recompute))))
 
 
-(defn submit-topology! [name {sim :sim}]
+(defn submit-topology! [name {:keys [sim recompute]}]
   (StormSubmitter/submitTopology name
     {TOPOLOGY-DEBUG false
      TOPOLOGY-WORKERS 3}
-    (mk-topology sim)))
+    (mk-topology sim recompute)))
 
 
 (def cli-options
   "Has the same options as simulation if simulations are run"
   (into
     [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
-     ["-s" "--sim"]]
+     ["-s" "--sim"]
+     ["-r" "--recompute"]]
     sim/cli-options))
 
 

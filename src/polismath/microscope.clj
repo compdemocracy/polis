@@ -68,6 +68,17 @@
           (partial pc/map-keys kw->int))))))
 
 
+(defn replay-conv-update
+  "Can be run as a shell command on a error file to replay what happened."
+  [filename]
+  (let [data (conv/load-conv-update filename)
+        {:keys [conv votes opts]} data
+        {:keys [rating-mat base-clusters pca]} conv]
+    (println "Loaded conv:" filename)
+    (println "Dimensions:" (count (nm/rownames rating-mat)) "x" (count (nm/colnames rating-mat)))
+    (conv/conv-update conv votes)))
+
+
 (def cli-options
   [["-z" "--zid ZID" "ZID on which to do a rerun" :parse-fn #(Integer/parseInt %)]
    ["-Z" "--zinvite ZINVITE" "ZINVITE code on which to perform a rerun"]])

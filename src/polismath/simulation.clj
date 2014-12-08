@@ -5,7 +5,9 @@
             [bigml.sampling [reservoir :as reservoir]
                             [simple :as simple]]
             [taoensso.timbre.profiling :as profiling
-              :refer (pspy pspy* profile defnp p p*)])
+              :refer (pspy pspy* profile defnp p p*)]
+            [taoensso.carmine :as car]
+            [taoensso.carmine.message-queue :as car-mq])
   (:use polismath.utils
         ;alex-and-georges.debug-repl
         polismath.named-matrix
@@ -13,38 +15,6 @@
         clj-time.coerce
         plumbing.core
         clj-time.local))
-
-
-(defn random-votes [n-ptpts n-cmts & {:keys [n-votes n-convs] :or {n-convs 1}}]
-  (let [n-votes (or n-votes (* n-convs n-ptpts n-cmts))]
-    (letfn [(generator [wrapper-fn range]
-              (take n-votes (repeatedly #(wrapper-fn (rand-int range)))))]
-      (map #(hash-map :zid %1 :pid %2 :tid %3 :vote %4)
-        (generator identity n-convs)
-        (generator identity n-ptpts)
-        (generator identity n-cmts)
-        (generator #(- % 1) 3)))))
-
-
-(defnk make-vote-gen
-  "This function creates an infinite sequence of reations which models an increasing number of comments and
-  people over time, over some number of conversations n-convs. The start-n argument sets the initial number of
-  ptpts and cmts per conversation."
-  [person-count-start person-count-growth comment-count-start comment-count-growth n-convs vote-rate]
-  (mapcat
-    #(random-votes %1 %2 :n-convs n-convs :n-votes vote-rate)
-    (map #(+ person-count-start (* person-count-growth %)) (range))
-    (map #(+ comment-count-start (* comment-count-growth %)) (range))))
-
-
-(defn random-poll
-  "This is specifically structured to be a drop in replacement for the postgres poll"
-  [db-spec last-timestamp generator-args]
-  (letfn [(rand-timestamp []
-            (+ last-timestamp
-               (rand-int (- (to-long (local-now)) last-timestamp))))]
-    (sort-by :created
-      (map #(assoc % :created (rand-timestamp)) (apply random-votes generator-args)))))
 
 
 (defprotocol Voteable
@@ -247,8 +217,7 @@
 
 
 (def cli-options
-  [(int-opt "-i" "--poll-interval INTERVAL" "Milliseconds between randomly generated polls" :default 1500)
-   (int-opt "-r" "--vote-rate RATE" "Number of new votes every iteration" :default 10)
+  [(int-opt "-i" "--poll-interval INTERVAL" "Milliseconds between randomly generated polls" :default 1000)
    (int-opt "-z" "--n-convs NUMBER" "Number of conversations to simulate" :default 3)
    (int-opt "-p" "--person-count-start COUNT" :default 4)
    (int-opt "-P" "--person-count-growth COUNT" :default 3)
@@ -266,34 +235,26 @@
    (string/join \newline)))
 
 
-(defn conv-stat-row
-  [zid votes conv]
-  (str "XXX,"
-       zid ","
-       (count (:base-clusters conv)) ","
-       (count votes) ","
-       (count (rownames (:rating-mat conv)))))
+; See `wcar` docstring for opts
+(def server1-conn {:pool {}
+                   :spec {}})
+(defmacro wcar* [& body] `(car/wcar server1-conn ~@body))
+(def wcar-worker* (partial car-mq/worker server1-conn))
 
-
-(defn endlessly-sim [opts]
-  (let [simulator (atom (make-vote-gen opts))
-        conversations (atom {})
-        vote-rate (:vote-rate opts)]
-    (println "XXX,conv,k,votes,ptpts")
-    (endlessly (:poll-interval opts)
-      (println \newline "POLLING!")
-      (let [new-votes (take vote-rate @simulator)
-            split-votes (group-by :zid new-votes)]
-        (swap! simulator #(drop vote-rate %))
-        (doseq [[zid votes] split-votes]
-          (swap! conversations
-            (fn [convs]
-              (assoc convs zid
-                (conv-update (or (convs zid) {:rating-mat (named-matrix)}) votes))))
-          (let [conv (@conversations zid)]
-            (println (conv-stat-row zid votes conv)))
-          (println \newline "Conv" zid)
-        )))))
+(defn simulate!
+  [{:keys [n-convs poll-interval]}]
+  (let [pollers (repeat n-convs simple-poller)
+        poller (apply comp-poller pollers)]
+    (loop [convs (for [i (range n-convs)]
+                   (sim-conv :n-ptpts 4 :n-cmnts 5 :zid i))
+           last-timestamp 0
+           polls 0]
+      (Thread/sleep poll-interval)
+      (let [[new-convs votes] (poll! poller convs last-timestamp)
+            new-last-timestamp (apply max (map :created votes))]
+        (println "Simulating" (count votes))
+        (wcar* (car-mq/enqueue "simvotes" votes))
+        (recur new-convs new-last-timestamp (inc polls))))))
 
 
 (defn -main [& args]
@@ -302,25 +263,6 @@
     (cond
       (:help options)   (exit 0 (usage summary))
       (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
-      true              (endlessly-sim options))))
-
-
-(defn play [& args]
-  (let [big-ptpts    2000
-        big-comments 200
-        a (conv-update {:rating-mat (named-matrix)} (random-votes 100 10))
-        a (conv-update a (random-votes big-ptpts big-comments) :max-ptpts 1000 :max-cmts 100)]
-    (println "XXX" (:n a) (:n-cmts a))))
-    ;(profile :info :clusters
-      ;(conv-update a (random-votes big-ptpts (+ big-comments 2)) :large-cutoff 10000 :max-ptpts 10000))
-
-
-(defn replay-conv-update [filename]
-  (let [data (load-conv-update filename)
-        {:keys [conv votes opts]} data
-        {:keys [rating-mat base-clusters pca]} conv]
-    (println "Loaded conv:" filename)
-    (println "Dimensions:" (count (rownames rating-mat)) "x" (count (colnames rating-mat)))
-    (conv-update conv votes)))
+      :else             (simulate! options))))
 
 

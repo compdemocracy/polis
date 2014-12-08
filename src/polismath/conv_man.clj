@@ -214,8 +214,8 @@
 
 (defn load-or-init
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
-  [zid]
-  (if-let [conv (db/load-conv zid)]
+  [zid & {:keys [recompute]}]
+  (if-let [conv (and (not recompute) (db/load-conv zid))]
     (-> conv
         (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts})
         ; Make sure there is an empty named matrix to operate on
@@ -233,6 +233,16 @@
        (if (not= ~c :default)
          (recur (conj acc# v#))
          acc#))))
+
+
+(defn take-all!! [c]
+  "Given a channel, takes all values currently in channel and places in a vector. Must be called
+  within a go block."
+  (loop [acc []]
+    (let [[v c] (alts!! [c] :default nil)]
+      (if (not= c :default)
+        (recur (conj acc v))
+        acc))))
 
 
 (defprotocol IConvActor
