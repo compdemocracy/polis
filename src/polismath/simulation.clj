@@ -136,8 +136,9 @@
 
 
 (defn sim-conv
-  [& {:keys [n-grps grp-dists n-ptpts n-cmnts] :or {n-grps 3 n-ptpts 0 n-comnts 0}}]
-  (-> {:groups (repeat n-grps (new-group))
+  [& {:keys [zid n-grps grp-dists n-ptpts n-cmnts] :or {n-grps 3 n-ptpts 0 n-comnts 0}}]
+  (-> {:zid (or zid (rand-int 1000))
+       :groups (repeat n-grps (new-group))
        :unvoted []
        :members [] ; actually a map of member indices to group indices
        :comments 0
@@ -149,7 +150,8 @@
 (defn conv-votes
   [conv & [n]]
   (let [n (or n 1)]
-    (let [picks (reservoir/sample (:unvoted conv) n)
+    (let [zid (:zid conv)
+          picks (reservoir/sample (:unvoted conv) n)
           new-conv (update-in conv [:unvoted] (partial remove (set picks)))
           ; Handle the situation where we want more votes than there are :unvoted (ptpt, cmnt) pairs by having
           ; revotes
@@ -162,7 +164,7 @@
                   (fn [[m c]]
                     (let [grp-i (get-in conv [:members m])
                           grp ((:groups conv) grp-i)]
-                      {:pid m :tid c :vote (cast-vote! grp c)}))
+                      {:zid zid :pid m :tid c :vote (cast-vote! grp c)}))
                   picks)]
       ; Return the new conversation state so it can be looped on
       [new-conv votes])))
@@ -183,8 +185,10 @@
 
 (defn rand-ms
   [max]
-  (* (rand-int (int (/ max 1000)))
-     1000))
+  (+ (* (rand-int (int (/ max 1000)))
+        1000)
+     (rand-int 1000)))
+
 
 
 (defn add-timestamps
@@ -219,7 +223,6 @@
     :ptpt-growth-fn (fn [conv] 10)
     :cmnt-growth-fn (fn [conv] 1)
     :poll-count-fn (fn [conv]
-                     (println (:comments conv) (count (:members conv)))
                      (+ 10 (int (/ (* (:comments conv) (inc (count (:members conv))))
                                 10))))))
 
@@ -232,9 +235,10 @@
       (let [[new-convs vote-batches]
               (unzip
                 (map #(poll! %1 %2 last-timestamp) pollers convs))]
-        [new-convs (apply concat vote-batches)]))))
-
-
+        [new-convs
+         (->> vote-batches
+              (apply concat)
+              (sort-by :created))]))))
 
 
 (defn int-opt [& args]
