@@ -49,7 +49,7 @@ CREATE TABLE twitter_users (
     friends_count INTEGER NOT NULL, -- followees
     verified BOOLEAN NOT NULL,
     profile_image_url_https VARCHAR(9999),
-
+    location VARCHAR(9999),
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     created BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE(uid), -- In theory someone could have multiple twitter accounts, so we might remove this restriction if we add support for that.
@@ -318,6 +318,15 @@ CREATE TABLE lti_context_memberships (
     tool_consumer_instance_guid TEXT NOT NULL
 );
 
+CREATE TABLE geolocation_cache (
+    location VARCHAR(9999), -- "Seattle, WA"
+    lat DOUBLE PRECISION NOT NULL, -- latitude
+    lng DOUBLE PRECISION NOT NULL, -- longitude
+    response json,
+    created BIGINT DEFAULT now_as_millis(),
+    UNIQUE (location)
+);
+
 CREATE TABLE facebook_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
     fb_user_id TEXT,
@@ -326,6 +335,7 @@ CREATE TABLE facebook_users (
     fb_auth_response TEXT,
     fb_access_token TEXT,
     fb_granted_scopes TEXT,
+    location VARCHAR(9999), -- "Seattle, WA"
     response TEXT,
     fb_friends_response TEXT,
     created BIGINT DEFAULT now_as_millis(),
