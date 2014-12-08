@@ -54,7 +54,7 @@ var badwords = require('badwords/object'),
     postmark = require("postmark")(process.env.POSTMARK_API_KEY),
     querystring = require('querystring'),
     devMode = "localhost" === process.env.STATIC_FILES_HOST,
-    request = require('request'),
+    request = require('request-promise'), // includes Request, but adds promise methods
     SimpleCache = require("simple-lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
     _ = require('underscore');
