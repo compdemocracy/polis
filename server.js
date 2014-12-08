@@ -7049,6 +7049,57 @@ function getPidsForGid(zid, gid, lastVoteTimestamp) {
     });
 }
 
+
+
+function geoCodeWithGoogleApi(locationString) {
+    var googleApiKey = process.env.GOOGLE_API_KEY;
+    var address = encodeURI(locationString);
+
+    return new Promise(function(resolve, reject) {
+        request.get("https://maps.googleapis.com/maps/api/geocode/json?address="+ address +"&key="+ googleApiKey).then(function(response) {
+            var response = JSON.parse(response);
+            if (response.status !== "OK") {
+                reject("polis_err_geocoding_failed");
+                return;
+            }
+            var bestResult = response.results[0]; // NOTE: seems like there could be multiple responses - using first for now
+            resolve(bestResult);
+        }, reject).catch(reject);
+    });
+}
+
+function geoCode(locationString) {
+    return pgQueryP("select * from geolocation_cache where location = ($1);", [locationString]).then(function(rows) {
+        if (!rows || !rows.length) {
+            return geoCodeWithGoogleApi(locationString).then(function(result) {
+                console.dir(result);
+                var lat = result.geometry.location.lat;
+                var lng = result.geometry.location.lng;
+                // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
+                pgQueryP("insert into geolocation_cache (location,lat,lng,response) values ($1,$2,$3,$4);",[
+                    locationString,
+                    lat,
+                    lng,
+                    JSON.stringify(result),
+                ]);
+                var o = {
+                    lat: lat,
+                    lng: lng,
+                };
+                return o;
+            });
+        } else {
+            var o = {
+                lat: rows[0].lat,
+                lng: rows[0].lng,
+            };
+            return o;
+        }
+    });
+}
+
+
+
 app.get("/api/v3/locations",
     moveToBody,
     authOptional(assignToP),
