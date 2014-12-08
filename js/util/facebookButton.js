@@ -157,7 +157,7 @@ function fbLoginPrompt() {
         // 'taggable_friends', // requires review.
         // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
         'public_profile',
-        'location',
+        'user_location',
         'user_friends',
         'email'
       ].join(',')
