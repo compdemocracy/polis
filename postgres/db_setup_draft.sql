@@ -279,6 +279,18 @@ CREATE INDEX participants_conv_uid_idx ON participants USING btree (uid); -- spe
 CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed up the auto-increment trigger
 
 
+CREATE TABLE participant_locations (
+    zid INTEGER NOT NULL REFERENCES conversations(zid),
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    pid INTEGER NOT NULL,
+    lat DOUBLE PRECISION NOT NULL, -- latitude
+    lng DOUBLE PRECISION NOT NULL, -- longitude
+    created BIGINT DEFAULT now_as_millis(),
+    source INTEGER NOT NULL, -- 1: manual entry into db, 100:IP,200:HTML5,300:FB,400:Twitter
+    UNIQUE (zid, uid) 
+);
+
+
 -- mapping between uid and (owner,eXternalID)
 CREATE TABLE xids (
     uid INTEGER NOT NULL REFERENCES users(uid),
