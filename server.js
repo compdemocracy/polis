@@ -2155,6 +2155,12 @@ function getBidsForPids(zid, lastVoteTimestamp, pids) {
     });
 }
 
+function getClusters(zid, lastVoteTimestamp) {
+    return getPca(zid, lastVoteTimestamp).then(function(pcaData) {
+        return pcaData["group-clusters"];
+    });
+}
+
 // TODO cache
 app.get("/api/v3/bid",
     auth(assignToP),
@@ -7005,6 +7011,78 @@ function getVotesForPids(zid, pids) {
     }
     return pgQueryP("select * from votes where zid = ($1) and pid in (" + pids.join(",") + ") order by pid, tid, created;", [zid]);
 }
+
+
+function getLocationsForParticipants(zid) {
+    return pgQueryP("select * from participant_locations where zid = ($1);", [zid]);
+}
+
+function getPidsForGid(zid, gid, lastVoteTimestamp) {
+    return Promise.all([
+        getClusters(zid, lastVoteTimestamp),
+        getBidToPidMapping(zid, lastVoteTimestamp),
+    ]).then(function(o) {
+        var clusters = o[0];
+        var bidToPids = o[1].bidToPid;
+        var cluster = clusters[gid];
+        if (!cluster) {
+            return [];
+        }
+        var members = cluster.members;
+        console.log("members");
+        console.dir(members);
+        var pids = [];
+        for (var i = 0; i < members.length; i++) {
+            var bid = members[i];
+            var morePids = bidToPids[bid];
+            console.log("morePids");
+            console.dir(morePids);
+            console.log("bid");
+            console.log(bid);
+            console.log("bidToPids");
+            console.dir(bidToPids);
+
+            Array.prototype.push.apply(pids, morePids);
+        }
+        pids.sort();
+        return pids;
+    });
+}
+
+app.get("/api/v3/locations",
+    moveToBody,
+    authOptional(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need("gid", getInt, assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var gid = req.p.gid;
+
+    Promise.all([
+        getPidsForGid(zid, gid, -1),
+        getLocationsForParticipants(zid),
+    ]).then(function(o) {
+        var pids = o[0];
+        var locations = o[1];
+        console.log("locations");
+        console.dir(locations);
+        console.dir(pids);
+        locations = locations.filter(function(locData) {
+            var pidIsInGroup = _.indexOf(pids, locData.pid, true) >= 0; // uses binary search
+            return pidIsInGroup;
+        });
+        locations = locations.map(function(locData) {
+            return {
+                lat: locData.lat,
+                lng: locData.lng,
+                n: 1,
+            };
+        });
+        res.status(200).json(locations);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_locations_01", err);
+    });
+});
 
 app.get("/api/v3/votes/famous",
     moveToBody,
