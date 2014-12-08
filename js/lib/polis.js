@@ -50,6 +50,8 @@ module.exports = function(params) {
     var conversationsPath = "api/v3/conversations";
     var participantsPath = "api/v3/participants";
 
+    var particpantGeoLocationsPath = "api/v3/locations";
+    
     var queryParticipantsByMetadataPath = "api/v3/query_participants_by_metadata";
 
     var commentVelocitiesPath = "api/v3/velocities";
@@ -1556,6 +1558,13 @@ function clientSideBaseCluster(things, N) {
         return polisGet(commentsPath, params);
     }
 
+    function getLocations(gid) {
+        return polisGet(particpantGeoLocationsPath, {
+            conversation_id: conversation_id,
+            gid: gid
+        });
+    }
+
     function getTidsForGroup(gid, max) {
         var dfd = $.Deferred();
         // delay since clustersCache might not be populated yet.
@@ -2286,7 +2295,7 @@ function clientSideBaseCluster(things, N) {
 
         createConversation: createConversation,
         getConversations: getConversations,
-
+        getLocations: getLocations,
         findRepresentativeMetadata: findRepresentativeMetadata,
         parseMetadataFromCSV: parseMetadataFromCSV,
 

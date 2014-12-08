@@ -370,6 +370,7 @@ module.exports = Handlebones.View.extend({
     
 
     var getTidsForGroup = options.getTidsForGroup;
+    var getLocations = options.getLocations;
 
     this.fetcher = options.fetcher;
 
@@ -399,6 +400,10 @@ module.exports = Handlebones.View.extend({
     } else {
       eb.on(eb.clusterClicked, function(gid) {
         doFetch(gid);
+        getLocations(gid).then(function(locations) {
+          console.log("geoLocations:");
+          console.dir(locations);
+        });
       });
     }
   }
