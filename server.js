@@ -2836,8 +2836,8 @@ function getUsersLocationName(uid) {
         pgQueryP("select * from facebook_users where uid = ($1);", [uid]),
         pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
     ]).then(function(o) {
-        var fb = o[0];
-        var tw = o[1];
+        var fb = o[0] && o[0][0];
+        var tw = o[1] && o[1][0];
         if (fb.location) {
             return {
                 location: fb.location,
@@ -2849,6 +2849,7 @@ function getUsersLocationName(uid) {
                 source: LOCATION_SOURCES.Twitter,
             };
         }
+        return null;
     });
 }
 
