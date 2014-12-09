@@ -3810,8 +3810,8 @@ function createFacebookUserRecord(o) {
         // o.fb_auth_response,
         o.fb_access_token,
         o.fb_granted_scopes,
-        o.locationInfo.id,
-        o.locationInfo.name,
+        o.locationInfo && o.locationInfo.id,
+        o.locationInfo && o.locationInfo.name,
         o.fb_friends_response || "",
         o.response,
     ]);
