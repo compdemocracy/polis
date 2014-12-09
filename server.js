@@ -2861,6 +2861,7 @@ function populateParticipantLocationRecordIfPossible(zid, uid, pid) {
             return;
         }
     console.log("asdf2");
+    console.dir(locationData);
         geoCode(locationData.location).then(function(o) {
     console.log("asdf3");
             createParticpantLocationRecord(zid, uid, pid, o.lat, o.lng, locationData.source).catch(function(err) {
