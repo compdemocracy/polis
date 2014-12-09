@@ -7132,7 +7132,12 @@ function getPidsForGid(zid, gid, lastVoteTimestamp) {
 
             Array.prototype.push.apply(pids, morePids);
         }
-        pids.sort();
+        pids = pids.map(function(x) {
+            return parseInt(x);
+        });
+        pids.sort(function (a,b) {
+            return a - b;
+        });
         return pids;
     });
 }
@@ -7261,7 +7266,9 @@ function(req, res) {
             pidToData[p.pid] = pidToData[p.pid] || {};
             pidToData[p.pid].polis = p;
         });
-        pids.sort();
+        pids.sort(function(a,b) {
+            return a - b;
+        });
         pids = _.uniq(pids, true);
 
         function createEmptyVoteVector(greatestTid) {
