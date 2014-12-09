@@ -82,6 +82,10 @@ function getInfo() {
     //   "last_name":"Bjorkegren"
     //   "link":"https://www.facebook.com/app_scoped_user_id/10152802017421079/"
     //   "locale":"en_US"
+    //   "location": {
+    //      "id": "110843418940484",  ------------> we can make another call to get the lat,lng for this
+    //      "name": "Seattle, Washington"
+    //   }, 
     //   "name":"Mike Bjorkegren"
     //   "timezone":-7
     //   "updated_time":"2014-07-03T06:38:02+0000"
@@ -94,7 +98,19 @@ function getInfo() {
       //     alert(response.data[i]);
       //   }
       // }
-      dfd.resolve(response);
+
+      if (response.location && response.location.id) {
+        FB.api('/' + response.location.id, function(locationResponse) {
+          console.log("locationResponse");
+          console.dir(locationResponse);
+          if (locationResponse) {
+            response.locationInfo = locationResponse;
+          }
+          dfd.resolve(response);
+        });
+      } else {
+        dfd.resolve(response);
+      }
     } else {
       // alert('failed to find data');
       dfd.reject(response);
