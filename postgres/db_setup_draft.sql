@@ -50,6 +50,7 @@ CREATE TABLE twitter_users (
     verified BOOLEAN NOT NULL,
     profile_image_url_https VARCHAR(9999),
     location VARCHAR(9999),
+    response json,
     modified BIGINT NOT NULL DEFAULT now_as_millis(),
     created BIGINT NOT NULL DEFAULT now_as_millis(),
     UNIQUE(uid), -- In theory someone could have multiple twitter accounts, so we might remove this restriction if we add support for that.
