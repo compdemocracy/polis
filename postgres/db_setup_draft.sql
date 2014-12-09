@@ -336,6 +336,7 @@ CREATE TABLE facebook_users (
     fb_auth_response TEXT,
     fb_access_token TEXT,
     fb_granted_scopes TEXT,
+    fb_location_id VARCHAR(100), -- "110843418940484"
     location VARCHAR(9999), -- "Seattle, WA"
     response TEXT,
     fb_friends_response TEXT,
