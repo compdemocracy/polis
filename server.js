@@ -3805,6 +3805,10 @@ function createFacebookUserRecord(o) {
     console.log("createFacebookUserRecord", JSON.stringify(o));
     console.dir(o);
     console.log("end createFacebookUserRecord");
+    var profileInfo = JSON.parse(o.fb_public_profile);
+    console.log("createFacebookUserRecord profileInfo");
+    console.dir(profileInfo);
+    console.log("end createFacebookUserRecord profileInfo");
     // Create facebook user record
     return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_location_id, location, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", [
         o.uid,
@@ -3814,8 +3818,8 @@ function createFacebookUserRecord(o) {
         // o.fb_auth_response,
         o.fb_access_token,
         o.fb_granted_scopes,
-        o.fb_public_profile.locationInfo && o.fb_public_profile.locationInfo.id,
-        o.fb_public_profile.locationInfo && o.fb_public_profile.locationInfo.name,
+        profileInfo.locationInfo && profileInfo.locationInfo.id,
+        profileInfo.locationInfo && profileInfo.locationInfo.name,
         o.fb_friends_response || "",
         o.response,
     ]);
