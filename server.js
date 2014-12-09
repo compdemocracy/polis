@@ -2816,6 +2816,69 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
     });
 }
 
+function createParticpantLocationRecord(
+        zid, uid, pid, lat, lng, source) {
+    return pgQueryP("insert into participant_locations (zid, uid, pid, lat, lng, source) values ($1,$2,$3,$4,$5,$6);", [
+        zid, uid, pid, lat, lng, source
+    ]);
+}
+
+var LOCATION_SOURCES = {
+    Twitter: 1,
+    Facebook: 100,
+    HTML5: 200,
+    IP: 300,
+    manual_entry: 400,
+};
+
+function getUsersLocationName(uid) {
+    return Promise.all([
+        pgQueryP("select * from facebook_users where uid = ($1);", [uid]),
+        pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
+    ]).then(function(o) {
+        var fb = o[0];
+        var tw = o[1];
+        if (fb.location) {
+            return {
+                location: fb.location,
+                source: LOCATION_SOURCES.Facebook,
+            };
+        } else if (tw.location) {
+            return {
+                location: fb.location,
+                source: LOCATION_SOURCES.Twitter,
+            };
+        }
+    });
+}
+
+function populateParticipantLocationRecordIfPossible(zid, uid, pid) {
+    console.log("asdf1", zid, uid, pid);
+    getUsersLocationName(uid).then(function(locationData) {
+    console.log("asdf1.nope");
+        if (!locationData) {
+            return;
+        }
+    console.log("asdf2");
+        geoCode(locationData.location).then(function(o) {
+    console.log("asdf3");
+            createParticpantLocationRecord(zid, uid, pid, o.lat, o.lng, locationData.source).catch(function(err) {
+    console.log("asdf4");
+                if (!isDuplicateKey(err)) {
+                    yell("polis_err_creating_particpant_location_record");
+                    console.error(err);
+                }
+            });
+        }).catch(function(err) {
+            yell("polis_err_geocoding_01");
+            console.error(err);
+        });
+    }).catch(function(err) {
+        yell("polis_err_fetching_user_location_name");            
+        console.error(err);
+    });
+}
+
 
 function tryToJoinConversation(zid, uid, pmaid_answers) {
     // there was no participant row, so create one
@@ -2835,6 +2898,7 @@ function tryToJoinConversation(zid, uid, pmaid_answers) {
                     return reject(err);
                 }
                 resolve(pid);
+                populateParticipantLocationRecordIfPossible(zid, uid, pid);
             });
         });
     });
@@ -3302,6 +3366,10 @@ function(req, res) {
         console.dir(arguments);
         if (!err && pid >= 0) {
             finish(pid);
+
+            // populate their location if needed - no need to wait on this.
+            populateParticipantLocationRecordIfPossible(zid, req.p.uid, pid);    
+
             return;
         }
 
@@ -6899,8 +6967,10 @@ function(req, res) {
                 "followers_count," +
                 "friends_count," +
                 "verified," +
-                "profile_image_url_https" +
-                ") VALUES ($1, $2, $3, $4, $5, $6, $7);",[
+                "profile_image_url_https," +
+                "location" +
+                "response" +
+                ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);",[
                     uid,
                     u.id,
                     u.screen_name,
@@ -6908,6 +6978,8 @@ function(req, res) {
                     u.friends_count,
                     u.verified,
                     u.profile_image_url_https,
+                    u.location,
+                    JSON.stringify(u),
             ]).then(function() {
                 res.redirect(dest);
             });
@@ -7097,7 +7169,6 @@ function geoCode(locationString) {
         }
     });
 }
-
 
 
 app.get("/api/v3/locations",
