@@ -2824,11 +2824,11 @@ function createParticpantLocationRecord(
 }
 
 var LOCATION_SOURCES = {
-    Twitter: 1,
-    Facebook: 100,
+    Twitter: 400,
+    Facebook: 300,
     HTML5: 200,
-    IP: 300,
-    manual_entry: 400,
+    IP: 100,
+    manual_entry: 1,
 };
 
 function getUsersLocationName(uid) {
@@ -2838,14 +2838,18 @@ function getUsersLocationName(uid) {
     ]).then(function(o) {
         var fb = o[0] && o[0][0];
         var tw = o[1] && o[1][0];
-        if (fb.location) {
+        console.log("asdf111 facebook");
+        console.dir(fb);
+        console.log("asdf111 twitter");
+        console.dir(tw);
+        if (_.isString(fb.location)) {
             return {
                 location: fb.location,
                 source: LOCATION_SOURCES.Facebook,
             };
-        } else if (tw.location) {
+        } else if (_.isString(tw.location)) {
             return {
-                location: fb.location,
+                location: tw.location,
                 source: LOCATION_SOURCES.Twitter,
             };
         }
@@ -2856,8 +2860,8 @@ function getUsersLocationName(uid) {
 function populateParticipantLocationRecordIfPossible(zid, uid, pid) {
     console.log("asdf1", zid, uid, pid);
     getUsersLocationName(uid).then(function(locationData) {
-    console.log("asdf1.nope");
         if (!locationData) {
+            console.log("asdf1.nope");
             return;
         }
     console.log("asdf2");
