@@ -26,6 +26,12 @@ module.exports = Handlebones.View.extend({
       that.othersCount = (getGroup(gid).length - numBucketsThatAreNotPeople) - that.ptptois.length; 
       that.ptptois = _.map(that.ptptois, function(x) {
         x.name = (x.twitter && (x.twitter.name || "@"+x.twitter.screen_name)) || (x.facebook && x.facebook.fb_name) || "";
+        if (x.twitter && x.twitter.screen_name) {
+          x.twitter_url = "https://twitter.com/" + x.twitter.screen_name;
+        }
+        if (x.facebook && (x.facebook.fb_user_id || x.facebook.fb_link)) {
+          x.facebook_url = x.facebook.fb_link || ("https://www.facebook.com/app_scoped_user_id/" + x.facebook.fb_user_id);
+        }
         // x.location = (x.twitter && x.twitter.location) || (x.facebook && x.facebook.location) || "";
         x.hasSocial = !!(x.twitter || x.facebook);
         return x;

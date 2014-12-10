@@ -13,7 +13,12 @@
     {{/if}}
     {{#if hasSocial}}
       &nbsp;&bull;&nbsp;
-      {{#if twitter}}<i class="fa fa-twitter"></i> &nbsp; {{/if}}{{#if facebook}}<i class="fa fa-facebook"></i>{{/if}}
+      {{#if twitter_url}}
+        <a href="{{twitter_url}}" target="_blank"><i class="fa fa-twitter"></i></a> &nbsp;
+      {{/if}}
+      {{#if facebook_url}}
+        <a href="{{facebook_url}}" target="_blank"><i class="fa fa-facebook"></i></a> &nbsp;
+      {{/if}}
     {{/if}}
   </div>
 {{/each}}
