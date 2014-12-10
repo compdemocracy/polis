@@ -116,7 +116,7 @@ var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350,
 
 var grayHaloColor = "lightgray";
 var colorPull = "rgb(0, 181, 77)"; // EMERALD
-var colorPullLabel = "rgb(147,196,125)";
+var colorPullLabel = "rgb(0, 181, 77)";
 var colorPush = "#e74c3c";// ALIZARIN
 var colorPushLabel = "rgb(224,102,102)";
 var colorSummaryBlob = "#F9F9F9";

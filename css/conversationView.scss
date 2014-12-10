@@ -356,6 +356,45 @@ svg {
   margin-bottom: 20px !important;
 }
 
+.analyze-group-member-container {
+  // position: relative;
+  // top: -130px;
+  //padding-left: 83px;
+  text-align: center
+}
+
+.analyze-group-member {
+  margin-bottom: 5px;
+}
+
+.analyze-group-member p {
+  display: inline;
+}
+
+.analyze-group-member-city {
+  font-style: italic;
+  font-family: $sans-font;
+  font-size: 14px;
+}
+
+.analyze-group-member img {
+  width: 40px;
+  border-radius: 20px;
+  position: relative;
+  top: -2px;
+}
+
+.analyze-group-member-others p {
+  
+}
+
+  .fa-twitter {
+    color: #55ACEE;
+  }
+
+  .fa-facebook {
+    color: #3b5998;
+  }
 
 /* mobile */
 @media (max-width: 767px) {
@@ -367,6 +406,34 @@ svg {
   .writingTipsParent {
     display: none;
   }
+
+
+  .analyze-group-banner-1 {
+    width:100%;
+    background-color: #eee;
+    text-align: center;
+    text-transform: uppercase;
+    padding: 15px 0px 5px 0px;
+  }
+
+  .analyze-group-banner-1 p {
+    font-size: 16px;
+    font-family: $headline-font;
+    color: $light-gray;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    // background-color: rgb(233, 240, 247);
+    // border: 1px dashed #6FBAFF;
+    // display: inline;
+    // padding: 5px 10px;
+    // border-radius: 5px;
+  }
+
+
+
+
+
+
 }
 
 /* Everything but mobile */
@@ -393,43 +460,8 @@ svg {
     top:-2px;
   }
 
-  .analyze-group-pane img {
-    width: 100%;
-  }
 
-  .analyze-group-member-container {
-    // position: relative;
-    // top: -130px;
-    padding-left: 83px;
-  }
 
-  .analyze-group-member {
-    margin-bottom: 5px;
-  }
-
-  .analyze-group-member p {
-    display: inline;
-  }
-
-  // .analyze-group-member-name {
-  // }
-
-  .analyze-group-member-city {
-    font-style: italic;
-    font-family: $sans-font;
-    font-size: 14px;
-  }
-
-  .analyze-group-member img {
-    width: 40px;
-    border-radius: 20px;
-    position: relative;
-    top: -2px;
-  }
-
-  .analyze-group-member-others p {
-    
-  }
 
   .analyze-group-banner-1 {
     width:100%;
@@ -452,13 +484,7 @@ svg {
     // border-radius: 5px;
   }
 
-  .fa-twitter {
-    color: #55ACEE;
-  }
 
-  .fa-facebook {
-    color: #3b5998;
-  }
 
   .write-pane {
   //   border-right: 3px solid lightgrey;

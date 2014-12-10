@@ -255,14 +255,14 @@ module.exports = Handlebones.View.extend({
             v.gD_total;
           // L10N gods forgive me
           var word = repfullForAgree ?
-            "<span class='HeadingF a'>agreed</span>" :
-            "<span class='HeadingF d'>disagreed</span>";
+            "<span class='HeadingE a'>agreed</span>" :
+            "<span class='HeadingE d'>disagreed</span>";
           var bodyColor = "#333"; //repfullForAgree ?
             // "#20442F" :
             // "rgb(68, 33, 33)";
           var backgroundColor = repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
           header =
-              "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% </span>" /*+
+              "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
               "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>";
 
           var html = 
