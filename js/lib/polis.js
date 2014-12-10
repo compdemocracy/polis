@@ -502,6 +502,9 @@ module.exports = function(params) {
             this.bid = o.id || o.bid;
             this.proj = o.proj;
             this.count = o.count;
+            if (o.clusterCount) {// TODO stop with this pattern
+                this.clusterCount = o.clusterCount;// TODO stop with this pattern
+            }
             if (o.containsSelf) {// TODO stop with this pattern
                 this.containsSelf = true;// TODO stop with this pattern
             }
@@ -1202,6 +1205,7 @@ function clientSideBaseCluster(things, N) {
                                 bids: [],
                                 gid: gid,
                                 count: 0, // total ptpt count
+                                clusterCount: bucketPerGroup[gid].length,
                                 x: cachedPcaData["group-clusters"][gid].center[0],
                                 y: cachedPcaData["group-clusters"][gid].center[1],
                                 isSummaryBucket: true
@@ -1282,6 +1286,11 @@ function clientSideBaseCluster(things, N) {
                         delete votesBase.D;
                     }
 
+                    var bidToGid = getBidToGid(clusters);
+                    var gidToBigBucketId = {};
+                    _.each(bigBuckets, function(b) {
+                        gidToBigBucketId[b.gid] = b.bid;
+                    });
                     votesForTidBid = {};
                     var tids = _.map(_.keys(votesBase), Number);
                     _.each(tids, function(tid) {
@@ -1292,11 +1301,16 @@ function clientSideBaseCluster(things, N) {
                         var D = {};
                         var len = aOrig.length;
                         var bid;
+                        var bigBucketBid;
                         for (var i = 0; i < len; i++) {
                             bid = indexToBid[i];
-                            bid = bidToBigBucket[bid]; // convert to big bucket id
-                            A[bid] = A[bid] ? (A[bid] + aOrig[i]) : aOrig[i];
-                            D[bid] = D[bid] ? (D[bid] + dOrig[i]) : dOrig[i];
+                            bigBucketBid = gidToBigBucketId[bidToGid[bid]]; // convert to big bucket id
+                            if (!_.isUndefined(bigBucketBid)) {
+                                A[bigBucketBid] = (A[bigBucketBid] || 0) + aOrig[i];
+                                D[bigBucketBid] = (D[bigBucketBid] || 0) + dOrig[i];
+                            }
+                            A[bid] = aOrig[i];
+                            D[bid] = dOrig[i];
                         }
                         // bidToBigBucket needed here
                         votesForTidBid[tid] = {
@@ -1366,7 +1380,10 @@ function clientSideBaseCluster(things, N) {
             // remove PTPTOIs from their buckets
             for (var i = 0; i < participantsOfInterestBids.length; i++) {
                 if (participantsOfInterestBids.indexOf(bucket.bid) >= 0) {
-                    bucket.count -= 1;
+                    // Don't decrement if this participant is self, since we subtract for the blue dot below
+                    if (bucket.bid !== bid) {
+                        bucket.count -= 1;
+                    }
                 }
             }
 

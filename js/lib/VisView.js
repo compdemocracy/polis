@@ -1052,8 +1052,8 @@ function chooseUpArrowPath(d) {
     // var yOffset = scale - sum/2;
 
     // return makeArrowPoints(scale, yOffset, true);
-
-    var ratio =  d.ups / (d.count);
+    var count = d.clusterCount || d.count;
+    var ratio =  d.ups / count;
     ratio = Math.min(ratio, 0.99999);
 
     var r = chooseCircleRadius(d);
@@ -1096,8 +1096,9 @@ function chooseDownArrowPath(d) {
     // return makeArrowPoints(scale, yOffset, false);
 
 
+    var count = d.clusterCount || d.count;
 
-    var ratio =  d.downs / (d.count);
+    var ratio =  d.downs / count;
     ratio = Math.min(ratio, 0.99999);
 
     var r = chooseCircleRadius(d);
@@ -2008,13 +2009,14 @@ function doUpdateNodes() {
                 // return "Disagreed";
                 if (commentIsSelected()) {
                     var txt;
+                    var count = d.clusterCount || d.count; // if d.clusterCount is supplied, use it (since summary blobs show % for all members, non just those in the anonblob)
                     if (d.ups === 0 && d.downs === 0) {
                         txt = "\u2014"; // em dash
                     } 
                     else if (d.ups >= d.downs) {
-                        txt = toPercent(d.ups / d.count);
+                        txt = toPercent(d.ups / count);
                     } else if (d.downs > d.ups) {
-                        txt = toPercent(d.downs / d.count);
+                        txt = toPercent(d.downs / count);
                     } else {
                         txt = "?";
                         console.error("missing d.ups or d.downs");
