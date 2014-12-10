@@ -26,7 +26,7 @@ module.exports = Handlebones.View.extend({
       that.othersCount = (getGroup(gid).length - numBucketsThatAreNotPeople) - that.ptptois.length; 
       that.ptptois = _.map(that.ptptois, function(x) {
         x.name = (x.twitter && (x.twitter.name || "@"+x.twitter.screen_name)) || (x.facebook && x.facebook.fb_name) || "";
-        x.location = (x.twitter && x.twitter.location) || (x.facebook && x.facebook.location) || "";
+        // x.location = (x.twitter && x.twitter.location) || (x.facebook && x.facebook.location) || "";
         x.hasSocial = !!(x.twitter || x.facebook);
         return x;
       })
