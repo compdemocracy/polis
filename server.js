@@ -7323,8 +7323,13 @@ function(req, res) {
             }
             getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
                 _.each(vectors, function(value, pid, list) {
-                    pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
-                    pidToData[pid].bid = pidsToBids[pid];
+                    var bid = pidsToBids[pid];
+                    if (_.isUndefined(bid)) {
+                        delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
+                    } else {
+                        pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
+                        pidToData[pid].bid = bid;;
+                    }
                 });
                 res.status(200).json(pidToData);
             }).catch(function(err) {
