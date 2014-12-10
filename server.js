@@ -3813,8 +3813,8 @@ function createFacebookUserRecord(o) {
     return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_name, fb_link, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_location_id, location, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);", [
         o.uid,
         o.fb_user_id,
-        o.name,
-        o.link,
+        profileInfo.name,
+        profileInfo.link,
         o.fb_public_profile,
         o.fb_login_status,
         // o.fb_auth_response,
