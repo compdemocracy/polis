@@ -512,6 +512,9 @@ module.exports =  ConversationView.extend({
 
       this.analyzeGroupView = this.addChild(new AnalyzeGroupView({
         conversation_id: conversation_id,
+        getParticipantsOfInterestForGid: function() {
+          return that.serverClient.getParticipantsOfInterestForGid.apply(0, arguments);          
+        },
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },

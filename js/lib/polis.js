@@ -2253,6 +2253,20 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
+    function getParticipantsOfInterestForGid(gid) {
+        var cluster = clustersCache[gid];
+        var items = [];
+        for (var pid in participantsOfInterestVotes) {
+            var data = participantsOfInterestVotes[pid];
+            var bid = data.bid;
+            if (cluster.indexOf(bid) >= 0) {
+                console.log("item", bid, data)
+                items.push(data);
+            }
+        }
+        return items;
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
@@ -2298,6 +2312,8 @@ function clientSideBaseCluster(things, N) {
         getLocations: getLocations,
         findRepresentativeMetadata: findRepresentativeMetadata,
         parseMetadataFromCSV: parseMetadataFromCSV,
+
+        getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
 
         updateMyProjection: updateMyProjection,
 

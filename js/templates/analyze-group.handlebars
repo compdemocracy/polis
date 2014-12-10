@@ -8,48 +8,30 @@
         display: none;
         min-height: 300px; {{! prevent window from scrolling on mobile when carousel is clobbered }}
 "></div>
-
+{{!-- 
 	<div class="analyze-group-member-container">
-		<div class="analyze-group-member">
-			<img src="https://fbcdn-sphotos-b-a.akamaihd.net/hphotos-ak-xfp1/v/t1.0-9/10410755_10100885708410150_2724065885306385861_n.jpg?oh=c32b528c12088b00f14aecdcb9c49fc9&oe=5510ECFB&__gda__=1426711198_21d41b31a5f1579c265cd77f471de977">
-			&nbsp;
-			<p class="analyze-group-member-name">Christie Megill</p>
-			&nbsp;&bull;&nbsp;
-			<p class="analyze-group-member-city">Seattle</p>
-			&nbsp;&bull;&nbsp;
-			<i class="fa fa-twitter"></i> &nbsp; <i class="fa fa-facebook"></i>
-		</div>
-		<div class="analyze-group-member">
-			<img src="https://pbs.twimg.com/profile_images/499666636782071809/I_y1zlJ6.jpeg">
-			&nbsp;
-			<p class="analyze-group-member-name">Nadeem Mazen</p>
-			&nbsp;&bull;&nbsp;
-			<p class="analyze-group-member-city">Cambridge</p>
-			&nbsp;&bull;&nbsp;
-			<i class="fa fa-twitter"></i> &nbsp; <i class="fa fa-facebook"></i>
-		</div>
-		<div class="analyze-group-member">
-			<img src="https://pbs.twimg.com/profile_images/499666636782071809/I_y1zlJ6.jpeg">
-			&nbsp;
-			<p class="analyze-group-member-name">Nadeem Mazen</p>
-			&nbsp;&bull;&nbsp;
-			<p class="analyze-group-member-city">Cambridge</p>
-			&nbsp;&bull;&nbsp;
-			<i class="fa fa-twitter"></i> &nbsp; <i class="fa fa-facebook"></i>
-		</div>
-		<div class="analyze-group-member">
-			<img src="https://pbs.twimg.com/profile_images/499666636782071809/I_y1zlJ6.jpeg">
-			&nbsp;
-			<p class="analyze-group-member-name">Nadeem Mazen</p>
-			&nbsp;&bull;&nbsp;
-			<p class="analyze-group-member-city">Cambridge</p>
-			&nbsp;&bull;&nbsp;
-			<i class="fa fa-twitter"></i> &nbsp; <i class="fa fa-facebook"></i>
-		</div>	
-		<div class="analyze-group-member-others">
+     {{#each ptptois}}
+  		<div class="analyze-group-member">
+  			<img src="{{picture}}">
+  			{{#if name}}
+          &nbsp;
+    			<p class="analyze-group-member-name">{{name}}</p>
+        {{/if}}
+        {{#if location}}
+    			&nbsp;&bull;&nbsp;
+    			<p class="analyze-group-member-city">{{location}}</p>
+        {{/if}}
+        {{#if hasSocial}}
+    			&nbsp;&bull;&nbsp;
+    			{{#if twitter}}<i class="fa fa-twitter"></i> &nbsp; {{/if}}{{#if facebook}}<i class="fa fa-facebook"></i>{{/if}}
+        {{/if}}
+  		</div>
+    {{/each}}
+    <div class="analyze-group-member-others">
 			<p>+423 Others</p>
 		</div>	
-	</div>
+
+	</div> --}}
 
 <center id="groupMap"></center>
 
