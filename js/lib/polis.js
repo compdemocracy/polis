@@ -1189,7 +1189,7 @@ function clientSideBaseCluster(things, N) {
                                 if (_.contains(participantsOfInterestBids, bucket.id)) {
                                     return o;
                                 }
-                                o.members = _.union(o.members, bucket.members)
+                                o.members = _.union(o.members, bucket.members);
                                 o.count += bucket.count;
                                 o.bids.push(bucket.id); // not currently consumed by vis
 
