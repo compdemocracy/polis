@@ -2266,6 +2266,9 @@ function clientSideBaseCluster(things, N) {
         }
         return items;
     }
+    function getGroup(gid) {
+        return clustersCache[gid];
+    }
 
     return {
         authenticated: authenticated,
@@ -2273,6 +2276,7 @@ function clientSideBaseCluster(things, N) {
         getCommentsForProjection: getCommentsForProjection,
         getTidsForGroup: getTidsForGroup,
         getGroupInfo: getGroupInfo,
+        getGroup: getGroup,
         getFancyComments: getFancyComments,
         getReactionsToComment: getReactionsToComment,
         getPidToBidMapping: getPidToBidMappingFromCache,

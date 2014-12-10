@@ -370,7 +370,8 @@ module.exports = Handlebones.View.extend({
     this.collection.comparator = comparatorAgree;
 
     this.participants = this.addChild(new AnalyeGroupParticipantsView({
-      getParticipantsOfInterestForGid: options.getParticipantsOfInterestForGid
+      getParticipantsOfInterestForGid: options.getParticipantsOfInterestForGid,
+      getGroup: options.getGroup,
     }));
 
     var getTidsForGroup = options.getTidsForGroup;

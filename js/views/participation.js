@@ -518,6 +518,9 @@ module.exports =  ConversationView.extend({
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);          
         },
+        getGroup: function() {
+          return that.serverClient.getGroup.apply(0, arguments);          
+        },
         getLocations: function() {
           return that.serverClient.getLocations.apply(0, arguments);
         },
