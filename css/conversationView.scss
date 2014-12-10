@@ -370,7 +370,7 @@ svg {
 }
 
 /* Everything but mobile */
-// @media (min-width: 768px) {
+@media (min-width: 768px) {
 
 
   #opinion_groups_label {
@@ -431,6 +431,27 @@ svg {
     
   }
 
+  .analyze-group-banner-1 {
+    width:100%;
+    background-color: #eee;
+    text-align: center;
+    text-transform: uppercase;
+    padding: 20px 0px 10px 0px;
+  }
+
+  .analyze-group-banner-1 p {
+    font-size: 24px;
+    font-family: $headline-font;
+    color: $light-gray;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    // background-color: rgb(233, 240, 247);
+    // border: 1px dashed #6FBAFF;
+    // display: inline;
+    // padding: 5px 10px;
+    // border-radius: 5px;
+  }
+
   .fa-twitter {
     color: #55ACEE;
   }
@@ -449,7 +470,8 @@ svg {
   //   border-top-right-radius: 10px;
   //   border-top-left-radius: 10px;
   }
-// }
+  
+}
 
   .nav-tabs > li > a:hover {
     background-color: rgba(0,0,0,0);
