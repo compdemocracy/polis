@@ -451,6 +451,12 @@ svg {
   }
 // }
 
+  .nav-tabs > li > a:hover {
+    background-color: rgba(0,0,0,0);
+    color: black;
+  }
+
+
 /* Large desktop */
 @media (min-width: 1200px) {
 
