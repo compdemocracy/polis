@@ -193,8 +193,7 @@
     :ptpt-growth-fn (fn [conv] 10)
     :cmnt-growth-fn (fn [conv] 1)
     :poll-count-fn (fn [conv]
-                     (+ 10 (int (/ (* (:comments conv) (inc (count (:members conv))))
-                                10))))))
+                     (* (inc (count (:members conv))) 2))))
 
 
 (defn comp-poller
@@ -253,7 +252,7 @@
       (let [[new-convs votes] (poll! poller convs last-timestamp)
             new-last-timestamp (apply max (map :created votes))]
         (println "Simulating" (count votes))
-        (wcar* (car-mq/enqueue "simvotes" votes))
+        (wcar* (car-mq/enqueue "simvotes" (vec votes)))
         (recur new-convs new-last-timestamp (inc polls))))))
 
 

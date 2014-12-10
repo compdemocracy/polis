@@ -11,8 +11,7 @@
             [clojure.tools.logging :as log]
             [clojure.core.async
              :as as
-             :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer
-                     put! take!]])
+             :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]])
   (:use [backtype.storm clojure config]
         polismath.named-matrix
         polismath.utils
@@ -29,16 +28,16 @@
 
 (if (env/env :poll-redis)
   (let [sim-vote-chan (chan 10e5)]
-    (log/warn "XXX: Going to be polling redis for simulated votes")
+    (log/warn "Going to be polling redis for simulated votes")
     ; Function that starts a service which polls redis and throws it onto a queue
     (defn start-sim-poller!
       []
       (sim/wcar-worker*
         "simvotes"
-        {:handler (fn [{:keys [message attempt]}]
-                    (log/debug "Have some sim votes")
-                    (let [[_ vote-batch] message]
-                      (>!! sim-vote-chan vote-batch))
+        {:handler (fn [{:keys [message attempt] :as handler-args}]
+                    (if message
+                      (>!! sim-vote-chan message)
+                      (log/warn "Nil message to carmine?" handler-args))
                     {:status :success})}))
     ; Construct a poller that also check the channel for simulated messages and passes them through
     (defn poll
@@ -47,8 +46,8 @@
       (let [db-results (db/poll last-timestamp)
             last-timestamp (reduce max last-timestamp (map :created db-results))
             sim-batches (cm/take-all!! sim-vote-chan)
-            combined-results (concat db-results sim-batches)]
-        (concat db-results sim-batches))))
+            combined-results (apply concat db-results sim-batches)]
+        combined-results)))
   ; Else, defer to regular poller
   (def poll db/poll))
 
