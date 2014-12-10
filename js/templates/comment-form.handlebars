@@ -27,14 +27,28 @@
      {{!--  placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
       autofocus
     ></textarea>
-		<button
-      class="Btn Btn-primary pull-right"
-      style=" margin-top: 20px"
-      id="comment_button"
-      type="submit"
-      >
-      Send
-    </button>
+
+    <table width="100%">
+      <tr>
+        <td style="width:100%; text-align: left; padding: 10px 10px 0px 0px">
+          <div id="commentSentAlert" class="alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent! </strong></p></div>
+          <div id="commentSentDemoAlert" class="alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent!</strong> (not really, this is a demo)</p></div>
+{{!--           {{#if error}}
+          <div class="alert alert-danger" style="font-family: brandon-grotesque" role="alert"><p> <strong>{{error}}</strong>{{#if errorExtra}}{{errorExtra}}{{/if}}</p></div>
+          {{/if}} --}}
+        </td>
+        <td style="text-align: right; vertical-align: top">
+          <button
+            class="Btn Btn-primary"
+            id="comment_button"
+            style="margin-top: 10px"
+            type="submit"
+            >
+            Send
+          </button>
+        </td>
+      </tr>
+    </table>
    {{else}}
       <div  style="margin: 20px;" class="Notification Notification--warning">
         <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>This conversation is closed.</strong></p>

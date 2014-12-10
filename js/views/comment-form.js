@@ -17,7 +17,7 @@ function resolve() {
   return $.Deferred().resolve();
 }
 
-module.exports = Handlebones.View.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "comment-form",
   template: template,
 
@@ -26,11 +26,15 @@ module.exports = Handlebones.View.extend({
   buttonActive: true,
 
   context: function() {
-    var ctx = _.extend({}, this, this.model&&this.model.attributes);
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx = _.extend(ctx, this, this.model&&this.model.attributes);
     ctx.is_active = this.parent.model.get("is_active");
     return ctx;
   },
   events: {
+    "focus #comment_form_textarea": function(e) { // maybe on keyup ?
+      this.$(".alert").hide();
+    },
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();
@@ -65,6 +69,7 @@ module.exports = Handlebones.View.extend({
 
     // DEMO_MODE
     if (this.pid < 0) {
+      that.$("#commentSentDemoAlert").show();
       that.trigger("commentSubmitted");
       that.updateCollection();
       return resolve();
@@ -78,6 +83,7 @@ module.exports = Handlebones.View.extend({
       promise.then(function() {
         that.trigger("commentSubmitted"); // view.trigger
         that.updateCollection();
+        that.$("#commentSentAlert").show();
       }, function(args) {
         if (!args || !args.length || !args[0].length) {
           alert("failed to send");
@@ -85,11 +91,26 @@ module.exports = Handlebones.View.extend({
         }
         var err = args[0][0];
         if (err.status === 409) {
+
+          // that.model.set({
+          //   error: "Duplicate!",
+          //   errorExtra: "That comment already exists.",
+          // });
           alert("Duplicate! That comment already exists.");
         } else if (err.responseText === "polis_err_conversation_is_closed"){
+
+          // that.model.set({
+          //   error: "This conversation is closed.",
+          //   errorExtra: "No further commenting is allowed.",
+          // });
           alert("This conversation is closed. No further commenting is allowed.");
         } else {
-          alert("failed to send");
+
+          // that.model.set({
+          //   error: "Error sending comment.",
+          //   errorExtra: "Please try again later.",
+          // });
+          alert("Error sending comment, please try again later.");
         }
       });
       return promise;
@@ -104,7 +125,9 @@ module.exports = Handlebones.View.extend({
     });
   },
   initialize: function(options) {
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.pid = options.pid;
+    this.model = options.model;
     this.conversation_id = options.conversation_id;
     this.collection = options.collection;
     this.commentsByMeView = this.addChild(new CommentsByMeView({

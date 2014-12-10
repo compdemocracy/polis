@@ -499,6 +499,7 @@ module.exports =  ConversationView.extend({
 
       this.commentForm = this.addChild(new CommentFormView({
         pid: pid,
+        model: new Backbone.Model({}),
         conversationModel: this.model,
         collection: this.commentsByMe,
         conversation_id: conversation_id
