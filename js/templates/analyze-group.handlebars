@@ -10,23 +10,7 @@
 "></div>
 
 	<div class="analyze-group-member-container">
-     {{#each ptptois}}
-  		<div class="analyze-group-member">
-  			<img src="{{picture}}">
-  			{{#if name}}
-          &nbsp;
-    			<p class="analyze-group-member-name">{{name}}</p>
-        {{/if}}
-        {{#if location}}
-    			&nbsp;&bull;&nbsp;
-    			<p class="analyze-group-member-city">{{location}}</p>
-        {{/if}}
-        {{#if hasSocial}}
-    			&nbsp;&bull;&nbsp;
-    			{{#if twitter}}<i class="fa fa-twitter"></i> &nbsp; {{/if}}{{#if facebook}}<i class="fa fa-facebook"></i>{{/if}}
-        {{/if}}
-  		</div>
-    {{/each}}
+    {{view participants}}
     <div class="analyze-group-member-others">
 			<p>+423 Others</p>
 		</div>	

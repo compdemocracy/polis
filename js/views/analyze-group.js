@@ -4,6 +4,7 @@ var template = require("../tmpl/analyze-group");
 var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
 var Utils = require("../util/utils");
+var AnalyeGroupParticipantsView = require("../views/analyzeGroupParticipantsView");
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
@@ -367,7 +368,10 @@ module.exports = Handlebones.View.extend({
     var that = this;
     this.collection = options.collection;
     this.collection.comparator = comparatorAgree;
-    
+
+    this.participants = this.addChild(new AnalyeGroupParticipantsView({
+      getParticipantsOfInterestForGid: options.getParticipantsOfInterestForGid
+    }));
 
     var getTidsForGroup = options.getTidsForGroup;
     var getLocations = options.getLocations;
@@ -401,15 +405,6 @@ module.exports = Handlebones.View.extend({
     } else {
       eb.on(eb.clusterClicked, function(gid) {
         doFetch(gid);
-
-        that.ptptois = getParticipantsOfInterestForGid(gid);
-        that.ptptois = _.map(that.ptptois, function(x) {
-          x.name = (x.twitter && ("@"+x.twitter.screen_name)) || (x.facebook && x.facebook.fb_name) || "";
-          x.location = (x.twitter && x.twitter.location) || (x.facebook && x.facebook.location) || "";
-          x.hasSocial = !!(x.twitter || x.facebook);
-          return x;
-        })
-        that.render();
 
         getLocations(gid).then(function(locations) {
           console.log("geoLocations:");
