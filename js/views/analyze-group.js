@@ -243,7 +243,6 @@ module.exports = Handlebones.View.extend({
           indexToTid.push(tid);
           var header;
           var v = info.votes[tid];
-
           var percent = repfullForAgree ?
             "&#9650; " + ((v.gA_total / info.count * 100) >> 0) : // WARNING duplicated in analyze-comment.js
             "&#9660; " + ((v.gD_total / info.count * 100) >> 0); // WARNING duplicated in analyze-comment.js

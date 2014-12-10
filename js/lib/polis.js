@@ -2144,8 +2144,7 @@ function clientSideBaseCluster(things, N) {
         if(votesForTidBidPromise.state() === "resolved" &&
             clustersCachePromise.state() === "resolved") {
 
-            var clusters = getClusters();
-            var group = clusters[gid];
+            var group = cachedPcaData["group-clusters"][gid].members;
             var inGroup = {};
             var i;
             for (i = 0; i < group.length; i++) {
@@ -2179,23 +2178,28 @@ function clientSideBaseCluster(things, N) {
 
 
                 var gA = mapObj(bidToVote.A, function(vote, bid) {
+                    if (_.isNaN(parseInt(bid))) {
+                        // Don't count summary/anonblobs, that would be double-counting
+                        return 0;
+                    }
                     return inGroupRef[bid] ? vote : 0;
                 });
 
                 var gD = mapObj(bidToVote.D, function(vote, bid) {
+                    if (_.isNaN(parseInt(bid))) {
+                        // Don't count summary/anonblobs, that would be double-counting
+                        return 0;
+                    }
                     return inGroupRef[bid] ? vote : 0;
                 });
-
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid] = {
                     gA: gA,
                     gD: gD
                 };
-
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA)),
                 votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD))
             });
         }
-        // debugger;
         return {
             count: count,
             repness: repness[gid],
