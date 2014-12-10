@@ -3,6 +3,9 @@
   {{#if use_background_content_class}}background_content{{/if}}
   ">
 
+ <table>
+  <tr>
+  <td style="width:100%">
   <ul class="nav nav-tabs tab-conv"
     style="border-bottom: 0px">
     <li
@@ -45,7 +48,7 @@
         {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}{{#if showTabs}} ANALYZE{{/if}} --}}
 {{!--       </a>
     </li> --}}
-    
+
     <li
       class="{{#if groupActive}}active{{/if}}"
     >
@@ -72,9 +75,11 @@
       </a>
     </li>  
   </ul>
+  </td>
+  <td>
 
 
-  <a
+{{!--   <a
     href="#commentForm"
     id="commentFormTab"
     class="HeadingD polis-tab pull-right"
@@ -84,9 +89,30 @@
     <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo">
   Login
   </a>
+ --}}
 
+<div class="dropdown">
+  <button style='
+    border: none;
+    color: #777;
+    font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+    font-size: 18px;
+    ' class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
+    <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo">
+    Login
+    <span class="caret"></span>
+  </button>
+  <ul class="dropdown-menu" role="menu" aria-labelledby="dropdownMenu1">
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li>
+  </ul>
+</div>
+</td>
+</table>
 
 </div>
+
 
 <div style="border-bottom: solid 2px #ccc"></div>
 
