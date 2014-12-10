@@ -414,9 +414,12 @@ module.exports = Handlebones.View.extend({
         getLocations(gid).then(function(locations) {
           console.log("geoLocations:");
           console.dir(locations);
+
           $("#groupMap").html("");
-          var w = 300;
-          var h = 200;
+          var w = $("#groupMap").width();
+          var h = w*2/3;
+
+
           var polismap = d3.select("#groupMap").append("svg")
             .attr("width", w)
             .attr("height", h);
@@ -424,7 +427,7 @@ module.exports = Handlebones.View.extend({
           var projection = d3.geo.mercator()
               .scale(w)
               // .translate([65, 100])
-              .translate([w/2, h/2 + 40])
+              .translate([w/2, h/2 + h/6.7])
               .precision(.1);
 
 // var projection = d3.geo.projection(function(a, b) {
@@ -439,7 +442,7 @@ module.exports = Handlebones.View.extend({
           picEnter
             .classed("bktv", true)
             .attr("x", 0)
-            .attr("y", -10)
+            .attr("y", -h/10)
             .attr("height", w) // NOTE - using w instead of h
             .attr("width", w)
             .attr("xlink:href", "https://pol.is/landerImages/earth_mercator.png");
