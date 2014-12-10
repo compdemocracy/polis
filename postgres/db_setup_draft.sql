@@ -331,6 +331,8 @@ CREATE TABLE geolocation_cache (
 CREATE TABLE facebook_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
     fb_user_id TEXT,
+    fb_name VARCHAR(9999),
+    fb_link VARCHAR(9999),
     fb_public_profile TEXT,
     fb_login_status TEXT,
     fb_auth_response TEXT,

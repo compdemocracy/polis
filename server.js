@@ -3810,9 +3810,11 @@ function createFacebookUserRecord(o) {
     console.dir(profileInfo);
     console.log("end createFacebookUserRecord profileInfo");
     // Create facebook user record
-    return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_location_id, location, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);", [
+    return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_name, fb_link, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_location_id, location, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);", [
         o.uid,
         o.fb_user_id,
+        o.name,
+        o.link,
         o.fb_public_profile,
         o.fb_login_status,
         // o.fb_auth_response,
@@ -7249,7 +7251,12 @@ function(req, res) {
         facebookFriends.forEach(function(p) {
             pids.push(p.pid);
             pidToData[p.pid] = pidToData[p.pid] || {};
-            pidToData[p.pid].facebook = p;
+            pidToData[p.pid].facebook = _.pick(p, 
+                'fb_link',
+                'fb_name',
+                'fb_user_id',
+                'fb_link',
+                'location');
         });
         twitterParticipants.forEach(function(p) {
             // clobber the reference for the twitter profile pic, with our proxied version.
@@ -7259,7 +7266,13 @@ function(req, res) {
 
             pids.push(p.pid);
             pidToData[p.pid] = pidToData[p.pid] || {};
-            pidToData[p.pid].twitter = p;
+            pidToData[p.pid].twitter = _.pick(p,
+                'followers_count',
+                'friends_count',
+                'verified',
+                'profile_image_url_https',
+                'location',
+                'screen_name');
         });
         polisSocialSettings.forEach(function(p) {
             pids.push(p.pid);
