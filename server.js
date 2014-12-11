@@ -4825,7 +4825,7 @@ function(req, res) {
 
 
 function isDuplicateKey(err) {
-    return err.code === 23505;
+    return err.code === 23505 || err.code === '23505';
 }
 
 function failWithRetryRequest(res) {
