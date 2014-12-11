@@ -357,10 +357,11 @@ svg {
 }
 
 .analyze-group-member-container {
-  // position: relative;
+  position: relative;
   // top: -130px;
-  //padding-left: 83px;
-  text-align: center
+  // padding-left: 20px;
+  left: 10%;
+  // text-align: center
 }
 
 .analyze-group-member {
