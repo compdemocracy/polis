@@ -304,7 +304,7 @@ module.exports = Handlebones.View.extend({
              // autoHeight : true,
            //  transitionStyle: "fade", // this should enable CSS3 transitions
             afterInit : function(elem){
-              if (!display.xs()) {
+              if (!isMobile) {
                 this.owlControls.prependTo(elem);
               }
 
