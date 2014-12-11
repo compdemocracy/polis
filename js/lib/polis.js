@@ -601,7 +601,8 @@ module.exports = function(params) {
             containsSelf: true,
             proj: self.proj,
             count: 1,
-            bid: selfDotBid
+            bid: selfDotBid,
+            pic: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png"
         });
         return bucket;
     }
@@ -1420,9 +1421,14 @@ function clientSideBaseCluster(things, N) {
 
     function withProjectedSelf(people) {
         people = people || [];
-        people = _.clone(people); // shallow copy
 
-        people.unshift(bucketizeSelf(projectSelf(), -1));
+        var alreadyHaveSelfDot = _.some(people, function(p) {
+            return p.containsSelf;
+        });
+        if (!alreadyHaveSelfDot) {
+            people = _.clone(people); // shallow copy
+            people.unshift(bucketizeSelf(projectSelf(), -1));
+        }
         return people;
     }
 
@@ -1433,29 +1439,29 @@ function clientSideBaseCluster(things, N) {
         people = people || [];
         people = _.clone(people); // shallow copy
 
-        if(demoMode()) {
-            participantsOfInterestVotes[myPid] = {
-                bid: -1,
-                // created: "1416276055476"
-                // modified: "1416276055476"
-                // uid: 91268
-                // zid: 12460
-                //votes: "daaauduuuuuuudauu" // Votes will be found in a local collection
-                picture: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
-                twitter: {
-                    pid: myPid,
-                    // followers_count: 23
-                    // friends_count: 47
-                    profile_image_url_https: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
-                    // screen_name: "mbjorkegren"
-                    // twitter_user_id: 1131541
-                    verified: false
-                },
-                facebook: {
-                    // ... 
-                }
-            };
-        }
+        // if(demoMode()) {
+        //     participantsOfInterestVotes[myPid] = {
+        //         bid: -1,
+        //         // created: "1416276055476"
+        //         // modified: "1416276055476"
+        //         // uid: 91268
+        //         // zid: 12460
+        //         //votes: "daaauduuuuuuudauu" // Votes will be found in a local collection
+        //         picture: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
+        //         twitter: {
+        //             pid: myPid,
+        //             // followers_count: 23
+        //             // friends_count: 47
+        //             profile_image_url_https: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
+        //             // screen_name: "mbjorkegren"
+        //             // twitter_user_id: 1131541
+        //             verified: false
+        //         },
+        //         facebook: {
+        //             // ... 
+        //         }
+        //     };
+        // }
 
         for (var pid in participantsOfInterestVotes) {
             var ptpt = participantsOfInterestVotes[pid];
@@ -2104,7 +2110,7 @@ function clientSideBaseCluster(things, N) {
         }
         // buckets = reprojectForSubsetOfComments(buckets2);
         buckets2 = withParticipantsOfInterest(buckets2);
-        // buckets2 = withProjectedSelf(buckets2);
+        buckets2 = withProjectedSelf(buckets2);
 
         // remove empty buckets
         buckets2 = _.filter(buckets2, function(bucket) {
