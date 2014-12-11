@@ -4,6 +4,7 @@ var CommentFormView = require("../views/comment-form");
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
+var PolisFacebookUtils = require('../util/facebookButton');
 var template = require("../tmpl/conversationTabs");
 var display = require("../util/display");
 var Utils = require("../util/utils");
@@ -77,6 +78,8 @@ module.exports =  Handlebones.ModelView.extend({
   },
 
   events: {
+    "click #fbConnectBtn": "fbConnectBtn",
+
     // Before shown
     "show.bs.tab": function (e) {
       var to = e.target;
@@ -161,6 +164,17 @@ module.exports =  Handlebones.ModelView.extend({
   onLegendTab: function() {
     return this.LEGEND_TAB === this.currentTab;
   },
+
+  fbConnectBtn: function() {
+    var that = this;
+    PolisFacebookUtils.connect().then(function() {
+      // that.model.set("response", "fbdone");
+      location.reload();
+    }, function(err) {
+      alert("facebook error");
+    });
+  },
+  
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
