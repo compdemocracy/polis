@@ -7257,10 +7257,12 @@ function(req, res) {
         getFacebookFriendsInConversation(zid, uid),
         getTwitterUsersInConversation(zid, uid),
         getPolisSocialSettings(zid, uid),
+        getPidPromise(zid, uid),
     ]).then(function(stuff) {
         var facebookFriends = stuff[0];
         var twitterParticipants = stuff[1];
         var polisSocialSettings = stuff[2];
+        var myPid = stuff[3];
         var pidToData = {};
         var pids = twitterParticipants.map(function(p) {
             return p.pid;
@@ -7341,8 +7343,14 @@ function(req, res) {
             }
             getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
                 _.each(vectors, function(value, pid, list) {
+                    pid = parseInt(pid);
                     var bid = pidsToBids[pid];
-                    if (_.isUndefined(bid)) {
+                    var notInBucket = _.isUndefined(bid);
+                    var isSelf = pid === myPid;
+                    // console.log("pidToData", pid, myPid, isSelf);
+                    // console.dir(pidToData[pid]);
+                    if (notInBucket && !isSelf) {
+                        // pidToData[pid].ignore = true;
                         delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
                     } else {
                         pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
