@@ -7000,13 +7000,28 @@ function(req, res) {
                     JSON.stringify(u),
             ]).then(function() {
                 res.redirect(dest);
+            }, function(err) {
+                if (isDuplicateKey(err)) {
+                    // we know the uid OR twitter_user_id is filled
+                    // check if the uid is there with the same twitter_user_id - if so, redirect and good!
+                    pgQueryP("select * from twitter_users where uid = ($1) and twitter_user_id = ($2);", [uid, u.id]).then(function(rows) {
+                        if (rows && rows.length) {
+                            res.redirect(dest);
+                        } else {
+                            fail(res, 500, "polis_err_twitter_auth_06.", err);                        
+                        }
+                    });
+                    
+                    // else check if the uid is there and has some other screen_name - if so, ????????
+                    
+                    // else check if the screen_name is there, but for a different uid - if so, ??????
+
+                } else {
+                    fail(res, 500, "polis_err_twitter_auth_05", err);
+                }
             });
         }).catch(function(err) {
-            if (isDuplicateKey(err)) {
-                fail(res, 500, "Sorry, that user is already attached to another Polis user account.", err);
-            } else {
-                fail(res, 500, "polis_err_twitter_auth_03", err);
-            }
+            fail(res, 500, "polis_err_twitter_auth_04", err);
         });
     }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_auth_02", err);
