@@ -7272,6 +7272,7 @@ function(req, res) {
                 'verified',
                 'profile_image_url_https',
                 'location',
+                'name',
                 'screen_name');
         });
         polisSocialSettings.forEach(function(p) {
