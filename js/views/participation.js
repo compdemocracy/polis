@@ -665,6 +665,9 @@ module.exports =  ConversationView.extend({
       that.showTutorial();
     });
     that.conversationTabs.on("aftershow:analyze", function() {
+      
+      that.analyzeGlobalView.renderWithCarousel();
+
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
         $(".query_result_item").first().trigger("click");
       }

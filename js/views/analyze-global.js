@@ -10,6 +10,48 @@ var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
 var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
 
+var el_carouselSelector = "#carouselConsensus";
+
+
+var isMobile = Utils.isMobile();
+
+
+
+
+function addMultipleOwlItems(htmlStrings, targetPosition) {
+    var base = this,
+        i,
+        position;
+
+    if (!htmlStrings || !htmlStrings.length) {return false; }
+
+    if (base.$elem.children().length === 0) {
+        for (i = 0; i < htmlStrings.length; i++) {
+          base.$elem.append(htmlStrings[i]);
+        }
+        base.setVars();
+        return false;
+    }
+    base.unWrap();
+    if (targetPosition === undefined || targetPosition === -1) {
+        position = -1;
+    } else {
+        position = targetPosition;
+    }
+    if (position >= base.$userItems.length || position === -1) {
+      for (i = 0; i < htmlStrings.length; i++) {
+        base.$userItems.eq(-1).after(htmlStrings[i]);
+      }
+    } else {
+      for (i = 0; i < htmlStrings.length; i++) {
+        base.$userItems.eq(position).before(htmlStrings[i]);
+      }
+    }
+
+    base.setVars();
+}
+
+
 
 function bbCompare(propertyName, a, b) {
   var x = b.get(propertyName) - a.get(propertyName);
@@ -160,6 +202,185 @@ module.exports = Handlebones.View.extend({
     eb.trigger(eb.commentSelected, false);
   },
   
+  renderWithCarousel: function() {
+    
+    this.sortAgree();
+
+    var that = this;
+    // let stack breathe
+    setTimeout(function() {
+
+      // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
+      var commentsAll = that.collection.models.slice(0);
+      // comments = _.filter(comments, function(comment) {
+      //   return _.contains(tids, comment.get('tid'));
+      // });
+
+      var comments = [];
+      var agreeCount = 0;
+      if (commentsAll.length <= 6) {
+        comments = commentsAll;
+        // TODO just because there aren't many comments doesn't mean we should show all of them as having 'consensus'
+      } else {
+        for (var i = 0; i < 3; i++) {
+          comments.push(commentsAll[i]);
+        }
+        for (var i = 3; i >= 0; i--) {
+          comments.push(commentsAll[(commentsAll.length-1) - i]);
+        }
+      }
+      comments = _.indexBy(comments, "id"); // id is tid
+
+      // // remove tids that are not present in the comments list (for example, tids that were moderated out)
+      // // TODO exclude moderated-out comments from the repfull list
+      // var tids = _.filter(tids, function(tid) {
+      //   return !!comments[tid];
+      // });
+      
+      // // use ordering of tids, but fetch out the comments we want.
+      // var comments = _.map(tids, function(tid) {
+      //   return comments[tid];
+      // });
+
+      // // XXX HACK - should ideally be incorporated in the primary sort that we do before truncating the array.
+      // comments.sort(function(a, b) {
+
+      //     var vA = info.votes[a.get('tid')];
+      //     var vB = info.votes[b.get('tid')];
+      //     var percentA = (vA.gA_total / info.count * 100);
+      //     var percentB = (vB.gA_total / info.count * 100);
+      //     return percentB - percentA;
+      // });
+
+      var indexToTid  = [];
+
+      var htmlStrings = _.map(comments, function(c) {
+          var tid = c.get('tid');
+          // var repness = tidToR[tid];
+          // // var repfullForAgree = repness["repful-for"] === "agree";
+          indexToTid.push(tid);
+          // var header;
+          // // var v = info.votes[tid];
+          // // var percent = repfullForAgree ?
+          //   // "&#9650; " + ((v.gA_total / info.count * 100) >> 0) : // WARNING duplicated in analyze-comment.js
+          //   // "&#9660; " + ((v.gD_total / info.count * 100) >> 0); // WARNING duplicated in analyze-comment.js
+          // var leClass = "a";//repfullForAgree ?
+          //   // "a":
+          //   // "d";
+          // // var count = repfullForAgree ?
+          //   // v.gA_total :
+          //   // v.gD_total;
+          // // var word = repfullForAgree ?
+          //   // "<span class='HeadingE a'>agreed</span>" :
+          //   // "<span class='HeadingE d'>disagreed</span>";
+          var bodyColor = "#333"; //repfullForAgree ?
+          //   // "#20442F" :
+          //   // "rgb(68, 33, 33)";
+          var backgroundColor = "white"; //repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
+          // header =
+          //     "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
+          //     "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>";
+
+          var html = 
+            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+              // "<p>" +
+                // (Utils.debugCommentProjection ? c.get("tid") : "")+
+                // header +
+              // "</p>" +
+              "<p>" +
+                c.get("txt") +
+              "</p>" +
+            "</div>";
+          return html;
+        });
+
+        // let stack breathe
+        setTimeout(function() {
+          $(el_carouselSelector).html("");
+          // $(el_carouselSelector).css("overflow", "hidden");        
+
+          // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
+          $(el_carouselSelector).append("<div id='smallWindow' style='left: 10%; width:80%'></div>");
+
+          var results = $("#smallWindow");
+          results.addClass("owl-carousel");
+          // results.css('background-color', 'yellow');
+
+
+          if (results.data('owlCarousel')) {
+            results.data('owlCarousel').destroy();
+          }
+
+          results.owlCarousel({
+            items : 10, //3 items above 1000px browser width
+            // itemsDesktop : [1000,5], //5 items between 1000px and 901px
+            // itemsDesktopSmall : [900,3], // betweem 900px and 601px
+            // itemsTablet: [600,2], //2 items between 600 and 0
+            // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
+             singleItem : true,
+             // autoHeight : true,
+           //  transitionStyle: "fade", // this should enable CSS3 transitions
+            afterInit : function(elem){
+              if (!display.xs()) {
+                this.owlControls.prependTo(elem);
+              }
+
+           // setTimeout(function() {
+              $(el_carouselSelector).fadeIn("slow", function() {
+
+                if (!isMobile) {
+                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; ">PREVIOUS</button>');
+                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; ">NEXT</button>');
+
+                  // <div id="carouselNext">next</div>")
+
+                  $("#carouselNext").on("click", function(e) {
+                    var owl = $("#smallWindow").data('owlCarousel');
+                    owl.next();
+                  });
+
+                  $("#carouselPrev").on("click", function(e) {
+                    var owl = $("#smallWindow").data('owlCarousel');
+                    owl.prev();
+                  });
+                }
+
+
+              });
+            // }, 100);
+
+
+              
+            },
+             afterMove: (function() {return function() {
+                var tid = indexToTid[this.currentItem];
+                setTimeout(function() {
+                    eb.trigger(eb.commentSelected, tid);
+                }, 200);
+
+            }}())
+          });
+
+          $(el_carouselSelector).on("click", function(e) {
+            var owl = $("#smallWindow").data('owlCarousel');
+            // var $comment = $(e);
+            var index = $(e.target).data("idx");
+            if (_.isNumber(index)) {
+              owl.goTo(index, true);
+            }
+            // alert(e);
+          });
+
+          addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings);
+          // Auto-select the first comment.
+          // eb.trigger(eb.commentSelected, indexToTid[0]);
+
+          // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
+        }, 0);
+      }, 0);
+  },
+
+
   initialize: function(options) {
     var that = this;
     this.collection = options.collection;

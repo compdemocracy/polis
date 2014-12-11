@@ -16,6 +16,16 @@ border-top-left-radius: 10px;
 
 {{!-- <span id="vis_sibling_above_tab_content"></span> --}}
   
+
+<div id="carouselConsensus" style="
+      {{!-- visibility: hidden; --}}
+      {{!-- display: none; --}}
+      {{!-- min-height: 300px;  --}}{{! prevent window from scrolling on mobile when carousel is clobbered }}
+"></div>
+
+
+
+
 <div id="analyzeHeader">
 
 <div class="hidden-xs hidden-sm Notification Notification--warning" style="margin: 15px"> <p><i class="fa fa-coffee"></i>&nbsp; Below, you'll see all of the comments in the conversation, and all of the votes for each. Try searching!</p></div>
@@ -29,8 +39,7 @@ border-top-left-radius: 10px;
 
   <div id="commentSort" style="padding-top: 10px; padding-bottom:10px;" class="text-center">
 
-{{!--     <span class="control HeadingF HeadingF--heavy">Sort by:</span>
- --}}    <span id="sortAgree" class="sort control HeadingF HeadingF--light"># of Agrees </span> 
+    <span id="sortAgree" class="sort control HeadingF HeadingF--light"># of Agrees </span> 
     <span id="sortDisagree" class="sort control HeadingF HeadingF--light"># of Disagrees </span> 
     <span id="sortDivisive" class="sort control HeadingF HeadingF--light">
         {{#ifNotIE8}}
@@ -39,8 +48,6 @@ border-top-left-radius: 10px;
       Divisive</span> 
 </div> 
 
-{{!-- <div id="carousel" style="overflow:hidden;">
-</div> --}}
 
 <div id="commentListView" style="
   {{#ifEmbedded}}
@@ -56,5 +63,6 @@ border-top-left-radius: 10px;
   ">
 {{view analyzeCollectionView}}
 </div>
+
 
 {{!-- </div> --}}
