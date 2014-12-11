@@ -6982,16 +6982,18 @@ function(req, res) {
                 "uid," +
                 "twitter_user_id," +
                 "screen_name," +
+                "name," +
                 "followers_count," +
                 "friends_count," +
                 "verified," +
                 "profile_image_url_https," +
                 "location," +
                 "response" +
-                ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);",[
+                ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);",[
                     uid,
                     u.id,
                     u.screen_name,
+                    u.name,
                     u.followers_count,
                     u.friends_count,
                     u.verified,
