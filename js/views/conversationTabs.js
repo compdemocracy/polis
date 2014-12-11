@@ -79,6 +79,7 @@ module.exports =  Handlebones.ModelView.extend({
 
   events: {
     "click #fbConnectBtn": "fbConnectBtn",
+    "click #twitterConnectBtn": "twitterConnectBtn",
 
     // Before shown
     "show.bs.tab": function (e) {
@@ -174,7 +175,12 @@ module.exports =  Handlebones.ModelView.extend({
       alert("facebook error");
     });
   },
-  
+
+  twitterConnectBtn: function() {
+    var dest = window.location.pathname + window.location.hash;
+    window.location = "/api/v3/twitterBtn?dest=" + dest;
+  },
+
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
