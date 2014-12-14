@@ -60,6 +60,24 @@ var badwords = require('badwords/object'),
     _ = require('underscore');
 
 
+var polisDevs = [
+    // Mike
+    125, // m@bjorkegren.com
+    26347, // mike@pol.is
+    91268, // michael@bjorkegren.com -- facebook and twiter attached
+    
+    // Colin
+    186, // colinmegill@gmail.com
+
+    // Chris
+    302, //  metasoarous@gmail.com
+    36140, // chris@pol.is
+];
+
+function isPolisDev(uid) {
+    return polisDevs.indexOf(uid) >= 0;
+}
+
 // so we can grant extra days to users
 // eventually we should probably move this to db.
 // for now, use git blame to see when these were added
@@ -2976,6 +2994,9 @@ function isOwner(zid, uid) {
 }
 
 function isModerator(zid, uid) {
+    if (isPolisDev(uid)) {
+        return Promise.resolve(true);
+    }
     return isOwner(zid, uid);
 }
 
@@ -3859,7 +3880,7 @@ function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
 
-    if (uid === 125 || uid === 186 || uid === 302) {
+    if (isPolisDev(uid)) {
         // is polis developer
     } else {
         fail(res, 403, "polis_err_permissions");
@@ -5169,8 +5190,10 @@ function(req, res) {
                             yell("polis_err_getting_modstatus_comment_count");
                             return void 0;
                         }).then(function(n) {
-                            // send to mike for moderation
-                            sendCommentModerationEmail(req, 125, zid, n);
+                            // send to team for moderation
+                            sendCommentModerationEmail(req, 125, zid, n);  // mike
+                            sendCommentModerationEmail(req, 186, zid, n); // colin
+                            sendCommentModerationEmail(req, 36140, zid, n); // chris
 
                             // send to conversation owner for moderation
                             sendCommentModerationEmail(req, conv.owner, zid, n);
