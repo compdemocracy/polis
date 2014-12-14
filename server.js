@@ -8913,6 +8913,7 @@ app.get(/^\/pwreset.*/, fetchIndex);
 app.get(/^\/prototype.*/, fetchIndex);
 app.get(/^\/plan.*/, fetchIndex);
 app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
+app.get(/^\/football$/, makeFileFetcher(hostname, port, "/football.html", "text/html"));
 app.get(/^\/news$/, makeFileFetcher(hostname, port, "/news.html", "text/html"));
 app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
 app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
