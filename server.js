@@ -7051,6 +7051,12 @@ function getFacebookFriendsInConversation(zid, uid) {
     return p;
 }
 
+function getFacebookUsersInConversation(zid) {
+    var p = pgQueryP("select * from facebook_users inner join (select * from participants where zid = ($1) and vote_count > 0) as p on facebook_users.uid = p.uid;", [zid]);
+    return p;
+}
+
+
 function getTwitterUsersInConversation(zid, uid, limit) {
     // NOTE: this does not yet prioritize twitter users who you personally follow
     return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2)) order by followers_count desc limit ($3);", [zid, uid, limit]);
@@ -7266,6 +7272,19 @@ function(req, res) {
         getPolisSocialSettings(zid, uid),
         getPidPromise(zid, uid),
     ]).then(function(stuff) {
+        // if we didn't find any FB friends or Twitter users, find some that aren't friends
+        // This may or may not be the right thing to do, but the reasoning is that it will help people understand what Polis is. Empty buckets will be confusing.
+        var facebookFriends = stuff[0] || [];
+        var twitterParticipants = stuff[1] || [];
+        if (!facebookFriends.length && !twitterParticipants.length) {
+            return getFacebookUsersInConversation(zid, softLimit).then(function(fb) {
+                stuff[0] = fb;
+                return stuff;
+            });
+        } else {
+            return stuff;
+        }
+    }).then(function(stuff) {
         var facebookFriends = stuff[0] || [];
         var twitterParticipants = stuff[1] || [];
         var polisSocialSettings = stuff[2] || [];
