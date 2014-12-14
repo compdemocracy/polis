@@ -7395,7 +7395,7 @@ function(req, res) {
                     if (notInBucket && !isSelf) {
                         // pidToData[pid].ignore = true;
                         delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
-                    } else {
+                    } else if (!!pidToData[pid]) {
                         pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
                         pidToData[pid].bid = bid;;
                     }
