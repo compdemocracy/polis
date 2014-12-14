@@ -7051,8 +7051,10 @@ function getFacebookFriendsInConversation(zid, uid) {
     return p;
 }
 
-function getTwitterUsersInConversation(zid, uid) {
-    return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]);
+function getTwitterUsersInConversation(zid, uid, limit) {
+    // NOTE: this does not yet prioritize twitter users who you personally follow
+    return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2)) order by followers_count desc limit ($3);", [zid, uid, limit]);
+
     // return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]).then(function(twitterParticipants) {
     //     if (!twitterParticipants || !twitterParticipants.length) {
     //         return Promise.resolve([]);
@@ -7253,21 +7255,61 @@ app.get("/api/v3/votes/famous",
 function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
+
+    var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
+    var softLimit = 26;
+    var hardLimit = 30;
+
     Promise.all([
         getFacebookFriendsInConversation(zid, uid),
-        getTwitterUsersInConversation(zid, uid),
+        getTwitterUsersInConversation(zid, uid, twitterLimit),
         getPolisSocialSettings(zid, uid),
         getPidPromise(zid, uid),
     ]).then(function(stuff) {
-        var facebookFriends = stuff[0];
-        var twitterParticipants = stuff[1];
-        var polisSocialSettings = stuff[2];
+        var facebookFriends = stuff[0] || [];
+        var twitterParticipants = stuff[1] || [];
+        var polisSocialSettings = stuff[2] || [];
         var myPid = stuff[3];
         var pidToData = {};
-        var pids = twitterParticipants.map(function(p) {
-            return p.pid;
+        var pids = [];
+        // twitterParticipants.map(function(p) {
+        //     return p.pid;
+        // });
+
+        function shouldSkip(p) {
+            var pidAlreadyAdded = !!pidToData[p.pid];
+            var isSelf = p.pid === myPid;
+            if (!pidAlreadyAdded && !isSelf && pids.length > softLimit) {
+                if (pids.length > hardLimit) {
+                    return true;
+                }
+                // if we're beyond the soft limit, allow only high-profile twitter users
+                if (p.followers_count < 1000) { // if this is run on FB, will be falsy
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+        // TODO There are issues with this:
+        //   really, the data should all be merged first, then the list should be truncated to the correct number.
+        // ALSO, we could return data on everyone who might appear in the list view, and add an "importance" score to help determine who to show in the vis at various screen sizes. (a client determination)
+        // ALSO, per-group-minimums: we should include at least a facebook friend and at least one famous twitter user(if they exist) per group
+
+        polisSocialSettings.forEach(function(p) {
+            if (shouldSkip(p)) {
+                return;
+            }
+            pids.push(p.pid);
+            pidToData[p.pid] = pidToData[p.pid] || {};
+            pidToData[p.pid].polis = p;
         });
+
         facebookFriends.forEach(function(p) {
+            if (shouldSkip(p)) {
+                return;
+            }
             pids.push(p.pid);
             pidToData[p.pid] = pidToData[p.pid] || {};
             pidToData[p.pid].facebook = _.pick(p, 
@@ -7278,6 +7320,9 @@ function(req, res) {
                 'location');
         });
         twitterParticipants.forEach(function(p) {
+            if (shouldSkip(p)) {
+                return;
+            }
             // clobber the reference for the twitter profile pic, with our proxied version.
             // This is done because the reference we have can be stale.
             // Twitter has a bulk info API, which would work, except that it's slow, so proxying these and letting CloudFlare cache them seems better.
@@ -7294,15 +7339,13 @@ function(req, res) {
                 'name',
                 'screen_name');
         });
-        polisSocialSettings.forEach(function(p) {
-            pids.push(p.pid);
-            pidToData[p.pid] = pidToData[p.pid] || {};
-            pidToData[p.pid].polis = p;
-        });
+
         pids.sort(function(a,b) {
             return a - b;
         });
         pids = _.uniq(pids, true);
+
+
 
         function createEmptyVoteVector(greatestTid) {
             var a = [];
