@@ -47,50 +47,24 @@ fjs.parentNode.insertBefore(js, fjs);
 
 <section class="hero" style="background: url('http://www.newswise.com/images/uploads/2008/06/06/fullsize/tau.jpg')">
 	<div class="container u-space-below" style="">
-{{!-- 		<header class="hero-header navbar" role="navigation">
-			<div class="navbar-header">
-				<button type="button" class="navbar-toggle" style="padding: 3px 10px;" data-toggle="collapse" data-target=".navbar-collapse">
-					<span class="sr-only">Toggle navigation</span>
-					<span class="fa fa-bars" style="position: relative; top: 2px"></span>
-				</button>
-				<a class="Logo {{#if authStyleHeader}}text-center{{/if}}"
-					href="{{logo_href}}">
-					<img
-						src="https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&format=png&w=600&h=208"
-						class="polisLogo"
-						alt="">
-				</a>
-			</div>
-			<div class="navbar-collapse collapse">
-				<ul class="primaryNav navbar-nav">
-					<li class="ifNoAuth">
-						<a class="navIcon icon--login" href="/user/login">Login</a>
-					</li>
-					<li class="ifAuth">
-						<a class="navIcon icon--inbox" href="/inbox">Inbox</a>
-					</li>
-					<li class="ifAuth">
-						<a class="navIcon icon--settings" href="/settings">Settings</a>
-					</li>
-					<li class="ifAuth">
-						<a class="navIcon icon--signout" href="/user/logout">Signout</a>
-					</li>
-				</ul>
-			</div>
-		</header> --}}
 
-<!-- ********************************************* -->
-<!-- CUSTOM TYPE KIT FOR JUBILAT FONT FOR FOOTBALL -->
-<!-- ********************************************* --> 
-<script src="//use.typekit.net/njs6zdg.js"></script>
-<script>try{Typekit.load();}catch(e){}</script>
+	<!-- ********************************************* -->
+	<!-- CUSTOM TYPE KIT FOR JUBILAT FONT FOR FOOTBALL -->
+	<!-- ********************************************* --> 
+	<script src="//use.typekit.net/njs6zdg.js"></script>
+	<script>try{Typekit.load();}catch(e){}</script>
 
 		<div class="row">
-			<div class="col-xs-12">
+			<div class="col-sm-12 col-md-6">
+				<p class="text-center" style="margin-bottom: 30px;"> <span style="background-color: rgba(52, 152, 219, 1); padding: 20px; font-family: brandon-grotesque; font-size: 16px; font-weight: 700; color: white; "> LIVE DEMO </span> </p>
 				<h1 class="hero-heading" style="color: white; font-weight: 900; font-family: jubilat;">
 					The End of <br>
 					American Football?
 				</h1>
+			</div>
+			<div style="text-align: center; " class="col-xs-12 col-sm-8 col-sm-offset-2 col-md-6 col-md-offset-0">
+					<iframe src="//fast.wistia.net/embed/iframe/1lxiggwg8x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -106,15 +80,7 @@ fjs.parentNode.insertBefore(js, fjs);
 			</div>
 		</div>
 	</div> --}}
-	<div class="container" style="background-color: rgba(255,255,255,.7); margin: 0px;width: 100%;padding-bottom: 32px;">
-		<div class="row">
-			<div class="col-xs-12">
-				<p class="learnMore">
-					<a class="learnMore-link " style="font-family: jubilat; font-weight: 200">Join the Conversation</a>
-				</p>
-			</div>
-		</div>
-	</div>
+	
 </section>
 
 
@@ -189,50 +155,63 @@ $(document).ready(function() {
 });
 </script>
 
-<section class="SectionLander SectionLander--white">
+<section class="SectionLander SectionLander--white" style="background-color: rgba(228, 222, 211, 0.31)">
 	<div class="container">
 		<div class="row">
-			<div class="col-sm-8 col-sm-offset-2">
-				<p style="text-align: center; font-family: jubilat; ">The Issue... </p>
+			<div class="col-sm-6">
+				<p style="text-align: center; font-family: jubilat; font-size: 36px;">The Issue... </p>
 				<p>
 					<a href="http://www.nfl.com/news/story/0ap1000000235494/article/nfl-explayers-agree-to-765m-settlement-in-concussions-suit">Retired NFL players recently reached a settlement </a> with the NFL over injuries sustained during their careers that may lead to brain disorders such as <a href="http://en.wikipedia.org/wiki/Chronic_traumatic_encephalopathy#American_football">Chronic Traumatic Encephalopathy (CTE)</a>. It may just be the tip of the iceberg. While it denied the connection between professional football and chronic degenerative diseases such as CTE for years, <a href="http://www.nytimes.com/2014/09/13/sports/football/actuarial-reports-in-nfl-concussion-deal-are-released.html"> the NFL now says that it expects one in three players will be affected.
 				</p>
-				<p>
+				<a href="#" id="more" class="Btn Btn-alt"> more background</a>
+				{{!-- <p>
 					The settlement was 
 					<a href="http://www.nytimes.com/2014/01/15/sports/football/judge-questions-whether-sum-of-nfl-settlement-is-enough.html?gwh=08C4C072D792DE2BD1DCB02D08F84D42&gwt=pay"> thrown out </a> because of fears by the judge that the roughly $700 million set aside would not be enough to cover all of the players who would bring claims. It was later approved 
-					<a href="http://www.nfl.com/news/story/0ap2000000363672/article/federal-judge-approves-nfl-concussion-settlement">after the NFL agreed to remove the cap on payouts</a>.  </a>
-				</p>
-				<p>
+					<a href="http://www.nfl.com/news/story/0ap2000000363672/article/federal-judge-approves-nfl-concussion-settlement">after the NFL agreed to remove the cap on payouts</a>.
+				</p> --}}
+
+				<script type="text/javascript">
+					$(document).ready(function(){
+						$(".more").hide();
+						$("#more").click(function(e){
+							e.preventDefault()
+							$(".more").show()
+							$("#more").hide()
+						})
+					})
+				</script>
+				<p class="more">
 {{!-- 					<a href="https://www.youtube.com/watch?v=aA2n2zk5Kuw"> Death of John Mackey, who was debilitated by CTE</a>
 					<a href="http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2995699/">Studies of CTE by Boston University researchers</a> --}}
 					There is reason to suspect that even now, the problem is underestimated, as CTE <a href="http://www.pbs.org/wgbh/pages/frontline/sports/concussion-watch/76-of-79-deceased-nfl-players-found-to-have-brain-disease/"> has shown up </a> in the brains of 76 of 79 players who have been autopsied. The issue of head injuries is 
 					<a href="http://www.nytimes.com/2014/09/10/sports/soccer/concussions-cant-be-ignored-by-soccer-any-more.html">  cropping up </a>in other sports as well, notably soccer.
 					<a href="http://www.pbs.org/wgbh/pages/frontline/league-of-denial/">An extensive documentary effort by PBS Frontline </a> explains the recent developments around the research of CTE and the NFL's growing consciousness of the scope of the problem.
 				</p>
-				<p>
-					Malcolm Gladwell has been particularly outspoken, <a href="http://www.bloomberg.com/news/2014-11-13/malcolm-gladwell-football-is-a-moral-abomination-.html"> stating in a recent interview that “football is a moral abomination” and predicting the sport would “wither on the vine” </a> as parents decide to withold their children from participating at the high school and college levels. There is evidence he may be correct: 
-					<a href="http://www.pbs.org/wgbh/pages/frontline/sports/football-high/poll-wealthy-college-educated-less-likely-to-want-kids-to-play-football/">nearly 50% of Americans now say they would not want their sons to play football.</a> 
-					<a href="http://espn.go.com/espn/otl/story/_/page/popwarner/pop-warner-youth-football-participation-drops-nfl-concussion-crisis-seen-causal-factor">Youth participation dropped 10% between 2010-2012</a>, roughly the period during which the controversy erupted. Even Brett Favre, who is worried about his own emerging difficult with memory issues, has stated 
+				<p class="more">
+					{{!-- Malcolm Gladwell has been particularly outspoken, <a href="http://www.bloomberg.com/news/2014-11-13/malcolm-gladwell-football-is-a-moral-abomination-.html"> stating in a recent interview that “football is a moral abomination” and predicting the sport would “wither on the vine” </a> as parents decide to withold their children from participating at the high school and college levels. --}} There is evidence Malcolm Gladwell may be correct: 
+					<a href="http://www.pbs.org/wgbh/pages/frontline/sports/football-high/poll-wealthy-college-educated-less-likely-to-want-kids-to-play-football/">nearly 50% </a> of Americans now say they would not want their sons to play football.
+					<a href="http://espn.go.com/espn/otl/story/_/page/popwarner/pop-warner-youth-football-participation-drops-nfl-concussion-crisis-seen-causal-factor">Youth participation in Pop Warner football dropped 10% between 2010-2012</a>. Anectdotally, Brett Favre, who is worried about his own emerging difficult with memory issues, has stated 
 					<a href="https://www.youtube.com/watch?v=O2F7lWgE5NY">"If I had a son, I would be real leery of him playing."</a>
 				</p>
-				<p>
-					Despite this, the NFL continues to generate <a href="http://www.forbes.com/sites/monteburke/2013/08/14/think-the-nfl-is-in-decline-because-of-head-trauma-issues-think-again/">billions</a> of dollars in revenue, and 2.8 million students still play the sport.  <a href="http://www.nytimes.com/2012/05/09/sports/football/nfl-players-live-longer-than-men-in-general-population-study-says.html?_r=0">Confounding evidence </a> also shows that professional football players live longer and, with the exception of linemen, had lower rates of heart disease compared with the general population.
+				<p class="more">
+					Despite this, the NFL continues to generate <a href="http://www.forbes.com/sites/monteburke/2013/08/14/think-the-nfl-is-in-decline-because-of-head-trauma-issues-think-again/">billions</a> of dollars in revenue, and 2.8 million kids around the country still play tackle football. <a href="http://www.nytimes.com/2012/05/09/sports/football/nfl-players-live-longer-than-men-in-general-population-study-says.html?_r=0">Confounding evidence </a> also shows that professional football players live longer and, with the exception of linemen, had lower rates of heart disease compared with the general population.
 				</p>
-
-				<p style="text-align: center; font-family: jubilat; ">...and the questions it generates. </p>
-				<p>Do you, or will you, let your children play football? Is it ethical to watch football? Is this a matter of personal responsibility or collective responsibility?  </p>
+			</div>
+			<div class="col-sm-6">
+				<p style="text-align: center; font-family: jubilat; font-size: 36px; ">...and the questions it generates. </p>
+				<p>Do you, or will you, let your children play football? Is it ethical to watch football? Is this a matter of personal responsibility or collective responsibility? Do colleges, or does the NCAA, have the same long term responsibility to care for their players as the NFL does? </p>
 			</div>
 		</div>
 	</div>
 </section>
 
 
-<div style="margin: 0px 20px">
-	<div class="polis" data-conversation_id="2arcefpshi"></div>
+<div id="livedemo">
+	<div class="polis" data-border="none" data-conversation_id="2arcefpshi"></div>
 	<script src="https://preprod.pol.is/embed.js"></script>	
 </div>
 
-
+	
 
 <section class="SectionLander">
 	<div class="container">
