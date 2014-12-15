@@ -424,23 +424,30 @@
       (> (max rat rdt) current-best-z)))
 
 
-(defn- beats-best-agrr?
+(defn- beats-best-agr?
   "Like beats-best-by-test?, but only considers agrees. Additionally, doesn't focus solely on repness,
   but also on raw probability of agreement, so as to ensure that there is some representation of what
   people in the group agree on. Also, note that this takes the current-best, instead of just current-best-z."
-  [{:keys [ra rat pa pat] :as comment-conv-stats} current-best]
+  [{:keys [ra rat pa pat ns] :as comment-conv-stats} current-best]
   (cond
+   ; Explicitly don't let something that hasn't been voted on at all come into repness
+    (= ns 0)
+        false
+    ; If we have a current-best by repness estimate, use the more robust measurement
     (and current-best (> (:ra current-best) 1.0))
         ; XXX - a litte messy, since we're basicaly reimplimenting the repness sort function
         (> (* ra rat pa pat) (apply * (map current-best [:ra :rat :pa :pat])))
+    ; If we have current-best, but only by prob estimate, just shoot for something that is generally agreed upon
     current-best
         (> (* pa pat) (apply * (map current-best [:pa :pat])))
+    ; Otherwise, accept if either repness or probability look generally good
     :else
-        (or (> ra 1.0)
-            (> pa 0.5))))
+        (or (z-sig-90? pat)
+            (and (> ra 1.0)
+                 (> pa 0.5)))))
 
 
-(defn passes-by-test?
+(defn- passes-by-test?
   "Decide whether we should count a given comment-conv-stat hash-map as being representative."
   [{:keys [pat rat pdt rdt] :as comment-conv-stats}]
   (or (and (z-sig-90? rat) (z-sig-90? pat))
@@ -465,13 +472,15 @@
      :repful-for   repful-for}))
 
 
+(defn repness-metric
+  [{:keys [repness repness-test p-success p-test]}]
+  (* repness repness-test p-success p-test))
+
+
 (defn repness-sort
   [repdata]
   (sort-by
-    (fn [data] (- (* (:repness data)
-                     (:repness-test data)
-                     (:p-success data)
-                     (:p-test data))))
+    (comp - repness-metric)
     repdata))
 
 
@@ -519,7 +528,7 @@
                   (gr-assoc gr :best (finalize-cmt-stats tid comment-conv-stats))
                   gr)
                 ; Also keep track of best agree comment is, so we can throw that the front preferentially
-                (if (beats-best-agrr? comment-conv-stats (gr-get gr :best-agree))
+                (if (beats-best-agr? comment-conv-stats (gr-get gr :best-agree))
                   (gr-assoc gr :best-agree (assoc comment-conv-stats :tid tid))
                   gr))))
           result
@@ -529,20 +538,22 @@
     ; If no sufficient, use best; otherwise sort sufficient and take 5
     (map-vals
       (fn [{:keys [best best-agree sufficient]}]
-        (let [best-agree (if best-agree
-                           (finalize-cmt-stats (:tid best-agree) best-agree)
-                           best-agree)]
+        (let [best-agree (when best-agree
+                           (finalize-cmt-stats (:tid best-agree) best-agree))
+              best-head (cond
+                          best-agree [best-agree]
+                          best       [best]
+                          :else      [])]
+          (println best-agree)
+          ; If there weren't any matches of the criteria, just take the best match, and take the best agree if
+          ; possible, and if not just the best general
           (if (empty? sufficient)
-            ; If there weren't any matches of the criteria, just take the best match, and take the best agree if
-            ; possible, and if not just the best general
-            (if best-agree
-              [best-agree]
-              [best])
+            best-head
             (->> sufficient
                  ; Remove best agree if in list, since we'll be putting it in manually
                  (remove #(= best-agree %))
                  (repness-sort) ; sort by our complicated repness metric
-                 (concat [best-agree]) ; put best agree at front, regardless
+                 (concat (if best-agree [best-agree] [])) ; put best agree at front, if possible
                  (take 5) ; take the top 5
                  (agrees-before-disagrees))))))))
 
