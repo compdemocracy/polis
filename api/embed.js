@@ -5,6 +5,8 @@
   function getConfig(d) {
      return {
          conversation_id: d.getAttribute("data-conversation_id"),
+         border: d.getAttribute("data-border"),
+         border_radius: d.getAttribute("data-border_radius"),
          height: d.getAttribute("data-height"),
          demo: d.getAttribute("data-demo")
      };
@@ -20,8 +22,8 @@
     iframe.src = "https://preprod.pol.is/"+ path.join("/");
     iframe.width = "100%"; // may be constrained by parent div
     iframe.height = o.height || 930;
-    iframe.style.border = "1px solid #ccc";
-    iframe.style.borderRadius = "4px";
+    iframe.style.border = o.border || "1px solid #ccc";
+    iframe.style.borderRadius = o.border_radius || "4px";
     parent.appendChild(iframe);
   }
 
