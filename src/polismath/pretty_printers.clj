@@ -18,9 +18,9 @@
       (prindent indent 2 c))))
 
 
-(defn wide-pp [x]
-  (binding [*print-miser-width*  400
-            *print-right-margin* 400]
+(defn wide-pp [x & {:keys [width] :or {width 400}}]
+  (binding [*print-miser-width*  width
+            *print-right-margin* width]
     (pprint x)))
 
 
