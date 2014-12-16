@@ -355,28 +355,30 @@
     (count (filter filt-fn votes))))
 
 
-(let [initial-comment-stats-graphimpl
-        (gr/eager-compile
-          {:na (fnk [votes] (count-votes votes -1))
-           :nd (fnk [votes] (count-votes votes  1))
-           :ns (fnk [votes] (count-votes votes))
-           ; XXX - Change when we flip votes!!!
-           :pa (fnk [na ns] (/ (+ 1 na) (+ 2 ns)))
-           :pd (fnk [nd ns] (/ (+ 1 nd) (+ 2 ns)))
-           :pat (fnk [na ns] (prop-test na ns))
-           :pdt (fnk [nd ns] (prop-test nd ns))})]
+(def comment-stats-graphimpl
   ; The graph implementation is in a closure so that we don't reify classes every time function is called.
-  ; This can cause PermGen space crashes.
-  (defn- initial-comment-stats
-    "Vote count stats for a given vote column. This vote column should represent the votes for a specific
-    comment and group. Comparisons _between_ groups happen later. See `(doc conv-repness)` for key details."
-    [vote-col]
-    (initial-comment-stats-graphimpl {:votes vote-col})))
+  ; This can cause PermGen space crashes. This is used for both consensus and repness comments.
+  (gr/eager-compile
+    {:na (fnk [votes] (count-votes votes -1))
+     :nd (fnk [votes] (count-votes votes  1))
+     :ns (fnk [votes] (count-votes votes))
+     ; XXX - Change when we flip votes!!!
+     :pa (fnk [na ns] (/ (+ 1 na) (+ 2 ns)))
+     :pd (fnk [nd ns] (/ (+ 1 nd) (+ 2 ns)))
+     :pat (fnk [na ns] (prop-test na ns))
+     :pdt (fnk [nd ns] (prop-test nd ns))}))
+
+
+(defn- comment-stats
+  "Vote count stats for a given vote column. This vote column should represent the votes for a specific
+  comment and group. Comparisons _between_ groups happen later. See `(doc conv-repness)` for key details."
+  [vote-col]
+  (comment-stats-graphimpl {:votes vote-col}))
 
 
 (defn- add-comparitive-stats
-  "Builds on results of initial-comment-stats by doing comparisons _between_ groups. Args are
-  in group stats (as returned by initial-comment-stats), and list of stats for rest of groups.
+  "Builds on results of comment-stats by doing comparisons _between_ groups. Args are
+  in group stats (as returned by comment-stats), and list of stats for rest of groups.
   See `(doc conv-repness)` for key details."
   [in-stats rest-stats]
   (assoc in-stats
@@ -411,7 +413,7 @@
          map
          (fn [& vote-cols-for-groups]
            (->>
-             (mapv initial-comment-stats vote-cols-for-groups)
+             (mapv comment-stats vote-cols-for-groups)
              (mapv-rest add-comparitive-stats)))))})
 
 
@@ -503,7 +505,7 @@
     ; reduce with indices, so we have tids
     (with-indices stats)
     (reduce
-      (fn [result [tid comment-stats]]
+      (fn [result [tid stats]]
         ; Inner reduce folds data into result for each group in comment stats
         ; XXX - could this be an assoc-in?
         (reduce
@@ -532,7 +534,7 @@
                   (gr-assoc gr :best-agree (assoc comment-conv-stats :tid tid))
                   gr))))
           result
-          (zip ids comment-stats)))
+          (zip ids stats)))
       ; initialize result hash
       (into {} (map #(vector % {:best nil :best-agree nil :sufficient []}) ids)))
     ; If no sufficient, use best; otherwise sort sufficient and take 5
@@ -544,7 +546,6 @@
                           best-agree [best-agree]
                           best       [best]
                           :else      [])]
-          (println best-agree)
           ; If there weren't any matches of the criteria, just take the best match, and take the best agree if
           ; possible, and if not just the best general
           (if (empty? sufficient)
@@ -556,6 +557,31 @@
                  (concat (if best-agree [best-agree] [])) ; put best agree at front, if possible
                  (take 5) ; take the top 5
                  (agrees-before-disagrees))))))))
+
+
+(defn consensus-stats
+  [data]
+  (-> data
+      get-matrix
+      columns
+      (map (comp comment-stats))
+      (map #(assoc %2 :tid %1) (range))))
+
+
+(defn select-consensus-comments
+  [cons-stats]
+  (let [stats (map
+                (fn [stat]
+                  (assoc stat
+                         :dm (* (:pd stat) (:pdt stat))
+                         :am (* (:pa stat) (:pat stat)))))
+        top-5 (fn [metric]
+                (->> stats
+                     (filter #(> (metric %) 1.0))
+                     (sort-by (comp - metric))
+                     (take 5)))]
+    {:agree    (top-5 :am)
+     :disagree (top-5 :dm)}))
 
 
 (defn xy-clusters-to-nmat [clusters]
