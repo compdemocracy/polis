@@ -530,8 +530,8 @@ module.exports =  ConversationView.extend({
 
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
         conversation_id: conversation_id,
-        getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+        getTidsForConsensus: function() {
+          return that.serverClient.getTidsForConsensus.apply(0, arguments);          
         },
         collection: this.allCommentsCollection
       }));

@@ -215,20 +215,29 @@ module.exports = Handlebones.View.extend({
       // comments = _.filter(comments, function(comment) {
       //   return _.contains(tids, comment.get('tid'));
       // });
+      var consensusComments = that.getTidsForConsensus();
 
-      var comments = [];
-      var agreeCount = 0;
-      if (commentsAll.length <= 6) {
-        comments = commentsAll;
-        // TODO just because there aren't many comments doesn't mean we should show all of them as having 'consensus'
-      } else {
-        for (var i = 0; i < 3; i++) {
-          comments.push(commentsAll[i]);
-        }
-        for (var i = 3; i >= 0; i--) {
-          comments.push(commentsAll[(commentsAll.length-1) - i]);
-        }
-      }
+      var tidToConsensusInfo = _.indexBy(consensusComments, "tid");
+
+      var comments = _.filter(commentsAll, function(c) {
+        return !!tidToConsensusInfo[c.get("tid")];
+      });
+
+// debugger;
+
+
+      // var agreeCount = 0;
+      // if (commentsAll.length <= 6) {
+      //   comments = commentsAll;
+      //   // TODO just because there aren't many comments doesn't mean we should show all of them as having 'consensus'
+      // } else {
+      //   for (var i = 0; i < 3; i++) {
+      //     comments.push(commentsAll[i]);
+      //   }
+      //   for (var i = 3; i >= 0; i--) {
+      //     comments.push(commentsAll[(commentsAll.length-1) - i]);
+      //   }
+      // }
       comments = _.indexBy(comments, "id"); // id is tid
 
       // // remove tids that are not present in the comments list (for example, tids that were moderated out)
@@ -276,7 +285,8 @@ module.exports = Handlebones.View.extend({
           var bodyColor = "#333"; //repfullForAgree ?
           //   // "#20442F" :
           //   // "rgb(68, 33, 33)";
-          var backgroundColor = "white"; //repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
+          var forAgree = !!tidToConsensusInfo[tid].a;
+          var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
           // header =
           //     "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
           //     "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>";
@@ -393,7 +403,7 @@ module.exports = Handlebones.View.extend({
       }));
     }
 
-    var getTidsForGroup = options.getTidsForGroup;
+    this.getTidsForConsensus = options.getTidsForConsensus;
 
     this.fetcher = options.fetcher;
 

@@ -83,6 +83,7 @@ module.exports = function(params) {
     var participantsOfInterestBids = [];
 
     var tidSubsetForReprojection = [];
+    var consensusComments = null;
 
     // collections
     var votesByMe = params.votesByMe;
@@ -1119,6 +1120,7 @@ function clientSideBaseCluster(things, N) {
                 cachedPcaData = pcaData;
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
+                consensusComments = pcaData.consensus;
 
                 return $.when(getFamousVotes(), updateBid()).then(function() {
 
@@ -1586,6 +1588,28 @@ function clientSideBaseCluster(things, N) {
             conversation_id: conversation_id,
             gid: gid
         });
+    }
+
+    function getTidsForConsensus() {
+        if (!consensusComments) {
+            return [];
+        }
+        var x = [];
+        if (consensusComments.agree && consensusComments.agree.length) {
+            var agrees = _.map(consensusComments.agree, function(c) {
+                c.a = true;
+                return c;
+            })
+            Array.prototype.push.apply(x, agrees);
+        }
+        if (consensusComments.disagree && consensusComments.disagree.length) {
+            var disagrees = _.map(consensusComments.disagree, function(c) {
+                c.d = true;
+                return c;
+            })
+            Array.prototype.push.apply(x, disagrees);
+        }
+        return x;
     }
 
     function getTidsForGroup(gid, max) {
@@ -2302,6 +2326,7 @@ function clientSideBaseCluster(things, N) {
         getNextComment: getNextComment,
         getCommentsForProjection: getCommentsForProjection,
         getTidsForGroup: getTidsForGroup,
+        getTidsForConsensus: getTidsForConsensus,
         getGroupInfo: getGroupInfo,
         getGroup: getGroup,
         getFancyComments: getFancyComments,
