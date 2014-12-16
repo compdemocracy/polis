@@ -576,14 +576,28 @@
                          :dm (* (:pd stat) (:pdt stat))
                          :am (* (:pa stat) (:pat stat))))
                 cons-stats)
-        top-5 (fn [metric prob test]
-                (->> stats
-                     (filter #(and (> (prob %) 0.5)
-                                   (z-sig-90? (test %))))
-                     (sort-by (comp - metric))
-                     (take 5)))]
-    {:agree    (top-5 :am :pa :pat)
-     :disagree (top-5 :dm :pd :pdt)}))
+        format-stat
+              (fn [cons-for stat]
+                (let [[n-success p-success p-test] (if (= cons-for :agree)
+                                                     [:na :pa :pat]
+                                                     [:nd :pd :pdt])]
+                  {:tid (:tid stat)
+                   :n-success (n-success stat)
+                   :n-trials (:ns stat)
+                   :p-success (p-success stat)
+                   :p-test (p-test stat)}))
+        top-5 (fn [cons-for]
+                (let [[metric prob test] (if (= cons-for :agree)
+                                           [:am :pa :pat]
+                                           [:dm :pd :pdt])]
+                  (->> stats
+                       (filter #(and (> (prob %) 0.5)
+                                     (z-sig-90? (test %))))
+                       (sort-by (comp - metric))
+                       (take 5)
+                       (map (partial format-stat cons-for)))))]
+    {:agree    (top-5 :agree)
+     :disagree (top-5 :disagree)}))
 
 
 (defn xy-clusters-to-nmat [clusters]
