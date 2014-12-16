@@ -309,10 +309,10 @@ module.exports = Handlebones.View.extend({
           $(el_carouselSelector).html("");
           // $(el_carouselSelector).css("overflow", "hidden");        
 
-          // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
-          $(el_carouselSelector).append("<div id='smallWindow' style='left: 10%; width:80%'></div>");
+          // $(el_carouselSelector).append("<div id='smallWindow2' style='width:90%'></div>");
+          $(el_carouselSelector).append("<div id='smallWindow2' style='left: 10%; width:80%'></div>");
 
-          var results = $("#smallWindow");
+          var results = $("#smallWindow2");
           results.addClass("owl-carousel");
           // results.css('background-color', 'yellow');
 
@@ -345,12 +345,12 @@ module.exports = Handlebones.View.extend({
                   // <div id="carouselNext">next</div>")
 
                   $("#carouselNext").on("click", function(e) {
-                    var owl = $("#smallWindow").data('owlCarousel');
+                    var owl = $("#smallWindow2").data('owlCarousel');
                     owl.next();
                   });
 
                   $("#carouselPrev").on("click", function(e) {
-                    var owl = $("#smallWindow").data('owlCarousel');
+                    var owl = $("#smallWindow2").data('owlCarousel');
                     owl.prev();
                   });
                 }
@@ -372,7 +372,7 @@ module.exports = Handlebones.View.extend({
           });
 
           $(el_carouselSelector).on("click", function(e) {
-            var owl = $("#smallWindow").data('owlCarousel');
+            var owl = $("#smallWindow2").data('owlCarousel');
             // var $comment = $(e);
             var index = $(e.target).data("idx");
             if (_.isNumber(index)) {
