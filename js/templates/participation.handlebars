@@ -100,21 +100,23 @@ style="padding-left: 5px; padding-right: 5px"
         {{!-- border-bottom: 3px solid lightgrey; --}}
         {{!-- border-radius: 7px; --}}
         ">
-          {{view conversationStatsHeader}}
+          {{!-- {{view conversationStatsHeader}} --}}
           {{! BEGIN PILLS }}
-          <div class="tabbable">
+          {{!-- <div class="tabbable"> --}}
             {{! #if hasMetadata
             <ul class="nav nav-pills nav-justified hidden-xs">
               <li class="active small"><a href="#query_results_hiddenxs" id="query_results_pill" data-toggle="tab">Comments</a></li>
               <li><a href="#metadata_eyes" id="metadata_pill" data-toggle="tab" class="small">Participant Info</a></li>
             </ul>
             }}
-            <div class="tab-content" style="">
+           {{!--  <div class="tab-content" style="">
               <div class="tab-pane active" id="query_results_hiddenxs">
+                 --}}
                 {{view analyzeGlobalView}}
+{{!-- 
                 <div class="query_results_div" class="hidden-xs">
-                </div> {{! query results div }}
-              </div>
+                </div>  --}}
+              {{!-- </div>
               <div class="tab-pane" id="metadata_eyes">
                 <div class="alert alert-info alert-dismissable" style="margin-top: 20px">
                   <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
@@ -122,8 +124,8 @@ style="padding-left: 5px; padding-right: 5px"
                 </div>
                 {{view metadataQuestionsView}}
               </div>
-            </div>
-          </div> {{! END PILLS }}
+            </div> --}}
+         {{!--  </div> --}} {{! END PILLS }}
         </div> {{! analyze tab pane }}
 
         <div class="tab-pane polis-tab-pane" id="group">

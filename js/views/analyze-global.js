@@ -383,7 +383,7 @@ module.exports = Handlebones.View.extend({
 
           addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings);
           // Auto-select the first comment.
-          // eb.trigger(eb.commentSelected, indexToTid[0]);
+          eb.trigger(eb.commentSelected, indexToTid[0]);
 
           // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
         }, 0);
@@ -396,12 +396,12 @@ module.exports = Handlebones.View.extend({
     this.collection = options.collection;
     this.collection.comparator = comparatorAgree;
     
-    if (!that.useCarousel()) {
-      this.analyzeCollectionView = this.addChild(new this.CV({
-        collection: this.collection,
-        comparator: comparatorAgree
-      }));
-    }
+    // if (!that.useCarousel()) {
+    //   this.analyzeCollectionView = this.addChild(new this.CV({
+    //     collection: this.collection,
+    //     comparator: comparatorAgree
+    //   }));
+    // }
 
     this.getTidsForConsensus = options.getTidsForConsensus;
 

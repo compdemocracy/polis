@@ -631,7 +631,7 @@ module.exports =  ConversationView.extend({
 
     that.conversationTabs.on("beforeshow:analyze", function() {
       that.showTutorial();
-      that.enableVisAffix();
+      // that.enableVisAffix();
       if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
