@@ -4939,7 +4939,7 @@ function createModerationUrl(req, zinvite) {
 
 function moderateComment(zid, tid, active, mod) {
     return new Promise(function(resolve, reject) {
-        pgQuery("UPDATE COMMENTS SET active=($3), mod=($4) WHERE zid=($1) and tid=($2);", [zid, tid, active, mod], function(err) {
+        pgQuery("UPDATE COMMENTS SET active=($3), mod=($4), modified=now_as_millis() WHERE zid=($1) and tid=($2);", [zid, tid, active, mod], function(err) {
             if (err) {
                 reject(err);
             } else {

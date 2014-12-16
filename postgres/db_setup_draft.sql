@@ -430,6 +430,7 @@ CREATE TABLE comments(
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
+    modified BIGINT DEFAULT now_as_millis(),
     txt VARCHAR(1000) NOT NULL, -- TODO ensure not empty
     velocity REAL NOT NULL DEFAULT 1,
     mod INTEGER NOT NULL DEFAULT 0,-- {-1,0,1} where -1 is reject, 0 is no action, and 1 is accept
