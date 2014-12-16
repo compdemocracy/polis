@@ -561,11 +561,11 @@
 
 (defn consensus-stats
   [data]
-  (-> data
-      get-matrix
-      columns
-      (map (comp comment-stats))
-      (map #(assoc %2 :tid %1) (range))))
+  (->> data
+       get-matrix
+       columns
+       (map (comp comment-stats))
+       (map #(assoc %2 :tid %1) (range))))
 
 
 (defn select-consensus-comments
@@ -574,14 +574,16 @@
                 (fn [stat]
                   (assoc stat
                          :dm (* (:pd stat) (:pdt stat))
-                         :am (* (:pa stat) (:pat stat)))))
-        top-5 (fn [metric]
+                         :am (* (:pa stat) (:pat stat))))
+                cons-stats)
+        top-5 (fn [metric prob test]
                 (->> stats
-                     (filter #(> (metric %) 1.0))
+                     (filter #(and (> (prob %) 0.5)
+                                   (z-sig-90? (test %))))
                      (sort-by (comp - metric))
                      (take 5)))]
-    {:agree    (top-5 :am)
-     :disagree (top-5 :dm)}))
+    {:agree    (top-5 :am :pa :pat)
+     :disagree (top-5 :dm :pd :pdt)}))
 
 
 (defn xy-clusters-to-nmat [clusters]

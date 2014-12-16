@@ -95,6 +95,7 @@
         :n-cmts
         :pca
         :repness
+        :consensus
         :zid
         :user-vote-counts
         :votes-base}))))

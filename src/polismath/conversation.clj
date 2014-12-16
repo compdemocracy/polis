@@ -293,6 +293,10 @@
                     (->> (conv-repness rating-mat group-clusters base-clusters)
                          (select-rep-comments)))
 
+      :consensus  (plmb/fnk [rating-mat]
+                    (->> (consensus-stats rating-mat)
+                         (select-consensus-comments)))
+
      ; End of large-update
      }))
 
