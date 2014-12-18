@@ -31,10 +31,13 @@ CREATE TABLE users(
     oinvite VARCHAR(300), -- The oinvite used to create the user, or to upgrade the user to a conversation owner.
     plan SMALLINT DEFAULT 0,
     tut SMALLINT DEFAULT 0,
+    site_id VARCHAR(256) NOT NULL DEFAULT random_polis_site_id(), -- TODO add a separate table for this, once we have people with multiple sites
+    UNIQUE (site_id),
     UNIQUE (email),
     UNIQUE (uid)
 );
 CREATE INDEX users_uid_idx ON users USING btree (uid);
+-- alter table users add constraint users_site_id_index UNIQUE(site_id);
 
 
 CREATE TABLE twitter_users (
@@ -664,3 +667,39 @@ COMMIT;
     --RETURN NEW;
 --END;
 --$$ LANGUAGE plpgsql STRICT;
+
+
+CREATE TABLE page_ids (
+    site_id VARCHAR(100) NOT NULL,
+    page_id VARCHAR(100) NOT NULL,
+    zid INTEGER NOT NULL REFERENCES conversations(zid),
+    UNIQUE(site_id, page_id)
+);
+
+-- http://stackoverflow.com/questions/3970795/how-do-you-create-a-random-string-in-postgresql
+CREATE OR REPLACE FUNCTION random_string(INTEGER)
+RETURNS TEXT AS
+$BODY$
+SELECT array_to_string(
+    ARRAY (
+        SELECT substring(
+            '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+            FROM (ceil(random()*62))::int FOR 1
+        )
+        FROM generate_series(1, $1)
+    ), 
+    ''
+)
+$BODY$
+LANGUAGE sql VOLATILE;
+
+CREATE OR REPLACE FUNCTION random_polis_site_id()
+RETURNS TEXT AS
+$BODY$
+-- 18 so it's 32 long, not much thought went into this so far
+SELECT 'polis_site_id_' || random_string(18);
+$BODY$
+LANGUAGE sql VOLATILE;
+
+
+
