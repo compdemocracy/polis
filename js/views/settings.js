@@ -11,6 +11,12 @@ var urlPrefix = URLs.urlPrefix;
 module.exports = Handlebones.ModelView.extend({
   name: "settings",
   template: template,
+  context: function() {
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    // this.model.get("site_ids").push(35234); // keep this here for testing
+    ctx.hasMultipleSites = this.model.get("site_ids").length > 1;
+    return ctx;
+  },
   initialize: function(options) {
     this.model = options.model;
 
@@ -99,5 +105,9 @@ module.exports = Handlebones.ModelView.extend({
 
   },
   events: {
+    "click #addSite": function() {
+      $.get("/api/v3/dummyButton?button=addAnotherSiteIdFromSettings");
+      alert("coming soon");
+    }
   }
 });

@@ -9,6 +9,33 @@
 
 <h1 class="HeadingA">Settings</h1>
 
+  <div class="panel panel-default">
+    <div class="panel-heading">
+      <h3 class="panel-title HeadingB">Embed {{#if hasMultipleSites}}codes{{else}}code{{/if}} for your {{#if hasMultipleSites}}sites{{else}}site{{/if}}</h3>
+    </div>
+    <div class="panel-body">
+
+     {{!--  <div  style="margin: 20px;" class="Notification Notification--positive">
+        <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>Copy and paste this into the template for your site's pages (blog posts, news article, etc)</strong></p>
+        <p>Note that you'll need to replace "$page_id_from_your_blog_etc" with a variable that describes each of your pages. 
+          You will probably be rendering your page server-side on your platform or CMS (Wordpress, Django, Ruby on Rails, etc). You'll need to set the value for the data-page_id attribute. If you are just trying Polis for the first time, you can just make something up, like "ih87erhiue".
+         </p>
+      </div> --}}
+      <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>Copy and paste this into the template for your site's pages (blog posts, news articles, etc)</strong></p>
+      <p>Note that you'll need to replace "$page_id_from_your_blog_etc" with a variable that describes each of your pages. 
+          You will probably be rendering your page server-side on your platform or CMS (Wordpress, Django, Ruby on Rails, etc). You'll need to set the value for the data-page_id attribute. If you are just trying Polis for the first time, you can just make something up, like "ih87erhiue".</p>
+      <div class="panel-body">
+        {{#each site_ids}}
+          {{#if ../hasMultipleSites}}<p class="HeadingF HeadingF--light "><strong>Site: {{this}}</strong></p>{{/if}}
+          <pre style="text-align:left">&lt;div class=&quot;polis&quot; data-page_id=&quot;$page_id_from_your_blog_etc&quot; data-site_id=&quot;{{this}}&quot;&gt;&lt;/div&gt;
+&lt;script src=&quot;https://pol.is/embed.js&quot;&gt;&lt;/script&gt;</pre>
+            <noscript>Please enable JavaScript to view comments powered by Polis.</noscript>
+        {{/each}}
+      </div>
+      <button id="addSite">Add another site</button>
+    </div>
+  </div>
+
 
 
   <div class="panel panel-default">
