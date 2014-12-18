@@ -7200,7 +7200,7 @@ function geoCodeWithGoogleApi(locationString) {
 
     return new Promise(function(resolve, reject) {
         request.get("https://maps.googleapis.com/maps/api/geocode/json?address="+ address +"&key="+ googleApiKey).then(function(response) {
-            var response = JSON.parse(response);
+            response = JSON.parse(response);
             if (response.status !== "OK") {
                 reject("polis_err_geocoding_failed");
                 return;
@@ -7439,7 +7439,7 @@ function(req, res) {
                         delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
                     } else if (!!pidToData[pid]) {
                         pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
-                        pidToData[pid].bid = bid;;
+                        pidToData[pid].bid = bid;
                     }
                 });
                 res.status(200).json(pidToData);
