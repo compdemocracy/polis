@@ -8716,6 +8716,161 @@ app.get('/oauthTest', function (req, res) {
 
 
 
+
+
+
+
+
+
+
+function initializeImplicitConversation(site_id, page_id) {
+
+    // find the user with that site_id.. wow, that will be a big index..
+    // I suppose we could duplicate the site_ids that actually have conversations
+    // into a separate table, and search that first, only searching users if nothing is there.
+    return pgQueryP("select uid from users where site_id = ($1);",[site_id]).then(function(rows) {
+        if (!rows || !rows.length) {
+            throw new Error("polis_err_bad_site_id");
+        }
+        return new Promise(function(resolve, reject) {
+
+
+        var uid = rows[0].uid;
+//    create a conversation for the owner we got,
+        var generateShortUrl = false;
+
+        isUserAllowedToCreateConversations(uid, function(err, isAllowed) {
+            if (err) { reject(err); return; }
+            if (!isAllowed) { reject(err); return; }
+
+
+            var q = sql_conversations.insert({
+                owner: uid,
+                // topic: req.p.topic,
+                // description: req.p.description,
+                is_active: true,
+                is_draft: false,
+                is_public: true, // TODO remove this column
+                is_anon: false,
+                profanity_filter: true, // TODO this could be drawn from config for the owner
+                spam_filter: true, // TODO this could be drawn from config for the owner
+                strict_moderation: false, // TODO this could be drawn from config for the owner
+                // context: req.p.context,
+                owner_sees_participation_stats: true,
+            }).returning('*').toString();
+
+            pgQuery(q, [], function(err, result) {
+                if (err) {
+                    if (isDuplicateKey(err)) {
+                        yell(err);
+                        reject("polis_err_create_implicit_conv_duplicate_key");
+                    } else {
+                        reject("polis_err_create_implicit_conv_db");
+                    }
+                }
+
+                var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
+
+                Promise.all([
+                    registerPageId(site_id, page_id, zid),
+                    generateAndRegisterZinvite(zid, generateShortUrl),
+                ]).then(function(o) {
+                    var notNeeded = o[0];
+                    var zinvite = o[1];
+                    // NOTE: OK to return conversation_id, because this conversation was just created by this user.
+                    resolve({
+                        zid: zid,
+                        zinvite: zinvite,
+                    });
+                }).catch(function(err) {
+                    reject("polis_err_zinvite_create_implicit", err);
+                });
+            }); // end insert
+        }); // end isUserAllowedToCreateConversations
+
+//    add a record to page_ids
+//    (put the site_id in the smaller site_ids table)
+//    redirect to the zinvite url for the conversation
+
+        });
+    });
+}
+
+function registerPageId(site_id, page_id, zid) {
+    return pgQueryP("insert into page_ids (site_id, page_id, zid) values ($1, $2, $3);", [
+        site_id,
+        page_id,
+        zid,
+    ]);
+}
+
+// NOTE: this isn't optimal
+// rather than code for a new URL scheme for implicit conversations,
+// the idea is to redirect implicitly created conversations
+// to their zinvite based URL after creating the conversation.
+// To improve conversation load time, this should be changed so that it
+// does not redirect, and instead serves up the index.
+// The routers on client and server will need to be updated for that
+// as will checks like isParticipationView on the client.
+app.get(/^\/polis_site_id.*/,
+function(req, res) {
+    var site_id = /polis_site_id[^\/]*/.exec(req.path);
+    var page_id = /\S\/([^/]*)/.exec(req.path);
+    if (!site_id.length || page_id.length < 2) {
+        fail(res, 404, "polis_err_parsing_site_id_or_page_id");
+    }
+    site_id = site_id[0];
+    page_id = page_id[1];
+
+    // also parse out the page_id after the '/', and look that up, along with site_id in the page_ids table
+    pgQueryP("select * from page_ids where site_id = ($1) and page_id = ($2);", [site_id, page_id]).then(function(rows) {
+        if (!rows || !rows.length) {
+            // conv not initialized yet
+            initializeImplicitConversation(site_id, page_id).then(function(conv) {
+                res.redirect(buildConversationUrl(req, conv.zinvite));
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_creating_conv", err);
+            });
+        } else {
+            // conv was initialized, nothing to set up
+            getZinvite(rows[0].zid).then(function(conversation_id) {
+                res.redirect(buildConversationUrl(req, conversation_id));
+            }).catch(function(err) {
+                fail(res, 500, "polis_err_finding_conversation_id", err);
+            });
+        }
+    }).catch(function(err) {        
+        fail(res, 500, "polis_err_redirecting_to_conv");
+    });
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //app.use(express.static(__dirname + '/src/desktop/index.html'));
 //app.use('/static', express.static(__dirname + '/src'));
 
@@ -8935,133 +9090,6 @@ function fetchIndex(req, res) {
     }
 }
 
-
-function initializeImplicitConversation(site_id, page_id) {
-
-    // find the user with that site_id.. wow, that will be a big index..
-    // I suppose we could duplicate the site_ids that actually have conversations
-    // into a separate table, and search that first, only searching users if nothing is there.
-    return pgQueryP("select uid from users where site_id = ($1);",[site_id]).then(function(rows) {
-        if (!rows || !rows.length) {
-            throw new Error("polis_err_bad_site_id");
-        }
-        return new Promise(function(resolve, reject) {
-
-
-        var uid = rows[0].uid;
-//    create a conversation for the owner we got,
-        var generateShortUrl = false;
-
-        isUserAllowedToCreateConversations(uid, function(err, isAllowed) {
-            if (err) { reject(err); return; }
-            if (!isAllowed) { reject(err); return; }
-
-
-            var q = sql_conversations.insert({
-                owner: uid,
-                // topic: req.p.topic,
-                // description: req.p.description,
-                is_active: true,
-                is_draft: false,
-                is_public: true, // TODO remove this column
-                is_anon: false,
-                profanity_filter: true, // TODO this could be drawn from config for the owner
-                spam_filter: true, // TODO this could be drawn from config for the owner
-                strict_moderation: false, // TODO this could be drawn from config for the owner
-                // context: req.p.context,
-                owner_sees_participation_stats: true,
-            }).returning('*').toString();
-
-            pgQuery(q, [], function(err, result) {
-                if (err) {
-                    if (isDuplicateKey(err)) {
-                        yell(err);
-                        reject("polis_err_create_implicit_conv_duplicate_key");
-                    } else {
-                        reject("polis_err_create_implicit_conv_db");
-                    }
-                }
-
-                var zid = result && result.rows && result.rows[0] && result.rows[0].zid;
-
-                Promise.all([
-                    registerPageId(site_id, page_id, zid),
-                    generateAndRegisterZinvite(zid, generateShortUrl),
-                ]).then(function(o) {
-                    var notNeeded = o[0];
-                    var zinvite = o[1];
-                    // NOTE: OK to return conversation_id, because this conversation was just created by this user.
-                    resolve({
-                        zid: zid,
-                        zinvite: zinvite,
-                    });
-                }).catch(function(err) {
-                    reject("polis_err_zinvite_create_implicit", err);
-                });
-            }); // end insert
-        }); // end isUserAllowedToCreateConversations
-
-//    add a record to page_ids
-//    (put the site_id in the smaller site_ids table)
-//    redirect to the zinvite url for the conversation
-
-        });
-    });
-}
-
-function registerPageId(site_id, page_id, zid) {
-    return pgQueryP("insert into page_ids (site_id, page_id, zid) values ($1, $2, $3);", [
-        site_id,
-        page_id,
-        zid,
-    ]);
-}
-
-// NOTE: this isn't optimal
-// rather than code for a new URL scheme for implicit conversations,
-// the idea is to redirect implicitly created conversations
-// to their zinvite based URL after creating the conversation.
-// To improve conversation load time, this should be changed so that it
-// does not redirect, and instead serves up the index.
-// The routers on client and server will need to be updated for that
-// as will checks like isParticipationView on the client.
-app.get(/^\/polis_site_id.*/,
-function(req, res) {
-    var site_id = /polis_site_id[^\/]*/.exec(req.path);
-    var page_id = /\S\/([^/]*)/.exec(req.path);
-    if (!site_id.length || !page_id.length >= 2) {
-        fail(res, 404, "polis_err_parsing_site_id_or_page_id");
-    }
-    site_id = site_id[0];
-    page_id = page_id[1];
-
-    function finish(zid) {
-        var url = getServerNameWithProtocol(req);
-        url += "/" + conv.zinvite;
-        res.redirect(url);
-    }
-    // also parse out the page_id after the '/', and look that up, along with site_id in the page_ids table
-    pgQueryP("select * from page_ids where site_id = ($1) and page_id = ($2);", [site_id, page_id]).then(function(rows) {
-        if (!rows || !rows.length) {
-            // conv not initialized yet
-            initializeImplicitConversation(site_id, page_id).then(function(conv) {
-                finish(conv.zid);
-                res.redirect(buildConversationUrl(req, conv.zinvite));
-            }).catch(function(err) {
-                fail(res, 500, "polis_err_creating_conv");
-            });
-        } else {
-            // conv was initialized, nothing to set up
-            getZinvite(rows[0].zid).then(function(conversation_id) {
-                res.redirect(buildConversationUrl(req, conversation_id));
-            }).catch(function(err) {
-                fail(res, 500, "polis_err_finding_conversation_id", err);
-            });
-        }
-    }).catch(function(err) {        
-        fail(res, 500, "polis_err_redirecting_to_conv");
-    });
-});
 
 app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // conversation view
 app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // power view
