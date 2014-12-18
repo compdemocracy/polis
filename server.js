@@ -9223,7 +9223,8 @@ function(req, res) {
     getTwitterUserInfo(req.p.id).then(function(data) {
         data = JSON.parse(data);
         if (!data || !data.length) {
-            fail()
+            fail(res, 500, "polis_err_finding_twitter_user_info");
+            return;
         }
         data = data[0];
         var url = data.profile_image_url; // not https to save a round-trip
