@@ -4348,6 +4348,7 @@ function(req, res) {
             hname: info.hname,
             hasFacebook: !!hasFacebook,
             finishedTutorial: !!info.tut,
+            site_ids: [info.site_id],
             created: Number(info.created),
             daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
             plan: planCodeToPlanName[info.plan],
@@ -7540,6 +7541,11 @@ function buildConversationUrl(req, zinvite) {
     return getServerNameWithProtocol(req) + "/" + zinvite;
 }
 
+function buildModerationUrl(req, zinvite) {
+    return getServerNameWithProtocol(req) + "/m/" + zinvite;
+}
+
+
 function getConversationUrl(req, zid) {
     return getZinvite(zid).then(function(zinvite) {
         return buildConversationUrl(req, zinvite);
@@ -8779,6 +8785,7 @@ function initializeImplicitConversation(site_id, page_id) {
                     var zinvite = o[1];
                     // NOTE: OK to return conversation_id, because this conversation was just created by this user.
                     resolve({
+                        owner: uid,
                         zid: zid,
                         zinvite: zinvite,
                     });
@@ -8794,6 +8801,29 @@ function initializeImplicitConversation(site_id, page_id) {
 
         });
     });
+}
+
+function sendImplicitConversationCreatedEmail(uid, site_id, page_id, url, modUrl) {
+    var body = "" +
+    "Conversation created!" + "\n" +
+    "\n" +
+    "You can find the conversation here:\n" +
+    url + "\n" +
+    "You can moderate the conversation here:\n" +
+    url + "\n" +
+    "\n" +
+    "Feel free to reply to this email if you have questions." +
+    "\n" +
+    "\n" +
+    "Additional info: \n" +
+    "site_id: \"" + site_id + "\"\n" +
+    "page_id: \"" + page_id + "\"\n" +
+    "\n";
+
+    return sendEmailByUid(
+        uid,
+        "Polis conversation created!",
+        body);
 }
 
 function registerPageId(site_id, page_id, zid) {
@@ -8827,7 +8857,15 @@ function(req, res) {
         if (!rows || !rows.length) {
             // conv not initialized yet
             initializeImplicitConversation(site_id, page_id).then(function(conv) {
-                res.redirect(buildConversationUrl(req, conv.zinvite));
+                var url = buildConversationUrl(req, conv.zinvite);
+                var modUrl = buildModerationUrl(req, conv.zinvite);
+                sendImplicitConversationCreatedEmail(conv.owner, site_id, page_id, url, modUrl).then(function() {
+                    console.log('email sent');
+                }).catch(function(err) {
+                    console.error('email fail');
+                    console.error(err);
+                });
+                res.redirect(url);
             }).catch(function(err) {
                 fail(res, 500, "polis_err_creating_conv", err);
             });
@@ -8840,7 +8878,7 @@ function(req, res) {
             });
         }
     }).catch(function(err) {        
-        fail(res, 500, "polis_err_redirecting_to_conv");
+        fail(res, 500, "polis_err_redirecting_to_conv", err);
     });
 });
 
