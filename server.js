@@ -26,7 +26,7 @@ var badwords = require('badwords/object'),
     Promise = require('es6-promise').Promise,
     express = require('express'),
     app = express(),
-    sql = require("sql"),
+    sql = require("sql"), // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
     escapeLiteral = require('pg').Client.prototype.escapeLiteral,
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
     mongo = require('mongodb'),
@@ -3426,7 +3426,6 @@ function(req, res) {
     });
 });
 
-
 function addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) {
     lti_user_image = lti_user_image || null;
     return pgQueryP("select * from lti_users where lti_user_id = ($1) and tool_consumer_instance_guid = ($2);", [lti_user_id, tool_consumer_instance_guid]).then(function(rows) {
@@ -3545,6 +3544,7 @@ function(req, res) {
         }); // pwhash query
     }); // users query
 }); // /api/v3/auth/login
+
 
 function createDummyUser() {
     return new Promise(function(resolve, reject) {
@@ -5862,7 +5862,7 @@ app.put('/api/v3/conversations',
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
     want('is_active', getBool, assignToP),
     want('is_anon', getBool, assignToP),
-    want('is_draft', getBool, assignToP),
+    want('is_draft', getBool, assignToP, false),
     want('owner_sees_participation_stats', getBool, assignToP, false),
     want('profanity_filter', getBool, assignToP),
     want('short_url', getBool, assignToP, false),
@@ -6455,10 +6455,20 @@ function getConversations(req, res) {
 
     var query = sql_conversations.select(sql_conversations.star());
 
+    var isRootsQuery = false;
     var orClauses;
     if (!_.isUndefined(req.p.context)) {
-        // knowing a context grants access to those conversations (for now at least)
-        orClauses = sql_conversations.context.equals(req.p.context);
+        if (req.p.context === "/") {
+            console.log("asdf" + req.p.context + "asdf");
+            // root of roots returns all public conversations
+            // TODO lots of work to decide what's relevant
+            // There is a bit of mess here, because we're returning both public 'roots' conversations, and potentially private conversations that you are already in.
+            orClauses = sql_conversations.is_public.equals(true);
+            isRootsQuery = true; // more conditions follow in the ANDs below
+        } else {
+            // knowing a context grants access to those conversations (for now at least)
+            orClauses = sql_conversations.context.equals(req.p.context);
+        }
     } else {
         orClauses = sql_conversations.owner.equals(uid);
     }
@@ -6482,6 +6492,9 @@ function getConversations(req, res) {
     if (!_.isUndefined(req.p.zid)) {
         query = query.and(sql_conversations.zid.equals(req.p.zid));
     }
+    if (isRootsQuery) {
+        query = query.and(sql_conversations.context.isNotNull());
+    }
 
     //query = whereOptional(query, req.p, 'owner');
     query = query.order(sql_conversations.created.descending);
@@ -6491,7 +6504,6 @@ function getConversations(req, res) {
     } else {
         query = query.limit(999); // TODO paginate
     }
-
     pgQuery(query.toString(), function(err, result) {
         if (err) { fail(res, 500, "polis_err_get_conversations", err); return; }
         var data = result.rows || [];
@@ -6677,12 +6689,12 @@ function(req, res) {
         description: req.p.description,
         is_active: req.p.is_active,
         is_draft: req.p.is_draft,
-        is_public: req.p.short_url, // TODO remove this column
+        is_public: true, // req.p.short_url,
         is_anon: req.p.is_anon,
         profanity_filter: req.p.profanity_filter,
         spam_filter: req.p.spam_filter,
         strict_moderation: req.p.strict_moderation,
-        context: req.p.context,
+        context: req.p.context || null,
         owner_sees_participation_stats: !!req.p.owner_sees_participation_stats,
     }).returning('*').toString();
 
@@ -9182,6 +9194,7 @@ function(req, res) {
 // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
 app.get(/^\/inbox(\/.*)?$/, fetchIndex);
+app.get(/^\/r/, fetchIndex);
 app.get(/^\/hk/, fetchIndex);
 app.get(/^\/hk\/new/, fetchIndex);
 app.get(/^\/inboxApiTest/, fetchIndex);
