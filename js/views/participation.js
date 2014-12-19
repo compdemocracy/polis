@@ -156,7 +156,7 @@ module.exports =  ConversationView.extend({
       model: new Backbone.Model(),
       conversationModel: this.model,
       votesByMe: this.votesByMe,
-      is_public: Utils.isShortConversationId(this.conversation_id),
+      // is_public: Utils.isShortConversationId(this.conversation_id),
       pid: pid,
       conversation_id: conversation_id
     }));

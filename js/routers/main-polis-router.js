@@ -3,6 +3,7 @@ var Backbone = require("backbone");
 var ConversationModel = require("../models/conversation");
 var CookiesDisabledView = require("../views/cookiesDisabledView");
 var CourseView = require("../views/course");
+var RootsView = require("../views/roots");
 var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
@@ -253,6 +254,7 @@ var polisRouter = Backbone.Router.extend({
 
     this.r(/^course\/(.*)/, "courseView");
     this.r(/^hk\/?$/, "hk");
+    this.r(/^r\/?$/, "roots");
 
     this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView");  // conversation_id / encodedStringifiedJson
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
@@ -533,6 +535,22 @@ var polisRouter = Backbone.Router.extend({
     var conversationsCollection = new ConversationsCollection();
     // Let the InboxView filter the conversationsCollection.
     var view = new CourseView({
+      collection: conversationsCollection,
+      filters: filterAttrs
+    });
+    RootView.getInstance().setView(view);
+  },
+  roots: function() {
+    var filterAttrs = {
+      is_draft: false,
+      is_active: true,
+      // want_upvoted: true,
+      limit: 99,
+      context: "/"
+    };
+    var conversationsCollection = new ConversationsCollection();
+    // Let the InboxView filter the conversationsCollection.
+    var view = new RootsView({
       collection: conversationsCollection,
       filters: filterAttrs
     });
