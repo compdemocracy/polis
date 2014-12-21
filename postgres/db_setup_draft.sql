@@ -269,11 +269,20 @@ CREATE TABLE beta(
     UNIQUE(email)
 );
 
+
+
 CREATE TABLE participants(
     pid INTEGER NOT NULL, -- populated by trigger pid_auto
     uid INTEGER NOT NULL REFERENCES users(uid),
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     vote_count INTEGER NOT NULL DEFAULT 0, -- May be greater than number of comments, if they change votes
+    -- What counts as an interaction? voting, commenting, reloading the page (tbd if reloading is a good idea)
+    last_interaction BIGINT NOT NULL DEFAULT 0, 
+    
+    -- subscription stuff
+    subscribed INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for email, 2 for telegram
+    last_notified BIGINT DEFAULT 0, -- time of last email
+
     -- server admin bool
     created BIGINT DEFAULT now_as_millis(),
     -- archived (not included because creator might not be a participant) will add later somewhere else

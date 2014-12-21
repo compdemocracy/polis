@@ -2903,6 +2903,10 @@ function populateParticipantLocationRecordIfPossible(zid, uid, pid) {
     });
 }
 
+function updateLastInteractionTimeForConversation(zid, uid) {
+    return pgQueryP("update participants set last_interaction = now_as_millis() where zid = ($1) and uid = ($2);", [zid, uid]);
+}
+
 
 function tryToJoinConversation(zid, uid, pmaid_answers) {
     // there was no participant row, so create one
@@ -3367,6 +3371,9 @@ function(req, res) {
         //     return zid + "p";
         // }
         // addCookie(res, getZidToPidCookieKey(zid), pid);
+        setTimeout(function() {
+            updateLastInteractionTimeForConversation(zid, uid);
+        }, 0);
         res.status(200).json({
             pid: pid,
         });
@@ -3462,6 +3469,38 @@ function checkPassword(uid, password) {
     });
 }
 
+function getParticipantsThatNeedNotifications() {
+
+    // TODO: currently this will currently err on the side of notifying people for comments that are pending moderator approval.
+
+    // check it out! http://sqlformat.org/
+    var q = "SELECT * ";
+        q += "FROM  ";
+        q += "  (SELECT zid,  ";
+        q += "          max(created) AS max_comment_time ";
+        q += "   FROM comments  ";
+        q += "   WHERE MOD >= 0 ";
+        q += "   GROUP BY zid ";
+        q += "   ORDER BY zid) AS foo ";
+        q += "INNER JOIN participants AS p ON p.zid = foo.zid  ";
+        q += "WHERE subscribed > 0 ";
+        q += "  AND last_notified < (now_as_millis() - 3*60*60*1000) ";
+        q += "  AND last_interaction < foo.max_comment_time;";
+
+    pgQueryP(q,[]).then(function(rows) {
+        rows = rows || [];
+        console.log("getParticipantsThatNeedNotifications");
+        for (var i = 0; i < rows.length; i++) {
+            console.log(row[i]);
+        }
+        console.log("end getParticipantsThatNeedNotifications");
+    }).catch(function(err) {
+        console.error(err);
+        // yell("polis_err_notifying_participants");
+    });
+}
+
+getParticipantsThatNeedNotifications();
 
 app.post("/api/v3/auth/login",
     need('password', getPassword, assignToP),
@@ -5209,6 +5248,7 @@ function(req, res) {
 
                         setTimeout(function() {
                             updateConversationModifiedTime(zid, createdTime);
+                            updateLastInteractionTimeForConversation(zid, uid);
                         }, 100);
                         
                         res.json({
@@ -5442,6 +5482,8 @@ app.post("/api/v3/votes",
     need('vote', getIntInRange(-1, 1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
+    var uid = req.p.uid;
+    var zid = req.p.zid;
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     var token = req.cookies[COOKIES.TOKEN];
@@ -5455,6 +5497,8 @@ function(req, res) {
     votesPost(req.p.pid, req.p.zid, req.p.tid, req.p.vote).then(function(createdTime) {
         setTimeout(function() {
             updateConversationModifiedTime(req.p.zid, createdTime);
+            updateLastInteractionTimeForConversation(zid, uid);
+
             // NOTE: may be greater than number of comments, if they change votes
             incrementVoteCount(req.p.zid, req.p.pid);
         }, 100);
