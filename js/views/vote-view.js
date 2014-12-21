@@ -29,6 +29,7 @@ module.exports = Handlebones.ModelView.extend({
       ctx.customStyles += "padding-top: 39px; ";
       ctx.customStyles += "font-size: 22px; ";
     // }
+    ctx.email = userObject.email;
     return ctx;
   },
   animateOut: function() {
