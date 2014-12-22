@@ -5,7 +5,13 @@
       {{#if subscribed}}
           <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>{{txt1}}</strong></p>
           <p>{{txt2}}</p>
-          <p>Your are subscribed to updates for this conversation.</p>
+          <p>
+
+            {{#ifNotIE8}}
+              <i class="fa fa-check-square-o" style="font-size: 20px; color: #2ecc71; position: relative; top: 1px"></i>
+            {{/ifNotIE8}}
+            You are subscribed to updates for this conversation.
+          </p>
       {{else}}
         <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>You've voted on all the comments</strong></p>
         <form role="form" class="FormVertical">
@@ -16,11 +22,11 @@
             <p>Enter your email address to get notified when more comments arrive:</p>
             <div class="FormVertical-group">
               <label class="FormLabel" for="gatekeeperEmailCreate">Email</label>
-              <input type="text" id="email" name="email" id="gatekeeperEmailCreate" class="FormControl" {{#if readonlyEmail}}readonly{{/if}}>
+              <input type="text" name="email" id="gatekeeperEmailCreate" class="email FormControl" {{#if readonlyEmail}}readonly{{/if}}>
             </div>
         {{/if}}
           <div class="FormVertical-group">
-            <button type="submit" class="Btn Btn-primary">Subscribe</button>
+            <span id="subscribeBtn" class="Btn Btn-primary">Subscribe</span>
           </div>
         </form>
       {{/if}}

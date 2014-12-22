@@ -49,6 +49,7 @@ module.exports = function(params) {
 
     var conversationsPath = "api/v3/conversations";
     var participantsPath = "api/v3/participants";
+    var convSubPath = "api/v3/convSubscriptions";
 
     var particpantGeoLocationsPath = "api/v3/locations";
     
@@ -2321,6 +2322,10 @@ function clientSideBaseCluster(things, N) {
         return clustersCache[gid];
     }
 
+    function convSub(params) {
+        return polisPost(convSubPath, params);
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
@@ -2340,6 +2345,7 @@ function clientSideBaseCluster(things, N) {
         unstar: unstar,
         stories: stories,
         invite: invite,
+        convSub: convSub,
         queryParticipantsByMetadata: queryParticipantsByMetadata,
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addInitReadyListener: initReadyCallbacks.add,

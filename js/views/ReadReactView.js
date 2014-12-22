@@ -58,6 +58,7 @@ module.exports = Handlebones.ModelView.extend({
       conversationModel: options.conversationModel,
       votesByMe: options.votesByMe,
       is_public: options.is_public,
+      isSubscribed: options.isSubscribed,
       pid: options.pid,
       conversation_id: options.conversation_id
     }));

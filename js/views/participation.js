@@ -114,6 +114,19 @@ module.exports =  ConversationView.extend({
     ctx.showNewButton = true;
     return ctx;
   },
+  convSub: function(params) {
+    var that = this;
+    this.serverClient.convSub(params).then(function(o) {
+      that.subscribed = o.subscribed;
+    });
+  },
+  isSubscribed: function(optionalCrappySetterModeValue) {
+    if (!_.isUndefined(optionalCrappySetterModeValue)) {
+      this.ptptModel.set("subscribed", optionalCrappySetterModeValue);
+      return optionalCrappySetterModeValue;
+    }
+    return this.ptptModel.get("subscribed");
+  },
   updateVisMode: function() {
     if (!this.vis) {
       return;
@@ -148,6 +161,7 @@ module.exports =  ConversationView.extend({
     var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
+    this.ptptModel = options.ptptModel;
 
     // initialize this first to ensure that the vote view is showing and populated ASAP
     this.readReactView = this.addChild(new ReadReactView({
@@ -157,6 +171,7 @@ module.exports =  ConversationView.extend({
       conversationModel: this.model,
       votesByMe: this.votesByMe,
       // is_public: Utils.isShortConversationId(this.conversation_id),
+      isSubscribed: function() { return that.isSubscribed.apply(that, arguments); },
       pid: pid,
       conversation_id: conversation_id
     }));

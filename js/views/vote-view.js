@@ -15,7 +15,7 @@ module.exports = Handlebones.ModelView.extend({
       "click #agreeButton": "participantAgreed",
       "click #disagreeButton": "participantDisagreed",
       "click #passButton": "participantPassed",
-      
+      "click #subscribeBtn": "subscribeBtn",
       "hover .starbutton": function(){
         this.$(".starbutton").html("<i class='fa fa-star'></i>");
       }
@@ -30,6 +30,7 @@ module.exports = Handlebones.ModelView.extend({
       ctx.customStyles += "font-size: 22px; ";
     // }
     ctx.email = userObject.email;
+    ctx.subscribed = this.isSubscribed();
     return ctx;
   },
   animateOut: function() {
@@ -58,6 +59,7 @@ module.exports = Handlebones.ModelView.extend({
     var is_public = options.is_public;
     var conversation_id = this.conversation_id = options.conversation_id;
     var pid = this.pid = options.pid;
+    this.isSubscribed = options.isSubscribed;
     console.dir(serverClient);
 
     if (this.pid < 0) {
@@ -93,12 +95,15 @@ module.exports = Handlebones.ModelView.extend({
       }
       var promise = optionalPromiseForPreExisingNextCommentCall || serverClient.getNextComment(params);
       promise.then(function(c) {
-        if (!that.conversationModel.get("is_active")) {
-          showClosedConversationNotice();
-        } else if (c && c.txt) {
-          showComment(c);
-        } else {
-          showEmpty();
+        var email = that.$(".email").val();
+        if (!email) { // Don't clobber view if user is writing an email
+          if (!that.conversationModel.get("is_active")) {
+            showClosedConversationNotice();
+          } else if (c && c.txt) {
+            showComment(c);
+          } else {
+            showEmpty();
+          }
         }
         setTimeout(pollForComments, commentPollInterval);
       }, function(err) {
@@ -173,7 +178,24 @@ module.exports = Handlebones.ModelView.extend({
     this.onButtonClicked = function() {
       this.animateOut();
     };
-
+    this.subscribeBtn = function(e) {
+      var that = this;
+      var email = this.$(".email").val();
+      serverClient.convSub({
+        type: 1, // 1 for email
+        email: email,
+        conversation_id: conversation_id
+      }).then(function() {
+        userObject.email = that.$(".email").val(); // TODO this is kinda crappy
+        that.isSubscribed(1); // TODO this is totally crappy
+        that.$(".email").val("");
+        that.model.set("foo", Math.random()); // trigger render
+        alert("you have subscribed");
+      }, function(err) {
+        alert("Error subscribing");
+        console.error(err);
+      });
+    },
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");
       votesByMe.add({
