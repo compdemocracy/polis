@@ -81,41 +81,42 @@ fjs.parentNode.insertBefore(js, fjs);
 		<div class="row">
 			<div class="col-xs-12">
 				<h1 class="hero-heading">
-					A smart commenting <br>
-					system for smart <br>
-					media organizations
+					Online discussions <br>
+					just got an upgrade.
 				</h1>
+
 			</div>
 		</div>
 		<div class="row">
 			<div class="col-sm-4 col-xs-6">
 				<div class="spot--exterior">
 					<p class="spot--interior">
-						<span class="Smallcaps">Web</span><br>
-						<em>or</em><br>
-						<span class="Smallcaps">In App</span>
+						<span class="Smallcaps">Engaging</span><br>
+						<em>Visual</em><br>
+						<span class="Smallcaps">Experience</span>
 					</p>
 				</div>
 			</div>
 			<div class="col-sm-4 col-xs-6">
 				<div class="spot--exterior">
 					<p class="spot--interior">
-						<span class="Smallcaps">discussions</span><br>
-						<em>of</em><br>
-						<span class="Smallcaps">any size</span>
+						<span class="Smallcaps">Insightful</span><br>
+						<em>intelligent</em><br>
+						<span class="Smallcaps">conversations</span>
 					</p>
 				</div>
 			</div>
 			<div class="col-sm-4 col-xs-12">
 				<ul class="spotList">
-					<li class="spotList-item"><span class="Smallcaps">No</span> discussion threads</li>
-					<li class="spotList-item">Effortless integration</li>
-					<li class="spotList-item">Marginalizes trolls</li>
+					<li class="spotList-item">Increased Time on Site</li>
+					<li class="spotList-item">Engages Higher % of Users</li>
+					<li class="spotList-item">Marginalizes Trolls</li>
+					<li class="spotList-item">Aristotle Approved</li>
 				</ul>
 			</div>
 		</div>
-	</div>
-	<div class="bgOverlay">
+	</div> <!--container --> 
+	{{!-- <div class="bgOverlay">
 		<div class="container">
 			<div class="row">
 				<div class="col-sm-10 col-sm-offset-1 col-xs-12 text-center">
@@ -135,8 +136,33 @@ fjs.parentNode.insertBefore(js, fjs);
 				</p>
 			</div>
 		</div>
+	</div> --}}
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<p class="LargeText text-center">
+					
+				</p>
+				<form class="FormHorizontal" role="form">
+					<div class="FormHorizontal-group">
+						<label class="FormLabel">
+							Email
+							<input type="email" id="startconvo_email" placeholder="name@organization.com" class="FormControl">
+						</label>
+						<button type="submit" id="startconvo_submitbutton"
+						class="Btn Btn-primary">PILOT POLIS</button>
+					</div>
+				</form>
+				<div id="errorDiv">
+				</div>
+			</div>
+		</div>
 	</div>
 </section>
+{{!-- <section class="SectionLander">
+	formerly housed pilot polis
+</section> --}}
+
 
 
 <script>
@@ -210,25 +236,9 @@ $(document).ready(function() {
 });
 </script>
 
-<section class="SectionLander SectionLander--white">
-	<div class="container">
-		<div class="row">
-			<div class="col-sm-12 col-md-6">
-				<h2 class="SectionLander-Heading">
-					Media organizations already using&nbsp;Polis:
-				</h2>
-				<img src="https://pol.is/landerImages/Brandon-Sun-Masthead.jpg" class="SchoolLogo" alt="">
-			</div>
 
-			<div class="col-sm-12 col-md-6" style="padding-left: 0px">
-				{{! spacers above video}}
-				<div class="visible-xs" style="margin-top: 30px"></div>
-	            <div class="visible-sm " style="margin-top: 30px"></div>
-				<iframe src="//fast.wistia.net/embed/iframe/tmy53k8s5t?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400"></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
-			</div>
-		</div>
-	</div>
-</section>
+
+{{!-- 
 
 <section class="SectionLander">
 	<div class="container">
@@ -237,6 +247,7 @@ $(document).ready(function() {
 				<h2 class="SectionLander-Heading">
 					How are we&nbsp;different?
 				</h2>
+				<p></p>
 			</div>
 		</div>
 		<div class="row">
@@ -256,18 +267,48 @@ $(document).ready(function() {
 			</div>
 			<div class="col-md-6 col-xs-12">
 				<h3 class="LanderSubheading icon--check">Smart, flexible integrations</h3>
-				<p class="LanderText--indent">Polis produces tons of interesting data. Pipe it to other parts of your application to do really smart things, like promote user voices, advertise, message, segment, annotate users, reign in trolls and more. The deeper the integration with outside data, the more powerful polis becomes. {{!-- <br> <i class="fa fa-lightbulb-o" style="color: rgba(241, 196, 15,1.0)"></i> &nbsp;  --}}Want to show candidates' positions relative to the majority or minority of readers? Show anonymized opinion breakdown by income or another demographic detail? A geographic breakdown of reader opinions? <strong> Yes you can. </strong> </p>
+				<p class="LanderText--indent">Polis produces tons of interesting data. Pipe it to other parts of your application to do really smart things, like promote user voices, advertise, message, segment, annotate users, reign in trolls and more. The deeper the integration with outside data, the more powerful polis becomes. Want to show candidates' positions relative to the majority or minority of readers? Show anonymized opinion breakdown by income or another demographic detail? A geographic breakdown of reader opinions? <strong> Yes you can. </strong> </p>
 			</div>
 		</div>
 	</div>
+</section> --}}
+
+<section class="SectionLander SectionLander--white">
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12 text-center">
+				<h3 class="HeadingB">
+					<span class="NewsFeature-text">As featured in</span>
+					<a href="http://www.geekwire.com/2014/startup-spotlight-polis/"
+						class="logoGeekWire-link">
+						<img alt="GeekWire" src="landerImages/geekwire.png" width="200px">
+					</a>
+				</h3>
+			</div>
+			{{!-- <div class="col-xs-12 col-sm-6" style="padding-left: 0px">
+				{{! spacers above video}}
+				<div class="visible-xs" style="margin-top: 30px"></div>
+	            <div class="visible-sm " style="margin-top: 30px"></div>
+				<iframe src="//fast.wistia.net/embed/iframe/tmy53k8s5t?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen width="640" height="400"></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+			</div> --}}
+		</div>
+	</div>
 </section>
+
+{{!-- <section class="SectionLander SectionLander--white">
+	<div class="container">
+		<div class="row">
+			
+		</div>
+	</div>
+</section> --}}
 
 <section class="SectionLander SectionLander--alt">
 	<div class="container">
 		<div class="row">
 			<div class="col-xs-12">
 				<h2 class="SectionLander-Heading">
-					People love&nbsp;Polis
+					Engaging &middot; Insightful &middot; Effortless
 				</h2>
 			</div>
 		</div>
@@ -289,7 +330,7 @@ $(document).ready(function() {
 					</div>
 				</div>
 				<p class="spotText">
-					Powerful insights into consensus, &amp;&nbsp;disagreement. See groups of participants who voted similarly.
+					Powerful insights into consensus, &amp;&nbsp;disagreement, majority & minority opinion groups
 				</p>
 			</div>
 			<div class="col-md-6 col-xs-12">
@@ -299,7 +340,7 @@ $(document).ready(function() {
 					</div>
 				</div>
 				<p class="spotText">
-					Unlike threaded discussions, conversations become content, and drive the creation of novel content.
+					Polis conversations become content, and drive the creation of novel content
 				</p>
 			</div>
 			<div class="col-md-6 col-xs-12">
@@ -309,7 +350,7 @@ $(document).ready(function() {
 					</div>
 				</div>
 				<p class="spotText">
-					Seamless login experience: Integrates with your newspaper's identity system, or allow social logins.
+					Seamless login experience: people can participate anonymously or use social login
 				</p>
 			</div>
 			<div class="col-md-6 col-xs-12">
@@ -319,7 +360,7 @@ $(document).ready(function() {
 					</div>
 				</div>
 				<p class="spotText">
-					Easily embeddable. Works on mobile and desktop.
+					Embed code takes seconds to set up. Responsively fits its container and works on mobile and desktop.
 				</p>
 			</div>
 			<div class="col-md-6 col-xs-12">
@@ -329,7 +370,7 @@ $(document).ready(function() {
 					</div>
 				</div>
 				<p class="spotText">
-					Moderation tools put you in control of the&nbsp;discussion. Readers help with moderation in large discussions.
+					Moderation tools put you in control of the&nbsp;discussion. Readers can help with moderation in large discussions.
 				</p>
 			</div>
 		</div>
@@ -360,29 +401,105 @@ $(document).ready(function() {
 </section> --}}
 
 
-<section class="SectionLander SectionLander--alt">
-	<div class="container">
-		<div class="row">
-			<div class="col-xs-12">
-				<h2 class="SectionLander-Heading" style="margin-bottom: 13px;">
-					Try it! 
-				</h2>
-				<p style="text-align: center; margin-bottom: 5px;"><em>An example from Brandon, Canada, 2014</em></p>
+<section class="hero" style="background: url('http://www.newswise.com/images/uploads/2008/06/06/fullsize/tau.jpg'); padding: 0px 0px inherit">
+<p class="text-center" style="background-color: rgba(52, 152, 219, 0.71); padding: 20px; font-family: brandon-grotesque; font-size: 20px; font-weight: 700; color: white; "{{!-- style="margin-bottom: 30px;" --}}> LIVE DEMO  </p>
+	<div class="container " style="">
+
+	<!-- ********************************************* -->
+	<!-- CUSTOM TYPE KIT FOR JUBILAT FONT FOR FOOTBALL -->
+	<!-- ********************************************* --> 
+	<script src="//use.typekit.net/njs6zdg.js"></script>
+	<script>try{Typekit.load();}catch(e){}</script>
+
+		<div class="row" style="padding: 50px 0px">
+				
+			<div class="col-sm-12 col-md-6">
+				<h1 class="hero-heading" style="color: white; font-weight: 900; font-family: jubilat;">
+					The End of <br>
+					American Football?
+				</h1>
+			</div>
+			<div style="text-align: center; " class="col-xs-12 col-sm-8 col-sm-offset-2 col-md-6 col-md-offset-0">
+					<iframe src="//fast.wistia.net/embed/iframe/1lxiggwg8x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+				</div>
 			</div>
 		</div>
 	</div>
-	{{!-- <div class="row"> --}}
-		<div style="width:100%; padding-left: 0px; padding-right: 0px;" >
-			<center>
-				<div style="max-width: 90%; min-width: 310px">
-					{{!-- snapshot of a Brandon Sun conversation --}}
-					<div class="polis" data-conversation_id="9kzprjkfep" data-demo="true" data-height="950"></div>
-					<script src="https://embed.pol.is/embed.js"></script>
+	{{!-- <div class="bgOverlay">
+		<div class="container">
+			<div class="row">
+				<div class="col-sm-10 col-sm-offset-1 col-xs-12 text-center">
+					<h2 class="SectionLander-Heading u-noMargin"></h2>
+					<p class="LargeText">
+						...
+					</p>
 				</div>
-			</center>
+			</div>
 		</div>
-	{{!-- </div> --}}
+	</div> --}}
+	
 </section>
+
+
+
+<section class="SectionLander SectionLander--white" style="background-color: rgba(228, 222, 211, 0.31)">
+	<div class="container">
+		<div class="row">
+			<div class="col-sm-6 LanderText--football">
+				<p style="text-align: center; font-family: jubilat; font-size: 36px;">The Issue... </p>
+				<p>
+					<a href="http://www.nfl.com/news/story/0ap1000000235494/article/nfl-explayers-agree-to-765m-settlement-in-concussions-suit">Retired NFL players recently reached a settlement </a> with the NFL over injuries sustained during their careers that may lead to brain disorders such as <a href="http://en.wikipedia.org/wiki/Chronic_traumatic_encephalopathy#American_football">Chronic Traumatic Encephalopathy (CTE)</a>. While the NFL denied the connection between professional football and chronic degenerative diseases such as CTE for years, <a href="http://www.nytimes.com/2014/09/13/sports/football/actuarial-reports-in-nfl-concussion-deal-are-released.html"> internal actuarial reports now expect that one in three players will be affected.
+				</p>
+				<p><a href="#" id="more" class="Btn Btn-alt"> more background</a></p>
+				{{!-- <p>
+					The settlement was 
+					<a href="http://www.nytimes.com/2014/01/15/sports/football/judge-questions-whether-sum-of-nfl-settlement-is-enough.html?gwh=08C4C072D792DE2BD1DCB02D08F84D42&gwt=pay"> thrown out </a> because of fears by the judge that the roughly $700 million set aside would not be enough to cover all of the players who would bring claims. It was later approved 
+					<a href="http://www.nfl.com/news/story/0ap2000000363672/article/federal-judge-approves-nfl-concussion-settlement">after the NFL agreed to remove the cap on payouts</a>.
+				</p> --}}
+
+				<script type="text/javascript">
+					$(document).ready(function(){
+						$(".more").hide();
+						$("#more").click(function(e){
+							e.preventDefault()
+							$(".more").show()
+							$("#more").hide()
+						})
+					})
+				</script>
+				<p class="more">
+{{!-- 					<a href="https://www.youtube.com/watch?v=aA2n2zk5Kuw"> Death of John Mackey, who was debilitated by CTE</a>
+					<a href="http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2995699/">Studies of CTE by Boston University researchers</a> --}}
+					There is reason to suspect that even as awareness of this issue increases, the problem is underestimated, as CTE <a href="http://www.pbs.org/wgbh/pages/frontline/sports/concussion-watch/76-of-79-deceased-nfl-players-found-to-have-brain-disease/"> has shown up </a> in the brains of 76 of 79 players who have been autopsied, even in some players who only played in high school and college.
+					<a href="http://www.pbs.org/wgbh/pages/frontline/league-of-denial/">An extensive documentary effort by PBS Frontline </a> explains the recent developments around the research of CTE and the NFL's growing consciousness of the scope of the problem.
+				</p>
+				<p class="more">
+					{{!-- Malcolm Gladwell has been particularly outspoken, <a href="http://www.bloomberg.com/news/2014-11-13/malcolm-gladwell-football-is-a-moral-abomination-.html"> stating in a recent interview that “football is a moral abomination” and predicting the sport would “wither on the vine” </a> as parents decide to withold their children from participating at the high school and college levels. --}}  
+					<a href="http://www.pbs.org/wgbh/pages/frontline/sports/football-high/poll-wealthy-college-educated-less-likely-to-want-kids-to-play-football/">Nearly 50% </a> of Americans now say they would not want their sons to play football.
+					<a href="http://espn.go.com/espn/otl/story/_/page/popwarner/pop-warner-youth-football-participation-drops-nfl-concussion-crisis-seen-causal-factor">Youth participation in Pop Warner football dropped 10% between 2010-2012</a>. Anectdotally, Brett Favre, who is worried about his own emerging difficult with memory issues, has stated 
+					<a href="https://www.youtube.com/watch?v=O2F7lWgE5NY">"If I had a son, I would be real leery of him playing."</a>
+				</p>
+				<p class="more">
+					The NFL continues to generate <a href="http://www.forbes.com/sites/monteburke/2013/08/14/think-the-nfl-is-in-decline-because-of-head-trauma-issues-think-again/">billions</a> of dollars in revenue, and 2.8 million kids around the country still play tackle football. <a href="http://www.nytimes.com/2012/05/09/sports/football/nfl-players-live-longer-than-men-in-general-population-study-says.html?_r=0">Confounding evidence </a> also shows that professional football players live longer and, with the exception of linemen, had lower rates of heart disease compared with the general population as a result of their athleticism.
+				</p>
+			</div>
+			<div class="col-sm-6 LanderText--football">
+				<p style="text-align: center; font-family: jubilat; font-size: 36px; ">...and the questions it generates. </p>
+				<p>Is this new knowledge a gamechanger? Is it still ethical to watch football? Are player injuries a matter of personal responsibility or collective responsibility? Are you planning on letting your children play? Do colleges, or does the NCAA, have the same long term responsibility to care for their players as the NFL does? </p>
+			</div>
+		</div>
+	</div>
+</section>
+
+
+<div id="livedemo">
+	<div class="polis" data-border="none" data-conversation_id="2arcefpshi"></div>
+	<script src="https://preprod.pol.is/embed.js"></script>	
+</div>
+
+
+
+
 {{!-- 
 <section class="SectionLander SectionLander--alt">
 	<div class="container">
@@ -426,53 +543,10 @@ $(document).ready(function() {
 	</div>
 </section> --}}
 
-<section class="SectionLander">
-	<div class="container">
-		<div class="row">
-			<div class="col-xs-12">
-				<h2 class="SectionLander-Heading">
-					Engage Your Audience
-				</h2>
-			</div>
-		</div>
-		<div class="row">
-			<div class="col-xs-12">
-				<p class="LargeText text-center">
-					
-				</p>
-				<form class="FormHorizontal" role="form">
-					<div class="FormHorizontal-group">
-						<label class="FormLabel">
-							Email
-							<input type="email" id="startconvo_email" placeholder="name@organization.com" class="FormControl">
-						</label>
-						<button type="submit" id="startconvo_submitbutton"
-						class="Btn Btn-primary">PILOT POLIS</button>
-					</div>
-				</form>
-				<div id="errorDiv">
-				</div>
-			</div>
-		</div>
-	</div>
-</section>
 
 
-<section class="SectionLander SectionLander--white">
-	<div class="container">
-		<div class="row">
-			<div class="col-xs-12 text-center">
-				<h3 class="HeadingB">
-					<span class="NewsFeature-text">As featured in</span>
-					<a href="http://www.geekwire.com/2014/startup-spotlight-polis/"
-						class="logoGeekWire-link">
-						<img alt="GeekWire" src="landerImages/geekwire.png" width="200px">
-					</a>
-				</h3>
-			</div>
-		</div>
-	</div>
-</section>
+
+
 
 
 <script type="text/javascript">
