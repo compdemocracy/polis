@@ -8939,7 +8939,7 @@ function initializeImplicitConversation(site_id, page_id) {
                 spam_filter: true, // TODO this could be drawn from config for the owner
                 strict_moderation: false, // TODO this could be drawn from config for the owner
                 // context: req.p.context,
-                owner_sees_participation_stats: true,
+                owner_sees_participation_stats: false, // TODO think, and test join
             }).returning('*').toString();
 
             pgQuery(q, [], function(err, result) {
