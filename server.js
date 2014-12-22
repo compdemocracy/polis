@@ -2911,7 +2911,7 @@ function updateLastInteractionTimeForConversation(zid, uid) {
 function tryToJoinConversation(zid, uid, pmaid_answers) {
     // there was no participant row, so create one
     return new Promise(function(resolve, reject) {
-        pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING pid;", [zid, uid], function(err, docs) {
+        pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid], function(err, docs) {
             if (err) {
                 console.log("failed to insert into participants");
                 console.dir(err);
@@ -2925,7 +2925,8 @@ function tryToJoinConversation(zid, uid, pmaid_answers) {
                     console.dir(err);
                     return reject(err);
                 }
-                resolve(pid);
+                var ptpt = docs.rows[0];
+                resolve(ptpt);
                 populateParticipantLocationRecordIfPossible(zid, uid, pid);
             });
         });
@@ -3014,6 +3015,20 @@ function getPid(zid, uid, callback) {
         callback(err, pid);
     });
 }
+
+// returns null if it's missing
+function getParticipant(zid, uid) {
+    return new Promise(function(resolve, reject) {
+        pgQuery("SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
+            if (err) {return reject(err);}
+            if (!results || !results.rows) {
+                return reject(new Error("polis_err_getPidPromise_failed"));
+            }
+            resolve(results.rows[0]);
+        });
+    });        
+}
+
 // returns a pid of -1 if it's missing
 function getPidPromise(zid, uid) {
     return new Promise(function(resolve, reject) {
@@ -3365,7 +3380,7 @@ function(req, res) {
     var uid = req.p.uid;
     var answers = req.p.answers;
 
-    function finish(pid) {
+    function finish(ptpt) {
         // Probably don't need pid cookies..?
         // function getZidToPidCookieKey(zid) {
         //     return zid + "p";
@@ -3374,9 +3389,7 @@ function(req, res) {
         setTimeout(function() {
             updateLastInteractionTimeForConversation(zid, uid);
         }, 0);
-        res.status(200).json({
-            pid: pid,
-        });
+        res.status(200).json(ptpt);
     }
 
     function doJoin() {
@@ -3385,8 +3398,8 @@ function(req, res) {
 
 
         userHasAnsweredZeQuestions(zid, answers).then(function() {
-            joinConversation(zid, uid, answers).then(function(pid) {
-                finish(pid);
+            joinConversation(zid, uid, answers).then(function(ptpt) {
+                finish(ptpt);
             }, function(err) {
                 fail(res, 500, "polis_err_add_participant", err);
             });
@@ -3396,13 +3409,12 @@ function(req, res) {
     }
 
     // Check if already in the conversation
-    getPid(zid, req.p.uid, function(err, pid) {
-        console.dir(arguments);
-        if (!err && pid >= 0) {
-            finish(pid);
+    getParticipant(zid, req.p.uid).then(function(ptpt) {
+        if (ptpt) {
+            finish(ptpt);
 
             // populate their location if needed - no need to wait on this.
-            populateParticipantLocationRecordIfPossible(zid, req.p.uid, pid);    
+            populateParticipantLocationRecordIfPossible(zid, req.p.uid, ptpt.pid);    
 
             return;
         }
@@ -3430,6 +3442,10 @@ function(req, res) {
         }).catch(function(err) {
             fail(res, 500, "polis_err_post_participants_need_uid_to_check_lti_users_4", err);
         });
+    }, function(err) {
+        fail(res, 500, "polis_err_post_participants_db_err", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_post_participants_misc", err);
     });
 });
 
@@ -3448,6 +3464,7 @@ function addLtiContextMembership(uid, lti_context_id, tool_consumer_instance_gui
         }
     });
 }
+
 
 function checkPassword(uid, password) {
     return pgQueryP("select pwhash from jianiuevyew where uid = ($1);", [uid]).then(function(rows) {
@@ -3469,29 +3486,91 @@ function checkPassword(uid, password) {
     });
 }
 
+function subscribeToNotifications(zid, uid) {
+    var type = 1; // 1 for email
+    console.log("subscribeToNotifications", zid, uid);
+    return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
+        return type;
+    });
+}
+
+function unsubscribeFromNotifications(zid, uid) {
+    var type = 0; // 1 for nothing
+    return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
+        return type;
+    });
+}
+
 function getParticipantsThatNeedNotifications() {
 
     // TODO: currently this will currently err on the side of notifying people for comments that are pending moderator approval.
 
     // check it out! http://sqlformat.org/
-    var q = "SELECT * ";
-        q += "FROM  ";
-        q += "  (SELECT zid,  ";
-        q += "          max(created) AS max_comment_time ";
-        q += "   FROM comments  ";
-        q += "   WHERE MOD >= 0 ";
-        q += "   GROUP BY zid ";
-        q += "   ORDER BY zid) AS foo ";
-        q += "INNER JOIN participants AS p ON p.zid = foo.zid  ";
-        q += "WHERE subscribed > 0 ";
-        q += "  AND last_notified < (now_as_millis() - 3*60*60*1000) ";
-        q += "  AND last_interaction < foo.max_comment_time;";
+    // var q = "SELECT * ";
+    //     q += "FROM  ";
+    //     q += "  (SELECT zid,  ";
+    //     q += "          max(created) AS max_comment_time ";
+    //     q += "   FROM comments  ";
+    //     q += "   WHERE MOD >= 0 ";
+    //     q += "   GROUP BY zid ";
+    //     q += "   ORDER BY zid) AS foo ";
+    //     q += "INNER JOIN participants AS p ON p.zid = foo.zid  ";
+    //     q += "WHERE subscribed > 0 ";
+    //     q += "  AND last_notified < (now_as_millis() - 3*60*60*1000) ";
+    //     q += "  AND last_interaction < foo.max_comment_time;";
+
+
+
+    var q = "WITH needed_totals AS  ";
+    q += "  (SELECT zid,  ";
+    q += "          COUNT(*) AS total ";
+    q += "   FROM comments  ";
+    q += "   WHERE MOD >= 0 ";
+    q += "   GROUP BY zid),  ";
+    q += "     foo AS  ";
+    q += "  (SELECT voted.zid,  ";
+    q += "          voted.pid,  ";
+    q += "          COUNT(*) AS valid_votes ";
+    q += "   FROM  ";
+    q += "     (SELECT comments.zid,  ";
+    q += "             comments.tid ";
+    q += "      FROM comments  ";
+    q += "      WHERE MOD >= 0) AS needed ";
+    q += "   LEFT JOIN  ";
+    q += "     (SELECT zid,  ";
+    q += "             tid,  ";
+    q += "             pid ";
+    q += "      FROM votes) AS voted ON voted.tid = needed.tid ";
+    q += "   AND voted.zid = needed.zid ";
+    q += "   GROUP BY voted.zid,  ";
+    q += "            voted.pid ";
+    q += "   ORDER BY voted.zid,  ";
+    q += "            voted.pid),  ";
+    q += "     bar AS  ";
+    q += "  (SELECT foo.zid,  ";
+    q += "          foo.pid,  ";
+    q += "          participants.uid,  ";
+    q += "          participants.last_interaction,  ";
+    q += "          participants.subscribed,  ";
+    q += "          participants.last_notified,  ";
+    q += "          (total - valid_votes) AS remaining ";
+    q += "   FROM foo ";
+    q += "   INNER JOIN needed_totals ON needed_totals.zid = foo.zid ";
+    q += "   INNER JOIN participants ON foo.zid = participants.zid ";
+    q += "   AND foo.pid = participants.pid)  ";
+    q += "SELECT * ";
+    q += "FROM bar  ";
+    q += "WHERE subscribed = 1  ";
+    q += "  AND (last_notified + 30*60*1000) < last_interaction";
+    // q += "  AND remaining > 0";
+    q += ";";
+
 
     pgQueryP(q,[]).then(function(rows) {
         rows = rows || [];
         console.log("getParticipantsThatNeedNotifications");
         for (var i = 0; i < rows.length; i++) {
-            console.log(row[i]);
+            console.log(rows[i]);
         }
         console.log("end getParticipantsThatNeedNotifications");
     }).catch(function(err) {
@@ -3501,6 +3580,48 @@ function getParticipantsThatNeedNotifications() {
 }
 
 getParticipantsThatNeedNotifications();
+
+
+function updateEmail(uid, email) {
+    return pgQueryP("update users set email = ($2) where uid = ($1);", [uid, email]);
+}
+
+
+app.post("/api/v3/convSubscriptions",
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need("type", getInt, assignToP),
+    want('email', getEmail, assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var type = req.p.type;
+    var email = req.p.email;
+    function finish(type) {
+        res.status(200).json({
+            subscribed: type,
+        });
+    }
+    var emailSetPromise = email ? updateEmail(uid, email) : Promise.resolve();
+    emailSetPromise.then(function() {
+        if (type === 1) {
+            subscribeToNotifications(zid, uid).then(finish).catch(function(err) {
+                fail(res, 500, "polis_err_sub_conv "+zid+" "+uid, err);
+            });
+        } else if (type === 0) {
+            unsubscribeFromNotifications(zid, uid).then(finish).catch(function(err) {
+                fail(res, 500, "polis_err_unsub_conv "+zid+" "+uid, err);
+            });
+        } else {
+            fail(res, 400, "polis_err_bad_subscription_type", new Error("polis_err_bad_subscription_type"));
+        }
+    }, function(err) {
+        fail(res, 500, "polis_err_subscribing_with_email", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_subscribing_misc", err);
+    });
+});
+
 
 app.post("/api/v3/auth/login",
     need('password', getPassword, assignToP),
@@ -3775,8 +3896,8 @@ function joinWithZidOrSuzinvite(o) {
         });
     })
     .then(function(o) {
-      return joinConversation(o.zid, o.uid, o.answers).then(function(pid) {
-        return _.extend({pid: pid}, o);
+      return joinConversation(o.zid, o.uid, o.answers).then(function(ptpt) {
+        return _.extend(o, ptpt);
       });
     })
     .then(function(o) {
