@@ -24,9 +24,9 @@ if (!getCookie("ref")) {
 
 $(document).ready(function() {
   if (getCookie("uid2")) {
-    $(".ifNoAuth").hide();
+    $(".ifAuth").fadeIn();
   } else {
-    $(".ifAuth").hide();
+    $(".ifNoAuth").fadeIn();
   }
 });
 </script>
@@ -62,10 +62,10 @@ fjs.parentNode.insertBefore(js, fjs);
 
     <div class="navbar-collapse collapse">
       <ul class="nav navbar-nav navbar-right">
-        <li class="ifNoAuth"><a class="HeadingD" href="/user/login"><i class="fa fa-sign-in"></i>&nbsp;Login</a></li>
-        <li class="ifAuth"><a class="HeadingD" href="/inbox"><i class="fa fa-inbox"></i>&nbsp;Inbox</a></li>
-        <li class="ifAuth"><a class="HeadingD" href="/settings"><i class="fa fa-cog"></i>&nbsp;Settings</a></li>
-        <li class="ifAuth"><a class="HeadingD" href="/user/logout"><i class="fa fa-sign-out"></i>&nbsp;Signout</a></li>
+        <li style="display:none" class="ifNoAuth"><a class="HeadingD" href="/user/login"><i class="fa fa-sign-in"></i>&nbsp;Login</a></li>
+        <li style="display:none" class="ifAuth"><a class="HeadingD" href="/inbox"><i class="fa fa-inbox"></i>&nbsp;Inbox</a></li>
+        <li style="display:none" class="ifAuth"><a class="HeadingD" href="/settings"><i class="fa fa-cog"></i>&nbsp;Settings</a></li>
+        <li style="display:none" class="ifAuth"><a class="HeadingD" href="/user/logout"><i class="fa fa-sign-out"></i>&nbsp;Signout</a></li>
       </ul>
     </div>{{! /.nav-collapse }}
  </div>

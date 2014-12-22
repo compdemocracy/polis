@@ -26,9 +26,9 @@ if (!getCookie("ref")) {
 
 $(document).ready(function() {
 	if (getCookie("uid2")) {
-		$(".ifNoAuth").hide();
+		$(".ifAuth").fadeIn();
 	} else {
-		$(".ifAuth").hide();
+		$(".ifNoAuth").fadeIn();
 	}
 });
 </script>
