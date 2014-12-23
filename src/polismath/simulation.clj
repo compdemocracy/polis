@@ -141,7 +141,7 @@
 
 
 (defprotocol Pollable
-  (poll! [this state last-timestamp]))
+  (poll! [this state last-vote-timestamp]))
 
 
 (defn unzip
@@ -162,8 +162,8 @@
 
 
 (defn add-timestamps
-  [[conv votes] last-timestamp]
-  (let [old-last-ts (or last-timestamp 0)
+  [[conv votes] last-vote-timestamp]
+  (let [old-last-ts (or last-vote-timestamp 0)
         now (System/currentTimeMillis)
         ts-diff (- now old-last-ts)]
     [conv
@@ -178,14 +178,14 @@
              poll-count-fn]}]
   (reify
     Pollable
-    (poll! [this conv last-timestamp]
+    (poll! [this conv last-vote-timestamp]
       (let [[new-ptpts new-cmnts n-votes] (map #(% conv) [ptpt-growth-fn cmnt-growth-fn poll-count-fn])]
         (-> conv
             ((fn-exp add-member new-ptpts))
             ((fn-exp conv-add-cmnt new-cmnts))
             (conv-votes n-votes)
             ; Adds :created timestamps
-            (add-timestamps last-timestamp))))))
+            (add-timestamps last-vote-timestamp))))))
 
 
 (def simple-poller
@@ -200,10 +200,10 @@
   [& pollers]
   (reify
     Pollable
-    (poll! [this convs last-timestamp]
+    (poll! [this convs last-vote-timestamp]
       (let [[new-convs vote-batches]
               (unzip
-                (map #(poll! %1 %2 last-timestamp) pollers convs))]
+                (map #(poll! %1 %2 last-vote-timestamp) pollers convs))]
         [new-convs
          (->> vote-batches
               (apply concat)
@@ -246,14 +246,14 @@
         poller (apply comp-poller pollers)]
     (loop [convs (for [i (range n-convs)]
                    (sim-conv :n-ptpts 4 :n-cmnts 5 :zid i))
-           last-timestamp 0
+           last-vote-timestamp 0
            polls 0]
       (Thread/sleep poll-interval)
-      (let [[new-convs votes] (poll! poller convs last-timestamp)
-            new-last-timestamp (apply max (map :created votes))]
+      (let [[new-convs votes] (poll! poller convs last-vote-timestamp)
+            new-last-vote-timestamp (apply max (map :created votes))]
         (println "Simulating" (count votes))
         (wcar* (car-mq/enqueue "simvotes" (vec votes)))
-        (recur new-convs new-last-timestamp (inc polls))))))
+        (recur new-convs new-last-vote-timestamp (inc polls))))))
 
 
 (defn -main [& args]

@@ -39,7 +39,7 @@
         new-votes  (conv-poll zid)
         conv-actor (cm/new-conv-actor (partial cm/load-or-init zid))]
     (println zid zinvite)
-    (cm/send-votes conv-actor {:last-timestamp 0 :reactions new-votes})
+    (cm/send-votes conv-actor {:last-vote-timestamp 0 :reactions new-votes})
     (add-watch
       (:conv conv-actor)
       :complete-watch

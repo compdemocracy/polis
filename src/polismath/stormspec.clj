@@ -42,9 +42,9 @@
     ; Construct a poller that also check the channel for simulated messages and passes them through
     (defn poll
       "Do stuff with the fake comments and sim comments"
-      [last-timestamp]
-      (let [db-results (db/poll last-timestamp)
-            last-timestamp (reduce max last-timestamp (map :created db-results))
+      [last-vote-timestamp]
+      (let [db-results (db/poll last-vote-timestamp)
+            last-vote-timestamp (reduce max last-vote-timestamp (map :created db-results))
             sim-batches (cm/take-all!! sim-vote-chan)
             combined-results (apply concat db-results sim-batches)]
         combined-results)))
@@ -52,23 +52,23 @@
   (def poll db/poll))
 
 
-(defspout reaction-spout ["zid" "last-timestamp" "reactions"] {:prepare true}
+(defspout reaction-spout ["zid" "last-vote-timestamp" "reactions"] {:prepare true}
   [conf context collector]
   (let [poll-interval   1000
-        last-timestamp  (atom 0)]
+        last-vote-timestamp  (atom 0)]
     (when (env/env :poll-redis)
       (log/info "Starting sim poller!")
       (start-sim-poller!))
     (spout
       (nextTuple []
-        (log/info "Polling :created >" @last-timestamp)
-        (let [new-votes (poll @last-timestamp)
+        (log/info "Polling :created >" @last-vote-timestamp)
+        (let [new-votes (poll @last-vote-timestamp)
               grouped-votes (group-by :zid new-votes)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid rxns] grouped-votes]
-            (emit-spout! collector [zid @last-timestamp rxns]))
+            (emit-spout! collector [zid @last-vote-timestamp rxns]))
           ; Update timestamp if needed
-          (swap! last-timestamp
+          (swap! last-vote-timestamp
                  (fn [last-ts] (apply max 0 last-ts (map :created new-votes)))))
         (Thread/sleep poll-interval))
       (ack [id]))))
@@ -79,7 +79,7 @@
   (let [conv-agency (atom {})] ; collection of conv-actors
     (bolt
       (execute [tuple]
-        (let [[zid last-timestamp rxns] (.getValues tuple)
+        (let [[zid last-vote-timestamp rxns] (.getValues tuple)
               ; First construct a new conversation builder. Then either find a conversation, or call that
               ; builder in conv-agency
               conv-actor (cm/get-or-set! conv-agency zid
@@ -92,7 +92,7 @@
                                    (when ((set (range 4)) (:zid n))
                                      (log/info "Size of conversation" (:zid n) "is" (:n n) (:n-cmts n)))))
                                ca)))]
-          (cm/send-votes conv-actor {:last-timestamp last-timestamp :reactions rxns}))
+          (cm/send-votes conv-actor {:last-vote-timestamp last-vote-timestamp :reactions rxns}))
         (ack! collector tuple)))))
 
 
