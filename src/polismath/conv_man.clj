@@ -60,7 +60,8 @@
   "Prep function for passing to format-for-mongo given bidToPid data"
   [results]
   {:zid (:zid results)
-   :bidToPid (:bid-to-pid results)})
+   :bidToPid (:bid-to-pid results)
+   :lastVoteTimestamp (:last-vote-timestamp results)})
 
 
 (defn- assoc-in-bc
@@ -86,6 +87,7 @@
         "members" (map :members base-clusters)
         "count"   (map #(count (:members %)) base-clusters))
       ; Whitelist of keys to be included in sent data; removes intermediates
+      (assoc :lastVoteTimestamp (:last-vote-timestamp results))
       (hash-map-subset #{
         :base-clusters
         :group-clusters
@@ -104,14 +106,12 @@
 (defn format-for-mongo
   "Formats data for mongo, first passing through a prep function which may strip out uneeded junk or
   reshape things. Takes conv and lastVoteTimestamp, though the latter may be moved into the former in update"
-  [prep-fn conv last-vote-timestamp]
+  [prep-fn conv]
   (-> conv
     prep-fn
     ; core.matrix & monger workaround: convert to str with cheshire then back
     ch/generate-string
-    ch/parse-string
-    (assoc
-      "lastVoteTimestamp" last-vote-timestamp)))
+    ch/parse-string))
 
 
 (defn mongo-upsert-results
@@ -149,7 +149,6 @@
   (let [start-time (System/currentTimeMillis)]
     (try
       (let [votes          (flatten-vote-batches vote-batches)
-            last-vote-timestamp (apply max (map :last-vote-timestamp vote-batches))
             updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)
             finish-time    (System/currentTimeMillis)]
@@ -158,7 +157,7 @@
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
-          (->> (format-for-mongo prep-fn updated-conv last-vote-timestamp)
+          (->> (format-for-mongo prep-fn updated-conv)
                (mongo-upsert-results (db/mongo-collection-name col-name))))
         (log/info "Finished uploading mongo results for zid" zid)
         ; Return the updated conv

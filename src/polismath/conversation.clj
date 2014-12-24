@@ -82,6 +82,12 @@
                   (or (:zid conv)
                       (:zid (first votes))))
 
+   :last-vote-timestamp
+                (plmb/fnk [conv votes]
+                  (apply max
+                         (or (:last-vote-timestamp conv) 0)
+                         (map :created votes)))
+
    :customs     (plmb/fnk [conv votes opts']
                   ; Decides whether there is room for new ptpts/cmts, and which votes should be allowed in
                   ; based on which ptpts/cmts have already been seen. This is a simple prevention against
