@@ -380,6 +380,16 @@
       (dissoc :keep-votes))))
 
 
+;(defn mod-uddate
+  ;[conv mods]
+  ;(let [mod-out (->> mods
+                     ;(filter #{-1})
+                     ;(map :tid))]
+    ;(-> conv
+        ;(update-in :rating-mat
+                   ;(
+
+
 ;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
 ;; edn reader
 

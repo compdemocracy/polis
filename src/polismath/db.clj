@@ -56,6 +56,10 @@
   (ko/belongs-to users (:fk :uid))
   (ko/belongs-to conversations (:fk :zid)))
 
+(ko/defentity comments
+  (ko/entity-fields :zid :tid :mod :modified)
+  (ko/belongs-to conversations  (:fk :zid)))
+
 
 (defn poll
   "Query for all data since last-vote-timestamp, given a db-spec"
@@ -67,6 +71,22 @@
         (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
     (catch Exception e
       (log/error "polling failed " (.getMessage e))
+      [])))
+
+
+(defn mod-poll
+  "Moderation query: basically look for when things were last modified, since this is the only time they will
+  have been moderated."
+  [last-mod-timestamp]
+  (try
+    (kdb/with-db (db-spec)
+      (ko/select
+        comments
+        (ko/where {:modified [> last-mod-timestamp]
+                   :mod [not= 0]})
+        (ko/order [:zid :tid :modified] :asc)))
+    (catch Exception e
+      (log/error "moderation polling failed " (.getMessage e))
       [])))
 
 

@@ -26,50 +26,45 @@
 
 
 
-(if (env/env :poll-redis)
-  (let [sim-vote-chan (chan 10e5)]
-    (log/warn "Going to be polling redis for simulated votes")
-    ; Function that starts a service which polls redis and throws it onto a queue
-    (defn start-sim-poller!
-      []
-      (sim/wcar-worker*
-        "simvotes"
-        {:handler (fn [{:keys [message attempt] :as handler-args}]
-                    (if message
-                      (>!! sim-vote-chan message)
-                      (log/warn "Nil message to carmine?" handler-args))
-                    {:status :success})}))
-    ; Construct a poller that also check the channel for simulated messages and passes them through
-    (defn poll
-      "Do stuff with the fake comments and sim comments"
-      [last-vote-timestamp]
-      (let [db-results (db/poll last-vote-timestamp)
-            last-vote-timestamp (reduce max last-vote-timestamp (map :created db-results))
-            sim-batches (cm/take-all!! sim-vote-chan)
-            combined-results (apply concat db-results sim-batches)]
-        combined-results)))
-  ; Else, defer to regular poller
-  (def poll db/poll))
+(let [sim-vote-chan (chan 10e5)]
+  (log/warn "Going to be polling redis for simulated votes")
+  ; Function that starts a service which polls redis and throws it onto a queue
+  (defn start-sim-poller!
+    []
+    (sim/wcar-worker*
+      "simvotes"
+      {:handler (fn [{:keys [message attempt] :as handler-args}]
+                  (if message
+                    (>!! sim-vote-chan message)
+                    (log/warn "Nil message to carmine?" handler-args))
+                  {:status :success})}))
+  ; Construct a poller that also check the channel for simulated messages and passes them through
+  (defn sim-poll
+    "Do stuff with the fake comments and sim comments"
+    [last-vote-timestamp]
+    (cm/take-all!! sim-vote-chan)))
 
 
-(defspout reaction-spout ["zid" "last-vote-timestamp" "reactions"] {:prepare true}
+(defspout poll-spout ["type" "zid" "batch"] {:prepare true :params [type poll-fn timestamp-key poll-interval]}
   [conf context collector]
-  (let [poll-interval   1000
-        last-vote-timestamp  (atom 0)]
-    (when (env/env :poll-redis)
+  (let [last-timestamp (atom 0)]
+    (if (= poll-fn :sim-poll)
       (log/info "Starting sim poller!")
       (start-sim-poller!))
     (spout
       (nextTuple []
-        (log/info "Polling :created >" @last-vote-timestamp)
-        (let [new-votes (poll @last-vote-timestamp)
-              grouped-votes (group-by :zid new-votes)]
+        (log/info "Polling" type ">" @last-timestamp)
+        (let [batches (({:poll db/poll
+                         :sim-poll sim-poll
+                         :mod-poll db/mod-poll} poll-fn)
+                       @last-timestamp)
+              grouped-batches (group-by :zid batches)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
-          (doseq [[zid rxns] grouped-votes]
-            (emit-spout! collector [zid @last-vote-timestamp rxns]))
+          (doseq [[zid batch] grouped-batches]
+            (emit-spout! collector [type zid {:last-timestamp @last-timestamp :values batch}]))
           ; Update timestamp if needed
-          (swap! last-vote-timestamp
-                 (fn [last-ts] (apply max 0 last-ts (map :created new-votes)))))
+          (swap! last-timestamp
+                 (fn [last-ts] (apply max 0 last-ts (map timestamp-key batches)))))
         (Thread/sleep poll-interval))
       (ack [id]))))
 
@@ -79,33 +74,29 @@
   (let [conv-agency (atom {})] ; collection of conv-actors
     (bolt
       (execute [tuple]
-        (let [[zid last-vote-timestamp rxns] (.getValues tuple)
+        (let [[type zid {:keys [last-timestamp values]}] (.getValues tuple)
               ; First construct a new conversation builder. Then either find a conversation, or call that
               ; builder in conv-agency
-              conv-actor (cm/get-or-set! conv-agency zid
-                           (fn []
-                             (let [ca (cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute))]
-                               (add-watch
-                                 (:conv ca)
-                                 :size-watcher
-                                 (fn [k r o n]
-                                   (when ((set (range 4)) (:zid n))
-                                     (log/info "Size of conversation" (:zid n) "is" (:n n) (:n-cmts n)))))
-                               ca)))]
-          (cm/send-votes conv-actor {:last-vote-timestamp last-vote-timestamp :reactions rxns}))
+              conv-actor (cm/get-or-set! conv-agency zid #(cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute)))]
+          (case type
+            :votes
+              (cm/send-votes conv-actor {:last-vote-timestamp last-timestamp :reactions values})
+            :moderation
+              ;(cm/send-mods conv-actor {:last-mod-timestamp last-timestamp :moderations})))
+              nil)) ;do nothing for now
         (ack! collector tuple)))))
 
 
 (defn mk-topology [sim recompute]
+  (let [spouts {"vote-spout" (spout-spec (poll-spout :votes :poll :created 1000))
+                "mod-spout"  (spout-spec (poll-spout :moderation :mod-poll :modified 5000))}
+        spouts (if sim
+                 (assoc spouts "sim-vote-spout" (spout-spec (poll-spout "votes" :sim-poll :created 1000)))
+                 spouts)
+        bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
   (topology
-    ; Spouts:
-    {"1" (spout-spec
-           ;(if sim sim-reaction-spout reaction-spout))}
-           reaction-spout)}
-    ; Bolts:
-    {"2" (bolt-spec
-           {"1"  ["zid"]}
-           (conv-update-bolt recompute))}))
+    spouts
+    {"conv-update" (bolt-spec bolt-inputs (conv-update-bolt recompute))})))
 
 
 (defn run-local! [{:keys [sim recompute]}]
