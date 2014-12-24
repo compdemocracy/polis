@@ -380,14 +380,18 @@
       (dissoc :keep-votes))))
 
 
-;(defn mod-uddate
-  ;[conv mods]
-  ;(let [mod-out (->> mods
-                     ;(filter #{-1})
-                     ;(map :tid))]
-    ;(-> conv
-        ;(update-in :rating-mat
-                   ;(
+(defn mod-uddate
+  "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
+  [conv mods]
+  (let [mod-sep (fn [mod] (->> mods (filter #{mod}) (map :tid)))
+        mod-out (mod-sep -1)
+        mod-in  (mod-spec 1)]
+    (update-in conv
+               [:mod-out]
+               (plmb/fn->
+                 (set)
+                 (into mod-out)
+                 (clojure.set/difference mod-in)))))
 
 
 ;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
