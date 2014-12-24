@@ -45,7 +45,7 @@ fjs.parentNode.insertBefore(js, fjs);
 }(document, 'script', 'facebook-jssdk'));</script>
 
 
-<section class="hero">
+<section class="hero" style="padding: 24px 0px 0px 0px">
 	<div class="container u-space-below">
 		<header class="hero-header navbar" role="navigation">
 			<div class="navbar-header">
@@ -84,11 +84,10 @@ fjs.parentNode.insertBefore(js, fjs);
 					Online discussions <br>
 					just got an upgrade.
 				</h1>
-
 			</div>
 		</div>
 		<div class="row">
-			<div class="col-sm-4 col-xs-6">
+			<div class="col-sm-4 col-xs-12">
 				<div class="spot--exterior">
 					<p class="spot--interior">
 						<span class="Smallcaps">Engaging</span><br>
@@ -97,12 +96,12 @@ fjs.parentNode.insertBefore(js, fjs);
 					</p>
 				</div>
 			</div>
-			<div class="col-sm-4 col-xs-6">
+			<div class="col-sm-4 col-xs-12">
 				<div class="spot--exterior">
 					<p class="spot--interior">
 						<span class="Smallcaps">Insightful</span><br>
-						<em>intelligent</em><br>
-						<span class="Smallcaps">conversations</span>
+						<em>&amp; intelligent</em><br>
+						<span class="Smallcaps">dialogue</span>
 					</p>
 				</div>
 			</div>
@@ -116,41 +115,31 @@ fjs.parentNode.insertBefore(js, fjs);
 			</div>
 		</div>
 	</div> <!--container --> 
-	{{!-- <div class="bgOverlay">
-		<div class="container">
-			<div class="row">
-				<div class="col-sm-10 col-sm-offset-1 col-xs-12 text-center">
-					<h2 class="SectionLander-Heading u-noMargin">WAY BETTER COMMENTS</h2>
-					<p class="LargeText">
-						Polis is powered by machine learning and real-time, interactive data visualization. It prioritizes valuable comments and filters out the noise. It's engaging for users, and produces valuable data you can utilize in tons of different ways.
-					</p>
-				</div>
-			</div>
-		</div>
-	</div>
-	<div class="container">
-		<div class="row">
-			<div class="col-xs-12">
-				<p class="learnMore">
-					<a class="learnMore-link Smallcaps">Learn more</a>
+
+
+
+{{!-- DESKTOP / TABLET --}}
+	<div class="container hidden-xs" style="padding-bottom: 40px; ">
+		<div class="row" >
+{{!-- 			<div class="col-sm-6" >
+			</div> --}}
+			<div class="col-sm-6 col-sm-offset-3 col-md-4 col-md-offset-4" style="-webkit-box-shadow: 4px 5px 11px 4px #ACACAC; background-color: rgba(255,255,255,.6);">
+				<p class="HeadingB" style="margin-top: 15px; font-size: 24px; font-weight: 100; ">
+					Embed polis on your site in seconds, for free.
 				</p>
-			</div>
-		</div>
-	</div> --}}
-	<div class="container">
-		<div class="row">
-			<div class="col-xs-12">
-				<p class="LargeText text-center">
-					
-				</p>
-				<form class="FormHorizontal" role="form">
+				{{!-- This button was copied from conv view --}}
+				<button id="fbConnectBtn" class="facebookButton">
+	    		<i class="fa fa-facebook-square"></i>&nbsp; Sign Up With Facebook
+	      </button>
+				<form class="FormHorizontal" style="text-align: left; margin: 20px auto 30px;" role="form">
 					<div class="FormHorizontal-group">
 						<label class="FormLabel">
-							Email
-							<input type="email" id="startconvo_email" placeholder="name@organization.com" class="FormControl">
+						<span class="HeadingF HeadingF--light"> Sign up with email </span>
 						</label>
+						<input type="email" id="startconvo_email" placeholder="name@organization.com" class="FormControl">
+						<br>
 						<button type="submit" id="startconvo_submitbutton"
-						class="Btn Btn-primary">PILOT POLIS</button>
+						class="Btn Btn-primary">GET POLIS</button>
 					</div>
 				</form>
 				<div id="errorDiv">
@@ -158,10 +147,37 @@ fjs.parentNode.insertBefore(js, fjs);
 			</div>
 		</div>
 	</div>
+
+{{!-- MOBILE --}}
+	<div class="container visible-xs" style="background-color: rgba(255,255,255,.6)">
+		<div class="row">
+			<div class="col-xs-12">
+				<p class="HeadingB" style="margin-top: 15px">
+					Embed polis on your site in seconds, for free.
+				</p>
+				{{!-- This button was copied from conv view --}}
+				<button id="fbConnectBtn" class="facebookButton">
+	    		<i class="fa fa-facebook-square"></i>&nbsp; Sign Up With Facebook
+	      </button>
+				<form class="FormHorizontal" style="text-align: left; margin: 20px auto 30px;" role="form">
+					<div class="FormHorizontal-group">
+						<label class="FormLabel">
+						<span class="HeadingF HeadingF--light"> Sign up with email </span>
+						<input type="email" id="startconvo_email" placeholder="name@organization.com" class="FormControl">
+						</label>
+						<br>
+						<button type="submit" id="startconvo_submitbutton"
+						class="Btn Btn-primary">GET POLIS</button>
+					</div>
+				</form>
+				<div id="errorDiv">
+				</div>
+			</div>
+		</div>
+	</div>
+
+
 </section>
-{{!-- <section class="SectionLander">
-	formerly housed pilot polis
-</section> --}}
 
 
 
@@ -237,8 +253,30 @@ $(document).ready(function() {
 </script>
 
 
+	{{!-- <div class="bgOverlay">
+		<div class="container">
+			<div class="row">
+				<div class="col-sm-10 col-sm-offset-1 col-xs-12 text-center">
+					<h2 class="SectionLander-Heading u-noMargin">WAY BETTER COMMENTS</h2>
+					<p class="LargeText">
+						Polis is powered by machine learning and real-time, interactive data visualization. It prioritizes valuable comments and filters out the noise. It's engaging for users, and produces valuable data you can utilize in tons of different ways.
+					</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="container">
+		<div class="row">
+			<div class="col-xs-12">
+				<p class="learnMore">
+					<a class="learnMore-link Smallcaps">Learn more</a>
+				</p>
+			</div>
+		</div>
+	</div> --}}
 
 {{!-- 
+
 
 <section class="SectionLander">
 	<div class="container">
@@ -308,7 +346,7 @@ $(document).ready(function() {
 		<div class="row">
 			<div class="col-xs-12">
 				<h2 class="SectionLander-Heading">
-					Engaging &middot; Insightful &middot; Effortless
+					Engaging <span class="hidden-xs">&middot;</span> Insightful <span class="hidden-xs">&middot;</span> Effortless
 				</h2>
 			</div>
 		</div>
@@ -419,8 +457,9 @@ $(document).ready(function() {
 					American Football?
 				</h1>
 			</div>
-			<div style="text-align: center; " class="col-xs-12 col-sm-8 col-sm-offset-2 col-md-6 col-md-offset-0">
+				<div style="text-align: center; " class="col-xs-12 col-sm-8 col-sm-offset-2 col-md-6 col-md-offset-0">
 					<iframe src="//fast.wistia.net/embed/iframe/1lxiggwg8x?videoFoam=true" allowtransparency="true" frameborder="0" scrolling="no" class="wistia_embed" name="wistia_embed" allowfullscreen mozallowfullscreen webkitallowfullscreen oallowfullscreen msallowfullscreen></iframe><script src="//fast.wistia.net/assets/external/iframe-api-v1.js"></script>
+					<p style="color: white; text-align: left; font-size: 14px;	"><em>Bloomberg</em></p>
 				</div>
 			</div>
 		</div>
@@ -446,7 +485,7 @@ $(document).ready(function() {
 	<div class="container">
 		<div class="row">
 			<div class="col-sm-6 LanderText--football">
-				<p style="text-align: center; font-family: jubilat; font-size: 36px;">The Issue... </p>
+				<p style="font-family: jubilat; font-size: 36px; line-height: 1.2em; margin-bottom: 20px;">The Issue... </p>
 				<p>
 					<a href="http://www.nfl.com/news/story/0ap1000000235494/article/nfl-explayers-agree-to-765m-settlement-in-concussions-suit">Retired NFL players recently reached a settlement </a> with the NFL over injuries sustained during their careers that may lead to brain disorders such as <a href="http://en.wikipedia.org/wiki/Chronic_traumatic_encephalopathy#American_football">Chronic Traumatic Encephalopathy (CTE)</a>. While the NFL denied the connection between professional football and chronic degenerative diseases such as CTE for years, <a href="http://www.nytimes.com/2014/09/13/sports/football/actuarial-reports-in-nfl-concussion-deal-are-released.html"> internal actuarial reports now expect that one in three players will be affected.
 				</p>
@@ -484,8 +523,8 @@ $(document).ready(function() {
 				</p>
 			</div>
 			<div class="col-sm-6 LanderText--football">
-				<p style="text-align: center; font-family: jubilat; font-size: 36px; ">...and the questions it generates. </p>
-				<p>Is this new knowledge a gamechanger? Is it still ethical to watch football? Are player injuries a matter of personal responsibility or collective responsibility? Are you planning on letting your children play? Do colleges, or does the NCAA, have the same long term responsibility to care for their players as the NFL does? </p>
+				<p style=" font-family: jubilat; font-size: 36px; line-height: 1.2em; margin-bottom: 20px;">...and the questions it generates. </p>
+				<p>Will this new knowledge change how the game is played? Are player injuries a matter of personal responsibility or collective responsibility? Is it still ethical to watch football? Are you planning on letting your children play? Do colleges, or does the NCAA, have the same long term responsibility to care for their players as the NFL does? </p>
 			</div>
 		</div>
 	</div>
