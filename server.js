@@ -3727,8 +3727,9 @@ function notifyParticipantsOfNewComments() {
             if (!url) {
                 url = "https://pol.is/" + row.zinvite;
             }
-            sendNotificationEmail(row.uid, url, row.remaining).then(function() {
-                return pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2);",[row.uid, row.zid]);
+            // NOTE: setting the DB status first to prevent a race condition where there can be multiple emails sent (one from each server)
+            pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2);",[row.uid, row.zid]).then(function() {
+                return sendNotificationEmail(row.uid, url, row.remaining);
             }).catch(function(err) {
                 yell("polis_err_notifying_participants_misc");
                 console.error(err);
