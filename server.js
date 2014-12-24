@@ -3521,66 +3521,231 @@ function getParticipantsThatNeedNotifications() {
 
 
 
-    var q = "WITH needed_totals AS  ";
-    q += "  (SELECT zid,  ";
-    q += "          COUNT(*) AS total ";
-    q += "   FROM comments  ";
-    q += "   WHERE MOD >= 0 ";
-    q += "   GROUP BY zid),  ";
-    q += "     foo AS  ";
-    q += "  (SELECT voted.zid,  ";
-    q += "          voted.pid,  ";
-    q += "          COUNT(*) AS valid_votes ";
-    q += "   FROM  ";
-    q += "     (SELECT comments.zid,  ";
-    q += "             comments.tid ";
-    q += "      FROM comments  ";
-    q += "      WHERE MOD >= 0) AS needed ";
-    q += "   LEFT JOIN  ";
-    q += "     (SELECT zid,  ";
-    q += "             tid,  ";
-    q += "             pid ";
-    q += "      FROM votes) AS voted ON voted.tid = needed.tid ";
-    q += "   AND voted.zid = needed.zid ";
-    q += "   GROUP BY voted.zid,  ";
-    q += "            voted.pid ";
-    q += "   ORDER BY voted.zid,  ";
-    q += "            voted.pid),  ";
-    q += "     bar AS  ";
-    q += "  (SELECT foo.zid,  ";
-    q += "          foo.pid,  ";
-    q += "          participants.uid,  ";
-    q += "          participants.last_interaction,  ";
-    q += "          participants.subscribed,  ";
-    q += "          participants.last_notified,  ";
-    q += "          (total - valid_votes) AS remaining ";
-    q += "   FROM foo ";
-    q += "   INNER JOIN needed_totals ON needed_totals.zid = foo.zid ";
-    q += "   INNER JOIN participants ON foo.zid = participants.zid ";
-    q += "   AND foo.pid = participants.pid)  ";
-    q += "SELECT * ";
-    q += "FROM bar  ";
-    q += "WHERE subscribed = 1  ";
-    q += "  AND (last_notified + 30*60*1000) < last_interaction";
-    // q += "  AND remaining > 0";
-    q += ";";
+    // var q = "WITH needed_totals AS  ";
+    // q += "  (SELECT zid,  ";
+    // q += "          COUNT(*) AS total ";
+    // q += "   FROM comments  ";
+    // q += "   WHERE MOD >= 0 ";
+    // q += "   GROUP BY zid),  ";
+    // q += "     foo AS  ";
+    // q += "  (SELECT voted.zid,  ";
+    // q += "          voted.pid,  ";
+    // q += "          COUNT(*) AS valid_votes ";
+    // q += "   FROM  ";
+    // q += "     (SELECT comments.zid,  ";
+    // q += "             comments.tid ";
+    // q += "      FROM comments  ";
+    // q += "      WHERE MOD >= 0) AS needed ";
+    // q += "   LEFT JOIN  ";
+    // q += "     (SELECT zid,  ";
+    // q += "             tid,  ";
+    // q += "             pid ";
+    // q += "      FROM votes) AS voted ON voted.tid = needed.tid ";
+    // q += "   AND voted.zid = needed.zid ";
+    // q += "   GROUP BY voted.zid,  ";
+    // q += "            voted.pid ";
+    // q += "   ORDER BY voted.zid,  ";
+    // q += "            voted.pid),  ";
+    // q += "     bar AS  ";
+    // q += "  (SELECT foo.zid,  ";
+    // q += "          foo.pid,  ";
+    // q += "          participants.uid,  ";
+    // q += "          participants.last_interaction,  ";
+    // q += "          participants.subscribed,  ";
+    // q += "          participants.last_notified,  ";
+    // q += "          (total - valid_votes) AS remaining ";
+    // q += "   FROM foo ";
+    // q += "   INNER JOIN needed_totals ON needed_totals.zid = foo.zid ";
+    // q += "   INNER JOIN participants ON foo.zid = participants.zid ";
+    // q += "   AND foo.pid = participants.pid)  ";
+    // q += "SELECT * ";
+    // q += "FROM bar  ";
+    // q += "WHERE subscribed = 1  ";
+    // q += "  AND (last_notified + 30*60*1000) < last_interaction";
+    // // q += "  AND remaining > 0";
+    // q += ";";
 
 
-    pgQueryP(q,[]).then(function(rows) {
-        rows = rows || [];
+
+var q = "WITH needed_totals AS  ";
+q += "  (SELECT zid,  ";
+q += "          COALESCE(COUNT(*), 0) AS total ";
+q += "   FROM comments  ";
+q += "   WHERE MOD >= 0 ";
+q += "   GROUP BY zid),  ";
+q += "  foo AS (SELECT voted.zid,  ";
+q += "          voted.pid,  ";
+q += "          COUNT(*) AS valid_votes ";
+q += "   FROM  ";
+q += "     (SELECT comments.zid,  ";
+q += "             comments.tid ";
+q += "      FROM comments  ";
+q += "      WHERE MOD >= 0) AS needed ";
+q += "   LEFT JOIN  ";
+q += "     (SELECT zid,  ";
+q += "             tid,  ";
+q += "             pid ";
+q += "      FROM votes) AS voted ON voted.tid = needed.tid  ";
+q += "   AND voted.zid = needed.zid ";
+q += "   GROUP BY voted.zid, voted.pid ";
+q += "   ORDER BY voted.zid, voted.pid),  ";
+
+q += "  people_wo_votes AS (SELECT participants.zid,  ";
+q += "          participants.pid,  ";
+q += "          uid,  ";
+q += "          last_interaction,  ";
+q += "          subscribed,  ";
+q += "          last_notified,  ";
+q += "          COALESCE(needed_totals.total, 0) AS remaining ";
+q += "   FROM participants ";
+q += "   LEFT JOIN needed_totals ON participants.zid = needed_totals.zid ";
+q += "   LEFT JOIN foo ON participants.zid = foo.zid  ";
+q += "   AND participants.pid = foo.pid  ";
+q += "   WHERE foo.pid IS NULL ";
+q += "     AND participants.subscribed = 1),  ";
+
+q += "  bar AS  (SELECT foo.zid,  ";
+q += "          foo.pid,  ";
+q += "          participants.uid,  ";
+q += "          participants.last_interaction,  ";
+q += "          participants.subscribed,  ";
+q += "          participants.last_notified,  ";
+q += "          COALESCE(total - valid_votes, 0) AS remaining ";
+q += "   FROM foo ";
+q += "   INNER JOIN needed_totals ON needed_totals.zid = foo.zid ";
+q += "   INNER JOIN participants ON foo.zid = participants.zid  ";
+q += "   AND foo.pid = participants.pid),  ";
+
+q += "  ppl AS (SELECT * ";
+q += "   FROM bar ";
+q += "   UNION SELECT * ";
+q += "   FROM people_wo_votes)  ";
+
+q += "SELECT * FROM ppl  ";
+q += " LEFT JOIN conversations";
+q += "  ON conversations.zid = ppl.zid";
+q += " LEFT JOIN zinvites";
+q += "  ON zinvites.zid = ppl.zid";
+q += " WHERE subscribed = 1 ";
+q += "  AND (last_notified + 30*60*1000) <= last_interaction ";
+q += "  AND remaining > 0 ";
+q += " ORDER BY ppl.zid, ppl.uid;";
+
+
+
+/*
+WITH 
+needed_totals AS (SELECT
+  zid,
+  COALESCE(COUNT(*), 0) AS total
+FROM comments
+WHERE mod >= 0
+GROUP BY zid),
+
+foo AS (SELECT
+  voted.zid,
+  voted.pid,
+  COUNT(*) AS valid_votes
+FROM (SELECT
+  comments.zid,
+  comments.tid
+FROM comments
+WHERE mod >= 0) AS needed
+LEFT JOIN (SELECT
+  zid,
+  tid,
+  pid
+FROM votes) AS voted
+  ON voted.tid = needed.tid
+  AND voted.zid = needed.zid
+GROUP BY voted.zid,
+         voted.pid
+ORDER BY voted.zid, voted.pid),
+
+people_wo_votes AS (SELECT
+  participants.zid,
+  participants.pid,
+  uid,
+  last_interaction,
+  subscribed,
+  last_notified,
+  COALESCE(needed_totals.total, 0) as remaining
+FROM participants
+LEFT JOIN needed_totals
+  ON participants.zid = needed_totals.zid
+LEFT JOIN foo
+  ON participants.zid = foo.zid
+  AND participants.pid = foo.pid
+WHERE foo.pid IS NULL AND participants.subscribed = 1),
+
+bar AS (SELECT
+  foo.zid,
+  foo.pid,
+  participants.uid,
+  participants.last_interaction,
+  participants.subscribed,
+  participants.last_notified,
+  COALESCE(total - valid_votes, 0) AS remaining
+FROM foo
+INNER JOIN needed_totals
+  ON needed_totals.zid = foo.zid
+INNER JOIN participants
+  ON foo.zid = participants.zid
+  AND foo.pid = participants.pid),
+
+ppl as (
+select * from bar
+UNION select * from people_wo_votes)
+
+SELECT *
+FROM ppl
+WHERE subscribed = 1
+order by zid, uid;
+-- AND (last_notified + 30*60*1000) <= last_interaction
+-- AND remaining > 0;
+*/
+    return pgQueryP(q,[]);
+}
+
+
+function sendNotificationEmail(uid, url, remaining) {
+    var subject = "New comments to vote on";
+    var body = "There are " + remaining + " comments availble for you to vote on here:\n";
+    body += "\n";
+    body += url + "\n";
+    body += "\n";
+    body += "You're receiving this message because you're signed up to receive Polis notifications for this conversation. You can unsubscribe from these emails by replying with \"unsubscribe\" as the body of the email.";
+    return sendEmailByUid(uid, subject, body);
+}
+
+function notifyParticipantsOfNewComments() {
+    getParticipantsThatNeedNotifications().then(function(rows) {
         console.log("getParticipantsThatNeedNotifications");
-        for (var i = 0; i < rows.length; i++) {
-            console.log(rows[i]);
-        }
+        rows = rows || [];
+        rows.forEach(function(row) {
+            var url = row.parent_url;
+            if (!url) {
+                url = "https://pol.is/" + row.zinvite;
+            }
+            sendNotificationEmail(row.uid, url, row.remaining).then(function() {
+                return pgQueryP("update participants set last_notified = now_as_millis() where uid = ($1) and zid = ($2);",[row.uid, row.zid]);
+            }).catch(function(err) {
+                yell("polis_err_notifying_participants_misc");
+                console.error(err);
+            });
+        });
         console.log("end getParticipantsThatNeedNotifications");
     }).catch(function(err) {
+        console.log("error getParticipantsThatNeedNotifications");
         console.error(err);
         // yell("polis_err_notifying_participants");
     });
+    
 }
 
-getParticipantsThatNeedNotifications();
-
+setInterval(function() {
+    notifyParticipantsOfNewComments();
+}, 60*1000);
 
 function updateEmail(uid, email) {
     return pgQueryP("update users set email = ($2) where uid = ($1);", [uid, email]);

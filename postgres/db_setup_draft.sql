@@ -192,6 +192,7 @@ CREATE TABLE conversations(
     topic VARCHAR(1000), -- default as time in the presentation layer
     description VARCHAR(50000),
     link_url VARCHAR(9999), -- a url to some other page
+    parent_url VARCHAR(9999), -- url of this embedded conversation's parent frame
     upvotes INTEGER NOT NULL DEFAULT 1, -- upvotes for the conversation as a whole
     participant_count INTEGER DEFAULT 0,
     is_anon BOOLEAN DEFAULT TRUE,
