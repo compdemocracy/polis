@@ -7,7 +7,7 @@
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async
              :as as
-             :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer
+             :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer
                      put! take!]]
             [clojure.tools.trace :as tr]
             [polismath.env :as env]
@@ -127,13 +127,6 @@
     {:upsert true}))
 
 
-(defn flatten-vote-batches
-  "Prep vote batches as the enter from a channel. Extract the actual votes, and flatten into a single coll,
-  sorted by :created so that changed votes are appropriately accounted for."
-  [vote-batches]
-  (sort-by :created (flatten (map :reactions vote-batches))))
-
-
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
   [conv]
@@ -148,7 +141,7 @@
   [conv vote-batches error-callback]
   (let [start-time (System/currentTimeMillis)]
     (try
-      (let [votes          (flatten-vote-batches vote-batches)
+      (let [votes          (flatten vote-batches)
             updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)
             finish-time    (System/currentTimeMillis)]
@@ -245,13 +238,13 @@
         acc))))
 
 
-(defprotocol IConvActor
-  (send-votes [this votes]))
+(defprotocol IEagerActor
+  (snd [this votes]))
 
 
 (defrecord ConvActor [msgbox conv]
-  IConvActor
-  (send-votes [_ votes]
+  IEagerActor
+  (snd [_ votes]
     (>!! msgbox votes))
   clojure.lang.IRef
   (deref [_]
@@ -270,17 +263,18 @@
         err-handler (build-update-error-handler msgbox ca)]
     ; Initialize the go loop which watches the mailbox, and runs updates all all pending messages when they
     ; arrive
-    (go (loop []
-          (try
-            (let [first-msg (<! msgbox) ; do this so we park efficiently
-                  msgs      (take-all! msgbox)
-                  msgs      (concat [first-msg] msgs)
-                  new-conv  (update-fn @conv msgs err-handler)]
-              (swap! conv (fn [_] new-conv)))
-            (catch Exception e
-              (log/error "Excpetion not handler by err-handler:" e)
-              (.printStackTrace e)))
-          (recur)))
+    (go-loop []
+      (try
+        (let [first-msg (<! msgbox) ; do this so we park efficiently
+              msgs      (take-all! msgbox)
+              msgs      (concat [first-msg] msgs)
+              {:keys [votes moderation]}
+                        (group-by first msgs)]
+          (swap! conv update-fn votes err-handler))
+        (catch Exception e
+          (log/error "Excpetion not handler by err-handler:" e)
+          (.printStackTrace e)))
+      (recur))
     ca))
 
 

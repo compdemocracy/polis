@@ -54,17 +54,17 @@
     (spout
       (nextTuple []
         (log/info "Polling" type ">" @last-timestamp)
-        (let [batches (({:poll db/poll
+        (let [results (({:poll db/poll
                          :sim-poll sim-poll
                          :mod-poll db/mod-poll} poll-fn)
                        @last-timestamp)
-              grouped-batches (group-by :zid batches)]
+              grouped-batches (group-by :zid results)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid batch] grouped-batches]
-            (emit-spout! collector [type zid {:last-timestamp @last-timestamp :values batch}]))
+            (emit-spout! collector [type zid batch]))
           ; Update timestamp if needed
           (swap! last-timestamp
-                 (fn [last-ts] (apply max 0 last-ts (map timestamp-key batches)))))
+                 (fn [last-ts] (apply max 0 last-ts (map timestamp-key results)))))
         (Thread/sleep poll-interval))
       (ack [id]))))
 
@@ -74,13 +74,13 @@
   (let [conv-agency (atom {})] ; collection of conv-actors
     (bolt
       (execute [tuple]
-        (let [[type zid {:keys [last-timestamp values]}] (.getValues tuple)
+        (let [[type zid batch] (.getValues tuple)
               ; First construct a new conversation builder. Then either find a conversation, or call that
               ; builder in conv-agency
               conv-actor (cm/get-or-set! conv-agency zid #(cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute)))]
           (case type
             :votes
-              (cm/send-votes conv-actor {:last-vote-timestamp last-timestamp :reactions values})
+              (cm/snd conv-actor [type batch])
             :moderation
               ;(cm/send-mods conv-actor {:last-mod-timestamp last-timestamp :moderations})))
               nil)) ;do nothing for now
