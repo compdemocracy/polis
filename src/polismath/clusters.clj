@@ -502,11 +502,13 @@
   "Selects representative comments based on beats-best-by-test? and passes-by-test?. Always ensures
   there is at least one representative comment for a given cluster. Takes the results of conv-repness
   and returns a map of group cluster ids to representative comments and stats."
-  [{:keys [ids stats] :as repness-stats}]
+  [{:keys [ids stats] :as repness-stats} & [mod-out]]
   ; Reduce statistics into a results hash mapping group ids to rep comments
   (->>
     ; reduce with indices, so we have tids
     (with-indices stats)
+    ; Apply moderation
+    (remove (comp (set mod-out) first))
     (reduce
       (fn [result [tid stats]]
         ; Inner reduce folds data into result for each group in comment stats

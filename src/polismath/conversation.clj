@@ -295,9 +295,9 @@
                          :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
                       (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))) {})))
 
-      :repness    (plmb/fnk [rating-mat group-clusters base-clusters]
-                    (->> (conv-repness rating-mat group-clusters base-clusters)
-                         (select-rep-comments)))
+      :repness    (plmb/fnk [conv rating-mat group-clusters base-clusters]
+                    (-> (conv-repness rating-mat group-clusters base-clusters)
+                        (select-rep-comments (:mod-out conv))))
 
       :consensus  (plmb/fnk [rating-mat]
                     (->> (consensus-stats rating-mat)
