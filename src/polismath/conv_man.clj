@@ -279,7 +279,9 @@
               msgs      (concat [first-msg] msgs)
               {votes :votes mods :moderation}
                         (split-batches msgs)]
-          (swap! conv update-fn votes err-handler))
+          (when mods
+            (swap! conv/mod-update mods))
+          (swap! conv update-fn (or votes []) err-handler))
         (catch Exception e
           (log/error "Excpetion not handler by err-handler:" e)
           (.printStackTrace e)))
