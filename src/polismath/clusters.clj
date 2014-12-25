@@ -406,9 +406,12 @@
   {:ids (map :id group-clusters)
    :stats
      (->> group-clusters
-       ; XXX - Base clusters may not be necessary if we use the already compute bucket vote stats
-       ; A lazy-seq of 
-       (mapv (comp columns get-matrix (partial rowname-subset data) #(group-members % base-clusters)))
+       ; XXX - Base clusters may not be necessary if we use the already computed bucket vote stats
+       ; A vector, where each entry is a column iterator for the matrix subset of the given group
+       (mapv (comp columns
+                   get-matrix
+                   (partial rowname-subset data)
+                   #(group-members % base-clusters)))
        (apply
          map
          (fn [& vote-cols-for-groups]
