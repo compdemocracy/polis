@@ -4,6 +4,7 @@
             [polismath.metrics :as met]
             [polismath.db :as db]
             [polismath.utils :refer :all]
+            [plumbing.core :as pc]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async
              :as as
@@ -138,11 +139,10 @@
 (defn update-fn
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
-  [conv vote-batches error-callback]
+  [conv votes error-callback]
   (let [start-time (System/currentTimeMillis)]
     (try
-      (let [votes          (flatten vote-batches)
-            updated-conv   (conv/conv-update conv votes)
+      (let [updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)
             finish-time    (System/currentTimeMillis)]
         (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
@@ -158,7 +158,7 @@
       ; In case anything happens, run the error-callback handler. Agent error handlers do not work here, since
       ; they don't give us access to the votes.
       (catch Exception e
-        (error-callback vote-batches start-time (:opts' conv) e)
+        (error-callback votes start-time (:opts' conv) e)
         ; Wait a second before returning the origin, unmodified conv, to throttle retries
         (Thread/sleep 1000)
         conv))))
@@ -176,7 +176,7 @@
   "Returns a clojure that can be called in case there is an update error. The closure gives access to
   the queue so votes can be requeued"
   [queue conv-actor]
-  (fn [vote-batches start-time opts update-error]
+  (fn [votes start-time opts update-error]
     (let [zid-str (str "zid=" (:zid @conv-actor))]
       (log/error "Failed conversation update for" zid-str)
       (.printStackTrace update-error)
@@ -184,11 +184,10 @@
       ; XXX - this could lead to a recast vote being ignored, so maybe the sort should just always happen in
       ; the conv-actor update?
       (try
-        (log/info "Preparing to re-queue vote-batches for failed conversation update for" zid-str)
-        (doseq [vote-batch vote-batches]
-          (as/go (as/>! queue vote-batch)))
+        (log/info "Preparing to re-queue votes for failed conversation update for" zid-str)
+        (as/go (as/>! queue [:votes votes]))
         (catch Exception qe
-          (log/error "Unable to re-queue vote-batches after conversation update failed for" zid-str)
+          (log/error "Unable to re-queue votes after conversation update failed for" zid-str)
           (.printStackTrace qe)))
       ; Try to send some failed conversation time metrics, but don't stress if it fails
       (try
@@ -199,8 +198,7 @@
           (log/error "Unable to send metrics for failed compute for" zid-str)))
       ; Try to save conversation state for debugging purposes
       (try
-        (let [votes (flatten vote-batches)]
-          (conv/conv-update-dump @conv-actor votes opts update-error))
+        (conv/conv-update-dump @conv-actor votes opts update-error)
         (catch Exception e
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
@@ -256,6 +254,17 @@
   (add-watch (:conv conv-actor) key f))
 
 
+(defn split-batches
+  [messages]
+  (->> messages
+       (group-by first)
+       (pc/map-vals
+         (fn [[_ batches]]
+           (->> batches
+                (map second)
+                (flatten))))))
+
+
 (defn new-conv-actor [init-fn & opts]
   (let [msgbox (chan Long/MAX_VALUE) ; we want this to be as big as possible, since backpressure doesn't really work
         conv (atom (init-fn)) ; keep track of conv state in atom so it can be dereffed
@@ -268,10 +277,9 @@
         (let [first-msg (<! msgbox) ; do this so we park efficiently
               msgs      (take-all! msgbox)
               msgs      (concat [first-msg] msgs)
-              {:keys [votes moderation]}
-                        (group-by first msgs)
-              vote-batches (map second votes)]
-          (swap! conv update-fn vote-batches err-handler))
+              {votes :votes mods :moderation}
+                        (split-batches msgs)]
+          (swap! conv update-fn votes err-handler))
         (catch Exception e
           (log/error "Excpetion not handler by err-handler:" e)
           (.printStackTrace e)))
