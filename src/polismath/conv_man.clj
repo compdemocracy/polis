@@ -199,7 +199,7 @@
           (log/error "Unable to send metrics for failed compute for" zid-str)))
       ; Try to save conversation state for debugging purposes
       (try
-        (let [votes (flatten-vote-batches vote-batches)]
+        (let [votes (flatten vote-batches)]
           (conv/conv-update-dump @conv-actor votes opts update-error))
         (catch Exception e
           (log/error "Unable to perform conv-update dump for" zid-str))))))
