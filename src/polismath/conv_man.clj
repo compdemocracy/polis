@@ -269,8 +269,9 @@
               msgs      (take-all! msgbox)
               msgs      (concat [first-msg] msgs)
               {:keys [votes moderation]}
-                        (group-by first msgs)]
-          (swap! conv update-fn votes err-handler))
+                        (group-by first msgs)
+              vote-batches (map second votes)]
+          (swap! conv update-fn vote-batches err-handler))
         (catch Exception e
           (log/error "Excpetion not handler by err-handler:" e)
           (.printStackTrace e)))
