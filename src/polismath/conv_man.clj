@@ -259,8 +259,8 @@
   (->> messages
        (group-by first)
        (pc/map-vals
-         (fn [[_ batches]]
-           (->> batches
+         (fn [labeled-batches]
+           (->> labeled-batches
                 (map second)
                 (flatten))))))
 
@@ -281,7 +281,8 @@
                         (split-batches msgs)]
           (when mods
             (swap! conv/mod-update mods))
-          (swap! conv update-fn (or votes []) err-handler))
+          (when votes
+            (swap! conv update-fn (or votes []) err-handler)))
         (catch Exception e
           (log/error "Excpetion not handler by err-handler:" e)
           (.printStackTrace e)))
