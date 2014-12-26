@@ -5,6 +5,8 @@ var eb = require("../eventBus");
 var bbSave = require("../net/bbSave");
 
 
+var ALLOW_MOVING_FROM_BANNED_TO_OK = true;
+
 function onSaved() {
   eb.trigger(eb.moderated);
 }
@@ -23,7 +25,11 @@ module.exports = Handlebones.ModelView.extend({
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     var mod = this.model.get("mod");
     ctx.showReject = mod !== Constants.MOD.BAN;
-    ctx.showAccept = mod !== Constants.MOD.OK;    
+    if (ALLOW_MOVING_FROM_BANNED_TO_OK) {
+      ctx.showAccept = mod !== Constants.MOD.OK;
+    } else {
+      ctx.showAccept = mod === Constants.MOD.UNMODERATED;
+    }
     return ctx;
   },
   allowDelete: false,
