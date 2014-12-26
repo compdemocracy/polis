@@ -73,6 +73,7 @@ module.exports =  Handlebones.ModelView.extend({
     if (display.xs()) {
       c.smallTabs = true;
     }
+    c.logoutDest = window.location.pathname + window.location.hash;
     c.use_background_content_class = display.xs();
     return c;
   },

@@ -239,7 +239,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^hk\/new\/?$/, "hkNew");
     this.r("user/create", "createUser");
     this.r("user/login", "login");
-    this.r("user/logout", "deregister");
+    this.r(/^user\/logout(\/.+)/, "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r(/^settings(\/ep1_[0-9A-Za-z]+)?/, "settings");
     this.r("inbox", "inbox");
@@ -421,8 +421,8 @@ var polisRouter = Backbone.Router.extend({
       });
     });
   },
-  deregister: function() {
-    window.deregister();
+  deregister: function(dest) {
+    window.deregister(dest);
   },
   shareView: function(conversation_id) {
     var that = this;
