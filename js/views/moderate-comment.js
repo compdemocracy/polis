@@ -5,7 +5,7 @@ var eb = require("../eventBus");
 var bbSave = require("../net/bbSave");
 
 
-var ALLOW_MOVING_FROM_BANNED_TO_OK = true;
+var ALLOW_MOVING_FROM_BANNED_TO_OK = false;
 
 function onSaved() {
   eb.trigger(eb.moderated);
