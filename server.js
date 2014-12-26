@@ -3710,7 +3710,7 @@ order by zid, uid;
 
 function sendNotificationEmail(uid, url, remaining) {
     var subject = "New comments to vote on";
-    var body = "There are " + remaining + " comments availble for you to vote on here:\n";
+    var body = "There are new comments available for you to vote on here:\n";
     body += "\n";
     body += url + "\n";
     body += "\n";
