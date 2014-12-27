@@ -3710,11 +3710,15 @@ order by zid, uid;
 
 function sendNotificationEmail(uid, url, remaining) {
     var subject = "New comments to vote on";
+    var server = "localhost:5000";
     var body = "There are new comments available for you to vote on here:\n";
     body += "\n";
     body += url + "\n";
     body += "\n";
-    body += "You're receiving this message because you're signed up to receive Polis notifications for this conversation. You can unsubscribe from these emails by replying with \"unsubscribe\" as the body of the email.";
+    body += "You're receiving this message because you're signed up to receive Polis notifications for this conversation. You can unsubscribe from these emails by clicking this link:\n";
+    body += createNotificationsUnsubscribeUrl(server, req.p.conversation_id, req.p.email) + "\n";
+    body += "\n";
+    body += "\n";
     return sendEmailByUid(uid, subject, body);
 }
 
@@ -3753,6 +3757,88 @@ function updateEmail(uid, email) {
 }
 
 
+function createHmacForQueryParams(path, params) {
+    path = path.replace(/\/$/,""); // trim trailing "/"
+    var s = path +"?"+paramsToStringSortedByName(params);
+    var hmac = crypto.createHmac("sha1", "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw");
+    hmac.setEncoding('hex');
+    hmac.write(s);
+    hmac.end();
+    var hash = hmac.read();
+    return hash;
+}
+
+
+function createNotificationsUnsubscribeUrl(serverNameWithProtocol, conversation_id, email) {
+    var params = {
+        conversation_id: conversation_id,
+        email: email
+    };
+    var path = "api/v3/notifications/unsubscribe";
+    params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+    return server + "/"+path+"?" + paramsToStringSortedByName(params);
+}
+
+function createNotificationsSubscribeUrl(server, conversation_id, email) {
+    var params = {
+        conversation_id: conversation_id,
+        email: email
+    };
+    var path = "api/v3/notifications/unsubscribe";
+    params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
+    return server + "/"+path+"?" + paramsToStringSortedByName(params);
+}
+
+
+
+app.get("/api/v3/notifications/subscribe",
+    need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+    need('email', getEmail, assignToP),
+function(req, res) {
+    if (!verifyHmacForQueryParams("v3/unsubscribe", req.p)) {
+        fail(res, 403, "polis_err_unsubscribe_signature_mismatch");
+        return;
+    }
+    var server = getServerNameWithProtocol(req);
+    pgQueryP("update participants set subscribed = 0 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
+        res.set('Content-Type', 'text/html');
+        res.send(
+            "<h1>Subscribed!</h1>" +
+            "<p>" +
+            "<a href=\"" + createNotificationsSubscribeUrl(server, req.p.conversation_id, req.p.email) + "\">oops, unsubscribe me.</a>" +
+            "</p>"
+        );
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_unsubscribe_misc", err);
+    });
+});
+
+app.get("/api/v3/notifications/unsubscribe",
+    need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+    need('email', getEmail, assignToP),
+function(req, res) {
+    if (!verifyHmacForQueryParams("v3/unsubscribe", req.p)) {
+        fail(res, 403, "polis_err_unsubscribe_signature_mismatch");
+        return;
+    }
+    var server = getServerNameWithProtocol(req);
+    pgQueryP("update participants set subscribed = 0 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
+        res.set('Content-Type', 'text/html');
+        res.send(
+            "<h1>Unsubscribed.</h1>" +
+            "<p>" +
+            "<a href=\"" + createNotificationsUnsubscribeUrl(server, req.p.conversation_id, req.p.email) + "\">oops, subscribe me again.</a>" +
+            "</p>"
+        );
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_unsubscribe_misc", err);
+    });
+});
+
 app.post("/api/v3/convSubscriptions",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
@@ -3762,6 +3848,7 @@ function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var type = req.p.type;
+
     var email = req.p.email;
     function finish(type) {
         res.status(200).json({
