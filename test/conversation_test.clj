@@ -9,19 +9,19 @@
 
 
 (deftest init-conversation-test
-  (let [single-vote [{:pid :a, :tid :x, :vote 3}]
+  (let [single-vote [{:created 500 :pid :a, :tid :x, :vote 3}]
         several-votes
                   (conj single-vote 
-                     {:pid :b, :tid :x, :vote 0}
-                     {:pid :a, :tid :y, :vote 1})
+                     {:created 600 :pid :b, :tid :x, :vote 0}
+                     {:created 700 :pid :a, :tid :y, :vote 1})
         full-votes (for [pid [:a :b :c] tid [:x :y :z]]
-                    {:pid pid :tid tid :vote (rand)})]
+                    {:created 100 :pid pid :tid tid :vote (rand)})]
     (testing "should work on empty matrix and one vote"
       (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes single-vote})))
     (testing "should work on a wonky matrix"
       (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes
-                              [{:pid :a :tid :x :vote  1}
-                               {:pid :b :tid :y :vote -1}]})))
+                              [{:created 800 :pid :a :tid :x :vote  1}
+                               {:created 900 :pid :b :tid :y :vote -1}]})))
     (testing "should work on empty matrix and several votes"
       (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes several-votes})))
     (testing "should work on ful matrix"
@@ -45,11 +45,11 @@
                             [0.1 -0.5  0.2  0.2]]}}]
     (testing "should work with votes for only existing ptpts/cmts"
       (is (large-conv-update {:conv conv :opts {} 
-                              :votes [{:pid :p1 :tid :c1 :vote  1}
-                                      {:pid :p3 :tid :c3 :vote -1}]})))
+                              :votes [{:created 100 :pid :p1 :tid :c1 :vote  1}
+                                      {:created 200 :pid :p3 :tid :c3 :vote -1}]})))
     (testing "should work with votes for new cmts"
       (is (large-conv-update {:conv conv :opts {}
-                              :votes [{:pid :p3 :tid :c5 :vote  1}
-                                      {:pid :p5 :tid :c5 :vote -1}]})))))
+                              :votes [{:created 100 :pid :p3 :tid :c5 :vote  1}
+                                      {:created 200 :pid :p5 :tid :c5 :vote -1}]})))))
 
 
