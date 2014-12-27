@@ -370,20 +370,25 @@
   [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 10000}
                                  :as opts}]
+  ; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
   (let [zid     (or (:zid conv) (:zid (first votes)))
         ptpts   (rownames (:rating-mat conv))
         n-ptpts (count (distinct (into ptpts (map :pid votes))))
         n-cmts  (count (distinct (into (rownames (:rating-mat conv)) (map :tid votes))))]
-    (log/info (str "Starting conv-update for zid " zid ": N=" n-ptpts ", C=" n-cmts ", V=" (count votes)))
-    (->
-      ; dispatch to the appropriate function
-      ((cond
-         (> n-ptpts large-cutoff)   large-conv-update
-         :else             small-conv-update)
-            {:conv conv :votes votes :opts opts})
-      ; Remove the :votes key from customs; not needed for persistence
-      (assoc-in [:customs :votes] [])
-      (dissoc :keep-votes))))
+    (if (and (= 0 n-ptpts n-cmts)
+             (empty? votes))
+      conv
+      (do
+        (log/info (str "Starting conv-update for zid " zid ": N=" n-ptpts ", C=" n-cmts ", V=" (count votes)))
+        (->
+          ; dispatch to the appropriate function
+          ((cond
+             (> n-ptpts large-cutoff)   large-conv-update
+             :else             small-conv-update)
+                {:conv conv :votes votes :opts opts})
+          ; Remove the :votes key from customs; not needed for persistence
+          (assoc-in [:customs :votes] [])
+          (dissoc :keep-votes))))))
 
 
 (defn mod-update
