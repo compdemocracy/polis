@@ -8,26 +8,48 @@
   (named-matrix [:a :b] [:x :y] [[1 0] [-1 1]]))
 
 
-(deftest init-conversation-test
-  (let [single-vote [{:created 500 :pid :a, :tid :x, :vote 3}]
-        several-votes
-                  (conj single-vote 
-                     {:created 600 :pid :b, :tid :x, :vote 0}
-                     {:created 700 :pid :a, :tid :y, :vote 1})
-        full-votes (for [pid [:a :b :c] tid [:x :y :z]]
-                    {:created 100 :pid pid :tid tid :vote (rand)})]
-    (testing "should work on empty matrix and one vote"
-      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes single-vote})))
-    (testing "should work on a wonky matrix"
-      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes
-                              [{:created 800 :pid :a :tid :x :vote  1}
-                               {:created 900 :pid :b :tid :y :vote -1}]})))
-    (testing "should work on empty matrix and several votes"
-      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes several-votes})))
-    (testing "should work on ful matrix"
-      (is (small-conv-update {:conv {:rating-mat (named-matrix)} :opts {} :votes full-votes})))
-    (testing "should work on an existing matrix and several votes"
-      (is (small-conv-update {:conv {:rating-mat rat-mat} :opts {} :votes several-votes})))))
+(let [empty-conv {:rating-mat (named-matrix)}
+      small-conv {:rating-mat rat-mat}
+
+      single-vote   [{:created 500 :pid :a, :tid :x, :vote 3}]
+      wonky-votes   [{:created 600 :pid :b, :tid :x, :vote 0}
+                     {:created 700 :pid :a, :tid :y, :vote 1}]
+      several-votes (concat single-vote wonky-votes)
+      full-votes    (for [pid [:a :b :c] tid [:x :y :z]]
+                     {:created 100 :pid pid :tid tid :vote (rand)})]
+
+  (deftest init-conv-update-test
+    (testing "empty matrix and one vote"
+      (is (conv-update empty-conv single-vote)))
+    (testing "empty matrix and no vote"
+      (is (conv-update empty-conv [])))
+    (testing "empty matrix and several votes"
+      (is (conv-update empty-conv several-votes)))
+    (testing "empty matrix and full votes"
+      (is (conv-update empty-conv full-votes)))
+    (testing "empty matrix and wonky votes"
+      (is (conv-update empty-conv wonky-votes))))
+
+  ; Note that this assumes that a small conversation will actually use the small-conv-update implementation
+  (deftest small-conv-update-test
+    (testing "small matrix and one vote"
+      (is (conv-update small-conv single-vote)))
+    (testing "small matrix and no vote"
+      (is (conv-update small-conv [])))
+    (testing "small matrix and several votes"
+      (is (conv-update small-conv several-votes)))
+    (testing "small matrix and full votes"
+      (is (conv-update small-conv full-votes)))
+    (testing "small matrix and wonky votes"
+      (is (conv-update small-conv wonky-votes))))
+
+  ; Test that iterating on previous pca/clustering results makes sense
+  (deftest small-conv-iterative-test
+    (let [fleshed-conv (conv-update small-conv single-vote)]
+      (testing "fleshed conv and full matrix"
+        (is (conv-update fleshed-conv full-votes)))
+      (testing "fleshed conv and wonky vote"
+        (is (conv-update fleshed-conv [{:created 999 :pid :j :tid :k :vote -1}]))))))
 
 
 (deftest large-conv-update-test
