@@ -78,12 +78,7 @@
               ; First construct a new conversation builder. Then either find a conversation, or call that
               ; builder in conv-agency
               conv-actor (cm/get-or-set! conv-agency zid #(cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute)))]
-          (case type
-            :votes
-              (cm/snd conv-actor [type batch])
-            :moderation
-              ;(cm/send-mods conv-actor {:last-mod-timestamp last-timestamp :moderations})))
-              nil)) ;do nothing for now
+          (cm/snd conv-actor [type batch]))
         (ack! collector tuple)))))
 
 
