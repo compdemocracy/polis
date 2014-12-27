@@ -3622,6 +3622,8 @@ q += "   UNION SELECT * ";
 q += "   FROM people_wo_votes)  ";
 
 q += "SELECT * FROM ppl  ";
+q += " LEFT JOIN users";
+q += "  ON users.uid = ppl.uid";
 q += " LEFT JOIN conversations";
 q += "  ON conversations.zid = ppl.zid";
 q += " LEFT JOIN zinvites";
@@ -3699,8 +3701,14 @@ UNION select * from people_wo_votes)
 
 SELECT *
 FROM ppl
+LEFT JOIN users
+ ON users.uid = ppl.uid
+LEFT JOIN conversations
+ ON conversations.zid = ppl.zid
+LEFT JOIN zinvites
+ ON zinvites.zid = ppl.zid
 WHERE subscribed = 1
-order by zid, uid;
+ ORDER BY ppl.zid, ppl.uid;
 -- AND (last_notified + 30*60*1000) <= last_interaction
 -- AND remaining > 0;
 */
@@ -3759,12 +3767,12 @@ function updateEmail(uid, email) {
 function createNotificationsUnsubscribeUrl(conversation_id, email) {
     var params = {
         conversation_id: conversation_id,
-        email: email
+        email: encodeURIComponent(email)
     };
     var path = "api/v3/notifications/unsubscribe";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    var server = "localhost:5000";
+    var server = "http://localhost:5000";
     if (!devMode) {
         server = "https://" + process.env.PRIMARY_POLIS_URL;
     }
@@ -3776,10 +3784,10 @@ function createNotificationsSubscribeUrl(conversation_id, email) {
         conversation_id: conversation_id,
         email: email
     };
-    var path = "api/v3/notifications/unsubscribe";
+    var path = "api/v3/notifications/subscribe";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
 
-    var server = "localhost:5000";
+    var server = "http://localhost:5000";
     if (!devMode) {
         server = "https://" + process.env.PRIMARY_POLIS_URL;
     }
@@ -3789,6 +3797,7 @@ function createNotificationsSubscribeUrl(conversation_id, email) {
 
 
 app.get("/api/v3/notifications/subscribe",
+    moveToBody,
     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
@@ -3800,12 +3809,12 @@ function(req, res) {
         fail(res, 403, "polis_err_unsubscribe_signature_mismatch");
         return;
     }
-    pgQueryP("update participants set subscribed = 0 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
+    pgQueryP("update participants set subscribed = 1 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
         res.set('Content-Type', 'text/html');
         res.send(
             "<h1>Subscribed!</h1>" +
             "<p>" +
-            "<a href=\"" + createNotificationsSubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, unsubscribe me.</a>" +
+            "<a href=\"" + createNotificationsUnsubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, unsubscribe me.</a>" +
             "</p>"
         );
     }).catch(function(err) {
@@ -3814,6 +3823,7 @@ function(req, res) {
 });
 
 app.get("/api/v3/notifications/unsubscribe",
+    moveToBody,
     need(HMAC_SIGNATURE_PARAM_NAME, getStringLimitLength(10, 999), assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
@@ -3830,7 +3840,7 @@ function(req, res) {
         res.send(
             "<h1>Unsubscribed.</h1>" +
             "<p>" +
-            "<a href=\"" + createNotificationsUnsubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, subscribe me again.</a>" +
+            "<a href=\"" + createNotificationsSubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, subscribe me again.</a>" +
             "</p>"
         );
     }).catch(function(err) {
