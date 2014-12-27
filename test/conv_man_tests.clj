@@ -4,6 +4,18 @@
   (:require [clojure.test :refer :all]
             [polismath.conv-man :refer :all]))
 
+
+(deftest get-or-set-test
+  (testing "should work when not set"
+    (let [a (atom {})]
+      (get-or-set! a :shit (fn [] "stuff"))
+      (is (= (:shit @a) "stuff"))))
+  (testing "should work when set"
+    (let [a (atom {:shit "stuff"})]
+      (is (= (get-or-set! a :shit (fn [] "crap"))
+             "stuff")))))
+
+
 ; Initialization test
 (deftest split-batches-test
   (testing "of a missing param"
