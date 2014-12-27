@@ -574,13 +574,14 @@
 
 
 (defn select-consensus-comments
-  [cons-stats]
-  (let [stats (map
-                (fn [stat]
-                  (assoc stat
-                         :dm (* (:pd stat) (:pdt stat))
-                         :am (* (:pa stat) (:pat stat))))
-                cons-stats)
+  [cons-stats & [mod-out]]
+  (let [stats (->> cons-stats
+                   (remove (comp (set mod-out) :tid))
+                   (map
+                     (fn [stat]
+                       (assoc stat
+                              :dm (* (:pd stat) (:pdt stat))
+                              :am (* (:pa stat) (:pat stat))))))
         format-stat
               (fn [cons-for stat]
                 (let [[n-success p-success p-test] (if (= cons-for :agree)
