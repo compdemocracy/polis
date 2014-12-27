@@ -3767,7 +3767,7 @@ function updateEmail(uid, email) {
 function createNotificationsUnsubscribeUrl(conversation_id, email) {
     var params = {
         conversation_id: conversation_id,
-        email: encodeURIComponent(email)
+        email: email
     };
     var path = "api/v3/notifications/unsubscribe";
     params[HMAC_SIGNATURE_PARAM_NAME] = createHmacForQueryParams(path, params);
@@ -3805,20 +3805,25 @@ app.get("/api/v3/notifications/subscribe",
 function(req, res) {
     var zid = req.p.zid;
     var email = req.p.email;
-    if (!verifyHmacForQueryParams("v3/unsubscribe", req.p)) {
-        fail(res, 403, "polis_err_unsubscribe_signature_mismatch");
-        return;
-    }
-    pgQueryP("update participants set subscribed = 1 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
-        res.set('Content-Type', 'text/html');
-        res.send(
-            "<h1>Subscribed!</h1>" +
-            "<p>" +
-            "<a href=\"" + createNotificationsUnsubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, unsubscribe me.</a>" +
-            "</p>"
-        );
+    var params = {
+        conversation_id: req.p.conversation_id,
+        email: req.p.email,
+    };
+    params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
+    verifyHmacForQueryParams("api/v3/notifications/subscribe", params).then(function() {
+        return pgQueryP("update participants set subscribed = 1 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
+            res.set('Content-Type', 'text/html');
+            res.send(
+                "<h1>Subscribed!</h1>" +
+                "<p>" +
+                "<a href=\"" + createNotificationsUnsubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, unsubscribe me.</a>" +
+                "</p>"
+            );
+        });
+    }, function() {
+        fail(res, 403, "polis_err_subscribe_signature_mismatch");
     }).catch(function(err) {
-        fail(res, 500, "polis_err_unsubscribe_misc", err);
+        fail(res, 500, "polis_err_subscribe_misc", err);
     });
 });
 
@@ -3831,18 +3836,23 @@ app.get("/api/v3/notifications/unsubscribe",
 function(req, res) {
     var zid = req.p.zid;
     var email = req.p.email;
-    if (!verifyHmacForQueryParams("v3/unsubscribe", req.p)) {
+    var params = {
+        conversation_id: req.p.conversation_id,
+        email: req.p.email,
+    };
+    params[HMAC_SIGNATURE_PARAM_NAME] = req.p[HMAC_SIGNATURE_PARAM_NAME];
+    verifyHmacForQueryParams("api/v3/notifications/unsubscribe", params).then(function() {
+        return pgQueryP("update participants set subscribed = 0 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
+            res.set('Content-Type', 'text/html');
+            res.send(
+                "<h1>Unsubscribed.</h1>" +
+                "<p>" +
+                "<a href=\"" + createNotificationsSubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, subscribe me again.</a>" +
+                "</p>"
+            );
+        });
+    }, function() {
         fail(res, 403, "polis_err_unsubscribe_signature_mismatch");
-        return;
-    }
-    pgQueryP("update participants set subscribed = 0 where uid = (select uid from users where email = ($2)) and zid = ($1);", [zid, email]).then(function() {
-        res.set('Content-Type', 'text/html');
-        res.send(
-            "<h1>Unsubscribed.</h1>" +
-            "<p>" +
-            "<a href=\"" + createNotificationsSubscribeUrl(req.p.conversation_id, req.p.email) + "\">oops, subscribe me again.</a>" +
-            "</p>"
-        );
     }).catch(function(err) {
         fail(res, 500, "polis_err_unsubscribe_misc", err);
     });
