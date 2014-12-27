@@ -569,7 +569,7 @@
   (->> data
        get-matrix
        columns
-       (map (comp comment-stats))
+       (map comment-stats)
        (map #(assoc %2 :tid %1) (range))))
 
 
