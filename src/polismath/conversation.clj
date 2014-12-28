@@ -370,11 +370,11 @@
   [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 10000}
                                  :as opts}]
-  ; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
   (let [zid     (or (:zid conv) (:zid (first votes)))
         ptpts   (rownames (:rating-mat conv))
         n-ptpts (count (distinct (into ptpts (map :pid votes))))
         n-cmts  (count (distinct (into (rownames (:rating-mat conv)) (map :tid votes))))]
+    ; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
     (if (and (= 0 n-ptpts n-cmts)
              (empty? votes))
       conv
@@ -394,6 +394,8 @@
 (defn mod-update
   "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
   [conv mods]
+  ; Hmm... really need to make sure that if someone quickly mods and unmods on a long running comp, we
+  ; consider order or :updated
   (try
     (let [mod-sep (fn [mod] (->> mods
                                  (filter (comp #{mod} :mod))

@@ -252,11 +252,14 @@
 
 
 (defn add-conv-actor-watch
+  "Add a watcher to the atom holding state in a conv-actor"
   [conv-actor key f]
   (add-watch (:conv conv-actor) key f))
 
 
 (defn split-batches
+  "This function splits message batches as sent to conv actor up by the first item in batch vector (:votes :moderation)
+  so messages can get processed properly"
   [messages]
   (->> messages
        (group-by first)
@@ -268,6 +271,8 @@
 
 
 (defn new-conv-actor [init-fn & opts]
+  "Create a new conv actor which responds to snd. Messages should look like [<t> [...]], where <t> is either :votes or
+  :moderation, depending on what kind of batch is being sent/processed. Implements deref for state retrieval."
   (let [msgbox (chan Long/MAX_VALUE) ; we want this to be as big as possible, since backpressure doesn't really work
         conv (atom (init-fn)) ; keep track of conv state in atom so it can be dereffed
         ca (ConvActor. msgbox conv)
