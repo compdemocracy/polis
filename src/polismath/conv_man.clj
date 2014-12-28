@@ -89,11 +89,13 @@
         "count"   (map #(count (:members %)) base-clusters))
       ; Whitelist of keys to be included in sent data; removes intermediates
       (assoc :lastVoteTimestamp (:last-vote-timestamp results))
+      (assoc :lastModTimestamp (:last-mod-timestamp results))
       (hash-map-subset #{
         :base-clusters
         :group-clusters
         :in-conv
         :lastVoteTimestamp
+        :lastModTimestamp
         :n
         :n-cmts
         :pca

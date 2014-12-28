@@ -403,12 +403,16 @@
                                  (set)))
           mod-out (mod-sep -1)
           mod-in  (mod-sep 1)]
-      (update-in conv
-                 [:mod-out]
-                 (plmb/fn->
-                   (set)
-                   (clojure.set/union mod-out)
-                   (clojure.set/difference mod-in))))
+      (-> conv
+          (update-in [:mod-out]
+                     (plmb/fn->
+                       (set)
+                       (clojure.set/union mod-out)
+                       (clojure.set/difference mod-in)
+                       (set)))
+          (update-in [:last-mod-timestamp]
+                     (fn [last-mod-timestamp]
+                       (apply max (or last-mod-timestamp 0) (map :modified mods))))))
     (catch Exception e
       (log/error "Problem running mod-update with mod-out:" (:mod-out conv) "and mods:" mods ":" e)
       (.printStackTrace e)

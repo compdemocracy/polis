@@ -67,17 +67,19 @@
     (deftest moderation-test
       (testing "from scratch with fleshed out conv"
         (is (= (:mod-out (mod-update fleshed-conv
-                                     [{:tid :x :mod -1}]))
+                                     [{:tid :x :mod -1 :modified 1234}]))
                (set [:x]))))
       (testing "based on previous moderations"
         (is (= (:mod-out (mod-update (assoc big-conv :mod-out [:x])
-                                     [{:tid :y :mod -1}]))
+                                     [{:tid :y :mod -1 :modified 1856}]))
                (set [:x :y])))))
       (testing "with only approve mods"
-        (is (= (:mod-out (mod-update big-conv (lazy-seq [{:tid :x :mod 1} {:tid :y :mod 1}])))
+        (is (= (:mod-out (mod-update big-conv [{:tid :x :mod 1 :modified 8576}
+                                               {:tid :y :mod 1 :modified 9856}]))
                #{})))
       (testing "with only approve mods"
-        (is (= (:mod-out (mod-update big-conv (lazy-seq [{:tid :x :mod 1} {:tid :y :mod -1}])))
+        (is (= (:mod-out (mod-update big-conv [{:tid :x :mod 1 :modified 7654}
+                                               {:tid :y :mod -1 :modified 8567}]))
                #{:y}))))
 
   (deftest large-conv-update-test
