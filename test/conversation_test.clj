@@ -72,7 +72,13 @@
       (testing "based on previous moderations"
         (is (= (:mod-out (mod-update (assoc big-conv :mod-out [:x])
                                      [{:tid :y :mod -1}]))
-               (set [:x :y]))))))
+               (set [:x :y])))))
+      (testing "with only approve mods"
+        (is (= (:mod-out (mod-update big-conv (lazy-seq [{:tid :x :mod 1} {:tid :y :mod 1}])))
+               #{})))
+      (testing "with only approve mods"
+        (is (= (:mod-out (mod-update big-conv (lazy-seq [{:tid :x :mod 1} {:tid :y :mod -1}])))
+               #{:y}))))
 
   (deftest large-conv-update-test
       (testing "should work with votes for only existing ptpts/cmts"
