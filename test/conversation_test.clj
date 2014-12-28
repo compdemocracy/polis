@@ -66,10 +66,12 @@
   
     (deftest moderation-test
       (testing "from scratch with fleshed out conv"
-        (is (:mod-out (mod-update fleshed-conv [{:tid :x}]))))
+        (is (= (:mod-out (mod-update fleshed-conv
+                                     [{:tid :x :mod -1}]))
+               (set [:x]))))
       (testing "based on previous moderations"
         (is (= (:mod-out (mod-update (assoc big-conv :mod-out [:x])
-                                     [{:tid :y}]))
+                                     [{:tid :y :mod -1}]))
                (set [:x :y]))))))
 
   (deftest large-conv-update-test
