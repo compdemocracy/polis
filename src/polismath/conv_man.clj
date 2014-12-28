@@ -135,6 +135,12 @@
     (let [prof @prof-atom
           tot (apply + (map second prof))
           prof (assoc prof :total tot)]
+      (try
+        (->> prof
+             (format-for-mongo identity)
+             (mongo-upsert-results (db/mongo-collection-name "profile")))
+        (catch Exception e
+          (log/error "Unalbe to submit profile data for zid:" (:zid conv))))
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
 
@@ -238,12 +244,12 @@
         acc))))
 
 
-(defprotocol IEagerActor
+(defprotocol PConvActor
   (snd [this votes]))
 
 
 (defrecord ConvActor [msgbox conv]
-  IEagerActor
+  PConvActor
   (snd [_ votes]
     (>!! msgbox votes))
   clojure.lang.IRef
