@@ -397,14 +397,15 @@
   (try
     (let [mod-sep (fn [mod] (->> mods
                                  (filter (comp #{mod} :mod))
-                                 (map :tid)))
+                                 (map :tid)
+                                 (set)))
           mod-out (mod-sep -1)
           mod-in  (mod-sep 1)]
       (update-in conv
                  [:mod-out]
                  (plmb/fn->
                    (set)
-                   (into mod-out)
+                   (clojure.set/union mod-out)
                    (clojure.set/difference mod-in))))
     (catch Exception e
       (log/error "Problem running mod-update with mod-out:" (:mod-out conv) "and mods:" mods ":" e)
