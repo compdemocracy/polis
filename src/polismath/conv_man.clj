@@ -244,12 +244,12 @@
         acc))))
 
 
-(defprotocol PConvActor
+(defprotocol IConvActor
   (snd [this votes]))
 
 
 (defrecord ConvActor [msgbox conv]
-  PConvActor
+  IConvActor
   (snd [_ votes]
     (>!! msgbox votes))
   clojure.lang.IRef
