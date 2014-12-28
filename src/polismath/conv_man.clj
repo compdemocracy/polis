@@ -281,8 +281,7 @@
                         (split-batches msgs)]
           (when mods
             (swap! conv/mod-update mods))
-          (when votes
-            (swap! conv update-fn (or votes []) err-handler)))
+          (swap! conv update-fn (or votes []) err-handler))
         (catch Exception e
           (log/error "Excpetion not handler by err-handler:" e)
           (.printStackTrace e)))
