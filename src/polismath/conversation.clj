@@ -394,15 +394,22 @@
 (defn mod-update
   "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
   [conv mods]
-  (let [mod-sep (fn [mod] (->> mods (filter (comp #{mod} :mod)) (map :tid)))
-        mod-out (mod-sep -1)
-        mod-in  (mod-sep 1)]
-    (update-in conv
-               [:mod-out]
-               (plmb/fn->
-                 (set)
-                 (into mod-out)
-                 (clojure.set/difference mod-in)))))
+  (try
+    (let [mod-sep (fn [mod] (->> mods
+                                 (filter (comp #{mod} :mod))
+                                 (map :tid)))
+          mod-out (mod-sep -1)
+          mod-in  (mod-sep 1)]
+      (update-in conv
+                 [:mod-out]
+                 (plmb/fn->
+                   (set)
+                   (into mod-out)
+                   (clojure.set/difference mod-in))))
+    (catch Exception e
+      (log/error "Problem running mod-update with mod-out:" (:mod-out conv) "and mods:" mods ":" e)
+      (.printStackTrace e)
+      conv)))
 
 
 ;; Creating some overrides for how core.matrix instances are printed, so that we can read them back via our
