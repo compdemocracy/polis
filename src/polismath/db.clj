@@ -81,8 +81,8 @@
   [last-mod-timestamp]
   (try
     (kdb/with-db (db-spec)
-      (ko/select
-        comments
+      (ko/select comments
+        (ko/fields :zid :tid :mod :modified)
         (ko/where {:modified [> last-mod-timestamp]
                    :mod [not= 0]})
         (ko/order [:zid :tid :modified] :asc)))
