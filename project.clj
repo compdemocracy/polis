@@ -10,7 +10,7 @@
   :javac-target "1.7"
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
   :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]
-            [lein-gorilla "0.3.3"]
+            [lein-gorilla "0.3.4"]
             [lein-environ "0.4.0"]]
   :git-dependencies [["https://github.com/Prismatic/hiphip.git" "master"]
                      ["https://github.com/metasoarous/tools.cli.git" "master"]
