@@ -131,8 +131,9 @@
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
   [conv]
-  (if-let [prof @(:profile-data conv)]
-    (let [tot (apply + (map second prof))
+  (if-let [prof-atom (:profile-data conv)]
+    (let [prof @prof-atom
+          tot (apply + (map second prof))
           prof (assoc prof :total tot)]
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
