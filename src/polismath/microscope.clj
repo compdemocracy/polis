@@ -39,7 +39,7 @@
         new-votes  (conv-poll zid)
         conv-actor (cm/new-conv-actor (partial cm/load-or-init zid))]
     (println zid zinvite)
-    (cm/snd conv-actor :votes new-votes)
+    (cm/snd conv-actor [:votes new-votes])
     (add-watch
       (:conv conv-actor)
       :complete-watch
