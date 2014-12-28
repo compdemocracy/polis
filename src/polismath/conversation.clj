@@ -394,7 +394,7 @@
 (defn mod-update
   "Take a conversation record and a seq of moderation data and updates the conversation's mod-out attr"
   [conv mods]
-  (let [mod-sep (fn [mod] (->> mods (filter #{mod}) (map :tid)))
+  (let [mod-sep (fn [mod] (->> mods (filter (comp #{mod} :mod)) (map :tid)))
         mod-out (mod-sep -1)
         mod-in  (mod-sep 1)]
     (update-in conv
