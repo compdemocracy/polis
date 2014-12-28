@@ -14,28 +14,14 @@ You'll also need mongodb and postgresql (client) installed.
 ## Coding Style
 
 * Emphasis on pure functions wherever possible
-* When impurity is necessary, try to extract as much of the desired functionality as possible into smaller pure functions (this facilitates testing, clarity, and modularity)
-* Affix `*` to the end of names of impure functions (particularly anything random)
-* Affix `!` to the end of names of functions that specifically change something state
-* For now, let's prefer maps over records unless we realize there is a really good reason we should go the other direction (reduces complexity until it doesn't...)
+* When impurity is necessary, try to extract as much of the desired functionality as possible into smaller pure functions (facilitating testing, clarity, and modularity)
+* Affix `!` to the end of names of functions that change state
+* Prefer maps over records unless there is a good not to
 * Use `#(...)` candied functions only when one liners; `(fn [..] ...)` otherwise
 
 ## Storm
 
-Storm can be run by executing `lein run -m storm-spec`.
-
-## Poller
-
-The poller can be run with `lein run -m poller`.
-Here's a rough sketch from the JS poller:
-
-    pseudocode sketch:
-    endlessly:
-      poll:
-        fetchreactions:
-          votes where create > lasttimestamp order by created
-        if reactions: (addToLocalQueue)
-          appendToConversation
-          updateConversationIds
-          update lastVoteTimestamp
+Storm can be run by executing `lein run -m polismath.stormspec`.
+There are a number of options available for this, which can be shown by adding `-h` to the end.
+In particular though, `-r` triggers a recompute of the all conversations (without loading the previous states from mongo).
 
