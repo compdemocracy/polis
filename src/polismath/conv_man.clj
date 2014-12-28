@@ -280,7 +280,7 @@
               {votes :votes mods :moderation}
                         (split-batches msgs)]
           (when mods
-            (swap! conv/mod-update mods))
+            (swap! conv conv/mod-update mods))
           (swap! conv update-fn (or votes []) err-handler))
         (catch Exception e
           (log/error "Excpetion not handler by err-handler:" e)
