@@ -1,7 +1,8 @@
 (ns conversation-test
   (:require [clojure.test :refer :all]
             [polismath.conversation :refer :all]
-            [polismath.named-matrix :refer :all]))
+            [polismath.named-matrix :refer :all]
+            [clojure.tools.trace :as tr]))
 
 
 (def rat-mat
@@ -58,6 +59,9 @@
 
 
   (let [votes-base-fnk (:votes-base small-conv-update-graph)
+        group-votes-fn (fn [conv]
+                         ((:group-votes small-conv-update-graph)
+                           (assoc conv :votes-base (votes-base-fnk conv))))
 
         group-clusters [{:id :g1 :members [:b1 :b2]} {:id :g2 :members [:b3 :b4 :b5]}]
         base-clusters (mapv (fn [[id m]] {:id id :members [m]})
@@ -71,11 +75,7 @@
 
     (deftest vote-base-test
       (letfn [(get-count [tid vote bid]
-                (-> conv
-                    votes-base-fnk
-                    tid
-                    vote
-                    (nth bid)))]
+                (-> conv votes-base-fnk tid vote (nth bid)))]
         (testing "agree counts"
           (doseq [pid [1 4]]
             (is (= (get-count :c1 :A pid)
@@ -94,7 +94,17 @@
         (testing "disagree counts"
           (doseq [pid [0 1]]
             (is (= (get-count :c1 :S pid)
-                   1)))))))
+                   1))))))
+
+    (deftest group-votes-test
+      (letfn [(get-count [gid tid vote]
+                (-> conv group-votes-fn gid tid vote))]
+        (testing "aggrees"
+          (is (= (get-count :g1 :c1 :A) 1))
+          (is (= (get-count :g2 :c1 :A) 1)))
+        (testing "aggrees"
+          (is (= (get-count :g1 :c1 :D) 0))
+          (is (= (get-count :g2 :c1 :D) 2))))))
 
 
   ; Test that iterating on previous pca/clustering results makes sense

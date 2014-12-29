@@ -36,7 +36,7 @@
     ; If we have data for the given comment...
     (let [pid-to-row (zipmap (rownames rating-mat) (range (count (rownames rating-mat))))
           person-rows (get-matrix rating-mat)]
-      (map ; for each bucket
+      (mapv ; for each bucket
         (fn [pids]
           (->> pids
             ; get votes for the tid from each ptpt in group
@@ -295,6 +295,29 @@
                          :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)
                          :S (agg-bucket-votes-for-tid bid-to-pid rating-mat number? tid)}))
                       (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))) {})))
+
+      ; {tid {gid {A _ D _ S}}}
+      :group-votes (plmb/fnk [group-clusters base-clusters votes-base]
+                     (let [bid-to-index (zipmap (map :id base-clusters)
+                                                (range))]
+                       (into {}
+                         (map
+                           (fn [{:keys [id members] :as group-cluster}]
+                             (letfn [(count-fn [tid vote]
+                                       (->>
+                                         members
+                                         (mapv bid-to-index)
+                                         (mapv #(((votes-base tid) vote) %))
+                                         (apply +)))]
+                               [id
+                                (plmb/map-from-keys
+                                  (fn [tid]
+                                    {:A (count-fn tid :A)
+                                     :D (count-fn tid :D)
+                                     :S (count-fn tid :S)})
+                                  (keys votes-base))]))
+                           group-clusters))))
+
 
       :repness    (plmb/fnk [conv rating-mat group-clusters base-clusters]
                     (-> (conv-repness rating-mat group-clusters base-clusters)
