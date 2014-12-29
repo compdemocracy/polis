@@ -82,6 +82,7 @@ module.exports = function(params) {
     var clustersCache = [];
     var participantsOfInterestVotes = null;
     var participantsOfInterestBids = [];
+    var groupVotes = null;
 
     var tidSubsetForReprojection = [];
     var consensusComments = null;
@@ -1122,6 +1123,7 @@ function clientSideBaseCluster(things, N) {
 
                 lastServerTokenForPCA = pcaData.lastVoteTimestamp;
                 consensusComments = pcaData.consensus;
+                groupVotes = pcaData["group-votes"];
 
                 return $.when(getFamousVotes(), updateBid()).then(function() {
 
@@ -2166,75 +2168,75 @@ function clientSideBaseCluster(things, N) {
 
 
 
-        var votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
+        // var votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
 
-        // YUK - Checking the state of a promise like this is crappy.
-        // TODO refactor so we're pushing the data towards the views, instead
-        // of having the views request data in their context method, which leads
-        // to asking for things synchronously.
-        if(votesForTidBidPromise.state() === "resolved" &&
-            clustersCachePromise.state() === "resolved") {
+        // // YUK - Checking the state of a promise like this is crappy.
+        // // TODO refactor so we're pushing the data towards the views, instead
+        // // of having the views request data in their context method, which leads
+        // // to asking for things synchronously.
+        // if(votesForTidBidPromise.state() === "resolved" &&
+        //     clustersCachePromise.state() === "resolved") {
 
-            var group = cachedPcaData["group-clusters"][gid].members;
-            var inGroup = {};
-            var i;
-            for (i = 0; i < group.length; i++) {
-                inGroup[group[i]] = true;
-            }
-            // var bigBucket = _.filter(bigBuckets, function(bb) {
-            //     return bb.gid  === gid;
-            // })[0];
-            // if (bigBucket) {
-            //     inGroup[bigBucket.bid] = true;
-            // }
+        //     var group = cachedPcaData["group-clusters"][gid].members;
+        //     var inGroup = {};
+        //     var i;
+        //     for (i = 0; i < group.length; i++) {
+        //         inGroup[group[i]] = true;
+        //     }
+        //     // var bigBucket = _.filter(bigBuckets, function(bb) {
+        //     //     return bb.gid  === gid;
+        //     // })[0];
+        //     // if (bigBucket) {
+        //     //     inGroup[bigBucket.bid] = true;
+        //     // }
             
-            votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
+        //     votesForTidBidWhereVotesOutsideGroupAreZeroed = {};
 
-            _.each(votesForTidBid, function(bidToVote, tid) {
-                var bid;
-                var inGroupRef = inGroup; // closure lookup optimization
-                var len;
-
-
-
-        // var buckets = votesForTidBid[tid];
-        // if (!buckets) {
-        //     console.warn("no votes found for tid: " + tid);
-        //     buckets = {
-        //         A:[],
-        //         D:[]
-        //     };
+        //     _.each(votesForTidBid, function(bidToVote, tid) {
+        //         var bid;
+        //         var inGroupRef = inGroup; // closure lookup optimization
+        //         var len;
 
 
 
+        // // var buckets = votesForTidBid[tid];
+        // // if (!buckets) {
+        // //     console.warn("no votes found for tid: " + tid);
+        // //     buckets = {
+        // //         A:[],
+        // //         D:[]
+        // //     };
 
-                var gA = mapObj(bidToVote.A, function(vote, bid) {
-                    if (_.isNaN(parseInt(bid))) {
-                        // Don't count summary/anonblobs, that would be double-counting
-                        return 0;
-                    }
-                    return inGroupRef[bid] ? vote : 0;
-                });
 
-                var gD = mapObj(bidToVote.D, function(vote, bid) {
-                    if (_.isNaN(parseInt(bid))) {
-                        // Don't count summary/anonblobs, that would be double-counting
-                        return 0;
-                    }
-                    return inGroupRef[bid] ? vote : 0;
-                });
-                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid] = {
-                    gA: gA,
-                    gD: gD
-                };
-                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA)),
-                votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD))
-            });
-        }
+
+
+        //         var gA = mapObj(bidToVote.A, function(vote, bid) {
+        //             if (_.isNaN(parseInt(bid))) {
+        //                 // Don't count summary/anonblobs, that would be double-counting
+        //                 return 0;
+        //             }
+        //             return inGroupRef[bid] ? vote : 0;
+        //         });
+
+        //         var gD = mapObj(bidToVote.D, function(vote, bid) {
+        //             if (_.isNaN(parseInt(bid))) {
+        //                 // Don't count summary/anonblobs, that would be double-counting
+        //                 return 0;
+        //             }
+        //             return inGroupRef[bid] ? vote : 0;
+        //         });
+        //         votesForTidBidWhereVotesOutsideGroupAreZeroed[tid] = {
+        //             gA: gA,
+        //             gD: gD
+        //         };
+        //         votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gA)),
+        //         votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD_total = sum(_.values(votesForTidBidWhereVotesOutsideGroupAreZeroed[tid].gD))
+        //     });
+        // }
         return {
             count: count,
             repness: repness[gid],
-            votes: votesForTidBidWhereVotesOutsideGroupAreZeroed
+            votes: groupVotes[gid]
         };
     }
     

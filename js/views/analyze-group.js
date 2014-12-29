@@ -243,15 +243,16 @@ module.exports = Handlebones.View.extend({
           indexToTid.push(tid);
           var header;
           var v = info.votes[tid];
+          var denominator = info.count; // or maybe v.S (seen)
           var percent = repfullForAgree ?
-            "&#9650; " + ((v.gA_total / info.count * 100) >> 0) : // WARNING duplicated in analyze-comment.js
-            "&#9660; " + ((v.gD_total / info.count * 100) >> 0); // WARNING duplicated in analyze-comment.js
+            "&#9650; " + ((v.A / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
+            "&#9660; " + ((v.D / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
           var leClass = repfullForAgree ?
             "a":
             "d";
           var count = repfullForAgree ?
-            v.gA_total :
-            v.gD_total;
+            v.A :
+            v.D;
           // L10N gods forgive me
           var word = repfullForAgree ?
             "<span class='HeadingE a'>agreed</span>" :
