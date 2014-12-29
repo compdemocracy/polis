@@ -292,7 +292,8 @@
                       (map (fn [tid]
                         {:tid tid
                          :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
-                         :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)}))
+                         :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)
+                         :S (agg-bucket-votes-for-tid bid-to-pid rating-mat number? tid)}))
                       (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))) {})))
 
       :repness    (plmb/fnk [conv rating-mat group-clusters base-clusters]

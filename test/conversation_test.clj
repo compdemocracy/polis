@@ -56,6 +56,47 @@
     (testing "small matrix and wonky votes"
       (is (conv-update small-conv wonky-votes))))
 
+
+  (let [votes-base-fnk (:votes-base small-conv-update-graph)
+
+        group-clusters [{:id :g1 :members [:b1 :b2]} {:id :g2 :members [:b3 :b4 :b5]}]
+        base-clusters (mapv (fn [[id m]] {:id id :members [m]})
+                            [[:b1 :p1] [:b2 :p2] [:b3 :p3] [:b4 :p4] [:b5 :p5]])
+
+        conv (assoc big-conv
+                    :group-clusters group-clusters
+                    :base-clusters base-clusters)
+        conv (assoc conv
+                    :bid-to-pid ((:bid-to-pid small-conv-update-graph) conv))]
+
+    (deftest vote-base-test
+      (letfn [(get-count [tid vote bid]
+                (-> conv
+                    votes-base-fnk
+                    tid
+                    vote
+                    (nth bid)))]
+        (testing "agree counts"
+          (doseq [pid [1 4]]
+            (is (= (get-count :c1 :A pid)
+                   1)))
+          (doseq [pid [0 2 3]]
+            (is (= (get-count :c1 :A pid)
+                   0))))
+
+        (testing "disagree counts"
+          (is (= (get-count :c1 :D 2)
+                 1))
+          (doseq [pid [0 1]]
+            (is (= (get-count :c1 :D pid)
+                   0))))
+
+        (testing "disagree counts"
+          (doseq [pid [0 1]]
+            (is (= (get-count :c1 :S pid)
+                   1)))))))
+
+
   ; Test that iterating on previous pca/clustering results makes sense
   (let [fleshed-conv (conv-update small-conv single-vote)]
     (deftest small-conv-iterative-test
