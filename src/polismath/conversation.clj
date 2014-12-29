@@ -288,12 +288,11 @@
       :votes-base (plmb/fnk [bid-to-pid rating-mat]
                     (->> rating-mat
                       colnames
-                      (map (fn [tid]
-                        {:tid tid
-                         :A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
-                         :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)
-                         :S (agg-bucket-votes-for-tid bid-to-pid rating-mat number? tid)}))
-                      (reduce (fn [o entry] (assoc o (:tid entry) (dissoc entry :tid))) {})))
+                      (plmb/map-from-keys
+                        (fn [tid]
+                          {:A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
+                           :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)
+                           :S (agg-bucket-votes-for-tid bid-to-pid rating-mat number? tid)}))))
 
       ; {tid {gid {A _ D _ S}}}
       :group-votes (plmb/fnk [group-clusters base-clusters votes-base]
