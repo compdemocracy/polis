@@ -43,9 +43,8 @@
             (map (fn [pid] (get (get person-rows (pid-to-row pid)) idx)))
             ; filter votes you don't want to count
             (filter filter-cond)
-            ; Sum and abs
-            (reduce + 0)
-            (math/abs)))
+            ; count
+            (count)))
         bid-to-pid))
     ; Otherwise return an empty vector
     []))
