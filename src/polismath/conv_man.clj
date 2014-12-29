@@ -103,7 +103,8 @@
         :consensus
         :zid
         :user-vote-counts
-        :votes-base}))))
+        :votes-base
+        :group-votes}))))
 
 
 (defn format-for-mongo
