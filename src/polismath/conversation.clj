@@ -177,9 +177,8 @@
      base-conv-update-graph
      {:mat (plmb/fnk [rating-mat]
              ; swap nils for zeros - most things need the 0s, but repness needs the nils"
-             (greedy
-               (map (fn [row] (map #(if (nil? %) 0 %) row))
-                 (get-matrix rating-mat))))
+             (mapv (fn [row] (map #(if (nil? %) 0 %) row))
+               (get-matrix rating-mat)))
 
       :pca (plmb/fnk [conv mat opts']
              (wrapped-pca mat (:n-comps opts')
@@ -189,20 +188,16 @@
       :proj (plmb/fnk [rating-mat pca]
               (sparsity-aware-project-ptpts (get-matrix rating-mat) pca))
 
-;      :proj (plmb/fnk [mat pca]
-              ;(pca-project mat pca))
-
       :base-clusters
             (plmb/fnk [conv rating-mat proj in-conv opts']
-              (greedy
-                (let [proj-mat
-                        (named-matrix (rownames rating-mat) ["x" "y"] proj)
-                      in-conv-mat (rowname-subset proj-mat in-conv)]
-                  (sort-by :id
-                    (kmeans in-conv-mat
-                      (:base-k opts')
-                      :last-clusters (:base-clusters conv)
-                      :cluster-iters (:base-iters opts'))))))
+              (let [proj-mat
+                      (named-matrix (rownames rating-mat) ["x" "y"] proj)
+                    in-conv-mat (rowname-subset proj-mat in-conv)]
+                (sort-by :id
+                  (kmeans in-conv-mat
+                    (:base-k opts')
+                    :last-clusters (:base-clusters conv)
+                    :cluster-iters (:base-iters opts')))))
 
       :base-clusters-proj
             (plmb/fnk [base-clusters]
@@ -223,31 +218,24 @@
       ; Compute group-clusters for multiple k values
       :group-clusterings
             (plmb/fnk [conv base-clusters-weights base-clusters-proj opts']
-              (into {}
-                ; XXX - should test pmap out
-                (map
+                (plmb/map-from-keys
                   (fn [k]
-                    [k
-                      (sort-by :id
-                        (kmeans base-clusters-proj k
-                          :last-clusters
-                            ; A little pedantic here in case no clustering yet for this k
-                            (let [last-clusterings (:group-clusterings conv)]
-                              (if last-clusterings
-                                (last-clusterings k)
-                                last-clusterings))
-                          :cluster-iters (:group-iters opts')
-                          :weights base-clusters-weights))])
-                  (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts')))))))
+                    (sort-by :id
+                      (kmeans base-clusters-proj k
+                        :last-clusters
+                          ; A little pedantic here in case no clustering yet for this k
+                          (let [last-clusterings (:group-clusterings conv)]
+                            (if last-clusterings
+                              (last-clusterings k)
+                              last-clusterings))
+                        :cluster-iters (:group-iters opts')
+                        :weights base-clusters-weights)))
+                  (range 2 (inc (max-k-fn base-clusters-proj (:max-k opts'))))))
 
       ; Compute silhouette values for the various clusterings
       :group-clusterings-silhouettes
             (plmb/fnk [group-clusterings bucket-dists]
-              (into {}
-                (map
-                  (fn [[k clsts]]
-                    [k (silhouette bucket-dists clsts)])
-                  group-clusterings)))
+              (plmb/map-vals (partial silhouette bucket-dists) group-clusterings))
 
       ; This smooths changes in cluster counts (K-vals) by remembering what the last K was, and only changing
       ; after (:group-k-buffer opts') many times on a new K value
@@ -277,8 +265,7 @@
                 (:smoothed-k group-k-smoother)))
 
       :bid-to-pid (plmb/fnk [base-clusters]
-                    (greedy
-                      (map :members (sort-by :id base-clusters))))
+                    (mapv :members (sort-by :id base-clusters)))
 
       ;; returns {tid {
       ;;           :agree [0 4 2 0 6 0 0 1]
