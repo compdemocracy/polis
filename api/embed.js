@@ -21,6 +21,7 @@
     if (o.demo) {
       path.push("demo");
     }
+    o.parent_url = o.parent_url || window.location+"";
     if (o.conversation_id) {
       path.push(o.conversation_id);
     } else if (o.site_id) {
