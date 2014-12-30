@@ -5,6 +5,9 @@
   function getConfig(d) {
      return {
          conversation_id: d.getAttribute("data-conversation_id"),
+         site_id: d.getAttribute("data-site_id"),
+         page_id: d.getAttribute("data-page_id"),
+         parent_url: d.getAttribute("data-parent_url"),
          border: d.getAttribute("data-border"),
          border_radius: d.getAttribute("data-border_radius"),
          height: d.getAttribute("data-height"),
@@ -18,8 +21,29 @@
     if (o.demo) {
       path.push("demo");
     }
-    path.push(o.conversation_id);
-    iframe.src = "https://preprod.pol.is/"+ path.join("/");
+    if (o.conversation_id) {
+      path.push(o.conversation_id);
+    } else if (o.site_id) {
+      path.push(o.site_id);
+      if (!o.page_id) {
+        alert("Error: need data-page_id when using data-site_id");
+        return;
+      }
+      path.push(o.page_id);
+    } else {
+      alert("Error: need data-conversation_id or data-site_id");
+      return;
+    }
+    var src = "https://preprod.pol.is/"+ path.join("/");
+    var paramStrings = [];
+    if (o.parent_url) {
+      paramStrings.push("parent_url="+ encodeURIComponent(o.parent_url));
+    }
+    if (paramStrings.length) {
+      src += "?" + paramStrings.join("&");
+    }
+
+    iframe.src = src;
     iframe.width = "100%"; // may be constrained by parent div
     iframe.height = o.height || 930;
     iframe.style.border = o.border || "1px solid #ccc";
