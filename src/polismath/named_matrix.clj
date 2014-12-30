@@ -85,9 +85,6 @@
   [row-index col-index ^java.util.Vector matrix]
   PNamedMatrix
     (update-nmat [this values]
-      ; A bunch of profiling shit
-      (let [values (into [] values)]
-      (p :update-nmat
       ; First find the row and column names that aren't yet in the data
       (let [[missing-rows missing-cols]
               (reduce
@@ -126,7 +123,7 @@
                       col-i (index new-col-index col)]
                   (assoc-in mat' [row-i col-i] value)))
               mat
-              values)))))))
+              values)))))
     (rownames [this] (get-names (.row-index this)))
     (colnames [this] (get-names (.col-index this)))
     (get-matrix [this] (.matrix this))
@@ -174,7 +171,7 @@
 
 ; Put in interface? ...
 
-(defnp safe-rowname-subset
+(defn safe-rowname-subset
   "This version of rowname-subset filters out negative indices, so that if not all names in row-names
   are in nmat, it just subsets to the rownames that are. Should scrap other one?"
   [nmat names]
