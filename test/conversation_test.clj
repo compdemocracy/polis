@@ -76,6 +76,7 @@
     (deftest vote-base-test
       (letfn [(get-count [tid vote bid]
                 (-> conv votes-base-fnk tid vote (nth bid)))]
+
         (testing "agree counts"
           (doseq [pid [1 4]]
             (is (= (get-count :c1 :A pid)
@@ -98,7 +99,10 @@
 
     (deftest group-votes-test
       (letfn [(get-count [gid tid vote]
-                (-> conv group-votes-fn gid tid vote))]
+                (-> conv group-votes-fn gid :votes tid vote))]
+        (testing "members counts"
+          (is (= (-> conv group-votes-fn :g1 :n-members) 2))
+          (is (= (-> conv group-votes-fn :g2 :n-members) 3)))
         (testing "aggrees"
           (is (= (get-count :g1 :c1 :A) 1))
           (is (= (get-count :g2 :c1 :A) 1)))

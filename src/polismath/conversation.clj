@@ -308,12 +308,13 @@
                                          (mapv #(((votes-base tid) vote) %))
                                          (apply +)))]
                                [id
-                                (plmb/map-from-keys
-                                  (fn [tid]
-                                    {:A (count-fn tid :A)
-                                     :D (count-fn tid :D)
-                                     :S (count-fn tid :S)})
-                                  (keys votes-base))]))
+                                {:n-members (count members)
+                                 :votes (plmb/map-from-keys
+                                          (fn [tid]
+                                            {:A (count-fn tid :A)
+                                             :D (count-fn tid :D)
+                                             :S (count-fn tid :S)})
+                                          (keys votes-base))}]))
                            group-clusters))))
 
 
