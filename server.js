@@ -9178,7 +9178,7 @@ app.get('/oauthTest', function (req, res) {
 
 
 
-function initializeImplicitConversation(site_id, page_id) {
+function initializeImplicitConversation(site_id, page_id, o) {
 
     // find the user with that site_id.. wow, that will be a big index..
     // I suppose we could duplicate the site_ids that actually have conversations
@@ -9198,8 +9198,7 @@ function initializeImplicitConversation(site_id, page_id) {
             if (err) { reject(err); return; }
             if (!isAllowed) { reject(err); return; }
 
-
-            var q = sql_conversations.insert({
+            var params = _.extend(o, {
                 owner: uid,
                 // topic: req.p.topic,
                 // description: req.p.description,
@@ -9212,7 +9211,9 @@ function initializeImplicitConversation(site_id, page_id) {
                 strict_moderation: false, // TODO this could be drawn from config for the owner
                 // context: req.p.context,
                 owner_sees_participation_stats: false, // TODO think, and test join
-            }).returning('*').toString();
+            });
+
+            var q = sql_conversations.insert(params).returning('*').toString();
 
             pgQuery(q, [], function(err, result) {
                 if (err) {
@@ -9292,20 +9293,26 @@ function registerPageId(site_id, page_id, zid) {
 // The routers on client and server will need to be updated for that
 // as will checks like isParticipationView on the client.
 app.get(/^\/polis_site_id.*/,
+    moveToBody,
+    need("parent_url", getStringLimitLength(1, 10000), assignToP),
 function(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
-    var page_id = /\S\/([^/]*)/.exec(req.path);
+    var page_id = /\S\/([^\/]*)/.exec(req.path);
     if (!site_id.length || page_id.length < 2) {
         fail(res, 404, "polis_err_parsing_site_id_or_page_id");
     }
     site_id = site_id[0];
     page_id = page_id[1];
+    var o = {};
+    if (req.p.parent_url) {
+        o.parent_url = req.p.parent_url;
+    }
 
     // also parse out the page_id after the '/', and look that up, along with site_id in the page_ids table
     pgQueryP("select * from page_ids where site_id = ($1) and page_id = ($2);", [site_id, page_id]).then(function(rows) {
         if (!rows || !rows.length) {
             // conv not initialized yet
-            initializeImplicitConversation(site_id, page_id).then(function(conv) {
+            initializeImplicitConversation(site_id, page_id, o).then(function(conv) {
                 var url = buildConversationUrl(req, conv.zinvite);
                 var modUrl = buildModerationUrl(req, conv.zinvite);
                 sendImplicitConversationCreatedEmail(conv.owner, site_id, page_id, url, modUrl).then(function() {
