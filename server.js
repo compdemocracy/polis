@@ -301,6 +301,7 @@ var sql_conversations = sql.define({
     "modified",
     "created",
     "link_url",
+    "parent_url",
     ]
 });
 var sql_votes = sql.define({
