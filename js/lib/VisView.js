@@ -1061,7 +1061,8 @@ function chooseUpArrowPath(d) {
     var ratio =  d.ups / count;
     ratio = Math.min(ratio, 0.99999);
 
-    var r = chooseCircleRadius(d);
+    var r = chooseCircleRadius(d) + 5;
+
     var start = pieChartOrigin - (TAU*ratio/2);//degrees/2;
     var end = pieChartOrigin + (TAU*ratio/2); // -degrees/2;
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
@@ -1106,7 +1107,7 @@ function chooseDownArrowPath(d) {
     var ratio =  d.downs / count;
     ratio = Math.min(ratio, 0.99999);
 
-    var r = chooseCircleRadius(d);
+    var r = chooseCircleRadius(d) + 5;
     var TAU = Math.PI*2;
     var start = (pieChartOrigin - Math.PI) - (TAU*ratio/2);//degrees/2;
     var end = (pieChartOrigin - Math.PI) + (TAU*ratio/2); // -degrees/2;
