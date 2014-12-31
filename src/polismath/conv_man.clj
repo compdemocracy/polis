@@ -133,7 +133,7 @@
 
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
-  [conv]
+  [conv & {:keys [recompute n-votes] :as extra-data}]
   (if-let [prof-atom (:profile-data conv)]
     (let [prof @prof-atom
           tot (apply + (map second prof))
@@ -141,6 +141,9 @@
       (try
         (->> prof
              (format-for-mongo identity)
+             (assoc :n-ptps (:n conv))
+             (merge (hash-map-subset #{:n-cmts :zid})
+                    extra-data)
              (mongo-upsert-results (db/mongo-collection-name "profile")))
         (catch Exception e
           (log/error "Unalbe to submit profile data for zid:" (:zid conv))))
@@ -157,7 +160,7 @@
             zid            (:zid updated-conv)
             finish-time    (System/currentTimeMillis)]
         (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
-        (handle-profile-data updated-conv)
+        (handle-profile-data updated-conv :n-votes (count votes))
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
