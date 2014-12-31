@@ -1196,6 +1196,9 @@ function chooseCircleRadiusOuter(d) {
     if (d.isSummaryBucket) {
         r = anonBlobRadius;
     }
+    if (d.gid === getSelectedGid()) {
+        r += 2;
+    }
     return r;
 }
 
