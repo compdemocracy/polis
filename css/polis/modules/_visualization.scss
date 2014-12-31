@@ -1,3 +1,8 @@
+
+$COLOR_SELECTED_HULL: true;
+
+
+
 //TUTORIAL OCTOBER 2014
 
 .tutorial-slide {
@@ -92,8 +97,10 @@
   z-index: 400;
 }
 .hull_shadow.active {
-  fill: #f1f1f1;
-  stroke: #f1f1f1;
+  @if $COLOR_SELECTED_HULL {
+    fill: #f1f1f1;
+    stroke: #f1f1f1;
+  }
 }
 
 .hull_selection {
@@ -109,14 +116,18 @@
   z-index: 401;
 }
 .hull_selection.active_group {
-  stroke: #6FBAFF;
-  border-color: #6FBAFF; // for html elements
+  @if $COLOR_SELECTED_HULL {
+    stroke: #6FBAFF;
+    border-color: #6FBAFF; // for html elements
+  }
 }
 
 .active_group {
-  fill: #e9f0f7;
-  background-color: #e9f0f7; // for html elements
-  stroke: #e9f0f7;
+  @if $COLOR_SELECTED_HULL {
+    fill: #e9f0f7;
+    background-color: #e9f0f7; // for html elements
+    stroke: #e9f0f7;
+  }
 }
 .ptpt {
   z-index: 500;
