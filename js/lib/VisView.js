@@ -58,6 +58,7 @@ var selectedTid = -1;
 var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
+var COLOR_SELECTED_HULL = true;
 
 var width = $(el_raphaelSelector).width();
 
@@ -675,10 +676,13 @@ function updateHulls() {
                     var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";                    
 
                     var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
+
                     if (selectedCluster === i) {
                         // no shadow, since we'll show dashed line
-                        shadowStrokeWidth = "0px";
-                        color = "#e9f0f7";
+                        if (COLOR_SELECTED_HULL) {
+                            shadowStrokeWidth = "0px";
+                            color = "#e9f0f7";
+                        }
                     }
 
                     d3Hulls[i].datum(points)
