@@ -1518,36 +1518,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       }
 
 
-        var grayHaloEnter = g.append("circle")
-          grayHaloEnter
-        .classed("grayHalo", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .attr("r", function(d) {
-            if (isSummaryBucket(d)) {
-                return anonBlobRadius;
-            }
-            if (isParticipantOfInterest(d)) {
-                return ptptOiRadius;
-            }
-            // if (isSelf(d)) {
-            //     return ptptOiRadius;
-            // }
-            return ptptOiRadius;
-        })
-        .attr("stroke", grayHaloColor)
-        .attr("stroke-width", function(d) {
-            if (d.isSummaryBucket) {
-                return anonBlobHaloWidth;
-            } else {
-                return haloWidth;
-            }
-        })
-        .attr("fill", chooseFill)
-        ;
 
-       
-       
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
       // var upArrowEnter = g.append("polygon") 
@@ -1589,6 +1560,35 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         ;
 
 
+        var grayHaloEnter = g.append("circle")
+          grayHaloEnter
+        .classed("grayHalo", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .attr("r", function(d) {
+            if (isSummaryBucket(d)) {
+                return anonBlobRadius;
+            }
+            if (isParticipantOfInterest(d)) {
+                return ptptOiRadius;
+            }
+            // if (isSelf(d)) {
+            //     return ptptOiRadius;
+            // }
+            return ptptOiRadius;
+        })
+        .attr("stroke", grayHaloColor)
+        .attr("stroke-width", function(d) {
+            if (d.isSummaryBucket) {
+                return anonBlobHaloWidth;
+            } else {
+                return haloWidth;
+            }
+        })
+        .attr("fill", chooseFill)
+        ;
+
+       
 
       // INNER SCALE-CHANGING SHAPES
       var upArrowEnterInner = g.append("path")
