@@ -1303,8 +1303,10 @@ function clientSideBaseCluster(things, N) {
                         // translate from the compact index format to bid->voteCount format
                         var aOrig = votesBase[tid].A;
                         var dOrig = votesBase[tid].D;
+                        var sOrig = votesBase[tid].S;
                         var A = {};
                         var D = {};
+                        var S = {};
                         var len = aOrig.length;
                         var bid;
                         var bigBucketBid;
@@ -1314,14 +1316,17 @@ function clientSideBaseCluster(things, N) {
                             if (!_.isUndefined(bigBucketBid)) {
                                 A[bigBucketBid] = (A[bigBucketBid] || 0) + aOrig[i];
                                 D[bigBucketBid] = (D[bigBucketBid] || 0) + dOrig[i];
+                                S[bigBucketBid] = (S[bigBucketBid] || 0) + sOrig[i];
                             }
                             A[bid] = aOrig[i];
                             D[bid] = dOrig[i];
+                            S[bid] = sOrig[i];
                         }
                         // bidToBigBucket needed here
                         votesForTidBid[tid] = {
                             A: A,
-                            D: D
+                            D: D,
+                            S: S
                         };
                     });
 
@@ -1686,18 +1691,25 @@ function clientSideBaseCluster(things, N) {
                 buckets.A[o.fakeBid] = 0;
                 buckets.D[o.fakeBid] = 1;
             }
+            if (voteForPtpoi === "u") {
+                buckets.S[o.fakeBid] = 0; // unseen
+            } else {
+                buckets.S[o.fakeBid] = 1; // seen
+            }
             // buckets[o.fakeBid] = votesVectorInAscii_adpu_format[tid];
         });
         var myVotes = votesByMe.filter(function(vote) { return tid === vote.get("tid"); });
         buckets.A[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.pull; }).length > 0) ? 1:0;
         buckets.D[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.push; }).length > 0) ? 1:0;
+        buckets.S[myBid] = buckets.A[myBid] || buckets.D[myBid] || (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.pass; }).length > 0) ? 1:0;
 
         // TODO reduce vote count for the bucket self is in.
         if (!buckets) {
             console.warn("no votes found for tid: " + tid);
             buckets = {
                 A:[],
-                D:[]
+                D:[],
+                S:[]
             };
         }
         return dfd.resolve(buckets);

@@ -115,6 +115,7 @@ var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 
 var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
 
 var grayHaloColor = "lightgray";
+var grayHaloColorSelected = "rgba(0,0,0,0)";
 var colorPull = "rgb(0, 181, 77)"; // EMERALD
 var colorPullLabel = "rgb(0, 181, 77)";
 var colorPush = "#e74c3c";// ALIZARIN
@@ -1052,7 +1053,7 @@ function chooseUpArrowPath(d) {
     // var yOffset = scale - sum/2;
 
     // return makeArrowPoints(scale, yOffset, true);
-    var count = d.clusterCount || d.count;
+    var count = d.seens; //d.clusterCount || d.count;
     var ratio =  d.ups / count;
     ratio = Math.min(ratio, 0.99999);
 
@@ -1096,7 +1097,7 @@ function chooseDownArrowPath(d) {
     // return makeArrowPoints(scale, yOffset, false);
 
 
-    var count = d.clusterCount || d.count;
+    var count = d.seens; // d.clusterCount || d.count;
 
     var ratio =  d.downs / count;
     ratio = Math.min(ratio, 0.99999);
@@ -1508,6 +1509,37 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
           }
       }
 
+
+        var grayHaloEnter = g.append("circle")
+          grayHaloEnter
+        .classed("grayHalo", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .attr("r", function(d) {
+            if (isSummaryBucket(d)) {
+                return anonBlobRadius;
+            }
+            if (isParticipantOfInterest(d)) {
+                return ptptOiRadius;
+            }
+            // if (isSelf(d)) {
+            //     return ptptOiRadius;
+            // }
+            return ptptOiRadius;
+        })
+        .attr("stroke", grayHaloColor)
+        .attr("stroke-width", function(d) {
+            if (d.isSummaryBucket) {
+                return anonBlobHaloWidth;
+            } else {
+                return haloWidth;
+            }
+        })
+        .attr("fill", chooseFill)
+        ;
+
+       
+       
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
       // var upArrowEnter = g.append("polygon") 
@@ -1548,35 +1580,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         //     .style("opacity", 0.5)
         ;
 
-        var grayHaloEnter = g.append("circle")
-          grayHaloEnter
-        .classed("grayHalo", true)
-        .attr("cx", 0)
-        .attr("cy", 0)
-        .attr("r", function(d) {
-            if (isSummaryBucket(d)) {
-                return anonBlobRadius;
-            }
-            if (isParticipantOfInterest(d)) {
-                return ptptOiRadius;
-            }
-            // if (isSelf(d)) {
-            //     return ptptOiRadius;
-            // }
-            return ptptOiRadius;
-        })
-        .attr("stroke", grayHaloColor)
-        .attr("stroke-width", function(d) {
-            if (d.isSummaryBucket) {
-                return anonBlobHaloWidth;
-            } else {
-                return haloWidth;
-            }
-        })
-        .attr("fill", chooseFill)
-        ;
-
-       
 
 
       // INNER SCALE-CHANGING SHAPES
@@ -1835,6 +1838,7 @@ function selectComment(tid) {
             var node = nodes[i];
             node.ups = votes.A[node.bid] || 0;
             node.downs = votes.D[node.bid] || 0;
+            node.seens = votes.S[node.bid] || 0;
             node.gid = bidToGid[node.bid];
 
             // for (var p = 0; p < node.ppl.length; p++) {
@@ -1965,6 +1969,38 @@ function doUpdateNodes() {
           ;
 
 
+        update.selectAll(".grayHalo")
+                .style("stroke", function(d) {
+                    if (isSelf(d)) {
+                        if (commentIsSelected()) {
+                            if (d.ups || d.downs) {
+                                return grayHaloColorSelected;
+                            } else {
+                                return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
+                            }
+                        } else {
+                            return colorSelf;
+                        }
+                    } else {
+                        if (commentIsSelected()) {
+                            if (isParticipantOfInterest(d)) {
+                                if (d.ups || d.downs) {
+                                    return grayHaloColorSelected;
+                                } else {
+                                    return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
+                                }
+                            } else {
+                                return grayHaloColorSelected; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
+                            }
+                        } else {
+                            return grayHaloColor;
+                        }
+                    }
+                })
+        ;
+
+
+
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
           .style("display", chooseDisplayForOuterCircle)
           .attr("r", chooseCircleRadiusOuter)
@@ -2009,7 +2045,7 @@ function doUpdateNodes() {
                 // return "Disagreed";
                 if (commentIsSelected()) {
                     var txt;
-                    var count = d.clusterCount || d.count; // if d.clusterCount is supplied, use it (since summary blobs show % for all members, non just those in the anonblob)
+                    var count = d.seens; // d.clusterCount || d.count; // if d.clusterCount is supplied, use it (since summary blobs show % for all members, non just those in the anonblob)
                     if (d.ups === 0 && d.downs === 0) {
                         txt = "\u2014"; // em dash
                     } 

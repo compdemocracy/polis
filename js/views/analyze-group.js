@@ -243,7 +243,8 @@ module.exports = Handlebones.View.extend({
           indexToTid.push(tid);
           var header;
           var v = info.votes[tid];
-          var denominator = info.count; // or maybe v.S (seen)
+          var denominator = v.S; // or maybe v.S (seen)
+          // var denominator = info.count; // or maybe v.S (seen)
           var percent = repfullForAgree ?
             "&#9650; " + ((v.A / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
             "&#9660; " + ((v.D / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
@@ -263,7 +264,9 @@ module.exports = Handlebones.View.extend({
           var backgroundColor = repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
-              "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>";
+              "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
+             "<span>(of "+ v.S +"/"+ info.count +" who saw this)</span>";
+             // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
           var html = 
             "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
