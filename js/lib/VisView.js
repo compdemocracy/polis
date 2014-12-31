@@ -58,7 +58,7 @@ var selectedTid = -1;
 var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
-var COLOR_SELECTED_HULL = true;
+var COLOR_SELECTED_HULL = false;
 
 var width = $(el_raphaelSelector).width();
 
