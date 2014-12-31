@@ -295,12 +295,12 @@
                                          (mapv #(((votes-base tid) vote) %))
                                          (apply +)))]
                                [id
-                                {:n-members (reduce + 0
+                                {:n-members (let [bids (set members)]
                                               ; Add up the count of members in each base-cluster in this group-cluster
-                                              (map (fn [bid]
-                                                     (count (:members
-                                                         (first (filter (fn [x] (= bid (:id x))) base-clusters)))))
-                                                   members))
+                                              (->> base-clusters
+                                                   (filter #(bids (:id %)))
+                                                   (map #(count (:members %)))
+                                                   (reduce + 0)))
                                  :votes (plmb/map-from-keys
                                           (fn [tid]
                                             {:A (count-fn tid :A)
