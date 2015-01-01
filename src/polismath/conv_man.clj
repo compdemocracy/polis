@@ -146,7 +146,7 @@
                     extra-data)
              (mongo-upsert-results (db/mongo-collection-name "profile")))
         (catch Exception e
-          (log/error "Unalbe to submit profile data for zid:" (:zid conv))))
+          (log/error "Unable to submit profile data for zid:" (:zid conv))))
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
 
