@@ -139,14 +139,14 @@
           tot (apply + (map second prof))
           prof (assoc prof :total tot)]
       (try
-        (->> prof
-             (format-for-mongo identity)
-             (assoc :n-ptps (:n conv))
-             (merge (hash-map-subset #{:n-cmts :zid})
-                    extra-data)
-             (mongo-upsert-results (db/mongo-collection-name "profile")))
+        (-> prof
+            (assoc :n-ptps (:n conv))
+            (merge (hash-map-subset conv #{:n-cmts :zid})
+                   extra-data)
+            ((partial mongo-upsert-results (db/mongo-collection-name "profile"))))
         (catch Exception e
-          (log/error "Unable to submit profile data for zid:" (:zid conv))))
+          (log/error "Unable to submit profile data for zid:" (:zid conv))
+          (.printStackTrace e)))
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
 
