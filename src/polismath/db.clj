@@ -177,6 +177,11 @@
     (str "math_" env-name "_" schema-date "_" basename)))
 
 
+(defn- megabytes
+  [^long n]
+  (* n 1024 1024))
+
+
 (def
   ^{:doc "Memoized; returns a db object for connecting to mongo"}
   mongo-db
@@ -194,8 +199,11 @@
             (mc/ensure-index db c (array-map :zid 1) {:name (str c "_zid_index") :unique true})))
         ; set up rolling limit on profile data
         (let [prof-coll (mongo-collection-name "profile")]
-          (if (mc/exists? db prof-coll)
-            (mc/create db (mongo-collection-name "profile") {:capped true :max 200000})))
+          (if-not (mc/exists? db prof-coll)
+            (try
+              (mc/create db prof-coll {:capped true :size (-> 125 megabytes) :max 200000})
+              (catch Exception e
+                (log/warn "Unable to create capped profile collection. Perhaps it's already been created?")))))
         ; make sure to return db
         db))))
 
