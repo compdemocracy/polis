@@ -194,7 +194,7 @@
             (mc/ensure-index db c (array-map :zid 1) {:name (str c "_zid_index") :unique true})))
         ; set up rolling limit on profile data
         (let [prof-coll (mongo-collection-name "profile")]
-          (if (exists? db prof-coll)
+          (if (mc/exists? db prof-coll)
             (mc/create db (mongo-collection-name "profile") {:capped true :max 200000})))
         ; make sure to return db
         db))))
