@@ -131,6 +131,15 @@
     {:upsert true}))
 
 
+(defn mongo-insert-results
+  "Perform insert to mongo collection"
+  [collection-name object]
+  (mc/update
+    (db/mongo-db (env/env :mongolab-uri))
+    collection-name
+    object))
+
+
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
   [conv & {:keys [recompute n-votes] :as extra-data}]
@@ -143,7 +152,7 @@
             (assoc :n-ptps (:n conv))
             (merge (hash-map-subset conv #{:n-cmts :zid})
                    extra-data)
-            ((partial mongo-upsert-results (db/mongo-collection-name "profile"))))
+            ((partial mongo-insert-results (db/mongo-collection-name "profile"))))
         (catch Exception e
           (log/error "Unable to submit profile data for zid:" (:zid conv))
           (.printStackTrace e)))
