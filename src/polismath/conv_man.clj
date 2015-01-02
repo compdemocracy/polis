@@ -150,7 +150,7 @@
       (try
         (-> prof
             (assoc :n-ptps (:n conv))
-            (merge (hash-map-subset conv #{:n-cmts :zid})
+            (merge (hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
             ((partial mongo-insert-results (db/mongo-collection-name "profile"))))
         (catch Exception e
