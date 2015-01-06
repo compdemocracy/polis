@@ -7295,6 +7295,7 @@ function(req, res) {
     var uid = req.p.uid;
 
     var dest = req.p.dest || "/inbox";
+    dest = encodeURIComponent(getServerNameWithProtocol(req) + dest);
     var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?dest=" + dest;
 
     getTwitterRequestToken(returnUrl).then(function(data) {        
