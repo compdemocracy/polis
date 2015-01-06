@@ -7451,8 +7451,8 @@ app.get("/api/v3/twitter_oauth_callback",
     moveToBody,
     authOptional(assignToP),
     need("dest", getStringLimitLength(9999), assignToP),
-    want("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
-    want("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
+    need("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
+    need("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
 
 function(req, res) {
     var uid = req.p.uid;
