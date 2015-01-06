@@ -7525,7 +7525,17 @@ function(req, res) {
                     u.location,
                     JSON.stringify(u),
             ]).then(function() {
-                res.redirect(dest);
+                // SUCCESS
+                // There was no existing record
+                // set the user's hname, if not already set
+                pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
+                    // OK, ready
+                    res.redirect(dest);
+                }, function(err) {
+                    fail(res, 500, "polis_err_twitter_auth_update", err);
+                }).catch(function(err) {
+                    fail(res, 500, "polis_err_twitter_auth_update_misc", err);
+                });
             }, function(err) {
                 if (isDuplicateKey(err)) {
                     // we know the uid OR twitter_user_id is filled
