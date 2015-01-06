@@ -7413,6 +7413,24 @@ function getTwitterUserInfoBulk(list_of_twitter_user_id) {
     });
 }
 
+
+function switchToUser(req, res, uid) {
+    return new Promise(function(resolve, reject) {
+        startSession(uid, function(errSess, token) {
+            if (errSess) {
+                reject(errSess);
+                return;
+            }
+            addCookies(req, res, token, uid).then(function() {
+                resolve();
+            }).catch(function(err) {
+                reject("polis_err_adding_cookies");
+            });
+        });
+    });
+}
+
+
 app.get("/api/v3/twitter_oauth_callback",
     moveToBody,
     authOptional(assignToP),
@@ -7487,7 +7505,13 @@ function(req, res) {
                         if (rows && rows.length) {
                             res.redirect(dest);
                         } else {
-                            fail(res, 500, "polis_err_twitter_auth_06", err);                        
+                            // looks like the twitter account is linked to another uid.
+                            // For now, let's just have it sign in as that user.
+                            switchToUser(req, res, uid).then(function() {
+                                res.redirect(dest);
+                            }).catch(function(err) {
+                                fail(res, 500, "polis_err_twitter_auth_06", err);                        
+                            });
                         }
                     });
                     
