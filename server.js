@@ -7507,34 +7507,30 @@ function(req, res) {
                         pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
                         pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
                     ]).then(function(foo) {
-                        var uidExists = foo[0] && foo[0].length;
-                        var twitterIdExists = foo[1] && foo[1].length;
-                        var uidForTwitterId;
-                        if (twitterIdExists) {
-                            uidForTwitterId = foo[1].uid;
-                        }
-                        if (uidExists && twitterIdExists) {
-                            if (foo[0].uid === uidForTwitterId) {
+                        var recordForUid = foo[0][0];
+                        var recordForTwitterId = foo[1][0];
+                        if (recordForUid && recordForTwitterId) {
+                            if (recordForUid.uid === recordForTwitterId.uid) {
                                 // match
                                 res.redirect(dest);
                             } else {
                                 // TODO_SECURITY_REVIEW
                                 // both exist, but not same uid
-                                switchToUser(req, res, uidForTwitterId).then(function() {
+                                switchToUser(req, res, recordForTwitterId.uid).then(function() {
                                     res.redirect(dest);
                                 }).catch(function(err) {
                                     fail(res, 500, "polis_err_twitter_auth_456", err);                        
                                 });
                             }
-                        } else if (uidExists) {
+                        } else if (recordForUid) {
                             // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
                             // the newly supplied twitter account is not attached to anything.
                             fail(res, 500, "polis_err_twitter_already_attached", err);                        
-                        } else if (twitterIdExists) {
+                        } else if (recordForTwitterId) {
                             // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
                             // For now, let's just have it sign in as that user.
                             // TODO_SECURITY_REVIEW
-                            switchToUser(req, res, uidForTwitterId).then(function() {
+                            switchToUser(req, res, recordForTwitterId.uid).then(function() {
                                 res.redirect(dest);
                             }).catch(function(err) {
                                 fail(res, 500, "polis_err_twitter_auth_234", err);                        
