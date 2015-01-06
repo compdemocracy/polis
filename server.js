@@ -7448,10 +7448,13 @@ function(req, res) {
     console.log("twitter_oauth_callback params");
     console.dir(req.p);
     console.log("twitter_oauth_callback params end");
-    getTwitterAccessToken({
-        oauth_verifier: req.p.oauth_verifier,
-        oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
-    }).then(function(o) {
+    function retryFunctionWithPromise() {
+        return getTwitterAccessToken({
+            oauth_verifier: req.p.oauth_verifier,
+            oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
+        });
+    }
+    retryFunctionWithPromise(retryFunctionWithPromise, 20).then(function(o) {
         console.log("TWITTER ACCESS TOKEN");
         var pairs = o.split("&");
         var kv = {};
