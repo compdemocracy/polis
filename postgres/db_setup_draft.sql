@@ -1,5 +1,16 @@
 -- NOTE: use \d TABLENAME to see info, like indexes
 
+-- Intersting query examples:
+-- 1.
+--  This one uses postgres's ful text search without an index.
+-- Query:
+--   select topic from conversations where to_tsvector(topic) @@ to_tsquery('(wage | night)  & seattle');
+-- Results:
+--   Seattle JS Hack Night Frequency
+--   Seattle Minimum Wage Hike
+
+
+
 
 CREATE OR REPLACE FUNCTION now_as_millis() RETURNS BIGINT AS $$
         DECLARE
