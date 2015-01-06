@@ -7487,7 +7487,7 @@ function(req, res) {
                         if (rows && rows.length) {
                             res.redirect(dest);
                         } else {
-                            fail(res, 500, "polis_err_twitter_auth_06.", err);                        
+                            fail(res, 500, "polis_err_twitter_auth_06", err);                        
                         }
                     });
                     
@@ -7499,11 +7499,15 @@ function(req, res) {
                     fail(res, 500, "polis_err_twitter_auth_05", err);
                 }
             });
+        }, function(err) {
+            fail(res, 500, "polis_err_twitter_auth_041", err);
         }).catch(function(err) {
             fail(res, 500, "polis_err_twitter_auth_04", err);
         });
+    }, function(err) {
+        fail(res, 500, "polis_err_twitter_auth_gettoken", err);
     }).catch(function(err) {
-        fail(res, 500, "polis_err_twitter_auth_02", err);
+        fail(res, 500, "polis_err_twitter_auth_misc", err);
     });
 });
 
