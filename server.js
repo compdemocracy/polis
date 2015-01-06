@@ -3276,6 +3276,7 @@ function verifyHmacForQueryParams(path, params) {
         var correctHash = createHmacForQueryParams(path, params);
         // To thwart timing attacks, add some randomness to the response time with setTimeout.
         setTimeout(function() {
+            console.log("comparing", correctHash, hash);
             if (correctHash === hash) {
                 resolve();
             } else {
@@ -7425,7 +7426,9 @@ function(req, res) {
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
     var dest = req.p.dest;
-    // console.dir(req.p);
+    console.log("twitter_oauth_callback params");
+    console.dir(req.p);
+    console.log("twitter_oauth_callback params end");
     getTwitterAccessToken({
         oauth_verifier: req.p.oauth_verifier,
         oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
