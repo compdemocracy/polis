@@ -7503,7 +7503,12 @@ function(req, res) {
             fail(res, 500, "polis_err_twitter_auth_04", err);
         });
     }).catch(function(err) {
-        fail(res, 500, "polis_err_twitter_auth_02", err);
+
+        res.set({
+            'Content-Type': 'text/html',
+        });
+        res.status(200).send(err.data);
+        // fail(res, 500, "polis_err_twitter_auth_02", err);
     });
 });
 
