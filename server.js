@@ -7431,6 +7431,21 @@ function switchToUser(req, res, uid) {
     });
 }
 
+// retry, resolving with first success, or rejecting with final error
+function retryFunctionWithPromise(f, numTries) {
+    return new Promise(function(resolve, reject) {
+        f().then(function(x) {
+            resolve(x);
+        }, function(err) {
+            numTries -= 1;
+            if (numTries <= 0) {
+                reject(err);
+            } else {
+                retryFunctionWithPromise(f, numTries);
+            }
+        });
+    });
+}
 
 app.get("/api/v3/twitter_oauth_callback",
     moveToBody,
