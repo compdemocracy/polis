@@ -7506,14 +7506,14 @@ function(req, res) {
                         pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
                         pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
                     ]).then(function(foo) {
-                        var uidExists = foo[0] && foo[0].rows && foo[0].rows.length;
-                        var twitterIdExists = foo[1] && foo[1].rows && foo[1].rows.length;
+                        var uidExists = foo[0] && foo[0].length;
+                        var twitterIdExists = foo[1] && foo[1].length;
                         var uidForTwitterId;
                         if (twitterIdExists) {
-                            uidForTwitterId = foo[1].rows[0].uid;
+                            uidForTwitterId = foo[1].uid;
                         }
                         if (uidExists && twitterIdExists) {
-                            if (foo[0].rows[0].uid === uidForTwitterId) {
+                            if (foo[0].uid === uidForTwitterId) {
                                 // match
                                 res.redirect(dest);
                             } else {
@@ -7539,7 +7539,7 @@ function(req, res) {
                                 fail(res, 500, "polis_err_twitter_auth_234", err);                        
                             });
                         } else {
-                            fail(res, 500, "polis_err_twitter_auth_345", err);                        
+                            fail(res, 500, "polis_err_twitter_auth_345");                        
                         }
                     });
                     
