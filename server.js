@@ -4757,6 +4757,8 @@ function(req, res) {
     });
 });
 
+
+
 app.get("/api/v3/users",
     moveToBody,
     authOptional(assignToP),
@@ -4770,17 +4772,20 @@ function(req, res) {
     Promise.all([
         getUserInfoForUid2(uid),
         getFacebookInfo(uid),
+        getTwitterInfo(uid),
     ]).then(function(o) {
         var info = o[0];
         var fbInfo = o[1];
+        var twInfo = o[2];
 
         var hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
-
+        var hasTwitter = twInfo && twInfo.length && twInfo[0];
         res.json({
             uid: uid,
             email: info.email,
             hname: info.hname,
             hasFacebook: !!hasFacebook,
+            hasTwitter: !!hasTwitter,
             finishedTutorial: !!info.tut,
             site_ids: [info.site_id],
             created: Number(info.created),
@@ -7582,6 +7587,10 @@ function(req, res) {
         fail(res, 500, "polis_err_twitter_auth_misc", err);
     });
 });
+
+function getTwitterInfo(uid) {
+    return pgQueryP("select * from twitter_users where uid = ($1);", [uid]);
+}
 
 function getFacebookInfo(uid) {
     return pgQueryP("select * from facebook_users where uid = ($1);", [uid]);
