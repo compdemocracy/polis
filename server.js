@@ -7501,17 +7501,45 @@ function(req, res) {
                 if (isDuplicateKey(err)) {
                     // we know the uid OR twitter_user_id is filled
                     // check if the uid is there with the same twitter_user_id - if so, redirect and good!
-                    pgQueryP("select * from twitter_users where uid = ($1) and twitter_user_id = ($2);", [uid, u.id]).then(function(rows) {
-                        if (rows && rows.length) {
-                            res.redirect(dest);
-                        } else {
-                            // looks like the twitter account is linked to another uid.
+                    // determine which kind of duplicate
+                    Promise.all([
+                        pgQueryP("select * from twitter_users where uid = ($1);", [uid]),
+                        pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [u.id]),
+                    ]).then(function(foo) {
+                        var uidExists = foo[0] && foo[0].rows && foo[0].rows.length;
+                        var twitterIdExists = foo[1] && foo[1].rows && foo[1].rows.length;
+                        var uidForTwitterId;
+                        if (twitterIdExists) {
+                            uidForTwitterId = foo[1].rows[0].uid;
+                        }
+                        if (uidExists && twitterIdExists) {
+                            if (foo[0].rows[0].uid === uidForTwitterId) {
+                                // match
+                                res.redirect(dest);
+                            } else {
+                                // TODO_SECURITY_REVIEW
+                                // both exist, but not same uid
+                                switchToUser(req, res, uidForTwitterId).then(function() {
+                                    res.redirect(dest);
+                                }).catch(function(err) {
+                                    fail(res, 500, "polis_err_twitter_auth_456", err);                        
+                                });
+                            }
+                        } else if (uidExists) {
+                            // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
+                            // the newly supplied twitter account is not attached to anything.
+                            fail(res, 500, "polis_err_twitter_already_attached", err);                        
+                        } else if (twitterIdExists) {
+                            // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
                             // For now, let's just have it sign in as that user.
-                            switchToUser(req, res, uid).then(function() {
+                            // TODO_SECURITY_REVIEW
+                            switchToUser(req, res, uidForTwitterId).then(function() {
                                 res.redirect(dest);
                             }).catch(function(err) {
-                                fail(res, 500, "polis_err_twitter_auth_06", err);                        
+                                fail(res, 500, "polis_err_twitter_auth_234", err);                        
                             });
+                        } else {
+                            fail(res, 500, "polis_err_twitter_auth_345", err);                        
                         }
                     });
                     
