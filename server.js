@@ -7300,7 +7300,7 @@ function(req, res) {
 
     getTwitterRequestToken(returnUrl).then(function(data) {        
         console.dir(data);
-        data += "&callback_url=" + "https://pol.is/foobar";
+        data += "&callback_url=" + dest;
         // data += "&callback_url=" + encodeURIComponent(getServerNameWithProtocol(req) + "/foo");
         res.redirect("https://api.twitter.com/oauth/authenticate?" + data);
     }).catch(function(err) {
