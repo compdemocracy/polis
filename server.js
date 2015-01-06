@@ -7434,11 +7434,14 @@ function switchToUser(req, res, uid) {
 // retry, resolving with first success, or rejecting with final error
 function retryFunctionWithPromise(f, numTries) {
     return new Promise(function(resolve, reject) {
+        console.log("retryFunctionWithPromise", numTries);
         f().then(function(x) {
+            console.log("retryFunctionWithPromise", "RESOLVED");
             resolve(x);
         }, function(err) {
             numTries -= 1;
             if (numTries <= 0) {
+                console.log("retryFunctionWithPromise", "REJECTED");
                 reject(err);
             } else {
                 retryFunctionWithPromise(f, numTries);
