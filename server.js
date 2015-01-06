@@ -4368,7 +4368,7 @@ function(req, res) {
 });
 
 app.post("/api/v3/auth/facebook",
-    // authOptional(assignToP),
+    authOptional(assignToP),
     // need('fb_user_id', getStringLimitLength(1, 9999), assignToP),
     // need('fb_login_status', getStringLimitLength(1, 9999), assignToP),
     // need('fb_auth_response', getStringLimitLength(1, 9999), assignToP),
@@ -4401,6 +4401,7 @@ function(req, res) {
     var hname = req.p.hname;
     var referrer = req.cookies[COOKIES.REFERRER];
     var password = req.p.password;
+    var uid = req.p.uid;
 
     var fb_friends_response = req.p.fb_friends_response ? JSON.parse(req.p.fb_friends_response) : null;
 
@@ -4499,10 +4500,15 @@ function(req, res) {
 
             var promise;
             if (uid) {
-                // user record already exists
-                promise = Promise.resolve(uid);
-                // TODO - the user record might not have any info about the user
-                // We should probably populate it from the facebook info.
+                // user record already exists, so populate that in case it has missing info
+                promise = Promise.all([
+                    pgQueryP("select * from users where uid = ($1);", [uid]),
+                    pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;",[hname, uid]),
+                    pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[email, uid]),
+                ]).then(function(o) {
+                    var user = o[0][0];
+                    return user;
+                });
             } else {
                 var query = "insert into users " +
                     "(email, hname) VALUES "+
@@ -4511,15 +4517,13 @@ function(req, res) {
                 promise = pgQueryP(query, [email, hname])
                 .then(function(rows) {
                     var user = rows && rows.length && rows[0] || null;
-                    return user.uid;
+                    return user;
                 });
             }
             // Create user record
             promise
             .then(function(uid) {
-                return createFacebookUserRecord(_.extend({}, {
-                    uid: uid
-                }, fbUserRecord)).then(function() {
+                return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
                     return user;
                 });
             })
