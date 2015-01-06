@@ -7445,7 +7445,7 @@ function retryFunctionWithPromise(f, numTries) {
                 console.log("retryFunctionWithPromise", "REJECTED");
                 reject(err);
             } else {
-                retryFunctionWithPromise(f, numTries);
+                retryFunctionWithPromise(f, numTries).then(resolve, reject);
             }
         });
     });
