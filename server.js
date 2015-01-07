@@ -4584,6 +4584,8 @@ function(req, res) {
                         }
                     });
                 }
+            }, function(err) {
+                fail(res, 500, "polis_err_reg_fb_user_misc22", err); 
             }).catch(function(err) {
                 fail(res, 500, "polis_err_reg_fb_user_misc2", err); 
             });
