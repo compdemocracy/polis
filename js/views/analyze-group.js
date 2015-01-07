@@ -8,7 +8,7 @@ var AnalyeGroupParticipantsView = require("../views/analyzeGroupParticipantsView
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
-var el_carouselSelector = "#carousel";
+var el_carouselSelector = "#carouselForGroup";
 
 var isMobile = Utils.isMobile();
 
@@ -164,11 +164,11 @@ module.exports = Handlebones.View.extend({
   },
   hideCarousel: function() {
     // this.$("#commentListView").show();
-    // this.$("#carousel").hide();
+    // this.$(el_carouselSelector).hide();
   },
   showCarousel: function() {
     this.$("#commentListView").hide();
-    this.$("#carousel").show();
+    this.$(el_carouselSelector).show();
   },
   updateSearch: function(e) {
     this.searchString = e.target.value;
@@ -290,10 +290,10 @@ module.exports = Handlebones.View.extend({
           $(el_carouselSelector).html("");
           // $(el_carouselSelector).css("overflow", "hidden");        
 
-          // $(el_carouselSelector).append("<div id='smallWindow' style='width:90%'></div>");
-          $(el_carouselSelector).append("<div id='smallWindow' style='left: 10%; width:80%'></div>");
+          // $(el_carouselSelector).append("<div id='smallWindowForGroup' style='width:90%'></div>");
+          $(el_carouselSelector).append("<div id='smallWindowForGroup' style='left: 10%; width:80%'></div>");
 
-          var results = $("#smallWindow");
+          var results = $("#smallWindowForGroup");
           results.addClass("owl-carousel");
           // results.css('background-color', 'yellow');
 
@@ -317,22 +317,22 @@ module.exports = Handlebones.View.extend({
               }
 
            // setTimeout(function() {
-              $("#carousel").fadeIn("slow", function() {
+              $(el_carouselSelector).fadeIn("slow", function() {
 
                 if (!isMobile) {
-                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
-                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
+                  $(el_carouselSelector).find(".owl-pagination").prepend('<button id="groupCarouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
+                  $(el_carouselSelector).find(".owl-pagination").append( '<button id="groupCarouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
 
 
                   // <div id="carouselNext">next</div>")
 
-                  $("#carouselNext").on("click", function(e) {
-                    var owl = $("#smallWindow").data('owlCarousel');
+                  $("#groupCarouselNext").on("click", function(e) {
+                    var owl = $("#smallWindowForGroup").data('owlCarousel');
                     owl.next();
                   });
 
-                  $("#carouselPrev").on("click", function(e) {
-                    var owl = $("#smallWindow").data('owlCarousel');
+                  $("#groupCarouselPrev").on("click", function(e) {
+                    var owl = $("#smallWindowForGroup").data('owlCarousel');
                     owl.prev();
                   });
                 }
@@ -354,7 +354,7 @@ module.exports = Handlebones.View.extend({
           });
 
           $(el_carouselSelector).on("click", function(e) {
-            var owl = $("#smallWindow").data('owlCarousel');
+            var owl = $("#smallWindowForGroup").data('owlCarousel');
             // var $comment = $(e);
             var index = $(e.target).data("idx");
             if (_.isNumber(index)) {

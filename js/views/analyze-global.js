@@ -342,18 +342,18 @@ module.exports = Handlebones.View.extend({
               $(el_carouselSelector).fadeIn("slow", function() {
 
                 if (!isMobile) {
-                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
-                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
+                  $(el_carouselSelector).find(".owl-pagination").prepend('<button id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
+                  $(el_carouselSelector).find(".owl-pagination").append( '<button id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
 
                   // <div id="carouselNext">next</div>")
 
 
-                  $("#carouselNext").on("click", function(e) {
+                  $("#majorityCarouselNext").on("click", function(e) {
                     var owl = $("#smallWindow2").data('owlCarousel');
                     owl.next();
                   });
 
-                  $("#carouselPrev").on("click", function(e) {
+                  $("#majorityCarouselPrev").on("click", function(e) {
                     var owl = $("#smallWindow2").data('owlCarousel');
                     owl.prev();
                   });
