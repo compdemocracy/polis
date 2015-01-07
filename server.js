@@ -2201,6 +2201,12 @@ function(req, res) {
         var mathResults = items[2];
 
 
+        if (pid < 0) {
+            // NOTE: this API should not be called in /demo mode 
+            fail(res, 500, "polis_err_get_bid_bad_pid");
+            return;
+        }
+
         var indexToBid = mathResults["base-clusters"].id;
 
         var yourBidi = -1;
@@ -2939,27 +2945,33 @@ function joinConversation(zid, uid, pmaid_answers) {
         return tryToJoinConversation(zid, uid, pmaid_answers);
     }
 
+    function doJoin() {
+        // retry up to 10 times
+        // NOTE: Shouldn't be needed, since we have an advisory lock in the insert trigger.
+        //       However, that doesn't seem to be preventing duplicate pid constraint errors.
+        //       Doing this retry in JS for now since it's quick and easy, rather than try to
+        //       figure what's wrong with the postgres locks.
+        var promise = tryJoin()
+            .catch(tryJoin)
+            .catch(tryJoin)
+            .catch(tryJoin)
+            .catch(tryJoin)
+            .catch(tryJoin)
+            .catch(tryJoin)
+            .catch(tryJoin)
+            .catch(tryJoin)
+            .catch(tryJoin);
+        return promise;
+    }
 
   return getPidPromise(zid, uid).then(function(pid) {
-    // already a ptpt, so don't create another
-  }, function(err) {
-    // retry up to 10 times
-    // NOTE: Shouldn't be needed, since we have an advisory lock in the insert trigger.
-    //       However, that doesn't seem to be preventing duplicate pid constraint errors.
-    //       Doing this retry in JS for now since it's quick and easy, rather than try to
-    //       figure what's wrong with the postgres locks.
-    var promise = tryJoin()
-        .catch(tryJoin)
-        .catch(tryJoin)
-        .catch(tryJoin)
-        .catch(tryJoin)
-        .catch(tryJoin)
-        .catch(tryJoin)
-        .catch(tryJoin)
-        .catch(tryJoin)
-        .catch(tryJoin);
-    return promise;
-  });
+    if (pid >= 0) {
+        // already a ptpt, so don't create another
+        return;
+    } else {
+        return doJoin();
+    }
+  }, doJoin);
 }
 
 function isOwnerOrParticipant(zid, uid, callback) { 
@@ -3036,7 +3048,8 @@ function getPidPromise(zid, uid) {
         pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
             if (err) {return reject(err);}
             if (!results || !results.rows || !results.rows.length) {
-                return reject(new Error("polis_err_getPidPromise_failed"));
+                resolve(-1);
+                return;
             }
             resolve(results.rows[0].pid);
         });
@@ -5594,6 +5607,12 @@ function(req, res) {
         var conv = results[1];
         var is_moderator = results[2];
         var commentExists = results[3];
+
+        if (pid < 0) {
+            // NOTE: this API should not be called in /demo mode 
+            fail(res, 500, "polis_err_post_comment_bad_pid");
+            return;
+        }
 
         if (commentExists) {
             fail(res, 409, "polis_err_post_comment_duplicate", err);
