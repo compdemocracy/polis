@@ -4522,7 +4522,7 @@ function(req, res) {
             }
             // Create user record
             promise
-            .then(function(uid) {
+            .then(function(user) {
                 return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
                     return user;
                 });
