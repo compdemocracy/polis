@@ -15,7 +15,7 @@
         href="#commentView"
         id="commentViewTab"
         class="HeadingC polis-tab"
-        style="padding: 10px 10px !important; border: none;  text-transform: none;"
+        style="padding: 10px 5px !important; border: none;  text-transform: none;"
         data-toggle="tab">
         {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}{{#if showTabs}}READ &amp; REACT{{/if}} --}}
         Read
@@ -28,7 +28,7 @@
         href="#commentForm"
         id="commentFormTab"
         class="HeadingC polis-tab"
-        style="padding: 10px 10px !important; border: none; text-transform: none;"
+        style="padding: 10px 5px !important; border: none; text-transform: none;"
         data-toggle="tab">
         {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}{{#if showTabs}} WRITE{{/if}} --}}
         Write
@@ -42,7 +42,7 @@
         href="#analyze"
         id="analyzeTab"
         class="HeadingC polis-tab"
-        style="padding: 10px 10px !important; border: none;  text-transform: none;"
+        style="padding: 10px 5px !important; border: none;  text-transform: none;"
         data-toggle="tab">
         {{!-- See Consensus --}}
         Majority
@@ -100,15 +100,27 @@
     font-size: 18px;
     ' class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
     <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo">
-    Login
+    {{dropdownLabel}}
     <span class="caret"></span>
   </button>
   <ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu1">
-    <li role="presentation"><a id="twitterConnectBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
-    <li role="presentation"><a id="fbConnectBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
+{{#ifNotAuthenticated}}
+    <li role="presentation"><a id="twitterLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
+    <li role="presentation"><a id="fbLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
     {{!-- <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
+{{/ifNotAuthenticated}}
 {{#ifAuthenticated}}
+  {{#unless hasTwitter}}
+    <li role="presentation"><a id="twitterConnectBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div>Connect Twitter</a></li>
+  {{/unless}}
+  {{#unless hasFacebook}}
+    <li role="presentation"><a id="fbConnectBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div>Connect Facebook</a></li>
+  {{/unless}}
+    {{!-- <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
+
+  {{#if showLogout}}
     <li role="presentation"><a role="menuitem" tabindex="-1" href="/user/logout{{logoutDest}}"><div style="display: inline-block; width: 20px"></div> Logout</a></li>
+  {{/if}}
 {{/ifAuthenticated}}
 
   </ul>

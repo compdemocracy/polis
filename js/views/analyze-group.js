@@ -258,6 +258,7 @@ module.exports = Handlebones.View.extend({
           var word = repfullForAgree ?
             "<span class='HeadingE a'>agreed</span>" :
             "<span class='HeadingE d'>disagreed</span>";
+          var wordUnstyled = repfullForAgree ? "agreed" : "disagreed";
           var bodyColor = "#333"; //repfullForAgree ?
             // "#20442F" :
             // "rgb(68, 33, 33)";
@@ -265,7 +266,8 @@ module.exports = Handlebones.View.extend({
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
               "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
-             "<span>(of "+ v.S +"/"+ info.count +" who saw this)</span>";
+             "<div style='font-size:12px'>" + v.S +" in selected group saw this comment.</div>" +
+             "<div style='font-size:12px'>"+ count +" of those "+wordUnstyled+".</div>";
              // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
           var html = 
@@ -316,8 +318,9 @@ module.exports = Handlebones.View.extend({
               $("#carousel").fadeIn("slow", function() {
 
                 if (!isMobile) {
-                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; ">PREVIOUS</button>');
-                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; ">NEXT</button>');
+                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
+                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
+
 
                   // <div id="carouselNext">next</div>")
 

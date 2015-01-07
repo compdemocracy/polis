@@ -867,6 +867,18 @@ module.exports =  ConversationView.extend({
 
       
       configureGutters();
+      var windowWidth = $(window).width();
+
+      function resizeVis() {
+        var windowWidthNew = $(window).width();
+        if (windowWidth !== windowWidthNew) {
+          windowWidth = windowWidthNew;
+          configureGutters();
+          initPcaVis();
+        }
+      }
+      var resizeVisWithDebounce = _.debounce(resizeVis, 500);
+
       if (isIE8) {
         // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
         // http://stackoverflow.com/questions/1852751/window-resize-event-firing-in-internet-explorer
@@ -874,10 +886,6 @@ module.exports =  ConversationView.extend({
         // document.body.onresize = _.debounce(initPcaVis, 1000)
       } else {
         setTimeout(initPcaVis, 10); // give other UI elements a chance to load        
-        $(window).resize(_.debounce(function() {
-          configureGutters();
-          initPcaVis();
-        }, 100));
 
         // This need to happen quickly, so no debounce
         $(window).resize(function() {
@@ -892,6 +900,9 @@ module.exports =  ConversationView.extend({
               moveVisToBottom,
               10);
           }
+
+          resizeVisWithDebounce();
+
         });
       }
 

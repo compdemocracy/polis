@@ -339,10 +339,11 @@ module.exports = Handlebones.View.extend({
               $(el_carouselSelector).fadeIn("slow", function() {
 
                 if (!isMobile) {
-                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; ">PREVIOUS</button>');
-                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; ">NEXT</button>');
+                  $(".owl-pagination").prepend('<button id="carouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
+                  $(".owl-pagination").append( '<button id="carouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
 
                   // <div id="carouselNext">next</div>")
+
 
                   $("#carouselNext").on("click", function(e) {
                     var owl = $("#smallWindow2").data('owlCarousel');

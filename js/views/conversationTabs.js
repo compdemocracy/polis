@@ -75,12 +75,18 @@ module.exports =  Handlebones.ModelView.extend({
     }
     c.logoutDest = window.location.pathname + window.location.hash;
     c.use_background_content_class = display.xs();
+    c.hasFacebook = userObject.hasFacebook;
+    c.hasTwitter = userObject.hasTwitter;
+    c.dropdownLabel = userObject.hname || "Login";
+    c.showLogout = userObject.hasTwitter || userObject.hasFacebook;
     return c;
   },
 
   events: {
     "click #fbConnectBtn": "fbConnectBtn",
     "click #twitterConnectBtn": "twitterConnectBtn",
+    "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
+    "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
 
     // Before shown
     "show.bs.tab": function (e) {

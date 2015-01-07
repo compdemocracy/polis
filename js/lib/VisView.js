@@ -58,18 +58,24 @@ var selectedTid = -1;
 var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
-var COLOR_SELECTED_HULL = false;
+var COLOR_SELECTED_HULL = true;
+var EXTRA_RADIUS_FOR_HALO_PIE = 2;
+var EXTRA_RADIUS_FOR_SUMMARY_HALO = 2;
+var SELECTED_HULL_RADIUS_BOOST = 3;
+var UNSELECTED_HULL_RADIUS_BOOST = -1;
 
 var width = $(el_raphaelSelector).width();
 
 // var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
 var retina = window.devicePixelRatio > 1;
-var ptptOiRadius = retina ? 16 : 24; // go smaller on retina, the image should be higher res
+var ptptOiRadius = retina ? 12 : 20; // go smaller on retina, the image should be higher res
 if (isMobile) {
     ptptOiRadius = 9;
 }
+var friendOrFolloweeRadius = ptptOiRadius + 2;
+
 var haloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
-var haloVoteWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
+var haloVoteWidth = d3.scale.linear().range([2, 5]).domain([350, 800]).clamp(true)(width);
 var anonBlobRadius = isMobile ? 18 : 24;
 var anonBlobHaloWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
 var anonBlobHaloVoteWidth = anonBlobHaloWidth; //d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
@@ -371,9 +377,9 @@ if (useForce) {
         .charge(function(d) {
             // slight overlap allowed
             if (isSummaryBucket(d)) {
-                return -450;
+                return -1000;
             } else {
-                return -120;
+                return -300;
             }
         })
         .size([w, h]);
@@ -705,6 +711,13 @@ function updateHulls() {
                         // .style("fill-opacity", hullOpacity)
                         // .style("stroke-opacity", hullOpacity)
                         .style("stroke-width", shadowStrokeWidth)
+                        .attr("transform", function(h) {
+                            if (h.hullId === getSelectedGid()) {
+                                return "translate(2, 2)";
+                            } else {
+                                return "translate(1, 1)";
+                            }
+                        })
                         .style("visibility", "visible");
                 }
             }
@@ -1061,8 +1074,10 @@ function chooseUpArrowPath(d) {
     var ratio =  d.ups / count;
     ratio = Math.min(ratio, 0.99999);
 
-    var r = chooseCircleRadius(d) + 5;
-
+    var r = chooseCircleRadius(d);
+    if (isSummaryBucket(d)) {
+        r += EXTRA_RADIUS_FOR_SUMMARY_HALO;
+    }
     var start = pieChartOrigin - (TAU*ratio/2);//degrees/2;
     var end = pieChartOrigin + (TAU*ratio/2); // -degrees/2;
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
@@ -1107,7 +1122,11 @@ function chooseDownArrowPath(d) {
     var ratio =  d.downs / count;
     ratio = Math.min(ratio, 0.99999);
 
-    var r = chooseCircleRadius(d) + 5;
+    var r = chooseCircleRadius(d);
+    if (isSummaryBucket(d)) {
+        r += EXTRA_RADIUS_FOR_SUMMARY_HALO;
+    }
+
     var TAU = Math.PI*2;
     var start = (pieChartOrigin - Math.PI) - (TAU*ratio/2);//degrees/2;
     var end = (pieChartOrigin - Math.PI) + (TAU*ratio/2); // -degrees/2;
@@ -1197,7 +1216,9 @@ function chooseCircleRadiusOuter(d) {
         r = anonBlobRadius;
     }
     if (d.gid === getSelectedGid()) {
-        r += 2;
+        r += SELECTED_HULL_RADIUS_BOOST;
+    } else {
+        r += UNSELECTED_HULL_RADIUS_BOOST;
     }
     return r;
 }
@@ -1537,15 +1558,16 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   // .style("stroke", colorPushOutline)
       //   // .style("stroke-width", 1)
       //   ;
+      var ptptoiImageZoomFactor = 1.25;
       var picEnter = g.append("image")
       picEnter
         // .classed("circle", true)
         .classed("bktv", true)
-        .attr("x", -ptptOiRadius)
-        .attr("y", -ptptOiRadius)
+        .attr("x", -ptptOiRadius * ptptoiImageZoomFactor)
+        .attr("y", -ptptOiRadius * ptptoiImageZoomFactor)
         // .style("visibility", "hidden")
-        .attr("height", ptptOiRadius*2)
-        .attr("width", ptptOiRadius*2)
+        .attr("height", ptptOiRadius * 2 * ptptoiImageZoomFactor)
+        .attr("width", ptptOiRadius * 2 * ptptoiImageZoomFactor)
         .attr("clip-path", "url(#clipCircle)")
         .attr("xlink:href", function(d) {
             return d.pic;
@@ -1980,7 +2002,7 @@ function doUpdateNodes() {
         update.selectAll(".grayHalo")
                 .style("stroke", function(d) {
                     if (isSelf(d)) {
-                        if (commentIsSelected()) {
+                        if (clusterIsSelected()) {
                             if (d.ups || d.downs) {
                                 return grayHaloColorSelected;
                             } else {
@@ -1990,7 +2012,7 @@ function doUpdateNodes() {
                             return colorSelf;
                         }
                     } else {
-                        if (commentIsSelected()) {
+                        if (clusterIsSelected()) {
                             if (isParticipantOfInterest(d)) {
                                 if (d.ups || d.downs) {
                                     return grayHaloColorSelected;
@@ -2119,17 +2141,6 @@ function doUpdateNodes() {
                 }
                 return "visible";
             })
-        ;
-
-        update.selectAll(".grayHalo")
-            .filter(isSelf)
-                .style("stroke", function(d) {
-                    if (commentIsSelected()) {
-                        return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
-                    } else {
-                        return colorSelf;
-                    }
-                })
         ;
   }
 }
