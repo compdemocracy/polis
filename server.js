@@ -4509,12 +4509,13 @@ function(req, res) {
                     pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;",[hname, uid]),
                     pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[email, uid]),
                 ]).then(function(o) {
+                    var user = o[0][0];
                     console.log("fb1 5a");
                     console.dir(user);
                     console.log("end fb1 5a");
-                    var user = o[0][0];
                     return user;
                 });
+                console.log("fb1 5a....");
             } else {
 
                 console.log("fb1 5b...");
