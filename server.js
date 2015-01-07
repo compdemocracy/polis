@@ -4526,10 +4526,10 @@ function(req, res) {
                     "returning *;";
                 promise = pgQueryP(query, [email, hname])
                 .then(function(rows) {
+                    var user = rows && rows.length && rows[0] || null;
                     console.log("fb1 5b");
                     console.dir(user);
                     console.log("end fb1 5b");
-                    var user = rows && rows.length && rows[0] || null;
                     return user;
                 });
             }
