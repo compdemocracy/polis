@@ -72,6 +72,8 @@ var ptptOiRadius = retina ? 12 : 20; // go smaller on retina, the image should b
 if (isMobile) {
     ptptOiRadius = 9;
 }
+ptptOiRadius += d3.scale.linear().range([0, 8]).domain([350, 800]).clamp(true)(width);
+
 var friendOrFolloweeRadius = ptptOiRadius + 2;
 
 var haloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
