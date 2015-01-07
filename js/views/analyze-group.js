@@ -255,6 +255,7 @@ module.exports = Handlebones.View.extend({
             v.A :
             v.D;
           // L10N gods forgive me
+          var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
           var word = repfullForAgree ?
             "<span class='HeadingE a'>agreed</span>" :
             "<span class='HeadingE d'>disagreed</span>";
@@ -279,6 +280,7 @@ module.exports = Handlebones.View.extend({
               "<p>" +
                 c.get("txt") +
               "</p>" +
+              '<p style="padding: 0px 0px 7px 20px; font-size: 12px; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>";
           return html;
         });

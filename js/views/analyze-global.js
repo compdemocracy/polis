@@ -285,6 +285,8 @@ module.exports = Handlebones.View.extend({
           var bodyColor = "#333"; //repfullForAgree ?
           //   // "#20442F" :
           //   // "rgb(68, 33, 33)";
+          var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
+
           var forAgree = !!tidToConsensusInfo[tid].a;
           var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
           // header =
@@ -300,6 +302,7 @@ module.exports = Handlebones.View.extend({
               "<p>" +
                 c.get("txt") +
               "</p>" +
+              '<p style="padding: 0px 0px 7px 20px; font-size: 12px; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>";
           return html;
         });
