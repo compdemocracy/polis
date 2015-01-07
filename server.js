@@ -4523,6 +4523,10 @@ function(req, res) {
             // Create user record
             promise
             .then(function(user) {
+
+                console.log("fb1 4");
+                console.dir(user);
+                console.log("end fb1 4");
                 return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
                     return user;
                 });
