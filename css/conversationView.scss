@@ -432,6 +432,19 @@ svg {
     border-bottom: 1px solid $hover-color;
   }  
 
+  .analyze-group-banner-1 {
+    width:100%;
+    background-color: #eee;
+    // text-align: center;
+    text-transform: uppercase;
+    padding: 10px;
+    font-size: 18px;
+    font-family: $headline-font;
+    color: $light-gray;
+    font-weight: normal;
+    letter-spacing: 0.04em;
+  }
+
 
 /* mobile */
 @media (max-width: 767px) {
@@ -443,34 +456,6 @@ svg {
   .writingTipsParent {
     display: none;
   }
-
-
-  .analyze-group-banner-1 {
-    width:100%;
-    background-color: #F5F5F5;
-    text-align: center;
-    // text-transform: uppercase;
-    padding: 5px 0px 4px 0px;
-    font-size: 16px;
-    font-family: $headline-font;
-    color: $light-gray;
-    font-weight: normal;
-    letter-spacing: 0.04em;
-  }
-
-  .analyze-group-banner-1 p {
-
-    // background-color: rgb(233, 240, 247);
-    // border: 1px dashed #6FBAFF;
-    // display: inline;
-    // padding: 5px 10px;
-    // border-radius: 5px;
-  }
-
-
-
-
-
 
 }
 
@@ -497,32 +482,6 @@ svg {
     background-color: white;
     top:-2px;
   }
-
-
-
-
-  .analyze-group-banner-1 {
-    width:100%;
-    background-color: #eee;
-    text-align: center;
-    text-transform: uppercase;
-    padding: 20px 0px 10px 0px;
-  }
-
-  .analyze-group-banner-1 p {
-    font-size: 24px;
-    font-family: $headline-font;
-    color: $light-gray;
-    font-weight: normal;
-    letter-spacing: 0.04em;
-    // background-color: rgb(233, 240, 247);
-    // border: 1px dashed #6FBAFF;
-    // display: inline;
-    // padding: 5px 10px;
-    // border-radius: 5px;
-  }
-
-
 
   .write-pane {
   //   border-right: 3px solid lightgrey;

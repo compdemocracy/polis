@@ -266,13 +266,13 @@ module.exports = Handlebones.View.extend({
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
               "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
-             "<div style='font-size:12px'>" + v.S +" in selected group saw this comment.</div>" +
-             "<div style='font-size:12px'>"+ count +" of those "+wordUnstyled+".</div>";
+             "<div style='font-size:12px'><strong>" + v.S +"</strong> <em> in the selected group saw this comment. </em></div>" +
+             "<div style='font-size:12px'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
              // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
           var html = 
-            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
-              "<p>" +
+            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+              "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
               "</p>" +
