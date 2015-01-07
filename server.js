@@ -4506,8 +4506,8 @@ function(req, res) {
                 // user record already exists, so populate that in case it has missing info
                 promise = Promise.all([
                     pgQueryP("select * from users where uid = ($1);", [uid]),
-                    pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;",[hname, uid]),
-                    pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[email, uid]),
+                    pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;",[uid, hname]),
+                    pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[uid, email]),
                 ]).then(function(o) {
                     var user = o[0][0];
                     console.log("fb1 5a");
