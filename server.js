@@ -3023,7 +3023,7 @@ function getParticipant(zid, uid) {
         pgQuery("SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
             if (err) {return reject(err);}
             if (!results || !results.rows) {
-                return reject(new Error("polis_err_getPidPromise_failed"));
+                return reject(new Error("polis_err_getParticipant_failed"));
             }
             resolve(results.rows[0]);
         });
