@@ -9837,7 +9837,7 @@ function(req, res) {
         var url = data.profile_image_url; // not https to save a round-trip
         var x = request.get(url);
         // req.pipe(x);
-        res.setHeader('Cache-Control', 'no-transform,public,max-age=3600,s-maxage=3600');
+        res.setHeader('Cache-Control', 'no-transform,public,max-age=18000,s-maxage=18000');
         x.pipe(res);
         x.on("error", function(err) {
             fail(res, 500, "polis_err_finding_file " + path, err);
