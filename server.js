@@ -4550,6 +4550,9 @@ function(req, res) {
                 fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
             })
             .then(function(user) {
+                console.log("fb1");
+                console.dir(user);
+                console.log("end fb1");
                 res.json({
                     uid: user.uid,
                     hname: user.hname,
