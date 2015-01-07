@@ -4500,22 +4500,34 @@ function(req, res) {
 
             var promise;
             if (uid) {
+
+                console.log("fb1 5a...");
+
                 // user record already exists, so populate that in case it has missing info
                 promise = Promise.all([
                     pgQueryP("select * from users where uid = ($1);", [uid]),
                     pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;",[hname, uid]),
                     pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[email, uid]),
                 ]).then(function(o) {
+                    console.log("fb1 5a");
+                    console.dir(user);
+                    console.log("end fb1 5a");
                     var user = o[0][0];
                     return user;
                 });
             } else {
+
+                console.log("fb1 5b...");
+
                 var query = "insert into users " +
                     "(email, hname) VALUES "+
                     "($1, $2) "+
                     "returning *;";
                 promise = pgQueryP(query, [email, hname])
                 .then(function(rows) {
+                    console.log("fb1 5b");
+                    console.dir(user);
+                    console.log("end fb1 5b");
                     var user = rows && rows.length && rows[0] || null;
                     return user;
                 });
