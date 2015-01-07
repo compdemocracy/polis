@@ -4528,6 +4528,9 @@ function(req, res) {
                 });
             })
             .then(function(user) {
+                console.log("fb1 3");
+                console.dir(user);
+                console.log("end fb1 3");
                 if (fb_friends_response) {
                     return addFacebookFriends(user.uid, fb_friends_response).then(function() {
                         return user;
@@ -4540,6 +4543,9 @@ function(req, res) {
                 fail(res, 500, "polis_err_reg_fb_user_creating_record2", err); 
             })
             .then(function(user) {
+                console.log("fb1 2");
+                console.dir(user);
+                console.log("end fb1 2");
                 var uid = user.uid;
                 return startSessionAndAddCookies(req, res, uid).then(function() {
                     return user;
