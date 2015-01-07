@@ -31,6 +31,7 @@ module.exports = Handlebones.ModelView.extend({
     }
     ctx.email = userObject.email;
     ctx.subscribed = this.isSubscribed();
+    ctx.createdString = (new Date(ctx.created * 1)).toString().match(/(.*?) [0-9]+:/)[1];
     return ctx;
   },
   animateOut: function() {
