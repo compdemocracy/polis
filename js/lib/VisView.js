@@ -50,6 +50,7 @@ var queryResults;
 var d3Hulls; // NOTE: this has constant length, may be longer than hulls array
 var d3HullSelections;
 var d3HullShadows;
+var hullPoints = [];
 
 var selectedCluster = -1;
 var selectedBids = [];
@@ -670,6 +671,7 @@ function updateHulls() {
 
             // another pass through the hull generator, to remove interior tesselated points.
             var points = d3.geom.hull(tessellatedPoints);
+            hullPoints[i] = points;
             if (!points.length) {
                 hideHull(i);
             } else {
@@ -2320,6 +2322,29 @@ function centerOfCluster(gid) {
         return [-99, -99];
     }
 }
+function dist(a, b) {
+    var dx = a[0] - b[0];
+    var dy = a[1] - b[1];
+    return Math.sqrt(dx*dx + dy*dy);
+}
+
+function nearestPointOnCluster(gid) {
+    var hull = hullPoints[gid];
+    if (!hull) {
+        return null;
+    }
+    var start = [-2, clusterPointerOriginY];
+    var distances = hull.map(function(pt) {
+        return {
+            dist: dist(start, pt),
+            pt: pt
+        };
+    });
+    distances.sort(function(a, b) {
+        return a.dist - b.dist;
+    });
+    return distances[0].pt;
+}
 
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
@@ -2333,22 +2358,29 @@ function updateLineToCluster(gid) {
     if (navigator.userAgent.match(/MSIE 10/)) {
         return;
     }
-    var center = centerOfCluster(gid);
+    // var center = centerOfCluster(gid);
+    var center = nearestPointOnCluster(gid);
+    if (!center) {
+        return;
+    }
     center[0] += xOffset;
 
+    // account for stroke width on hulls
+    center[0] = center[0] - 2;
     
+    var centerPointOnX = 1/3;
     helpLine.interpolate("basis");
     helpArrowPoints.splice(0); // clear
     helpArrowPoints.push([-2, clusterPointerOriginY]);
-    helpArrowPoints.push([ (-2+center[0])/2 , clusterPointerOriginY ]); // midpoint on x, same as origin on y
+    helpArrowPoints.push([ (-2+center[0]) * centerPointOnX , clusterPointerOriginY ]); // midpoint on x, same as origin on y
     helpArrowPoints.push(center);
 
     // center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
-        .attr("marker-end", "url(#ArrowTip)")
-        // .attr("marker-start", "url(#ArrowTip)")
-        // .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
+        // .attr("marker-end", "url(#ArrowTip)")
+        //// .attr("marker-start", "url(#ArrowTip)")
+        //// .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
         .attr("d", helpLine);
 }
 
