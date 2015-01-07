@@ -307,6 +307,9 @@ $(el_selector)
   ;
 }
 
+var helpLine;
+var helpArrowPoints = [];
+
 if (isIE8) {
     $(el_raphaelSelector).on("click", selectBackground);
     w = $(el_raphaelSelector).width();
@@ -337,7 +340,11 @@ if (isIE8) {
 
     overlay_layer = visualization.append(groupTag);
 
-    overlay_layer.append("polyline")
+    helpLine = d3.svg.line();
+    helpArrowPoints;
+
+    overlay_layer.append("path")
+        .datum(helpArrowPoints)
         .classed("helpArrow", true)
         .classed("helpArrowLine", true)
         .style("display", "none")
@@ -2329,12 +2336,20 @@ function updateLineToCluster(gid) {
     var center = centerOfCluster(gid);
     center[0] += xOffset;
 
-    center = center.join(",");
+    
+    helpLine.interpolate("basis");
+    helpArrowPoints.splice(0); // clear
+    helpArrowPoints.push([-2, clusterPointerOriginY]);
+    helpArrowPoints.push([ (-2+center[0])/2 , clusterPointerOriginY ]); // midpoint on x, same as origin on y
+    helpArrowPoints.push(center);
+
+    // center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
         .attr("marker-end", "url(#ArrowTip)")
         // .attr("marker-start", "url(#ArrowTip)")
-        .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
+        // .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
+        .attr("d", helpLine);
 }
 
 function onHelpTextClicked() {
