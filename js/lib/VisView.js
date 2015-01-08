@@ -2320,21 +2320,76 @@ function centerOfCluster(gid) {
         return [-99, -99];
     }
 }
-function dist(a, b) {
-    var dx = a[0] - b[0];
-    var dy = a[1] - b[1];
+function dist(start, b) {
+    var dx = start[0] - b[0];
+
+    var dy = start[1] - b[1];
+
+    // // https://www.google.com/search?q=x*x&oq=x*x&aqs=chrome..69i57j69i65l3j0l2.1404j0j7&sourceid=chrome&es_sm=91&ie=UTF-8#q=1+%2B+-5%5E(-((x-30)%5E2)%2F(2*8%5E2)
+    // var penaltyY = 10 * (1 + -5^(-((dy-30)^2)/(2*8^2)));
+    // dy += penaltyY;
     return Math.sqrt(dx*dx + dy*dy);
 }
+function distWithNonSquarePenalty(start, b) {
+    var dx = start[0] - b[0];
+
+    var dy = start[1] - b[1];
+
+    dy *= 1.5;
+    if (b[2] === "preferred") {
+        // this is a special preferred point
+        dx *= 0.9;
+        dy *= 0.9;
+    }
+    // var difference = Math.abs(dx - dy);
+    var difference = 0;
+    // // https://www.google.com/search?q=x*x&oq=x*x&aqs=chrome..69i57j69i65l3j0l2.1404j0j7&sourceid=chrome&es_sm=91&ie=UTF-8#q=1+%2B+-5%5E(-((x-30)%5E2)%2F(2*8%5E2)
+    // var penaltyY = 10 * (1 + -5^(-((dy-30)^2)/(2*8^2)));
+    // dy += penaltyY;
+    return Math.sqrt(dx*dx + dy*dy + difference*difference);
+}
+
+
+function subdivideLongEdges(originalPoints, minLengthForSubdivision) {
+    var points = [];
+    for (var i = 0; i < originalPoints.length; i++) {
+        var p1 = originalPoints[i];
+        points.push(p1);
+        var p2 = originalPoints[i + 1];
+        var pushP2 = true;
+        if (!p2) {
+            p2 = originalPoints[0];
+            pushP2 = false;
+        }
+        var len = dist(p1, p2);
+        if (len > minLengthForSubdivision) {
+            points.push([
+                (p1[0] + p2[0])/2,
+                (p1[1] + p2[1])/2,
+                "preferred" // add a third item to flag these as preferable
+            ]);
+        }
+        if (pushP2) {
+            points.push(p2);
+        }
+    }
+    return points;
+}
+
 
 function nearestPointOnCluster(gid) {
     var hull = hullPoints[gid];
     if (!hull) {
         return null;
     }
+    hull = subdivideLongEdges(hull, 20);
+    // hull = subdivideLongEdges(hull, 20);
+    // hull = subdivideLongEdges(hull, 20);
+
     var start = [-2, clusterPointerOriginY];
     var distances = hull.map(function(pt) {
         return {
-            dist: dist(start, pt),
+            dist: distWithNonSquarePenalty(start, pt),
             pt: pt
         };
     });
@@ -2359,6 +2414,8 @@ function updateLineToCluster(gid) {
     // var center = centerOfCluster(gid);
     var center = nearestPointOnCluster(gid);
     if (!center) {
+        overlay_layer.selectAll(".helpArrow")
+            .style("display", "none");
         return;
     }
     center[0] += xOffset;
