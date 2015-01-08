@@ -237,7 +237,7 @@ module.exports = Handlebones.View.extend({
       // });
 
 
-      var htmlStrings = _.map(comments, function(c) {
+      var items = _.map(comments, function(c) {
           var tid = c.get('tid');
           var repness = tidToR[tid];
           var repfullForAgree = repness["repful-for"] === "agree";
@@ -264,26 +264,32 @@ module.exports = Handlebones.View.extend({
           var bodyColor = "#333"; //repfullForAgree ?
             // "#20442F" :
             // "rgb(68, 33, 33)";
-          var backgroundColor = repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
+          // var backgroundColor = repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
+          var backgroundColor = repfullForAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
+          var dotColor = repfullForAgree ? "#00b54d" : "#e74c3c";
+          var gradient = "background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
               "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
-             "<div style='font-size:12px'><strong>" + v.S +"</strong> <em> in the selected group saw this comment. </em></div>" +
-             "<div style='font-size:12px'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
+             "<div style='font-size:12px; color: gray;'><strong>" + v.S +"</strong> <em> in the selected group saw this comment. </em></div>" +
+             "<div style='font-size:12px; color: gray;'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
              // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
           var html = 
-            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; "+gradient+" color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
               "</p>" +
-              "<p>" +
+              "<p style='padding-left: 20px;'>" +
                 c.get("txt") +
               "</p>" +
-              '<p style="padding: 0px 0px 7px 20px; font-size: 12px; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
+              '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>";
-          return html;
+          return {
+            color: dotColor,
+            html: html
+          };
         });
 
         // let stack breathe
@@ -316,7 +322,12 @@ module.exports = Handlebones.View.extend({
               if (!isMobile) {
                 this.owlControls.prependTo(elem);
               }
-
+              var circles = $(".owl-pagination").find(".owl-page > span")
+              var colors = _.pluck(items, "color");
+              for (var i = 0; i < circles.length; i++) {
+                var c = circles[i];
+                $(c).css("background", colors[i]);
+              }
            // setTimeout(function() {
               $(el_carouselSelector).fadeIn("slow", function() {
 
@@ -366,7 +377,7 @@ module.exports = Handlebones.View.extend({
             // alert(e);
           });
 
-          addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings);
+          addMultipleOwlItems.call(results.data('owlCarousel'), _.pluck(items, "html"));
           // Auto-select the first comment.
           eb.trigger(eb.commentSelected, indexToTid[0]);
           // $(el_carouselSelector).find(".query_result_item").first().trigger("click");
