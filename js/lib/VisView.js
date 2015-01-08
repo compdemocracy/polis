@@ -1281,7 +1281,6 @@ function getParticipantCount(nodes) {
 
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
-    console.log("upsert");
 
     participantCount = newParticipantCount;
 
@@ -1424,12 +1423,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         var nice = nodes.splice(niceIndex, 1);
         nodes.push(nice[0]);
     }
-    console.log("number of people: " + nodes.length);
 
     oldpositions.forEach(function(oldNode) {
         var newNode = _.findWhere(nodes, {bid: oldNode.bid});
         if (!newNode) {
-            console.error("not sure why a node would dissapear");
+            console.error("not sure why a node would disappear");
             return;
         }
         newNode.x = oldNode.x;

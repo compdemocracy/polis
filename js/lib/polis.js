@@ -1217,7 +1217,6 @@ function clientSideBaseCluster(things, N) {
                                 isSummaryBucket: true
                             });
                             for (var i = 0; i < bigBucket.bids.length; i++) {
-                                console.log("bidToBigBucket "+bigBucket.bids[i]);
                                 bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
                             }
                             clusters[gid] = _.union(clusters[gid], [bigBucket.id]);
@@ -2243,7 +2242,6 @@ function clientSideBaseCluster(things, N) {
             var data = participantsOfInterestVotes[pid];
             var bid = data.bid;
             if (cluster.indexOf(bid) >= 0) {
-                console.log("item", bid, data)
                 items.push(data);
             }
         }
