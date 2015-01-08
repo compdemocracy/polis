@@ -1142,7 +1142,6 @@ function chooseDownArrowPath(d) {
     var start = (pieChartOrigin - Math.PI) - (TAU*ratio/2);//degrees/2;
     var end = (pieChartOrigin - Math.PI) + (TAU*ratio/2); // -degrees/2;
 
-    console.log(ratio, start, end);
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
     return generateWedgeString(0, 0, start, end, r, largeArcFlag, false);
 

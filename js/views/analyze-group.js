@@ -428,8 +428,6 @@ module.exports = Handlebones.View.extend({
         doFetch(gid);
 
         getLocations(gid).then(function(locations) {
-          console.log("geoLocations:");
-          console.dir(locations);
 
           $("#groupMap").html("");
           var w = $("#groupMap").width();
