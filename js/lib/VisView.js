@@ -2423,7 +2423,7 @@ function updateLineToCluster(gid) {
     // account for stroke width on hulls
     center[0] = center[0] - 2;
     
-    var centerPointOnX = 1/3;
+    var centerPointOnX = 1/2;
     helpLine.interpolate("basis");
     helpArrowPoints.splice(0); // clear
     helpArrowPoints.push([-2, clusterPointerOriginY]);
@@ -2433,6 +2433,7 @@ function updateLineToCluster(gid) {
     // center = center.join(",");
     overlay_layer.selectAll(".helpArrow")
         .style("display", "block")
+        .style("stroke-dasharray", "5,5")
         // .attr("marker-end", "url(#ArrowTip)")
         //// .attr("marker-start", "url(#ArrowTip)")
         //// .attr("points", ["-2," + clusterPointerOriginY, center].join(" "));
