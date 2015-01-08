@@ -322,15 +322,15 @@ module.exports = Handlebones.View.extend({
               if (!isMobile) {
                 this.owlControls.prependTo(elem);
               }
-              var circles = $(".owl-pagination").find(".owl-page > span")
-              var colors = _.pluck(items, "color");
-              for (var i = 0; i < circles.length; i++) {
-                var c = circles[i];
-                $(c).css("background", colors[i]);
-              }
            // setTimeout(function() {
               $(el_carouselSelector).fadeIn("slow", function() {
 
+                var circles = $(".owl-pagination").find(".owl-page > span");
+                var colors = _.pluck(items, "color");
+                for (var i = 0; i < circles.length; i++) {
+                  var c = circles[i];
+                  $(c).css("background", colors[i]);
+                }
                 if (!isMobile) {
                   $(el_carouselSelector).find("#groupCarouselPrev").remove();
                   $(el_carouselSelector).find("#groupCarouselNext").remove();
