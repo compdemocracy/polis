@@ -180,6 +180,8 @@ module.exports = Handlebones.View.extend({
   },
   renderWithCarousel: function(gid, tidToR) {
     var that = this;
+    var carouselPrevDisabled = true;
+    var carouselNextDisabled = false;
     // let stack breathe
     setTimeout(function() {
 
@@ -325,7 +327,7 @@ module.exports = Handlebones.View.extend({
            // setTimeout(function() {
               $(el_carouselSelector).fadeIn("slow", function() {
 
-                var circles = $(".owl-pagination").find(".owl-page > span");
+                var circles = $(el_carouselSelector).find(".owl-pagination").find(".owl-page > span");
                 var colors = _.pluck(items, "color");
                 for (var i = 0; i < circles.length; i++) {
                   var c = circles[i];
@@ -340,14 +342,20 @@ module.exports = Handlebones.View.extend({
 
                   // <div id="carouselNext">next</div>")
 
+                  $("#groupCarouselPrev").css("opacity", .5);
+
                   $("#groupCarouselNext").on("click", function(e) {
-                    var owl = $("#smallWindowForGroup").data('owlCarousel');
-                    owl.next();
+                    if (!carouselNextDisabled) {
+                      var owl = $("#smallWindowForGroup").data('owlCarousel');
+                      owl.next();
+                    }
                   });
 
                   $("#groupCarouselPrev").on("click", function(e) {
-                    var owl = $("#smallWindowForGroup").data('owlCarousel');
-                    owl.prev();
+                    if (!carouselPrevDisabled) {
+                      var owl = $("#smallWindowForGroup").data('owlCarousel');
+                      owl.prev();
+                    }
                   });
                 }
 
@@ -360,6 +368,19 @@ module.exports = Handlebones.View.extend({
             },
              afterMove: (function() {return function() {
                 var tid = indexToTid[this.currentItem];
+
+                $("#groupCarouselNext").css("opacity", 1);
+                $("#groupCarouselPrev").css("opacity", 1);
+                carouselPrevDisabled = false;
+                carouselNextDisabled = false;
+                if (this.currentItem === 0) {
+                  $("#groupCarouselPrev").css("opacity", .5);
+                  carouselPrevDisabled = true;
+                }
+                if (this.currentItem >= (items.length - 1)) {
+                  $("#groupCarouselNext").css("opacity", .5);
+                  carouselNextDisabled = true;
+                }
                 setTimeout(function() {
                     eb.trigger(eb.commentSelected, tid);
                 }, 200);
