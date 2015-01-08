@@ -190,6 +190,7 @@ module.exports = Handlebones.View.extend({
         console.error("missing repness");
         return;
       }
+      $("#numMembers").text(info.count+" people").show();
       var repnessInfo = info.repness.slice(0);
       // repnessInfo.sort(function(a, b) {
       //   if (a["repful-for"] === "agree" && b["repful-for"] === "disagree") {
