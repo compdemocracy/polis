@@ -56,8 +56,9 @@ function destRoot() {
 }
 var devMode = true;
 var preprodMode = false;
+var prodMode = false;
 var host;
-
+var MINIFY_PREPROD = false;
 
 function showDesktopNotification(title, body) {
   var child = spawn("osascript", ["-e", 'display notification "'+body+'" with title "'+title+'"'], {cwd: process.cwd()}),
@@ -432,10 +433,12 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
       }))
       .pipe(concat('polis.js'))
   // TODO      .pipe(header("copyright Polis... (except that libs are mixed in)
+
+      if (prodMode || (preprodMode && MINIFY_PREPROD)) {
+        s = s.pipe(uglify());
+      }
       if (!devMode) {
-        s = s
-          .pipe(uglify())
-          .pipe(gzip())
+        s = s.pipe(gzip());
       }
       s = s.pipe(rename('polis.js'));
       return s.pipe(gulp.dest(destRoot() + "/js"));
@@ -532,6 +535,11 @@ gulp.task("preprodConfig", function() {
   preprodMode = true;
 });
 
+gulp.task("prodConfig", function() {
+  prodMode = true;
+});
+
+
 gulp.task("configureForProduction", function(callback) {
   devMode = false;
   destRootBase = "dist";
@@ -601,6 +609,7 @@ gulp.task("watchForDev", [
 
 
 gulp.task('deploy_TO_PRODUCTION', [
+  "prodConfig",
   "dist"
 ], function() {
   return deploy({
