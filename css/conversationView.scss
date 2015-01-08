@@ -478,7 +478,8 @@ svg {
   }
 
   .analyze-group-pane {
-    -webkit-box-shadow: 4px 5px 11px 4px #ACACAC;
+    box-shadow: 2px 5px 7px 1px #ADBFD0;
+    -webkit-box-shadow: 2px 5px 7px 1px #ADBFD0;
     position: relative;
     background-color: white;
     top:-2px;
