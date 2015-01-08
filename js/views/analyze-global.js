@@ -342,6 +342,9 @@ module.exports = Handlebones.View.extend({
               $(el_carouselSelector).fadeIn("slow", function() {
 
                 if (!isMobile) {
+                  
+                  $(el_carouselSelector).find("#majorityCarouselPrev").remove();
+                  $(el_carouselSelector).find("#majorityCarouselNext").remove();
                   $(el_carouselSelector).find(".owl-pagination").prepend('<button id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
                   $(el_carouselSelector).find(".owl-pagination").append( '<button id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
 
