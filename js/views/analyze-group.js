@@ -283,7 +283,8 @@ module.exports = Handlebones.View.extend({
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
               "</p>" +
-              "<p style='padding-left: 20px;'>" +
+              // "<p style='padding-left: 20px;'>" +
+              "<p>" +
                 c.get("txt") +
               "</p>" +
               '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
