@@ -256,6 +256,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^hk\/?$/, "hk");
     this.r(/^r\/?$/, "roots");
 
+    this.r(/^([0-9][0-9A-Za-z]+)\/?(\?.*)?$/, "participationViewWithQueryParams");  // conversation_id / query params
     this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView");  // conversation_id / encodedStringifiedJson
     this.r(/^ot\/([0-9][0-9A-Za-z]+)\/(.*)/, "participationViewWithSuzinvite"); // ot/conversation_id/suzinvite
     this.r(/^pwreset\/(.*)/, "pwReset");
@@ -931,6 +932,20 @@ var polisRouter = Backbone.Router.extend({
         that.doLaunchConversation.bind(that),
         conversation_id,
         suzinvite);
+    // });
+  },
+  participationViewWithQueryParams: function(conversation_id, queryParams) {
+    if (!Utils.cookiesEnabled()) {
+      this.tryCookieThing();
+    }
+
+    // TODO parse params and use them, if needed
+
+    var that = this;
+    // this.doShowTutorial().then(function() {
+      doJoinConversation.call(that, 
+        that.doLaunchConversation.bind(that),
+        conversation_id);
     // });
   },
   doShowTutorial: function() {
