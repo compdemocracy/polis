@@ -166,6 +166,15 @@ function isSpam(o) {
     });
 }
 
+var INFO;
+if (devMode) {
+    INFO = function() {
+        console.log.apply(console, arguments);
+    };
+} else {
+    INFO = function() {};
+}
+
 
 app.disable('x-powered-by');
 
@@ -1820,7 +1829,7 @@ function fetchAndCacheLatestPcaData() {
         return Math.max(0, 2500 - timePassed);
     }
 
-    console.log("mathpoll begin", lastPrefetchedVoteTimestamp);
+    INFO("mathpoll begin", lastPrefetchedVoteTimestamp);
     var cursor = collectionOfPcaResults.find({
         lastVoteTimestamp: {$gt: lastPrefetchedVoteTimestamp}
     });
@@ -1835,12 +1844,12 @@ function fetchAndCacheLatestPcaData() {
         }
         if(item === null) {
             // call again
-            console.log("mathpoll done");
+            INFO("mathpoll done");
             setTimeout(fetchAndCacheLatestPcaData, waitTime());
             return;
         }
 
-        console.log("mathpoll updating", item.lastVoteTimestamp, item.zid);
+        INFO("mathpoll updating", item.lastVoteTimestamp, item.zid);
         // var prev = pcaCache.get(item.zid);
         pcaCache.set(item.zid, item);
         if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
@@ -1858,15 +1867,15 @@ function getPca(zid, lastVoteTimestamp) {
     var cached = pcaCache.get(zid);
     if (cached) {
         if (cached.lastVoteTimestamp <= lastVoteTimestamp) {
-            console.log("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
+            INFO("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
             return Promise.resolve(null);
         } else {
-            console.log("mathpoll related", "math from cache", zid, lastVoteTimestamp);
+            INFO("mathpoll related", "math from cache", zid, lastVoteTimestamp);
             return Promise.resolve(cached);
         }
     }
 
-    console.log("mathpoll cache miss", zid, lastVoteTimestamp);
+    INFO("mathpoll cache miss", zid, lastVoteTimestamp);
 
     // NOTE: not caching results from this query for now, think about this later.
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
@@ -1884,11 +1893,11 @@ function getPca(zid, lastVoteTimestamp) {
                 if (err) {
                     reject(new Error("polis_err_get_pca_results_find_toarray"));
                 } else if (!docs.length) {
-                    console.log("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
+                    INFO("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
                     resolve(null);
                 } else {
                     var item = docs[0];
-                    console.log("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
+                    INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
                     // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
                     pcaCache.set(zid, item);
                     // return the item
