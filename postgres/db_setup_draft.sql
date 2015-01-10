@@ -53,7 +53,7 @@ CREATE INDEX users_uid_idx ON users USING btree (uid);
 
 CREATE TABLE twitter_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
-    twitter_user_id INTEGER NOT NULL,
+    twitter_user_id BIGINT NOT NULL,
 
     -- Fields from here: https://api.twitter.com/1.1/users/lookup.json
     -- NOTE: there are more fields we could fetch
