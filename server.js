@@ -1556,12 +1556,7 @@ if (devMode) {
     app.use(express.compress());
 }
 app.use(function(req, res, next) {
-    var routeLogBlacklist = [
-        "/api/v3/math/pca2",
-    ];
-    if (routeLogBlacklist.indexOf(req.path) >= 0) {
-        // don't log the route name
-    } else {
+    if (devMode) {
         var b = "";
         if (req.body) {
             var temp = _.clone(req.body);
@@ -1583,6 +1578,8 @@ app.use(function(req, res, next) {
             b = JSON.stringify(temp);
         }
         console.log(req.path + " " + b);
+    } else {
+        // don't log the route or params, since Heroku does that for us.
     }
     next();
 });
