@@ -168,9 +168,11 @@ function isSpam(o) {
 
 var INFO;
 if (devMode) {
-    INFO = function() {
-        console.log.apply(console, arguments);
-    };
+    INFO = function() {};
+
+    // INFO = function() {
+    //     console.log.apply(console, arguments);
+    // };
 } else {
     INFO = function() {};
 }
@@ -217,9 +219,9 @@ var metric = (function() {
                 dur: numberValue,
                 time : new Date(),
             };
-            console.dir(point);
+            INFO(point);
             metricName = metricName.replace(/[^A-Za-z0-9\.]/g,"");
-            console.log(metricName);
+            INFO(metricName);
             // influx.writePoint(metricName, point, {}, function(err) {
             //     if (err) { reject(err); return; }
             //     resolve();
@@ -232,7 +234,7 @@ var metric = (function() {
             }
 
             var message = new Buffer(apikey + "." + metricName + " " + numberValue +"\n");
-            console.log(message.toString());
+            INFO(message.toString());
             var socket = dgram.createSocket("udp4");
             socket.send(message, 0, message.length, 2003, "carbon.hostedgraphite.com", function(err, bytes) {
                 socket.close();
@@ -1531,7 +1533,7 @@ function MPromise(name, f) {
 ////////////////////////////////////////////
 
 app.use(meter("api.all"));
-app.use(express.logger());
+// app.use(express.logger());
 app.use(redirectIfNotHttps);
 app.use(express.cookieParser());
 app.use(express.bodyParser());
@@ -1554,25 +1556,33 @@ if (devMode) {
     app.use(express.compress());
 }
 app.use(function(req, res, next) {
-    if (req.body) {
-        console.log(req.path);
-        var temp = _.clone(req.body);
-        // if (temp.email) {
-        //     temp.email = "foo@foo.com";
-        // }
-        if (temp.password) {
-            temp.password = "some_password";
+    var routeLogBlacklist = [
+        "/api/v3/math/pca2",
+    ];
+    if (routeLogBlacklist.indexOf(req.path) >= 0) {
+        // don't log the route name
+    } else {
+        var b = "";
+        if (req.body) {
+            var temp = _.clone(req.body);
+            // if (temp.email) {
+            //     temp.email = "foo@foo.com";
+            // }
+            if (temp.password) {
+                temp.password = "some_password";
+            }
+            if (temp.newPassword) {
+                temp.newPassword = "some_password";
+            }
+            if (temp.password2) {
+                temp.password2 = "some_password";
+            }
+            if (temp.hname) {
+                temp.hname = "somebody";
+            }
+            b = JSON.stringify(temp);
         }
-        if (temp.newPassword) {
-            temp.newPassword = "some_password";
-        }
-        if (temp.password2) {
-            temp.password2 = "some_password";
-        }
-        if (temp.hname) {
-            temp.hname = "somebody";
-        }
-        console.dir(temp);
+        console.log(req.path + " " + b);
     }
     next();
 });
@@ -2147,7 +2157,6 @@ function(req, res) {
 
 
 function getBidsForPids(zid, lastVoteTimestamp, pids) {
-    console.log("FOOO " + zid + " " + lastVoteTimestamp + " " + pids);
     var dataPromise = getBidToPidMapping(zid, lastVoteTimestamp);
     var mathResultsPromise = getPca(zid, lastVoteTimestamp);
 
@@ -2872,16 +2881,12 @@ function getUsersLocationName(uid) {
     ]).then(function(o) {
         var fb = o[0] && o[0][0];
         var tw = o[1] && o[1][0];
-        console.log("asdf111 facebook");
-        console.dir(fb);
-        console.log("asdf111 twitter");
-        console.dir(tw);
-        if (_.isString(fb.location)) {
+        if (fb && _.isString(fb.location)) {
             return {
                 location: fb.location,
                 source: LOCATION_SOURCES.Facebook,
             };
-        } else if (_.isString(tw.location)) {
+        } else if (tw && _.isString(tw.location)) {
             return {
                 location: tw.location,
                 source: LOCATION_SOURCES.Twitter,
@@ -2892,18 +2897,15 @@ function getUsersLocationName(uid) {
 }
 
 function populateParticipantLocationRecordIfPossible(zid, uid, pid) {
-    console.log("asdf1", zid, uid, pid);
+    INFO("asdf1", zid, uid, pid);
     getUsersLocationName(uid).then(function(locationData) {
         if (!locationData) {
-            console.log("asdf1.nope");
+            INFO("asdf1.nope");
             return;
         }
-    console.log("asdf2");
-    console.dir(locationData);
+        INFO(locationData);
         geoCode(locationData.location).then(function(o) {
-    console.log("asdf3");
             createParticpantLocationRecord(zid, uid, pid, o.lat, o.lng, locationData.source).catch(function(err) {
-    console.log("asdf4");
                 if (!isDuplicateKey(err)) {
                     yell("polis_err_creating_particpant_location_record");
                     console.error(err);
@@ -7776,19 +7778,10 @@ function getPidsForGid(zid, gid, lastVoteTimestamp) {
             return [];
         }
         var members = cluster.members;
-        console.log("members");
-        console.dir(members);
         var pids = [];
         for (var i = 0; i < members.length; i++) {
             var bid = members[i];
             var morePids = bidToPids[bid];
-            console.log("morePids");
-            console.dir(morePids);
-            console.log("bid");
-            console.log(bid);
-            console.log("bidToPids");
-            console.dir(bidToPids);
-
             Array.prototype.push.apply(pids, morePids);
         }
         pids = pids.map(function(x) {
@@ -7866,9 +7859,6 @@ function(req, res) {
     ]).then(function(o) {
         var pids = o[0];
         var locations = o[1];
-        console.log("locations");
-        console.dir(locations);
-        console.dir(pids);
         locations = locations.filter(function(locData) {
             var pidIsInGroup = _.indexOf(pids, locData.pid, true) >= 0; // uses binary search
             return pidIsInGroup;
