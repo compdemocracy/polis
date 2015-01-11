@@ -3940,7 +3940,7 @@ function(req, res) {
     pgQuery("SELECT * FROM users WHERE LOWER(email) = ($1);", [email], function(err, docs) {
         docs = docs.rows;
         if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); console.error("polis_err_login_unknown_user_or_password_err"); return; }
-        if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_noresults"); return; }
+        if (!docs || docs.length === 0) { fail(res, 403, "polis_err_login_unknown_user_or_password_noresults"); console.error("polis_err_login_unknown_user_or_password_noresults"); return; }
 
         var uid = docs[0].uid;
 
