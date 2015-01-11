@@ -15,5 +15,7 @@ bus.voteCount = "voteCount";
 bus.commentCount = "commentCount";
 bus.moderated = "moderated";
 bus.deselectGroups = "deselectGroups";
+bus["beforehide:analyze"] = "beforehide:analyze";
+bus["aftershow:analyze"] = "aftershow:analyze";
 
 module.exports = bus;

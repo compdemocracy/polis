@@ -110,6 +110,7 @@ module.exports =  Handlebones.ModelView.extend({
       }
       if(from && from.id === this.ANALYZE_TAB) {
         this.trigger("beforehide:analyze");
+        eb.trigger("beforehide:analyze");
       }
       if(to && to.id === this.ANALYZE_TAB) {
         this.trigger("beforeshow:analyze");
@@ -136,6 +137,7 @@ module.exports =  Handlebones.ModelView.extend({
       // e.relatedTarget // previous tab
       if(e.target && e.target.id === this.ANALYZE_TAB) {
         this.trigger("aftershow:analyze");
+        eb.trigger("aftershow:analyze");
       }
       if(e.target && e.target.id === this.GROUP_TAB) {
         this.trigger("aftershow:group");

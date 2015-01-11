@@ -178,6 +178,15 @@ function hideTip() {
     }
 }
 
+var onAnalyzeTab = false;
+eb.on("aftershow:analyze", function() {
+    console.log("aftershow:analyze");
+    onAnalyzeTab = true;
+});
+eb.on("beforehide:analyze", function() {
+    console.log("beforehide:analyze");
+    onAnalyzeTab = false;
+});
 
 
 // if (isIE8) {
@@ -2010,7 +2019,7 @@ function doUpdateNodes() {
         update.selectAll(".grayHalo")
                 .style("stroke", function(d) {
                     if (isSelf(d)) {
-                        if (clusterIsSelected()) {
+                        if (clusterIsSelected() || onAnalyzeTab) {
                             if (d.ups || d.downs) {
                                 return grayHaloColorSelected;
                             } else {
