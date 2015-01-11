@@ -7720,7 +7720,7 @@ function getPolisSocialSettings(zid, uid) {
 }
 
 function incrementVoteCount(zid, pid) {
-    return pgQueryP("update particpants set vote_count = vote_count + 1 where zid = ($1) and pid = ($1);",[zid, pid]);
+    return pgQueryP("update participants set vote_count = vote_count + 1 where zid = ($1) and pid = ($2);",[zid, pid]);
 }
 
 
