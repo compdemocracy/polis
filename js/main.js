@@ -43,6 +43,17 @@ var encodedParams = match ? match[0] : void 0;
 
 var forceEmbedded = false;
 
+
+window.addEventListener("message", function(event) {
+  
+  // NOTE: event could have any origin, since we're embedded, so be careful here
+
+  if (event.data === "twitterConnected") { // this message is sent from twitterAuthReturn.html
+    location.reload();
+  }
+
+}, false);
+
 (function() {
   // auth token. keep this in this closure, don't put it on a global. used for cases where cookies are disabled.
   var token;

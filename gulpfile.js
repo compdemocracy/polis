@@ -207,7 +207,11 @@ gulp.task('sparklines', function() {
 });
 
 gulp.task('embedJs', function() {
-  return gulp.src(['api/embed.js', 'api/embed_helper.js'])
+  return gulp.src([
+    'api/embed.js',
+    'api/embed_helper.js',
+    'api/twitterAuthReturn.html',
+    ])
   // .pipe(template({
   //   polisHostName: (preprodMode ? "preprod.pol.is" : "pol.is"),
   // }))
@@ -711,6 +715,25 @@ function deploy(params) {
         },
       }));
     
+
+    // TODO remove this duplication!
+    var twitterAuthReturnCacheSeconds = 60;
+    gulp.src([
+      destRootBase + '/**/twitterAuthReturn.html',
+      ], {read: false})
+    .pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+          'Content-Encoding': 'gzip',
+          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, twitterAuthReturnCacheSeconds),
+        },
+        makeUploadPath: function(file) {
+          console.log("uploading twitterAuthReturn");
+          return "/twitterAuthReturn.html";
+        },
+      }));
+
     // HTML files (uncached)
     // (Wait until last to upload the html, since it will clobber the old html on S3, and we don't want that to happen before the new JS/CSS is uploaded.)
     gulp.src([
