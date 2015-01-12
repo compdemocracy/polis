@@ -9814,6 +9814,7 @@ app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", "t
 app.get(/^\/about$/, makeFileFetcher(hostname, port, "/news.html", "text/html"));
 app.get(/^\/edu$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
 app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
+app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, port, "/twitterAuthReturn.html", "text/html"));
 
 // proxy for fetching twitter profile images
 // Needed because Twitter doesn't provide profile pics in response to a request - you have to fetch the user info, then parse that to get the URL, requiring two round trips.
