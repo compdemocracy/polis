@@ -1,6 +1,7 @@
 (function() {
   var firstRun = !window.polis;
   window.polis = window.polis || {};
+  var polisUrl = "https://preprod.pol.is";
 
   function getConfig(d) {
      return {
@@ -35,7 +36,7 @@
       alert("Error: need data-conversation_id or data-site_id");
       return;
     }
-    var src = "https://preprod.pol.is/"+ path.join("/");
+    var src = polisUrl+ "/" + path.join("/");
     var paramStrings = [];
     if (o.parent_url) {
       paramStrings.push("parent_url="+ encodeURIComponent(o.parent_url));
@@ -83,7 +84,7 @@
     
       if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
         // temporarily redirect to polis, which will set a cookie and redirect back
-        window.location = "https://embed.pol.is/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
+        window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       }
     }, false);
   }
