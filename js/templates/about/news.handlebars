@@ -232,7 +232,7 @@ function connect() {
 }
 
 $(function() {
-	$("#fbConnectBtn").click(function() {
+	$(".facebookButton").on("click", function() {
 		connect().then(function() {
 			// that.model.set("response", "fbdone");
 			// location.reload();
@@ -341,7 +341,7 @@ fjs.parentNode.insertBefore(js, fjs);
 					Embed polis on your site in seconds, for free.
 				</p>
 				{{!-- This button was copied from conv view --}}
-				<button id="fbConnectBtn" class="facebookButton">
+				<button class="facebookButton">
 	    		<i class="fa fa-facebook-square"></i>&nbsp; Sign Up With Facebook
 	      </button>
 				<form class="FormHorizontal" style="text-align: left; margin: 20px auto 30px;" role="form">
@@ -355,7 +355,7 @@ fjs.parentNode.insertBefore(js, fjs);
 						class="Btn Btn-primary">GET POLIS</button>
 					</div>
 				</form>
-				<div id="errorDiv">
+				<div class="errorDiv">
 				</div>
 			</div>
 		</div>
@@ -369,7 +369,7 @@ fjs.parentNode.insertBefore(js, fjs);
 					Embed polis on your site in seconds, for free.
 				</p>
 				{{!-- This button was copied from conv view --}}
-				<button id="fbConnectBtn" class="facebookButton">
+				<button class="facebookButton">
 	    		<i class="fa fa-facebook-square"></i>&nbsp; Sign Up With Facebook
 	      </button>
 				<form class="FormHorizontal" style="text-align: left; margin: 20px auto 30px;" role="form">
@@ -383,7 +383,7 @@ fjs.parentNode.insertBefore(js, fjs);
 						class="Btn Btn-primary">GET POLIS</button>
 					</div>
 				</form>
-				<div id="errorDiv">
+				<div class="errorDiv">
 				</div>
 			</div>
 		</div>
@@ -458,7 +458,7 @@ $(document).ready(function() {
 		 ga("send", "event", "SignUp", "emailSubmitted", "general");
 				}).fail(function(){
 						ga("send", "event", "SignUp", "emailSubmitFail");
-						$(this).find('#errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
+						$(this).find('.errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
 				});
 				return false;
 })
