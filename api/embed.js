@@ -1,6 +1,7 @@
 (function() {
   var firstRun = !window.polis;
   window.polis = window.polis || {};
+  var iframes = [];
   var polisUrl = "https://preprod.pol.is";
 
   function getConfig(d) {
@@ -51,6 +52,7 @@
     iframe.style.border = o.border || "1px solid #ccc";
     iframe.style.borderRadius = o.border_radius || "4px";
     parent.appendChild(iframe);
+    iframes.push(iframe);
   }
 
   function cookiesEnabledAtTopLevel() {
@@ -75,7 +77,19 @@
     return result;
   }
 
+
   if (firstRun) {
+    // function notifyIframes(message) {
+    //   // NOTE: twitterWindow closes itself
+    //   for (var i = 0; i < iframes.length; i++) {
+    //     var x = iframes[i];
+    //     var c = x.contentWindow;
+    //     if (c && c.postMessage) {
+    //       c.postMessage(message, "*");
+    //     }
+    //   }
+    // }
+
     window.addEventListener("message", function(event) {
   
       if (!event.origin.match(/pol.is$/)) {
@@ -86,6 +100,12 @@
         // temporarily redirect to polis, which will set a cookie and redirect back
         window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       }
+      // if (event.data === "twitterConnectBegin") {
+      //   // open a new window where the twitter auth screen will show.
+      //   // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
+      //   var params = 'location=0,status=0,width=800,height=400';
+      //   twitterWindow = window.open(polisUrl + "/api/v3/twitterBtn?dest=" + encodeReturnUrl(window.location+""), 'twitterWindow', params);
+      // }
     }, false);
   }
 
