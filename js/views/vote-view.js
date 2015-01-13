@@ -193,7 +193,7 @@ module.exports = Handlebones.ModelView.extend({
         that.isSubscribed(1); // TODO this is totally crappy
         that.$(".email").val("");
         that.model.set("foo", Math.random()); // trigger render
-        alert("you have subscribed");
+        // alert("you have subscribed");
       }, function(err) {
         alert("Error subscribing");
         console.error(err);
