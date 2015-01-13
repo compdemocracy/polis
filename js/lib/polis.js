@@ -605,7 +605,7 @@ module.exports = function(params) {
             proj: self.proj,
             count: 1,
             bid: selfDotBid,
-            pic: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png"
+            pic: "https://pol.is/landerImages/anonProfileIcon64.png"
         });
         return bucket;
     }
