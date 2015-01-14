@@ -33,11 +33,11 @@
 
 
 (defn recompute
-  [& {:keys [zid zinvite] :as args}]
+  [& {:keys [zid zinvite recompute] :as args}]
   (assert (xor zid zinvite))
   (let [zid        (or zid (get-zid-from-zinvite zinvite))
         new-votes  (conv-poll zid)
-        conv-actor (cm/new-conv-actor (partial cm/load-or-init zid))]
+        conv-actor (cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute))]
     (println zid zinvite)
     (cm/snd conv-actor [:votes new-votes])
     (add-watch
@@ -81,7 +81,8 @@
 
 (def cli-options
   [["-z" "--zid ZID" "ZID on which to do a rerun" :parse-fn #(Integer/parseInt %)]
-   ["-Z" "--zinvite ZINVITE" "ZINVITE code on which to perform a rerun"]])
+   ["-Z" "--zinvite ZINVITE" "ZINVITE code on which to perform a rerun"]
+   ["-r" "--recompute" "ZINVITE code on which to perform a rerun"]])
 
 
 (defn -main
