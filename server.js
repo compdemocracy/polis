@@ -5902,6 +5902,152 @@ function getNextComment(zid, pid, withoutTids) {
     });
 }
 
+
+function getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids) {
+/*
+WITH conv AS
+  (SELECT *,
+    CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = 12480),
+      pv AS
+  (SELECT tid,
+          TRUE AS voted
+   FROM votes
+   WHERE zid = 12480
+     AND pid = 1
+   GROUP BY tid),
+     x AS
+  (SELECT *
+   FROM votes_lastest_unique(12480)
+   ORDER BY tid),
+     a AS
+  (SELECT zid,
+          tid,
+          count(*)
+   FROM x
+   WHERE vote < 0
+   GROUP BY zid,
+            tid),
+     d AS
+  (SELECT tid,
+          count(*)
+   FROM x
+   WHERE vote > 0
+   GROUP BY tid),
+     t AS
+  (SELECT tid,
+          count(*)
+   FROM x
+   GROUP BY tid),
+     c AS
+  (SELECT *
+   FROM comments
+   WHERE zid = 12480)
+SELECT 12480 AS zid,
+       a.tid,
+       (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,
+       pv.voted AS voted,
+       c.*
+FROM a
+LEFT JOIN d ON a.tid = d.tid
+LEFT JOIN t ON a.tid = t.tid
+LEFT JOIN c ON a.zid = c.zid
+AND a.tid = c.tid
+LEFT JOIN pv ON a.tid = pv.tid
+WHERE voted IS NULL
+  AND a.tid NOT IN (30,
+                    31)
+  AND c.active = true
+  AND c.mod >= conv.minModVal
+  AND c.velocity > 0
+ORDER BY nonpass_score DESC;
+*/
+
+/*
+
+            q = q.and(sql_comments.active.equals(true));            
+            if (conv.strict_moderation) {
+                q = q.and(sql_comments.mod.equals(polisTypes.mod.ok));
+            } else {
+                q = q.and(sql_comments.mod.notEquals(polisTypes.mod.ban));
+            }
+        }
+
+        q = q.and(sql_comments.velocity.gt(0)); // filter muted comments
+
+*/
+
+if (!withoutTids || !withoutTids.length) {
+    withoutTids = [-999999]; // ensure there's a value in there so the sql parses as a list
+}
+
+var q = "WITH ";
+q += "  conv AS  ";
+q += "  (SELECT *,";
+q += "    CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = $1),";
+q += "  pv AS  ";
+q += "  (SELECT tid,  ";
+q += "          TRUE AS voted ";
+q += "   FROM votes  ";
+q += "   WHERE zid = $1 ";
+q += "     AND pid = $2 ";
+q += "   GROUP BY tid),  ";
+q += "     x AS  ";
+q += "  (SELECT * ";
+q += "   FROM votes_lastest_unique($1) ";
+q += "   ORDER BY tid),  ";
+q += "     a AS  ";
+q += "  (SELECT zid,  ";
+q += "          tid,  ";
+q += "          count(*) ";
+q += "   FROM x  ";
+q += "   WHERE vote < 0 ";
+q += "   GROUP BY zid,  ";
+q += "            tid),  ";
+q += "     d AS  ";
+q += "  (SELECT tid,  ";
+q += "          count(*) ";
+q += "   FROM x  ";
+q += "   WHERE vote > 0 ";
+q += "   GROUP BY tid),  ";
+q += "     t AS  ";
+q += "  (SELECT tid,  ";
+q += "          count(*) ";
+q += "   FROM x ";
+q += "   GROUP BY tid),  ";
+q += "     c AS  ";
+q += "  (SELECT * ";
+q += "   FROM comments  ";
+q += "   WHERE zid = $1) ";
+q += "SELECT $1 AS zid,  ";
+q += "       a.tid,  ";
+q += "       (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,  ";
+q += "       pv.voted AS voted,  ";
+q += "       c.* ";
+q += "FROM a ";
+q += "LEFT JOIN d ON a.tid = d.tid ";
+q += "LEFT JOIN t ON a.tid = t.tid ";
+q += "LEFT JOIN c ON a.zid = c.zid ";
+q += "AND a.tid = c.tid ";
+q += "LEFT JOIN pv ON a.tid = pv.tid  ";
+q += "LEFT JOIN conv ON a.zid = conv.zid  ";
+q += "WHERE voted IS NULL ";
+q += "  AND a.tid NOT IN ("+ withoutTids.join(",") +") ";
+q += "  AND c.active = true";
+q += "  AND c.mod >= conv.minModVal";
+q += "  AND c.velocity > 0";
+q += " ORDER BY nonpass_score DESC ";
+q += " LIMIT 1;";
+
+
+    return pgQueryP(q, [zid, pid]).then(function(comments) {
+        if (!comments || !comments.length) {
+            return null;
+        } else {
+            return comments[0];
+        }
+    });  
+}
+
 app.get("/api/v3/nextComment",
     moveToBody,
     authOptional(assignToP),
@@ -5917,7 +6063,7 @@ function(req, res) {
     //         hostclass)
     //         Along with this would be to cache in ram info about moderation status of each comment so we can filter before returning a comment.
     
-    getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
+    getNextCommentPrioritizingNonPassedComments(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
         if (c) {
             finishOne(res, c);
         } else {
@@ -5961,7 +6107,7 @@ function(req, res) {
             // NOTE: may be greater than number of comments, if they change votes
             incrementVoteCount(req.p.zid, req.p.pid);
         }, 100);
-        return getNextComment(req.p.zid, req.p.pid);
+        return getNextCommentPrioritizingNonPassedComments(req.p.zid, req.p.pid);
     }).then(function(nextComment) {
         var result = {};
         if (nextComment) {

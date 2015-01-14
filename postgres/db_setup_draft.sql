@@ -530,6 +530,11 @@ CREATE TABLE votes(
 -- CREATE INDEX votes_zid_pid_idx ON votes USING btree (zid, pid);
 
 
+-- since each participant can change their vote, and those values are stored in votes, use this if you want to fetch the current state
+CREATE FUNCTION votes_lastest_unique(int) RETURNS SETOF votes AS $$
+    WITH m AS (SELECT zid, pid, tid, MAX(created) AS created FROM votes WHERE zid = $1 GROUP BY zid, pid, tid) SELECT v.* FROM m LEFT JOIN votes v ON m.zid = v.zid AND m.pid = v.pid AND m.tid = v.tid WHERE m.created = v.created;
+$$ LANGUAGE SQL;
+
 
 -- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
 -- CREATE TABLE stats_per_comment(
