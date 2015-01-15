@@ -1052,7 +1052,7 @@ var prrrams = (function() {
                 }
                 next();
             } else {
-                console.dir(req);
+                // console.dir(req);
                 var s = "polis_err_param_missing_" + name;
                 console.error(s);
                 yell(s);
@@ -1677,7 +1677,7 @@ app.all("/api/v3/*", function(req, res, next) {
 
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host) && !routeIsWhitelistedForAnyDomain) {
       console.log('not whitelisted');
-      console.dir(req);
+      // console.dir(req);
       console.dir(req.headers);
       console.dir(req.path);
       return next(new Error("unauthorized domain: " + host));
