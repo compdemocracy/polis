@@ -2,12 +2,12 @@
 
 // TO MAKE SHORT FOOTER STICKY...
 
-// for #footer-conversation-view, root needs height: 100%;
-// but for #footer, it needs height: auto;
-// if [data-view-name="root"] ~ #footer then height: auto;
-[data-view-name="root"] {
-  height: 100%;
-}
+//// for #footer-conversation-view, root needs height: 100%;
+//// but for #footer, it needs height: auto;
+//// if [data-view-name="root"] ~ #footer then height: auto;
+//[data-view-name="root"] {
+  // height: 100%;
+//}
 
 .wrap {
   min-height: 100%;
@@ -27,10 +27,10 @@
 
 // SHORT FOOTER
 #footer-conversation-view {
-  height: $short-footer-height;
+  // height: $short-footer-height;
   background-color: transparent;
-  border-color: #e7e7e7;
-  border-top: 1px solid lightgrey;
+  // border-color: #e7e7e7;
+  // border-top: 1px solid lightgrey;
 }
 
 .footer-conversation-view-item {

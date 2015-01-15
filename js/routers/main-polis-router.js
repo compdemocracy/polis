@@ -288,15 +288,15 @@ var polisRouter = Backbone.Router.extend({
       });
     }
     this.on("route", function(route, params) {
-      if (needsFooter(route)) {
-        $('[data-view-name="root"]').addClass("wrap");
-        var footer = $("#footer").detach();
-        $(document.body).append(footer);
-        $("#footer").show();
-      } else {
-        $("#footer").hide();
-        $('[data-view-name="root"]').removeClass("wrap");
-      }
+      // if (needsFooter(route)) {
+      //   $('[data-view-name="root"]').addClass("wrap");
+      //   var footer = $("#footer").detach();
+      //   $(document.body).append(footer);
+      //   $("#footer").show();
+      // } else {
+        // $("#footer").hide();
+        // $('[data-view-name="root"]').removeClass("wrap");
+      // }
     });
 
     var that = this;
