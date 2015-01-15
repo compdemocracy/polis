@@ -100,25 +100,25 @@ setInterval(function() {
 }, 10*1000);
 
 
-// BEGIN GITHUB OAUTH2
-var CLIENT_SECRET = "0b178e412a10fa023a0153bf7cefaf6dae0f74b9";
-var CLIENT_ID = "109a1eb4732b3ec1075b";
-var oauth2 = require('simple-oauth2')({
-  clientID: CLIENT_ID,
-  clientSecret: CLIENT_SECRET,
-  site: 'https://github.com/login',
-  tokenPath: '/oauth/access_token'
-});
+// // BEGIN GITHUB OAUTH2
+// var CLIENT_SECRET = "0b178e412a10fa023a0153bf7cefaf6dae0f74b9";
+// var CLIENT_ID = "109a1eb4732b3ec1075b";
+// var oauth2 = require('simple-oauth2')({
+//   clientID: CLIENT_ID,
+//   clientSecret: CLIENT_SECRET,
+//   site: 'https://github.com/login',
+//   tokenPath: '/oauth/access_token'
+// });
 
-console.dir(oauth2);
+// console.dir(oauth2);
 
-// Authorization uri definition
-var authorization_uri = oauth2.AuthCode.authorizeURL({
-  redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback',
-  scope: 'notifications',
-  state: '3(#0/!~'
-});
-// END GITHUB OAUTH2
+// // Authorization uri definition
+// var authorization_uri = oauth2.AuthCode.authorizeURL({
+//   redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback',
+//   scope: 'notifications',
+//   state: '3(#0/!~'
+// });
+// // END GITHUB OAUTH2
 
 
 var POLIS_FROM_ADDRESS = "Polis Team <mike@pol.is>";
@@ -9422,44 +9422,44 @@ function(req, res) {
 
 
 
-// BEGIN GITHUB OAUTH2 ROUTES
+// // BEGIN GITHUB OAUTH2 ROUTES
 
-// Initial page redirecting to Github
-app.get('/auth', function (req, res) {
-    res.redirect(authorization_uri);
-});
+// // Initial page redirecting to Github
+// app.get('/auth', function (req, res) {
+//     res.redirect(authorization_uri);
+// });
 
-// Callback service parsing the authorization token and asking for the access token
-app.get('/oauth2/oauth2_github_callback', function (req, res) {
+// // Callback service parsing the authorization token and asking for the access token
+// app.get('/oauth2/oauth2_github_callback', function (req, res) {
 
-  function saveToken(error, result) {
-    if (error) {
-        console.log('Access Token Error', error.message);
-        fail(res, 500, "polis_err_oauth_callback_github", error);
-    }
-    var token = oauth2.AccessToken.create(result);
-    console.log("thetoken", token);
-    console.dir(token);
-    console.log("thetoken", token);
-    // res.status(200).end();
-    res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
-  }
+//   function saveToken(error, result) {
+//     if (error) {
+//         console.log('Access Token Error', error.message);
+//         fail(res, 500, "polis_err_oauth_callback_github", error);
+//     }
+//     var token = oauth2.AccessToken.create(result);
+//     console.log("thetoken", token);
+//     console.dir(token);
+//     console.log("thetoken", token);
+//     // res.status(200).end();
+//     res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
+//   }
 
-  var code = req.query.code;
-  console.log('/oauth2/oauth2_github_callback');
-  oauth2.AuthCode.getToken({
-    code: code,
-    redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
-  }, saveToken);
+//   var code = req.query.code;
+//   console.log('/oauth2/oauth2_github_callback');
+//   oauth2.AuthCode.getToken({
+//     code: code,
+//     redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
+//   }, saveToken);
 
 
-});
+// });
 
-app.get('/oauthTest', function (req, res) {
-  res.send('Hello World');
-});
+// app.get('/oauthTest', function (req, res) {
+//   res.send('Hello World');
+// });
 
-// END GITHUB OAUTH2 ROUTES
+// // END GITHUB OAUTH2 ROUTES
 
 
 
