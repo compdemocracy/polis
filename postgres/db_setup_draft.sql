@@ -512,13 +512,6 @@ CREATE TRIGGER tid_auto_unlock
     FOR EACH ROW
     EXECUTE PROCEDURE tid_auto_unlock();
 
--- NOTE: not currently used, but is a nice example of using RETURNS TABLE, as opposed to RETURNS SET OF
--- taking moderation settings into account, return the timestamp for the latest comment
-CREATE FUNCTION get_times_for_most_recent_visible_comments() RETURNS TABLE (zid INTEGER, modified BIGINT) AS $$
-    select zid, max(modified) from (select comments.*, conversations.strict_moderation from comments left join conversations on comments.zid = conversations.zid) as c where c.mod >= (CASE WHEN c.strict_moderation=TRUE then 1 else 0 END) group by c.zid order by c.zid;    
-$$ LANGUAGE SQL;
-
-
 
 --CREATE SEQUENCE vote_ids_for_4 START 1 OWNED BY conv.id;
 --CREATE SEQUENCE vote_ids START 1 OWNED BY conversations.zid;
@@ -541,9 +534,6 @@ CREATE TABLE votes(
 CREATE FUNCTION votes_lastest_unique(int) RETURNS SETOF votes AS $$
     WITH m AS (SELECT zid, pid, tid, MAX(created) AS created FROM votes WHERE zid = $1 GROUP BY zid, pid, tid) SELECT v.* FROM m LEFT JOIN votes v ON m.zid = v.zid AND m.pid = v.pid AND m.tid = v.tid WHERE m.created = v.created;
 $$ LANGUAGE SQL;
-
-
-
 
 
 -- -- This should be updated from math nodes, who will have an entire conversation loaded in memory.
