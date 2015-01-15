@@ -63,7 +63,6 @@ window.addEventListener("message", function(event) {
   // NOTE: event could have any origin, since we're embedded, so be careful here
 
   if (event.data === "twitterConnected") { // this message is sent from twitterAuthReturn.html
-    alert("twitter connected");
     location.reload();
   }
 
