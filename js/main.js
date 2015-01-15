@@ -43,6 +43,20 @@ var encodedParams = match ? match[0] : void 0;
 
 var forceEmbedded = false;
 
+// notify parent iframe when document changes height
+var oldDocumentHeight = document.body.clientHeight;
+setInterval(function() {
+  var nu = document.body.clientHeight;
+  if (nu !== oldDocumentHeight) {
+    oldDocumentHeight = nu;
+    if (isEmbedded()) {
+      window.top.postMessage({
+        name: "resize",
+        height: nu
+      }, "*");
+    }
+  }
+}, 200);
 
 window.addEventListener("message", function(event) {
   
