@@ -106,6 +106,19 @@
       //   var params = 'location=0,status=0,width=800,height=400';
       //   twitterWindow = window.open(polisUrl + "/api/v3/twitterBtn?dest=" + encodeReturnUrl(window.location+""), 'twitterWindow', params);
       // }
+
+      if (event.data && event.data.name = "resize") {
+        // TODO uniquely identify each polis iframe so we can resize only the correct one
+        for (var i = 0; i < iframes.length; i++) {
+          var x = iframes[i];
+          var c = x.contentWindow;
+          // if (c && c.postMessage) {
+          //   c.postMessage(message, "*");
+          // }
+        }
+      }
+
+
     }, false);
   }
 
