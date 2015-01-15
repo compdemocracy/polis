@@ -3596,7 +3596,7 @@ q += "          COALESCE(COUNT(*), 0) AS total ";
 q += "   FROM comments  ";
 q += "   WHERE MOD >= 0 ";
 q += "   GROUP BY zid),  ";
-q += "  foo AS (SELECT voted.zid,  ";
+q += "  participant_vote_counts AS (SELECT voted.zid,  ";
 q += "          voted.pid,  ";
 q += "          COUNT(*) AS valid_votes ";
 q += "   FROM  ";
@@ -3622,22 +3622,24 @@ q += "          last_notified,  ";
 q += "          COALESCE(needed_totals.total, 0) AS remaining ";
 q += "   FROM participants ";
 q += "   LEFT JOIN needed_totals ON participants.zid = needed_totals.zid ";
-q += "   LEFT JOIN foo ON participants.zid = foo.zid  ";
-q += "   AND participants.pid = foo.pid  ";
-q += "   WHERE foo.pid IS NULL ";
+q += "   LEFT JOIN participant_vote_counts ON participants.zid = participant_vote_counts.zid  ";
+q += "   AND participants.pid = participant_vote_counts.pid  ";
+q += "   WHERE participant_vote_counts.pid IS NULL ";
 q += "     AND participants.subscribed = 1),  ";
 
-q += "  bar AS  (SELECT foo.zid,  ";
-q += "          foo.pid,  ";
+q += "  bar AS  (SELECT participant_vote_counts.zid,  ";
+q += "          participant_vote_counts.pid,  ";
 q += "          participants.uid,  ";
 q += "          participants.last_interaction,  ";
 q += "          participants.subscribed,  ";
 q += "          participants.last_notified,  ";
 q += "          COALESCE(total - valid_votes, 0) AS remaining ";
-q += "   FROM foo ";
-q += "   INNER JOIN needed_totals ON needed_totals.zid = foo.zid ";
-q += "   INNER JOIN participants ON foo.zid = participants.zid  ";
-q += "   AND foo.pid = participants.pid),  ";
+q += "   FROM participant_vote_counts ";
+q += "   INNER JOIN needed_totals ON needed_totals.zid = participant_vote_counts.zid ";
+q += "   INNER JOIN participants ON participant_vote_counts.zid = participants.zid  ";
+q += "   AND participant_vote_counts.pid = participants.pid),  ";
+
+// q += "  latest_comment_times AS (SELECT zid, modified as latest_comment_time from get_times_for_most_recent_visible_comments(), ";
 
 q += "  ppl AS (SELECT * ";
 q += "   FROM bar ";
@@ -3649,10 +3651,14 @@ q += " LEFT JOIN users";
 q += "  ON users.uid = ppl.uid";
 q += " LEFT JOIN conversations";
 q += "  ON conversations.zid = ppl.zid";
+// q += " LEFT JOIN latest_comment_times";
+// q += "  ON latest_comment_times.zid = ppl.zid";
 q += " LEFT JOIN zinvites";
 q += "  ON zinvites.zid = ppl.zid";
 q += " WHERE subscribed = 1 ";
-q += "  AND (last_notified + 30*60*1000) <= last_interaction ";
+// q += "  AND (latest_comment_time + 30*60*1000) <= now_as_millis() "; // sub last_interaction with last_comment_time
+q += "  AND (last_notified + 24*60*60*1000) <= now_as_millis() "; // limit to one per day
+q += "  AND (last_interaction + 30*60*1000) <= now_as_millis() "; // wait 30 minutes after their last interaction
 q += "  AND remaining > 0 ";
 q += " ORDER BY ppl.zid, ppl.uid;";
 
@@ -3754,8 +3760,9 @@ function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
 
 function notifyParticipantsOfNewComments() {
     getParticipantsThatNeedNotifications().then(function(rows) {
-        console.log("getParticipantsThatNeedNotifications");
         rows = rows || [];
+        console.log("getParticipantsThatNeedNotifications", rows.length);
+        console.dir(rows);
         rows.forEach(function(row) {
             var url = row.parent_url;
             if (!url) {
@@ -3778,9 +3785,10 @@ function notifyParticipantsOfNewComments() {
     
 }
 
+notifyParticipantsOfNewComments();
 setInterval(function() {
     notifyParticipantsOfNewComments();
-}, 60*1000);
+}, 10*60*1000);
 
 function updateEmail(uid, email) {
     return pgQueryP("update users set email = ($2) where uid = ($1);", [uid, email]);
