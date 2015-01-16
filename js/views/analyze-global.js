@@ -222,9 +222,13 @@ module.exports = Handlebones.View.extend({
       var comments = _.filter(commentsAll, function(c) {
         return !!tidToConsensusInfo[c.get("tid")];
       });
-
-// debugger;
-
+      comments = _.map(comments, function(c) {
+        c.set("p-success", tidToConsensusInfo[c.get("tid")]["p-success"]);
+        return c;
+      });
+      comments.sort(function(a, b) {
+        return b.get("p-success") - a.get("p-success");
+      });
 
       // var agreeCount = 0;
       // if (commentsAll.length <= 6) {
@@ -238,7 +242,7 @@ module.exports = Handlebones.View.extend({
       //     comments.push(commentsAll[(commentsAll.length-1) - i]);
       //   }
       // }
-      comments = _.indexBy(comments, "id"); // id is tid
+      // comments = _.indexBy(comments, "id"); // id is tid
 
       // // remove tids that are not present in the comments list (for example, tids that were moderated out)
       // // TODO exclude moderated-out comments from the repfull list
