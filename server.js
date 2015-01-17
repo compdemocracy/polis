@@ -6114,7 +6114,7 @@ function(req, res) {
             updateLastInteractionTimeForConversation(zid, uid);
 
             // NOTE: may be greater than number of comments, if they change votes
-            incrementVoteCount(req.p.zid, req.p.pid);
+            updateVoteCount(req.p.zid, req.p.pid);
         }, 100);
         return getNextCommentPrioritizingNonPassedComments(req.p.zid, req.p.pid);
     }).then(function(nextComment) {
@@ -7874,8 +7874,9 @@ function getPolisSocialSettings(zid, uid) {
     return pgQueryP("select * from participants inner join social_settings on social_settings.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]);
 }
 
-function incrementVoteCount(zid, pid) {
-    return pgQueryP("update participants set vote_count = vote_count + 1 where zid = ($1) and pid = ($2);",[zid, pid]);
+function updateVoteCount(zid, pid) {
+    // return pgQueryP("update participants set vote_count = vote_count + 1 where zid = ($1) and pid = ($2);",[zid, pid]);
+    return pgQueryP("update participants set vote_count = (select count(*) from votes where zid = ($1) and pid = ($2)) where zid = ($1) and pid = ($2)", [zid, pid]);
 }
 
 
