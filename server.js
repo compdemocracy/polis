@@ -5921,7 +5921,7 @@ WITH conv AS
           TRUE AS voted
    FROM votes
    WHERE zid = 12480
-     AND pid = 1
+     AND pid = 157
    GROUP BY tid),
      x AS
   (SELECT *
@@ -5951,20 +5951,20 @@ WITH conv AS
    FROM comments
    WHERE zid = 12480)
 SELECT 12480 AS zid,
-       a.tid,
+       c.tid,
        (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,
-       pv.voted AS voted,
+       COALESCE(pv.voted, FALSE) AS voted,
        c.*
-FROM a
-LEFT JOIN d ON a.tid = d.tid
-LEFT JOIN t ON a.tid = t.tid
-LEFT JOIN c ON a.zid = c.zid
+FROM c
+LEFT JOIN d ON c.tid = d.tid
+LEFT JOIN t ON c.tid = t.tid
+LEFT JOIN a ON a.zid = c.zid
 AND a.tid = c.tid
-LEFT JOIN pv ON a.tid = pv.tid
+LEFT JOIN pv ON c.tid = pv.tid
+LEFT JOIN conv ON c.zid = conv.zid
 WHERE voted IS NULL
-  AND a.tid NOT IN (30,
-                    31)
-  AND c.active = true
+  AND (pv.voted = FALSE OR pv.voted IS NULL)
+  AND c.active = TRUE
   AND c.mod >= conv.minModVal
   AND c.velocity > 0
 ORDER BY nonpass_score DESC;
@@ -6027,19 +6027,20 @@ q += "  (SELECT * ";
 q += "   FROM comments  ";
 q += "   WHERE zid = $1) ";
 q += "SELECT $1 AS zid,  ";
-q += "       a.tid,  ";
+q += "       c.tid,  ";
 q += "       (COALESCE(a.count,0.0)+COALESCE(d.count,0.0)) / coalesce(t.count, 1.0) AS nonpass_score,  ";
 q += "       pv.voted AS voted,  ";
 q += "       c.* ";
-q += "FROM a ";
-q += "LEFT JOIN d ON a.tid = d.tid ";
-q += "LEFT JOIN t ON a.tid = t.tid ";
-q += "LEFT JOIN c ON a.zid = c.zid ";
-q += "AND a.tid = c.tid ";
-q += "LEFT JOIN pv ON a.tid = pv.tid  ";
-q += "LEFT JOIN conv ON a.zid = conv.zid  ";
+q += "FROM c ";
+q += "LEFT JOIN d ON c.tid = d.tid ";
+q += "LEFT JOIN t ON c.tid = t.tid ";
+q += "LEFT JOIN a ON a.zid = c.zid ";
+q += "  AND a.tid = c.tid ";
+q += "LEFT JOIN pv ON c.tid = pv.tid  ";
+q += "LEFT JOIN conv ON c.zid = conv.zid  ";
 q += "WHERE voted IS NULL ";
-q += "  AND a.tid NOT IN ("+ withoutTids.join(",") +") ";
+q += "  AND c.tid NOT IN ("+ withoutTids.join(",") +") ";
+q += "  AND (pv.voted = FALSE OR pv.voted IS NULL)";
 q += "  AND c.active = true";
 q += "  AND c.mod >= conv.minModVal";
 q += "  AND c.velocity > 0";
