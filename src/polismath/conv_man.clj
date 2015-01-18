@@ -134,11 +134,9 @@
 (defn mongo-insert-results
   "Perform insert to mongo collection by zid"
   [collection-name object]
-  (mc/update
+  (mc/insert
     (db/mongo-db (env/env :mongolab-uri))
     collection-name
-    {:zid (or (:zid object)
-              (get object "zid"))}
     object))
 
 
