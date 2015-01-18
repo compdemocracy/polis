@@ -142,7 +142,7 @@
 
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
-  [conv & {:keys [recompute n-votes] :as extra-data}]
+  [conv & {:keys [recompute n-votes finish-time] :as extra-data}]
   (if-let [prof-atom (:profile-data conv)]
     (let [prof @prof-atom
           tot (apply + (map second prof))
@@ -150,7 +150,6 @@
       (try
         (-> prof
             (assoc :n-ptps (:n conv))
-            (assoc :recompute recompute)
             (merge (hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
             ((partial mongo-insert-results (db/mongo-collection-name "profile"))))
@@ -172,7 +171,10 @@
             ; If this is a recompute, we'll have either :full or :reboot, ow/ want to send false
             recompute      (if-let [rc (:recompute conv)] rc false)]
         (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
-        (handle-profile-data updated-conv :recompute recompute :n-votes (count votes))
+        (handle-profile-data updated-conv
+                             :finish-time finish-time
+                             :recompute recompute
+                             :n-votes (count votes))
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
