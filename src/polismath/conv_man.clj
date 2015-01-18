@@ -150,6 +150,7 @@
       (try
         (-> prof
             (assoc :n-ptps (:n conv))
+            (assoc :recompute recompute)
             (merge (hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
             ((partial mongo-insert-results (db/mongo-collection-name "profile"))))
@@ -167,9 +168,11 @@
     (try
       (let [updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)
-            finish-time    (System/currentTimeMillis)]
+            finish-time    (System/currentTimeMillis)
+            ; If this is a recompute, we'll have either :full or :reboot, ow/ want to send false
+            recompute      (if-let [rc (:recompute conv)] rc false)]
         (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
-        (handle-profile-data updated-conv :n-votes (count votes))
+        (handle-profile-data updated-conv :recompute recompute :n-votes (count votes))
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
@@ -233,10 +236,12 @@
     (-> conv
         (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts})
         ; Make sure there is an empty named matrix to operate on
-        (assoc :rating-mat (nm/named-matrix))
+        (assoc :rating-mat (nm/named-matrix)
+               :recompute :reboot)
         ; Make sure in-conv is a set
         (update-in [:in-conv] set))
-    (assoc (conv/new-conv) :zid zid)))
+    ; would be nice to have :recompute :initial
+    (assoc (conv/new-conv) :zid zid :recompute :full)))
 
 
 (defmacro take-all! [c]
