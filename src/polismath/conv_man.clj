@@ -154,7 +154,7 @@
                    extra-data)
             ((partial mongo-insert-results (db/mongo-collection-name "profile"))))
         (catch Exception e
-          (log/error "Unable to submit profile data for zid:" (:zid conv))
+          (log/warn "Unable to submit profile data for zid:" (:zid conv))
           (.printStackTrace e)))
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
