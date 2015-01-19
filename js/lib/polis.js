@@ -600,10 +600,6 @@ module.exports = function(params) {
         return dfd.promise();
     };
     function bucketizeSelf(self, selfDotBid) {
-
-        if (_.isNaN(self.proj.x)) {
-            debugger;
-        }
         var bucket = new Bucket({
             containsSelf: true,
             proj: self.proj,
@@ -615,10 +611,6 @@ module.exports = function(params) {
     }
 
     function bucketizeParticipantOfInterest(o, ptptoiData) {
-
-                        if (_.isNaN(o.proj.x)) {
-                            debugger;
-                        }
         var bucket = new Bucket({
             pic: ptptoiData.picture,
             containsSelf: o.containsSelf,
@@ -1882,7 +1874,6 @@ function clientSideBaseCluster(things, N) {
     function project(o) {
         var x = 0;
         var y = 0;
-
         if (!o.votes.length) {
             return {
                 pid : o.pid,
@@ -1913,11 +1904,6 @@ function clientSideBaseCluster(things, N) {
             x *= jetpack_aka_sparsity_compensation_factor;
             y *= jetpack_aka_sparsity_compensation_factor;
         }
-
-
-                        if (_.isNaN(x)) {
-                            debugger;
-                        }
 
         return {
             pid : o.pid,
@@ -2230,9 +2216,6 @@ function clientSideBaseCluster(things, N) {
                         var y = pcY[i];
                         x *= jetpack_aka_sparsity_compensation_factor;
                         y *= jetpack_aka_sparsity_compensation_factor;
-                        if (_.isNaN(x)) {
-                            debugger;
-                        }
                         projectedComments.push({
                             tid: i,
                             proj: {
