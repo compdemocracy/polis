@@ -83,6 +83,7 @@ module.exports = function(params) {
     var participantsOfInterestVotes = null;
     var participantsOfInterestBids = [];
     var groupVotes = null;
+    var nextCommentCache = null;
 
     var tidSubsetForReprojection = [];
     var consensusComments = null;
@@ -267,7 +268,13 @@ module.exports = function(params) {
         }
 
 
-        return polisGet(nextCommentPath, params);
+        var p = polisGet(nextCommentPath, params);
+        p.then(function(c) {
+            if (c && c.created) {
+                nextCommentCache = c;
+            }
+        });
+        return p;
     }
 
     function submitComment(model) {
@@ -325,8 +332,9 @@ module.exports = function(params) {
                 notTid: params.tid // Also don't show the comment that was just voted on.
             }).then(function(c) {
                 var o = {};
-                if (c) {
+                if (c && c.created) {
                     o.nextComment = c;
+                    nextCommentCache = c;
                 }
                 return o;
             });
@@ -2255,9 +2263,22 @@ function clientSideBaseCluster(things, N) {
         return polisPost(convSubPath, params);
     }
 
+    function unvotedCommentsExist() {
+        return !!nextCommentCache;
+    }
+    function setNextCachedComment(firstCommentPromise) {
+        firstCommentPromise.then(function(c) {
+            if (c && c.created) {
+                nextCommentCache = c;
+            }
+        });
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
+        unvotedCommentsExist: unvotedCommentsExist,
+        setNextCachedComment: setNextCachedComment, // TODO refactor this out, which will be easier if serverClient is a singleton, and gains responsibility for fetching the first comment
         getCommentsForProjection: getCommentsForProjection,
         getTidsForGroup: getTidsForGroup,
         getTidsForConsensus: getTidsForConsensus,

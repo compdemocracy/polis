@@ -1,3 +1,17 @@
+
+@-webkit-keyframes pulse {
+  from { background-color: rgba(0,0,0,0);  }
+  10% { background-color: rgb(202, 227, 255); }
+  to { background-color: rgba(0,0,0,0);  }
+}
+
+.pulseEffect {
+  -webkit-animation-name: pulse;
+  -webkit-animation-duration: 1s;
+  -webkit-animation-iteration-count: infinite;
+}
+
+
 .conversationViewRoot {
   overflow: hidden; // trim carousel contents. carousel lives in an overflow: visible container, this crops it.
 }

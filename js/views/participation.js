@@ -163,6 +163,9 @@ module.exports =  ConversationView.extend({
     var serverClient = this.serverClient;
     this.ptptModel = options.ptptModel;
 
+    // This is a wart. ServerClient should be initialized much earlier, probably as a singleton, and it should be responsible for fetching the first comment.
+    serverClient.setNextCachedComment(options.firstCommentPromise);
+
     // initialize this first to ensure that the vote view is showing and populated ASAP
     this.readReactView = this.addChild(new ReadReactView({
       firstCommentPromise: options.firstCommentPromise,
@@ -493,6 +496,7 @@ module.exports =  ConversationView.extend({
       }
 
       this.conversationTabs = this.addChild(new ConversationTabsView({
+        serverClient: serverClient,
         model: new Backbone.Model({
           showTabs: true
         })

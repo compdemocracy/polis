@@ -27,18 +27,23 @@ module.exports =  Handlebones.ModelView.extend({
   },
   gotoVoteTab: function() {
     this.gotoTab(this.VOTE_TAB);
+    this.stopPulsingVoteTab();
   },
   gotoWriteTab: function() {
     this.gotoTab(this.WRITE_TAB);
+    this.maybeStartPulsingVoteTab();
   },
   gotoAnalyzeTab: function() {
     this.gotoTab(this.ANALYZE_TAB);
+    this.maybeStartPulsingVoteTab();
   },
   gotoGroupTab: function() {
     this.gotoTab(this.GROUP_TAB);
+    this.maybeStartPulsingVoteTab();
   },
   gotoLegendTab: function() {
     this.gotoTab(this.LEGEND_TAB);
+    this.maybeStartPulsingVoteTab();
   },
   hideLegend: function() {
     if (this.onLegendTab()) {
@@ -82,12 +87,24 @@ module.exports =  Handlebones.ModelView.extend({
     return c;
   },
 
+  onAnalyzeTabClick: function() {
+    this.maybeStartPulsingVoteTab();
+  },
+
+  onWriteTabClick: function() {
+    this.maybeStartPulsingVoteTab();
+  },
+  onVoteTabClick: function() {
+    this.stopPulsingVoteTab();
+  },
   events: {
     "click #fbConnectBtn": "fbConnectBtn",
     "click #twitterConnectBtn": "twitterConnectBtn",
     "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
-
+    "click #analyzeTab": "onAnalyzeTabClick",
+    "click #commentFormTab": "onWriteTabClick",
+    "click #commentViewTab": "onVoteTabClick",
     // Before shown
     "show.bs.tab": function (e) {
       var to = e.target;
@@ -130,7 +147,13 @@ module.exports =  Handlebones.ModelView.extend({
         this.trigger("beforeshow:vote");
       }
     },
-    
+    // these aren't working
+    // "hide.bs.tab": function(e) {
+    //   debugger;
+    // },
+    // "hidden.bs.tab": function(e) {
+    //   debugger;
+    // },
     // After shown
     "shown.bs.tab": function (e) {
       var to = e.target;
@@ -144,6 +167,12 @@ module.exports =  Handlebones.ModelView.extend({
       }
       if (e.target && e.target.id === this.WRITE_TAB) {
         this.trigger("aftershow:write");
+      }
+      if (e.target && e.target.id === this.VOTE_TAB) {
+        this.stopPulsingVoteTab();
+        this.trigger("aftershow:vote");
+      } else {
+        this.maybeStartPulsingVoteTab();
       }
       // console.log("setting from", to);
       // this.from = to;
@@ -198,13 +227,33 @@ module.exports =  Handlebones.ModelView.extend({
     // var dest = window.location.pathname + window.location.hash;
     // window.location = "/api/v3/twitterBtn?dest=" + dest;
   },
-
+  stopPulsingVoteTab: function() {
+    this.$("#voteTab").removeClass("pulseEffect");
+  },
+  maybeStartPulsingVoteTab: function() {
+    var that = this;
+    if (this.serverClient.unvotedCommentsExist()) {
+      // setTimeout is a workaround since the classes seem to get cleared, probably by Boostrap Tabs code.
+      setTimeout(function() {
+        $("#voteTab").addClass("pulseEffect");
+      }, 100);
+    }
+  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
 
     // start with the vote tab
     this.currentTab = this.VOTE_TAB;
+    this.serverClient = options.serverClient;
+
+    eb.on("clusterClicked", function(gid) {
+      if (gid >= 0) {
+        that.maybeStartPulsingVoteTab();
+      } else {
+        that.stopPulsingVoteTab();
+      }
+    });
 
   }
 });
