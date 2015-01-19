@@ -141,13 +141,13 @@ module.exports =  ConversationView.extend({
   },
   updateLineToSelectedCluster: function(gid) {
     if (this.vis) {
-      if (display.xs()) {
-        // don't show line on mobile
-        this.vis.showLineToCluster(-1);
-      } else {
+      // if (display.xs()) {
+      //   // don't show line on mobile
+      //   this.vis.showLineToCluster(-1);
+      // } else {
         gid = _.isUndefined(gid) ? this.selectedGid : gid;
         this.vis.showLineToCluster(gid);
-      }
+      // }
     }
   },
   shouldShowVisUnderTabs: function() {

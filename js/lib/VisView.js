@@ -102,8 +102,6 @@ var selfDotTooltipShow = !SELF_DOT_SHOW_INITIALLY;
 var SELF_DOT_HINT_HIDE_AFTER_DELAY = 10*1000;
 var selfDotHintText = "you";
 
-var clusterPointerOriginY = 80;
-
 // if (isIE8) {
 //     $(el_selector).html(
 //         "<div class='visualization' style='width:100%;height:100%;'><center>" +
@@ -362,6 +360,9 @@ if (isIE8) {
     w = dimensions.width - xOffset; // $(el_selector).width() - xOffset;
     h = dimensions.height; //$(el_selector).height();
 }
+
+var clusterPointerFromBottom = display.xs();
+var clusterPointerOriginY = clusterPointerFromBottom ? h + 2 : 80;
 
 
 // function zoom() {
@@ -2385,7 +2386,7 @@ function subdivideLongEdges(originalPoints, minLengthForSubdivision) {
 }
 
 
-function nearestPointOnCluster(gid) {
+function nearestPointOnCluster(gid, start) {
     var hull = hullPoints[gid];
     if (!hull) {
         return null;
@@ -2394,7 +2395,6 @@ function nearestPointOnCluster(gid) {
     // hull = subdivideLongEdges(hull, 20);
     // hull = subdivideLongEdges(hull, 20);
 
-    var start = [-2, clusterPointerOriginY];
     var distances = hull.map(function(pt) {
         return {
             dist: distWithNonSquarePenalty(start, pt),
@@ -2420,7 +2420,16 @@ function updateLineToCluster(gid) {
         return;
     }
     // var center = centerOfCluster(gid);
-    var center = nearestPointOnCluster(gid);
+
+    var startX = clusterPointerFromBottom ? w/10: -2;
+    var start = [startX, clusterPointerOriginY];
+    var center = nearestPointOnCluster(gid, start);
+    if (clusterPointerFromBottom && center && center[0] < w/3) {
+        startX = 4*w/5;
+        start = [startX, clusterPointerOriginY];
+        center = nearestPointOnCluster(gid, start);
+    }
+
     if (!center) {
         overlay_layer.selectAll(".helpArrow")
             .style("display", "none");
@@ -2432,10 +2441,12 @@ function updateLineToCluster(gid) {
     center[0] = center[0] - 2;
     
     var centerPointOnX = 1/2;
+
+    var centerY = clusterPointerFromBottom ?  center[1] : clusterPointerOriginY; // decides if the curve is concave/convex
     helpLine.interpolate("basis");
     helpArrowPoints.splice(0); // clear
-    helpArrowPoints.push([-2, clusterPointerOriginY]);
-    helpArrowPoints.push([ (-2+center[0]) * centerPointOnX , clusterPointerOriginY ]); // midpoint on x, same as origin on y
+    helpArrowPoints.push(start);
+    helpArrowPoints.push([ (startX+center[0]) * centerPointOnX , centerY ]); // midpoint on x, same as origin on y
     helpArrowPoints.push(center);
 
     // center = center.join(",");
