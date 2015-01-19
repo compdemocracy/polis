@@ -475,6 +475,16 @@ svg {
 
 }
 
+@media (max-width: 380px) {
+
+  .nav-tabs > li > a {
+    font-size: 14px;
+  }
+  #loginButtonInTabsBar {
+    font-size: 14px !important; // !important since there are inline styles
+  }
+}
+
 /* Everything but mobile */
 @media (min-width: 768px) {
 
