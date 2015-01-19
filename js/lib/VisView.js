@@ -1056,6 +1056,11 @@ function commentIsSelected() {
 
 function chooseTransformForRoots(d) {
     var insetPoint = getInsetTarget(d);
+    var x = insetPoint.x;
+    var y = insetPoint.y;
+    if (_.isNaN(x) || _.isNaN(y)) {
+        debugger;
+    }
    return "translate(" + insetPoint.x + "," + insetPoint.y + ")";
 }
 
@@ -1203,6 +1208,9 @@ function getInsetTarget(d) {
     var centroid = centroids[gid];
     if (!centroid) {
         return {x: d.x, y: d.y};
+    }
+    if (!d || _.isUndefined(d.x) || _.isUndefined(d.y) || _.isNaN(d.x) || _.isNaN(d.y)) {
+        debugger;
     }
     // var radius = chooseCircleRadiusOuter(d);
     // var inset = moveTowardsTarget(d.x, d.y, centroid.x, centroid.y, radius);
@@ -2194,6 +2202,9 @@ var visBlockerOn = false;
 function showVisBlocker() {
     visBlockerOn = true;
 
+    if (_.isNaN(w) || _.isNaN(h)) {
+        debugger;
+    }
     blocker_layer.append("rect")
         .classed("visBlocker", true)
         .style("fill", "#f7f7f7")
