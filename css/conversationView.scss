@@ -1,3 +1,6 @@
+body {
+  min-height: 300px; // if we're slow to load while in an iframe, we want to indicate that something will appear (TODO spinner)
+}
 
 @-webkit-keyframes pulse {
   from { background-color: rgba(0,0,0,0);  }
