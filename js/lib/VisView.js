@@ -294,6 +294,10 @@ if (isIE8) {
 $(el_selector)
   .append("<svg>" +
     "<defs>" +
+        "<radialGradient id='HullGradient'>" +
+            "<stop offset='10%' stop-color='gold'/>" +
+            "<stop offset='95%' stop-color='green'/>" +
+        "</radialGradient>" +
         "<marker class='helpArrow' id='ArrowTip'" +
                 "viewBox='0 0 14 14'" +
                 "refX='1' refY='5'" +
@@ -347,6 +351,15 @@ if (isIE8) {
         .attr("transform", "translate("+ xOffset +")");
 
     overlay_layer = visualization.append(groupTag);
+
+    // overlay_layer.append("circle")
+    //     .attr("cx", 100)
+    //     .attr("cy", 100)
+    //     .attr("r", 100)
+    //     .attr("fill", "orange")
+    //     .style("fill", "orange")
+    //     .style("pointer-events", "none")
+    //     ;
 
     helpLine = d3.svg.line();
     helpArrowPoints;
@@ -507,8 +520,8 @@ function handleOnClusterClicked(hullId) {
         }
     }
 }
-var hull_unselected_color = '#f6f6f6';
-var hull_selected_color   = '#ebf3ff';
+var hull_unselected_color = 'url(#HullGradient)';
+var hull_selected_color   = 'url(#HullGradient)'; // '#ebf3ff';
 var hull_shadow_color     = '#d4d4d4';
 var hull_shadow_thickness = w > 550 ? 2 : 1;
 var hull_seletion_thickness = w > 550 ? 2 : 1;
