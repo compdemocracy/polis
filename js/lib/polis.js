@@ -535,6 +535,7 @@ module.exports = function(params) {
             }
 
             this.pic = o.pic;
+            this.picture_size = o.picture_size;
         }
 
     }
@@ -621,6 +622,7 @@ module.exports = function(params) {
     function bucketizeParticipantOfInterest(o, ptptoiData) {
         var bucket = new Bucket({
             pic: ptptoiData.picture,
+            picture_size: ptptoiData.picture_size,
             containsSelf: o.containsSelf,
             ptptoi: true,
             proj: o.proj,
@@ -1792,6 +1794,7 @@ function clientSideBaseCluster(things, N) {
 
                 if (ptpt.twitter) {
                     ptpt.picture = ptpt.twitter.profile_image_url_https;
+                    ptpt.picture_size = 48; // twitter's _normal.JPG size. _mini would be 24, and _bigger would be 73
                 }
 
                 // override with FB if they have it
@@ -1801,10 +1804,12 @@ function clientSideBaseCluster(things, N) {
 
                     var width = 48; // same as twitter, normally 50x50
                     var height = 48; // same as twitter, normally 50x50
+                    ptpt.picture_size = 48;
                     if (window.devicePixelRatio > 1) {
                         // on retina, we'll show 32x32, but fetch 64x64 images
                         width = 32;  // facebook will return 64x64 images if we're on a retina device
                         height = 32; // facebook will return 64x64 images if we're on a retina device
+                        ptpt.picture_size = 32;
                     }
                     // https://developers.facebook.com/docs/graph-api/reference/v2.2/user/picture
                     ptpt.facebook.picture = "https://graph.facebook.com/v2.2/"+ ptpt.facebook.fb_user_id +"/picture?width="+width+"&height=" + height;

@@ -1576,16 +1576,46 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   // .style("stroke", colorPushOutline)
       //   // .style("stroke-width", 1)
       //   ;
-      var ptptoiImageZoomFactor = 1.25;
+      var ptptoiImageZoomFactor = 1;
       var picEnter = g.append("image")
       picEnter
         // .classed("circle", true)
         .classed("bktv", true)
-        .attr("x", -ptptOiRadius * ptptoiImageZoomFactor)
-        .attr("y", -ptptOiRadius * ptptoiImageZoomFactor)
+        .attr("x", function(d) {
+            if (!d.picture_size) {
+                return -0.5 * ptptOiRadius;
+            }
+            var z = Math.max(d.picture_size, ptptOiRadius*2);
+            return -0.5 * z;
+        })
+        .attr("y", function(d) {
+            if (!d.picture_size) {
+                return -0.5 * ptptOiRadius;
+            }
+            var z = Math.max(d.picture_size, ptptOiRadius*2);
+            return -0.5 * z;
+        })
         // .style("visibility", "hidden")
-        .attr("height", ptptOiRadius * 2 * ptptoiImageZoomFactor)
-        .attr("width", ptptOiRadius * 2 * ptptoiImageZoomFactor)
+        .attr("height", function(d) {
+            if (!d.picture_size) {
+                return ptptOiRadius;
+            }
+            var z = Math.max(d.picture_size, ptptOiRadius*2);
+            if (!z) {
+                debugger;
+            }
+            return z;
+        })
+        .attr("width", function(d) {
+            if (!d.picture_size) {
+                return ptptOiRadius;
+            }
+            var z = Math.max(d.picture_size, ptptOiRadius*2);
+            if (!z) {
+                debugger;
+            }
+            return z;
+        })
         .attr("clip-path", "url(#clipCircle)")
         .attr("xlink:href", function(d) {
             return d.pic;
