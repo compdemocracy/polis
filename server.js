@@ -4310,6 +4310,25 @@ function createFacebookUserRecord(o) {
         o.response,
     ]);
 }
+function updateFacebookUserRecord(o) {
+    var profileInfo = JSON.parse(o.fb_public_profile);
+    // Create facebook user record
+    return pgQueryP("update facebook_users set fb_user_id=($2), fb_name=($3), fb_link=($4), fb_public_profile=($5), fb_login_status=($6), fb_access_token=($7), fb_granted_scopes=($8), fb_location_id=($9), location=($10), fb_friends_response=($11), response=($12) where uid = ($1);", [
+        o.uid,
+        o.fb_user_id,
+        profileInfo.name,
+        profileInfo.link,
+        o.fb_public_profile,
+        o.fb_login_status,
+        // o.fb_auth_response,
+        o.fb_access_token,
+        o.fb_granted_scopes,
+        profileInfo.locationInfo && profileInfo.locationInfo.id,
+        profileInfo.locationInfo && profileInfo.locationInfo.name,
+        o.fb_friends_response || "",
+        o.response,
+    ]);
+}
 
 function addFacebookFriends(uid, fb_friends_response) {
     var fbFriendIds = fb_friends_response.map(function(friend) {
@@ -4460,17 +4479,30 @@ function(req, res) {
             if (user.fb_user_id) {
                 // user has FB account linked
                 if (user.fb_user_id === fb_user_id) {
-                    // OK! start a session, etc, maybe update some facebook info
-                    startSessionAndAddCookies(req, res, user.uid)
-                    .then(function() {
-                        res.json({
-                            uid: user.uid,
-                            hname: user.hname,
-                            email: user.email,
-                            // token: token
+
+                    updateFacebookUserRecord(_.extend({}, {
+                        uid: user.uid
+                    }, fbUserRecord)).then(function() {
+                        var friendsAddedPromise = fb_friends_response ? addFacebookFriends(user.uid, fb_friends_response) : Promise.resolve();
+                        return friendsAddedPromise.then(function() {
+                            startSessionAndAddCookies(req, res, user.uid)
+                            .then(function() {
+                                res.json({
+                                    uid: user.uid,
+                                    hname: user.hname,
+                                    email: user.email,
+                                    // token: token
+                                });
+                            }).catch(function(err) {
+                                fail(res, 500, "polis_err_reg_fb_start_session2", err); 
+                            });
+                        }, function(err) {
+                            fail(res, 500, "polis_err_linking_fb_friends2", err);
                         });
+                    }, function(err) {
+                        fail(res, 500, "polis_err_updating_fb_info", err);
                     }).catch(function(err) {
-                        fail(res, 500, "polis_err_reg_fb_start_session", err); 
+                        fail(res, 500, "polis_err_fb_auth_misc", err);
                     });
                 } else {
                     // the user with that email has a different FB account attached
