@@ -1557,7 +1557,26 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       }
 
 
+    var ptptOiDiameter = ptptOiRadius*2;
 
+    function getImageWidth(d) {
+        if (!d.picture_size) {
+            return ptptOiDiameter;
+        }
+        if (d.picture_size < 0) {
+            // -1 used to indicate that the image should be resized (currently used for the anon profile image)
+            return ptptOiDiameter;
+        }
+        var z;
+        if (d.picture_size / 2 >= ptptOiDiameter) {
+            // check if we can scale down the image by half (scaling by half should reduce scaling blur)
+            z = d.picture_size / 2;
+        } else {
+            // no scaling
+            z = Math.max(d.picture_size, ptptOiDiameter);
+        }
+        return z;
+    }
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
       // var upArrowEnter = g.append("polygon") 
@@ -1582,40 +1601,14 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         // .classed("circle", true)
         .classed("bktv", true)
         .attr("x", function(d) {
-            if (!d.picture_size) {
-                return -0.5 * ptptOiRadius;
-            }
-            var z = Math.max(d.picture_size, ptptOiRadius*2);
-            return -0.5 * z;
+            return getImageWidth(d) * -0.5;
         })
         .attr("y", function(d) {
-            if (!d.picture_size) {
-                return -0.5 * ptptOiRadius;
-            }
-            var z = Math.max(d.picture_size, ptptOiRadius*2);
-            return -0.5 * z;
+            return getImageWidth(d) * -0.5;
         })
         // .style("visibility", "hidden")
-        .attr("height", function(d) {
-            if (!d.picture_size) {
-                return ptptOiRadius;
-            }
-            var z = Math.max(d.picture_size, ptptOiRadius*2);
-            if (!z) {
-                debugger;
-            }
-            return z;
-        })
-        .attr("width", function(d) {
-            if (!d.picture_size) {
-                return ptptOiRadius;
-            }
-            var z = Math.max(d.picture_size, ptptOiRadius*2);
-            if (!z) {
-                debugger;
-            }
-            return z;
-        })
+        .attr("height", getImageWidth)
+        .attr("width", getImageWidth)
         .attr("clip-path", "url(#clipCircle)")
         .attr("xlink:href", function(d) {
             return d.pic;

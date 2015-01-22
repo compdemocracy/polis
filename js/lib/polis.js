@@ -614,7 +614,8 @@ module.exports = function(params) {
             proj: self.proj,
             count: 1,
             bid: selfDotBid,
-            pic: "https://pol.is/landerImages/anonProfileIcon64.png"
+            pic: "https://pol.is/landerImages/anonProfileIcon64.png",
+            picture_size: -1
         });
         return bucket;
     }
