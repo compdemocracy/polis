@@ -148,6 +148,7 @@ gulp.task('connect', [], function() {
   app.use(/^\/styleguide$/, express.static(path.join(destRootBase, "styleguide.html")));  
   // Duplicate url for content at root. Needed so we have something for "About" to link to.
   app.use(/^\/about$/, express.static(path.join(destRootBase, "lander.html")));
+  app.use(/^\/wimp$/, express.static(path.join(destRootBase, "wimp.html")));
   app.use(/^\/try$/, express.static(path.join(destRootBase, "try.html")));
 
   app.listen(8000);

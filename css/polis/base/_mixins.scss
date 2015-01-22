@@ -49,6 +49,11 @@
   @include fa();
   content: "\f107";
 }
+
+@mixin fa-bar-chart() {
+  @include fa();
+  content: "\f080";
+}
 // end icon mixins
 
 //-----------------------------------------------------------------------------

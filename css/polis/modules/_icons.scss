@@ -23,6 +23,13 @@
   }
 }
 
+.icon--rep {
+  &:before {
+    @include fa-bar-chart();
+  }
+}
+
+
 .icon--inbox {
   &:before {
     @include fa-inbox();
