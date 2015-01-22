@@ -9,7 +9,6 @@ var urlPrefix = URLs.urlPrefix;
 
 var PTPOI_BID_OFFSET = 1e10;
 
-
 module.exports = function(params) {
 
     var polisTypes = {
@@ -119,6 +118,7 @@ module.exports = function(params) {
     var conversation_id = params.conversation_id;
     var zinvite = params.zinvite;
     var myPid = params.pid;
+    var USE_JETPACK_FOR_SELF = (myPid % 2 === 1); // AB test where odd pids get jetpack
 
     var means = null; // TODO move clustering into a separate file
 
@@ -1913,7 +1913,7 @@ function clientSideBaseCluster(things, N) {
         var numVotes = o.votes.length;
 
         // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
-        if (numVotes > 0) {
+        if (numVotes > 0 && (!o.isBlueDot || USE_JETPACK_FOR_SELF)) {
             var jetpack_aka_sparsity_compensation_factor = Math.sqrt(numComments / numVotes);
             x *= jetpack_aka_sparsity_compensation_factor;
             y *= jetpack_aka_sparsity_compensation_factor;
