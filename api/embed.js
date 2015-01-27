@@ -2,7 +2,7 @@
   var firstRun = !window.polis;
   window.polis = window.polis || {};
   var iframes = [];
-  var polisUrl = "https://preprod.pol.is";
+  var polisUrl = "https://embed.pol.is";
 
   function getConfig(d) {
      return {
