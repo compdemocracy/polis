@@ -1652,6 +1652,54 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("fill", chooseFill)
         ;
 
+        function shouldShowSnippedOnLeft(d) {
+            return d.x > 2/3*w;
+        }
+
+        g.filter(isSummaryBucket)
+          .append("rect")
+            .style("fill", "white")
+            .style("stroke", "black")
+            .attr("x", function(d) {
+                if (shouldShowSnippedOnLeft(d)) {
+                    return -230;
+                }
+                return 30;
+            }) // inset so it doesn't get cut off on firefox
+            .attr("y", -30) // inset so it doesn't get cut off on firefox
+            .attr("width", 200) // inset so it doesn't get cut off on firefox
+            .attr("height", 60) // inset so it doesn't get cut off on firefox
+            // .style("stroke", "lightgray")
+            // .attr("rx", 5)
+            // .attr("ry", 5)
+            ;
+        g.filter(isSummaryBucket)
+          .append("text")
+            // .classed("help", true)
+            // .classed("help_text_you", true)
+            .text(function(d) {
+                var txt = "iauhsdf iauhsdf iudsiuadhsiu  asdjfi aosdfi";
+                var truncated = txt.slice(0, 30);
+                if (truncated.length < txt.length) {
+                    truncated += " ...";
+                }
+                return truncated;
+            })
+            .attr("text-anchor", function(d) {
+                if (shouldShowSnippedOnLeft(d)) {
+                    return "end";
+                }
+                return "start";
+            })
+            // .attr("fill", "rgba(0,0,0,1.0)")
+            .attr("fill", "black")
+            .attr("stroke", "black")
+            .attr("transform", function(d) {
+                if (shouldShowSnippedOnLeft(d)) {
+                    return "translate(-45, 0)";
+                }
+                return "translate(45, 0)";
+            });
        
 
       // INNER SCALE-CHANGING SHAPES
