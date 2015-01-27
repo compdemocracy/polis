@@ -36,10 +36,10 @@
         {{/unless}}
         <li class="divider"></li>
         {{#ifAuthenticated}}
-            <li><a href="{{settings_href}}" class="HeadingD"><i class="fa fa-code"></i>&nbsp;Embed</a></li>
-            <li><a href="{{settings_href}}" class="HeadingD"><i class="fa fa-cog"></i>&nbsp;Settings</a></li>
+            {{!-- <li><a href="{{settings_href}}" class="HeadingD"><i class="fa fa-code"></i>&nbsp;Embed</a></li> --}}
+            {{!-- <li><a href="{{settings_href}}" class="HeadingD"><i class="fa fa-cog"></i>&nbsp;Settings</a></li> --}}
             <li class="divider"></li>
-            <li><a href="/user/logout" class="HeadingD">
+            <li><a href="/user/logout/inbox" class="HeadingD">
               {{#ifNotIE8}}
               <i class="fa fa-sign-out"></i>
               {{/ifNotIE8}}
