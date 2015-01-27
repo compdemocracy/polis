@@ -303,6 +303,10 @@ module.exports =  ConversationView.extend({
           isIE8: isIE8,
           isMobile: isMobile,
           getCommentsForProjection: serverClient.getCommentsForProjection,
+          groupInfo: function() {
+            return that.groupInfo.apply(that, arguments);
+          },
+          commentsCollection: that.allCommentsCollection,
           getReactionsToComment: serverClient.getReactionsToComment,
           getPidToBidMapping: serverClient.getPidToBidMapping,
           xOffset: xOffset,

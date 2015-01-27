@@ -14,6 +14,8 @@ var el_raphaelSelector = params.el_raphaelSelector;
 var getReactionsToComment = params.getReactionsToComment;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
+var groupInfo = params.groupInfo;
+var commentsCollection = params.commentsCollection;
 var isIE8 = params.isIE8;
 var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
@@ -294,6 +296,17 @@ if (isIE8) {
 $(el_selector)
   .append("<svg>" +
     "<defs>" +
+        "<linearGradient id='snippetGradAgree' x1='0%' y1='0%' x2='0%' y2='200%'>" +
+            "<stop offset='-50%' style='stop-color:rgba(192, 228, 180, 1);stop-opacity:1' />" +
+            "<stop offset='100%' style='stop-color:#ffffff;stop-opacity:1' />" +
+        "</linearGradient>" +
+        "<linearGradient id='snippetGradDisagree' x1='0%' y1='0%' x2='0%' y2='200%'>" +
+            "<stop offset='-50%' style='stop-color:rgba(246, 208, 208, 1);stop-opacity:1' />" +
+            "<stop offset='100%' style='stop-color:#ffffff;stop-opacity:1' />" +
+        "</linearGradient>" +
+
+
+
         "<marker class='helpArrow' id='ArrowTip'" +
                 "viewBox='0 0 14 14'" +
                 "refX='1' refY='5'" +
@@ -1660,6 +1673,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         g.filter(isSummaryBucket)
           .append("rect")
             .classed("snippet", true)
+            .style("display", "none")
             .style("fill", "lightgray")
             .style("stroke", "lightgray")
             .attr('stroke-linejoin','round')
@@ -1681,7 +1695,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         g.filter(isSummaryBucket)
           .append("rect")
             .classed("snippet", true)
-            .style("fill", "white")
+            .classed("snippetSurface", true)
+            .style("display", "none")
+            // .style("fill", "white")
             .style("stroke", "none")
             .attr("x", function(d) {
                 if (shouldShowSnippedOnLeft(d)) {
@@ -1701,7 +1717,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         g.filter(isSummaryBucket)
           .append("path")
             .classed("snippet", true)
-            .style("fill", "white")
+            .classed("snippetSurface", true)
+            .style("display", "none")
+            // .style("fill", "white")
             .attr("d", function(d) {
                 if (shouldShowSnippedOnLeft(d)) {
                     return "M -20,0 L -50,25 L -50,-25 L -20,0 Z";
@@ -1714,16 +1732,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         g.filter(isSummaryBucket)
           .append("text")
             .classed("snippet", true)
-            // .classed("help", true)
-            // .classed("help_text_you", true)
-            .text(function(d) {
-                var txt = "iauhsdf iauhsdf iudsiuadhsiu  asdjfi aosdfi";
-                var truncated = txt.slice(0, 30);
-                if (truncated.length < txt.length) {
-                    truncated += " ...";
-                }
-                return truncated;
-            })
+            .classed("snippetText", true)
+            .style("display", "none")
+            .attr("display", "none")
             .attr("text-anchor", function(d) {
                 if (shouldShowSnippedOnLeft(d)) {
                     return "end";
@@ -2129,10 +2140,52 @@ function doUpdateNodes() {
           .style("display", chooseDisplayForGrayHalo)
           ;
 
+        commentsCollection.firstFetchPromise.then(function() {
+            update.selectAll(".snippetText")
+                .text(function(d) {
+                    var info = groupInfo(d.gid);
+                    var txt = "Error 33";
+                    if (info && info.repness && info.repness.length) {
+                        var c1 = info.repness[0];
+                        var c = commentsCollection.findWhere({"tid": c1.tid});
+                        if (c) {
+                            var cTxt = c.get("txt");
+                            if (c && !_.isUndefined(cTxt)) {
+                                txt = cTxt;
+                            }
+                        }
+                    }
+                    var truncated = txt.slice(0, 30);
+                    if (truncated.length < txt.length) {
+                        truncated += " ...";
+                    }
+                    return truncated;
+                });
+            update.selectAll(".snippetSurface")
+                .style("fill", function(d) {
+                    var info = groupInfo(d.gid);
+                    var color = "orange"; // error color
+                    if (info && info.repness && info.repness.length) {
+                        var c1 = info.repness[0];
+                        if (c1["repful-for"] === "agree") {
+                            color = "url(#snippetGradAgree)";
+                        }
+                        if (c1["repful-for"] === "disagree") {
+                            color = "url(#snippetGradDisagree";
+                        }
+                    }
+                    return color;
+                });
+        });
+
         if (clusterIsSelected()) {
             update.selectAll(".snippet").style("display", "none");
         } else {
-            update.selectAll(".snippet").style("display", "block");
+            if (w >= 500) {
+                commentsCollection.firstFetchPromise.then(function() {
+                    update.selectAll(".snippet").style("display", "block");
+                });
+            }
         }
 
         update.selectAll(".grayHalo")

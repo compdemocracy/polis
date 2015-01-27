@@ -16,7 +16,10 @@ module.exports = Handlebones.ModelView.extend({
 
   selectedGid: -1,
   
-  groupInfo: function() {
+  groupInfo: function(gid) {
+    if (!_.isUndefined(gid)) {
+      return this.serverClient.getGroupInfo(gid);
+    }
     return this.serverClient.getGroupInfo(this.selectedGid);
   },
 
