@@ -8166,6 +8166,12 @@ function(req, res) {
                 'screen_name');
         });
 
+        // ensure that anon users get an entry for themselves. this ensures that they will be shown as a ptptoi, and get included in a group
+        if (pids.indexOf(myPid) === -1) {
+            pids.push(myPid);
+        }
+        pidToData[myPid]= pidToData[myPid] || {};
+
         pids.sort(function(a,b) {
             return a - b;
         });
