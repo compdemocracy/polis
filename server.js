@@ -8262,6 +8262,7 @@ function(req, res) {
     }
     p.then(function(data) {
         data = data[0];
+        data.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + data.twitter_user_id;
         res.status(200).json(data);
     }).catch(function(err) {
         fail(res, 500, "polis_err_twitter_user_info_get", err);
