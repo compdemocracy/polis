@@ -14,15 +14,18 @@ var InboxCollectionView = Handlebones.CollectionView.extend({
   })
 });
 
-module.exports = Handlebones.View.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "inbox",
   template: template,
+
   initialize: function(options) {
     var that = this;
     this.showNewButton = true;
     this.hideInboxLink = true;
     this.collection = options.collection;
     this.filters = options.filters;
+    this.model = options.model;
+
     // this.filters.is_active = options.is_active;
     // this.filters.is_draft = options.is_draft;
     this.collection.comparator = function(conversation) {

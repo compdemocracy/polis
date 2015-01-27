@@ -473,11 +473,17 @@ var polisRouter = Backbone.Router.extend({
 
       var conversationsCollection = new ConversationsCollection();
       // Let the InboxView filter the conversationsCollection.
-      var inboxView = new InboxView({
-        collection: conversationsCollection,
-        filters: filterAttrs
+
+      var userModel = new UserModel();
+      bbFetch(userModel).then(function() {
+        var inboxView = new InboxView({
+          model: userModel,
+          collection: conversationsCollection,
+          filters: filterAttrs
+        });
+        RootView.getInstance().setView(inboxView);
       });
-      RootView.getInstance().setView(inboxView);
+      
     });
   },
 

@@ -15,6 +15,7 @@ module.exports = Handlebones.ModelView.extend({
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     // this.model.get("site_ids").push(35234); // keep this here for testing
     ctx.hasMultipleSites = this.model.get("site_ids").length > 1;
+    // ctx.pageId = (Math.random() * 1e9) << 0;
     return ctx;
   },
   initialize: function(options) {

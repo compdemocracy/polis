@@ -1793,6 +1793,9 @@ function clientSideBaseCluster(things, N) {
                 var ptpt = x[pid];
                 ptpt.fakeBid = bucketId;
 
+                // default anon picture, may be overwritten
+                ptpt.picture = "https://pol.is/landerImages/anonProfileIcon64.png";
+
                 if (ptpt.twitter) {
                     ptpt.picture = ptpt.twitter.profile_image_url_https;
                     ptpt.picture_size = 48; // twitter's _normal.JPG size. _mini would be 24, and _bigger would be 73

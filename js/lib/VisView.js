@@ -1628,6 +1628,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("grayHalo", true)
         .attr("cx", 0)
         .attr("cy", 0)
+        .classed("ptptoi", isParticipantOfInterest)
         .attr("r", function(d) {
             if (isSummaryBucket(d)) {
                 return anonBlobRadius;
