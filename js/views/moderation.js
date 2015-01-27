@@ -1,5 +1,6 @@
 var AnalyzeGlobalView = require("../views/analyze-global");
 var Backbone = require("backbone");
+var CommentFormSeedView = require("../views/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentsCollection = require("../collections/comments");
 var display = require("../util/display");
@@ -136,6 +137,19 @@ module.exports =  Handlebones.ModelView.extend({
       collection: this.commentsRejected
     }));
 
+
+
+    this.commentsByMe = new CommentsCollection({
+      conversation_id: conversation_id
+    });
+
+    this.commentForm = this.addChild(new CommentFormSeedView({
+      pid: pid,
+      collection: this.commentsByMe,
+      conversation_id: conversation_id
+    }));
+
+    
     var pollingReference = setInterval(function() {
       // TODO don't send everything each time
       that.commentsTodo.fetch({

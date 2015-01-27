@@ -12,6 +12,7 @@
   <li class="active"><a href="#todo" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
   <li><a href="#accepted" data-toggle="tab">Accepted <span class="badge"> {{view acceptedCountView}} </span></a></li>
   <li><a href="#rejected" data-toggle="tab">Rejected <span class="badge"> {{view rejectedCountView}} </span></a></li>
+  <li><a href="#seed" data-toggle="tab">Seed Comments </a></li>  
 </ul>
 
 <!-- Tab panes -->
@@ -19,6 +20,13 @@
   <div class="tab-pane active" id="todo"> {{view moderateCommentsTodoCollectionView}} </div>
   <div class="tab-pane" id="accepted">{{view moderateCommentsAcceptedCollectionView}}</div>
   <div class="tab-pane" id="rejected">{{view moderateCommentsRejectedCollectionView}}</div>
+  <div class="tab-pane" id="seed">
+      <h5 class="HeadingB HeadingB--inline">Add Comments for Participants to React To</h5>
+      <div id="hiddenSeedCommentForm">
+          <p> Optionally add comments for participants to react to when the conversation&nbsp;begins. </p>
+          {{view commentForm}}
+      </div>
+  </div>
 </div>
 
 
