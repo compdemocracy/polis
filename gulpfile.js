@@ -630,6 +630,15 @@ gulp.task('deployPreprod', [
       bucket: "preprod.pol.is"
   });
 });
+
+gulp.task('deploySurvey', [
+  "prodConfig",
+  "dist"
+], function() {
+  return deploy({
+      bucket: "survey.pol.is"
+  });
+});
  
 function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));

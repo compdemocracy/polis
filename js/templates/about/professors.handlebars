@@ -17,6 +17,7 @@ $(document).ready(function() {
 		var prod = "https://pol.is/";
 		var preprod = "https://preprod.pol.is/";
 		var embed = "https://embed.pol.is/";
+		var survey = "https://survey.pol.is/";
 		var localhost = "http://localhost:5000/";
 		var localhost8000 = "http://localhost:8000/";
 		var urlPrefix = prod;
@@ -25,6 +26,9 @@ $(document).ready(function() {
 		}
 		if (document.domain.indexOf("embed") >= 0) {
 		    urlPrefix = embed;
+		}
+		if (document.domain.indexOf("survey") >= 0) {
+		    urlPrefix = survey;
 		}
 		if (-1 === document.domain.indexOf("pol.is")) {
 		    urlPrefix = localhost;
