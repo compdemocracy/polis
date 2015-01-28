@@ -1624,6 +1624,8 @@ var whitelistedDomains = [
   "https://gamma.pol.is",
   "http://embed.pol.is",
   "https://embed.pol.is",
+  "http://survey.pol.is",
+  "https://survey.pol.is",
   "http://localhost:8000",
   "https://canvas.instructure.com", // LTI
   "http://canvas.uw.edu", // LTI
@@ -1643,6 +1645,7 @@ var whitelistedDomains = [
 var whitelistedBuckets = {
     "pol.is": "pol.is",
     "embed.pol.is": "pol.is",
+    "survey.pol.is": "survey.pol.is",
     "www.polis.io": "pol.is",
     "preprod.pol.is": "preprod.pol.is",
     "about.polis.io": "about.polis.io",
@@ -2282,6 +2285,9 @@ function getServerNameWithProtocol(req) {
     }
     if (req.headers.host.indexOf("embed.pol.is") >= 0) {
         server = "https://embed.pol.is";
+    }
+    if (req.headers.host.indexOf("survey.pol.is") >= 0) {
+        server = "https://survey.pol.is";
     }
     return server;
 }
