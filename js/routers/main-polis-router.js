@@ -27,6 +27,7 @@ var metric = require("../util/gaMetric");
 var ModerationView = require("../views/moderation");
 var PasswordResetView = require("../views/passwordResetView");
 var PasswordResetInitView = require("../views/passwordResetInitView");
+var SettingsEnterpriseView = require("../views/settingsEnterprise.js");
 var SettingsView = require("../views/settings.js");
 var ShareLinkView = require("../views/share-link-view");
 var SummaryView = require("../views/summary.js");
@@ -242,6 +243,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^user\/logout(\/.+)/, "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r(/^settings(\/ep1_[0-9A-Za-z]+)?/, "settings");
+    this.r(/^settings\/enterprise(\/ep1_[0-9A-Za-z]+)?/, "settingsEnterprise");
     this.r("inbox", "inbox");
     this.r(/^inbox\/(ep1_[0-9A-Za-z]+)$/, "inboxLti");
     
@@ -272,6 +274,7 @@ var polisRouter = Backbone.Router.extend({
     var routesWithFooter = [
       /^faq/,
       /^settings/,
+      /^settings\/enterprise/,
       /^summaryView/,
       /^inbox(\/.*)?$/,
       /^inboxLti/,      
@@ -415,10 +418,31 @@ var polisRouter = Backbone.Router.extend({
     promise.then(function() {
       var userModel = new UserModel();
       bbFetch(userModel).then(function() {
-          var view = new SettingsView({
+          var v = new SettingsView({
           model: userModel,
         });
-        RootView.getInstance().setView(view);
+        RootView.getInstance().setView(v);
+      });
+    });
+  },
+  settingsEnterprise: function(encodedStringifiedJson) {
+    var o = Utils.decodeParams(encodedStringifiedJson);
+    // alert(o.monthly);
+    // alert(o.maxUsers);
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(false);
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
+      promise = this.doLogin(true);
+    }
+    promise.then(function() {
+      var userModel = new UserModel();
+      bbFetch(userModel).then(function() {
+          var v = new SettingsEnterpriseView({
+          model: userModel,
+          proposal: o
+        });
+        RootView.getInstance().setView(v);
       });
     });
   },

@@ -146,16 +146,19 @@ module.exports = {
     return this.supportsSVG() && !this.isIE8();
   },
   isTrialUser: function() {
-    return !PolisStorage.plan();
+    return !PolisStorage.planCode();
   },
   isIndividualUser: function() {
-    return PolisStorage.plan() === 1;
+    return PolisStorage.planCode() === 1;
   },
   isStudentUser: function() {
-    return PolisStorage.plan() === 2;
+    return PolisStorage.planCode() === 2;
   },
   isPpUser: function() {
-    return PolisStorage.plan() === 3;
+    return PolisStorage.planCode() === 3;
+  },
+  isEnterpriseUser: function() {
+    return PolisStorage.planCode() === 1000;
   },
   isInIframe: isInIframe,
   projectComments: false,

@@ -75,7 +75,8 @@ window.addEventListener("message", function(event) {
 var p = window.location.pathname;
   // check for token within URL
   if (p.match(/^\/inbox\//) ||
-      p.match(/^\/settings\//) ||
+      p.match(/^\/settings\/ep1_[A-Za-z0-9]+/) ||
+      p.match(/^\/settings\/enterprise\/ep1_[A-Za-z0-9]+/) ||
       p.match(/^\/conversation\/create\//) ||
       p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)      
     ) {
@@ -220,6 +221,10 @@ Handlebars.registerHelper("ifStudent", function(arg0) {
 Handlebars.registerHelper("ifParticipantPays", function(arg0) {
   return Utils.isPpUser() ? arg0.fn(this) : "";
 });
+Handlebars.registerHelper("ifEnterprise", function(arg0) {
+  return Utils.isEnterpriseUser() ? arg0.fn(this) : "";
+});
+
 
 Handlebars.registerHelper("ifDebugCommentProjection", function(arg0) {
   return Utils.debugCommentProjection ? arg0.fn(this) : "";
