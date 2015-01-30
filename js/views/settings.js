@@ -65,6 +65,20 @@ module.exports = Handlebones.ModelView.extend({
           "data-amount\""+100*100 +
           "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "individuals" + "\"></input>");
 
+
+        // New stripe hotness with fully custom forms for canvas integration
+        $('#payment-form').submit(function(event) {
+          var $form = $(this);
+
+          // Disable the submit button to prevent repeated clicks
+          $form.find('button').prop('disabled', true);
+
+          Stripe.card.createToken($form, stripeResponseHandler);
+
+          // Prevent the form from submitting with the default action
+          return false;
+        });
+
       // $("#participantsPayButton").on("click", function(ev) {
       //   var attrs = {
       //     plan: "pp", // Participants Pay
