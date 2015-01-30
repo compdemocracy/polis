@@ -163,6 +163,9 @@ var store = (function() {
 function getUidFromUserObject() {
     return window.userObject && window.userObject.uid;
 }
+function getPlanFromUserObject() {
+    return window.userObject && window.userObject.plan || 0;
+}
 function userCreated() {
     return toNumberWithFalsyAsZero(window.userObject && window.userObject.created) || Date.now();
 }
@@ -177,7 +180,7 @@ module.exports = {
         //username: makeAccessor("p_username"),
         uidFromCookie: makeAccessor("uid2").get,
         uid: getUidFromUserObject,
-        plan: asNumberWithFalsyAsZero(makeAccessor("plan").get),
+        plan: getPlanFromUserObject,
         userCreated: userCreated
 
         //token: makeAccessor("p_authToken")
