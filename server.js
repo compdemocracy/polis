@@ -4890,6 +4890,7 @@ function(req, res) {
             created: Number(info.created),
             daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
             plan: planCodeToPlanName[info.plan],
+            planCode: info.plan,
         });
     }, function(err) {
         fail(res, 500, "polis_err_getting_user_info", err);
@@ -7304,6 +7305,22 @@ function encodeParams(o) {
     var encoded = "ep1_" + strToHex(stringifiedJson);
     return encoded;
 }
+
+app.get('/api/v3/enterprise_deal_url',
+    moveToBody,
+    // want('upfront', getBool, assignToP),
+    need('monthly', getInt, assignToP),
+    want('maxUsers', getInt, assignToP),
+function(req, res) {
+    var o = {
+        monthly: req.p.monthly
+    };
+    if (req.p.maxUsers) {
+        o.maxUsers = req.p.maxUsers;
+    }
+    res.json(encodeParams(o));
+});
+
 
 app.get('/api/v3/conversations',
     moveToBody,
