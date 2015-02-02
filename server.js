@@ -9636,7 +9636,7 @@ function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl) {
     "You can find the conversation here:\n" +
     url + "\n" +
     "You can moderate the conversation here:\n" +
-    url + "\n" +
+    modUrl + "\n" +
     "\n" +
     "Feel free to reply to this email if you have questions." +
     "\n" +
