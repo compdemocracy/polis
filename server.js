@@ -4362,6 +4362,29 @@ function addFacebookFriends(uid, fb_friends_response) {
     }
 }
 
+
+app.post("/api/v3/team_members",
+    moveToBody,
+    auth(assignToP),
+    need('email', getEmail, assignToP),
+function(req, res) {
+
+    // This is temporary, until we have an automatic way to add users as admins on certain sites.
+    _.each([
+        'mike@pol.is',
+        'michael@bjorkegren.com',
+    ], function(devEmail) {
+        sendTextEmailWithMailgun(POLIS_FROM_ADDRESS, devEmail, "Polis: someone added a collaborator", "uid: " + req.p.uid + "  email: " + req.p.email + "\n\n SAMPLE QUERIES \n\n select * from pending_team_members;\n update users set site_id='polis_site_id_mike_all' where email ~ 'mike@pol.is';\n update users set site_owner=FALSE where site_id = 'polis_site_id_mike_all' and email = 'foo@foo.com';\n\n");
+    });
+    
+    // This is temporary, until we have an automatic way to add users as admins on certain sites.
+    pgQueryP("insert into pending_team_members (uid, email) values ($1, $2);", [req.p.uid, req.p.email]).then(function() {
+        res.status(200).json('ok');
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_adding_team_member", err);
+    });
+});
+
 app.get("/snapshot",
     moveToBody,
     auth(assignToP),

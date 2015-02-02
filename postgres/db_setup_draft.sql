@@ -51,6 +51,11 @@ CREATE TABLE users(
 CREATE INDEX users_uid_idx ON users USING btree (uid);
 -- alter table users add constraint users_site_id_index UNIQUE(site_id);
 
+CREATE TABLE pending_team_members(
+    uid INTEGER REFERENCES users(uid),
+    email VARCHAR(256),
+    created BIGINT DEFAULT now_as_millis()
+);
 
 CREATE TABLE twitter_users (
     uid INTEGER NOT NULL REFERENCES users(uid),
