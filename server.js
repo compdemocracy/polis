@@ -7334,7 +7334,7 @@ function(req, res) {
     if (req.p.maxUsers) {
         o.maxUsers = req.p.maxUsers;
     }
-    res.json(encodeParams(o));
+    res.send("https://pol.is/settings/enterprise/" + encodeParams(o));
 });
 
 
