@@ -297,12 +297,12 @@ $(el_selector)
   .append("<svg>" +
     "<defs>" +
         "<linearGradient id='snippetGradAgree' x1='0%' y1='0%' x2='0%' y2='200%'>" +
-            "<stop offset='0%' style='stop-color:rgba(192, 228, 180, 0.5);stop-opacity:1' />" +
-            "<stop offset='100%' style='stop-color:rgba(255, 255, 255, 0.5);stop-opacity:1' />" +
+            "<stop offset='-50%' style='stop-color:rgba(192, 228, 180, 1);stop-opacity:1' />" +
+            "<stop offset='100%' style='stop-color:#ffffff;stop-opacity:1' />" +
         "</linearGradient>" +
         "<linearGradient id='snippetGradDisagree' x1='0%' y1='0%' x2='0%' y2='200%'>" +
-            "<stop offset='0%' style='stop-color:rgba(246, 208, 208, 0.5);stop-opacity:1' />" +
-            "<stop offset='100%' style='stop-color:rgba(255, 255, 255, 0.5);stop-opacity:1' />" +
+            "<stop offset='-50%' style='stop-color:rgba(246, 208, 208, 1);stop-opacity:1' />" +
+            "<stop offset='100%' style='stop-color:#ffffff;stop-opacity:1' />" +
         "</linearGradient>" +
 
 
@@ -1670,63 +1670,61 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         }
 
 /////////////// BEGIN SNIPPET BUBBLES ////////////////////
-        // g.filter(isSummaryBucket)
-        //   .append("rect")
-        //     .classed("snippet", true)
-        //     .style("display", "none")
-        //     .style("fill", "lightgray")
-        //     .style("stroke", "lightgray")
-        //     .attr('stroke-linejoin','round')
-        //     .style("stroke-width", 3)
-        //     .attr("x", function(d) {
-        //         if (shouldShowSnippedOnLeft(d)) {
-        //             return -229;
-        //         }
-        //         return 31;
-        //     }) // inset so it doesn't get cut off on firefox
-        //     .attr("y", -29) // inset so it doesn't get cut off on firefox
-        //     .attr("width", 200) // inset so it doesn't get cut off on firefox
-        //     .attr("height", 60) // inset so it doesn't get cut off on firefox
-        //     // .style("stroke", "lightgray")
-        //     // .attr("rx", 5)
-        //     // .attr("ry", 5)
-        //     ;
+        g.filter(isSummaryBucket)
+          .append("rect")
+            .classed("snippet", true)
+            .style("display", "none")
+            .style("fill", "lightgray")
+            .style("stroke", "lightgray")
+            .attr('stroke-linejoin','round')
+            .style("stroke-width", 3)
+            .attr("x", function(d) {
+                if (shouldShowSnippedOnLeft(d)) {
+                    return -229;
+                }
+                return 31;
+            }) // inset so it doesn't get cut off on firefox
+            .attr("y", -29) // inset so it doesn't get cut off on firefox
+            .attr("width", 200) // inset so it doesn't get cut off on firefox
+            .attr("height", 60) // inset so it doesn't get cut off on firefox
+            // .style("stroke", "lightgray")
+            // .attr("rx", 5)
+            // .attr("ry", 5)
+            ;
 
-        // g.filter(isSummaryBucket)
-        //   .append("rect")
-        //     .classed("snippet", true)
-        //     .classed("snippetSurface", true)
-        //     .style("display", "none")
-        //     // .style("fill", "white")
-        //     .style("stroke", "none")
-        //     .attr("x", function(d) {
-        //         if (shouldShowSnippedOnLeft(d)) {
-        //             return -230;
-        //         }
-        //         return 30;
-        //     }) // inset so it doesn't get cut off on firefox
-        //     .attr("y", -30) // inset so it doesn't get cut off on firefox
-        //     .attr("width", 200) // inset so it doesn't get cut off on firefox
-        //     .attr("height", 60) // inset so it doesn't get cut off on firefox
-        //     // .style("stroke", "lightgray")
-        //     // .attr("rx", 5)
-        //     // .attr("ry", 5)
-        //     ;
+        g.filter(isSummaryBucket)
+          .append("rect")
+            .classed("snippet", true)
+            .classed("snippetSurface", true)
+            .style("display", "none")
+            // .style("fill", "white")
+            .style("stroke", "none")
+            .attr("x", function(d) {
+                if (shouldShowSnippedOnLeft(d)) {
+                    return -230;
+                }
+                return 30;
+            }) // inset so it doesn't get cut off on firefox
+            .attr("y", -30) // inset so it doesn't get cut off on firefox
+            .attr("width", 200) // inset so it doesn't get cut off on firefox
+            .attr("height", 60) // inset so it doesn't get cut off on firefox
+            // .style("stroke", "lightgray")
+            // .attr("rx", 5)
+            // .attr("ry", 5)
+            ;
 
 
         g.filter(isSummaryBucket)
           .append("path")
             .classed("snippet", true)
             .classed("snippetSurface", true)
-            .style("stroke", "rgba(0,220,0,0.5)")
             .style("display", "none")
             // .style("fill", "white")
             .attr("d", function(d) {
                 if (shouldShowSnippedOnLeft(d)) {
-                    // return "M -20,0 L -50,25 L -50,-25 L -20,0 Z";
-                    return "M -20,0 L -250,0 L -250,50 L -40,50 L -40,20 L -20,0 Z";
+                    return "M -20,0 L -50,25 L -50,-25 L -20,0 Z";
                 } 
-                return "M 20,0 L 250,0 L 250,50 L 40,50 L 40,20 L 20,0 Z";
+                return "M 20,0 L 50,25 L 50,-25 L 20,0 Z";
             })
             
 
@@ -1748,9 +1746,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             .attr("stroke", "black")
             .attr("transform", function(d) {
                 if (shouldShowSnippedOnLeft(d)) {
-                    return "translate(-55, 25)";
+                    return "translate(-45, 0)";
                 }
-                return "translate(55, 25)";
+                return "translate(45, 0)";
             });
 /////////////// END SNIPPET BUBBLES ////////////////////
 
