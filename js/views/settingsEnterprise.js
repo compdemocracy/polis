@@ -8,9 +8,11 @@ var urlPrefix = URLs.urlPrefix;
 module.exports = Handlebones.ModelView.extend({
   name: "settings",
   template: template,
+
   initialize: function(options) {
     this.model = options.model;
     this.proposal = options.proposal;
+    this.teamMembers = [];
 
     // -----------   BEGIN STRIPE CODE ----------------
     this.plan_id = "individuals";
@@ -46,7 +48,7 @@ module.exports = Handlebones.ModelView.extend({
           "data-description=\""+ "Upgrade to Enterprise plan" +"\"  "+
           "data-panel-label=\"Monthly\" "+
           "data-amount\""+options.proposal.monthly*100 +
-          "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + "organizations" + "\"></input>");
+          "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\"" + "organizations" + "\"></input>");
 
 
         // New stripe hotness with fully custom forms for canvas integration
@@ -103,5 +105,12 @@ module.exports = Handlebones.ModelView.extend({
 
   },
   events: {
+      "submit #addUser": function(event){
+        event.preventDefault();
+        var email = $(event.target).find("#teamMemberEmail").val();
+        alert(email);
+        this.teamMembers.push(email);
+        this.render();
+      },
   }
 });

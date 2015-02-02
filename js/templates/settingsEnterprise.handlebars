@@ -30,7 +30,7 @@
     </div>
   </div>
 
-
+{{!-- 
   <div class="panel panel-default">
     <div class="panel-heading">
       <h3 class="panel-title HeadingB">Team Members</h3>
@@ -39,12 +39,24 @@
       <div>
         {{email}}
       </div>
+      {{#each teamMembers}}
+        <div>{{this}}</div>
+      {{/each}}
       <div>
-        <button>add team member</button>
+
+        <form role="form" id="addUser">
+          <div>
+            <input type="text" id="teamMemberEmail" name="teamMemberEmail" placeholder="joe@myCompany.com"/>
+            <button type="submit" class="Btn Btn-small">Add Team Member</button>
+          </div>
+          <div class="row" id="errorDiv"> </div>
+        </form>
+          
+          
       </div>
     </div>
   </div>
-
+ --}}
 
   <div class="panel panel-default">
     <div class="panel-heading">
@@ -70,8 +82,8 @@
         </tr>
         </thead>
         <tr>
-          <td>Enterprise ({{proposal.maxUsers}} users)</td>
-          <td>${{proposal.monthly}}/month</td>
+          <td>Enterprise{{#ifDefined proposal.maxUsers}} ({{proposal.maxUsers}} users){{/ifDefined}}</td>
+          <td>{{#ifDefined proposal.monthly}} ${{proposal.monthly}}/month{{/ifDefined}}</td>
           <td> 
             {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeForm"></form>
              {{/ifTrial}}

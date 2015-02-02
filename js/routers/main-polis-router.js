@@ -426,7 +426,10 @@ var polisRouter = Backbone.Router.extend({
     });
   },
   settingsEnterprise: function(encodedStringifiedJson) {
-    var o = Utils.decodeParams(encodedStringifiedJson);
+    var o = {};
+    if (encodedStringifiedJson && encodedStringifiedJson.length) {
+      o = Utils.decodeParams(encodedStringifiedJson);
+    }
     // alert(o.monthly);
     // alert(o.maxUsers);
     var promise = $.Deferred().resolve();
