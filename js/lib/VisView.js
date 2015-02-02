@@ -1656,33 +1656,10 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             return d.x > 2/3*w;
         }
 
-/////////////// BEGIN SNIPPET BUBBLES ////////////////////
         g.filter(isSummaryBucket)
           .append("rect")
-            .classed("snippet", true)
-            .style("fill", "lightgray")
-            .style("stroke", "lightgray")
-            .attr('stroke-linejoin','round')
-            .style("stroke-width", 3)
-            .attr("x", function(d) {
-                if (shouldShowSnippedOnLeft(d)) {
-                    return -229;
-                }
-                return 31;
-            }) // inset so it doesn't get cut off on firefox
-            .attr("y", -29) // inset so it doesn't get cut off on firefox
-            .attr("width", 200) // inset so it doesn't get cut off on firefox
-            .attr("height", 60) // inset so it doesn't get cut off on firefox
-            // .style("stroke", "lightgray")
-            // .attr("rx", 5)
-            // .attr("ry", 5)
-            ;
-
-        g.filter(isSummaryBucket)
-          .append("rect")
-            .classed("snippet", true)
             .style("fill", "white")
-            .style("stroke", "none")
+            .style("stroke", "black")
             .attr("x", function(d) {
                 if (shouldShowSnippedOnLeft(d)) {
                     return -230;
@@ -1696,24 +1673,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             // .attr("rx", 5)
             // .attr("ry", 5)
             ;
-
-
-        g.filter(isSummaryBucket)
-          .append("path")
-            .classed("snippet", true)
-            .style("fill", "white")
-            .attr("d", function(d) {
-                if (shouldShowSnippedOnLeft(d)) {
-                    return "M -20,0 L -50,25 L -50,-25 L -20,0 Z";
-                } 
-                return "M 20,0 L 50,25 L 50,-25 L 20,0 Z";
-            })
-            
-
-
         g.filter(isSummaryBucket)
           .append("text")
-            .classed("snippet", true)
             // .classed("help", true)
             // .classed("help_text_you", true)
             .text(function(d) {
@@ -1739,8 +1700,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
                 }
                 return "translate(45, 0)";
             });
-/////////////// END SNIPPET BUBBLES ////////////////////
-
        
 
       // INNER SCALE-CHANGING SHAPES
@@ -2129,11 +2088,6 @@ function doUpdateNodes() {
           .style("display", chooseDisplayForGrayHalo)
           ;
 
-        if (clusterIsSelected()) {
-            update.selectAll(".snippet").style("display", "none");
-        } else {
-            update.selectAll(".snippet").style("display", "block");
-        }
 
         update.selectAll(".grayHalo")
                 .style("stroke", function(d) {
