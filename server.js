@@ -5162,10 +5162,12 @@ function(req, res) {
     });
 });
 
+function _getCommentsForModerationList(o) {
+    var modClause = _.isUndefined(o.mod) ? "" : " and comments.mod = ($2)";
+    return pgQueryP("select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo left join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, [o.zid, o.mod]);
+}
 
-function getComments(o) {
-    var isModerationRequest = o.moderation;
-
+function _getCommentsList(o) {
     return new Promise(function(resolve, reject) {
       getConversationInfo(o.zid).then(function(conv) {
 
@@ -5203,7 +5205,7 @@ function getComments(o) {
         if (!_.isUndefined(o.withoutTids)) {
             q = q.and(sql_comments.tid.notIn(o.withoutTids));
         }
-        if (isModerationRequest) {
+        if (o.moderation) {
 
         } else {
             q = q.and(sql_comments.active.equals(true));            
@@ -5226,47 +5228,49 @@ function getComments(o) {
         } else {
             q = q.limit(999); // TODO paginate
         }
-
-        //if (_.isNumber(req.p.not_pid)) {
-            //query += " AND pid != ($"+ (i++) + ")";
-            //parameters.unshift(req.p.not_pid);
-        //}
-        //
-        //pgQuery("SELECT * FROM comments WHERE zid = ($1) AND created > (SELECT to_timestamp($2));", [zid, lastServerToken], handleResult);
-
-        pgQuery(q.toString(), [], function(err, docs) {
+        return pgQuery(q.toString(), [], function(err, docs) {
             if (err) { 
                 reject(err);
                 return;
             }
-
             if (docs.rows && docs.rows.length) {
-                var cols = [
-                    "txt",
-                    "tid",
-                    "created",
-                ];
-                var rows = docs.rows;
-
-                if (isModerationRequest) {
-                    cols.push("velocity");
-                    cols.push("zid");
-                    cols.push("mod");
-                    cols.push("active");
-                }
-                rows = rows.map(function(row) { return _.pick(row, cols); });
-                resolve(rows);
-
+                resolve(docs.rows);
             } else {
                 resolve([]);
-
             }
-        }); // end pgQuery
-      }).catch(function(err) {
+        }).catch(function(err) {
+            reject(err);
+        });
+    });
+  });
+}
 
-        reject(err);
-      }); // end getConversationInfo
-    }); // end new Promise
+function getComments(o) {
+    var commentListPromise = o.moderation ? _getCommentsForModerationList(o) : _getCommentsList(o);
+
+    return commentListPromise.then(function(rows) {
+        var cols = [
+            "txt",
+            "tid",
+            "created",
+        ];
+
+        if (o.moderation) {
+            cols.push("velocity");
+            cols.push("zid");
+            cols.push("mod");
+            cols.push("active");
+            cols.push("count"); //  in  moderation queries, we join in the vote count
+        }
+        rows = rows.map(function(row) {
+            var x = _.pick(row, cols);
+            if (!_.isUndefined(x.count)) {
+                x.count = Number(x.count);
+            }
+            return x;
+        });
+        return rows;
+    });
 }
 
 /*
