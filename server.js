@@ -4908,7 +4908,7 @@ var planCodes = {
     students: 2,
     pp: 3,
     sites: 100,
-    orgs: 1000,
+    organizations: 1000,
 };
 
 // These are for customer to see in UI
@@ -5084,8 +5084,12 @@ function updatePlan(req, res, uid, planCode, isCurrentUser) {
             setPlanCookie(req, res, setOnPolisDomain, planCode);
 
             // Redirect to the same URL with the path behind the fragment "#"
+            var path = "/settings";
+            if (planCode === 1000) {
+                path = "/settings/enterprise";
+            }
             res.writeHead(302, {
-                Location: protocol + "://" + req.headers.host +"/settings",
+                Location: protocol + "://" + req.headers.host + path
             });
             return res.end();
         } else {
@@ -5123,7 +5127,7 @@ function(req, res) {
         mike: 50,
         individuals: 100 * 100,
         sites: 1000 * 100,
-        orgs: 5000 * 100,
+        organizations: 5000 * 100,
         students: 3 * 100,
         // pp: 0, // not sent to stripe
     };
