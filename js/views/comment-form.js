@@ -31,10 +31,39 @@ module.exports = Handlebones.ModelView.extend({
     ctx.is_active = this.parent.model.get("is_active");
     return ctx;
   },
+  textChange: function() {
+    var len = $(arguments[0].target).val().length;
+    var remaining = 140 - len;
+    var txt;
+    if (remaining < 0) {
+      // txt = "- " + remaining;
+      txt = remaining;
+      this.$("#commentCharCount").css("color", "red");
+      this.$("#comment_button").attr("disabled", "disabled");
+      this.$("#comment_button").css("opacity", 0.3);
+      this.buttonActive = false;
+    } else if (remaining > 0) {
+      txt = "+ " + remaining;
+      this.$("#commentCharCount").css("color", "black");
+      this.$("#comment_button").attr("disabled", null);
+      this.$("#comment_button").css("opacity", 1);
+      this.buttonActive = true;
+    } else {
+      txt = remaining;
+      this.$("#commentCharCount").css("color", "black");
+      this.$("#comment_button").attr("disabled", null);
+      this.$("#comment_button").css("opacity", 1);
+      this.buttonActive = true;
+    }
+    this.$("#commentCharCount").text(txt);
+  },
   events: {
     "focus #comment_form_textarea": function(e) { // maybe on keyup ?
       this.$(".alert").hide();
     },
+    "change #comment_form_textarea": "textChange",
+    "keyup #comment_form_textarea": "textChange",
+    "paste #comment_form_textarea": "textChange",
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();

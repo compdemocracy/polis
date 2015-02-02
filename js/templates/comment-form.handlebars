@@ -23,7 +23,7 @@
       style=" font-size: 16px"
       name="txt"
       type="text"
-      maxlength="140"
+      maxlength="400"
      {{!--  placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
       autofocus
     ></textarea>
@@ -36,6 +36,9 @@
 {{!--           {{#if error}}
           <div class="alert alert-danger" style="font-family: brandon-grotesque" role="alert"><p> <strong>{{error}}</strong>{{#if errorExtra}}{{errorExtra}}{{/if}}</p></div>
           {{/if}} --}}
+        </td>
+        <td style="min-width:50px; text-align: right; padding: 10px 10px 0px 0px">
+          <div id="commentCharCount" style='color: black; font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif'>+140</div>
         </td>
         <td style="text-align: right; vertical-align: top">
           <button
