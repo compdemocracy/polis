@@ -43,7 +43,6 @@ CREATE TABLE users(
     plan SMALLINT DEFAULT 0,
     tut SMALLINT DEFAULT 0,
     site_id VARCHAR(256) NOT NULL DEFAULT random_polis_site_id(), -- TODO add a separate table for this, once we have people with multiple sites
-    default_sid INTEGER REFERENCES sites(sid),
     UNIQUE (site_id), -- not unique, since many usres can be admins for the same site_id
     UNIQUE (email),
     UNIQUE (uid)
@@ -195,21 +194,6 @@ CREATE TABLE courses(
 );
 CREATE UNIQUE INDEX course_id_idx ON courses USING btree (course_id);
 
-
-CREATE TABLE sites(
-    sid SERIAL,
-    site_id VARCHAR(256) NOT NULL DEFAULT random_polis_site_id(),
-    owner INTEGER REFERENCES users(uid),
-    UNIQUE(sid),
-    UNIQUE(site_id)
-);
-
-CREATE TABLE site_permissions(
-    sid INTEGER REFERENCES sites(sid),
-    uid INTEGER REFERENCES users(uid),
-    can_mod BOOLEAN DEFAULT TRUE,
-    UNIQUE(sid, uid)
-);
 
 -- This is a light table that's used exclusively for generating IDs
 CREATE TABLE conversations(
