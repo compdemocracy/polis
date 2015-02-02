@@ -3029,7 +3029,9 @@ function isModerator(zid, uid) {
     if (isPolisDev(uid)) {
         return Promise.resolve(true);
     }
-    return isOwner(zid, uid);
+    return pgQueryP("select * from users LEFT JOIN page_ids on users.site_id = page_ids.site_id where users.uid = ($2) and page_ids.zid = ($1)", [zid, uid]).then(function(rows) {
+        return rows.length >= 1;
+    });
 }
 
 // returns a pid of -1 if it's missing
@@ -5736,13 +5738,19 @@ function(req, res) {
                             yell("polis_err_getting_modstatus_comment_count");
                             return void 0;
                         }).then(function(n) {
-                            // send to team for moderation
-                            sendCommentModerationEmail(req, 125, zid, n);  // mike
-                            sendCommentModerationEmail(req, 186, zid, n); // colin
-                            sendCommentModerationEmail(req, 36140, zid, n); // chris
-
-                            // send to conversation owner for moderation
-                            sendCommentModerationEmail(req, conv.owner, zid, n);
+                            
+                            pgQueryP("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
+                                var uids = _.pluck(users, "uid");
+                                // also notify polis team for moderation
+                                uids = _.union(uids, [
+                                    125, // mike
+                                    186, // colin
+                                    36140, // chris
+                                ]);
+                                uids.forEach(function(uid) {
+                                    sendCommentModerationEmail(req, uid, zid, n);
+                                });
+                            });
                         });
                     }
 
@@ -7144,11 +7152,16 @@ function getConversations(req, res) {
 
   // var fail = failNotWithin(500);
       // First fetch a list of conversations that the user is a participant in.
+  var zidListQuery = "select zid from page_ids where site_id = (select site_id from users where uid = ($1))";
+  if (include_all_conversations_i_am_in) {
+    zidListQuery += " UNION select zid from participants where uid = ($1)";
+  }
+  zidListQuery += ";";
 
-  pgQuery('select zid from participants where uid = ($1);', [uid], function(err, results) {
+  pgQuery(zidListQuery, [uid], function(err, results) {
     if (err) { fail(res, 500, "polis_err_get_conversations_participated_in", err); return; }
 
-    var participantIn = results && results.rows && _.pluck(results.rows, "zid") || null;
+    var participantInOrSiteAdminOf = results && results.rows && _.pluck(results.rows, "zid") || null;
 
     var query = sql_conversations.select(sql_conversations.star());
 
@@ -7170,9 +7183,8 @@ function getConversations(req, res) {
         orClauses = sql_conversations.owner.equals(uid);
     }
 
-    // TODO_PERF Check include_all_conversations_i_am_in before making the above DB query.
-    if (include_all_conversations_i_am_in && participantIn.length) {
-        orClauses = orClauses.or(sql_conversations.zid.in(participantIn));
+    if (participantInOrSiteAdminOf.length) {
+        orClauses = orClauses.or(sql_conversations.zid.in(participantInOrSiteAdminOf));
     }
 
     query = query.where(orClauses);
@@ -9547,7 +9559,7 @@ function initializeImplicitConversation(site_id, page_id, o) {
     // find the user with that site_id.. wow, that will be a big index..
     // I suppose we could duplicate the site_ids that actually have conversations
     // into a separate table, and search that first, only searching users if nothing is there.
-    return pgQueryP("select uid from users where site_id = ($1);",[site_id]).then(function(rows) {
+    return pgQueryP("select uid from users where site_id = ($1) and site_owner = TRUE;",[site_id]).then(function(rows) {
         if (!rows || !rows.length) {
             throw new Error("polis_err_bad_site_id");
         }
@@ -9617,7 +9629,7 @@ function initializeImplicitConversation(site_id, page_id, o) {
     });
 }
 
-function sendImplicitConversationCreatedEmail(uid, site_id, page_id, url, modUrl) {
+function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl) {
     var body = "" +
     "Conversation created!" + "\n" +
     "\n" +
@@ -9634,10 +9646,14 @@ function sendImplicitConversationCreatedEmail(uid, site_id, page_id, url, modUrl
     "page_id: \"" + page_id + "\"\n" +
     "\n";
 
-    return sendEmailByUid(
-        uid,
-        "Polis conversation created!",
-        body);
+    return pgQueryP("select email from users where site_id = ($1)", [site_id]).then(function(rows) {
+        var emails = _.pluck(rows, "email");
+        return sendMultipleTextEmails(
+            POLIS_FROM_ADDRESS,
+            emails,
+            "Polis conversation created",
+            body);
+    });
 }
 
 function registerPageId(site_id, page_id, zid) {
@@ -9679,7 +9695,7 @@ function(req, res) {
             initializeImplicitConversation(site_id, page_id, o).then(function(conv) {
                 var url = buildConversationUrl(req, conv.zinvite);
                 var modUrl = buildModerationUrl(req, conv.zinvite);
-                sendImplicitConversationCreatedEmail(conv.owner, site_id, page_id, url, modUrl).then(function() {
+                sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl).then(function() {
                     console.log('email sent');
                 }).catch(function(err) {
                     console.error('email fail');
