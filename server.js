@@ -5127,7 +5127,7 @@ function(req, res) {
         mike: 50,
         individuals: 100 * 100,
         sites: 1000 * 100,
-        organizations: 5000 * 100,
+        organizations: 300 * 100, // TODO parameterize
         students: 3 * 100,
         // pp: 0, // not sent to stripe
     };
