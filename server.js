@@ -5441,7 +5441,7 @@ function sendCommentModerationEmail(req, uid, zid, unmoderatedCommentCount) {
 
         // NOTE: the counter goes in the email body so it doesn't create a new email thread (in Gmail, etc)
 
-        body += createModerationUrl(req, zinvite);
+        body += createProdModerationUrl(zinvite);
 
         body += "\n\nThank you for using Polis.";
 
@@ -5453,6 +5453,10 @@ function sendCommentModerationEmail(req, uid, zid, unmoderatedCommentCount) {
     }).catch(function(err) {
         console.error(err);
     });
+}
+
+function createProdModerationUrl(zinvite) {
+    return "https://pol.is/m/" + zinvite;
 }
 
 function createModerationUrl(req, zinvite) {
