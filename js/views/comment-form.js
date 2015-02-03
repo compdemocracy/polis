@@ -6,6 +6,8 @@ var CommentView = require("../views/commentView");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
 
+var CHARACTER_LIMIT = 200;
+
 var CommentsByMeView = Handlebones.CollectionView.extend({
   modelView: CommentView
 });
@@ -33,7 +35,7 @@ module.exports = Handlebones.ModelView.extend({
   },
   textChange: function() {
     var len = $(arguments[0].target).val().length;
-    var remaining = 140 - len;
+    var remaining = CHARACTER_LIMIT - len;
     var txt;
     if (remaining < 0) {
       // txt = "- " + remaining;
