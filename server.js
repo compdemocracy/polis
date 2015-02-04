@@ -7162,18 +7162,25 @@ function getConversations(req, res) {
   var limit = req.p.limit;
   console.log("thecontext", context);
 
-  // var fail = failNotWithin(500);
-      // First fetch a list of conversations that the user is a participant in.
-  var zidListQuery = "select zid from page_ids where site_id = (select site_id from users where uid = ($1))";
+
+  // this statement is currently a subset of the next one
+  // var zidListQuery = "select zid from page_ids where site_id = (select site_id from users where uid = ($1))";
+
+  // include conversations started by people with the same site_id as me
+  // 1's indicate that the conversations are there for that reason
+  var zidListQuery = "select zid, 1 as type from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($1)))";
   if (include_all_conversations_i_am_in) {
-    zidListQuery += " UNION select zid from participants where uid = ($1)";
+    zidListQuery += " UNION ALL select zid, 2 as type from participants where uid = ($1)"; // using UNION ALL instead of UNION to ensure we get all the 1's and 2's (I'm not sure if we can guarantee the 2's won't clobber some 1's if we use UNION)
   }
   zidListQuery += ";";
+
 
   pgQuery(zidListQuery, [uid], function(err, results) {
     if (err) { fail(res, 500, "polis_err_get_conversations_participated_in", err); return; }
 
     var participantInOrSiteAdminOf = results && results.rows && _.pluck(results.rows, "zid") || null;
+    var siteAdminOf = _.filter(results.rows, function(row) { return row.type === 1;});
+    var isSiteAdmin = _.indexBy(siteAdminOf, "zid");
 
     var query = sql_conversations.select(sql_conversations.star());
 
@@ -7299,6 +7306,8 @@ function getConversations(req, res) {
                     if (_.isUndefined(conv.topic) || conv.topic === "") {
                         conv.topic = (new Date(conv.created)).toUTCString();
                     }
+
+                    conv.is_mod = conv.is_owner || isSiteAdmin[conv.zid];
 
                     // Make sure zid is not exposed
                     delete conv.zid;
