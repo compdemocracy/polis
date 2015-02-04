@@ -25,6 +25,42 @@ module.exports = Handlebones.View.extend({
       $("#comment_form_textarea").val(""); //use this.$
     }
   },
+  buttonActive: true,
+  textChange: function() {
+    var formText = $(arguments[0].target).val();
+    var len = formText.length;
+    var remaining = CHARACTER_LIMIT - len;
+    var txt;
+    if (remaining < 0) {
+      // txt = "- " + remaining;
+      txt = remaining;
+      this.$("#commentCharCount").css("color", "red");
+      this.$("#comment_button").attr("disabled", "disabled");
+      this.$("#comment_button").css("opacity", 0.3);
+      this.$("#commentTooLongAlert").show();
+      this.buttonActive = false;
+    } else if (remaining > 0) {
+      txt = "+ " + remaining;
+      this.$("#commentCharCount").css("color", "black");
+      this.$("#comment_button").attr("disabled", null);
+      this.$("#comment_button").css("opacity", 1);
+      this.$("#commentTooLongAlert").hide();
+      this.buttonActive = true;
+    } else {
+      txt = remaining;
+      this.$("#commentCharCount").css("color", "black");
+      this.$("#comment_button").attr("disabled", null);
+      this.$("#comment_button").css("opacity", 1);
+      this.$("#commentTooLongAlert").hide();
+      this.buttonActive = true;
+    }
+    this.$("#commentCharCount").text(txt);
+    if (formText.indexOf("?") >= 0) {
+      this.$("#commentNotQuestionAlert").show();
+    } else {
+      this.$("#commentNotQuestionAlert").hide();
+    }
+  },
   participantCommented: function(attrs) {
     var that = this; //that = the view
     attrs.pid = this.pid;

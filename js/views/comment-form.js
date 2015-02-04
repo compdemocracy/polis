@@ -34,7 +34,8 @@ module.exports = Handlebones.ModelView.extend({
     return ctx;
   },
   textChange: function() {
-    var len = $(arguments[0].target).val().length;
+    var formText = $(arguments[0].target).val();
+    var len = formText.length;
     var remaining = CHARACTER_LIMIT - len;
     var txt;
     if (remaining < 0) {
@@ -61,6 +62,11 @@ module.exports = Handlebones.ModelView.extend({
       this.buttonActive = true;
     }
     this.$("#commentCharCount").text(txt);
+    if (formText.indexOf("?") >= 0) {
+      this.$("#commentNotQuestionAlert").show();
+    } else {
+      this.$("#commentNotQuestionAlert").hide();
+    }
   },
   events: {
     "focus #comment_form_textarea": function(e) { // maybe on keyup ?
