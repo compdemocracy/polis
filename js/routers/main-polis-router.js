@@ -871,7 +871,7 @@ var polisRouter = Backbone.Router.extend({
     
     this.getConversationModel(conversation_id).then(function(model) {
       if (!model.get("is_mod")) {
-        alert("Sorry, only moderators can view this conversation.");
+        alert("Sorry, only moderators can moderate this conversation.");
         return;
       }
       var view = new ModerationView({
