@@ -7116,19 +7116,20 @@ function getOneConversation(req, res) {
     // var fail = failNotWithin(500);
     // no need for auth, since conversation_id was provided
     Promise.all([
-        getConversationInfo(zid),
+        pgQueryP("select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
         getConversationHasMetadata(zid),
     ]).then(function(results) {
-        var conv = results[0];
+        var conv = results[0] && results[0][0];
         var convHasMetadata = results[1];
-        getUserProperty(conv.owner, "hname").then(function(ownername) {
+        getUserInfoForUid2(conv.owner).then(function(userInfo) {
+            var ownername = userInfo.hname;
             if (convHasMetadata) {
                 conv.hasMetadata = true;
             }
             if (!_.isUndefined(ownername) && conv.context !== "hongkong2014") {
                 conv.ownername = ownername;
             }
-
+            conv.is_mod = conv.site_id === userInfo.site_id;
             conv.is_owner = conv.owner === uid;
             conv.pp = false; // participant pays (WIP)
             
