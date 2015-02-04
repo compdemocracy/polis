@@ -6,6 +6,7 @@ var CommentView = require("../views/commentView");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
 
+var CHARACTER_LIMIT = constants.CHARACTER_LIMIT;
 
 var CommentsByMeView = Handlebones.CollectionView.extend({
   modelView: CommentView
@@ -16,6 +17,9 @@ module.exports = Handlebones.View.extend({
   name: "comment-form-seed",
   template: template,
     events: {
+    "change #comment_form_textarea": "textChange",
+    "keyup #comment_form_textarea": "textChange",
+    "paste #comment_form_textarea": "textChange",
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();

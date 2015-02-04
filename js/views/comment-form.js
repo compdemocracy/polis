@@ -6,7 +6,7 @@ var CommentView = require("../views/commentView");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
 
-var CHARACTER_LIMIT = 200;
+var CHARACTER_LIMIT = constants.CHARACTER_LIMIT;
 
 var CommentsByMeView = Handlebones.CollectionView.extend({
   modelView: CommentView
