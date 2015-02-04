@@ -272,6 +272,8 @@ module.exports = function(params) {
         p.then(function(c) {
             if (c && c.created) {
                 nextCommentCache = c;
+            } else {
+                nextCommentCache = null;
             }
         });
         return p;
@@ -335,6 +337,8 @@ module.exports = function(params) {
                 if (c && c.created) {
                     o.nextComment = c;
                     nextCommentCache = c;
+                } else {
+                    nextCommentCache = null;
                 }
                 return o;
             });
@@ -2279,6 +2283,8 @@ function clientSideBaseCluster(things, N) {
         firstCommentPromise.then(function(c) {
             if (c && c.created) {
                 nextCommentCache = c;
+            } else {
+                nextCommentCache = null;
             }
         });
     }
