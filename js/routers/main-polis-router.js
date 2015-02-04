@@ -870,10 +870,10 @@ var polisRouter = Backbone.Router.extend({
     var pid = ptptModel.get("pid");
     
     this.getConversationModel(conversation_id).then(function(model) {
-      // if (!model.get("is_owner")) {
-      //   alert("Sorry, only the conversation owner can moderate this conversation.");
-      //   return;
-      // }
+      if (!model.get("is_mod")) {
+        alert("Sorry, only moderators can view this conversation.");
+        return;
+      }
       var view = new ModerationView({
         pid: pid,
         model: model
