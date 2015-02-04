@@ -494,10 +494,11 @@ module.exports =  ConversationView.extend({
           model: this.tutorialModel
         }));
       }
-
+      var allowAnalyze = this.model.get("vis_type") >= 1;
       this.conversationTabs = this.addChild(new ConversationTabsView({
         serverClient: serverClient,
         model: new Backbone.Model({
+          allowAnalyze: allowAnalyze,
           showTabs: true
         })
       }));
