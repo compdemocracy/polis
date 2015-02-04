@@ -15,7 +15,15 @@
 	<div class="form-group" style="position:relative">
 
    {{#if is_active}}
-
+   <div class="alert-info" style="
+    font-family: brandon-grotesque;
+    display: block;
+    padding: 5px;
+    margin-bottom: 0px;
+    margin-top: 10px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    ">Submit your opinions here. Write one comment per idea.{{!--  <a href="">... more info</a> --}}</div>
 		<textarea
       class="form-control comment_form_textarea_width"
       id="comment_form_textarea"
@@ -24,9 +32,18 @@
       name="txt"
       type="text"
       maxlength="400"
-     {{!--  placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
+      {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
       autofocus
     ></textarea>
+
+    <div id="commentCharCount" style='
+      color: black;
+      font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+      position: relative;
+      top: -23px;
+      right: 5px;
+      height: 0px;
+      float: right;'>{{! +200 }}</div>
 
     <div id="commentNotQuestionAlert" class="alert alert-warning" style="font-family: brandon-grotesque; display:none; padding: 5px; margin-top:10px; margin-bottom:5px;" role="alert"><p> <i>Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.</i></p></div>          
     <table width="100%">
@@ -38,9 +55,6 @@
 {{!--           {{#if error}}
           <div class="alert alert-danger" style="font-family: brandon-grotesque" role="alert"><p> <strong>{{error}}</strong>{{#if errorExtra}}{{errorExtra}}{{/if}}</p></div>
           {{/if}} --}}
-        </td>
-        <td style="min-width:50px; text-align: right; padding: 10px 10px 0px 0px; vertical-align: top;">
-          <div id="commentCharCount" style='color: black; font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif'>{{! +200 }}</div>
         </td>
         <td style="text-align: right; vertical-align: top">
           <button
