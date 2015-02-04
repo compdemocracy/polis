@@ -83,7 +83,7 @@ module.exports =  Handlebones.ModelView.extend({
     c.hasFacebook = userObject.hasFacebook;
     c.hasTwitter = userObject.hasTwitter;
     c.dropdownLabel = userObject.hname || "Login";
-    c.showLogout = userObject.hasTwitter || userObject.hasFacebook;
+    c.showLogout = userObject.hasTwitter || userObject.hasFacebook || userObject.email;
     return c;
   },
 
