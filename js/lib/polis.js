@@ -517,6 +517,8 @@ module.exports = function(params) {
             this.bid = o.id || o.bid;
             this.proj = o.proj;
             this.count = o.count;
+            this.hasTwitter = o.hasTwitter;
+            this.hasFacebook = o.hasFacebook;
             if (o.clusterCount) {// TODO stop with this pattern
                 this.clusterCount = o.clusterCount;// TODO stop with this pattern
             }
@@ -615,6 +617,8 @@ module.exports = function(params) {
     function bucketizeSelf(self, selfDotBid) {
         var bucket = new Bucket({
             containsSelf: true,
+            hasTwitter: !!self.hasTwitter,
+            hasFacebook: !!self.hasFacebook,
             proj: self.proj,
             count: 1,
             bid: selfDotBid,
@@ -629,6 +633,8 @@ module.exports = function(params) {
             pic: ptptoiData.picture,
             picture_size: ptptoiData.picture_size,
             containsSelf: o.containsSelf,
+            hasTwitter: !!ptptoiData.hasTwitter,
+            hasFacebook: !!ptptoiData.hasFacebook,
             ptptoi: true,
             proj: o.proj,
             count: 1,
@@ -1803,13 +1809,14 @@ function clientSideBaseCluster(things, N) {
                 if (ptpt.twitter) {
                     ptpt.picture = ptpt.twitter.profile_image_url_https;
                     ptpt.picture_size = 48; // twitter's _normal.JPG size. _mini would be 24, and _bigger would be 73
+                    ptpt.hasTwitter = true;
                 }
 
                 // override with FB if they have it
                 if (ptpt.facebook && 
                     ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
                     ) {
-
+                    ptpt.hasFacebook = true;
                     var width = 48; // same as twitter, normally 50x50
                     var height = 48; // same as twitter, normally 50x50
                     ptpt.picture_size = 48;
