@@ -313,6 +313,7 @@ var sql_conversations = sql.define({
     "created",
     "link_url",
     "parent_url",
+    "vis_type",
     ]
 });
 var sql_votes = sql.define({
@@ -6587,6 +6588,7 @@ app.put('/api/v3/conversations',
     want('strict_moderation', getBool, assignToP),
     want('topic', getOptionalStringLimitLength(1000), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP),
+    want('vis_type', getInt, assignToP),
     want('verifyMeta', getBool, assignToP),
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
     want('launch_presentation_return_url_hex', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
@@ -6633,6 +6635,9 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.description)) {
         fields.description = req.p.description;
+    }
+    if (!_.isUndefined(req.p.vis_type)) {
+        fields.vis_type = req.p.vis_type;
     }
     if (!_.isUndefined(req.p.owner_sees_participation_stats)) {
         fields.owner_sees_participation_stats = !!req.p.owner_sees_participation_stats;
