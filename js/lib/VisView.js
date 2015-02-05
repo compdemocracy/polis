@@ -92,6 +92,7 @@ var maxRad = _.max([
     anonBlobRadius + anonBlobHaloVoteWidth  // not sure if anonBlobHaloVoteWidth should be /2
 ]);
 
+var HULL_EXTRA_RADIUS = d3.scale.linear().range([2, 6]).domain([350, 800]).clamp(true)(width);
 
 // framerate can be low on mobile, so make it quick
 var speed = d3.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(width);
@@ -123,7 +124,7 @@ var minNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([2, 4]).domain(
 var maxNodeRadiusScaleForGivenVisWidth = d3.scale.linear().range([10, 20]).domain([350, 800]).clamp(true);
 var chargeForGivenVisWidth = d3.scale.linear().range([-1, -10]).domain([350, 800]).clamp(true);
 var strokeWidthGivenVisWidth = d3.scale.linear().range([0.2, 1.0]).domain([350, 800]).clamp(true);
-var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([6, 16]).domain([350, 800]).clamp(true);
+var hullStrokeWidthGivenVisWidth = d3.scale.linear().range([4, 12]).domain([350, 800]).clamp(true);
 
 var grayHaloColor = "lightgray";
 var grayHaloColorSelected = "rgba(0,0,0,0)";
@@ -609,7 +610,7 @@ function updateHulls() {
     function tesselatePoint(xyPair) {
         var x = xyPair[0];
         var y = xyPair[1];
-        var r = chooseCircleRadiusOuter(xyPair[2]) + 5;
+        var r = chooseCircleRadiusOuter(xyPair[2]) + HULL_EXTRA_RADIUS;
         var points = [];
         var theta = 0;
         var tau = 6.28318;
