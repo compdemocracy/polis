@@ -3,6 +3,7 @@ var Backbone = require("backbone");
 var CommentFormSeedView = require("../views/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentsCollection = require("../collections/comments");
+var ConversationConfigView = require("../views/conversationConfigView");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
@@ -136,6 +137,12 @@ module.exports =  Handlebones.ModelView.extend({
     this.moderateCommentsRejectedCollectionView = this.addChild(new ModerateCommentsCollectionView({
       collection: this.commentsRejected
     }));
+
+
+    this.conversationConfigView = this.addChild(new ConversationConfigView({
+      model: this.model
+    }));
+
 
 
 

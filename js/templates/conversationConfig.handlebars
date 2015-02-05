@@ -1,0 +1,47 @@
+<form class="FormVertical" role="form">
+<p>Topic
+	<input id="topicForm" name="topic" value="{{topic}}">
+</p>
+<p>Description
+	<input id="descriptionForm" name="description" value="{{description}}">
+</p>
+
+{{!-- <p>link_url {{link_url}}</p>
+<p>parent_url {{parent_url}}</p>
+<p>upvotes {{upvotes}}</p>
+<p>participant_count {{participant_count}}</p>
+<p>is_anon {{is_anon}}</p>
+--}}
+
+
+{{!-- <p>Active
+	<input id="activeOn" type="radio" name="is_active" value="true" {{#if is_active}}checked{{/if}}> Yes
+	<input id="activeOff" type="radio" name="is_active" value="" {{#unless is_active}}checked{{/unless}}> No
+</p> --}}
+
+
+{{!-- <p>is_draft {{is_draft}}</p> --}}
+{{!-- <p>is_public {{is_public}}</p> --}}
+{{!-- <p>profanity_filter {{profanity_filter}}</p> --}}
+{{!-- <p>spam_filter {{spam_filter}}</p> --}}
+<p>Strict Moderation (no comments shown without approval)
+	<input id="strictOn" type="radio" name="strict_moderation" value="true" {{#if strict_moderation}}checked{{/if}}> Yes
+	<input id="strictOff" type="radio" name="strict_moderation" value="" {{#unless strict_moderation}}checked{{/unless}}> No
+</p>
+<p>Show visualization to participants 
+	<input id="visTypeOn" type="radio" name="vis_type" value="true" {{#if vis_type}}checked{{/if}}> Yes
+	<input id="visTypeOff" type="radio" name="vis_type" value="" {{#unless vis_type}}checked{{/unless}}> No
+</p>
+{{!-- <p>email_domain {{email_domain}}</p> --}}
+{{!-- <p>owner {{owner}}</p> --}}
+{{!-- <p>context {{context}}</p> --}}
+{{!-- <p>course_id {{course_id}}</p> --}}
+{{!-- <p>lti_users_only {{lti_users_only}}</p> --}}
+{{!-- <p>owner_sees_participation_stats {{owner_sees_participation_stats}}</p> --}}
+{{!-- <p>modified {{modified}}</p> --}}
+{{!-- <p>Created {{created}}</p> --}}
+
+	<div class="FormVertical-group">
+		<button class="Btn Btn-primary" name="formAction" type="button" id="submitButton" value="publish">Save Changes</button>
+	</div>
+</form>
