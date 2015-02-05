@@ -3027,11 +3027,11 @@ function isOwner(zid, uid) {
 }
 
 function isModerator(zid, uid) {
-    if (isPolisDev(uid)) {
-        return Promise.resolve(true);
-    }
-    return pgQueryP("select * from users LEFT JOIN page_ids on users.site_id = page_ids.site_id where users.uid = ($2) and page_ids.zid = ($1)", [zid, uid]).then(function(rows) {
-        return rows.length >= 1;
+    // if (isPolisDev(uid)) {
+    //     return Promise.resolve(true);
+    // }
+    return pgQueryP("select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);", [zid, uid]).then(function(rows) {
+        return rows[0].count >= 1;
     });
 }
 
@@ -6598,7 +6598,7 @@ app.put('/api/v3/conversations',
     want('link_url', getStringLimitLength(1, 9999), assignToP),
 function(req, res){
   var generateShortUrl = req.p.short_url;
-  isOwner(req.p.zid, req.p.uid).then(function(ok) {
+  isModerator(req.p.zid, req.p.uid).then(function(ok) {
     if (!ok) {
         fail(res, 403, "polis_err_update_conversation_permission");
         return;
@@ -6655,9 +6655,9 @@ function(req, res){
         )
         .where(
             sql_conversations.zid.equals(req.p.zid)
-        ).and(
-            sql_conversations.owner.equals(req.p.uid)
-        ).returning('*');
+        )
+        // .and( sql_conversations.owner.equals(req.p.uid) )
+        .returning('*');
     verifyMetaPromise.then(function() {
         pgQuery(
             q.toString(),
