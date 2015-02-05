@@ -69,11 +69,14 @@ var width = $(el_raphaelSelector).width();
 
 // var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
 var retina = window.devicePixelRatio > 1;
-var ptptOiRadius = retina ? 12 : 20; // go smaller on retina, the image should be higher res
+var basePtptoiRad = retina ? 12 : 20; // go smaller on retina, the image should be higher res
 if (isMobile) {
-    ptptOiRadius = 9;
+    basePtptoiRad = 9;
 }
-ptptOiRadius += d3.scale.linear().range([0, 8]).domain([350, 800]).clamp(true)(width);
+var maxradboost = 8;
+var ptptOiRadius = basePtptoiRad + d3.scale.linear().range([0, maxradboost]).domain([350, 800]).clamp(true)(width);
+var maxPtptoiRad = basePtptoiRad + maxradboost;
+
 
 var friendOrFolloweeRadius = ptptOiRadius + 2;
 
@@ -1622,19 +1625,22 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         //     .style("opacity", 0.5)
         ;
 
-        g.append("g")
-            .attr("transform", "translate(10,40) scale(.005, -0.005)")
-            .append("path")
-            .style("visibility", function(d) {
-                return d.hasFacebook ? "visible" : "hidden";
-            })
-            .style("fill", "#3A5795")
-            .attr("d", "m 3179.0313,3471.2813 c 147.3,0 273.8408,-10.85 310.7504,-15.75 l 0,-360.25 -213.2496,-0.25 c -167.24,0 -199.5008,-79.38 -199.5008,-196 l 0,-257.25 398.7504,0 -52,-402.75 -346.7504,0 0,-1033.5 -415.9996,0 0,1033.5 -347.75,0 0,402.75 347.75,0 0,297 c 0,344.73 210.47,532.5 517.9996,532.5 z")
-            ;
+        var socialIconScale = ptptOiDiameter/2 / maxPtptoiRad;
+        var socialRoot = g.append("g")
+         .attr("transform", "translate(0,0) scale(" +socialIconScale +"," + socialIconScale+")");
 
-        g.append("g")
-            .attr("transform", "translate(30,8) scale(0.015,0.015)")
+        socialRoot.append("g")
+            .attr("transform", "translate(5,35) scale(.005, -0.005)")
             .append("path")
+                .style("visibility", function(d) {
+                    return d.hasFacebook ? "visible" : "hidden";
+                })
+                .style("fill", "#3A5795")
+                .attr("d", "m 3179.0313,3471.2813 c 147.3,0 273.8408,-10.85 310.7504,-15.75 l 0,-360.25 -213.2496,-0.25 c -167.24,0 -199.5008,-79.38 -199.5008,-196 l 0,-257.25 398.7504,0 -52,-402.75 -346.7504,0 0,-1033.5 -415.9996,0 0,1033.5 -347.75,0 0,402.75 347.75,0 0,297 c 0,344.73 210.47,532.5 517.9996,532.5 z")
+
+        socialRoot.append("g")
+            .attr("transform", "translate(25,3) scale(0.015,0.015)")
+              .append("path")
                 .style("fill", "#55acee")
                 .style("visibility", function(d) {
                     return d.hasTwitter ? "visible" : "hidden";
