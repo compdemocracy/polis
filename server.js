@@ -3027,9 +3027,9 @@ function isOwner(zid, uid) {
 }
 
 function isModerator(zid, uid) {
-    // if (isPolisDev(uid)) {
-    //     return Promise.resolve(true);
-    // }
+    if (isPolisDev(uid)) {
+        return Promise.resolve(true);
+    }
     return pgQueryP("select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);", [zid, uid]).then(function(rows) {
         return rows[0].count >= 1;
     });
