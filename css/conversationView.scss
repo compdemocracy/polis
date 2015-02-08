@@ -416,6 +416,24 @@ svg {
     color: #3b5998;
   }
 
+.twitterButton {
+    margin-top: 20px;
+    border: 0px;
+    color: white;
+    font-family: $sans-font;
+    font-weight: 300;
+    padding: 8px 16px;
+    border-radius: 5px;
+    background-color: #55ACEE;
+    font-size: 16px;
+}
+
+  .twitterButton i {
+    font-size: 24px;
+    position: relative;
+    top: 2px
+  }
+
   .facebookButton {
     margin-top: 20px;
     border: 0px;

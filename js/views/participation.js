@@ -13,6 +13,7 @@ var display = require("../util/display");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
 var ParticipantModel = require("../models/participant");
+var PolisFacebookUtils = require('../util/facebookButton');
 var ConversationView = require("../views/conversation");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
@@ -56,6 +57,11 @@ module.exports =  ConversationView.extend({
   template: template,
   className: "participationView",
   events: {
+    "click .facebookButton": "fbConnectBtn",
+    "click .twitterButton": "twitterConnectBtn",
+    // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
+    // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
+
   },
   firstMathPollResultDeferred: $.Deferred(),
   shouldAffixVis: false,
@@ -112,8 +118,36 @@ module.exports =  ConversationView.extend({
     ctx.use_background_content_class = display.xs();
     ctx.xs = display.xs();
     ctx.showNewButton = true;
+    ctx.hasFacebook = userObject.hasFacebook;
+    ctx.hasTwitter = userObject.hasTwitter;
+    ctx.hasFbOrTw = ctx.hasFacebook || ctx.hasTwitter;
     return ctx;
   },
+
+  fbConnectBtn: function() {
+    var that = this;
+    PolisFacebookUtils.connect().then(function() {
+      // that.model.set("response", "fbdone");
+      location.reload();
+    }, function(err) {
+      alert("facebook error");
+    });
+  },
+
+  twitterConnectBtn: function() {
+    // window.top.postMessage("twitterConnectBegin", "*");
+
+
+    // open a new window where the twitter auth screen will show.
+    // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
+    var params = 'location=0,status=0,width=800,height=400';
+    window.open(document.location.origin + "/api/v3/twitterBtn?dest=/twitterAuthReturn", 'twitterWindow', params);
+
+
+    // var dest = window.location.pathname + window.location.hash;
+    // window.location = "/api/v3/twitterBtn?dest=" + dest;
+  },
+
   convSub: function(params) {
     var that = this;
     this.serverClient.convSub(params).then(function(o) {
