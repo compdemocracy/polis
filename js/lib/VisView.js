@@ -1626,52 +1626,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         //     .style("opacity", 0.5)
         ;
 
-        var socialIconScale = ptptOiDiameter/2 / maxPtptoiRad;
-        var socialRoot = g.append("g")
-         .attr("transform", "translate(0,0) scale(" +socialIconScale +"," + socialIconScale+")");
-        
-        var edgeLengthToMatchCircleRadius = Math.sqrt(1/2) * ptptOiDiameter/2;
-        socialRoot.append("circle").style("fill", "white").attr("cx", edgeLengthToMatchCircleRadius).attr("cy", edgeLengthToMatchCircleRadius).attr("r", ptptOiDiameter/4);
-
-        socialRoot.append("g")
-            .attr("transform", function(d) {
-                if (d.hasFacebook) {
-                    return "translate(" + (retina ? "6,35" : "9,38")  +") scale(.005, -0.005)";
-                    
-                } else if (d.hasTwitter) {
-                    return "translate(" + (retina ? "8,25" : "9,28")  +") scale(0.015,0.015)";
-                }
-            })
-            .append("path")
-                .style("visibility", function(d) {
-                    return (d.hasFacebook || d.hasTwitter) ? "visible" : "hidden";
-                })
-                .style("fill", function(d) {
-                    if (d.hasFacebook) {
-                        return "#3A5795";
-                    } else if (d.hasTwitter) {
-                        return "#55acee";
-                    }
-                })
-                .attr("d", function(d) {
-                    if (d.hasFacebook) {
-                        return "m 3179.0313,3471.2813 c 147.3,0 273.8408,-10.85 310.7504,-15.75 l 0,-360.25 -213.2496,-0.25 c -167.24,0 -199.5008,-79.38 -199.5008,-196 l 0,-257.25 398.7504,0 -52,-402.75 -346.7504,0 0,-1033.5 -415.9996,0 0,1033.5 -347.75,0 0,402.75 347.75,0 0,297 c 0,344.73 210.47,532.5 517.9996,532.5 z";
-                    } else if (d.hasTwitter) {
-                        return "d", "M0 781.864q0 7.32 7.32 13.176 12.2 8.296 43.432 24.4 119.072 61.488 249.856 61.488 162.992 0 296.216 -83.936 63.44 -40.016 112.728 -96.38t78.324 -117.608 43.432 -122.732 13.42 -119.56v-17.08q57.096 -40.992 89.304 -93.696 2.928 -5.856 2.928 -8.784 0 -6.344 -4.88 -11.224t-11.224 -4.88q-3.416 0 -11.712 3.904 -5.856 1.952 -14.396 4.88t-14.64 5.124 -8.052 2.684q12.688 -14.152 26.352 -38.308t13.664 -35.38q0 -6.344 -4.88 -10.98t-11.712 -4.636q-3.904 0 -7.808 2.44 -55.632 29.768 -103.944 40.504 -59.048 -56.12 -141.032 -56.12 -83.936 0 -142.984 58.56t-59.048 141.52q0 14.64 1.952 23.912 -82.472 -6.832 -159.088 -39.528t-137.616 -87.84q-14.152 -13.664 -54.656 -57.096 -5.856 -5.856 -13.664 -5.856 -5.856 0 -12.2 7.808 -12.688 19.032 -20.008 46.604t-7.32 53.924q0 72.712 45.384 126.88l-14.152 -6.832q-12.2 -5.368 -18.056 -5.368 -8.296 0 -13.908 4.88t-5.612 12.688q0 51.24 26.352 97.112t71.248 73.2l-5.856 -.976q-.976 0 -2.684 -.488t-2.684 -.732 -1.464 -.244q-6.344 0 -10.98 4.88t-4.636 10.736q0 .488 .976 5.368 16.592 50.752 55.144 86.132t90.28 47.58q-84.912 52.216 -187.392 52.216 -6.832 0 -21.96 -1.464 -20.496 -.976 -22.448 -.976 -6.344 0 -10.98 4.88t-4.636 11.224z";
-                    }
-                });
-
-        // socialRoot.append("g")
-        //     .attr("transform", function(d) {
-        //         return "translate(" + (retina ? "25,3":"29,8")  +") scale(0.015,0.015)";
-        //     })
-        //       .append("path")
-        //         .style("fill", "#55acee")
-        //         .style("visibility", function(d) {
-        //             return d.hasTwitter ? "visible" : "hidden";
-        //         })
-        // ;
-
 
         var grayHaloEnter = g.append("circle")
           grayHaloEnter
@@ -1744,6 +1698,74 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
       var self = g.filter(isSelf);
       self.classed("selfDot", true);
+
+
+
+        var edgeLengthToMatchCircleRadius = Math.sqrt(1/2) * ptptOiDiameter/2;
+        var socialIconScale = ptptOiDiameter/2 / maxPtptoiRad;
+        if (!retina) {
+            socialIconScale *= 1.1;
+        }
+        var socialRoot = g.filter(isParticipantOfInterest).append("g");
+        socialRoot.attr("transform", "translate(" +edgeLengthToMatchCircleRadius+","+edgeLengthToMatchCircleRadius+ ")");
+        
+        socialRoot.append("circle")
+            .style("fill", "white")
+            .attr("cx", 0)
+            .attr("cy", 0)
+            .attr("r", ptptOiDiameter/4)
+            .classed("hideWhenGroupSelected", true);
+
+        var socialIconRoot = socialRoot.append("g");
+        socialIconRoot.attr("transform", "scale(" +socialIconScale +"," + socialIconScale+")");
+        socialIconRoot.append("g")
+            // .attr("transform", function(d) {
+            //     if (d.hasFacebook) {
+            //         return "translate(" + (retina ? "6,35" : "9,38")  +") scale(.005, -0.005)";
+                    
+            //     } else if (d.hasTwitter) {
+            //         return "translate(" + (retina ? "8,25" : "9,28")  +") scale(0.015,0.015)";
+            //     }
+            // })
+            .attr("transform", function(d) {
+                if (d.hasFacebook) {
+                    return "translate(" + (retina ? "-19,15" : "-19,15")  +") scale(.0065, -0.0065)";
+                    
+                } else if (d.hasTwitter) {
+                    return "translate(" + (retina ? "-7,-7" : "-7,-7")  +") scale(0.015,0.015)";
+                }
+            })
+            .append("path")
+                .style("visibility", function(d) {
+                    return (d.hasFacebook || d.hasTwitter) ? "visible" : "hidden";
+                })
+                .style("fill", function(d) {
+                    if (d.hasFacebook) {
+                        return "#3A5795";
+                    } else if (d.hasTwitter) {
+                        return "#55acee";
+                    }
+                })
+                .attr("d", function(d) {
+                    if (d.hasFacebook) {
+                        return "m 3179.0313,3471.2813 c 147.3,0 273.8408,-10.85 310.7504,-15.75 l 0,-360.25 -213.2496,-0.25 c -167.24,0 -199.5008,-79.38 -199.5008,-196 l 0,-257.25 398.7504,0 -52,-402.75 -346.7504,0 0,-1033.5 -415.9996,0 0,1033.5 -347.75,0 0,402.75 347.75,0 0,297 c 0,344.73 210.47,532.5 517.9996,532.5 z";
+                    } else if (d.hasTwitter) {
+                        return "d", "M0 781.864q0 7.32 7.32 13.176 12.2 8.296 43.432 24.4 119.072 61.488 249.856 61.488 162.992 0 296.216 -83.936 63.44 -40.016 112.728 -96.38t78.324 -117.608 43.432 -122.732 13.42 -119.56v-17.08q57.096 -40.992 89.304 -93.696 2.928 -5.856 2.928 -8.784 0 -6.344 -4.88 -11.224t-11.224 -4.88q-3.416 0 -11.712 3.904 -5.856 1.952 -14.396 4.88t-14.64 5.124 -8.052 2.684q12.688 -14.152 26.352 -38.308t13.664 -35.38q0 -6.344 -4.88 -10.98t-11.712 -4.636q-3.904 0 -7.808 2.44 -55.632 29.768 -103.944 40.504 -59.048 -56.12 -141.032 -56.12 -83.936 0 -142.984 58.56t-59.048 141.52q0 14.64 1.952 23.912 -82.472 -6.832 -159.088 -39.528t-137.616 -87.84q-14.152 -13.664 -54.656 -57.096 -5.856 -5.856 -13.664 -5.856 -5.856 0 -12.2 7.808 -12.688 19.032 -20.008 46.604t-7.32 53.924q0 72.712 45.384 126.88l-14.152 -6.832q-12.2 -5.368 -18.056 -5.368 -8.296 0 -13.908 4.88t-5.612 12.688q0 51.24 26.352 97.112t71.248 73.2l-5.856 -.976q-.976 0 -2.684 -.488t-2.684 -.732 -1.464 -.244q-6.344 0 -10.98 4.88t-4.636 10.736q0 .488 .976 5.368 16.592 50.752 55.144 86.132t90.28 47.58q-84.912 52.216 -187.392 52.216 -6.832 0 -21.96 -1.464 -20.496 -.976 -22.448 -.976 -6.344 0 -10.98 4.88t-4.636 11.224z";
+                    }
+                })
+                .classed("hideWhenGroupSelected", true);
+
+        // socialIconRoot.append("g")
+        //     .attr("transform", function(d) {
+        //         return "translate(" + (retina ? "25,3":"29,8")  +") scale(0.015,0.015)";
+        //     })
+        //       .append("path")
+        //         .style("fill", "#55acee")
+        //         .style("visibility", function(d) {
+        //             return d.hasTwitter ? "visible" : "hidden";
+        //         })
+        // ;
+
 
 
       // g.append("text")
@@ -2090,6 +2112,11 @@ function doUpdateNodes() {
           .style("display", chooseDisplayForGrayHalo)
           ;
 
+        if (clusterIsSelected()) {
+            update.selectAll(".hideWhenGroupSelected").style("visibility", "hidden");
+        } else {
+            update.selectAll(".hideWhenGroupSelected").style("visibility", "visible");
+        }
 
         update.selectAll(".grayHalo")
                 .style("stroke", function(d) {
