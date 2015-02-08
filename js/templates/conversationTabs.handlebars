@@ -93,6 +93,7 @@
   </a>
  --}}
 
+{{#if showLogout}}
 <div class="dropdown">
   <button 
   id='loginButtonInTabsBar'
@@ -107,12 +108,13 @@
     <span class="caret"></span>
   </button>
   <ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu1">
-{{#ifNotAuthenticated}}
+{{!-- {{#ifNotAuthenticated}}
     <li role="presentation"><a id="twitterLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
     <li role="presentation"><a id="fbLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
-    {{!-- <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
-{{/ifNotAuthenticated}}
-{{#ifAuthenticated}}
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> 
+{{/ifNotAuthenticated}} --}}
+
+{{!-- {{#ifAuthenticated}} --}}
   {{#unless hasTwitter}}
     <li role="presentation"><a id="twitterConnectBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div>Connect Twitter</a></li>
   {{/unless}}
@@ -124,10 +126,13 @@
   {{#if showLogout}}
     <li role="presentation"><a role="menuitem" tabindex="-1" href="/user/logout{{logoutDest}}"><div style="display: inline-block; width: 20px"></div> Logout</a></li>
   {{/if}}
-{{/ifAuthenticated}}
+{{!-- {{/ifAuthenticated}} --}}
 
   </ul>
 </div>
+
+{{/if}} {{! showLogout}}
+
 </td>
 </table>
 
