@@ -19,6 +19,7 @@
         style="padding: 10px 5px !important; border: none;  text-transform: none;"
         data-toggle="tab">
         {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}{{#if showTabs}}READ &amp; REACT{{/if}} --}}
+        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-align-justify"></i>{{/ifNotIE8}}
         Read
       </a>
     </li>
@@ -32,6 +33,7 @@
         style="padding: 10px 5px !important; border: none; text-transform: none;"
         data-toggle="tab">
         {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}{{#if showTabs}} WRITE{{/if}} --}}
+        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-pencil"></i>{{/ifNotIE8}}
         Write
       </a>
     </li>
@@ -46,6 +48,7 @@
         style="padding: 10px 5px !important; border: none;  text-transform: none;"
         data-toggle="tab">
         {{!-- See Consensus --}}
+        {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}
         Majority
         {{!-- {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-coffee"></i>{{/ifNotIE8}}{{#if showTabs}} ANALYZE{{/if}} --}}
       </a>
@@ -104,10 +107,16 @@
     font-size: 18px;
     ' class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
     <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo">
+    {{#ifNotXs}}
     {{dropdownLabel}}
+    {{/ifNotXs}}
     <span class="caret"></span>
   </button>
-  <ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu1">
+  <ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu1" style='font-family: brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif'>
+    {{#ifXs}}
+      <li role="presentation" style="padding-left: 20px; color:gray;"> Logged in as <div>{{dropdownLabel}}</div> </li>
+      <li role="presentation" class="divider"></li>
+    {{/ifXs}}
 {{!-- {{#ifNotAuthenticated}}
     <li role="presentation"><a id="twitterLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
     <li role="presentation"><a id="fbLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
@@ -124,7 +133,7 @@
     {{!-- <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
 
   {{#if showLogout}}
-    <li role="presentation"><a role="menuitem" tabindex="-1" href="/user/logout{{logoutDest}}"><div style="display: inline-block; width: 20px"></div> Logout</a></li>
+    <li role="presentation"><a role="menuitem" tabindex="-1" href="/user/logout{{logoutDest}}">Logout</a></li>
   {{/if}}
 {{!-- {{/ifAuthenticated}} --}}
 
