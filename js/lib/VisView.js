@@ -1715,7 +1715,10 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
                     return "#3A5795";
                 } else if (d.hasTwitter) {
                     return "#55acee";
+                } else {
+                    return "rgba(0,0,0,0)";
                 }
+
             })
             .attr("cx", 0)
             .attr("cy", 0)
