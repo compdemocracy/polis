@@ -161,8 +161,12 @@ style="padding-left: 5px; padding-right: 5px"
       </div> {{! /tab content }}
     </div> {{! /tabbable }}
     {{#unless hasFbOrTw}}
-    <div style="margin: 10px;">
-      <div>Connect to see friends and followers in the visualization, and to be seen by others.</div>
+    <div style="margin-top: 20px;
+                border: 1px dashed rgb(184, 184, 184);
+                border-radius: 11px;
+                padding: 10px;
+          ">
+      <div style="width: 80%;"><em>Connect to see friends and followers in the visualization, and to be seen by others.</em></div>
       <div>
         {{#unless hasFacebook}}
           <button class="facebookButton" style="font-size: 14px;">
