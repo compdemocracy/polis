@@ -254,7 +254,15 @@ module.exports =  ConversationView.extend({
       // $("#groupTab").tab("show");
 
         if (that.selectedGid === -1) {
+
           // on transition from no selection to selection
+
+          // ensure vis is showing when you click on a group, this also should ensure that the carousel is on-screen below the vis
+          if (isMobile) {
+            $('html, body').animate({
+              scrollTop: $("#visualization_parent_div").offset().top
+            }, 100);
+          }
           if (that.tutorialView) {
             that.tutorialView.startAnalyzeTutorial();
           }
