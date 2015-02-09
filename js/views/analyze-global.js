@@ -267,11 +267,10 @@ module.exports = Handlebones.View.extend({
 
       var indexToTid  = [];
 
-      var htmlStrings = _.map(comments, function(c) {
+      var items = _.map(comments, function(c) {
           var tid = c.get('tid');
-          // var repness = tidToR[tid];
-          // // var repfullForAgree = repness["repful-for"] === "agree";
           indexToTid.push(tid);
+          var info = tidToConsensusInfo[tid];
           // var header;
           // // var v = info.votes[tid];
           // // var percent = repfullForAgree ?
@@ -292,23 +291,55 @@ module.exports = Handlebones.View.extend({
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
 
           var forAgree = !!tidToConsensusInfo[tid].a;
+
+          var denominator = info["n-trials"];
+
+          var percent = forAgree ?
+            "&#9650; " + ((info["n-success"] / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
+            "&#9660; " + ((info["n-success"] / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
+          var leClass = forAgree ?
+            "a":
+            "d";
+          var count = info["n-success"];
+          var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
+          var word = forAgree ?
+            "<span class='HeadingE a'>agreed</span>" :
+            "<span class='HeadingE d'>disagreed</span>";
+          var wordUnstyled = forAgree ? "agreed" : "disagreed";
+
+          
           var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
           // header =
           //     "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
           //     "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>";
 
+          header =
+              "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
+              "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
+             "<div style='font-size:12px; color: gray;'><strong>" + info["n-trials"] +"</strong> <em> saw this comment. </em></div>" +
+             "<div style='font-size:12px; color: gray;'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
+             // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
+
+
+          var backgroundColor = forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
+          var dotColor = forAgree ? "#00b54d" : "#e74c3c";
+          var gradient = "background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
+
           var html = 
-            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; color:"+bodyColor+"; background-color: "+backgroundColor+"; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
-              // "<p>" +
-                // (Utils.debugCommentProjection ? c.get("tid") : "")+
-                // header +
-              // "</p>" +
+            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; "+gradient+" color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+              "<p style='margin-bottom:0px'>" +
+                (Utils.debugCommentProjection ? c.get("tid") : "")+
+                header +
+              "</p>" +
               "<p>" +
                 c.get("txt") +
               "</p>" +
-              '<p style="padding: 0px 0px 7px 20px; font-size: 12px; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
+              '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>";
-          return html;
+          return {
+            html: html,
+            color: dotColor
+          };
         });
 
         // let stack breathe
@@ -344,6 +375,14 @@ module.exports = Handlebones.View.extend({
 
            // setTimeout(function() {
               $(el_carouselSelector).fadeIn("slow", function() {
+
+
+                var circles = $(el_carouselSelector).find(".owl-pagination").find(".owl-page > span");
+                var colors = _.pluck(items, "color");
+                for (var i = 0; i < circles.length; i++) {
+                  var c = circles[i];
+                  $(c).css("background", colors[i]);
+                }
 
                 if (!isMobile) {
                   
@@ -392,7 +431,7 @@ module.exports = Handlebones.View.extend({
             // alert(e);
           });
 
-          addMultipleOwlItems.call(results.data('owlCarousel'), htmlStrings);
+          addMultipleOwlItems.call(results.data('owlCarousel'), _.pluck(items, "html"));
           // Auto-select the first comment.
           eb.trigger(eb.commentSelected, indexToTid[0]);
 
