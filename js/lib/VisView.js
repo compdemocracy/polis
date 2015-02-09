@@ -1710,7 +1710,13 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         socialRoot.attr("transform", "translate(" +edgeLengthToMatchCircleRadius+","+edgeLengthToMatchCircleRadius+ ")");
         
         socialRoot.append("circle")
-            .style("fill", "white")
+            .style("fill", function(d) {
+                if (d.hasFacebook) {
+                    return "#3A5795";
+                } else if (d.hasTwitter) {
+                    return "#55acee";
+                }
+            })
             .attr("cx", 0)
             .attr("cy", 0)
             .attr("r", ptptOiDiameter/4)
@@ -1739,13 +1745,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
                 .style("visibility", function(d) {
                     return (d.hasFacebook || d.hasTwitter) ? "visible" : "hidden";
                 })
-                .style("fill", function(d) {
-                    if (d.hasFacebook) {
-                        return "#3A5795";
-                    } else if (d.hasTwitter) {
-                        return "#55acee";
-                    }
-                })
+                .style("fill", "white")
                 .attr("d", function(d) {
                     if (d.hasFacebook) {
                         return "m 3179.0313,3471.2813 c 147.3,0 273.8408,-10.85 310.7504,-15.75 l 0,-360.25 -213.2496,-0.25 c -167.24,0 -199.5008,-79.38 -199.5008,-196 l 0,-257.25 398.7504,0 -52,-402.75 -346.7504,0 0,-1033.5 -415.9996,0 0,1033.5 -347.75,0 0,402.75 347.75,0 0,297 c 0,344.73 210.47,532.5 517.9996,532.5 z";
