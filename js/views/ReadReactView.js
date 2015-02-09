@@ -9,6 +9,8 @@ var PolisFacebookUtils = require('../util/facebookButton');
 
 // var iOS = Utils.isIos();
 
+var SHOULD_PROMPT_FOR_FB = false;
+
 module.exports = Handlebones.ModelView.extend({
     name: "readReactView",
     template: template,
@@ -57,7 +59,7 @@ module.exports = Handlebones.ModelView.extend({
     } else if (group === 2) {
       voteCountForFacebookPrompt = 9;
     }
-    ctx.promptFacebook = !hasFacebookAttached && !this.model.get("response") && this.model.get("voteCount") > voteCountForFacebookPrompt;
+    ctx.promptFacebook = SHOULD_PROMPT_FOR_FB && !hasFacebookAttached && !this.model.get("response") && this.model.get("voteCount") > voteCountForFacebookPrompt;
     return ctx;
   },
   initialize: function(options) {
