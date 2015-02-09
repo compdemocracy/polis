@@ -1702,8 +1702,10 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
 
         var edgeLengthToMatchCircleRadius = Math.sqrt(1/2) * ptptOiDiameter/2;
-        var socialIconScale = ptptOiDiameter/2 / maxPtptoiRad;
-        if (!retina) {
+        var socialIconScale = ptptOiDiameter/2 / maxPtptoiRad * 0.8;
+        if (retina) {
+            socialIconScale *= 0.8;
+        } else {
             socialIconScale *= 1.1;
         }
         var socialRoot = g.filter(isParticipantOfInterest).append("g");
@@ -1722,7 +1724,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             })
             .attr("cx", 0)
             .attr("cy", 0)
-            .attr("r", ptptOiDiameter/4)
+            .attr("r", ptptOiDiameter/6)
             .classed("hideWhenGroupSelected", true);
 
         var socialIconRoot = socialRoot.append("g");
