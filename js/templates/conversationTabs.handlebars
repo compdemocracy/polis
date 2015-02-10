@@ -107,16 +107,16 @@
     font-size: 18px;
     ' class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
     <img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo">
-    {{#ifNotXs}}
+    {{#unless smallMenu}}
     {{dropdownLabel}}
-    {{/ifNotXs}}
+    {{/unless}}
     <span class="caret"></span>
   </button>
   <ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu1" style='font-family: brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif'>
-    {{#ifXs}}
+    {{#if smallMenu}}
       <li role="presentation" style="padding-left: 20px; color:gray;"> Logged in as <div>{{dropdownLabel}}</div> </li>
       <li role="presentation" class="divider"></li>
-    {{/ifXs}}
+    {{/if}}
 {{!-- {{#ifNotAuthenticated}}
     <li role="presentation"><a id="twitterLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div> Twitter</a></li>
     <li role="presentation"><a id="fbLoginBtn" role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook"></i></div> Facebook</a></li>
