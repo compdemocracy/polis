@@ -408,6 +408,18 @@ svg {
   
 }
 
+
+.majority-tab {
+  margin-top: 20px;
+  border-radius: 10px 10px 10px 10px;
+  border: 3px;
+  border-top: 1px;
+  border-left: 1px;
+  border-style:solid;
+  border-color: lightgray;
+  background-color: white;
+}
+
   .fa-twitter {
     color: #55ACEE;
   }
@@ -495,6 +507,10 @@ svg {
     display: none;
   }
 
+  .majority-tab {
+    border-radius: 0px;
+    border: 0px;
+  }
 }
 
 @media (max-width: 380px) {
