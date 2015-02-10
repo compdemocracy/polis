@@ -40,7 +40,8 @@
     </div>
     {{/if}}
     {{!-- {{/ifNotEmbedded}} --}}
-  {{!--     <h3 class="HeadingA" title="Conversation topic">{{topic}}
+    {{#ifDefined topic}}
+      <h3 class="HeadingA" title="Conversation topic">{{topic}}
         {{#unless is_active}}
         <span class="no_you_vote" style="
          color: white;
@@ -55,8 +56,11 @@
          left: 6px;
         ">closed</span>
       {{/unless}}
-      </h3> --}}
-     {{!--  <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{description}} </p> --}}
+      </h3>
+      {{/ifDefined}}
+      {{#ifDefined description}}
+        <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{description}} </p>
+      {{/ifDefined}}
       {{#if link_url}}
       <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;">{{linkExternal link_url link_url}}</p>
       {{/if}}
