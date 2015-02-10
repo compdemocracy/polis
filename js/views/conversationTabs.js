@@ -31,7 +31,7 @@ module.exports =  Handlebones.ModelView.extend({
   },
   gotoWriteTab: function() {
     this.gotoTab(this.WRITE_TAB);
-    this.maybeStartPulsingVoteTab();
+    this.stopPulsingVoteTab();
   },
   gotoAnalyzeTab: function() {
     this.gotoTab(this.ANALYZE_TAB);
@@ -93,7 +93,7 @@ module.exports =  Handlebones.ModelView.extend({
   },
 
   onWriteTabClick: function() {
-    this.maybeStartPulsingVoteTab();
+    this.stopPulsingVoteTab();
   },
   onVoteTabClick: function() {
     this.stopPulsingVoteTab();
@@ -172,7 +172,11 @@ module.exports =  Handlebones.ModelView.extend({
       if (e.target && e.target.id === this.VOTE_TAB) {
         this.stopPulsingVoteTab();
         this.trigger("aftershow:vote");
+      } else if (e.target && e.target.id === this.WRITE_TAB) {
+          // don't pulse on write tab
+          this.stopPulsingVoteTab();
       } else {
+        // all other tabs cause pulsing
         this.maybeStartPulsingVoteTab();
       }
       // console.log("setting from", to);
