@@ -316,7 +316,7 @@ module.exports = Handlebones.View.extend({
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
               "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
-             "<div style='font-size:12px; color: gray;'><strong>" + info["n-trials"] +"</strong> <em> saw this comment. </em></div>" +
+             "<div style='font-size:12px; color: gray;'><strong>" + info["n-trials"] +"</strong> <em> participants saw this comment. </em></div>" +
              "<div style='font-size:12px; color: gray;'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
              // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
