@@ -8,21 +8,28 @@
 {{!--         <h2> {{topic}} </h2>
     <small><i> {{description}} </i></small> --}}
 <!-- Nav tabs -->
-<ul class="nav nav-pills" style="margin-bottom: 30px; margin-top: 30px">
-  <li class="active"><a href="#todo" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
-  <li><a href="#accepted" data-toggle="tab">Accepted <span class="badge"> {{view acceptedCountView}} </span></a></li>
-  <li><a href="#rejected" data-toggle="tab">Rejected <span class="badge"> {{view rejectedCountView}} </span></a></li>
-  <li><a href="#seed" data-toggle="tab">Seed Comments </a></li>  
-  <li><a href="#config" data-toggle="tab">Config</a></li>  
+<ul class="nav nav-tabs tab-conv" style="
+  margin-bottom: 30px;
+  margin-top: 30px;
+  border-bottom: 0px">
+
+
+
+
+  <li class="active"><a href="#todo" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
+  <li><a href="#accepted" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Accepted <span class="badge"> {{view acceptedCountView}} </span></a></li>
+  <li><a href="#rejected" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Rejected <span class="badge"> {{view rejectedCountView}} </span></a></li>
+  <li><a href="#seed" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Seed Comments </a></li>  
+  <li><a href="#config" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Config</a></li>  
 </ul>
 
 <!-- Tab panes -->
-<div class="tab-content" >
+<div class="tab-content col-sm-8 col-md-6" >
   <div class="tab-pane active" id="todo"> {{view moderateCommentsTodoCollectionView}} </div>
   <div class="tab-pane" id="accepted">{{view moderateCommentsAcceptedCollectionView}}</div>
   <div class="tab-pane" id="rejected">{{view moderateCommentsRejectedCollectionView}}</div>
   <div class="tab-pane" id="seed">
-      <h5 class="HeadingB HeadingB--inline">Add Comments for Participants to React To</h5>
+      <h5 class="HeadingB HeadingB--inline">Add Comments</h5>
       <div id="hiddenSeedCommentForm">
           {{view commentForm}}
       </div>
