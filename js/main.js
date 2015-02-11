@@ -361,8 +361,8 @@ uidPromise.always(function() {
       var intercomWait = 0;
       uidPromise.then(function() {
         
-        // debugger;
-        if (!isEmbedded() && !isParticipationView()) {
+        var u = userObject;
+        if (!isEmbedded() && !isParticipationView() && (u.email || u.hasTwitter || u.hasFacebook)) {
           var intercomWait = 0;
           if (!window.Intercom) {
             intercomWait = 4000;
