@@ -10073,6 +10073,7 @@ app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, port, 
 app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", "text/html"));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
 app.get(/^\/about$/, makeFileFetcher(hostname, port, "/news.html", "text/html"));
+app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, port, "/football.html", "text/html"));
 app.get(/^\/wimp$/, makeFileFetcher(hostname, port, "/wimp.html", "text/html"));
 app.get(/^\/edu$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
 app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
