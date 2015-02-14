@@ -26,7 +26,10 @@
   style="padding-left: 5px; padding-right: 5px"
   > {{! fake container}}
     <div class="col-sm-8 col-md-7 conversationViewHeadline" >
-    {{!-- {{#ifNotEmbedded}} --}}
+    {{#if showLogoAndBreadCrumbInHeader}}
+        <div class="HeadingA"><a href="pol.is"><img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
+        </a> <a style="vertical-align: middle; font-size: 18px;"href="/s/{{context}}">/s/{{context}}</a></div>
+    {{/if}}
     {{#if is_owner}}
     <div style="padding: 10px 0px 20px 0px">
         <a href="share{{url_name}}" class="Btn Btn-alt" ><i class="fa fa-link"></i>&nbsp;SHARE</a>
@@ -59,7 +62,7 @@
       </h3>
       {{/ifDefined}}
       {{#ifDefined description}}
-        <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{description}} </p>
+        <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{{description}}} </p>
       {{/ifDefined}}
       {{#if link_url}}
       <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;">{{linkExternal link_url link_url}}</p>
@@ -270,12 +273,14 @@ style="padding-left: 5px; padding-right: 5px"
 
 <div id="footer-conversation-view">
  <div class="text-center">
+  {{#if showLogoInFooter}}
   <center>
       <a href="{{logo_href}}">
         <img width="164px" src="https://pol.is/polis_logo_2.png"
         alt="">
       </a>
   </center>
+  {{/if}}
   <center>
     <a href="http://pol.is/about" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>Add Polis to your site</a>&nbsp;&middot;&nbsp;
     <a href="http://pol.is/tos" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>TOS</a>&nbsp;&middot;&nbsp;

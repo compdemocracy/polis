@@ -430,6 +430,11 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             depends: { jquery: "jQuery" },
             exports: null,
           },
+          markdown: {
+            path: 'bower_components/markdown/lib/markdown.js',
+            depends: { jquery: "jQuery" },
+            exports: "markdown",
+          },
           VisView: {
             path: 'js/lib/VisView',
             depends: { d3tooltips: 'foo' }, // added to d3 object as d3.tip

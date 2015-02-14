@@ -5,7 +5,6 @@ var TwitterUserModel = require("../models/twitterUser");
 var template = require("../tmpl/settings");
 var SettingsTwitterView = require("./settingsTwitter");
 var URLs = require("../util/url");
-
 var urlPrefix = URLs.urlPrefix;
 
 module.exports = Handlebones.ModelView.extend({

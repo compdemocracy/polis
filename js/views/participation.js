@@ -25,6 +25,8 @@ var TutorialView = require("../views/tutorialView");
 var TutorialSlidesView = require("../views/tutorialSlides");
 var WritingTipsView = require("../views/writingTips");
 
+var markdown = require('markdown');
+
 var VIS_SELECTOR = "#visualization_div";
 
 var SHOULD_AUTO_CLICK_FIRST_COMMENT = false;
@@ -121,6 +123,43 @@ module.exports =  ConversationView.extend({
     ctx.hasFacebook = userObject.hasFacebook;
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFbOrTw = ctx.hasFacebook || ctx.hasTwitter;
+
+    // var md_content = "Hello.\n======\n* This is markdown.\n * It is fun\n * Love it or leave it.\n* This is [an example](http://example.com/ \"Title\") inline link.\n\n![Alt text](https://62e528761d0685343e1c-f3d1b99a743ffa4142d9d7f1978d9686.ssl.cf2.rackcdn.com/files/67396/width668/image-20141216-14144-1fmodw7.jpg)"
+    var md_content = ctx.description;
+
+    /*
+    // parse the markdown into a tree and grab the link references
+    var tree = markdown.parse( md_content ),
+        refs = tree[ 1 ].references;
+
+    // iterate through the tree finding link references
+    ( function find_link_refs( jsonml ) {
+      if ( jsonml[ 0 ] === "link_ref" ) {
+        var ref = jsonml[ 1 ].ref;
+        debugger;
+        // if there's no reference, define a wiki link
+        if ( !refs[ ref ] ) {
+          refs[ ref ] = {
+            href: "http://en.wikipedia.org/wiki/" + ref.replace(/\s+/, "_" )
+          };
+        }
+      }
+      else if ( Array.isArray( jsonml[ 1 ] ) ) {
+        jsonml[ 1 ].forEach( find_link_refs );
+      }
+      else if ( Array.isArray( jsonml[ 2 ] ) ) {
+        jsonml[ 2 ].forEach( find_link_refs );
+      }
+    } )( tree );
+
+    // convert the tree into html
+    var html = markdown.renderJsonML( markdown.toHTMLTree( tree ) );
+  */
+
+    var html = markdown.toHTML( md_content );
+    ctx.description = html;
+    ctx.showLogoAndBreadCrumbInHeader = ctx.context && !Utils.isInIframe();
+    ctx.showLogoInFooter = !ctx.showLogoAndBreadCrumbInHeader;
     return ctx;
   },
 
