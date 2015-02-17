@@ -3,7 +3,17 @@
 	<input id="topicForm" name="topic" value="{{topic}}" />
 </p>
 <p>Description
-	<textarea id="descriptionForm" name="description"  rows="7" style="min-width: 320px">{{description}}</textarea>
+	<div class="alert-info" style="
+    font-family: brandon-grotesque;
+    display: block;
+    padding: 5px;
+    margin-bottom: 5px;
+    margin-top: 5px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    ">The description can include <a href="http://daringfireball.net/projects/markdown/syntax">markdown</a>.</div>
+
+	<textarea style="font-family: monospace;" id="descriptionForm" name="description"  rows="7" style="min-width: 320px">{{description}}</textarea>
 </p>
 
 {{!-- <p>link_url {{link_url}}</p>
