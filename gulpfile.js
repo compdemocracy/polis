@@ -430,6 +430,11 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
             depends: { jquery: "jQuery" },
             exports: null,
           },
+          deepcopy: {
+            path: 'bower_components/deepcopy/deepcopy.min.js',
+            depends: { jquery: "jQuery" },
+            exports: null,
+          },
           markdown: {
             path: 'bower_components/markdown/lib/markdown.js',
             depends: { jquery: "jQuery" },

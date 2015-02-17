@@ -1,4 +1,5 @@
 var eb = require("../eventBus");
+var deepcopy = require("deepcopy");
 var metric = require("../util/gaMetric");
 var Utils = require("../util/utils")
 var shuffleWithSeed = require("../util/shuffleWithSeed");
@@ -78,7 +79,7 @@ module.exports = function(params) {
     var projectionPeopleCache = [];
     var bigBuckets = [];
     var bidToBigBucket = {};
-    var clustersCache = [];
+    var clustersCache = {};
     var participantsOfInterestVotes = null;
     var participantsOfInterestBids = [];
     var groupVotes = null;
@@ -138,25 +139,17 @@ module.exports = function(params) {
             if (bucket.count <= 0 && 
                 !bucket.containsSelf // but don't remove PTPTOIs from cluster
             ) {
-                clusters = _.map(clusters, function(cluster) {
-                    removeItemFromArray(bucket.bid, cluster);
-                    return cluster;
+                _.each(clusters, function(cluster, gid) {
+                    removeItemFromArray(bucket.bid, cluster.members);
                 });
             }
         }
-        return clusters;
     }
 
     function getClusters() {
-        // deep copy (sorry, verbose)
-        var clusters = _.map(clustersCache, function(cluster) {
-            return _.map(cluster, function(bid) {
-                return bid;
-            });
-        });
-
-        clusters = addParticipantsOfInterestToClusters(clusters);
-        clusters = removeEmptyBucketsFromClusters(clusters);
+        var clusters = deepcopy(clustersCache);
+        addParticipantsOfInterestToClusters(clusters);
+        removeEmptyBucketsFromClusters(clusters);
         return clusters;
     }
 
@@ -503,7 +496,7 @@ module.exports = function(params) {
 
     function Bucket() {
         if (_.isNumber(arguments[0])) {
-            alert("honeybadger");
+            alert("error 324");
             // var bid = arguments[0];
             // var people = arguments[1];
             // this.ppl = _.isArray(people) ? people : [];
@@ -673,6 +666,7 @@ module.exports = function(params) {
     //     }
     // }
 
+/*
 function clientSideBaseCluster(things, N) {
     if (!N) { console.error("need N"); }
     if (!means) {
@@ -752,21 +746,21 @@ function clientSideBaseCluster(things, N) {
     }
 
     _.times(9, iterate);
-    /*
-    var i = 0;
-    return means.map(function(proj) {
-        var representative = {
-            pid: -1,
-     //       variance: variances[i];
-            data: {
-                projection: proj,
-                participants: clusters[i]
-            }
-        };
-        i += 1;
-        return representative;
-    });
-    */
+    
+    // var i = 0;
+    // return means.map(function(proj) {
+    //     var representative = {
+    //         pid: -1,
+    //  //       variance: variances[i];
+    //         data: {
+    //             projection: proj,
+    //             participants: clusters[i]
+    //         }
+    //     };
+    //     i += 1;
+    //     return representative;
+    // });
+    
     // [[1,2,5],[4]]
     return clusters.map(function(cluster) {
         return cluster.map(function(thing) {
@@ -777,6 +771,7 @@ function clientSideBaseCluster(things, N) {
         });
     });
 }
+*/
 
 
     function getMetadataAnswers() {
@@ -793,10 +788,12 @@ function clientSideBaseCluster(things, N) {
     function getBidToGid(clusters) {
         var bidToGid = {};
         var clusters = clusters || getClusters(); // TODO cleanup
-        for (var gid = 0; gid < clusters.length; gid++) {
+        var gids = _.keys(clusters);
+        for (var g = 0; g < gids.length; g++) {
+            var gid = gids[g];
             var cluster = clusters[gid];
-            for (var i = 0; i < cluster.length; i++) {
-                var bid = cluster[i];
+            for (var i = 0; i < cluster.members.length; i++) {
+                var bid = cluster.members[i];
                 bidToGid[bid] = gid;
             }
         }
@@ -1180,13 +1177,9 @@ function clientSideBaseCluster(things, N) {
 
 
 
+                    // gid -> {members: [bid1, bid2, ...], ...}
+                    var clusters = _.indexBy(pcaData["group-clusters"], "id");
 
-
-                    var clusters = pcaData["group-clusters"];
-                    clusters = _.map(clusters, function(c) {
-                        // we just need the members
-                        return c.members;
-                    });
 
                     // buckets = _.map(pcaData["group-clusters"], function(cluster) {
                     //     var anonBucket = _.clone(cluster);
@@ -1240,7 +1233,7 @@ function clientSideBaseCluster(things, N) {
                             for (var i = 0; i < bigBucket.bids.length; i++) {
                                 bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
                             }
-                            clusters[gid] = _.union(clusters[gid], [bigBucket.id]);
+                            clusters[gid].members = _.union(clusters[gid].members, [bigBucket.id]);
                             return bigBucket;
                         }
                     );
@@ -1391,18 +1384,17 @@ function clientSideBaseCluster(things, N) {
         for (var pid in participantsOfInterestVotes) {
             var data = participantsOfInterestVotes[pid];
             var originalBid = data.bid;
-            for (var c = 0; c < clusters.length; c++) {
-                var cluster = clusters[c];
-                var indexOfOriginalBid = cluster.indexOf(originalBid);
+            _.each(clusters, function(cluster, gid) {
+                var indexOfOriginalBid = cluster.members.indexOf(originalBid);
                 if (indexOfOriginalBid >= 0) {
-                    cluster.splice(indexOfOriginalBid, 1);
-                    cluster.push(data.fakeBid);
+                    cluster.members.splice(indexOfOriginalBid, 1);
+                    cluster.members.push(data.fakeBid);
                 }
                 // TODO only if emtpy!
                 // clusters[c] = _.without(cluster, originalBid);
-            }
+
+            });
         }
-        return clusters;
     }
     function removeSelfFromBucketsAndClusters(buckets, clusters) {
         for (var b = 0; b < buckets.length; b++) {
@@ -2264,7 +2256,7 @@ function clientSideBaseCluster(things, N) {
     }
 
     function getParticipantsOfInterestForGid(gid) {
-        var cluster = clustersCache[gid];
+        var cluster = clustersCache[gid].members;
         var items = [];
         for (var pid in participantsOfInterestVotes) {
             var data = participantsOfInterestVotes[pid];
@@ -2276,7 +2268,7 @@ function clientSideBaseCluster(things, N) {
         return items;
     }
     function getGroup(gid) {
-        return clustersCache[gid];
+        return clustersCache[gid] && clustersCache[gid].members;
     }
 
     function convSub(params) {

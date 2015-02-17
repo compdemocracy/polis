@@ -52,6 +52,8 @@ var d3HullSelections;
 var d3HullShadows;
 var hullPoints = [];
 
+var hullIdToGid = {};
+
 var selectedCluster = -1;
 var selectedBids = [];
 var selectedTid = -1;
@@ -489,15 +491,17 @@ function handleOnClusterClicked(hullId) {
     // }
     exitTutorial();
 
+    var gid = hullIdToGid[hullId];
+
     // resetSelectedComment();
     // unhoverAll();
-    setClusterActive(hullId)
+    setClusterActive(gid)
         .then(
             updateHulls,
             updateHulls);
 
-    eb.trigger(eb.clusterClicked, hullId);
-    eb.trigger(eb.clusterSelectionChanged, hullId);
+    eb.trigger(eb.clusterClicked, gid);
+    eb.trigger(eb.clusterSelectionChanged, gid);
 
     updateHullColors();
 
@@ -553,7 +557,7 @@ function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
         hull.classed(hullClass, true)
             .on("click", onClusterClicked)  //selection-results:1 handle the click event
             // .style("stroke-width", strokeWidth)
-            .attr("gid", i);
+            .attr("hullId", i);
 
         if (translateX || translateY) {
             hull.attr("transform", "translate(1, 1)");
@@ -1239,7 +1243,7 @@ function chooseCircleRadiusOuter(d) {
     if (d.isSummaryBucket) {
         r = anonBlobRadius;
     }
-    if (d.gid === getSelectedGid()) {
+    if (hullIdToGid[d.hullId] === getSelectedGid()) {
         r += SELECTED_HULL_RADIUS_BOOST;
     } else {
         r += UNSELECTED_HULL_RADIUS_BOOST;
@@ -1295,6 +1299,8 @@ function getParticipantCount(nodes) {
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
+
+
     participantCount = newParticipantCount;
 
     var MIN_PARTICIPANTS_FOR_VIS = 0;
@@ -1330,7 +1336,16 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             ;
     }
 
-    clusters = newClusters;
+    var gids = _.map(_.keys(newClusters), Number);
+    gids.sort();
+    hullIdToGid = gids.slice(0);
+    gidToHullId = {};
+    for (var id = 0; id < gids.length; id++) {
+        gidToHullId[gids[id]] = id;
+    }
+    clusters = _.map(gids, function(gid) {
+        return newClusters[gid].members;
+    });
 
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
@@ -2050,7 +2065,8 @@ function onParticipantClicked(d) {
     // d3.event.preventDefault(); // prevent flashing on iOS
   var gid = bidToGid[d.bid];
   if (_.isNumber(gid)) {
-      handleOnClusterClicked(gid);
+    var hullId = gidToHullId[gid]
+      handleOnClusterClicked(hullId);
   }
 }
 
@@ -2181,14 +2197,14 @@ function doUpdateNodes() {
           }
 
 
-          update.attr("fill-opacity", function(d) {
-            if (clusterIsSelected()) {
-                return d.gid === selectedCluster ? "100%" : "90%";
-            } else {
-                // nothing selected
-                return "100%";
-            }
-          });
+          // update.attr("fill-opacity", function(d) {
+          //   if (clusterIsSelected()) {
+          //       return d.gid === selectedCluster ? "100%" : "90%";
+          //   } else {
+          //       // nothing selected
+          //       return "100%";
+          //   }
+          // });
 
           function toPercent(ratio) {
             return ((ratio * 100) >> 0) + "%";
@@ -2610,7 +2626,8 @@ function getSelectedGid() {
 }
 
 function selectGroup(gid) {
-    handleOnClusterClicked(gid);
+    var hullId = gidToHullId[gid];
+    handleOnClusterClicked(hullId);
 }
 
 return {
