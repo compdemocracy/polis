@@ -39,7 +39,10 @@ module.exports =  Handlebones.ModelView.extend({
   template: template,
   events: {
   },
-
+  context: function() {
+      var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+      return ctx;
+  },
   updateCollections: function() {
     var that = this;
     $.when(

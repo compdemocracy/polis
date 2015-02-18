@@ -28,7 +28,8 @@ module.exports =  Handlebones.ModelView.extend({
 	  		url: "/api/v3/conversations?" + pairs,
 	  		type: "PUT",
 	  	}).then(function() {
-	  		alert("ok")
+	  		alert("saved");
+        window.location.reload();
 	  	}, function(err) {
 	  		alert("error saving");
 	  	});

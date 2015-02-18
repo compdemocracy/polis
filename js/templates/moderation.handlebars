@@ -25,7 +25,31 @@
 
 <!-- Tab panes -->
 <div class="tab-content col-sm-8 col-md-6" >
-  <div class="tab-pane active" id="todo"> {{view moderateCommentsTodoCollectionView}} </div>
+  <div class="tab-pane active" id="todo"> 
+    {{#if strict_moderation}}
+      <div class="alert-info" style="
+        font-family: brandon-grotesque;
+        display: block;
+        padding: 5px;
+        margin-bottom: 5px;
+        margin-top: 5px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        ">Strict moderation is on. These comments <strong>can not</strong> yet be seen by particpants.</div>
+    {{else}}
+      <div class="alert-info" style="
+        font-family: brandon-grotesque;
+        display: block;
+        padding: 5px;
+        margin-bottom: 5px;
+        margin-top: 5px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        ">Strict moderation is off. These comments <strong>can</strong> be seen by particpants.</div>
+    {{/if}}
+
+
+    {{view moderateCommentsTodoCollectionView}} </div>
   <div class="tab-pane" id="accepted">{{view moderateCommentsAcceptedCollectionView}}</div>
   <div class="tab-pane" id="rejected">{{view moderateCommentsRejectedCollectionView}}</div>
   <div class="tab-pane" id="seed">
