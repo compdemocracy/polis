@@ -7932,6 +7932,7 @@ function getSocialParticipants(zid, uid, limit) {
         "inner join p on prioritized_ptpts.uid = p.uid " +
         "group by prioritized_ptpts.uid order by priority desc, prioritized_ptpts.uid asc), " +
 
+    // force inclusion of participants with high mod values
     "mod_pptpts as (select asdfasdjfioasjdfoi.uid, max(asdfasdjfioasjdfoi.priority) as priority " +
         "from ( " +
             "select * from pptpts " +
@@ -7978,11 +7979,13 @@ function getSocialParticipants(zid, uid, limit) {
         // "facebook_users.response as fb__response, " +
         // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
         // "facebook_users.created as fb__created, " +
+        "all_friends.uid is not null as is_fb_friend, " +
         "final_set.uid " +
      "from final_set " +
         "left join twitter_users on final_set.uid = twitter_users.uid " +
         "left join facebook_users on final_set.uid = facebook_users.uid " +
         "left join p on final_set.uid = p.uid " +
+        "left join all_friends on all_friends.uid = p.uid " +
     ";";
     return pgQueryP(q, [zid, uid, limit]);
 }
@@ -8316,6 +8319,10 @@ function(req, res) {
             });
             if (x.twitter) {
                 x.twitter.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + x.twitter.twitter_user_id;
+            }
+            // don't include FB info to non-friends
+            if (!x.is_fb_friend && !x.isSelf) {
+                delete x.facebook;
             }
             return x;
         });
