@@ -7913,10 +7913,10 @@ function getFacebookInfo(uids) {
     return pgQueryP("select * from facebook_users where uid in ($1);", uids);
 }
 
-function getSocialParticipants(zid, uid) {
+function getSocialParticipants(zid, uid, limit) {
+    limit = 25;
     var q = "with " +
-    "p as (select uid, pid, mod from participants where zid = ($1)), " +
-    "invisible_uids as (select uid from p where mod < 0), " +
+    "p as (select uid, pid, mod from participants where zid = ($1) and vote_count >= 1), " +
     "all_friends as (select  " +
             "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
             "union  " +
@@ -7930,7 +7930,7 @@ function getSocialParticipants(zid, uid) {
             "select * from all_friends " +
             "union select * from twitter_ptpts) as prioritized_ptpts " +
         "inner join p on prioritized_ptpts.uid = p.uid " +
-        "group by prioritized_ptpts.uid order by priority desc, prioritized_ptpts.uid asc limit 15), " +
+        "group by prioritized_ptpts.uid order by priority desc, prioritized_ptpts.uid asc), " +
 
     "mod_pptpts as (select asdfasdjfioasjdfoi.uid, max(asdfasdjfioasjdfoi.priority) as priority " +
         "from ( " +
@@ -7938,7 +7938,7 @@ function getSocialParticipants(zid, uid) {
             "union all " +
             "select uid, 999 as priority from p where mod >= 2) as asdfasdjfioasjdfoi " +
         // "inner join p on asdfasdjfioasjdfoi.uid = p.uid " +
-        "group by asdfasdjfioasjdfoi.uid order by priority desc, asdfasdjfioasjdfoi.uid asc limit 15), " +
+        "group by asdfasdjfioasjdfoi.uid order by priority desc, asdfasdjfioasjdfoi.uid asc), " +
 
 
     // "mod_pptpts2 as (select fjoisjdfio.uid, max(fjoisjdfio.priority) as priority "+
@@ -7949,7 +7949,7 @@ function getSocialParticipants(zid, uid) {
     //     "group by fjoisjdfio.uid order by fjoisjdfio.priority desc, fjoisjdfio.uid), " +
 
     // without blocked
-    "final_set as (select * from mod_pptpts where uid not in (select uid from p where mod < 0)) " + // in invisible_uids
+    "final_set as (select * from mod_pptpts where uid not in (select uid from p where mod < 0) limit ($3)) " + // in invisible_uids
 
     "select " +
         "final_set.priority, " +
@@ -7984,7 +7984,7 @@ function getSocialParticipants(zid, uid) {
         "left join facebook_users on final_set.uid = facebook_users.uid " +
         "left join p on final_set.uid = p.uid " +
     ";";
-    return pgQueryP(q, [zid, uid]);
+    return pgQueryP(q, [zid, uid, limit]);
 }
 
 function getFacebookFriendsInConversation(zid, uid) {
