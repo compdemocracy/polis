@@ -4873,8 +4873,8 @@ function(req, res) {
     }
     Promise.all([
         getUserInfoForUid2(uid),
-        getFacebookInfo(uid),
-        getTwitterInfo(uid),
+        getFacebookInfo([uid]),
+        getTwitterInfo([uid]),
     ]).then(function(o) {
         var info = o[0];
         var fbInfo = o[1];
@@ -7137,7 +7137,6 @@ function getOneConversation(req, res) {
             conv.is_mod = conv.site_id === userInfo.site_id;
             conv.is_owner = conv.owner === uid;
             conv.pp = false; // participant pays (WIP)
-            
             finishOne(res, conv);
             
         }, function(err) {
@@ -7906,12 +7905,86 @@ function(req, res) {
     });
 });
 
-function getTwitterInfo(uid) {
-    return pgQueryP("select * from twitter_users where uid = ($1);", [uid]);
+function getTwitterInfo(uids) {
+    return pgQueryP("select * from twitter_users where uid in ($1);", uids);
 }
 
-function getFacebookInfo(uid) {
-    return pgQueryP("select * from facebook_users where uid = ($1);", [uid]);
+function getFacebookInfo(uids) {
+    return pgQueryP("select * from facebook_users where uid in ($1);", uids);
+}
+
+function getSocialParticipants(zid, uid) {
+    var q = "with " +
+    "p as (select uid, pid, mod from participants where zid = ($1)), " +
+    "invisible_uids as (select uid from p where mod < 0), " +
+    "all_friends as (select  " +
+            "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
+            "union  " +
+            "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
+    "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users on twitter_users.uid  = p.uid), " +
+    "self as (select ($2) as uid, 1000 as priority), " +
+    "pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority " +
+        "from ( " +
+            "select * from self " +
+            "union  " +
+            "select * from all_friends " +
+            "union select * from twitter_ptpts) as prioritized_ptpts " +
+        "inner join p on prioritized_ptpts.uid = p.uid " +
+        "group by prioritized_ptpts.uid order by priority desc, prioritized_ptpts.uid asc limit 15), " +
+
+    "mod_pptpts as (select asdfasdjfioasjdfoi.uid, max(asdfasdjfioasjdfoi.priority) as priority " +
+        "from ( " +
+            "select * from pptpts " +
+            "union all " +
+            "select uid, 999 as priority from p where mod >= 2) as asdfasdjfioasjdfoi " +
+        // "inner join p on asdfasdjfioasjdfoi.uid = p.uid " +
+        "group by asdfasdjfioasjdfoi.uid order by priority desc, asdfasdjfioasjdfoi.uid asc limit 15), " +
+
+
+    // "mod_pptpts2 as (select fjoisjdfio.uid, max(fjoisjdfio.priority) as priority "+
+    //     "from ( " +
+    //         "select * from pptpts " + 
+    //         "UNION ALL " +
+    //         "select uid, 999 as priority from p where mod >= 2) as fjoisjdfio " +
+    //     "group by fjoisjdfio.uid order by fjoisjdfio.priority desc, fjoisjdfio.uid), " +
+
+    // without blocked
+    "final_set as (select * from mod_pptpts where uid not in (select uid from p where mod < 0)) " + // in invisible_uids
+
+    "select " +
+        "final_set.priority, " +
+        "p.pid, " +
+        "twitter_users.twitter_user_id as tw__twitter_user_id, " +
+        "twitter_users.screen_name as tw__screen_name, " +
+        "twitter_users.name as tw__name, " +
+        "twitter_users.followers_count as tw__followers_count, " +
+        // "twitter_users.friends_count as tw__friends_count, " +
+        "twitter_users.verified as tw__verified, " +
+        // "twitter_users.profile_image_url_https as tw__profile_image_url_https, " +
+        "twitter_users.location as tw__location, " +
+        // "twitter_users.response as tw__response, " +
+        // "twitter_users.modified as tw__modified, " +
+        // "twitter_users.created as tw__created, " +
+        "facebook_users.fb_user_id as fb__fb_user_id, " +
+        "facebook_users.fb_name as fb__fb_name, " +
+        "facebook_users.fb_link as fb__fb_link, " +
+        "facebook_users.fb_public_profile as fb__fb_public_profile, " +
+        // "facebook_users.fb_login_status as fb__fb_login_status, " +
+        // "facebook_users.fb_auth_response as fb__fb_auth_response, " +
+        // "facebook_users.fb_access_token as fb__fb_access_token, " +
+        // "facebook_users.fb_granted_scopes as fb__fb_granted_scopes, " +
+        // "facebook_users.fb_location_id as fb__fb_location_id, " +
+        "facebook_users.location as fb__location, " +
+        // "facebook_users.response as fb__response, " +
+        // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
+        // "facebook_users.created as fb__created, " +
+        "final_set.uid " +
+     "from final_set " +
+        "left join twitter_users on final_set.uid = twitter_users.uid " +
+        "left join facebook_users on final_set.uid = facebook_users.uid " +
+        "left join p on final_set.uid = p.uid " +
+    ";";
+    return pgQueryP(q, [zid, uid]);
 }
 
 function getFacebookFriendsInConversation(zid, uid) {
@@ -7938,8 +8011,35 @@ function getFacebookUsersInConversation(zid) {
 
 
 function getTwitterUsersInConversation(zid, uid, limit) {
+    limit = 2;
+    var columns = ["pid",
+    "participants.uid",
+    "zid",
+    "participants.created",
+    "vote_count",
+    "last_interaction",
+    "subscribed",
+    "last_notified",
+    "mod",
+    // "uid",
+    "twitter_user_id",
+    "screen_name",
+    "followers_count",
+    "friends_count",
+    "verified",
+    "profile_image_url_https",
+    "modified",
+    // "created",
+    "location",
+    // "response",
+    "name"].join(",");
+
     // NOTE: this does not yet prioritize twitter users who you personally follow
-    return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2)) order by followers_count desc limit ($3);", [zid, uid, limit]);
+    // the second query is for users that are pinned in the conversation. they're included regardless of the limit.
+    return pgQueryP(
+              "select * from (select "+columns+" from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.mod >= 0 and participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2)) order by followers_count desc limit ($3)) as foo" +
+        " UNION select "+columns+" from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.mod >= 2 and participants.zid = ($1) and participants.vote_count > 0 " +
+        ";", [zid, uid, limit]);
 
     // return pgQueryP("select * from participants inner join twitter_users on twitter_users.uid = participants.uid where participants.zid = ($1) and (participants.vote_count > 0 OR participants.uid = ($2));", [zid, uid]).then(function(twitterParticipants) {
     //     if (!twitterParticipants || !twitterParticipants.length) {
@@ -8131,53 +8231,60 @@ function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
 
+// NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
+
     var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
     var softLimit = 26;
     var hardLimit = 30;
+    var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
 
     Promise.all([
-        getFacebookFriendsInConversation(zid, uid),
-        getTwitterUsersInConversation(zid, uid, twitterLimit),
-        getPolisSocialSettings(zid, uid),
-        getPidPromise(zid, uid),
+        getSocialParticipants(zid, uid),
+        // getFacebookFriendsInConversation(zid, uid),
+        // getTwitterUsersInConversation(zid, uid, twitterLimit),
+        // getPolisSocialSettings(zid, uid),
+        // getPidPromise(zid, uid),
     ]).then(function(stuff) {
-        // if we didn't find any FB friends or Twitter users, find some that aren't friends
-        // This may or may not be the right thing to do, but the reasoning is that it will help people understand what Polis is. Empty buckets will be confusing.
-        var facebookFriends = stuff[0] || [];
-        var twitterParticipants = stuff[1] || [];
-        if (!facebookFriends.length && !twitterParticipants.length) {
-            return getFacebookUsersInConversation(zid, softLimit).then(function(fb) {
-                stuff[0] = fb;
-                return stuff;
-            });
-        } else {
-            return stuff;
-        }
-    }).then(function(stuff) {
-        var facebookFriends = stuff[0] || [];
-        var twitterParticipants = stuff[1] || [];
-        var polisSocialSettings = stuff[2] || [];
-        var myPid = stuff[3];
-        var pidToData = {};
-        var pids = [];
+    //     // if we didn't find any FB friends or Twitter users, find some that aren't friends
+    //     // This may or may not be the right thing to do, but the reasoning is that it will help people understand what Polis is. Empty buckets will be confusing.
+    //     var facebookFriends = stuff[0] || [];
+    //     var twitterParticipants = stuff[1] || [];
+    //     if (ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT &&
+    //         !facebookFriends.length &&
+    //         !twitterParticipants.length) {
+    //         return getFacebookUsersInConversation(zid, softLimit).then(function(fb) {
+    //             stuff[0] = fb;
+    //             return stuff;
+    //         });
+    //     } else {
+    //         return stuff;
+    //     }
+    // }).then(function(stuff) {
+        var participantsWithSocialInfo = stuff[0] || [];
+        // var facebookFriends = stuff[0] || [];
+        // var twitterParticipants = stuff[1] || [];
+        // var polisSocialSettings = stuff[2] || [];
+        // var myPid = stuff[3];
+        // var pidToData = {};
+        // var pids = [];
         // twitterParticipants.map(function(p) {
         //     return p.pid;
         // });
 
-        function shouldSkip(p) {
-            var pidAlreadyAdded = !!pidToData[p.pid];
-            var isSelf = p.pid === myPid;
-            if (!pidAlreadyAdded && !isSelf && pids.length > softLimit) {
-                if (pids.length > hardLimit) {
-                    return true;
-                }
-                // if we're beyond the soft limit, allow only high-profile twitter users
-                if (p.followers_count < 1000) { // if this is run on FB, will be falsy
-                    return true;
-                }
-            }
-            return false;
-        }
+        // function shouldSkip(p) {
+        //     var pidAlreadyAdded = !!pidToData[p.pid];
+        //     var isSelf = p.pid === myPid;
+        //     if (!pidAlreadyAdded && !isSelf && pids.length > softLimit) {
+        //         if (pids.length > hardLimit) {
+        //             return true;
+        //         }
+        //         // if we're beyond the soft limit, allow only high-profile twitter users
+        //         if (p.followers_count < 1000) { // if this is run on FB, will be falsy
+        //             return true;
+        //         }
+        //     }
+        //     return false;
+        // }
 
 
         // TODO There are issues with this:
@@ -8185,54 +8292,88 @@ function(req, res) {
         // ALSO, we could return data on everyone who might appear in the list view, and add an "importance" score to help determine who to show in the vis at various screen sizes. (a client determination)
         // ALSO, per-group-minimums: we should include at least a facebook friend and at least one famous twitter user(if they exist) per group
 
-        polisSocialSettings.forEach(function(p) {
-            if (shouldSkip(p)) {
-                return;
+
+        participantsWithSocialInfo = participantsWithSocialInfo.map(function(p) {
+            var x = {};
+            // nest the fb and tw properties in sub objects
+            _.each(p, function(val, key) {
+                var fbMatch = /fb__(.*)/.exec(key);
+                var twMatch = /tw__(.*)/.exec(key);
+                if (fbMatch && fbMatch.length === 2 && val !== null) {
+                    x.facebook = x.facebook || {};
+                    x.facebook[fbMatch[1]] = val;
+                } else if (twMatch && twMatch.length === 2 && val !== null) {
+                    x.twitter = x.twitter || {};
+                    x.twitter[twMatch[1]] = val;
+                } else {
+                    x[key] = val;
+                }
+                if (key === "priority") {
+                    if (val === 1000) {
+                        x.isSelf = true;
+                    }
+                }
+            });
+            if (x.twitter) {
+                x.twitter.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + x.twitter.twitter_user_id;
             }
-            pids.push(p.pid);
-            pidToData[p.pid] = pidToData[p.pid] || {};
-            pidToData[p.pid].polis = p;
+            return x;
         });
 
-        facebookFriends.forEach(function(p) {
-            if (shouldSkip(p)) {
-                return;
-            }
-            pids.push(p.pid);
-            pidToData[p.pid] = pidToData[p.pid] || {};
-            pidToData[p.pid].facebook = _.pick(p, 
-                'fb_link',
-                'fb_name',
-                'fb_user_id',
-                'fb_link',
-                'location');
+        var pids = participantsWithSocialInfo.map(function(p) {
+            return p.pid;
         });
-        twitterParticipants.forEach(function(p) {
-            if (shouldSkip(p)) {
-                return;
-            }
-            // clobber the reference for the twitter profile pic, with our proxied version.
-            // This is done because the reference we have can be stale.
-            // Twitter has a bulk info API, which would work, except that it's slow, so proxying these and letting CloudFlare cache them seems better.
-            p.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + p.twitter_user_id;
 
-            pids.push(p.pid);
-            pidToData[p.pid] = pidToData[p.pid] || {};
-            pidToData[p.pid].twitter = _.pick(p,
-                'followers_count',
-                'friends_count',
-                'verified',
-                'profile_image_url_https',
-                'location',
-                'name',
-                'screen_name');
-        });
+        var pidToData = _.indexBy(participantsWithSocialInfo, "pid"); // TODO this is extra work, probably not needed after some rethinking
+
+        // polisSocialSettings.forEach(function(p) {
+        //     if (shouldSkip(p)) {
+        //         return;
+        //     }
+        //     pids.push(p.pid);
+        //     pidToData[p.pid] = pidToData[p.pid] || {};
+        //     pidToData[p.pid].polis = p;
+        // });
+
+        // facebookFriends.forEach(function(p) {
+        //     if (shouldSkip(p)) {
+        //         return;
+        //     }
+        //     pids.push(p.pid);
+        //     pidToData[p.pid] = pidToData[p.pid] || {};
+        //     pidToData[p.pid].facebook = _.pick(p, 
+        //         'fb_link',
+        //         'fb_name',
+        //         'fb_user_id',
+        //         'fb_link',
+        //         'location');
+        // });
+        // twitterParticipants.forEach(function(p) {
+        //     if (shouldSkip(p)) {
+        //         return;
+        //     }
+        //     // clobber the reference for the twitter profile pic, with our proxied version.
+        //     // This is done because the reference we have can be stale.
+        //     // Twitter has a bulk info API, which would work, except that it's slow, so proxying these and letting CloudFlare cache them seems better.
+        //     p.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + p.twitter_user_id;
+
+        //     pids.push(p.pid);
+        //     pidToData[p.pid] = pidToData[p.pid] || {};
+        //     pidToData[p.pid].twitter = _.pick(p,
+        //         'followers_count',
+        //         'friends_count',
+        //         'verified',
+        //         'profile_image_url_https',
+        //         'location',
+        //         'name',
+        //         'screen_name');
+        // });
 
         // ensure that anon users get an entry for themselves. this ensures that they will be shown as a ptptoi, and get included in a group
-        if (pids.indexOf(myPid) === -1) {
-            pids.push(myPid);
-        }
-        pidToData[myPid]= pidToData[myPid] || {};
+        // if (pids.indexOf(myPid) === -1) {
+        //     pids.push(myPid);
+        // }
+        // pidToData[myPid]= pidToData[myPid] || {};
 
         pids.sort(function(a,b) {
             return a - b;
@@ -8283,7 +8424,7 @@ function(req, res) {
                     pid = parseInt(pid);
                     var bid = pidsToBids[pid];
                     var notInBucket = _.isUndefined(bid);
-                    var isSelf = pid === myPid;
+                    var isSelf = pidToData[pid].isSelf;
                     // console.log("pidToData", pid, myPid, isSelf);
                     // console.dir(pidToData[pid]);
                     if (notInBucket && !isSelf) {
