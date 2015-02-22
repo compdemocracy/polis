@@ -13,7 +13,6 @@ var ModerateParticipantView = require('../views/moderate-participant');
 var countBadgeTemplate = require('../tmpl/countBadge');
 var Utils = require("../util/utils");
 var Constants = require("../util/constants");
-var ParticipantsCollection = require("../collections/participants");
 
 var isIE8 = Utils.isIE8();
 
