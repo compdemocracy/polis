@@ -19,9 +19,6 @@ var isIE8 = Utils.isIE8();
 // animated title
 function showThen(c, f) { return function() {document.title = c; setTimeout(f, 200);}} 
 
-
-
-
 var PtptoiModel = Backbone.Model.extend({
   name: "ptptoi",
   url: "ptptois",
