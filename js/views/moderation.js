@@ -60,10 +60,12 @@ var ModerateParticipantsCollectionView = Handlebones.CollectionView.extend({
   },
 })
 
-var TodoCountView = Handlebones.View.extend({
+var TodoCountView = Handlebones.ModelView.extend({
   template: countBadgeTemplate,
   context: function(){
-    return {count: this.collection.length}
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx.count = this.collection.length;
+    return ctx;
   }
 })
 
@@ -180,14 +182,41 @@ module.exports =  Handlebones.ModelView.extend({
     this.updatePtptCollections();
 
     this.todoCountView = this.addChild(new TodoCountView({
+      model: new Backbone.Model({}),
       collection: this.commentsTodo
     }));
+    // this.todoCountView2 = this.addChild(new TodoCountView({
+    //   model: new Backbone.Model({
+    //     hideWhenZero: true
+    //   }),
+    //   collection: this.commentsTodo,
+    // }));
     this.acceptedCountView = this.addChild(new TodoCountView({
+      model: new Backbone.Model({}),
       collection: this.commentsAccepted
     }));
     this.rejectedCountView = this.addChild(new TodoCountView({
+      model: new Backbone.Model({}),
       collection: this.commentsRejected
-    }));    
+    }));
+    this.todoPtptoiCountView = this.addChild(new TodoCountView({
+      model: new Backbone.Model({}),
+      collection: this.ptptsTodo
+    }));
+    // this.todoPtptoiCountView2 = this.addChild(new TodoCountView({
+    //   model: new Backbone.Model({
+    //     hideWhenZero: true
+    //   }),
+    //   collection: this.ptptsTodo,
+    // }));
+    this.acceptedPtptoiCountView = this.addChild(new TodoCountView({
+      model: new Backbone.Model({}),
+      collection: this.ptptsAccepted
+    }));
+    this.rejectedPtptoiCountView = this.addChild(new TodoCountView({
+      model: new Backbone.Model({}),
+      collection: this.ptptsRejected
+    }));  
 
 
     this.listenTo(this.commentsTodo, "sync remove add", function(){
