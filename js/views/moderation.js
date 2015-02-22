@@ -235,6 +235,22 @@ module.exports =  Handlebones.ModelView.extend({
       this.rejectedCountView.render();
     });    
 
+    this.listenTo(this.ptptsTodo, "sync remove add", function(){
+      this.todoPtptoiCountView.render();
+      clearInterval(this.animationIntervalRef);
+      if (this.commentsTodo.length) {
+        this.animationIntervalRef = setInterval(showThen("_", showThen("["+this.commentsTodo.length+"]",function(){})), 1000);
+      } else {
+        document.title = "";
+      }
+    });
+    this.listenTo(this.ptptsAccepted, "sync remove add", function(){
+      this.acceptedPtptoiCountView.render();
+    });
+    this.listenTo(this.ptptsRejected, "sync remove add", function(){
+      this.rejectedPtptoiCountView.render();
+    });    
+
 
     this.moderateCommentsTodoCollectionView = this.addChild(new ModerateCommentsCollectionView({
       collection: this.commentsTodo
@@ -285,6 +301,15 @@ module.exports =  Handlebones.ModelView.extend({
         }),
         reset: false
       });
+
+      that.ptptsTodo.fetch({
+        data: $.param({
+          // moderation: true,
+          mod: Constants.MOD.UNMODERATED,
+          conversation_id: that.conversation_id
+        }),
+        reset: false
+      });
     }, 10000);
 
     this.listenTo(this, "remove", function () {
@@ -292,6 +317,9 @@ module.exports =  Handlebones.ModelView.extend({
       this.moderateCommentsTodoCollectionView.remove();
       this.moderateCommentsAcceptedCollectionView.remove();
       this.moderateCommentsRejectedCollectionView.remove();
+      this.moderateParticipantsTodoCollectionView.remove();
+      this.moderateParticipantsAcceptedCollectionView.remove();
+      this.moderateParticipantsRejectedCollectionView.remove();
     });
 
   } // end initialize
