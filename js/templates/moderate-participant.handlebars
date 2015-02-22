@@ -13,9 +13,12 @@
         <div style="margin-top: 15px;">
           {{#if facebook}}
             <div> 
-              <a href="{{facebook.fb_link}}" target="_blank">{{facebook.fb_name}}
+              {{#if facebook.fb_link}}<a href="{{facebook.fb_link}}" target="_blank">{{facebook.fb_name}}
               &nbsp;<i class="fa fa-facebook"></i>
               </a>
+              {{else}}
+                {{facebook.fb_name}} &nbsp;<i class="fa fa-facebook"></i>
+              {{/if}}
             </div> 
             <img 
               src="https://graph.facebook.com/v2.2/{{facebook.fb_user_id}}/picture?width=64&height=64"

@@ -217,13 +217,13 @@ module.exports =  Handlebones.ModelView.extend({
       collection: this.commentsRejected
     }));
 
-    this.moderateCommentsTodoCollectionView = this.addChild(new ModerateParticipantsCollectionView({
+    this.moderateParticipantsTodoCollectionView = this.addChild(new ModerateParticipantsCollectionView({
       collection: this.ptptsTodo
     }));
-    this.moderateCommentsAcceptedCollectionView = this.addChild(new ModerateParticipantsCollectionView({
+    this.moderateParticipantsAcceptedCollectionView = this.addChild(new ModerateParticipantsCollectionView({
       collection: this.ptptsAccepted
     }));
-    this.moderateCommentsRejectedCollectionView = this.addChild(new ModerateParticipantsCollectionView({
+    this.moderateParticipantsRejectedCollectionView = this.addChild(new ModerateParticipantsCollectionView({
       collection: this.ptptsRejected
     }));
 
