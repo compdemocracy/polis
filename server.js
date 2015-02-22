@@ -7913,6 +7913,52 @@ function getFacebookInfo(uids) {
     return pgQueryP("select * from facebook_users where uid in ($1);", uids);
 }
 
+function getSocialParticipantsForMod(zid, limit, mod) {
+    var q = "with " +
+    "p as (select uid, pid, mod from participants where zid = ($1) and mod = ($3)), " + // and vote_count >= 1
+
+    "final_set as (select * from p limit ($2)), " +
+
+    "all_rows as (select " +
+        // "final_set.priority, " +
+        "final_set.mod, " +
+        "twitter_users.twitter_user_id as tw__twitter_user_id, " +
+        "twitter_users.screen_name as tw__screen_name, " +
+        "twitter_users.name as tw__name, " +
+        "twitter_users.followers_count as tw__followers_count, " +
+        // "twitter_users.friends_count as tw__friends_count, " +
+        "twitter_users.verified as tw__verified, " +
+        // "twitter_users.profile_image_url_https as tw__profile_image_url_https, " +
+        "twitter_users.location as tw__location, " +
+        // "twitter_users.response as tw__response, " +
+        // "twitter_users.modified as tw__modified, " +
+        // "twitter_users.created as tw__created, " +
+        "facebook_users.fb_user_id as fb__fb_user_id, " +
+        "facebook_users.fb_name as fb__fb_name, " +
+        "facebook_users.fb_link as fb__fb_link, " +
+        "facebook_users.fb_public_profile as fb__fb_public_profile, " +
+        // "facebook_users.fb_login_status as fb__fb_login_status, " +
+        // "facebook_users.fb_auth_response as fb__fb_auth_response, " +
+        // "facebook_users.fb_access_token as fb__fb_access_token, " +
+        // "facebook_users.fb_granted_scopes as fb__fb_granted_scopes, " +
+        // "facebook_users.fb_location_id as fb__fb_location_id, " +
+        "facebook_users.location as fb__location, " +
+        // "facebook_users.response as fb__response, " +
+        // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
+        // "facebook_users.created as fb__created, " +
+        // "all_friends.uid is not null as is_fb_friend, " +
+        // "final_set.uid " +
+        "final_set.pid " +
+     "from final_set " +
+        "left join twitter_users on final_set.uid = twitter_users.uid " +
+        "left join facebook_users on final_set.uid = facebook_users.uid " +
+    ") " +
+    "select * from all_rows where (tw__twitter_user_id is not null) or (fb__fb_user_id is not null) " +
+    // "select * from all_rows " +
+    ";";
+    return pgQueryP(q, [zid, limit, mod]);
+}
+
 function getSocialParticipants(zid, uid, limit) {
     limit = 25;
     var q = "with " +
@@ -7954,7 +8000,6 @@ function getSocialParticipants(zid, uid, limit) {
 
     "select " +
         "final_set.priority, " +
-        "p.pid, " +
         "twitter_users.twitter_user_id as tw__twitter_user_id, " +
         "twitter_users.screen_name as tw__screen_name, " +
         "twitter_users.name as tw__name, " +
@@ -7980,7 +8025,8 @@ function getSocialParticipants(zid, uid, limit) {
         // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
         // "facebook_users.created as fb__created, " +
         "all_friends.uid is not null as is_fb_friend, " +
-        "final_set.uid " +
+        // "final_set.uid " +
+        "p.pid " +
      "from final_set " +
         "left join twitter_users on final_set.uid = twitter_users.uid " +
         "left join facebook_users on final_set.uid = facebook_users.uid " +
@@ -8226,6 +8272,85 @@ function(req, res) {
     });
 });
 
+
+function removeNullOrUndefinedProperties(o) {
+    for (var k in o) {
+        var v = o[k];
+        if (v === null || v === undefined) {
+            delete o[k];
+        }
+    }
+    return o;
+}
+
+function pullFbTwIntoSubObjects(ptptoiRecord) {
+    var p = ptptoiRecord;
+    var x = {};
+    _.each(p, function(val, key) {
+        var fbMatch = /fb__(.*)/.exec(key);
+        var twMatch = /tw__(.*)/.exec(key);
+        if (fbMatch && fbMatch.length === 2 && val !== null) {
+            x.facebook = x.facebook || {};
+            x.facebook[fbMatch[1]] = val;
+        } else if (twMatch && twMatch.length === 2 && val !== null) {
+            x.twitter = x.twitter || {};
+            x.twitter[twMatch[1]] = val;
+        } else {
+            x[key] = val;
+        }
+    });
+    return x;
+}
+
+app.put("/api/v3/ptptois",
+    moveToBody,
+    auth(assignToP),
+    need("pid", getInt, assignToP),
+    need("mod", getInt, assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    var pid = req.p.pid;
+    var mod = req.p.mod;
+    isModerator(zid, uid).then(function(isMod) {
+        if (!isMod) {
+            fail(res, 403, "polis_err_ptptoi_permissions_123");
+            return;
+        }
+        return pgQueryP("update participants set mod = ($3) where zid = ($1) and pid = ($2);", [zid, pid, mod]).then(function() {
+            res.status(200).json({});
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_ptptoi_misc_234", err);
+    });
+});
+
+app.get("/api/v3/ptptois",
+    moveToBody,
+    auth(assignToP),
+    need('mod', getInt, assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP),
+function(req, res) {
+    var zid = req.p.zid;
+    var mod = req.p.mod;
+    var limit = 999;
+    // TODO_SECURITY add check for priviledges
+    getSocialParticipantsForMod(zid, limit, mod).then(function(ptptois) {
+
+        ptptois = ptptois.map(removeNullOrUndefinedProperties);
+        ptptois = ptptois.map(pullFbTwIntoSubObjects);
+        ptptois = ptptois.map(function(p) {
+            p.conversation_id = req.p.conversation_id;
+            return p;
+        });
+        res.status(200).json(ptptois);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_ptptoi_misc", err);
+    });
+});
+
 app.get("/api/v3/votes/famous",
     moveToBody,
     authOptional(assignToP),
@@ -8295,28 +8420,13 @@ function(req, res) {
         // ALSO, we could return data on everyone who might appear in the list view, and add an "importance" score to help determine who to show in the vis at various screen sizes. (a client determination)
         // ALSO, per-group-minimums: we should include at least a facebook friend and at least one famous twitter user(if they exist) per group
 
-
         participantsWithSocialInfo = participantsWithSocialInfo.map(function(p) {
-            var x = {};
+            var x = pullFbTwIntoSubObjects(p);
             // nest the fb and tw properties in sub objects
-            _.each(p, function(val, key) {
-                var fbMatch = /fb__(.*)/.exec(key);
-                var twMatch = /tw__(.*)/.exec(key);
-                if (fbMatch && fbMatch.length === 2 && val !== null) {
-                    x.facebook = x.facebook || {};
-                    x.facebook[fbMatch[1]] = val;
-                } else if (twMatch && twMatch.length === 2 && val !== null) {
-                    x.twitter = x.twitter || {};
-                    x.twitter[twMatch[1]] = val;
-                } else {
-                    x[key] = val;
-                }
-                if (key === "priority") {
-                    if (val === 1000) {
-                        x.isSelf = true;
-                    }
-                }
-            });
+           
+            if (p.priority   === 1000) {
+                p.isSelf = true;
+            }
             if (x.twitter) {
                 x.twitter.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + x.twitter.twitter_user_id;
             }
