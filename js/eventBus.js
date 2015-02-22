@@ -14,6 +14,7 @@ bus.participantCount = "participantCount";
 bus.voteCount = "voteCount";
 bus.commentCount = "commentCount";
 bus.moderated = "moderated";
+bus.moderatedPtpt = "moderatedPtpt";
 bus.deselectGroups = "deselectGroups";
 bus["beforehide:analyze"] = "beforehide:analyze";
 bus["aftershow:analyze"] = "aftershow:analyze";

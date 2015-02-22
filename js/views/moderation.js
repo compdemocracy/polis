@@ -9,14 +9,44 @@ var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var template = require('../tmpl/moderation');
 var ModerateCommentView = require('../views/moderate-comment');
+var ModerateParticipantView = require('../views/moderate-participant');
 var countBadgeTemplate = require('../tmpl/countBadge');
 var Utils = require("../util/utils");
 var Constants = require("../util/constants");
+var ParticipantsCollection = require("../collections/participants");
 
 var isIE8 = Utils.isIE8();
 
 // animated title
 function showThen(c, f) { return function() {document.title = c; setTimeout(f, 200);}} 
+
+
+
+
+var PtptoiModel = Backbone.Model.extend({
+  name: "ptptoi",
+  url: "ptptois",
+  urlRoot: "ptptois",
+  idAttribute: "pid",
+  twitter_url: function() {
+    var tw = this.get("twitter");
+    if (!tw) {
+      return "";
+    }
+    return "https://twitter.com/" + tw.twitter_user_id;
+  },
+  defaults: {
+    //tid: undefined, // comment id
+    //pid: undefined, // participant id
+    //txt: "This is default comment text defined in the model.",
+    //created: 0
+  }
+});
+var PtptoiCollection = Backbone.Collection.extend({
+    name: "ptptois",
+    url: "ptptois",
+    model: PtptoiModel
+});
 
 
 
@@ -26,6 +56,13 @@ var ModerateCommentsCollectionView = Handlebones.CollectionView.extend({
     Handlebones.CollectionView.prototype.initialize.apply(this, arguments);
   },
 });
+
+var ModerateParticipantsCollectionView = Handlebones.CollectionView.extend({
+  modelView: ModerateParticipantView,
+  initialize: function() {
+    Handlebones.CollectionView.prototype.initialize.apply(this, arguments);
+  },
+})
 
 var TodoCountView = Handlebones.View.extend({
   template: countBadgeTemplate,
@@ -42,6 +79,36 @@ module.exports =  Handlebones.ModelView.extend({
   context: function() {
       var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
       return ctx;
+  },
+  updatePtptCollections: function() {
+    var that = this;
+    $.when(
+      this.ptptsTodo.fetch({
+        data: $.param({
+          // moderation: true,
+          mod: Constants.MOD.UNMODERATED,
+          conversation_id: this.conversation_id
+        }),
+        reset: false
+      }),
+      this.ptptsAccepted.fetch({
+        data: $.param({
+          // moderation: true,
+          mod: Constants.MOD.OK,
+          conversation_id: this.conversation_id
+        }),
+        reset: false
+      }),
+      this.ptptsRejected.fetch({
+        data: $.param({
+          // moderation: true,
+          mod: Constants.MOD.BAN,
+          conversation_id: this.conversation_id
+        }),
+        reset: false
+      })
+      );
+
   },
   updateCollections: function() {
     var that = this;
@@ -83,6 +150,7 @@ module.exports =  Handlebones.ModelView.extend({
     var zinvite = this.zinvite = this.model.get("zinvite");
 
     eb.on(eb.moderated, _.bind(this.updateCollections, this));
+    eb.on(eb.moderatedPtpt, _.bind(this.updatePtptCollections, this));
 
     // just a quick hack for now.
     // we may need to look into something more general
@@ -102,7 +170,18 @@ module.exports =  Handlebones.ModelView.extend({
       conversation_id: conversation_id
     });
 
+    this.ptptsTodo = new PtptoiCollection([], {
+      conversation_id: conversation_id
+    });
+    this.ptptsAccepted = new PtptoiCollection([], {
+      conversation_id: conversation_id
+    });
+    this.ptptsRejected = new PtptoiCollection([], {
+      conversation_id: conversation_id
+    });
+
     this.updateCollections();
+    this.updatePtptCollections();
 
     this.todoCountView = this.addChild(new TodoCountView({
       collection: this.commentsTodo
@@ -113,6 +192,7 @@ module.exports =  Handlebones.ModelView.extend({
     this.rejectedCountView = this.addChild(new TodoCountView({
       collection: this.commentsRejected
     }));    
+
 
     this.listenTo(this.commentsTodo, "sync remove add", function(){
       this.todoCountView.render();
@@ -139,6 +219,16 @@ module.exports =  Handlebones.ModelView.extend({
     }));
     this.moderateCommentsRejectedCollectionView = this.addChild(new ModerateCommentsCollectionView({
       collection: this.commentsRejected
+    }));
+
+    this.moderateCommentsTodoCollectionView = this.addChild(new ModerateParticipantsCollectionView({
+      collection: this.ptptsTodo
+    }));
+    this.moderateCommentsAcceptedCollectionView = this.addChild(new ModerateParticipantsCollectionView({
+      collection: this.ptptsAccepted
+    }));
+    this.moderateCommentsRejectedCollectionView = this.addChild(new ModerateParticipantsCollectionView({
+      collection: this.ptptsRejected
     }));
 
 

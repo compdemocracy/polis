@@ -1,0 +1,37 @@
+<div class="row">
+  <div>
+    <div class="panel panel-default">
+    	<div class="panel-body"> 
+        <div style="">
+          {{#if showAccept}}
+            <button id="accept" class="Btn Btn-moderateAccept"> Allow in visualization </button>
+          {{/if}}
+          {{#if showReject}}
+            <button id="reject" class="Btn Btn-moderateReject"> Hide </button> 
+          {{/if}}
+        </div>
+        <div style="margin-top: 15px;">
+          Facebook profile
+          {{#if facebook}}
+            <img src="https://graph.facebook.com/v2.2/{{facebook.fb_user_id}}/picture?width=64&height=64">
+            {{facebook.fb_name}}
+            <a href="{{facebook.fb_link}}" target="_blank"><i class="fa fa-facebook"></i></a> &nbsp;
+            {{facebook.location}}
+          {{/if}} {{!-- facebook --}}
+          {{#if twitter}}
+          <div class="panel-body">
+      		  Twitter Profile 
+            <img src="/twitter_image?id={{twitter.twitter_user_id}}">
+            <div>@{{twitter.screen_name}} ({{twitter.name}})</div>
+            {{!-- <div>{{twitter.followers_count}} Followers</div> --}}   {{!-- these are stale currently because we havent written code to keep the twitter info cache fresh --}}
+            {{!-- <div>{{#if twitter.verified}} Verified by twitter{{else}} not verified by twitter {{/if}}</div> --}}
+            <div>{{twitter.location}}</div>
+            <a href="https://twitter.com/{{twitter.screen_name}}" target="_blank"><i class="fa fa-twitter"></i></a>
+
+          </div>
+          {{/if}} {{!-- twitter --}}
+        </div>
+    	</div>
+    </div> 
+  </div>
+</div>

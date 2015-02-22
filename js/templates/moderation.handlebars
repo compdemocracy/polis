@@ -14,50 +14,99 @@
   border-bottom: 0px">
 
 
+  <li class="active"><a href="#comments" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Comments <span class="badge"> {{view todoCountView}} </span></a>
+  </li>
 
 
-  <li class="active"><a href="#todo" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
-  <li><a href="#accepted" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Accepted <span class="badge"> {{view acceptedCountView}} </span></a></li>
-  <li><a href="#rejected" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Rejected <span class="badge"> {{view rejectedCountView}} </span></a></li>
-  <li><a href="#seed" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Seed Comments </a></li>  
+  <li><a href="#ptpts" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Participants</a></li>  
+  
   <li><a href="#config" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Config</a></li>  
 </ul>
 
 <!-- Tab panes -->
-<div class="tab-content col-sm-8 col-md-6" >
-  <div class="tab-pane active" id="todo"> 
-    {{#if strict_moderation}}
-      <div class="alert-info" style="
-        font-family: brandon-grotesque;
-        display: block;
-        padding: 5px;
-        margin-bottom: 5px;
-        margin-top: 5px;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        ">Strict moderation is on. These comments <strong>can not</strong> yet be seen by particpants.</div>
-    {{else}}
-      <div class="alert-info" style="
-        font-family: brandon-grotesque;
-        display: block;
-        padding: 5px;
-        margin-bottom: 5px;
-        margin-top: 5px;
-        border: 1px solid transparent;
-        border-radius: 4px;
-        ">Strict moderation is off. These comments <strong>can</strong> be seen by particpants.</div>
-    {{/if}}
+<div class="tab-content" >
+
+  {{! comments sub tabs}}
+  <div class="tab-pane active" id="comments"> 
+    <div class="tab-content col-xs-12" >
+
+      <ul class="nav nav-tabs tab-conv" style="
+      margin-bottom: 30px;
+      margin-top: 30px;
+      border-bottom: 0px">
+      <li class="active"><a href="#todo" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Todo <span class="badge"> {{view todoCountView}} </span></a></li>
+        <li><a href="#accepted" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Accepted <span class="badge"> {{view acceptedCountView}} </span></a></li>
+        <li><a href="#rejected" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Rejected <span class="badge"> {{view rejectedCountView}} </span></a></li>
+        <li><a href="#seed" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Seed Comments </a></li>  
+      </ul>{{! end comments sub tabs}}
+
+      <div class="tab-pane active" id="todo"> 
+        {{#if strict_moderation}}
+          <div class="alert-info" style="
+            font-family: brandon-grotesque;
+            display: block;
+            padding: 5px;
+            margin-bottom: 5px;
+            margin-top: 5px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            ">Strict moderation is on. These comments <strong>can not</strong> yet be seen by particpants.</div>
+        {{else}}
+          <div class="alert-info" style="
+            font-family: brandon-grotesque;
+            display: block;
+            padding: 5px;
+            margin-bottom: 5px;
+            margin-top: 5px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            ">Strict moderation is off. These comments <strong>can</strong> be seen by particpants.</div>
+        {{/if}}
 
 
-    {{view moderateCommentsTodoCollectionView}} </div>
-  <div class="tab-pane" id="accepted">{{view moderateCommentsAcceptedCollectionView}}</div>
-  <div class="tab-pane" id="rejected">{{view moderateCommentsRejectedCollectionView}}</div>
-  <div class="tab-pane" id="seed">
-      <h5 class="HeadingB HeadingB--inline">Add Comments</h5>
-      <div id="hiddenSeedCommentForm">
-          {{view commentForm}}
+        {{view moderateCommentsTodoCollectionView}} </div>
+      <div class="tab-pane" id="accepted">{{view moderateCommentsAcceptedCollectionView}}</div>
+      <div class="tab-pane" id="rejected">{{view moderateCommentsRejectedCollectionView}}</div>
+      <div class="tab-pane" id="seed">
+          <h5 class="HeadingB HeadingB--inline">Add Comments</h5>
+          <div id="hiddenSeedCommentForm">
+              {{view commentForm}}
+          </div>
       </div>
-  </div>
+    </div> {{! end comments sub-tab pane}}
+  </div>{{! end comments tab }}
+
+
+
+
+  {{! participants sub tabs}}
+  <div class="tab-pane" id="ptpts"> 
+    <div class="tab-content col-xs-12" >
+
+      <ul class="nav nav-tabs tab-conv" style="
+      margin-bottom: 30px;
+      margin-top: 30px;
+      border-bottom: 0px">
+      <li class="active"><a href="#ptpts_todo" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Todo <span class="badge"> {{!view todoCountView}} </span></a></li>
+        <li><a href="#ptpts_accepted" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Shown <span class="badge"> {{!view acceptedCountView}} </span></a></li>
+        <li><a href="#ptpts_rejected" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Hidden <span class="badge"> {{!view rejectedCountView}} </span></a></li>
+        <li><a href="#ptpts_invite" class="HeadingC polis-tab" style="padding: 10px 5px !important; border: none;  text-transform: none;" data-toggle="tab">Invite More </a></li>
+      </ul>{{! end comments sub tabs}}
+
+
+      <div class="tab-pane active" id="ptpts_todo">{{view moderateCommentsTodoCollectionView}} </div>
+      <div class="tab-pane" id="ptpts_accepted">These particpants are visible.{{view moderateCommentsAcceptedCollectionView}}</div>
+      <div class="tab-pane" id="ptpts_rejected">These participants are not shown to others, but their votes are still counted.{{view moderateCommentsRejectedCollectionView}}</div>
+      <div class="tab-pane" id="ptpts_invite">
+          <h5 class="HeadingB HeadingB--inline">Invite Participants</h5>
+          <div id="hiddenSeedCommentForm">
+              {{!view commentForm}}
+          </div>
+      </div>
+    </div> {{! end participants sub-tab pane}}
+  </div>{{! end participants tab }}
+
+
   <div class="tab-pane" id="config">{{view conversationConfigView}}</div>
 </div>
 
