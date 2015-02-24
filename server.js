@@ -10352,6 +10352,7 @@ app.get(/^\/inbox(\/.*)?$/, fetchIndex);
 app.get(/^\/r/, fetchIndex);
 app.get(/^\/hk/, fetchIndex);
 app.get(/^\/s\//, fetchIndex);
+app.get(/^\/s$/, fetchIndex);
 app.get(/^\/hk\/new/, fetchIndex);
 app.get(/^\/inboxApiTest/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
