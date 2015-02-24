@@ -125,7 +125,7 @@ module.exports =  ConversationView.extend({
     ctx.hasFbOrTw = ctx.hasFacebook || ctx.hasTwitter;
 
     // var md_content = "Hello.\n======\n* This is markdown.\n * It is fun\n * Love it or leave it.\n* This is [an example](http://example.com/ \"Title\") inline link.\n\n![Alt text](https://62e528761d0685343e1c-f3d1b99a743ffa4142d9d7f1978d9686.ssl.cf2.rackcdn.com/files/67396/width668/image-20141216-14144-1fmodw7.jpg)"
-    var md_content = ctx.description;
+    var md_content = ctx.description || "";
 
     /*
     // parse the markdown into a tree and grab the link references
