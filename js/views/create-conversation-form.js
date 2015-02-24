@@ -63,6 +63,7 @@ module.exports = View.extend({
           attrs.spam_filter = !!attrs.spam_filter;
           attrs.strict_moderation = !!attrs.strict_moderation;
           attrs.send_created_email = true;
+          attrs.is_draft = false; // not a draft anymore
           if (window.context) {
             attrs.context = window.context;
           }
@@ -122,7 +123,10 @@ module.exports = View.extend({
               }) : $.Deferred().resolve();
 
             promise.then(function(suurls) {
-              that.trigger("done", suurls);
+              that.trigger("done", {
+                suurls: suurls,
+                conversation_id: response.conversation_id
+              });
             }, function(model, err) {
               err = err.responseText;
               if (err === "polis_err_missing_metadata_answers") {

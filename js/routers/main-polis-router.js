@@ -4,6 +4,7 @@ var ConversationModel = require("../models/conversation");
 var CookiesDisabledView = require("../views/cookiesDisabledView");
 var CourseView = require("../views/course");
 var RootsView = require("../views/roots");
+var RootsRootView = require("../views/rootsRoot");
 var ParticipantModel = require("../models/participant");
 var bbFetch = require("../net/bbFetch");
 var ConversationsCollection = require("../collections/conversations");
@@ -257,6 +258,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^course\/(.*)/, "courseView");
     this.r(/^hk\/?$/, "hk");
     this.r(/^r\/?$/, "roots");
+    this.r(/^s\/?$/, "rootsRoot");
     this.r(/^s\/(.+)$/, "roots");
     this.r(/^s\/new\/(.+)$/, "rootsNew");
 
@@ -312,6 +314,16 @@ var polisRouter = Backbone.Router.extend({
             conversation_id: o.conversation_id
           }).always(function() {
             that.redirect(o.pathname);
+          });
+        });
+    });
+    eb.on("createContext_but_no_auth", function(o) {
+        var promise = that.doLogin(true);
+        promise.then(function() {
+          $.post("/api/v3/contexts", {
+            name: o.name
+          }).always(function() {
+            that.redirect(o.pathname); // TODO this doesn't seem to get triggered
           });
         });
     });
@@ -574,6 +586,10 @@ var polisRouter = Backbone.Router.extend({
       collection: conversationsCollection,
       filters: filterAttrs
     });
+    RootView.getInstance().setView(view);
+  },
+  rootsRoot: function() {
+    var view = new RootsRootView();
     RootView.getInstance().setView(view);
   },
   roots: function(context) {
@@ -861,26 +877,7 @@ var polisRouter = Backbone.Router.extend({
         });
         that.listenTo(createConversationFormView, "all", function(eventName, data) {
           if (eventName === "done") {
-            // NOTE suurls broken for now
-            // var suurls = data;
-            //   if (suurls) {
-            //   var suurlsCsv = [];
-            //   var len = suurls.xids.length;
-            //   var xids = suurls.xids;
-            //   var urls = suurls.urls;
-            //   for (var i = 0; i < len; i++) {
-            //     suurlsCsv.push({xid: xids[i], url: urls[i]});
-            //   }
-            //   model.set("suurls", suurlsCsv);
-            // }
-
-            if (paramsFromPath.custom_canvas_assignment_id) {
-              // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
-              that.navigate("/" + model.get("conversation_id"), {trigger: true});
-            } else {
-              // The usual case, show the hk index
-              that.navigate("/hk", {trigger: true});
-            }
+            that.navigate("/" + data.conversation_id, {trigger: true});
           }
         });
         RootView.getInstance().setView(createConversationFormView);
