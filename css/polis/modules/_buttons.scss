@@ -49,6 +49,7 @@
   background-color: $bg-alt-color;
   color: darken( $color_agree, 20%);
   letter-spacing: 0.05em;
+  margin: 5px;
 
   &:hover, &:focus {
     background-color: #d9dadc;
@@ -59,6 +60,7 @@
   background-color: $bg-alt-color;
   color: darken( $color_disagree, 20%);
   letter-spacing: 0.05em;
+  margin: 5px;
 
   &:hover, &:focus {
     background-color: #d9dadc;
