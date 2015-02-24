@@ -7201,15 +7201,16 @@ function getConversations(req, res) {
             isRootsQuery = true; // more conditions follow in the ANDs below
         } else {
             // knowing a context grants access to those conversations (for now at least)
+            console.log("CONTEXT", context);
             orClauses = sql_conversations.context.equals(req.p.context);
         }
     } else {
         orClauses = sql_conversations.owner.equals(uid);
+        if (participantInOrSiteAdminOf.length) {
+            orClauses = orClauses.or(sql_conversations.zid.in(participantInOrSiteAdminOf));
+        }
     }
 
-    if (participantInOrSiteAdminOf.length) {
-        orClauses = orClauses.or(sql_conversations.zid.in(participantInOrSiteAdminOf));
-    }
 
     query = query.where(orClauses);
     if (!_.isUndefined(req.p.course_invite)) {
@@ -7959,15 +7960,14 @@ function getSocialParticipantsForMod(zid, limit, mod) {
     return pgQueryP(q, [zid, limit, mod]);
 }
 
-function getSocialParticipants(zid, uid, limit) {
-    limit = 25;
+function getSocialParticipants(zid, uid, limit, mod) {
     var q = "with " +
     "p as (select uid, pid, mod from participants where zid = ($1) and vote_count >= 1), " +
     "all_friends as (select  " +
             "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
             "union  " +
             "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
-    "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users on twitter_users.uid  = p.uid), " +
+    "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
     "self as (select ($2) as uid, 1000 as priority), " +
     "pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority " +
         "from ( " +
@@ -7996,7 +7996,10 @@ function getSocialParticipants(zid, uid, limit) {
     //     "group by fjoisjdfio.uid order by fjoisjdfio.priority desc, fjoisjdfio.uid), " +
 
     // without blocked
-    "final_set as (select * from mod_pptpts where uid not in (select uid from p where mod < 0) limit ($3)) " + // in invisible_uids
+    "final_set as (select * from mod_pptpts " + 
+        // "where uid not in (select uid from p where mod < 0) "+ // remove from twitter set intead.
+        "limit ($3) "+
+        ") " + // in invisible_uids
 
     "select " +
         "final_set.priority, " +
@@ -8033,7 +8036,7 @@ function getSocialParticipants(zid, uid, limit) {
         "left join p on final_set.uid = p.uid " +
         "left join all_friends on all_friends.uid = p.uid " +
     ";";
-    return pgQueryP(q, [zid, uid, limit]);
+    return pgQueryP(q, [zid, uid, limit, mod]);
 }
 
 function getFacebookFriendsInConversation(zid, uid) {
@@ -8365,9 +8368,10 @@ function(req, res) {
     var softLimit = 26;
     var hardLimit = 30;
     var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
+    var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
     Promise.all([
-        getSocialParticipants(zid, uid),
+        getSocialParticipants(zid, uid, hardLimit, mod),
         // getFacebookFriendsInConversation(zid, uid),
         // getTwitterUsersInConversation(zid, uid, twitterLimit),
         // getPolisSocialSettings(zid, uid),
@@ -8424,8 +8428,8 @@ function(req, res) {
             var x = pullFbTwIntoSubObjects(p);
             // nest the fb and tw properties in sub objects
            
-            if (p.priority   === 1000) {
-                p.isSelf = true;
+            if (p.priority === 1000) {
+                x.isSelf = true;
             }
             if (x.twitter) {
                 x.twitter.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + x.twitter.twitter_user_id;
@@ -10305,6 +10309,7 @@ function(req, res) {
 app.get(/^\/inbox(\/.*)?$/, fetchIndex);
 app.get(/^\/r/, fetchIndex);
 app.get(/^\/hk/, fetchIndex);
+app.get(/^\/s\//, fetchIndex);
 app.get(/^\/hk\/new/, fetchIndex);
 app.get(/^\/inboxApiTest/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
