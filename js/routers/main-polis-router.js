@@ -257,6 +257,8 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^course\/(.*)/, "courseView");
     this.r(/^hk\/?$/, "hk");
     this.r(/^r\/?$/, "roots");
+    this.r(/^s\/(.+)$/, "roots");
+    this.r(/^s\/new\/(.+)$/, "rootsNew");
 
     this.r(/^([0-9][0-9A-Za-z]+)\/?(\?.*)?$/, "participationViewWithQueryParams");  // conversation_id / query params
     this.r(/^([0-9][0-9A-Za-z]+)(\/ep1_[0-9A-Za-z]+)?$/, "participationView");  // conversation_id / encodedStringifiedJson
@@ -574,13 +576,13 @@ var polisRouter = Backbone.Router.extend({
     });
     RootView.getInstance().setView(view);
   },
-  roots: function() {
+  roots: function(context) {
     var filterAttrs = {
       is_draft: false,
       is_active: true,
       // want_upvoted: true,
       limit: 99,
-      context: "/"
+      context: context || "/", // NOTE "/" context is magic -- see server
     };
     var conversationsCollection = new ConversationsCollection();
     // Let the InboxView filter the conversationsCollection.
@@ -775,6 +777,82 @@ var polisRouter = Backbone.Router.extend({
         return ptpt.save();
       }).then(function(ptptAttrs) {
         var createConversationFormView = new HkNewView({
+          model: model,
+          paramsFromPath: paramsFromPath,
+          collection: conversationsCollection,
+          pid: ptptAttrs.pid,
+          add: true
+        });
+        that.listenTo(createConversationFormView, "all", function(eventName, data) {
+          if (eventName === "done") {
+            // NOTE suurls broken for now
+            // var suurls = data;
+            //   if (suurls) {
+            //   var suurlsCsv = [];
+            //   var len = suurls.xids.length;
+            //   var xids = suurls.xids;
+            //   var urls = suurls.urls;
+            //   for (var i = 0; i < len; i++) {
+            //     suurlsCsv.push({xid: xids[i], url: urls[i]});
+            //   }
+            //   model.set("suurls", suurlsCsv);
+            // }
+
+            if (paramsFromPath.custom_canvas_assignment_id) {
+              // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
+              that.navigate("/" + model.get("conversation_id"), {trigger: true});
+            } else {
+              // The usual case, show the hk index
+              that.navigate("/hk", {trigger: true});
+            }
+          }
+        });
+        RootView.getInstance().setView(createConversationFormView);
+        $("[data-toggle='checkbox']").each(function() {
+          var $checkbox = $(this);
+          $checkbox.checkbox();
+        });
+      }, onFail);
+    });
+  },
+
+  rootsNew: function(context){
+    var promise = $.Deferred().resolve();
+    if (!authenticated()) {
+      promise = this.doLogin(true);
+    } else if (!hasEmail()  && !window.authenticatedByHeader) {
+      promise = this.doLogin(true);
+    }
+    var paramsFromPath = {};
+    var that = this;
+    promise.then(function() {
+      function onFail(err) {
+        alert("failed to create new conversation");
+        console.dir(err);
+      }
+      conversationsCollection = new ConversationsCollection();
+
+      var o = {
+        context: context,
+        is_draft: true,
+        is_active: true // TODO think
+      };
+
+
+      var model = new ConversationModel(o);
+
+      model.save().then(function(data) {
+        var conversation_id = data[0][0].conversation_id;
+        model.set("conversation_id", conversation_id);
+
+        var ptpt = new ParticipantModel({
+          conversation_id: conversation_id
+        });
+        return ptpt.save();
+      }).then(function(ptptAttrs) {
+
+
+        var createConversationFormView = new CreateConversationFormView({
           model: model,
           paramsFromPath: paramsFromPath,
           collection: conversationsCollection,

@@ -148,6 +148,7 @@ module.exports = View.extend({
 
       // ConversationModel
       this.model = options.model;
+      this.contextString = options.model.get("context");
       this.paramsFromPath = options.paramsFromPath;
       var conversation_id = this.model.get("conversation_id");
       var pid = options.pid;

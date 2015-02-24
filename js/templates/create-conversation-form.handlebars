@@ -3,11 +3,15 @@
 
 	<div class="col-md-8 col-md-offset-2">
 
+   		{{#if contextString}} 
+    	 <div>
+    	 	/s/{{contextString}}
+    	 </div>
+        {{/if}}
 		<h1 class="HeadingA">
 			Create a conversation
 			<span class="HeadingA-aside">(all fields are optional)</span>
 		</h1>
-
 		<form class="FormVertical" role="form">
 			<div class="FormVertical-group">
 				<label class="FormLabel" for="topic">Topic</label>
