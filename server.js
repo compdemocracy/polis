@@ -7399,6 +7399,48 @@ function(req, res) {
   });
 });
 
+app.get('/api/v3/contexts',
+    moveToBody,
+    authOptional(assignToP),
+function(req, res) {
+    pgQueryP("select name from contexts where is_public = TRUE order by name;", []).then(function(contexts) {
+        res.status(200).json(contexts);
+    }, function(err) {
+      fail(res, 500, "polis_err_get_contexts_query", err);
+    }).catch(function(err) {
+      fail(res, 500, "polis_err_get_contexts_misc", err);
+    });
+});
+
+app.post('/api/v3/contexts',
+    auth(assignToP),
+    need('name', getStringLimitLength(1, 300), assignToP),
+function(req, res) {
+    var uid = req.p.uid;
+    var name = req.p.name;
+    function createContext() {
+        return pgQueryP("insert into contexts (name, creator, is_public) values ($1, $2, $3);", [name, uid, true]).then(function() {
+            res.status(200).json({});
+        }, function(err) {
+          fail(res, 500, "polis_err_post_contexts_query", err);
+        }).catch(function(err) {
+          fail(res, 500, "polis_err_post_contexts_misc", err);
+        });
+    }
+    pgQueryP("select name from contexts where name = ($1);", [name]).then(function(rows) {
+        var exists = rows && rows.length;
+        if (exists) {
+          fail(res, 422, "polis_err_post_context_exists");
+          return;
+        }
+        return createContext();
+    }, function(err) {
+        fail(res, 500, "polis_err_post_contexts_check_query", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_post_contexts_check_misc", err);
+    });
+});
+
 
 function isUserAllowedToCreateConversations(uid, callback) {
     callback(null, true);

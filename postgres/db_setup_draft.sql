@@ -182,6 +182,13 @@ CREATE TABLE participant_metadata_choices (
 ----  tree.zid.pmqid.pmaid.push(pid)
 ----}
 
+CREATE TABLE contexts(
+    context_id SERIAL,
+    name VARCHAR(300),
+    creator INTEGER REFERENCES users(uid), -- rather than owner, since not sure how ownership will be done
+    is_public BOOLEAN DEFAULT FALSE,
+    created BIGINT DEFAULT now_as_millis(),
+);
 
 CREATE TABLE courses(
     course_id SERIAL,
