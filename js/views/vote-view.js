@@ -57,6 +57,11 @@ module.exports = Handlebones.ModelView.extend({
     var serverClient = options.serverClient;
     var votesByMe = options.votesByMe;
     var votesByMeFetched = $.Deferred();
+    votesByMeFetched.then(function() {
+      if (votesByMe.size() > 0) {
+        eb.trigger(eb.interacted);
+      }
+    });
     this.conversationModel = options.conversationModel;
     
     var is_public = options.is_public;
@@ -129,6 +134,7 @@ module.exports = Handlebones.ModelView.extend({
     function onVote(result) {
       var that = this;
       eb.trigger(eb.vote);
+      eb.trigger(eb.interacted);
       if (result.nextComment) {
         showComment(result.nextComment);
       } else {

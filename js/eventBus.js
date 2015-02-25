@@ -16,6 +16,8 @@ bus.commentCount = "commentCount";
 bus.moderated = "moderated";
 bus.moderatedPtpt = "moderatedPtpt";
 bus.deselectGroups = "deselectGroups";
+bus.interacted = "interacted"; // user has interacted (voted, written, changed tabs, etc)
+bus.visShown = "visShown";
 bus["beforehide:analyze"] = "beforehide:analyze";
 bus["aftershow:analyze"] = "aftershow:analyze";
 

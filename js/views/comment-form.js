@@ -3,6 +3,7 @@ var View = require("handlebones").View;
 var template = require("../tmpl/comment-form");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
+var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
 
@@ -67,6 +68,7 @@ module.exports = Handlebones.ModelView.extend({
     } else {
       this.$("#commentNotQuestionAlert").hide();
     }
+    eb.trigger(eb.interacted);
   },
   events: {
     "focus #comment_form_textarea": function(e) { // maybe on keyup ?

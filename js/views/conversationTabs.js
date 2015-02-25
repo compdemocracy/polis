@@ -248,8 +248,18 @@ module.exports =  Handlebones.ModelView.extend({
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
 
+    eb.on(eb.visShown, function() {
+      $("#analyzeTab").fadeIn();
+    });
     // start with the vote tab
     this.currentTab = this.VOTE_TAB;
+    if (options.openToWriteTab) {
+
+      // TODO ugly flash, fix later
+      setTimeout(function() {
+        that.gotoTab(that.WRITE_TAB);
+      });
+    }
     this.serverClient = options.serverClient;
 
     eb.on("clusterClicked", function(gid) {

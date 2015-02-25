@@ -229,7 +229,14 @@ module.exports =  ConversationView.extend({
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
+    
+    $.when(options.firstCommentPromise).then(function(c) {
+      that.doInit(options, c);
+    });
+  },
+  doInit: function(options, firstComment) {
     var vis;
+    var that = this;
     var conversation_id = this.conversation_id;
     var pid = this.pid;
     var zinvite = this.zinvite;
@@ -238,6 +245,10 @@ module.exports =  ConversationView.extend({
 
     // This is a wart. ServerClient should be initialized much earlier, probably as a singleton, and it should be responsible for fetching the first comment.
     serverClient.setNextCachedComment(options.firstCommentPromise);
+
+    eb.on(eb.interacted, function() {
+      $("#socialButtons").fadeIn(1000);
+    });
 
     // initialize this first to ensure that the vote view is showing and populated ASAP
     this.readReactView = this.addChild(new ReadReactView({
@@ -323,6 +334,10 @@ module.exports =  ConversationView.extend({
 
     function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
       that.firstMathPollResultDeferred.resolve();
+      if (updatedNodes.length >= 2) {
+        $(".vis_container").fadeIn(1000);
+        eb.trigger(eb.visShown);
+      }
       if (vis) {
         vis.upsertNode.apply(vis, arguments);
       }
@@ -519,7 +534,7 @@ module.exports =  ConversationView.extend({
           $("#afterTutorial").show();
           $("#visualization_parent_div").css("visibility", "visible");
           $("#visualization_parent_div").css("display", "block");
-          $("#visualization_div").css("display", "block");
+          // $("#visualization_div").css("display", "block");
           $("#visualization_parent_div").fadeIn();
           that.tutorialModel.set("visible", true);
           that.initPcaVis();
@@ -575,9 +590,13 @@ module.exports =  ConversationView.extend({
           model: this.tutorialModel
         }));
       }
+
+      var gotFirstComment = (firstComment && !_.isUndefined(firstComment.txt));
+      var openToWriteTab = !gotFirstComment;
       var allowAnalyze = this.model.get("vis_type") >= 1;
       this.conversationTabs = this.addChild(new ConversationTabsView({
         serverClient: serverClient,
+        openToWriteTab: openToWriteTab,
         model: new Backbone.Model({
           allowAnalyze: allowAnalyze,
           showTabs: true
