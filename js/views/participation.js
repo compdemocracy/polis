@@ -240,6 +240,16 @@ module.exports =  ConversationView.extend({
       that.doInit(options, c);
     });
   },
+  updateVisibilityOfSocialButtons: function() {
+    var okToShow = true;
+    okToShow &= this.socialButtonsAllowedToShow;
+    okToShow &= this.conversationTabs.onVoteTab();
+    if (okToShow) {
+      $("#socialButtons").fadeIn(1000);
+    } else {
+      $("#socialButtons").hide();
+    }
+  },
   doInit: function(options, firstComment) {
     var vis;
     var that = this;
@@ -253,7 +263,8 @@ module.exports =  ConversationView.extend({
     serverClient.setNextCachedComment(options.firstCommentPromise);
 
     eb.on(eb.interacted, function() {
-      $("#socialButtons").fadeIn(1000);
+      that.socialButtonsAllowedToShow = true;
+      that.updateVisibilityOfSocialButtons();
     });
 
     // initialize this first to ensure that the vote view is showing and populated ASAP
@@ -734,6 +745,7 @@ module.exports =  ConversationView.extend({
       }
       moveVisToBottom(); // just in case
       that.showWriteHints();
+      that.updateVisibilityOfSocialButtons();
     });
     that.conversationTabs.on("beforehide:write", function() {
       // When we're leaving the write tab, show the vis again.
@@ -769,6 +781,7 @@ module.exports =  ConversationView.extend({
         that.analyzeGlobalView.renderWithCarousel();
       });
       // that.analyzeGlobalView.showCarousel();
+      that.updateVisibilityOfSocialButtons();
     });
       that.conversationTabs.on("beforeshow:group", function() {
       if (that.shouldShowVisUnderTabs()) {
@@ -784,12 +797,14 @@ module.exports =  ConversationView.extend({
         // that.analyzeGroupView.sortRepness();
       });
       // that.analyzeGlobalView.showCarousel();
+      that.updateVisibilityOfSocialButtons();
     });
 
     that.conversationTabs.on("beforeshow:vote", function() {
       moveVisToBottom();
       that.showVis();
       that.showTutorial();
+      that.updateVisibilityOfSocialButtons();
     });
     that.conversationTabs.on("aftershow:analyze", function() {
       
