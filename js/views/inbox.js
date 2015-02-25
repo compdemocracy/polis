@@ -49,6 +49,10 @@ module.exports = Handlebones.ModelView.extend({
     }));
   },
   events: {
+    "click #embedInfoButton": function() {
+      $("#embedInfoButton").hide();
+      $("#embedInfo").fadeIn();
+    },
     "mouseup input": function(event) {
       // :(  http://stackoverflow.com/questions/3272089/programmatically-selecting-text-in-an-input-field-on-ios-devices-mobile-safari
       setTimeout(function() {
