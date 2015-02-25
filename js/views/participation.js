@@ -158,6 +158,12 @@ module.exports =  ConversationView.extend({
 
     var html = markdown.toHTML( md_content );
     ctx.description = html;
+    if (/^ *$/.test(ctx.description) || _.isNull(ctx.description)) {
+      ctx.description = void 0;
+    }
+    if (/^ *$/.test(ctx.topic) || _.isNull(ctx.topic)) {
+      ctx.topic = void 0;
+    }
     ctx.showLogoAndBreadCrumbInHeader = ctx.context && !Utils.isInIframe();
     ctx.showLogoInFooter = !ctx.showLogoAndBreadCrumbInHeader;
     return ctx;
