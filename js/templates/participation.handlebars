@@ -276,12 +276,16 @@ style="padding-left: 5px; padding-right: 5px"
  <div class="text-center">
   {{#if showLogoInFooter}}
   <center>
-      <a href="{{logo_href}}">
+      <a href="{{logo_href}}" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>
         <img width="164px" src="https://pol.is/polis_logo_2.png"
         alt="">
       </a>
   </center>
   {{/if}}
+  {{#ifEmbedded}}
+  {{! include a horizontal rule that matches the one in the top}}
+  <div class="HRule" style="margin-top: 5px; margin-bottom: 5px;"></div>
+  {{/ifEmbedded}}
   <center>
     <a href="http://pol.is/about" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>Add Polis to your site</a>&nbsp;&middot;&nbsp;
     <a href="http://pol.is/tos" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>TOS</a>&nbsp;&middot;&nbsp;

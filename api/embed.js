@@ -49,7 +49,7 @@
     iframe.src = src;
     iframe.width = "100%"; // may be constrained by parent div
     iframe.height = o.height || 930;
-    iframe.style.border = o.border || "1px solid #ccc";
+    iframe.style.border = o.border || "none"; // 0px solid #ccc";
     iframe.style.borderRadius = o.border_radius || "4px";
     parent.appendChild(iframe);
     iframes.push(iframe);
