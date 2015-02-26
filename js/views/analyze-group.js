@@ -452,6 +452,9 @@ module.exports = Handlebones.View.extend({
         getLocations(gid).then(function(locations) {
 
           $("#groupMap").html("");
+          if (!locations || !locations.length) {
+            return;
+          }
           var w = $("#groupMap").width();
           var h = w*2/3;
 
