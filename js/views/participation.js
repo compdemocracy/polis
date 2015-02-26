@@ -388,9 +388,6 @@ module.exports =  ConversationView.extend({
         // Don't show vis for weird devices (Gingerbread, etc)
         return;
       }
-      $("#visualization_div > .visualization").remove();
-      // $(VIS_SELECTOR).html("").height(0);
-      // $(VIS_SELECTOR).parent().css("display", "none");
 
 
 
@@ -406,6 +403,15 @@ module.exports =  ConversationView.extend({
       }
       var h = w/2;
       // $("#visualization_div").height(h);
+      if (w === that.oldW && h === that.oldH) {
+        return;
+      }
+      that.oldH = h;
+      that.oldW = w;
+      $("#visualization_div > .visualization").remove();
+      // $(VIS_SELECTOR).html("").height(0);
+      // $(VIS_SELECTOR).parent().css("display", "none");
+
       that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
       vis = that.vis = new VisView({
           inVisLegendCounter: that.inVisLegendCounter,
@@ -801,7 +807,9 @@ module.exports =  ConversationView.extend({
       // that.analyzeGlobalView.showCarousel();
       that.updateVisibilityOfSocialButtons();
     });
-
+    that.conversationTabs.on("aftershow:vote", function() {
+      that.initPcaVis();
+    });
     that.conversationTabs.on("beforeshow:vote", function() {
       moveVisToBottom();
       that.showVis();
@@ -809,7 +817,7 @@ module.exports =  ConversationView.extend({
       that.updateVisibilityOfSocialButtons();
     });
     that.conversationTabs.on("aftershow:analyze", function() {
-      
+      that.initPcaVis();
       that.analyzeGlobalView.renderWithCarousel();
 
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
@@ -820,6 +828,7 @@ module.exports =  ConversationView.extend({
       }
     });
     that.conversationTabs.on("aftershow:group", function() {
+      that.initPcaVis();
       $(".query_result_item").first().trigger("click");
     });
     that.conversationTabs.on("aftershow:write", function() {
