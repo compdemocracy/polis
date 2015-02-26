@@ -1339,6 +1339,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     var gids = _.map(_.keys(newClusters), Number);
     gids.sort();
     hullIdToGid = gids.slice(0);
+
     gidToHullId = {};
     for (var id = 0; id < gids.length; id++) {
         gidToHullId[gids[id]] = id;

@@ -2256,6 +2256,10 @@ function clientSideBaseCluster(things, N) {
     }
 
     function getParticipantsOfInterestForGid(gid) {
+        if (_.isUndefined(gid) || gid === null) {
+            console.warn("getParticipantsOfInterestForGid with null gid");
+            return [];
+        }
         var cluster = clustersCache[gid].members;
         var items = [];
         for (var pid in participantsOfInterestVotes) {

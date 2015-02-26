@@ -17,7 +17,9 @@ module.exports = Handlebones.View.extend({
     var getGroup = options.getGroup;
 
     eb.on(eb.clusterClicked, function(gid) {
-
+      if (_.isUndefined(gid)) {
+        return;
+      }
       if (gid < 0) {
         return;
       }
