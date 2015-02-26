@@ -256,9 +256,9 @@ module.exports =  Handlebones.ModelView.extend({
     if (options.openToWriteTab) {
 
       // TODO ugly flash, fix later
-      // setTimeout(function() {
-      //   that.gotoTab(that.WRITE_TAB);
-      // });
+      setTimeout(function() {
+        that.gotoTab(that.WRITE_TAB);
+      });
     }
     this.serverClient = options.serverClient;
 
