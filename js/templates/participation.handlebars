@@ -277,12 +277,12 @@ style="padding-left: 5px; padding-right: 5px"
  <div class="col-xs-12">
 
   {{#if showLogoInFooter}}
-  <div style="display: flex;align-items: flex-end;">
+  <div class="flexbox align-items-flex-end">
     <a href="{{logo_href}}" target="_blank" style="margin-bottom: -17px;">
       <img width="100px" src="https://pol.is/polis_logo_2.png" {{! was 164px}}
       alt="">
     </a>
-    <div style="flex-grow: 2"></div>
+    <div class="flex-grow-2"></div>
     {{> linkPrivacy}}
     {{> linkTos}}
   </div>
@@ -290,14 +290,14 @@ style="padding-left: 5px; padding-right: 5px"
 
   <div class="HRule" style="margin-top: 12px; margin-bottom: 5px;"></div>
 
-  <div style="display:flex; align-items: flex-end;">
+  <div class="flexbox align-items-flex-end">
     {{#if showLogoInFooter}}
-      <div style="flex-grow: 2"></div>
+      <div class="flex-grow-2"></div>
       {{> linkAddPolis}}
-      <div style="flex-grow: 2"></div>
+      <div class="flex-grow-2"></div>
     {{else}}
       {{> linkAddPolis}}
-      <div style="flex-grow: 2"></div>
+      <div class="flex-grow-2"></div>
       {{> linkPrivacy}}
       {{> linkTos}}
     {{/if}}
