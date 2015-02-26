@@ -272,26 +272,40 @@ style="padding-left: 5px; padding-right: 5px"
 </section> {{! /container }}
 </div>
 
-<div id="footer-conversation-view">
- <div class="text-center">
+
+<div id="footer-conversation-view" class="row">
+ <div class="col-xs-12">
+
   {{#if showLogoInFooter}}
-  <center>
-      <a href="{{logo_href}}" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>
-        <img width="164px" src="https://pol.is/polis_logo_2.png"
-        alt="">
-      </a>
-  </center>
+  <div style="display: flex;align-items: flex-end;">
+    <a href="{{logo_href}}" target="_blank" style="margin-bottom: -17px;">
+      <img width="100px" src="https://pol.is/polis_logo_2.png" {{! was 164px}}
+      alt="">
+    </a>
+    <div style="flex-grow: 2"></div>
+    {{> linkPrivacy}}
+    {{> linkTos}}
+  </div>
   {{/if}}
-  {{#ifEmbedded}}
-  {{! include a horizontal rule that matches the one in the top}}
-  <div class="HRule" style="margin-top: 5px; margin-bottom: 5px;"></div>
-  {{/ifEmbedded}}
-  <center>
-    <a href="http://pol.is/about" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>Add Polis to your site</a>&nbsp;&middot;&nbsp;
-    <a href="http://pol.is/tos" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>TOS</a>&nbsp;&middot;&nbsp;
-    <a href="http://pol.is/privacy" {{#ifEmbedded}}target="_blank"{{/ifEmbedded}}>Privacy</a>
+
+  <div class="HRule" style="margin-top: 12px; margin-bottom: 5px;"></div>
+
+  <div style="display:flex; align-items: flex-end;">
+    {{#if showLogoInFooter}}
+      <div style="flex-grow: 2"></div>
+      {{> linkAddPolis}}
+      <div style="flex-grow: 2"></div>
+    {{else}}
+      {{> linkAddPolis}}
+      <div style="flex-grow: 2"></div>
+      {{> linkPrivacy}}
+      {{> linkTos}}
+    {{/if}}
+  </div>
+
+
+
     {{!-- <div class="hidden-xs" style="display: inline;">&nbsp; &middot; &nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
-  </center>
     {{!-- <div class="visible-xs">&nbsp;&middot;&nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
  </div>
 </div>

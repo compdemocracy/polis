@@ -38,6 +38,11 @@ var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial"
 var TutorialSlidesButtonsLeftPartial = require("./tmpl/tutorialSlidesButtonsLeftPartial");
 
 
+var LinkTosPartial = require("./tmpl/link-TOS-partial")
+var LinkPrivacyPartial = require("./tmpl/link-privacy-partial")
+var LinkAddPolisPartial = require("./tmpl/link-AddPolis-partial")
+
+
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
 var encodedParams = match ? match[0] : void 0;
 
@@ -267,6 +272,9 @@ Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementPar
 Handlebars.registerPartial("footer", FooterPartial);
 Handlebars.registerPartial("tutorialSlidesButtons", TutorialSlidesButtonsPartial);
 Handlebars.registerPartial("tutorialSlidesButtonsLeft", TutorialSlidesButtonsLeftPartial);
+Handlebars.registerPartial("linkTos", LinkTosPartial);
+Handlebars.registerPartial("linkPrivacy", LinkPrivacyPartial);
+Handlebars.registerPartial("linkAddPolis", LinkAddPolisPartial);
 
 
 _.mixin({
