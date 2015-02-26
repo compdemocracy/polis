@@ -354,6 +354,8 @@ module.exports =  ConversationView.extend({
       if (updatedNodes.length >= 2) {
         $(".vis_container").fadeIn(1000);
         eb.trigger(eb.visShown);
+      } else {
+        $(".vis_container").hide();
       }
       if (vis) {
         vis.upsertNode.apply(vis, arguments);
@@ -551,7 +553,7 @@ module.exports =  ConversationView.extend({
           $("#afterTutorial").show();
           $("#visualization_parent_div").css("visibility", "visible");
           $("#visualization_parent_div").css("display", "block");
-          // $("#visualization_div").css("display", "block");
+          $("#visualization_div").css("display", "block");
           $("#visualization_parent_div").fadeIn();
           that.tutorialModel.set("visible", true);
           that.initPcaVis();
