@@ -85,6 +85,7 @@ module.exports =  Handlebones.ModelView.extend({
     c.dropdownLabel = userObject.hname || "Login";
     c.showLogout = userObject.hasTwitter || userObject.hasFacebook || userObject.email;
     c.smallMenu = true; // don't show full name, etc as menu's button, just polis icon and caret
+    c.showAnalyzeTab = this.showAnalyzeTab;
     return c;
   },
 
@@ -250,6 +251,7 @@ module.exports =  Handlebones.ModelView.extend({
 
     eb.on(eb.visShown, function() {
       $("#analyzeTab").fadeIn();
+      that.showAnalyzeTab = true;
     });
     // start with the vote tab
     this.currentTab = this.VOTE_TAB;

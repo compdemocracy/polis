@@ -45,7 +45,12 @@
         href="#analyze"
         id="analyzeTab"
         class="HeadingC polis-tab"
-        style="padding: 10px 5px !important; border: none;  text-transform: none; display: none;"
+        style="
+          padding: 10px 5px !important;
+          border: none;
+          text-transform: none;
+          {{#unless showAnalyzeTab}}display: none;{{/unless}}
+          "
         data-toggle="tab">
         {{!-- See Consensus --}}
         {{#ifNotIE8}}<i style="font-size: 16px" class="fa fa-globe"></i>{{/ifNotIE8}}
