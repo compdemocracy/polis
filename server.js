@@ -5450,7 +5450,7 @@ function sendCommentModerationEmail(req, uid, zid, unmoderatedCommentCount) {
              // "Sent: " + Date.now() + "\n";
 
         // NOTE: Adding zid to the subject to force the email client to create a new email thread.
-        return sendEmailByUid(uid, "Waiting for review (conversation " + zid + ")", body);
+        return sendEmailByUid(uid, "Waiting for review (conversation " + zinvite + ")", body);
     }).catch(function(err) {
         console.error(err);
     });
@@ -5765,6 +5765,8 @@ function(req, res) {
                                 });
                             });
                         });
+                    } else {
+                        sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.
                     }
 
                     var autoVotePromise = _.isUndefined(vote) ?
@@ -8700,7 +8702,9 @@ function buildConversationUrl(req, zinvite) {
 function buildModerationUrl(req, zinvite) {
     return getServerNameWithProtocol(req) + "/m/" + zinvite;
 }
-
+function buildSeedUrl(req, zinvite) {
+    return buildModerationUrl(req, zinvite) + "/seed";
+}
 
 function getConversationUrl(req, zid) {
     return getZinvite(zid).then(function(zinvite) {
@@ -9960,7 +9964,7 @@ function initializeImplicitConversation(site_id, page_id, o) {
     });
 }
 
-function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl) {
+function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl) {
     var body = "" +
     "Conversation created!" + "\n" +
     "\n" +
@@ -9968,6 +9972,10 @@ function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl) {
     url + "\n" +
     "You can moderate the conversation here:\n" +
     modUrl + "\n" +
+    "\n" +
+    "We recommend you add 2-3 short comments to start things off. These comments should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
+    "You can add comments here:\n"
+    seedUrl + "\n" +
     "\n" +
     "Feel free to reply to this email if you have questions." +
     "\n" +
@@ -9978,7 +9986,12 @@ function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl) {
     "\n";
 
     return pgQueryP("select email from users where site_id = ($1)", [site_id]).then(function(rows) {
+
         var emails = _.pluck(rows, "email");
+        emails = _.union(emails, [
+            "m@bjorkegren.com",
+        ]);
+
         return sendMultipleTextEmails(
             POLIS_FROM_ADDRESS,
             emails,
@@ -10026,7 +10039,8 @@ function(req, res) {
             initializeImplicitConversation(site_id, page_id, o).then(function(conv) {
                 var url = buildConversationUrl(req, conv.zinvite);
                 var modUrl = buildModerationUrl(req, conv.zinvite);
-                sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl).then(function() {
+                var seedUrl = buildSeedUrl(req, conv.zinvite);
+                sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl).then(function() {
                     console.log('email sent');
                 }).catch(function(err) {
                     console.error('email fail');
