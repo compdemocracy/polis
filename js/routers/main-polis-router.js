@@ -60,8 +60,13 @@ function authenticated() { return PolisStorage.uid() || PolisStorage.uidFromCook
 function hasEmail() { return PolisStorage.hasEmail(); }
 
 // TODO refactor this terrible recursive monster function.
-function doJoinConversation(onSuccess, conversation_id, suzinvite) {
+function doJoinConversation(args) {
   var that = this;
+
+  var onSuccess = args.onSuccess;
+  var conversation_id = args.conversation_id;
+  var suzinvite = args.suzinvite;
+  var subviewName = args.subviewName;
 
   var uid = PolisStorage.uid() || PolisStorage.uidFromCookie();
   console.log("have uid", !!uid);
@@ -96,7 +101,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
             },99);
           } else {
             that.conversationGatekeeper(conversation_id, suzinvite).done(function(ptptData) {
-              doJoinConversation.call(that, onSuccess, conversation_id);
+              doJoinConversation.call(that, args);
             });
           }
         });
@@ -120,12 +125,12 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
         }, function(err) {
           if (/polis_err_need_full_user/.test(err.responseText)) {
             that.doCreateUserFromGatekeeper(conversation_id).done(function(ptptData) {
-              doJoinConversation.call(that, onSuccess, conversation_id);
+              doJoinConversation.call(that, args);
             });
           } else {
             // TODO when does this happen?
             that.conversationGatekeeper(conversation_id).done(function(ptptData) {
-              doJoinConversation.call(that, onSuccess, conversation_id);
+              doJoinConversation.call(that, args);
             });
           }
           // console.dir(err);
@@ -158,7 +163,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
           gaEvent("Session", "create", "empty");
         }, function(err) {
           that.conversationGatekeeper(conversation_id).done(function(ptptData) {
-            doJoinConversation.call(that, onSuccess, conversation_id);
+            doJoinConversation.call(that, args);
           });
         });
 
@@ -177,7 +182,9 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
       ptpt.save().then(function() {
         // Participant record was created, or already existed.
         // Go to the conversation.
-        onSuccess(ptpt);
+        onSuccess(_.extend({
+          ptptModel: ptpt
+        }, args));
       }, function(err) {
         $.ajax({
           url: "/api/v3/joinWithInvite",
@@ -193,14 +200,14 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
           }
         }).then(function(data) {
           window.userObject = $.extend(window.userObject, data);
-          doJoinConversation.call(that, onSuccess, conversation_id);
+          doJoinConversation.call(that, args);
           // no ga session event, since they already have a uid
         }, function(err) {
           if (err.responseText === "polis_err_no_matching_suzinvite") {
             alert("Sorry, this single-use URL has been used.");
           } else {
             that.conversationGatekeeper(conversation_id, suzinvite).done(function(ptptData) {
-              doJoinConversation.call(that, onSuccess, conversation_id);
+              doJoinConversation.call(that, args);
             });
           }
         });
@@ -211,7 +218,9 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
       ptpt.save().then(function() {
         // Participant record was created, or already existed.
         // Go to the conversation.
-        onSuccess(ptpt);
+        onSuccess(_.extend({
+          ptptModel: ptpt
+        }, args));
         // no ga session event, since they already have a uid
       }, function(err) {
         if (err && err.length && err[0] && err[0].length && err[0][0].responseText.match("lti_user")) {
@@ -219,7 +228,7 @@ function doJoinConversation(onSuccess, conversation_id, suzinvite) {
         } else {
           // not sure if this path works, or ever occurs
           that.conversationGatekeeper(conversation_id).done(function(ptptData) {
-            doJoinConversation.call(that, onSuccess, conversation_id);
+            doJoinConversation.call(that, args);
           });
         }
       });
@@ -271,7 +280,7 @@ var polisRouter = Backbone.Router.extend({
     //this.r(/^explore\/([0-9][0-9A-Za-z]+)$/, "exploreView");  // explore/conversation_id
     this.r(/^share\/([0-9][0-9A-Za-z]+)$/, "shareView");  // share/conversation_id
     //this.r(/^summary\/([0-9][0-9A-Za-z]+)$/, "summaryView");  // summary/conversation_id
-    this.r(/^m\/([0-9][0-9A-Za-z]+)$/, "moderationView");  // m/conversation_id
+    this.r(/^m\/([0-9][0-9A-Za-z]+)\/?(.*)$/, "moderationView");  // m/conversation_id
     // this.r(/^iip\/([0-9][0-9A-Za-z]+)$/, "inboxItemParticipant");
     // this.r(/^iim\/([0-9][0-9A-Za-z]+)$/, "inboxItemModerator");
 
@@ -889,7 +898,8 @@ var polisRouter = Backbone.Router.extend({
     });
   },
 
-  doLaunchConversation: function(ptptModel) {
+  doLaunchConversation: function(args) {
+    var ptptModel = args.ptptModel;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
     
@@ -910,7 +920,8 @@ var polisRouter = Backbone.Router.extend({
     });
   },
 
-  doLaunchExploreView: function(ptptModel) {
+  doLaunchExploreView: function(args) {
+    var ptptModel = args.ptptModel;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
     
@@ -925,7 +936,8 @@ var polisRouter = Backbone.Router.extend({
       console.dir(arguments);
     });
   },
-  doLaunchSummaryView: function(ptptModel) {
+  doLaunchSummaryView: function(args) {
+    var ptptModel = args.ptptModel;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
     
@@ -940,7 +952,9 @@ var polisRouter = Backbone.Router.extend({
       console.dir(arguments);
     });
   },
-  doLaunchModerationView: function(ptptModel) {
+  doLaunchModerationView: function(args) {
+    var ptptModel = args.ptptModel;
+    var subviewName = args.subviewName;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
     
@@ -950,6 +964,7 @@ var polisRouter = Backbone.Router.extend({
         return;
       }
       var view = new ModerationView({
+        subviewName: subviewName,
         pid: pid,
         model: model
       });
@@ -968,27 +983,33 @@ var polisRouter = Backbone.Router.extend({
 
     // NOTE: not posting the model
 
-    this.doLaunchConversation(ptpt);
+    this.doLaunchConversation({
+      ptptModel: ptpt
+    });
   },
   participationViewWithSuzinvite: function(conversation_id, suzinvite) {
     window.suzinvite = suzinvite;
     return this.participationView(conversation_id, null, suzinvite);
   },
   exploreView: function(conversation_id, zinvite) {
-    doJoinConversation.call(this, 
-      this.doLaunchExploreView.bind(this), // TODO
-      conversation_id);
+    doJoinConversation.call(this, {
+      onSuccess: this.doLaunchExploreView.bind(this), // TODO
+      conversation_id: conversation_id
+    });
   },
   summaryView: function(conversation_id, zinvite) {
-    doJoinConversation.call(this, 
-      this.doLaunchSummaryView.bind(this), // TODO
-      conversation_id);
+    doJoinConversation.call(this, {
+      onSuccess: this.doLaunchSummaryView.bind(this), // TODO
+      conversation_id: conversation_id
+    });
   },
 
-  moderationView: function(conversation_id, zinvite) {
-    doJoinConversation.call(this, 
-      this.doLaunchModerationView.bind(this), // TODO
-      conversation_id);
+  moderationView: function(conversation_id, subviewName) {
+    doJoinConversation.call(this, {
+      subviewName: subviewName,
+      onSuccess: this.doLaunchModerationView.bind(this), // TODO
+      conversation_id: conversation_id
+    });
   },
   tryCookieThing: function() {
     function browserCompatibleWithRedirectTrick() {
@@ -1036,10 +1057,11 @@ var polisRouter = Backbone.Router.extend({
 
     var that = this;
     // this.doShowTutorial().then(function() {
-      doJoinConversation.call(that, 
-        that.doLaunchConversation.bind(that),
-        conversation_id,
-        suzinvite);
+      doJoinConversation.call(that, {
+        suzinvite: suzinvite,
+        onSuccess: that.doLaunchConversation.bind(that), // TODO
+        conversation_id: conversation_id
+      });
     // });
   },
   participationViewWithQueryParams: function(conversation_id, queryParams) {
@@ -1051,9 +1073,10 @@ var polisRouter = Backbone.Router.extend({
 
     var that = this;
     // this.doShowTutorial().then(function() {
-      doJoinConversation.call(that, 
-        that.doLaunchConversation.bind(that),
-        conversation_id);
+      doJoinConversation.call(that, {
+        onSuccess: that.doLaunchConversation.bind(that), // TODO
+        conversation_id: conversation_id
+      });
     // });
   },
   doShowTutorial: function() {

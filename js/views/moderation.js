@@ -147,6 +147,13 @@ module.exports =  Handlebones.ModelView.extend({
     var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
 
+    if (options.subviewName === "seed") {
+      setTimeout(function() {
+        $("#seedTab").first().trigger("click");
+        
+      }, 200);
+    }
+
     eb.on(eb.moderated, _.bind(this.updateCollections, this));
     eb.on(eb.moderatedPtpt, _.bind(this.updatePtptCollections, this));
 
