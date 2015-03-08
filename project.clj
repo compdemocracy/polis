@@ -2,6 +2,7 @@
   :source-paths ["src/"
                  "src/polismath/"
                  ".lein-git-deps/debug-repl/src/"
+                 ".lein-git-deps/semantic-csv/src/"
                  ".lein-git-deps/tools.cli/src/main/clojure/"]
   ;:aot :all
   ; faster run time in exchange for slower startup time
@@ -13,6 +14,7 @@
             [lein-gorilla "0.3.4"]
             [lein-environ "0.4.0"]]
   :git-dependencies [["https://github.com/Prismatic/hiphip.git" "master"]
+                     ["https://github.com/metasoarous/semantic-csv.git" "master"]
                      ["https://github.com/metasoarous/tools.cli.git" "master"]
                      ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
@@ -41,11 +43,14 @@
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
                  [korma "0.3.0-RC5"]
                  [clj-time "0.6.0"]
-                 [prismatic/plumbing "0.2.0"]
+                 [prismatic/plumbing "0.3.5"]
                  [environ "0.4.0"]]
+  :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
+                    :port 989796}
   :min-lein-version "2.3.0"
   :profiles {
     :dev {
+      ;:dependencies [[semantic-csv "0.1.0-alpha3"]]
       :env {
         :mongo-url "db/mongo.db"}}
     :production {
