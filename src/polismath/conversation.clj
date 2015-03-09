@@ -10,11 +10,13 @@
             [bigml.sampling.simple :as sampling]
            ; [alex-and-georges.debug-repl :as dbr]
             [clojure.tools.logging :as log])
+  ; XXX Should switch this out for more explicit specifications, or :refer :all where appropriate
   (:use clojure.core.matrix
         clojure.core.matrix.operators
         polismath.utils
         polismath.pca
         polismath.clusters
+        polismath.repness
         polismath.named-matrix))
 
 
