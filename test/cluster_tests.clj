@@ -272,3 +272,19 @@
                         (:center weighted-clst))))))))
 
 
+(deftest folding-test
+  (let [clusters [{:id 0 :members [0 1 2] :center [0.4 8.5]}
+                  {:id 1 :members [3 4] :center [-0.4 -5.6]}
+                  {:id 2 :members [5 6 7] :center [0.3 0.4]}]]
+    (testing "folding should work"
+      (is (= (fold-clusters clusters)
+             {:id      [0 1 2]
+              :members [[0 1 2] [3 4] [5 6 7]]
+              :x       [0.4 -0.4 0.3]
+              :y       [8.5 -5.6 0.4]
+              :count   [3 2 3]})))
+    (testing "unfolding should get you back"
+      (is (= ((comp unfold-clusters fold-clusters) clusters)
+             clusters)))))
+
+

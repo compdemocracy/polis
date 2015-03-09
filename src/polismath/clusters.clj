@@ -347,6 +347,34 @@
          (apply concat))))
 
 
+(defn fold-clusters
+  "Takes clusters -- a seq of maps `{:members :id :center}` -- and transforms into a single map
+  `{:id :members :x :y :count}`, where each key points to a seq of the values associated with each
+  cluster. In particular, this is what's used to format base clusters for mongo uploading (for the
+  sake of compression)."
+  [clusters]
+  {:id      (map :id clusters)
+   :members (map :members clusters)
+   :x       (map (comp first :center) clusters)
+   :y       (map (comp second :center) clusters)
+   :count   (map (comp count :members) clusters)})
+
+
+(defn unfold-clusters
+  "The inverse of `fold-clusters`; takes folded clusters and puts them into standard form.
+  i.e. `(= clusters (comp unfold-clusters fold-clusters))`"
+  [{:keys [members id x y] :as folded-clusters}]
+  (map
+    (fn [ms id x y]
+      {:id id
+       :members ms
+       :center [x y]})
+    members
+    id
+    x
+    y))
+
+
 (defn xy-clusters-to-nmat [clusters]
   (let [nmat (named-matrix)]
     (update-nmat
