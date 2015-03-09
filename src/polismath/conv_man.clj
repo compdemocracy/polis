@@ -1,6 +1,7 @@
 (ns polismath.conv-man
   (:require [polismath.named-matrix :as nm]
             [polismath.conversation :as conv]
+            [polismath.clusters :as clust]
             [polismath.metrics :as met]
             [polismath.db :as db]
             [polismath.utils :refer :all]
@@ -65,28 +66,12 @@
    :lastVoteTimestamp (:last-vote-timestamp results)})
 
 
-(defn- assoc-in-bc
-  "Helper function to clean up the prep-for-uploading fn"
-  [conv k v & kvs]
-  (let [this-part (assoc-in conv [:base-clusters k] v)]
-    (if (empty? kvs)
-      this-part
-      (apply assoc-in-bc this-part kvs))))
-
-
 (defn prep-main
   "Prep function for passing to format-for-mongo and on the main polismath collection."
   [results]
-  (let [base-clusters (:base-clusters results)]
-    (-> results
+  (-> results
       ; REFORMAT BASE CLUSTERS
-      (dissoc :base-clusters)
-      (assoc-in-bc
-        "x"       (map #(first (:center %)) base-clusters)
-        "y"       (map #(second (:center %)) base-clusters)
-        "id"      (map :id base-clusters)
-        "members" (map :members base-clusters)
-        "count"   (map #(count (:members %)) base-clusters))
+      (update-in [:base-clusters] clust/fold-clusters)
       ; Whitelist of keys to be included in sent data; removes intermediates
       (assoc :lastVoteTimestamp (:last-vote-timestamp results))
       (assoc :lastModTimestamp (:last-mod-timestamp results))
@@ -104,7 +89,7 @@
         :zid
         :user-vote-counts
         :votes-base
-        :group-votes}))))
+        :group-votes})))
 
 
 (defn format-for-mongo
@@ -236,10 +221,12 @@
   [zid & {:keys [recompute]}]
   (if-let [conv (and (not recompute) (db/load-conv zid))]
     (-> conv
-        (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts})
+        (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters})
         ; Make sure there is an empty named matrix to operate on
         (assoc :rating-mat (nm/named-matrix)
                :recompute :reboot)
+        ; Update the base clusters to be unfolded
+        (update-in [:base-clusters] clust/unfold-clusters)
         ; Make sure in-conv is a set
         (update-in [:in-conv] set))
     ; would be nice to have :recompute :initial
