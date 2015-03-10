@@ -41,7 +41,7 @@
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
                  [korma "0.3.0-RC5"]
                  [clj-time "0.6.0"]
-                 [prismatic/plumbing "0.3.5"]
+                 [prismatic/plumbing "0.2.0"]
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
