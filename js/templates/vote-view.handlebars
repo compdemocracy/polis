@@ -33,7 +33,14 @@
       </div>
     {{else}}
     <!-- there is a comment to show -->
-      <p style="padding: 20px 20px 20px 20px; min-height: 85px; margin-bottom: 0px; {{customStyles}}"> {{txt}} </p>
+      <p style="padding: 20px 20px 20px 20px; min-height: 85px; margin-bottom: 0px; {{customStyles}}">
+        <span id="starBtn" style="float:right; min-height: 40px; margin-top: -15px; margin-right: -15px;">
+
+          <i id="starIcon" class="fa {{#if starred}}fa-star filledStar{{else}}fa-star-o emptyStar{{/if}}" style="font-size: 26px; position: relative; top: 1px"></i>
+        </span>
+        <span id="starredLabel" class="alert-info" style="display: none; position: absolute; right: 56px; padding:20px;">Marked as important.</span>
+         {{txt}}
+      </p>
       <p style="padding: 0px 0px 7px 20px; font-size: 12px; margin-bottom: 0px;"><em>Comment submitted {{createdString}}</em></p>
     {{/if}}
 </div>

@@ -16,6 +16,7 @@ module.exports = Handlebones.ModelView.extend({
       "click #disagreeButton": "participantDisagreed",
       "click #passButton": "participantPassed",
       "click #subscribeBtn": "subscribeBtn",
+      "click #starBtn": "starBtn",
       "hover .starbutton": function(){
         this.$(".starbutton").html("<i class='fa fa-star'></i>");
       }
@@ -186,6 +187,16 @@ module.exports = Handlebones.ModelView.extend({
 
     this.onButtonClicked = function() {
       this.animateOut();
+    };
+    this.starBtn = function(e) {
+      var starred = !that.model.get("starred");
+      that.model.set("starred", starred);
+      if (starred) {
+        $("#starredLabel").fadeIn(200);
+        setTimeout(function() {
+          $("#starredLabel").fadeOut(600);
+        }, 1500);
+      }
     };
     this.subscribeBtn = function(e) {
       var that = this;
