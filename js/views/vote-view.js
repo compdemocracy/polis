@@ -90,6 +90,7 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
     function showComment(model) {
+      that.model.unset("starred");
       that.model.set(_.extend({
         empty: false
       }, model));
@@ -149,6 +150,7 @@ module.exports = Handlebones.ModelView.extend({
       this.$(".btn-vote").blur();
     }
     function showClosedConversationNotice() {
+      that.model.unset("starred");
       that.model.set({
         empty: true,
         txt1: "This conversation is closed.",
@@ -177,6 +179,7 @@ module.exports = Handlebones.ModelView.extend({
       }
 
       // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
+      that.model.unset("starred");
       that.model.set({
         empty: true,
         txt1: message1,
@@ -190,6 +193,7 @@ module.exports = Handlebones.ModelView.extend({
     };
     this.starBtn = function(e) {
       var starred = !that.model.get("starred");
+
       that.model.set("starred", starred);
       if (starred) {
         $("#starredLabel").fadeIn(200);
@@ -218,6 +222,10 @@ module.exports = Handlebones.ModelView.extend({
     },
     this.participantAgreed = function(e) {
       var tid = this.model.get("tid");
+      var starred = this.model.get("starred");
+      if (!starred) {
+        starred = void 0; // don't bother sending up false, no need to put a vote value of 0 in the db.
+      }
       votesByMe.add({
         vote: -1,
         conversation_id: conversation_id,
@@ -225,11 +233,12 @@ module.exports = Handlebones.ModelView.extend({
         tid: tid
       });
       this.onButtonClicked();
-      serverClient.agree(tid)
+      serverClient.agree(tid, starred)
           .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantDisagreed = function() {
       var tid = this.model.get("tid");
+      var starred = this.model.get("starred");
       votesByMe.add({
         vote: 1,
         conversation_id: conversation_id,
@@ -237,11 +246,12 @@ module.exports = Handlebones.ModelView.extend({
         tid: tid
       });
       this.onButtonClicked();
-      serverClient.disagree(tid)
+      serverClient.disagree(tid, starred)
           .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantPassed = function() {
       var tid = this.model.get("tid");
+      var starred = this.model.get("starred");
       votesByMe.add({
         vote: 0,
         conversation_id: conversation_id,
@@ -249,7 +259,7 @@ module.exports = Handlebones.ModelView.extend({
         tid: tid
       });
       this.onButtonClicked();
-      serverClient.pass(tid)
+      serverClient.pass(tid, starred)
           .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantStarred = function() {

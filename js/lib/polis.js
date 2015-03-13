@@ -303,12 +303,16 @@ module.exports = function(params) {
         delete commentsToVoteOn[tid];
     }
 
-    function disagree(commentId) {
+    function disagree(commentId, starred) {
         clearComment(commentId, "push");
-        return react({
+        var o = {
             vote: polisTypes.reactions.push,
             tid: commentId
-        });
+        };
+        if (!_.isUndefined(starred)) {
+            o.starred = starred;
+        }
+        return react(o);
     }
 
     // returns promise {nextComment: {tid:...}} or {} if no further comments
@@ -343,21 +347,28 @@ module.exports = function(params) {
         );
     }
 
-    function agree(commentId) {
+    function agree(commentId, starred) {
         clearComment(commentId);
-        return react({
+        var o = {
             vote: polisTypes.reactions.pull,
             tid: commentId
-        });
+        };
+        if (!_.isUndefined(starred)) {
+            o.starred = starred;
+        }
+        return react(o);
     }
 
     function pass(tid) {
-
         clearComment(tid);
-        return react({
+        var o = {
             vote: polisTypes.reactions.pass,
-            tid: tid
-        });
+            tid: commentId
+        };
+        if (!_.isUndefined(starred)) {
+            o.starred = starred;
+        }
+        return react(o);
     }
 
     function trash(tid) {
