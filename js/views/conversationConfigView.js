@@ -19,11 +19,7 @@ module.exports =  Handlebones.ModelView.extend({
     	attrs.strict_moderation = that.$("#strictOn")[0].checked;
     	attrs.vis_type = that.$("#visTypeOn")[0].checked ? 1 : 0;
     	attrs.conversation_id = that.model.get("conversation_id");
-    	var pairs = _.pairs(attrs);
-    	pairs = _.map(pairs, function(pair) {
-    		return pair[0] + '=' + encodeURIComponent(pair[1]);
-    	});
-    	pairs = pairs.join("&");
+      var queryString = Utils.toQueryParamString(attrs);
 	  	$.ajax({
 	  		url: "/api/v3/conversations?" + pairs,
 	  		type: "PUT",

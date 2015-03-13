@@ -907,6 +907,11 @@ var polisRouter = Backbone.Router.extend({
     var firstCommentPromise = $.get("/api/v3/nextComment?not_voted_by_pid=" + pid+ "&limit=1&conversation_id=" + conversation_id);
 
     this.getConversationModel(conversation_id).then(function(model) {
+
+      if (!_.isUndefined(args.vis_type)) {
+        // allow turning on the vis from the URL. TODO_SECURITY require a token in the URL to enable this
+        model.set("vis_type", Number(args.vis_type));
+      }
       var participationView = new ParticipationView({
         pid: pid,
         model: model,
@@ -1057,26 +1062,25 @@ var polisRouter = Backbone.Router.extend({
 
     var that = this;
     // this.doShowTutorial().then(function() {
-      doJoinConversation.call(that, {
+      doJoinConversation.call(that, _.extend(params, {
         suzinvite: suzinvite,
         onSuccess: that.doLaunchConversation.bind(that), // TODO
         conversation_id: conversation_id
-      });
+      }));
     // });
   },
-  participationViewWithQueryParams: function(conversation_id, queryParams) {
+  participationViewWithQueryParams: function(conversation_id, queryParamString) {
     if (!Utils.cookiesEnabled()) {
       this.tryCookieThing();
     }
 
-    // TODO parse params and use them, if needed
-
+    var params = Utils.parseQueryParams(queryParamString);
     var that = this;
     // this.doShowTutorial().then(function() {
-      doJoinConversation.call(that, {
+      doJoinConversation.call(that, _.extend(params, {
         onSuccess: that.doLaunchConversation.bind(that), // TODO
         conversation_id: conversation_id
-      });
+      }));
     // });
   },
   doShowTutorial: function() {

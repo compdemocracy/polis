@@ -95,6 +95,28 @@ function isInIframe() {
   return window.top != window;
 }
 
+function parseQueryParams(s) {
+  if (!_.isString(s)) {
+    console.warn("2839748273")
+    return {};
+  }
+  if (s.charAt(0) === "?") {
+    s = s.slice(1);
+  }
+  var pairStrings = s.split("&");
+  var pairArrays = _.map(pairStrings, function(pairString) {
+    return pairString.split("=");
+  });
+  return _.object(pairArrays);
+}
+
+function toQueryParamString(o) {
+  var pairs = _.pairs(o);
+  pairs = _.map(pairs, function(pair) {
+    return pair[0] + '=' + encodeURIComponent(pair[1]);
+  });
+  return pairs.join("&");
+}
 
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
@@ -115,6 +137,9 @@ module.exports = {
     }
     return spans;
   },
+  toQueryParamString: toQueryParamString,
+  parseQueryParams: parseQueryParams,
+
   supportsSVG: function() {
     return !!document.createElementNS && !!document.createElementNS('http://www.w3.org/2000/svg', 'svg').createSVGRect;
   },
