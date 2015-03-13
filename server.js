@@ -6156,6 +6156,7 @@ app.post("/api/v3/votes",
     need('tid', getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('vote', getIntInRange(-1, 1), assignToP),
+    want('starred', getBool, assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
     var uid = req.p.uid;
@@ -6178,6 +6179,12 @@ function(req, res) {
             // NOTE: may be greater than number of comments, if they change votes
             updateVoteCount(req.p.zid, req.p.pid);
         }, 100);
+        if (_.isUndefined(req.p.starred)) {
+            return;
+        } else {
+            return addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred, createdTime);
+        }
+    }).then(function() {
         return getNextCommentPrioritizingNonPassedComments(req.p.zid, req.p.pid);
     }).then(function(nextComment) {
         var result = {};
@@ -6227,6 +6234,17 @@ function(req, res) {
 });
 
 
+function addStar(zid, tid, pid, starred, created) {
+    starred = starred ? 1 : 0;
+    var query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
+    var params = [pid, zid, tid, starred];
+    if (!_.isUndefined(created)) {
+        query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, $5) RETURNING created;";
+        params.push(created);
+    }
+    return pgQueryP(query, params);
+}
+
 app.post("/api/v3/stars",
     auth(assignToP),
     need('tid', getInt, assignToP),
@@ -6234,22 +6252,21 @@ app.post("/api/v3/stars",
     need('starred', getIntInRange(0,1), assignToP),
     getPidForParticipant(assignToP, pidCache),
 function(req, res) {
-    var query = "INSERT INTO stars (pid, zid, tid, starred, created) VALUES ($1, $2, $3, $4, default) RETURNING created;";
     var params = [req.p.pid, req.p.zid, req.p.tid, req.p.starred];
-    pgQuery(query, params, function(err, result) {
+    addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred).then(function(result) {
+        var createdTime = result.rows[0].created;
+        setTimeout(function() {
+            updateConversationModifiedTime(req.p.zid, createdTime);
+        }, 100);
+        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
+    }).catch(function(err) {
         if (err) {
             if (isDuplicateKey(err)) {
                 fail(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
             } else {
                 fail(res, 500, "polis_err_vote", err);
             }
-            return;
         }
-        var createdTime = result.rows[0].created;
-        setTimeout(function() {
-            updateConversationModifiedTime(req.p.zid, createdTime);
-        }, 100);
-        res.status(200).json({});  // TODO don't stop after the first one, map the inserts to deferreds.
     });
 });
 
