@@ -169,6 +169,8 @@ module.exports =  ConversationView.extend({
     // ctx.showLogoInFooter = !ctx.showLogoAndBreadCrumbInHeader;
     ctx.showLogoInFooter = false;
     
+    ctx.no_vis = ctx.vis_type === 0;
+
     return ctx;
   },
 

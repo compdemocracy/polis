@@ -909,8 +909,10 @@ var polisRouter = Backbone.Router.extend({
     this.getConversationModel(conversation_id).then(function(model) {
 
       if (!_.isUndefined(args.vis_type)) {
-        // allow turning on the vis from the URL. TODO_SECURITY require a token in the URL to enable this
-        model.set("vis_type", Number(args.vis_type));
+        // allow turning on the vis from the URL.
+      if (model.get("is_mod")) {
+          model.set("vis_type", Number(args.vis_type));
+        }
       }
       var participationView = new ParticipationView({
         pid: pid,

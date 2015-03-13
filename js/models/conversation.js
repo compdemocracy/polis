@@ -30,6 +30,9 @@ module.exports = Model.extend({
       created: 0,
       owner: undefined,
       participant_count: "",
+      url_force_vis: function() {
+        return "/" + this.conversation_id + "/?vis_type=1";
+      },
       url_moderate: function() {
 //        return "/m/" + this.conversation_id + "/" + this.minvite;
         return "/m/" + this.conversation_id;

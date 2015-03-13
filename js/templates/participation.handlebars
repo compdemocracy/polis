@@ -39,6 +39,10 @@
         {{ else }}
           <a id="reopenConversationButton" class="Btn Btn-alt" style="cursor:pointer">REOPEN</a>
         {{/if}}
+        {{#if no_vis}}
+          <a href="{{url_force_vis}}" class="Btn Btn-alt" >SEE VIS</a>
+        {{/if}}
+
         {{!-- <a id="getDataButton" class="Btn Btn-alt hidden-xs" style="cursor:pointer"><i class="fa fa-cloud-download "></i>&nbsp;DATA</a> --}}
     </div>
     {{/if}}
