@@ -9991,7 +9991,7 @@ function sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, se
     modUrl + "\n" +
     "\n" +
     "We recommend you add 2-3 short comments to start things off. These comments should be easy to agree or disagree with. Here are some examples:\n \"I think the proposal is good\"\n \"This topic matters a lot\"\n or \"The bike shed should have a metal roof\"\n\n" +
-    "You can add comments here:\n"
+    "You can add comments here:\n" +
     seedUrl + "\n" +
     "\n" +
     "Feel free to reply to this email if you have questions." +
