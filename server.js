@@ -10579,6 +10579,7 @@ app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "tex
 app.get(/^\/billions$/, makeFileFetcher(hostname, port, "/billions.html", "text/html"));
 app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", "text/html"));
 app.get(/^\/blog$/, makeFileFetcher(hostname, port, "/blog.html", "text/html"));
+app.get(/^\/billions$/, makeFileFetcher(hostname, port, "/billions.html", "text/html"));
 app.get(/^\/tos$/, makeFileFetcher(hostname, port, "/tos.html", "text/html"));
 app.get(/^\/privacy$/, makeFileFetcher(hostname, port, "/privacy.html", "text/html"));
 app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, port, "/canvas_setup_backup_instructions.html", "text/html"));
