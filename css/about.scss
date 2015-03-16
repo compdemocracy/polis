@@ -2,6 +2,9 @@
 
 
 
+
+
+
 	.feature {
 		margin-top: 30px;
 	}
@@ -282,3 +285,183 @@
     .social iframe,.social>span {
         vertical-align: middle;
     }
+
+
+
+
+
+
+/* billions -- mobile first -- media queries for other sizes */
+
+
+html { 
+  background: url(https://s3.amazonaws.com/pol.is/landerImages/billions-compressor.jpeg) no-repeat center center fixed; 
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+}
+
+body {
+	min-height: auto;
+	font-size: 16px;
+}
+
+
+.BillionsText {
+	text-align: center;
+	font-family: Montserrat;
+	color: white;	
+}
+
+#BillionsHeader {
+	font-weight: 700;
+	font-size: 3em;
+	width: 100%;
+	margin: 40px auto 0px auto; 
+}
+
+#BillionsSubHeader {
+	font-weight: 500;
+	font-size: 1.2em;
+	width: 90%;
+	margin: 40px auto 0px auto; 
+	line-height: 1.6;
+}
+
+#BillionsExplainer {
+	text-align: center;
+	font-family: Cardo;
+	font-size: 1.1em;
+	color: white;
+	width: 90%;
+	margin: 40px auto 0px auto;
+	line-height: 1.6;
+}
+
+#GetPolisAnimatedContainer {
+	border: 5px solid white; 
+	font-weight: 700; 
+	font-size: 1.4em; 
+	margin: 40px auto 0px auto; 
+	width: 200px; 
+	cursor: pointer;
+	min-height: 77px;
+}
+
+#GetPolisAnimatedText {
+
+}
+
+.facebookButton {
+    margin-top: 30px;
+    border: 0px;
+    color: white;
+    font-family: Montserrat;
+    font-weight: 300;
+    padding: 8px 16px;
+    border-radius: 5px;
+    background-color: #3b5998;
+    font-size: 16px;
+  	cursor: pointer;
+  }
+
+  .facebookButton i {
+    font-size: 24px;
+    position: relative;
+    top: 2px
+  }
+
+  #startconvo_submitbutton { 
+  	background-color: transparent;
+  	border: 2px solid white;
+  	color: white;
+  	font-size: 16px;
+  	padding: 10px 20px;
+  	cursor: pointer;
+  }
+
+  #startconvo_submitbutton:hover {
+  	background-color: white;
+  	color: black;
+  }
+
+  #startconvo_email {
+  	width: 60%;
+  	height: 30px;
+  	text-align: center;
+  	font-family: Cardo;
+  	font-size: 16px;
+  	color: white;
+  	background: transparent;
+  	border: none;
+  	border-bottom: 1px dotted white;
+  }
+
+  #startconvo_email:focus {
+  	// border: none;
+   	outline: none;
+  //  	-webkit-box-shadow: -1px 10px 5px 0px rgba(255,255,255,1);
+		// -moz-box-shadow: -1px 10px 5px 0px rgba(255,255,255,1);
+		// box-shadow: -1px 10px 5px 0px rgba(255,255,255,1);
+  }
+
+
+/* Small devices (tablets, 768px and up) */
+@media (min-width: 768px) { 
+	#BillionsHeader {
+		// color: blue;
+		font-size: 3.5em;
+	}
+	#BillionsSubHeader {
+		font-size: 1.3em;
+		width: 509px;
+		line-height: 1.8;
+	}
+	#BillionsExplainer {
+		font-size: 1.3em;
+		width: 437px;
+		line-height: 1.6;
+	}
+}
+
+/* Medium devices (desktops, 992px and up) */
+@media (min-width: 992px) {
+	#BillionsHeader {
+		// color: green; 
+		font-size: 3.5em;
+	}
+	#BillionsSubHeader {
+		font-size: 1.6em;
+		width: 630px;
+		line-height: 1.8;
+	}
+	#BillionsExplainer {
+		font-size: 1.1em;
+		width: 630px;
+		line-height: 1.6;
+	}
+}
+
+/* Large devices (large desktops, 1200px and up) */
+@media (min-width: 1200px) {
+	#BillionsHeader {
+		// color: red;
+		font-size: 4em;
+	}
+	#BillionsSubHeader {
+		font-size: 1.6em;
+		width: 630px;
+		line-height: 1.8;
+	}
+	#BillionsExplainer {
+		font-size: 1.4em;
+		width: 580px;
+		line-height: 1.6;
+	}
+}
+
+/* end billions */
+
+
+
