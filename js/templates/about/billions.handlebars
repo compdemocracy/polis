@@ -11,6 +11,21 @@ input::-moz-placeholder {
 input:-ms-input-placeholder { 
   color: rgba(255,255,255,.6);
 }
+.navIcon {
+  color: white;
+}
+.header {
+  display: inline-block;
+  margin: 5px;
+}
+.HeaderLink {
+  text-decoration: none;
+  color: rgba(255,255,255,0.8);
+  /*text-transform: uppercase;*/
+}
+.HeaderLink:hover {
+  color: white;
+}
 </style>
 
 <script>
@@ -284,6 +299,24 @@ fjs.parentNode.insertBefore(js, fjs);
     })
   })
 </script>
+
+
+<div style="text-align: right;">
+  <ul>
+    <li style="display:none"  class="ifNoAuth header">
+      <a class="navIcon icon--login BillionsText HeaderLink" href="/user/login">Login</a>
+    </li>
+    <li style="display:none"  class="ifAuth header">
+      <a class="navIcon icon--inbox BillionsText HeaderLink" href="/inbox">Inbox</a>
+    </li>
+  {{!--   <li style="display:none"  class="ifAuth">
+      <a class="navIcon icon--settings" href="/settings">Settings</a>
+    </li> --}}
+    <li style="display:none"  class="ifAuth header">
+      <a class="navIcon icon--signout BillionsText HeaderLink" href="/user/logout/about">Signout</a>
+    </li>
+  </ul>
+</div>
 
 <div id="billionsContainer">
   <p id="BillionsHeader" class="BillionsText"> TEN BILLION VOICES. </p>
