@@ -1392,15 +1392,23 @@ function clientSideBaseCluster(things, N) {
     }
 
     function addParticipantsOfInterestToClusters(clusters) {
+        var origClusters = deepcopy(clusters);
         for (var pid in participantsOfInterestVotes) {
             var data = participantsOfInterestVotes[pid];
             var originalBid = data.bid;
+
             _.each(clusters, function(cluster, gid) {
-                var indexOfOriginalBid = cluster.members.indexOf(originalBid);
+                // check if the participant was in a given cluster
+                var indexOfOriginalBid = origClusters[gid].members.indexOf(originalBid);
                 if (indexOfOriginalBid >= 0) {
-                    cluster.members.splice(indexOfOriginalBid, 1);
                     cluster.members.push(data.fakeBid);
                 }
+                // remove reference to original bucket, if it still exists.
+                var indexOfOriginalBidInNewCluster = cluster.members.indexOf(originalBid);
+                if (indexOfOriginalBidInNewCluster >= 0) {
+                    cluster.members.splice(indexOfOriginalBidInNewCluster, 1);
+                }
+
                 // TODO only if emtpy!
                 // clusters[c] = _.without(cluster, originalBid);
 
