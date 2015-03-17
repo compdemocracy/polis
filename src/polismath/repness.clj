@@ -235,7 +235,7 @@
             (->> sufficient
                  ; Remove best agree if in list, since we'll be putting it in manually; don't need to do this
                  ; with best, since in any case we'd let it sort itself out
-                 (remove #(= (:id best-agree) (:id %)))
+                 (remove #(= (:tid best-agree) (:tid %)))
                  (repness-sort) ; sort by our complicated repness metric
                  (concat (if best-agree [best-agree] [])) ; put best agree at front, if possible
                  (take 5) ; take the top 5
