@@ -359,11 +359,11 @@ module.exports = function(params) {
         return react(o);
     }
 
-    function pass(tid) {
+    function pass(tid, starred) {
         clearComment(tid);
         var o = {
             vote: polisTypes.reactions.pass,
-            tid: commentId
+            tid: tid
         };
         if (!_.isUndefined(starred)) {
             o.starred = starred;
