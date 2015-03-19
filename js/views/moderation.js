@@ -10,6 +10,7 @@ var Handlebones = require("handlebones");
 var template = require('../tmpl/moderation');
 var ModerateCommentView = require('../views/moderate-comment');
 var ModerateParticipantView = require('../views/moderate-participant');
+var PolisModelView = require("../lib/PolisModelView");
 var countBadgeTemplate = require('../tmpl/countBadge');
 var Utils = require("../util/utils");
 var Constants = require("../util/constants");
@@ -69,13 +70,13 @@ var TodoCountView = Handlebones.ModelView.extend({
   }
 })
 
-module.exports =  Handlebones.ModelView.extend({
+module.exports =  PolisModelView.extend({
   name: "moderationView",
   template: template,
   events: {
   },
   context: function() {
-      var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+      var ctx = PolisModelView.prototype.context.apply(this, arguments);
       return ctx;
   },
   updatePtptCollections: function() {
@@ -141,7 +142,7 @@ module.exports =  Handlebones.ModelView.extend({
       // });
   },
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    PolisModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     var conversation_id = this.conversation_id = this.model.get("conversation_id");
     var pid = this.pid = options.pid;

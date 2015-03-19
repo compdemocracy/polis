@@ -56,6 +56,9 @@ authenticatedDfd.done(function() {
   ga('set', 'userId', PolisStorage.uid() || PolisStorage.uidFromCookie());
 });
 
+function onFirstRender() {
+  $("#mainSpinner").hide();
+}
 function authenticated() { return PolisStorage.uid() || PolisStorage.uidFromCookie() || window.authenticatedByHeader;}
 function hasEmail() { return PolisStorage.hasEmail(); }
 
@@ -974,6 +977,9 @@ var polisRouter = Backbone.Router.extend({
         subviewName: subviewName,
         pid: pid,
         model: model
+      });
+      view.on("beforeRender", function() {
+        onFirstRender();
       });
       RootView.getInstance().setView(view);
     },function(e) {
