@@ -1,11 +1,12 @@
 var Handlebars = require("handlebars");
 var Handlebones = require("handlebones");
+var PolisModelView = require("../lib/PolisModelView");
 var template = require("../tmpl/settingsEnterprise");
 var URLs = require("../util/url");
 
 var urlPrefix = URLs.urlPrefix;
 
-module.exports = Handlebones.ModelView.extend({
+module.exports = PolisModelView.extend({
   name: "settings",
   template: template,
 

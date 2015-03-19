@@ -1,5 +1,6 @@
 var Handlebones = require("handlebones");
 var template = require("../tmpl/create-user-form");
+var PolisModelView = require("../lib/PolisModelView");
 var PolisStorage = require("../util/polisStorage");
 var $ = require("jquery");
 var serialize = require("../util/serialize");
@@ -123,21 +124,7 @@ function getInfo() {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-var ModelView = Handlebones.ModelView;
-
-  module.exports = ModelView.extend({
+  module.exports = PolisModelView.extend({
     name: "create-user-form",
     template: template,
     gotoCreate: function() {
@@ -358,12 +345,12 @@ var ModelView = Handlebones.ModelView;
     return false;
   },
   context: function() {
-    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    var ctx = PolisModelView.prototype.context.apply(this, arguments);
     ctx.social = ctx.fb; // || ctx.twitter || ...
     return ctx;
   },
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    PolisModelView.prototype.initialize.apply(this, arguments);
     this.authStyleHeader = true;
     var that = this;
     this.fb = !this.model.get("showEmailWelcome");

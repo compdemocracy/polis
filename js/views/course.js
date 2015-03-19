@@ -4,6 +4,7 @@ var template = require("../tmpl/course");
 var courseCollectionItemTemplate = require("../tmpl/course-item");
 var emptyTemplate = require("../tmpl/course-empty");
 var eb = require("../eventBus");
+var PolisView = require("../lib/PolisView");
 
 var CourseCollectionView = Handlebones.CollectionView.extend({
   modelView: Handlebones.ModelView.extend({
@@ -49,7 +50,7 @@ var CourseCollectionView = Handlebones.CollectionView.extend({
 
 
 
-module.exports = Handlebones.View.extend({
+module.exports = PolisView.extend({
   name: "course",
   template: template,
   initialize: function(options) {

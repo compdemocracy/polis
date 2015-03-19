@@ -1,7 +1,8 @@
 var View = require("handlebones").View;
 var template = require("../tmpl/plan-upgrade");
+var PolisView = require("../lib/PolisView");
 
-module.exports = View.extend({
+module.exports = PolisView.extend({
   name: "planUpgrade",
   template: template,
   events: {

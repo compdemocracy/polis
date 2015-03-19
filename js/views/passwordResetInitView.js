@@ -2,10 +2,11 @@ var View = require("handlebones").View;
 var template = require("../tmpl/passwordResetInitForm");
 var serialize = require("../util/serialize");
 var URLs = require("../util/url");
+var PolisView = require("../lib/PolisView");
 
 var urlPrefix = URLs.urlPrefix;
 
-module.exports = View.extend({
+module.exports = PolisView.extend({
   name: "passwordResetInitForm",
   template: template,
   events: {

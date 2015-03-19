@@ -317,6 +317,9 @@ var polisRouter = Backbone.Router.extend({
         // $('[data-view-name="root"]').removeClass("wrap");
       // }
     });
+    eb.once(eb.firstRender, function() {
+      onFirstRender();
+    });
 
     var that = this;
     eb.on("upvote_but_no_auth", function(o) {
@@ -977,9 +980,6 @@ var polisRouter = Backbone.Router.extend({
         subviewName: subviewName,
         pid: pid,
         model: model
-      });
-      view.on("beforeRender", function() {
-        onFirstRender();
       });
       RootView.getInstance().setView(view);
     },function(e) {

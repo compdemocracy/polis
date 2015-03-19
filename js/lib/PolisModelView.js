@@ -1,12 +1,13 @@
+var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 
 var PolisModelView = Handlebones.ModelView.extend({ 
 
     render: function() { 
-        debugger;
-       this.trigger("beforeRender");
+       eb.trigger(eb.firstRender);
+       // this.trigger("beforeRender");
        Handlebones.ModelView.prototype.render.apply(this, arguments);
-       this.trigger("afterRender");
+       // this.trigger("afterRender");
     }, 
 
 });

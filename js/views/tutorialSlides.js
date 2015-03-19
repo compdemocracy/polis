@@ -1,15 +1,15 @@
-var Handlebones = require("handlebones");
 var template = require("../tmpl/tutorialSlides");
 var display = require("../util/display");
+var PolisModelView = require("../lib/PolisModelView");
 var Utils = require("../util/utils");
 
 var LAST_STEP = 9;
 
-module.exports =  Handlebones.ModelView.extend({
+module.exports =  PolisModelView.extend({
   name: "tutorialSlidesView",
   template: template,
   context: function() {
-    var c = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    var c = PolisModelView.prototype.context.apply(this, arguments);
     // c.use_background_content_class = display.xs();
 
     // var step = 2;
@@ -39,7 +39,7 @@ module.exports =  Handlebones.ModelView.extend({
   },
 
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    PolisModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     if (this.model.get("step") > LAST_STEP) {
       setTimeout(function() {

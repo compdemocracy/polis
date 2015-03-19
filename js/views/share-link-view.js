@@ -1,8 +1,9 @@
 var template = require("../tmpl/share-link-view");
 var ConversationModel = require("../models/conversation");
+var PolisModelView = require("../lib/PolisModelView");
 var Handlebones = require("handlebones");
 
-module.exports = Handlebones.ModelView.extend({
+module.exports = PolisModelView.extend({
     name: "shareLinkView",
     template: template,
     model: ConversationModel,
@@ -44,7 +45,7 @@ module.exports = Handlebones.ModelView.extend({
       }
     },
     initialize: function() {
-      Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+      PolisModelView.prototype.initialize.apply(this, arguments);
       this.tweet_text = "Join the conversation!";
 
       // NOTE: showing the topic may result in people actually responsing with tweets instead of clicking the link.

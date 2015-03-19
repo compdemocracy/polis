@@ -3,6 +3,7 @@ var Handlebones = require("handlebones");
 var template = require("../tmpl/inbox");
 var inboxCollectionItemTemplate = require("../tmpl/inbox-item");
 var inboxEmptyTemplate = require("../tmpl/inbox-empty");
+var PolisModelView = require("../lib/PolisModelView");
 
 var InboxCollectionView = Handlebones.CollectionView.extend({
   modelView: Handlebones.ModelView.extend({
@@ -14,7 +15,7 @@ var InboxCollectionView = Handlebones.CollectionView.extend({
   })
 });
 
-module.exports = Handlebones.ModelView.extend({
+module.exports = PolisModelView.extend({
   name: "inbox",
   template: template,
 

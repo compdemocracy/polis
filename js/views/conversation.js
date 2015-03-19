@@ -1,9 +1,9 @@
 var CommentsCollection = require("../collections/comments");
 var eb = require("../eventBus");
-var Handlebones = require("handlebones");
 var MetadataQuestionsCollection = require("../collections/metadataQuestions");
 var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
 var PolisStorage = require("../util/polisStorage");
+var PolisModelView = require("../lib/PolisModelView");
 var popoverEach = require("../util/popoverEach");
 var ServerClient = require("../lib/polis");
 var TutorialController = require("../controllers/tutorialController");
@@ -12,7 +12,7 @@ var URLs = require("../util/url");
 
 var urlPrefix = URLs.urlPrefix;
 
-module.exports = Handlebones.ModelView.extend({
+module.exports = PolisModelView.extend({
 
   selectedGid: -1,
   
@@ -60,7 +60,7 @@ module.exports = Handlebones.ModelView.extend({
   initialize: function(options) {
     // init this pronto so we can load the votes view asap
     this.votesByMe = new VotesCollection();
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    PolisModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     var conversation_id = this.conversation_id = this.model.get("conversation_id");
     var pid = this.pid = options.pid;

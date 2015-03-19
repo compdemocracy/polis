@@ -20,5 +20,6 @@ bus.interacted = "interacted"; // user has interacted (voted, written, changed t
 bus.visShown = "visShown";
 bus["beforehide:analyze"] = "beforehide:analyze";
 bus["aftershow:analyze"] = "aftershow:analyze";
+bus.firstRender = "firstRender";
 
 module.exports = bus;

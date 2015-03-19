@@ -1,12 +1,12 @@
-var View = require("handlebones").View;
 var template = require("../tmpl/passwordResetForm");
 var $ = require("jquery");
 var serialize = require("../util/serialize");
+var PolisView = require("../lib/PolisView");
 var URLs = require("../util/url");
 
 var urlPrefix = URLs.urlPrefix;
 
-module.exports = View.extend({
+module.exports = PolisView.extend({
   name: "passwordResetForm",
   template: template,
   events: {

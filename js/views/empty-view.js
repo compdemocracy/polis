@@ -1,7 +1,8 @@
 var template = require("../tmpl/empty-view");
 var Handlebones = require("handlebones");
+var PolisView = require("../lib/PolisView");
 
-module.exports = Handlebones.View.extend({
+module.exports = PolisView.extend({
   name: "emptyView",
   template: template
 });

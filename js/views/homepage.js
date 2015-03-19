@@ -1,9 +1,10 @@
 var View = require("handlebones").View;
 var template = require("../tmpl/homepage");
 var serialize = require("../util/serialize");
+var PolisView = require("../lib/PolisView");
 
 
-module.exports = View.extend({
+module.exports = PolisView.extend({
   name: "homepage",
   template: template,
   events: {

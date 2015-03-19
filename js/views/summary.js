@@ -9,6 +9,7 @@ var Handlebones = require("handlebones");
 var MetadataQuestionsCollection = require("../collections/metadataQuestions");
 var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
 var ParticipantModel = require("../models/participant");
+var PolisModelView = require("../lib/PolisModelView");
 var PolisStorage = require("../util/polisStorage");
 var popoverEach = require("../util/popoverEach");
 var ResultsCollection = require("../collections/results");
@@ -28,7 +29,7 @@ var isIE8 = navigator.userAgent.match(/MSIE [89]/);
     
 var groupNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-module.exports =  Handlebones.ModelView.extend({
+module.exports =  PolisModelView.extend({
   name: "summaryView",
   template: template,
   events: {
@@ -53,7 +54,7 @@ module.exports =  Handlebones.ModelView.extend({
   },
 
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    PolisModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     var conversation_id = this.conversation_id = this.model.get("conversation_id");
     var pid = this.pid = options.pid;

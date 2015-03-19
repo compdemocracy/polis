@@ -2,6 +2,7 @@ var template = require("../tmpl/conversationGatekeeper");
 var MetadataQuestionsView = require("../views/metadataQuestionsView");
 var MetadataQuestionCollection = require("../collections/metadataQuestions");
 var MetadataQuestion = require("../models/metadataQuestion");
+var PolisModelView = require("../lib/PolisModelView");
 var PolisStorage = require("../util/polisStorage");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
@@ -9,7 +10,7 @@ var URLs = require("../util/url");
 
 var urlPrefix = URLs.urlPrefix;
 
-module.exports = Handlebones.ModelView.extend({
+module.exports = PolisModelView.extend({
   name: "conversationGatekeeper",
   template: template,
   events: {
@@ -66,7 +67,7 @@ module.exports = Handlebones.ModelView.extend({
     }
   },
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    PolisModelView.prototype.initialize.apply(this, arguments);
     this.options = options;
     this.model = options.model;
     var conversation_id = options.conversation_id;

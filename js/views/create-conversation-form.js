@@ -7,9 +7,10 @@ var ConversationModel = require("../models/conversation");
 var MetadataQuestionsViewWithCreate = require("../views/metadataQuestionsViewWithCreate");
 var MetadataQuestionCollection = require("../collections/metadataQuestions");
 var PolisStorage = require("../util/polisStorage");
+var PolisView = require("../lib/PolisView");
 var serialize = require("../util/serialize");
 
-module.exports = View.extend({
+module.exports = PolisView.extend({
     name: "create-conversation-form",
     template: template,
     events: {

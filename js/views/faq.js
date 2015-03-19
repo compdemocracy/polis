@@ -3,6 +3,7 @@ var Handlebones = require("handlebones");
 var template = require("../tmpl/faq");
 var faqCollectionItemTemplate = require("../tmpl/faq-item");
 var faqEmptyTemplate = require("../tmpl/faq-empty");
+var PolisView = require("../lib/PolisView");
 
 var FaqCollectionView = Handlebones.CollectionView.extend({
   modelView: Handlebones.ModelView.extend({
@@ -90,7 +91,7 @@ var FaqCollectionView = Handlebones.CollectionView.extend({
 
 
 
-module.exports = Handlebones.View.extend({
+module.exports = PolisView.extend({
     name: "faq-view",
     template: template,
     tidsForGroup: null,

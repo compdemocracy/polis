@@ -1,17 +1,18 @@
 var Backbone = require("backbone");
 var Handlebars = require("handlebars");
 var Handlebones = require("handlebones");
+var PolisModelView = require("../lib/PolisModelView");
 var TwitterUserModel = require("../models/twitterUser");
 var template = require("../tmpl/settings");
 var SettingsTwitterView = require("./settingsTwitter");
 var URLs = require("../util/url");
 var urlPrefix = URLs.urlPrefix;
 
-module.exports = Handlebones.ModelView.extend({
+module.exports = PolisModelView.extend({
   name: "settings",
   template: template,
   context: function() {
-    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    var ctx = PolisModelView.prototype.context.apply(this, arguments);
     // this.model.get("site_ids").push(35234); // keep this here for testing
     ctx.hasMultipleSites = this.model.get("site_ids").length > 1;
     // ctx.pageId = (Math.random() * 1e9) << 0;
