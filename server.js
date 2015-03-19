@@ -6051,6 +6051,8 @@ if (!withoutTids || !withoutTids.length) {
 }
 
 var q = "WITH ";
+q += "  star_counts AS ";
+q += "  (SELECT tid, count(*) as starcount from stars where zid = $1 group by tid), ";
 q += "  conv AS  ";
 q += "  (SELECT *,";
 q += "    CASE WHEN strict_moderation=TRUE then 1 ELSE 0 END as minModVal from conversations where zid = $1),";
@@ -6100,13 +6102,14 @@ q += "LEFT JOIN a ON a.zid = c.zid ";
 q += "  AND a.tid = c.tid ";
 q += "LEFT JOIN pv ON c.tid = pv.tid  ";
 q += "LEFT JOIN conv ON c.zid = conv.zid  ";
+q += "LEFT JOIN star_counts ON c.tid = star_counts.tid ";
 q += "WHERE voted IS NULL ";
 q += "  AND c.tid NOT IN ("+ withoutTids.join(",") +") ";
 q += "  AND (pv.voted = FALSE OR pv.voted IS NULL)";
 q += "  AND c.active = true";
 q += "  AND c.mod >= conv.minModVal";
 q += "  AND c.velocity > 0";
-q += " ORDER BY nonpass_score DESC ";
+q += " ORDER BY starcount DESC NULLS LAST, nonpass_score DESC ";
 q += " LIMIT 1;";
 
 
