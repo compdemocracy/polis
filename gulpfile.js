@@ -245,7 +245,7 @@ gulp.task('index', [
 gulp.task('templates', function(){
 
   //does not include participation, which is the main view, because the footer is not right /userCreate.handlebars$/,
-  var topLevelViews = [/conversationGatekeeper.handlebars$/, /userCreate.handlebars$/, /create-user-form.handlebars$/, /login-form.handlebars$/, /settings.handlebars$/, /summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /passwordResetForm.handlebars$/,  /explore.handlebars$/, /conversationGatekeeper.handlebars$/, /passwordResetInitForm.handlebars$/, /create-conversation-form.handlebars$/, /plan-upgrade.handlebars$/];
+  var topLevelViews = [/conversationGatekeeper.handlebars$/, /userCreate.handlebars$/, /create-user-form.handlebars$/, /login-form.handlebars$/, /settings.handlebars$/, /settingsEnterprise.handlebars$/, /summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /passwordResetForm.handlebars$/,  /explore.handlebars$/, /conversationGatekeeper.handlebars$/, /passwordResetInitForm.handlebars$/, /create-conversation-form.handlebars$/, /plan-upgrade.handlebars$/];
   var bannerNeedingViews = [/summary.handlebars$/, /inbox.handlebars$/, /moderation.handlebars$/, /explore.handlebars$/, /create-conversation-form.handlebars$/];
 
   function needsBanner(file) {
