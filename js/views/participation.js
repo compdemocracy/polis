@@ -431,6 +431,7 @@ module.exports =  ConversationView.extend({
           getCommentsForProjection: serverClient.getCommentsForProjection,
           getReactionsToComment: serverClient.getReactionsToComment,
           getPidToBidMapping: serverClient.getPidToBidMapping,
+          getParticipantsOfInterestForGid: serverClient.getParticipantsOfInterestForGid,
           xOffset: xOffset,
           w: w,
           h: h,

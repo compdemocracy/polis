@@ -14,6 +14,7 @@ var el_raphaelSelector = params.el_raphaelSelector;
 var getReactionsToComment = params.getReactionsToComment;
 var computeXySpans = params.computeXySpans;
 var getPidToBidMapping = params.getPidToBidMapping;
+var getParticipantsOfInterestForGid = params.getParticipantsOfInterestForGid;
 var isIE8 = params.isIE8;
 var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
@@ -2210,6 +2211,14 @@ function doUpdateNodes() {
           function toPercent(ratio) {
             return ((ratio * 100) >> 0) + "%";
           }
+
+          update.selectAll(".summaryLabelBottom").data(nodes, key)
+            .text(function(d) {
+                var ptptois = getParticipantsOfInterestForGid(d.gid);
+                return (ptptois.length ? "people" : "person");
+            });
+
+
           update.selectAll(".summaryLabel").data(nodes, key)
             .text(function(d) {
                 var txt;
@@ -2230,7 +2239,9 @@ function doUpdateNodes() {
                     }
                     d._txtType = "c";
                 } else {
-                    txt = "+" + d.count;
+                    var ptptois = getParticipantsOfInterestForGid(d.gid);
+                    var prefix = ptptois.length ? "+" : "";
+                    txt = prefix + d.count;
                 }
                 d._txt = txt;
                 return txt;
