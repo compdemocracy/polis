@@ -2214,8 +2214,7 @@ function doUpdateNodes() {
 
           update.selectAll(".summaryLabelBottom").data(nodes, key)
             .text(function(d) {
-                var ptptois = getParticipantsOfInterestForGid(d.gid);
-                return (ptptois.length ? "people" : "person");
+                return (d.count === 1 ? "person" : "people");
             });
 
 
@@ -2273,7 +2272,7 @@ function doUpdateNodes() {
                 var size = 12;
                 if (d._txt) {
                     var len = d._txt.length;
-                    if (len === 2) {
+                    if (len <= 2) {
                         size = 16;
                     } else if (len === 3) {
                         size = 14;
