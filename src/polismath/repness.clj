@@ -105,10 +105,10 @@
   "Like beats-best-by-test?, but only considers agrees. Additionally, doesn't focus solely on repness,
   but also on raw probability of agreement, so as to ensure that there is some representation of what
   people in the group agree on. Also, note that this takes the current-best, instead of just current-best-z."
-  [{:keys [ra rat pa pat ns] :as comment-conv-stats} current-best]
+  [{:keys [na nd ra rat pa pat ns] :as comment-conv-stats} current-best]
   (cond
    ; Explicitly don't let something that hasn't been voted on at all come into repness
-    (= ns 0)
+    (= 0 na nd)
         false
     ; If we have a current-best by repness estimate, use the more robust measurement
     (and current-best (> (:ra current-best) 1.0))
