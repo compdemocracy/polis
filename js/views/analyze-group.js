@@ -247,6 +247,9 @@ module.exports = Handlebones.View.extend({
           var header;
           var v = info.votes[tid];
           var denominator = v.S; // or maybe v.S (seen)
+          if (repness["best-agree"]) {
+            repfullForAgree = true;
+          }
           // var denominator = info.count; // or maybe v.S (seen)
           var percent = repfullForAgree ?
             "&#9650; " + ((v.A / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
