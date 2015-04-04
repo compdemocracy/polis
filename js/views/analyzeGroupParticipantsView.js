@@ -11,6 +11,11 @@ module.exports = Handlebones.View.extend({
   template: template,
   events: {
   },
+  context: function() {
+    var ctx = Handlebones.View.prototype.context.apply(this, arguments);
+    ctx.ptptoisLength = this.ptptois && this.ptptois.length;
+    return ctx;
+  },
   initialize: function(options) {
     var that = this;
     var getParticipantsOfInterestForGid = options.getParticipantsOfInterestForGid;

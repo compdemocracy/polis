@@ -24,10 +24,12 @@
 {{/each}}
 
 
-{{#if othersCount}}
-  <div class="analyze-group-member-others">
-    <p>+{{othersCount}} Others</p>
-  </div>
+{{#if ptptoisLength}}
+  {{#if othersCount}}
+    <div class="analyze-group-member-others">
+      <p>+{{othersCount}} Others</p>
+    </div>
+  {{/if}}
 {{/if}}
 
 </div>
