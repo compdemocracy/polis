@@ -220,9 +220,9 @@
         (let [best-agree (when best-agree
                            ; finalize, and assoc in a :best-agree attribute, so the client can render
                            ; accordingly
-                           (assoc
-                             (finalize-cmt-stats (:tid best-agree) best-agree)
-                             :best-agree true))
+                           (assoc (finalize-cmt-stats (:tid best-agree) best-agree)
+                                  :n-agree    (:na best-agree)
+                                  :best-agree true))
               ; Use best agree if that's what we have; otherwise best (possibly disagree); otherwise nothing
               best-head (cond
                           best-agree [best-agree]
