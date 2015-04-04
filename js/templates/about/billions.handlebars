@@ -296,6 +296,7 @@ fjs.parentNode.insertBefore(js, fjs);
                 );
               })
       $('#GetPolisAnimatedText').fadeOut();
+      $('#BillionsFree').css({"visibility":"hidden"});
     })
   })
 </script>
@@ -303,6 +304,22 @@ fjs.parentNode.insertBefore(js, fjs);
 
 <div style="text-align: right;">
   <ul>
+    <li class="header" style="
+          position: relative;
+          top: 7px;
+      "> 
+            <a href="#" class="navIcon icon--login BillionsText HeaderLink"> 
+              <img src="http://s9.postimg.org/u14oi56gv/142812928779584.png" style="
+          width: 88px;
+      "><span style="
+          color: rgb(106, 199, 106);
+          font-size: 11px;
+          position: relative;
+          top: -18px;
+          left: 2px;
+      "> plus </span>
+            </a>
+          </li>
     <li style="display:none"  class="ifNoAuth header">
       <a class="navIcon icon--login BillionsText HeaderLink" href="/user/login">Login</a>
     </li>
@@ -319,7 +336,7 @@ fjs.parentNode.insertBefore(js, fjs);
 </div>
 
 <div id="billionsContainer">
-  <p id="BillionsHeader" class="BillionsText"> TEN BILLION VOICES. </p>
+  <p id="BillionsHeader" class="BillionsText"> TEN BILLION VOICES </p>
 
   <p id="BillionsSubHeader" class="BillionsText"> The internet has scaled up our ability to talk. Polis scales up our ability to listen.</p>
 
@@ -333,7 +350,7 @@ fjs.parentNode.insertBefore(js, fjs);
       <form class="FormHorizontal" style="text-align: center; margin: 20px auto 30px;" role="form">
         <div class="FormHorizontal-group">
           <label class="FormLabel">
-          <p> Sign up with email </p>
+          <p id="errorParagraph"> Sign up with email </p>
           </label>
           <input type="email" id="startconvo_email" placeholder="name@organization.com" class="FormControl">
           <br>
@@ -344,8 +361,16 @@ fjs.parentNode.insertBefore(js, fjs);
       <div class="errorDiv">
       </div>
     </div>
-  </div> 
-</div>
+  </div>
+  <p id="BillionsFree"> free </p> 
+
+  <div id="successModal" style="display:none;">    
+    <p style="font-family: Montserrat;text-align: center;width: 200px;margin: auto;font-size: 14px;color: white;background-color: rgba(100, 213, 119, 0.66);padding: 15px;line-height: 1.7;border-radius: 0px;margin-top: 20px;">
+      <strong> Welcome! </strong> We've emailed you a confirmation. Follow the link provided in the email to verify your account.
+    </p>
+  </div>
+
+
 
 <!-- prefetch icons -->
 <i style="visibility:hidden" class="fa fa-facebook-square"></i>
@@ -409,17 +434,13 @@ $(document).ready(function() {
             email: email
           })
         }).done(function( data ) {
-            $("form").html('<div>' +
-    '<div class="alert alert-success" style="font-family: brandon-grotesque" role="alert">' +
-    '<p> ' +
-      '<strong> Welcome! </strong> We\'ve emailed you a confirmation. Follow the link provided in the email to verify your account.' +
-    '</p>' +
-    '</div>' +
-'</div>');
-     ga("send", "event", "SignUp", "emailSubmitted", "general");
+            $("#GetPolisAnimatedContainer").hide();
+            $("#successModal").show()
+            ga("send", "event", "SignUp", "emailSubmitted", "general");
         }).fail(function(){
             ga("send", "event", "SignUp", "emailSubmitFail");
-            $(this).find('.errorDiv').html("<div class=\"alert alert-danger col-sm-6 col-sm-offset-3\">Your data was not saved, please try again.</div>")
+            $("#GetPolisAnimatedContainer").css({"border-color":"rgb(182, 40, 40)"});
+            $("#errorParagraph").text("Please try again");
         });
         return false;
 })

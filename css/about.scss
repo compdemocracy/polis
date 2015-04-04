@@ -314,6 +314,18 @@ body {
 	color: white;	
 }
 
+#BillionsFree {
+  color: rgb(106, 199, 106);
+  font-family: Montserrat;
+  margin: 6px auto 0px auto;
+  width: 200px;
+  text-align: right;
+  font-size: 13px;
+  text-transform: uppercase;
+  position: relative;
+  left: 5.5px;
+}
+
 #BillionsHeader {
 	font-weight: 700;
 	font-size: 3em;
@@ -459,6 +471,12 @@ body {
 		width: 580px;
 		line-height: 1.6;
 	}
+  #BillionsFree {
+    margin: 6px auto 0px auto;
+    font-size: 13px;
+    position: relative;
+    left: 5.5px;
+  }
 }
 
 /* end billions */
