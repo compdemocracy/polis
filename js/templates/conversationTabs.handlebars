@@ -137,7 +137,17 @@
   {{/unless}}
     {{!-- <li role="presentation"><a role="menuitem" tabindex="-1" href="#"><div style="display: inline-block; width: 20px"><img src="https://pol.is/polis-favicon_favicon.png" height="16px" id="opinion_groups_logo"/></div> Polis</a></li> --}}
 
+  {{#if selfUrl}}
+    <li role="presentation" class="divider"></li>
+    <li role="presentation">
+      <a href={{selfUrl}} role="menuitem" tabindex="-1" target="_blank">
+        <div style="display: inline-block; width: 20px"><i class="fa fa-external-link-square"></i></div>View on pol.is
+      </a>
+    </li>
+  {{/if}}
+
   {{#if showLogout}}
+    <li role="presentation" class="divider"></li>
     <li role="presentation"><a role="menuitem" tabindex="-1" href="/user/logout{{logoutDest}}">Logout</a></li>
   {{/if}}
 {{!-- {{/ifAuthenticated}} --}}

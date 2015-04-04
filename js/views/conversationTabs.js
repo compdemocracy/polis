@@ -86,6 +86,10 @@ module.exports =  Handlebones.ModelView.extend({
     c.showLogout = userObject.hasTwitter || userObject.hasFacebook || userObject.email;
     c.smallMenu = true; // don't show full name, etc as menu's button, just polis icon and caret
     c.showAnalyzeTab = this.showAnalyzeTab;
+    c.selfUrl = null;
+    if (Utils.isInIframe()) {
+      c.selfUrl = (document.location+"").replace("embed.pol.is", "pol.is");
+    }
     return c;
   },
 
