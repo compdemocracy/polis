@@ -220,7 +220,7 @@ module.exports =  Handlebones.ModelView.extend({
       // that.model.set("response", "fbdone");
       location.reload();
     }, function(err) {
-      alert("facebook error");
+      // alert("facebook error");
     });
   },
 
