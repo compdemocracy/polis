@@ -10245,6 +10245,17 @@ function buildStaticHostname(req, res) {
     }
 }
 
+function makeRedirectorTo(path) {
+  return function(req, res) {
+    var protocol = devMode ? "http://" : "https://";
+    var url = protocol + req.headers.host + path;
+    res.writeHead(302, {
+        Location: url
+    });
+    res.end();
+  };
+}
+
 // TODO cache!
 function makeFileFetcher(hostname, port, path, contentType) {
     return function(req, res) {
@@ -10413,7 +10424,7 @@ app.get(/^\/privacy$/, makeFileFetcher(hostname, port, "/privacy.html", "text/ht
 app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, port, "/canvas_setup_backup_instructions.html", "text/html"));
 app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", "text/html"));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
-app.get(/^\/about$/, makeFileFetcher(hostname, port, "/news.html", "text/html"));
+app.get(/^\/about$/, makeRedirectorTo("/billions"));
 app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, port, "/football.html", "text/html"));
 app.get(/^\/wimp$/, makeFileFetcher(hostname, port, "/wimp.html", "text/html"));
 app.get(/^\/edu$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
