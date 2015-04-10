@@ -4,6 +4,7 @@ var CommentFormSeedView = require("../views/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentsCollection = require("../collections/comments");
 var ConversationConfigView = require("../views/conversationConfigView");
+var ConversationStatsView = require("../views/conversationStatsView");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
@@ -285,7 +286,11 @@ module.exports =  PolisModelView.extend({
       model: this.model
     }));
 
-
+    this.conversationStatsView = this.addChild(new ConversationStatsView({
+      model: new Backbone.Model({
+        conversation_id: conversation_id
+      })
+    }));
 
 
     this.commentsByMe = new CommentsCollection({
