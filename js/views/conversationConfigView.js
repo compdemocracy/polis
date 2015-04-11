@@ -2,7 +2,9 @@ var Handlebones = require("handlebones");
 var template = require('../tmpl/conversationConfig');
 var Utils = require("../util/utils");
 var Constants = require("../util/constants");
+var disappearingAlert = require("../util/polisAlert").disappearingAlert;
 var serialize = require("../util/serialize");
+
 
 module.exports =  Handlebones.ModelView.extend({
   name: "conversationConfigView",
@@ -21,11 +23,12 @@ module.exports =  Handlebones.ModelView.extend({
     	attrs.conversation_id = that.model.get("conversation_id");
       var queryString = Utils.toQueryParamString(attrs);
 	  	$.ajax({
-	  		url: "/api/v3/conversations?" + pairs,
+	  		url: "/api/v3/conversations?" + queryString,
 	  		type: "PUT",
 	  	}).then(function() {
-	  		alert("saved");
-        window.location.reload();
+	  		disappearingAlert("Saved", 500).then(function() {
+          window.location.reload();
+        });
 	  	}, function(err) {
 	  		alert("error saving");
 	  	});
