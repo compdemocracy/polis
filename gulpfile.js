@@ -709,7 +709,7 @@ function deploy(params) {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
-          'Content-Encoding': 'gzip',
+    //      'Content-Encoding': 'gzip', //causing issues, not sure why
           'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
         },
         makeUploadPath: function(file) {
@@ -727,7 +727,7 @@ function deploy(params) {
         delay: 1000,
         headers: {
           'x-amz-acl': 'public-read',
-          'Content-Encoding': 'gzip',
+    //      'Content-Encoding': 'gzip', //causing issues, not sure why
           'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
         },
         makeUploadPath: function(file) {
