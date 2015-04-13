@@ -29,6 +29,10 @@
     {{#if showLogoAndBreadCrumbInHeader}}
         <div class="HeadingA"><a href="pol.is"><img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
         </a> <a style="vertical-align: middle; font-size: 18px;"href="/s/{{context}}">/s/{{context}}</a></div>
+    {{else}}
+      {{#if showLogoInHeader}}
+        <div class="HeadingA"><img width="164px" src="https://pol.is/polis_logo_2.png" alt=""></div>
+      {{/if}}
     {{/if}}
     {{#if is_owner}}
     <div style="padding: 10px 0px 20px 0px">
