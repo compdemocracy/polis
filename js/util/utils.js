@@ -95,6 +95,13 @@ function isInIframe() {
   return window.top != window;
 }
 
+function shouldFocusOnTextareaWhenWritePaneShown() {
+  // Not when we're embedded in an iframe.
+  //  it ends up stealing focus and causing the parent to scroll to our iframe.
+  //  (this happens where there are no comments to vote on, and we show the write tab first)
+  return !isInIframe();
+}
+
 function parseQueryParams(s) {
   if (!_.isString(s)) {
     console.warn("2839748273")
@@ -186,6 +193,7 @@ module.exports = {
     return PolisStorage.planCode() === 1000;
   },
   isInIframe: isInIframe,
+  shouldFocusOnTextareaWhenWritePaneShown: shouldFocusOnTextareaWhenWritePaneShown,
   projectComments: false,
   debugCommentProjection: false,
   projectRepfulTids: true,

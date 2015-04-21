@@ -842,7 +842,9 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("aftershow:write", function() {
       // Put the comment textarea in focus (should pop up the keyboard on mobile)
       $("#tutorialSlides").hide();
-      $("#comment_form_textarea").focus();
+      if (Utils.shouldFocusOnTextareaWhenWritePaneShown()) {
+        $("#comment_form_textarea").focus();
+      }
     });
 
     window.playback = function() {

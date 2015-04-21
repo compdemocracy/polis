@@ -6,6 +6,7 @@ var CommentView = require("../views/commentView");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var serialize = require("../util/serialize");
+var Utils = require("../util/utils");
 
 var CHARACTER_LIMIT = constants.CHARACTER_LIMIT;
 
@@ -32,6 +33,7 @@ module.exports = Handlebones.ModelView.extend({
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx = _.extend(ctx, this, this.model&&this.model.attributes);
     ctx.is_active = this.parent.model.get("is_active");
+    ctx.shouldAutofocusOnTextarea = Utils.shouldFocusOnTextareaWhenWritePaneShown();
     return ctx;
   },
   textChange: function() {
