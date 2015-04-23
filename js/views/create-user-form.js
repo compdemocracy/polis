@@ -173,6 +173,10 @@ function getInfo() {
         if (zinvite) {
           attrs.zinvite = zinvite;
         }
+      var encodedParams = that.model.get('encodedParams');
+      if (encodedParams) {
+        attrs.encodedParams = encodedParams;
+      }
       if (!attrs.email || !/.@./.exec(attrs.email)) {
         return that.onFail("Email is missing \"@\"");
       }

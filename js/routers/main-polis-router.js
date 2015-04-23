@@ -251,7 +251,7 @@ var polisRouter = Backbone.Router.extend({
     this.r("homepage", "homepageView");
     this.r(/^conversation\/create(\/ep1_[0-9A-Za-z]+)?/, "createConversation");
     this.r(/^hk\/new\/?$/, "hkNew");
-    this.r("user/create", "createUser");
+    this.r("user/create(/:params)", "createUser");
     this.r("user/login", "login");
     this.r(/^user\/logout(\/.+)/, "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
@@ -1138,16 +1138,22 @@ var polisRouter = Backbone.Router.extend({
     });
     return dfd.promise();
   },
-  redirect: function(path) {
-    document.location = document.location.protocol + "//" + document.location.host + path + (encodedParams ? ("/"+encodedParams): "");
+  redirect: function(path, ignoreEncodedParams) {
+    var ep = (encodedParams ? ("/"+encodedParams): "");
+    if (ignoreEncodedParams) {
+      ep = "";
+    }
+    document.location = document.location.protocol + "//" + document.location.host + path + ep;
   },
-  createUser: function(){
+  createUser: function(params){
     var that = this;
-    this.doLogin(true).done(function() {
+    var optionalEncodedParams = encodedParams;
+    this.doLogin(true, optionalEncodedParams).done(function() {
     // this.doCreateUser().done(function() {
 
+
         // trash the JS context, don't leave password sitting around
-        that.redirect("/inbox");
+        that.redirect("/inbox", true);
 
       // that.inbox();
     });
@@ -1189,11 +1195,12 @@ var polisRouter = Backbone.Router.extend({
     var view = new PasswordResetInitView();
     RootView.getInstance().setView(view );
   },
-  doLogin: function(create) {
+  doLogin: function(create, optionalEncodedParams) {
     var dfd = $.Deferred();
     var gatekeeperView = new CreateUserForm({
       model: new Backbone.Model({
-        create: create
+        create: create,
+        encodedParams: optionalEncodedParams
       })
     });
     gatekeeperView.on("authenticated", dfd.resolve);
