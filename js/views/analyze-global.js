@@ -203,7 +203,8 @@ module.exports = Handlebones.View.extend({
   },
   
   renderWithCarousel: function() {
-    
+    var carouselPrevDisabled = true;
+    var carouselNextDisabled = false;
     this.sortAgree();
 
     var that = this;
@@ -393,15 +394,20 @@ module.exports = Handlebones.View.extend({
 
                   // <div id="carouselNext">next</div>")
 
+                  $("#majorityCarouselPrev").css("opacity", .5);
 
                   $("#majorityCarouselNext").on("click", function(e) {
-                    var owl = $("#smallWindow2").data('owlCarousel');
-                    owl.next();
+                    if (!carouselNextDisabled) {
+                      var owl = $("#smallWindow2").data('owlCarousel');
+                      owl.next();
+                    }
                   });
 
                   $("#majorityCarouselPrev").on("click", function(e) {
-                    var owl = $("#smallWindow2").data('owlCarousel');
-                    owl.prev();
+                    if (!carouselPrevDisabled) {
+                      var owl = $("#smallWindow2").data('owlCarousel');
+                      owl.prev();
+                    }
                   });
                 }
 
@@ -414,6 +420,20 @@ module.exports = Handlebones.View.extend({
             },
              afterMove: (function() {return function() {
                 var tid = indexToTid[this.currentItem];
+
+                $("#majorityCarouselNext").css("opacity", 1);
+                $("#majorityCarouselPrev").css("opacity", 1);
+                carouselPrevDisabled = false;
+                carouselNextDisabled = false;
+                if (this.currentItem === 0) {
+                  $("#majorityCarouselPrev").css("opacity", .5);
+                  carouselPrevDisabled = true;
+                }
+                if (this.currentItem >= (items.length - 1)) {
+                  $("#majorityCarouselNext").css("opacity", .5);
+                  carouselNextDisabled = true;
+                }
+
                 setTimeout(function() {
                     eb.trigger(eb.commentSelected, tid);
                 }, 200);
