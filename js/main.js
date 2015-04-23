@@ -206,7 +206,7 @@ Handlebars.registerHelper('createConversationHref', function(arg0, options) {
   return "/conversation/create" + (encodedParams ? ("/" + encodedParams) : "");
 });
 Handlebars.registerHelper('whatIsPolisHref', function(arg0, options) {
-  return "/billions";
+  return "/about";
 });
 
 Handlebars.registerHelper('inboxHref', function(arg0, options) {
