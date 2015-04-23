@@ -4708,6 +4708,7 @@ app.post("/api/v3/auth/new",
     want('email', getOptionalStringLimitLength(999), assignToP),
     want('hname', getOptionalStringLimitLength(999), assignToP),
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
+    want('encodedParams', getOptionalStringLimitLength(9999), assignToP), // TODO_SECURITY we need to add an additional key param to ensure this is secure. we don't want anyone adding themselves to other people's site_id groups.
     want('zinvite', getOptionalStringLimitLength(999), assignToP),
     want('organization', getOptionalStringLimitLength(999), assignToP),
     want('gatekeeperTosPrivacy', getBool, assignToP),
@@ -4732,6 +4733,17 @@ function(req, res) {
     var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
     var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
+    var site_id = void 0;
+    if (req.p.encodedParams) {
+        var decodedParams = decodeParams(req.p.encodedParams);
+        if (decodedParams.site_id) {
+            // NOTE: we could have just allowed site_id to be passed as a normal param, but then we'd need to think about securing that with some other token sooner.
+            // I think we can get by with this obscure scheme for a bit.
+            // TODO_SECURITY add the extra token associated with the site_id owner.
+            site_id = decodedParams.site_id;
+        }
+    }
+
     var shouldAddToIntercom = true;
     if (req.p.lti_user_id) {
         shouldAddToIntercom = false;
@@ -4755,11 +4767,14 @@ function(req, res) {
             generateHashedPassword(password, function(err, hashedPassword) {
                 if (err) { fail(res, 500, "polis_err_generating_hash", err); return; }
                     var query = "insert into users " +
-                        "(email, hname, zinvite, oinvite, is_owner) VALUES "+
-                        "($1, $2, $3, $4, $5) "+
+                        "(email, hname, zinvite, oinvite, is_owner" + (site_id? ", site_id":"")+") VALUES "+ // TODO use sql query builder
+                        "($1, $2, $3, $4, $5"+ (site_id?", $6":"")+") "+ // TODO use sql query builder
                         "returning uid;";
                     var vals = 
                         [email, hname, zinvite||null, oinvite||null, true];
+                    if (site_id) {
+                        vals.push(site_id); // TODO use sql query builder
+                    }
 
                     pgQuery(query, vals, function(err, result) {
                         if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
@@ -7361,11 +7376,34 @@ function getConversations(req, res) {
   });
 }
 
+function decodeParams(encodedStringifiedJson) {
+    if (!encodedStringifiedJson.match(/^\/?ep1_/)) {
+      throw new Error("wrong encoded params prefix");
+    }
+    if (encodedStringifiedJson[0] === "/") {
+      encodedStringifiedJson = encodedStringifiedJson.slice(5);
+    } else {
+      encodedStringifiedJson = encodedStringifiedJson.slice(4);
+    }
+    var stringifiedJson = hexToStr(encodedStringifiedJson);
+    var o = JSON.parse(stringifiedJson);
+    return o;
+}
+
 function encodeParams(o) {
     var stringifiedJson = JSON.stringify(o);
     var encoded = "ep1_" + strToHex(stringifiedJson);
     return encoded;
 }
+// TODO_SECURITY needs to require auth of the site_id owner
+app.get('/api/v3/encoded_site_id_create_user_url',
+    moveToBody,
+    need('site_id', getStringLimitLength(1, 100), assignToP),
+function(req, res) {
+    res.send("https://pol.is/user/create/" + encodeParams({
+        site_id: req.p.site_id,
+    }));
+});
 
 app.get('/api/v3/enterprise_deal_url',
     moveToBody,
