@@ -179,6 +179,9 @@ function getInfo() {
       if (!attrs.password || attrs.password.length < 8) {
         return that.onFail("Password must be 8 or more characters.");
       }
+      if (!attrs.gatekeeperTosPrivacy) {
+        return that.onFail("Please check the box to indicate you agree to the terms and privacy policy.");
+      }
       $.ajax({
         url: urlPrefix + "api/v3/auth/new",
         type: "POST",
