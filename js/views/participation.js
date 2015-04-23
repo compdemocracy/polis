@@ -164,6 +164,8 @@ module.exports =  ConversationView.extend({
     if (/^ *$/.test(ctx.topic) || _.isNull(ctx.topic)) {
       ctx.topic = void 0;
     }
+    
+    ctx.useBannerHeader = true;
     // ctx.showLogoAndBreadCrumbInHeader = ctx.context && !Utils.isInIframe();
     ctx.showLogoAndBreadCrumbInHeader = false;
     ctx.showLogoInHeader = !Utils.isInIframe();
@@ -172,7 +174,6 @@ module.exports =  ConversationView.extend({
     ctx.showLogoInFooter = false;
     
     ctx.no_vis = ctx.vis_type === 0;
-
     return ctx;
   },
 

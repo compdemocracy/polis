@@ -13,7 +13,13 @@
   {{/if}}
 {{/ifTrial}}
  --}}
+
+{{#if useBannerHeader}}
+  {{> headerWhatIsPolis}}
+{{/if}}
+
 <section class="custom_container_for_large_screens" style="margin-bottom: 0px; margin-top:10px"> 
+
 
 <div class="row ">
   <div class="
@@ -26,14 +32,18 @@
   style="padding-left: 5px; padding-right: 5px"
   > {{! fake container}}
     <div class="col-sm-8 col-md-7 conversationViewHeadline" >
-    {{#if showLogoAndBreadCrumbInHeader}}
-        <div class="HeadingA"><a href="pol.is"><img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
-        </a> <a style="vertical-align: middle; font-size: 18px;"href="/s/{{context}}">/s/{{context}}</a></div>
-    {{else}}
-      {{#if showLogoInHeader}}
-        <div class="HeadingA"><img width="164px" src="https://pol.is/polis_logo_2.png" alt=""></div>
+
+    {{#unless useBannerHeader}}
+      {{#if showLogoAndBreadCrumbInHeader}}
+          <div class="HeadingA"><a href="pol.is"><img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
+          </a> <a style="vertical-align: middle; font-size: 18px;"href="/s/{{context}}">/s/{{context}}</a></div>
+      {{else}}
+        {{#if showLogoInHeader}}
+          <div class="HeadingA"><img width="164px" src="https://pol.is/polis_logo_2.png" alt=""></div>
+        {{/if}}
       {{/if}}
-    {{/if}}
+    {{/unless}}
+    
     {{#if is_owner}}
     <div style="padding: 10px 0px 20px 0px">
         <a href="share{{url_name}}" class="Btn Btn-alt" ><i class="fa fa-link"></i>&nbsp;SHARE</a>

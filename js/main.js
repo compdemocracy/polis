@@ -29,6 +29,7 @@ var popoverEach = require("./util/popoverEach");
 
 // register partials
 var HeaderPartial = require("./tmpl/header");
+var HeaderWhatisPolisPartial = require("./tmpl/headerWhatIsPolis");
 var BannerPartial = require("./tmpl/banner");
 var BannerParticipantPaysPartial = require("./tmpl/banner_pp");
 var TrialRemainingStatementPartial = require("./tmpl/trialRemainingStatement");
@@ -204,6 +205,9 @@ Handlebars.registerHelper('settings_href', function(arg0, options) {
 Handlebars.registerHelper('createConversationHref', function(arg0, options) {
   return "/conversation/create" + (encodedParams ? ("/" + encodedParams) : "");
 });
+Handlebars.registerHelper('whatIsPolisHref', function(arg0, options) {
+  return "/billions";
+});
 
 Handlebars.registerHelper('inboxHref', function(arg0, options) {
   return "/inbox" + (encodedParams ? ("/" + encodedParams) : "");
@@ -266,6 +270,7 @@ Handlebars.registerHelper('linkExternal', function(text, url) {
 // Partials
 Handlebars.registerPartial("polisLogo", PolisLogoPartial);
 Handlebars.registerPartial("header", HeaderPartial);
+Handlebars.registerPartial("headerWhatIsPolis", HeaderWhatisPolisPartial);
 Handlebars.registerPartial("banner", BannerPartial);
 Handlebars.registerPartial("banner_pp", BannerParticipantPaysPartial);
 Handlebars.registerPartial("trialRemainingStatement", TrialRemainingStatementPartial);
