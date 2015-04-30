@@ -8070,13 +8070,18 @@ function getSocialParticipants(zid, uid, limit, mod) {
             "union  " +
             "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
     "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
+    "all_fb_users as (select p.uid, 9 as priority from p inner join facebook_users on facebook_users.uid = p.uid where p.mod >= ($4)), " +
     "self as (select ($2) as uid, 1000 as priority), " +
     "pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority " +
         "from ( " +
             "select * from self " +
             "union  " +
             "select * from all_friends " +
-            "union select * from twitter_ptpts) as prioritized_ptpts " +
+            "union " +
+            "select * from twitter_ptpts " +
+            "union " +
+            "select * from all_fb_users " +
+            ") as prioritized_ptpts " +
         "inner join p on prioritized_ptpts.uid = p.uid " +
         "group by prioritized_ptpts.uid order by priority desc, prioritized_ptpts.uid asc), " +
 
@@ -8536,10 +8541,10 @@ function(req, res) {
             if (x.twitter) {
                 x.twitter.profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + x.twitter.twitter_user_id;
             }
-            // don't include FB info to non-friends
-            if (!x.is_fb_friend && !x.isSelf) {
-                delete x.facebook;
-            }
+            // // don't include FB info to non-friends
+            // if (!x.is_fb_friend && !x.isSelf) {
+            //     delete x.facebook;
+            // }
             return x;
         });
 
