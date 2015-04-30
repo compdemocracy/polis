@@ -165,7 +165,7 @@ module.exports =  ConversationView.extend({
       ctx.topic = void 0;
     }
     
-    ctx.useBannerHeader = true;
+    ctx.useBannerHeader = !Utils.isInIframe();
     // ctx.showLogoAndBreadCrumbInHeader = ctx.context && !Utils.isInIframe();
     ctx.showLogoAndBreadCrumbInHeader = false;
     ctx.showLogoInHeader = !Utils.isInIframe();
