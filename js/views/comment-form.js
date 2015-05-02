@@ -1,3 +1,4 @@
+var autosize = require("autosize");
 var constants = require("../util/constants");
 var View = require("handlebones").View;
 var template = require("../tmpl/comment-form");
@@ -177,5 +178,12 @@ module.exports = Handlebones.ModelView.extend({
     this.commentsByMeView = this.addChild(new CommentsByMeView({
       collection: options.collection
     }));
+
+    this.listenTo(this, "render", function(){
+      setTimeout(function() {
+        autosize($("#comment_form_textarea"));
+      },100);
+    });
+
   },
 });
