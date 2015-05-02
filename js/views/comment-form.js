@@ -52,20 +52,20 @@ module.exports = Handlebones.ModelView.extend({
       this.buttonActive = false;
     } else if (remaining > 0) {
       txt = "+ " + remaining;
-      this.$("#commentCharCount").css("color", "black");
+      this.$("#commentCharCount").css("color", "gray");
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
       this.$("#commentTooLongAlert").hide();
       this.buttonActive = true;
     } else {
       txt = remaining;
-      this.$("#commentCharCount").css("color", "black");
+      this.$("#commentCharCount").css("color", "gray");
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
       this.$("#commentTooLongAlert").hide();
       this.buttonActive = true;
     }
-    this.$("#commentCharCount").text(txt + " characters remaining");
+    this.$("#commentCharCount").text(txt);
     if (formText.indexOf("?") >= 0) {
       this.$("#commentNotQuestionAlert").show();
     } else {

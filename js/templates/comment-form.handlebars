@@ -16,18 +16,29 @@
 
    {{#if is_active}}
   <div class="flexbox align-items-flex-end">
-
+<span class="flex-grow-2">
       <textarea
-        class="form-control comment_form_textarea_width flex-grow-2"
+        class="form-control comment_form_textarea_width"
         id="comment_form_textarea"
         rows="1"
-        style="width: auto; font-size: 16px"
+        style="width: 100%; font-size: 16px"
         name="txt"
         type="text"
         maxlength="400"
         {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
         {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
       ></textarea>
+    <span id="commentCharCount" style='
+      color: gray;
+      font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+      position: relative;
+      top: -23px;
+      right: 5px;
+      height: 0px;
+      float: right;'>{{! +200 }}</span>
+ </span>
+
+
 
       <button
         class="Btn Btn-primary"
@@ -38,24 +49,6 @@
         Comment
       </button>
   </div>
-
-
-      <div id="commentCharCount" class="alert-info"style='
-    display: block;
-    padding: 5px;
-    margin-bottom: 0px;
-    margin-top: 10px;
-    border: 1px solid transparent;
-    border-radius: 4px;
-    background-color: lightgreen;
-        color: black;
-        font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
-        {{!-- position: relative; --}}
-        {{!-- top: -23px; --}}
-        {{!-- right: 50px; --}}
-        {{!-- height: 0px; --}}
-        {{!-- float: right; --}}
-        '>{{! +200 }}</div>
 
 
    <div class="alert-warning" style="
