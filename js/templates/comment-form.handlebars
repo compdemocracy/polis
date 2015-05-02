@@ -9,7 +9,7 @@
   style="
     margin-left:10px;
     margin-right:10px;
-    margin-bottom: 20px; {{! prevent button from going over the edge of the pane }}
+   {{!--  margin-bottom: 20px;  --}}{{! prevent button from going over the edge of the pane }}
     padding-bottom: 1px; {{! needed to prevent stripe of background_content color showing on mobile }}
     ">
 	<div class="form-group" style="position:relative">
@@ -51,9 +51,9 @@
   </div>
 
 
-   <div class="alert-warning" style="
+   <div id="one_idea_per_comment_message" class="alert-warning" style="
     font-family: brandon-grotesque;
-    display: block;
+    display: none;
     padding: 5px;
     margin-bottom: 0px;
     margin-top: 10px;

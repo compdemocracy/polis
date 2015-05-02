@@ -37,6 +37,22 @@ module.exports = Handlebones.ModelView.extend({
     ctx.shouldAutofocusOnTextarea = Utils.shouldFocusOnTextareaWhenWritePaneShown();
     return ctx;
   },
+  updateOneIdeaPerCommentMessage: function(formText) {
+    // TODO I18N
+    // Tests to see if there is non-punctuation that follows the end of a sentence.
+    if ((formText||"").match(/[\?\.\!].*[a-zA-Z0-9]+/)) {
+      this.$("#one_idea_per_comment_message").show();
+    } else {
+      this.$("#one_idea_per_comment_message").hide();
+    }
+  },
+  updateCommentNotQuestionAlert: function(formText) {
+    if (formText.indexOf("?") >= 0) {
+      this.$("#commentNotQuestionAlert").show();
+    } else {
+      this.$("#commentNotQuestionAlert").hide();
+    }
+  },
   textChange: function() {
     var formText = $(arguments[0].target).val();
     var len = formText.length;
@@ -66,11 +82,8 @@ module.exports = Handlebones.ModelView.extend({
       this.buttonActive = true;
     }
     this.$("#commentCharCount").text(txt);
-    if (formText.indexOf("?") >= 0) {
-      this.$("#commentNotQuestionAlert").show();
-    } else {
-      this.$("#commentNotQuestionAlert").hide();
-    }
+    this.updateOneIdeaPerCommentMessage(formText);
+    this.updateCommentNotQuestionAlert(formText);
     eb.trigger(eb.interacted);
   },
   events: {
