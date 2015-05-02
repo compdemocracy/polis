@@ -96,23 +96,6 @@
 <div id="controlTabs" class="row"> {{! may get no-gutter class on xs }}
 <div class="
 clickDeselectsHull
-      col-xs-12
-      col-xs-offset-0
-      {{#if vis_type}}col-sm-offset-0{{else}}col-sm-offset-3{{/if}}
-      col-sm-6
-      {{#if vis_type}}col-md-offset-0{{else}}col-md-offset-4{{/if}}
-      {{#if vis_type}}col-md-5{{else}}col-md-4{{/if}}
-      col-lg-4
-"
-style="padding-left: 5px; padding-right: 5px"
-> {{! fake container}}
-{{view commentForm}}
-</div>
-
-
-<div id="controlTabs" class="row"> {{! may get no-gutter class on xs }}
-<div class="
-clickDeselectsHull
 col-xs-offset-0 col-xs-12
 col-sm-offset-0 col-xs-12
 col-md-offset-0 col-md-12
@@ -137,6 +120,8 @@ style="padding-left: 5px; padding-right: 5px"
     {{/ifIos}}
     {{/ifEmbedded}}
     > 
+
+    {{view commentForm}}
 
     <div class="tabbable"
     > {{! Only required for left/right tabs }}
