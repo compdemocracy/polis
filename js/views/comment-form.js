@@ -65,7 +65,7 @@ module.exports = Handlebones.ModelView.extend({
       this.$("#commentTooLongAlert").hide();
       this.buttonActive = true;
     }
-    this.$("#commentCharCount").text(txt);
+    this.$("#commentCharCount").text(txt + " characters remaining");
     if (formText.indexOf("?") >= 0) {
       this.$("#commentNotQuestionAlert").show();
     } else {

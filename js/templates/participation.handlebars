@@ -100,6 +100,20 @@ col-lg-offset-0 col-lg-12
 "
 style="padding-left: 5px; padding-right: 5px"
 > {{! fake container}}
+{{view commentForm}}
+</div>
+
+
+<div id="controlTabs" class="row"> {{! may get no-gutter class on xs }}
+<div class="
+clickDeselectsHull
+col-xs-offset-0 col-xs-12
+col-sm-offset-0 col-xs-12
+col-md-offset-0 col-md-12
+col-lg-offset-0 col-lg-12
+"
+style="padding-left: 5px; padding-right: 5px"
+> {{! fake container}}
   {{! overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. }}
 
   <div {{! column }}
@@ -181,7 +195,7 @@ style="padding-left: 5px; padding-right: 5px"
           class="tab-pane write-pane"
           id="commentForm"
           >
-          {{view commentForm}}
+          {{!-- {{view commentForm}} --}}
         </div>
       </div> {{! /tab content }}
     </div> {{! /tabbable }}

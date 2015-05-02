@@ -15,7 +15,50 @@
 	<div class="form-group" style="position:relative">
 
    {{#if is_active}}
-   <div class="alert-info" style="
+  <div class="flexbox align-items-flex-end">
+
+      <textarea
+        class="form-control comment_form_textarea_width flex-grow-2"
+        id="comment_form_textarea"
+        rows="1"
+        style="width: auto; font-size: 16px"
+        name="txt"
+        type="text"
+        maxlength="400"
+        {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
+        {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
+      ></textarea>
+
+      <button
+        class="Btn Btn-primary"
+        id="comment_button"
+        style="font-size: 14px; margin-left: 5px; padding-right:10px; padding-left:10px;{{!-- margin-top: 10px --}}"
+        type="submit"
+        >
+        Comment
+      </button>
+  </div>
+
+
+      <div id="commentCharCount" class="alert-info"style='
+    display: block;
+    padding: 5px;
+    margin-bottom: 0px;
+    margin-top: 10px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background-color: lightgreen;
+        color: black;
+        font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+        {{!-- position: relative; --}}
+        {{!-- top: -23px; --}}
+        {{!-- right: 50px; --}}
+        {{!-- height: 0px; --}}
+        {{!-- float: right; --}}
+        '>{{! +200 }}</div>
+
+
+   <div class="alert-warning" style="
     font-family: brandon-grotesque;
     display: block;
     padding: 5px;
@@ -23,27 +66,8 @@
     margin-top: 10px;
     border: 1px solid transparent;
     border-radius: 4px;
-    ">Submit your opinions here. Write one comment per idea.{{!--  <a href="">... more info</a> --}}</div>
-		<textarea
-      class="form-control comment_form_textarea_width"
-      id="comment_form_textarea"
-      rows="4"
-      style=" font-size: 16px"
-      name="txt"
-      type="text"
-      maxlength="400"
-      {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
-      {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
-    ></textarea>
+    ">Write one comment per idea.{{!--  <a href="">... more info</a> --}}</div>
 
-    <div id="commentCharCount" style='
-      color: black;
-      font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
-      position: relative;
-      top: -23px;
-      right: 5px;
-      height: 0px;
-      float: right;'>{{! +200 }}</div>
 
     <div id="commentNotQuestionAlert" class="alert alert-warning" style="font-family: brandon-grotesque; display:none; padding: 5px; margin-top:10px; margin-bottom:5px;" role="alert"><p> <i>Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.</i></p></div>          
     <table width="100%">
@@ -57,14 +81,7 @@
           {{/if}} --}}
         </td>
         <td style="text-align: right; vertical-align: top">
-          <button
-            class="Btn Btn-primary"
-            id="comment_button"
-            style="margin-top: 10px"
-            type="submit"
-            >
-            Post
-          </button>
+          
         </td>
       </tr>
     </table>
@@ -78,7 +95,7 @@
 </form>
 
   {{! Using span to prevent this from eating up space when empty, which causes a gray bar to appear on sm layouts }}
-  <span style="margin-top: 45px; margin-left: 8px;">
+{{!--   <span style="margin-top: 45px; margin-left: 8px;">
     {{view commentsByMeView}}
-  </span>
+  </span> --}}
 </div>
