@@ -38,6 +38,7 @@ var h;
 var w;
 var participantCount = 1;
 var nodes = [];
+var links = [];
 var clusters = [];
 var hulls = []; // NOTE hulls will be the same length as clusters
 var centroids = [];
@@ -398,7 +399,6 @@ var useForce = !isIE8;
 if (useForce) {
     force = d3.layout.force()
         .nodes(nodes)
-        .links([])
         .friction(0.9) // more like viscosity [0,1], defaults to 0.9
         .gravity(0)
         .charge(function(d) {
@@ -1224,6 +1224,9 @@ function getInsetTarget(d) {
 function isSummaryBucket(d) {
     return d.isSummaryBucket;
 }
+function isSummaryBucketBid(s) {
+    return /^bigBucketBid/.exec(s);
+}
 
 function chooseCircleRadius(d) {
     if (isSummaryBucket(d)) {
@@ -1296,6 +1299,39 @@ function getParticipantCount(nodes) {
     }
     return count;
 }
+
+
+function makeLinks(clusters, nodes) {
+    var newLinks = [];
+    _.each(clusters, function(cluster) {
+        var summaryBucketBid = _.find(cluster, isSummaryBucketBid);
+        var summaryBucketNode = _.find(nodes, function(n) {
+            return n && n.bid === summaryBucketBid;
+        });
+        _.each(nodes, function(node) {
+            if (isParticipantOfInterest(node)) {
+                // nodeIndex = _.find(nodes, function(n) {
+                //     return n && n.bid === node.bid;
+                // });
+                newLinks.push({
+                    source: summaryBucketNode,
+                    target: node
+                });
+            }
+        });
+    });
+    return newLinks;
+}
+
+function toParentMap(links) {
+    var o = {};
+    for (var i = 0; i < links.length; i++) {
+        // participantNode.bid -> anonblob
+        o[links[i].target.bid] = links[i].source;
+    }
+    return o;
+}
+
 
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
@@ -1465,6 +1501,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     });
 
 
+      links = makeLinks(clusters, nodes);
+      var parentMap = toParentMap(links);
+      nodes.forEach(function(node) {
+        node.parent = parentMap[node.bid];
+      });
       if (force) {
         force.nodes(nodes, key).start();
       } else if (isIE8) {
@@ -1616,6 +1657,14 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   // .style("stroke", colorPushOutline)
       //   // .style("stroke-width", 1)
       //   ;
+      var line = g.append("line")
+        .style("stroke", "red")
+        .classed("edge", true)
+        .attr("x1", 0)
+        .attr("y1", 0)
+        .attr("x2", 0)
+        .attr("y2", 0);
+
       var ptptoiImageZoomFactor = 1;
       var picEnter = g.append("image")
       picEnter
@@ -2134,6 +2183,21 @@ function doUpdateNodes() {
         var grayHaloUpdate = update.selectAll(".grayHalo").data(nodes, key)
           .style("display", chooseDisplayForGrayHalo)
           ;
+
+        var edges = update.selectAll(".edge").data(nodes, key)
+            .attr("x2", function(d) {
+                if (isParticipantOfInterest(d)) {
+                    return d.parent.x - d.x;
+                }
+                return 0;
+            })
+            .attr("y2", function(d) {
+                if (isParticipantOfInterest(d)) {
+                    return d.parent.y - d.y;
+                }
+                return 0;
+            })
+            ;
 
         if (clusterIsSelected()) {
             update.selectAll(".hideWhenGroupSelected").style("visibility", "hidden");
