@@ -5793,6 +5793,7 @@ function(req, res) {
                         setTimeout(function() {
                             updateConversationModifiedTime(zid, createdTime);
                             updateLastInteractionTimeForConversation(zid, uid);
+                            updateVoteCount(zid, pid);
                         }, 100);
                         
                         res.json({
