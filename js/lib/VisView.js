@@ -827,13 +827,13 @@ function updateNodesOnTick(e) {
             .attr("transform", chooseTransformForRoots)
             .selectAll(".edge")
                 .attr("x2", function(d) {
-                    if (isParticipantOfInterest(d)) {
+                    if (isParticipantOfInterest(d) && d.parent) {
                         return d.parent.x - d.x;
                     }
                     return 0;
                 })
                 .attr("y2", function(d) {
-                    if (isParticipantOfInterest(d)) {
+                    if (isParticipantOfInterest(d) && d.parent) {
                         return d.parent.y - d.y;
                     }
                     return 0;
@@ -2207,13 +2207,13 @@ function doUpdateNodes() {
 
         var edges = update.selectAll(".edge").data(nodes, key)
             .attr("x2", function(d) {
-                if (isParticipantOfInterest(d)) {
+                if (isParticipantOfInterest(d) && d.parent) {
                     return d.parent.x - d.x;
                 }
                 return 0;
             })
             .attr("y2", function(d) {
-                if (isParticipantOfInterest(d)) {
+                if (isParticipantOfInterest(d) && d.parent) {
                     return d.parent.y - d.y;
                 }
                 return 0;
