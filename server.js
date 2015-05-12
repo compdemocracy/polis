@@ -94,9 +94,9 @@ setInterval(function() {
     var heapTotal = mem.heapTotal;
     console.log("heapUsed: " + heapUsed);
     var start = Date.now();
-    metric("api.process.mem.heapUsed", heapUsed, start);
-    metric("api.process.mem.rss", rss, start);
-    metric("api.process.mem.heapTotal", heapTotal, start);
+    //metric("api.process.mem.heapUsed", heapUsed, start);
+    //metric("api.process.mem.rss", rss, start);
+    //metric("api.process.mem.heapTotal", heapTotal, start);
 }, 10*1000);
 
 
@@ -210,11 +210,11 @@ function emptyArray() {
 
 var domainOverride = process.env.DOMAIN_OVERRIDE || null;
 
+/*
 var metric = (function() {
     var apikey = process.env.HOSTEDGRAPHITE_APIKEY;
     return function(metricName, numberValue, optionalTimestampOverride) {
         return new Promise(function(resolve, reject) {
-
             var point = { 
                 dur: numberValue,
                 time : new Date(),
@@ -226,13 +226,11 @@ var metric = (function() {
             //     if (err) { reject(err); return; }
             //     resolve();
             // });
-
             var t = "";
             if (!_.isUndefined(optionalTimestampOverride)) {
                 optionalTimestampOverride /= 1000; // graphite wants seconds
                 t = " " + optionalTimestampOverride;
             }
-
             var message = new Buffer(apikey + "." + metricName + " " + numberValue +"\n");
             INFO(message.toString());
             var socket = dgram.createSocket("udp4");
@@ -246,11 +244,11 @@ var metric = (function() {
                 }
             });
         });
-
     };    
 }());
+*/
 
-metric("api.process.launch", 1);
+//metric("api.process.launch", 1);
 
 var errorNotifications = (function() {
     var errors = [];
@@ -1458,14 +1456,13 @@ function redirectIfApiDomain(req, res, next) {
   return next();
 }
 
+/*
 function meter(name) {
     return function (req, res, next){
         var start = Date.now();
-
         setTimeout(function() {
             metric(name + ".go", 1, start);
         }, 1);
-
         res.on('finish', function(){
           var end = Date.now();
           var duration = end - start;
@@ -1475,16 +1472,16 @@ function meter(name) {
           } else if (res.statusCode >= 400) {
             status = ".4xx";
           }
-
           setTimeout(function() {
               metric(name + status, duration, end);
           }, 1);
         });
-
         next();
     };
 }
+*/
 
+/*
 // metered promise
 function MPromise(name, f) {
     var p = new Promise(f);
@@ -1507,6 +1504,7 @@ function MPromise(name, f) {
     });
     return p;
 }
+*/
 
 
 // 2xx
@@ -1533,7 +1531,7 @@ function MPromise(name, f) {
 ////////////////////////////////////////////
 ////////////////////////////////////////////
 
-app.use(meter("api.all"));
+//app.use(meter("api.all"));
 // app.use(express.logger());
 app.use(redirectIfNotHttps);
 app.use(express.cookieParser());
@@ -1891,7 +1889,7 @@ function getPca(zid, lastVoteTimestamp) {
     // NOTE: not caching results from this query for now, think about this later.
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
     // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
-    return new MPromise("db.math.pca.get", function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
         collectionOfPcaResults.find({$and :[
             {zid: zid},
             {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
@@ -2000,7 +1998,7 @@ function(req, res) {
 var pcaResultsExistForZid = {};
 
 app.get("/api/v3/math/pca2",
-    meter("api.math.pca.get"),
+    //meter("api.math.pca.get"),
     moveToBody,
     redirectIfHasZidButNoConversationId, // TODO remove once 
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
@@ -2075,7 +2073,7 @@ function(req, res) {
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
-    return new MPromise("db.bidToPid.get", function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
         collectionOfBidToPidResults.find({$and :[
             {zid: zid},
             {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
