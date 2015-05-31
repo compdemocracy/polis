@@ -5966,8 +5966,7 @@ function(req, res) {
     });
 });
 
-
-function getNextComment(zid, pid, withoutTids) {
+function getNextCommentRandomly(zid, pid, withoutTids) {
     var params = {
         zid: zid,
         not_voted_by_pid: pid,
@@ -6136,6 +6135,11 @@ q += " LIMIT 1;";
     });  
 }
 
+function getNextComment(zid, pid, withoutTids) {
+    return getNextCommentRandomly(zid, pid, withoutTids);
+    // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids);
+}
+
 app.get("/api/v3/nextComment",
     moveToBody,
     authOptional(assignToP),
@@ -6151,7 +6155,7 @@ function(req, res) {
     //         hostclass)
     //         Along with this would be to cache in ram info about moderation status of each comment so we can filter before returning a comment.
     
-    getNextCommentPrioritizingNonPassedComments(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
+    getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
         if (c) {
             finishOne(res, c);
         } else {
@@ -6202,7 +6206,7 @@ function(req, res) {
             return addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred, createdTime);
         }
     }).then(function() {
-        return getNextCommentPrioritizingNonPassedComments(req.p.zid, req.p.pid);
+        return getNextComment(req.p.zid, req.p.pid);
     }).then(function(nextComment) {
         var result = {};
         if (nextComment) {
