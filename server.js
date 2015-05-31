@@ -1277,6 +1277,9 @@ function generateHashedPassword(password, callback) {
 }
 
 
+var zinviteCache = new SimpleCache({
+    maxSize: 1000,
+});
 
 var pidCache = new SimpleCache({
     maxSize: 9000,
@@ -2637,13 +2640,20 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
 
 function getZidForZinvite(zinvite) {
     return new Promise(function(resolve, reject) {
+
+        var cachedZid = zinviteCache.get(zinvite);
+        if (cachedZid) {
+            resolve(cachedZid);
+        }
         pgQuery("select zid from zinvites where zinvite = ($1);", [zinvite], function(err, result) {
             if (err) {
                 reject(err);
             } else if (!result || !result.rows || !result.rows[0] || !result.rows[0].zid) {
                 reject("polis_err_no_zid_for_zinvite");
             } else {
-                resolve(result.rows[0].zid);
+                var zid = result.rows[0].zid;
+                zinviteCache.set(zinvite, zid);
+                resolve(zid);
             }
         });
     });
