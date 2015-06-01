@@ -1933,10 +1933,7 @@ function getPca(zid, lastVoteTimestamp) {
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
     // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
     return new Promise(function(resolve, reject) {
-        collectionOfPcaResults.find({$and :[
-            {zid: zid},
-            {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
-            ]}, function(err, cursor) {
+        collectionOfPcaResults.find({zid: zid}, function(err, cursor) {
             if (err) {
                 reject(new Error("polis_err_get_pca_results_find"));
                 return;
@@ -1946,6 +1943,9 @@ function getPca(zid, lastVoteTimestamp) {
                     reject(new Error("polis_err_get_pca_results_find_toarray"));
                 } else if (!docs.length) {
                     INFO("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
+                    resolve(null);
+                } else if (docs[0].lastVoteTimestamp <= lastVoteTimestamp) {
+                    INFO("mathpoll related", "after cache miss, unable to find newer item", zid, lastVoteTimestamp);
                     resolve(null);
                 } else {
                     var item = docs[0];
@@ -2117,18 +2117,17 @@ function(req, res) {
 function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
     return new Promise(function(resolve, reject) {
-        collectionOfBidToPidResults.find({$and :[
-            {zid: zid},
-            {lastVoteTimestamp: {$gt: lastVoteTimestamp}},
-            ]}, function(err, cursor) {
+        collectionOfBidToPidResults.find({zid: zid}, function(err, cursor) {
             if (err) { reject(new Error("polis_err_get_pca_results_find")); return; }
             cursor.toArray( function(err, docs) {
                 if (err) { reject(new Error("polis_err_get_pca_results_find_toarray")); return; }
-                if (docs.length) {
-                    resolve(docs[0]);
-                } else {
+                if (!docs.length) {
                     // Could actually be a 404, would require more work to determine that.
                     reject(new Error("polis_err_get_pca_results_missing"));
+                } else if (docs[0].lastVoteTimestamp <= lastVoteTimestamp) {
+                    reject(new Error("polis_err_get_pca_results_not_new"));
+                } else {
+                    resolve(docs[0]);
                 }
             });
         });
