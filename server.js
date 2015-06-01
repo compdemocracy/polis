@@ -2651,20 +2651,30 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
     });
 }
 
-// TODO consider LRU cache
+var zidToConversationIdCache = new SimpleCache({
+    maxSize: 1000,
+});
 function getZinvite(zid) {
     return new Promise(function(resolve, reject) {
+        var cachedConversationId = zidToConversationIdCache.get(zid);
+        if (cachedConversationId) {
+            resolve(cachedConversationId);
+            return;
+        }
         pgQuery("select * from zinvites where zid = ($1);", [zid], function(err, result) {
             if (err) {
                 reject(err);
             } else {
-                resolve(result && result.rows && result.rows[0] && result.rows[0].zinvite || void 0);
+                var conversation_id = result && result.rows && result.rows[0] && result.rows[0].zinvite || void 0;
+                if (conversation_id) {
+                    zidToConversationIdCache.set(zid, conversation_id);
+                }
+                resolve(conversation_id);
             }
         });
     });
 }
 
-// TODO consider LRU cache
 function getZinvites(zids) {
     if (!zids.length) {
         return Promise.resolve(zids);
@@ -2673,8 +2683,21 @@ function getZinvites(zids) {
         return Number(zid); // just in case
     });
     zids = _.uniq(zids);
+
+    var uncachedZids = zids.filter(function(zid) {
+        return !zidToConversationIdCache.get(zid);
+    });
+    var zidsWithCachedConversationIds = zids.filter(function(zid) {
+        return !!zidToConversationIdCache.get(zid);
+    }).map(function(zid) {
+        return {
+            zid: zid,
+            zinvite: zidToConversationIdCache.get(zid),
+        };
+    });
+
     return new Promise(function(resolve, reject) {
-        pgQuery("select * from zinvites where zid in ("+zids.join(",")+");", [], function(err, result) {
+        pgQuery("select * from zinvites where zid in ("+uncachedZids.join(",")+");", [], function(err, result) {
             if (err) {
                 reject(err);
             } else {
@@ -2684,6 +2707,9 @@ function getZinvites(zids) {
                     var o = result.rows[i];
                     zid2conversation_id[o.zid] = o.zinvite;
                 }
+                zidsWithCachedConversationIds.forEach(function(o) {
+                    zid2conversation_id[o.zid] = o.zinvite;
+                });
                 resolve(zid2conversation_id);
             }
         });
