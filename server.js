@@ -902,9 +902,17 @@ function getInt(s) {
 }
 
 
+var conversationIdToZidCache = new SimpleCache({
+    maxSize: 1000,
+});
+
 // NOTE: currently conversation_id is stored as zinvite
 function getZidFromConversationId(conversation_id) {
     return new Promise(function(resolve, reject) {
+        var cachedZid = conversationIdToZidCache.get(conversation_id);
+        if (cachedZid) {
+            resolve(cachedZid);
+        }
         pgQuery("select zid from zinvites where zinvite = ($1);", [conversation_id], function(err, results) {
             if (err) {
                 return reject(err);
@@ -912,7 +920,9 @@ function getZidFromConversationId(conversation_id) {
                 console.error("polis_err_fetching_zid_for_conversation_id" + conversation_id);
                 return reject("polis_err_fetching_zid_for_conversation_id");
             } else {
-                return resolve(results.rows[0].zid);
+                var zid = results.rows[0].zid;
+                conversationIdToZidCache.set(conversation_id, zid);
+                return resolve(zid);
             }
         });
     });
@@ -1282,11 +1292,6 @@ function generateHashedPassword(password, callback) {
         });
     });
 }
-
-
-var zinviteCache = new SimpleCache({
-    maxSize: 1000,
-});
 
 var pidCache = new SimpleCache({
     maxSize: 9000,
@@ -2644,28 +2649,6 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
         }
     });
 }
-
-function getZidForZinvite(zinvite) {
-    return new Promise(function(resolve, reject) {
-
-        var cachedZid = zinviteCache.get(zinvite);
-        if (cachedZid) {
-            resolve(cachedZid);
-        }
-        pgQuery("select zid from zinvites where zinvite = ($1);", [zinvite], function(err, result) {
-            if (err) {
-                reject(err);
-            } else if (!result || !result.rows || !result.rows[0] || !result.rows[0].zid) {
-                reject("polis_err_no_zid_for_zinvite");
-            } else {
-                var zid = result.rows[0].zid;
-                zinviteCache.set(zinvite, zid);
-                resolve(zid);
-            }
-        });
-    });
-}
-
 
 // TODO consider LRU cache
 function getZinvite(zid) {
