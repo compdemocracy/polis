@@ -430,24 +430,25 @@ function makeSessionToken() {
 }
 
 
-// var userTokenCache = new SimpleCache({
-//     maxSize: 9000,
-// });
+var userTokenCache = new SimpleCache({
+    maxSize: 9000,
+});
 
 function getUserInfoForSessionToken(sessionToken, res, cb) {
-    // var uid = userTokenCache.get();
-    // if (uid) {
-    //     cb(null, uid);
-    //     return;
-    // }
+    var uid = userTokenCache.get();
+    if (uid) {
+        cb(null, uid);
+        return;
+    }
     pgQuery("select uid from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
         if (err) { console.error("token_fetch_error"); cb(500); return; }
         if (!results || !results.rows || !results.rows.length) {
             console.error("token_expired_or_missing");
+
             cb(403);
             return;
         }
-        // userTokenCache.set(sessionToken, uid);
+        userTokenCache.set(sessionToken, uid);
         cb(null, results.rows[0].uid);
     });
 }
