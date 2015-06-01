@@ -1301,9 +1301,9 @@ var pidCache = new SimpleCache({
 // returns a pid of -1 if it's missing
 function getPid(zid, uid, callback) {
     var cacheKey = zid + "_" + uid;
-    var pid = pidCache.get(cacheKey);
-    if (pid !== void 0) {
-        callback(null, pid);
+    var cachedPid = pidCache.get(cacheKey);
+    if (!_.isUndefined(cachedPid)) {
+        callback(null, cachedPid);
         return;
     }
     pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
@@ -1319,10 +1319,10 @@ function getPid(zid, uid, callback) {
 // returns a pid of -1 if it's missing
 function getPidPromise(zid, uid) {
     var cacheKey = zid + "_" + uid;
-    var pid = pidCache.get(cacheKey);
+    var cachedPid = pidCache.get(cacheKey);
     return new Promise(function(resolve, reject) {
-        if (!_.isUndefined(pid)) {
-            resolve(pid);
+        if (!_.isUndefined(cachedPid)) {
+            resolve(cachedPid);
             return;
         }
         pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
