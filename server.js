@@ -2696,21 +2696,26 @@ function getZinvites(zids) {
         };
     });
 
+    function makeZidToConversationIdMap(arrays) {
+        var zid2conversation_id = {};
+        arrays.forEach(function(a) {
+            a.forEach(function(o) {
+                zid2conversation_id[o.zid] = o.zinvite;
+            });
+        });
+        return zid2conversation_id;
+    }
+
     return new Promise(function(resolve, reject) {
+        if (uncachedZids.length === 0) {
+            resolve(makeZidToConversationIdMap([zidsWithCachedConversationIds]));
+            return;
+        }
         pgQuery("select * from zinvites where zid in ("+uncachedZids.join(",")+");", [], function(err, result) {
             if (err) {
                 reject(err);
             } else {
-                var zid2conversation_id = {};
-                var len = result.rows.length;
-                for (var i = 0; i < len; i++) {
-                    var o = result.rows[i];
-                    zid2conversation_id[o.zid] = o.zinvite;
-                }
-                zidsWithCachedConversationIds.forEach(function(o) {
-                    zid2conversation_id[o.zid] = o.zinvite;
-                });
-                resolve(zid2conversation_id);
+                resolve(makeZidToConversationIdMap([result.rows, zidsWithCachedConversationIds]));
             }
         });
     });
@@ -2769,7 +2774,7 @@ function finishArray(res, a) {
         }
         res.status(200).json(items);
     }).catch(function(err) {
-        fail(res, 500, "polis_err_finishing_response", err);
+        fail(res, 500, "polis_err_finishing_response2", err);
     });
 }
 
