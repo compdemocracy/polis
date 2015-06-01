@@ -912,6 +912,7 @@ function getZidFromConversationId(conversation_id) {
         var cachedZid = conversationIdToZidCache.get(conversation_id);
         if (cachedZid) {
             resolve(cachedZid);
+            return;
         }
         pgQuery("select zid from zinvites where zinvite = ($1);", [conversation_id], function(err, results) {
             if (err) {
