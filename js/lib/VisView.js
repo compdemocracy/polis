@@ -2242,9 +2242,9 @@ function doUpdateNodes() {
                     }
                     d._txtType = "c";
                 } else {
-                    var ptptois = getParticipantsOfInterestForGid(d.gid);
-                    var prefix = ptptois.length ? "+" : "";
-                    txt = prefix + d.clusterCount - d.ptptois.length;
+                    // var ptptois = getParticipantsOfInterestForGid(d.gid);
+                    var prefix = (d.ptptois.length > 0 ? "+" : "");
+                    txt = prefix + (d.clusterCount - d.ptptois.length);
                 }
                 d._txt = txt;
                 return txt;
