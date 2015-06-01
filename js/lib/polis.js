@@ -2173,7 +2173,7 @@ function clientSideBaseCluster(things, N) {
           });
       });
       pcaPromise.always(function() {
-          setTimeout(poll, 5000); // could compute remaining part of interval.
+          setTimeout(poll, 20*1000); // could compute remaining part of interval.
       });
     }
 
