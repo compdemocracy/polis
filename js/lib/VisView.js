@@ -2242,9 +2242,13 @@ function doUpdateNodes() {
                     }
                     d._txtType = "c";
                 } else {
-                    // var ptptois = getParticipantsOfInterestForGid(d.gid);
-                    var prefix = (d.ptptois.length > 0 ? "+" : "");
-                    txt = prefix + (d.clusterCount - d.ptptois.length);
+                    var prefix = "";
+                    var count = d.clusterCount;
+                    if (d.ptptois && d.ptptois.length) {
+                        prefix = "+";
+                        count -= d.ptptois.length;
+                    }
+                    txt = prefix + count;
                 }
                 d._txt = txt;
                 return txt;
