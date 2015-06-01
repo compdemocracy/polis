@@ -1801,7 +1801,8 @@ function clientSideBaseCluster(things, N) {
 
     function getFamousVotes() {
         return polisGet(votesFamousPath, {
-            conversation_id: conversation_id
+            conversation_id: conversation_id,
+            lastVoteTimestamp: lastServerTokenForPCA
         }).then(function(x) {
             x = x || {};
             // assign fake bids for these projected participants
