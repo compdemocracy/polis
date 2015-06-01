@@ -418,7 +418,7 @@ module.exports = Handlebones.View.extend({
 
     this.participants = this.addChild(new AnalyeGroupParticipantsView({
       getParticipantsOfInterestForGid: options.getParticipantsOfInterestForGid,
-      getGroup: options.getGroup,
+      getGroupInfo: options.getGroupInfo,
     }));
 
     var getTidsForGroup = options.getTidsForGroup;

@@ -39,6 +39,7 @@ var w;
 var participantCount = 1;
 var nodes = [];
 var clusters = [];
+var clusterParticipantTotals = [];
 var hulls = []; // NOTE hulls will be the same length as clusters
 var centroids = [];
 var visualization;
@@ -1348,6 +1349,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     clusters = _.map(gids, function(gid) {
         return newClusters[gid].members;
     });
+    clusterParticipantTotals = _.map(gids, function(gid) {
+        return newClusters[gid]["n-members"];
+    });
 
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
@@ -2240,7 +2244,7 @@ function doUpdateNodes() {
                 } else {
                     var ptptois = getParticipantsOfInterestForGid(d.gid);
                     var prefix = ptptois.length ? "+" : "";
-                    txt = prefix + d.count;
+                    txt = prefix + d.clusterCount - d.ptptois.length;
                 }
                 d._txt = txt;
                 return txt;
