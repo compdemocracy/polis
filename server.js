@@ -8297,11 +8297,124 @@ function updateVoteCount(zid, pid) {
 // }
 // setTimeout(dbMigrationAddVoteCount, 9999);
 
+
+
+// zid_pid => "lastVoteTimestamp:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
+// TODO consider "p2a24a2dadadu15" format
+var votesForZidPidCache = new SimpleCache({
+    maxSize: 9000,
+});
+
+function getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp) {
+    var key = zid + "_" + pid;
+    var cachedVotes = votesForZidPidCache.get(key);
+    if (cachedVotes) {
+        var pair = cachedVotes.split(":");
+        var cachedTime = Number(pair[0]);
+        var votes = pair[1];
+        if (cachedTime >= lastVoteTimestamp) {
+            return votes;
+        }
+    }
+    return null;
+}
+function cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes) {
+    var key = zid + "_" + pid;
+    var val = lastVoteTimestamp + ":" + votes;
+    votesForZidPidCache.set(key, val);
+}
+
+
+// returns {pid -> "adadddadpupuuuuuuuu"}
+function getVotesForZidPidsWithTimestampCheck(zid, pids, lastVoteTimestamp) {
+    var cachedVotes = pids.map(function(pid) {
+        return {
+            pid: pid,
+            votes: getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp)
+        };
+    });
+    var uncachedPids = cachedVotes.filter(function(o) {
+        return !o.votes;
+    }).map(function(o) {
+        return o.pid;
+    });
+    cachedVotes = cachedVotes.filter(function(o) {
+        return !!o.votes;
+    });
+
+    function toObj(items) {
+        var o = {};
+        for (var i = 0; i < items.length; i++) {
+            o[items[i].pid] = items[i].votes;
+        }
+        return o;
+    }
+
+    if (uncachedPids.length === 0) {
+        return Promise.resolve(toObj(cachedVotes));
+    }
+    return getVotesForPids(zid, uncachedPids).then(function(votesRows) {
+        var newPidToVotes = aggregateVotesToPidVotesObj(votesRows);
+        _.each(newPidToVotes, function(votes, pid) {
+            cacheVotesForZidPidWithTimestamp(zid, pid, lastVoteTimestamp, votes);
+        });
+        var cachedPidToVotes = toObj(cachedVotes);
+        return _.extend(newPidToVotes, cachedPidToVotes);
+    });
+}
+
+
 function getVotesForPids(zid, pids) {
     if (pids.length === 0) {
         return Promise.resolve([]);
     }
     return pgQueryP("select * from votes where zid = ($1) and pid in (" + pids.join(",") + ") order by pid, tid, created;", [zid]);
+}
+
+
+
+function createEmptyVoteVector(greatestTid) {
+    var a = [];
+    for (var i = 0; i <= greatestTid; i++) {
+        a[i] = "u"; // (u)nseen
+    }
+    return a;
+}
+function aggregateVotesToPidVotesObj(votes) {
+    var i = 0;
+    var greatestTid = 0;
+    for (i = 0; i < votes.length; i++) {
+        if (votes[i].tid > greatestTid) {
+            greatestTid = votes[i].tid;
+        }
+    }
+    
+    // use arrays or strings?
+    var vectors = {}; // pid -> sparse array
+    for (i = 0; i < votes.length; i++) {
+        var v = votes[i];
+        // set up a vector for the participant, if not there already
+
+        vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
+        // assign a vote value at that location
+        var vote = v.vote;
+        if (polisTypes.reactions.push === vote) {
+            vectors[v.pid][v.tid] = 'd';
+        } else if (polisTypes.reactions.pull === vote) {
+            vectors[v.pid][v.tid] = 'a';
+        } else if (polisTypes.reactions.pass === vote) {
+            vectors[v.pid][v.tid] = 'p';
+        } else {
+            console.error("unknown vote value");
+            // let it stay 'u'
+        }
+
+    }
+    var vectors2 = {};
+    _.each(vectors, function(val, key) {
+        vectors2[key] = val.join("");
+    });
+    return vectors2;
 }
 
 
@@ -8502,9 +8615,11 @@ app.get("/api/v3/votes/famous",
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    want('lastVoteTimestamp', getInt, assignToP, -1),
 function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
+    var lastVoteTimestamp = req.p.lastVoteTimestamp;
 
 // NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
 
@@ -8646,44 +8761,9 @@ function(req, res) {
         pids = _.uniq(pids, true);
 
 
+        return getVotesForZidPidsWithTimestampCheck(zid, pids, lastVoteTimestamp).then(function(vectors) {
 
-        function createEmptyVoteVector(greatestTid) {
-            var a = [];
-            for (var i = 0; i <= greatestTid; i++) {
-                a[i] = "u"; // (u)nseen
-            }
-            return a;
-        }
-
-        return getVotesForPids(zid, pids).then(function(votes) {
-            var i = 0;
-            var greatestTid = 0;
-            for (i = 0; i < votes.length; i++) {
-                if (votes[i].tid > greatestTid) {
-                    greatestTid = votes[i].tid;
-                }
-            }
-            
-            // use arrays or strings?
-            var vectors = {}; // pid -> sparse array
-            for (i = 0; i < votes.length; i++) {
-                var v = votes[i];
-                // set up a vector for the participant, if not there already
-
-                vectors[v.pid] = vectors[v.pid] || createEmptyVoteVector(greatestTid);
-                // assign a vote value at that location
-                var vote = v.vote;
-                if (polisTypes.reactions.push === vote) {
-                    vectors[v.pid][v.tid] = 'd';
-                } else if (polisTypes.reactions.pull === vote) {
-                    vectors[v.pid][v.tid] = 'a';
-                } else if (polisTypes.reactions.pass === vote) {
-                    vectors[v.pid][v.tid] = 'p';
-                } else {
-                    console.error("unknown vote value");
-                    // let it stay 'u'
-                }
-            }
+            // TODO parallelize with above query
             getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
                 _.each(vectors, function(value, pid, list) {
                     pid = parseInt(pid);
@@ -8696,7 +8776,7 @@ function(req, res) {
                         // pidToData[pid].ignore = true;
                         delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
                     } else if (!!pidToData[pid]) {
-                        pidToData[pid].votes = value.join(""); // no separator, like this "adupuuauuauupuuu";
+                        pidToData[pid].votes = value; // no separator, like this "adupuuauuauupuuu";
                         pidToData[pid].bid = bid;
                     }
                 });
