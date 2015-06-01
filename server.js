@@ -429,15 +429,19 @@ function makeSessionToken() {
     return crypto.randomBytes(32).toString('base64').replace(/[^A-Za-z0-9]/g,"").substr(0, 20);
 }
 
-
+// TODO_SECURITY check if this cache is safe to use. (using a closure to keep the )
+// But we need to squeeze a bit more out of the db right now,
+// and generally remove sources of uncertainty about what makes
+// various queries slow. And having every single query talk to PG
+// adds a lot of variability across the board.
 var userTokenCache = new SimpleCache({
     maxSize: 9000,
 });
 
 function getUserInfoForSessionToken(sessionToken, res, cb) {
-    var uid = userTokenCache.get();
-    if (uid) {
-        cb(null, uid);
+    var cachedUid = userTokenCache.get();
+    if (cachedUid) {
+        cb(null, cachedUid);
         return;
     }
     pgQuery("select uid from auth_tokens where token = ($1);", [sessionToken], function(err, results) {
@@ -448,10 +452,12 @@ function getUserInfoForSessionToken(sessionToken, res, cb) {
             cb(403);
             return;
         }
+        var uid = results.rows[0].uid;
         userTokenCache.set(sessionToken, uid);
-        cb(null, results.rows[0].uid);
+        cb(null, uid);
     });
 }
+
 
 function createPolisLtiToken(tool_consumer_instance_guid, lti_user_id) {
     return ["xPolisLtiToken", tool_consumer_instance_guid, lti_user_id].join(":::");
