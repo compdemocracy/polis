@@ -1298,41 +1298,68 @@ var pidCache = new SimpleCache({
     maxSize: 9000,
 });
 
+// returns a pid of -1 if it's missing
+function getPid(zid, uid, callback) {
+    var cacheKey = zid + "_" + uid;
+    var pid = pidCache.get(cacheKey);
+    if (pid !== void 0) {
+        callback(null, pid);
+        return;
+    }
+    pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
+        var pid = -1;
+        if (docs && docs.rows && docs.rows[0]) {
+            pid = docs.rows[0].pid;
+            pidCache.set(cacheKey, pid);
+        }
+        callback(err, pid);
+    });
+}
+
+// returns a pid of -1 if it's missing
+function getPidPromise(zid, uid) {
+    var cacheKey = zid + "_" + uid;
+    var pid = pidCache.get(cacheKey);
+    return new Promise(function(resolve, reject) {
+        if (!_.isUndefined(pid)) {
+            resolve(pid);
+            return;
+        }
+        pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
+            if (err) {return reject(err);}
+            if (!results || !results.rows || !results.rows.length) {
+                resolve(-1);
+                return;
+            }
+            var pid = results.rows[0].pid;
+            pidCache.set(cacheKey, pid);
+            resolve(pid);
+        });
+    });        
+}
+
 // must follow auth and need('zid'...) middleware
 function getPidForParticipant(assigner, cache) {
     return function(req, res, next) {
         var zid = req.p.zid;
         var uid = req.p.uid;
-        var cacheKey;
         function finish(pid) {
             assigner(req, "pid", pid);
             next();
         }
-        if (cache) {
-            cacheKey = zid + "_" + uid;
-            var pid = cache.get(cacheKey);
-            if (pid !== void 0) {
-                finish(pid);
-                return;
-            }
-        }
-        pgQuery("SELECT pid FROM participants WHERE zid = ($1) and uid = ($2);", [zid, uid], function(err, results) {
-            if (err) { yell("polis_err_get_pid_for_participant"); next(err); return; }
-            var pid = -1;
-            if (results && results.rows && results.rows.length) {
-                pid = results.rows[0].pid;
-                if (cache) {
-                    cache.set(cacheKey, pid);
-                }
-                finish(pid);
-            } else {
+        getPidPromise(zid, uid).then(function(pid) {
+            if (pid === -1) {
                 var msg = "polis_err_get_pid_for_participant_missing";
                 yell(msg);
                 console.log(zid);
                 console.log(uid);
                 console.dir(req.p);
-                next(msg);
+                next(msg); 
             }
+            finish(pid);
+        }, function(err) {
+            yell("polis_err_get_pid_for_participant");
+            next(err);
         });
     };
 }
@@ -3065,17 +3092,6 @@ function isModerator(zid, uid) {
     });
 }
 
-// returns a pid of -1 if it's missing
-function getPid(zid, uid, callback) {
-    pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, docs) {
-        var pid = -1;
-        if (docs && docs.rows && docs.rows[0]) {
-            pid = docs.rows[0].pid;
-        }
-        callback(err, pid);
-    });
-}
-
 // returns null if it's missing
 function getParticipant(zid, uid) {
     return new Promise(function(resolve, reject) {
@@ -3089,19 +3105,6 @@ function getParticipant(zid, uid) {
     });        
 }
 
-// returns a pid of -1 if it's missing
-function getPidPromise(zid, uid) {
-    return new Promise(function(resolve, reject) {
-        pgQuery("SELECT pid FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
-            if (err) {return reject(err);}
-            if (!results || !results.rows || !results.rows.length) {
-                resolve(-1);
-                return;
-            }
-            resolve(results.rows[0].pid);
-        });
-    });        
-}
 
 function getAnswersForConversation(zid, callback) {
     pgQuery("SELECT * from participant_metadata_answers WHERE zid = ($1) AND alive=TRUE;", [zid], function(err, x) {
