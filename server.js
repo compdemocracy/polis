@@ -10,7 +10,6 @@
     Mailgun open/click tracking
      CNAME email.polis.io => mailgun.org
 
-
 */
 
 //require('nodefly').profile(
@@ -57,7 +56,8 @@ var badwords = require('badwords/object'),
     request = require('request-promise'), // includes Request, but adds promise methods
     SimpleCache = require("simple-lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
-    _ = require('underscore');
+    _ = require('underscore'),
+    winston = require("winston");
 
 
 var polisDevs = [
@@ -92,7 +92,7 @@ setInterval(function() {
     var heapUsed = mem.heapUsed;
     var rss = mem.rss;
     var heapTotal = mem.heapTotal;
-    console.log("heapUsed: " + heapUsed);
+    winston.log("heapUsed: " + heapUsed);
     var start = Date.now();
     //metric("api.process.mem.heapUsed", heapUsed, start);
     //metric("api.process.mem.rss", rss, start);
@@ -110,7 +110,7 @@ setInterval(function() {
 //   tokenPath: '/oauth/access_token'
 // });
 
-// console.dir(oauth2);
+// winston.log(oauth2);
 
 // // Authorization uri definition
 // var authorization_uri = oauth2.AuthCode.authorizeURL({
@@ -131,9 +131,9 @@ var akismet = require('akismet').client({
 
 akismet.verifyKey(function(err, verified) {
   if (verified) {
-    console.log('Akismet: API key successfully verified.');
+    winston.log('Akismet: API key successfully verified.');
   } else {
-    console.log('Akismet: Unable to verify API key.');
+    winston.log('Akismet: Unable to verify API key.');
   }
 });
 
@@ -171,7 +171,7 @@ if (devMode) {
     INFO = function() {};
 
     // INFO = function() {
-    //     console.log.apply(console, arguments);
+    //     winston.log.apply(console, arguments);
     // };
 } else {
     INFO = function() {};
@@ -260,9 +260,9 @@ var errorNotifications = (function() {
             title: "err",
             message: _.uniq(errors).join("\n"),
         }, function(err, result) {
-            console.log("pushover " + err?"failed":"ok");
-            console.dir(err);
-            console.dir(result);
+            winston.log("pushover " + err?"failed":"ok");
+            winston.log(err);
+            winston.log(result);
         });
         errors = [];
     }
@@ -422,7 +422,7 @@ function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
 // With the MongoLab addon the MONGOLAB_URI config variable is added to your
 // Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
 
-console.log(process.env.MONGOLAB_URI);
+winston.log(process.env.MONGOLAB_URI);
 
 function makeSessionToken() {
     // These can probably be shortened at some point.
@@ -488,11 +488,11 @@ function getUserInfoForPolisLtiToken(token) {
 
 function startSession(uid, cb) {
     var token = makeSessionToken();
-    //console.log('startSession: token will be: ' + sessionToken);
-    console.log('startSession');
+    //winston.log('startSession: token will be: ' + sessionToken);
+    winston.log('startSession');
     pgQuery("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
         if (err) { cb(err); return; }
-        console.log('startSession: token set.');
+        winston.log('startSession: token set.');
         cb(null, token);
     });
 }
@@ -568,7 +568,7 @@ mongo.connect(process.env.MONGOLAB_URI, {
       var schemaDate = "2014_08_22";
       var envName = process.env.MATH_ENV; // prod, preprod, chris, mike
       var name = ["math", envName, schemaDate, basename].join("_");
-      console.log(name);
+      winston.log(name);
       return name;
     }
 
@@ -775,7 +775,7 @@ function moveToBody(req, res, next) {
 }
 
 // function logPath(req, res, next) {
-//     console.log(req.method + " " + req.url);
+//     winston.log(req.method + " " + req.url);
 //     next();
 // }
 
@@ -1069,7 +1069,7 @@ var prrrams = (function() {
                 }
                 next();
             } else {
-                // console.dir(req);
+                // winston.log(req);
                 var s = "polis_err_param_missing_" + name;
                 console.error(s);
                 yell(s);
@@ -1179,23 +1179,23 @@ polisTypes.starValues = _.values(polisTypes.staractions);
 //                 return function(callback) {
 //                     votesPost(c.pid, c.zid, c.tid, 0)
 //                         .then(function() {
-//                             console.log("ok " + c.txt);
+//                             winston.log("ok " + c.txt);
 //                             callback(null);
 //                         })
 //                         .catch(function() {
-//                             console.log("failedd " + c.txt);
+//                             winston.log("failedd " + c.txt);
 //                             callback(1);
 //                         });
 //                 };
 //             }),
 //             function(err, results) {
-//                 console.log(err);
+//                 winston.log(err);
 //             });
 
 
-//         console.dir(missing);
-//         console.log(missing.length);
-//         console.log(comments.length);
+//         winston.log(missing);
+//         winston.log(missing.length);
+//         winston.log(comments.length);
 //     });
 // });
 
@@ -1351,10 +1351,17 @@ function getPidForParticipant(assigner, cache) {
             if (pid === -1) {
                 var msg = "polis_err_get_pid_for_participant_missing";
                 yell(msg);
+<<<<<<< HEAD
                 console.log(zid);
                 console.log(uid);
                 console.dir(req.p);
                 next(msg); 
+=======
+                winston.log(zid);
+                winston.log(uid);
+                winston.log(req.p);
+                next(msg);
+>>>>>>> adding winston
             }
             finish(pid);
         }, function(err) {
@@ -1619,7 +1626,7 @@ app.use(function(req, res, next) {
             }
             b = JSON.stringify(temp);
         }
-        console.log(req.path + " " + b);
+        winston.log(req.path + " " + b);
     } else {
         // don't log the route or params, since Heroku does that for us.
     }
@@ -1629,7 +1636,7 @@ app.use(function(err, req, res, next) {
     if(!err) {
         return next();
     }
-    console.log("error found in middleware");
+    winston.log("error found in middleware");
     console.error(err);
     if (err && err.stack) {
         console.error(err.stack);
@@ -1721,10 +1728,10 @@ app.all("/api/v3/*", function(req, res, next) {
   var routeIsWhitelistedForAnyDomain = _.some(whitelistedCrossDomainRoutes, function(regex) { return regex.test(req.path);});
 
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host) && !routeIsWhitelistedForAnyDomain) {
-      console.log('not whitelisted');
-      // console.dir(req);
-      console.dir(req.headers);
-      console.dir(req.path);
+      winston.log('not whitelisted');
+      // winston.log(req);
+      winston.log(req.headers);
+      winston.log(req.path);
       return next(new Error("unauthorized domain: " + host));
   }
   if (host === "") {
@@ -2017,7 +2024,7 @@ function getPcaPlaybackList(zid) {
 
 function redirectIfHasZidButNoConversationId(req, res, next) {
   if (req.body.zid && !req.body.conversation_id) {
-    console.log("redirecting old zid user to about page");
+    winston.log("redirecting old zid user to about page");
     res.writeHead(302, {
         Location: "https://pol.is/about"
     });
@@ -2428,7 +2435,7 @@ function clearCookies(req, res) {
         //     }
         // }
     }
-    console.log("after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
+    winston.log("after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
 }
 
 app.post("/api/v3/auth/deregister",
@@ -2548,13 +2555,13 @@ function generateSUZinvites(numTokens) {
                 reject(new Error("polis_err_creating_otzinvite"));
                 return;
             }
-            console.log(longStringOfTokens);
+            winston.log(longStringOfTokens);
             var otzinviteArray = longStringOfTokens.match(/.{1,31}/g);
             otzinviteArray = otzinviteArray.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
             otzinviteArray = otzinviteArray.map(function(suzinvite) {
                 return generateConversationURLPrefix() + suzinvite;
             });
-            console.dir(otzinviteArray);
+            winston.log(otzinviteArray);
             resolve(otzinviteArray);
         });
   });
@@ -2885,7 +2892,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
         ");";
 
     pgQuery(q, [zid], function(err, qa_results) {
-        if (err) { console.log("adsfasdfasd"); return callback(err);}
+        if (err) { winston.log("adsfasdfasd"); return callback(err);}
 
         qa_results = qa_results.rows;
         qa_results = _.indexBy(qa_results, "pmaid");
@@ -2905,13 +2912,13 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
                     "INSERT INTO participant_metadata_choices (zid, pid, pmaid, pmqid) VALUES ($1,$2,$3,$4);",
                     x,
                     function(err, results) {
-                        if (err) { console.log("sdkfuhsdu"); return cb(err);}
+                        if (err) { winston.log("sdkfuhsdu"); return cb(err);}
                         cb(0);
                     }
                 );
             },
             function(err) {
-                if (err) { console.log("ifudshf78ds"); return callback(err);}
+                if (err) { winston.log("ifudshf78ds"); return callback(err);}
                 // finished with all the inserts
                 callback(0);
             }
@@ -2991,16 +2998,16 @@ function tryToJoinConversation(zid, uid, pmaid_answers) {
     return new Promise(function(resolve, reject) {
         pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid], function(err, docs) {
             if (err) {
-                console.log("failed to insert into participants");
-                console.dir(err);
+                winston.log("failed to insert into participants");
+                winston.log(err);
                 return reject(err);
             }
             var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
 
             saveParticipantMetadataChoices(zid, pid, pmaid_answers, function(err) {
                 if (err) {
-                    console.log("failed to saveParticipantMetadataChoices");
-                    console.dir(err);
+                    winston.log("failed to saveParticipantMetadataChoices");
+                    winston.log(err);
                     return reject(err);
                 }
                 var ptpt = docs.rows[0];
@@ -3075,9 +3082,9 @@ function isConversationOwner(zid, uid, callback) {
 
 function isOwner(zid, uid) {
     return getConversationInfo(zid).then(function(info) {
-        console.log(39847534987 + " isOwner " + uid);
-        console.dir(info);
-        console.log(info.owner === uid);
+        winston.log(39847534987 + " isOwner " + uid);
+        winston.log(info);
+        winston.log(info.owner === uid);
         return info.owner === uid;
     });
 }
@@ -3210,7 +3217,7 @@ function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
 
 
 function sendTextEmailWithMailgun(sender, recipient, subject, text) {
-    console.log("sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
+    winston.log("sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
     var servername = "";
     var options = {};
     return new Promise(function(resolve, reject) {
@@ -3220,7 +3227,7 @@ function sendTextEmailWithMailgun(sender, recipient, subject, text) {
                 yell("polis_err_mailgun_email_send_failed");                
                 reject(err);
             } else {
-                console.log("sent email with mailgun to " + recipient);
+                winston.log("sent email with mailgun to " + recipient);
                 resolve();
             }
         });
@@ -3228,7 +3235,7 @@ function sendTextEmailWithMailgun(sender, recipient, subject, text) {
 }
 
 function sendTextEmailWithPostmark(sender, recipient, subject, text) {
-    console.log("sending email with postmark: " + [sender, recipient, subject, text].join(" "));
+    winston.log("sending email with postmark: " + [sender, recipient, subject, text].join(" "));
     return new Promise(function(resolve, reject) {
         postmark.send({
             "From": sender,
@@ -3241,7 +3248,7 @@ function sendTextEmailWithPostmark(sender, recipient, subject, text) {
                 yell("polis_err_postmark_email_send_failed");
                 reject(error);
             } else {
-                console.log("sent email with postmark to " + recipient);
+                winston.log("sent email with postmark to " + recipient);
                 resolve();
             }
         });
@@ -3338,7 +3345,7 @@ function verifyHmacForQueryParams(path, params) {
         var correctHash = createHmacForQueryParams(path, params);
         // To thwart timing attacks, add some randomness to the response time with setTimeout.
         setTimeout(function() {
-            console.log("comparing", correctHash, hash);
+            winston.log("comparing", correctHash, hash);
             if (correctHash === hash) {
                 resolve();
             } else {
@@ -3552,7 +3559,7 @@ function checkPassword(uid, password) {
 
 function subscribeToNotifications(zid, uid) {
     var type = 1; // 1 for email
-    console.log("subscribeToNotifications", zid, uid);
+    winston.log("subscribeToNotifications", zid, uid);
     return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
         return type;
     });
@@ -3802,8 +3809,8 @@ function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
 function notifyParticipantsOfNewComments() {
     getParticipantsThatNeedNotifications().then(function(rows) {
         rows = rows || [];
-        console.log("getParticipantsThatNeedNotifications", rows.length);
-        console.dir(rows);
+        winston.log("getParticipantsThatNeedNotifications", rows.length);
+        winston.log(rows);
         rows.forEach(function(row) {
             var url = row.parent_url;
             if (!url) {
@@ -3817,9 +3824,9 @@ function notifyParticipantsOfNewComments() {
                 console.error(err);
             });
         });
-        console.log("end getParticipantsThatNeedNotifications");
+        winston.log("end getParticipantsThatNeedNotifications");
     }).catch(function(err) {
-        console.log("error getParticipantsThatNeedNotifications");
+        winston.log("error getParticipantsThatNeedNotifications");
         console.error(err);
         // yell("polis_err_notifying_participants");
     });
@@ -4001,7 +4008,7 @@ function(req, res) {
             var hashedPassword  = results[0].pwhash;
 
             bcrypt.compare(password, hashedPassword, function(errCompare, result) {
-                console.log("errCompare, result", errCompare, result);
+                winston.log("errCompare, result", errCompare, result);
                 if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
                 
                 startSession(uid, function(errSess, token) {
@@ -4011,9 +4018,9 @@ function(req, res) {
                         token: token
                     };
                     addCookies(req, res, token, uid).then(function() {
-                        console.log("uid", uid);                        
-                        console.log("lti_user_id", lti_user_id);
-                        console.log("lti_context_id", lti_context_id);
+                        winston.log("uid", uid);                        
+                        winston.log("lti_user_id", lti_user_id);
+                        winston.log("lti_context_id", lti_context_id);
                         var ltiUserPromise = lti_user_id ?
                             addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
                             Promise.resolve();
@@ -4104,7 +4111,7 @@ function(req, res) {
     })
     .then(function(o) {
         var uid = o.uid;
-        console.log("startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
+        winston.log("startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
         // TODO check for possible security implications
         if (!o.existingAuth) {
             return startSessionAndAddCookies(req, res, uid).then(function() {
@@ -4114,7 +4121,7 @@ function(req, res) {
         return Promise.resolve(o);
     })
     .then(function(o) {
-        console.log("permanentCookieToken", o.permanentCookieToken);
+        winston.log("permanentCookieToken", o.permanentCookieToken);
         if (o.permanentCookieToken) {
             return recordPermanentCookieZidJoin(o.permanentCookieToken, o.zid).then(function() {
                 return o;
@@ -4145,17 +4152,17 @@ function(req, res) {
 // Test for deadlock condition
 // _.times(2, function() {
 // setInterval(function() {
-//         console.log("foobar test call begin");
+//         winston.log("foobar test call begin");
 //         joinWithZidOrSuzinvite({
 //             answers: [],
 //             existingAuth: false,
 //             zid: 11580,
 //             // uid: req.p.uid,
 //         }).then(function() {
-//             console.log('foobar test ok');
+//             winston.log('foobar test ok');
 //         }).catch(function(err) {
-//             console.log('foobar test failed');
-//             console.dir(err);
+//             winston.log('foobar test failed');
+//             winston.log(err);
 //         });
 
 // }, 10);
@@ -4176,9 +4183,9 @@ function joinWithZidOrSuzinvite(o) {
         }
     })
     .then(function(o) {
-        console.log("joinWithZidOrSuzinvite convinfo begin");
+        winston.log("joinWithZidOrSuzinvite convinfo begin");
         return getConversationInfo(o.zid).then(function(conv) {
-            console.log("joinWithZidOrSuzinvite convinfo done");
+            winston.log("joinWithZidOrSuzinvite convinfo done");
             o.conv = conv;
             return o;
         });
@@ -4201,19 +4208,19 @@ function joinWithZidOrSuzinvite(o) {
         }
     })
     .then(function(o) {
-        console.log("joinWithZidOrSuzinvite userinfo begin");
+        winston.log("joinWithZidOrSuzinvite userinfo begin");
         if (!o.uid) {
-            console.log("joinWithZidOrSuzinvite userinfo nope");
+            winston.log("joinWithZidOrSuzinvite userinfo nope");
             return o;
         }
         return getUserInfoForUid2(o.uid).then(function(user) {
-            console.log("joinWithZidOrSuzinvite userinfo done");
+            winston.log("joinWithZidOrSuzinvite userinfo done");
             o.user = user;
             return o;
         });
     })
     .then(function(o) {
-        console.log("joinWithZidOrSuzinvite check email");
+        winston.log("joinWithZidOrSuzinvite check email");
       if (o.conv.owner_sees_participation_stats) {
         // User stats can be provided either by having the users sign in with polis
         // or by having them join via suurls.
@@ -4224,7 +4231,7 @@ function joinWithZidOrSuzinvite(o) {
       return o;
     })
     .then(function(o) {
-        console.log("joinWithZidOrSuzinvite check email done");
+        winston.log("joinWithZidOrSuzinvite check email done");
       if (o.uid) {
         return o;
       } else {
@@ -4326,14 +4333,14 @@ function getUserByEmail(email) {
 }
 
 function createFacebookUserRecord(o) {
-    console.log("createFacebookUserRecord");
-    console.log("createFacebookUserRecord", JSON.stringify(o));
-    console.dir(o);
-    console.log("end createFacebookUserRecord");
+    winston.log("createFacebookUserRecord");
+    winston.log("createFacebookUserRecord", JSON.stringify(o));
+    winston.log(o);
+    winston.log("end createFacebookUserRecord");
     var profileInfo = JSON.parse(o.fb_public_profile);
-    console.log("createFacebookUserRecord profileInfo");
-    console.dir(profileInfo);
-    console.log("end createFacebookUserRecord profileInfo");
+    winston.log("createFacebookUserRecord profileInfo");
+    winston.log(profileInfo);
+    winston.log("end createFacebookUserRecord profileInfo");
     // Create facebook user record
     return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_name, fb_link, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_location_id, location, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);", [
         o.uid,
@@ -4418,7 +4425,7 @@ function(req, res) {
         if (err) {
             fail(res, 500, "polis_err_cloning_conversation", err);
         }
-        // console.dir(rows);
+        // winston.log(rows);
         var conv = result.rows[0];
 
         // var conv = rows[0];
@@ -4603,7 +4610,7 @@ function(req, res) {
             var promise;
             if (uid) {
 
-                console.log("fb1 5a...");
+                winston.log("fb1 5a...");
 
                 // user record already exists, so populate that in case it has missing info
                 promise = Promise.all([
@@ -4612,15 +4619,15 @@ function(req, res) {
                     pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[uid, email]),
                 ]).then(function(o) {
                     var user = o[0][0];
-                    console.log("fb1 5a");
-                    console.dir(user);
-                    console.log("end fb1 5a");
+                    winston.log("fb1 5a");
+                    winston.log(user);
+                    winston.log("end fb1 5a");
                     return user;
                 });
-                console.log("fb1 5a....");
+                winston.log("fb1 5a....");
             } else {
 
-                console.log("fb1 5b...");
+                winston.log("fb1 5b...");
 
                 var query = "insert into users " +
                     "(email, hname) VALUES "+
@@ -4629,9 +4636,9 @@ function(req, res) {
                 promise = pgQueryP(query, [email, hname])
                 .then(function(rows) {
                     var user = rows && rows.length && rows[0] || null;
-                    console.log("fb1 5b");
-                    console.dir(user);
-                    console.log("end fb1 5b");
+                    winston.log("fb1 5b");
+                    winston.log(user);
+                    winston.log("end fb1 5b");
                     return user;
                 });
             }
@@ -4639,17 +4646,17 @@ function(req, res) {
             promise
             .then(function(user) {
 
-                console.log("fb1 4");
-                console.dir(user);
-                console.log("end fb1 4");
+                winston.log("fb1 4");
+                winston.log(user);
+                winston.log("end fb1 4");
                 return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
                     return user;
                 });
             })
             .then(function(user) {
-                console.log("fb1 3");
-                console.dir(user);
-                console.log("end fb1 3");
+                winston.log("fb1 3");
+                winston.log(user);
+                winston.log("end fb1 3");
                 if (fb_friends_response) {
                     return addFacebookFriends(user.uid, fb_friends_response).then(function() {
                         return user;
@@ -4662,9 +4669,9 @@ function(req, res) {
                 fail(res, 500, "polis_err_reg_fb_user_creating_record2", err); 
             })
             .then(function(user) {
-                console.log("fb1 2");
-                console.dir(user);
-                console.log("end fb1 2");
+                winston.log("fb1 2");
+                winston.log(user);
+                winston.log("end fb1 2");
                 var uid = user.uid;
                 return startSessionAndAddCookies(req, res, uid).then(function() {
                     return user;
@@ -4675,9 +4682,9 @@ function(req, res) {
                 fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
             })
             .then(function(user) {
-                console.log("fb1");
-                console.dir(user);
-                console.log("end fb1");
+                winston.log("fb1");
+                winston.log(user);
+                winston.log("end fb1");
                 res.json({
                     uid: user.uid,
                     hname: user.hname,
@@ -4704,9 +4711,9 @@ function(req, res) {
                     }
                     intercom.createUser(params, function(err, res) {
                         if (err) {
-                            console.log(err);
+                            winston.log(err);
                             console.error("polis_err_intercom_create_user_fb_fail");
-                            console.dir(params);
+                            winston.log(params);
                             yell("polis_err_intercom_create_user_fb_fail");
                             return;
                         }
@@ -4809,11 +4816,11 @@ function(req, res) {
                     }
 
                     pgQuery(query, vals, function(err, result) {
-                        if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
+                        if (err) { winston.log(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
 
                         pgQuery("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function(err, results) {
-                            if (err) { console.dir(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
+                            if (err) { winston.log(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
 
 
                             startSession(uid, function(err,token) {
@@ -4870,9 +4877,9 @@ function(req, res) {
                                     }
                                     intercom.createUser(params, function(err, res) {
                                         if (err) {
-                                            console.log(err);
+                                            winston.log(err);
                                             console.error("polis_err_intercom_create_user_fail");
-                                            console.dir(params);
+                                            winston.log(params);
                                             yell("polis_err_intercom_create_user_fail");
                                             return;
                                         }
@@ -5114,7 +5121,7 @@ function getCouponInfo(couponCode) {
 
 
 function updatePlan(req, res, uid, planCode, isCurrentUser) {
-    console.log('updatePlan', uid, planCode);
+    winston.log('updatePlan', uid, planCode);
     setUsersPlanInIntercom(uid, planCode).catch(function(err) {
         emailBadProblemTime("User " + uid + " changed their plan, but we failed to update Intercom");
     });
@@ -5153,8 +5160,8 @@ function updatePlan(req, res, uid, planCode, isCurrentUser) {
 // Just for testing that the new custom stripe form is submitting properly
 app.post("/api/v3/post_payment_form",
 function(req, res) {
-  console.log("XXX - Got the params!");
-  console.log("XXX - Got the params!" + res);
+  winston.log("XXX - Got the params!");
+  winston.log("XXX - Got the params!" + res);
 });
 
 
@@ -5432,12 +5439,12 @@ function(req, res) {
     var mod = req.p.mod;
 
     var rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
-    console.log("getComments " + rid + " begin");
+    winston.log("getComments " + rid + " begin");
 
     getComments(req.p).then(function(comments) {
         finishArray(res, comments);
     }).catch(function(err) {
-        console.log("getComments " + rid + " failed");
+        winston.log("getComments " + rid + " failed");
         fail(res, 500, "polis_err_get_comments", new Error("polis_err_get_comments"), err);
     });
 }); // end GET /api/v3/comments
@@ -5590,19 +5597,19 @@ function getComment(zid, tid) {
 //         tid: req.p.tid,
 //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
 //     };
-//     console.log("mute", 1);
+//     winston.log("mute", 1);
 //     verifyHmacForQueryParams("v3/mute", params).catch(function() {
-//     console.log("mute", 2);
+//     winston.log("mute", 2);
 
 //         fail(res, 403, "polis_err_signature_mismatch");
 //     }).then(function() {
-//     console.log("mute", 3);
+//     winston.log("mute", 3);
 //         return muteComment(zid, tid);
 //     }).then(function() {
-//     console.log("mute", 4);
+//     winston.log("mute", 4);
 //         return getComment(zid, tid);
 //     }).then(function(c) {
-//     console.log("mute", 5);
+//     winston.log("mute", 5);
 //         res.set('Content-Type', 'text/html');
 //         res.send(
 //             "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
@@ -5610,7 +5617,7 @@ function getComment(zid, tid) {
 //             "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
 //         );
 //     }).catch(function(err) {
-//     console.log("mute", 6);
+//     winston.log("mute", 6);
 //         fail(res, 500, err);
 //     });
 // });
@@ -5709,7 +5716,7 @@ function(req, res) {
     });
     isSpamPromise.catch(function(err) {
         console.error("isSpam failed");
-        console.dir(err);
+        winston.log(err);
     });
     // var isSpamPromise = Promise.resolve(false);
     var isModeratorPromise = isModerator(zid, uid);
@@ -5742,11 +5749,11 @@ function(req, res) {
  
         var bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
-            console.log("spam test says: " + txt + " " + (spammy?"spammy":"not_spammy"));
+            winston.log("spam test says: " + txt + " " + (spammy?"spammy":"not_spammy"));
             return spammy;
         }, function(err) {
             console.error("spam check failed");
-            console.dir(err);
+            winston.log(err);
             return false; // spam check failed, continue assuming "not spammy".
         }).then(function(spammy) {
             var velocity = 1;
@@ -5780,7 +5787,7 @@ function(req, res) {
 
                 function(err, docs) {
                     if (err) { 
-                        console.dir(err);
+                        winston.log(err);
                         if (err.code === '23505' || err.code === 23505) {
                             // duplicate comment
                             fail(res, 409, "polis_err_post_comment_duplicate", err);
@@ -6488,14 +6495,14 @@ function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, param
             "application/xml",
             function (e, data, res){
                 if (e) {
-                    console.log("grades foo failed");
+                    winston.log("grades foo failed");
                     console.error(e);     
                     reject(e);
                 } else {
-                    console.log('grades foo ok!');
+                    winston.log('grades foo ok!');
                     resolve(params, data);
                 }
-                // console.log(require('util').inspect(data));
+                // winston.log(require('util').inspect(data));
             }
         );
     });
@@ -6543,7 +6550,7 @@ function sendCanvasGradesIfNeeded(zid, ownerUid) {
         var promises = callbackInfos.map(function(assignmentCallbackInfo) {
             var gradeFromZeroToOne = isFullPointsEarningLtiUserId[assignmentCallbackInfo.lti_user_id] ? 1.0 : 0.0;
             assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
-            console.log("grades assigned" + gradeFromZeroToOne + " lti_user_id " + assignmentCallbackInfo.lti_user_id);
+            winston.log("grades assigned" + gradeFromZeroToOne + " lti_user_id " + assignmentCallbackInfo.lti_user_id);
             return sendGradeForAssignment(
                 ownerLtiCreds.oauth_consumer_key,
                 ownerLtiCreds.oauth_shared_secret,
@@ -6555,7 +6562,7 @@ function sendCanvasGradesIfNeeded(zid, ownerUid) {
 function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
     listOfGradingContexts = listOfGradingContexts || [];
     return Promise.all(listOfGradingContexts.map(function(gradingContext) {
-        console.log("grading set to " + gradingContext.gradeFromZeroToOne);
+        winston.log("grading set to " + gradingContext.gradeFromZeroToOne);
         return pgQueryP("update canvas_assignment_callback_info set grade_assigned = ($1) where tool_consumer_instance_guid = ($2) and lti_context_id = ($3) and lti_user_id = ($4) and custom_canvas_assignment_id = ($5);", [
             gradingContext.gradeFromZeroToOne,
             gradingContext.tool_consumer_instance_guid,
@@ -6770,7 +6777,7 @@ function(req, res){
                             });
                         }).catch(function(err) {
                             yell("polis_err_sending_conversation_created_email");
-                            console.dir(err);
+                            winston.log(err);
                         });
                     }
 
@@ -6894,7 +6901,7 @@ function getZidForAnswer(pmaid, callback) {
 
 function getZidForQuestion(pmqid, callback) {
     pgQuery("SELECT zid FROM participant_metadata_questions WHERE pmqid = ($1);", [pmqid], function(err, result) {
-        if (err) {console.dir(err);  callback(err); return;}
+        if (err) {winston.log(err);  callback(err); return;}
         if (!result.rows || !result.rows.length) {
             callback("polis_err_zid_missing_for_question");
             return;
@@ -7239,7 +7246,7 @@ function getConversations(req, res) {
   var want_inbox_item_participant_html = req.p.want_inbox_item_participant_html;
   var context = req.p.context;
   var limit = req.p.limit;
-  console.log("thecontext", context);
+  winston.log("thecontext", context);
 
 
   // this statement is currently a subset of the next one
@@ -7267,7 +7274,7 @@ function getConversations(req, res) {
     var orClauses;
     if (!_.isUndefined(req.p.context)) {
         if (req.p.context === "/") {
-            console.log("asdf" + req.p.context + "asdf");
+            winston.log("asdf" + req.p.context + "asdf");
             // root of roots returns all public conversations
             // TODO lots of work to decide what's relevant
             // There is a bit of mess here, because we're returning both public 'roots' conversations, and potentially private conversations that you are already in.
@@ -7275,7 +7282,7 @@ function getConversations(req, res) {
             isRootsQuery = true; // more conditions follow in the ANDs below
         } else {
             // knowing a context grants access to those conversations (for now at least)
-            console.log("CONTEXT", context);
+            winston.log("CONTEXT", context);
             orClauses = sql_conversations.context.equals(req.p.context);
         }
     } else {
@@ -7566,7 +7573,7 @@ app.post('/api/v3/conversations',
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
 function(req, res) {
 
-    console.log("context", req.p.context);
+    winston.log("context", req.p.context);
     var generateShortUrl = req.p.short_url;
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
@@ -7671,7 +7678,7 @@ app.post('/api/v3/sendCreatedLinkToEmail',
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res){
-    console.log(req.p);
+    winston.log(req.p);
     pgQuery("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
         if (err) { fail(res, 500, "polis_err_get_email_db", err); return; }
         var email = results.rows[0].email;
@@ -7733,7 +7740,7 @@ function getTwitterRequestToken(returnUrl) {
                 } else {
                     resolve(data);
                 }
-                // console.log(require('util').inspect(data));
+                // winston.log(require('util').inspect(data));
             }
         );
     });
@@ -7751,7 +7758,7 @@ function(req, res) {
     var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?dest=" + dest;
 
     getTwitterRequestToken(returnUrl).then(function(data) {        
-        console.dir(data);
+        winston.log(data);
         data += "&callback_url=" + dest;
         // data += "&callback_url=" + encodeURIComponent(getServerNameWithProtocol(req) + "/foo");
         res.redirect("https://api.twitter.com/oauth/authenticate?" + data);
@@ -7786,7 +7793,7 @@ function getTwitterAccessToken(body) {
                 } else {
                     resolve(data);
                 }
-                // console.log(require('util').inspect(data));
+                // winston.log(require('util').inspect(data));
             }
         );
     });
@@ -7821,7 +7828,7 @@ function getTwitterUserInfo(twitter_user_id) {
                 } else {
                     resolve(data);
                 }
-                // console.log(require('util').inspect(data));
+                // winston.log(require('util').inspect(data));
             }
         );
     });
@@ -7857,8 +7864,8 @@ function getTwitterUserInfoBulk(list_of_twitter_user_id) {
                     reject(e);
                 } else {
                     data = JSON.parse(data);
-                    // console.dir(data);
-                // console.log(require('util').inspect(data));
+                    // winston.log(data);
+                // winston.log(require('util').inspect(data));
                     resolve(data);
                 }
             }
@@ -7887,14 +7894,14 @@ function switchToUser(req, res, uid) {
 // retry, resolving with first success, or rejecting with final error
 function retryFunctionWithPromise(f, numTries) {
     return new Promise(function(resolve, reject) {
-        console.log("retryFunctionWithPromise", numTries);
+        winston.log("retryFunctionWithPromise", numTries);
         f().then(function(x) {
-            console.log("retryFunctionWithPromise", "RESOLVED");
+            winston.log("retryFunctionWithPromise", "RESOLVED");
             resolve(x);
         }, function(err) {
             numTries -= 1;
             if (numTries <= 0) {
-                console.log("retryFunctionWithPromise", "REJECTED");
+                winston.log("retryFunctionWithPromise", "REJECTED");
                 reject(err);
             } else {
                 retryFunctionWithPromise(f, numTries).then(resolve, reject);
@@ -7916,9 +7923,9 @@ function(req, res) {
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
     var dest = req.p.dest;
-    console.log("twitter_oauth_callback params");
-    console.dir(req.p);
-    console.log("twitter_oauth_callback params end");
+    winston.log("twitter_oauth_callback params");
+    winston.log(req.p);
+    winston.log("twitter_oauth_callback params end");
     // this api sometimes succeeds, and sometimes fails, not sure why
     function tryGettingTwitterAccessToken() {
         return getTwitterAccessToken({
@@ -7927,7 +7934,7 @@ function(req, res) {
         });
     }
     retryFunctionWithPromise(tryGettingTwitterAccessToken, 20).then(function(o) {
-        console.log("TWITTER ACCESS TOKEN");
+        winston.log("TWITTER ACCESS TOKEN");
         var pairs = o.split("&");
         var kv = {};
         pairs.forEach(function(pair) {
@@ -7939,16 +7946,16 @@ function(req, res) {
             }
             kv[k] = v;
         });
-        console.dir(kv);
-        console.log("/TWITTER ACCESS TOKEN");
+        winston.log(kv);
+        winston.log("/TWITTER ACCESS TOKEN");
 
         // TODO - if no auth, generate a new user.
 
         getTwitterUserInfo(kv.user_id).then(function(u) {
             u = JSON.parse(u)[0];
-            console.log("TWITTER USER INFO");
-            console.dir(u);
-            console.log("/TWITTER USER INFO");
+            winston.log("TWITTER USER INFO");
+            winston.log(u);
+            winston.log("/TWITTER USER INFO");
             return pgQueryP("insert into twitter_users ("+
                 "uid," +
                 "twitter_user_id," +
@@ -8243,13 +8250,13 @@ function getTwitterUsersInConversation(zid, uid, limit) {
     //     }
     //     var twitterIds = _.pluck(twitterParticipants, "twitter_user_id");
     //     return getTwitterUserInfoBulk(twitterIds).then(function(freshTwitterInfos) {
-    //         console.log("catsfood", freshTwitterInfos.length);
+    //         winston.log("catsfood", freshTwitterInfos.length);
     //         var twitterIdToIndex = {};
     //         for (var i = 0; i < twitterIds.length; i++) {
     //             twitterIdToIndex[twitterIds[i]] = parseInt(i);
     //         }
-    //         console.dir("catsfoods");
-    //         console.dir(twitterIdToIndex);
+    //         winston.log("catsfoods");
+    //         winston.log(twitterIdToIndex);
     //         for (var t = 0; t < freshTwitterInfos.length; t++) {
     //             var info = freshTwitterInfos[t];
     //             var index = twitterIdToIndex[info.id_str];
@@ -8272,7 +8279,7 @@ function updateVoteCount(zid, pid) {
 
 // function dbMigrationAddVoteCount() {
 //     function process(x) {
-//         console.log("freefood" + x.zid, x.count, x.pid);
+//         winston.log("freefood" + x.zid, x.count, x.pid);
 //         pgQueryP("update participants set vote_count = ($1) where zid = ($2) and pid = ($3);", [
 //                 x.count,
 //                 x.zid,
@@ -8473,7 +8480,7 @@ function geoCode(locationString) {
     return pgQueryP("select * from geolocation_cache where location = ($1);", [locationString]).then(function(rows) {
         if (!rows || !rows.length) {
             return geoCodeWithGoogleApi(locationString).then(function(result) {
-                console.dir(result);
+                winston.log(result);
                 var lat = result.geometry.location.lat;
                 var lng = result.geometry.location.lng;
                 // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
@@ -8770,8 +8777,8 @@ function(req, res) {
                     var bid = pidsToBids[pid];
                     var notInBucket = _.isUndefined(bid);
                     var isSelf = pidToData[pid].isSelf;
-                    // console.log("pidToData", pid, myPid, isSelf);
-                    // console.dir(pidToData[pid]);
+                    // winston.log("pidToData", pid, myPid, isSelf);
+                    // winston.log(pidToData[pid]);
                     if (notInBucket && !isSelf) {
                         // pidToData[pid].ignore = true;
                         delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
@@ -8858,7 +8865,7 @@ app.get("/api/v3/einvites",
 function(req, res) {
     var einvite = req.p.einvite;
     
-    console.log("select * from einvites where einvite = ($1);", [einvite]);
+    winston.log("select * from einvites where einvite = ($1);", [einvite]);
     pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
         if (!rows.length) {
             throw new Error("polis_err_missing_einvite");
@@ -9082,7 +9089,7 @@ app.post("/api/v3/LTI/setup_assignment",
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
-    console.dir(req);
+    winston.log(req);
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     var user_id = req.p.user_id;    
@@ -9136,7 +9143,7 @@ function(req, res) {
                     // you are signed in, but not linked to the signed in user
                     // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
                     clearCookies(req, res);
-                    console.log('lti_linkage didnt exist');
+                    winston.log('lti_linkage didnt exist');
                     // Have them sign in again, since they weren't linked.
                     // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
                     renderLtiLinkagePage(req, res);
@@ -9146,7 +9153,7 @@ function(req, res) {
             });
         } else { // no uid (no cookies)
             // Have them sign in to set up the linkage
-            console.log('lti_linkage - no uid');            
+            winston.log('lti_linkage - no uid');            
             renderLtiLinkagePage(req, res);
         }
     }).catch(function(err) {
@@ -9168,7 +9175,7 @@ function(req, res) {
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 // function(req, res) {
-//     console.dir(req);
+//     winston.log(req);
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
 //     var user_id = req.p.user_id;    
@@ -9178,7 +9185,7 @@ function(req, res) {
 //     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
 //     // }
 
-//     console.dir(req.p);
+//     winston.log(req.p);
 
 //     // // TODO SECURITY we need to verify the signature
 //     // var oauth_consumer_key = req.p.oauth_consumer_key;
@@ -9192,7 +9199,7 @@ function(req, res) {
 //             userForLtiUserId = rows[0];
 //         }
 
-//         console.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
+//         winston.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
 
 //         if (userForLtiUserId) {
 //             // if (teacher pays) {
@@ -9227,7 +9234,7 @@ function(req, res) {
 //             // you are signed in, but not linked to the signed in user
 //             // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
 //             clearCookies(req, res);
-//             console.log('lti_linkage didnt exist');
+//             winston.log('lti_linkage didnt exist');
 //             // Have them sign in again, since they weren't linked.
 //             // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
 //             renderLtiLinkagePage(req, res);
@@ -9258,7 +9265,7 @@ function addCanvasAssignmentConversationInfoIfNeeded(zid, tool_consumer_instance
 }
 
 function getCanvasAssignmentInfo(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
-    console.log('grades select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = '+tool_consumer_instance_guid+' and lti_context_id = '+lti_context_id+' and custom_canvas_assignment_id = '+custom_canvas_assignment_id+';');
+    winston.log('grades select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = '+tool_consumer_instance_guid+' and lti_context_id = '+lti_context_id+' and custom_canvas_assignment_id = '+custom_canvas_assignment_id+';');
     return pgQueryP("select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3);", [
         tool_consumer_instance_guid,
         lti_context_id,
@@ -9330,8 +9337,8 @@ function(req, res) {
     var context_id = req.p.context_id;
     var user_image = req.p.user_image || "";
 
-    console.log("grades req.body " + JSON.stringify(req.body));
-    console.log("grades req.p " + JSON.stringify(req.p));
+    winston.log("grades req.body " + JSON.stringify(req.body));
+    winston.log("grades req.p " + JSON.stringify(req.p));
 
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
@@ -9341,7 +9348,7 @@ function(req, res) {
             var userForLtiUserId = null;
             if (rows.length) {
                 userForLtiUserId = rows[0];
-                console.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
+                winston.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
             }
             return userForLtiUserId;
         });
@@ -9349,10 +9356,10 @@ function(req, res) {
 
     if (req.p.lis_result_sourcedid) {
         addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, JSON.stringify(req.body)).then(function() {
-            console.log("grading info added");
+            winston.log("grading info added");
         }).catch(function(err) {
-            console.log("grading info error ");
-            console.dir(err);
+            winston.log("grading info error ");
+            winston.log(err);
         });
     }
 
@@ -9403,7 +9410,7 @@ function(req, res) {
                     // you are signed in, but not linked to the signed in user
                     // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
                     clearCookies(req, res);
-                    console.log('lti_linkage didnt exist');
+                    winston.log('lti_linkage didnt exist');
                     // Have them sign in again, since they weren't linked.
                     // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
                     renderLtiLinkagePage(req, res, url);
@@ -9912,11 +9919,11 @@ function(req, res) {
 //             var xid = escapeLiteral(pair[0]);
 //             var suzinvite = escapeLiteral(pair[1]);
 //             var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
-//             console.log(statement);
+//             winston.log(statement);
 //             return statement;
 //         });
 //         var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
-//         console.log(query);
+//         winston.log(query);
 //         pgQuery(query, [], function(err, results) {
 //             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
 //             getZinvite(zid).then(function(conversation_id) {
@@ -9986,11 +9993,11 @@ function(req, res) {
                 var xid = escapeLiteral(pair[0]);
                 var suzinvite = escapeLiteral(pair[1]);
                 var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
-                console.log(statement);
+                winston.log(statement);
                 return statement;
             });
             var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
-            console.log(query);
+            winston.log(query);
             pgQuery(query, [], function(err, results) {
                 if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
 
@@ -10033,19 +10040,19 @@ function(req, res) {
 
 //   function saveToken(error, result) {
 //     if (error) {
-//         console.log('Access Token Error', error.message);
+//         winston.log('Access Token Error', error.message);
 //         fail(res, 500, "polis_err_oauth_callback_github", error);
 //     }
 //     var token = oauth2.AccessToken.create(result);
-//     console.log("thetoken", token);
-//     console.dir(token);
-//     console.log("thetoken", token);
+//     winston.log("thetoken", token);
+//     winston.log(token);
+//     winston.log("thetoken", token);
 //     // res.status(200).end();
 //     res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
 //   }
 
 //   var code = req.query.code;
-//   console.log('/oauth2/oauth2_github_callback');
+//   winston.log('/oauth2/oauth2_github_callback');
 //   oauth2.AuthCode.getToken({
 //     code: code,
 //     redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
@@ -10221,7 +10228,7 @@ function(req, res) {
                 var modUrl = buildModerationUrl(req, conv.zinvite);
                 var seedUrl = buildSeedUrl(req, conv.zinvite);
                 sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl).then(function() {
-                    console.log('email sent');
+                    winston.log('email sent');
                 }).catch(function(err) {
                     console.error('email fail');
                     console.error(err);
@@ -10242,33 +10249,6 @@ function(req, res) {
         fail(res, 500, "polis_err_redirecting_to_conv", err);
     });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 //app.use(express.static(__dirname + '/src/desktop/index.html'));
 //app.use('/static', express.static(__dirname + '/src'));
@@ -10335,8 +10315,6 @@ function getStaticFile(contentPath, res) {
         });
     }
 }
-
-
 
 
 var routingProxy = new httpProxy.RoutingProxy();
@@ -10437,7 +10415,7 @@ function makeFileFetcher(hostname, port, path, contentType) {
             // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
             url = "http://" + hostname + path;
         }
-        console.log("fetch file from " + url);
+        winston.log("fetch file from " + url);
         var x = request(url);
         req.pipe(x);
         x.pipe(res);
@@ -10646,11 +10624,9 @@ app.get("/", conditionalIndexFetcher);
 app.get(/^\/[^(api\/)]?.*/, proxy);
 
 
-
-
 app.listen(process.env.PORT);
 
-console.log('started on port ' + process.env.PORT);
+winston.log('started on port ' + process.env.PORT);
 } // End of initializePolisAPI
 
 async.parallel([connectToMongo], initializePolisAPI);
