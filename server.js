@@ -143,13 +143,13 @@ akismet.verifyKey(function(err, verified) {
 // 3 devs * (2 + 1 + 1) = 12 for devs
 // plus the prod and preprod pollers = 14
 // round up to 20
-// so we can have 25 connections per server, of of which is the preprod server
-// so we can have 1 preprod/3 prod servers, or 2 preprod / 2 prod.
+// if we have 20 connections per server
+// so we can have 1 preprod+4 prod servers,
 
 if (devMode) {
     pg.defaults.poolSize = 2;
 } else {
-    pg.defaults.poolSize = 25; 
+    pg.defaults.poolSize = 20;
 }
 
 
