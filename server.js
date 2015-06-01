@@ -92,7 +92,7 @@ setInterval(function() {
     var heapUsed = mem.heapUsed;
     var rss = mem.rss;
     var heapTotal = mem.heapTotal;
-    winston.log("heapUsed: " + heapUsed);
+    winston.log("info","heapUsed: " + heapUsed);
     var start = Date.now();
     //metric("api.process.mem.heapUsed", heapUsed, start);
     //metric("api.process.mem.rss", rss, start);
@@ -110,7 +110,7 @@ setInterval(function() {
 //   tokenPath: '/oauth/access_token'
 // });
 
-// winston.log(oauth2);
+// winston.log("info",oauth2);
 
 // // Authorization uri definition
 // var authorization_uri = oauth2.AuthCode.authorizeURL({
@@ -131,9 +131,9 @@ var akismet = require('akismet').client({
 
 akismet.verifyKey(function(err, verified) {
   if (verified) {
-    winston.log('Akismet: API key successfully verified.');
+    winston.log("info",'Akismet: API key successfully verified.');
   } else {
-    winston.log('Akismet: Unable to verify API key.');
+    winston.log("info",'Akismet: Unable to verify API key.');
   }
 });
 
@@ -260,9 +260,9 @@ var errorNotifications = (function() {
             title: "err",
             message: _.uniq(errors).join("\n"),
         }, function(err, result) {
-            winston.log("pushover " + err?"failed":"ok");
-            winston.log(err);
-            winston.log(result);
+            winston.log("info","pushover " + err?"failed":"ok");
+            winston.log("info",err);
+            winston.log("info",result);
         });
         errors = [];
     }
@@ -422,7 +422,7 @@ function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
 // With the MongoLab addon the MONGOLAB_URI config variable is added to your
 // Heroku environment.  It can be accessed as process.env.MONGOLAB_URI
 
-winston.log(process.env.MONGOLAB_URI);
+winston.log("info",process.env.MONGOLAB_URI);
 
 function makeSessionToken() {
     // These can probably be shortened at some point.
@@ -488,11 +488,11 @@ function getUserInfoForPolisLtiToken(token) {
 
 function startSession(uid, cb) {
     var token = makeSessionToken();
-    //winston.log('startSession: token will be: ' + sessionToken);
-    winston.log('startSession');
+    //winston.log("info",'startSession: token will be: ' + sessionToken);
+    winston.log("info",'startSession');
     pgQuery("insert into auth_tokens (uid, token, created) values ($1, $2, default);", [uid, token], function(err, repliesSetToken) {
         if (err) { cb(err); return; }
-        winston.log('startSession: token set.');
+        winston.log("info",'startSession: token set.');
         cb(null, token);
     });
 }
@@ -568,7 +568,7 @@ mongo.connect(process.env.MONGOLAB_URI, {
       var schemaDate = "2014_08_22";
       var envName = process.env.MATH_ENV; // prod, preprod, chris, mike
       var name = ["math", envName, schemaDate, basename].join("_");
-      winston.log(name);
+      winston.log("info",name);
       return name;
     }
 
@@ -775,7 +775,7 @@ function moveToBody(req, res, next) {
 }
 
 // function logPath(req, res, next) {
-//     winston.log(req.method + " " + req.url);
+//     winston.log("info",req.method + " " + req.url);
 //     next();
 // }
 
@@ -1069,7 +1069,7 @@ var prrrams = (function() {
                 }
                 next();
             } else {
-                // winston.log(req);
+                // winston.log("info",req);
                 var s = "polis_err_param_missing_" + name;
                 console.error(s);
                 yell(s);
@@ -1179,23 +1179,23 @@ polisTypes.starValues = _.values(polisTypes.staractions);
 //                 return function(callback) {
 //                     votesPost(c.pid, c.zid, c.tid, 0)
 //                         .then(function() {
-//                             winston.log("ok " + c.txt);
+//                             winston.log("info","ok " + c.txt);
 //                             callback(null);
 //                         })
 //                         .catch(function() {
-//                             winston.log("failedd " + c.txt);
+//                             winston.log("info","failedd " + c.txt);
 //                             callback(1);
 //                         });
 //                 };
 //             }),
 //             function(err, results) {
-//                 winston.log(err);
+//                 winston.log("info",err);
 //             });
 
 
-//         winston.log(missing);
-//         winston.log(missing.length);
-//         winston.log(comments.length);
+//         winston.log("info",missing);
+//         winston.log("info",missing.length);
+//         winston.log("info",comments.length);
 //     });
 // });
 
@@ -1351,17 +1351,11 @@ function getPidForParticipant(assigner, cache) {
             if (pid === -1) {
                 var msg = "polis_err_get_pid_for_participant_missing";
                 yell(msg);
-<<<<<<< HEAD
-                console.log(zid);
-                console.log(uid);
-                console.dir(req.p);
-                next(msg); 
-=======
-                winston.log(zid);
-                winston.log(uid);
-                winston.log(req.p);
+
+                winston.log("info",zid);
+                winston.log("info",uid);
+                winston.log("info",req.p);
                 next(msg);
->>>>>>> adding winston
             }
             finish(pid);
         }, function(err) {
@@ -1626,7 +1620,7 @@ app.use(function(req, res, next) {
             }
             b = JSON.stringify(temp);
         }
-        winston.log(req.path + " " + b);
+        winston.log("info",req.path + " " + b);
     } else {
         // don't log the route or params, since Heroku does that for us.
     }
@@ -1636,7 +1630,7 @@ app.use(function(err, req, res, next) {
     if(!err) {
         return next();
     }
-    winston.log("error found in middleware");
+    winston.log("info","error found in middleware");
     console.error(err);
     if (err && err.stack) {
         console.error(err.stack);
@@ -1728,10 +1722,10 @@ app.all("/api/v3/*", function(req, res, next) {
   var routeIsWhitelistedForAnyDomain = _.some(whitelistedCrossDomainRoutes, function(regex) { return regex.test(req.path);});
 
   if (!domainOverride && -1 === whitelistedDomains.indexOf(host) && !routeIsWhitelistedForAnyDomain) {
-      winston.log('not whitelisted');
-      // winston.log(req);
-      winston.log(req.headers);
-      winston.log(req.path);
+      winston.log("info",'not whitelisted');
+      // winston.log("info",req);
+      winston.log("info",req.headers);
+      winston.log("info",req.path);
       return next(new Error("unauthorized domain: " + host));
   }
   if (host === "") {
@@ -2024,7 +2018,7 @@ function getPcaPlaybackList(zid) {
 
 function redirectIfHasZidButNoConversationId(req, res, next) {
   if (req.body.zid && !req.body.conversation_id) {
-    winston.log("redirecting old zid user to about page");
+    winston.log("info","redirecting old zid user to about page");
     res.writeHead(302, {
         Location: "https://pol.is/about"
     });
@@ -2435,7 +2429,7 @@ function clearCookies(req, res) {
         //     }
         // }
     }
-    winston.log("after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
+    winston.log("info","after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
 }
 
 app.post("/api/v3/auth/deregister",
@@ -2555,13 +2549,13 @@ function generateSUZinvites(numTokens) {
                 reject(new Error("polis_err_creating_otzinvite"));
                 return;
             }
-            winston.log(longStringOfTokens);
+            winston.log("info",longStringOfTokens);
             var otzinviteArray = longStringOfTokens.match(/.{1,31}/g);
             otzinviteArray = otzinviteArray.slice(0, numTokens); // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
             otzinviteArray = otzinviteArray.map(function(suzinvite) {
                 return generateConversationURLPrefix() + suzinvite;
             });
-            winston.log(otzinviteArray);
+            winston.log("info",otzinviteArray);
             resolve(otzinviteArray);
         });
   });
@@ -2892,7 +2886,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
         ");";
 
     pgQuery(q, [zid], function(err, qa_results) {
-        if (err) { winston.log("adsfasdfasd"); return callback(err);}
+        if (err) { winston.log("info","adsfasdfasd"); return callback(err);}
 
         qa_results = qa_results.rows;
         qa_results = _.indexBy(qa_results, "pmaid");
@@ -2912,13 +2906,13 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
                     "INSERT INTO participant_metadata_choices (zid, pid, pmaid, pmqid) VALUES ($1,$2,$3,$4);",
                     x,
                     function(err, results) {
-                        if (err) { winston.log("sdkfuhsdu"); return cb(err);}
+                        if (err) { winston.log("info","sdkfuhsdu"); return cb(err);}
                         cb(0);
                     }
                 );
             },
             function(err) {
-                if (err) { winston.log("ifudshf78ds"); return callback(err);}
+                if (err) { winston.log("info","ifudshf78ds"); return callback(err);}
                 // finished with all the inserts
                 callback(0);
             }
@@ -2998,16 +2992,16 @@ function tryToJoinConversation(zid, uid, pmaid_answers) {
     return new Promise(function(resolve, reject) {
         pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid], function(err, docs) {
             if (err) {
-                winston.log("failed to insert into participants");
-                winston.log(err);
+                winston.log("info","failed to insert into participants");
+                winston.log("info",err);
                 return reject(err);
             }
             var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
 
             saveParticipantMetadataChoices(zid, pid, pmaid_answers, function(err) {
                 if (err) {
-                    winston.log("failed to saveParticipantMetadataChoices");
-                    winston.log(err);
+                    winston.log("info","failed to saveParticipantMetadataChoices");
+                    winston.log("info",err);
                     return reject(err);
                 }
                 var ptpt = docs.rows[0];
@@ -3082,9 +3076,9 @@ function isConversationOwner(zid, uid, callback) {
 
 function isOwner(zid, uid) {
     return getConversationInfo(zid).then(function(info) {
-        winston.log(39847534987 + " isOwner " + uid);
-        winston.log(info);
-        winston.log(info.owner === uid);
+        winston.log("info",39847534987 + " isOwner " + uid);
+        winston.log("info",info);
+        winston.log("info",info.owner === uid);
         return info.owner === uid;
     });
 }
@@ -3217,7 +3211,7 @@ function sendPasswordResetEmail(uid, pwresettoken, serverName, callback) {
 
 
 function sendTextEmailWithMailgun(sender, recipient, subject, text) {
-    winston.log("sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
+    winston.log("info","sending email with mailgun: " + [sender, recipient, subject, text].join(" "));
     var servername = "";
     var options = {};
     return new Promise(function(resolve, reject) {
@@ -3227,7 +3221,7 @@ function sendTextEmailWithMailgun(sender, recipient, subject, text) {
                 yell("polis_err_mailgun_email_send_failed");                
                 reject(err);
             } else {
-                winston.log("sent email with mailgun to " + recipient);
+                winston.log("info","sent email with mailgun to " + recipient);
                 resolve();
             }
         });
@@ -3235,7 +3229,7 @@ function sendTextEmailWithMailgun(sender, recipient, subject, text) {
 }
 
 function sendTextEmailWithPostmark(sender, recipient, subject, text) {
-    winston.log("sending email with postmark: " + [sender, recipient, subject, text].join(" "));
+    winston.log("info","sending email with postmark: " + [sender, recipient, subject, text].join(" "));
     return new Promise(function(resolve, reject) {
         postmark.send({
             "From": sender,
@@ -3248,7 +3242,7 @@ function sendTextEmailWithPostmark(sender, recipient, subject, text) {
                 yell("polis_err_postmark_email_send_failed");
                 reject(error);
             } else {
-                winston.log("sent email with postmark to " + recipient);
+                winston.log("info","sent email with postmark to " + recipient);
                 resolve();
             }
         });
@@ -3345,7 +3339,7 @@ function verifyHmacForQueryParams(path, params) {
         var correctHash = createHmacForQueryParams(path, params);
         // To thwart timing attacks, add some randomness to the response time with setTimeout.
         setTimeout(function() {
-            winston.log("comparing", correctHash, hash);
+            winston.log("info","comparing", correctHash, hash);
             if (correctHash === hash) {
                 resolve();
             } else {
@@ -3559,7 +3553,7 @@ function checkPassword(uid, password) {
 
 function subscribeToNotifications(zid, uid) {
     var type = 1; // 1 for email
-    winston.log("subscribeToNotifications", zid, uid);
+    winston.log("info","subscribeToNotifications", zid, uid);
     return pgQueryP("update participants set subscribed = ($3) where zid = ($1) and uid = ($2);", [zid, uid, type]).then(function(rows) {
         return type;
     });
@@ -3809,8 +3803,8 @@ function sendNotificationEmail(uid, url, conversation_id, email, remaining) {
 function notifyParticipantsOfNewComments() {
     getParticipantsThatNeedNotifications().then(function(rows) {
         rows = rows || [];
-        winston.log("getParticipantsThatNeedNotifications", rows.length);
-        winston.log(rows);
+        winston.log("info","getParticipantsThatNeedNotifications", rows.length);
+        winston.log("info",rows);
         rows.forEach(function(row) {
             var url = row.parent_url;
             if (!url) {
@@ -3824,9 +3818,9 @@ function notifyParticipantsOfNewComments() {
                 console.error(err);
             });
         });
-        winston.log("end getParticipantsThatNeedNotifications");
+        winston.log("info","end getParticipantsThatNeedNotifications");
     }).catch(function(err) {
-        winston.log("error getParticipantsThatNeedNotifications");
+        winston.log("info","error getParticipantsThatNeedNotifications");
         console.error(err);
         // yell("polis_err_notifying_participants");
     });
@@ -4008,7 +4002,7 @@ function(req, res) {
             var hashedPassword  = results[0].pwhash;
 
             bcrypt.compare(password, hashedPassword, function(errCompare, result) {
-                winston.log("errCompare, result", errCompare, result);
+                winston.log("info","errCompare, result", errCompare, result);
                 if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
                 
                 startSession(uid, function(errSess, token) {
@@ -4018,9 +4012,9 @@ function(req, res) {
                         token: token
                     };
                     addCookies(req, res, token, uid).then(function() {
-                        winston.log("uid", uid);                        
-                        winston.log("lti_user_id", lti_user_id);
-                        winston.log("lti_context_id", lti_context_id);
+                        winston.log("info","uid", uid);                        
+                        winston.log("info","lti_user_id", lti_user_id);
+                        winston.log("info","lti_context_id", lti_context_id);
                         var ltiUserPromise = lti_user_id ?
                             addLtiUserifNeeded(uid, lti_user_id, tool_consumer_instance_guid, lti_user_image) :
                             Promise.resolve();
@@ -4111,7 +4105,7 @@ function(req, res) {
     })
     .then(function(o) {
         var uid = o.uid;
-        winston.log("startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
+        winston.log("info","startSessionAndAddCookies " + uid + " existing " + o.existingAuth);
         // TODO check for possible security implications
         if (!o.existingAuth) {
             return startSessionAndAddCookies(req, res, uid).then(function() {
@@ -4121,7 +4115,7 @@ function(req, res) {
         return Promise.resolve(o);
     })
     .then(function(o) {
-        winston.log("permanentCookieToken", o.permanentCookieToken);
+        winston.log("info","permanentCookieToken", o.permanentCookieToken);
         if (o.permanentCookieToken) {
             return recordPermanentCookieZidJoin(o.permanentCookieToken, o.zid).then(function() {
                 return o;
@@ -4152,17 +4146,17 @@ function(req, res) {
 // Test for deadlock condition
 // _.times(2, function() {
 // setInterval(function() {
-//         winston.log("foobar test call begin");
+//         winston.log("info","foobar test call begin");
 //         joinWithZidOrSuzinvite({
 //             answers: [],
 //             existingAuth: false,
 //             zid: 11580,
 //             // uid: req.p.uid,
 //         }).then(function() {
-//             winston.log('foobar test ok');
+//             winston.log("info",'foobar test ok');
 //         }).catch(function(err) {
-//             winston.log('foobar test failed');
-//             winston.log(err);
+//             winston.log("info",'foobar test failed');
+//             winston.log("info",err);
 //         });
 
 // }, 10);
@@ -4183,9 +4177,9 @@ function joinWithZidOrSuzinvite(o) {
         }
     })
     .then(function(o) {
-        winston.log("joinWithZidOrSuzinvite convinfo begin");
+        winston.log("info","joinWithZidOrSuzinvite convinfo begin");
         return getConversationInfo(o.zid).then(function(conv) {
-            winston.log("joinWithZidOrSuzinvite convinfo done");
+            winston.log("info","joinWithZidOrSuzinvite convinfo done");
             o.conv = conv;
             return o;
         });
@@ -4208,19 +4202,19 @@ function joinWithZidOrSuzinvite(o) {
         }
     })
     .then(function(o) {
-        winston.log("joinWithZidOrSuzinvite userinfo begin");
+        winston.log("info","joinWithZidOrSuzinvite userinfo begin");
         if (!o.uid) {
-            winston.log("joinWithZidOrSuzinvite userinfo nope");
+            winston.log("info","joinWithZidOrSuzinvite userinfo nope");
             return o;
         }
         return getUserInfoForUid2(o.uid).then(function(user) {
-            winston.log("joinWithZidOrSuzinvite userinfo done");
+            winston.log("info","joinWithZidOrSuzinvite userinfo done");
             o.user = user;
             return o;
         });
     })
     .then(function(o) {
-        winston.log("joinWithZidOrSuzinvite check email");
+        winston.log("info","joinWithZidOrSuzinvite check email");
       if (o.conv.owner_sees_participation_stats) {
         // User stats can be provided either by having the users sign in with polis
         // or by having them join via suurls.
@@ -4231,7 +4225,7 @@ function joinWithZidOrSuzinvite(o) {
       return o;
     })
     .then(function(o) {
-        winston.log("joinWithZidOrSuzinvite check email done");
+        winston.log("info","joinWithZidOrSuzinvite check email done");
       if (o.uid) {
         return o;
       } else {
@@ -4333,14 +4327,14 @@ function getUserByEmail(email) {
 }
 
 function createFacebookUserRecord(o) {
-    winston.log("createFacebookUserRecord");
-    winston.log("createFacebookUserRecord", JSON.stringify(o));
-    winston.log(o);
-    winston.log("end createFacebookUserRecord");
+    winston.log("info","createFacebookUserRecord");
+    winston.log("info","createFacebookUserRecord", JSON.stringify(o));
+    winston.log("info",o);
+    winston.log("info","end createFacebookUserRecord");
     var profileInfo = JSON.parse(o.fb_public_profile);
-    winston.log("createFacebookUserRecord profileInfo");
-    winston.log(profileInfo);
-    winston.log("end createFacebookUserRecord profileInfo");
+    winston.log("info","createFacebookUserRecord profileInfo");
+    winston.log("info",profileInfo);
+    winston.log("info","end createFacebookUserRecord profileInfo");
     // Create facebook user record
     return pgQueryP("insert into facebook_users (uid, fb_user_id, fb_name, fb_link, fb_public_profile, fb_login_status, fb_access_token, fb_granted_scopes, fb_location_id, location, fb_friends_response, response) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);", [
         o.uid,
@@ -4425,7 +4419,7 @@ function(req, res) {
         if (err) {
             fail(res, 500, "polis_err_cloning_conversation", err);
         }
-        // winston.log(rows);
+        // winston.log("info",rows);
         var conv = result.rows[0];
 
         // var conv = rows[0];
@@ -4610,7 +4604,7 @@ function(req, res) {
             var promise;
             if (uid) {
 
-                winston.log("fb1 5a...");
+                winston.log("info","fb1 5a...");
 
                 // user record already exists, so populate that in case it has missing info
                 promise = Promise.all([
@@ -4619,15 +4613,15 @@ function(req, res) {
                     pgQueryP("update users set email = ($2) where uid = ($1) and email is NULL;",[uid, email]),
                 ]).then(function(o) {
                     var user = o[0][0];
-                    winston.log("fb1 5a");
-                    winston.log(user);
-                    winston.log("end fb1 5a");
+                    winston.log("info","fb1 5a");
+                    winston.log("info",user);
+                    winston.log("info","end fb1 5a");
                     return user;
                 });
-                winston.log("fb1 5a....");
+                winston.log("info","fb1 5a....");
             } else {
 
-                winston.log("fb1 5b...");
+                winston.log("info","fb1 5b...");
 
                 var query = "insert into users " +
                     "(email, hname) VALUES "+
@@ -4636,9 +4630,9 @@ function(req, res) {
                 promise = pgQueryP(query, [email, hname])
                 .then(function(rows) {
                     var user = rows && rows.length && rows[0] || null;
-                    winston.log("fb1 5b");
-                    winston.log(user);
-                    winston.log("end fb1 5b");
+                    winston.log("info","fb1 5b");
+                    winston.log("info",user);
+                    winston.log("info","end fb1 5b");
                     return user;
                 });
             }
@@ -4646,17 +4640,17 @@ function(req, res) {
             promise
             .then(function(user) {
 
-                winston.log("fb1 4");
-                winston.log(user);
-                winston.log("end fb1 4");
+                winston.log("info","fb1 4");
+                winston.log("info",user);
+                winston.log("info","end fb1 4");
                 return createFacebookUserRecord(_.extend({}, user, fbUserRecord)).then(function() {
                     return user;
                 });
             })
             .then(function(user) {
-                winston.log("fb1 3");
-                winston.log(user);
-                winston.log("end fb1 3");
+                winston.log("info","fb1 3");
+                winston.log("info",user);
+                winston.log("info","end fb1 3");
                 if (fb_friends_response) {
                     return addFacebookFriends(user.uid, fb_friends_response).then(function() {
                         return user;
@@ -4669,9 +4663,9 @@ function(req, res) {
                 fail(res, 500, "polis_err_reg_fb_user_creating_record2", err); 
             })
             .then(function(user) {
-                winston.log("fb1 2");
-                winston.log(user);
-                winston.log("end fb1 2");
+                winston.log("info","fb1 2");
+                winston.log("info",user);
+                winston.log("info","end fb1 2");
                 var uid = user.uid;
                 return startSessionAndAddCookies(req, res, uid).then(function() {
                     return user;
@@ -4682,9 +4676,9 @@ function(req, res) {
                 fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
             })
             .then(function(user) {
-                winston.log("fb1");
-                winston.log(user);
-                winston.log("end fb1");
+                winston.log("info","fb1");
+                winston.log("info",user);
+                winston.log("info","end fb1");
                 res.json({
                     uid: user.uid,
                     hname: user.hname,
@@ -4711,9 +4705,9 @@ function(req, res) {
                     }
                     intercom.createUser(params, function(err, res) {
                         if (err) {
-                            winston.log(err);
+                            winston.log("info",err);
                             console.error("polis_err_intercom_create_user_fb_fail");
-                            winston.log(params);
+                            winston.log("info",params);
                             yell("polis_err_intercom_create_user_fb_fail");
                             return;
                         }
@@ -4816,11 +4810,11 @@ function(req, res) {
                     }
 
                     pgQuery(query, vals, function(err, result) {
-                        if (err) { winston.log(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
+                        if (err) { winston.log("info",err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
                         var uid = result && result.rows && result.rows[0] && result.rows[0].uid;
 
                         pgQuery("insert into jianiuevyew (uid, pwhash) values ($1, $2);", [uid, hashedPassword], function(err, results) {
-                            if (err) { winston.log(err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
+                            if (err) { winston.log("info",err); fail(res, 500, "polis_err_reg_failed_to_add_user_record", err); return; }
 
 
                             startSession(uid, function(err,token) {
@@ -4877,9 +4871,9 @@ function(req, res) {
                                     }
                                     intercom.createUser(params, function(err, res) {
                                         if (err) {
-                                            winston.log(err);
+                                            winston.log("info",err);
                                             console.error("polis_err_intercom_create_user_fail");
-                                            winston.log(params);
+                                            winston.log("info",params);
                                             yell("polis_err_intercom_create_user_fail");
                                             return;
                                         }
@@ -5121,7 +5115,7 @@ function getCouponInfo(couponCode) {
 
 
 function updatePlan(req, res, uid, planCode, isCurrentUser) {
-    winston.log('updatePlan', uid, planCode);
+    winston.log("info",'updatePlan', uid, planCode);
     setUsersPlanInIntercom(uid, planCode).catch(function(err) {
         emailBadProblemTime("User " + uid + " changed their plan, but we failed to update Intercom");
     });
@@ -5160,8 +5154,8 @@ function updatePlan(req, res, uid, planCode, isCurrentUser) {
 // Just for testing that the new custom stripe form is submitting properly
 app.post("/api/v3/post_payment_form",
 function(req, res) {
-  winston.log("XXX - Got the params!");
-  winston.log("XXX - Got the params!" + res);
+  winston.log("info","XXX - Got the params!");
+  winston.log("info","XXX - Got the params!" + res);
 });
 
 
@@ -5439,12 +5433,12 @@ function(req, res) {
     var mod = req.p.mod;
 
     var rid = req.headers["x-request-id"] + " " + req.headers['user-agent'];
-    winston.log("getComments " + rid + " begin");
+    winston.log("info","getComments " + rid + " begin");
 
     getComments(req.p).then(function(comments) {
         finishArray(res, comments);
     }).catch(function(err) {
-        winston.log("getComments " + rid + " failed");
+        winston.log("info","getComments " + rid + " failed");
         fail(res, 500, "polis_err_get_comments", new Error("polis_err_get_comments"), err);
     });
 }); // end GET /api/v3/comments
@@ -5597,19 +5591,19 @@ function getComment(zid, tid) {
 //         tid: req.p.tid,
 //         signature: req.p[HMAC_SIGNATURE_PARAM_NAME],
 //     };
-//     winston.log("mute", 1);
+//     winston.log("info","mute", 1);
 //     verifyHmacForQueryParams("v3/mute", params).catch(function() {
-//     winston.log("mute", 2);
+//     winston.log("info","mute", 2);
 
 //         fail(res, 403, "polis_err_signature_mismatch");
 //     }).then(function() {
-//     winston.log("mute", 3);
+//     winston.log("info","mute", 3);
 //         return muteComment(zid, tid);
 //     }).then(function() {
-//     winston.log("mute", 4);
+//     winston.log("info","mute", 4);
 //         return getComment(zid, tid);
 //     }).then(function(c) {
-//     winston.log("mute", 5);
+//     winston.log("info","mute", 5);
 //         res.set('Content-Type', 'text/html');
 //         res.send(
 //             "<h1>muted tid: "+c.tid+" zid:" + c.zid + "</h1>" +
@@ -5617,7 +5611,7 @@ function getComment(zid, tid) {
 //             "<a href=\"" + createUnmuteUrl(zid, tid) + "\">Unmute this comment.</a>"
 //         );
 //     }).catch(function(err) {
-//     winston.log("mute", 6);
+//     winston.log("info","mute", 6);
 //         fail(res, 500, err);
 //     });
 // });
@@ -5716,7 +5710,7 @@ function(req, res) {
     });
     isSpamPromise.catch(function(err) {
         console.error("isSpam failed");
-        winston.log(err);
+        winston.log("info",err);
     });
     // var isSpamPromise = Promise.resolve(false);
     var isModeratorPromise = isModerator(zid, uid);
@@ -5749,11 +5743,11 @@ function(req, res) {
  
         var bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
-            winston.log("spam test says: " + txt + " " + (spammy?"spammy":"not_spammy"));
+            winston.log("info","spam test says: " + txt + " " + (spammy?"spammy":"not_spammy"));
             return spammy;
         }, function(err) {
             console.error("spam check failed");
-            winston.log(err);
+            winston.log("info",err);
             return false; // spam check failed, continue assuming "not spammy".
         }).then(function(spammy) {
             var velocity = 1;
@@ -5787,7 +5781,7 @@ function(req, res) {
 
                 function(err, docs) {
                     if (err) { 
-                        winston.log(err);
+                        winston.log("info",err);
                         if (err.code === '23505' || err.code === 23505) {
                             // duplicate comment
                             fail(res, 409, "polis_err_post_comment_duplicate", err);
@@ -6495,14 +6489,14 @@ function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, param
             "application/xml",
             function (e, data, res){
                 if (e) {
-                    winston.log("grades foo failed");
+                    winston.log("info","grades foo failed");
                     console.error(e);     
                     reject(e);
                 } else {
-                    winston.log('grades foo ok!');
+                    winston.log("info",'grades foo ok!');
                     resolve(params, data);
                 }
-                // winston.log(require('util').inspect(data));
+                // winston.log("info",require('util').inspect(data));
             }
         );
     });
@@ -6550,7 +6544,7 @@ function sendCanvasGradesIfNeeded(zid, ownerUid) {
         var promises = callbackInfos.map(function(assignmentCallbackInfo) {
             var gradeFromZeroToOne = isFullPointsEarningLtiUserId[assignmentCallbackInfo.lti_user_id] ? 1.0 : 0.0;
             assignmentCallbackInfo.gradeFromZeroToOne = gradeFromZeroToOne;
-            winston.log("grades assigned" + gradeFromZeroToOne + " lti_user_id " + assignmentCallbackInfo.lti_user_id);
+            winston.log("info","grades assigned" + gradeFromZeroToOne + " lti_user_id " + assignmentCallbackInfo.lti_user_id);
             return sendGradeForAssignment(
                 ownerLtiCreds.oauth_consumer_key,
                 ownerLtiCreds.oauth_shared_secret,
@@ -6562,7 +6556,7 @@ function sendCanvasGradesIfNeeded(zid, ownerUid) {
 function updateLocalRecordsToReflectPostedGrades(listOfGradingContexts) {
     listOfGradingContexts = listOfGradingContexts || [];
     return Promise.all(listOfGradingContexts.map(function(gradingContext) {
-        winston.log("grading set to " + gradingContext.gradeFromZeroToOne);
+        winston.log("info","grading set to " + gradingContext.gradeFromZeroToOne);
         return pgQueryP("update canvas_assignment_callback_info set grade_assigned = ($1) where tool_consumer_instance_guid = ($2) and lti_context_id = ($3) and lti_user_id = ($4) and custom_canvas_assignment_id = ($5);", [
             gradingContext.gradeFromZeroToOne,
             gradingContext.tool_consumer_instance_guid,
@@ -6777,7 +6771,7 @@ function(req, res){
                             });
                         }).catch(function(err) {
                             yell("polis_err_sending_conversation_created_email");
-                            winston.log(err);
+                            winston.log("info",err);
                         });
                     }
 
@@ -6901,7 +6895,7 @@ function getZidForAnswer(pmaid, callback) {
 
 function getZidForQuestion(pmqid, callback) {
     pgQuery("SELECT zid FROM participant_metadata_questions WHERE pmqid = ($1);", [pmqid], function(err, result) {
-        if (err) {winston.log(err);  callback(err); return;}
+        if (err) {winston.log("info",err);  callback(err); return;}
         if (!result.rows || !result.rows.length) {
             callback("polis_err_zid_missing_for_question");
             return;
@@ -7246,7 +7240,7 @@ function getConversations(req, res) {
   var want_inbox_item_participant_html = req.p.want_inbox_item_participant_html;
   var context = req.p.context;
   var limit = req.p.limit;
-  winston.log("thecontext", context);
+  winston.log("info","thecontext", context);
 
 
   // this statement is currently a subset of the next one
@@ -7274,7 +7268,7 @@ function getConversations(req, res) {
     var orClauses;
     if (!_.isUndefined(req.p.context)) {
         if (req.p.context === "/") {
-            winston.log("asdf" + req.p.context + "asdf");
+            winston.log("info","asdf" + req.p.context + "asdf");
             // root of roots returns all public conversations
             // TODO lots of work to decide what's relevant
             // There is a bit of mess here, because we're returning both public 'roots' conversations, and potentially private conversations that you are already in.
@@ -7282,7 +7276,7 @@ function getConversations(req, res) {
             isRootsQuery = true; // more conditions follow in the ANDs below
         } else {
             // knowing a context grants access to those conversations (for now at least)
-            winston.log("CONTEXT", context);
+            winston.log("info","CONTEXT", context);
             orClauses = sql_conversations.context.equals(req.p.context);
         }
     } else {
@@ -7573,7 +7567,7 @@ app.post('/api/v3/conversations',
     want('description', getOptionalStringLimitLength(50000), assignToP, ""),
 function(req, res) {
 
-    winston.log("context", req.p.context);
+    winston.log("info","context", req.p.context);
     var generateShortUrl = req.p.short_url;
 
   isUserAllowedToCreateConversations(req.p.uid, function(err, isAllowed) {
@@ -7678,7 +7672,7 @@ app.post('/api/v3/sendCreatedLinkToEmail',
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res){
-    winston.log(req.p);
+    winston.log("info",req.p);
     pgQuery("SELECT * FROM users WHERE uid = $1", [req.p.uid], function(err, results){
         if (err) { fail(res, 500, "polis_err_get_email_db", err); return; }
         var email = results.rows[0].email;
@@ -7740,7 +7734,7 @@ function getTwitterRequestToken(returnUrl) {
                 } else {
                     resolve(data);
                 }
-                // winston.log(require('util').inspect(data));
+                // winston.log("info",require('util').inspect(data));
             }
         );
     });
@@ -7758,7 +7752,7 @@ function(req, res) {
     var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?dest=" + dest;
 
     getTwitterRequestToken(returnUrl).then(function(data) {        
-        winston.log(data);
+        winston.log("info",data);
         data += "&callback_url=" + dest;
         // data += "&callback_url=" + encodeURIComponent(getServerNameWithProtocol(req) + "/foo");
         res.redirect("https://api.twitter.com/oauth/authenticate?" + data);
@@ -7793,7 +7787,7 @@ function getTwitterAccessToken(body) {
                 } else {
                     resolve(data);
                 }
-                // winston.log(require('util').inspect(data));
+                // winston.log("info",require('util').inspect(data));
             }
         );
     });
@@ -7828,7 +7822,7 @@ function getTwitterUserInfo(twitter_user_id) {
                 } else {
                     resolve(data);
                 }
-                // winston.log(require('util').inspect(data));
+                // winston.log("info",require('util').inspect(data));
             }
         );
     });
@@ -7864,8 +7858,8 @@ function getTwitterUserInfoBulk(list_of_twitter_user_id) {
                     reject(e);
                 } else {
                     data = JSON.parse(data);
-                    // winston.log(data);
-                // winston.log(require('util').inspect(data));
+                    // winston.log("info",data);
+                // winston.log("info",require('util').inspect(data));
                     resolve(data);
                 }
             }
@@ -7894,14 +7888,14 @@ function switchToUser(req, res, uid) {
 // retry, resolving with first success, or rejecting with final error
 function retryFunctionWithPromise(f, numTries) {
     return new Promise(function(resolve, reject) {
-        winston.log("retryFunctionWithPromise", numTries);
+        winston.log("info","retryFunctionWithPromise", numTries);
         f().then(function(x) {
-            winston.log("retryFunctionWithPromise", "RESOLVED");
+            winston.log("info","retryFunctionWithPromise", "RESOLVED");
             resolve(x);
         }, function(err) {
             numTries -= 1;
             if (numTries <= 0) {
-                winston.log("retryFunctionWithPromise", "REJECTED");
+                winston.log("info","retryFunctionWithPromise", "REJECTED");
                 reject(err);
             } else {
                 retryFunctionWithPromise(f, numTries).then(resolve, reject);
@@ -7923,9 +7917,9 @@ function(req, res) {
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
     var dest = req.p.dest;
-    winston.log("twitter_oauth_callback params");
-    winston.log(req.p);
-    winston.log("twitter_oauth_callback params end");
+    winston.log("info","twitter_oauth_callback params");
+    winston.log("info",req.p);
+    winston.log("info","twitter_oauth_callback params end");
     // this api sometimes succeeds, and sometimes fails, not sure why
     function tryGettingTwitterAccessToken() {
         return getTwitterAccessToken({
@@ -7934,7 +7928,7 @@ function(req, res) {
         });
     }
     retryFunctionWithPromise(tryGettingTwitterAccessToken, 20).then(function(o) {
-        winston.log("TWITTER ACCESS TOKEN");
+        winston.log("info","TWITTER ACCESS TOKEN");
         var pairs = o.split("&");
         var kv = {};
         pairs.forEach(function(pair) {
@@ -7946,16 +7940,16 @@ function(req, res) {
             }
             kv[k] = v;
         });
-        winston.log(kv);
-        winston.log("/TWITTER ACCESS TOKEN");
+        winston.log("info",kv);
+        winston.log("info","/TWITTER ACCESS TOKEN");
 
         // TODO - if no auth, generate a new user.
 
         getTwitterUserInfo(kv.user_id).then(function(u) {
             u = JSON.parse(u)[0];
-            winston.log("TWITTER USER INFO");
-            winston.log(u);
-            winston.log("/TWITTER USER INFO");
+            winston.log("info","TWITTER USER INFO");
+            winston.log("info",u);
+            winston.log("info","/TWITTER USER INFO");
             return pgQueryP("insert into twitter_users ("+
                 "uid," +
                 "twitter_user_id," +
@@ -8250,13 +8244,13 @@ function getTwitterUsersInConversation(zid, uid, limit) {
     //     }
     //     var twitterIds = _.pluck(twitterParticipants, "twitter_user_id");
     //     return getTwitterUserInfoBulk(twitterIds).then(function(freshTwitterInfos) {
-    //         winston.log("catsfood", freshTwitterInfos.length);
+    //         winston.log("info","catsfood", freshTwitterInfos.length);
     //         var twitterIdToIndex = {};
     //         for (var i = 0; i < twitterIds.length; i++) {
     //             twitterIdToIndex[twitterIds[i]] = parseInt(i);
     //         }
-    //         winston.log("catsfoods");
-    //         winston.log(twitterIdToIndex);
+    //         winston.log("info","catsfoods");
+    //         winston.log("info",twitterIdToIndex);
     //         for (var t = 0; t < freshTwitterInfos.length; t++) {
     //             var info = freshTwitterInfos[t];
     //             var index = twitterIdToIndex[info.id_str];
@@ -8279,7 +8273,7 @@ function updateVoteCount(zid, pid) {
 
 // function dbMigrationAddVoteCount() {
 //     function process(x) {
-//         winston.log("freefood" + x.zid, x.count, x.pid);
+//         winston.log("info","freefood" + x.zid, x.count, x.pid);
 //         pgQueryP("update participants set vote_count = ($1) where zid = ($2) and pid = ($3);", [
 //                 x.count,
 //                 x.zid,
@@ -8480,7 +8474,7 @@ function geoCode(locationString) {
     return pgQueryP("select * from geolocation_cache where location = ($1);", [locationString]).then(function(rows) {
         if (!rows || !rows.length) {
             return geoCodeWithGoogleApi(locationString).then(function(result) {
-                winston.log(result);
+                winston.log("info",result);
                 var lat = result.geometry.location.lat;
                 var lng = result.geometry.location.lng;
                 // NOTE: not waiting for the response to this - it might fail in the case of a race-condition, since we don't have upsert
@@ -8777,8 +8771,8 @@ function(req, res) {
                     var bid = pidsToBids[pid];
                     var notInBucket = _.isUndefined(bid);
                     var isSelf = pidToData[pid].isSelf;
-                    // winston.log("pidToData", pid, myPid, isSelf);
-                    // winston.log(pidToData[pid]);
+                    // winston.log("info","pidToData", pid, myPid, isSelf);
+                    // winston.log("info",pidToData[pid]);
                     if (notInBucket && !isSelf) {
                         // pidToData[pid].ignore = true;
                         delete pidToData[pid]; // if the participant isn't in a bucket, they probably haven't voted enough for the math worker to bucketize them.
@@ -8865,7 +8859,7 @@ app.get("/api/v3/einvites",
 function(req, res) {
     var einvite = req.p.einvite;
     
-    winston.log("select * from einvites where einvite = ($1);", [einvite]);
+    winston.log("info","select * from einvites where einvite = ($1);", [einvite]);
     pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
         if (!rows.length) {
             throw new Error("polis_err_missing_einvite");
@@ -9089,7 +9083,7 @@ app.post("/api/v3/LTI/setup_assignment",
     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 function(req, res) {
-    winston.log(req);
+    winston.log("info",req);
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
     var user_id = req.p.user_id;    
@@ -9143,7 +9137,7 @@ function(req, res) {
                     // you are signed in, but not linked to the signed in user
                     // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
                     clearCookies(req, res);
-                    winston.log('lti_linkage didnt exist');
+                    winston.log("info",'lti_linkage didnt exist');
                     // Have them sign in again, since they weren't linked.
                     // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
                     renderLtiLinkagePage(req, res);
@@ -9153,7 +9147,7 @@ function(req, res) {
             });
         } else { // no uid (no cookies)
             // Have them sign in to set up the linkage
-            winston.log('lti_linkage - no uid');            
+            winston.log("info",'lti_linkage - no uid');            
             renderLtiLinkagePage(req, res);
         }
     }).catch(function(err) {
@@ -9175,7 +9169,7 @@ function(req, res) {
 //     want("launch_presentation_return_url", getStringLimitLength(1, 9999), assignToP),
 //     want("ext_content_return_types", getStringLimitLength(1, 9999), assignToP),
 // function(req, res) {
-//     winston.log(req);
+//     winston.log("info",req);
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
 //     var user_id = req.p.user_id;    
@@ -9185,7 +9179,7 @@ function(req, res) {
 //     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
 //     // }
 
-//     winston.log(req.p);
+//     winston.log("info",req.p);
 
 //     // // TODO SECURITY we need to verify the signature
 //     // var oauth_consumer_key = req.p.oauth_consumer_key;
@@ -9199,7 +9193,7 @@ function(req, res) {
 //             userForLtiUserId = rows[0];
 //         }
 
-//         winston.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
+//         winston.log("info",'got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
 
 //         if (userForLtiUserId) {
 //             // if (teacher pays) {
@@ -9234,7 +9228,7 @@ function(req, res) {
 //             // you are signed in, but not linked to the signed in user
 //             // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
 //             clearCookies(req, res);
-//             winston.log('lti_linkage didnt exist');
+//             winston.log("info",'lti_linkage didnt exist');
 //             // Have them sign in again, since they weren't linked.
 //             // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
 //             renderLtiLinkagePage(req, res);
@@ -9265,7 +9259,7 @@ function addCanvasAssignmentConversationInfoIfNeeded(zid, tool_consumer_instance
 }
 
 function getCanvasAssignmentInfo(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
-    winston.log('grades select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = '+tool_consumer_instance_guid+' and lti_context_id = '+lti_context_id+' and custom_canvas_assignment_id = '+custom_canvas_assignment_id+';');
+    winston.log("info",'grades select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = '+tool_consumer_instance_guid+' and lti_context_id = '+lti_context_id+' and custom_canvas_assignment_id = '+custom_canvas_assignment_id+';');
     return pgQueryP("select * from canvas_assignment_conversation_info where tool_consumer_instance_guid = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3);", [
         tool_consumer_instance_guid,
         lti_context_id,
@@ -9337,8 +9331,8 @@ function(req, res) {
     var context_id = req.p.context_id;
     var user_image = req.p.user_image || "";
 
-    winston.log("grades req.body " + JSON.stringify(req.body));
-    winston.log("grades req.p " + JSON.stringify(req.p));
+    winston.log("info","grades req.body " + JSON.stringify(req.body));
+    winston.log("info","grades req.p " + JSON.stringify(req.p));
 
     // TODO SECURITY we need to verify the signature
     var oauth_consumer_key = req.p.oauth_consumer_key;
@@ -9348,7 +9342,7 @@ function(req, res) {
             var userForLtiUserId = null;
             if (rows.length) {
                 userForLtiUserId = rows[0];
-                winston.log('got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
+                winston.log("info",'got user for lti_user_id:' + JSON.stringify(userForLtiUserId));
             }
             return userForLtiUserId;
         });
@@ -9356,10 +9350,10 @@ function(req, res) {
 
     if (req.p.lis_result_sourcedid) {
         addCanvasAssignmentConversationCallbackParamsIfNeeded(req.p.user_id, req.p.context_id, req.p.custom_canvas_assignment_id, req.p.tool_consumer_instance_guid, req.p.lis_outcome_service_url, req.p.lis_result_sourcedid, JSON.stringify(req.body)).then(function() {
-            winston.log("grading info added");
+            winston.log("info","grading info added");
         }).catch(function(err) {
-            winston.log("grading info error ");
-            winston.log(err);
+            winston.log("info","grading info error ");
+            winston.log("info",err);
         });
     }
 
@@ -9410,7 +9404,7 @@ function(req, res) {
                     // you are signed in, but not linked to the signed in user
                     // WARNING! CLEARING COOKIES - since it's difficult to have them click a link to sign out, and then re-initiate the LTI POST request from Canvas, just sign them out now and move on.
                     clearCookies(req, res);
-                    winston.log('lti_linkage didnt exist');
+                    winston.log("info",'lti_linkage didnt exist');
                     // Have them sign in again, since they weren't linked.
                     // NOTE: this could be streamlined by showing a sign-in page that also says "you are signed in as foo, link account foo? OR sign in as someone else"
                     renderLtiLinkagePage(req, res, url);
@@ -9919,11 +9913,11 @@ function(req, res) {
 //             var xid = escapeLiteral(pair[0]);
 //             var suzinvite = escapeLiteral(pair[1]);
 //             var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
-//             winston.log(statement);
+//             winston.log("info",statement);
 //             return statement;
 //         });
 //         var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
-//         winston.log(query);
+//         winston.log("info",query);
 //         pgQuery(query, [], function(err, results) {
 //             if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
 //             getZinvite(zid).then(function(conversation_id) {
@@ -9993,11 +9987,11 @@ function(req, res) {
                 var xid = escapeLiteral(pair[0]);
                 var suzinvite = escapeLiteral(pair[1]);
                 var statement = "("+ suzinvite + ", " + xid + "," + zid+","+owner+")";
-                winston.log(statement);
+                winston.log("info",statement);
                 return statement;
             });
             var query = "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES " + valuesStatements.join(",") + ";";
-            winston.log(query);
+            winston.log("info",query);
             pgQuery(query, [], function(err, results) {
                 if (err) { fail(res, 500, "polis_err_saving_invites", err); return; }
 
@@ -10040,19 +10034,19 @@ function(req, res) {
 
 //   function saveToken(error, result) {
 //     if (error) {
-//         winston.log('Access Token Error', error.message);
+//         winston.log("info",'Access Token Error', error.message);
 //         fail(res, 500, "polis_err_oauth_callback_github", error);
 //     }
 //     var token = oauth2.AccessToken.create(result);
-//     winston.log("thetoken", token);
-//     winston.log(token);
-//     winston.log("thetoken", token);
+//     winston.log("info","thetoken", token);
+//     winston.log("info",token);
+//     winston.log("info","thetoken", token);
 //     // res.status(200).end();
 //     res.redirect("/inboxApiTest"); // got the token, go somewhere when auth is done.
 //   }
 
 //   var code = req.query.code;
-//   winston.log('/oauth2/oauth2_github_callback');
+//   winston.log("info",'/oauth2/oauth2_github_callback');
 //   oauth2.AuthCode.getToken({
 //     code: code,
 //     redirect_uri: 'https://preprod.pol.is/oauth2/oauth2_github_callback'
@@ -10228,7 +10222,7 @@ function(req, res) {
                 var modUrl = buildModerationUrl(req, conv.zinvite);
                 var seedUrl = buildSeedUrl(req, conv.zinvite);
                 sendImplicitConversationCreatedEmails(site_id, page_id, url, modUrl, seedUrl).then(function() {
-                    winston.log('email sent');
+                    winston.log("info",'email sent');
                 }).catch(function(err) {
                     console.error('email fail');
                     console.error(err);
@@ -10415,7 +10409,7 @@ function makeFileFetcher(hostname, port, path, contentType) {
             // http://stackoverflow.com/questions/3048236/amazon-s3-https-ssl-is-it-possible
             url = "http://" + hostname + path;
         }
-        winston.log("fetch file from " + url);
+        winston.log("info","fetch file from " + url);
         var x = request(url);
         req.pipe(x);
         x.pipe(res);
@@ -10626,7 +10620,7 @@ app.get(/^\/[^(api\/)]?.*/, proxy);
 
 app.listen(process.env.PORT);
 
-winston.log('started on port ' + process.env.PORT);
+winston.log("info",'started on port ' + process.env.PORT);
 } // End of initializePolisAPI
 
 async.parallel([connectToMongo], initializePolisAPI);
