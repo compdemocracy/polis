@@ -439,7 +439,7 @@ var userTokenCache = new SimpleCache({
 });
 
 function getUserInfoForSessionToken(sessionToken, res, cb) {
-    var cachedUid = userTokenCache.get();
+    var cachedUid = userTokenCache.get(sessionToken);
     if (cachedUid) {
         cb(null, cachedUid);
         return;
