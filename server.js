@@ -10548,7 +10548,6 @@ app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, port, "/api_v3.html", "te
 app.get(/^\/embed$/, makeFileFetcher(hostname, port, "/embed.html", "text/html"));
 app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
 app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
-app.get(/^\/billions$/, makeFileFetcher(hostname, port, "/billions.html", "text/html"));
 app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", "text/html"));
 app.get(/^\/blog$/, makeFileFetcher(hostname, port, "/blog.html", "text/html"));
 app.get(/^\/billions$/, makeFileFetcher(hostname, port, "/billions.html", "text/html"));
