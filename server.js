@@ -179,6 +179,7 @@ if (devMode) {
 
 
 app.disable('x-powered-by');
+app.disable('etag'); // seems to be eating CPU, and we're not using etags yet. https://www.dropbox.com/s/hgfd5dm0e29728w/Screenshot%202015-06-01%2023.42.47.png?dl=0
 
 
 // basic defaultdict implementation
