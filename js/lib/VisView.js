@@ -18,6 +18,7 @@ var getParticipantsOfInterestForGid = params.getParticipantsOfInterestForGid;
 var isIE8 = params.isIE8;
 var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
+var firstShowDeferred = $.Deferred();
 
 var dimensions = {
     width: params.w,
@@ -1927,7 +1928,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     selectComment(selectedTid);
   }
 
-
+  firstShowDeferred.resolve();
 
 } // END upsertNode
 
@@ -2725,7 +2726,9 @@ function selectGroup(gid) {
     var hullId = gidToHullId[gid];
     handleOnClusterClicked(hullId);
 }
-
+function getFirstShowDeferred() {
+    return firstShowDeferred;
+}
 return {
     upsertNode: upsertNode,
     onSelfAppears: onSelfAppearsCallbacks.add,
@@ -2739,6 +2742,7 @@ return {
     showHintYou: showHintYou,
     hideHintYou: hideHintYou,
     getSelectedGid: getSelectedGid,
+    getFirstShowDeferred: getFirstShowDeferred,
 };
 
 };

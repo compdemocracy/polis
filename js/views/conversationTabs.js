@@ -257,15 +257,22 @@ module.exports =  Handlebones.ModelView.extend({
       $("#analyzeTab").fadeIn();
       that.showAnalyzeTab = true;
     });
-    // start with the vote tab
-    this.currentTab = this.VOTE_TAB;
+    // start with the analyze tab
+    this.currentTab = this.WRITE_TAB;
     if (options.openToWriteTab) {
 
       // TODO ugly flash, fix later
       setTimeout(function() {
         that.gotoTab(that.WRITE_TAB);
       });
-    }
+    } 
+    // else if (options.openToAnalyzeTab) {
+
+    //   // TODO ugly flash, fix later
+    //   // setTimeout(function() {
+    //     that.gotoAnalyzeTab();
+    //   // },1000);
+    // }
     this.serverClient = options.serverClient;
 
     eb.on("clusterClicked", function(gid) {

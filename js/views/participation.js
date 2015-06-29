@@ -316,7 +316,8 @@ module.exports =  ConversationView.extend({
         // $("#commentViewTab").click();
 
         if (that.conversationTabs.onGroupTab()) { // TODO check if needed
-          that.conversationTabs.gotoVoteTab();
+          // that.conversationTabs.gotoVoteTab();
+          that.conversationTabs.gotoAnalyzeTab();
         }
         if (that.tutorialView) {
           that.tutorialView.endAnalyzeTutorial();
@@ -461,6 +462,17 @@ module.exports =  ConversationView.extend({
       // }
 
       that.serverClient.addPersonUpdateListener(onPersonUpdate) // TODO REMOVE DUPLICATE
+
+
+      vis.getFirstShowDeferred().then(function() {
+        setTimeout(function() {
+          // that.selectedGid = -1;
+          vis.deselect();
+          vis.selectComment(null);
+          that.conversationTabs.gotoAnalyzeTab();
+        }, 0);
+      });
+
 
       // that.tutorialController.setHandler("blueDot", function(){
       //   that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
@@ -630,12 +642,13 @@ module.exports =  ConversationView.extend({
         }));
       }
 
-      var gotFirstComment = (firstComment && !_.isUndefined(firstComment.txt));
-      var openToWriteTab = !gotFirstComment;
+      // var gotFirstComment = (firstComment && !_.isUndefined(firstComment.txt));
+      // var openToWriteTab = !gotFirstComment;
       var allowAnalyze = this.model.get("vis_type") >= 1;
       this.conversationTabs = this.addChild(new ConversationTabsView({
         serverClient: serverClient,
-        openToWriteTab: openToWriteTab,
+        // openToWriteTab: openToWriteTab,
+        openToAnalyzeTab: true,
         model: new Backbone.Model({
           allowAnalyze: allowAnalyze,
           showTabs: true
