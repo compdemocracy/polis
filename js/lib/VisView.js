@@ -697,25 +697,6 @@ function updateHulls() {
                 });
             }
 
-            // TODO this needs to happen on the nodes too.
-            var CONTRACT_TO_CENTROID = true;
-            if (CONTRACT_TO_CENTROID) {
-                var contractAmount = 50;
-                tessellatedPoints = tessellatedPoints.map(function(pt) {
-                    var vectorToCentroid = [centroid.x - pt[0], centroid.y - pt[1]];
-                    var unitVectorToCentroid = Utils.toUnitVector(vectorToCentroid);
-                    var adjustedVector = [
-                        contractAmount * unitVectorToCentroid[0],
-                        contractAmount * unitVectorToCentroid[1]
-                    ];
-                    return [
-                        pt[0] + adjustedVector[0],
-                        pt[1] + adjustedVector[1]
-                    ];
-                });
-            }
-
-
             // for (var pi = 0; pi < hullPoints.length; pi++) {
             //     var p = hullPoints[pi];
             //     // inset to prevent overlap caused by stroke width.
@@ -1484,6 +1465,26 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             node.effects = oldNode.effects;
         }
     }
+
+
+            // // TODO this needs to happen on the nodes too.
+            // var CONTRACT_TO_CENTROID = true;
+            // if (CONTRACT_TO_CENTROID) {
+            //     var contractAmount = 50;
+            //     tessellatedPoints = tessellatedPoints.map(function(pt) {
+            //         var vectorToCentroid = [centroid.x - pt[0], centroid.y - pt[1]];
+            //         var unitVectorToCentroid = Utils.toUnitVector(vectorToCentroid);
+            //         var adjustedVector = [
+            //             contractAmount * unitVectorToCentroid[0],
+            //             contractAmount * unitVectorToCentroid[1]
+            //         ];
+            //         return [
+            //             pt[0] + adjustedVector[0],
+            //             pt[1] + adjustedVector[1]
+            //         ];
+            //     });
+            // }
+            debugger;
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
     var niceIndex = Math.floor(nodes.length/4);
