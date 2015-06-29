@@ -53,6 +53,9 @@ function shouldHideVisWhenWriteTabShowing() {
   // return shouldShowVisUnderTabs();
 }
 
+function shouldMoveVis() {
+  return false;
+}
 
 module.exports =  ConversationView.extend({
   name: "participationView",
@@ -382,8 +385,10 @@ module.exports =  ConversationView.extend({
 
 
     function moveVisToBottom() {
-      var $vis = that.$("#visualization_parent_div").detach();
-      $("#vis_sibling_bottom").append($vis);
+      if (shouldMoveVis()) {
+        var $vis = that.$("#visualization_parent_div").detach();
+        $("#vis_sibling_bottom").append($vis);
+      }
     }
 
     function moveVisAboveQueryResults() {

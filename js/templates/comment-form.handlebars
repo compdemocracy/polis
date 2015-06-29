@@ -16,6 +16,9 @@
 
    {{#if is_active}}
   <div class="flexbox align-items-flex-end">
+<span class="align-items-flex-start">
+      <img src="{{picture}}" height="40px"></img>
+</span>
 <span class="flex-grow-2">
       <textarea
         class="form-control comment_form_textarea_width"
@@ -26,6 +29,7 @@
         type="text"
         maxlength="400"
         {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
+        placeholder="Share your perspective..."
         {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
       ></textarea>
     <span id="commentCharCount" style='

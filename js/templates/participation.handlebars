@@ -122,15 +122,23 @@ style="padding-left: 5px; padding-right: 5px"
     > 
 
     {{view commentForm}}
+    {{view readReactView}}
+    <div id="vis_sibling_above_tab_content"></div>
 
     <div class="tabbable"
     > {{! Only required for left/right tabs }}
 
 
 
-      <div id="vis_sibling_above_tab_content"></div>
 
       <div class="tab-content">
+
+        <div class="tab-pane polis-tab-pane" id="legend">
+          {{view legendView}}
+        </div>
+
+
+        
         <div class="tab-pane" id="analyze" style="
         {{!-- background-color: white; --}}
         {{!-- border-style: solid;  border-top: 1px solid lightgrey; border-left: 1px solid lightgrey; --}}
@@ -170,17 +178,6 @@ style="padding-left: 5px; padding-right: 5px"
           {{view analyzeGroupView}}
         </div> {{! analyze tab pane }}
 
-        <div class="tab-pane polis-tab-pane" id="legend">
-          {{view legendView}}
-        </div>
-
-
-        <div
-          class="tab-pane active"
-          id="commentView"
-          >
-          {{view readReactView}}
-        </div>
         <div
           class="tab-pane write-pane"
           id="commentForm"

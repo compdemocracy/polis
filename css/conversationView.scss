@@ -191,6 +191,12 @@ svg {
   -ms-align-items: flex-end;
   align-items: flex-end;
 }
+.align-items-flex-start {
+  -webkit-align-items: flex-start;
+  -moz-align-items: flex-start;
+  -ms-align-items: flex-start;
+  align-items: flex-start;
+}
 
  .flex-grow-2 {
   -webkit-flex-grow: 2;
