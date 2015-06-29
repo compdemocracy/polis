@@ -82,6 +82,7 @@ body {
 
 .reactionButtons {
   margin-right: -2px;
+  background-color: $panel-color;
 }
 
 #agreeButton, #disagreeButton {
@@ -99,7 +100,7 @@ body {
 
 #agreeButton, #disagreeButton, #passButton {
   border-bottom: 0;
-  background: #fafafa;
+  // background: #fafafa;
   -webkit-font-smoothing: antialiased;
   
   // prevent clipped right edge and extra padding on left edge on mobile
@@ -227,8 +228,8 @@ svg {
 #comment_shower p, #comment_shower h3 {
    font-weight: normal;
    line-height: normal;
-   // background-color: #fcfcfc;
-   border-radius: 10px;
+   background-color: $panel-color;
+   // border-radius: 10px;
 }
 
 /* Comment Input Form */
