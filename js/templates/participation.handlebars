@@ -125,6 +125,13 @@ style="padding-left: 0px; padding-right: 0px"
     {{view readReactView}}
     <div id="vis_sibling_above_tab_content"></div>
 
+    <div class="darkPanel" style="text-align: center">
+      Group:
+      {{#each groups}}
+        <button>{{this}}</button>
+      {{/each}}
+    </div>
+    
     <div class="tabbable"
     > {{! Only required for left/right tabs }}
 

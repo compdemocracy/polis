@@ -85,6 +85,12 @@ body {
   background-color: $panel-color;
 }
 
+.darkPanel {
+  background-color: $panel-color;
+  border-top: 1px solid lightgray;
+  border-bottom: 1px solid lightgray;
+}
+
 #agreeButton, #disagreeButton {
   border-right: 0px
 }
@@ -528,18 +534,18 @@ svg {
     border-bottom: 1px solid $hover-color;
   }  
 
-  .analyze-group-banner-1 {
-    width:100%;
-    background-color: #eee;
-    // text-align: center;
-    text-transform: uppercase;
-    padding: 10px;
-    font-size: 18px;
-    font-family: $headline-font;
-    color: $light-gray;
-    font-weight: normal;
-    letter-spacing: 0.04em;
-  }
+  // .analyze-group-banner-1 {
+  //   width:100%;
+  //   background-color: #eee;
+  //   // text-align: center;
+  //   text-transform: uppercase;
+  //   padding: 10px;
+  //   font-size: 18px;
+  //   font-family: $headline-font;
+  //   color: $light-gray;
+  //   font-weight: normal;
+  //   letter-spacing: 0.04em;
+  // }
 
 
 /* mobile */
