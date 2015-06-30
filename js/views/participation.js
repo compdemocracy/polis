@@ -9,6 +9,7 @@ var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
 var ChangeVotesView = require("../views/change-votes");
 var LegendView = require("../views/legendView");
+var GroupSelectionView = require("../views/groupSelectionView");
 var display = require("../util/display");
 var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
@@ -310,6 +311,7 @@ module.exports =  ConversationView.extend({
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
+      that.groupNamesModel.set("selectedGid", gid);
       if (gid === -1) {
         if (vis) {
           vis.selectComment(null);
@@ -472,6 +474,7 @@ module.exports =  ConversationView.extend({
           vis.selectComment(null);
           that.conversationTabs.gotoAnalyzeTab();
         }, 0);
+        that.groupSelectionView.show();
       });
 
 
@@ -636,6 +639,28 @@ module.exports =  ConversationView.extend({
       this.voteMoreView = this.addChild(new VoteMoreView({
         model: this.voteMoreModel
       }));
+
+
+      this.groupNamesModel = new Backbone.Model({
+        groups: [
+        {name: 1, gid: 0},
+        {name: 2, gid: 1},
+        {name: 3, gid: 2},
+        {name: "Majority Opinion", gid: -1},
+        ],
+        selectedGid: -1,
+      });
+      this.groupSelectionView = this.addChild(new GroupSelectionView({
+        model: this.groupNamesModel
+      }));
+      this.groupSelectionView.addSelectionChangedListener(function(gid) {
+        if (gid === -1) {
+          that.vis.deselect();
+        } else {
+          that.vis.selectGroup(gid);
+        }
+        eb.trigger(eb.clusterClicked, gid);
+      });
 
       if (useAboveVisTutorial) {
         this.tutorialView = this.addChild(new TutorialView({

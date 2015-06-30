@@ -1,0 +1,6 @@
+<div style="padding-top: 10px; padding-bottom: 10px; {{#unless visible}}display: none;{{/unless}}">
+	Group: 
+	{{#each groups2}}
+		<button data-gid="{{this.gid}}" class="groupButton {{#if this.selected}}selectedGroupButton{{/if}}">{{this.name}}</button>
+	{{/each}}
+</div>

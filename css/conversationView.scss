@@ -122,6 +122,15 @@ body {
   }
 }
 
+.groupButton {
+  border: none;
+  background-color: rgba(0,0,0,0);
+  border-radius: 5px;
+}
+.selectedGroupButton {
+  background-color: lightgray;
+}
+
 .btn-vote {
   // set this independently of the overall font size, since they're difficult to get right.
   font-family: $sans-font;
