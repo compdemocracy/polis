@@ -1703,47 +1703,51 @@ function clientSideBaseCluster(things, N) {
 
     function getReactionsToComment(tid) {
         var dfd = $.Deferred();
-        var buckets = $.extend({}, votesForTidBid[tid]);
 
-        _.each(participantsOfInterestVotes, function(o, pid) {
-            pid = parseInt(pid);
-            if (!o.votes || pid === myPid) {
-                return;
+        votesForTidBidPromise.then(function() {
+            var buckets = $.extend({}, votesForTidBid[tid]);
+
+            _.each(participantsOfInterestVotes, function(o, pid) {
+                pid = parseInt(pid);
+                if (!o.votes || pid === myPid) {
+                    return;
+                }
+                var votesVectorInAscii_adpu_format = o.votes;
+                var voteForPtpoi = votesVectorInAscii_adpu_format[tid];
+                if (voteForPtpoi === "a") {
+                    // buckets.A[pid] = buckets.A[pid] || {};
+                    buckets.A[o.fakeBid] = 1;
+                    buckets.D[o.fakeBid] = 0;
+                }
+                if (voteForPtpoi === "d") {
+                    // buckets.D[pid] = buckets.D[pid] || {};
+                    buckets.A[o.fakeBid] = 0;
+                    buckets.D[o.fakeBid] = 1;
+                }
+                if (voteForPtpoi === "u") {
+                    buckets.S[o.fakeBid] = 0; // unseen
+                } else {
+                    buckets.S[o.fakeBid] = 1; // seen
+                }
+                // buckets[o.fakeBid] = votesVectorInAscii_adpu_format[tid];
+            });
+            var myVotes = votesByMe.filter(function(vote) { return tid === vote.get("tid"); });
+            buckets.A[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.pull; }).length > 0) ? 1:0;
+            buckets.D[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.push; }).length > 0) ? 1:0;
+            buckets.S[myBid] = buckets.A[myBid] || buckets.D[myBid] || (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.pass; }).length > 0) ? 1:0;
+
+            // TODO reduce vote count for the bucket self is in.
+            if (!buckets) {
+                console.warn("no votes found for tid: " + tid);
+                buckets = {
+                    A:[],
+                    D:[],
+                    S:[]
+                };
             }
-            var votesVectorInAscii_adpu_format = o.votes;
-            var voteForPtpoi = votesVectorInAscii_adpu_format[tid];
-            if (voteForPtpoi === "a") {
-                // buckets.A[pid] = buckets.A[pid] || {};
-                buckets.A[o.fakeBid] = 1;
-                buckets.D[o.fakeBid] = 0;
-            }
-            if (voteForPtpoi === "d") {
-                // buckets.D[pid] = buckets.D[pid] || {};
-                buckets.A[o.fakeBid] = 0;
-                buckets.D[o.fakeBid] = 1;
-            }
-            if (voteForPtpoi === "u") {
-                buckets.S[o.fakeBid] = 0; // unseen
-            } else {
-                buckets.S[o.fakeBid] = 1; // seen
-            }
-            // buckets[o.fakeBid] = votesVectorInAscii_adpu_format[tid];
+            dfd.resolve(buckets);
         });
-        var myVotes = votesByMe.filter(function(vote) { return tid === vote.get("tid"); });
-        buckets.A[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.pull; }).length > 0) ? 1:0;
-        buckets.D[myBid] = (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.push; }).length > 0) ? 1:0;
-        buckets.S[myBid] = buckets.A[myBid] || buckets.D[myBid] || (_.filter(myVotes, function(v) { return v.get("vote") === polisTypes.reactions.pass; }).length > 0) ? 1:0;
-
-        // TODO reduce vote count for the bucket self is in.
-        if (!buckets) {
-            console.warn("no votes found for tid: " + tid);
-            buckets = {
-                A:[],
-                D:[],
-                S:[]
-            };
-        }
-        return dfd.resolve(buckets);
+        return dfd.promise();
     }
 
     function createConversation(title, body) {
