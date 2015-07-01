@@ -9,7 +9,7 @@ module.exports =  Handlebones.ModelView.extend({
   template: template,
   className: "groupSelectionView",
   events: {
-  	"click": "onClick"
+    "click .groupButton": "onClick"
   },
   onClick: function(e) {
   	var $target = $(e.target);

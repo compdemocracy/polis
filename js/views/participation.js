@@ -127,7 +127,6 @@ module.exports =  ConversationView.extend({
     ctx.hasFacebook = userObject.hasFacebook;
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFbAndTw = ctx.hasFacebook && ctx.hasTwitter;
-    ctx.groups = [1,2,3, "Majority Opinion"];
 
     // var md_content = "Hello.\n======\n* This is markdown.\n * It is fun\n * Love it or leave it.\n* This is [an example](http://example.com/ \"Title\") inline link.\n\n![Alt text](https://62e528761d0685343e1c-f3d1b99a743ffa4142d9d7f1978d9686.ssl.cf2.rackcdn.com/files/67396/width668/image-20141216-14144-1fmodw7.jpg)"
     var md_content = ctx.description || "";
@@ -375,6 +374,19 @@ module.exports =  ConversationView.extend({
       if (vis) {
         vis.upsertNode.apply(vis, arguments);
       }
+
+      var newGroups = _.map(newClusters, function(c, index) {
+        return {
+          name: Number(index) + 1,
+          gid: Number(index)
+        };
+      });
+      newGroups.push({
+        name: "Majority Opinion",
+        gid: -1
+      });
+      that.groupNamesModel.set("groups", newGroups);
+
       $(".participationCount").html(newParticipantCount + (newParticipantCount === 1 ? " person" : " people"));
     }
 
@@ -643,9 +655,10 @@ module.exports =  ConversationView.extend({
 
       this.groupNamesModel = new Backbone.Model({
         groups: [
-        {name: 1, gid: 0},
-        {name: 2, gid: 1},
-        {name: 3, gid: 2},
+        // these will be set when the pca results arrive
+        // {name: 1, gid: 0},
+        // {name: 2, gid: 1},
+        // {name: 3, gid: 2},
         {name: "Majority Opinion", gid: -1},
         ],
         selectedGid: -1,
