@@ -578,10 +578,6 @@ if (isIE8) {
 }
 
 function updateHulls() {
-    if (true) {
-        return; // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    }
-
     bidToBucket = _.object(_.pluck(nodes, "bid"), nodes);
     hulls = clusters.map(function(cluster) {
         var top = Infinity;
@@ -825,21 +821,7 @@ function updateNodesOnTick(e) {
           }
       } else {
           main_layer.selectAll(".node")
-            .attr("transform", chooseTransformForRoots)
-            .selectAll(".edge")
-                .attr("x2", function(d) {
-                    if (isParticipantOfInterest(d) && d.parent) {
-                        return d.parent.x - d.x;
-                    }
-                    return 0;
-                })
-                .attr("y2", function(d) {
-                    if (isParticipantOfInterest(d) && d.parent) {
-                        return d.parent.y - d.y;
-                    }
-                    return 0;
-                })
-          ;
+            .attr("transform", chooseTransformForRoots);
       }
 
 
@@ -1084,9 +1066,8 @@ function commentIsSelected() {
 }
 
 function chooseTransformForRoots(d) {
-  // var pt = getInsetTarget(d);
-   var pt = {x: d.x, y: d.y};
-   return "translate(" + pt.x + "," + pt.y + ")";
+    var insetPoint = getInsetTarget(d);
+   return "translate(" + insetPoint.x + "," + insetPoint.y + ")";
 }
 
 var offsetFactor = 4.9;
@@ -1333,12 +1314,10 @@ function makeLinks(clusters, nodes) {
                 // nodeIndex = _.find(nodes, function(n) {
                 //     return n && n.bid === node.bid;
                 // });
-                if (_.contains(cluster, node.bid)) {
-                    newLinks.push({
-                        source: summaryBucketNode,
-                        target: node
-                    });
-                }
+                newLinks.push({
+                    source: summaryBucketNode,
+                    target: node
+                });
             }
         });
     });
@@ -1680,7 +1659,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   // .style("stroke-width", 1)
       //   ;
       var line = g.append("line")
-        .style("stroke", "lightgray")
+        .style("stroke", "red")
         .classed("edge", true)
         .attr("x1", 0)
         .attr("y1", 0)
