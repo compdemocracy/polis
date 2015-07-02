@@ -150,6 +150,10 @@ module.exports = function(params) {
         var clusters = deepcopy(clustersCache);
         addParticipantsOfInterestToClusters(clusters);
         removeEmptyBucketsFromClusters(clusters);
+
+        for (var i = 0; i < clusters.length; i++) {
+            clusters[i]["n-members"] = cachedPcaData["group-votes"][i]["n-members"];
+        }
         return clusters;
     }
 
@@ -525,6 +529,9 @@ module.exports = function(params) {
             this.hasFacebook = o.hasFacebook;
             if (o.clusterCount) {// TODO stop with this pattern
                 this.clusterCount = o.clusterCount;// TODO stop with this pattern
+            }
+            if (!_.isUndefined(o.ptptoiCount)) {// TODO stop with this pattern
+                this.ptptoiCount = o.ptptoiCount;// TODO stop with this pattern
             }
             if (o.containsSelf) {// TODO stop with this pattern
                 this.containsSelf = true;// TODO stop with this pattern
@@ -1215,9 +1222,10 @@ function clientSideBaseCluster(things, N) {
                     bigBuckets = _.map(bucketPerGroup,
                         function(bucketsForGid, gid) {
                             gid = parseInt(gid);
-
                             var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
                                 if (_.contains(participantsOfInterestBids, bucket.id)) {
+                                    // debugger;
+                                    // o.ptptoiCount += 1;
                                     return o;
                                 }
                                 o.members = _.union(o.members, bucket.members);
@@ -1237,6 +1245,7 @@ function clientSideBaseCluster(things, N) {
                                 gid: gid,
                                 count: 0, // total ptpt count
                                 clusterCount: groupVotes[gid]["n-members"],
+                                // ptptoiCount: getParticipantsOfInterestForGid(gid).length,
                                 x: cachedPcaData["group-clusters"][gid].center[0],
                                 y: cachedPcaData["group-clusters"][gid].center[1],
                                 isSummaryBucket: true
@@ -1248,6 +1257,12 @@ function clientSideBaseCluster(things, N) {
                             return bigBucket;
                         }
                     );
+                    
+                    // bigBuckets.forEach(function(bb) {
+
+                    //     bb.ptptoiCount = _.intersection(participantsOfInterestBids, bb.bids).length; // getParticipantsOfInterestForClusterBids(bb.bids).length;
+                    // });
+
                     // buckets = _.values(gidToBuckets);
                     // buckets = buckets2;
 
@@ -1367,7 +1382,7 @@ function clientSideBaseCluster(things, N) {
                     projectionPeopleCache = buckets;
                     clustersCachePromise.resolve();
 
-                    // buckets = prepProjection(buckets);
+                    // o = prepProjection(buckets);
                     return null;
                 });
             },
@@ -1473,9 +1488,12 @@ function clientSideBaseCluster(things, N) {
         return people;
     }
 
-    function withParticipantsOfInterest(people) {
+    function withParticipantsOfInterest(people, clusters) {
         if (!participantsOfInterestVotes) {
-            return people;
+            return {
+                buckets: people,
+                clusters: clusters
+            };
         }
         people = people || [];
         people = _.clone(people); // shallow copy
@@ -1504,10 +1522,28 @@ function clientSideBaseCluster(things, N) {
         //     };
         // }
 
+
+        // OMG LOL this needs cleanup
+        // if the people passed in are summary buckets, add the particpant counts there too.
+        var gidToSummaryBucket = {};
+        _.each(people, function(b) {
+            if (b.isSummaryBucket) {
+                gidToSummaryBucket[b.gid] = b;
+            }
+        });
+
+        var bidToGid = getBidToGid();
         for (var pid in participantsOfInterestVotes) {
             var ptpt = participantsOfInterestVotes[pid];
+            var magicPid = Number(pid) + 10000000000;
+            var gid = bidToGid[magicPid];
+            // clusters[gid].ptptoiCount = (clusters[gid].ptptoiCount || 0) + 1;
+            gidToSummaryBucket[gid].ptptois = _.union(gidToSummaryBucket[gid].ptptois||[], magicPid);
+            // clustersCache[gid].ptptois = _.union(clustersCache[gid].ptptois||[], magicPid);            // SO BAD
+            // gidToSummaryBucket[gid].ptptoiCount = (gidToSummaryBucket[gid].ptptoiCount || 0) + 1;
             var votesVectorInAscii_adpu_format = ptpt.votes || "";
             pid = parseInt(pid);
+
             // pid += 1000000000; // TODO figure out what bids to assign to ptptoi buckets, these fake pids are currently used for that
             var temp = projectParticipant(
                 pid,
@@ -1516,7 +1552,10 @@ function clientSideBaseCluster(things, N) {
             var p = bucketizeParticipantOfInterest(temp, ptpt);
             people.push(p);
         }
-        return people;
+        return {
+            buckets: people,
+            clusters: clusters
+        };
 
     }
 
@@ -1805,7 +1844,8 @@ function clientSideBaseCluster(things, N) {
 
     function getFamousVotes() {
         return polisGet(votesFamousPath, {
-            conversation_id: conversation_id
+            conversation_id: conversation_id,
+            lastVoteTimestamp: lastServerTokenForPCA
         }).then(function(x) {
             x = x || {};
             // assign fake bids for these projected participants
@@ -1961,9 +2001,10 @@ function clientSideBaseCluster(things, N) {
 
     function updateMyProjection() {
         console.log("updateMyProjection");
-        var people = prepProjection(projectionPeopleCache);
+        var o = prepProjection(projectionPeopleCache);
+        var people = o.buckets;
+        var clusters = o.clusters;
         var projectedComments = prepCommentsProjection();
-        var clusters = getClusters();
         sendUpdatedVisData(people, clusters, participantCount, projectedComments);
     }
 
@@ -2176,7 +2217,7 @@ function clientSideBaseCluster(things, N) {
           });
       });
       pcaPromise.always(function() {
-          setTimeout(poll, 5000); // could compute remaining part of interval.
+          setTimeout(poll, 20*1000); // could compute remaining part of interval.
       });
     }
 
@@ -2190,14 +2231,24 @@ function clientSideBaseCluster(things, N) {
             buckets2 = bigBuckets;
         }
         // buckets = reprojectForSubsetOfComments(buckets2);
-        buckets2 = withParticipantsOfInterest(buckets2);
+        var clusters = [];
+        if (buckets2.length) {
+            clusters = getClusters();
+        }
+
+        var o = withParticipantsOfInterest(buckets2, clusters);
+        buckets2 = o.buckets;
+        clusters = o.clusters;
         buckets2 = withProjectedSelf(buckets2);
 
         // remove empty buckets
         buckets2 = _.filter(buckets2, function(bucket) {
             return bucket.count > 0;
         });
-        return buckets2;
+        return {
+            buckets: buckets2,
+            clusters: clusters
+        };
     }
 
     function getGroupInfo(gid) {
@@ -2347,10 +2398,11 @@ function clientSideBaseCluster(things, N) {
             personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
 
             firstPcaCallPromise.then(function() {
-                var buckets = prepProjection(projectionPeopleCache);
+                var o = prepProjection(projectionPeopleCache);
+                var buckets = o.buckets;
+                var clusters = o.clusters;
                 var projectedComments = prepCommentsProjection();
                 if (buckets.length) {
-                    var clusters = getClusters();
                     sendUpdatedVisData(buckets, clusters, participantCount, projectedComments);
                 }
             });

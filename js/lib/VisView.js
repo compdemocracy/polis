@@ -40,6 +40,7 @@ var w;
 var participantCount = 1;
 var nodes = [];
 var clusters = [];
+var clusterParticipantTotals = [];
 var hulls = []; // NOTE hulls will be the same length as clusters
 var centroids = [];
 var visualization;
@@ -613,10 +614,10 @@ function updateHulls() {
         ];
     }
 
-    function tesselatePoint(xyPair) {
+    function tesselatePoint(xyPair, chooseRadius) {
         var x = xyPair[0];
         var y = xyPair[1];
-        var r = chooseCircleRadiusOuter(xyPair[2]) + HULL_EXTRA_RADIUS;
+        var r = chooseRadius(xyPair[2]);
         var points = [];
         var theta = 0;
         var tau = 6.28318;
@@ -675,10 +676,27 @@ function updateHulls() {
 
             // tesselate to provide a matching hull roundness near large buckets.        
             var tessellatedPoints = [];
+            var DO_TESSELATE_POINTS = false;
+            var chooseRadius;
+            if (DO_TESSELATE_POINTS) {
+                chooseRadius = function(node) {
+                    return chooseCircleRadiusOuter(node) + HULL_EXTRA_RADIUS;
+                };
+            } else {
+                chooseRadius = function(node) {
+                    return chooseCircleRadiusOuter(node);
+                };
+            }
             for (var p = 0; p < hull.length; p++) {
-                tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p]));
-            }        
-
+                tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p], chooseRadius));
+            }    
+            if (!DO_TESSELATE_POINTS) {
+                var PIN_LENGTH = 30;
+                tessellatedPoints = tessellatedPoints.map(function(pt) {
+                    pt[1] += PIN_LENGTH;
+                    return pt;
+                });
+            }
 
             // for (var pi = 0; pi < hullPoints.length; pi++) {
             //     var p = hullPoints[pi];
@@ -724,32 +742,35 @@ function updateHulls() {
 
                     d3Hulls[i].datum(points)
                         .attr("d", shape)
-                        // .style("fill-opacity", hullOpacity)
-                        .style("fill", color)
-                        .style("stroke", color)
-                        // .style("stroke-opacity", hullOpacity)
-                        .style("stroke-width", strokeWidth)
+                        // .style("fill-opacity", 1)
+                        // .style("fill", "white")
+                        // .style("stroke", "rgb(119, 119, 119)")
+                        // // .style("stroke-opacity", hullOpacity)
+                        // .style("stroke-width", 1)
+                        // .style("stroke-dasharray", "2px 4px")
                         .style("visibility", "visible");
+                        ;
+
+
+
                     d3HullSelections[i].datum(points)
                         .attr("d", shape)
-                        .style("stroke-width", selectionStrokeWidth)
-                        .style("stroke-dasharray", selectionStrokeDashArray)
                         .style("visibility", "visible");
-                    d3HullShadows[i].datum(points)
-                        .attr("d", shape)
-                        .style("fill", colorShadow)
-                        .style("stroke", colorShadow)
-                        // .style("fill-opacity", hullOpacity)
-                        // .style("stroke-opacity", hullOpacity)
-                        .style("stroke-width", shadowStrokeWidth)
-                        .attr("transform", function(h) {
-                            if (h.hullId === getSelectedGid()) {
-                                return "translate(2, 2)";
-                            } else {
-                                return "translate(1, 1)";
-                            }
-                        })
-                        .style("visibility", "visible");
+                    // d3HullShadows[i].datum(points)
+                    //     .attr("d", shape)
+                    //     .style("fill", colorShadow)
+                    //     .style("stroke", colorShadow)
+                    //     // .style("fill-opacity", hullOpacity)
+                    //     // .style("stroke-opacity", hullOpacity)
+                    //     .style("stroke-width", shadowStrokeWidth)
+                    //     .attr("transform", function(h) {
+                    //         if (h.hullId === getSelectedGid()) {
+                    //             return "translate(2, 2)";
+                    //         } else {
+                    //             return "translate(1, 1)";
+                    //         }
+                    //     })
+                    //     .style("visibility", "visible");
                 }
             }
             dfd.resolve();
@@ -1349,6 +1370,9 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     clusters = _.map(gids, function(gid) {
         return newClusters[gid].members;
     });
+    clusterParticipantTotals = _.map(gids, function(gid) {
+        return newClusters[gid]["n-members"];
+    });
 
     for (var c = 0; c < clusters.length; c++) {
         var cluster = clusters[c];
@@ -1442,6 +1466,26 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             node.effects = oldNode.effects;
         }
     }
+
+
+            // // TODO this needs to happen on the nodes too.
+            // var CONTRACT_TO_CENTROID = true;
+            // if (CONTRACT_TO_CENTROID) {
+            //     var contractAmount = 50;
+            //     tessellatedPoints = tessellatedPoints.map(function(pt) {
+            //         var vectorToCentroid = [centroid.x - pt[0], centroid.y - pt[1]];
+            //         var unitVectorToCentroid = Utils.toUnitVector(vectorToCentroid);
+            //         var adjustedVector = [
+            //             contractAmount * unitVectorToCentroid[0],
+            //             contractAmount * unitVectorToCentroid[1]
+            //         ];
+            //         return [
+            //             pt[0] + adjustedVector[0],
+            //             pt[1] + adjustedVector[1]
+            //         ];
+            //     });
+            // }
+            debugger;
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
     var niceIndex = Math.floor(nodes.length/4);
@@ -2239,9 +2283,13 @@ function doUpdateNodes() {
                     }
                     d._txtType = "c";
                 } else {
-                    var ptptois = getParticipantsOfInterestForGid(d.gid);
-                    var prefix = ptptois.length ? "+" : "";
-                    txt = prefix + d.count;
+                    var prefix = "";
+                    var count = d.clusterCount;
+                    if (d.ptptois && d.ptptois.length) {
+                        prefix = "+";
+                        count -= d.ptptois.length;
+                    }
+                    txt = prefix + count;
                 }
                 d._txt = txt;
                 return txt;

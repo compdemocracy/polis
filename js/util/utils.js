@@ -125,6 +125,12 @@ function toQueryParamString(o) {
   return pairs.join("&");
 }
 
+function toUnitVector(xy) {
+  var x = xy[0];
+  var y = xy[1];
+  var magnitude = Math.sqrt(x*x + y*y);
+  return [x/magnitude, y/magnitude];
+}
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
@@ -144,6 +150,7 @@ module.exports = {
     }
     return spans;
   },
+  toUnitVector: toUnitVector,
   toQueryParamString: toQueryParamString,
   parseQueryParams: parseQueryParams,
 

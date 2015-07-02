@@ -82,12 +82,18 @@ $COLOR_SELECTED_HULL: true;
   -o-user-select: none;
 }
 .hull {
-  fill: #eee;
-  stroke: #eee;
-  stroke-width: 6px;
+  fill: white;
+  stroke: rgb(119, 119, 119);
+  stroke-width: 1px;
+  stroke-dasharray: 2px 4px;
   stroke-linejoin: round;
   z-index: 402;
   cursor: pointer;
+}
+
+
+.hull.active_group {
+  fill-opacity: 0;
 }
 .hull_shadow {
   fill: #d4d4d4;
@@ -104,21 +110,28 @@ $COLOR_SELECTED_HULL: true;
 }
 
 .hull_selection {
-  stroke: rgba(0,0,0,0);
-  border-color: rgba(0,0,0,0);
-  stroke-width: 9px;
-  border-width: 2px;  // for html elements
-  border-style: dashed; // for html elements
-  border-radius: 5px; // for html elements
-  stroke-linejoin: round;
-  stroke-dasharray: 5px;
+  // stroke: rgba(0,0,0,0);
+  // border-color: rgba(0,0,0,0);
+  // stroke-width: 9px;
+  // border-width: 2px;  // for html elements
+  // border-style: dashed; // for html elements
+  // border-radius: 5px; // for html elements
+  // stroke-linejoin: round;
+  // stroke-dasharray: 5px;
   // stroke-dashoffset: 1px;
+  fill: blue;
   z-index: 401;
 }
 .hull_selection.active_group {
   @if $COLOR_SELECTED_HULL {
     stroke: #6FBAFF;
     border-color: #6FBAFF; // for html elements
+
+    stroke-width: 1px;
+    stroke: blue;
+    stroke-dasharray: 2px 4px;
+    fill-opacity: 1;
+    fill: #e9f0f7;
   }
 }
 
