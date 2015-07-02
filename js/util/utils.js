@@ -125,10 +125,11 @@ function toQueryParamString(o) {
   return pairs.join("&");
 }
 
-function toUnitVector(xy) {
-  var x = xy[0];
-  var y = xy[1];
+function toUnitVector(x, y) {
   var magnitude = Math.sqrt(x*x + y*y);
+  if (magnitude === 0) {
+    return [0, 0];
+  }
   return [x/magnitude, y/magnitude];
 }
 

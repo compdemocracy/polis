@@ -146,6 +146,28 @@ module.exports = function(params) {
         }
     }
 
+
+    function moveTowards(x, y, dest, howFar) {
+        if (!dest) {
+            return {
+                x: x,
+                y: y
+            };
+        }
+        var vectorToCentroidX = dest[0] - x;
+        var vectorToCentroidY = dest[1] - y;
+        // var unitVectorToCentroid = Utils.toUnitVector(vectorToCentroidX, vectorToCentroidY);
+        // var adjustedVectorX = howFar * unitVectorToCentroid[0];
+        // var adjustedVectorY = howFar * unitVectorToCentroid[1];
+        var adjustedVectorX = vectorToCentroidX * howFar;
+        var adjustedVectorY = vectorToCentroidY * howFar;
+        return {
+            x: x + adjustedVectorX,
+            y: y + adjustedVectorY
+        };
+    }
+
+
     function getClusters() {
         var clusters = deepcopy(clustersCache);
         addParticipantsOfInterestToClusters(clusters);
@@ -523,7 +545,7 @@ module.exports = function(params) {
         } else {
             var o = arguments[0];
             this.bid = o.id || o.bid;
-            this.proj = o.proj;
+            this.gid = o.gid;
             this.count = o.count;
             this.hasTwitter = o.hasTwitter;
             this.hasFacebook = o.hasFacebook;
@@ -546,6 +568,8 @@ module.exports = function(params) {
                     alert("bug ID 'cricket'");
                 }
             }
+            this.proj = o.proj;
+
 
             if (!_.isUndefined(o.gid)) { // TODO stop with this pattern
                 this.gid = parseInt(o.gid);// TODO stop with this pattern
@@ -628,6 +652,7 @@ module.exports = function(params) {
     function bucketizeSelf(self, selfDotBid) {
         var bucket = new Bucket({
             containsSelf: true,
+            gid: self.gid,
             hasTwitter: !!self.hasTwitter,
             hasFacebook: !!self.hasFacebook,
             proj: self.proj,
@@ -644,6 +669,7 @@ module.exports = function(params) {
             pic: ptptoiData.picture,
             picture_size: ptptoiData.picture_size,
             containsSelf: o.containsSelf,
+            gid: o.gid,
             hasTwitter: !!ptptoiData.hasTwitter,
             hasFacebook: !!ptptoiData.hasFacebook,
             ptptoi: true,
@@ -1214,6 +1240,7 @@ function clientSideBaseCluster(things, N) {
                         var gid = bidToGid[bucket.id]
                         bucketPerGroup[gid] = bucketPerGroup[gid] || [];
                         bucketPerGroup[gid].push(bucket);
+                        bucket.gid = gid;
                     });
 
 
@@ -1549,6 +1576,7 @@ function clientSideBaseCluster(things, N) {
                 pid,
                 votesVectorInAscii_adpu_format
             );
+            temp.gid = gid;
             var p = bucketizeParticipantOfInterest(temp, ptpt);
             people.push(p);
         }
@@ -2245,6 +2273,17 @@ function clientSideBaseCluster(things, N) {
         buckets2 = _.filter(buckets2, function(bucket) {
             return bucket.count > 0;
         });
+
+        _.each(buckets2, function(b) {
+            var cluster = clustersCache[b.gid];
+            var center = null;
+            if (cluster) {
+                center = cluster.center;
+            }
+            b.proj = moveTowards(b.proj.x, b.proj.y, center, 0.3);
+        });
+
+
         return {
             buckets: buckets2,
             clusters: clusters
