@@ -405,11 +405,7 @@ if (useForce) {
         .gravity(0)
         .charge(function(d) {
             // slight overlap allowed
-            if (isSummaryBucket(d)) {
-                return -1000;
-            } else {
-                return -300;
-            }
+            return -300;
         })
         .size([w, h]);
 }
@@ -1127,9 +1123,6 @@ function chooseUpArrowPath(d) {
     ratio = Math.min(ratio, 0.99999);
 
     var r = chooseCircleRadius(d);
-    if (isSummaryBucket(d)) {
-        r += EXTRA_RADIUS_FOR_SUMMARY_HALO;
-    }
     var start = pieChartOrigin - (TAU*ratio/2);//degrees/2;
     var end = pieChartOrigin + (TAU*ratio/2); // -degrees/2;
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
@@ -1175,9 +1168,6 @@ function chooseDownArrowPath(d) {
     ratio = Math.min(ratio, 0.99999);
 
     var r = chooseCircleRadius(d);
-    if (isSummaryBucket(d)) {
-        r += EXTRA_RADIUS_FOR_SUMMARY_HALO;
-    }
 
     var TAU = Math.PI*2;
     var start = (pieChartOrigin - Math.PI) - (TAU*ratio/2);//degrees/2;
@@ -1243,16 +1233,9 @@ function getInsetTarget(d) {
     return {x: d.x, y: d.y}
 }
 
-function isSummaryBucket(d) {
-    return d.isSummaryBucket;
-}
 
 function chooseCircleRadius(d) {
-    if (isSummaryBucket(d)) {
-        return anonBlobRadius;
-    } else {
-        return ptptOiRadius;  //bucketRadiusForCount(d.count);
-    }
+    return ptptOiRadius;  //bucketRadiusForCount(d.count);
 }
 
 function chooseCircleRadiusOuter(d) {
@@ -1262,9 +1245,6 @@ function chooseCircleRadiusOuter(d) {
     }
     if (isParticipantOfInterest(d)) {
         r = ptptOiRadius;
-    }
-    if (d.isSummaryBucket) {
-        r = anonBlobRadius;
     }
     if (hullIdToGid[d.hullId] === getSelectedGid()) {
         r += SELECTED_HULL_RADIUS_BOOST;
@@ -1447,12 +1427,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         }
         if (isSelf(b)) {
             return -Infinity;
-        }
-        if (isSummaryBucket(a)) {
-            return 999999;
-        }
-        if (isSummaryBucket(b)) {
-            return -999999;
         }
         return a.proj.x - b.proj.x;
     }
@@ -1678,9 +1652,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("cy", 0)
         .classed("ptptoi", isParticipantOfInterest)
         .attr("r", function(d) {
-            if (isSummaryBucket(d)) {
-                return anonBlobRadius;
-            }
             if (isParticipantOfInterest(d)) {
                 return ptptOiRadius;
             }
@@ -1691,11 +1662,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         })
         .attr("stroke", grayHaloColor)
         .attr("stroke-width", function(d) {
-            if (d.isSummaryBucket) {
-                return anonBlobHaloWidth;
-            } else {
-                return haloWidth;
-            }
+            return haloWidth;
         })
         .attr("fill", chooseFill)
         ;
@@ -1708,11 +1675,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("bktvi", true)
         .style("fill", "rgba(0,0,0,0)")
         .attr("stroke-width", function(d) {
-            if (isSummaryBucket(d)) {
-                return anonBlobHaloVoteWidth;
-            } else {
-                return haloVoteWidth;
-            }
+            return haloVoteWidth;
         })
         .style("stroke", colorPull)
         .style("opacity", 0.5)
@@ -1723,11 +1686,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .classed("bktvi", true)
         .style("fill", "rgba(0,0,0,0)")
         .attr("stroke-width", function(d) {
-            if (d.isSummaryBucket) {
-                return anonBlobHaloVoteWidth;
-            } else {
-                return haloVoteWidth;
-            }
+            return haloVoteWidth;
         })
         .style("stroke", colorPush)
         .style("opacity", 0.5)
@@ -1830,42 +1789,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   .attr("transform", function(d) {
       //       return "translate(12, 6)";
       //   });
-
-
-        g.filter(isSummaryBucket)
-        .append("text")
-        .classed("summaryLabel", true)
-        // .classed("help", true)
-        // .classed("help_text_you", true)
-        .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", "12px")
-        .style("font-weight", "bold")
-        .attr("text-anchor", "middle")
-        .attr("alignment-baseline", "bottom")
-        // .attr("alignment-baseline", "middle")
-        // .attr("fill", "rgba(0,0,0,1.0)")
-        // .attr("fill", colorSelf)
-        // .attr("stroke", colorSelfOutline)
-        // .attr("transform", function(d) {
-        //     return "translate(12, 6)";
-        // });
-        ;
-
-        g.filter(isSummaryBucket)
-        .append("text")
-        .classed("summaryLabelBottom", true)
-        .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", "10px")
-        // .style("font-weight", "bold")
-        .style("fill", "gray")
-        .text("people")
-        .attr("text-anchor", "middle")
-        .attr("alignment-baseline", "top")
-        .attr("transform", function(d) {
-            return "translate(0, 11)";
-        });
-        ;
-
 
 
   }
