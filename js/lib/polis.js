@@ -1550,24 +1550,13 @@ function clientSideBaseCluster(things, N) {
         // }
 
 
-        // OMG LOL this needs cleanup
-        // if the people passed in are summary buckets, add the particpant counts there too.
-        var gidToSummaryBucket = {};
-        _.each(people, function(b) {
-            if (b.isSummaryBucket) {
-                gidToSummaryBucket[b.gid] = b;
-            }
-        });
-
         var bidToGid = getBidToGid();
         for (var pid in participantsOfInterestVotes) {
             var ptpt = participantsOfInterestVotes[pid];
             var magicPid = Number(pid) + 10000000000;
             var gid = bidToGid[magicPid];
             // clusters[gid].ptptoiCount = (clusters[gid].ptptoiCount || 0) + 1;
-            gidToSummaryBucket[gid].ptptois = _.union(gidToSummaryBucket[gid].ptptois||[], magicPid);
             // clustersCache[gid].ptptois = _.union(clustersCache[gid].ptptois||[], magicPid);            // SO BAD
-            // gidToSummaryBucket[gid].ptptoiCount = (gidToSummaryBucket[gid].ptptoiCount || 0) + 1;
             var votesVectorInAscii_adpu_format = ptpt.votes || "";
             pid = parseInt(pid);
 
