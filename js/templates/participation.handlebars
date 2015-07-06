@@ -124,6 +124,33 @@ style="padding-left: 0px; padding-right: 0px"
     {{view commentForm}}
     {{view readReactView}}
     <div id="vis_sibling_above_tab_content"></div>
+    <div id="visualization_parent_div" style="text-align: right; visibility: hidden">
+      {{#unless tutorialView}}
+        <table style="width: 100%" class="HeadingG">
+          <tr>
+            <td>
+{{!--               <span id="opinion_groups_label" class="HeadingB" style="text-transform:none; cursor: default; white-space: nowrap; color: #555">
+                <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
+                Opinion Groups
+              </span> --}}
+            </td>
+            <td style="width:100%; text-align: right; cursor: pointer;">
+           {{!--    <button id="resetVisBlockerTutorial" class="Btn Btn-alt Btn-small"> 
+                Tutorial
+              </button> --}}
+            </td>
+          </tr>
+        </table>
+      {{/unless}}
+      {{ view tutorialView }}
+      {{!-- <div class="participationCount HeadingF visible-xs"></div> --}}
+      <div id="visualization_div" class="vis_container"></div>
+      {{!-- <div class="participationCount HeadingF hidden-xs"></div> --}}
+
+      {{!-- <div class="participationCount HeadingF pull-right"></div> --}}
+
+    </div> {{! /visualization_parent_div }}
+
 
     <div class="darkPanel" style="text-align: center">
       {{view groupSelectionView}}
@@ -259,32 +286,7 @@ style="padding-left: 0px; padding-right: 0px"
         <button id="nextTutorialStepButton" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:none">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
       </div>
 
-    <div id="visualization_parent_div" style="text-align: right; visibility: hidden">
-      {{#unless tutorialView}}
-        <table style="width: 100%" class="HeadingG">
-          <tr>
-            <td>
-{{!--               <span id="opinion_groups_label" class="HeadingB" style="text-transform:none; cursor: default; white-space: nowrap; color: #555">
-                <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
-                Opinion Groups
-              </span> --}}
-            </td>
-            <td style="width:100%; text-align: right; cursor: pointer;">
-           {{!--    <button id="resetVisBlockerTutorial" class="Btn Btn-alt Btn-small"> 
-                Tutorial
-              </button> --}}
-            </td>
-          </tr>
-        </table>
-      {{/unless}}
-      {{ view tutorialView }}
-      {{!-- <div class="participationCount HeadingF visible-xs"></div> --}}
-      <div id="visualization_div" class="vis_container"></div>
-      {{!-- <div class="participationCount HeadingF hidden-xs"></div> --}}
-
-      {{!-- <div class="participationCount HeadingF pull-right"></div> --}}
-
-    </div> {{! /visualization_parent_div }}
+    
   </div> {{! /vis_sibling_bottom }}
     
   </span> {{! /right_panel }}
