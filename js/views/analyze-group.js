@@ -4,7 +4,13 @@ var template = require("../tmpl/analyze-group");
 var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
 var Utils = require("../util/utils");
-var AnalyeGroupParticipantsView = require("../views/analyzeGroupParticipantsView");
+
+var SHOW_MAP = false;
+var SHOW_PARTICIPANTS = false;
+var AnalyeGroupParticipantsView;
+if (SHOW_PARTICIPANTS) {
+  AnalyeGroupParticipantsView = require("../views/analyzeGroupParticipantsView");
+}
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
 
@@ -416,10 +422,12 @@ module.exports = Handlebones.View.extend({
     this.collection = options.collection;
     this.collection.comparator = comparatorAgree;
 
-    this.participants = this.addChild(new AnalyeGroupParticipantsView({
-      getParticipantsOfInterestForGid: options.getParticipantsOfInterestForGid,
-      getGroupInfo: options.getGroupInfo,
-    }));
+    if (SHOW_PARTICIPANTS) {
+      this.participants = this.addChild(new AnalyeGroupParticipantsView({
+        getParticipantsOfInterestForGid: options.getParticipantsOfInterestForGid,
+        getGroupInfo: options.getGroupInfo,
+      }));
+    }
 
     var getTidsForGroup = options.getTidsForGroup;
     var getLocations = options.getLocations;
@@ -454,55 +462,58 @@ module.exports = Handlebones.View.extend({
       eb.on(eb.clusterClicked, function(gid) {
         doFetch(gid);
 
-        getLocations(gid).then(function(locations) {
+        if (SHOW_MAP) {
+          getLocations(gid).then(function(locations) {
 
-          $("#groupMap").html("");
-          if (!locations || !locations.length) {
-            return;
-          }
-          var w = $("#groupMap").width();
-          var h = w*2/3;
-
-
-          var polismap = d3.select("#groupMap").append("svg")
-            .attr("width", w)
-            .attr("height", h);
-
-          var projection = d3.geo.mercator()
-              .scale(w)
-              // .translate([65, 100])
-              .translate([w/2, h/2 + h/6.7])
-              .precision(.1);
-
-// var projection = d3.geo.projection(function(a, b) {
-//   return [
-//     a,
-//     Math.log(Math.tan(Math.PI / 4 + b / 2))
-//   ];
-// });
+            $("#groupMap").html("");
+            if (!locations || !locations.length) {
+              return;
+            }
+            var w = $("#groupMap").width();
+            var h = w*2/3;
 
 
-          var picEnter = polismap.append("image")
-          picEnter
-            .classed("bktv", true)
-            .attr("x", 0)
-            .attr("y", -h/10)
-            .attr("height", w) // NOTE - using w instead of h
-            .attr("width", w)
-            .attr("xlink:href", "https://pol.is/landerImages/earth_mercator.png");
+            var polismap = d3.select("#groupMap").append("svg")
+              .attr("width", w)
+              .attr("height", h);
 
-          polismap.selectAll("circle")
-              .data(locations)
-              .enter()
-              .append("circle")
-              .attr("r",5)
-              .attr("fill", "blue")
-              .attr("opacity", ".5")
-              .attr("transform", function(d) {  
-                  return "translate(" + projection([d.lng,d.lat]) + ")";
-              });
+            var projection = d3.geo.mercator()
+                .scale(w)
+                // .translate([65, 100])
+                .translate([w/2, h/2 + h/6.7])
+                .precision(.1);
 
-        });
+  // var projection = d3.geo.projection(function(a, b) {
+  //   return [
+  //     a,
+  //     Math.log(Math.tan(Math.PI / 4 + b / 2))
+  //   ];
+  // });
+
+
+            var picEnter = polismap.append("image")
+            picEnter
+              .classed("bktv", true)
+              .attr("x", 0)
+              .attr("y", -h/10)
+              .attr("height", w) // NOTE - using w instead of h
+              .attr("width", w)
+              .attr("xlink:href", "https://pol.is/landerImages/earth_mercator.png");
+
+            polismap.selectAll("circle")
+                .data(locations)
+                .enter()
+                .append("circle")
+                .attr("r",5)
+                .attr("fill", "blue")
+                .attr("opacity", ".5")
+                .attr("transform", function(d) {  
+                    return "translate(" + projection([d.lng,d.lat]) + ")";
+                });
+
+          });
+        }
+        
       });
     }
   }
