@@ -739,6 +739,14 @@ function updateHulls() {
                             shadowStrokeWidth = "0px";
                             color = "#e9f0f7";
                         }
+
+                        d3HullSelections[i].datum(points)
+                            .attr("d", shape)
+                            .style("visibility", "visible");
+                    } else {
+                        d3HullSelections[i].datum(points)
+                            .attr("d", shape)
+                            .style("visibility", "hidden");
                     }
 
                     d3Hulls[i].datum(points)
@@ -753,10 +761,6 @@ function updateHulls() {
                         ;
 
 
-
-                    d3HullSelections[i].datum(points)
-                        .attr("d", shape)
-                        .style("visibility", "visible");
                     // d3HullShadows[i].datum(points)
                     //     .attr("d", shape)
                     //     .style("fill", colorShadow)
