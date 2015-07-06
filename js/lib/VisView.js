@@ -685,7 +685,8 @@ function updateHulls() {
                 };
             } else {
                 chooseRadius = function(node) {
-                    return chooseCircleRadiusOuter(node);
+                    // return chooseCircleRadiusOuter(node);
+                    return 5;
                 };
             }
             for (var p = 0; p < hull.length; p++) {
