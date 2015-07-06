@@ -169,10 +169,10 @@ module.exports =  ConversationView.extend({
       ctx.topic = void 0;
     }
     
-    ctx.useBannerHeader = !Utils.isInIframe();
+    ctx.useBannerHeader = false; //!Utils.isInIframe();
     // ctx.showLogoAndBreadCrumbInHeader = ctx.context && !Utils.isInIframe();
     ctx.showLogoAndBreadCrumbInHeader = false;
-    ctx.showLogoInHeader = !Utils.isInIframe();
+    ctx.showLogoInHeader = false; //!Utils.isInIframe();
     
     // ctx.showLogoInFooter = !ctx.showLogoAndBreadCrumbInHeader;
     ctx.showLogoInFooter = false;
