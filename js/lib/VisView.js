@@ -52,7 +52,7 @@ var force;
 var queryResults;
 var d3Hulls; // NOTE: this has constant length, may be longer than hulls array
 var d3HullSelections;
-var d3HullShadows;
+// var d3HullShadows;
 var hullPoints = [];
 
 var hullIdToGid = {};
@@ -462,7 +462,7 @@ function updateHullColors() {
         if (clusterIsSelected()) {
             d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
             d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
-            d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
+            // d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
         }
    }
 }
@@ -569,7 +569,7 @@ if (isIE8) {
     raphaelHulls = makeRaphaelHulls(hull_unselected_color, hull_stoke_width);
     raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);    
 } else {
-    d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);    
+    // d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);    
     d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);        
     d3Hulls = makeD3Hulls("hull", hull_stoke_width);
 }
@@ -630,7 +630,7 @@ function updateHulls() {
     function hideHull(i) {
         d3Hulls[i].datum([]).style("visibility", "hidden");
         d3HullSelections[i].datum([]).style("visibility", "hidden");
-        d3HullShadows[i].datum([]).style("visibility", "hidden");
+        // d3HullShadows[i].datum([]).style("visibility", "hidden");
     }
 
     function updateHull(i) {
