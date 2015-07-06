@@ -103,6 +103,11 @@ var HULL_EXTRA_RADIUS = d3.scale.linear().range([2, 6]).domain([350, 800]).clamp
 var speed = d3.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(width);
 
 
+// the length of the visible part of the pin. The pin can be longer, if it is under the circle.
+var pinLength = d3.scale.linear().range([10, 30]).domain([350, 800]).clamp(true)(width);
+
+
+
 var bidToGid = {};
 var bidToBucket = {};
 
@@ -687,9 +692,8 @@ function updateHulls() {
                 tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p], chooseRadius));
             }    
             if (!DO_TESSELATE_POINTS) {
-                var PIN_LENGTH = 30;
                 tessellatedPoints = tessellatedPoints.map(function(pt) {
-                    pt[1] += PIN_LENGTH;
+                    pt[1] += pinLength;
                     return pt;
                 });
             }
@@ -1555,6 +1559,20 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
           .on("mouseout", hideTip)
           // .call(force.drag)
       ;
+
+
+       var pinEnter = g.append("line")
+        .classed("pin", true)
+        .attr("x1", 0)
+        .attr("y1", 0)
+        .attr("x2", 0)
+        .attr("y2", pinLength)
+        .attr("stroke-linecap", "round")
+        .attr("stroke", "lightgray")
+        .attr("stroke-width", function(d) {
+            return "2px";
+        })
+        ;
 
       if (Utils.projectComments) {
           var foo = main_layer.selectAll(".c").data(comments);
