@@ -7582,6 +7582,75 @@ function(req, res) {
 });
 
 
+app.get('/api/v3/stripe_account_connect',
+function(req, res) {
+    var stripe_client_id = process.env.STRIPE_CLIENT_ID;
+
+    var stripeUrl = "https://connect.stripe.com/oauth/authorize?response_type=code&client_id="+stripe_client_id+"&scope=read_write";
+    res.set({
+        'Content-Type': 'text/html',
+    }).send("<html><body>" +
+        "<a href ='" + stripeUrl + "'>Connect Pol.is to Stripe</a>" +
+    "</body></html>");
+});
+ 
+
+app.get('/api/v3/stripe_account_connected_oauth_callback',
+    moveToBody,
+    want("code", getStringLimitLength(9999), assignToP),
+    want("access_token", getStringLimitLength(9999), assignToP),
+    want("error", getStringLimitLength(9999), assignToP),
+    want("error_description", getStringLimitLength(9999), assignToP),
+function(req, res) {
+ 
+  var code = req.p.code;
+  var access_token = req.p.access_token;
+  var error = req.p.error;
+  var error_description = req.p.error_description;
+  if (req.p.error) {
+    fail(res, 500, "polis_err_fetching_stripe_info_" + req.p.error, req.p.error_description);
+    return;
+  }
+
+  // Make /oauth/token endpoint POST request
+  request.post({
+    url: 'https://connect.stripe.com/oauth/token',
+    form: {
+      grant_type: 'authorization_code',
+      client_id: process.env.STRIPE_CLIENT_ID,
+      code: code,
+      client_secret: process.env.STRIPE_SECRET_KEY
+    }
+  }, function(err, r, body) {
+    if (err) {
+        fail(res, 500, "polis_err_stripe_oauth", err);
+        return;
+    }
+    pgQueryP("INSERT INTO stripe_accounts ("+
+        "stripe_account_token_type, " +
+        "stripe_account_stripe_publishable_key, " +
+        "stripe_account_scope, " +
+        "stripe_account_livemode, " +
+        "stripe_account_stripe_user_id, " +
+        "stripe_account_refresh_token, " +
+        "stripe_account_access_token " +
+    ") VALUES ();", [
+        req.p.token_type,
+        req.p.stripe_publishable_key,
+        req.p.scope,
+        req.p.livemode,
+        req.p.stripe_user_id,
+        req.p.refresh_token,
+        req.p.access_token,
+    ]).then(function() {
+        res.send("<html><body>success!</body></html>");
+    }, function(err) {
+      fail(res, 500, "polis_err_saving_stripe_info", err);
+    });
+  });
+});
+
+
 app.get('/api/v3/conversations',
     moveToBody,
     authOptional(assignToP),
