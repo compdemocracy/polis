@@ -5371,10 +5371,8 @@ function getComments(o) {
             "txt",
             "tid",
             "created",
+            "uid",
         ];
-        if (o.include_social) {
-            cols.push("uid");
-        }
         if (o.moderation) {
             cols.push("velocity");
             cols.push("zid");
@@ -5392,11 +5390,23 @@ function getComments(o) {
         return rows;
     }).then(function(comments) {
         if (o.include_social) {
-            var uids = comments.pluck("uid");
+            var uids = _.pluck(comments, "uid");
             return getSocialInforForUsers(uids).then(function(socialInfos) {
                 var uidToSocialInfo = new Map();
                 socialInfos.forEach(function(info) {
-                    uidToSocialInfo.set(info.uid, info);
+                    // whitelist properties to send
+                    var infoToReturn = _.pick(info, [
+                        // fb
+                        "fb_name",
+                        "fb_link",
+                        "fb_user_id",
+                        // twitter
+                        "name",
+                        "screen_name",
+                        "twitter_user_id",
+                        "profile_image_url_https",
+                    ]);
+                    uidToSocialInfo.set(info.uid, infoToReturn);
                 });
                 return comments.map(function(c) {
                     var s = uidToSocialInfo.get(c.uid);
@@ -5518,6 +5528,7 @@ app.get("/api/v3/comments",
     want('not_voted_by_pid', getInt, assignToP),
     want('moderation', getBool, assignToP),
     want('mod', getInt, assignToP),
+    want('include_social', getBool, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
 function(req, res) {
     var zid = req.p.zid;
@@ -5531,6 +5542,21 @@ function(req, res) {
     winston.log("info","getComments " + rid + " begin");
 
     getComments(req.p).then(function(comments) {
+
+        comments = comments.map(function(c) {
+            var hasTwitter = c.social && c.social.twitter_user_id;
+            if (hasTwitter) {
+               c.social.twitter_profile_image_url_https = getServerNameWithProtocol(req) + "/twitter_image?id=" + c.social.twitter_user_id;
+            }
+            var hasFacebook = c.social && c.social.fb_user_id;
+            if (hasFacebook) {
+                var width = 50;
+                var height = 50;
+                c.social.fb_picture = "https://graph.facebook.com/v2.2/"+ c.social.fb_user_id +"/picture?width="+width+"&height=" + height;
+            }
+            return c;
+        });
+
         finishArray(res, comments);
     }).catch(function(err) {
         winston.log("info","getComments " + rid + " failed");
@@ -6096,12 +6122,13 @@ function(req, res) {
     });
 });
 
-function getNextCommentRandomly(zid, pid, withoutTids) {
+function getNextCommentRandomly(zid, pid, withoutTids, include_social) {
     var params = {
         zid: zid,
         not_voted_by_pid: pid,
         limit: 1,
         random: true,
+        include_social: include_social,
     };
     if (!_.isUndefined(withoutTids) && withoutTids.length) {
         params.withoutTids = withoutTids;
@@ -6265,9 +6292,9 @@ q += " LIMIT 1;";
     });  
 }
 
-function getNextComment(zid, pid, withoutTids) {
-    return getNextCommentRandomly(zid, pid, withoutTids);
-    // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids);
+function getNextComment(zid, pid, withoutTids, include_social) {
+    return getNextCommentRandomly(zid, pid, withoutTids, include_social);
+    // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
 }
 
 app.get("/api/v3/nextComment",
@@ -6286,43 +6313,9 @@ function(req, res) {
     //         hostclass)
     //         Along with this would be to cache in ram info about moderation status of each comment so we can filter before returning a comment.
     
-    getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
+    getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without, req.p.include_social).then(function(c) {
         if (c) {
-            if (req.p.include_social) {
-                getParticipantsByZidPids(req.p.zid, [c.pid]).then(function(ptpts) {
-                    var ptpt = ptpts[0];
-                    getSocialInforForUsers([ptpt.uid]).then(function(socialInfoResults) {
-                        c.social = {
-                            fb_name: "Anonymous",
-                            twitter_user_id: "anonymous",
-                            screen_name: "Anonymous",
-                            profile_image_url_https: "https://pol.is/landerImages/anonProfileIcon64.png",
-                        };
-                        if (socialInfoResults.length) {
-                            var x = socialInfoResults[0];
-                            c.social = {
-                                fb_name: x.fb_name,
-                                twitter_user_id: x.twitter_user_id,
-                                screen_name: x.screen_name,
-                                profile_image_url_https: x.profile_image_url_https,
-                                fb_public_profile: x.fb_public_profile,
-                            };
-                        }
-                        finishOne(res, c);
-                    }, function(err) {
-                        finishOne(res, c);
-                        console.error("polis_err_fetching_social_info");
-                        console.error(err);
-                    });
-                }, function(err) {
-                    finishOne(res, c);
-                    console.error("polis_err_fetching_social_info2");
-                    console.error(err);
-                });
-
-            } else {
-                finishOne(res, c);
-            }
+            finishOne(res, c);
         } else {
             res.status(200).json({});
         }
@@ -6371,7 +6364,7 @@ function(req, res) {
             return addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred, createdTime);
         }
     }).then(function() {
-        return getNextComment(req.p.zid, req.p.pid);
+        return getNextComment(req.p.zid, req.p.pid, [], true);
     }).then(function(nextComment) {
         var result = {};
         if (nextComment) {
@@ -8339,7 +8332,7 @@ function getFacebookUsersInConversation(zid) {
 function getSocialInforForUsers(uids) {
     uids.forEach(function(uid) {
         if (!_.isNumber(uid)) {
-            throw "polis_err_123123_invalid_uid";
+            throw "polis_err_123123_invalid_uid got:" + uid;
         }
     });
     if (!uids.length) {
