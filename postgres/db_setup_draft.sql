@@ -464,6 +464,7 @@ CREATE TABLE comments(
     tid INTEGER NOT NULL, -- populated by trigger tid_auto
     zid INTEGER NOT NULL,
     pid INTEGER NOT NULL,
+    uid INTEGER NOT NULL,
     created BIGINT DEFAULT now_as_millis(),
     modified BIGINT DEFAULT now_as_millis(),
     txt VARCHAR(1000) NOT NULL, -- TODO ensure not empty

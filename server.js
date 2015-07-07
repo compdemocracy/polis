@@ -377,6 +377,7 @@ var sql_comments = sql.define({
     "tid",
     "zid",
     "pid",
+    "uid",
     "created",
     "txt",
     "velocity",
@@ -4477,8 +4478,8 @@ function(req, res) {
             newZid,
         ]).then(function() {
             return pgQueryP(
-                "insert into comments (pid, tid, zid, txt, velocity, mod, active, created) "+ 
-                "select pid, tid, ($2), txt, velocity, mod, active, created from comments where zid = ($1);", [
+                "insert into comments (pid, tid, zid, txt, velocity, mod, uid, active, created) " +
+                "select pid, tid, ($2), txt, velocity, mod, uid, active, created from comments where zid = ($1);", [
                 zid,
                 newZid,
             ]).then(function() {
@@ -5821,9 +5822,9 @@ function(req, res) {
 
             pgQuery(
                 "INSERT INTO COMMENTS "+
-                  "(pid, zid, txt, velocity, active, mod, created, tid) VALUES "+
-                  "($1,   $2,  $3,       $4,     $5,  $6, default, null) RETURNING tid, created;",
-                   [pid, zid, txt, velocity, active, mod],
+                  "(pid, zid, txt, velocity, active, mod, uid, created, tid) VALUES "+
+                  "($1,   $2,  $3,       $4,     $5,  $6, $7,  default, null) RETURNING tid, created;",
+                   [pid, zid, txt, velocity, active, mod, uid],
 
                 function(err, docs) {
                     if (err) { 
