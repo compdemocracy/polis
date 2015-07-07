@@ -7627,6 +7627,7 @@ function(req, res) {
         fail(res, 500, "polis_err_stripe_oauth", err);
         return;
     }
+    body = JSON.parse(body);
     pgQueryP("INSERT INTO stripe_accounts ("+
         "stripe_account_token_type, " +
         "stripe_account_stripe_publishable_key, " +
@@ -7636,13 +7637,13 @@ function(req, res) {
         "stripe_account_refresh_token, " +
         "stripe_account_access_token " +
     ") VALUES ($1, $2, $3, $4, $5, $6, $7);", [
-        req.p.token_type,
-        req.p.stripe_publishable_key,
-        req.p.scope,
-        req.p.livemode,
-        req.p.stripe_user_id,
-        req.p.refresh_token,
-        req.p.access_token,
+        body.token_type,
+        body.stripe_publishable_key,
+        body.scope,
+        body.livemode,
+        body.stripe_user_id,
+        body.refresh_token,
+        body.access_token,
     ]).then(function() {
         res.send("<html><body>success!</body></html>");
     }, function(err) {
