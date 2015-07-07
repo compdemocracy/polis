@@ -7635,7 +7635,7 @@ function(req, res) {
         "stripe_account_stripe_user_id, " +
         "stripe_account_refresh_token, " +
         "stripe_account_access_token " +
-    ") VALUES ();", [
+    ") VALUES ($1, $2, $3, $4, $5, $6, $7);", [
         req.p.token_type,
         req.p.stripe_publishable_key,
         req.p.scope,
