@@ -268,6 +268,7 @@ module.exports = function(params) {
         var params = {
             not_voted_by_pid: getPid(),
             limit: 1,
+            include_social: true,
             conversation_id: conversation_id
         };
 
@@ -1659,6 +1660,7 @@ function clientSideBaseCluster(things, N) {
     function getComments(params) {
         params = $.extend({
             conversation_id: conversation_id,
+            include_social: true,
             // not_pid: getPid() // don't want to see own coments
         }, params);
         return polisGet(commentsPath, params);

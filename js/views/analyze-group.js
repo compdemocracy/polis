@@ -288,11 +288,24 @@ module.exports = Handlebones.View.extend({
              "<div style='font-size:12px; color: gray;'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
              // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
+          var social = c.get("social");
+          var socialHtml = "";
+          if (social) {
+            socialHtml = "<div>" +
+              "<img src='" + social.twitter_profile_image_url_https + "'></img>" +
+              "<div>" + social.name + "</div>" +
+              "<div>" + social.screen_name + "</div>" +
+              "<img src='" + social.fb_picture + "'></img>" +
+              "<div>" + social.fb_name + "</div>" +
+              "<div>" + social.fb_link + "</div>" +
+            "</div>";
+          }
           var html = 
             "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; "+gradient+" color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
+                socialHtml +
               "</p>" +
               // "<p style='padding-left: 20px;'>" +
               "<p>" +
