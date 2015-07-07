@@ -154,8 +154,53 @@ if (devMode) {
 
 
 
+// metric name => {
+//    values: [circular buffers of values (holds 1000 items)]
+//    index: index in circular buffer
+//}
+var METRICS_IN_RAM = {};
+
+function addInRamMetric(metricName, val) {
+    if (!METRICS_IN_RAM[metricName]) {
+        METRICS_IN_RAM[metricName] = {
+            values: new Array(1000),
+            index: 0,
+        };
+    }
+    var index = METRICS_IN_RAM[metricName].index;
+    METRICS_IN_RAM[metricName].values[index] = val;
+    METRICS_IN_RAM[metricName].index = (index + 1) % 1000;
+}
+
+
+
+// metered promise
+function MPromise(name, f) {
+    var p = new Promise(f);
+    var start = Date.now();
+    setTimeout(function() {
+        addInRamMetric(name + ".go", 1, start);
+    }, 100);
+    p.then(function() {
+        var end = Date.now();
+        var duration = end - start;
+        setTimeout(function() {
+            addInRamMetric(name + ".ok", duration, end);
+        }, 100);
+    }, function() {
+        var end = Date.now();
+        var duration = end - start;
+        setTimeout(function() {
+            addInRamMetric(name + ".fail", duration, end);
+        }, 100);
+    });
+    return p;
+}
+
+
+
 function isSpam(o) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("isSpam", function(resolve, reject) {
         akismet.checkSpam(o, function(err, spam) {
             if (err) {
                 reject(err);
@@ -248,6 +293,7 @@ var metric = (function() {
     };    
 }());
 */
+
 
 //metric("api.process.launch", 1);
 
@@ -641,7 +687,11 @@ function pgQueryP(queryString, params) {
     });
 }
 
-
+function pgQueryP_metered(name, queryString, params) {
+    return new MPromise(name, function(resolve, reject) {
+        pgQueryP(queryString, params).then(resolve, reject);
+    });
+}
 
 function hasAuthToken(req) {
     return !!req.cookies[COOKIES.TOKEN];
@@ -909,7 +959,7 @@ var conversationIdToZidCache = new SimpleCache({
 
 // NOTE: currently conversation_id is stored as zinvite
 function getZidFromConversationId(conversation_id) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getZidFromConversationId", function(resolve, reject) {
         var cachedZid = conversationIdToZidCache.get(conversation_id);
         if (cachedZid) {
             resolve(cachedZid);
@@ -1321,7 +1371,7 @@ function getPid(zid, uid, callback) {
 function getPidPromise(zid, uid) {
     var cacheKey = zid + "_" + uid;
     var cachedPid = pidCache.get(cacheKey);
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getPidPromise", function(resolve, reject) {
         if (!_.isUndefined(cachedPid)) {
             resolve(cachedPid);
             return;
@@ -1419,7 +1469,7 @@ function votesPost(pid, zid, tid, voteType) {
 }
 
 function votesGet(res, p) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("votesGet", function(resolve, reject) {
         var q = sql_votes.select(sql_votes.star())
             .where(sql_votes.zid.equals(p.zid));
 
@@ -1523,31 +1573,6 @@ function meter(name) {
         });
         next();
     };
-}
-*/
-
-/*
-// metered promise
-function MPromise(name, f) {
-    var p = new Promise(f);
-    var start = Date.now();
-    setTimeout(function() {
-        metric(name + ".go", 1, start);
-    }, 100);
-    p.then(function() {
-        var end = Date.now();
-        var duration = end - start;
-        setTimeout(function() {
-            metric(name + ".ok", duration, end);
-        }, 100);
-    }, function() {
-        var end = Date.now();
-        var duration = end - start;
-        setTimeout(function() {
-            metric(name + ".fail", duration, end);
-        }, 100);
-    });
-    return p;
 }
 */
 
@@ -1934,23 +1959,34 @@ function getPca(zid, lastVoteTimestamp) {
     // NOTE: not caching results from this query for now, think about this later.
     // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
     // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
-    return new Promise(function(resolve, reject) {
+    return new MPromise("pcaGet", function(resolve, reject) {
+        var queryStart = Date.now();
         collectionOfPcaResults.find({zid: zid}, function(err, cursor) {
             if (err) {
                 reject(new Error("polis_err_get_pca_results_find"));
                 return;
             }
-            cursor.toArray( function(err, docs) {
+
+            var queryEnd = Date.now();
+            var queryDuration = queryEnd - queryStart;
+            addInRamMetric("pcaGetQuery", queryDuration);
+
+            var nextObjectStart = Date.now();
+            cursor.nextObject(function(err, item) {
+
+                var nextObjectEnd = Date.now();
+                var nextObjectDuration = nextObjectEnd - nextObjectStart;
+                addInRamMetric("pcaGetToArray", nextObjectDuration);
+
                 if (err) {
                     reject(new Error("polis_err_get_pca_results_find_toarray"));
-                } else if (!docs.length) {
+                } else if (!item) {
                     INFO("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
                     resolve(null);
-                } else if (docs[0].lastVoteTimestamp <= lastVoteTimestamp) {
+                } else if (item.lastVoteTimestamp <= lastVoteTimestamp) {
                     INFO("mathpoll related", "after cache miss, unable to find newer item", zid, lastVoteTimestamp);
                     resolve(null);
                 } else {
-                    var item = docs[0];
                     INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
                     // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
                     pcaCache.set(zid, item);
@@ -2118,7 +2154,7 @@ function(req, res) {
 
 function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getBidToPidMapping", function(resolve, reject) {
         collectionOfBidToPidResults.find({zid: zid}, function(err, cursor) {
             if (err) { reject(new Error("polis_err_get_pca_results_find")); return; }
             cursor.toArray( function(err, docs) {
@@ -2160,7 +2196,7 @@ function(req, res) {
 });
 
 function getXids(zid) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getXids", function(resolve, reject) {
 
         pgQuery("select pid, xid from xids inner join "+
             "(select * from participants where zid = ($1)) as p on xids.uid = p.uid "+
@@ -2646,7 +2682,7 @@ function(req, res) {
 });
 
 function getUserProperty(uid, propertyName) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getUserProperty", function(resolve, reject) {
         pgQuery("SELECT * FROM users WHERE uid = ($1);", [uid], function(err, results) {
             if (err) {
                 reject(err);
@@ -2683,7 +2719,7 @@ var zidToConversationIdCache = new SimpleCache({
     maxSize: 1000,
 });
 function getZinvite(zid) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getZinvite", function(resolve, reject) {
         var cachedConversationId = zidToConversationIdCache.get(zid);
         if (cachedConversationId) {
             resolve(cachedConversationId);
@@ -2734,7 +2770,7 @@ function getZinvites(zids) {
         return zid2conversation_id;
     }
 
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getZinvites", function(resolve, reject) {
         if (uncachedZids.length === 0) {
             resolve(makeZidToConversationIdMap([zidsWithCachedConversationIds]));
             return;
@@ -2817,7 +2853,7 @@ function checkSuzinviteCodeValidity(zid, suzinvite, callback) {
 }
 
 function getOwner(zid) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getOwner", function(resolve, reject) {
         pgQuery("SELECT owner FROM conversations where zid = ($1);", [zid], function(err, results) {
             if (err || !results || !results.rows || !results.rows.length) {
                 reject(new Error("polis_err_no_conversation_for_zid"));
@@ -2990,7 +3026,7 @@ function updateLastInteractionTimeForConversation(zid, uid) {
 
 function tryToJoinConversation(zid, uid, pmaid_answers) {
     // there was no participant row, so create one
-    return new Promise(function(resolve, reject) {
+    return new MPromise("tryToJoinConversation", function(resolve, reject) {
         pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid], function(err, docs) {
             if (err) {
                 winston.log("info","failed to insert into participants");
@@ -3095,7 +3131,7 @@ function isModerator(zid, uid) {
 
 // returns null if it's missing
 function getParticipant(zid, uid) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getParticipant", function(resolve, reject) {
         pgQuery("SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);", [zid, uid], function(err, results) {
             if (err) {return reject(err);}
             if (!results || !results.rows) {
@@ -3134,7 +3170,7 @@ function getUserInfoForUid(uid, callback) {
     });
 }
 function getUserInfoForUid2(uid, callback) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getUserInfoForUid2", function(resolve, reject) {
         pgQuery("SELECT * from users where uid = $1", [uid], function(err, results) {
             if (err) { return reject(err); }
             if (!results.rows || !results.rows.length) {
@@ -3416,7 +3452,7 @@ function(req, res) {
 });
 
 function userHasAnsweredZeQuestions(zid, answers) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("userHasAnsweredZeQuestions", function(resolve, reject) {
         getAnswersForConversation(zid, function(err, available_answers) {
             if (err) { reject(err); return;}
 
@@ -4053,7 +4089,7 @@ function(req, res) {
 
 
 function createDummyUser() {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("createDummyUser", function(resolve, reject) {
         pgQuery("INSERT INTO users (created) VALUES (default) RETURNING uid;",[], function(err, results) {
             if (err || !results || !results.rows || !results.rows.length) {
                 console.error(err);
@@ -4396,6 +4432,15 @@ function addFacebookFriends(uid, fb_friends_response) {
         ]);
     }
 }
+
+
+
+app.get("/perfStats_9182738127",
+    moveToBody,
+function(req, res) {
+    res.json(METRICS_IN_RAM);
+});
+
 
 app.get("/snapshot",
     moveToBody,
@@ -5218,7 +5263,7 @@ function _getCommentsForModerationList(o) {
 }
 
 function _getCommentsList(o) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("_getCommentsList", function(resolve, reject) {
       getConversationInfo(o.zid).then(function(conv) {
 
         var q = sql_comments.select(sql_comments.star())
@@ -5456,7 +5501,7 @@ function failWithRetryRequest(res) {
 }
 
 function getNumberOfCommentsWithModerationStatus(zid, mod) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getNumberOfCommentsWithModerationStatus", function(resolve, reject) {
         pgQuery("select count(*) from comments where zid = ($1) and mod = ($2);", [zid, mod], function(err, result) {
             if (err) {
                 reject(err);
@@ -5563,7 +5608,7 @@ function moderateComment(zid, tid, active, mod) {
 // }
 
 function getComment(zid, tid) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getComment", function(resolve, reject) {
         pgQuery("select * from comments where zid = ($1) and tid = ($2);", [zid, tid], function(err, results) {
             if (err) {
                 reject(err);
@@ -5664,7 +5709,7 @@ function hasBadWords(txt) {
 
 
 function getConversationInfo(zid) {
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getConversationInfo", function(resolve, reject) {
         pgQuery("SELECT * FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
             if (err) {
                 reject(err);
@@ -7827,7 +7872,7 @@ function getTwitterUserInfo(twitter_user_id) {
         null,
         'HMAC-SHA1'
     );
-    return new Promise(function(resolve, reject) {
+    return new MPromise("getTwitterUserInfo", function(resolve, reject) {
         oauth.post(
             'https://api.twitter.com/1.1/users/lookup.json',
             void 0, //'your user token for this app', //test user token
@@ -8205,7 +8250,7 @@ function getSocialParticipants(zid, uid, limit, mod) {
         "left join p on final_set.uid = p.uid " +
         "left join all_friends on all_friends.uid = p.uid " +
     ";";
-    return pgQueryP(q, [zid, uid, limit, mod]);
+    return pgQueryP_metered("getSocialParticipants", q, [zid, uid, limit, mod]);
 }
 
 function getFacebookFriendsInConversation(zid, uid) {
