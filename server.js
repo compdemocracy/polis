@@ -7645,7 +7645,9 @@ function(req, res) {
         body.refresh_token,
         body.access_token,
     ]).then(function() {
-        res.send("<html><body>success!</body></html>");
+        res.set({
+            'Content-Type': 'text/html',
+        }).send("<html><body>success!</body></html>");
     }, function(err) {
       fail(res, 500, "polis_err_saving_stripe_info", err);
     });
