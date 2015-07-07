@@ -2520,9 +2520,12 @@ function nearestPointOnCluster(gid, start) {
 // MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
 
 var clusterToShowLineTo = -1;
+var USE_CLUSTER_POINTING_LINE = false;
 function showLineToCluster(gid) {
-    clusterToShowLineTo = gid;
-    updateLineToCluster(gid);
+    if (USE_CLUSTER_POINTING_LINE) {
+        clusterToShowLineTo = gid;
+        updateLineToCluster(gid);
+    }
 }
 
 function updateLineToCluster(gid) {
