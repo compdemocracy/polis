@@ -30,6 +30,7 @@ body {
 
 .conversationViewRoot {
   overflow: hidden; // trim carousel contents. carousel lives in an overflow: visible container, this crops it.
+  padding: 10px;
 }
 
 .write-hint-pane {
@@ -82,12 +83,21 @@ body {
 
 .reactionButtons {
   margin-right: -2px;
-  background-color: $panel-color;
+  // background-color: $panel-color;
 }
 
+.lightPanel {
+  background-color: white;
+  border: solid 1px lightgray;
+  border-radius: 5px;
+}
 .darkPanel {
   background-color: $panel-color;
+}
+.darkPanelBorderTop {
   border-top: 1px solid lightgray;
+}
+.darkPanelBorderBottom {
   border-bottom: 1px solid lightgray;
 }
 
@@ -243,7 +253,7 @@ svg {
 #comment_shower p, #comment_shower h3 {
    font-weight: normal;
    line-height: normal;
-   background-color: $panel-color;
+   // background-color: $panel-color;
    // border-radius: 10px;
 }
 
@@ -478,7 +488,7 @@ svg {
   border-left: 1px;
   border-style:solid;
   border-color: lightgray;
-  background-color: white;
+  // background-color: white;
 }
 
   .fa-twitter {
@@ -611,7 +621,7 @@ svg {
     box-shadow: 2px 5px 7px 1px #ADBFD0;
     -webkit-box-shadow: 2px 5px 7px 1px #ADBFD0;
     position: relative;
-    background-color: white;
+    // background-color: white;
     top:-2px;
   }
 

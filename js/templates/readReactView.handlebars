@@ -1,50 +1,53 @@
 
 <div
   id="readReactView"
-  class="custom_gutter darkPanel"
+  style="margin-bottom: -20px;"
   {{!-- style="border-radius: 0px 0px 0px 0px; border: 0px; border-top: 1px; border-bottom: 1px; border-style:solid; border-color: lightgray; --}}
-  ">
+  >
+
+  <div class="custom_gutter lightPanel" style="position:relative; top:0px; z-index: 3;">
+
+	  {{#if promptFacebook}}
+	  <div style="margin: 20px;" class="Notification Notification--warning">
+	    <p class="HeadingF HeadingF--light pull-right" style="cursor: pointer" role="button" type="button" id="fbNotNowBtn"> 
+	    	<i class="fa fa-times"></i> Not now
+	    </p>
+	    <div>
+	      <p class="facebookCaveatText">
+		      Connect Facebook and invite your friends to see them in the visualization! We will not post on your behalf.
+	      </p>
+	      <div class="text-center">
+		    	<button id="fbConnectBtn" class="facebookButton">
+		    		<i class="fa fa-facebook-square"></i>&nbsp; Connect Facebook
+		      </button>
+	      </div>
+	    </div>
+	  </div>
 
 
-  {{#if promptFacebook}}
-  <div style="margin: 20px;" class="Notification Notification--warning">
-    <p class="HeadingF HeadingF--light pull-right" style="cursor: pointer" role="button" type="button" id="fbNotNowBtn"> 
-    	<i class="fa fa-times"></i> Not now
-    </p>
-    <div>
-      <p class="facebookCaveatText">
-	      Connect Facebook and invite your friends to see them in the visualization! We will not post on your behalf.
-      </p>
-      <div class="text-center">
-	    	<button id="fbConnectBtn" class="facebookButton">
-	    		<i class="fa fa-facebook-square"></i>&nbsp; Connect Facebook
-	      </button>
-      </div>
-    </div>
-  </div>
+	{{!-- 	<div
+		    class="reactionButtons"
+		  >
+		    <div class="btn-group btn-group-justified">
+		          <div
+		            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
+		            
 
+		          ><p class="btn-vote">NOT NOW</p> </div>
 
-{{!-- 	<div
-	    class="reactionButtons"
-	  >
-	    <div class="btn-group btn-group-justified">
-	          <div
-	            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-	            
+		          <div
+		            id="fbNoUseBtn"
+		            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
+		            role="button"
+		            type="button"
+		          ><p class="btn-vote">I DON'T USE FACEBOOK</p> </div>
+		</div> --}}
 
-	          ><p class="btn-vote">NOT NOW</p> </div>
-
-	          <div
-	            id="fbNoUseBtn"
-	            class="btn btn-lg btn-default {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-	            role="button"
-	            type="button"
-	          ><p class="btn-vote">I DON'T USE FACEBOOK</p> </div>
-	</div> --}}
-
-  {{else}}
-	{{view voteView}}
-  {{/if}}
-
-
+	  {{else}}
+		{{view voteView}}
+	  {{/if}}
+	</div>
+	{{!-- <div style="min-height: 30px; position:relative; top:15px;" class="lightPanel"> --}}
+	<div style="min-height: 30px; position:relative; top: -20px; z-index: 2" class="lightPanel"></div>
+	<div style="min-height: 30px; position:relative; top: -40px; z-index: 1" class="lightPanel"></div>
 </div>

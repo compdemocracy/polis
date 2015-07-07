@@ -278,9 +278,9 @@ module.exports = Handlebones.View.extend({
             // "#20442F" :
             // "rgb(68, 33, 33)";
           // var backgroundColor = repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
-          var backgroundColor = repfullForAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
+          var backgroundColor = "white"; //repfullForAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
           var dotColor = repfullForAgree ? "#00b54d" : "#e74c3c";
-          var gradient = "background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
+          var gradient = ""; //"background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
               "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +

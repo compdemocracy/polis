@@ -322,9 +322,9 @@ module.exports = Handlebones.View.extend({
              // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
 
-          var backgroundColor = forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
+          var backgroundColor = "white"; //forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
           var dotColor = forAgree ? "#00b54d" : "#e74c3c";
-          var gradient = "background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
+          var gradient = ""; //"background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
 
           var html = 
             "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; "+gradient+" color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
