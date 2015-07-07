@@ -1710,6 +1710,7 @@ var whitelistedDomains = [
   "http://www.facebook.com",
   "http://facebook.com",
   "https://api.twitter.com",
+  "https://connect.stripe.com",
   "", // for API
 ];
 
