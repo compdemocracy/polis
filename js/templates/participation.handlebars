@@ -298,38 +298,34 @@ style="padding-left: 0px; padding-right: 0px"
 </div> {{! /row }}
 
 </section> {{! /container }}
-</div>
 
-
- <div class="darkPanel">
-
-  {{#if showLogoInFooter}}
-  <div class="flexbox align-items-flex-end">
-    <a href="{{logo_href}}" target="_blank">
-      <img width="100px" src="https://pol.is/polis_logo_2.png" {{! was 164px}}
-      alt="">
-    </a>
-    <div class="flex-grow-2"></div>
-    {{> linkPrivacy}}
-    {{> linkTos}}
-  </div>
-  {{/if}}
-
-  <div class="flexbox align-items-flex-end">
+  <div class="darkPanel">
     {{#if showLogoInFooter}}
-      <div class="flex-grow-2"></div>
-      {{> linkAddPolis}}
-      <div class="flex-grow-2"></div>
-    {{else}}
-      {{> linkAddPolis}}
+    <div class="flexbox align-items-flex-end">
+      <a href="{{logo_href}}" target="_blank">
+        <img width="100px" src="https://pol.is/polis_logo_2.png" {{! was 164px}}
+        alt="">
+      </a>
       <div class="flex-grow-2"></div>
       {{> linkPrivacy}}
       {{> linkTos}}
+    </div>
     {{/if}}
+    <div class="flexbox align-items-flex-end">
+      {{#if showLogoInFooter}}
+        <div class="flex-grow-2"></div>
+        {{> linkAddPolis}}
+        <div class="flex-grow-2"></div>
+      {{else}}
+        {{> linkAddPolis}}
+        <div class="flex-grow-2"></div>
+        {{> linkPrivacy}}
+        {{> linkTos}}
+      {{/if}}
+    </div>
+      {{!-- <div class="hidden-xs" style="display: inline;">&nbsp; &middot; &nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
+      {{!-- <div class="visible-xs">&nbsp;&middot;&nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
   </div>
+</div>
 
 
-
-    {{!-- <div class="hidden-xs" style="display: inline;">&nbsp; &middot; &nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
-    {{!-- <div class="visible-xs">&nbsp;&middot;&nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
- </div>
