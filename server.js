@@ -3144,6 +3144,27 @@ function getParticipant(zid, uid) {
     });        
 }
 
+// returns null if it's missing
+function getParticipantsByZidPids(zid, pids) {
+    return new MPromise("getParticipantByZidPid", function(resolve, reject) {
+        pids.forEach(function(pid) {
+            if (!_.isNumber(pid)) {
+                throw "polis_err_1_invalid_pid";
+            }
+        });
+        if (!pids.length) {
+            return Promise.resolve([]);
+        }
+        var pidString = pids.join(",");
+        pgQuery("SELECT * FROM participants WHERE zid = ($1) AND pid in ("+ pidString +");", [zid], function(err, results) {
+            if (err) {return reject(err);}
+            if (!results || !results.rows) {
+                return reject(new Error("polis_err_getParticipantByZidPid_failed"));
+            }
+            resolve(results.rows[0]);
+        });
+    });        
+}
 
 function getAnswersForConversation(zid, callback) {
     pgQuery("SELECT * from participant_metadata_answers WHERE zid = ($1) AND alive=TRUE;", [zid], function(err, x) {
@@ -5351,7 +5372,9 @@ function getComments(o) {
             "tid",
             "created",
         ];
-
+        if (o.include_social) {
+            cols.push("uid");
+        }
         if (o.moderation) {
             cols.push("velocity");
             cols.push("zid");
@@ -5367,6 +5390,30 @@ function getComments(o) {
             return x;
         });
         return rows;
+    }).then(function(comments) {
+        if (o.include_social) {
+            var uids = comments.pluck("uid");
+            return getSocialInforForUsers(uids).then(function(socialInfos) {
+                var uidToSocialInfo = new Map();
+                socialInfos.forEach(function(info) {
+                    uidToSocialInfo.set(info.uid, info);
+                });
+                return comments.map(function(c) {
+                    var s = uidToSocialInfo.get(c.uid);
+                    if (s) {
+                        c.social = s;
+                    }
+                    return c;
+                });
+            });
+        } else {
+            return comments;
+        }
+    }).then(function(comments) {
+        comments.forEach(function(c) {
+            delete c.uid;
+        });
+        return comments;
     });
 }
 
@@ -6229,6 +6276,7 @@ app.get("/api/v3/nextComment",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('not_voted_by_pid', getInt, assignToP),
     want('without', getArrayOfInt, assignToP),
+    want('include_social', getBool, assignToP),
 function(req, res) {
 
     // NOTE: I tried to speed up this query by adding db indexes, and by removing queries like getConversationInfo and finishOne.
@@ -6240,30 +6288,41 @@ function(req, res) {
     
     getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
         if (c) {
-            // getSocialInforForUser(c.uid)
-            Promise.resolve().then(function(socialInfoResults) {
-                c.social = {
-                    fb_name: "Anonymous",
-                    twitter_user_id: "anonymous",
-                    screen_name: "Anonymous",
-                    profile_image_url_https: "https://pol.is/landerImages/anonProfileIcon64.png",
-                };
-                // if (socialInfoResults.length) {
-                //     var x = socialInfoResults[0];
-                    // c.social = {
-                    //     fb_name: x.fb_name,
-                    //     twitter_user_id: x.twitter_user_id,
-                    //     screen_name: x.screen_name,
-                    //     profile_image_url_https: x.profile_image_url_https,
-                    //     fb_public_profile: x.fb_public_profile,
-                    // };
-                // }
+            if (req.p.include_social) {
+                getParticipantsByZidPids(req.p.zid, [c.pid]).then(function(ptpts) {
+                    var ptpt = ptpts[0];
+                    getSocialInforForUsers([ptpt.uid]).then(function(socialInfoResults) {
+                        c.social = {
+                            fb_name: "Anonymous",
+                            twitter_user_id: "anonymous",
+                            screen_name: "Anonymous",
+                            profile_image_url_https: "https://pol.is/landerImages/anonProfileIcon64.png",
+                        };
+                        if (socialInfoResults.length) {
+                            var x = socialInfoResults[0];
+                            c.social = {
+                                fb_name: x.fb_name,
+                                twitter_user_id: x.twitter_user_id,
+                                screen_name: x.screen_name,
+                                profile_image_url_https: x.profile_image_url_https,
+                                fb_public_profile: x.fb_public_profile,
+                            };
+                        }
+                        finishOne(res, c);
+                    }, function(err) {
+                        finishOne(res, c);
+                        console.error("polis_err_fetching_social_info");
+                        console.error(err);
+                    });
+                }, function(err) {
+                    finishOne(res, c);
+                    console.error("polis_err_fetching_social_info2");
+                    console.error(err);
+                });
+
+            } else {
                 finishOne(res, c);
-            }, function(err) {
-                finishOne(res, c);
-                console.error("polis_err_fetching_social_info");
-                console.error(err);
-            });
+            }
         } else {
             res.status(200).json({});
         }
@@ -8277,8 +8336,17 @@ function getFacebookUsersInConversation(zid) {
     return p;
 }
 
-function getSocialInforForUser(uid) {
-    return pgQueryP("with fb as (select * from facebook_users where uid = $1), tw as (select * from twitter_users where uid = $1) select * from fb left join tw on tw.uid = fb.uid;", uid);
+function getSocialInforForUsers(uids) {
+    uids.forEach(function(uid) {
+        if (!_.isNumber(uid)) {
+            throw "polis_err_123123_invalid_uid";
+        }
+    });
+    if (!uids.length) {
+        return Promise.resolve([]);
+    }
+    var uidString = uids.join(",");
+    return pgQueryP("with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select * from fb left join tw on tw.uid = fb.uid;", []);
 }
 
 
