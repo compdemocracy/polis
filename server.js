@@ -6193,7 +6193,30 @@ function(req, res) {
     
     getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without).then(function(c) {
         if (c) {
-            finishOne(res, c);
+            // getSocialInforForUser(c.uid)
+            Promise.resolve().then(function(socialInfoResults) {
+                c.social = {
+                    fb_name: "Anonymous",
+                    twitter_user_id: "anonymous",
+                    screen_name: "Anonymous",
+                    profile_image_url_https: "https://pol.is/landerImages/anonProfileIcon64.png",
+                };
+                // if (socialInfoResults.length) {
+                //     var x = socialInfoResults[0];
+                    // c.social = {
+                    //     fb_name: x.fb_name,
+                    //     twitter_user_id: x.twitter_user_id,
+                    //     screen_name: x.screen_name,
+                    //     profile_image_url_https: x.profile_image_url_https,
+                    //     fb_public_profile: x.fb_public_profile,
+                    // };
+                // }
+                finishOne(res, c);
+            }, function(err) {
+                finishOne(res, c);
+                console.error("polis_err_fetching_social_info");
+                console.error(err);
+            });
         } else {
             res.status(200).json({});
         }
@@ -8205,6 +8228,10 @@ function getFacebookFriendsInConversation(zid, uid) {
 function getFacebookUsersInConversation(zid) {
     var p = pgQueryP("select * from facebook_users inner join (select * from participants where zid = ($1) and vote_count > 0) as p on facebook_users.uid = p.uid;", [zid]);
     return p;
+}
+
+function getSocialInforForUser(uid) {
+    return pgQueryP("with fb as (select * from facebook_users where uid = $1), tw as (select * from twitter_users where uid = $1) select * from fb left join tw on tw.uid = fb.uid;", uid);
 }
 
 
