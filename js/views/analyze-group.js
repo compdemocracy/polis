@@ -289,28 +289,48 @@ module.exports = Handlebones.View.extend({
              // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
 
           var social = c.get("social");
-          var socialHtml = "";
+          var socialCtx = {
+            name: "Anonymous",
+            img: "https://pol.is/landerImages/anonProfileIcon64.png",
+            link: "",
+            anon: true,
+          };
           if (social) {
-            socialHtml = "<div>" +
-              "<img src='" + social.twitter_profile_image_url_https + "'></img>" +
-              "<div>" + social.name + "</div>" +
-              "<div>" + social.screen_name + "</div>" +
-              "<img src='" + social.fb_picture + "'></img>" +
-              "<div>" + social.fb_name + "</div>" +
-              "<div>" + social.fb_link + "</div>" +
-            "</div>";
+            var hasTwitter = social.screen_name;
+            var hasFacebook = social.fb_name;
+            if (hasFacebook) {
+              socialCtx = {
+                name: social.fb_name,
+                img: social.fb_picture,
+                link: social.fb_link,
+              };
+            }
+            if (hasTwitter) {
+              socialCtx = {
+                name: social.name,
+                img: social.twitter_profile_image_url_https,
+                link: "https://twitter.com/" + social.screen_name,
+              };
+            }
           }
+          var socialHtml = "<div>" +
+              (socialCtx.anon ? "": "<a href='"+ socialCtx.link +"'>") +
+                "<img style='padding-right: 10px' src='" + socialCtx.img + "'></img>" +
+                "<span style='font-weight: bold'>" + socialCtx.name + "</span>" +
+              (socialCtx.anon ? "": "</a>") +
+              "<span> wrote: </span>"
+          "</div>";
           var html = 
-            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; "+gradient+" color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+            "<div style='color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
-                header +
                 socialHtml +
               "</p>" +
               // "<p style='padding-left: 20px;'>" +
               "<p>" +
                 c.get("txt") +
               "</p>" +
+              header +
               '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>";
           return {
@@ -353,16 +373,18 @@ module.exports = Handlebones.View.extend({
               $(el_carouselSelector).fadeIn("slow", function() {
 
                 var circles = $(el_carouselSelector).find(".owl-pagination").find(".owl-page > span");
-                var colors = _.pluck(items, "color");
-                for (var i = 0; i < circles.length; i++) {
-                  var c = circles[i];
-                  $(c).css("background", colors[i]);
-                }
+                // var colors = _.pluck(items, "color");
+                // for (var i = 0; i < circles.length; i++) {
+                //   var c = circles[i];
+                //   $(c).css("background", colors[i]);
+                // }
+                circles.hide();
+
                 if (!isMobile) {
-                  $(el_carouselSelector).find("#groupCarouselPrev").remove();
-                  $(el_carouselSelector).find("#groupCarouselNext").remove();
-                  $(el_carouselSelector).find(".owl-pagination").prepend('<button id="groupCarouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
-                  $(el_carouselSelector).find(".owl-pagination").append( '<button id="groupCarouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
+                  $("#groupCarouselParent").find("#groupCarouselPrev").remove();
+                  $("#groupCarouselParent").find("#groupCarouselNext").remove();
+                  $("#groupCarouselParent").prepend('<span id="groupCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 50%; left:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
+                  $("#groupCarouselParent").append( '<span id="groupCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 50%; right:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
 
 
                   // <div id="carouselNext">next</div>")

@@ -1,13 +1,19 @@
-<div class="analyze-group-pane">
-	{{!-- <div id="vis_sibling_above_tab_content"></div> --}}
+<div class="analyze-group-pane unselectable">
 	<p class="analyze-group-banner-1 "> Group Summary <span id="numMembers" style="display: none; font-style: italic; font-size: 14px; text-transform: initial; float: right; position: relative; top: 4px;"></span> </p>
-	<div id="carouselForGroup" style="
-        {{!-- visibility: hidden; --}}
-        display: none;
-        {{!-- min-height: 300px;  --}}{{! prevent window from scrolling on mobile when carousel is clobbered }}
-	"></div>
-
+	<div id="groupCarouselParent" style="position: relative;">
+		{{!-- <button style="position: absolute; top: 50%; left:0%" id="groupCarouselButtonLeft">left</button> --}}
+		{{!-- <div id="vis_sibling_above_tab_content"></div> --}}
+		<span style="width:90%; z-index: 2">
+			<div id="carouselForGroup" style="
+		        {{!-- visibility: hidden; --}}
+		        display: none;
+		        {{!-- min-height: 300px;  --}}{{! prevent window from scrolling on mobile when carousel is clobbered }}
+			"></div>
+		</span>
+		{{!-- <button style="position: absolute; top: 50%; right:0%" id="groupCarouselButtonRight">right</button> --}}
+	</div>
   {{view participants}}
+
 
 
 <center id="groupMap"></center>

@@ -327,7 +327,7 @@ module.exports = Handlebones.View.extend({
           var gradient = ""; //"background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
 
           var html = 
-            "<div style='box-shadow: 2px 2px 1px 1px #D5D5D5; border-radius: 5px; "+gradient+" color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+            "<div style='color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
               "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 header +
