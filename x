@@ -1,1 +1,1 @@
-foreman start --env=.env_dev
+foreman start --procfile ./Procfile --env=.env_dev

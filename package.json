@@ -18,7 +18,7 @@
   "license": "",
   "dependencies": {
     "gulp": "~3.8.6",
-    "gulp-jshint": "~1.8.0",
+    "gulp-eslint": "^0.15.0",
     "underscore": "~1.5.2",
     "mongodb": "2.0.33",
     "pg": "~2.8.3",

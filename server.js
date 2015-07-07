@@ -1,4 +1,5 @@
-(function() { "use strict";
+(function() {
+    "use strict";
 
 /*
     DNS notes:
