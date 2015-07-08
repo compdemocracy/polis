@@ -24,15 +24,19 @@
       path.push("demo");
     }
     o.parent_url = o.parent_url || window.location+"";
+    var id = "polis_";
     if (o.conversation_id) {
       path.push(o.conversation_id);
+      id += o.conversation_id;
     } else if (o.site_id) {
       path.push(o.site_id);
+      id += o.site_id;
       if (!o.page_id) {
         alert("Error: need data-page_id when using data-site_id");
         return;
       }
       path.push(o.page_id);
+      id += "_" + o.page_id;
     } else {
       alert("Error: need data-conversation_id or data-site_id");
       return;
@@ -49,8 +53,11 @@
     iframe.src = src;
     iframe.width = "100%"; // may be constrained by parent div
     iframe.height = o.height || 930;
-    iframe.style.border = o.border || "none"; // 0px solid #ccc";
+    iframe.style.border = o.border || "1px solid #ccc";
     iframe.style.borderRadius = o.border_radius || "4px";
+    iframe.style.padding = o.padding || "4px"; // 1px ensures that right border shows up on default wordpress theme
+    iframe.style.backgroundColor = "rgb(247, 247, 247)";
+    iframe.id = id;
     parent.appendChild(iframe);
     iframes.push(iframe);
   }
@@ -108,11 +115,13 @@
       // }
 
       if (event.data && event.data.name === "resize") {
+        console.log(event.data.polisFrameId);
+        var iframe = document.getElementById("polis_" + event.data.polisFrameId);
         // TODO uniquely identify each polis iframe so we can resize only the correct one
-        for (var i = 0; i < iframes.length; i++) {
-          var x = iframes[i];
-          x.setAttribute("height", event.data.height);
-        }
+        // for (var i = 0; i < iframes.length; i++) {
+          // var x = iframes[i];
+          iframe.setAttribute("height", event.data.height);
+        // }
       }
 
 
