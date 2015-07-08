@@ -10436,7 +10436,12 @@ function(req, res) {
                     console.error('email fail');
                     console.error(err);
                 });
+                
+                // These are needed to disambiguate postMessages from multiple polis conversations embedded on one page.
+                url += "?site_id=" + site_id + "&page_id=" + page_id;
+
                 res.redirect(url);
+                
             }).catch(function(err) {
                 fail(res, 500, "polis_err_creating_conv", err);
             });
