@@ -211,6 +211,7 @@ gulp.task('sparklines', function() {
 gulp.task('embedJs', function() {
   return gulp.src([
     'api/embed.js',
+    'api/embedPreprod.js',
     'api/embed_helper.js',
     'api/twitterAuthReturn.html',
     ])
@@ -715,6 +716,24 @@ function deploy(params) {
         makeUploadPath: function(file) {
           console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embed.js");
           return "/embed.js";
+        },
+      }));
+
+    // embedPreprod.js
+    var embedJsCacheSeconds = 60;
+    gulp.src([
+      destRootBase + '/**/embedPreprod.js',
+      ], {read: false})
+    .pipe(s3(creds, {
+        delay: 1000,
+        headers: {
+          'x-amz-acl': 'public-read',
+    //      'Content-Encoding': 'gzip', //causing issues, not sure why
+          'Cache-Control': 'no-cache'.replace(/MAX_AGE/g, embedJsCacheSeconds),
+        },
+        makeUploadPath: function(file) {
+          console.log("upload path cached_embedJs_"+embedJsCacheSeconds+" /embedPreprod.js");
+          return "/embedPreprod.js";
         },
       }));
 
