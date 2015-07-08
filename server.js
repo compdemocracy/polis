@@ -10422,6 +10422,12 @@ function(req, res) {
         o.parent_url = req.p.parent_url;
     }
 
+    function appendParams(url) {
+         // These are needed to disambiguate postMessages from multiple polis conversations embedded on one page.
+        url += "?site_id=" + site_id + "&page_id=" + page_id;
+        return url;
+    }
+
     // also parse out the page_id after the '/', and look that up, along with site_id in the page_ids table
     pgQueryP("select * from page_ids where site_id = ($1) and page_id = ($2);", [site_id, page_id]).then(function(rows) {
         if (!rows || !rows.length) {
@@ -10437,18 +10443,18 @@ function(req, res) {
                     console.error(err);
                 });
                 
-                // These are needed to disambiguate postMessages from multiple polis conversations embedded on one page.
-                url += "?site_id=" + site_id + "&page_id=" + page_id;
-
+                url = appendParams(url);
                 res.redirect(url);
-                
+
             }).catch(function(err) {
                 fail(res, 500, "polis_err_creating_conv", err);
             });
         } else {
             // conv was initialized, nothing to set up
             getZinvite(rows[0].zid).then(function(conversation_id) {
-                res.redirect(buildConversationUrl(req, conversation_id));
+                var url = buildConversationUrl(req, conversation_id);
+                url = appendParams(url);
+                res.redirect(url);
             }).catch(function(err) {
                 fail(res, 500, "polis_err_finding_conversation_id", err);
             });
