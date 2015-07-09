@@ -32,36 +32,153 @@
       {{/if}}
       </div>
     {{else}}
+
     <!-- there is a comment to show -->
-      
+    <div>
       {{! social stuff }}
-      {{social.fb_name}}
-      {{social.twitter_user_id}}
-      {{social.screen_name}}
-      <img src="{{social.profile_image_url_https}}"></img>
-
-      <p style="padding: 20px 20px 20px 20px; min-height: 85px; margin-bottom: 0px; {{customStyles}}">
-        <span id="starBtn" style="float:right; min-height: 40px; margin-top: -15px; margin-right: -15px;">
-
-          <i id="starIcon" class="fa {{#if starred}}fa-star filledStar{{else}}fa-star-o emptyStar{{/if}}" style="font-size: 26px; position: relative; top: 1px"></i>
+      <img
+        src="{{social.profile_image_url_https}}"
+        style="
+          width: 36px;
+          margin-left: 10px;
+          margin-top: 10px;
+          border-radius: 3px;"
+        ></img>
+      <p
+        style="
+          display: inline;
+          position: relative;
+          top: -3px;
+          font-weight: 700;
+          margin-left: 5px;
+        ">
+        {{social.fb_name}}
+        <span style="font-weight: 300">
+          wrote:
         </span>
-        <span id="starredLabel" class="alert-info" style="display: none; position: absolute; right: 56px; padding:20px;">Marked as important.</span>
+        <span
+          id="starBtn"
+          style="
+            float:right;
+            position: relative;
+            ">
+          <i
+            id="starIcon"
+            class="fa
+            {{#if starred}}
+              fa-star filledStar
+            {{else}}
+              fa-star-o emptyStar
+            {{/if}}"
+            style="
+              font-size: 18px;
+              margin-top: 10px;
+              margin-right: 10px;
+            ">
+          </i>
+          <span
+            id="starredLabel"
+            style="
+              display: none;
+              position: absolute;
+              right: 30px;
+              top: 12px;
+              font-size: 12px;
+              font-weight: 500px;
+              width: 300px;
+              text-align: right;
+            ">
+            Marked as important.
+          </span>
+        </span>
+
+      </p>
+      {{!-- {{social.twitter_user_id}} --}}
+      {{!-- {{social.screen_name}} --}}
+      <p style="
+        margin-left: 55px; {{!-- 10 + 36 + 5 from social above --}}
+        font-weight: 300;
+        min-height: 65px;
+        position: relative;
+        top: -13px;
+        width: 80%;
+        line-height: 1.3;
+        font-size: 14px;
+        {{customStyles}}
+        ">
          {{txt}}
       </p>
-      <p style="padding: 0px 0px 7px 20px; font-size: 12px; margin-bottom: 0px;"><em>Comment submitted {{createdString}}</em></p>
+      {{!-- {{createdString}} --}}
     {{/if}}
 </div>
 
+
+{{#if empty}}
+  {{!-- nothing --}}
+{{else}}
+  <div
+    class="reactionButtons"
+    style="
+      display: -webkit-box;
+      display: -moz-box;
+      display: -ms-flexbox;
+      display: -webkit-flex;
+      display: flex;
+      -webkit-flex-flow: row wrap;
+      justify-content: space-around;
+      margin-bottom: 20px;
+    ">
+    <div
+      id="agreeButton"
+      style="cursor: pointer"
+      >
+      <i
+      class="fa fa-check-circle-o"
+      style="
+        font-size: 20px;
+        color: #2ecc71;
+        position: relative;
+        top: 2px;
+        margin-right: 2px;
+      ">
+      </i>
+      Agree
+    </div>
+    <div
+      id="disagreeButton"
+      style="cursor: pointer"
+      >
+      <i
+      class="fa fa-ban"
+      style="
+        font-size: 20px;
+        color: #e74c3c;
+        position: relative;
+        top: 2px;
+        margin-right: 2px;
+      ">
+      </i>
+      Disagree
+    </div>
+    <div
+      style="cursor: pointer"
+      id="passButton"
+      >
+      Pass / Unsure
+    </div>
+  </div>
+{{/if}}
+
+
+
+{{!-- OLD BUTTONS
 <div
     class="reactionButtons"
   >
-    {{#if empty}}
-      {{!-- nothing --}}
-    {{else}}
-        <div class="btn-group btn-group-justified">
+        <div
+        class="btn-group btn-group-justified">
           <div
             class="btn btn-lg {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-            id="agreeButton"
             role="button"
             type="button"
           >
@@ -92,5 +209,5 @@
           {{/ifNotIE8}}
           /&nbsp;<p class="btn-vote">PASS</p> </div>
       </div>
-    {{/if}}
 </div>
+ --}}

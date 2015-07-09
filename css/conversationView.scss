@@ -16,16 +16,11 @@ body {
 
 .filledStar {
   color: #FEE577;
-  text-shadow: 1px 1px 2px #AB732B;
+  // text-shadow: 1px 1px 2px #AB732B;
 }
 
 .emptyStar {
   color: rgb(207, 207, 207);
-}
-
-#starredLabel {
-  box-shadow: 2px 5px 7px 1px #ADBFD0;
-  -webkit-box-shadow: 2px 5px 7px 1px #ADBFD0;
 }
 
 .conversationViewRoot {
@@ -82,8 +77,7 @@ body {
 }
 
 .reactionButtons {
-  margin-right: -2px;
-  // background-color: $panel-color;
+
 }
 
 .lightPanel {
@@ -118,7 +112,7 @@ body {
   border-bottom: 0;
   // background: #fafafa;
   -webkit-font-smoothing: antialiased;
-  
+
   // prevent clipped right edge and extra padding on left edge on mobile
   padding-left: 0px;
   padding-right: 0px;
@@ -334,7 +328,7 @@ svg {
 
     background-color: rgba(255,255,255,0.7);
     margin-right: 10px;
-    
+
     cursor: hand;
     // border-left: 2px solid #ACCFE1;
     // margin-left: 2px;
@@ -477,7 +471,7 @@ svg {
 }
 
 .analyze-group-member-others p {
-  
+
 }
 
 .HRule {
@@ -555,7 +549,7 @@ svg {
   #fbNotNowBtn:hover {
     color: $hover-color;
     border-bottom: 1px solid $hover-color;
-  }  
+  }
 
   // .analyze-group-banner-1 {
   //   width:100%;
@@ -611,7 +605,7 @@ svg {
   #opinion_groups_label {
     margin-left: 30px;
   }
-  
+
   // make flush with tab pane so we can draw the arrow pointint to the selected hull
   #vis_sibling_bottom {
     margin-left: -30px;
@@ -639,7 +633,7 @@ svg {
   //   border-top-right-radius: 10px;
   //   border-top-left-radius: 10px;
   }
-  
+
 }
 
   .nav-tabs > li > a:hover {

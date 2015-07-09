@@ -25,7 +25,7 @@ html {
 body {
   // background: $bg-color;
   color: $text-color;
-  font-family: $serif-font;
+  font-family: $sans-font;
   line-height: $default-leading;
   text-rendering: optimizeLegibility;
 }
@@ -38,8 +38,8 @@ h1, h2, h3, h4, h5, h6, p, ul, ol {
 
 // bootstrap override
 p, ul, ol {
-  font-size: 18px;
-  font-weight: normal;
+  font-size: 16px;
+  font-weight: 300;
   line-height: $default-leading;
 }
 
