@@ -6,6 +6,7 @@ var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
+var PolisFacebookUtils = require('../util/facebookButton');
 var serialize = require("../util/serialize");
 var Utils = require("../util/utils");
 
@@ -97,16 +98,30 @@ module.exports = Handlebones.ModelView.extend({
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();
-      if (that.buttonActive) {
-        that.buttonActive = false;
-        console.log("BUTTON ACTIVE FALSE");
-        serialize(this, function(attrs){
-          that.participantCommented(attrs).then(function() {
-            that.$("#comment_form_textarea").val("");
-          }).always(function() {
-            that.buttonActive = true;
-            console.log("BUTTON ACTIVE TRUE");
+
+      function doSubmitComment() {
+        if (that.buttonActive) {
+          that.buttonActive = false;
+          console.log("BUTTON ACTIVE FALSE");
+          serialize(that, function(attrs){
+            that.participantCommented(attrs).then(function() {
+              that.$("#comment_form_textarea").val("");
+            }).always(function() {
+              that.buttonActive = true;
+              console.log("BUTTON ACTIVE TRUE");
+            });
           });
+        }
+      }
+
+      var hasSocial = window.userObject.hasFacebook || window.userObject.hasTwitter;
+      if (hasSocial) {
+        doSubmitComment();
+      } else {
+        PolisFacebookUtils.connect().then(function() {
+          doSubmitComment();
+        }, function(err) {
+          // alert("facebook error");
         });
       }
     }
