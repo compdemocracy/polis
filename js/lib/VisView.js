@@ -290,7 +290,7 @@ function makeBucketParts(i) {
         // arrowUp: arrowUp,
         // arrowUpOuter: arrowUpOuter,
         // arrowDown: arrowDown,
-        // arrowDownOuter: arrowDownOuter,        
+        // arrowDownOuter: arrowDownOuter,
         set: set
     };
 
@@ -355,7 +355,7 @@ if (isIE8) {
     main_layer = visualization.append(groupTag)
         .attr("id", "main_layer")
         .attr("transform", "translate("+ xOffset +")");
-        
+
     blocker_layer = visualization.append(groupTag)
         .attr("id", "blocker_layer")
         .attr("transform", "translate("+ xOffset +")");
@@ -445,7 +445,7 @@ function setClusterActive(clusterId) {
     if (!isIE8) {
         main_layer.selectAll(".active_group").classed("active_group", false);
     }
-    
+
     return $.Deferred().resolve([]);
 }
 
@@ -489,8 +489,8 @@ function removeTutorialStepOne() {
 }
 
 function handleOnClusterClicked(hullId) {
-    // // if the cluster/hull just selected was already selected...    
-    // if (selectedCluster === hullId) {                 
+    // // if the cluster/hull just selected was already selected...
+    // if (selectedCluster === hullId) {
     //   return resetSelection();
     // }
     exitTutorial();
@@ -543,7 +543,7 @@ function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
             .attr('stroke', color)
             .attr('stroke-linecap', 'round')
             .on('touchstart', handleClick)
-            .on('mousedown', handleClick)            
+            .on('mousedown', handleClick)
             .toBack();
 
             // translate the shadow
@@ -552,7 +552,7 @@ function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
             }
 
             return hull;
-        });    
+        });
 }
 
 function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
@@ -572,10 +572,10 @@ function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
 
 if (isIE8) {
     raphaelHulls = makeRaphaelHulls(hull_unselected_color, hull_stoke_width);
-    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);    
+    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);
 } else {
-    // d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);    
-    d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);        
+    // d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);
+    d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);
     d3Hulls = makeD3Hulls("hull", hull_stoke_width);
 }
 
@@ -675,7 +675,7 @@ function updateHulls() {
             var centroid = computeClusterPointerTarget(pointsToFeedToCentroidFinder);
             centroids[i] = centroid;
 
-            // tesselate to provide a matching hull roundness near large buckets.        
+            // tesselate to provide a matching hull roundness near large buckets.
             var tessellatedPoints = [];
             var DO_TESSELATE_POINTS = false;
             var chooseRadius;
@@ -691,7 +691,7 @@ function updateHulls() {
             }
             for (var p = 0; p < hull.length; p++) {
                 tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p], chooseRadius));
-            }    
+            }
             if (!DO_TESSELATE_POINTS) {
                 tessellatedPoints = tessellatedPoints.map(function(pt) {
                     pt[1] += pinLength;
@@ -728,8 +728,8 @@ function updateHulls() {
                     var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
                     var colorShadow = (clusters[i].length > 1) ? "#d4d4d4" : "#f7f7f7";
                     var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
-                    var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "43px";                    
-                    var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";                    
+                    var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "43px";
+                    var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";
 
                     var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
 
@@ -822,7 +822,7 @@ function updateNodesOnTick(e) {
           //o.x = o.targetX;
           //o.y = o.targetY;
           if (!o.x) { o.x = w/2; }
-          if (!o.y) { o.y = h/2; }  
+          if (!o.y) { o.y = h/2; }
           o.x += (o.targetX - o.x) * k;
           o.y += (o.targetY - o.y) * k;
           o.x = Math.max(padding, Math.min(w - padding, o.x));
@@ -873,12 +873,12 @@ function computeClusterPointerTarget(points_WillBeMutated) {
     // TEMPORARY HACK!
     // reduces the number of points to 3, since the general N code isn't producing good centroids.
     if (points.length > 3) {
-        
+
         // cache var to reduce closure traversal during sort.
         var cpoy = clusterPointerOriginY;
 
         // Use only the 3 left-most points, to create an effect where
-        // the cluster pointer is not 'reaching too far', but is 
+        // the cluster pointer is not 'reaching too far', but is
         // casually reaching only as far as needed to point to the
         // cluster. This scheme also guarantees that the pointer
         // will point to a location where there are no participant dots.
@@ -889,7 +889,7 @@ function computeClusterPointerTarget(points_WillBeMutated) {
             var yB = pairB[1];
 
             var yDistFromPointerOriginA = Math.abs(cpoy - yA);
-            var yDistFromPointerOriginB = Math.abs(cpoy - yB);            
+            var yDistFromPointerOriginB = Math.abs(cpoy - yB);
 
             // prefer reaching farther in x than y (aesthetic choice)
             // 2x is too much: https://www.dropbox.com/s/us5040qckcl5tzw/Screenshot%202014-07-31%2012.35.02.png
@@ -902,13 +902,13 @@ function computeClusterPointerTarget(points_WillBeMutated) {
             var xDistFromPointerOriginA = xA;
             var xDistFromPointerOriginB = xB;
 
-            var distFromOriginA = 
+            var distFromOriginA =
             // Math.sqrt(
                 xDistFromPointerOriginA * xDistFromPointerOriginA +
                 yDistFromPointerOriginA * yDistFromPointerOriginA
                 // ); // Omitting sqrt for perf
 
-            var distFromOriginB = 
+            var distFromOriginB =
             // Math.sqrt(
                 xDistFromPointerOriginB * xDistFromPointerOriginB +
                 yDistFromPointerOriginB * yDistFromPointerOriginB
@@ -1220,7 +1220,7 @@ function chooseDownArrowPath(d) {
 // }
 
 // function chooseDownArrowPath2(downs, originX, originY) {
-//     if (!downs) { return; }    
+//     if (!downs) { return; }
 //     var scale = bucketRadiusForCount(downs || 0);
 //     return makeArrowPoints2(scale, false, originX, originY);
 // }
@@ -1624,7 +1624,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     }
       // OUTER TRANSLUCENT SHAPES
       // var opacityOuter = 0.2;
-      // var upArrowEnter = g.append("polygon") 
+      // var upArrowEnter = g.append("polygon")
       //   .classed("up", true)
       //   .classed("bktv", true)
       //   .style("fill", colorPull)
@@ -1690,7 +1690,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("fill", chooseFill)
         ;
 
-       
+
 
       // INNER SCALE-CHANGING SHAPES
       var upArrowEnterInner = g.append("path")
@@ -1736,7 +1736,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         }
         var socialRoot = g.filter(isParticipantOfInterest).append("g");
         socialRoot.attr("transform", "translate(" +edgeLengthToMatchCircleRadius+","+edgeLengthToMatchCircleRadius+ ")");
-        
+
         socialRoot.append("circle")
             .style("fill", function(d) {
                 if (d.hasFacebook) {
@@ -1759,7 +1759,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             // .attr("transform", function(d) {
             //     if (d.hasFacebook) {
             //         return "translate(" + (retina ? "6,35" : "9,38")  +") scale(.005, -0.005)";
-                    
+
             //     } else if (d.hasTwitter) {
             //         return "translate(" + (retina ? "8,25" : "9,28")  +") scale(0.015,0.015)";
             //     }
@@ -1767,7 +1767,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             .attr("transform", function(d) {
                 if (d.hasFacebook) {
                     return "translate(" + (retina ? "-19,15" : "-19,15")  +") scale(.0065, -0.0065)";
-                    
+
                 } else if (d.hasTwitter) {
                     return "translate(" + (retina ? "-7,-7" : "-7,-7")  +") scale(0.015,0.015)";
                 }
@@ -1854,7 +1854,7 @@ function showHintYou() {
       var helpStrokeWidth = display.xs() ? 1 : 2;
 
     var g = visualization.selectAll(".node");
-     
+
 
       // var centermostNode = g.filter(function(d) {
       //   return d.isChosenNodeForInVisLegend;
@@ -1864,7 +1864,7 @@ function showHintYou() {
       //   .text("another participant")
       //   .attr("text-anchor", "start")
       //   .attr("fill", "#000")
-      //   // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle. 
+      //   // .attr("style", "background-color: #f7f7f7") not possible in SVG must draw rectangle.
       //   .attr("transform", function(d) {
       //       return "translate(55, -17)";
       //   });
@@ -1936,7 +1936,7 @@ function wiggleUp() {
     }
 
     var dfd = $.Deferred();
-    dfd.done(wiggleDown);    
+    dfd.done(wiggleDown);
     var dfdDown = $.Deferred();
     dfdDown.done(wiggleUp);
     var update = visualization.selectAll(".node");
@@ -1945,7 +1945,7 @@ function wiggleUp() {
       .filter(isNotSelf)
       .transition()
       .style("stroke-width", "2px") // NOTE: using tranform to select the scale
-      .style("stroke", "#777") // NOTE: using tranform to select the scale      
+      .style("stroke", "#777") // NOTE: using tranform to select the scale
       .duration(500)
       .each("end", dfd.resolve);
 
@@ -1954,7 +1954,7 @@ function wiggleUp() {
         .filter(isNotSelf)
         .transition()
           .style("stroke-width", "0px") // NOTE: using tranform to select the scale
-          .style("stroke", "#777") // NOTE: using tranform to select the scale      
+          .style("stroke", "#777") // NOTE: using tranform to select the scale
           .duration(500)
           .each("end", dfdDown.resolve)
           ;
@@ -2021,7 +2021,7 @@ function chooseCommentFill(d) {
 
 
 function renderComments(comments) {
-    
+
     var dfd = $.Deferred();
 
     if (comments.length) {
@@ -2074,9 +2074,9 @@ function doUpdateNodes() {
         if (isSelf(node)) {
             bucket.circleOuter.attr("r", r*2);
         } else {
-            bucket.circleOuter.attr("r", r);        
+            bucket.circleOuter.attr("r", r);
         }
-            
+
         bucket.scaleCircle(1); // sets the inner circle radius
 
         if (shouldDisplayCircle(node)) {
@@ -2088,7 +2088,7 @@ function doUpdateNodes() {
         }
         if (shouldDisplayArrows(node)) {
             bucket.up.show();
-            bucket.down.show();        
+            bucket.down.show();
         } else {
             bucket.up.hide();
             bucket.down.hide();
@@ -2161,7 +2161,7 @@ function doUpdateNodes() {
           .style("display", chooseDisplayForCircle)
           .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
           ;
-     
+
 
           var selfNode = _.filter(nodes, isSelf)[0];
           if (selfNode && !selfHasAppeared) {
@@ -2200,7 +2200,7 @@ function doUpdateNodes() {
                     var count = d.seens; // d.clusterCount || d.count; // if d.clusterCount is supplied, use it (since summary blobs show % for all members, non just those in the anonblob)
                     if (d.ups === 0 && d.downs === 0) {
                         txt = "\u2014"; // em dash
-                    } 
+                    }
                     else if (d.ups >= d.downs) {
                         txt = toPercent(d.ups / count);
                     } else if (d.downs > d.ups) {
@@ -2321,14 +2321,14 @@ function showVisBlocker() {
             .classed("visBlockerMainText", true)
             .attr("text-anchor", "middle")
             .attr("fill", "#black")
-            .attr("transform", "translate("+ 
+            .attr("transform", "translate("+
                 w/2 +
                 "," + (9*h/24) + ")")
     ;
     blocker_layer.append("text")
             .classed("visBlocker", true)
             .classed("visBlockerGraphic", true)
-            .attr("transform", "translate("+ 
+            .attr("transform", "translate("+
                 w/2 +
                 "," + (15*h/24) +")")
             .attr("text-anchor", "middle")
@@ -2517,7 +2517,7 @@ function nearestPointOnCluster(gid, start) {
     return distances[0].pt;
 }
 
-// MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to 
+// MAke the help item's arrow a child of the elementToPointAt, and update its points to be from 0,0 to
 
 var clusterToShowLineTo = -1;
 var USE_CLUSTER_POINTING_LINE = false;
@@ -2552,7 +2552,7 @@ function updateLineToCluster(gid) {
 
     // account for stroke width on hulls
     center[0] = center[0] - 2;
-    
+
     var centerPointOnX = 1/2;
 
     var centerY = clusterPointerFromBottom ?  center[1] : clusterPointerOriginY; // decides if the curve is concave/convex

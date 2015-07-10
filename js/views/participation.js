@@ -38,7 +38,7 @@ var VIS_MODE_VOTEMORE = 2;
 var VIS_MODE_TUT = 3;
 
 var useAboveVisTutorial = false;
-var useVisBlockingTutorial = true; 
+var useVisBlockingTutorial = true;
 var launchWithTutorial = false; // !Utils.isInIframe(); // Don't want to show tutorial for casual/journalism scenarios until we have the custom wording/logic to wait on a first vote.
 var useVoteMoreBlocker = false;
 
@@ -75,12 +75,12 @@ module.exports =  ConversationView.extend({
   enableVisAffix: function() {
     this.shouldAffixVis = true;
     $("#visualization_parent_div").addClass("affix");
-    $("#visualization_parent_div").css("top", "");    
+    $("#visualization_parent_div").css("top", "");
   },
   disableVisAffix: function() {
     this.shouldAffixVis = false;
     $("#visualization_parent_div").removeClass("affix");
-    $("#visualization_parent_div").css("top", $("#vis_sibling_bottom").offset().top);
+    // $("#visualization_parent_div").css("top", $("#vis_sibling_bottom").offset().top);
   },
   onAnalyzeTabPopulated: function() {
     if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
@@ -168,15 +168,15 @@ module.exports =  ConversationView.extend({
     if (/^ *$/.test(ctx.topic) || _.isNull(ctx.topic)) {
       ctx.topic = void 0;
     }
-    
+
     ctx.useBannerHeader = false; //!Utils.isInIframe();
     // ctx.showLogoAndBreadCrumbInHeader = ctx.context && !Utils.isInIframe();
     ctx.showLogoAndBreadCrumbInHeader = false;
     ctx.showLogoInHeader = false; //!Utils.isInIframe();
-    
+
     // ctx.showLogoInFooter = !ctx.showLogoAndBreadCrumbInHeader;
     ctx.showLogoInFooter = false;
-    
+
     ctx.no_vis = ctx.vis_type === 0;
     return ctx;
   },
@@ -247,7 +247,7 @@ module.exports =  ConversationView.extend({
   initialize: function(options) {
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
-    
+
     $.when(options.firstCommentPromise).then(function(c) {
       that.doInit(options, c);
     });
@@ -391,11 +391,11 @@ module.exports =  ConversationView.extend({
     }
 
 
-    function configureGutters() {     
+    function configureGutters() {
       if (display.xs()) {
         $("#controlTabs").addClass("no-gutter");
       } else {
-        $("#controlTabs").removeClass("no-gutter");        
+        $("#controlTabs").removeClass("no-gutter");
       }
     }
 
@@ -506,7 +506,7 @@ module.exports =  ConversationView.extend({
       //   that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
       //     title: "CLICK ON GROUPS",
       //     content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //     html: true, 
+      //     html: true,
       //     trigger: "manual",
       //     placement: "bottom"
       //   }).popover("show");
@@ -524,18 +524,18 @@ module.exports =  ConversationView.extend({
       //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
       //       html: true,
       //       trigger: "manual",
-      //       placement: "bottom"  
+      //       placement: "bottom"
       //     });
       //     // that.$('.query_result_item').first().trigger('click');
       //     that.$analyzeViewPopover.popover("show");
       //     that.$('#analyzeViewPopoverButton').click(function(){
       //       that.$analyzeViewPopover.popover("destroy");
-      //     })      
+      //     })
       //   },1500)
-      // }) 
+      // })
 
       // serverClient.updateMyProjection();
-    } // end initPcaVis  
+    } // end initPcaVis
 
     this.initPcaVis = initPcaVis;
 
@@ -725,13 +725,13 @@ module.exports =  ConversationView.extend({
       this.analyzeGroupView = this.addChild(new AnalyzeGroupView({
         conversation_id: conversation_id,
         getParticipantsOfInterestForGid: function() {
-          return that.serverClient.getParticipantsOfInterestForGid.apply(0, arguments);          
+          return that.serverClient.getParticipantsOfInterestForGid.apply(0, arguments);
         },
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+          return that.serverClient.getTidsForGroup.apply(0, arguments);
         },
         getGroupInfo: function() {
-          return that.serverClient.getGroupInfo.apply(0, arguments);          
+          return that.serverClient.getGroupInfo.apply(0, arguments);
         },
         getLocations: function() {
           return that.serverClient.getLocations.apply(0, arguments);
@@ -742,7 +742,7 @@ module.exports =  ConversationView.extend({
       this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
         conversation_id: conversation_id,
         getTidsForConsensus: function() {
-          return that.serverClient.getTidsForConsensus.apply(0, arguments);          
+          return that.serverClient.getTidsForConsensus.apply(0, arguments);
         },
         collection: this.allCommentsCollection
       }));
@@ -803,7 +803,7 @@ module.exports =  ConversationView.extend({
       this.commentForm.on("commentSubmitted", function() {
         // $("#"+VOTE_TAB).tab("show");
       });
-   
+
       this.commentForm.updateCollection();
 
     // Clicking on the background dismisses the popovers.
@@ -964,7 +964,7 @@ module.exports =  ConversationView.extend({
 
 
       $("#resetVisBlockerTutorial").on("click", tutorialStart);
-      
+
 
       that.updateVisMode();
 
@@ -1050,7 +1050,7 @@ module.exports =  ConversationView.extend({
       }
       */
 
-      // that.commentView.on("showComment", _.once(function() {   
+      // that.commentView.on("showComment", _.once(function() {
 
       //   that.$commentViewPopover = that.$("#commentView").popover({
       //     title: "START HERE",
@@ -1071,7 +1071,7 @@ module.exports =  ConversationView.extend({
       // }));
 
 
-      
+
       configureGutters();
       var windowWidth = $(window).width();
 
@@ -1091,7 +1091,7 @@ module.exports =  ConversationView.extend({
        setTimeout(initPcaVis, 10); // give other UI elements a chance to load
         // document.body.onresize = _.debounce(initPcaVis, 1000)
       } else {
-        setTimeout(initPcaVis, 10); // give other UI elements a chance to load        
+        setTimeout(initPcaVis, 10); // give other UI elements a chance to load
 
         // This need to happen quickly, so no debounce
         $(window).resize(function() {

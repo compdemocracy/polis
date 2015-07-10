@@ -132,7 +132,7 @@ module.exports = Handlebones.View.extend({
       this.$(chosenButtonSelector).addClass("enabled");
     },
     selectFirst: function() {
- 
+
     },
   searchEnabled: true,
   sortEnabled: true,
@@ -202,20 +202,8 @@ module.exports = Handlebones.View.extend({
       var peopleLabel = (info.count>1) ? "people" : "person";
       $("#numMembers").text(info.count + " " + peopleLabel).show();
       var repnessInfo = info.repness.slice(0);
-      // repnessInfo.sort(function(a, b) {
-      //   if (a["repful-for"] === "agree" && b["repful-for"] === "disagree") {
-      //     return -1;
-      //   }
-      //   if (b["repful-for"] === "agree" && a["repful-for"] === "disagree") {
-      //     return 1;
-      //   }
-      //   // secondary sort is descending repness
-      //   // TODO condider confidence values
-      //   return b.repness - a.repness;
-      // });
 
       var tids = _.pluck(repnessInfo, "tid");
-
 
       // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
       var comments = that.collection.models.slice(0);
@@ -230,22 +218,11 @@ module.exports = Handlebones.View.extend({
       tids = _.filter(tids, function(tid) {
         return !!comments[tid];
       });
-      
+
       // use ordering of tids, but fetch out the comments we want.
       comments = _.map(tids, function(tid) {
         return comments[tid];
       });
-
-      // // XXX HACK - should ideally be incorporated in the primary sort that we do before truncating the array.
-      // comments.sort(function(a, b) {
-
-      //     var vA = info.votes[a.get('tid')];
-      //     var vB = info.votes[b.get('tid')];
-      //     var percentA = (vA.gA_total / info.count * 100);
-      //     var percentB = (vB.gA_total / info.count * 100);
-      //     return percentB - percentA;
-      // });
-
 
       var items = _.map(comments, function(c) {
           var tid = c.get('tid');
@@ -280,7 +257,7 @@ module.exports = Handlebones.View.extend({
           // var backgroundColor = repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
           var backgroundColor = "white"; //repfullForAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
           var dotColor = repfullForAgree ? "#00b54d" : "#e74c3c";
-          var gradient = ""; //"background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
+          var gradient = ""; //"background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);";
           header =
               "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
               "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
@@ -320,8 +297,8 @@ module.exports = Handlebones.View.extend({
               (socialCtx.anon ? "": "</a>") +
               "<span> wrote: </span>"
           "</div>";
-          var html = 
-            "<div style='color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+          var html =
+            "<div style='color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" +
               "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 socialHtml +
@@ -342,26 +319,17 @@ module.exports = Handlebones.View.extend({
         // let stack breathe
         setTimeout(function() {
           $(el_carouselSelector).html("");
-          // $(el_carouselSelector).css("overflow", "hidden");        
-
-          // $(el_carouselSelector).append("<div id='smallWindowForGroup' style='width:90%'></div>");
           $(el_carouselSelector).append("<div id='smallWindowForGroup' style='left: 10%; width:80%'></div>");
 
           var results = $("#smallWindowForGroup");
           results.addClass("owl-carousel");
-          // results.css('background-color', 'yellow');
-
 
           if (results.data('owlCarousel')) {
             results.data('owlCarousel').destroy();
           }
 
           results.owlCarousel({
-            items : NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW, //3 items above 1000px browser width
-            // itemsDesktop : [1000,5], //5 items between 1000px and 901px
-            // itemsDesktopSmall : [900,3], // betweem 900px and 601px
-            // itemsTablet: [600,2], //2 items between 600 and 0
-            // itemsMobile : false // itemsMobile disabled - inherit from itemsTablet option
+            items : NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW,
              singleItem : true,
              // autoHeight : true,
            //  transitionStyle: "fade", // this should enable CSS3 transitions
@@ -411,7 +379,7 @@ module.exports = Handlebones.View.extend({
             // }, 100);
 
 
-              
+
             },
              afterMove: (function() {return function() {
                 var tid = indexToTid[this.currentItem];
@@ -542,13 +510,13 @@ module.exports = Handlebones.View.extend({
                 .attr("r",5)
                 .attr("fill", "blue")
                 .attr("opacity", ".5")
-                .attr("transform", function(d) {  
+                .attr("transform", function(d) {
                     return "translate(" + projection([d.lng,d.lat]) + ")";
                 });
 
           });
         }
-        
+
       });
     }
   }
