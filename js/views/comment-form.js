@@ -119,7 +119,8 @@ module.exports = Handlebones.ModelView.extend({
         doSubmitComment();
       } else {
         PolisFacebookUtils.connect().then(function() {
-          doSubmitComment();
+          // wait a bit for new cookies to be ready, or something, then submit comment.
+          setTimeout(doSubmitComment, 1000);
         }, function(err) {
           // alert("facebook error");
         });
