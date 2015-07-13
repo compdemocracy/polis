@@ -329,7 +329,7 @@ function isParticipationView() {
 
 
 // if (isEmbedded()) {
-  $(document.body).css("background-color", "#fff");
+  // $(document.body).css("background-color", "#fff");
 // } else {
   // $(document.body).css("background-color", "#f7f7f7");
 // }

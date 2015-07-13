@@ -235,6 +235,7 @@ module.exports =  ConversationView.extend({
     return (display.xs()/* || display.sm() */) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
   initialize: function(options) {
+    $("body").addClass("darkPanel");
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
 
@@ -382,11 +383,11 @@ module.exports =  ConversationView.extend({
 
 
     function configureGutters() {
-      if (display.xs()) {
-        $("#controlTabs").addClass("no-gutter");
-      } else {
-        $("#controlTabs").removeClass("no-gutter");
-      }
+      // if (display.xs()) {
+      //   $("#controlTabs").addClass("no-gutter");
+      // } else {
+      //   $("#controlTabs").removeClass("no-gutter");
+      // }
     }
 
 
