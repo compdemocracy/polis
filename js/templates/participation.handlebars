@@ -1,76 +1,112 @@
-<div class="
+<div
+  class="
   conversationViewRoot
   darkPanel
   clickDeselectsHull
-  {{#if use_background_content_class}}background_content{{/if}}
-  " style="
+  {{#if use_background_content_class}}
+  background_content
+  {{/if}}
+  "
+  style="
     max-width: 1000px; {{!-- check pixel ratio? --}}
     margin: auto; {{!-- use flexbox rather than auto, or add a container for this container? --}}
-"> {{! PARTICIPATION VIEW DIV }}
-    
-  {{!-- {{#ifNotEmbedded}}
-  {{> header}}
-  {{/ifNotEmbedded}}
-  {{#ifTrial}}
-    {{#if is_owner}}
-      {{> banner}}
-    {{else}}
-      {{#if pp}}
-      {{> banner_pp}}
-      {{/if}}
-    {{/if}}
-  {{/ifTrial}}
-   --}}
+  "> {{! PARTICIPATION VIEW DIV }}
 
   {{#if useBannerHeader}}
     {{> headerWhatIsPolis}}
   {{/if}}
 
-  <div style="display: none"> {{view conversationTabs}} </div>
+<div
+  style="display: none">
+  {{view conversationTabs}}
+  </div>
 
-{{!  ------------ BEGIN TOPIC AND DESCRIPTION ---------------  }}
-{{!  ------------ BEGIN TOPIC AND DESCRIPTION ---------------  }}
-{{!  ------------ BEGIN TOPIC AND DESCRIPTION ---------------  }}
-{{!  ------------ BEGIN TOPIC AND DESCRIPTION ---------------  }}
 {{!  ------------ BEGIN TOPIC AND DESCRIPTION ---------------  }}
 
 <div class="
   clickDeselectsHull
   "
-  style="padding-left: 0px; padding-right: 0px"
-  > {{! fake container}}
-    <div class="conversationViewHeadline" >
-
+  style="
+    padding-left: 0px;
+    padding-right: 0px
+    ">
+    <div class="conversationViewHeadline">
     {{#unless useBannerHeader}}
       {{#if showLogoAndBreadCrumbInHeader}}
-          <div class="HeadingA"><a href="pol.is"><img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
-          </a> <a style="vertical-align: middle; font-size: 18px;"href="/s/{{context}}">/s/{{context}}</a></div>
+          <div class="HeadingA">
+            <a href="pol.is">
+              <img
+                width="164px"
+                src="https://pol.is/polis_logo_2.png"
+                alt=""
+                >
+            </a>
+            <a
+              style="
+                vertical-align: middle;
+                font-size: 18px;"
+              href="/s/{{context}}"
+              >
+            /s/{{context}}
+            </a>
+          </div>
       {{else}}
         {{#if showLogoInHeader}}
-          <div class="HeadingA"><img width="164px" src="https://pol.is/polis_logo_2.png" alt=""></div>
+          <div class="HeadingA">
+            <img
+              width="164px"
+              src="https://pol.is/polis_logo_2.png"
+              alt=""
+              >
+          </div>
         {{/if}}
       {{/if}}
     {{/unless}}
-    
+
     {{#if is_owner}}
     <div style="padding: 10px 0px 20px 0px">
-        <a href="share{{url_name}}" class="Btn Btn-alt" ><i class="fa fa-link"></i>&nbsp;SHARE</a>
-        <a href="{{url_moderate}}" class="Btn Btn-alt" >ADMIN</a>
-        {{#if is_active}}
-          <a id="closeConversationButton" class="Btn Btn-alt" style="cursor:pointer">CLOSE</a>
-        {{ else }}
-          <a id="reopenConversationButton" class="Btn Btn-alt" style="cursor:pointer">REOPEN</a>
-        {{/if}}
-        {{#if no_vis}}
-          <a href="{{url_force_vis}}" class="Btn Btn-alt" >SEE VIS</a>
-        {{/if}}
+      <a href="share{{url_name}}" class="Btn Btn-alt" >
+        <i class="fa fa-link">
+        </i>
+        &nbsp;SHARE
+      </a>
+      <a href="{{url_moderate}}" class="Btn Btn-alt" >
+        ADMIN
+      </a>
+      {{#if is_active}}
+        <a
+          id="closeConversationButton"
+          class="Btn Btn-alt"
+          style="cursor:pointer"
+          >
+          CLOSE
+        </a>
+      {{ else }}
+        <a
+          id="reopenConversationButton"
+          class="Btn Btn-alt"
+          style="cursor:pointer"
+          >
+          REOPEN
+          </a>
+      {{/if}}
+      {{#if no_vis}}
+        <a
+          href="{{url_force_vis}}"
+          class="Btn Btn-alt"
+          >
+          SEE VIS
+          </a>
+      {{/if}}
 
-        {{!-- <a id="getDataButton" class="Btn Btn-alt hidden-xs" style="cursor:pointer"><i class="fa fa-cloud-download "></i>&nbsp;DATA</a> --}}
     </div>
     {{/if}}
     {{!-- {{/ifNotEmbedded}} --}}
     {{#ifDefined topic}}
-      <h3 class="HeadingA" title="Conversation topic">{{topic}}
+      <h3
+        class="HeadingA"
+        title="Conversation topic">
+        {{topic}}
         {{#unless is_active}}
         <span class="no_you_vote" style="
          color: white;
@@ -88,54 +124,79 @@
       </h3>
       {{/ifDefined}}
       {{#ifDefined description}}
-        <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{{description}}} </p>
+        <p
+          title="Conversation description"
+          style="
+            border-left: 4px solid #2980b9;
+            padding-left: 10px;
+            font-family: chaparral-pro;
+            word-wrap:break-word;
+          ">
+          {{{description}}}
+        </p>
       {{/ifDefined}}
       {{#if link_url}}
-      <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;">{{linkExternal link_url link_url}}</p>
+        <p
+          style="
+            border-left: 4px solid #2980b9;
+            padding-left: 10px;
+            font-family: chaparral-pro;
+            word-wrap:break-word;
+          ">
+        {{linkExternal link_url link_url}}
+        </p>
       {{/if}}
-
     </div>
   </div> {{! /fake container }}
-{{!  ------------ END TOPIC AND DESCRIPTION ---------------  }}
-{{!  ------------ END TOPIC AND DESCRIPTION ---------------  }}
-{{!  ------------ END TOPIC AND DESCRIPTION ---------------  }}
-{{!  ------------ END TOPIC AND DESCRIPTION ---------------  }}
-{{!  ------------ END TOPIC AND DESCRIPTION ---------------  }}
 
-
-
-
-{{!  ------------ BEGIN MAIN CONTENT ---------------  }}
-{{!  ------------ BEGIN MAIN CONTENT ---------------  }}
-{{!  ------------ BEGIN MAIN CONTENT ---------------  }}
-{{!  ------------ BEGIN MAIN CONTENT ---------------  }}
 {{!  ------------ BEGIN MAIN CONTENT ---------------  }}
 
 {{view commentForm}}
 {{view readReactView}}
 
 <div id="vis_sibling_above_tab_content"></div>
-<div id="visualization_parent_div" class="lightPanel" style="text-align: right; visibility: hidden">
-  <div id="visualization_div" class="vis_container"></div>
+
+<div
+  id="visualization_parent_div"
+  class="lightPanel"
+  style="text-align: right; visibility: hidden"
+  >
+  <div
+    id="visualization_div"
+    class="vis_container"
+    >
+  </div>
 </div>
-<div class="darkPanel" style="text-align: center">
+<div
+  class="darkPanel"
+  style="text-align: center"
+  >
   {{view groupSelectionView}}
 </div>
 
-
-
-<div class="tabbable darkPanel"
-> {{! Only required for left/right tabs }}
-  <div class="tab-content" style="min-height: 400px">
-    <div class="tab-pane polis-tab-pane" id="legend">
+<div class="tabbable darkPanel"> {{! Only required for left/right tabs }}
+  <div
+    class="tab-content"
+    style="min-height: 400px"
+    >
+    <div
+      class="tab-pane polis-tab-pane"
+      id="legend"
+      >
       {{view legendView}}
     </div>
-    <div class="tab-pane lightPanel" id="analyze" style="
-     overflow: hidden
-    ">
+    <div
+      class="tab-pane lightPanel"
+      id="analyze"
+      style="overflow: hidden"
+      >
       {{view analyzeGlobalView}}
     </div> {{! analyze tab pane }}
-    <div class="tab-pane lightPanel polis-tab-pane" style="overflow: hidden" id="group">
+    <div
+      class="tab-pane lightPanel polis-tab-pane"
+      style="overflow: hidden"
+      id="group"
+      >
       {{view analyzeGroupView}}
     </div> {{! analyze tab pane }}
     <div
@@ -147,55 +208,44 @@
   </div> {{! /tab content }}
 </div> {{! /tabbable }}
 
-{{!  ------------ END MAIN CONTENT ---------------  }}
-{{!  ------------ END MAIN CONTENT ---------------  }}
-{{!  ------------ END MAIN CONTENT ---------------  }}
-{{!  ------------ END MAIN CONTENT ---------------  }}
-{{!  ------------ END MAIN CONTENT ---------------  }}
-
-
-
-
-
-{{!  ------------ BEGIN FOOTER ---------------  }}
-{{!  ------------ BEGIN FOOTER ---------------  }}
-{{!  ------------ BEGIN FOOTER ---------------  }}
-{{!  ------------ BEGIN FOOTER ---------------  }}
 {{!  ------------ BEGIN FOOTER ---------------  }}
 
   <div class="darkPanel"> {{! BEGIN FOOTER}}
     {{#if showLogoInFooter}}
     <div class="flexbox align-items-flex-end">
-      <a href="{{logo_href}}" target="_blank">
-        <img width="100px" src="https://pol.is/polis_logo_2.png" {{! was 164px}}
-        alt="">
+      <a
+        href="{{logo_href}}"
+        target="_blank"
+        >
+        <img
+          width="100px"
+          src="https://pol.is/polis_logo_2.png" {{! was 164px}}
+          alt=""
+          >
       </a>
-      <div class="flex-grow-2"></div>
+      <div class="flex-grow-2">
+      </div>
       {{> linkPrivacy}}
       {{> linkTos}}
     </div>
     {{/if}}
     <div class="flexbox align-items-flex-end">
       {{#if showLogoInFooter}}
-        <div class="flex-grow-2"></div>
+        <div class="flex-grow-2">
+        </div>
         {{> linkAddPolis}}
-        <div class="flex-grow-2"></div>
+        <div class="flex-grow-2">
+        </div>
       {{else}}
         {{> linkAddPolis}}
-        <div class="flex-grow-2"></div>
+        <div class="flex-grow-2">
+        </div>
         {{> linkPrivacy}}
         {{> linkTos}}
       {{/if}}
     </div>
-      {{!-- <div class="hidden-xs" style="display: inline;">&nbsp; &middot; &nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
-      {{!-- <div class="visible-xs">&nbsp;&middot;&nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
   </div> {{! END FOOTER}}
 
-
-{{!  ------------ END FOOTER ---------------  }}
-{{!  ------------ END FOOTER ---------------  }}
-{{!  ------------ END FOOTER ---------------  }}
-{{!  ------------ END FOOTER ---------------  }}
 {{!  ------------ END FOOTER ---------------  }}
 
 </div> {{! END PARTICIPATION VIEW DIV }}
