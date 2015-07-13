@@ -1,99 +1,79 @@
-<div
-  class="
-    conversationViewRoot
-    darkPanel
-    clickDeselectsHull
-    {{#if use_background_content_class}}
-      background_content
+<div class="conversationViewRoot darkPanel clickDeselectsHull {{#if use_background_content_class}}background_content{{/if}}">
+  
+{{!-- {{#ifNotEmbedded}}
+{{> header}}
+{{/ifNotEmbedded}}
+{{#ifTrial}}
+  {{#if is_owner}}
+    {{> banner}}
+  {{else}}
+    {{#if pp}}
+    {{> banner_pp}}
     {{/if}}
+  {{/if}}
+{{/ifTrial}}
+ --}}
+
+{{#if useBannerHeader}}
+  {{> headerWhatIsPolis}}
+{{/if}}
+
+<div style="display: none">
+  {{view conversationTabs}}
+</div>
+
+
+<section class="custom_container_for_large_screens" style="margin-bottom: 0px; margin-top:10px"> 
+
+
+<div class="row ">
+  <div class="
+  clickDeselectsHull
+  col-xs-offset-0 col-xs-12
+  col-sm-offset-0 col-xs-12
+  col-md-offset-0 col-md-12
+  col-lg-offset-0 col-lg-12
   "
-  style="
-    max-width: 1000px; {{!-- check pixel ratio? --}}
-    margin: auto; {{!-- use flexbox rather than auto, or add a container for this container? --}}
-    margin-top: 20px;
-    margin-bottom: 20px;
-    border-radius: 10px;
-    border: 1px solid rgba(151,151,151,1);
-  ">
+  style="padding-left: 0px; padding-right: 0px"
+  > {{! fake container}}
+    <div class="col-sm-8 col-md-7 conversationViewHeadline" >
 
-  <div style="display: none"> {{!-- delete? --}}
-    {{view conversationTabs}}
-  </div>
-
-  {{!-- ======================== BEGIN HEADER ======================== --}}
-
-  <div>
-    <p style="
-      display: inline;
-    ">
-      Share this discussion:
-    </p>
-    <i class="fa fa-facebook"></i>
-    <i class="fa fa-twitter"></i>
-    <div style="
-      float: right;
-    ">
-      <i class="fa fa-question-circle"></i>
-    </div>
-  </div>
-
-  <div class="clickDeselectsHull">
     {{#unless useBannerHeader}}
       {{#if showLogoAndBreadCrumbInHeader}}
-          <div class="HeadingA">
-            <a href="pol.is">
-              <img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
-            </a>
-            <a
-              style="vertical-align: middle; font-size: 18px;"
-              href="/s/{{context}}">
-              /s/{{context}}
-            </a>
-          </div>
+          <div class="HeadingA"><a href="pol.is"><img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
+          </a> <a style="vertical-align: middle; font-size: 18px;"href="/s/{{context}}">/s/{{context}}</a></div>
       {{else}}
         {{#if showLogoInHeader}}
-          <div class="HeadingA">
-            <img width="164px" src="https://pol.is/polis_logo_2.png" alt="">
-          </div>
+          <div class="HeadingA"><img width="164px" src="https://pol.is/polis_logo_2.png" alt=""></div>
         {{/if}}
       {{/if}}
     {{/unless}}
-
+    
     {{#if is_owner}}
     <div style="padding: 10px 0px 20px 0px">
-      <a href="share{{url_name}}" class="Btn Btn-alt" >
-        <i class="fa fa-link"></i>&nbsp;SHARE
-      </a>
-      <a href="{{url_moderate}}" class="Btn Btn-alt" >
-        ADMIN
-      </a>
-      {{#if is_active}}
-        <a
-          id="closeConversationButton"
-          class="Btn Btn-alt"
-          style="cursor:pointer"
-          >
-          CLOSE
-        </a>
-      {{ else }}
-        <a
-          id="reopenConversationButton"
-          class="Btn Btn-alt"
-          style="cursor:pointer"
-          >
-          REOPEN
-        </a>
-      {{/if}}
+        <a href="share{{url_name}}" class="Btn Btn-alt" ><i class="fa fa-link"></i>&nbsp;SHARE</a>
+        <a href="{{url_moderate}}" class="Btn Btn-alt" >ADMIN</a>
+        {{#if is_active}}
+          <a id="closeConversationButton" class="Btn Btn-alt" style="cursor:pointer">CLOSE</a>
+        {{ else }}
+          <a id="reopenConversationButton" class="Btn Btn-alt" style="cursor:pointer">REOPEN</a>
+        {{/if}}
+        {{#if no_vis}}
+          <a href="{{url_force_vis}}" class="Btn Btn-alt" >SEE VIS</a>
+        {{/if}}
+
+        {{!-- <a id="getDataButton" class="Btn Btn-alt hidden-xs" style="cursor:pointer"><i class="fa fa-cloud-download "></i>&nbsp;DATA</a> --}}
     </div>
     {{/if}}
-
+    {{!-- {{/ifNotEmbedded}} --}}
     {{#ifDefined topic}}
-    <h3 class="HeadingA" title="Conversation topic">
-      {{topic}}
-      {{#unless is_active}}
+      <h3 class="HeadingA" title="Conversation topic">{{topic}}
+        {{#unless is_active}}
         <span class="no_you_vote" style="
          color: white;
          background-color: rgb(231, 76, 60);
+         /* font-size: 0.7em; */
+         /* padding: .2em; */
          font-size: 20px;
          padding: 0px 10px;
          border-radius: 3px;
@@ -102,138 +82,250 @@
          left: 6px;
         ">closed</span>
       {{/unless}}
-    </h3>
-    {{/ifDefined}}
-    {{#ifDefined description}}
-    <p
-      style="
-        border-left: 4px solid #2980b9;
-        padding-left: 10px;
-        font-family: chaparral-pro;
-        word-wrap:break-word;
-      "
-      title="Conversation description"
-    >
-    {{{description}}}
-    </p>
-    {{/ifDefined}}
-    {{#if link_url}}
-    <p
-      style="
-        border-left: 4px solid #2980b9;
-        padding-left: 10px;
-        font-family: chaparral-pro;
-        word-wrap:break-word;
-      ">
-      {{linkExternal link_url link_url}}
-    </p>
-    {{/if}}
-  </div>
+      </h3>
+      {{/ifDefined}}
+      {{#ifDefined description}}
+        <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;" title="Conversation description"> {{{description}}} </p>
+      {{/ifDefined}}
+      {{#if link_url}}
+      <p style="border-left: 4px solid #2980b9; padding-left: 10px; font-family: chaparral-pro; word-wrap:break-word;">{{linkExternal link_url link_url}}</p>
+      {{/if}}
 
-  {{!-- ======================== WRITING / VOTING ======================== --}}
+    </div>
+  </div> {{! /fake container }}
+</div> {{! /row }}
 
-  <div id="controlTabs" class="clickDeselectsHull">
+<div id="controlTabs" class="row"> {{! may get no-gutter class on xs }}
+<div class="
+clickDeselectsHull
+col-xs-offset-0 col-xs-12
+col-sm-offset-0 col-xs-12
+col-md-offset-0 col-md-12
+col-lg-offset-0 col-lg-12
+"
+style="padding-left: 0px; padding-right: 0px"
+> {{! fake container}}
+  {{! overflow:hidden Since we remove the overflow:hidden on the carousel, and have to hide it at some layer to prevent the whole page becoming super wide. }}
+
+  <div {{! column }}
+    class="
+      col-xs-12
+      col-xs-offset-0
+      {{#if vis_type}}col-sm-offset-0{{else}}col-sm-offset-3{{/if}}
+      col-sm-6
+      {{#if vis_type}}col-md-offset-0{{else}}col-md-offset-4{{/if}}
+      {{#if vis_type}}col-md-5{{else}}col-md-4{{/if}}
+      col-lg-4"
+    {{#ifEmbedded}}
+    {{#ifIos}}
+    style="max-width:300px" {{! prevent carousel from resizing window when we're in an iframe on iOS (320 - (10*2)) to leave room for margins}}
+    {{/ifIos}}
+    {{/ifEmbedded}}
+    > 
+
     {{view commentForm}}
     {{view readReactView}}
-    <div id="vis_sibling_above_tab_content">
-    </div>
-    <div
-      id="visualization_parent_div"
-      class="lightPanel"
-      style="text-align: right; visibility: hidden"
-      >
-      <div
-        id="visualization_div"
-        class="vis_container"
-        >
-      </div>
+    <div id="vis_sibling_above_tab_content"></div>
+    <div id="visualization_parent_div" class="lightPanel" style="text-align: right; visibility: hidden">
+      {{#unless tutorialView}}
+        <table style="width: 100%" class="HeadingG">
+          <tr>
+            <td>
+{{!--               <span id="opinion_groups_label" class="HeadingB" style="text-transform:none; cursor: default; white-space: nowrap; color: #555">
+                <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
+                Opinion Groups
+              </span> --}}
+            </td>
+            <td style="width:100%; text-align: right; cursor: pointer;">
+           {{!--    <button id="resetVisBlockerTutorial" class="Btn Btn-alt Btn-small"> 
+                Tutorial
+              </button> --}}
+            </td>
+          </tr>
+        </table>
+      {{/unless}}
+      {{ view tutorialView }}
+      {{!-- <div class="participationCount HeadingF visible-xs"></div> --}}
+      <div id="visualization_div" class="vis_container"></div>
+      {{!-- <div class="participationCount HeadingF hidden-xs"></div> --}}
+
+      {{!-- <div class="participationCount HeadingF pull-right"></div> --}}
+
     </div> {{! /visualization_parent_div }}
-    <div
-      class="darkPanel"
-      style="text-align: center"
-      >
+
+
+    <div class="darkPanel" style="text-align: center">
       {{view groupSelectionView}}
     </div>
-    {{!--   <div class="darkPanel">
-      <div
-        class="lightPanel"
-        id="analyze"
-        style="overflow: hidden"
-        >
-      {{view analyzeGlobalView}}
-    </div> --}}
-    <div
-      class="lightPanel polis-tab-pane"
-      style="overflow: hidden"
-      id="group"
-      >
-      {{view analyzeGroupView}}
-    </div>
-  </div> {{! /tab content }}
+    
+    <div class="tabbable darkPanel"
+    > {{! Only required for left/right tabs }}
 
-  {{!-- ======================== SOCIAL ======================== --}}
 
-  {{#unless hasFbAndTw}}
-  <div
-    id="socialButtons"
-    style="
-      margin-top: 20px;
-      border: 1px dashed rgb(184, 184, 184);
-      border-radius: 11px;
-      padding: 10px;
-      display: none; {{! waiting to be shown }}
-    ">
-    <div style="width: 80%;">
-      <em>
-        Connect to see friends and followers in the visualization, and to be seen by others.
-      </em>
-    </div>
-    <div>
-      {{#unless hasFacebook}}
-        <button class="facebookButton" style="font-size: 14px;">
-          <i class="fa fa-facebook-square"></i>&nbsp; Connect With Facebook
-        </button>
-      {{/unless}}
-      {{#unless hasTwitter}}
-        <button class="twitterButton" style="font-size: 14px;">
-          <i class="fa fa-twitter" style="color: white"></i>&nbsp; Connect With Twitter
-        </button>
-      {{/unless}}
-    </div>
-  {{/unless}} {{! /hasFbOrTw }}
 
-  {{!-- ======================== FOOTER ======================== --}}
 
-  {{#if showLogoInFooter}}
-  <div class="flexbox align-items-flex-end">
-    <a
-      href="{{logo_href}}"
-      target="_blank"
-      >
-      <img
-        width="100px"
-        src="https://pol.is/polis_logo_2.png" {{! was 164px}}
-        alt=""
-        >
-    </a>
-    <div class="flex-grow-2">
+      <div class="tab-content" style="min-height: 400px">
+
+        <div class="tab-pane polis-tab-pane" id="legend">
+          {{view legendView}}
+        </div>
+
+
+
+        <div class="tab-pane lightPanel" id="analyze" style="
+         overflow: hidden
+        {{!-- background-color: white; --}}
+        {{!-- border-style: solid;  border-top: 1px solid lightgrey; border-left: 1px solid lightgrey; --}}
+        {{!-- border-right: 3px solid lightgrey ; --}}
+        {{!-- border-bottom: 3px solid lightgrey; --}}
+        {{!-- border-radius: 7px; --}}
+        ">
+          {{!-- {{view conversationStatsHeader}} --}}
+          {{! BEGIN PILLS }}
+          {{!-- <div class="tabbable"> --}}
+            {{! #if hasMetadata
+            <ul class="nav nav-pills nav-justified hidden-xs">
+              <li class="active small"><a href="#query_results_hiddenxs" id="query_results_pill" data-toggle="tab">Comments</a></li>
+              <li><a href="#metadata_eyes" id="metadata_pill" data-toggle="tab" class="small">Participant Info</a></li>
+            </ul>
+            }}
+           {{!--  <div class="tab-content" style="">
+              <div class="tab-pane active" id="query_results_hiddenxs">
+                 --}}
+                {{view analyzeGlobalView}}
+{{!-- 
+                <div class="query_results_div" class="hidden-xs">
+                </div>  --}}
+              {{!-- </div>
+              <div class="tab-pane" id="metadata_eyes">
+                <div class="alert alert-info alert-dismissable" style="margin-top: 20px">
+                  <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+                  <p> All participants are shown by default. Clicking on an answer below will cause participants who chose that answer to fade out. This makes it easier to identify patterns of agreement and disagreement in those participants who remain. </p>
+                </div>
+                {{view metadataQuestionsView}}
+              </div>
+            </div> --}}
+         {{!--  </div> --}} {{! END PILLS }}
+        </div> {{! analyze tab pane }}
+
+        <div class="tab-pane lightPanel polis-tab-pane" style="overflow: hidden" id="group">
+          {{view analyzeGroupView}}
+        </div> {{! analyze tab pane }}
+
+        <div
+          class="tab-pane write-pane"
+          id="commentForm"
+          >
+          {{!-- {{view commentForm}} --}}
+        </div>
+      </div> {{! /tab content }}
+    </div> {{! /tabbable }}
+    {{#unless hasFbAndTw}}
+    <div id="socialButtons" style="margin-top: 20px;
+                border: 1px dashed rgb(184, 184, 184);
+                border-radius: 11px;
+                padding: 10px;
+                display: none; {{! waiting to be shown }}
+          ">
+      <div style="width: 80%;"><em>Connect to see friends and followers in the visualization, and to be seen by others.</em></div>
+      <div>
+        {{#unless hasFacebook}}
+          <button class="facebookButton" style="font-size: 14px;">
+            <i class="fa fa-facebook-square"></i>&nbsp; Connect With Facebook
+          </button>
+        {{/unless}}
+
+        {{#unless hasTwitter}}
+          <button class="twitterButton" style="font-size: 14px;">
+            <i class="fa fa-twitter" style="color: white"></i>&nbsp; Connect With Twitter
+          </button>
+        {{/unless}}
+      </div>
     </div>
-    {{> linkPrivacy}}
-    {{> linkTos}}
+    {{/unless}} {{! /hasFbOrTw }}
+  </div> {{! /column }}
+
+
+
+  <span id="right_panel" class="col-xs-12 col-sm-6 col-md-7 col-lg-8 unselectable" style="display: none; {{#unless vis_type}}display:none;{{/unless}}">
+
+  <div class="writingTipsParent">
+    {{ view writingTips }}
   </div>
-  {{/if}}
 
-  <div class="flexbox align-items-flex-end">
+ <div id="tutorialSlides" style="display:none" class="unselectable">
+   {{view tutorialSlidesView}}
+ </div>
+  <div id="vis_sibling_bottom"
+    {{#ifEmbedded}}
+    {{#ifIos}}
+    style="max-width:300px" {{! when we're in an iframe on iOS (320 - (10*2)) to leave room for margins }}
+    {{/ifIos}}
+    {{/ifEmbedded}}
+    >
+
+    <div id="voteMoreParent" style="display:none">
+      {{ view voteMoreView }}
+    </div>
+    <div style="text-align: right">
+{{!--       <div id="opinion_groups_label" class="HeadingB pull-left" style="text-transform:none; cursor: default; display: none; color: #555">
+        <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo">
+        Opinion Groups
+      </div> --}}
+      <span style="float: right; cursor: pointer; display: none">
+        {{!-- <button id="resetTutorial" class="Btn Btn-alt Btn-small">Tutorial</button> --}}
+      </span>
+
+
+      <div class=" HeadingG" style="text-align: center; " >
+
+
+      {{!-- The blue dot is you --}}
+      {{!-- Grey dots are other participants --}}
+      {{!-- Voted similarly --}}
+      {{!-- Voted differently --}}
+
+
+        <button id="nextTutorialStepButton" class="btn Btn-alt pull-right" style="margin-bottom: 10px;border: 3px #CDE6FF solid;background-color: #3694E1;color: white; display:none">Next tutorial step &nbsp; <i class="fa fa-step-forward"></i></button>
+      </div>
+
+    
+  </div> {{! /vis_sibling_bottom }}
+    
+  </span> {{! /right_panel }}
+
+</div> {{! /fake container}}
+</div> {{! /row }}
+
+</section> {{! /container }}
+
+  <div class="darkPanel">
     {{#if showLogoInFooter}}
-      <div class="flex-grow-2"></div>
-      {{> linkAddPolis}}
-      <div class="flex-grow-2"></div>
-    {{else}}
-      {{> linkAddPolis}}
+    <div class="flexbox align-items-flex-end">
+      <a href="{{logo_href}}" target="_blank">
+        <img width="100px" src="https://pol.is/polis_logo_2.png" {{! was 164px}}
+        alt="">
+      </a>
       <div class="flex-grow-2"></div>
       {{> linkPrivacy}}
       {{> linkTos}}
+    </div>
     {{/if}}
+    <div class="flexbox align-items-flex-end">
+      {{#if showLogoInFooter}}
+        <div class="flex-grow-2"></div>
+        {{> linkAddPolis}}
+        <div class="flex-grow-2"></div>
+      {{else}}
+        {{> linkAddPolis}}
+        <div class="flex-grow-2"></div>
+        {{> linkPrivacy}}
+        {{> linkTos}}
+      {{/if}}
+    </div>
+      {{!-- <div class="hidden-xs" style="display: inline;">&nbsp; &middot; &nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
+      {{!-- <div class="visible-xs">&nbsp;&middot;&nbsp; &copy; 2015 Polis Technology Inc.</div> --}}
   </div>
+</div>
 
-</div> {{!-- if the # of divs is right, this ends ptpt view --}}
+
