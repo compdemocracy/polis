@@ -72,16 +72,6 @@ module.exports =  ConversationView.extend({
   firstMathPollResultDeferred: $.Deferred(),
   shouldAffixVis: false,
   inVisLegendCounter: 0,
-  enableVisAffix: function() {
-    this.shouldAffixVis = true;
-    $("#visualization_parent_div").addClass("affix");
-    $("#visualization_parent_div").css("top", "");
-  },
-  disableVisAffix: function() {
-    this.shouldAffixVis = false;
-    $("#visualization_parent_div").removeClass("affix");
-    // $("#visualization_parent_div").css("top", $("#vis_sibling_bottom").offset().top);
-  },
   onAnalyzeTabPopulated: function() {
     if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
       $('.query_result_item').first().trigger('click');
@@ -468,8 +458,6 @@ module.exports =  ConversationView.extend({
       if (that.selectedGid >= 0) {
         vis.selectGroup(that.selectedGid);
       }
-      that.disableVisAffix();
-
       // if (display.xs()) {
       //   $("#commentView").addClass("floating-side-panel-gradients");
       // } else {
@@ -829,7 +817,6 @@ module.exports =  ConversationView.extend({
     that.conversationTabs.on("beforehide:analyze", function() {
       // that.analyzeGlobalView.hideCarousel();
       that.analyzeGlobalView.deselectComments();
-      that.disableVisAffix();
     });
     that.conversationTabs.on("beforehide:group", function() {
       // that.analyzeGlobalView.hideCarousel();
@@ -843,7 +830,6 @@ module.exports =  ConversationView.extend({
 
     that.conversationTabs.on("beforeshow:analyze", function() {
       that.showTutorial();
-      // that.enableVisAffix();
       if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
