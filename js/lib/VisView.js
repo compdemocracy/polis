@@ -410,7 +410,7 @@ if (useForce) {
         .gravity(0)
         .charge(function(d) {
             // slight overlap allowed
-            return -10;
+            return -80;
         })
         .size([w, h]);
 }

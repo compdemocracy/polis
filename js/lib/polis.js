@@ -2251,13 +2251,14 @@ function clientSideBaseCluster(things, N) {
             return bucket.count > 0;
         });
 
+        // inset each ptptoi towards the center of its cluster
         _.each(buckets2, function(b) {
             var cluster = clustersCache[b.gid];
             var center = null;
             if (cluster) {
                 center = cluster.center;
             }
-            b.proj = moveTowards(b.proj.x, b.proj.y, center, 0.3);
+            b.proj = moveTowards(b.proj.x, b.proj.y, center, 0.6);
         });
 
 
