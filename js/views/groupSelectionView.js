@@ -9,7 +9,8 @@ module.exports =  Handlebones.ModelView.extend({
   template: template,
   className: "groupSelectionView",
   events: {
-    "click .groupButton": "onClick"
+    "click .groupButton": "onClick",
+    "click .infoPaneButton": "onClickInfoPaneButton",
   },
   onClick: function(e) {
   	var $target = $(e.target);
@@ -18,6 +19,10 @@ module.exports =  Handlebones.ModelView.extend({
 	  	this.model.set("selectedGid", gid);
 	  	this.onChangedCallbacks.fire(gid);
   	}
+  },
+  onClickInfoPaneButton: function(e) {
+    this.onClickInfoPaneButtonClickedCallbacks.fire();
+    this.model.set("infoSlidePaneViewActive", true);
   },
   show: function() {
   	this.model.set("visible", true);
@@ -28,11 +33,15 @@ module.exports =  Handlebones.ModelView.extend({
   addSelectionChangedListener: function(f) {
   	this.onChangedCallbacks.add(f);
   },
+  addInfoPaneButtonClickedListener: function(f) {
+    this.onClickInfoPaneButtonClickedCallbacks.add(f);
+  },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    var infoSlidePaneViewActive = ctx.infoSlidePaneViewActive;
     ctx.groups2 = ctx.groups.map(function(g) {
     	g = $.extend({}, g);
-    	if (g.gid === ctx.selectedGid) {
+    	if (g.gid === ctx.selectedGid && !infoSlidePaneViewActive) {
     		g.selected = true;
     	}
     	return g;
@@ -43,6 +52,7 @@ module.exports =  Handlebones.ModelView.extend({
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     this.onChangedCallbacks = $.Callbacks();
+    this.onClickInfoPaneButtonClickedCallbacks = $.Callbacks();
   }
 });
 

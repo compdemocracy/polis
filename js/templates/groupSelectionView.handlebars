@@ -1,6 +1,19 @@
-<div style="padding-top: 10px; padding-bottom: 10px; {{#unless visible}}display: none;{{/unless}}">
-	Group: 
-	{{#each groups2}}
-		<button data-gid="{{this.gid}}" class="groupButton {{#if this.selected}}selectedGroupButton{{/if}}">{{this.name}}</button>
-	{{/each}}
+
+<div class="
+	flexbox
+	align-items-flex-end"
+	style="
+	padding-top: 10px;
+	padding-bottom: 10px;
+	{{#unless visible}}display: none;{{/unless}}
+">
+  Group:
+  {{#each groups2}}
+	<button data-gid="{{this.gid}}" class="groupButton {{#if this.selected}}selectedGroupButton{{/if}}">{{this.name}}</button>
+  {{/each}}
+
+  <div class="flex-grow-2"></div>
+
+  <button class="groupButton infoPaneButton {{#if infoSlidePaneViewActive}}selectedGroupButton{{/if}}" >info</button>
+
 </div>

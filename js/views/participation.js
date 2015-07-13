@@ -5,6 +5,7 @@ var eb = require("../eventBus");
 var template = require('../tmpl/participation');
 var ReadReactView = require('../views/ReadReactView');
 var CommentFormView = require("../views/comment-form");
+var ConversationInfoSlideView = require('../views/conversationInfoSlideView');
 var ConversationStatsHeader = require('../views/conversation-stats-header');
 var ConversationTabsView = require("../views/conversationTabs");
 var ChangeVotesView = require("../views/change-votes");
@@ -302,6 +303,8 @@ module.exports =  ConversationView.extend({
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
       that.groupNamesModel.set("selectedGid", gid);
+      that.groupNamesModel.set("infoSlidePaneViewActive", false);
+
       if (gid === -1) {
         if (vis) {
           vis.selectComment(null);
@@ -348,7 +351,6 @@ module.exports =  ConversationView.extend({
 
 
     this.conversationStatsHeader = new ConversationStatsHeader();
-
 
     var resultsCollection = new ResultsCollection();
 
@@ -473,7 +475,8 @@ module.exports =  ConversationView.extend({
           // that.selectedGid = -1;
           vis.deselect();
           vis.selectComment(null);
-          that.conversationTabs.gotoAnalyzeTab();
+          // that.conversationTabs.gotoAnalyzeTab();
+          that.conversationTabs.gotoInfoPaneTab();
         }, 0);
         that.groupSelectionView.show();
       });
@@ -634,13 +637,20 @@ module.exports =  ConversationView.extend({
       },1);
 
 
+      this.infoSlideViewModel = new Backbone.Model({
+        numParticipants: 10000,
+        numComments: this.allCommentsCollection.length,
+      });
+      this.conversationInfoSlideView = this.addChild(new ConversationInfoSlideView({
+        model: this.infoSlideViewModel,
+      }));
+
       this.voteMoreModel = new Backbone.Model({
         remaining: 0
       });
       this.voteMoreView = this.addChild(new VoteMoreView({
         model: this.voteMoreModel
       }));
-
 
       this.groupNamesModel = new Backbone.Model({
         groups: [
@@ -651,6 +661,7 @@ module.exports =  ConversationView.extend({
         {name: "Majority Opinion", gid: -1},
         ],
         selectedGid: -1,
+        infoSlidePaneViewActive: true,
       });
       this.groupSelectionView = this.addChild(new GroupSelectionView({
         model: this.groupNamesModel
@@ -662,6 +673,9 @@ module.exports =  ConversationView.extend({
           that.vis.selectGroup(gid);
         }
         eb.trigger(eb.clusterClicked, gid);
+      });
+      this.groupSelectionView.addInfoPaneButtonClickedListener(function() {
+        $("#infoPaneTab").click();
       });
 
       if (useAboveVisTutorial) {

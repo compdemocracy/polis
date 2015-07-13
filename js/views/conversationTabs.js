@@ -19,6 +19,7 @@ module.exports =  Handlebones.ModelView.extend({
   METADATA_TAB: "metadata_pill",
   VOTE_TAB: "commentViewTab",
   WRITE_TAB: "commentFormTab",
+  INFOPANE_TAB: "infoPaneTab",
   from: {},
 
   gotoTab: function(id) {
@@ -44,6 +45,9 @@ module.exports =  Handlebones.ModelView.extend({
   gotoLegendTab: function() {
     this.gotoTab(this.LEGEND_TAB);
     this.maybeStartPulsingVoteTab();
+  },
+  gotoInfoPaneTab: function() {
+    this.gotoTab(this.INFOPANE_TAB);
   },
   hideLegend: function() {
     if (this.onLegendTab()) {
@@ -74,7 +78,11 @@ module.exports =  Handlebones.ModelView.extend({
     }
     if (this.currentTab === this.LEGEND_TAB) {
       c.legendActive = true;
-    }        
+    }  
+    if (this.currentTab === this.INFOPANE_TAB) {
+      c.infoPaneActive = true;
+    }
+
     if (display.xs()) {
       c.smallTabs = true;
     }
@@ -103,6 +111,9 @@ module.exports =  Handlebones.ModelView.extend({
   onVoteTabClick: function() {
     this.stopPulsingVoteTab();
   },
+  onInfoPaneTabClick: function() {
+    //
+  },
   events: {
     "click #fbConnectBtn": "fbConnectBtn",
     "click #twitterConnectBtn": "twitterConnectBtn",
@@ -111,6 +122,7 @@ module.exports =  Handlebones.ModelView.extend({
     "click #analyzeTab": "onAnalyzeTabClick",
     "click #commentFormTab": "onWriteTabClick",
     "click #commentViewTab": "onVoteTabClick",
+    "click #infoPaneTab": "onInfoPaneTabClick",
     // Before shown
     "show.bs.tab": function (e) {
       var to = e.target;
