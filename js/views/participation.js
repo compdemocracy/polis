@@ -302,8 +302,10 @@ module.exports =  ConversationView.extend({
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.updateLineToSelectedCluster(gid);
-      that.groupNamesModel.set("selectedGid", gid);
-      that.groupNamesModel.set("infoSlidePaneViewActive", false);
+      that.groupNamesModel.set({
+        "selectedGid": gid,
+        "infoSlidePaneViewActive": false,
+      });
 
       if (gid === -1) {
         if (vis) {
@@ -667,8 +669,12 @@ module.exports =  ConversationView.extend({
         model: this.groupNamesModel
       }));
       this.groupSelectionView.addSelectionChangedListener(function(gid) {
+        that.groupNamesModel.set({
+          "infoSlidePaneViewActive": false,
+        });
         if (gid === -1) {
           that.vis.deselect();
+          that.conversationTabs.gotoAnalyzeTab();
         } else {
           that.vis.selectGroup(gid);
         }
