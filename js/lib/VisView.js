@@ -104,7 +104,7 @@ var speed = d3.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(w
 
 
 // the length of the visible part of the pin. The pin can be longer, if it is under the circle.
-var pinLength = d3.scale.linear().range([10, 30]).domain([350, 800]).clamp(true)(width);
+// var pinLength = d3.scale.linear().range([10, 30]).domain([350, 800]).clamp(true)(width);
 
 
 
@@ -677,7 +677,7 @@ function updateHulls() {
 
             // tesselate to provide a matching hull roundness near large buckets.
             var tessellatedPoints = [];
-            var DO_TESSELATE_POINTS = false;
+            var DO_TESSELATE_POINTS = true;
             var chooseRadius;
             if (DO_TESSELATE_POINTS) {
                 chooseRadius = function(node) {
@@ -692,12 +692,12 @@ function updateHulls() {
             for (var p = 0; p < hull.length; p++) {
                 tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p], chooseRadius));
             }
-            if (!DO_TESSELATE_POINTS) {
-                tessellatedPoints = tessellatedPoints.map(function(pt) {
-                    pt[1] += pinLength;
-                    return pt;
-                });
-            }
+            // if (!DO_TESSELATE_POINTS) {
+            //     tessellatedPoints = tessellatedPoints.map(function(pt) {
+            //         pt[1] += pinLength;
+            //         return pt;
+            //     });
+            // }
 
             // for (var pi = 0; pi < hullPoints.length; pi++) {
             //     var p = hullPoints[pi];
@@ -1566,18 +1566,18 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       ;
 
 
-       var pinEnter = g.append("line")
-        .classed("pin", true)
-        .attr("x1", 0)
-        .attr("y1", 0)
-        .attr("x2", 0)
-        .attr("y2", pinLength)
-        .attr("stroke-linecap", "round")
-        .attr("stroke", "lightgray")
-        .attr("stroke-width", function(d) {
-            return "2px";
-        })
-        ;
+       // var pinEnter = g.append("line")
+       //  .classed("pin", true)
+       //  .attr("x1", 0)
+       //  .attr("y1", 0)
+       //  .attr("x2", 0)
+       //  .attr("y2", pinLength)
+       //  .attr("stroke-linecap", "round")
+       //  .attr("stroke", "lightgray")
+       //  .attr("stroke-width", function(d) {
+       //      return "2px";
+       //  })
+       //  ;
 
       if (Utils.projectComments) {
           var foo = main_layer.selectAll(".c").data(comments);
