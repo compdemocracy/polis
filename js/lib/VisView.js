@@ -1437,7 +1437,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         if (isSelf(b)) {
             return -Infinity;
         }
-        return a.proj.x - b.proj.x;
+        return 0; // otherwise preserve order
     }
 
     var bidToOldNode = _.indexBy(nodes, getBid);
