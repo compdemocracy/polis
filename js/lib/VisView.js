@@ -1328,9 +1328,66 @@ function getParticipantCount(nodes) {
     return count;
 }
 
+function averageTheThings(items, getter) {
+  var total = 0;
+  _.each(items, function(item) {
+    var val = getter(item);
+    total += val;
+  });
+  return total / items.length;
+}
+
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
+    var bidToNode = _.indexBy(updatedNodes, "bid");
+
+    function getxy(bid, dim) {
+      var node = bidToNode[bid];
+      if (!node) {
+        console.error("missing node for bid: " + bid);
+        return 0;
+      }
+      return node.proj[dim];
+    }
+    function getX(bid) {
+      return getxy(bid, "x")
+    }
+    function getY(bid) {
+      return getxy(bid, "y")
+    }
+
+
+    // Add label nodes (summary buckets) for each cluster.
+    newClusters = newClusters || [];
+    _.each(newClusters, function(c) {
+      var clusterLabelBid = "clusterLabel" + Math.random();
+
+      var ptptoiMembers = c.members.filter(function(bid) {
+        return bid >= 10000000000; // magicPid
+      });
+      var averageX = averageTheThings(ptptoiMembers, getX);
+      var averageY = averageTheThings(ptptoiMembers, getY);
+
+      updatedNodes.push({
+        bid: clusterLabelBid,
+        containsPid: function() { return false; },
+        count: 1,
+        gid: c.id,
+        hasFacebook: false,
+        hasTwitter: false,
+        isSummaryBucket: true,
+        pic: "",
+        picture_size: 32,
+        proj: {
+          x: averageX,//c.center[0],
+          y: averageY,//c.center[1],
+        },
+        ptptoi: false,
+      });
+      c.members.push(clusterLabelBid);
+      c["n-members"] += 1;
+    });
 
 
     participantCount = newParticipantCount;
@@ -1858,14 +1915,17 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         g.filter(isSummaryBucket)
         .append("text")
         .classed("summaryLabel", true)
+        .text(function(d) {
+          return d.gid + 1;
+        })
         // .classed("help", true)
         // .classed("help_text_you", true)
         .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
         .style("font-size", "12px")
         .style("font-weight", "bold")
         .attr("text-anchor", "middle")
-        .attr("alignment-baseline", "bottom")
-        // .attr("alignment-baseline", "middle")
+        // .attr("alignment-baseline", "bottom")
+        .attr("alignment-baseline", "middle")
         // .attr("fill", "rgba(0,0,0,1.0)")
         // .attr("fill", colorSelf)
         // .attr("stroke", colorSelfOutline)
@@ -1873,22 +1933,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         //     return "translate(12, 6)";
         // });
         ;
-
-        g.filter(isSummaryBucket)
-        .append("text")
-        .classed("summaryLabelBottom", true)
-        .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", "10px")
-        // .style("font-weight", "bold")
-        .style("fill", "gray")
-        .text("people")
-        .attr("text-anchor", "middle")
-        .attr("alignment-baseline", "top")
-        .attr("transform", function(d) {
-            return "translate(0, 11)";
-        });
-        ;
-
 
 
   }
@@ -2262,91 +2306,6 @@ function doUpdateNodes() {
             return ((ratio * 100) >> 0) + "%";
           }
 
-          update.selectAll(".summaryLabelBottom").data(nodes, key)
-            .text(function(d) {
-                return (d.count === 1 ? "person" : "people");
-            });
-
-
-          update.selectAll(".summaryLabel").data(nodes, key)
-            .text(function(d) {
-                var txt;
-                // return "Disagreed";
-                if (commentIsSelected()) {
-                    var txt;
-                    var count = d.seens; // d.clusterCount || d.count; // if d.clusterCount is supplied, use it (since summary blobs show % for all members, non just those in the anonblob)
-                    if (d.ups === 0 && d.downs === 0) {
-                        txt = "\u2014"; // em dash
-                    }
-                    else if (d.ups >= d.downs) {
-                        txt = toPercent(d.ups / count);
-                    } else if (d.downs > d.ups) {
-                        txt = toPercent(d.downs / count);
-                    } else {
-                        txt = "?";
-                        console.error("missing d.ups or d.downs");
-                    }
-                    d._txtType = "c";
-                } else {
-                    var prefix = "";
-                    var count = d.clusterCount;
-                    if (d.ptptois && d.ptptois.length) {
-                        prefix = "+";
-                        count -= d.ptptois.length;
-                    }
-                    txt = prefix + count;
-                }
-                d._txt = txt;
-                return txt;
-            })
-            .attr("alignment-baseline", function(d) {
-                if (commentIsSelected()) {
-                    return "middle";
-                }
-                return "bottom";
-            })
-            .attr("fill", function(d) {
-                // return "Disagreed";
-                if (commentIsSelected()) {
-                    var color = "gray";
-                    if (d.ups === 0 && d.downs === 0) {
-                        color = "gray";
-                    } else if (d.ups >= d.downs) {
-                        color = colorPullLabel;
-                    } else if (d.downs > d.ups) {
-                        color = colorPushLabel;
-                    } else {
-                        console.error("missing d.ups or d.downs");
-                    }
-                    return color;
-                }
-                return "gray";
-            })
-            .style("font-size", function(d) {
-                var size = 12;
-                if (d._txt) {
-                    var len = d._txt.length;
-                    if (len <= 2) {
-                        size = 16;
-                    } else if (len === 3) {
-                        size = 14;
-                    } else if (len === 4) {
-                        size = 12;
-                    }
-                }
-                return size + "px";
-            })
-            ;
-
-
-        update.selectAll(".summaryLabelBottom").data(nodes, key)
-           .style("visibility", function(d) {
-                if (commentIsSelected()) {
-                    return "hidden";
-                }
-                return "visible";
-            })
-        ;
   }
 }
 
