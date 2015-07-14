@@ -99,7 +99,8 @@ function shouldFocusOnTextareaWhenWritePaneShown() {
   // Not when we're embedded in an iframe.
   //  it ends up stealing focus and causing the parent to scroll to our iframe.
   //  (this happens where there are no comments to vote on, and we show the write tab first)
-  return !isInIframe();
+  // return !isInIframe();
+  return false;
 }
 
 function parseQueryParams(s) {

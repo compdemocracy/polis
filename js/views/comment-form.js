@@ -90,7 +90,14 @@ module.exports = Handlebones.ModelView.extend({
   },
   events: {
     "focus #comment_form_textarea": function(e) { // maybe on keyup ?
-      this.$(".alert").hide();
+      // this.$(".alert").hide();
+      this.$("#comment_form_controls").show();
+    },
+    "blur #comment_form_textarea": function(e) {
+        var txt = this.$("#comment_form_textarea").val();
+        if (!txt || !txt.length) {
+          this.$("#comment_form_controls").hide();
+        }
     },
     "change #comment_form_textarea": "textChange",
     "keyup #comment_form_textarea": "textChange",
