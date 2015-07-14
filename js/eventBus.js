@@ -4,6 +4,7 @@ var Backbone = require("backbone")
 console.log('initalizing bus')
 
 var bus = _.extend({}, Backbone.Events);
+bus.backgroundClicked = "backgroundClicked";
 bus.vote = "vote";
 bus.exitConv = "exitConv";
 bus.votableShown = "votableShown";

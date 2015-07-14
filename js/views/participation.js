@@ -62,7 +62,7 @@ function shouldMoveVis() {
 module.exports =  ConversationView.extend({
   name: "participationView",
   template: template,
-  className: "participationView",
+  className: "participationView clickDeselectsHull",
   events: {
     "click .facebookButton": "fbConnectBtn",
     "click .twitterButton": "twitterConnectBtn",
@@ -287,11 +287,29 @@ module.exports =  ConversationView.extend({
     // clicks to "the background" should delelect hulls.
     // This is important because the edge of the vis is not visible.
     $(document.body).on("click", function(e) {
-      if ($(e.target).hasClass("clickDeselectsHull")) {
-        if (that.vis) {
-          that.vis.deselect();
+
+      function maybeDeselectHull($node) {
+        if (!$node) {
+          return;
+        }
+        if ($node.hasClass("clickDeselectsHull")) {
+          if (that.vis) {
+            that.vis.deselect();
+          }
+          eb.trigger(eb.backgroundClicked);
+          return;
+        } else if ($node.hasClass("clickDoesNotDeselectHull")) {
+          // we're in a subtree where clicking does not deselect hulls.
+          // Done searching.
+          return;
+        } else if ($node.parent() && $node.parent().length) {
+          // keep searching
+          maybeDeselectHull($node.parent());
+          return;
         }
       }
+
+      maybeDeselectHull($(e.target));
     });
 
     eb.on(eb.deselectGroups, function() {
@@ -315,14 +333,17 @@ module.exports =  ConversationView.extend({
 
         if (that.conversationTabs.onGroupTab()) { // TODO check if needed
           // that.conversationTabs.gotoVoteTab();
-          that.conversationTabs.gotoAnalyzeTab();
+          // that.conversationTabs.gotoAnalyzeTab();
         }
         if (that.tutorialView) {
           that.tutorialView.endAnalyzeTutorial();
         }
       }
     });
-
+    eb.on(eb.backgroundClicked, function() {
+      that.conversationTabs.gotoInfoPaneTab();
+      that.groupSelectionView.gotoInfoPaneTab();
+    });
     eb.on(eb.clusterClicked, function(gid) {
       if (_.isNumber(gid) && gid >= 0) {
         that.conversationTabs.gotoGroupTab();
@@ -334,12 +355,12 @@ module.exports =  ConversationView.extend({
 
           // on transition from no selection to selection
 
-          // ensure vis is showing when you click on a group, this also should ensure that the carousel is on-screen below the vis
-          if (isMobile) {
-            $('html, body').animate({
-              scrollTop: $("#visualization_parent_div").offset().top
-            }, 100);
-          }
+          // // ensure vis is showing when you click on a group, this also should ensure that the carousel is on-screen below the vis
+          // if (isMobile) {
+          //   $('html, body').animate({
+          //     scrollTop: $("#visualization_parent_div").offset().top
+          //   }, 100);
+          // }
           if (that.tutorialView) {
             that.tutorialView.startAnalyzeTutorial();
           }

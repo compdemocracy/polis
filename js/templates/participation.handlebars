@@ -17,7 +17,9 @@
   {{/if}}
 
 <div
-  style="display: none">
+  class="clickDoesNotDeselectHull"
+  style="display: none"
+>
   {{view conversationTabs}}
   </div>
 
@@ -158,23 +160,23 @@
 
 <div
   id="visualization_parent_div"
-  class="lightPanel"
+  class="lightPanel clickDoesNotDeselectHull"
   style="text-align: right; visibility: hidden"
   >
   <div
     id="visualization_div"
-    class="vis_container"
+    class="vis_container clickDoesNotDeselectHull"
     >
   </div>
 </div>
 <div
-  class="darkPanel"
+  class="darkPanel clickDoesNotDeselectHull"
   style="text-align: center"
   >
   {{view groupSelectionView}}
 </div>
 
-<div class="tabbable darkPanel"> {{! Only required for left/right tabs }}
+<div class="tabbable darkPanel clickDoesNotDeselectHull"> {{! Only required for left/right tabs }}
   <div
     class="tab-content"
     style="min-height: 400px"

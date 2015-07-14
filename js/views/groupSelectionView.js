@@ -24,6 +24,9 @@ module.exports =  Handlebones.ModelView.extend({
     this.onClickInfoPaneButtonClickedCallbacks.fire();
     this.model.set("infoSlidePaneViewActive", true);
   },
+  gotoInfoPaneTab: function() {
+    this.model.set("infoSlidePaneViewActive", true);
+  },
   show: function() {
   	this.model.set("visible", true);
   },

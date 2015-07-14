@@ -351,6 +351,10 @@ if (isIE8) {
                 // .call(d3.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
     ;
     $(el_selector).on("click", selectBackground);
+    $(el_selector).on("click", function() {
+      eb.trigger(eb.backgroundClicked);
+    });
+
 
     main_layer = visualization.append(groupTag)
         .attr("id", "main_layer")
