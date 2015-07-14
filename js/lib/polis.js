@@ -550,6 +550,8 @@ module.exports = function(params) {
             this.count = o.count;
             this.hasTwitter = o.hasTwitter;
             this.hasFacebook = o.hasFacebook;
+            this.twitter = o.twitter;
+            this.facebook = o.facebook;
             if (o.clusterCount) {// TODO stop with this pattern
                 this.clusterCount = o.clusterCount;// TODO stop with this pattern
             }
@@ -562,6 +564,7 @@ module.exports = function(params) {
             if (o.ptptoi) {// TODO stop with this pattern
                 this.ptptoi = true;// TODO stop with this pattern
             }
+            this.priority = o.priority || 0;
 
             if (o.isSummaryBucket) { // TODO stop with this pattern
                 this.isSummaryBucket = true;// TODO stop with this pattern
@@ -652,10 +655,13 @@ module.exports = function(params) {
     };
     function bucketizeSelf(self, selfDotBid) {
         var bucket = new Bucket({
+            priority: 999999,
             containsSelf: true,
             gid: self.gid,
             hasTwitter: !!self.hasTwitter,
             hasFacebook: !!self.hasFacebook,
+            twitter: self.twitter || {},
+            facebook: self.facebook || {},
             proj: self.proj,
             count: 1,
             bid: selfDotBid,
@@ -667,12 +673,15 @@ module.exports = function(params) {
 
     function bucketizeParticipantOfInterest(o, ptptoiData) {
         var bucket = new Bucket({
+            priority: ptptoiData.priority,
             pic: ptptoiData.picture,
             picture_size: ptptoiData.picture_size,
             containsSelf: o.containsSelf,
             gid: o.gid,
             hasTwitter: !!ptptoiData.hasTwitter,
             hasFacebook: !!ptptoiData.hasFacebook,
+            twitter: ptptoiData.twitter || {},
+            facebook: ptptoiData.facebook || {},
             ptptoi: true,
             proj: o.proj,
             count: 1,
@@ -2417,6 +2426,9 @@ function clientSideBaseCluster(things, N) {
             firstPcaCallPromise.then(function() {
                 var o = prepProjection(projectionPeopleCache);
                 var buckets = o.buckets;
+                buckets.sort(function(a, b) {
+                    return b.priority - a.priority;
+                });
                 var clusters = o.clusters;
                 var projectedComments = prepCommentsProjection();
                 if (buckets.length) {

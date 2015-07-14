@@ -1520,6 +1520,19 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         if (isSummaryBucket(b)) {
             return -999999;
         }
+        if (b.twitter.followers_count > a.twitter.followers_count) {
+          return -1;
+        }
+        if (a.twitter.followers_count > b.twitter.followers_count) {
+          return 1;
+        }
+        if (b.priority > a.priority) {
+          return -1;
+        }
+
+        if (a.priority > b.priority) {
+          return 1;
+        }
         return 0;
     }
 
@@ -1627,7 +1640,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
       var update = main_layer.selectAll(".ptpt")
           .data(nodes, key)
-          // .sort(sortWithSelfOnTop)
+          .sort(sortWithSelfOnTop)
           ;
 
       var exit = update.exit();
