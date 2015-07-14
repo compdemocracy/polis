@@ -39,20 +39,32 @@ module.exports = Handlebones.ModelView.extend({
     ctx.picture = "https://pol.is/landerImages/anonProfileIcon64.png";
     return ctx;
   },
+  hideMessage: function(id) {
+    this.$(id).hide();
+    // if there are no other warnings/tips showing, show the default one
+    if (this.$(".protip:visible").length === 0) {
+      this.$("#not_a_reply_message").show();
+    }
+  },
+  showMessage: function(id) {
+    // since there are now other warnings/tips showing, hide the default one
+    this.$("#not_a_reply_message").hide();
+    this.$(id).show();
+  },
   updateOneIdeaPerCommentMessage: function(formText) {
     // TODO I18N
     // Tests to see if there is non-punctuation that follows the end of a sentence.
     if ((formText||"").match(/[\?\.\!].*[a-zA-Z0-9]+/)) {
-      this.$("#one_idea_per_comment_message").show();
+      this.showMessage("#one_idea_per_comment_message");
     } else {
-      this.$("#one_idea_per_comment_message").hide();
+      this.hideMessage("#one_idea_per_comment_message");
     }
   },
   updateCommentNotQuestionAlert: function(formText) {
     if (formText.indexOf("?") >= 0) {
-      this.$("#commentNotQuestionAlert").show();
+      this.showMessage("#commentNotQuestionAlert");
     } else {
-      this.$("#commentNotQuestionAlert").hide();
+      this.hideMessage("#commentNotQuestionAlert");
     }
   },
   textChange: function() {
@@ -66,21 +78,21 @@ module.exports = Handlebones.ModelView.extend({
       this.$("#commentCharCount").css("color", "red");
       this.$("#comment_button").attr("disabled", "disabled");
       this.$("#comment_button").css("opacity", 0.3);
-      this.$("#commentTooLongAlert").show();
+      this.showMessage("#commentTooLongAlert");
       this.buttonActive = false;
     } else if (remaining > 0) {
       txt = "+ " + remaining;
       this.$("#commentCharCount").css("color", "gray");
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
-      this.$("#commentTooLongAlert").hide();
+      this.hideMessage("#commentTooLongAlert");
       this.buttonActive = true;
     } else {
       txt = remaining;
       this.$("#commentCharCount").css("color", "gray");
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
-      this.$("#commentTooLongAlert").hide();
+      this.hideMessage("#commentTooLongAlert");
       this.buttonActive = true;
     }
     this.$("#commentCharCount").text(txt);
@@ -151,7 +163,7 @@ module.exports = Handlebones.ModelView.extend({
 
     // DEMO_MODE
     if (this.pid < 0) {
-      that.$("#commentSentDemoAlert").show();
+      that.showMessage("#commentSentDemoAlert");
       that.trigger("commentSubmitted");
       that.updateCollection();
       return resolve();
@@ -165,7 +177,7 @@ module.exports = Handlebones.ModelView.extend({
       promise.then(function() {
         that.trigger("commentSubmitted"); // view.trigger
         that.updateCollection();
-        that.$("#commentSentAlert").show();
+        that.showMessage("#commentSentAlert");
       }, function(args) {
         if (!args || !args.length || !args[0].length) {
           alert("failed to send");

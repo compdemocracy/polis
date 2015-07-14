@@ -46,7 +46,19 @@
   <div style="display: block; width:100%">
    <div id="comment_form_controls" class="flexbox align-items-flex-end" style="width:100%; display: none">
     <span style="max-width: 400px"> {{! protips column }}
-     <div id="one_idea_per_comment_message" class="alert-warning" style="
+
+     <div id="not_a_reply_message" class="protip alert-warning" style="
+      font-family: brandon-grotesque;
+      padding: 5px;
+      margin-bottom: 0px;
+      margin-top: 10px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      ">pro tip: comments are sent to others randomly. You are not replying directly to anyone else.</div>
+
+      
+
+     <div id="one_idea_per_comment_message" class="protip alert-warning" style="
       font-family: brandon-grotesque;
       display: none;
       padding: 5px;
@@ -57,13 +69,13 @@
       ">Write one comment per idea.{{!--  <a href="">... more info</a> --}}</div>
 
 
-      <div id="commentNotQuestionAlert" class="alert alert-warning" style="font-family: brandon-grotesque; display:none; padding: 5px; margin-top:10px; margin-bottom:5px;" role="alert"><p> <i>Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.</i></p></div>          
+      <div id="commentNotQuestionAlert" class="protip alert alert-warning" style="font-family: brandon-grotesque; display:none; padding: 5px; margin-top:10px; margin-bottom:5px;" role="alert"><p> <i>Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.</i></p></div>          
       <table width="100%">
         <tr>
           <td style="width:100%; text-align: left; padding: 10px 10px 0px 0px">
-            <div id="commentSentAlert" class="alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent! </strong></p></div>
-            <div id="commentTooLongAlert" class="alert alert-warning" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment is too long. </strong></p></div>
-            <div id="commentSentDemoAlert" class="alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent!</strong> (not really, this is a demo)</p></div>
+            <div id="commentSentAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent! </strong></p></div>
+            <div id="commentTooLongAlert" class="protip alert alert-warning" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment is too long. </strong></p></div>
+            <div id="commentSentDemoAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent!</strong> (not really, this is a demo)</p></div>
   {{!--           {{#if error}}
             <div class="alert alert-danger" style="font-family: brandon-grotesque" role="alert"><p> <strong>{{error}}</strong>{{#if errorExtra}}{{errorExtra}}{{/if}}</p></div>
             {{/if}} --}}
