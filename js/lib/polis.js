@@ -1882,9 +1882,9 @@ function clientSideBaseCluster(things, N) {
                     ptpt.picture_size = 48;
                     if (window.devicePixelRatio > 1) {
                         // on retina, we'll show 32x32, but fetch 64x64 images
-                        width = 32;  // facebook will return 64x64 images if we're on a retina device
-                        height = 32; // facebook will return 64x64 images if we're on a retina device
-                        ptpt.picture_size = 32;
+                        width = 96;  // facebook will return 64x64 images if we're on a retina device
+                        height = 96; // facebook will return 64x64 images if we're on a retina device
+                        ptpt.picture_size = 48;
                     }
                     // https://developers.facebook.com/docs/graph-api/reference/v2.2/user/picture
                     ptpt.facebook.picture = "https://graph.facebook.com/v2.2/"+ ptpt.facebook.fb_user_id +"/picture?width="+width+"&height=" + height;
