@@ -1567,7 +1567,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     oldpositions.forEach(function(oldNode) {
         var newNode = _.findWhere(nodes, {bid: oldNode.bid});
         if (!newNode) {
-            console.error("not sure why a node would disappear");
+            console.warn("not sure why a node would disappear");
             return;
         }
         newNode.x = oldNode.x;
