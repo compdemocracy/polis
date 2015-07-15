@@ -16,7 +16,7 @@ module.exports =  Handlebones.ModelView.extend({
   onClick: function(e) {
   	var $target = $(e.target);
   	var gid = Number($target.data("gid"));
-  	if (_.isNumber(gid)) {
+  	if (!_.isNaN(gid)) {
 	  	this.model.set("selectedGid", gid);
 	  	this.onChangedCallbacks.fire(gid);
   	}
