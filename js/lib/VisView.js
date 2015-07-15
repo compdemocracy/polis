@@ -1370,8 +1370,16 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       var ptptoiMembers = c.members.filter(function(bid) {
         return bid >= 10000000000; // magicPid
       });
-      var averageX = averageTheThings(ptptoiMembers, getX);
-      var averageY = averageTheThings(ptptoiMembers, getY);
+      // use the center of the ptpois if possible
+      var centerX = averageTheThings(ptptoiMembers, getX);
+      var centerY = averageTheThings(ptptoiMembers, getY);
+      // otherwise, just use the center of the cluster, since there are no ptptois
+      if (_.isNaN(centerX)) {
+        centerX = c.center[0]
+      }
+      if (_.isNaN(centerY)) {
+        centerY = c.center[1]
+      }
 
       updatedNodes.push({
         bid: clusterLabelBid,
@@ -1384,8 +1392,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         pic: "",
         picture_size: 32,
         proj: {
-          x: averageX,//c.center[0],
-          y: averageY,//c.center[1],
+          x: centerX,//c.center[0],
+          y: centerY,//c.center[1],
         },
         ptptoi: false,
       });
