@@ -1,114 +1,144 @@
-<div id="fooparty"
-  class="custom_gutter"
-  {{!-- style="border-radius: 10px; border: 3px; border-top: 1px; border-left: 1px; border-style:solid; border-color: lightgray; background-color: white; --}}
-  style="border-radius: 10px; border: 3px; border-top: 1px; border-left: 1px; border-style:none;
-  ">
-
-<form
-  role="form"
+<div
+  id="fooparty"
   style="
-    {{!-- margin-left:10px; --}}
-    {{!-- margin-right:10px; --}}
-   {{!--  margin-bottom: 20px;  --}}{{! prevent button from going over the edge of the pane }}
-    padding-bottom: 1px; {{! needed to prevent stripe of background_content color showing on mobile }}
+    border-radius: 3px;
+    margin-bottom: 10px;
     ">
-	<div style="position:relative">
-
-  {{#if is_active}}
-  <div class="flexbox align-items-flex-end">
-    <span class="align-items-flex-start">
-          <img src="{{picture}}" height="40px"></img>
-    </span>
-    <span class="flex-grow-2">
-          <textarea
-            class="form-control comment_form_textarea_width"
-            id="comment_form_textarea"
-            rows="1"
-            style="width: 100%; font-size: 16px"
-            name="txt"
-            type="text"
-            maxlength="400"
-            {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
-            placeholder="Share your perspective..."
-            {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
-          ></textarea>
+  <form
+    role="form"
+    style="
+      padding-bottom: 1px; {{! needed to prevent stripe of background_content color showing on mobile }}
+      ">
+  	<div style="position:relative">
+    {{#if is_active}}
+    <div
+      class="
+        flexbox
+        align-items-flex-end
+        ">
+      <span class="align-items-flex-start">
+        <img
+          src="{{picture}}"
+          height="40px"
+          style="
+            margin-right: 10px;
+            border-radius: 3px;
+            border: 1px solid lightgrey;
+          ">
+        </img>
+      </span>
+      <span class="flex-grow-2">
+        <textarea
+          class="form-control comment_form_textarea_width"
+          id="comment_form_textarea"
+          rows="1"
+          style="width: 100%; font-size: 16px"
+          name="txt"
+          type="text"
+          maxlength="400"
+          {{!-- placeholder="Submit your own opinions here. Shorter is better - break up your ideas. You are not responding to anyone else directly - comments are sent out randomly to all participants."  --}}
+          placeholder="Share your perspective..."
+          {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
+          >
+        </textarea>
         <span id="commentCharCount" style='
           color: gray;
-          font-family: "brandon-grotesque", "Brandon Grotesque", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
           position: relative;
           top: -23px;
           right: 5px;
           height: 0px;
-          float: right;'>{{! +200 }}</span>
-     </span>
-  </div>
+          float: right;
+          '>{{! +200 }}
+        </span>
+      </span>
+    </div>
+    <div
+      style="
+        display: block;
+        width:100%
+        ">
+    <div
+      id="comment_form_controls"
+      class="flexbox align-items-flex-end"
+      style="
+        width:100%;
+        display: none
+        ">
+      <span style="max-width: 400px"> {{! protips column }}
+        <div
+          id="not_a_reply_message"
+          class="protip"
+          style="
 
-  <div style="display: block; width:100%">
-   <div id="comment_form_controls" class="flexbox align-items-flex-end" style="width:100%; display: none">
-    <span style="max-width: 400px"> {{! protips column }}
+            ">
+          pro tip: comments are sent to others randomly. You are not replying directly to anyone else.
+        </div>
+        <div
+          id="one_idea_per_comment_message"
+          class="protip"
+          style="
+            display: none;
 
-     <div id="not_a_reply_message" class="protip alert-warning" style="
-      font-family: brandon-grotesque;
-      padding: 5px;
-      margin-bottom: 0px;
-      margin-top: 10px;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      ">pro tip: comments are sent to others randomly. You are not replying directly to anyone else.</div>
+            ">
+            Write one comment per idea.
+        </div>
+        <div
+          id="commentNotQuestionAlert"
+          class="protip"
+          role="alert"
+          style="
+            display:none;
 
-      
+            ">
+            <p>
+              <i>
+                Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.
+              </i>
+            </p>
+        </div>
+        <table width="100%">
+          <tr>
+            <td style="width:100%; text-align: left; padding: 10px 10px 0px 0px">
+              <div id="commentSentAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent! </strong></p></div>
+              <div id="commentTooLongAlert" class="protip alert alert-warning" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment is too long. </strong></p></div>
+              <div id="commentSentDemoAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent!</strong> (not really, this is a demo)</p></div>
 
-     <div id="one_idea_per_comment_message" class="protip alert-warning" style="
-      font-family: brandon-grotesque;
-      display: none;
-      padding: 5px;
-      margin-bottom: 0px;
-      margin-top: 10px;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      ">Write one comment per idea.{{!--  <a href="">... more info</a> --}}</div>
-
-
-      <div id="commentNotQuestionAlert" class="protip alert alert-warning" style="font-family: brandon-grotesque; display:none; padding: 5px; margin-top:10px; margin-bottom:5px;" role="alert"><p> <i>Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.</i></p></div>          
-      <table width="100%">
-        <tr>
-          <td style="width:100%; text-align: left; padding: 10px 10px 0px 0px">
-            <div id="commentSentAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent! </strong></p></div>
-            <div id="commentTooLongAlert" class="protip alert alert-warning" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment is too long. </strong></p></div>
-            <div id="commentSentDemoAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent!</strong> (not really, this is a demo)</p></div>
-  {{!--           {{#if error}}
-            <div class="alert alert-danger" style="font-family: brandon-grotesque" role="alert"><p> <strong>{{error}}</strong>{{#if errorExtra}}{{errorExtra}}{{/if}}</p></div>
-            {{/if}} --}}
-          </td>
-          <td style="text-align: right; vertical-align: top">
-          </td>
-        </tr>
-      </table>
-     </span> {{! end protips column}}
-     <span class="flex-grow-2"></span>
-     <button
-        class="Btn Btn-primary"
-        id="comment_button"
-        style="font-size: 14px; margin-left: 5px; padding-right:10px; padding-left:10px;{{!-- margin-top: 10px --}}"
-        type="submit"
+            </td>
+            <td style="text-align: right; vertical-align: top">
+            </td>
+          </tr>
+        </table>
+       </span> {{! end protips column}}
+       <span class="flex-grow-2"></span>
+       <button
+          class="Btn Btn-primary"
+          id="comment_button"
+          type="submit"
+          style="
+            font-size: 14px;
+            margin-left: 5px;
+            padding-right:10px;
+            padding-left:10px;{{!-- margin-top: 10px --}}
+            ">
+          Submit
+       </button>
+     </div> {{! end protips/button flexbox}}
+    </div>
+    {{else}}
+      <div
+        style="margin: 20px;"
+        class="Notification Notification--warning"
         >
-        Comment
-     </button>
-   </div> {{! end protips/button flexbox}}
-  </div>
-
-   {{else}}
-      <div  style="margin: 20px;" class="Notification Notification--warning">
-        <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>This conversation is closed.</strong></p>
-        <p>No further commenting is allowed.</p>
+        <p class="HeadingF HeadingF--light ">
+          <i class="fa fa-bell-o"></i>
+          &nbsp;
+          <strong>This conversation is closed.</strong>
+        </p>
+        <p>
+          No further commenting is allowed.
+        </p>
       </div>
-
-   {{/if}}
-  </div>
-</form>
-
-  {{! Using span to prevent this from eating up space when empty, which causes a gray bar to appear on sm layouts }}
-{{!--   <span style="margin-top: 45px; margin-left: 8px;">
-    {{view commentsByMeView}}
-  </span> --}}
+    {{/if}}
+    </div>
+  </form>
 </div>

@@ -1,19 +1,43 @@
-
-<div class="
-	flexbox
-	align-items-flex-end"
+<div
+  class="
+	 flexbox
+	 align-items-flex-end"
 	style="
-	padding-top: 10px;
-	padding-bottom: 10px;
-	{{#unless visible}}display: none;{{/unless}}
-">
-  Group:
+    padding-top: 7px;
+    padding-bottom: 12px;
+    padding-left: 10px;
+    padding-right: 10px;
+    {{#unless visible}}
+      display: none;
+    {{/unless}}
+    ">
+  <span style="">
+    Group:
+  </span>
   {{#each groups2}}
-	<button data-gid="{{this.gid}}" class="groupButton {{#if this.selected}}selectedGroupButton{{/if}}">{{this.name}}</button>
+  	<button
+      data-gid="{{this.gid}}"
+      class="
+        groupButton
+        {{#if this.selected}}
+          selectedGroupButton
+        {{/if}}
+      ">
+      {{this.name}}
+    </button>
   {{/each}}
 
-  <div class="flex-grow-2"></div>
+  <div class="flex-grow-2">
+  </div>
 
-  <button class="groupButton infoPaneButton {{#if infoSlidePaneViewActive}}selectedGroupButton{{/if}}" >info</button>
-
+  <button
+    class="
+      groupButton
+      infoPaneButton
+      {{#if infoSlidePaneViewActive}}
+        selectedGroupButton
+      {{/if}}
+      ">
+      info
+  </button>
 </div>

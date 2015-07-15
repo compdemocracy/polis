@@ -127,13 +127,22 @@ body {
 }
 
 .groupButton {
-  border: none;
   background-color: rgba(0,0,0,0);
   border-radius: 5px;
+  border: 1px solid #f7f7f7;
+  position: relative;
+  top: 4px;
+  margin-left: 7px;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 .selectedGroupButton {
-  background-color: lightgray;
+  background-color: white;
+  border: 1px solid darkgrey;
 }
+
+.selectedGroupButton:focus {outline:0;}
+.selectedGroupButton:active {outline:0;}
 
 .btn-vote {
   // set this independently of the overall font size, since they're difficult to get right.
@@ -316,20 +325,10 @@ svg {
 
 .query_result_item {
     min-height: 50px;
-    // margin: 5px;
-    // margin-left: 10px;
-    // margin-right: 10px;
-    // padding: 10px 10px 30px 10px;
     padding: 10px;
-
     background-color: rgba(255,255,255,0.7);
     margin-right: 10px;
-
     cursor: hand;
-    // border-left: 2px solid #ACCFE1;
-    // margin-left: 2px;
-    // text-align: justify;
-    // width: 92%
 }
 
 .active_result_item {
@@ -405,14 +404,7 @@ svg {
   margin-right: 0px;
 }
 
-// .custom_gutter {
-//   margin-left: 0px;
-//   margin-right: 0px;
-// }
-// .custom_gutter_via_padding {
-//   padding-left: 0px;
-//   padding-right: 0px;
-// }
+
 
 .voteMoreText {
   font-size: 30px;
@@ -611,13 +603,12 @@ svg {
     display: auto;
   }
 
-  .analyze-group-pane {
-    box-shadow: 2px 5px 7px 1px #ADBFD0;
-    -webkit-box-shadow: 2px 5px 7px 1px #ADBFD0;
-    position: relative;
-    // background-color: white;
-    top:-2px;
-  }
+  // .analyze-group-pane {
+  //   box-shadow: 2px 5px 7px 1px #ADBFD0;
+  //   -webkit-box-shadow: 2px 5px 7px 1px #ADBFD0;
+  //   position: relative;
+  //   top:-2px;
+  // }
 
   .write-pane {
   //   border-right: 3px solid lightgrey;
@@ -685,14 +676,6 @@ svg {
     // the vote more screen looks funny at the bottom of the page. There's nothing else to do but vote, so people should just get it.
     // display: none;
   }
-  // .custom_gutter {
-  //   margin-left: 10px;
-  //   margin-right: 10px;
-  // }
-  // .custom_gutter_via_padding {
-  //   padding-left: 10px;
-  //   padding-right: 10px;
-  // }
 
   #comment_shower {
     // margin-top: 20px;

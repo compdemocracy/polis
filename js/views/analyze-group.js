@@ -207,9 +207,6 @@ module.exports = Handlebones.View.extend({
 
       // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
       var comments = that.collection.models.slice(0);
-      // comments = _.filter(comments, function(comment) {
-      //   return _.contains(tids, comment.get('tid'));
-      // });
 
       comments = _.indexBy(comments, "id"); // id is tid
 
@@ -237,8 +234,8 @@ module.exports = Handlebones.View.extend({
           }
           // var denominator = info.count; // or maybe v.S (seen)
           var percent = repfullForAgree ?
-            "&#9650; " + ((v.A / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
-            "&#9660; " + ((v.D / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
+            "<i class='fa fa-check-circle-o'></i> " + ((v.A / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
+            "<i class='fa fa-ban'></i> " + ((v.D / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
           var leClass = repfullForAgree ?
             "a":
             "d";
@@ -248,22 +245,45 @@ module.exports = Handlebones.View.extend({
           // L10N gods forgive me
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
           var word = repfullForAgree ?
-            "<span class='HeadingE a'>agreed</span>" :
-            "<span class='HeadingE d'>disagreed</span>";
+            "<span class='a'>Agreed</span>" :
+            "<span class='d'>Disagreed</span>";
           var wordUnstyled = repfullForAgree ? "agreed" : "disagreed";
-          var bodyColor = "#333"; //repfullForAgree ?
-            // "#20442F" :
-            // "rgb(68, 33, 33)";
-          // var backgroundColor = repfullForAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
-          var backgroundColor = "white"; //repfullForAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
+          var bodyColor = "#333";
+          var backgroundColor = "white";
           var dotColor = repfullForAgree ? "#00b54d" : "#e74c3c";
-          var gradient = ""; //"background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);";
+          var gradient = "";
           header =
-              "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
-              "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
-             "<div style='font-size:12px; color: gray;'><strong>" + v.S +"</strong> <em> in the selected group saw this comment. </em></div>" +
-             "<div style='font-size:12px; color: gray;'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
-             // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
+            "<span "+
+              "class='" + leClass + "'"+
+              "style='"+
+                "margin-right:3px;" +
+                "position: relative;"+
+                "left: 54px;"+
+                "top: -47px;"+
+                "font-size: 35px;"+
+                "font-weight: 100;"+
+                "'>" + percent + "% " + word +
+            "</span>" +
+            "<div style='"+
+              "font-size:12px;"+
+              "color: gray;"+
+              "position: relative;"+
+              "left: 54px;"+
+              "top: -47px;"+
+              "'>"+
+              "<strong>" + v.S + "</strong>" +
+              "<em> in the selected group saw this comment. </em>"+
+            "</div>" +
+            "<div style='"+
+              "font-size:12px;"+
+              "color: gray;"+
+              "position: relative;"+
+              "left: 54px;"+
+              "top: -47px;"+
+              "'>"+
+              "<strong>"+ count +"</strong>"+
+              "<em> of those participants "+wordUnstyled+"</em>."+
+            "</div>";
 
           var social = c.get("social");
           var socialCtx = {
@@ -290,12 +310,25 @@ module.exports = Handlebones.View.extend({
               };
             }
           }
-          var socialHtml = "<div>" +
-              (socialCtx.anon ? "": "<a href='"+ socialCtx.link +"'>") +
-                "<img style='padding-right: 10px' src='" + socialCtx.img + "'></img>" +
-                "<span style='font-weight: bold'>" + socialCtx.name + "</span>" +
+          var socialHtml =
+            "<div>" +
+              (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
+                "<img " +
+                  "style='border-radius: 3px;'" +
+                  "src='" + socialCtx.img + "'>" +
+                "</img>" +
+                "<span "+
+                  "style='"+
+                  "font-weight: bold;"+
+                  "position: relative;" +
+                  "margin-left: 5px;" +
+                  "top: -14px;" +
+                  "'>" + socialCtx.name + "</span>" +
               (socialCtx.anon ? "": "</a>") +
-              "<span> wrote: </span>"
+              "<span style='"+
+                "position: relative;" +
+                "top: -14px;" +
+                "'> wrote: </span>"
           "</div>";
           var html =
             "<div style='color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" +
@@ -303,12 +336,13 @@ module.exports = Handlebones.View.extend({
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 socialHtml +
               "</p>" +
-              // "<p style='padding-left: 20px;'>" +
-              "<p>" +
+              "<p " +
+                "style='margin-left: 54px; position: relative; top: -38px'" +
+                ">" +
                 c.get("txt") +
               "</p>" +
               header +
-              '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
+              // '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>";
           return {
             color: dotColor,
@@ -465,57 +499,48 @@ module.exports = Handlebones.View.extend({
       eb.on(eb.clusterClicked, function(gid) {
         doFetch(gid);
 
-        if (SHOW_MAP) {
-          getLocations(gid).then(function(locations) {
+        // if (SHOW_MAP) {
+        //   getLocations(gid).then(function(locations) {
 
-            $("#groupMap").html("");
-            if (!locations || !locations.length) {
-              return;
-            }
-            var w = $("#groupMap").width();
-            var h = w*2/3;
+        //     $("#groupMap").html("");
+        //     if (!locations || !locations.length) {
+        //       return;
+        //     }
+        //     var w = $("#groupMap").width();
+        //     var h = w*2/3;
 
+        //     var polismap = d3.select("#groupMap").append("svg")
+        //       .attr("width", w)
+        //       .attr("height", h);
 
-            var polismap = d3.select("#groupMap").append("svg")
-              .attr("width", w)
-              .attr("height", h);
+        //     var projection = d3.geo.mercator()
+        //         .scale(w)
+        //         // .translate([65, 100])
+        //         .translate([w/2, h/2 + h/6.7])
+        //         .precision(.1);
 
-            var projection = d3.geo.mercator()
-                .scale(w)
-                // .translate([65, 100])
-                .translate([w/2, h/2 + h/6.7])
-                .precision(.1);
+        //     var picEnter = polismap.append("image")
+        //     picEnter
+        //       .classed("bktv", true)
+        //       .attr("x", 0)
+        //       .attr("y", -h/10)
+        //       .attr("height", w) // NOTE - using w instead of h
+        //       .attr("width", w)
+        //       .attr("xlink:href", "https://pol.is/landerImages/earth_mercator.png");
 
-  // var projection = d3.geo.projection(function(a, b) {
-  //   return [
-  //     a,
-  //     Math.log(Math.tan(Math.PI / 4 + b / 2))
-  //   ];
-  // });
+        //     polismap.selectAll("circle")
+        //         .data(locations)
+        //         .enter()
+        //         .append("circle")
+        //         .attr("r",5)
+        //         .attr("fill", "blue")
+        //         .attr("opacity", ".5")
+        //         .attr("transform", function(d) {
+        //             return "translate(" + projection([d.lng,d.lat]) + ")";
+        //         });
 
-
-            var picEnter = polismap.append("image")
-            picEnter
-              .classed("bktv", true)
-              .attr("x", 0)
-              .attr("y", -h/10)
-              .attr("height", w) // NOTE - using w instead of h
-              .attr("width", w)
-              .attr("xlink:href", "https://pol.is/landerImages/earth_mercator.png");
-
-            polismap.selectAll("circle")
-                .data(locations)
-                .enter()
-                .append("circle")
-                .attr("r",5)
-                .attr("fill", "blue")
-                .attr("opacity", ".5")
-                .attr("transform", function(d) {
-                    return "translate(" + projection([d.lng,d.lat]) + ")";
-                });
-
-          });
-        }
+        //   });
+        // }
 
       });
     }
