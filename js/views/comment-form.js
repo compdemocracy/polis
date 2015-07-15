@@ -100,16 +100,22 @@ module.exports = Handlebones.ModelView.extend({
     this.updateCommentNotQuestionAlert(formText);
     eb.trigger(eb.interacted);
   },
+  showFormControls: function() {
+    // this.$(".alert").hide();
+    this.$("#comment_form_controls").show();
+  },
+  hideFormControls: function() {
+    this.$("#comment_form_controls").hide();
+  },
   events: {
     "focus #comment_form_textarea": function(e) { // maybe on keyup ?
-      // this.$(".alert").hide();
-      this.$("#comment_form_controls").show();
+      this.showFormControls();
     },
     "blur #comment_form_textarea": function(e) {
-        var txt = this.$("#comment_form_textarea").val();
-        if (!txt || !txt.length) {
-          this.$("#comment_form_controls").hide();
-        }
+      var txt = this.$("#comment_form_textarea").val();
+      if (!txt || !txt.length) {
+        this.hideFormControls();
+      }
     },
     "change #comment_form_textarea": "textChange",
     "keyup #comment_form_textarea": "textChange",
@@ -125,6 +131,7 @@ module.exports = Handlebones.ModelView.extend({
           serialize(that, function(attrs){
             that.participantCommented(attrs).then(function() {
               that.$("#comment_form_textarea").val("");
+              that.hideFormControls();
             }).always(function() {
               that.buttonActive = true;
               console.log("BUTTON ACTIVE TRUE");
