@@ -391,7 +391,7 @@ module.exports = Handlebones.ModelView.extend({
 
                   // <div id="carouselNext">next</div>")
 
-                  $("#groupCarouselPrev").css("opacity", .5);
+                  $("#groupCarouselPrev").css("opacity", .2);
 
                   $("#groupCarouselNext").on("click", function(e) {
                     if (!carouselNextDisabled) {
@@ -423,11 +423,11 @@ module.exports = Handlebones.ModelView.extend({
                 carouselPrevDisabled = false;
                 carouselNextDisabled = false;
                 if (this.currentItem === 0) {
-                  $("#groupCarouselPrev").css("opacity", .5);
+                  $("#groupCarouselPrev").css("opacity", .2);
                   carouselPrevDisabled = true;
                 }
                 if (this.currentItem >= (items.length - 1)) {
-                  $("#groupCarouselNext").css("opacity", .5);
+                  $("#groupCarouselNext").css("opacity", .2);
                   carouselNextDisabled = true;
                 }
                 setTimeout(function() {
