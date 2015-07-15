@@ -52,7 +52,7 @@ module.exports = function(params) {
     var convSubPath = "api/v3/convSubscriptions";
 
     var particpantGeoLocationsPath = "api/v3/locations";
-    
+
     var queryParticipantsByMetadataPath = "api/v3/query_participants_by_metadata";
 
     var commentVelocitiesPath = "api/v3/velocities";
@@ -136,7 +136,7 @@ module.exports = function(params) {
         var buckets = projectionPeopleCache;
         for (var i = 0; i < buckets.length; i++) {
             var bucket = buckets[i];
-            if (bucket.count <= 0 && 
+            if (bucket.count <= 0 &&
                 !bucket.containsSelf // but don't remove PTPTOIs from cluster
             ) {
                 _.each(clusters, function(cluster, gid) {
@@ -800,7 +800,7 @@ function clientSideBaseCluster(things, N) {
     }
 
     _.times(9, iterate);
-    
+
     // var i = 0;
     // return means.map(function(proj) {
     //     var representative = {
@@ -814,7 +814,7 @@ function clientSideBaseCluster(things, N) {
     //     i += 1;
     //     return representative;
     // });
-    
+
     // [[1,2,5],[4]]
     return clusters.map(function(cluster) {
         return cluster.map(function(thing) {
@@ -897,7 +897,7 @@ function clientSideBaseCluster(things, N) {
         console.dir(questionsWithAnswersWithChoices);
 
 
-        // ... 
+        // ...
 
 
         return questionsWithAnswersWithChoices;
@@ -940,7 +940,7 @@ function clientSideBaseCluster(things, N) {
             return x2p;
         });
     }
-   
+
 
     // TODO account for "N/A", "null", etc
     // returns {
@@ -1035,7 +1035,7 @@ function clientSideBaseCluster(things, N) {
                             // Mark the xid as seen
                             delete xidsUnaccounted[cell];
                         }
-            
+
                     }
                 }
             }
@@ -1072,7 +1072,7 @@ function clientSideBaseCluster(things, N) {
 
             // TODO check xidsUnaccounted within this column only.
             alert("the xid column appears to be called " + rows[0][xidColumn].name);
-            
+
             // Remove extra rows (which have no corresponsing xids)
             rows = _.filter(rows, function(row) {
                 var xid = row[xidColumn];
@@ -1131,7 +1131,7 @@ function clientSideBaseCluster(things, N) {
             }
             if (hasNumericalColumns) {
                 for (var r = 0; r < rowCount; r++) {
-                    var row = rows[r];                            
+                    var row = rows[r];
                     if (r > 0) {
                         for (var c = 0; c < colCount; c++) {
                             if (!notNumberColumns[c]) {
@@ -1152,7 +1152,7 @@ function clientSideBaseCluster(things, N) {
                 xids.push(xid);
             }
             var infoRow = rows.shift();
-            xids.shift(); // Remove the info row for the xid column 
+            xids.shift(); // Remove the info row for the xid column
 
 
             var pids = _.map(xids, function(xid) {
@@ -1199,7 +1199,7 @@ function clientSideBaseCluster(things, N) {
 
                 return $.when(getFamousVotes(), updateBid()).then(function() {
 
-                    // Check for missing comps... TODO solve 
+                    // Check for missing comps... TODO solve
                     if (!pcaData.pca || !pcaData.pca.comps) {
                         console.error("missing comps");
                         return $.Deferred().reject();
@@ -1295,7 +1295,7 @@ function clientSideBaseCluster(things, N) {
                     //         return bigBucket;
                     //     }
                     // );
-                    
+
                     // bigBuckets.forEach(function(bb) {
 
                     //     bb.ptptoiCount = _.intersection(participantsOfInterestBids, bb.bids).length; // getParticipantsOfInterestForClusterBids(bb.bids).length;
@@ -1540,7 +1540,7 @@ function clientSideBaseCluster(things, N) {
         //             verified: false
         //         },
         //         facebook: {
-        //             // ... 
+        //             // ...
         //         }
         //     };
         // }
@@ -1719,7 +1719,7 @@ function clientSideBaseCluster(things, N) {
             //     tid = Number(tid);
             //     return [tid, stats.repness, stats.inAgreeProb];
             // });
-            
+
             // // Create a tidToR mapping which is a restriction of the tidToStats to just the repness. This is
             // // what code other than getCommentsForGroup is expecting; if other stuff starts wanting the prob
             // // estimates, we can change the API
@@ -1882,7 +1882,7 @@ function clientSideBaseCluster(things, N) {
                 }
 
                 // override with FB if they have it
-                if (ptpt.facebook && 
+                if (ptpt.facebook &&
                     ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
                     ) {
                     ptpt.hasFacebook = true;
@@ -2267,7 +2267,7 @@ function clientSideBaseCluster(things, N) {
             if (cluster) {
                 center = cluster.center;
             }
-            b.proj = moveTowards(b.proj.x, b.proj.y, center, 0.6);
+            b.proj = moveTowards(b.proj.x, b.proj.y, center, 0.0);
         });
 
 
@@ -2287,7 +2287,7 @@ function clientSideBaseCluster(things, N) {
             votes: groupVotes[gid]["votes"]
         };
     }
-    
+
     // findRepresentativeMetadata();
 
     function stopPolling() {
@@ -2316,7 +2316,7 @@ function clientSideBaseCluster(things, N) {
                 });
             }
         }
-        
+
         var numComments = pcaCenter.length;
 
             // https://files.slack.com/files-pri/T02G773HK-F02N30MKD/slack_for_ios_upload.jpg
