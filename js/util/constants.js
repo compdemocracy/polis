@@ -1,5 +1,5 @@
 module.exports = {
-  CHARACTER_LIMIT: 200,
+  CHARACTER_LIMIT: 100,
   REACTIONS: {
     AGREE: -1,
     PASS: 0,
