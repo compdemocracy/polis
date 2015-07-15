@@ -398,7 +398,7 @@ module.exports =  ConversationView.extend({
         };
       });
       newGroups.push({
-        name: "Majority Opinion",
+        name: (display.xs() ? "Majority" : "Majority Opinion"),
         gid: -1
       });
       that.groupNamesModel.set("groups", newGroups);

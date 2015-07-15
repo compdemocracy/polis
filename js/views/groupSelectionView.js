@@ -1,3 +1,4 @@
+var display = require("../util/display");
 var template = require("../tmpl/groupSelectionView");
 var Handlebones = require("handlebones");
 var eb = require("../eventBus");
