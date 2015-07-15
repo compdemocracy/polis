@@ -761,10 +761,10 @@ function updateHulls() {
                         .attr("d", shape)
                         // .style("fill-opacity", 1)
                         // .style("fill", "white")
-                        // .style("stroke", "rgb(119, 119, 119)")
-                        // // .style("stroke-opacity", hullOpacity)
-                        // .style("stroke-width", 1)
-                        // .style("stroke-dasharray", "2px 4px")
+                        .style("stroke", "rgb(119, 119, 119)")
+                        // .style("stroke-opacity", hullOpacity)
+                        .style("stroke-width", 1)
+                        .style("stroke-dasharray", "2px 4px")
                         .style("visibility", "visible");
                         ;
 
