@@ -201,6 +201,14 @@ module.exports = {
   isEnterpriseUser: function() {
     return PolisStorage.planCode() === 1000;
   },
+  getGroupNameForGid: function(gid) {
+    if (gid < 0) {
+      return gid;
+    } else if (!_.isNumber(gid)) {
+      console.error("undexpected gid: " + gid);
+    }
+    return gid + 1;
+  },
   isInIframe: isInIframe,
   shouldFocusOnTextareaWhenWritePaneShown: shouldFocusOnTextareaWhenWritePaneShown,
   projectComments: false,

@@ -319,6 +319,8 @@ module.exports =  ConversationView.extend({
     });
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
+      that.selectedGid = gid;
+      that.analyzeGroupModel.set("selectedGid", gid);
       that.updateLineToSelectedCluster(gid);
       that.groupNamesModel.set({
         "selectedGid": gid,
@@ -675,6 +677,7 @@ module.exports =  ConversationView.extend({
         model: this.voteMoreModel
       }));
 
+      this.selectedGid = -1;
       this.groupNamesModel = new Backbone.Model({
         groups: [
         // these will be set when the pca results arrive
@@ -683,7 +686,7 @@ module.exports =  ConversationView.extend({
         // {name: 3, gid: 2},
         {name: "Majority Opinion", gid: -1},
         ],
-        selectedGid: -1,
+        selectedGid: this.selectedGid,
         infoSlidePaneViewActive: true,
       });
       this.groupSelectionView = this.addChild(new GroupSelectionView({
@@ -751,8 +754,11 @@ module.exports =  ConversationView.extend({
         conversation_id: conversation_id,
         collection: resultsCollection
       }));
-
+      this.analyzeGroupModel = new Backbone.Model({
+        selectedGid: this.selectedGid,
+      });
       this.analyzeGroupView = this.addChild(new AnalyzeGroupView({
+        model: this.analyzeGroupModel,
         conversation_id: conversation_id,
         getParticipantsOfInterestForGid: function() {
           return that.serverClient.getParticipantsOfInterestForGid.apply(0, arguments);

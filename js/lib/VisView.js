@@ -1941,7 +1941,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .append("text")
         .classed("summaryLabel", true)
         .text(function(d) {
-          return d.gid + 1;
+          return Utils.getGroupNameForGid(d.gid);
         })
         // .classed("help", true)
         // .classed("help_text_you", true)

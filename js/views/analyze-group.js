@@ -99,7 +99,7 @@ function comparatorStars(a, b) {
 
 
 
-module.exports = Handlebones.View.extend({
+module.exports = Handlebones.ModelView.extend({
     name: "analyze-global-view",
     template: template,
     tidsForGroup: null,
@@ -454,7 +454,16 @@ module.exports = Handlebones.View.extend({
         }, 0);
       }, 0);
   },
+
+
+  context: function() {
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    ctx.selectedGroupName = Utils.getGroupNameForGid(ctx.selectedGid);
+    return ctx;
+  },
   initialize: function(options) {
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+
     var that = this;
     this.collection = options.collection;
     this.collection.comparator = comparatorAgree;
