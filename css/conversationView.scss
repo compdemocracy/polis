@@ -429,6 +429,10 @@ svg {
   overflow: hidden;
 }
 
+.owl-controls .owl-page {
+  display: none !important;
+}
+
 .analyze-group-member-container {
   position: relative;
   // top: -130px;
