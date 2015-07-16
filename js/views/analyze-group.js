@@ -332,7 +332,16 @@ module.exports = Handlebones.ModelView.extend({
                 "'> wrote: </span>"
           "</div>";
           var html =
-            "<div style='color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" +
+            "<div "+
+              "style="+
+                "'color:"+bodyColor+";"+
+                "background-color: " + backgroundColor + ";"+
+                "cursor: -moz-grab;"+
+                "cursor: -webkit-grab;"+
+                "cursor: grab;"+
+                "' "+
+              "class='query_result_item' "+
+              "data-idx='"+(indexToTid.length-1) +"'>" +
               "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
                 socialHtml +
@@ -386,8 +395,8 @@ module.exports = Handlebones.ModelView.extend({
                 if (!isMobile) {
                   $("#groupCarouselParent").find("#groupCarouselPrev").remove();
                   $("#groupCarouselParent").find("#groupCarouselNext").remove();
-                  $("#groupCarouselParent").prepend('<span id="groupCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 50%; left:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
-                  $("#groupCarouselParent").append( '<span id="groupCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 50%; right:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
+                  $("#groupCarouselParent").prepend('<span id="groupCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 25%; left:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
+                  $("#groupCarouselParent").append( '<span id="groupCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 25%; right:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
 
 
                   // <div id="carouselNext">next</div>")
