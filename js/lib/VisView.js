@@ -320,6 +320,15 @@ $(el_selector)
         "<clipPath id=\"clipCircle\">" +
             "<circle r=\"" + ptptOiRadius +"\" cx=\"0\" cy=\"0\"/>" +
         "</clipPath>" +
+        "<filter id='colorMeMatrix'>" +
+          "<feColorMatrix in='SourceGraphic'" +
+            "type='matrix'" +
+            "values='0.33 0.33 0.33 0 0 " +
+                    "0.33 0.33 0.33 0 0 " +
+                    "0.33 0.33 0.33 0 0 " +
+                    "0 0 0 1 0' />" +
+        "</filter>" +
+
     "</defs>" +
     // "<g>" +
     // '<rect x="'+ (w-150) +'" y="0" width="150" height="25" rx="3" ry="3" fill="#e3e4e5"/>'+
@@ -1776,6 +1785,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("y", function(d) {
             return getImageWidth(d) * -0.5;
         })
+        .attr("filter", "url(#colorMeMatrix)")
         // .style("visibility", "hidden")
         .attr("height", getImageWidth)
         .attr("width", getImageWidth)
