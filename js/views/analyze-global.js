@@ -100,6 +100,7 @@ function comparatorStars(a, b) {
 
 module.exports = Handlebones.View.extend({
     name: "analyze-global-view",
+    className: "infoArea",
     CV: AnalyzeCollectionView,
     template: template,
     tidsForGroup: null,

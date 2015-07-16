@@ -7,7 +7,7 @@ var _ = require("underscore");
 module.exports =  Handlebones.ModelView.extend({
   name: "conversationInfoSlideView",
   template: template,
-  className: "conversationInfoSlideView",
+  className: "conversationInfoSlideView infoArea",
   events: {
   },
   context: function() {
