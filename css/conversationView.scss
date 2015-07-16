@@ -128,7 +128,7 @@ body {
 
 .groupButton {
   background-color: rgba(0,0,0,0);
-  border-radius: 5px;
+  border-radius: 15px;
   border: 1px solid #f7f7f7;
   position: relative;
   top: 4px;
@@ -141,8 +141,9 @@ body {
   border: 1px solid darkgrey;
 }
 
-.selectedGroupButton:focus {outline:0;}
-.selectedGroupButton:active {outline:0;}
+.selectedGroupButton {outline:none !important; }
+.groupButton {outline:none !important; }
+
 
 .btn-vote {
   // set this independently of the overall font size, since they're difficult to get right.
