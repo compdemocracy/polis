@@ -86,7 +86,7 @@ var maxPtptoiRad = basePtptoiRad + maxradboost;
 var friendOrFolloweeRadius = ptptOiRadius + 2;
 
 var haloWidth = d3.scale.linear().range([1, 1]).domain([350, 800]).clamp(true)(width);
-var haloVoteWidth = d3.scale.linear().range([2, 2]).domain([350, 800]).clamp(true)(width);
+var haloVoteWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
 var anonBlobRadius = isMobile ? 18 : 24;
 var anonBlobHaloWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
 var anonBlobHaloVoteWidth = anonBlobHaloWidth; //d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
