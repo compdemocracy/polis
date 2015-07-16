@@ -97,7 +97,7 @@ var maxRad = _.max([
     anonBlobRadius + anonBlobHaloVoteWidth  // not sure if anonBlobHaloVoteWidth should be /2
 ]);
 
-var HULL_EXTRA_RADIUS = d3.scale.linear().range([2, 6]).domain([350, 800]).clamp(true)(width);
+var HULL_EXTRA_RADIUS = 0;//d3.scale.linear().range([2, 6]).domain([350, 800]).clamp(true)(width);
 
 // framerate can be low on mobile, so make it quick
 var speed = d3.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(width);
@@ -623,10 +623,20 @@ function updateHulls() {
         ];
     }
 
+    function getOffsetForPin(node) {
+      if (isSummaryBucket(node)) {
+        return pinLength;
+      } else {
+        return pinLength;
+      }
+    }
+
     function tesselatePoint(xyPair, chooseRadius) {
         var x = xyPair[0];
         var y = xyPair[1];
-        var r = chooseRadius(xyPair[2]);
+        var node = xyPair[2]
+        var r = chooseRadius(node);
+        var yOffset = getOffsetForPin(node);
         var points = [];
         var theta = 0;
         var tau = 6.28318;
@@ -634,7 +644,7 @@ function updateHulls() {
             0.7853 :  // pi/4  (less points since slow)
             0.261799; // pi/12 (more points)
         while (theta < tau) {
-            points.push([x + r*Math.cos(theta), y + r*Math.sin(theta)]);
+            points.push([x + r*Math.cos(theta), yOffset + y + r*Math.sin(theta)]);
             theta += step;
         }
         return points;
@@ -685,27 +695,27 @@ function updateHulls() {
 
             // tesselate to provide a matching hull roundness near large buckets.
             var tessellatedPoints = [];
-            var DO_TESSELATE_POINTS = false;
+            var DO_TESSELATE_POINTS = true;
             var chooseRadius;
             if (DO_TESSELATE_POINTS) {
                 chooseRadius = function(node) {
-                    return chooseCircleRadiusOuter(node) + HULL_EXTRA_RADIUS;
+                    return chooseRadiusForHullCorners(node) + HULL_EXTRA_RADIUS;
                 };
             } else {
                 chooseRadius = function(node) {
-                    // return chooseCircleRadiusOuter(node);
+                    // return chooseRadiusForHullCorners(node);
                     return 5;
                 };
             }
             for (var p = 0; p < hull.length; p++) {
                 tessellatedPoints = tessellatedPoints.concat(tesselatePoint(hull[p], chooseRadius));
             }
-            if (!DO_TESSELATE_POINTS) {
-                tessellatedPoints = tessellatedPoints.map(function(pt) {
-                    pt[1] += pinLength;
-                    return pt;
-                });
-            }
+            // if (!DO_TESSELATE_POINTS) {
+            //     tessellatedPoints = tessellatedPoints.map(function(pt) {
+            //         pt[1] += pinLength;
+            //         return pt;
+            //     });
+            // }
 
             for (var pi = 0; pi < hullPoints.length; pi++) {
                 var p = hullPoints[pi];
@@ -761,7 +771,7 @@ function updateHulls() {
                         .attr("d", shape)
                         // .style("fill-opacity", 1)
                         // .style("fill", "white")
-                        .style("stroke", "rgb(119, 119, 119)")
+                        .style("stroke", "lightgray")
                         // .style("stroke-opacity", hullOpacity)
                         .style("stroke-width", 1)
                         .style("stroke-dasharray", "2px 4px")
@@ -1287,7 +1297,13 @@ function chooseCircleRadiusOuter(d) {
     return r;
 }
 
-
+function chooseRadiusForHullCorners(d) {
+    var r = 3;
+    if (d.isSummaryBucket) {
+        r = anonBlobRadius;
+    }
+    return r;
+}
 
 
 function isSelf(d) {
@@ -1674,7 +1690,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       ;
 
 
-       var pinEnter = g.append("line")
+       var pinEnter = g.filter(isParticipantOfInterest)
+        .append("line")
         .classed("pin", true)
         .attr("x1", 0)
         .attr("y1", 0)
@@ -1797,12 +1814,12 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("stroke", grayHaloColor)
         .attr("stroke-width", function(d) {
             if (d.isSummaryBucket) {
-                return anonBlobHaloWidth;
+                return 0;
             } else {
                 return haloWidth;
             }
         })
-        .attr("fill", chooseFill)
+        .attr("fill", "rgba(0,0,0,0)")
         ;
 
 
@@ -1940,18 +1957,21 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         g.filter(isSummaryBucket)
         .append("text")
         .classed("summaryLabel", true)
+        .attr("transform", function(d) {
+            return "translate(0, "+ pinLength +")";
+        })
         .text(function(d) {
           return Utils.getGroupNameForGid(d.gid);
         })
         // .classed("help", true)
         // .classed("help_text_you", true)
         .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", "12px")
-        .style("font-weight", "bold")
+        .style("font-size", "20px")
+        // .style("font-weight", "bold")
         .attr("text-anchor", "middle")
         // .attr("alignment-baseline", "bottom")
         .attr("alignment-baseline", "middle")
-        // .attr("fill", "rgba(0,0,0,1.0)")
+        .attr("fill", "rgba(0,0,0,0.5)")
         // .attr("fill", colorSelf)
         // .attr("stroke", colorSelfOutline)
         // .attr("transform", function(d) {
