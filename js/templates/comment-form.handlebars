@@ -19,7 +19,7 @@
       <span class="align-items-flex-start">
         <img
           src="{{picture}}"
-          height="40px"
+          width="40px"
           style="
             margin-right: 10px;
             border-radius: 3px;
@@ -40,17 +40,6 @@
           placeholder="Share your perspective..."
           {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
           ></textarea>
-        <span id="commentCharCount" style='
-          color: gray;
-          position: relative;
-          top: -23px;
-          right: 5px;
-          height: 0px;
-          float: right;
-          ' class="
-          comment_form_control_hideable
-          ">{{! +200 }}
-        </span>
       </span>
     </div>
     <div
@@ -69,10 +58,25 @@
         <div
           id="not_a_reply_message"
           class="protip"
-          style="
+          >
+            <i
+              class="fa fa-lightbulb-o"
+              style="
+                font-size: 24px;
+                margin-left: 50px;
+                margin-top: 8px;
 
+              ">
+            </i>
+          <p
+            style="
+              display: inline-block;
+              position: relative;
+              left: 70;
+              top: -20;
             ">
-          pro tip: comments are sent to others randomly. You are not replying directly to anyone else.
+            pro tip: comments are sent to others randomly. You are not replying directly to anyone else.
+          </p>
         </div>
         <div
           id="one_idea_per_comment_message"
@@ -100,17 +104,50 @@
         <table width="100%">
           <tr>
             <td style="width:100%; text-align: left; padding: 10px 10px 0px 0px">
-              <div id="commentSentAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent! </strong></p></div>
-              <div id="commentTooLongAlert" class="protip alert alert-warning" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment is too long. </strong></p></div>
-              <div id="commentSentDemoAlert" class="protip alert alert-success" style="font-family: brandon-grotesque; display:none" role="alert"><p> <strong> Comment Sent!</strong> (not really, this is a demo)</p></div>
-
+              <div
+                id="commentSentAlert"
+                class="protip"
+                style="display:none"
+                role="alert">
+                <p>
+                  <strong> Comment Sent! </strong>
+                </p>
+              </div>
+              <div
+                id="commentTooLongAlert"
+                class="protip"
+                style="display:none"
+                role="alert">
+                <p>
+                  <strong> Comment is too long. </strong>
+                </p>
+              </div>
+              <div
+                id="commentSentDemoAlert"
+                class="protip"
+                style="display:none"
+                role="alert">
+                <p>
+                  <strong> Comment Sent!</strong> (not really, this is a demo)
+                </p>
+              </div>
             </td>
             <td style="text-align: right; vertical-align: top">
             </td>
           </tr>
         </table>
        </span> {{! end protips column}}
-       <span class="flex-grow-2"></span>
+       <span class="flex-grow-2">
+
+       </span>
+       <span id="commentCharCount" style='
+          color: gray;
+          position: relative;
+          top: -6px;
+          right: 5px;
+          ' class="
+          comment_form_control_hideable
+          ">{{! +200 }}</span>
        <button
           class="Btn Btn-primary"
           id="comment_button"

@@ -81,7 +81,7 @@ module.exports = Handlebones.ModelView.extend({
       this.showMessage("#commentTooLongAlert");
       this.buttonActive = false;
     } else if (remaining > 0) {
-      txt = "+ " + remaining;
+      txt = /*"+ " +*/ remaining;
       this.$("#commentCharCount").css("color", "gray");
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
