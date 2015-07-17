@@ -224,7 +224,21 @@ svg {
   align-items: flex-start;
 }
 
- .flex-grow-2 {
+.flex-row-reverse {
+  flex-direction: row-reverse;
+  -webkit-flex-direction: row-reverse;
+  -moz-flex-direction: row-reverse;
+  -ms-flex-direction: row-reverse;
+}
+
+.flex-grow-1 {
+  -webkit-flex-grow: 1;
+  -moz-flex-grow: 1;
+  -ms-flex-grow: 1;
+  flex-grow: 1;
+}
+
+.flex-grow-2 {
   -webkit-flex-grow: 2;
   -moz-flex-grow: 2;
   -ms-flex-grow: 2;
