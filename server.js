@@ -7995,7 +7995,7 @@ var twitterUserInfoCache = new SimpleCache({
 });
 
 
-function getTwitterUserInfo(twitter_user_id) {
+function getTwitterUserInfo(twitter_user_id, useCache) {
     var oauth = new OAuth.OAuth(
         'https://api.twitter.com/oauth/request_token', // null
         'https://api.twitter.com/oauth/access_token', // null
@@ -8007,7 +8007,7 @@ function getTwitterUserInfo(twitter_user_id) {
     );
     return new MPromise("getTwitterUserInfo", function(resolve, reject) {
         var cachedCopy = twitterUserInfoCache.get(twitter_user_id);
-        if (cachedCopy) {
+        if (useCache && cachedCopy) {
             return resolve(cachedCopy);
         }
         oauth.post(
@@ -8152,7 +8152,7 @@ function(req, res) {
 
         // TODO - if no auth, generate a new user.
 
-        getTwitterUserInfo(kv.user_id).then(function(u) {
+        getTwitterUserInfo(kv.user_id, false).then(function(u) {
             u = JSON.parse(u)[0];
             winston.log("info","TWITTER USER INFO");
             winston.log("info",u);
@@ -10803,7 +10803,7 @@ app.get("/twitter_image",
     moveToBody,
     need('id', getStringLimitLength(999), assignToP),
 function(req, res) {
-    getTwitterUserInfo(req.p.id).then(function(data) {
+    getTwitterUserInfo(req.p.id, true).then(function(data) {
         data = JSON.parse(data);
         if (!data || !data.length) {
             fail(res, 500, "polis_err_finding_twitter_user_info");
