@@ -7989,6 +7989,12 @@ function getTwitterAccessToken(body) {
     });
 }
 
+// TODO expire this stuff
+var twitterUserInfoCache = new SimpleCache({
+    maxSize: 1000,
+});
+
+
 function getTwitterUserInfo(twitter_user_id) {
     var oauth = new OAuth.OAuth(
         'https://api.twitter.com/oauth/request_token', // null
@@ -8000,6 +8006,10 @@ function getTwitterUserInfo(twitter_user_id) {
         'HMAC-SHA1'
     );
     return new MPromise("getTwitterUserInfo", function(resolve, reject) {
+        var cachedCopy = twitterUserInfoCache.get(twitter_user_id);
+        if (cachedCopy) {
+            return resolve(cachedCopy);
+        }
         oauth.post(
             'https://api.twitter.com/1.1/users/lookup.json',
             void 0, //'your user token for this app', //test user token
@@ -8016,6 +8026,7 @@ function getTwitterUserInfo(twitter_user_id) {
                     console.error(e);     
                     reject(e);
                 } else {
+                    twitterUserInfoCache.set(twitter_user_id, data);
                     resolve(data);
                 }
                 // winston.log("info",require('util').inspect(data));
