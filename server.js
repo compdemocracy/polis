@@ -1526,7 +1526,7 @@ function redirectIfNotHttps(req, res, next) {
 function redirectIfWrongDomain(req, res, next) {
   if(
     // /polis.io/.test(req.headers.host) ||
-     /polisapp.herokuapp.com/.test(req.headers.host) || // needed for heroku integrations (like slack?)
+     // /polisapp.herokuapp.com/.test(req.headers.host) || // needed for heroku integrations (like slack?)
      /www.pol.is/.test(req.headers.host)
      ) {
     res.writeHead(302, {
@@ -1697,6 +1697,8 @@ var whitelistedDomains = [
   "https://embed.pol.is",
   "http://survey.pol.is",
   "https://survey.pol.is",
+  "http://polisapp.herokuapp.com",
+  "https://polisapp.herokuapp.com",
   "http://localhost:8000",
   "https://canvas.instructure.com", // LTI
   "http://canvas.uw.edu", // LTI
