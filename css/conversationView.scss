@@ -127,18 +127,18 @@ body {
 }
 
 .groupButton {
-  background-color: rgba(0,0,0,0);
-  border-radius: 15px;
-  border: 1px solid #f7f7f7;
-  position: relative;
-  top: 4px;
-  margin-left: 7px;
-  padding-left: 10px;
-  padding-right: 10px;
+  border: none;
+  background-color: #f7f7f7;
+  border-bottom: 2px solid #f7f7f7;
 }
+
+.groupButton:hover {
+  border-bottom: 2px solid black;
+}
+
+
 .selectedGroupButton {
-  background-color: white;
-  border: 1px solid darkgrey;
+  border-bottom: 2px solid black;
 }
 
 .selectedGroupButton {outline:none !important; }
@@ -205,12 +205,34 @@ svg {
 
 
 .flexbox {
-  display: -webkit-box;      /* OLD - iOS 6-, Safari 3.1-6 */
-  display: -moz-box;         /* OLD - Firefox 19- (buggy but mostly works) */
-  display: -ms-flexbox;      /* TWEENER - IE 10 */
-  display: -webkit-flex;     /* NEW - Chrome */
-  display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
- }
+display: -webkit-box;      /* OLD - iOS 6-, Safari 3.1-6 */
+display: -moz-box;         /* OLD - Firefox 19- (buggy but mostly works) */
+display: -ms-flexbox;      /* TWEENER - IE 10 */
+display: -webkit-flex;     /* NEW - Chrome */
+display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
+}
+
+.justify-content-flex-end {
+  -webkit-justify-content: flex-end;
+  -moz-justify-content: flex-end;
+  -ms-justify-content: flex-end;
+  justify-content: flex-end;
+}
+
+.justify-content-space-around {
+  -webkit-justify-content: space-around;
+  -moz-justify-content: space-around;
+  -ms-justify-content: space-around;
+  justify-content: space-around;
+}
+
+.justify-content-space-between {
+  -webkit-justify-content: space-between;
+  -moz-justify-content: space-between;
+  -ms-justify-content: space-between;
+  justify-content: space-between;
+}
+
 .align-items-flex-end {
   -webkit-align-items: flex-end;
   -moz-align-items: flex-end;
@@ -222,6 +244,20 @@ svg {
   -moz-align-items: flex-start;
   -ms-align-items: flex-start;
   align-items: flex-start;
+}
+
+.align-items-center {
+  -webkit-align-items: center;
+  -moz-align-items: center;
+  -ms-align-items: center;
+  align-items: center;
+}
+
+.align-items-baseline {
+  -webkit-align-items: baseline;
+  -moz-align-items: baseline;
+  -ms-align-items: baseline;
+  align-items: baseline;
 }
 
 .flex-row-reverse {

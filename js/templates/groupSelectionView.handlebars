@@ -1,17 +1,18 @@
 <div
   class="
 	 flexbox
-	 align-items-flex-end"
+	 align-items-flex-end
+   justify-content-space-around
+   align-items-baseline"
 	style="
-    padding-top: 7px;
-    padding-bottom: 12px;
-    padding-left: 10px;
-    padding-right: 10px;
+    {{!-- height: 48px; --}}
+    margin-top: 10px;
+    margin-bottom: 10px;
     {{#unless visible}}
       display: none;
     {{/unless}}
     ">
-  <span style="">
+  <span style="font-weight: 700">
     Group:
   </span>
   {{#each groups2}}
@@ -27,8 +28,6 @@
     </button>
   {{/each}}
 
-  <div class="flex-grow-2">
-  </div>
 
   <button
     class="
@@ -38,6 +37,6 @@
         selectedGroupButton
       {{/if}}
       ">
-      info
+      Info
   </button>
 </div>

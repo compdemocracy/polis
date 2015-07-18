@@ -37,41 +37,52 @@
       </span>
     </div>
 
-   {{!-- ================ PROTIPS ================ --}}
+    {{!-- ================ FLEXBOX ================ --}}
     <div
       id="comment_form_controls"
-      style="display: none"
+      style="display: none; margin-top: 10px"
       class="
         flexbox
-        align-items-flex-end
+        align-items-baseline
+        justify-content-space-between
         comment_form_control_hideable
       ">
 
-      <span style="" class="flex-grow-1;"> {{! protips column }}
+      {{!-- ================ PROTIPS ================ --}}
+      <span style="margin-right: 20px" class=""> {{! protips column }}
         <div
           id="not_a_reply_message"
           class="protip"
           >
+          <p style="">
           <i
             class="fa fa-lightbulb-o"
             style="font-size: 24px;
             ">
           </i>
-          <span style="">
             <strong>
               pro tip:
             </strong>
             comments are sent to others randomly. You are not replying directly to anyone else.
-          </span>
+          </p>
         </div>
         <div
           id="one_idea_per_comment_message"
           class="protip"
           style="
             display: none;
-
             ">
-            Write one comment per idea.
+            <p style="">
+            <i
+              class="fa fa-asterisk"
+              style="font-size: 16px;
+              ">
+            </i>
+              <strong>
+
+              </strong>
+            Break up long comments that contain multiple ideas. This makes it easier for others to vote on your comment.
+            </p>
         </div>
         <div
           id="commentNotQuestionAlert"
@@ -81,6 +92,11 @@
             display:none;
             ">
             <p>
+            <i
+              class="fa fa-asterisk"
+              style="font-size: 16px;
+              ">
+            </i>
               Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.
             </p>
         </div>
@@ -93,7 +109,7 @@
             <strong> Comment Sent! </strong>
           </p>
         </div>
-        <div
+{{!--         <div
           id="commentTooLongAlert"
           class="protip"
           style="display:none"
@@ -101,7 +117,7 @@
           <p>
             <strong> Comment is too long. </strong>
           </p>
-        </div>
+        </div> --}}
         <div
           id="commentSentDemoAlert"
           class="protip"
@@ -116,20 +132,14 @@
    {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
       <span
         id="commentCharCount"
-        style="
-          color: gray;
-          position: relative;
-          top: -9px;"
-        class="
-          comment_form_control_hideable
-          flex-grow-2
-        ">
+        style="color: gray; min-width: 20px;"
+        class="comment_form_control_hideable">
       </span>
       <button
         class="
           Btn
           Btn-primary
-          flex-grow-2"
+          "
         id="comment_button"
         type="submit"
         style="
@@ -141,12 +151,15 @@
           background-color: #3498db;
           color: white;
           letter-spacing; 0.07em;
+          min-width: 110px;
+          height: 40px;
           margin-left: 5px;
-          padding-right:12px;
-          padding-left:10px;{{!-- margin-top: 10px --}}
           ">
         Submit
       </button>
-    </div> {{! end protips/button flexbox}}
+
+   {{!-- ================ END FLEXBOX ================ --}}
+    </div>
+
   </form>
 </div>
