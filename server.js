@@ -5409,6 +5409,12 @@ function getComments(o) {
                         "twitter_user_id",
                         "profile_image_url_https",
                     ]);
+                    if (!_.isUndefined(infoToReturn.fb_user_id)) {
+                        var width = 50;
+                        var height = 50;
+                        infoToReturn.fb_picture = "https://graph.facebook.com/v2.2/"+ infoToReturn.fb_user_id +"/picture?width="+width+"&height=" + height;
+                    }
+
                     uidToSocialInfo.set(info.uid, infoToReturn);
                 });
                 return comments.map(function(c) {
