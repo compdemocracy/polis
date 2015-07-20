@@ -780,7 +780,7 @@ function updateHulls() {
                         .attr("d", shape)
                         // .style("fill-opacity", 1)
                         // .style("fill", "white")
-                        .style("stroke", "lightgray")
+                        .style("stroke", "rgb(130,130,130)")
                         // .style("stroke-opacity", hullOpacity)
                         .style("stroke-width", 1)
                         .style("stroke-dasharray", "2px 4px")
@@ -1701,7 +1701,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       ;
 
 
-       var pinEnter = g.filter(isParticipantOfInterest)
+    var pinEnter = g.filter(isParticipantOfInterest)
         .append("line")
         .classed("pin", true)
         .attr("x1", 0)
@@ -1709,10 +1709,17 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("x2", 0)
         .attr("y2", pinLength)
         .attr("stroke-linecap", "round")
-        .attr("stroke", "lightgray")
+        .attr("stroke", "rgb(160,160,160)")
         .attr("stroke-width", function(d) {
-            return "2px";
+            return "1px";
         })
+        ;
+    var pinEnter = g.filter(isParticipantOfInterest)
+        .append("circle")
+        .attr("r", 2)
+        .attr("cx", 0)
+        .attr("cy", pinLength)
+        .attr("fill", "rgb(160,160,160)")
         ;
 
       if (Utils.projectComments) {
