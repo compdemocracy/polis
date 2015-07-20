@@ -90,7 +90,8 @@ window.addEventListener("message", function(event) {
   // NOTE: event could have any origin, since we're embedded, so be careful here
 
   if (event.data === "twitterConnected") { // this message is sent from twitterAuthReturn.html
-    location.reload();
+    // location.reload();
+    eb.trigger(eb.twitterConnected);
   }
 
 }, false);
@@ -320,6 +321,11 @@ window.deregister = function(dest) {
       window.location = dest || "/about";
       // Backbone.history.navigate("/", {trigger: true});
     });
+};
+
+
+window.twitterStatus = function(status) {
+  eb.trigger(eb.twitterStatus, status);
 };
 
 function isParticipationView() {

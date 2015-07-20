@@ -121,6 +121,8 @@ module.exports = Handlebones.ModelView.extend({
     "change #comment_form_textarea": "textChange",
     "keyup #comment_form_textarea": "textChange",
     "paste #comment_form_textarea": "textChange",
+    "click #facebookButtonCommentForm" : "facebookClicked",
+    "click #twitterButtonCommentForm" : "twitterClicked",
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();
@@ -145,14 +147,36 @@ module.exports = Handlebones.ModelView.extend({
       if (hasSocial) {
         doSubmitComment();
       } else {
-        PolisFacebookUtils.connect().then(function() {
-          // wait a bit for new cookies to be ready, or something, then submit comment.
-          setTimeout(doSubmitComment, 1000);
-        }, function(err) {
-          // alert("facebook error");
-        });
+        this.showSocialAuthChoices();
       }
     }
+  },
+  onAuthSuccess: function() {
+    $("#socialButtonsCommentForm").hide();
+    $("#comment_button").show();
+  },
+  facebookClicked: function(e) {
+    e.preventDefault();
+    var that = this;
+    PolisFacebookUtils.connect().then(function() {
+      // wait a bit for new cookies to be ready, or something, then submit comment.
+      // setTimeout(doSubmitComment, 1000);
+      that.onAuthSuccess();
+    }, function(err) {
+      // alert("facebook error");
+    });
+    return false;
+  },
+  twitterClicked: function(e) {
+    var that = this;
+    e.preventDefault();
+    alert("twitter clicked");
+    that.onAuthSuccess();
+    return false;
+  },
+  showSocialAuthChoices: function() {
+    $("#comment_button").hide();
+    $("#socialButtonsCommentForm").show();
   },
   participantCommented: function(attrs) {
     var that = this; //that = the view

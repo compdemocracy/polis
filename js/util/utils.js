@@ -217,7 +217,6 @@ module.exports = {
   projectComments: false,
   debugCommentProjection: false,
   projectRepfulTids: true,
-  getAnonPicUrl: getAnonPicUrl,
   hexToStr: hexToStr,
   strToHex: strToHex,
   decodeParams: decodeParams,
