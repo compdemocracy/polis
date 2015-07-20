@@ -1,5 +1,6 @@
 var autosize = require("autosize");
 var constants = require("../util/constants");
+var CurrentUserModel = require("../stores/currentUser");
 var View = require("handlebones").View;
 var template = require("../tmpl/comment-form");
 var CommentModel = require("../models/comment");

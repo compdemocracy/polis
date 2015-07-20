@@ -1,6 +1,7 @@
 var $ = require("jquery");
 var eb = require("./eventBus");
 var Backbone = require("backbone");
+var CurrentUserModel = require("./stores/currentUser");
 var IntercomModalHack = require("./util/intercomModalHack");
 var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
@@ -349,6 +350,10 @@ var uidPromise;
   uidPromise = $.get("/api/v3/users").then(function(user) {
     // set up global userObject
     window.userObject = $.extend(window.userObject, user);
+    
+    // migrating to a singleton model instead.
+    CurrentUserModel.set(window.userObject);
+
     window.intercomOptions = {
         app_id: 'nb5hla8s',
         widget: {
