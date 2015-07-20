@@ -45,10 +45,8 @@ module.exports = function(params) {
     var pcaPlaybackPath = "api/v3/math/pcaPlaybackByLastVoteTimestamp";
     var bidToPidPath = "api/v3/bidToPid";
     var bidPath = "api/v3/bid";
-    var selectionPath = "api/v3/selection";
 
     var conversationsPath = "api/v3/conversations";
-    var participantsPath = "api/v3/participants";
     var convSubPath = "api/v3/convSubscriptions";
 
     var particpantGeoLocationsPath = "api/v3/locations";
