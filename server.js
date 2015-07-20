@@ -3423,49 +3423,49 @@ function sendEmailByUid(uid, subject, body) {
 }
 
 
-// tags: ANON_RELATED
-app.get("/api/v3/participants",
-    moveToBody,
-    authOptional(assignToP),
-    want('pid', getInt, assignToP),
-    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
-    var pid = req.p.pid;
-    var uid = req.p.uid;
-    var zid = req.p.zid;
+// // tags: ANON_RELATED
+// app.get("/api/v3/participants",
+//     moveToBody,
+//     authOptional(assignToP),
+//     want('pid', getInt, assignToP),
+//     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+// function(req, res) {
+//     var pid = req.p.pid;
+//     var uid = req.p.uid;
+//     var zid = req.p.zid;
 
-    function fetchOne() {
-        pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
-            if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-            var ptpt = result.rows[0];
-            var data = {};
-            // choose which fields to expose
-            data.hname = ptpt.hname;
+//     function fetchOne() {
+//         pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
+//             if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+//             var ptpt = result.rows[0];
+//             var data = {};
+//             // choose which fields to expose
+//             data.hname = ptpt.hname;
 
-            res.status(200).json(data);
-        });
-    }
-    function fetchAll() {
-        // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
-        pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
-            if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-            res.json(result.rows);
-        });
-    }
-    pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
-        if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-        if (result.rows[0].is_anon) {
-            fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
-            return;
-        }
-        if (pid !== undefined) {
-            fetchOne();
-        } else {
-            fetchAll();
-        }
+//             res.status(200).json(data);
+//         });
+//     }
+//     function fetchAll() {
+//         // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
+//         pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
+//             if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+//             res.json(result.rows);
+//         });
+//     }
+//     pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
+//         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+//         if (result.rows[0].is_anon) {
+//             fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
+//             return;
+//         }
+//         if (pid !== undefined) {
+//             fetchOne();
+//         } else {
+//             fetchAll();
+//         }
 
-    });
-});
+//     });
+// });
 
 app.get("/api/v3/dummyButton",
     moveToBody,
@@ -6067,50 +6067,50 @@ function getCommentIdCounts(voteRecords) {
     return commentIdCounts;
 }
 
-// TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
-app.get("/api/v3/selection",
-    moveToBody,
-    want('users', getArrayOfInt, assignToP),
-    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
-        var zid = req.p.zid;
-        var users = req.p.users || [];
+// // TODO Since we know what is selected, we also know what is not selected. So server can compute the ratio of support for a comment inside and outside the selection, and if the ratio is higher inside, rank those higher.
+// app.get("/api/v3/selection",
+//     moveToBody,
+//     want('users', getArrayOfInt, assignToP),
+//     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+// function(req, res) {
+//         var zid = req.p.zid;
+//         var users = req.p.users || [];
         
-        getVotesForZidPids(zid, users, function(err, voteRecords) {
-            if (err) { fail(res, 500, "polis_err_get_selection", err); return; }
-            if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes", new Error("polis_err_get_selection_no_votes")); return; }
+//         getVotesForZidPids(zid, users, function(err, voteRecords) {
+//             if (err) { fail(res, 500, "polis_err_get_selection", err); return; }
+//             if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes", new Error("polis_err_get_selection_no_votes")); return; }
 
-            var commentIdCounts = getCommentIdCounts(voteRecords);
-            commentIdCounts = commentIdCounts.slice(0, 10);
-            var commentIdsOrdering = commentIdCounts.map(function(x) { return {tid: x[0]};});
-            var commentIds = commentIdCounts.map(function(x) { return x[0];});
+//             var commentIdCounts = getCommentIdCounts(voteRecords);
+//             commentIdCounts = commentIdCounts.slice(0, 10);
+//             var commentIdsOrdering = commentIdCounts.map(function(x) { return {tid: x[0]};});
+//             var commentIds = commentIdCounts.map(function(x) { return x[0];});
 
-            var queryForSelectedComments = sql_comments.select(sql_comments.star())
-                .where(sql_comments.zid.equals(zid))
-                .and(sql_comments.tid.in(commentIds));
-            pgQuery(queryForSelectedComments.toString(), function(err, results) {
-                if (err) { fail(res, 500, "polis_err_get_selection_comments", err); return; }
-                var comments = results.rows;
-                // map the results onto the commentIds list, which has the right ordering
-                comments = orderLike(comments, commentIdsOrdering, "tid"); // TODO fix and test the extra declaration of comments
-                for (var i = 0; i < comments.length; i++) {
-                    comments[i].freq = i;
-                }
+//             var queryForSelectedComments = sql_comments.select(sql_comments.star())
+//                 .where(sql_comments.zid.equals(zid))
+//                 .and(sql_comments.tid.in(commentIds));
+//             pgQuery(queryForSelectedComments.toString(), function(err, results) {
+//                 if (err) { fail(res, 500, "polis_err_get_selection_comments", err); return; }
+//                 var comments = results.rows;
+//                 // map the results onto the commentIds list, which has the right ordering
+//                 comments = orderLike(comments, commentIdsOrdering, "tid"); // TODO fix and test the extra declaration of comments
+//                 for (var i = 0; i < comments.length; i++) {
+//                     comments[i].freq = i;
+//                 }
 
-                comments.sort(function(a, b) {
-                    // desc sort primarily on frequency(ascending), then on recency
-                    if (b.freq > a.freq) {
-                        return -1;
-                    } else if (b.freq < a.freq) {
-                        return 1;
-                    } else {
-                        return b.created > a.created;
-                    }
-                });
-                finishArray(res, comments);
-            }); // end comments query
-        }); // end votes query
-    }); // end GET selection
+//                 comments.sort(function(a, b) {
+//                     // desc sort primarily on frequency(ascending), then on recency
+//                     if (b.freq > a.freq) {
+//                         return -1;
+//                     } else if (b.freq < a.freq) {
+//                         return 1;
+//                     } else {
+//                         return b.created > a.created;
+//                     }
+//                 });
+//                 finishArray(res, comments);
+//             }); // end comments query
+//         }); // end votes query
+//     }); // end GET selection
 
 app.get("/api/v3/votes",
     moveToBody,
