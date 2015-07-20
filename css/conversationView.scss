@@ -212,6 +212,14 @@ display: -webkit-flex;     /* NEW - Chrome */
 display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 }
 
+.flex-wrap {
+  -webkit-flex-wrap: wrap;
+  -moz-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+
 .justify-content-flex-end {
   -webkit-justify-content: flex-end;
   -moz-justify-content: flex-end;

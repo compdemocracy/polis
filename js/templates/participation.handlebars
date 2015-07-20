@@ -105,12 +105,61 @@
     {{/if}}
     {{!-- {{/ifNotEmbedded}} --}}
 
-    <button class="facebookButton userWillShareOnFacebook">
-      <i class="fa fa-facebook-square"></i>&nbsp; Share on Facebook -- sharecount
-    </button>
-    <button class="twitterButton userWillShareOnTwitter">
-      <i class="fa fa-twitter"></i>&nbsp; Share on Twitter -- sharecount
-    </button>
+    <p
+      class="
+        flexbox
+        justify-content-flex-start
+        flex-wrap
+      ">
+      <button class="facebookButton userWillShareOnFacebook">
+        <i class="fa fa-facebook-square"></i>&nbsp; Share on Facebook
+      </button>
+      <button class="twitterButton userWillShareOnTwitter">
+        <i class="fa fa-twitter"></i>&nbsp; Share on Twitter
+      </button>
+      {{!-- <span
+        style="
+          margin-top: 15px;
+          border: 0px;
+          color: white;
+          font-family: canada-type-gibson, Helvetica, sans-serif;
+          font-weight: 300;
+          padding: 8px 16px;
+          border-radius: 5px;
+          font-size: 22px;
+          cursor: pointer;
+          "
+        class="
+          userWillShareWithLink
+        ">
+        <i
+          style="color: #717171;"
+          class="fa fa-link">
+        </i>
+      </span>
+      <span
+        style="
+          margin-top: 15px;
+          border: 0px;
+          color: white;
+          font-family: canada-type-gibson, Helvetica, sans-serif;
+          font-weight: 300;
+          padding: 8px 16px;
+          border-radius: 5px;
+          font-size: 22px;
+          cursor: pointer;
+          "
+        class="
+          userWillShareWithEmbed
+        ">
+        <i
+          style="
+          color: #717171"
+          class="fa fa-code">
+        </i>
+      </span> --}}
+    </p>
+
 
     {{#ifDefined topic}}
       <h3
