@@ -38,6 +38,10 @@ module.exports = Handlebones.ModelView.extend({
     ctx.is_active = this.parent.model.get("is_active");
     ctx.shouldAutofocusOnTextarea = Utils.shouldFocusOnTextareaWhenWritePaneShown();
     ctx.picture = Utils.getAnonPicUrl();
+    ctx.hasTwitter = userObject.hasTwitter;
+    ctx.hasFacebook = userObject.hasFacebook;
+    ctx.pic = CurrentUserModel.get("twitter").profile_image_url_https;
+    // debugger;
     return ctx;
   },
   hideMessage: function(id) {
@@ -154,7 +158,7 @@ module.exports = Handlebones.ModelView.extend({
   },
   onAuthSuccess: function() {
     $("#socialButtonsCommentForm").hide();
-    $("#comment_button").show();
+    $("#comment_form_controls").show();
   },
   facebookClicked: function(e) {
     e.preventDefault();
@@ -166,17 +170,21 @@ module.exports = Handlebones.ModelView.extend({
     }, function(err) {
       // alert("facebook error");
     });
-    return false;
   },
   twitterClicked: function(e) {
     var that = this;
     e.preventDefault();
-    alert("twitter clicked");
-    that.onAuthSuccess();
-    return false;
+
+    eb.on(eb.twitterConnected, function() {
+      that.onAuthSuccess();
+    });
+    // open a new window where the twitter auth screen will show.
+    // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
+    var params = 'location=0,status=0,width=800,height=400';
+    window.open(document.location.origin + "/api/v3/twitterBtn?dest=/twitterAuthReturn", 'twitterWindow', params);
   },
   showSocialAuthChoices: function() {
-    $("#comment_button").hide();
+    $("#comment_form_controls").hide();
     $("#socialButtonsCommentForm").show();
   },
   participantCommented: function(attrs) {

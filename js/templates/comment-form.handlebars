@@ -36,6 +36,15 @@
           ></textarea>
       </span>
     </div>
+    
+    <div id="socialButtonsCommentForm" style="display: none">
+      {{#unless hasFacebook}}
+        <button id="facebookButtonCommentForm" class="facebookButton"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook-square"> </i></div> Connect Facebook</button>
+      {{/unless}}
+      {{#unless hasTwitter}}
+        <button id="twitterButtonCommentForm" class="twitterButton"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div>Connect Twitter</button>
+      {{/unless}}
+    </div>
 
     {{!-- ================ FLEXBOX ================ --}}
     <div
@@ -50,10 +59,6 @@
 
       {{!-- ================ PROTIPS ================ --}}
       <span style="margin-right: 20px" class=""> {{! protips column }}
-        <div id="socialButtonsCommentForm" style="display: none">
-          <button class="btn" id="facebookButtonCommentForm">connect facebook</button>
-          <button class="btn" id="twitterButtonCommentForm">connect twitter</button>
-        </div>
 
 
         <div
