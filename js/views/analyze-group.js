@@ -315,14 +315,14 @@ module.exports = Handlebones.ModelView.extend({
             "<div>" +
               (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
                 "<img " +
-                  "style='border-radius: 3px;'" +
+                  "style='border-radius: 3px; width: 40px; border: 1px solid lightgrey; margin-right: 15px; position: relative; top: -5px;'" +
                   "src='" + socialCtx.img + "'>" +
                 "</img>" +
                 "<span "+
                   "style='"+
                   "font-weight: bold;"+
                   "position: relative;" +
-                  "margin-left: 5px;" +
+                  // "margin-left:, 5px;" +
                   "top: -14px;" +
                   "'>" + socialCtx.name + "</span>" +
               (socialCtx.anon ? "": "</a>") +

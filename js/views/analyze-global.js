@@ -202,7 +202,7 @@ module.exports = Handlebones.View.extend({
   deselectComments: function() {
     eb.trigger(eb.commentSelected, false);
   },
-  
+
   renderWithCarousel: function() {
     var carouselPrevDisabled = true;
     var carouselNextDisabled = false;
@@ -232,64 +232,13 @@ module.exports = Handlebones.View.extend({
         return b.get("p-success") - a.get("p-success");
       });
 
-      // var agreeCount = 0;
-      // if (commentsAll.length <= 6) {
-      //   comments = commentsAll;
-      //   // TODO just because there aren't many comments doesn't mean we should show all of them as having 'consensus'
-      // } else {
-      //   for (var i = 0; i < 3; i++) {
-      //     comments.push(commentsAll[i]);
-      //   }
-      //   for (var i = 3; i >= 0; i--) {
-      //     comments.push(commentsAll[(commentsAll.length-1) - i]);
-      //   }
-      // }
-      // comments = _.indexBy(comments, "id"); // id is tid
-
-      // // remove tids that are not present in the comments list (for example, tids that were moderated out)
-      // // TODO exclude moderated-out comments from the repfull list
-      // var tids = _.filter(tids, function(tid) {
-      //   return !!comments[tid];
-      // });
-      
-      // // use ordering of tids, but fetch out the comments we want.
-      // var comments = _.map(tids, function(tid) {
-      //   return comments[tid];
-      // });
-
-      // // XXX HACK - should ideally be incorporated in the primary sort that we do before truncating the array.
-      // comments.sort(function(a, b) {
-
-      //     var vA = info.votes[a.get('tid')];
-      //     var vB = info.votes[b.get('tid')];
-      //     var percentA = (vA.gA_total / info.count * 100);
-      //     var percentB = (vB.gA_total / info.count * 100);
-      //     return percentB - percentA;
-      // });
-
       var indexToTid  = [];
 
       var items = _.map(comments, function(c) {
           var tid = c.get('tid');
           indexToTid.push(tid);
           var info = tidToConsensusInfo[tid];
-          // var header;
-          // // var v = info.votes[tid];
-          // // var percent = repfullForAgree ?
-          //   // "&#9650; " + ((v.gA_total / info.count * 100) >> 0) : // WARNING duplicated in analyze-comment.js
-          //   // "&#9660; " + ((v.gD_total / info.count * 100) >> 0); // WARNING duplicated in analyze-comment.js
-          // var leClass = "a";//repfullForAgree ?
-          //   // "a":
-          //   // "d";
-          // // var count = repfullForAgree ?
-          //   // v.gA_total :
-          //   // v.gD_total;
-          // // var word = repfullForAgree ?
-          //   // "<span class='HeadingE a'>agreed</span>" :
-          //   // "<span class='HeadingE d'>disagreed</span>";
-          var bodyColor = "#333"; //repfullForAgree ?
-          //   // "#20442F" :
-          //   // "rgb(68, 33, 33)";
+          var bodyColor = "#333";
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
 
           var forAgree = !!tidToConsensusInfo[tid].a;
@@ -297,8 +246,8 @@ module.exports = Handlebones.View.extend({
           var denominator = info["n-trials"];
 
           var percent = forAgree ?
-            "&#9650; " + ((info["n-success"] / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
-            "&#9660; " + ((info["n-success"] / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
+            "<i class='fa fa-check-circle-o'></i> " + ((info["n-success"] / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
+            "<i class='fa fa-ban'></i>  " + ((info["n-success"] / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
           var leClass = forAgree ?
             "a":
             "d";
@@ -309,34 +258,112 @@ module.exports = Handlebones.View.extend({
             "<span class='HeadingE d'>disagreed</span>";
           var wordUnstyled = forAgree ? "agreed" : "disagreed";
 
-          
           var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
-          // header =
-          //     "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
-          //     "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>";
 
           header =
-              "<span class='" + leClass + " HeadingE' style='margin-right:3px'>" + percent + "% " /*+
-              "<span class='small' style='color:darkgray;'> ("+ count+"/"+info.count +") of this group " */ + word + "</span>" +
-             "<div style='font-size:12px; color: gray;'><strong>" + info["n-trials"] +"</strong> <em> participants saw this comment. </em></div>" +
-             "<div style='font-size:12px; color: gray;'><strong>"+ count +"</strong> <em> of those participants "+wordUnstyled+"</em>.</div>";
-             // "<span>(of "+ v.S +"/"+ info.count +" members of this group who saw this comment)</span>";
+            "<span "+
+              "class='" + leClass + "'"+
+              "style='"+
+                "margin-right:3px;" +
+                "position: relative;"+
+                "left: 54px;"+
+                "top: -47px;"+
+                "font-size: 35px;"+
+                "font-weight: 100;"+
+                "'>" + percent + "% " + word +
+            "</span>" +
+            "<div style='"+
+              "font-size:12px;"+
+              "color: gray;"+
+              "position: relative;"+
+              "left: 54px;"+
+              "top: -47px;"+
+              "'>"+
+              "<strong>" + info["n-trials"] + "</strong>" +
+              "<em> participants saw this comment. </em>" +
+            "</div>" +
+            "<div style='"+
+              "font-size:12px;"+
+              "color: gray;"+
+              "position: relative;"+
+              "left: 54px;"+
+              "top: -47px;"+
+              "'>"+
+              "<strong>"+ count +"</strong>"+
+              "<em> of those participants "+wordUnstyled+"</em>."+
+            "</div>";
 
 
           var backgroundColor = "white"; //forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
           var dotColor = forAgree ? "#00b54d" : "#e74c3c";
-          var gradient = ""; //"background: linear-gradient(to bottom, "+backgroundColor+" 0%,#ffffff 200%);"; 
-
-          var html = 
-            "<div style='color:"+bodyColor+"; background-color: " + backgroundColor + "; cursor: -moz-grab; cursor: -webkit-grab; cursor: grab;' class=' query_result_item' data-idx='"+(indexToTid.length-1) +"'>" + 
+          var gradient = "";
+          var social = c.get("social");
+          var socialCtx = {
+            name: "Anonymous",
+            img: "https://pol.is/landerImages/anonProfileIcon64.png",
+            link: "",
+            anon: true,
+          };
+          if (social) {
+            var hasTwitter = social.screen_name;
+            var hasFacebook = social.fb_name;
+            if (hasFacebook) {
+              socialCtx = {
+                name: social.fb_name,
+                img: social.fb_picture,
+                link: social.fb_link,
+              };
+            }
+            if (hasTwitter) {
+              socialCtx = {
+                name: social.name,
+                img: social.twitter_profile_image_url_https,
+                link: "https://twitter.com/" + social.screen_name,
+              };
+            }
+          }
+          var socialHtml =
+            "<div>" +
+              (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
+                "<img " +
+                  "style='border-radius: 3px; width: 40px; border: 1px solid lightgrey; margin-right: 15px; position: relative; top: -5px;'" +
+                  "src='" + socialCtx.img + "'>" +
+                "</img>" +
+                "<span "+
+                  "style='"+
+                  "font-weight: bold;"+
+                  "position: relative;" +
+                  // "margin-left: 5px;" +
+                  "top: -14px;" +
+                  "'>" + socialCtx.name + "</span>" +
+              (socialCtx.anon ? "": "</a>") +
+              "<span style='"+
+                "position: relative;" +
+                "top: -14px;" +
+                "'> wrote: </span>"
+          "</div>";
+          var html =
+            "<div "+
+              "style="+
+                "'color:"+bodyColor+";"+
+                "background-color: " + backgroundColor + ";"+
+                "cursor: -moz-grab;"+
+                "cursor: -webkit-grab;"+
+                "cursor: grab;"+
+                "' "+
+              "class='query_result_item' "+
+              "data-idx='"+(indexToTid.length-1) +"'>" +
               "<p style='margin-bottom:0px'>" +
                 (Utils.debugCommentProjection ? c.get("tid") : "")+
-                header +
+                socialHtml +
               "</p>" +
-              "<p>" +
+              "<p " +
+                "style='margin-left: 54px; position: relative; top: -38px'" +
+                ">" +
                 c.get("txt") +
               "</p>" +
-              '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
+              header +
+              // '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>";
           return {
             html: html,
@@ -347,7 +374,8 @@ module.exports = Handlebones.View.extend({
         // let stack breathe
         setTimeout(function() {
           $(el_carouselSelector).html("");
-          // $(el_carouselSelector).css("overflow", "hidden");        
+          $(el_carouselSelector).css("position", "relative")
+          // $(el_carouselSelector).css("overflow", "hidden");
 
           // $(el_carouselSelector).append("<div id='smallWindow2' style='width:90%'></div>");
           $(el_carouselSelector).append("<div id='smallWindow2' style='left: 10%; width:80%'></div>");
@@ -378,22 +406,20 @@ module.exports = Handlebones.View.extend({
            // setTimeout(function() {
               $(el_carouselSelector).fadeIn("slow", function() {
 
-
-                var circles = $(el_carouselSelector).find(".owl-pagination").find(".owl-page > span");
-                var colors = _.pluck(items, "color");
-                for (var i = 0; i < circles.length; i++) {
-                  var c = circles[i];
-                  $(c).css("background", colors[i]);
-                }
+                /* ======== CIRCLES ======== */
+                // var circles = $(el_carouselSelector).find(".owl-pagination").find(".owl-page > span");
+                // var colors = _.pluck(items, "color");
+                // for (var i = 0; i < circles.length; i++) {
+                //   var c = circles[i];
+                //   $(c).css("background", colors[i]);
+                // }
 
                 if (!isMobile) {
-                  
+
                   $(el_carouselSelector).find("#majorityCarouselPrev").remove();
                   $(el_carouselSelector).find("#majorityCarouselNext").remove();
-                  $(el_carouselSelector).find(".owl-pagination").prepend('<button id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-left"></i></button>');
-                  $(el_carouselSelector).find(".owl-pagination").append( '<button id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="vertical-align: super; cursor: pointer; color: #0a77bf; "><i style="font-size: 16px" class="fa fa-arrow-right"></i></button>');
-
-                  // <div id="carouselNext">next</div>")
+                  $(el_carouselSelector).prepend('<span id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 25%; left:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
+                  $(el_carouselSelector).append( '<span id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 25%; right:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
 
                   $("#majorityCarouselPrev").css("opacity", .2);
 
@@ -417,7 +443,7 @@ module.exports = Handlebones.View.extend({
             // }, 100);
 
 
-              
+
             },
              afterMove: (function() {return function() {
                 var tid = indexToTid[this.currentItem];
@@ -466,7 +492,7 @@ module.exports = Handlebones.View.extend({
     var that = this;
     this.collection = options.collection;
     this.collection.comparator = comparatorAgree;
-    
+
     // if (!that.useCarousel()) {
     //   this.analyzeCollectionView = this.addChild(new this.CV({
     //     collection: this.collection,
@@ -490,7 +516,7 @@ module.exports = Handlebones.View.extend({
           that.sortEnabled = true;
           that.searchEnabled = true;
           that.tidsForGroup = null;
-          that.sortAgree();     
+          that.sortAgree();
           if (this.analyzeCollectionView) {
             that.analyzeCollectionView.updateModelFilter();
           }
