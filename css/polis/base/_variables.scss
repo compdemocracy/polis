@@ -61,14 +61,21 @@ $default-leading: 1.5;
 // weight options: thin: 100; light: 300; regular: 400; medium: 500; bold: 700; black: 900
 // "brandon-grotesque", "Brandon Grotesque",
 
-$headline-font: "canada-type-gibson", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
-$sans-font: "canada-type-gibson", "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+ // "canada-type-gibson",
+ // "canada-type-gibson",
+
+$headline-font: "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+$sans-font: "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
 //  alternate sans-serif (?): "Droid Sans", sans-serif;
 // "chaparral-pro", "Chaparral Pro",
 // "chaparral-pro-display",
 
-$serif-font: "canada-type-gibson", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
-$serif-headline-font:  "Chaparral Pro", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
+$serif-font: "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+$serif-headline-font: "Futura", "Gill Sans", "Helvetica Neue", Helvetica, sans-serif;
+
+
+// $serif-font: "canada-type-gibson", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
+// $serif-headline-font:  "Chaparral Pro", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
 
 // ----------------------------------------------------------------------------
 // LAYOUT
