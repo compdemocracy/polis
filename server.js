@@ -8845,6 +8845,7 @@ app.get("/api/v3/votes/famous",
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
+    want('ptptoiLimit', getIntInRange(0,99), assignToP),
 function(req, res) {
     var uid = req.p.uid;
     var zid = req.p.zid;
@@ -8854,7 +8855,7 @@ function(req, res) {
 
     var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
     var softLimit = 26;
-    var hardLimit = 30;
+    var hardLimit = _.isUndefined(req.p.ptptoiLimit) ? 30 : req.p.ptptoiLimit;
     var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
     var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
