@@ -40,7 +40,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.picture = Utils.getAnonPicUrl();
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFacebook = userObject.hasFacebook;
-    ctx.pic = CurrentUserModel.get("twitter").profile_image_url_https;
+    // ctx.pic = CurrentUserModel.get("twitter").profile_image_url_https;
     // debugger;
     return ctx;
   },
