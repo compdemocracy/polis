@@ -1,4 +1,5 @@
 var CommentsCollection = require("../collections/comments");
+var display = require("../util/display");
 var eb = require("../eventBus");
 var MetadataQuestionsCollection = require("../collections/metadataQuestions");
 var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
@@ -87,11 +88,15 @@ module.exports = PolisModelView.extend({
       processData: true
     });
 
+    var getPtptoiLimit = function() {
+      return display.xs() ? 12 : void 0;
+    };
 
     var serverClient = that.serverClient = new ServerClient({
       conversation_id: conversation_id,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
+      getPtptoiLimit: getPtptoiLimit,
       pid: pid,
       votesByMe: this.votesByMe,
       //commentsStore: PolisStorage.comments,

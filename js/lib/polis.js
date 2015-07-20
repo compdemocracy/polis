@@ -127,6 +127,8 @@ module.exports = function(params) {
 
     var shouldPoll = true;
 
+    var getPtptoiLimit = params.getPtptoiLimit;
+
     function demoMode() {
         return getPid() < 0;
     }
@@ -1855,10 +1857,14 @@ function clientSideBaseCluster(things, N) {
 
 
     function getFamousVotes() {
-        return polisGet(votesFamousPath, {
+        var o = {
             conversation_id: conversation_id,
             lastVoteTimestamp: lastServerTokenForPCA
-        }).then(function(x) {
+        };
+        if (getPtptoiLimit()) {
+            o.ptptoiLimit = getPtptoiLimit();
+        }
+        return polisGet(votesFamousPath, o).then(function(x) {
             x = x || {};
             // assign fake bids for these projected participants
             for (var pid in x) {
