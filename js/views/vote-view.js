@@ -35,6 +35,34 @@ module.exports = Handlebones.ModelView.extend({
     if (ctx.created) {
       ctx.createdString = (new Date(ctx.created * 1)).toString().match(/(.*?) [0-9]+:/)[1];
     }
+
+    var social = ctx.social;
+    var socialCtx = {
+      name: "Anonymous",
+      img: "https://pol.is/landerImages/anonProfileIcon64.png",
+      link: "",
+      anon: true,
+    };
+    if (social) {
+      var hasTwitter = social.screen_name;
+      var hasFacebook = social.fb_name;
+      if (hasFacebook) {
+        socialCtx = {
+          name: social.fb_name,
+          img: social.fb_picture,
+          link: social.fb_link,
+        };
+      }
+      if (hasTwitter) {
+        socialCtx = {
+          name: social.name,
+          img: social.profile_image_url_https,
+          link: "https://twitter.com/" + social.screen_name,
+        };
+      }
+    }
+    ctx.social = socialCtx;
+
     return ctx;
   },
   animateOut: function() {
