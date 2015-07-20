@@ -5410,8 +5410,8 @@ function getComments(o) {
                         "profile_image_url_https",
                     ]);
                     if (!_.isUndefined(infoToReturn.fb_user_id)) {
-                        var width = 50;
-                        var height = 50;
+                        var width = 40;
+                        var height = 40;
                         infoToReturn.fb_picture = "https://graph.facebook.com/v2.2/"+ infoToReturn.fb_user_id +"/picture?width="+width+"&height=" + height;
                     }
 
@@ -5559,8 +5559,8 @@ function(req, res) {
             }
             var hasFacebook = c.social && c.social.fb_user_id;
             if (hasFacebook) {
-                var width = 50;
-                var height = 50;
+                var width = 40;
+                var height = 40;
                 c.social.fb_picture = "https://graph.facebook.com/v2.2/"+ c.social.fb_user_id +"/picture?width="+width+"&height=" + height;
             }
             return c;
