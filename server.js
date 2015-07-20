@@ -6310,7 +6310,7 @@ app.get("/api/v3/nextComment",
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    need('not_voted_by_pid', getInt, assignToP),
+    need('not_voted_by_pid', getInt, assignToP), // TODO_SECURITY should ensure this pid is self
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
 function(req, res) {
