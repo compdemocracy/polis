@@ -665,7 +665,7 @@ module.exports = function(params) {
             proj: self.proj,
             count: 1,
             bid: selfDotBid,
-            pic: "https://pol.is/landerImages/anonProfileIcon64.png",
+            pic: Utils.getAnonPicUrl(),
             picture_size: -1
         });
         return bucket;
@@ -1877,7 +1877,7 @@ function clientSideBaseCluster(things, N) {
                 ptpt.fakeBid = bucketId;
 
                 // default anon picture, may be overwritten
-                ptpt.picture = "https://pol.is/landerImages/anonProfileIcon64.png";
+                ptpt.picture = Utils.getAnonPicUrl();
 
                 if (ptpt.twitter) {
                     ptpt.picture = ptpt.twitter.profile_image_url_https;

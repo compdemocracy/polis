@@ -39,7 +39,7 @@ module.exports = Handlebones.ModelView.extend({
     var social = ctx.social;
     var socialCtx = {
       name: "Anonymous",
-      img: "https://pol.is/landerImages/anonProfileIcon64.png",
+      img: Utils.getAnonPicUrl(),
       link: "",
       anon: true,
     };

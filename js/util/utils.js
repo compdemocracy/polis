@@ -201,6 +201,9 @@ module.exports = {
   isEnterpriseUser: function() {
     return PolisStorage.planCode() === 1000;
   },
+  getAnonPicUrl: function() {
+    return "https://pol.is/landerImages/anonProfileIcon64.png";
+  },
   getGroupNameForGid: function(gid) {
     if (gid < 0) {
       return gid;
@@ -214,6 +217,7 @@ module.exports = {
   projectComments: false,
   debugCommentProjection: false,
   projectRepfulTids: true,
+  getAnonPicUrl: getAnonPicUrl,
   hexToStr: hexToStr,
   strToHex: strToHex,
   decodeParams: decodeParams,

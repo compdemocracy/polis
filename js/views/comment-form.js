@@ -36,7 +36,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx = _.extend(ctx, this, this.model&&this.model.attributes);
     ctx.is_active = this.parent.model.get("is_active");
     ctx.shouldAutofocusOnTextarea = Utils.shouldFocusOnTextareaWhenWritePaneShown();
-    ctx.picture = "https://pol.is/landerImages/anonProfileIcon64.png";
+    ctx.picture = Utils.getAnonPicUrl();
     return ctx;
   },
   hideMessage: function(id) {
