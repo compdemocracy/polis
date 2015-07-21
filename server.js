@@ -6890,7 +6890,7 @@ function(req, res){
 
                      // send notification email
                     if (req.p.send_created_email) {
-                        Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req, req.p.zid)]).then(function(results) {
+                        Promise.all([getUserInfoForUid2(req.p.uid), getConversationUrl(req, req.p.zid, true)]).then(function(results) {
                             var hname = results[0].hname;
                             var url = results[1];
                             sendEmailByUid(
@@ -9124,8 +9124,8 @@ function buildSeedUrl(req, zinvite) {
     return buildModerationUrl(req, zinvite) + "/seed";
 }
 
-function getConversationUrl(req, zid) {
-    return getZinvite(zid).then(function(zinvite) {
+function getConversationUrl(req, zid, dontUseCache) {
+    return getZinvite(zid, dontUseCache).then(function(zinvite) {
         return buildConversationUrl(req, zinvite);
     });
 }
