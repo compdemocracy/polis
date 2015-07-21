@@ -54,6 +54,7 @@ var badwords = require('badwords/object'),
     postmark = require("postmark")(process.env.POSTMARK_API_KEY),
     querystring = require('querystring'),
     devMode = "localhost" === process.env.STATIC_FILES_HOST,
+    replaceStream = require('replacestream'),
     request = require('request-promise'), // includes Request, but adds promise methods
     SimpleCache = require("simple-lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
@@ -2723,10 +2724,10 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
 var zidToConversationIdCache = new SimpleCache({
     maxSize: 1000,
 });
-function getZinvite(zid) {
+function getZinvite(zid, dontUseCache) {
     return new MPromise("getZinvite", function(resolve, reject) {
         var cachedConversationId = zidToConversationIdCache.get(zid);
-        if (cachedConversationId) {
+        if (!dontUseCache && cachedConversationId) {
             resolve(cachedConversationId);
             return;
         }
@@ -10636,7 +10637,7 @@ function makeRedirectorTo(path) {
 }
 
 // TODO cache!
-function makeFileFetcher(hostname, port, path, contentType) {
+function makeFileFetcher(hostname, port, path, contentType, preloadData) {
     return function(req, res) {
         var hostname = buildStaticHostname(req, res);
         if (!hostname) {
@@ -10659,6 +10660,9 @@ function makeFileFetcher(hostname, port, path, contentType) {
         winston.log("info","fetch file from " + url);
         var x = request(url);
         req.pipe(x);
+        if (!_.isUndefined(preloadData)) {
+            x = x.pipe(replaceStream("\"REPLACE_THIS\"", preloadData))
+        }
         x.pipe(res);
         x.on("error", function(err) {
             fail(res, 500, "polis_err_finding_file " + path, err);
@@ -10698,7 +10702,8 @@ var port = process.env.STATIC_FILES_PORT;
 var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", "text/html");
 
 function fetchIndex(req, res) {
-    var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html");
+    var preloadData; // WIP, leave undefined for now
+    var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html", preloadData);
     if (isUnsupportedBrowser(req)){
         
         return fetchUnsupportedBrowserPage(req, res);
