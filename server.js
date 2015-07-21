@@ -5002,11 +5002,18 @@ function(req, res) {
 
         var hasFacebook = fbInfo && fbInfo.length && fbInfo[0];
         var hasTwitter = twInfo && twInfo.length && twInfo[0];
+        if (hasFacebook) {
+            var width = 40;
+            var height = 40;
+            fbInfo.fb_picture = "https://graph.facebook.com/v2.2/"+ fbInfo.fb_user_id +"/picture?width="+width+"&height=" + height;
+        }
         res.json({
             uid: uid,
             email: info.email,
             hname: info.hname,
             hasFacebook: !!hasFacebook,
+            facebook: fbInfo && fbInfo[0],
+            twitter: twInfo && twInfo[0],
             hasTwitter: !!hasTwitter,
             finishedTutorial: !!info.tut,
             site_ids: [info.site_id],
