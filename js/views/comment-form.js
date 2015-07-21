@@ -165,6 +165,7 @@ module.exports = Handlebones.ModelView.extend({
       // wait a bit for new cookies to be ready, or something, then submit comment.
       // setTimeout(doSubmitComment, 1000);
       that.onAuthSuccess();
+      CurrentUserModel.update();
     }, function(err) {
       // alert("facebook error");
     });
