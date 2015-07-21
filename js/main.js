@@ -347,12 +347,7 @@ var uidPromise;
 // if (PolisStorage.uidFromCookie()) {
 //   uidPromise = $.Deferred().resolve(PolisStorage.uidFromCookie());
 // } else {
-  uidPromise = $.get("/api/v3/users").then(function(user) {
-    // set up global userObject
-    window.userObject = $.extend(window.userObject, user);
-    
-    // migrating to a singleton model instead.
-    CurrentUserModel.set(window.userObject);
+uidPromise = CurrentUserModel.update().then(function(user) {
 
     window.intercomOptions = {
         app_id: 'nb5hla8s',

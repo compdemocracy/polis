@@ -8,6 +8,7 @@ var CommentView = require("../views/commentView");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var PolisFacebookUtils = require('../util/facebookButton');
+var ProfilePicView = require('../views/profilePicView');
 var serialize = require("../util/serialize");
 var Utils = require("../util/utils");
 
@@ -37,11 +38,8 @@ module.exports = Handlebones.ModelView.extend({
     ctx = _.extend(ctx, this, this.model&&this.model.attributes);
     ctx.is_active = this.parent.model.get("is_active");
     ctx.shouldAutofocusOnTextarea = Utils.shouldFocusOnTextareaWhenWritePaneShown();
-    ctx.picture = Utils.getAnonPicUrl();
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFacebook = userObject.hasFacebook;
-    // ctx.pic = CurrentUserModel.get("twitter").profile_image_url_https;
-    // debugger;
     return ctx;
   },
   hideMessage: function(id) {
@@ -177,6 +175,7 @@ module.exports = Handlebones.ModelView.extend({
 
     eb.on(eb.twitterConnected, function() {
       that.onAuthSuccess();
+      CurrentUserModel.update();
     });
     // open a new window where the twitter auth screen will show.
     // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
@@ -267,6 +266,10 @@ module.exports = Handlebones.ModelView.extend({
     this.collection = options.collection;
     this.commentsByMeView = this.addChild(new CommentsByMeView({
       collection: options.collection
+    }));
+
+    this.profilePicView = this.addChild(new ProfilePicView({
+      model: CurrentUserModel,
     }));
 
     this.listenTo(this, "render", function(){
