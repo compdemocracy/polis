@@ -163,9 +163,10 @@ module.exports = Handlebones.ModelView.extend({
     var that = this;
     PolisFacebookUtils.connect().then(function() {
       // wait a bit for new cookies to be ready, or something, then submit comment.
-      // setTimeout(doSubmitComment, 1000);
-      that.onAuthSuccess();
-      CurrentUserModel.update();
+      setTimeout(function() {
+        that.onAuthSuccess();
+        CurrentUserModel.update();
+      }, 100);
     }, function(err) {
       // alert("facebook error");
     });
@@ -175,8 +176,11 @@ module.exports = Handlebones.ModelView.extend({
     e.preventDefault();
 
     eb.on(eb.twitterConnected, function() {
-      that.onAuthSuccess();
-      CurrentUserModel.update();
+      // wait a bit for new cookies to be ready, or something, then submit comment.
+      setTimeout(function() {
+        that.onAuthSuccess();
+        CurrentUserModel.update();
+      }, 100);
     });
     // open a new window where the twitter auth screen will show.
     // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
