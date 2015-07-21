@@ -118,7 +118,7 @@ module.exports = Handlebones.ModelView.extend({
       }
     }
     function showComment(model) {
-      that.model.unset("starred");
+      that.model.clear({silent: true});
       that.model.set(_.extend({
         empty: false
       }, model));
@@ -178,7 +178,7 @@ module.exports = Handlebones.ModelView.extend({
       this.$(".btn-vote").blur();
     }
     function showClosedConversationNotice() {
-      that.model.unset("starred");
+      that.model.clear({silent: true});
       that.model.set({
         empty: true,
         txt1: "This conversation is closed.",
@@ -207,7 +207,7 @@ module.exports = Handlebones.ModelView.extend({
       }
 
       // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
-      that.model.unset("starred");
+      that.model.clear({silent: true});
       that.model.set({
         empty: true,
         txt1: message1,
