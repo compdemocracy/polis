@@ -239,6 +239,7 @@ module.exports =  ConversationView.extend({
     $("body").addClass("darkPanel");
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
+    this.wipCommentFormText = options.wipCommentFormText;
 
     $.when(options.firstCommentPromise).then(function(c) {
       that.doInit(options, c);
@@ -746,7 +747,8 @@ module.exports =  ConversationView.extend({
         model: new Backbone.Model({}),
         conversationModel: this.model,
         collection: this.commentsByMe,
-        conversation_id: conversation_id
+        conversation_id: conversation_id,
+        wipCommentFormText: this.wipCommentFormText,
       }));
 
       this.resultsView = this.addChild(new ResultsView({

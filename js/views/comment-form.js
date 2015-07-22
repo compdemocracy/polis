@@ -276,9 +276,12 @@ module.exports = Handlebones.ModelView.extend({
     this.profilePicView = this.addChild(new ProfilePicView({
       model: CurrentUserModel,
     }));
-
+    
     this.listenTo(this, "render", function(){
       setTimeout(function() {
+        if (!_.isUndefined(options.wipCommentFormText)) {
+          $("#comment_form_textarea").val(options.wipCommentFormText);
+        }
         autosize($("#comment_form_textarea"));
       },100);
     });
