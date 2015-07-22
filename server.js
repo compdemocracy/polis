@@ -10661,8 +10661,21 @@ function makeFileFetcher(hostname, port, path, contentType, preloadData) {
         var x = request(url);
         req.pipe(x);
         if (!_.isUndefined(preloadData)) {
-            x = x.pipe(replaceStream("\"REPLACE_THIS\"", preloadData))
+            x = x.pipe(replaceStream("\"REPLACE_THIS_WITH_PRELOAD_DATA\"", JSON.stringify(preloadData)));
         }
+        // var title = "foo";
+        // var description = "bar";
+        // var site_name = "baz";
+        x = x.pipe(replaceStream("<!-- REPLACE_THIS_WITH_FB_META_TAGS -->",
+            "<meta property=\"og:image\" content=\"https://s3.amazonaws.com/pol.is/polis_logo.png\" />\n" +
+            // "    <meta property=\"og:title\" content=\"" + title + "\" />\n" +
+            // "    <meta property=\"og:description\" content=\"" + description + "\" />\n" +
+            // "    <meta property=\"og:site_name\" content=\"" + site_name + "\" />\n" +
+            ""
+            ));
+        res.set({
+            'Content-Type': contentType,
+        });
         x.pipe(res);
         x.on("error", function(err) {
             fail(res, 500, "polis_err_finding_file " + path, err);
@@ -10702,7 +10715,7 @@ var port = process.env.STATIC_FILES_PORT;
 var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", "text/html");
 
 function fetchIndex(req, res) {
-    var preloadData; // WIP, leave undefined for now
+    var preloadData = {"alksdjfkadjs": 1234}; // WIP, leave undefined for now
     var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html", preloadData);
     if (isUnsupportedBrowser(req)){
         
