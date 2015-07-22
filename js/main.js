@@ -86,6 +86,17 @@ if (isEmbedded()) {
   }, 200);
 }
 
+eb.on(eb.reloadWithMoreParams, function(params) {
+  var existingParams = encodedParams ? Utils.decodeParams(encodedParams) : {};
+  var combinedParams = _.extend({}, existingParams, params);
+  var ep = Utils.encodeParams(combinedParams);
+  if (!combinedParams || 0 === _.keys(combinedParams).length) {
+    ep = "";
+  }
+  var path = document.location.pathname.match(/^((?!ep1_).)*/)[0];
+  document.location = document.location.protocol + "//" + document.location.host + path + "/" + ep;
+});
+
 window.addEventListener("message", function(event) {
   
   // NOTE: event could have any origin, since we're embedded, so be careful here

@@ -91,6 +91,12 @@ function decodeParams(encodedStringifiedJson) {
     return o;
 }
 
+function encodeParams(o) {
+    var stringifiedJson = JSON.stringify(o);
+    var encoded = "ep1_" + strToHex(stringifiedJson);
+    return encoded;
+}
+
 function isInIframe() {
   return window.top != window;
 }
@@ -220,6 +226,7 @@ module.exports = {
   hexToStr: hexToStr,
   strToHex: strToHex,
   decodeParams: decodeParams,
+  encodeParams: encodeParams,
   numberOfDaysInTrial: numberOfDaysInTrial,
   trialDaysRemaining: trialDaysRemaining,
   cookiesEnabled: are_cookies_enabled

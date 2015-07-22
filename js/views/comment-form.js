@@ -37,7 +37,7 @@ module.exports = Handlebones.ModelView.extend({
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx = _.extend(ctx, this, this.model&&this.model.attributes);
     ctx.is_active = this.parent.model.get("is_active");
-    ctx.shouldAutofocusOnTextarea = Utils.shouldFocusOnTextareaWhenWritePaneShown();
+    ctx.shouldAutofocusOnTextarea = this.shouldAutofocusOnTextarea || Utils.shouldFocusOnTextareaWhenWritePaneShown();
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFacebook = userObject.hasFacebook;
     return ctx;
@@ -111,6 +111,14 @@ module.exports = Handlebones.ModelView.extend({
     this.$(".comment_form_control_hideable").hide();
     this.$("#commentCharCount").text("");
   },
+  reloadPagePreservingCommentText: function() {
+    var wipCommentFormText = $("#comment_form_textarea").val();
+    var params = {};
+    if (wipCommentFormText.length) {
+      params.wipCommentFormText = wipCommentFormText;
+    }
+    eb.trigger(eb.reloadWithMoreParams, params);
+  },
   events: {
     "focus #comment_form_textarea": function(e) { // maybe on keyup ?
       this.showFormControls();
@@ -155,8 +163,9 @@ module.exports = Handlebones.ModelView.extend({
     }
   },
   onAuthSuccess: function() {
-    $("#socialButtonsCommentForm").hide();
-    $("#comment_form_controls").show();
+    this.reloadPagePreservingCommentText();
+    // $("#socialButtonsCommentForm").hide();
+    // $("#comment_form_controls").show();
   },
   facebookClicked: function(e) {
     e.preventDefault();
@@ -165,7 +174,7 @@ module.exports = Handlebones.ModelView.extend({
       // wait a bit for new cookies to be ready, or something, then submit comment.
       setTimeout(function() {
         that.onAuthSuccess();
-        CurrentUserModel.update();
+        // CurrentUserModel.update();
       }, 100);
     }, function(err) {
       // alert("facebook error");
@@ -179,7 +188,7 @@ module.exports = Handlebones.ModelView.extend({
       // wait a bit for new cookies to be ready, or something, then submit comment.
       setTimeout(function() {
         that.onAuthSuccess();
-        CurrentUserModel.update();
+        // CurrentUserModel.update();
       }, 100);
     });
     // open a new window where the twitter auth screen will show.
@@ -277,6 +286,10 @@ module.exports = Handlebones.ModelView.extend({
       model: CurrentUserModel,
     }));
     
+    if (options.wipCommentFormText) {
+      this.shouldAutofocusOnTextarea = true;
+    }
+
     this.listenTo(this, "render", function(){
       setTimeout(function() {
         if (!_.isUndefined(options.wipCommentFormText)) {
