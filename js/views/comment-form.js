@@ -141,14 +141,12 @@ module.exports = Handlebones.ModelView.extend({
       function doSubmitComment() {
         if (that.buttonActive) {
           that.buttonActive = false;
-          console.log("BUTTON ACTIVE FALSE");
           serialize(that, function(attrs){
             that.participantCommented(attrs).then(function() {
               that.$("#comment_form_textarea").val("");
               that.hideFormControls();
             }).always(function() {
               that.buttonActive = true;
-              console.log("BUTTON ACTIVE TRUE");
             });
           });
         }
