@@ -54,65 +54,62 @@
       <span style="margin-right: 20px" class=""> {{! protips column }}
 
 
-        <div
+        <p
           id="not_a_reply_message"
-          class="protip"
+          class="protip align-items-baseline"
           >
-          <p style="">
-          <i
-            class="fa fa-lightbulb-o"
-            style="font-size: 24px;
-            ">
-          </i>
-            <strong>
+          <span{{!--  style="white-space: nowrap;" --}}>
+            <i
+              class="fa fa-lightbulb-o"
+              style="font-size: 24px;
+              ">
+            </i>
+            <strong style="margin-left: 5px">
               pro tip:
             </strong>
-            comments are sent to others randomly. You are not replying directly to anyone else.
-          </p>
-        </div>
-        <div
+          </span>
+            <span style="margin-left: 5px">
+              comments are sent to others randomly. You are not replying directly to anyone.
+            </span>
+        </p>
+        <p
           id="one_idea_per_comment_message"
-          class="protip"
+          class="protip flexbox  align-items-baseline"
           style="
             display: none;
             ">
-            <p style="">
             <i
               class="fa fa-asterisk"
               style="font-size: 16px;
               ">
             </i>
-              <strong>
-
-              </strong>
-            Break up long comments that contain multiple ideas. This makes it easier for others to vote on your comment.
-            </p>
-        </div>
-        <div
+            <span style="margin-left: 12px">
+              Break up long comments that contain multiple ideas. This makes it easier for others to vote on your comment.
+            </span>
+        </p>
+        <p
           id="commentNotQuestionAlert"
-          class="protip"
+          class="protip flexbox align-items-baseline"
           role="alert"
           style="
             display:none;
             ">
-            <p>
             <i
               class="fa fa-asterisk"
               style="font-size: 16px;
               ">
             </i>
-              Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.
-            </p>
-        </div>
-        <div
+              <span style="margin-left: 12px">
+                Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.
+              </span>
+        </p>
+        <p
           id="commentSentAlert"
           class="protip"
           style="display:none"
           role="alert">
-          <p>
             <strong> Comment Sent! </strong>
-          </p>
-        </div>
+        </p>
 {{!--         <div
           id="commentTooLongAlert"
           class="protip"
