@@ -86,6 +86,27 @@ if (isEmbedded()) {
   }, 200);
 }
 
+
+function stripParams(paramsToStrip) {
+  var params = Utils.decodeParams(encodedParams);
+  var remainingParams = _.omit(params, paramsToStrip);
+  var newEncodedParams = Utils.encodeParams(remainingParams);
+  // don't redirect there, just change the current url in case of subsequent reload
+  var path = document.location.pathname.match(/^((?!ep1_).)*/)[0];
+  if (newEncodedParams) {
+    newEncodedParams = "/" + newEncodedParams;
+  }
+  window.history.pushState("", "", path + newEncodedParams);
+  // clobber the variable so we don't accidentally use it again
+  encodedParams = newEncodedParams;
+}
+
+
+// remove wipCommentFormText after we've loaded it into the view.
+eb.on(eb.doneUsingWipCommentFormText, function() {
+  stripParams(["wipCommentFormText"]);
+});
+
 eb.on(eb.reloadWithMoreParams, function(params) {
   var existingParams = encodedParams ? Utils.decodeParams(encodedParams) : {};
   var combinedParams = _.extend({}, existingParams, params);

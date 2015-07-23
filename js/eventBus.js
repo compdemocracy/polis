@@ -11,6 +11,7 @@ bus.votableShown = "votableShown";
 bus.clusterClicked = "clusterClicked";
 bus.clusterSelectionChanged = "clusterSelectionChanged";
 bus.commentSelected = "commentSelected";
+bus.doneUsingWipCommentFormText = "doneUsingWipCommentFormText";
 bus.participantCount = "participantCount";
 bus.voteCount = "voteCount";
 bus.commentCount = "commentCount";

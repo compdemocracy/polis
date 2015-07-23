@@ -92,9 +92,12 @@ function decodeParams(encodedStringifiedJson) {
 }
 
 function encodeParams(o) {
-    var stringifiedJson = JSON.stringify(o);
-    var encoded = "ep1_" + strToHex(stringifiedJson);
-    return encoded;
+  if (!o || !_.keys(o).length) {
+    return "";
+  }
+  var stringifiedJson = JSON.stringify(o);
+  var encoded = "ep1_" + strToHex(stringifiedJson);
+  return encoded;
 }
 
 function isInIframe() {

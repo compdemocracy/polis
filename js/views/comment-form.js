@@ -292,6 +292,7 @@ module.exports = Handlebones.ModelView.extend({
       setTimeout(function() {
         if (!_.isUndefined(options.wipCommentFormText)) {
           $("#comment_form_textarea").val(options.wipCommentFormText);
+          eb.trigger(eb.doneUsingWipCommentFormText);
         }
         autosize($("#comment_form_textarea"));
       },100);
