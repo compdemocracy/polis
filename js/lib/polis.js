@@ -1181,6 +1181,10 @@ function clientSideBaseCluster(things, N) {
 
 
     function fetchPca(path, timestamp) {
+        if (Utils.isHidden() && firstPcaCallPromise.state() === "resolved") {
+            // Don't poll when the document isn't visible. (and we've already fetched the pca)
+            return $.Deferred().reject();
+        }
         return polisGet(path, {
             lastVoteTimestamp: timestamp,
             conversation_id: conversation_id,

@@ -101,6 +101,34 @@ function isInIframe() {
   return window.top != window;
 }
 
+// http://www.html5rocks.com/en/tutorials/pagevisibility/intro/
+function getHiddenProp(){
+    var prefixes = ['webkit','moz','ms','o'];
+    
+    // if 'hidden' is natively supported just return it
+    if ('hidden' in document) {
+      return 'hidden';
+    }
+    
+    // otherwise loop over all the known prefixes until we find one
+    for (var i = 0; i < prefixes.length; i++){
+      if ((prefixes[i] + 'Hidden') in document) {
+        return prefixes[i] + 'Hidden';
+      }
+    }
+
+    // otherwise it's not supported
+    return null;
+}
+function isHidden() {
+    var prop = getHiddenProp();
+    if (!prop) {
+      return false;
+    }
+    
+    return document[prop];
+}
+
 function shouldFocusOnTextareaWhenWritePaneShown() {
   // Not when we're embedded in an iframe.
   //  it ends up stealing focus and causing the parent to scroll to our iframe.
@@ -219,6 +247,7 @@ module.exports = {
     return gid + 1;
   },
   isInIframe: isInIframe,
+  isHidden: isHidden,
   shouldFocusOnTextareaWhenWritePaneShown: shouldFocusOnTextareaWhenWritePaneShown,
   projectComments: false,
   debugCommentProjection: false,

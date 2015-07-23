@@ -110,7 +110,7 @@ module.exports = Handlebones.ModelView.extend({
     var waitingForComments = true;
     var commentPollInterval = 5 * 1000;
     function pollForComments(optionalPromiseForPreExisingNextCommentCall) {
-      if (waitingForComments) {
+      if (waitingForComments && !Utils.isHidden()) {
           getNextAndShow(optionalPromiseForPreExisingNextCommentCall);
       } else {
         // try to try again later
