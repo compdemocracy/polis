@@ -10666,13 +10666,15 @@ function makeFileFetcher(hostname, port, path, contentType, preloadData) {
         // var title = "foo";
         // var description = "bar";
         // var site_name = "baz";
-        x = x.pipe(replaceStream("<!-- REPLACE_THIS_WITH_FB_META_TAGS -->",
-            "<meta property=\"og:image\" content=\"https://s3.amazonaws.com/pol.is/polis_logo.png\" />\n" +
-            // "    <meta property=\"og:title\" content=\"" + title + "\" />\n" +
-            // "    <meta property=\"og:description\" content=\"" + description + "\" />\n" +
-            // "    <meta property=\"og:site_name\" content=\"" + site_name + "\" />\n" +
-            ""
-            ));
+
+        var fbMetaTagsString = "<meta property=\"og:image\" content=\"https://s3.amazonaws.com/pol.is/polis_logo.png\" />\n";
+        if (preloadData && preloadData.conversation) {
+            fbMetaTagsString += "    <meta property=\"og:title\" content=\"" + preloadData.conversation.topic + "\" />\n";
+            fbMetaTagsString += "    <meta property=\"og:description\" content=\"" + preloadData.conversation.description + "\" />\n";
+            // fbMetaTagsString += "    <meta property=\"og:site_name\" content=\"" + site_name + "\" />\n";
+        }
+        x = x.pipe(replaceStream("<!-- REPLACE_THIS_WITH_FB_META_TAGS -->", fbMetaTagsString));
+
         res.set({
             'Content-Type': contentType,
         });
@@ -10714,8 +10716,7 @@ var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
 var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", "text/html");
 
-function fetchIndex(req, res) {
-    var preloadData = {"alksdjfkadjs": 1234}; // WIP, leave undefined for now
+function fetchIndex(req, res, preloadData) {
     var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html", preloadData);
     if (isUnsupportedBrowser(req)){
         
@@ -10737,13 +10738,43 @@ function fetchIndex(req, res) {
     }
 }
 
+function fetchIndexForConversation(req, res) {
+    console.log("fetchIndexForConversation", req.path);
+    var match = req.path.match(/[0-9][0-9A-Za-z]+/);
+    var conversation_id;
+    if (match && match.length) {
+        conversation_id = match[0];
+    }
+    getZidFromConversationId(conversation_id).then(function(zid) {
+        return getConversationInfo(zid);
+    }).then(function(conv) {
+        conv = _.pick(conv, [
+            "topic",
+            "description",
+            "created",
+            "link_url",
+            "parent_url",
+            "vis_type",
+        ]);
+        conv.conversation_id = conversation_id;
+        return conv;
+    }).then(function(x) {
+        var preloadData = {
+            conversation: x,
+        };
+        fetchIndex(req, res, preloadData);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_fetching_conversation_info2", err);
+    });
+}
 
-app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // conversation view
-app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // power view
-app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // share view
-app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // summary view
-app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // moderation view
-app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndex); // conversation view, one-time url
+
+app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
+app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
+app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // share view
+app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // summary view
+app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // moderation view
+app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create(\/.*)?/, fetchIndex);
 app.get(/^\/user\/create(\/.*)?$/, fetchIndex);
@@ -10798,7 +10829,7 @@ app.get(/^\/s$/, fetchIndex);
 app.get(/^\/hk\/new/, fetchIndex);
 app.get(/^\/inboxApiTest/, fetchIndex);
 app.get(/^\/pwresetinit$/, fetchIndex);
-app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndex);
+app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
 app.get(/^\/pwreset.*/, fetchIndex);
 app.get(/^\/prototype.*/, fetchIndex);
 app.get(/^\/plan.*/, fetchIndex);
