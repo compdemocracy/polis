@@ -1834,6 +1834,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("stroke-width", function(d) {
             if (d.isSummaryBucket) {
                 return 0;
+            } else if (isSelf(d)) {
+                return 3;
             } else {
                 return haloWidth;
             }
