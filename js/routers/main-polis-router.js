@@ -1102,8 +1102,14 @@ var polisRouter = Backbone.Router.extend({
     return dfd.promise();
   },
   getConversationModel: function(conversation_id, suzinvite) {
+    var model;
+    if (window.preloadData && window.preloadData.conversation && !suzinvite) {
+      model = new ConversationModel(preloadData);
+      return Promise.resolve(model);
+    }
+    // no preloadData copy of the conversation model, so make an ajax request for it.
     return $.get("/api/v3/conversations?conversation_id=" + conversation_id).then(function(conv) {
-      var model = new ConversationModel(conv);
+      model = new ConversationModel(conv);
       if (suzinvite) {
         model.set("suzinvite", suzinvite);
       }
