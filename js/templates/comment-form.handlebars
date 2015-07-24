@@ -28,14 +28,20 @@
           ></textarea>
       </span>
     </div>
-    
-    <div id="socialButtonsCommentForm" style="display: none">
-      <div class="protip">Log in with Facebook or Twitter to post a comment. We will not post to your timeline.</div>
+
+    {{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
+    <div
+      id="socialButtonsCommentForm"
+      style="
+        display: none;
+        margin-top: 10px;
+        ">
+      <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; Connect an identity to comment. We will not post to your timeline.</p></div>
       {{#unless hasFacebook}}
-        <button id="facebookButtonCommentForm" class="facebookButton"><div style="display: inline-block; width: 20px"><i class="fa fa-facebook-square"> </i></div> Connect Facebook</button>
+        <button id="facebookButtonCommentForm" class="facebookButton"><i class="fa fa-facebook-square"></i>&nbsp; Connect Facebook</button>
       {{/unless}}
       {{#unless hasTwitter}}
-        <button id="twitterButtonCommentForm" class="twitterButton"><div style="display: inline-block; width: 20px"><i class="fa fa-twitter"></i></div>Connect Twitter</button>
+        <button id="twitterButtonCommentForm" class="twitterButton"><i class="fa fa-twitter"></i>&nbsp; Connect Twitter</button>
       {{/unless}}
     </div>
 
@@ -52,7 +58,6 @@
 
       {{!-- ================ PROTIPS ================ --}}
       <span style="margin-right: 20px" class=""> {{! protips column }}
-
 
         <p
           id="not_a_reply_message"
@@ -82,7 +87,7 @@
               class="fa fa-asterisk"
               style="font-size: 16px;
               ">
-            </i>
+            </i>&nbsp;
             <span style="margin-left: 12px">
               Break up long comments that contain multiple ideas. This makes it easier for others to vote on your comment.
             </span>
@@ -98,7 +103,7 @@
               class="fa fa-asterisk"
               style="font-size: 16px;
               ">
-            </i>
+            </i>&nbsp;
               <span style="margin-left: 12px">
                 Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.
               </span>
@@ -108,7 +113,12 @@
           class="protip"
           style="display:none"
           role="alert">
-            <strong> Comment Sent! </strong>
+            <strong>
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              Comment Sent!
+              </strong>
         </p>
 {{!--         <div
           id="commentTooLongAlert"

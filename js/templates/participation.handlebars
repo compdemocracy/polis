@@ -67,19 +67,28 @@
 
     {{#if is_owner}}
     <div style="padding: 10px 0px 20px 0px">
-      <a href="share{{url_name}}" class="Btn Btn-alt" >
+      <a
+        href="share{{url_name}}"
+        class="Btn Btn-alt"
+        style="margin-right: 20px
+        ">
         <i class="fa fa-link">
         </i>
         &nbsp;SHARE
       </a>
-      <a href="{{url_moderate}}" class="Btn Btn-alt" >
+      <a
+        href="{{url_moderate}}"
+        class="Btn Btn-alt"
+        style="margin-right: 20px
+        ">
         ADMIN
       </a>
       {{#if is_active}}
         <a
           id="closeConversationButton"
           class="Btn Btn-alt"
-          style="cursor:pointer"
+          style="cursor:pointer; margin-right: 20px; text-decoration: none;"
+
           >
           CLOSE
         </a>
@@ -87,7 +96,7 @@
         <a
           id="reopenConversationButton"
           class="Btn Btn-alt"
-          style="cursor:pointer"
+          style="cursor:pointer; margin-right: 20px"
           >
           REOPEN
           </a>
@@ -96,6 +105,7 @@
         <a
           href="{{url_force_vis}}"
           class="Btn Btn-alt"
+          style="margin-right: 20px"
           >
           SEE VIS
           </a>
