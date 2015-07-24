@@ -201,6 +201,7 @@ module.exports = Handlebones.ModelView.extend({
   showSocialAuthChoices: function() {
     $("#comment_form_controls").hide();
     $("#socialButtonsCommentForm").show();
+    $("#socialButtonsUnderReadReact").hide();
   },
   participantCommented: function(attrs) {
     var that = this; //that = the view

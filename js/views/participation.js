@@ -248,11 +248,11 @@ module.exports =  ConversationView.extend({
   updateVisibilityOfSocialButtons: function() {
     var okToShow = true;
     okToShow &= this.socialButtonsAllowedToShow;
-    okToShow &= this.conversationTabs.onVoteTab();
+    // okToShow &= this.conversationTabs.onVoteTab();
     if (okToShow) {
-      $("#socialButtons").fadeIn(1000);
+      $("#socialButtonsUnderReadReact").fadeIn(1000);
     } else {
-      $("#socialButtons").hide();
+      $("#socialButtonsUnderReadReact").hide();
     }
   },
   doInit: function(options, firstComment) {
