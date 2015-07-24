@@ -26,6 +26,18 @@
           placeholder="Share your perspective..."
           {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
           ></textarea>
+        <p
+          id="commentSentAlert"
+          class="protip"
+          style="display:none"
+          role="alert">
+            <strong>
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              Comment Sent!
+              </strong>
+        </p>
       </span>
     </div>
 
@@ -107,18 +119,6 @@
               <span style="margin-left: 12px">
                 Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.
               </span>
-        </p>
-        <p
-          id="commentSentAlert"
-          class="protip"
-          style="display:none"
-          role="alert">
-            <strong>
-              <i
-                class="fa fa-bullhorn">
-              </i>
-              Comment Sent!
-              </strong>
         </p>
 {{!--         <div
           id="commentTooLongAlert"

@@ -229,7 +229,13 @@ module.exports = Handlebones.ModelView.extend({
       promise.then(function() {
         that.trigger("commentSubmitted"); // view.trigger
         that.updateCollection();
-        that.showMessage("#commentSentAlert");
+        $("#comment_form_textarea").hide();
+        $("#commentSentAlert").fadeIn(300);
+        setTimeout(function() {
+          $("#commentSentAlert").fadeOut(500, function() {
+            $("#comment_form_textarea").fadeIn(400);
+          });
+        }, 1500);
       }, function(args) {
         if (!args || !args.length || !args[0].length) {
           alert("failed to send");
