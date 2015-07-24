@@ -115,6 +115,9 @@ eb.on(eb.reloadWithMoreParams, function(params) {
     ep = "";
   }
   var path = document.location.pathname.match(/^((?!ep1_).)*/)[0];
+  if (path[path.length - 1] === "/") {
+    path = path.slice(0, path.length - 1);
+  }
   document.location = document.location.protocol + "//" + document.location.host + path + "/" + ep;
 });
 
