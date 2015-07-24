@@ -71,7 +71,11 @@ module.exports = Handlebones.ModelView.extend({
     }
   },
   textChange: function() {
-    var formText = $(arguments[0].target).val();
+    var form =  $(arguments[0].target);
+    var formText = form.val();
+    // remove any newlines
+    formText = formText.replace(/\n/g, "");
+    form.val(formText);
     var len = formText.length;
     var remaining = CHARACTER_LIMIT - len;
     var txt;
