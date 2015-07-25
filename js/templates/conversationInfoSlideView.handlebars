@@ -10,63 +10,24 @@
   <p> <strong> What do I do? </strong> Vote on comments written by other participants by clicking 'agree' and 'disagree'. Write comments of your own (keep them to a single idea each). Invite your friends to see how they compare to you and others!</p>
 
   {{!-- ========== SOCIAL BUTTONS ========== --}}
+  <div style="margin: 10px 0px">
+    <button class="facebookShareButton userWillShareOnFacebook">
+      <i class="fa fa-facebook-square"></i>
+      &nbsp;Share
+    </button>
+    <span class="arrow_box">
+      1k {{share_count}}
+    </span>
 
-    <p
-      class="
-        flexbox
-        justify-content-flex-start
-        flex-wrap
-      ">
-      <button class="facebookButton userWillShareOnFacebook">
-        <i class="fa fa-facebook-square"></i>&nbsp; Share on Facebook
-      </button>
-      <button class="twitterButton userWillShareOnTwitter">
-        <i class="fa fa-twitter"></i>&nbsp; Share on Twitter
-      </button>
+    <button class="twitterShareButton userWillShareOnTwitter">
+      <i class="fa fa-twitter"></i>
+      &nbsp;Tweet
+    </button>
+    <span class="arrow_box">
+      3k {{tweet_count}}
+    </span>
+  </div>
 
-
-{{!--       <span
-        style="
-          margin-top: 15px;
-          border: 0px;
-          color: white;
-          font-family: canada-type-gibson, Helvetica, sans-serif;
-          font-weight: 300;
-          padding: 8px 16px;
-          border-radius: 5px;
-          font-size: 22px;
-          cursor: pointer;
-          "
-        class="
-          userWillShareWithLink
-        ">
-        <i
-          style="color: #717171;"
-          class="fa fa-link">
-        </i>
-      </span>
-      <span
-        style="
-          margin-top: 15px;
-          border: 0px;
-          color: white;
-          font-family: canada-type-gibson, Helvetica, sans-serif;
-          font-weight: 300;
-          padding: 8px 16px;
-          border-radius: 5px;
-          font-size: 22px;
-          cursor: pointer;
-          "
-        class="
-          userWillShareWithEmbed
-        ">
-        <i
-          style="
-          color: #717171"
-          class="fa fa-code">
-        </i>
-      </span> --}}
-    </p>
 </div>
 
 

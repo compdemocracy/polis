@@ -603,19 +603,79 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
     border-bottom: 1px solid $hover-color;
   }
 
-  // .analyze-group-banner-1 {
-  //   width:100%;
-  //   background-color: #eee;
-  //   // text-align: center;
-  //   text-transform: uppercase;
-  //   padding: 10px;
-  //   font-size: 18px;
-  //   font-family: $headline-font;
-  //   color: $light-gray;
-  //   font-weight: normal;
-  //   letter-spacing: 0.04em;
-  // }
+  .twitterShareButton {
+      border: 0px;
+      color: white;
+      font-family: $sans-font;
+      font-weight: 500;
+      padding: 2px 6px;
+      border-radius: 2px;
+      background-color: #55ACEE;
+      font-size: 12px;
+      position: relative;
+  }
 
+  .twitterShareButton i {
+    font-size: 16px;
+    position: relative;
+    top: 2px;
+    color: white;
+  }
+
+  .facebookShareButton {
+    border: 0px;
+    color: white;
+    font-family: $sans-font;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background-color: #3b5998;
+    font-size: 12px;
+    position: relative;
+
+  }
+
+  .facebookShareButton i {
+    font-size: 16px;
+    position: relative;
+    top: 2px
+  }
+
+.arrow_box {
+  position: relative;
+  top: 1px;
+  background: #ffffff;
+  border: 1px solid #000000;
+  display: inline;
+  margin: 0px 10px 0px 3px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.arrow_box:after, .arrow_box:before {
+  right: 100%;
+  top: 50%;
+  border: solid transparent;
+  content: " ";
+  height: 0;
+  width: 0;
+  position: absolute;
+  pointer-events: none;
+}
+
+.arrow_box:after {
+  border-color: rgba(255, 255, 255, 0);
+  border-right-color: #ffffff;
+  border-width: 4px;
+  margin-top: -4px;
+}
+.arrow_box:before {
+  border-color: rgba(0, 0, 0, 0);
+  border-right-color: #000000;
+  border-width: 5px;
+  margin-top: -5px;
+}
 
 /* mobile */
 @media (max-width: 767px) {
