@@ -191,6 +191,9 @@ module.exports =  ConversationView.extend({
     var params = 'location=0,status=0,width=800,height=400';
     window.open(document.location.origin + "/api/v3/twitterBtn?dest=/twitterAuthReturn", 'twitterWindow', params);
 
+    eb.on(eb.twitterConnected, function() {
+      eb.trigger(eb.reload);
+    })
 
     // var dest = window.location.pathname + window.location.hash;
     // window.location = "/api/v3/twitterBtn?dest=" + dest;

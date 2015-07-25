@@ -107,6 +107,11 @@ eb.on(eb.doneUsingWipCommentFormText, function() {
   stripParams(["wipCommentFormText"]);
 });
 
+
+eb.on(eb.reload, function(params) {
+  location.reload();
+});
+
 eb.on(eb.reloadWithMoreParams, function(params) {
   var existingParams = encodedParams ? Utils.decodeParams(encodedParams) : {};
   var combinedParams = _.extend({}, existingParams, params);
