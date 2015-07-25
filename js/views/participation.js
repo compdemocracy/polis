@@ -267,7 +267,7 @@ module.exports =  ConversationView.extend({
     // This is a wart. ServerClient should be initialized much earlier, probably as a singleton, and it should be responsible for fetching the first comment.
     serverClient.setNextCachedComment(options.firstCommentPromise);
 
-    eb.on(eb.interacted, function() {
+    eb.on(eb.vote, function() {
       that.socialButtonsAllowedToShow = true;
       that.updateVisibilityOfSocialButtons();
     });
