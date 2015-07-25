@@ -186,13 +186,11 @@
 {{view readReactView}}
 
 {{#unless hasFbAndTw}}
-<div id="socialButtonsUnderReadReact" style="margin-top: 20px;
-            border: 1px dashed rgb(184, 184, 184);
-            border-radius: 11px;
-            padding: 10px;
-            display: none; {{! waiting to be shown }}
-      ">
-  <div style="width: 80%;"><em>Connect to see friends and followers in the visualization, and to be seen by others.</em></div>
+<div id="socialButtonsUnderReadReact" style="
+  margin-bottom: 10px;
+  display: none; {{! waiting to be shown }}
+">
+  <p style="width: 80%;">Connect to see friends and followers in the visualization, and to be seen by others.</p>
   <div>
     {{#unless hasFacebook}}
       <button class="facebookButton" style="font-size: 14px;">
