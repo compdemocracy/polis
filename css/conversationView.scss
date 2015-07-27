@@ -281,6 +281,13 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   -ms-flex-direction: row-reverse;
 }
 
+.flex-direction-column {
+  flex-direction: column;
+  -webkit-flex-direction: column;
+  -moz-flex-direction: column;
+  -ms-flex-direction: column;
+}
+
 .flex-grow-1 {
   -webkit-flex-grow: 1;
   -moz-flex-grow: 1;

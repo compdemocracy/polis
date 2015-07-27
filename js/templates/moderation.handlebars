@@ -27,8 +27,6 @@
     nav-tabs
     tab-conv"
   style="
-    {{!-- margin-bottom: 30px; --}}
-    {{!-- margin-top: 30px; --}}
     border-bottom: 0px
   ">
   {{!-- ========= STATS TAB ========== --}}
@@ -37,7 +35,7 @@
       href="#admin_stats"
       class="HeadingC polis-tab"
       style="
-        padding: 10px 5px !important;
+        padding: 10px 0px !important;
         border: none;
         text-transform: none;"
       data-toggle="tab"
@@ -48,12 +46,12 @@
 
 
   {{!-- ========= COMMENTS TAB ========== --}}
-  <li class="active">
+  <li style="margin-right: 10px;" class="active">
     <a
       href="#comments"
       class="HeadingC polis-tab"
       style="
-        padding: 10px 5px !important;
+        padding: 10px 0px !important;
         border: none;
         text-transform: none;"
       data-toggle="tab"
@@ -64,23 +62,23 @@
   </li>
 
   {{!-- ========= PEOPLE TAB ========== --}}
-  <li>
+  <li style="margin-right: 10px;">
     <a
       href="#ptpts"
       class="HeadingC polis-tab"
-      style="padding: 10px 5px !important; border: none;  text-transform: none;"
+      style="padding: 10px 0px !important; border: none;  text-transform: none;"
       data-toggle="tab">
       People
     </a>
   </li>
 
   {{!-- ========= CONFIG TAB ========== --}}
-  <li>
+  <li style="margin-right: 10px;">
     <a
       href="#config"
       class="HeadingC polis-tab"
       style="
-        padding: 10px 5px !important;
+        padding: 10px 0px !important;
         border: none;
         text-transform: none;"
       data-toggle="tab">
@@ -110,7 +108,8 @@
             class="HeadingC polis-tab"
             style="
               border: none;
-              text-transform: none;
+              text-transform: uppercase;
+              font-size: 12px;
             "
             data-toggle="tab">
             Todo
@@ -123,7 +122,8 @@
             class="HeadingC polis-tab"
             style="
               border: none;
-              text-transform: none;
+              text-transform: uppercase;
+              font-size: 12px;
             "
             data-toggle="tab">
             Accepted
@@ -136,7 +136,8 @@
             class="HeadingC polis-tab"
             style="
               border: none;
-              text-transform: none;
+              text-transform: uppercase;
+              font-size: 12px;
             "
             data-toggle="tab">
             Rejected
@@ -144,8 +145,17 @@
           </a>
         </li>
         <li>
-          <a href="#seed" id="seedTab" class="HeadingC polis-tab" style="border: none;  text-transform: none;" data-toggle="tab">
-          Add Comments
+          <a
+            href="#seed"
+            id="seedTab"
+            class="HeadingC polis-tab"
+            style="
+              border: none;
+              text-transform: uppercase;
+              font-size: 12px;
+            "
+            data-toggle="tab">
+            Seed Comments
           </a>
         </li>
       </ul>{{! end comments sub tabs}}
@@ -153,31 +163,13 @@
       {{!-- ========= COMMENT CONTENT ========== --}}
       <div class="tab-pane active" id="todo">
         {{#if strict_moderation}}
-          <div
-            class="alert-danger"
-            style="
-            display: block;
-            padding: 5px;
-            margin-bottom: 5px;
-            margin-top: 5px;
-            border: 1px solid transparent;
-            border-radius: 4px;
-            ">
-              Strict moderation is on. These comments <strong>can not</strong> yet be seen by particpants.
-            </div>
+          <p>
+              Strict moderation is <strong>on</strong>. These comments <strong>can not</strong> yet be seen by particpants.
+            </p>
         {{else}}
-          <div
-            class="alert-info"
-            style="
-            display: block;
-            padding: 5px;
-            margin-bottom: 5px;
-            margin-top: 5px;
-            border: 1px solid transparent;
-            border-radius: 4px;
-            ">
-            Strict moderation is off. These comments <strong>can</strong> be seen by particpants.
-          </div>
+          <p>
+            Strict moderation is <strong>off</strong>. These comments <strong>can</strong> be seen by particpants.
+          </p>
         {{/if}}
         {{view moderateCommentsTodoCollectionView}}
       </div>
@@ -211,19 +203,43 @@
           border-bottom: 0px
         ">
         <li class="active">
-          <a href="#ptpts_todo" class="HeadingC polis-tab" style="border: none;  text-transform: none;" data-toggle="tab">
+          <a
+            href="#ptpts_todo"
+            class="HeadingC polis-tab"
+            style="
+              border: none;
+              font-size: 12px;
+              text-transform: uppercase;
+            "
+            data-toggle="tab">
             Default
             <span class="badge"> {{view todoPtptoiCountView}} </span>
           </a>
         </li>
         <li>
-          <a href="#ptpts_accepted" class="HeadingC polis-tab" style="border: none;  text-transform: none;" data-toggle="tab">
+          <a
+            href="#ptpts_accepted"
+            class="HeadingC polis-tab"
+            style="
+              border: none;
+              font-size: 12px;
+              text-transform: uppercase;
+            "
+            data-toggle="tab">
             Featured
             <span class="badge"> {{view acceptedPtptoiCountView}} </span>
           </a>
         </li>
         <li>
-          <a href="#ptpts_rejected" class="HeadingC polis-tab" style="border: none;  text-transform: none;" data-toggle="tab">
+          <a
+            href="#ptpts_rejected"
+            class="HeadingC polis-tab"
+            style="
+              border: none;
+              font-size: 12px;
+              text-transform: uppercase;
+            "
+            data-toggle="tab">
             Hidden
             <span class="badge"> {{view rejectedPtptoiCountView}} </span>
           </a>
@@ -233,7 +249,7 @@
 
       {{!-- ========= PARTICIPANT CONTENT ========== --}}
       <div class="tab-pane active" id="ptpts_todo">
-        <p>We automatically decide who to show in the visualization. The visualization will differ per user based on whether they have Facebook friends participating. Here’s how we prioritize who gets shown:</p>
+        <p>We automatically decide who to show in the visualization, but you can override that here. The visualization will differ per user based on whether they have Facebook friends participating. Here’s how we prioritize who gets shown:</p>
         <ol>
           <li>Facebook friends</li>
           <li>Participants with verified Twitter accounts</li>
