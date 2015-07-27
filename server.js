@@ -8751,6 +8751,20 @@ function getTwitterShareCountForConversation(conversation_id) {
     });
 }
 
+var fbShareCountCache = SimpleCacheWithTTL(1000 * 60 * 30); // 30 minutes
+function getFacebookShareCountForConversation(conversation_id) {
+    var cached = fbShareCountCache.get(conversation_id);
+    if (cached) {
+        return Promise.resolve(cached);
+    }
+    var url = "http://graph.facebook.com/\?id\=https://pol.is/" + conversation_id;
+    return request.get(url).then(function(result) {
+        var shares = JSON.parse(result).shares;
+        fbShareCountCache.set(conversation_id, shares);
+        return shares;
+    });
+}
+ 
 
 
 
@@ -10762,14 +10776,31 @@ function fetchIndexForConversation(req, res) {
     if (match && match.length) {
         conversation_id = match[0];
     }
+
+    var optionalItems = Promise.settle([
+        getTwitterShareCountForConversation(conversation_id),
+        getFacebookShareCountForConversation(conversation_id),
+    ]).then(function(a) {
+        var twitterShareCount = a[0];
+        var fbShareCount = a[1];
+        var o = {};
+        if (twitterShareCount.isFulfilled()) {
+            o.twitterShareCount = twitterShareCount.value();
+        }
+        if (fbShareCount.isFulfilled()) {
+            o.fbShareCount = fbShareCount.value();
+        }
+        return o;
+    });
+
     getZidFromConversationId(conversation_id).then(function(zid) {
         return Promise.all([
             getConversationInfo(zid),
-            getTwitterShareCountForConversation(conversation_id),
+            optionalItems,
         ]);
     }).then(function(a) {
         var conv = a[0];
-        var twitterShareCount = a[1];
+        var optionalResults = a[1];
         conv = _.pick(conv, [
             "topic",
             "description",
@@ -10779,7 +10810,7 @@ function fetchIndexForConversation(req, res) {
             "vis_type",
         ]);
         conv.conversation_id = conversation_id;
-        conv.twitterShareCount = twitterShareCount;
+        conv = _.extend({}, optionalItems, conv);
         return conv;
     }).then(function(x) {
         var preloadData = {
