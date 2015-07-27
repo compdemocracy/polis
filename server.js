@@ -8743,7 +8743,7 @@ function getTwitterShareCountForConversation(conversation_id) {
     if (cached) {
         return Promise.resolve(cached);
     }
-    var url = "https://cdn.api.twitter.com/1/urls/count.json?url=http://pol.is/" + conversation_id;
+    var url = "https://cdn.api.twitter.com/1/urls/count.json?url=https://pol.is/" + conversation_id;
     return request.get(url).then(function(result) {
         var count = JSON.parse(result).count;
         twitterShareCountCache.set(conversation_id, count);
