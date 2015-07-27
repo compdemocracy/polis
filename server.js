@@ -57,6 +57,7 @@ var badwords = require('badwords/object'),
     replaceStream = require('replacestream'),
     request = require('request-promise'), // includes Request, but adds promise methods
     SimpleCache = require("simple-lru-cache"),
+    SimpleCacheWithTTL = require("./SimpleCacheWithTTL"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
     _ = require('underscore'),
     winston = require("winston");
@@ -8737,6 +8738,23 @@ function geoCode(locationString) {
 }
 
 
+var twitterShareCountCache = SimpleCacheWithTTL(1000 * 60 * 30); // 30 minutes
+function getTwitterShareCountForConversation(conversation_id) {
+    var cached = twitterShareCountCache.get(conversation_id);
+    if (cached) {
+        return Promise.resolve(cached);
+    }
+    var url = "https://cdn.api.twitter.com/1/urls/count.json?url=http://pol.is/" + conversation_id;
+    return request.get(url).then(function(result) {
+        var count = JSON.parse(result).count;
+        twitterShareCountCache.set(conversation_id, count);
+        return count;
+    });
+}
+
+
+
+
 app.get("/api/v3/locations",
     moveToBody,
     authOptional(assignToP),
@@ -10746,8 +10764,13 @@ function fetchIndexForConversation(req, res) {
         conversation_id = match[0];
     }
     getZidFromConversationId(conversation_id).then(function(zid) {
-        return getConversationInfo(zid);
-    }).then(function(conv) {
+        return Promise.all([
+            getConversationInfo(zid),
+            getTwitterShareCountForConversation(conversation_id),
+        ]);
+    }).then(function(a) {
+        var conv = a[0];
+        var twitterShareCount = a[1];
         conv = _.pick(conv, [
             "topic",
             "description",
@@ -10757,6 +10780,7 @@ function fetchIndexForConversation(req, res) {
             "vis_type",
         ]);
         conv.conversation_id = conversation_id;
+        conv.twitterShareCount = twitterShareCount;
         return conv;
     }).then(function(x) {
         var preloadData = {
