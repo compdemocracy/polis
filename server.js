@@ -19,11 +19,12 @@
 //);
 
 var badwords = require('badwords/object'),
+    Promise = require('bluebird'),
     dgram = require('dgram'),
     http = require('http'),
     httpProxy = require('http-proxy'),
     https = require('https'),
-    Promise = require('es6-promise').Promise,
+    // Promise = require('es6-promise').Promise,
     express = require('express'),
     app = express(),
     sql = require("sql"), // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
@@ -5368,8 +5369,6 @@ function _getCommentsList(o) {
             } else {
                 resolve([]);
             }
-        }).catch(function(err) {
-            reject(err);
         });
     });
   });
