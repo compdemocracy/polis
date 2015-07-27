@@ -219,7 +219,6 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   flex-wrap: wrap;
 }
 
-
 .justify-content-flex-end {
   -webkit-justify-content: flex-end;
   -moz-justify-content: flex-end;
@@ -252,6 +251,13 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   -moz-align-items: flex-start;
   -ms-align-items: flex-start;
   align-items: flex-start;
+}
+
+.align-self-flex-start {
+  -webkit-align-self: flex-start;
+  -moz-align-self: flex-start;
+  -ms-align-self: flex-start;
+  align-self: flex-start;
 }
 
 .align-items-center {
@@ -289,6 +295,12 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   flex-grow: 2;
 }
 
+.flex-shrink-2 {
+  -webkit-flex-shrink: 2;
+  -moz-flex-shrink: 2;
+  -ms-flex-shrink: 2;
+  flex-shrink: 2;
+}
 
 /* Comment Shower */
 
@@ -362,14 +374,6 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 
 //
 
-
-#analyze .nav-pills {
-  margin-top: 20px
-}
-
-#analyze #accordion {
-  margin-top: 20px;
-}
 
 .query_results_div {
   padding-top: 10px;
@@ -645,7 +649,7 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   position: relative;
   top: 0px;
   background: #ffffff;
-  border: 1px solid #000000;
+  border: 1px solid rgb(155,155,155);
   display: inline;
   margin: 0px 10px 0px 3px;
   padding: 2px 5px;
@@ -671,8 +675,8 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   margin-top: -4px;
 }
 .arrow_box:before {
-  border-color: rgba(0, 0, 0, 0);
-  border-right-color: #000000;
+  border-color: rgba(155, 155, 155, 0);
+  border-right-color: rgb(155,155,155);
   border-width: 5px;
   margin-top: -5px;
 }

@@ -47,23 +47,24 @@
 
 .Btn-moderateAccept {
   background-color: $bg-alt-color;
-  color: darken( $color_agree, 20%);
+  color: $gray;
   letter-spacing: 0.05em;
-  margin: 5px;
+  margin-right: 5px;
 
   &:hover, &:focus {
     background-color: #d9dadc;
+    color: $dark-gray;
   }
 }
 
 .Btn-moderateReject {
   background-color: $bg-alt-color;
-  color: darken( $color_disagree, 20%);
+  color: $gray;
   letter-spacing: 0.05em;
-  margin: 5px;
 
   &:hover, &:focus {
     background-color: #d9dadc;
+    color: $dark-gray;
   }
 }
 
