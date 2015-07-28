@@ -141,8 +141,8 @@ module.exports =  PolisModelView.extend({
         .attr('stroke', color)
         .attr('stroke-width', strokeWidth)
         .attr('fill', 'none')
-        // .attr('d', lineGen(data))
         .data([data])
+        // .attr('d', lineGen)
         ;
 
       // vis.select('path.line');
@@ -166,7 +166,7 @@ module.exports =  PolisModelView.extend({
       vis.select("g.x.axis").call(xAxis);
       vis.select("g.y.axis").call(yAxis);
       // vis.select("path.area").attr("d", area);
-      vis.select("path.line").attr("d", lineGen);
+      vis.selectAll("path.line").attr("d", lineGen);
     }
 
     draw();
@@ -194,6 +194,11 @@ module.exports =  PolisModelView.extend({
         data.push(now);
         times[key] = data;
       });
+
+      // TODO remove this
+      // (currently has too many entries to render)
+      delete times.voteTimes
+
       that.model.set("times", times);
       that.renderParticipantGraph();
 
