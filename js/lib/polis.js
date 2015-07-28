@@ -1175,6 +1175,11 @@ function clientSideBaseCluster(things, N) {
     function shareConversationOnTwitter() {
       window.open("https://twitter.com/intent/tweet?text=Join the conversation!&url=https://pol.is/" + conversation_id);
     }
+    function shareConversationOnFacebook() {
+      window.open("http://www.facebook.com/sharer/sharer.php?u=https://pol.is/" + conversation_id);
+    }
+
+
 
     function fetchLatestPca() {
         return fetchPca(pcaPath, lastServerTokenForPCA);
@@ -2463,6 +2468,7 @@ function clientSideBaseCluster(things, N) {
 
         updateMyProjection: updateMyProjection,
 
+        shareConversationOnFacebook: shareConversationOnFacebook,
         shareConversationOnTwitter: shareConversationOnTwitter,
         startPolling: startPolling,
         // simple way to centralize polling actions, and ensure they happen near each-other (to save battery)

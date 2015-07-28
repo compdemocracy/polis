@@ -67,6 +67,7 @@ module.exports =  ConversationView.extend({
     "click .facebookButton": "fbConnectBtn",
     "click .twitterButton": "twitterConnectBtn",
     "click .twitterShareButton": "shareOnTwitter",
+    "click .facebookShareButton": "shareOnFacebook",
     // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
 
@@ -77,6 +78,11 @@ module.exports =  ConversationView.extend({
   shareOnTwitter: function() {
     if (this.serverClient) {
       this.serverClient.shareConversationOnTwitter();
+    }
+  },
+  shareOnFacebook: function() {
+    if (this.serverClient) {
+      this.serverClient.shareConversationOnFacebook();
     }
   },
   onAnalyzeTabPopulated: function() {
