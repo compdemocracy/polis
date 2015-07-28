@@ -8752,9 +8752,20 @@ function getTwitterShareCountForConversation(conversation_id) {
     if (cached) {
         return Promise.resolve(cached);
     }
-    var url = "https://cdn.api.twitter.com/1/urls/count.json?url=https://pol.is/" + conversation_id;
-    return request.get(url).then(function(result) {
-        var count = JSON.parse(result).count;
+    var httpUrl = "https://cdn.api.twitter.com/1/urls/count.json?url=http://pol.is/" + conversation_id;
+    var httpsUrl = "https://cdn.api.twitter.com/1/urls/count.json?url=https://pol.is/" + conversation_id;
+    return Promise.all([
+        request.get(httpUrl),
+        request.get(httpsUrl),
+    ]).then(function(a) {
+        var httpResult = a[0];
+        var httpsResult = a[1];
+        var httpCount = JSON.parse(httpResult).count;
+        var httpsCount = JSON.parse(httpsResult).count;
+        if (httpCount > 0 && httpsCount > 0 && httpCount === httpsCount) {
+            console.warn("found matching http and https twitter share counts, if this is common, check twitter api to see if it has changed.");
+        }
+        var count = httpCount + httpsCount;
         twitterShareCountCache.set(conversation_id, count);
         return count;
     });
