@@ -4479,6 +4479,68 @@ function(req, res) {
     res.json(METRICS_IN_RAM);
 });
 
+function getFirstForPid(votes) {
+    var seen = {};
+    var len = votes.length;
+    var firstVotes = [];
+    for (var i = 0; i < len; i++) {
+        var vote = votes[i];
+        if (!seen[vote.pid]) {
+            firstVotes.push(vote);
+            seen[vote.pid] = true;
+        }
+    }
+    return firstVotes;
+}
+
+app.get("/api/v3/conversationStats",
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+    var zid = req.p.zid;
+    var uid = req.p.uid;
+    isModerator(zid, uid).then(function(is_mod) {
+        if (!is_mod) {
+            fail(res, 403, "polis_err_conversationStats_need_moderation_permission");
+            return;
+        }
+        Promise.all([
+            pgQueryP("select created, pid, mod from comments where zid = ($1) order by created;", [zid]),
+            pgQueryP("select created, pid from votes where zid = ($1) order by created;", [zid]),
+            pgQueryP("select created from participants where zid = ($1) order by created;", [zid]),
+        ]).then(function(a) {
+            function castTimestamp(o) {
+                o.created = Number(o.created);
+                return o;
+            }
+            var comments = _.map(a[0], castTimestamp);
+            var votes = _.map(a[1], castTimestamp);
+            var uniqueHits = _.map(a[2], castTimestamp); // participants table
+            
+            var actualParticipants = getFirstForPid(votes);  // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
+            actualParticipants = _.pluck(actualParticipants, "created");
+            var commenters = getFirstForPid(comments);
+            commenters = _.pluck(commenters, "created");
+
+            var totalComments = _.pluck(comments, "created");
+            var totalVotes = _.pluck(votes, "created");
+            var viewTimes = _.pluck(uniqueHits, "created");
+
+            res.status(200).json({
+                voteTimes: totalVotes,
+                firstVoteTimes: actualParticipants,
+                commentTimes: totalComments,
+                firstCommentTimes: commenters,
+                viewTimes: viewTimes,
+            });
+        });
+
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_conversationStats_misc", err);
+    });
+});
+
 
 app.get("/snapshot",
     moveToBody,
