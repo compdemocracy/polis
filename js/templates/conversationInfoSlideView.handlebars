@@ -15,17 +15,21 @@
       <i class="fa fa-facebook-square"></i>
       &nbsp;Share
     </button>
-    <span class="arrow_box">
-      1k{{share_count}}
-    </span>
+    {{#if fbShareCount}}
+	  <span class="arrow_box">
+	    {{fbShareCount}}
+      </span>
+	{{/if}}
 
     <button class="twitterShareButton userWillShareOnTwitter">
       <i class="fa fa-twitter"></i>
       &nbsp;Tweet
     </button>
-    <span class="arrow_box">
-      3k{{tweet_count}}
-    </span>
+    {{#if twitterShareCount}}
+      <span class="arrow_box">
+        {{twitterShareCount}}
+      </span>
+    {{/if}}
   </div>
 
 </div>
