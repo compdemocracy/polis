@@ -206,6 +206,26 @@ function argMax(items, f) {
   return highestItem;
 }
 
+function evenlySample(items, maxSample) {
+  if (!items || items.length < maxSample) {
+    return items;
+  }
+  var len = items.length;
+  var step = Math.floor(len / maxSample);
+  var newItems = [];
+  var gotLast = false;
+  for (var i = 0; i < items.length; i += step) {
+    newItems.push(items[i]);
+    if (i === len-1) {
+      gotLast = true;
+    }
+  }
+  if (!gotLast) {
+    newItems.push(items[len-1]);
+  }
+  return newItems;
+}
+
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
   argMax: argMax,
@@ -226,6 +246,7 @@ module.exports = {
     }
     return spans;
   },
+  evenlySample: evenlySample,
   toUnitVector: toUnitVector,
   toQueryParamString: toQueryParamString,
   parseQueryParams: parseQueryParams,

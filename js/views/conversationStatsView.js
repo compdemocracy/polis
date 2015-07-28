@@ -189,15 +189,12 @@ module.exports =  PolisModelView.extend({
             created: created
           };
         });
+        data = Utils.evenlySample(data, 300);
         var now = _.extend({}, data[data.length-1]);
         now.created = Date.now()+0; // straight line to current time
         data.push(now);
         times[key] = data;
       });
-
-      // TODO remove this
-      // (currently has too many entries to render)
-      delete times.voteTimes
 
       that.model.set("times", times);
       that.renderParticipantGraph();
