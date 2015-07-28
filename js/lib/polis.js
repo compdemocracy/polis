@@ -1206,7 +1206,11 @@ function clientSideBaseCluster(things, N) {
                 }
                 cachedPcaData = pcaData;
 
-                lastServerTokenForPCA = pcaData.lastVoteTimestamp;
+                if (_.isNumber(pcaData.lastVoteTimestamp)) {
+                    lastServerTokenForPCA = pcaData.lastVoteTimestamp;
+                } else {
+                    console.error("got invlid lastVoteTimestamp");
+                }
                 consensusComments = pcaData.consensus;
                 groupVotes = pcaData["group-votes"];
 
