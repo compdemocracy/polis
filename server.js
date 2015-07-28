@@ -68,9 +68,9 @@ if (devMode) {
     Promise.longStackTraces();
 }
 // Bluebird uncaught error handler.
-Promise.onPossiblyUnhandledRejection(function(error){
-    throw error;
-});
+// Promise.onPossiblyUnhandledRejection(function(error){
+//     throw error;
+// });
 
 
 var polisDevs = [
