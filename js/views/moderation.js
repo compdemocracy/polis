@@ -305,6 +305,9 @@ module.exports =  PolisModelView.extend({
 
     
     var pollingReference = setInterval(function() {
+      if (Utils.isHidden()) {
+        return;
+      }
       // TODO don't send everything each time
       that.commentsTodo.fetch({
         data: $.param({
