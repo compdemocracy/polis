@@ -66,6 +66,7 @@ module.exports =  ConversationView.extend({
   events: {
     "click .facebookButton": "fbConnectBtn",
     "click .twitterButton": "twitterConnectBtn",
+    "click .twitterShareButton": "shareOnTwitter",
     // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
 
@@ -73,6 +74,11 @@ module.exports =  ConversationView.extend({
   firstMathPollResultDeferred: $.Deferred(),
   shouldAffixVis: false,
   inVisLegendCounter: 0,
+  shareOnTwitter: function() {
+    if (this.serverClient) {
+      this.serverClient.shareConversationOnTwitter();
+    }
+  },
   onAnalyzeTabPopulated: function() {
     if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
       $('.query_result_item').first().trigger('click');
