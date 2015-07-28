@@ -14,6 +14,13 @@ var colors = {
   firstCommentTimes: "darkblue",
   viewTimes: "yellow",
 };
+var names = {
+  voteTimes: "Votes",
+  firstVoteTimes: "Participants",
+  commentTimes: "Comments",
+  firstCommentTimes: "Commenters",
+  viewTimes: "Viewers",
+};
 
 module.exports =  PolisModelView.extend({
   name: "conversationStatsView",
@@ -196,9 +203,14 @@ module.exports =  PolisModelView.extend({
         times[key] = data;
       });
 
-      that.model.set("times", times);
-      that.renderParticipantGraph();
+      // TODO remove this
+      // (currently has too many entries to render)
+      delete times.voteTimes
 
+      that.model.set("times", times);
+      that.renderParticipantGraph("#ptptCountsVis");
+      that.renderParticipantGraph("#voteCountsVis");
+      that.renderParticipantGraph("#commentCountsVis");
 
     }, function(error) {
       console.warn("error fetching stats");
