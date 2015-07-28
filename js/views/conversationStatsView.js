@@ -2,7 +2,7 @@
 // var eb = require("../eventBus");
 var template = require('../tmpl/conversationStats');
 var PolisModelView = require("../lib/PolisModelView");
-// var Utils = require("../util/utils");
+var Utils = require("../util/utils");
 // var Constants = require("../util/constants");
 
 // var isIE8 = Utils.isIE8();
@@ -153,8 +153,10 @@ module.exports =  PolisModelView.extend({
     var that = this;
 
     setInterval(function() {
-      that.checkForLatestStats();
-    }, 30*1000);
+      if (!Utils.isHidden()) {
+        that.checkForLatestStats();
+      }
+    }, 60*1000);
     this.checkForLatestStats();
 
   } // end initialize
