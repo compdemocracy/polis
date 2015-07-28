@@ -171,8 +171,45 @@ function toUnitVector(x, y) {
   return [x/magnitude, y/magnitude];
 }
 
+
+function argMin(items, f) {
+  var lowestVal = Infinity;
+  var lowestItem = null;
+  if (!items) {
+    return lowestItem;
+  }
+  for (var i = 0; i < items.length; i++) {
+    var candidate = items[i];
+    var candidateVal = f(candidate);
+    if (candidateVal < lowestVal) {
+      lowestVal = candidateVal;
+      lowestItem = candidate;
+    }
+  }
+  return lowestItem;
+}
+
+function argMax(items, f) {
+  var highestVal = -Infinity;
+  var highestItem = null;
+  if (!items) {
+    return highestItem;
+  }
+  for (var i = 0; i < items.length; i++) {
+    var candidate = items[i];
+    var candidateVal = f(candidate);
+    if (candidateVal > highestVal) {
+      highestVal = candidateVal;
+      highestItem = candidate;
+    }
+  }
+  return highestItem;
+}
+
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
+  argMax: argMax,
+  argMin: argMin,
   mapObj: mapObj,
   computeXySpans: function(points) {
     var spans = {
