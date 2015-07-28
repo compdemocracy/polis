@@ -8746,7 +8746,11 @@ function geoCode(locationString) {
 }
 
 
-var twitterShareCountCache = SimpleCacheWithTTL(1000 * 60 * 30); // 30 minutes
+var twitterShareCountCache = SimpleCacheWithTTL({
+    ttlInMillis: 1000 * 60 * 30, // 30 minutes
+    maxSize: 999,
+});
+
 function getTwitterShareCountForConversation(conversation_id) {
     var cached = twitterShareCountCache.get(conversation_id);
     if (cached) {
@@ -8771,7 +8775,10 @@ function getTwitterShareCountForConversation(conversation_id) {
     });
 }
 
-var fbShareCountCache = SimpleCacheWithTTL(1000 * 60 * 30); // 30 minutes
+var fbShareCountCache = SimpleCacheWithTTL({
+    ttlInMillis: 1000 * 60 * 30, // 30 minutes
+    maxSize: 999,
+});
 function getFacebookShareCountForConversation(conversation_id) {
     var cached = fbShareCountCache.get(conversation_id);
     if (cached) {
