@@ -2263,6 +2263,9 @@ function getBidsForPids(zid, lastVoteTimestamp, pids) {
 
         function findBidForPid(pid) {
             var yourBidi = -1;
+            if (!b2p) {
+                return yourBidi;
+            }
             for (var bidi = 0; bidi < b2p.length; bidi++) {
                 var pids = b2p[bidi];
                 if (pids.indexOf(pid) !== -1) {
@@ -10866,19 +10869,21 @@ function fetchIndexForConversation(req, res) {
         conversation_id = match[0];
     }
 
-    var optionalItems = Promise.settle([
+    var optionalItems = Promise.all([
         getTwitterShareCountForConversation(conversation_id),
         getFacebookShareCountForConversation(conversation_id),
     ]).then(function(a) {
         var twitterShareCount = a[0];
         var fbShareCount = a[1];
         var o = {};
-        if (twitterShareCount.isFulfilled()) {
-            o.twitterShareCount = twitterShareCount.value();
-        }
-        if (fbShareCount.isFulfilled()) {
-            o.fbShareCount = fbShareCount.value();
-        }
+        o.twitterShareCount = twitterShareCount;
+        o.fbShareCount = fbShareCount;
+        // if (twitterShareCount.isFulfilled()) {
+            // o.twitterShareCount = twitterShareCount.value();
+        // }
+        // if (fbShareCount.isFulfilled()) {
+            // o.fbShareCount = fbShareCount.value();
+        // }
         return o;
     });
 
