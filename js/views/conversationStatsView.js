@@ -29,12 +29,15 @@ module.exports =  PolisModelView.extend({
   },
   context: function() {
     var ctx = PolisModelView.prototype.context.apply(this, arguments);
+    ctx.viewTimesColor = colors.viewTimes;
+    ctx.firstVoteTimesColor = colors.firstVoteTimes;
+    ctx.firstCommentTimesColor = colors.firstCommentTimes;
+    ctx.votesColor = colors.voteTimes;
+    ctx.commentsColor = colors.commentTimes;
     return ctx;
   },
-  renderParticipantGraph: function() {
-
-
-    var vis = d3.select("#ptptCountsVis");
+  renderParticipantGraph: function(id, datasetNamesToRender) {
+    var vis = d3.select(id);
     var w = 1000;
     var h = 200;
     var margins = {
@@ -46,10 +49,9 @@ module.exports =  PolisModelView.extend({
     var strokeWidth = 2;
 
     var times = this.model.get("times");
+    times = _.pick(times, datasetNamesToRender);
     var keys = _.keys(times);
     var datasets = _.values(times);
-    data = this.model.get("times")[keys[0]];
-    color = "blue";
 
     var dataSetWithEarlisetEntry = Utils.argMin(datasets, function(dataset) {
       if (!dataset.length) {
@@ -205,12 +207,12 @@ module.exports =  PolisModelView.extend({
 
       // TODO remove this
       // (currently has too many entries to render)
-      delete times.voteTimes
+      // delete times.voteTimes
 
       that.model.set("times", times);
-      that.renderParticipantGraph("#ptptCountsVis");
-      that.renderParticipantGraph("#voteCountsVis");
-      that.renderParticipantGraph("#commentCountsVis");
+      that.renderParticipantGraph("#ptptCountsVis", ["firstVoteTimes", "firstCommentTimes", "viewTimes"]);
+      that.renderParticipantGraph("#voteCountsVis", ["voteTimes"]);
+      that.renderParticipantGraph("#commentCountsVis", ["commentTimes"]);
 
     }, function(error) {
       console.warn("error fetching stats");
