@@ -21,6 +21,7 @@
     "async": "~0.1.22",
     "badwords": "0.0.3",
     "bcrypt": "~0.7.2",
+    "es6-promise": "^2.3.0",
     "express": "~3.7.0",
     "gulp": "~3.8.6",
     "gulp-eslint": "^0.15.0",
