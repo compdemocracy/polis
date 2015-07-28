@@ -7,6 +7,14 @@ var Utils = require("../util/utils");
 
 // var isIE8 = Utils.isIE8();
 
+var colors = {
+  voteTimes: "green",
+  firstVoteTimes: "darkgreen",
+  commentTimes: "blue",
+  firstCommentTimes: "darkblue",
+  viewTimes: "yellow",
+};
+
 module.exports =  PolisModelView.extend({
   name: "conversationStatsView",
   template: template,
@@ -16,7 +24,9 @@ module.exports =  PolisModelView.extend({
     var ctx = PolisModelView.prototype.context.apply(this, arguments);
     return ctx;
   },
-  renderParticipantGraph: function(data, color) {
+  renderParticipantGraph: function() {
+
+
     var vis = d3.select("#ptptCountsVis");
     var w = 1000;
     var h = 200;
@@ -27,16 +37,53 @@ module.exports =  PolisModelView.extend({
       left: 50
     };
     var strokeWidth = 2;
-    var ptpts = data;
-    var first = ptpts[0];
-    var last = ptpts[ptpts.length-1];
+
+    var times = this.model.get("times");
+    var keys = _.keys(times);
+    var datasets = _.values(times);
+    data = this.model.get("times")[keys[0]];
+    color = "blue";
+
+    var dataSetWithEarlisetEntry = Utils.argMin(datasets, function(dataset) {
+      if (!dataset.length) {
+        return Infinity;
+      }
+      return dataset[0].created;
+    });
+    var first = dataSetWithEarlisetEntry[0];
+
+    var dataSetWithLastEntry = Utils.argMax(datasets, function(dataset) {
+      if (!dataset.length) {
+        return -Infinity;
+      }
+      return dataset[dataset.length - 1].created;
+    });
+    var last = dataSetWithLastEntry[dataSetWithLastEntry.length - 1];
+
     var xScale = d3.time.scale()
       .range([margins.left, w - margins.right])
       .domain([first.created, last.created]);
 
+    var dataSetWithLowestCount = Utils.argMin(datasets, function(dataset) {
+      if (!dataset.length) {
+        return Infinity;
+      }
+      return dataset[0].count;
+    });
+
+    var dataSetWithHighestCount = Utils.argMax(datasets, function(dataset) {
+      if (!dataset.length) {
+        return -Infinity;
+      }
+      return dataset[dataset.length - 1].count;
+    });
+
     var yScale = d3.scale.linear()
       .range([h - margins.top, margins.bottom])
-      .domain([ptpts[0].count, ptpts[ptpts.length-1].count]);
+      .domain([
+        dataSetWithLowestCount[0].count,
+        dataSetWithHighestCount[dataSetWithHighestCount.length-1].count,
+      ]);
 
     var xAxis = d3.svg.axis()
       .scale(xScale)
@@ -84,16 +131,22 @@ module.exports =  PolisModelView.extend({
 //     .x(function(d) { return x(d.date); })
 //     .y(function(d) { return y(d.value); });
 
+    _.each(times, function(data, name) {
+      var color = colors[name];
+      console.log(color, data.length);
+      vis.append('path')
+        .classed('line', true)
+        .classed('line_' + name, true)
+        .attr("clip-path", "url(#clip)")
+        .attr('stroke', color)
+        .attr('stroke-width', strokeWidth)
+        .attr('fill', 'none')
+        // .attr('d', lineGen(data))
+        .data([data])
+        ;
 
-
-    vis.append('path')
-      .classed('line', true)
-      .attr("clip-path", "url(#clip)")
-      .attr('stroke', color)
-      .attr('stroke-width', strokeWidth)
-      .attr('fill', 'none');
-
-    vis.select('path.line').data([ptpts]);
+      // vis.select('path.line');
+    });
 
 
     var zoom = d3.behavior.zoom()
@@ -125,7 +178,8 @@ module.exports =  PolisModelView.extend({
       
       // loop over each array, and create objects like {count: ++i, created}, then create a line plot with count as y, and created as x
       var keys = _.keys(stats);
-      keys = [keys[0]]; // TODO remove
+      // keys = [keys[0]]; // TODO remove
+      var times = {};
       _.each(keys, function(key) {
         var vals = stats[key];
         var i = 1;
@@ -138,10 +192,10 @@ module.exports =  PolisModelView.extend({
         var now = _.extend({}, data[data.length-1]);
         now.created = Date.now()+0; // straight line to current time
         data.push(now);
-        that.model.set(key, data);
-
-        that.renderParticipantGraph(data, "black");
+        times[key] = data;
       });
+      that.model.set("times", times);
+      that.renderParticipantGraph();
 
 
     }, function(error) {
