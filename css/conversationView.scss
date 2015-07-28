@@ -219,6 +219,13 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   flex-wrap: wrap;
 }
 
+.flex-wrap-reverse {
+  -webkit-flex-wrap: wrap-reverse;
+  -moz-flex-wrap: wrap-reverse;
+  -ms-flex-wrap: wrap-reverse;
+  flex-wrap: wrap-reverse;
+}
+
 .justify-content-flex-end {
   -webkit-justify-content: flex-end;
   -moz-justify-content: flex-end;
@@ -307,6 +314,13 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   -moz-flex-shrink: 2;
   -ms-flex-shrink: 2;
   flex-shrink: 2;
+}
+
+.flex-shrink-3 {
+  -webkit-flex-shrink: 3;
+  -moz-flex-shrink: 3;
+  -ms-flex-shrink: 3;
+  flex-shrink: 3;
 }
 
 /* Comment Shower */
