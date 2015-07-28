@@ -8,11 +8,11 @@ var Utils = require("../util/utils");
 // var isIE8 = Utils.isIE8();
 
 var colors = {
-  voteTimes: "green",
-  firstVoteTimes: "darkgreen",
-  commentTimes: "blue",
-  firstCommentTimes: "darkblue",
-  viewTimes: "yellow",
+  voteTimes: "steelblue",
+  firstVoteTimes: "orange",
+  commentTimes: "steelblue",
+  firstCommentTimes: "red",
+  viewTimes: "steelblue",
 };
 var names = {
   voteTimes: "Votes",
@@ -38,7 +38,7 @@ module.exports =  PolisModelView.extend({
   },
   renderParticipantGraph: function(id, datasetNamesToRender) {
     var vis = d3.select(id);
-    var w = 1000;
+    var w = 550;
     var h = 200;
     var margins = {
       top: 20,
@@ -98,7 +98,8 @@ module.exports =  PolisModelView.extend({
       .scale(xScale)
       .orient("bottom")
       .tickSize(-h, 0)
-      .tickPadding(6);
+      .tickPadding(6)
+
 
     var yAxis = d3.svg.axis()
       .scale(yScale)
@@ -117,12 +118,18 @@ module.exports =  PolisModelView.extend({
     vis.append("g")
       .classed("x", true)
       .classed("axis", true)
+      .style({
+        "font-size": "9px"
+      })
       .attr("transform", "translate(0," + (h - margins.bottom) + ")");
 
 
     vis.append("svg:g")
       .classed("y", true)
       .classed("axis", true)
+      .style({
+        "font-size": "10px"
+      })
       .attr("transform", "translate(" + (margins.left) + ",0)");
 
 
@@ -184,7 +191,7 @@ module.exports =  PolisModelView.extend({
   checkForLatestStats: function() {
     var that = this;
     $.get("/api/v3/conversationStats?conversation_id=" + this.model.get("conversation_id")).then(function(stats) {
-      
+
       // loop over each array, and create objects like {count: ++i, created}, then create a line plot with count as y, and created as x
       var keys = _.keys(stats);
       // keys = [keys[0]]; // TODO remove

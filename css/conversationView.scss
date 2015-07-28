@@ -702,6 +702,16 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   margin-top: -5px;
 }
 
+.x .axis {
+  font-size: 6px;
+}
+
+.y .axis {
+  font-size: 10px;
+}
+
+
+
 /* mobile */
 @media (max-width: 767px) {
 
