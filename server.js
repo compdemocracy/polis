@@ -8187,9 +8187,7 @@ function getTwitterUserTimeline(screen_name) {
         );
     });
 }
-setTimeout(function() {
-    getTwitterUserTimeline("WardCunningham");
-}, 1000);
+
 
 
 
