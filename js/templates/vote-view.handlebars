@@ -42,7 +42,9 @@
           width: 36px;
           margin-left: 10px;
           margin-top: 10px;
-          border-radius: 3px;"
+          border-radius: 3px;
+          border: 1px solid #ccc;
+          "
         ></img>
       <p
         style="
@@ -120,7 +122,12 @@
   {{!-- nothing --}}
 {{else}}
   <div
-    class="reactionButtons"
+    class="
+      reactionButtons
+      flexbox
+      justify-content-space-around
+      align-items-baseline
+    "
     style="
       display: -webkit-box;
       display: -moz-box;
@@ -173,44 +180,3 @@
 {{/if}}
 
 
-
-{{!-- OLD BUTTONS
-<div
-    class="reactionButtons"
-  >
-        <div
-        class="btn-group btn-group-justified">
-          <div
-            class="btn btn-lg {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-            role="button"
-            type="button"
-          >
-          {{#ifNotIE8}}
-            <i class="fa fa-caret-up" style="font-size: 20px; color: #2ecc71; position: relative; top: 1px"></i>
-          {{/ifNotIE8}}
-          &nbsp;<p class="btn-vote">AGREE</p> </div>
-
-          <div
-            id="disagreeButton"
-            class="btn btn-lg {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-            role="button"
-            type="button"
-          >
-          {{#ifNotIE8}}
-            <i class="fa fa-caret-down" style="font-size: 20px; color: #e74c3c; position: relative; top: 2px"></i>
-          {{/ifNotIE8}}
-          &nbsp;<p class="btn-vote">DISAGREE</p> </div>
-
-          <div
-            id="passButton"
-            class="btn btn-lg {{#unless iOS}}vote-btn-w-hover{{/unless}}"
-            role="button"
-            type="button"
-          >
-          {{#ifNotIE8}}
-            <i class="fa fa-flag" style="font-size: 16px; color: #aaa"></i>
-          {{/ifNotIE8}}
-          /&nbsp;<p class="btn-vote">PASS</p> </div>
-      </div>
-</div>
- --}}
