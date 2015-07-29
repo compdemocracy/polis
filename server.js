@@ -2263,9 +2263,9 @@ function getBidsForPids(zid, lastVoteTimestamp, pids) {
 
         function findBidForPid(pid) {
             var yourBidi = -1;
-            if (!b2p) {
-                return yourBidi;
-            }
+            // if (!b2p) {
+            //     return yourBidi;
+            // }
             for (var bidi = 0; bidi < b2p.length; bidi++) {
                 var pids = b2p[bidi];
                 if (pids.indexOf(pid) !== -1) {
