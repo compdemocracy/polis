@@ -8126,6 +8126,76 @@ function getTwitterUserInfo(twitter_user_id, useCache) {
 }
 
 
+
+function getTwitterTweetById(twitter_tweet_id) {
+    var oauth = new OAuth.OAuth(
+        'https://api.twitter.com/oauth/request_token', // null
+        'https://api.twitter.com/oauth/access_token', // null
+        process.env.TWITTER_CONSUMER_KEY,//'your application consumer key',
+        process.env.TWITTER_CONSUMER_SECRET,//'your application secret',
+        '1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    return new MPromise("getTwitterTweet", function(resolve, reject) {
+        oauth.get(
+            'https://api.twitter.com/1.1/statuses/show.json?id=' + twitter_tweet_id,
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret
+            function (e, data, res){
+                if (e) {
+                    console.error(" - - - - get twitter tweet failed - - - -");
+                    console.error(e);     
+                    reject(e);
+                } else {
+                    console.dir(data);
+                    resolve(data);
+                }
+                // winston.log("info",require('util').inspect(data));
+            }
+        );
+    });
+}
+function getTwitterUserTimeline(screen_name) {
+    var oauth = new OAuth.OAuth(
+        'https://api.twitter.com/oauth/request_token', // null
+        'https://api.twitter.com/oauth/access_token', // null
+        process.env.TWITTER_CONSUMER_KEY,//'your application consumer key',
+        process.env.TWITTER_CONSUMER_SECRET,//'your application secret',
+        '1.0A',
+        null,
+        'HMAC-SHA1'
+    );
+    return new MPromise("getTwitterTweet", function(resolve, reject) {
+        oauth.get(
+            'https://api.twitter.com/1.1/statuses/user_timeline.json?screen_name=' + screen_name,
+            void 0, //'your user token for this app', //test user token
+            void 0, //'your user secret for this app', //test user secret
+            function (e, data, res){
+                if (e) {
+                    console.error(" - - - - get twitter tweet failed - - - -");
+                    console.error(e);     
+                    reject(e);
+                } else {
+                    var foo = JSON.parse(data);
+                    foo = _.pluck(foo, "text");
+                    console.dir(foo);
+                    resolve(data);
+                }
+                // winston.log("info",require('util').inspect(data));
+            }
+        );
+    });
+}
+setTimeout(function() {
+    getTwitterUserTimeline("WardCunningham");
+}, 1000);
+
+
+
+
+
+
 function getTwitterUserInfoBulk(list_of_twitter_user_id) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
     var oauth = new OAuth.OAuth(
