@@ -3096,25 +3096,17 @@ function updateLastInteractionTimeForConversation(zid, uid) {
 
 function tryToJoinConversation(zid, uid, pmaid_answers) {
     // there was no participant row, so create one
-    return new MPromise("tryToJoinConversation", function(resolve, reject) {
-        pgQuery("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid], function(err, docs) {
-            if (err) {
-                winston.log("info","failed to insert into participants");
-                winston.log("info",err);
-                return reject(err);
-            }
-            var pid = docs && docs.rows && docs.rows[0] && docs.rows[0].pid;
+    return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]).then(function(rows) {
+        var pid = rows && rows[0] && rows[0].pid;
+        var ptpt = rows[0];
 
-            saveParticipantMetadataChoices(zid, pid, pmaid_answers, function(err) {
-                if (err) {
-                    winston.log("info","failed to saveParticipantMetadataChoices");
-                    winston.log("info",err);
-                    return reject(err);
-                }
-                var ptpt = docs.rows[0];
-                resolve(ptpt);
-                populateParticipantLocationRecordIfPossible(zid, uid, pid);
-            });
+        if (!pmaid_answers || !pmaid_answers.length) {
+            return ptpt;
+        }
+
+        return saveParticipantMetadataChoicesP(zid, pid, pmaid_answers).then(function() {
+            populateParticipantLocationRecordIfPossible(zid, uid, pid);
+            return ptpt;
         });
     });
 }
