@@ -329,6 +329,24 @@ $(el_selector)
                     "0 0 0 1 0' />" +
         "</filter>" +
 
+        "<filter id='colorMeMatrixRed'>" +
+          "<feColorMatrix in='SourceGraphic'" +
+            "type='matrix'" +
+            "values='1.00 0.60 0.60 0 0 " +
+                    "0.10 0.20 0.10 0 0 " +
+                    "0.10 0.10 0.20 0 0 " +
+                    "0 0 0 1 0' />" +
+        "</filter>" +
+
+        "<filter id='colorMeMatrixGreen'>" +
+          "<feColorMatrix in='SourceGraphic'" +
+            "type='matrix'" +
+            "values='0.20 0.10 0.10 0 0 " +
+                    "0.60 1.00 0.60 0 0 " +
+                    "0.10 0.10 0.40 0 0 " +
+                    "0 0 0 1 0' />" +
+        "</filter>" +
+
     "</defs>" +
     // "<g>" +
     // '<rect x="'+ (w-150) +'" y="0" width="150" height="25" rx="3" ry="3" fill="#e3e4e5"/>'+
@@ -1064,6 +1082,21 @@ function chooseDisplayForArrows(d) {
     return shouldDisplayArrows(d) ? "inherit" : "none";
 }
 
+
+function chooseFilter(d) {
+  if (!commentIsSelected()) {
+    return "";
+  }
+
+  if (d.ups > d.downs) {
+    return "url(#colorMeMatrixGreen)";
+  } else if (d.downs > d.ups) {
+    return "url(#colorMeMatrixRed)";
+  } else {
+    return "url(#colorMeMatrix)";
+  }
+}
+
 function chooseDisplayForGrayHalo(d) {
     return "inherit";
     // return !shouldDisplayArrows(d) ? "inherit" : "none";
@@ -1794,7 +1827,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         .attr("y", function(d) {
             return getImageWidth(d) * -0.5;
         })
-        .attr("filter", "url(#colorMeMatrix)")
+        .attr("filter", "")
         // .style("visibility", "hidden")
         .attr("height", getImageWidth)
         .attr("width", getImageWidth)
@@ -2289,6 +2322,12 @@ function doUpdateNodes() {
           .style("display", chooseDisplayForArrows)
           .attr("d", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
+
+        var imageUpdate = update.selectAll(".bktv").data(nodes, key)
+          .attr("filter", chooseFilter)
+          ;
+
+
         var downArrowUpdateInner = update.selectAll(".down.bktvi").data(nodes, key)
           .style("display", chooseDisplayForArrows)
           .attr("d", chooseDownArrowPath) // NOTE: using tranform to select the scale

@@ -71,6 +71,19 @@ function doJoinConversation(args) {
   var suzinvite = args.suzinvite;
   var subviewName = args.subviewName;
 
+
+
+
+  var data = {
+    conversation_id: conversation_id,
+    suzinvite: suzinvite
+  };
+  var referrer = document.referrer; // TODO see about passing the referrer of the parent frame.
+  // NOTE parent_url may be in cookie at this point, and will be picked up by the server.
+  if (referrer) {
+    data.referrer = referrer;
+  }
+
   var uid = PolisStorage.uid() || PolisStorage.uidFromCookie();
   console.log("have uid", !!uid);
   if (!uid) {
@@ -88,10 +101,7 @@ function doJoinConversation(args) {
               withCredentials: true
           },
           // crossDomain: true,
-          data: {
-            conversation_id: conversation_id,
-            suzinvite: suzinvite
-          }
+          data: data,
         }).then(function(data) {
           window.userObject = $.extend(window.userObject, data);
           that.participationView(conversation_id);
@@ -118,9 +128,7 @@ function doJoinConversation(args) {
               withCredentials: true
           },
           // crossDomain: true,
-          data: {
-            conversation_id: conversation_id
-          }
+          data: data
         }).then(function(data) {
           window.userObject = $.extend(window.userObject, data);
           that.participationView(conversation_id);
@@ -156,10 +164,7 @@ function doJoinConversation(args) {
               withCredentials: true
           },
           // crossDomain: true,
-          data: {
-            conversation_id: conversation_id,
-            // zinvite: zinvite
-          }
+          data: data, // zinvite: zinvite
         }).then(function(data) {
           window.userObject = $.extend(window.userObject, data);
           that.participationView(conversation_id);
@@ -177,6 +182,9 @@ function doJoinConversation(args) {
     };
     if (suzinvite) {
       params.suzinvite = suzinvite;
+    }
+    if (referrer) {
+      params.referrer = referrer;
     }
 
     if (suzinvite) {

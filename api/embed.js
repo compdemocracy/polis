@@ -46,6 +46,9 @@
     if (o.parent_url) {
       paramStrings.push("parent_url="+ encodeURIComponent(o.parent_url));
     }
+    if (o.parent_url) {
+      paramStrings.push("referrer="+ encodeURIComponent(document.referrer));
+    }
     if (paramStrings.length) {
       src += "?" + paramStrings.join("&");
     }
