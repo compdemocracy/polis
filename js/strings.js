@@ -14,11 +14,12 @@ prioritized = prioritized || [];
 prioritized.reverse();
 
 prioritized.forEach(function(languageCode) {
-	if (languageCode.match(/^ja/)) {
-		strings = _.extend(strings, jp_jp);
-	} else if (languageCode.match(/^en/)) {
+	if (languageCode.match(/^en/)) {
 		strings = _.extend(strings, en_us);
 	}
+	// else if (languageCode.match(/^ja/)) {
+	// 	strings = _.extend(strings, jp_jp);
+	// }
 });
 
 module.exports = strings;
