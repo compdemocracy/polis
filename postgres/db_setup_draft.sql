@@ -321,6 +321,7 @@ CREATE TABLE participants_extended(
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     referrer VARCHAR(9999), -- 2083 is listed as the max
     parent_url VARCHAR(9999), -- 2083 is listed as the max
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE (zid, uid) 
 );
 

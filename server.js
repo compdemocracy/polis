@@ -417,6 +417,7 @@ var sql_participants_extended = sql.define({
     "zid",
     "referrer",
     "parent_url",
+    "created",
   ],
 });
 
@@ -3094,26 +3095,62 @@ function updateLastInteractionTimeForConversation(zid, uid) {
 }
 
 
-function tryToJoinConversation(zid, uid, pmaid_answers) {
+function addExtendedParticipantInfo(zid, uid, data) {
+    if (!data || !_.keys(data).length) {
+        return Promise.resolve();
+    }
+    var params = _.extend({}, data, {
+        zid: zid,
+        uid: uid,
+    });
+    var q = sql_participants_extended.insert(params);
+    return pgQueryP(q.toString(), [])
+        .catch(function() {
+            var params2 = _.extend({
+                created: 9876543212345, // hacky string, will be replaced with the word "default".
+            }, params);
+            // TODO replace all this with an upsert once heroku upgrades postgres
+            var qUpdate = sql_participants_extended.update(params2)
+                .where(sql_participants_extended.zid.equals(zid))
+                .and(sql_participants_extended.uid.equals(uid));
+            var qString = qUpdate.toString();
+            qString = qString.replace("9876543212345", "default");
+            return pgQueryP(qString, []);
+        });
+}
+
+function tryToJoinConversation(zid, uid, info, pmaid_answers) {
+    console.log("tryToJoinConversation");
+    console.dir(arguments);
+    function doAddExtendedParticipantInfo() {
+        if (info && _.keys(info).length > 0) {
+            addExtendedParticipantInfo(zid, uid, info);
+        }
+    }
+    function saveMetadataChoices(pid) {
+        if (pmaid_answers && pmaid_answers.length) {
+            saveParticipantMetadataChoicesP(zid, pid, pmaid_answers);
+        }
+    }
+
     // there was no participant row, so create one
     return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]).then(function(rows) {
         var pid = rows && rows[0] && rows[0].pid;
         var ptpt = rows[0];
 
-        if (!pmaid_answers || !pmaid_answers.length) {
-            return ptpt;
-        }
+        doAddExtendedParticipantInfo();
 
-        return saveParticipantMetadataChoicesP(zid, pid, pmaid_answers).then(function() {
-            populateParticipantLocationRecordIfPossible(zid, uid, pid);
-            return ptpt;
-        });
+        if (pmaid_answers && pmaid_answers.length) {
+            saveMetadataChoices();
+        }
+        populateParticipantLocationRecordIfPossible(zid, uid, pid);
+        return ptpt;
     });
 }
 
-function joinConversation(zid, uid, pmaid_answers) {
+function joinConversation(zid, uid, info, pmaid_answers) {
     function tryJoin() {
-        return tryToJoinConversation(zid, uid, pmaid_answers);
+        return tryToJoinConversation(zid, uid, info, pmaid_answers);
     }
 
     function doJoin() {
@@ -3600,7 +3637,7 @@ function(req, res) {
 
 
         userHasAnsweredZeQuestions(zid, answers).then(function() {
-            joinConversation(zid, uid, answers).then(function(ptpt) {
+            joinConversation(zid, uid, info, answers).then(function(ptpt) {
                 finish(ptpt);
             }, function(err) {
                 fail(res, 500, "polis_err_add_participant", err);
@@ -3616,8 +3653,8 @@ function(req, res) {
             finish(ptpt);
 
             // populate their location if needed - no need to wait on this.
-            populateParticipantLocationRecordIfPossible(zid, req.p.uid, ptpt.pid);    
-
+            populateParticipantLocationRecordIfPossible(zid, req.p.uid, ptpt.pid);
+            addExtendedParticipantInfo(zid, req.p.uid, info);
             return;
         }
 
@@ -4390,7 +4427,7 @@ function joinWithZidOrSuzinvite(o) {
         info.parent_url = o.parent_url;
       }
       // TODO_REFERRER add info as third arg
-      return joinConversation(o.zid, o.uid, o.answers).then(function(ptpt) {
+      return joinConversation(o.zid, o.uid, info, o.answers).then(function(ptpt) {
         return _.extend(o, ptpt);
       });
     })
