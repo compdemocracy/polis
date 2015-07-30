@@ -3,6 +3,7 @@ var eb = require("../eventBus");
 var template = require("../tmpl/analyze-group");
 var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
+var Strings = require("../strings");
 var Utils = require("../util/utils");
 
 var SHOW_MAP = false;
@@ -288,7 +289,7 @@ module.exports = Handlebones.ModelView.extend({
 
           var social = c.get("social");
           var socialCtx = {
-            name: "Anonymous",
+            name: Strings.anonPerson,
             img: Utils.getAnonPicUrl(),
             link: "",
             anon: true,

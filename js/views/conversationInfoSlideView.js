@@ -2,6 +2,7 @@ var template = require("../tmpl/conversationInfoSlideView");
 var Handlebones = require("handlebones");
 var eb = require("../eventBus");
 var _ = require("underscore");
+var Strings = require("../strings");
 
 
 module.exports =  Handlebones.ModelView.extend({
@@ -14,6 +15,7 @@ module.exports =  Handlebones.ModelView.extend({
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx.twitterShareCount = preload.conversation.twitterShareCount;
     ctx.fbShareCount = preload.conversation.fbShareCount;
+    ctx.s = Strings;
     return ctx;
   },
   initialize: function(options) {

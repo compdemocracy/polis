@@ -57,7 +57,7 @@
           font-weight: 300;
           color: rgba(113, 113, 113, .75);
           ">
-          wrote:
+          {{s.x_wrote}}
         </span>
         <span
           id="starBtn"
@@ -145,7 +145,7 @@
         margin-right: 2px;
       ">
       </i>
-      Agree
+      {{s.agree}}
     </div>
     <div
       id="disagreeButton"
@@ -161,13 +161,13 @@
         margin-right: 2px;
       ">
       </i>
-      Disagree
+      {{s.disagree}}
     </div>
     <div
       style="cursor: pointer"
       id="passButton"
       >
-      Pass / Unsure
+      {{s.pass}}
     </div>
   </div>
 {{/if}}

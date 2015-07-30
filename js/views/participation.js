@@ -20,6 +20,7 @@ var ConversationView = require("../views/conversation");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
 var ResultsCollection = require("../collections/results");
+var Strings = require("../strings");
 var Utils = require("../util/utils");
 var VisView = require("../lib/VisView");
 var VoteMoreView = require("../views/voteMoreView");
@@ -132,7 +133,7 @@ module.exports =  ConversationView.extend({
     ctx.hasFbAndTw = ctx.hasFacebook && ctx.hasTwitter;
     ctx.twitterShareCount = preload.conversation.twitterShareCount;
     ctx.fbShareCount = preload.conversation.fbShareCount;
-    
+    ctx.s = Strings;
 
     // var md_content = "Hello.\n======\n* This is markdown.\n * It is fun\n * Love it or leave it.\n* This is [an example](http://example.com/ \"Title\") inline link.\n\n![Alt text](https://62e528761d0685343e1c-f3d1b99a743ffa4142d9d7f1978d9686.ssl.cf2.rackcdn.com/files/67396/width668/image-20141216-14144-1fmodw7.jpg)"
     var md_content = ctx.description || "";
@@ -419,7 +420,7 @@ module.exports =  ConversationView.extend({
         };
       });
       newGroups.push({
-        name: (display.xs() ? "Majority" : "Majority Opinion"),
+        name: (display.xs() ? Strings.majorityOpinionShort : Strings.majorityOpinion),
         gid: -1
       });
       that.groupNamesModel.set("groups", newGroups);

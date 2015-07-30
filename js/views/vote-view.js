@@ -4,6 +4,7 @@ var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
 var serverClient = require("../lib/polis");
 var Utils = require("../util/utils");
+var Strings = require("../strings");
 
 var iOS = Utils.isIos();
 
@@ -35,10 +36,11 @@ module.exports = Handlebones.ModelView.extend({
     if (ctx.created) {
       ctx.createdString = (new Date(ctx.created * 1)).toString().match(/(.*?) [0-9]+:/)[1];
     }
+    ctx.s = Strings;
 
     var social = ctx.social;
     var socialCtx = {
-      name: "Anonymous",
+      name: Strings.anonPerson,
       img: Utils.getAnonPicUrl(),
       link: "",
       anon: true,

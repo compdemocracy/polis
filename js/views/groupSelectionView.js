@@ -3,6 +3,7 @@ var template = require("../tmpl/groupSelectionView");
 var Handlebones = require("handlebones");
 var eb = require("../eventBus");
 var _ = require("underscore");
+var Strings = require("../strings");
 
 
 module.exports =  Handlebones.ModelView.extend({
@@ -50,6 +51,7 @@ module.exports =  Handlebones.ModelView.extend({
       }
       return g;
     });
+    ctx.s = Strings;
     return ctx;
   },
   initialize: function(options) {

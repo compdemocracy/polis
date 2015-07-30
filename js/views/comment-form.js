@@ -10,6 +10,7 @@ var Handlebones = require("handlebones");
 var PolisFacebookUtils = require('../util/facebookButton');
 var ProfilePicView = require('../views/profilePicView');
 var serialize = require("../util/serialize");
+var Strings = require("../strings");
 var Utils = require("../util/utils");
 
 var CHARACTER_LIMIT = constants.CHARACTER_LIMIT;
@@ -40,6 +41,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.shouldAutofocusOnTextarea = this.shouldAutofocusOnTextarea || Utils.shouldFocusOnTextareaWhenWritePaneShown();
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFacebook = userObject.hasFacebook;
+    ctx.s = Strings;
     return ctx;
   },
   hideMessage: function(id) {

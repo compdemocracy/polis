@@ -4,6 +4,7 @@ var eb = require("../eventBus");
 var template = require("../tmpl/analyze-global");
 var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
+var Strings = require("../strings");
 var Utils = require("../util/utils");
 
 var NUMBER_OF_REPRESENTATIVE_COMMENTS_TO_SHOW = 5;
@@ -299,7 +300,7 @@ module.exports = Handlebones.View.extend({
           var gradient = "";
           var social = c.get("social");
           var socialCtx = {
-            name: "Anonymous",
+            name: Strings.anonPerson,
             img: "https://pol.is/landerImages/anonProfileIcon64.png",
             link: "",
             anon: true,
@@ -340,7 +341,7 @@ module.exports = Handlebones.View.extend({
               "<span style='"+
                 "position: relative;" +
                 "top: -14px;" +
-                "'> wrote: </span>"
+                "'> "+ Strings.x_wrote +" </span>"
           "</div>";
           var html =
             "<div "+
