@@ -4390,6 +4390,14 @@ function joinWithZidOrSuzinvite(o) {
         });
     })
     .then(function(o) {
+      var info = {};
+      if (o.referrer) {
+        info.referrer = o.referrer;
+      }
+      if (o.parent_url) {
+        info.parent_url = o.parent_url;
+      }
+      // TODO_REFERRER add info as third arg
       return joinConversation(o.zid, o.uid, o.answers).then(function(ptpt) {
         return _.extend(o, ptpt);
       });
