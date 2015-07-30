@@ -64,6 +64,8 @@ var selectedTid = -1;
 var eps = 0.000000001;
 var SELECT_GLOBAL_CONSENSUS_WHEN_NO_HULL_SELECTED = false;
 
+var SHOW_VOTE_HALOS = false;
+
 var COLOR_SELECTED_HULL = true;
 var EXTRA_RADIUS_FOR_HALO_PIE = 2;
 var EXTRA_RADIUS_FOR_SUMMARY_HALO = 2;
@@ -1072,7 +1074,7 @@ function shouldDisplayOuterCircle(d) {
 
 function shouldDisplayArrows(d) {
     // Hide the circle so we can show the up/down arrows
-    if (commentIsSelected()) {
+    if (commentIsSelected() && SHOW_VOTE_HALOS) {
         return true;
     }
     return false;
