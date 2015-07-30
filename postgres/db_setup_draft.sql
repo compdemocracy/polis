@@ -316,6 +316,14 @@ CREATE INDEX participants_conv_uid_idx ON participants USING btree (uid); -- spe
 CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed up the auto-increment trigger
 
 
+CREATE TABLE participants_extended(
+    uid INTEGER NOT NULL REFERENCES users(uid),
+    zid INTEGER NOT NULL REFERENCES conversations(zid),
+    referrer VARCHAR(9999), -- 2083 is listed as the max
+    parent_url VARCHAR(9999), -- 2083 is listed as the max
+    UNIQUE (zid, uid) 
+);
+
 CREATE TABLE participant_locations (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     uid INTEGER NOT NULL REFERENCES users(uid),

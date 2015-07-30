@@ -410,6 +410,16 @@ var sql_participant_metadata_answers = sql.define({
     ]
 });
 
+var sql_participants_extended = sql.define({
+  name: 'participants_extended',
+  columns: [
+    "uid",
+    "zid",
+    "referrer",
+    "parent_url",
+  ],
+});
+
 var sql_courses = sql.define({
   name: 'courses',
   columns: [
@@ -1170,6 +1180,8 @@ var COOKIES = {
     TOKEN : 'token2',
     UID : 'uid2',
     REFERRER : 'ref',
+    PARENT_REFERRER : 'referrer',
+    PARENT_URL : 'parent_url',
     USER_CREATED_TIMESTAMP: 'uc',
     PERMANENT_COOKIE: 'pc',
     TRY_COOKIE: 'tryCookie',
@@ -1181,6 +1193,8 @@ var COOKIES_TO_CLEAR = {
     uid2: true,
     uc: true,
     plan: true,
+    referrer: true,
+    parent_url: true,
 };
 
 
@@ -1280,6 +1294,18 @@ function setCookie(req, res, setOnPolisDomain, name, value, options) {
         }
     }
     res.cookie(name, value, o);
+}
+
+function setParentReferrerCookie(req, res, setOnPolisDomain, referrer) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.PARENT_REFERRER, referrer, {
+        httpOnly: true,
+    });
+}
+
+function setParentUrlCookie(req, res, setOnPolisDomain, parent_url) {
+    setCookie(req, res, setOnPolisDomain, COOKIES.PARENT_URL, parent_url, {
+        httpOnly: true,
+    });
 }
 
 function setPlanCookie(req, res, setOnPolisDomain, planNumber) {
@@ -2454,6 +2480,18 @@ function getUidByEmail(email) {
 
 
 
+function clearCookie(req, res, cookieName) {
+    var origin = req.headers.origin || "";
+    if (domainOverride || origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+        res.clearCookie(cookieName, {path: "/"});
+    } else {
+        res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
+        res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
+        res.clearCookie(cookieName, {path: "/", domain: ".pol.is"});
+        //         res.clearCookie(cookieName, {path: "/", domain: "www.pol.is"});
+    }
+}
+
 function clearCookies(req, res) {
     var origin = req.headers.origin || "";
     var cookieName;
@@ -2927,6 +2965,18 @@ function createXidEntry(xid, owner, uid) {
                 return;
             }
             resolve();
+        });
+    });
+}
+
+function saveParticipantMetadataChoicesP(zid, pid, answers) {
+    return new Promise(function(resolve, reject) {
+        saveParticipantMetadataChoices(zid, pid, answers, function(err) {
+            if (err) {
+                reject(err);
+            } else {
+                resolve(0);
+            }
         });
     });
 }
@@ -3518,10 +3568,23 @@ app.post("/api/v3/participants",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+    want('parent_url', getStringLimitLength(9999), assignToP),
+    want('referrer', getStringLimitLength(9999), assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var answers = req.p.answers;
+    var info = {};
+
+    var parent_url = req.cookies[COOKIES.PARENT_URL] || req.p.parent_url;
+    var referrer = req.cookies[COOKIES.PARENT_REFERRER] || req.p.referrer;
+
+    if (parent_url) {
+        info.parent_url = parent_url;
+    }
+    if (referrer) {
+        info.referrer = referrer;
+    }
 
     function finish(ptpt) {
         // Probably don't need pid cookies..?
@@ -3529,6 +3592,10 @@ function(req, res) {
         //     return zid + "p";
         // }
         // addCookie(res, getZidToPidCookieKey(zid), pid);
+
+        clearCookie(req, res, COOKIES.PARENT_URL);
+        clearCookie(req, res, COOKIES.PARENT_REFERRER);
+
         setTimeout(function() {
             updateLastInteractionTimeForConversation(zid, uid);
         }, 0);
@@ -4156,6 +4223,8 @@ app.post("/api/v3/joinWithInvite",
     wantCookie(COOKIES.PERMANENT_COOKIE, getOptionalStringLimitLength(32), assignToPCustom('permanentCookieToken')),
     want('suzinvite', getOptionalStringLimitLength(32), assignToP),
     want('answers', getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
+    want('referrer', getStringLimitLength(9999), assignToP),
+    want('parent_url', getStringLimitLength(9999), assignToP),
 function(req, res) {
 
     // if they're already in the conv
@@ -4180,6 +4249,8 @@ function(req, res) {
         permanentCookieToken: req.p.permanentCookieToken,
         uid: req.p.uid,
         zid: req.p.zid, // since the zid is looked up using the conversation_id, it's safe to use zid as an invite token. TODO huh?
+        referrer: req.p.referrer,
+        parent_url: req.p.parent_url,
     })
     .then(function(o) {
         var uid = o.uid;
@@ -10628,6 +10699,7 @@ function registerPageId(site_id, page_id, zid) {
 app.get(/^\/polis_site_id.*/,
     moveToBody,
     need("parent_url", getStringLimitLength(1, 10000), assignToP),
+    want("referrer", getStringLimitLength(1, 10000), assignToP),
 function(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
     var page_id = /\S\/([^\/]*)/.exec(req.path);
@@ -10639,6 +10711,20 @@ function(req, res) {
     var o = {};
     if (req.p.parent_url) {
         o.parent_url = req.p.parent_url;
+    }
+
+    
+    // Set stuff in cookies to be retrieved when POST participants is called.
+    var setOnPolisDomain = !domainOverride;
+    var origin = req.headers.origin || "";
+    if (setOnPolisDomain && origin.match(/^http:\/\/localhost:[0-9]{4}/)) {
+        setOnPolisDomain = false;
+    }
+    if (req.p.referrer) {
+        setParentReferrerCookie(req, res, setOnPolisDomain, req.p.referrer);
+    }
+    if (req.p.parent_url) {
+        setParentUrlCookie(req, res, setOnPolisDomain, req.p.parent_url);
     }
 
     function appendParams(url) {
