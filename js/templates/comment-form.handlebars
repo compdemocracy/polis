@@ -35,7 +35,7 @@
               <i
                 class="fa fa-bullhorn">
               </i>
-              Comment Sent!
+              {{s.commentSent}}
               </strong>
         </p>
       </span>
@@ -48,12 +48,12 @@
         display: none;
         margin-top: 10px;
         ">
-      <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; Connect an identity to comment. We will not post to your timeline.</p></div>
+      <div class="protip"><p><i class="fa fa-microphone"></i>&nbsp; {{s.connectToPostPrompt}}</p></div>
       {{#unless hasFacebook}}
-        <button id="facebookButtonCommentForm" class="facebookButton"><i class="fa fa-facebook-square"></i>&nbsp; Connect Facebook</button>
+        <button id="facebookButtonCommentForm" class="facebookButton"><i class="fa fa-facebook-square"></i>&nbsp; {{s.connectFacebook}}</button>
       {{/unless}}
       {{#unless hasTwitter}}
-        <button id="twitterButtonCommentForm" class="twitterButton"><i class="fa fa-twitter"></i>&nbsp; Connect Twitter</button>
+        <button id="twitterButtonCommentForm" class="twitterButton"><i class="fa fa-twitter"></i>&nbsp; {{s.connectTwitter}}</button>
       {{/unless}}
     </div>
 
@@ -82,10 +82,10 @@
           </i>
           <span style="margin-left: 12px">
             <strong>
-              pro tip:
+              {{s.tip}}
             </strong>
             <span style="margin-left: 5px">
-              comments are sent to others randomly. You are not replying directly to anyone.
+              {{s.tipCommentsRandom}}
             </span>
           </span>
         </p>
@@ -101,7 +101,7 @@
               ">
             </i>&nbsp;
             <span style="margin-left: 12px">
-              Break up long comments that contain multiple ideas. This makes it easier for others to vote on your comment.
+              {{s.tipOneIdea}}
             </span>
         </p>
         <p
@@ -117,7 +117,7 @@
               ">
             </i>&nbsp;
               <span style="margin-left: 12px">
-                Comments should make statements rather than ask questions. Participants will agree or disagree with the statements you make.
+                {{s.tipNoQuestions}}
               </span>
         </p>
 {{!--         <div
@@ -135,7 +135,7 @@
           style="display:none"
           role="alert">
           <p>
-            <strong> Comment Sent!</strong> (not really, this is a demo)
+            <strong> {{s.commentSent}}</strong> {{s.notSentSinceDemo}}
           </p>
         </div>
       </span> {{! end protips column}}
@@ -166,7 +166,7 @@
           height: 40px;
           margin-left: 5px;
           ">
-        Submit
+        {{s.submitComment}}
       </button>
 
    {{!-- ================ END FLEXBOX ================ --}}

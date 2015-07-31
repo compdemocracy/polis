@@ -201,8 +201,9 @@ module.exports = Handlebones.ModelView.extend({
         return;
       }
 
-      var peopleLabel = (info.count>1) ? "people" : "person";
-      $("#numMembers").text(info.count + " " + peopleLabel).show();
+      var peopleLabel = (info.count>1) ? Strings.x_people : Strings.one_person;
+      peopleLabel = peopleLabel.replace("{{x}}", info.count);
+      $("#numMembers").text(peopleLabel).show();
       var repnessInfo = info.repness.slice(0);
 
       var tids = _.pluck(repnessInfo, "tid");
@@ -247,9 +248,9 @@ module.exports = Handlebones.ModelView.extend({
           // L10N gods forgive me
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
           var word = repfullForAgree ?
-            "<span class='a'>Agreed</span>" :
-            "<span class='d'>Disagreed</span>";
-          var wordUnstyled = repfullForAgree ? "agreed" : "disagreed";
+            "<span class='a'>"+Strings.pctAgreed+"</span>" :
+            "<span class='d'>"+Strings.pctDisagreed+"</span>";
+          word = word.replace("{{pct}}", percent);
           var bodyColor = "#333";
           var backgroundColor = "white";
           var dotColor = repfullForAgree ? "#00b54d" : "#e74c3c";
@@ -264,7 +265,7 @@ module.exports = Handlebones.ModelView.extend({
                 "top: -47px;"+
                 "font-size: 35px;"+
                 "font-weight: 100;"+
-                "'>" + percent + "% " + word +
+                "'>" + word +
             "</span>" +
             "<div style='"+
               "font-size:12px;"+
@@ -274,7 +275,7 @@ module.exports = Handlebones.ModelView.extend({
               "top: -47px;"+
               "'>"+
               "<strong>" + v.S + "</strong>" +
-              "<em> in the selected group saw this comment. </em>"+
+              "<em> "+Strings.xPtptsSawThisComment+" </em>" +
             "</div>" +
             "<div style='"+
               "font-size:12px;"+
@@ -284,7 +285,7 @@ module.exports = Handlebones.ModelView.extend({
               "top: -47px;"+
               "'>"+
               "<strong>"+ count +"</strong>"+
-              "<em> of those participants "+wordUnstyled+"</em>."+
+              "<em> "+ (repfullForAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
             "</div>";
 
           var social = c.get("social");
@@ -330,7 +331,7 @@ module.exports = Handlebones.ModelView.extend({
               "<span style='"+
                 "position: relative;" +
                 "top: -14px;" +
-                "'> wrote: </span>"
+                "'> "+ Strings.x_wrote +" </span>"
           "</div>";
           var html =
             "<div "+
@@ -470,6 +471,8 @@ module.exports = Handlebones.ModelView.extend({
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx.selectedGroupName = Utils.getGroupNameForGid(ctx.selectedGid);
+    ctx.s = Strings;
+    ctx.s.heresHowGroupVoted_sub = ctx.s.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", ctx.selectedGroupName);
     return ctx;
   },
   initialize: function(options) {

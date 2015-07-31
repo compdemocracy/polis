@@ -1,7 +1,7 @@
 
 
 var en_us = require("./strings/en_us.js");
-var jp_jp = require("./strings/jp_jp.js");
+var ja = require("./strings/ja.js");
 
 
 var acceptLanguage = preload.acceptLanguage || "";
@@ -17,9 +17,9 @@ prioritized.forEach(function(languageCode) {
 	if (languageCode.match(/^en/)) {
 		strings = _.extend(strings, en_us);
 	}
-	// else if (languageCode.match(/^ja/)) {
-	// 	strings = _.extend(strings, jp_jp);
-	// }
+	else if (languageCode.match(/^ja/)) {
+		strings = _.extend(strings, ja);
+	}
 });
 
 module.exports = strings;

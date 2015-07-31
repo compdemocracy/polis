@@ -255,9 +255,10 @@ module.exports = Handlebones.View.extend({
           var count = info["n-success"];
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
           var word = forAgree ?
-            "<span class='HeadingE a'>agreed</span>" :
-            "<span class='HeadingE d'>disagreed</span>";
-          var wordUnstyled = forAgree ? "agreed" : "disagreed";
+            "<span class='a'>"+Strings.pctAgreed+"</span>" :
+            "<span class='d'>"+Strings.pctDisagreed+"</span>";
+          word = word.replace("{{pct}}", percent);
+
 
           var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
 
@@ -271,7 +272,7 @@ module.exports = Handlebones.View.extend({
                 "top: -47px;"+
                 "font-size: 35px;"+
                 "font-weight: 100;"+
-                "'>" + percent + "% " + word +
+                "'>" + word +
             "</span>" +
             "<div style='"+
               "font-size:12px;"+
@@ -281,7 +282,7 @@ module.exports = Handlebones.View.extend({
               "top: -47px;"+
               "'>"+
               "<strong>" + info["n-trials"] + "</strong>" +
-              "<em> participants saw this comment. </em>" +
+              "<em> "+Strings.xPtptsSawThisComment+" </em>" +
             "</div>" +
             "<div style='"+
               "font-size:12px;"+
@@ -291,7 +292,7 @@ module.exports = Handlebones.View.extend({
               "top: -47px;"+
               "'>"+
               "<strong>"+ count +"</strong>"+
-              "<em> of those participants "+wordUnstyled+"</em>."+
+              "<em> "+ (forAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
             "</div>";
 
 
@@ -489,6 +490,11 @@ module.exports = Handlebones.View.extend({
   },
 
 
+  context: function() {
+    var ctx = Handlebones.View.prototype.context.apply(this, arguments);
+    ctx.s = Strings;
+    return ctx;
+  },
   initialize: function(options) {
     var that = this;
     this.collection = options.collection;
