@@ -11059,6 +11059,7 @@ function fetchIndexForConversation(req, res) {
     if (match && match.length) {
         conversation_id = match[0];
     }
+    var acceptLanguage = req.headers["accept-language"] || req.headers["Accept-Language"];
 
     var optionalItems = Promise.all([
         getTwitterShareCountForConversation(conversation_id),
@@ -11100,6 +11101,7 @@ function fetchIndexForConversation(req, res) {
     }).then(function(x) {
         var preloadData = {
             conversation: x,
+            acceptLanguage: acceptLanguage,
         };
         fetchIndex(req, res, preloadData);
     }).catch(function(err) {
