@@ -487,11 +487,6 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   margin-right: 0px;
 }
 
-
-.infoArea {
-  min-height: 400px;
-}
-
 .voteMoreText {
   font-size: 30px;
   margin: 20px;
@@ -506,10 +501,10 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   overflow: hidden;
 }
 
-.owl-wrapper-outer, .owl-controls {
-  margin-top: 20px !important;
-  margin-bottom: 20px !important;
-}
+// .owl-wrapper-outer, .owl-controls {
+//   margin-top: 20px !important;
+//   margin-bottom: 20px !important;
+// }
 
 .owl-carousel .owl-wrapper-outer {
   overflow: hidden;
@@ -517,6 +512,10 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 
 .owl-controls .owl-page {
   display: none !important;
+}
+
+.owl-controls {
+  display: none;
 }
 
 .analyze-group-member-container {
@@ -762,12 +761,6 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
     display: auto;
   }
 
-  // .analyze-group-pane {
-  //   box-shadow: 2px 5px 7px 1px #ADBFD0;
-  //   -webkit-box-shadow: 2px 5px 7px 1px #ADBFD0;
-  //   position: relative;
-  //   top:-2px;
-  // }
 
   .write-pane {
   //   border-right: 3px solid lightgrey;
@@ -850,9 +843,7 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   #groupStats {
     display: none;
   }
-  .polis-tab-pane {
-    border-style: solid; border-width: 0px; border-top-width: 1px; border-color: lightgray;
-  }
+
 
   .polis-tab {
     // font-size:10px; // not needed since we're hiding the analyze tab, which makes space for the other tabs

@@ -259,10 +259,10 @@ module.exports = Handlebones.ModelView.extend({
             "<span "+
               "class='" + leClass + "'"+
               "style='"+
-                "margin-right:3px;" +
-                "position: relative;"+
-                "left: 54px;"+
-                "top: -47px;"+
+                // "margin-right:3px;" +
+                // "position: relative;"+
+                // "left: 54px;"+
+                // "top: -47px;"+
                 "font-size: 35px;"+
                 "font-weight: 100;"+
                 "'>" + word +
@@ -270,9 +270,9 @@ module.exports = Handlebones.ModelView.extend({
             "<div style='"+
               "font-size:12px;"+
               "color: gray;"+
-              "position: relative;"+
-              "left: 54px;"+
-              "top: -47px;"+
+              // "position: relative;"+
+              // "left: 54px;"+
+              // "top: -47px;"+
               "'>"+
               "<strong>" + v.S + "</strong>" +
               "<em> "+Strings.xPtptsSawThisComment+" </em>" +
@@ -280,9 +280,9 @@ module.exports = Handlebones.ModelView.extend({
             "<div style='"+
               "font-size:12px;"+
               "color: gray;"+
-              "position: relative;"+
-              "left: 54px;"+
-              "top: -47px;"+
+              // "position: relative;"+
+              // "left: 54px;"+
+              // "top: -47px;"+
               "'>"+
               "<strong>"+ count +"</strong>"+
               "<em> "+ (repfullForAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
@@ -349,7 +349,7 @@ module.exports = Handlebones.ModelView.extend({
                 socialHtml +
               "</p>" +
               "<p " +
-                "style='margin-left: 54px; position: relative; top: -38px'" +
+                // "style='margin-left: 54px; position: relative; top: -38px'" +
                 ">" +
                 c.get("txt") +
               "</p>" +
