@@ -15,10 +15,10 @@
         </span>
       <span class="flex-grow-2">
         <textarea
-          class="form-control comment_form_textarea_width"
+          class="form-control"
           id="comment_form_textarea"
           rows="1"
-          style="width: 100%; font-size: 16px"
+          style="width: 100%; font-size: 14px; line-height: 23px; vertical-align: middle;"
           name="txt"
           type="text"
           maxlength="400"
@@ -29,7 +29,7 @@
         <p
           id="commentSentAlert"
           class="protip"
-          style="display:none"
+          style="display: none;"
           role="alert">
             <strong>
               <i
@@ -60,7 +60,7 @@
     {{!-- ================ FLEXBOX ================ --}}
     <div
       id="comment_form_controls"
-      style="display: none; margin-top: 10px"
+      style="display: none; margin-top: 12px"
       class="
         flexbox
         align-items-baseline
@@ -78,9 +78,11 @@
           <i
             class="fa fa-lightbulb-o"
             style="font-size: 24px;
+            position: relative;
+            top: 2px;
             ">
           </i>
-          <span style="margin-left: 12px">
+          <span style="margin-left: 12px;">
             <strong>
               {{s.tip}}
             </strong>

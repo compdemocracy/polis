@@ -574,104 +574,103 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
     color: #3b5998;
   }
 
-.twitterButton {
-    border: 0px;
+.facebookButton, .twitterButton {
+  border: 0px;
+  color: white;
+  font-family: $sans-font;
+  font-weight: 300;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-size: 14px;
+
+  i {
+    font-size: 24px;
     color: white;
-    font-family: $sans-font;
-    font-weight: 300;
-    padding: 8px 16px;
-    border-radius: 5px;
-    background-color: #55ACEE;
-    font-size: 16px;
+    position: relative;
+    top: 4px;
+  }
 }
 
-  .twitterButton i {
-    font-size: 24px;
-    position: relative;
-    top: 2px;
-    color: white;
-  }
+.twitterButton {
+  background-color: #55ACEE;
+}
 
-  .facebookButton {
-    margin-right: 10px;
-    border: 0px;
-    color: white;
-    font-family: $sans-font;
-    font-weight: 300;
-    padding: 8px 16px;
-    border-radius: 5px;
-    background-color: #3b5998;
-    font-size: 16px;
-  }
+.facebookButton {
+  margin-right: 10px;
+  background-color: #3b5998;
+}
 
-  .facebookButton i {
-    font-size: 24px;
-    position: relative;
-    top: 2px
-  }
+.facebookCaveatText {
+  font-size: 14px;
+  list-style: none;
+  margin-left: 0px;
+  width: 65%;
+}
 
-  .facebookCaveatText {
-    font-size: 14px;
-    list-style: none;
-    margin-left: 0px;
-    width: 65%;
-  }
+.socialButtonText {
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 24px;
+  position: relative;
+  top: -2px;
+}
 
-  #fbNotNowBtn {
-    border-bottom: 1px solid gray;
-    padding-bottom: 2px;
-  }
+#fbNotNowBtn {
+  border-bottom: 1px solid gray;
+  padding-bottom: 2px;
+}
 
-  #fbNotNowBtn:hover {
-    color: $hover-color;
-    border-bottom: 1px solid $hover-color;
-  }
+#fbNotNowBtn:hover {
+  color: $hover-color;
+  border-bottom: 1px solid $hover-color;
+}
 
-  .twitterShareButton {
-      border: 0px;
-      color: white;
-      font-family: $sans-font;
-      font-weight: 500;
-      padding: 2px 6px;
-      border-radius: 2px;
-      background-color: #55ACEE;
-      font-size: 12px;
-      position: relative;
-  }
-
-  .twitterShareButton i {
-    font-size: 16px;
-    position: relative;
-    top: 2px;
-    color: white;
-  }
-
-  .facebookShareButton {
+.twitterShareButton {
     border: 0px;
     color: white;
     font-family: $sans-font;
     font-weight: 500;
     padding: 2px 6px;
     border-radius: 2px;
-    background-color: #3b5998;
+    background-color: #55ACEE;
     font-size: 12px;
     position: relative;
+}
 
-  }
+.twitterShareButton i {
+  font-size: 16px;
+  position: relative;
+  top: 2px;
+  color: white;
+}
 
-  .facebookShareButton i {
-    font-size: 16px;
-    position: relative;
-    top: 2px
-  }
+.facebookShareButton {
+  border: 0px;
+  color: white;
+  font-family: $sans-font;
+  font-weight: 500;
+  padding: 2px 6px;
+  border-radius: 2px;
+  background-color: #3b5998;
+  font-size: 12px;
+  position: relative;
+
+}
+
+.facebookShareButton i {
+  font-size: 16px;
+  position: relative;
+  top: 2px
+}
 
 .arrow_box {
+  // text-align: center;
   position: relative;
   top: 0px;
   background: #ffffff;
   border: 1px solid rgb(155,155,155);
   display: inline;
-  margin: 0px 10px 0px 3px;
+  margin: 0px 10px 0px 5px;
   padding: 2px 5px;
   border-radius: 3px;
   font-size: 12px;
@@ -689,15 +688,15 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 }
 
 .arrow_box:after {
-  border-color: rgba(255, 255, 255, 0);
-  border-right-color: #ffffff;
-  border-width: 4px;
+  border-top: 4px solid transparent;
+  border-right: 5px solid #fff;
+  border-bottom: 4px solid transparent;
   margin-top: -4px;
 }
 .arrow_box:before {
-  border-color: rgba(155, 155, 155, 0);
-  border-right-color: rgb(155,155,155);
-  border-width: 5px;
+  border-top: 5px solid transparent;
+  border-right: 6.5px solid #9b9b9b;
+  border-bottom: 5px solid transparent;
   margin-top: -5px;
 }
 
