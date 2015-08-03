@@ -217,6 +217,11 @@
   </ul>
 </div>
 
+{{!  ------------ SUBMIT COMMENT FORM ---------------  }}
+<span id="commentFormParent">
+  {{view commentForm}}
+</span>
+
 {{!  ------------ VOTING PANEL ---------------  }}
 {{view readReactView}}
 
@@ -307,8 +312,8 @@
 </div> {{! /tabbable }}
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
+<span id="commentFormBSibling" style="display:none"><span>
 
-{{view commentForm}}
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
 

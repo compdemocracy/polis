@@ -1,3 +1,4 @@
+var AB = require("../util/ab");
 var AnalyzeGlobalView = require("../views/analyze-global");
 var AnalyzeGroupView = require("../views/analyze-group");
 var Backbone = require("backbone");
@@ -1011,6 +1012,10 @@ module.exports =  ConversationView.extend({
 
       if (false) {
         $("#voteMoreParent").show();
+      }
+      if (AB.isB()) {
+        var cfp = $("#commentFormParent").detach();
+        cfp.insertAfter($("#commentFormBSibling"));
       }
 
       // if (launchWithTutorial) {
