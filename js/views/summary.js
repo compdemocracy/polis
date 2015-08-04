@@ -167,7 +167,6 @@ module.exports =  PolisModelView.extend({
       utils: window.utils,
       protocol: /localhost/.test(document.domain) ? "http" : "https",
       domain: /localhost/.test(document.domain) ? "localhost:5000" : "pol.is",
-      basePath: "",
       logger: console
     });
 

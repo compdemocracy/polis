@@ -102,7 +102,6 @@ module.exports = PolisModelView.extend({
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,
       utils: window.utils,
-      basePath: "",
       logger: console
     });
 

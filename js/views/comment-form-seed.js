@@ -4,6 +4,7 @@ var template = require("../tmpl/comment-form-seed");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
 var Handlebones = require("handlebones");
+var Net = require("../util/net");
 var serialize = require("../util/serialize");
 
 var CHARACTER_LIMIT = constants.CHARACTER_LIMIT;
@@ -25,6 +26,14 @@ module.exports = Handlebones.View.extend({
       e.preventDefault();
       serialize(this, function(attrs){
         that.participantCommented(attrs);
+      });
+      $("#comment_form_textarea").val(""); //use this.$
+    },
+    "click #import_tweet_button": function(e) {
+      var that = this;
+      e.preventDefault();
+      serialize(this, function(attrs){
+        that.tweetImportClicked(attrs);
       });
       $("#comment_form_textarea").val(""); //use this.$
     }
@@ -64,6 +73,25 @@ module.exports = Handlebones.View.extend({
     } else {
       this.$("#commentNotQuestionAlert").hide();
     }
+  },
+  tweetImportClicked: function(attrs) {
+    var that = this; //that = the view
+    attrs.conversation_id = this.conversation_id;
+    // The vote will be attached to the original Tweet's author.
+    attrs.vote = constants.REACTIONS.AGREE; 
+    attrs.prepop = true; // this is a prepopulated comment
+
+    // hacky: overloading the txt for to hold a tweet id
+    attrs.twitter_tweet_id = attrs.txt;
+    delete attrs.txt;
+    
+    Net.polisPost("api/v3/comments", attrs).then(function() {
+      that.trigger("commentSubmitted");
+      that.updateCollection();
+    }, function(err) {
+      console.error("failed to import tweet");
+      console.error(err)
+    });
   },
   participantCommented: function(attrs) {
     var that = this; //that = the view

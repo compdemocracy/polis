@@ -6,9 +6,13 @@ var shuffleWithSeed = require("../util/shuffleWithSeed");
 // var brain = require("brain");
 var URLs = require("../util/url");
 var mapObj = Utils.mapObj;
-var urlPrefix = URLs.urlPrefix;
+var Net = require("../util/net");
 
 var PTPOI_BID_OFFSET = 1e10;
+
+var polisPost = Net.polisPost;
+var polisGet = Net.polisGet;
+var polisAjax = Net.polisAjax;
 
 module.exports = function(params) {
 
@@ -299,6 +303,15 @@ module.exports = function(params) {
         return p;
     }
 
+    function importTweet(twitter_tweet_id, vote) {
+        var params = {
+            conversation_id: conversation_id,
+            twitter_tweet_id: twitter_tweet_id,
+            vote: vote,
+        };
+        return polisPost(commentsPath, params);
+    }
+
     function submitComment(model) {
 
 
@@ -462,74 +475,6 @@ module.exports = function(params) {
             conversation_id: conversation_id,
             xids: xids
         });
-    }
-
-    function polisPost(api, data) {
-        return polisAjax(api, data, "POST");
-    }
-
-    function polisGet(api, data) {
-        return polisAjax(api, data, "GET");
-    }
-
-    function polisAjax(api, data, type) {
-        if (!_.isString(api)) {
-            throw "api param should be a string";
-        }
-
-        var url = urlPrefix + basePath + api;
-
-        // Add the auth token if needed.
-        // if (_.contains(authenticatedCalls, api)) {
-        //     var token = tokenStore.get();
-        //     if (!token) {
-        //         needAuthCallbacks.fire();
-        //         console.error("auth needed");
-        //         return $.Deferred().reject("auth needed");
-        //     }
-        //     //data = $.extend({ token: token}, data); // moving to cookies
-        // }
-
-        var promise;
-        var config = {
-            url: url,
-            contentType: "application/json; charset=utf-8",
-            headers: {
-                //"Cache-Control": "no-cache"  // no-cache
-                "Cache-Control": "max-age=0"
-            },
-            xhrFields: {
-                withCredentials: true
-            },
-            // crossDomain: true,
-            dataType: "json"
-        };
-        if ("GET" === type) {
-            promise = $.ajax($.extend(config, {
-                type: "GET",
-                data: data
-            }));
-        } else if ("POST" === type) {
-            promise = $.ajax($.extend(config, {
-                type: "POST",
-                data: JSON.stringify(data)
-            }));
-        }
-
-        promise.fail( function(jqXHR, message, errorType) {
-
-            // sendEvent("Error", api, jqXHR.status);
-
-            logger.error("SEND ERROR");
-            console.dir(arguments);
-            if (403 === jqXHR.status) {
-                needAuthCallbacks.fire();
-            }
-                //logger.dir(data);
-                //logger.dir(message);
-                //logger.dir(errorType);
-        });
-        return promise;
     }
 
     function Bucket() {
@@ -2477,7 +2422,7 @@ function clientSideBaseCluster(things, N) {
         startPolling: startPolling,
         // simple way to centralize polling actions, and ensure they happen near each-other (to save battery)
         addPollingScheduledCallback: addPollingScheduledCallback,
-
+        importTweet: importTweet,
         jumpTo: jumpTo,
         submitComment: submitComment
     };
