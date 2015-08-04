@@ -6023,7 +6023,7 @@ function(req, res) {
         fail(res, 400, "polis_err_param_missing_txt");
         return;
     }
-    var twitterPrepPromise = twitter_tweet_id ? prepForTwitterComment(twitter_tweet_id) : Promise.resolve();
+    var twitterPrepPromise = twitter_tweet_id ? prepForTwitterComment(twitter_tweet_id, zid) : Promise.resolve();
 
     twitterPrepPromise.then(function(info) {
 
@@ -6112,12 +6112,13 @@ function(req, res) {
                 mod = polisTypes.mod.ok;
                 active = true;
             }
+            var authorUid = ptpt ? ptpt.uid : uid;
 
             pgQuery(
                 "INSERT INTO COMMENTS "+
                   "(pid, zid, txt, velocity, active, mod, uid, tweet_id, created, tid) VALUES "+
                   "($1,   $2,  $3,       $4,     $5,  $6, $7,  $8,       default, null) RETURNING tid, created;",
-                   [pid, zid, txt, velocity, active, mod, uid, twitter_tweet_id||null],
+                   [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id||null],
 
                 function(err, docs) {
                     if (err) { 
@@ -8281,6 +8282,7 @@ function getTwitterTweetById(twitter_tweet_id) {
                     console.error(e);     
                     reject(e);
                 } else {
+                    data = JSON.parse(data);
                     console.dir(data);
                     resolve(data);
                 }
@@ -8469,30 +8471,37 @@ function createUserFromTwitterInfo(twitter_user_id) {
 }
 
 function prepForTwitterComment(twitter_tweet_id, zid) {
+
+    function addParticipantAndFinish(uid, twitterUser, tweet) {
+      return addParticipant(zid, uid).then(function(rows) {
+        var ptpt = rows[0];
+        return {
+          ptpt: ptpt,
+          twitterUser: twitterUser,
+          tweet: tweet,
+        };
+      });
+    }
+
     return getTwitterTweetById(twitter_tweet_id).then(function(tweet) {
         var user = tweet.user;
         var twitter_user_id = user.id_str;
         return pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [twitter_user_id]).then(function(rows) {
-
             if (rows && rows.length) {
                 var twitterUser = rows[0];
                 var uid = twitterUser.uid;
-                return getParticipant(zid, twitterUser.uid).then(function(ptpt) {
-                      return {
-                          ptpt: ptpt,
-                          twitterUser: twitterUser,
-                          tweet: tweet,
-                      };
-                  }).catch(function(err) {
-                    return addParticipant(zid, uid).then(function(rows) {
-                      var ptpt = rows[0];
-                      return {
+                return getParticipant(zid, uid).then(function(ptpt) {
+                    if (!ptpt) {
+                      return addParticipantAndFinish(uid, twitterUser, tweet);
+                    }
+                    return {
                         ptpt: ptpt,
                         twitterUser: twitterUser,
                         tweet: tweet,
-                      };
-                    });
-                  });
+                    };
+                }).catch(function(err) {
+                  return addParticipantAndFinish(uid, twitterUser, tweet);
+                });
             } else {
                 // no user records yet
                 return createUserFromTwitterInfo(twitter_user_id).then(function(twitterUser) {
@@ -8526,18 +8535,9 @@ function addParticipant(zid, uid) {
   return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]);
 }
 
-app.post("/api/v3/comments/fromTweet",
-    auth(assignToP),
-    need("twitter_tweet_id", getStringLimitLength(999), assignToP),
-    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-function(req, res) {
-  
-    // * post comment's text as a comment, using pid, etc, and a special flag, like 'is_tweet'? Somewhere we need to stash other tweet metadata, at least the tweet_id
-    // WAIT! should this maybe use the existing POST /comments api instead? probably a good idea to share that last part
-});
 
 function getAndInsertTwitterUser(twitter_user_id, uid) {
-  getTwitterUserInfo(twitter_user_id, false).then(function(u) {
+  return getTwitterUserInfo(twitter_user_id, false).then(function(u) {
     u = JSON.parse(u)[0];
     winston.log("info","TWITTER USER INFO");
     winston.log("info",u);
@@ -8888,7 +8888,7 @@ function getSocialInforForUsers(uids) {
         return Promise.resolve([]);
     }
     var uidString = uids.join(",");
-    return pgQueryP("with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select * from fb left join tw on tw.uid = fb.uid;", []);
+    return pgQueryP("with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select * from fb full outer join tw on tw.uid = fb.uid;", []);
 }
 
 
@@ -11251,6 +11251,10 @@ function fetchIndex(req, res, preloadData) {
     }
 }
 
+function fetchIndexWithoutPreloadData(req, res) {
+  return fetchIndex(req, res, {});
+}
+
 function fetchIndexForConversation(req, res) {
     console.log("fetchIndexForConversation", req.path);
     var match = req.path.match(/[0-9][0-9A-Za-z]+/);
@@ -11316,12 +11320,12 @@ app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // s
 app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // moderation view
 app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
-app.get(/^\/conversation\/create(\/.*)?/, fetchIndex);
-app.get(/^\/user\/create(\/.*)?$/, fetchIndex);
-app.get(/^\/user\/login(\/.*)?$/, fetchIndex);
-app.get(/^\/welcome\/.*$/, fetchIndex);
-app.get(/^\/settings(\/.*)?$/, fetchIndex);
-app.get(/^\/user\/logout(\/.*)?$/, fetchIndex);
+app.get(/^\/conversation\/create(\/.*)?/, fetchIndexWithoutPreloadData);
+app.get(/^\/user\/create(\/.*)?$/, fetchIndexWithoutPreloadData);
+app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
+app.get(/^\/welcome\/.*$/, fetchIndexWithoutPreloadData);
+app.get(/^\/settings(\/.*)?$/, fetchIndexWithoutPreloadData);
+app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
 
 
 app.get("/iip/:conversation_id",
@@ -11361,18 +11365,18 @@ function(req, res) {
 });
 // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
-app.get(/^\/inbox(\/.*)?$/, fetchIndex);
-app.get(/^\/r/, fetchIndex);
-app.get(/^\/hk/, fetchIndex);
-app.get(/^\/s\//, fetchIndex);
-app.get(/^\/s$/, fetchIndex);
-app.get(/^\/hk\/new/, fetchIndex);
-app.get(/^\/inboxApiTest/, fetchIndex);
-app.get(/^\/pwresetinit$/, fetchIndex);
+app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
+app.get(/^\/r/, fetchIndexWithoutPreloadData);
+app.get(/^\/hk/, fetchIndexWithoutPreloadData);
+app.get(/^\/s\//, fetchIndexWithoutPreloadData);
+app.get(/^\/s$/, fetchIndexWithoutPreloadData);
+app.get(/^\/hk\/new/, fetchIndexWithoutPreloadData);
+app.get(/^\/inboxApiTest/, fetchIndexWithoutPreloadData);
+app.get(/^\/pwresetinit$/, fetchIndexWithoutPreloadData);
 app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
-app.get(/^\/pwreset.*/, fetchIndex);
-app.get(/^\/prototype.*/, fetchIndex);
-app.get(/^\/plan.*/, fetchIndex);
+app.get(/^\/pwreset.*/, fetchIndexWithoutPreloadData);
+app.get(/^\/prototype.*/, fetchIndexWithoutPreloadData);
+app.get(/^\/plan.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
 app.get(/^\/football$/, makeFileFetcher(hostname, port, "/football.html", "text/html"));
 app.get(/^\/news$/, makeFileFetcher(hostname, port, "/news.html", "text/html"));
@@ -11432,14 +11436,14 @@ var conditionalIndexFetcher = (function() {
     return function(req, res) {
         if (hasAuthToken(req)) {
             // user is signed in, serve the app
-            return fetchIndex(req, res);
+            return fetchIndexWithoutPreloadData(req, res);
         } else if (!browserSupportsPushState(req)) {
             // TEMPORARY: Don't show the landing page.
             // The problem is that /user/create redirects to #/user/create,
             // which ends up here, and since there's no auth token yet,
             // we would show the lander. One fix would be to serve up the auth page
             // as a separate html file, and not rely on JS for the routing.
-            return fetchIndex(req, res);
+            return fetchIndexWithoutPreloadData(req, res);
         } else {
             // user not signed in, serve landing page
             return fetchLander(req, res);
