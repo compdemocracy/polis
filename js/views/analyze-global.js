@@ -20,36 +20,36 @@ var isMobile = Utils.isMobile();
 
 
 function addMultipleOwlItems(htmlStrings, targetPosition) {
-    var base = this,
-        i,
-        position;
+  var base = this,
+      i,
+      position;
 
-    if (!htmlStrings || !htmlStrings.length) {return false; }
+  if (!htmlStrings || !htmlStrings.length) {return false; }
 
-    if (base.$elem.children().length === 0) {
-        for (i = 0; i < htmlStrings.length; i++) {
-          base.$elem.append(htmlStrings[i]);
-        }
-        base.setVars();
-        return false;
-    }
-    base.unWrap();
-    if (targetPosition === undefined || targetPosition === -1) {
-        position = -1;
-    } else {
-        position = targetPosition;
-    }
-    if (position >= base.$userItems.length || position === -1) {
+  if (base.$elem.children().length === 0) {
       for (i = 0; i < htmlStrings.length; i++) {
-        base.$userItems.eq(-1).after(htmlStrings[i]);
+        base.$elem.append(htmlStrings[i]);
       }
-    } else {
-      for (i = 0; i < htmlStrings.length; i++) {
-        base.$userItems.eq(position).before(htmlStrings[i]);
-      }
+      base.setVars();
+      return false;
+  }
+  base.unWrap();
+  if (targetPosition === undefined || targetPosition === -1) {
+      position = -1;
+  } else {
+      position = targetPosition;
+  }
+  if (position >= base.$userItems.length || position === -1) {
+    for (i = 0; i < htmlStrings.length; i++) {
+      base.$userItems.eq(-1).after(htmlStrings[i]);
     }
+  } else {
+    for (i = 0; i < htmlStrings.length; i++) {
+      base.$userItems.eq(position).before(htmlStrings[i]);
+    }
+  }
 
-    base.setVars();
+  base.setVars();
 }
 
 
@@ -254,46 +254,13 @@ module.exports = Handlebones.View.extend({
             "d";
           var count = info["n-success"];
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
-          var word = forAgree ?
+          var agreedOrDisagreed = forAgree ?
             "<span class='a'>"+Strings.pctAgreed+"</span>" :
             "<span class='d'>"+Strings.pctDisagreed+"</span>";
-          word = word.replace("{{pct}}", percent);
+          agreedOrDisagreed = agreedOrDisagreed.replace("{{pct}}", percent);
 
 
           var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
-
-          header =
-            "<span "+
-              "class='" + leClass + "'"+
-              "style='"+
-                "margin-right:3px;" +
-                "position: relative;"+
-                "left: 54px;"+
-                "top: -47px;"+
-                "font-size: 35px;"+
-                "font-weight: 100;"+
-                "'>" + word +
-            "</span>" +
-            "<div style='"+
-              "font-size:12px;"+
-              "color: gray;"+
-              "position: relative;"+
-              "left: 54px;"+
-              "top: -47px;"+
-              "'>"+
-              "<strong>" + info["n-trials"] + "</strong>" +
-              "<em> "+Strings.xPtptsSawThisComment+" </em>" +
-            "</div>" +
-            "<div style='"+
-              "font-size:12px;"+
-              "color: gray;"+
-              "position: relative;"+
-              "left: 54px;"+
-              "top: -47px;"+
-              "'>"+
-              "<strong>"+ count +"</strong>"+
-              "<em> "+ (forAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
-            "</div>";
 
 
           var backgroundColor = "white"; //forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
@@ -324,49 +291,76 @@ module.exports = Handlebones.View.extend({
               };
             }
           }
-          var socialHtml =
-            "<div>" +
-              (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
-                "<img " +
-                  "style='border-radius: 3px; width: 40px; border: 1px solid lightgrey; margin-right: 15px; position: relative; top: -5px;'" +
-                  "src='" + socialCtx.img + "'>" +
-                "</img>" +
+
+          var html =
+          "<div "+
+            "style="+
+              "'color:"+bodyColor+";"+
+              "background-color: " + backgroundColor + ";"+
+              "cursor: -moz-grab;"+
+              "cursor: -webkit-grab;"+
+              "cursor: grab;"+
+              "' "+
+            "class='query_result_item' "+
+            "data-idx='"+(indexToTid.length-1) +
+            "'>" +
+            /* ========== SOCIAL IMAGE ========== */
+            "<img " +
+              "style='border-radius: 3px; width: 40px; border: 1px solid lightgrey; position: absolute;'" +
+              "src='" + socialCtx.img + "'>" +
+            "</img>" +
+            "<div style='margin-left: 51px; position: relative; top: -4px;'>" +
+              /* ========== SOCIAL NAME || ANONYMOUS ========== */
+              "<p style='margin: 0px'>"+
+                (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
                 "<span "+
                   "style='"+
-                  "font-weight: bold;"+
-                  "position: relative;" +
-                  // "margin-left: 5px;" +
-                  "top: -14px;" +
-                  "'>" + socialCtx.name + "</span>" +
-              (socialCtx.anon ? "": "</a>") +
-              "<span style='"+
-                "position: relative;" +
-                "top: -14px;" +
-                "'> "+ Strings.x_wrote +" </span>"
-          "</div>";
-          var html =
-            "<div "+
-              "style="+
-                "'color:"+bodyColor+";"+
-                "background-color: " + backgroundColor + ";"+
-                "cursor: -moz-grab;"+
-                "cursor: -webkit-grab;"+
-                "cursor: grab;"+
-                "' "+
-              "class='query_result_item' "+
-              "data-idx='"+(indexToTid.length-1) +"'>" +
-              "<p style='margin-bottom:0px'>" +
-                (Utils.debugCommentProjection ? c.get("tid") : "")+
-                socialHtml +
+                  "font-weight: 700;"+
+                  "'>" + socialCtx.name +
+                "</span>" +
+                (socialCtx.anon ? "": "</a>") +
+                /* ========== WROTE ========== */
+                "<span style='"+
+                  "'> "+ Strings.x_wrote +
+                " </span>" +
               "</p>" +
+              /* ========== COMMENT TEXT ========== */
               "<p " +
-                "style='margin-left: 54px; position: relative; top: -38px'" +
+                "style='margin: 0px'" +
                 ">" +
                 c.get("txt") +
               "</p>" +
-              header +
+              /* ========== PERCENTAGE AND AGREED / DISAGREED ========== */
+              "<p "+
+                "class='" + leClass + "'"+
+                "style='"+
+                  "margin: 0px;" +
+                  "font-size: 35px;"+
+                  "font-weight: 100;"+
+                  "'>" + agreedOrDisagreed +
+              "</p>" +
+              /* ========== N PARTICIPANTS SAW X COMMENT ========== */
+              "<p style='"+
+                "font-size:12px;"+
+                "color: gray;"+
+                "margin: 0px"+
+                "'>"+
+                "<strong>" + info["n-trials"] + "</strong>" +
+                "<em> "+Strings.xPtptsSawThisComment+" </em>" +
+              "</p>" +
+              /* ========== N OF THOSE PARTICIPANTS AGREED / DISAGREED ========== */
+              "<p style='"+
+                "font-size:12px;"+
+                "color: gray;"+
+                "'>"+
+                "<strong>"+ count +"</strong>"+
+                "<em> "+ (forAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
+              "</p>"+
+              /* ========== DATE OF COMMENT ========== */
               // '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
-            "</div>";
+            "</div>"+
+          "</div>";
+
           return {
             html: html,
             color: dotColor

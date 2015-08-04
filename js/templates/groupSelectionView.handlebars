@@ -13,11 +13,12 @@
     {{/unless}}
     ">
 <div>
-  <span style="font-weight: 700">
+  <span >
     {{s.group_123}}
   </span>
   {{#each groups2}}
   	<button
+      style="font-weight: 700"
       data-gid="{{this.gid}}"
       class="
         groupButton
@@ -30,7 +31,7 @@
   {{/each}}
 </div>
 
-  <button
+{{!--   <button
     class="
       groupButton
       infoPaneButton
@@ -39,5 +40,5 @@
       {{/if}}
       ">
       {{s.info}}
-  </button>
+  </button> --}}
 </div>

@@ -182,6 +182,41 @@
 
 {{!  ------------ BEGIN MAIN CONTENT ---------------  }}
 
+{{!  ------------ HELP TEXT ---------------  }}
+
+<div
+  style="
+    background-color: #D6D6F1;
+    border: 1px solid black;
+    padding: 10px 20px;
+    width: 100%;
+    margin: 10px auto;
+    border-radius: 4px;
+  ">
+  <p class="flexbox justify-content-space-between align-items-center">
+    <span style="font-size: 24px;">
+      Welcome! This is a new kind of online discussion.
+    </span>
+{{!--     <i
+      style="
+
+      "
+      class="fa fa-times">
+    </i> --}}
+  </p>
+  <p>What do I do?</p>
+  <ul>
+    <li><strong>Vote</strong> on other people's comments by clicking 'agree' or 'disagree'.</li>
+    <li><strong>Write</strong> a comment if your perspective isn't represented.</li>
+    <li><strong>Invite</strong> your friends to the discussion!</li>
+  </ul>
+  <p>What am I seeing?</p>
+  <ul>
+    <li>People who vote similarly are grouped.</li>
+    <li>Click a group to see which viewpoints they share.</li>
+  </ul>
+</div>
+
 {{!  ------------ VOTING PANEL ---------------  }}
 {{view readReactView}}
 
@@ -240,8 +275,8 @@
 <div class="tabbable darkPanel clickDoesNotDeselectHull"> {{! Only required for left/right tabs }}
   <div
     class="tab-content"
-    style="min-height: 200px"
-    >
+{{!--     style="min-height: 200px"
+ --}}    >
     <div
       class="tab-pane"
       id="legend"
@@ -262,12 +297,12 @@
       >
       {{view analyzeGroupView}}
     </div> {{! analyze tab pane }}
-    <div
+{{!--     <div
       class="tab-pane lightPanel"
       id="infoSlidePane"
       >
       {{view conversationInfoSlideView}}
-    </div>
+    </div> --}}
   </div> {{! /tab content }}
 </div> {{! /tabbable }}
 
