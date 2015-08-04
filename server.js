@@ -6000,47 +6000,63 @@ function commentExists(zid, txt) {
   });
 }
 
+
+
 // TODO probably need to add a retry mechanism like on joinConversation to handle possibility of duplicate tid race-condition exception
 app.post("/api/v3/comments",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    need('txt', getOptionalStringLimitLength(997), assignToP),
+    want('txt', getOptionalStringLimitLength(997), assignToP),
     want('vote', getIntInRange(-1, 1), assignToP),
     want('prepop', getBool, assignToP),
+    want("twitter_tweet_id", getStringLimitLength(999), assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var txt = req.p.txt;
     var vote = req.p.vote;
     var prepopulating = req.p.prepop;
+    var twitter_tweet_id = req.p.twitter_tweet_id;
 
-    var ip = 
+    // either include txt, or a tweet id
+    if (_.isUndefined(txt) && _.isUndefined(twitter_tweet_id)) {
+        fail(res, 400, "polis_err_param_missing_txt");
+        return;
+    }
+    // var twitterPrepPromise = twitter_tweet_id ? prepForTwitterComment(twitter_tweet_id) : Promise.resolve();
+
+    // twitterPrepPromise.then(function(info) {
+
+      // if (tweet) {
+      //   txt = tweet.text; // TODO CHECK
+      // }
+      var ip = 
         req.headers['x-forwarded-for'] ||  // TODO This header may contain multiple IP addresses. Which should we report?
         req.connection.remoteAddress || 
         req.socket.remoteAddress ||
         req.connection.socket.remoteAddress;
     
-    var isSpamPromise = isSpam({
+      var isSpamPromise = isSpam({
         comment_content: txt,
         comment_author: uid,
         permalink: 'https://pol.is/' + zid,
         user_ip: ip,
         user_agent: req.headers['user-agent'],
         referrer: req.headers.referer,
-    });
-    isSpamPromise.catch(function(err) {
+      });
+      isSpamPromise.catch(function(err) {
         console.error("isSpam failed");
         winston.log("info",err);
-    });
-    // var isSpamPromise = Promise.resolve(false);
-    var isModeratorPromise = isModerator(zid, uid);
+      });
+      // var isSpamPromise = Promise.resolve(false);
+      var isModeratorPromise = isModerator(zid, uid);
 
-    var conversationInfoPromise = getConversationInfo(zid);
+      var conversationInfoPromise = getConversationInfo(zid);
 
-    var pidPromise = getPidPromise(zid, uid);
-    var commentExistsPromise = commentExists(zid, txt);
+      var pidPromise = getPidPromise(zid, uid);
+      var commentExistsPromise = commentExists(zid, txt);
 
-    Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
+      Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
         var pid = results[0];
         var conv = results[1];
         var is_moderator = results[2];
@@ -6162,11 +6178,16 @@ function(req, res) {
                 yell("polis_err_unhandled_spam_check_error");
 
             });
-    }, function(errors) {
+      }, function(errors) {
         if (errors[0]) { fail(res, 500, "polis_err_getting_pid", errors[0]); return; }
         if (errors[1]) { fail(res, 500, "polis_err_getting_conv_info", errors[1]); return; }        
-    });
+      });
 
+    // }, function(err) {
+    //     fail(res, 500, "polis_err_fetching_tweet", err);
+    // }).catch(function(err) {
+    //     fail(res, 500, "polis_err_post_comment_misc", err);
+    // });
 
         //var rollback = function(client) {
           //pgQuery('ROLLBACK', function(err) {
