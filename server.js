@@ -3134,7 +3134,7 @@ function tryToJoinConversation(zid, uid, info, pmaid_answers) {
     }
 
     // there was no participant row, so create one
-    return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]).then(function(rows) {
+    return addParticipant(zid, uid).then(function(rows) {
         var pid = rows && rows[0] && rows[0].pid;
         var ptpt = rows[0];
 
@@ -8375,6 +8375,178 @@ function retryFunctionWithPromise(f, numTries) {
             }
         });
     });
+}
+
+
+
+
+function updateSomeTwitterUsers() {
+    return pgQueryP("select uid, twitter_user_id from twitter_users where modified < (now_as_millis() - 30*60*1000) order by modified desc limit 100;").then(function(results) {
+        var twitter_user_ids = _.pluck(results, "twitter_user_id");
+        if (results.length === 0) {
+            return [];
+        }
+        getTwitterUserInfoBulk(twitter_user_ids).then(function(info) {
+            console.dir(info);
+
+            var updateQueries = info.map(function(u) {
+                var q = "update twitter_users set "+
+                    "screen_name = ($2)," +
+                    "name = ($3)," +
+                    "followers_count = ($4)," +
+                    "friends_count = ($5)," +
+                    "verified = ($6)," +
+                    "profile_image_url_https = ($7)," +
+                    "location = ($8)," +
+                    "modified = now_as_millis() " + 
+                "where twitter_user_id = ($1);";
+
+                console.log(q);
+                return pgQueryP(q, [
+                        u.id,
+                        u.screen_name,
+                        u.name,
+                        u.followers_count,
+                        u.friends_count,
+                        u.verified,
+                        u.profile_image_url_https,
+                        u.location,
+                ]);
+            });
+            return Promise.all(updateQueries).then(function() {
+                console.log("done123");
+            });
+        });
+    });
+}
+// Ensure we don't call this more than 60 times in each 15 minute window (across all of our servers/use-cases)
+setInterval(updateSomeTwitterUsers, 1 * 60 * 1000);
+updateSomeTwitterUsers();
+
+
+// getTwitterTweetById("627881237101846528").then(function(tweet) {
+//     console.dir(tweet);
+// });
+
+
+function createUserFromTwitterInfo(twitter_user_id) {
+  return createDummyUser().then(function(uid) {
+    return getAndInsertTwitterUser(twitter_user_id, uid).then(function(result) {
+
+      var u = result.twitterUser;
+      var twitterUserDbRecord = result.twitterUserDbRecord;
+
+      return pgQueryP("update users set hname = ($2) where uid = ($1) and hname is NULL;", [uid, u.name]).then(function() {
+        return twitterUserDbRecord;
+      });
+    });
+  });
+}
+
+function prepForTwitterComment(twitter_tweet_id, zid) {
+    return getTwitterTweetById(twitter_tweet_id).then(function(tweet) {
+        var user = tweet.user;
+        var twitter_user_id = user.id_str;
+        return pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [twitter_user_id]).then(function(rows) {
+
+            if (rows && rows.length) {
+                var twitterUser = rows[0];
+                return getParticipant(zid, twitterUser.uid).then(function(ptpt) {
+                      return {
+                          ptpt: ptpt,
+                          twitterUser: twitterUser,
+                          tweet: tweet,
+                      };
+                  }).catch(function(err) {
+                    return addParticipant(zid, uid).then(function(rows) {
+                      var ptpt = rows[0];
+                      return {
+                        ptpt: ptpt,
+                        twitterUser: twitterUser,
+                        tweet: tweet,
+                      };
+                    });
+                  });
+            } else {
+                // no user records yet
+                return createUserFromTwitterInfo(twitter_user_id).then(function(twitterUser) {
+                  return addParticipant(zid, uid).then(function(rows) {
+                      var ptpt = rows[0];
+                      return {
+                        ptpt: ptpt,
+                        twitterUser: twitterUser,
+                        tweet: tweet,
+                      };
+                    });
+                });
+            }
+        });
+    });
+      // * fetch tweet info
+    //   if fails, return failure
+    // * look for author in twitter_users
+    //   if exists
+    //    * use uid to find pid in participants
+    //   if not exists
+    //    * fetch info about user from twitter api
+    //      if fails, ??????
+    //      if ok
+    //       * create a new user record
+    //       * create a twitter record
+}
+
+function addParticipant(zid, uid) {
+  return pgQueryP("INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;", [zid, uid]);
+}
+
+app.post("/api/v3/comments/fromTweet",
+    auth(assignToP),
+    need("twitter_tweet_id", getStringLimitLength(999), assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+function(req, res) {
+  
+    // * post comment's text as a comment, using pid, etc, and a special flag, like 'is_tweet'? Somewhere we need to stash other tweet metadata, at least the tweet_id
+    // WAIT! should this maybe use the existing POST /comments api instead? probably a good idea to share that last part
+});
+
+function getAndInsertTwitterUser(twitter_user_id, uid) {
+  getTwitterUserInfo(kv.user_id, false).then(function(u) {
+    u = JSON.parse(u)[0];
+    winston.log("info","TWITTER USER INFO");
+    winston.log("info",u);
+    winston.log("info","/TWITTER USER INFO");
+    return pgQueryP("insert into twitter_users ("+
+      "uid," +
+      "twitter_user_id," +
+      "screen_name," +
+      "name," +
+      "followers_count," +
+      "friends_count," +
+      "verified," +
+      "profile_image_url_https," +
+      "location," +
+      "response" +
+      ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) returning *;", [
+      uid,
+      u.id,
+      u.screen_name,
+      u.name,
+      u.followers_count,
+      u.friends_count,
+      u.verified,
+      u.profile_image_url_https,
+      u.location,
+      JSON.stringify(u),
+    ]).then(function() {
+      var record = rows && rows.length && rows[0] || null;
+
+      // return the twitter user record
+      return {
+        twitterUser: u,
+        twitterUserDbRecord: record,
+      };
+    });
+  });
 }
 
 app.get("/api/v3/twitter_oauth_callback",
