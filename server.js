@@ -6023,13 +6023,17 @@ function(req, res) {
         fail(res, 400, "polis_err_param_missing_txt");
         return;
     }
-    // var twitterPrepPromise = twitter_tweet_id ? prepForTwitterComment(twitter_tweet_id) : Promise.resolve();
+    var twitterPrepPromise = twitter_tweet_id ? prepForTwitterComment(twitter_tweet_id) : Promise.resolve();
 
-    // twitterPrepPromise.then(function(info) {
+    twitterPrepPromise.then(function(info) {
 
-      // if (tweet) {
-      //   txt = tweet.text; // TODO CHECK
-      // }
+      var ptpt = info && info.ptpt;
+      var twitterUser = info && info.twitterUser;
+      var tweet = info && info.tweet;
+
+      if (tweet) {
+        txt = tweet.text;
+      }
       var ip = 
         req.headers['x-forwarded-for'] ||  // TODO This header may contain multiple IP addresses. Which should we report?
         req.connection.remoteAddress || 
@@ -6053,7 +6057,7 @@ function(req, res) {
 
       var conversationInfoPromise = getConversationInfo(zid);
 
-      var pidPromise = getPidPromise(zid, uid);
+      var pidPromise = ptpt ? Promise.resolve(ptpt.pid) : getPidPromise(zid, uid);
       var commentExistsPromise = commentExists(zid, txt);
 
       Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
@@ -6111,9 +6115,9 @@ function(req, res) {
 
             pgQuery(
                 "INSERT INTO COMMENTS "+
-                  "(pid, zid, txt, velocity, active, mod, uid, created, tid) VALUES "+
-                  "($1,   $2,  $3,       $4,     $5,  $6, $7,  default, null) RETURNING tid, created;",
-                   [pid, zid, txt, velocity, active, mod, uid],
+                  "(pid, zid, txt, velocity, active, mod, uid, tweet_id, created, tid) VALUES "+
+                  "($1,   $2,  $3,       $4,     $5,  $6, $7,  $8,       default, null) RETURNING tid, created;",
+                   [pid, zid, txt, velocity, active, mod, uid, twitter_tweet_id||null],
 
                 function(err, docs) {
                     if (err) { 
@@ -6183,11 +6187,11 @@ function(req, res) {
         if (errors[1]) { fail(res, 500, "polis_err_getting_conv_info", errors[1]); return; }        
       });
 
-    // }, function(err) {
-    //     fail(res, 500, "polis_err_fetching_tweet", err);
-    // }).catch(function(err) {
-    //     fail(res, 500, "polis_err_post_comment_misc", err);
-    // });
+    }, function(err) {
+        fail(res, 500, "polis_err_fetching_tweet", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_post_comment_misc", err);
+    });
 
         //var rollback = function(client) {
           //pgQuery('ROLLBACK', function(err) {
