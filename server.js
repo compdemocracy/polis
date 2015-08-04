@@ -8472,6 +8472,7 @@ function prepForTwitterComment(twitter_tweet_id, zid) {
 
             if (rows && rows.length) {
                 var twitterUser = rows[0];
+                var uid = twitterUser.uid;
                 return getParticipant(zid, twitterUser.uid).then(function(ptpt) {
                       return {
                           ptpt: ptpt,
@@ -8491,6 +8492,7 @@ function prepForTwitterComment(twitter_tweet_id, zid) {
             } else {
                 // no user records yet
                 return createUserFromTwitterInfo(twitter_user_id).then(function(twitterUser) {
+                  var uid = twitterUser.uid;
                   return addParticipant(zid, uid).then(function(rows) {
                       var ptpt = rows[0];
                       return {
@@ -8531,7 +8533,7 @@ function(req, res) {
 });
 
 function getAndInsertTwitterUser(twitter_user_id, uid) {
-  getTwitterUserInfo(kv.user_id, false).then(function(u) {
+  getTwitterUserInfo(twitter_user_id, false).then(function(u) {
     u = JSON.parse(u)[0];
     winston.log("info","TWITTER USER INFO");
     winston.log("info",u);
@@ -8558,7 +8560,7 @@ function getAndInsertTwitterUser(twitter_user_id, uid) {
       u.profile_image_url_https,
       u.location,
       JSON.stringify(u),
-    ]).then(function() {
+    ]).then(function(rows) {
       var record = rows && rows.length && rows[0] || null;
 
       // return the twitter user record
