@@ -59,7 +59,11 @@
           font-weight: 300;
           color: rgba(113, 113, 113, .75);
           ">
-          {{s.x_wrote}}
+          {{#if tweet_id}}
+            <a href="https://twitter.com/{{social.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
+          {{else}}
+            {{s.x_wrote}}
+          {{/if}}
         </span>
   {{!-- ========== STAR ========== --}}
   {{!--   <span

@@ -6,6 +6,7 @@ s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
 s.x_wrote = "wrote:";
+s.x_tweeted = "tweeted:";
 s.group_123 = "Group:";
 s.majorityOpinion = "Majority Opinion";
 s.majorityOpinionShort = "Majority";

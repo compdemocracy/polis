@@ -60,6 +60,7 @@ module.exports = Handlebones.ModelView.extend({
           name: social.name,
           img: social.profile_image_url_https,
           link: "https://twitter.com/" + social.screen_name,
+          screen_name: social.screen_name,
         };
       }
     }

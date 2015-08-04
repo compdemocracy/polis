@@ -279,6 +279,7 @@ module.exports = Handlebones.ModelView.extend({
                 name: social.name,
                 img: social.twitter_profile_image_url_https,
                 link: "https://twitter.com/" + social.screen_name,
+                screen_name: social.screen_name,
               };
             }
           }
@@ -311,7 +312,9 @@ module.exports = Handlebones.ModelView.extend({
                 (socialCtx.anon ? "": "</a>") +
                 /* ========== WROTE ========== */
                 "<span style='"+
-                  "'> "+ Strings.x_wrote +
+                  "'> "+ (c.get("tweet_id") ?
+                      ("<a href=\"https://twitter.com/"+socialCtx.screen_name+"/status/"+c.get("tweet_id")+"\" target=\"_blank\">" + Strings.x_tweeted +"</a>") :
+                      Strings.x_wrote) +
                 " </span>" +
               "</p>" +
               /* ========== COMMENT TEXT ========== */

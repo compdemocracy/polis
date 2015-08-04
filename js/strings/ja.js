@@ -6,6 +6,7 @@ s.agree = "AgreeJP∂";
 s.disagree = "DisagreeJP∂";
 s.pass = "Pass / UnsureJP∂";
 s.x_wrote = "wroteJP∂:";
+s.x_tweeted = "tweetedJP∂:";
 s.group_123 = "Group∂:";
 s.majorityOpinion = "Majority Opinion∂";
 s.majorityOpinionShort = "Majority∂";
