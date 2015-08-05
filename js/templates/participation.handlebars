@@ -186,25 +186,39 @@
 
 <div
   style="
-    background-color: #D6D6F1;
-    border: 1px solid black;
-    padding: 10px 20px;
+    background-color: #3498DB;
+    {{!-- border: 1px solid rgb(85, 172, 238); --}}
+    {{!-- color: rgb(68, 136, 189); --}}
+    color: white;
+    padding: 15px 30px 15px 15px;
     width: 100%;
     margin: 10px auto;
     border-radius: 4px;
+    position: relative;
   ">
-  <p class="flexbox justify-content-space-between align-items-center">
+{{!--   <p class="flexbox justify-content-space-between align-items-center">
     <span style="font-size: 24px;">
       Welcome! This is a new kind of online discussion.
     </span>
-{{!--     <i
+    <i
       style="
 
       "
       class="fa fa-times">
-    </i> --}}
+    </i>
+  </p> --}}
+  <p
+    style="margin: 0px;"
+    >
+    <span>
+      <span style="font-weight: 500;">Welcome to a new kind of discussion!</span> Vote on people's opinions, contribute your own, and invite people you know.
+    </span>
+    <i
+      style="position: absolute; top: 8px; right: 8px;"
+      class="fa fa-times">
+    </i>
   </p>
-  <p>What do I do?</p>
+{{!--   <p>What do I do?</p>
   <ul>
     <li><strong>Vote</strong> on other people's comments by clicking 'agree' or 'disagree'.</li>
     <li>If your perspective isn't represented, <strong>Write</strong> a comment.</li>
@@ -214,7 +228,7 @@
   <ul>
     <li>People who vote similarly are grouped.</li>
     <li>Click a group to see which viewpoints they share.</li>
-  </ul>
+  </ul> --}}
 </div>
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
@@ -256,6 +270,31 @@
   </div>
 </div>
 {{/unless}}  {{!-- hasFbAndTw --}}
+
+<div
+  style="
+    background-color: #3498DB;
+    {{!-- border: 1px solid rgb(85, 172, 238); --}}
+    {{!-- color: rgb(68, 136, 189); --}}
+    color: white;
+    padding: 15px 30px 15px 15px;
+    width: 100%;
+    margin: 10px auto;
+    border-radius: 4px;
+    position: relative;
+  ">
+  <p
+    style="margin: 0px;"
+    >
+    <span>
+      <span style="font-weight: 500;">What am I seeing?</span> People who vote similarly are grouped. Click a group to see which viewpoints they share.
+    </span>
+    <i
+      style="position: absolute; top: 8px; right: 8px;"
+      class="fa fa-times">
+    </i>
+  </p>
+</div>
 
 <div id="vis_sibling_above_tab_content"></div>
 
