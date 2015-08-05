@@ -1013,7 +1013,7 @@ module.exports =  ConversationView.extend({
       if (false) {
         $("#voteMoreParent").show();
       }
-      if (AB.isB()) {
+      if (AB.isA()) {
         var cfp = $("#commentFormParent").detach();
         cfp.insertAfter($("#commentFormBSibling"));
       }
