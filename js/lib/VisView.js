@@ -2038,6 +2038,23 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         ;
 
 
+        // g.filter(isSummaryBucket)
+        // .append("text")
+        // .classed("summaryLabelBottom", true)
+        // .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+        // .style("font-size", "10px")
+        // // .style("font-weight", "bold")
+        // .style("fill", "gray")
+        // .text("people")
+        // .attr("text-anchor", "middle")
+        // .attr("alignment-baseline", "top")
+        // .attr("transform", function(d) {
+        //     return "translate(0, 11)";
+        // });
+        // ;
+
+
+
   }
   updateNodes();
 
