@@ -1543,6 +1543,81 @@ function clientSideBaseCluster(things, N) {
             var p = bucketizeParticipantOfInterest(temp, ptpt);
             people.push(p);
         }
+
+
+// BEGIN PTPTPO-BASED CENTROID CALCULATION
+        function getParticipantCount(nodes) {
+               // var count = d.count;
+            var count = 0;
+            for (var i = 0; i < nodes.length; i++) {
+                count += nodes[i].count;
+            }
+            return count;
+        }
+
+        function averageTheThings(items, getter) {
+          var total = 0;
+          _.each(items, function(item) {
+            var val = getter(item);
+            total += val;
+          });
+          return total / items.length;
+        }
+
+
+        var bidToNode = _.indexBy(people, "bid");
+
+
+        function getxy(bid, dim) {
+          var node = bidToNode[bid];
+          if (!node) {
+            console.error("missing node for bid: " + bid);
+            return 0;
+          }
+          return node.proj[dim];
+        }
+        function getX(bid) {
+          return getxy(bid, "x")
+        }
+        function getY(bid) {
+          return getxy(bid, "y")
+        }
+
+
+        function getBigBucketForGroup(gid) {
+          for (var i = 0; i < people.length; i++) {
+            var isBigBucket = false;
+            if ("string" === typeof people[i].bid) {
+              if (people[i].bid.match(/^bigBucketBid/)) {
+                isBigBucket = true;
+              }
+            }
+            if (isBigBucket && people[i].gid === gid) {
+              return people[i];
+            }
+          }
+          return null;
+        }
+
+       _.each(clusters, function(cluster) {
+          var ptptoiMembers = cluster.members.filter(function(bid) {
+            return bid >= 10000000000; // magicPid
+          });
+          // use the center of the ptpois if possible
+          var centerX = averageTheThings(ptptoiMembers, getX);
+          var centerY = averageTheThings(ptptoiMembers, getY);
+          // otherwise, just use the center of the cluster, since there are no ptptois
+          if (_.isNaN(centerX)) {
+            centerX = cluster.center[0]
+          }
+          if (_.isNaN(centerY)) {
+            centerY = cluster.center[1]
+          }
+          var associatedBigBucket = getBigBucketForGroup(cluster.id);
+          associatedBigBucket.proj.x = centerX;
+          associatedBigBucket.proj.y = centerY;
+        });
+
         return {
             buckets: people,
             clusters: clusters

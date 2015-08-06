@@ -1155,6 +1155,9 @@ function commentIsSelected() {
 
 function chooseTransformForRoots(d) {
     var insetPoint = getInsetTarget(d);
+    if (isSummaryBucket(d)) {
+      insetPoint.y = insetPoint.y + pinLength;
+    }
    return "translate(" + insetPoint.x + "," + insetPoint.y + ")";
 }
 
@@ -1384,84 +1387,9 @@ function key(d) {
 }
 
 
-
-function getParticipantCount(nodes) {
-       // var count = d.count;
-    var count = 0;
-    for (var i = 0; i < nodes.length; i++) {
-        count += nodes[i].count;
-    }
-    return count;
-}
-
-function averageTheThings(items, getter) {
-  var total = 0;
-  _.each(items, function(item) {
-    var val = getter(item);
-    total += val;
-  });
-  return total / items.length;
-}
-
 // clusters [[2,3,4],[1,5]]
 function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
-    var bidToNode = _.indexBy(updatedNodes, "bid");
-
-    function getxy(bid, dim) {
-      var node = bidToNode[bid];
-      if (!node) {
-        console.error("missing node for bid: " + bid);
-        return 0;
-      }
-      return node.proj[dim];
-    }
-    function getX(bid) {
-      return getxy(bid, "x")
-    }
-    function getY(bid) {
-      return getxy(bid, "y")
-    }
-
-
-    // Add label nodes (summary buckets) for each cluster.
-    newClusters = newClusters || [];
-    _.each(newClusters, function(c) {
-      var clusterLabelBid = "clusterLabel" + Math.random();
-
-      var ptptoiMembers = c.members.filter(function(bid) {
-        return bid >= 10000000000; // magicPid
-      });
-      // use the center of the ptpois if possible
-      var centerX = averageTheThings(ptptoiMembers, getX);
-      var centerY = averageTheThings(ptptoiMembers, getY);
-      // otherwise, just use the center of the cluster, since there are no ptptois
-      if (_.isNaN(centerX)) {
-        centerX = c.center[0]
-      }
-      if (_.isNaN(centerY)) {
-        centerY = c.center[1]
-      }
-
-      updatedNodes.push({
-        bid: clusterLabelBid,
-        containsPid: function() { return false; },
-        count: 1,
-        gid: c.id,
-        hasFacebook: false,
-        hasTwitter: false,
-        isSummaryBucket: true,
-        pic: "",
-        picture_size: 32,
-        proj: {
-          x: centerX,//c.center[0],
-          y: centerY,//c.center[1],
-        },
-        ptptoi: false,
-      });
-      c.members.push(clusterLabelBid);
-      c["n-members"] += 1;
-    });
 
 
     participantCount = newParticipantCount;
@@ -2016,16 +1944,16 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
           .append("circle")
           .attr("r", anonBlobRadius)
           .attr("cx", 0)
-          .attr("cy", pinLength)
+          .attr("cy", 0)
           .attr("fill", "white")
         ;
 
         g.filter(isSummaryBucket)
         .append("text")
         .classed("summaryLabel", true)
-        .attr("transform", function(d) {
-            return "translate(0, "+ pinLength +")";
-        })
+        // .attr("transform", function(d) {
+        //     return "translate(0, "+ pinLength +")";
+        // })
         .text(function(d) {
           // TODO add crowd icon
           return getGroupNameForGid(d.gid);
