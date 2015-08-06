@@ -1017,10 +1017,10 @@ module.exports =  ConversationView.extend({
       if (false) {
         $("#voteMoreParent").show();
       }
-      if (AB.isA()) {
-        var cfp = $("#commentFormParent").detach();
-        cfp.insertAfter($("#commentFormBSibling"));
-      }
+      // if (AB.isA()) {
+      //   var cfp = $("#commentFormParent").detach();
+      //   cfp.insertAfter($("#commentFormBSibling"));
+      // }
 
       // if (launchWithTutorial) {
       //   $("#tutorialSlides").show();

@@ -232,9 +232,8 @@
 </div>
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
-<span id="commentFormParent">
-  {{view commentForm}}
-</span>
+<span id="commentFormBSibling" style="display:none"></span>
+
 
 {{!  ------------ VOTING PANEL ---------------  }}
 {{view readReactView}}
@@ -350,8 +349,12 @@
   </div> {{! /tab content }}
 </div> {{! /tabbable }}
 
+
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
-<span id="commentFormBSibling" style="display:none"></span>
+<span id="commentFormParent">
+  {{view commentForm}}
+</span>
+
 
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
