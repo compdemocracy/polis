@@ -1218,45 +1218,45 @@ function clientSideBaseCluster(things, N) {
 
                     bidToBigBucket = {};
                     var pairs = [_.keys(buckets), _.values(buckets)];
-                    bigBuckets = [1,2,3];
-                    // bigBuckets = _.map(bucketPerGroup,
-                    //     function(bucketsForGid, gid) {
-                    //         gid = parseInt(gid);
-                    //         var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
-                    //             if (_.contains(participantsOfInterestBids, bucket.id)) {
-                    //                 // debugger;
-                    //                 // o.ptptoiCount += 1;
-                    //                 return o;
-                    //             }
-                    //             o.members = _.union(o.members, bucket.members);
-                    //             o.count += bucket.count;
-                    //             o.bids.push(bucket.id); // not currently consumed by vis
+                    // bigBuckets = [1,2,3];
+                    bigBuckets = _.map(bucketPerGroup,
+                        function(bucketsForGid, gid) {
+                            gid = parseInt(gid);
+                            var bigBucket = _.reduce(bucketsForGid, function(o, bucket) {
+                                if (_.contains(participantsOfInterestBids, bucket.id)) {
+                                    // debugger;
+                                    // o.ptptoiCount += 1;
+                                    return o;
+                                }
+                                o.members = _.union(o.members, bucket.members);
+                                o.count += bucket.count;
+                                o.bids.push(bucket.id); // not currently consumed by vis
 
-                    //             // cumulative moving average  (SHOULD PROBABLY BE WEIGHTED)
-                    //             // bucket.count makes larger buckets weigh more.
-                    //             // o.x = ((bucket.x - o.x)) / o.bucketCount;
-                    //             // o.y = ((bucket.y - o.y)) / o.bucketCount;
-                    //             o.id = o.id + "_" + bucket.id; // TODO not sure, but this is proof-of-concept code
-                    //             return o;
-                    //         }, {
-                    //             members: [],
-                    //             id: "bigBucketBid_",
-                    //             bids: [],
-                    //             gid: gid,
-                    //             count: 0, // total ptpt count
-                    //             clusterCount: groupVotes[gid]["n-members"],
-                    //             // ptptoiCount: getParticipantsOfInterestForGid(gid).length,
-                    //             x: cachedPcaData["group-clusters"][gid].center[0],
-                    //             y: cachedPcaData["group-clusters"][gid].center[1],
-                    //             isSummaryBucket: true
-                    //         });
-                    //         for (var i = 0; i < bigBucket.bids.length; i++) {
-                    //             bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
-                    //         }
-                    //         clusters[gid].members = _.union(clusters[gid].members, [bigBucket.id]);
-                    //         return bigBucket;
-                    //     }
-                    // );
+                                // cumulative moving average  (SHOULD PROBABLY BE WEIGHTED)
+                                // bucket.count makes larger buckets weigh more.
+                                // o.x = ((bucket.x - o.x)) / o.bucketCount;
+                                // o.y = ((bucket.y - o.y)) / o.bucketCount;
+                                o.id = o.id + "_" + bucket.id; // TODO not sure, but this is proof-of-concept code
+                                return o;
+                            }, {
+                                members: [],
+                                id: "bigBucketBid_",
+                                bids: [],
+                                gid: gid,
+                                count: 0, // total ptpt count
+                                clusterCount: groupVotes[gid]["n-members"],
+                                // ptptoiCount: getParticipantsOfInterestForGid(gid).length,
+                                x: cachedPcaData["group-clusters"][gid].center[0],
+                                y: cachedPcaData["group-clusters"][gid].center[1],
+                                isSummaryBucket: true
+                            });
+                            for (var i = 0; i < bigBucket.bids.length; i++) {
+                                bidToBigBucket[bigBucket.bids[i]] = bigBucket.id;
+                            }
+                            clusters[gid].members = _.union(clusters[gid].members, [bigBucket.id]);
+                            return bigBucket;
+                        }
+                    );
 
                     // bigBuckets.forEach(function(bb) {
 
@@ -1298,6 +1298,22 @@ function clientSideBaseCluster(things, N) {
                     buckets = _.map(buckets, function(b) {
                         return new Bucket(b);
                     });
+
+                    // ----------------- AGAIN for bigBuckets ---------------------
+                    _.each(bigBuckets, function(b) {
+                        b.proj = {
+                            x: b.x,
+                            y: b.y
+                        };
+                        delete b.x;
+                        delete b.y;
+                    });
+
+                    // Convert to Bucket objects.
+                    bigBuckets = _.map(bigBuckets, function(b) {
+                        return new Bucket(b);
+                    });
+
 
 
                     // -------------- PROCESS VOTES INFO --------------------------
