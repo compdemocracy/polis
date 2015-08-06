@@ -334,7 +334,7 @@ $(el_selector)
         "<filter id='colorMeMatrixRed'>" +
           "<feColorMatrix in='SourceGraphic'" +
             "type='matrix'" +
-            "values='1.00 0.60 0.60 0 0 " +
+            "values='1.00 0.60 0.60 0 0.3 " +
                     "0.10 0.20 0.10 0 0 " +
                     "0.10 0.10 0.20 0 0 " +
                     "0 0 0 1 0' />" +
@@ -344,7 +344,7 @@ $(el_selector)
           "<feColorMatrix in='SourceGraphic'" +
             "type='matrix'" +
             "values='0.20 0.10 0.10 0 0 " +
-                    "0.60 1.00 0.60 0 0 " +
+                    "0.60 1.00 0.60 0 0.3 " +
                     "0.10 0.10 0.40 0 0 " +
                     "0 0 0 1 0' />" +
         "</filter>" +
