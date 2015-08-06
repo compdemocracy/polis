@@ -502,6 +502,10 @@ module.exports =  ConversationView.extend({
           el_queryResultSelector: ".query_results_div",
           el: VIS_SELECTOR,
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
+          getGroupNameForGid: function(gid) {
+            var x = that.serverClient.getGroupInfo(gid);
+            return x.count;
+          },
       });
       that.updateLineToSelectedCluster();
       if (that.selectedGid >= 0) {

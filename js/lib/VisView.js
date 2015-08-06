@@ -18,6 +18,8 @@ var getParticipantsOfInterestForGid = params.getParticipantsOfInterestForGid;
 var isIE8 = params.isIE8;
 var isMobile = params.isMobile;
 var xOffset = params.xOffset || 0;
+var getGroupNameForGid = params.getGroupNameForGid;
+
 var firstShowDeferred = $.Deferred();
 
 var dimensions = {
@@ -1801,23 +1803,23 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         return z;
     }
       // OUTER TRANSLUCENT SHAPES
-      // var opacityOuter = 0.2;
-      // var upArrowEnter = g.append("polygon")
-      //   .classed("up", true)
-      //   .classed("bktv", true)
-      //   .style("fill", colorPull)
-      //   .style("fill-opacity", opacityOuter)
-      //   // .style("stroke", colorPullOutline)
-      //   // .style("stroke-width", 1)
-      //   ;
-      // var downArrowEnter = g.append("polygon")
-      //   .classed("down", true)
-      //   .classed("bktv", true)
-      //   .style("fill", colorPush)
-      //   .style("fill-opacity", opacityOuter)
-      //   // .style("stroke", colorPushOutline)
-      //   // .style("stroke-width", 1)
-      //   ;
+      var opacityOuter = 0.2;
+      var upArrowEnter = g.append("polygon")
+        .classed("up", true)
+        .classed("bktv", true)
+        .style("fill", colorPull)
+        .style("fill-opacity", opacityOuter)
+        // .style("stroke", colorPullOutline)
+        // .style("stroke-width", 1)
+        ;
+      var downArrowEnter = g.append("polygon")
+        .classed("down", true)
+        .classed("bktv", true)
+        .style("fill", colorPush)
+        .style("fill-opacity", opacityOuter)
+        // .style("stroke", colorPushOutline)
+        // .style("stroke-width", 1)
+        ;
       var ptptoiImageZoomFactor = 1;
       var picEnter = g.append("image")
       picEnter
@@ -2013,13 +2015,22 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
 
         g.filter(isSummaryBucket)
+          .append("circle")
+          .attr("r", anonBlobRadius)
+          .attr("cx", 0)
+          .attr("cy", pinLength)
+          .attr("fill", "white")
+        ;
+
+        g.filter(isSummaryBucket)
         .append("text")
         .classed("summaryLabel", true)
         .attr("transform", function(d) {
             return "translate(0, "+ pinLength +")";
         })
         .text(function(d) {
-          return Utils.getGroupNameForGid(d.gid);
+          // TODO add crowd icon
+          return getGroupNameForGid(d.gid);
         })
         // .classed("help", true)
         // .classed("help_text_you", true)
@@ -2036,6 +2047,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         //     return "translate(12, 6)";
         // });
         ;
+
 
 
         // g.filter(isSummaryBucket)
