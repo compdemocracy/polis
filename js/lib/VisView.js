@@ -2280,7 +2280,7 @@ function doUpdateNodes() {
           .attr("d", chooseUpArrowPath) // NOTE: using tranform to select the scale
           ;
 
-        var imageUpdate = update.selectAll(".bktv").data(nodes, key)
+        var imageUpdate = update.selectAll("image.bktv").data(nodes, key)
           .attr("filter", chooseFilter)
           ;
 
