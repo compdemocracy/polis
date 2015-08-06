@@ -89,8 +89,8 @@ var friendOrFolloweeRadius = ptptOiRadius + 2;
 
 var haloWidth = d3.scale.linear().range([1, 1]).domain([350, 800]).clamp(true)(width);
 var haloVoteWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
-var anonBlobRadius = isMobile ? 18 : 24;
-var anonBlobHaloWidth = d3.scale.linear().range([3, 6]).domain([350, 800]).clamp(true)(width);
+var anonBlobRadius = isMobile ? 18 : 20;
+var anonBlobHaloWidth = d3.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
 var anonBlobHaloVoteWidth = anonBlobHaloWidth; //d3.scale.linear().range([6, 10]).domain([350, 800]).clamp(true)(width);
 var maxRad = _.max([
     ptptOiRadius + haloWidth, // not sure if halowidth should be /2
@@ -1956,12 +1956,12 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         // })
         .text(function(d) {
           // TODO add crowd icon
-          return getGroupNameForGid(d.gid);
+          return "\uf0c0 " + getGroupNameForGid(d.gid);
         })
         // .classed("help", true)
         // .classed("help_text_you", true)
-        .style("font-family", "Tahoma, Helvetica, sans-serif") // For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", "20px")
+        .style("font-family", "FontAwesome") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
+        .style("font-size", "14px")
         // .style("font-weight", "bold")
         .attr("text-anchor", "middle")
         // .attr("alignment-baseline", "bottom")
