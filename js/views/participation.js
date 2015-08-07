@@ -738,6 +738,11 @@ module.exports =  ConversationView.extend({
           that.vis.selectGroup(gid);
         }
         eb.trigger(eb.clusterClicked, gid);
+        if (gid === -1) {
+          setTimeout(function() {
+            that.vis.showAllClustersAsActive();
+          }, 1);
+        }
       });
       this.groupSelectionView.addInfoPaneButtonClickedListener(function() {
         $("#infoPaneTab").click();

@@ -486,6 +486,20 @@ function setClusterActive(clusterId) {
     return $.Deferred().resolve([]);
 }
 
+function showAllClustersAsActive() {
+    var len = d3Hulls.length;
+    for (var i = 0; i < len; i ++) {
+        console.warn(i);
+        d3.select(d3Hulls[i][0][0])
+            .classed("active_group", true)
+        ;
+        d3.select(d3HullSelections[i][0][0])
+            .classed("active_group", true)
+            .style("visibility", "visible")
+        ;
+    }
+}
+
 function updateHullColors() {
    if (isIE8) {
        for (var i = 0; i < raphaelHulls.length; i++) {
@@ -2737,6 +2751,7 @@ return {
     hideHintYou: hideHintYou,
     getSelectedGid: getSelectedGid,
     getFirstShowDeferred: getFirstShowDeferred,
+    showAllClustersAsActive: showAllClustersAsActive,
 };
 
 };
