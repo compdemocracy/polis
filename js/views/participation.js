@@ -252,6 +252,13 @@ module.exports =  ConversationView.extend({
       // }
     }
   },
+  updateCarouselVisibility: function() {
+    if (this.conversationTabs.onAnalyzeTab() || this.selectedGid >= 0) {
+      $("#carouselPane").show();
+    } else {
+      $("#carouselPane").hide();
+    }
+  },
   shouldShowVisUnderTabs: function() {
     return (display.xs()/* || display.sm() */) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
@@ -362,10 +369,12 @@ module.exports =  ConversationView.extend({
           that.tutorialView.endAnalyzeTutorial();
         }
       }
+      that.updateCarouselVisibility()
     });
     eb.on(eb.backgroundClicked, function() {
       that.conversationTabs.gotoInfoPaneTab();
       that.groupSelectionView.gotoInfoPaneTab();
+      that.updateCarouselVisibility();
     });
     eb.on(eb.clusterClicked, function(gid) {
       if (_.isNumber(gid) && gid >= 0) {
@@ -389,6 +398,7 @@ module.exports =  ConversationView.extend({
           }
         }
       }
+      that.updateCarouselVisibility();
 
       that.onClusterTapped.apply(that, arguments);
     });
