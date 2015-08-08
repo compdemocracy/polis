@@ -5567,6 +5567,7 @@ function getComments(o) {
             "tid",
             "created",
             "uid",
+            "tweet_id",
         ];
         if (o.moderation) {
             cols.push("velocity");
