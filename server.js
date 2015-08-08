@@ -4001,10 +4001,12 @@ function notifyParticipantsOfNewComments() {
     
 }
 
-notifyParticipantsOfNewComments();
-setInterval(function() {
-    notifyParticipantsOfNewComments();
-}, 10*60*1000);
+if (!devMode) {
+  notifyParticipantsOfNewComments();
+  setInterval(function() {
+      notifyParticipantsOfNewComments();
+  }, 10*60*1000);  
+}
 
 function updateEmail(uid, email) {
     return pgQueryP("update users set email = ($2) where uid = ($1);", [uid, email]);
