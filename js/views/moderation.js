@@ -302,12 +302,11 @@ module.exports =  PolisModelView.extend({
       collection: this.commentsByMe,
       conversation_id: conversation_id
     }));
+    this.commentForm.on("commentSubmitted", function() {
+      that.updateCollections();
+    });
 
-    
-    var pollingReference = setInterval(function() {
-      if (Utils.isHidden()) {
-        return;
-      }
+    function fetchComments() {
       // TODO don't send everything each time
       that.commentsTodo.fetch({
         data: $.param({
@@ -326,6 +325,13 @@ module.exports =  PolisModelView.extend({
         }),
         reset: false
       });
+    }
+    
+    var pollingReference = setInterval(function() {
+      if (Utils.isHidden()) {
+        return;
+      }
+      fetchComments();
     }, 10000);
 
     this.listenTo(this, "remove", function () {

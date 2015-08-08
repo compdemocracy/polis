@@ -35,7 +35,7 @@ module.exports = Handlebones.View.extend({
       serialize(this, function(attrs){
         that.tweetImportClicked(attrs);
       });
-      $("#comment_form_textarea").val(""); //use this.$
+      $("#import_tweet_textarea").val(""); //use this.$
     }
   },
   buttonActive: true,
@@ -81,8 +81,11 @@ module.exports = Handlebones.View.extend({
     attrs.vote = constants.REACTIONS.AGREE; 
     attrs.prepop = true; // this is a prepopulated comment
 
-    // hacky: overloading the txt for to hold a tweet id
-    attrs.twitter_tweet_id = attrs.txt;
+    var match = attrs.tweet_id.match(/[a-zA-Z0-9]+$/);
+    if (match && match.length) {
+      attrs.tweet_id = match[0];
+    }
+    attrs.twitter_tweet_id = attrs.tweet_id;
     delete attrs.txt;
     
     Net.polisPost("api/v3/comments", attrs).then(function() {
@@ -99,6 +102,7 @@ module.exports = Handlebones.View.extend({
     attrs.conversation_id = this.conversation_id;
     attrs.vote = constants.REACTIONS.PASS; // Preseeded comments are automatically passed. Needed for now since math assumes every comment has at least one vote.
     attrs.prepop = true; // this is a prepopulated comment
+    delete attrs.tweet_id;
     var comment = new CommentModel(attrs);
     comment.save().then(function() {
       that.trigger("commentSubmitted"); // view.trigger

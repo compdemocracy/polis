@@ -1,5 +1,5 @@
 <div>
-  <form role="form" class="FormVertical">
+  <form id="seedCommentForm" role="form" class="FormVertical">
   	<div class="FormVertical-group">
       <p>Remember to write only one comment per idea. Comments submitted from this form will not have an automatic "agree" vote by your user. </p>
   		<textarea
@@ -39,15 +39,30 @@
             >
             Add Comment
           </button>
-          <button
-            class="Btn Btn-primary"
-            id="import_tweet_button"
-            style="margin-top: 10px"
-            type="submit"
-            >
-            Import Tweet
-          </button>
+
   </form>
 
+  <form id="importTweetForm" role="form" class="FormVertical">
+    <div class="FormVertical-group">
+      <p>Import Tweets: Paste a tweet URL here </p>
+      <input
+        id="import_tweet_textarea"
+        class="FormControl"
+        style="font-size: 14px;"
+        rows="1"
+        maxlength="200"
+        name="tweet_id"
+        type="text"
+      ></input>
+    </div>
+    <button
+      class="Btn Btn-primary"
+      id="import_tweet_button"
+      style="margin-top: 10px"
+      type="submit"
+      >
+      Import Tweet
+    </button>
+  </form>
   {{view commentsByMeView}}
 </div>
