@@ -199,13 +199,13 @@ module.exports = Handlebones.ModelView.extend({
       var message2;
       if (userHasVoted) {
         message1 = "You've voted on all the comments.";
-        message2 = "You can write your own by clicking the Write tab.";
+        message2 = "If you have something to add, try writing your own comment.";
       } else {
         message1 = "There aren't any comments yet.";
         if (is_public) {
-          message2 =  "Get this conversation started by inviting more participants, or add your own comment in the 'write' tab.";
+          message2 =  "Get this conversation started by inviting more participants, or add a comment.";
         } else {
-          message2 =  "Get this conversation started by adding your own comment in the 'write' tab.";
+          message2 =  "Get this conversation started by adding a comment.";
         }
       }
 
