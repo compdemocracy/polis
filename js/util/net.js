@@ -51,7 +51,7 @@ function polisAjax(api, data, type) {
 
         // sendEvent("Error", api, jqXHR.status);
 
-        logger.error("SEND ERROR");
+        // logger.error("SEND ERROR");
         console.dir(arguments);
         if (403 === jqXHR.status) {
             needAuthCallbacks.fire();
