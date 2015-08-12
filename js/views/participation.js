@@ -435,12 +435,14 @@ module.exports =  ConversationView.extend({
 
       var newGroups = _.map(newClusters, function(c, index) {
         return {
+          styles: "",
           name: Number(index) + 1,
           gid: Number(index)
         };
       });
       newGroups.push({
         name: (display.xs() ? Strings.majorityOpinionShort : Strings.majorityOpinion),
+        styles: "margin-left: 20px;",
         gid: -1
       });
       that.groupNamesModel.set("groups", newGroups);
