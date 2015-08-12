@@ -70,6 +70,9 @@ module.exports =  ConversationView.extend({
     "click .twitterButton": "twitterConnectBtn",
     "click .twitterShareButton": "shareOnTwitter",
     "click .facebookShareButton": "shareOnFacebook",
+    "click .hideOnClick" : "hideOnClick",
+    "click #helpTextGroups": "hideHelpTextGroups",
+    "click #helpTextWelcome": "hideHelpTextWelcome",
     // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
 
@@ -91,6 +94,12 @@ module.exports =  ConversationView.extend({
     if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
       $('.query_result_item').first().trigger('click');
     }
+  },
+  hideHelpTextWelcome: function() {
+    $("#helpTextWelcome").hide();
+  },
+  hideHelpTextGroups: function() {
+    $("#helpTextGroups").hide();
   },
   hideVis: function() {
     $("#vis_sibling_bottom").hide();

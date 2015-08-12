@@ -185,6 +185,7 @@
 {{!  ------------ HELP TEXT ---------------  }}
 
 <div
+  id="helpTextWelcome"
   style="
     background-color: #CAEAFF;
     {{!-- border: 1px solid rgb(85, 172, 238); --}}
@@ -204,18 +205,19 @@
       style="
 
       "
-      class="fa fa-times">
+      class="fa fa-times cursorPointer">
     </i>
   </p> --}}
   <p
     style="margin: 0px;"
     >
     <span>
-      Welcome to a new kind of discussion - <span style="font-weight: 700;">vote</span> on people's opinions and <span style="font-weight: 700;">contribute</span> your own.
+      {{!-- TODO_SECURITY try to not use triple brackets. --}}
+      {{{s.participantHelpWelcomeText}}}
     </span>
     <i
       style="position: absolute; top: 8px; right: 8px;"
-      class="fa fa-times">
+      class="fa fa-times cursorPointer">
     </i>
   </p>
 {{!--   <p>What do I do?</p>
@@ -248,13 +250,13 @@
     display: none; {{! waiting to be shown }}
   ">
   <p style="font-size: 14px;">
-    Connect to see friends and people you follow in the visualization.
+    {{s.socialConnectPrompt}}
   </p>
   <div>
     {{#unless hasFacebook}}
       <button class="facebookButton">
         <span class="socialButtonText">
-          <i class="fa fa-facebook-square"></i>&nbsp; Connect with Facebook
+          <i class="fa fa-facebook-square"></i>&nbsp; {{s.connectFbButton}}
         </span>
       </button>
     {{/unless}}
@@ -262,7 +264,7 @@
     {{#unless hasTwitter}}
       <button class="twitterButton">
       <span class="socialButtonText">
-        <i class="fa fa-twitter" style="color: white"></i>&nbsp; Connect with Twitter
+        <i class="fa fa-twitter" style="color: white"></i>&nbsp; {{s.connectTwButton}}
       </span>
       </button>
     {{/unless}}
@@ -271,6 +273,7 @@
 {{/unless}}  {{!-- hasFbAndTw --}}
 
 <div
+  id="helpTextGroups"
   style="
     background-color: #CAEAFF;
     {{!-- border: 1px solid rgb(85, 172, 238); --}}
@@ -286,11 +289,12 @@
     style="margin: 0px;"
     >
     <span>
-      People who vote similarly <span style="font-weight: 700;">are grouped.</span> Click a group to see which viewpoints they share.
+      {{!-- TODO_SECURITY try to not use triple brackets. --}}      
+      {{{s.participantHelpGroupsText}}}
     </span>
     <i
       style="position: absolute; top: 8px; right: 8px;"
-      class="fa fa-times">
+      class="fa fa-times cursorPointer">
     </i>
   </p>
 </div>

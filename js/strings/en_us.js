@@ -40,5 +40,10 @@ s.tipNoQuestions = "Comments should make statements rather than ask questions. P
 s.notSentSinceDemo = "(not really, this is a demo)";
 s.submitComment = "Submit";
 s.tipStarred = "Marked as important.";
+s.participantHelpWelcomeText = "Welcome to a new kind of discussion - <span style='font-weight: 700;'>vote</span> on people's opinions and <span style='font-weight: 700;'>contribute</span> your own.";
+s.participantHelpGroupsText = "People who vote similarly <span style='font-weight: 700;'>are grouped.</span> Click a group to see which viewpoints they share.";
+s.socialConnectPrompt = "Connect to see friends and people you follow in the visualization.";
+s.connectFbButton = "Connect with Facebook";
+s.connectTwButton = "Connect with Twitter";
 
 module.exports = s;
