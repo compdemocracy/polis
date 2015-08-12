@@ -8775,21 +8775,31 @@ function getSocialParticipantsForMod(zid, limit, mod) {
     return pgQueryP(q, [zid, limit, mod]);
 }
 
-function getSocialParticipants(zid, uid, limit, mod) {
+var socialParticipantsCache = new SimpleCacheWithTTL({
+    ttlInMillis: 1000 * 30, // 30 seconds
+    maxSize: 999,
+});
+
+function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp) {
+    var cacheKey = [zid, limit, mod, lastVoteTimestamp].join("_");
+    if (socialParticipantsCache.get(cacheKey)) {
+        return socialParticipantsCache.get(cacheKey);
+    }
+
     var q = "with " +
     "p as (select uid, pid, mod from participants where zid = ($1) and vote_count >= 1), " +
-    "all_friends as (select  " +
-            "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
-            "union  " +
-            "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
+    // "all_friends as (select  " +
+    //         "friend as uid, 100 as priority from facebook_friends where uid = ($2) " +
+    //         "union  " +
+    //         "select uid, 100 as priority from facebook_friends where friend = ($2)), " +
     "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
     "all_fb_users as (select p.uid, 9 as priority from p inner join facebook_users on facebook_users.uid = p.uid where p.mod >= ($4)), " +
-    "self as (select ($2) as uid, 1000 as priority), " +
+    "self as (select CAST($2 as INTEGER) as uid, 1000 as priority), " +
     "pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority " +
         "from ( " +
             "select * from self " +
-            "union  " +
-            "select * from all_friends " +
+            // "union  " +
+            // "select * from all_friends " +
             "union " +
             "select * from twitter_ptpts " +
             "union " +
@@ -8847,16 +8857,19 @@ function getSocialParticipants(zid, uid, limit, mod) {
         // "facebook_users.response as fb__response, " +
         // "facebook_users.fb_friends_response as fb__fb_friends_response, " +
         // "facebook_users.created as fb__created, " +
-        "all_friends.uid is not null as is_fb_friend, " +
+// "all_friends.uid is not null as is_fb_friend, " +
         // "final_set.uid " +
         "p.pid " +
      "from final_set " +
         "left join twitter_users on final_set.uid = twitter_users.uid " +
         "left join facebook_users on final_set.uid = facebook_users.uid " +
         "left join p on final_set.uid = p.uid " +
-        "left join all_friends on all_friends.uid = p.uid " +
+// "left join all_fb_usersriends on all_friends.uid = p.uid " +
     ";";
-    return pgQueryP_metered("getSocialParticipants", q, [zid, uid, limit, mod]);
+    return pgQueryP_metered("getSocialParticipants", q, [zid, uid, limit, mod]).then(function(response) {
+        socialParticipantsCache.set(cacheKey, response);
+        return response;
+    });
 }
 
 function getFacebookFriendsInConversation(zid, uid) {
@@ -9369,7 +9382,7 @@ function(req, res) {
     var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
     Promise.all([
-        getSocialParticipants(zid, uid, hardLimit, mod),
+        getSocialParticipants(zid, uid, hardLimit, mod, lastVoteTimestamp),
         // getFacebookFriendsInConversation(zid, uid),
         // getTwitterUsersInConversation(zid, uid, twitterLimit),
         // getPolisSocialSettings(zid, uid),
