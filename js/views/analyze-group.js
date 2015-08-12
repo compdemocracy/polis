@@ -409,7 +409,7 @@ module.exports = Handlebones.ModelView.extend({
                 // }
                 circles.hide();
 
-                if (!isMobile) {
+                // if (!isMobile) {
                   $("#groupCarouselParent").find("#groupCarouselPrev").remove();
                   $("#groupCarouselParent").find("#groupCarouselNext").remove();
                   $("#groupCarouselParent").prepend('<span id="groupCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 25%; left:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
@@ -433,7 +433,7 @@ module.exports = Handlebones.ModelView.extend({
                       owl.prev();
                     }
                   });
-                }
+                // }
 
 
               });
