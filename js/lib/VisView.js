@@ -2231,6 +2231,14 @@ function renderComments(comments) {
 function onParticipantClicked(d) {
     // d3.event.stopPropagation();
     // d3.event.preventDefault(); // prevent flashing on iOS
+  if (d.twitter && d.twitter.screen_name) {
+    window.open("https://twitter.com/" + d.twitter.screen_name);
+    return;
+  }
+  if (d.facebook && d.facebook.fb_link) {
+    window.open(d.facebook.fb_link);
+    return;
+  }
   var gid = bidToGid[d.bid];
   if (_.isNumber(gid)) {
     var hullId = gidToHullId[gid]
