@@ -190,6 +190,8 @@ module.exports = Handlebones.ModelView.extend({
     var that = this;
     var carouselPrevDisabled = true;
     var carouselNextDisabled = false;
+    var selectedGroupName = Utils.getGroupNameForGid(gid);
+
     // let stack breathe
     setTimeout(function() {
 
@@ -248,9 +250,10 @@ module.exports = Handlebones.ModelView.extend({
           // L10N gods forgive me
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
           var agreedOrDisagreed = repfullForAgree ?
-            "<span class='a'>"+Strings.pctAgreed+"</span>" :
+            "<span class='a'>"+ Strings.pctAgreed+"</span>" :
             "<span class='d'>"+Strings.pctDisagreed+"</span>";
           agreedOrDisagreed = agreedOrDisagreed.replace("{{pct}}", percent);
+          agreedOrDisagreed = agreedOrDisagreed.replace("{{group}}", selectedGroupName);
           var bodyColor = "#333";
           var backgroundColor = "white";
           var dotColor = repfullForAgree ? "#00b54d" : "#e74c3c";
