@@ -287,6 +287,7 @@ module.exports = Handlebones.ModelView.extend({
             }
           }
           var html =
+          "<div style='text-align: center; width: 100%'>" +
           "<div "+
             "style="+
               "'color:"+bodyColor+";"+
@@ -294,67 +295,81 @@ module.exports = Handlebones.ModelView.extend({
               "cursor: -moz-grab;"+
               "cursor: -webkit-grab;"+
               "cursor: grab;"+
+              "max-width: 300px;" +
+              "text-align: left;" +
+              "display: inline-block;" +
               "' "+
             "class='query_result_item' "+
             "data-idx='"+(indexToTid.length-1) +
             "'>" +
-            /* ========== SOCIAL IMAGE ========== */
-            "<img " +
-              "style='border-radius: 3px; width: 40px; border: 1px solid lightgrey; position: absolute;'" +
-              "src='" + socialCtx.img + "'>" +
-            "</img>" +
-            "<div style='margin-left: 51px; position: relative; top: -4px;'>" +
-              /* ========== SOCIAL NAME || ANONYMOUS ========== */
-              "<p style='margin: 0px'>"+
-                (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
-                "<span "+
+            /* ========== HEAD ========== */
+            "<div>" +
+              /* ========== SOCIAL IMAGE ========== */
+              "<img " +
+                "style='border-radius: 3px; width: 20px; border: 1px solid lightgrey;'" +
+                "src='" + socialCtx.img + "'>" +
+              "</img>" +
+
+                /* ========== SOCIAL NAME || ANONYMOUS ========== */
+                "<div style='margin: 0px; color: gray; font-size:13px; vertical-align: middle; margin-left: 5px; display: inline-block;'>"+
+                  (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
+                  "<span "+
+                    "style='"+
+                    "font-weight: 700;"+
+                    "'>" + socialCtx.name +
+                  "</span>" +
+                  (socialCtx.anon ? "": "</a>") +
+                  /* ========== WROTE ========== */
+                  "<span style='"+
+                    "'> "+ (c.get("tweet_id") ?
+                        ("<a href=\"https://twitter.com/"+socialCtx.screen_name+"/status/"+c.get("tweet_id")+"\" target=\"_blank\">" + Strings.x_tweeted +"</a>") :
+                        Strings.x_wrote) +
+                  " </span>" +
+                "</div>" +
+            "</div>" + 
+              /* ========== END HEAD ========== */
+
+              /* ========== BODY ========== */
+              "<div>" + 
+                /* ========== PERCENTAGE AND AGREED / DISAGREED ========== */
+                "<p "+
+                  "class='" + leClass + "'"+
                   "style='"+
-                  "font-weight: 700;"+
-                  "'>" + socialCtx.name +
-                "</span>" +
-                (socialCtx.anon ? "": "</a>") +
-                /* ========== WROTE ========== */
-                "<span style='"+
-                  "'> "+ (c.get("tweet_id") ?
-                      ("<a href=\"https://twitter.com/"+socialCtx.screen_name+"/status/"+c.get("tweet_id")+"\" target=\"_blank\">" + Strings.x_tweeted +"</a>") :
-                      Strings.x_wrote) +
-                " </span>" +
-              "</p>" +
-              /* ========== COMMENT TEXT ========== */
-              "<p " +
-                "style='margin:0px'" +
-                ">" +
-                c.get("txt") +
-              "</p>" +
-              /* ========== PERCENTAGE AND AGREED / DISAGREED ========== */
-              "<p "+
-                "class='" + leClass + "'"+
-                "style='"+
-                  "margin: 0px;" +
-                  "font-size: 35px;"+
-                  "font-weight: 100;"+
-                  "'>" + agreedOrDisagreed +
-              "</p>" +
-              /* ========== N PARTICIPANTS SAW X COMMENT ========== */
-              "<p style='"+
-                "font-size:12px;"+
-                "color: gray;"+
-                "margin: 0px"+
-                "'>"+
-                "<strong>" + v.S + "</strong>" +
-                "<em> "+Strings.xPtptsSawThisComment+" </em>" +
-              "</p>" +
-              /* ========== N OF THOSE PARTICIPANTS AGREED / DISAGREED ========== */
-              "<p style='"+
-                "font-size:12px;"+
-                "color: gray;"+
-                "'>"+
-                "<strong>"+ count +"</strong>"+
-                "<em> "+ (repfullForAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
-              "</p>"+
-              /* ========== DATE OF COMMENT ========== */
-              // '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
+                    "margin: 0px;" +
+                    "font-size: 16px;"+
+                    "font-weight: 100;"+
+                    "'>" + agreedOrDisagreed +
+                "</p>" +
+                /* ========== COMMENT TEXT ========== */
+                "<p " +
+                  "style='margin:0px'" +
+                  ">" +
+                  c.get("txt") +
+                "</p>" +
+
+                /* ========== N PARTICIPANTS SAW X COMMENT ========== */
+                "<p style='"+
+                  "font-size:12px;"+
+                  "color: gray;"+
+                  "margin: 0px"+
+                  "'>"+
+                  "<strong>" + v.S + "</strong>" +
+                  "<em> "+Strings.xPtptsSawThisComment+" </em>" +
+                "</p>" +
+                /* ========== N OF THOSE PARTICIPANTS AGREED / DISAGREED ========== */
+                "<p style='"+
+                  "font-size:12px;"+
+                  "color: gray;"+
+                  "'>"+
+                  "<strong>"+ count +"</strong>"+
+                  "<em> "+ (repfullForAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
+                "</p>"+
+                /* ========== DATE OF COMMENT ========== */
+                // '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
             "</div>"+
+              /* ========== END BODY ========== */
+            "</div>"+
+          "</div>" +
           "</div>";
           return {
             color: dotColor,
