@@ -12,15 +12,35 @@ module.exports =  Handlebones.ModelView.extend({
   className: "groupSelectionView",
   events: {
     "click .groupButton": "onClick",
+    "click .visiblePart": "onClickGroupButtonInner",
     "click .infoPaneButton": "onClickInfoPaneButton",
+    // "hover .groupButton": "onHover",
+    "mouseenter .groupButton": "onHover",
   },
-  onClick: function(e) {
-    var $target = $(e.target);
-    var gid = Number($target.data("gid"));
+  foo: function(gid) {
     if (!_.isNaN(gid)) {
       this.model.set("selectedGid", gid);
       this.onChangedCallbacks.fire(gid);
     }
+  },
+  onClickGroupButtonInner: function(e) {
+    var $target = $(e.target).parent();
+    var gid = Number($target.data("gid"));
+    this.foo(gid);
+  },
+  onClick: function(e) {
+    var $target = $(e.target);
+    var gid = Number($target.data("gid"));
+    this.foo(gid);
+  },
+  onHover: function(e) {
+    $(".visiblePart").removeClass("groupButtonHover");
+    var el = $(e.target);
+    if (!el.hasClass(".visiblePart")) {
+      el = el.find(".visiblePart");
+    }
+    // in either case, el is the visiblePart now
+    el.addClass("groupButtonHover");
   },
   onClickInfoPaneButton: function(e) {
     this.onClickInfoPaneButtonClickedCallbacks.fire();

@@ -295,7 +295,7 @@ module.exports = Handlebones.ModelView.extend({
               "cursor: -moz-grab;"+
               "cursor: -webkit-grab;"+
               "cursor: grab;"+
-              "max-width: 300px;" +
+              "max-width: 400px;" +
               "text-align: left;" +
               "display: inline-block;" +
               "' "+

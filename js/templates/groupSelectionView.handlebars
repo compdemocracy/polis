@@ -1,39 +1,39 @@
 <div
-  class="
-	 flexbox
-	 align-items-flex-end
-   justify-content-space-around
-   align-items-baseline"
 	style="
+    margin: auto;
+    margin-bottom: 1px; {{!-- workaround for bug --}}
     {{!-- height: 48px; --}}
-    margin-top: 10px;
-    margin-bottom: 10px;
     {{#unless visible}}
       display: none;
     {{/unless}}
     ">
-<div>
 
-  <span >
+  <span>
     {{s.group_123}}
   </span>
-  {{#each groups2}}
-  	<button
+  {{#each groups2}}<span
       style="
-        font-weight: 700;
+        cursor: pointer;
+        
+        padding: 4px;
+        padding-bottom: 6px;
+
+        display: inline-block;
         {{this.styles}}
       "
       data-gid="{{this.gid}}"
       class="
         groupButton
+      "><span class="
+        visiblePart
         {{#if this.selected}}
           selectedGroupButton
         {{/if}}
-      ">
-      {{this.name}}
-    </button>
-  {{/each}}
-</div>
+        " style="
+        padding: 4px;
+        font-weight: 700;
+
+      ">{{this.name}}</span></span>{{/each}}
 
 {{!--   <button
     class="
