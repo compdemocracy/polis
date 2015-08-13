@@ -362,7 +362,7 @@
 
 (defn unfold-clusters
   "The inverse of `fold-clusters`; takes folded clusters and puts them into standard form.
-  i.e. `(= clusters (comp unfold-clusters fold-clusters))`"
+  i.e. `(= identity (comp unfold-clusters fold-clusters))`"
   [{:keys [members id x y] :as folded-clusters}]
   (map
     (fn [ms id x y]
