@@ -216,19 +216,25 @@
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
 
+(defn restructure-mongo-conv
+  [conv]
+  (-> conv
+      (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters})
+      ; Make sure there is an empty named matrix to operate on
+      (assoc :rating-mat (nm/named-matrix))
+      ; Update the base clusters to be unfolded
+      (update-in [:base-clusters] clust/unfold-clusters)
+      ; Make sure in-conv is a set
+      (update-in [:in-conv] set)))
+
+
 (defn load-or-init
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
   [zid & {:keys [recompute]}]
   (if-let [conv (and (not recompute) (db/load-conv zid))]
     (-> conv
-        (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters})
-        ; Make sure there is an empty named matrix to operate on
-        (assoc :rating-mat (nm/named-matrix)
-               :recompute :reboot)
-        ; Update the base clusters to be unfolded
-        (update-in [:base-clusters] clust/unfold-clusters)
-        ; Make sure in-conv is a set
-        (update-in [:in-conv] set))
+        restructure-mongo-conv
+        (assoc :recompute :reboot))
     ; would be nice to have :recompute :initial
     (assoc (conv/new-conv) :zid zid :recompute :full)))
 

@@ -41,6 +41,9 @@
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
                  [korma "0.3.0-RC5"]
                  [clj-time "0.6.0"]
+                 [clj-excel "0.0.1"]
+                 [semantic-csv "0.1.0"]
+                 [dk.ative/docjure "1.8.0"]
                  [prismatic/plumbing "0.2.0"]
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
@@ -48,7 +51,6 @@
   :min-lein-version "2.3.0"
   :profiles {
     :dev {
-      :dependencies [[semantic-csv "0.1.0-alpha3"]]
       :env {
         :mongo-url "db/mongo.db"}}
     :production {
