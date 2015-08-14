@@ -1104,13 +1104,13 @@ function chooseFilter(d) {
     return "";
   }
 
-  if (d.ups > d.downs) {
-    return "url(#colorMeMatrixGreen)";
-  } else if (d.downs > d.ups) {
-    return "url(#colorMeMatrixRed)";
-  } else {
+  // if (d.ups > d.downs) {
+  //   return "url(#colorMeMatrixGreen)";
+  // } else if (d.downs > d.ups) {
+  //   return "url(#colorMeMatrixRed)";
+  // } else {
     return "url(#colorMeMatrix)";
-  }
+  // }
 }
 
 function chooseDisplayForGrayHalo(d) {
