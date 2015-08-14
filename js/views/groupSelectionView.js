@@ -15,7 +15,8 @@ module.exports =  Handlebones.ModelView.extend({
     "click .visiblePart": "onClickGroupButtonInner",
     "click .infoPaneButton": "onClickInfoPaneButton",
     // "hover .groupButton": "onHover",
-    "mouseenter .groupButton": "onHover",
+    // "mouseout .groupButton" : "onUnHover",
+    "mouseenter .groupButton": "onHover"
   },
   foo: function(gid) {
     if (!_.isNaN(gid)) {

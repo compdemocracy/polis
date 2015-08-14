@@ -11,7 +11,7 @@ s.group_123 = "Group:";
 s.majorityOpinion = "Majority Opinion";
 s.majorityOpinionShort = "Majority";
 s.info = "Info";
-s.addPolisToYourSite = "Add Polis to your site";
+s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&amp;format=png&amp;w=600&amp;h=208'/>";
 s.privacy = "Privacy";
 s.TOS = "TOS";
 s.writePrompt = "Share your perspective...";
@@ -20,6 +20,7 @@ s.helpWhatAmISeeingTitle = "What am I seeing?";
 s.helpWhatAmISeeing = "People who vote similarly are grouped. Click a group to see which viewpoints they share.";
 s.helpWhatDoIDoTitle = " What do I do?";
 s.helpWhatDoIDo = "Vote on other people's comments by clicking 'agree' or 'disagree'. Write a comment (keep each to a single idea). Invite your friends to the discussion!";
+s.writeCommentHelpText = "If your perspective isn't already represented, <strong>write</strong> a comment."
 s.heresHowGroupVoted = "Here's how Group {{GROUP_NUMBER}} voted:";
 s.one_person = "{{x}} person";
 s.x_people = "{{x}} people";

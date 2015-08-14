@@ -197,17 +197,6 @@
     border-radius: 4px;
     position: relative;
   ">
-{{!--   <p class="flexbox justify-content-space-between align-items-center">
-    <span style="font-size: 24px;">
-      Welcome! This is a new kind of online discussion.
-    </span>
-    <i
-      style="
-
-      "
-      class="fa fa-times cursorPointer">
-    </i>
-  </p> --}}
   <p
     style="margin: 0px;"
     >
@@ -220,17 +209,6 @@
       class="fa fa-times cursorPointer">
     </i>
   </p>
-{{!--   <p>What do I do?</p>
-  <ul>
-    <li><strong>Vote</strong> on other people's comments by clicking 'agree' or 'disagree'.</li>
-    <li>If your perspective isn't represented, <strong>Write</strong> a comment.</li>
-    <li><strong>Invite</strong> your friends to the discussion!</li>
-  </ul>
-  <p>What am I seeing?</p>
-  <ul>
-    <li>People who vote similarly are grouped.</li>
-    <li>Click a group to see which viewpoints they share.</li>
-  </ul> --}}
 </div>
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
@@ -280,8 +258,8 @@
     {{!-- color: rgb(68, 136, 189); --}}
     color: #3498DB;
     padding: 15px 30px 15px 15px;
-    width: 100%;
-    margin: 10px auto;
+    width: 99%;
+    margin: 0px auto 10px auto;
     border-radius: 4px;
     position: relative;
   ">
@@ -289,7 +267,7 @@
     style="margin: 0px;"
     >
     <span>
-      {{!-- TODO_SECURITY try to not use triple brackets. --}}      
+      {{!-- TODO_SECURITY try to not use triple brackets. --}}
       {{{s.participantHelpGroupsText}}}
     </span>
     <i
@@ -356,17 +334,48 @@
   </div> {{! /tab content }}
 </div> {{! /tabbable }}
 
+{{!  ------------ SUBMIT COMMENT HELPTEXT ---------------  }}
+<div
+  id="helpTextComments"
+  style="
+    background-color: #CAEAFF;
+    {{!-- border: 1px solid rgb(85, 172, 238); --}}
+    {{!-- color: rgb(68, 136, 189); --}}
+    color: #3498DB;
+    padding: 15px 30px 15px 15px;
+    width: 100%;
+    margin: 0px 0px 10px 0px;
+    border-radius: 4px;
+    position: relative;
+  ">
+  <p
+    style="margin: 0px;"
+    >
+    <span>
+      {{!-- TODO_SECURITY try to not use triple brackets. --}}
+    {{{s.writeCommentHelpText}}}
+    </span>
+    <i
+      style="position: absolute; top: 8px; right: 8px;"
+      class="fa fa-times cursorPointer">
+    </i>
+  </p>
+</div>
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
 <span id="commentFormParent">
   {{view commentForm}}
 </span>
 
-
-
 {{!  ------------ BEGIN FOOTER ---------------  }}
 
-  <div class="darkPanel"> {{! BEGIN FOOTER}}
+  <div
+    style="
+      margin-top: 30px;
+      border-top: 1px solid rgb(220,220,220);
+    "
+    class="darkPanel"
+    >
     {{#if showLogoInFooter}}
     <div class="flexbox align-items-flex-end">
       <a
