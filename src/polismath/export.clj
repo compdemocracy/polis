@@ -9,7 +9,9 @@
             [polismath.clusters :as clust]
             [polismath.named-matrix :as nm]
             [polismath.microscope :as micro]
+            [polismath.conversation :as conv]
             [clojure.math.numeric-tower :as math]
+            [clojure.core.matrix :as mat]
             ;; Think I'm going to use the second one here, since it's simpler (less mutable)
             [dk.ative.docjure.spreadsheet :as spreadsheet]
             [clj-excel.core :as excel]
@@ -19,6 +21,8 @@
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr])
   (:import [java.util.zip ZipOutputStream ZipEntry]))
+
+(mat/set-current-implementation :vectorz)
 
 ;; Here's rougly what we want for data export. We have the following sheets per conversation.
 ;; 
@@ -56,6 +60,20 @@
     first
     :zinvite))
 
+
+(defn get-conversation-votes
+  ([zid]
+   (kdb/with-db (db/db-spec)
+     (ko/select db/votes
+       (ko/where {:zid zid})
+       (ko/order [:zid :tid :pid :created] :asc))))
+  ([zid final-vote-timestamp]
+   (kdb/with-db (db/db-spec)
+     (ko/select db/votes
+       (ko/where {:zid zid :created [<= final-vote-timestamp]})
+       ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
+       (ko/order [:zid :tid :pid :created] :asc)))))
+
 (defn get-conversation-data
   "Return a map with :topic and :description keys"
   [zid]
@@ -67,19 +85,30 @@
     first))
 
 (defn get-participation-data
-  [zid]
-  (kdb/with-db (db/db-spec)
-    (ko/select "participants"
-      (ko/fields :zid :pid :vote_count :created)
-      (ko/where {:zid zid}))))
+  ([zid]
+   (kdb/with-db (db/db-spec)
+     (ko/select "participants"
+       (ko/fields :zid :pid :vote_count :created)
+       (ko/where {:zid zid}))))
+  ([zid final-timestamp]
+   (kdb/with-db (db/db-spec)
+     (ko/select "participants"
+       (ko/fields :zid :pid :vote_count :created)
+       (ko/where {:zid zid :created [<= final-timestamp]})))))
+
 
 
 (defn get-comments-data
-  [zid]
-  (kdb/with-db (db/db-spec)
-    (ko/select "comments"
-      (ko/fields :zid :tid :pid :txt :mod :created)
-      (ko/where {:zid zid}))))
+  ([zid]
+   (kdb/with-db (db/db-spec)
+     (ko/select "comments"
+       (ko/fields :zid :tid :pid :txt :mod :created)
+       (ko/where {:zid zid}))))
+  ([zid final-timestamp]
+   (kdb/with-db (db/db-spec)
+     (ko/select "comments"
+       (ko/fields :zid :tid :pid :txt :mod :created)
+       (ko/where {:zid zid :created [<= final-timestamp]})))))
 
 
 
@@ -193,6 +222,11 @@
         vote-tuples (map #(map % [:pid :tid :vote]) votes)]
     (nm/update-nmat new-nmat vote-tuples)))
 
+(defn ffilter
+  "Given pred and coll, return the first x in coll for which (pred x) is truthy"
+  [pred coll]
+  (first (filter pred coll)))
+
 (defn flatten-clusters
   "Takes group clusters and base clusters and flattens them out into a cluster mapping to ptpt ids directly"
   [group-clusters base-clusters]
@@ -204,7 +238,7 @@
                    (mapcat
                      (fn [bid]
                        ;; get the base cluster, then get it's members, mapcat them (a level up)
-                       (:members (some #(= (:id %) bid) base-clusters)))
+                       (:members (ffilter #(= (:id %) bid) base-clusters)))
                      members))))
     group-clusters))
 
@@ -220,7 +254,7 @@
       (map
         (fn [ptpt row]
           (into [ptpt
-                 (:id (some #(= ptpt (:members %)) flattened-clusters))
+                 (:id (ffilter #(some #{ptpt} (:members %)) flattened-clusters))
                  (count (filter #(= (:pid %) ptpt) comments))
                  (count (remove nil? row))
                  ;; XXX God damn aggree vs disagree...
@@ -368,19 +402,19 @@
        print))
 
 (defn save-to-csv-zip
-  [filename data]
-  (with-open [file (io/output-stream filename)
+  [filebase data]
+  (with-open [file (io/output-stream (str filebase ".zip"))
               zip  (ZipOutputStream. file)
               wrt  (io/writer zip)]
     (binding [*out* wrt]
       (doto zip
-        (with-entry "polis-export/summary.csv"
+        (with-entry (str filebase "/summary.csv")
           (print-csv (:summary data)))
-        (with-entry "polis-export/stats-history.csv"
+        (with-entry (str filebase "/stats-history.csv")
           (print-csv (:stats-history data)))
-        (with-entry "polis-export/comments.csv"
+        (with-entry (str filebase "/comments.csv")
           (print-csv (:comments data)))
-        (with-entry "polis-export/participants-votes.csv"
+        (with-entry (str filebase "/participants-votes.csv")
           (print-csv (:participants-votes data)))))))
   
 
@@ -391,7 +425,7 @@
 (defn get-export-data
   [{:keys [zid zinvite env-overrides] :as kw-args}]
   (let [zid (or zid (micro/get-zid-from-zinvite zinvite))
-        votes (micro/conv-poll zid)
+        votes (get-conversation-votes zid)
         comments (enriched-comments-data (get-comments-data zid) votes)
         participants (get-participation-data zid)
         ;; Should factor out into separate function
@@ -401,45 +435,41 @@
      :participants-votes (participants-votes-table conv votes comments)
      :comments comments}))
 
+
+(defn get-export-data-at-date
+  [{:keys [zid zinvite env-overrides at-date] :as kw-args}]
+  (let [zid (or zid (micro/get-zid-from-zinvite zinvite))
+        votes (get-conversation-votes zid at-date)
+        conv (assoc (conv/new-conv) :zid zid)
+        conv (conv/conv-update conv votes)
+        _ (println "Done with conv update")
+        comments (enriched-comments-data (get-comments-data zid at-date) votes)
+        participants (get-participation-data zid at-date)
+        ]
+    {:summary (assoc (summary-data conv votes comments participants) :at-date at-date)
+     :stats-history (stats-history votes participants comments)
+     :participants-votes (participants-votes-table conv votes comments)
+     :comments comments}))
+
+
+
 (defn export-conversation
   ;; Don't forget env-overrides {:math-env "prod"}; should clean up with system
-  [{:keys [zid zinvite format filename env-overrides] :as kw-args}]
-  (let [export-data (get-export-data kw-args)
+  [& {:keys [zid zinvite format filename env-overrides at-date] :as kw-args}]
+  (let [export-data (if at-date 
+                      (get-export-data-at-date kw-args)
+                      (get-export-data kw-args))
         [formatter saver] (case format :excel [excel-format save-to-excel] :csv [csv-format save-to-csv-zip])]
     (saver filename (formatter export-data))))
 
 
+(defn -main
+  ([zinvite format filename]
+   (-main zinvite format filename nil))
+  ([zinvite format filename at-date]
+   (export-conversation :zinvite zinvite :format (keyword format) :filename filename :at-date (when at-date (Long/parseLong at-date)) :env-overrides {:math-env "prod"})))
 
 
-;; tinkering... pay no attention
-
-(comment
-  
-  (try
-    ;(export-conversation {:zinvite "3phdex2kjf" :format :excel :filename "test.xls" :env-overrides {:math-env "prod"}})
-    (export-conversation {:zinvite "3phdex2kjf" :format :csv :filename "test.zip" :env-overrides {:math-env "prod"}})
-    (catch Exception e
-      (.printStackTrace e)))
-
-  (def co (load-conv :zinvite "3phdex2kjf" :env-overrides {:math-env "prod"}))
-  (count (mapcat :members (:base-clusters co)))
-  (keys co)
-  
-  (def zid (micro/get-zid-from-zinvite "3phdex2kjf"))
-  (pprint (take 10 (get-comments-data zid)))
-  (pprint (take 10 (get-participation-data zid)))
-
-  (keys c)
-  (:group-clusters c)
-
-  (require '[polismath.microscope :as micro :refer :all])
-  (require '[semantic-csv.core :as scsv])
-  ;(load-dep 
-
-  (def c (assoc c :rating-mat c-mat))
-
-  (nmat->csv "votes-matrix.csv" c-mat)
-  )
 
 :ok
 
