@@ -2,7 +2,6 @@
 	style="
     margin: auto;
     margin-bottom: 1px; {{!-- workaround for bug --}}
-    {{!-- height: 48px; --}}
     {{#unless visible}}
       display: none;
     {{/unless}}
@@ -14,22 +13,17 @@
   {{#each groups2}}<span
       style="
         cursor: pointer;
-        padding: 4px;
+        padding: 8px;
         padding-bottom: 6px;
+        font-weight: 700;
         display: inline-block;
         {{this.styles}}
       "
       data-gid="{{this.gid}}"
       class="
         groupButton
-      "><span class="
-        visiblePart
         {{#if this.selected}}
           selectedGroupButton
         {{/if}}
-        " style="
-        padding: 4px;
-        font-weight: 700;
-
-      ">{{this.name}}</span></span>{{/each}}
+      ">{{this.name}}</span>{{/each}}
 </div>

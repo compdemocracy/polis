@@ -15,7 +15,6 @@ module.exports =  Handlebones.ModelView.extend({
     "click .visiblePart": "onClickGroupButtonInner",
     "click .infoPaneButton": "onClickInfoPaneButton",
     // "hover .groupButton": "onHover",
-    // "mouseout .groupButton" : "onUnHover",
     "mouseenter .groupButton": "onHover"
   },
   foo: function(gid) {
@@ -35,12 +34,14 @@ module.exports =  Handlebones.ModelView.extend({
     this.foo(gid);
   },
   onHover: function(e) {
+    /* groupButtonHover adds the black border on bottom */
     $(".visiblePart").removeClass("groupButtonHover");
     var el = $(e.target);
+    /* we're hovering on the parent, so find the child */
     if (!el.hasClass(".visiblePart")) {
       el = el.find(".visiblePart");
     }
-    // in either case, el is the visiblePart now
+    /* in either case, el is the visiblePart now */
     el.addClass("groupButtonHover");
   },
   onClickInfoPaneButton: function(e) {

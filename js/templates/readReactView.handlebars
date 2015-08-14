@@ -2,7 +2,17 @@
   id="readReactView"
   style="margin-bottom: -40px;"
   >
-  <div class="custom_gutter lightPanel" style="position:relative; top:0px; z-index: 3;">
+  <div
+  	class="
+  		custom_gutter
+  		lightPanel
+  		"
+  	style="
+  		position:relative;
+  		top: 0px;
+  		z-index: 3;
+  		{{!-- min-height: 144px; attempt to avoid flashing on vote view load--}}
+  	">
 	  {{#if promptFacebook}}
 	  <div style="margin: 20px;" class="Notification Notification--warning">
 	    <p class="HeadingF HeadingF--light pull-right" style="cursor: pointer" role="button" type="button" id="fbNotNowBtn">

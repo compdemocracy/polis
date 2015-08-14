@@ -132,10 +132,9 @@ body {
   border-bottom: 2px solid #f7f7f7;
 }
 
-.groupButtonHover {
+.groupButton:hover {
   border-bottom: 2px solid black;
 }
-
 
 .selectedGroupButton {
   border-bottom: 2px solid black;

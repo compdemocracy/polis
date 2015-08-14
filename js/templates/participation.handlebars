@@ -292,8 +292,11 @@
 </div>
 <div
   class="darkPanel clickDoesNotDeselectHull"
-  style="text-align: center"
-  >
+  style="
+    text-align: center;
+    min-height: 34px;
+    margin: 4px 0px 10px 0px;
+  ">
   {{view groupSelectionView}}
 </div>
 
@@ -363,9 +366,11 @@
 </div>
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
-<span id="commentFormParent">
+<div
+  id="commentFormParent"
+  >
   {{view commentForm}}
-</span>
+</div>
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
 
