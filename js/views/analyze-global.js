@@ -1,6 +1,7 @@
 var AnalyzeCollectionView = require("../views/analyze-global-collection-view");
 var carouselCommentMobileTemplate = require("../tmpl/carouselCommentMobile");
 var carouselCommentTemplate = require("../tmpl/carouselComment");
+var constants = require("../util/constants");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var template = require("../tmpl/analyze-global");
@@ -311,6 +312,7 @@ module.exports = Handlebones.View.extend({
             count: count,
             nTrials: info["n-trials"],
             repfullForAgree: forAgree,
+            commentCarouselMinHeight: constants.commentCarouselMinHeight,
           });
 
           return {
@@ -362,12 +364,12 @@ module.exports = Handlebones.View.extend({
                 //   $(c).css("background", colors[i]);
                 // }
 
-                if (!isMobile) {
+                // if (!isMobile) {
 
                   $(el_carouselSelector).find("#majorityCarouselPrev").remove();
                   $(el_carouselSelector).find("#majorityCarouselNext").remove();
-                  $(el_carouselSelector).prepend('<span id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 60px; left:0; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
-                  $(el_carouselSelector).append( '<span id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 60px; right:0; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
+                  $(el_carouselSelector).prepend('<span id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 60px; left:-10px; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
+                  $(el_carouselSelector).append( '<span id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 60px; right:-10px; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
 
                   $("#majorityCarouselPrev").css("opacity", .2);
 
@@ -384,7 +386,7 @@ module.exports = Handlebones.View.extend({
                       owl.prev();
                     }
                   });
-                }
+                // }
 
 
               });

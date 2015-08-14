@@ -411,7 +411,7 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 
 .query_result_item {
     min-height: 50px;
-    padding: 10px;
+    padding: 0px 10px 0px 10px;
     background-color: rgba(255,255,255,0.7);
     margin-right: 10px;
     cursor: hand;

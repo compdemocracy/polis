@@ -1,5 +1,6 @@
 var carouselCommentMobileTemplate = require("../tmpl/carouselCommentMobile");
 var carouselCommentTemplate = require("../tmpl/carouselComment");
+var constants = require("../util/constants");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var template = require("../tmpl/analyze-group");
@@ -305,6 +306,7 @@ module.exports = Handlebones.ModelView.extend({
             count: count,
             nTrials: denominator,
             repfullForAgree: repfullForAgree,
+            commentCarouselMinHeight: constants.commentCarouselMinHeight,
           });
 
           return {
@@ -352,7 +354,7 @@ module.exports = Handlebones.ModelView.extend({
                     'z-index: 3;'+
                     'position: absolute;'+
                     'top: 60px;'+
-                    'left:0;'+
+                    'left:-10px;'+
                     'box-shadow: none;'+
                     'cursor: pointer;'+
                     'color: black;'+
@@ -372,7 +374,7 @@ module.exports = Handlebones.ModelView.extend({
                     'z-index: 3;'+
                     'position: absolute;'+
                     'top: 60px;'+
-                    'right:0;'+
+                    'right:-10px;'+
                     'box-shadow: none;'+
                     'cursor: pointer;'+
                     'color: black;'+

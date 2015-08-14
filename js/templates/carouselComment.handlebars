@@ -45,7 +45,11 @@
       </span>
 
       {{!-- COMMENT TEXT --}}
-      <p style="margin:0px">{{txt}}</p>
+      <p style="
+        margin:0px;
+          {{!-- this is responsible for normalizing the comment heights --}}
+          {{!-- min-height: {{commentCarouselMinHeight}}px;  --}}
+        ">{{txt}}</p>
 
       {{!-- PERCENTAGE AND AGREED / DISAGREED --}}
       <p
@@ -70,6 +74,7 @@
       <p style="
         font-size:12px;
         color: gray;
+        margin: 0px;
         ">
         <strong>{{count}}</strong>
         <em>{{#if repfullForAgree}}{{s.xOfThoseAgreed}}{{else}}{{s.xOfthoseDisagreed}}{{/if}}</em>.
