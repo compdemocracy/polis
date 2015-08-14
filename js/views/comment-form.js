@@ -5,6 +5,7 @@ var View = require("handlebones").View;
 var template = require("../tmpl/comment-form");
 var CommentModel = require("../models/comment");
 var CommentView = require("../views/commentView");
+var display = require("../util/display");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var PolisFacebookUtils = require('../util/facebookButton');
@@ -42,6 +43,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.hasTwitter = userObject.hasTwitter;
     ctx.hasFacebook = userObject.hasFacebook;
     ctx.s = Strings;
+    ctx.desktop = !display.xs();
     return ctx;
   },
   hideMessage: function(id) {

@@ -73,12 +73,13 @@
       ">
 
       {{!-- ================ PROTIPS ================ --}}
-      <span style="margin-right: 20px" class=""> {{! protips column }}
+      <span style="{{#if desktop}}margin-right: 20px;{{/if}}" class=""> {{! protips column }}
 
 
         <p
           id="write_your_perspective_message"
-          class="protip flexbox align-items-baseline low_priority_tip"
+          class="protip flexbox low_priority_tip"
+          style="{{#unless desktop}}font-size:12px{{/unless}}"
           >
           <i
             class="fa fa-lightbulb-o"
@@ -100,8 +101,8 @@
 
         <p
           id="not_a_reply_message"
-          class="protip flexbox align-items-baseline low_priority_tip"
-          style="display:none"
+          class="protip flexbox low_priority_tip"
+          style="display:none; {{#unless desktop}}font-size:12px{{/unless}}"
           >
           <i
             class="fa fa-lightbulb-o"
@@ -125,6 +126,7 @@
           class="protip flexbox  align-items-baseline"
           style="
             display: none;
+            {{#unless desktop}}font-size:12px{{/unless}}
             ">
             <i
               class="fa fa-asterisk"
@@ -141,6 +143,7 @@
           role="alert"
           style="
             display:none;
+            {{#unless desktop}}font-size:12px{{/unless}}
             ">
             <i
               class="fa fa-asterisk"
@@ -163,7 +166,10 @@
         <div
           id="commentSentDemoAlert"
           class="protip"
-          style="display:none"
+          style="
+            display:none;
+            {{#unless desktop}}font-size:12px{{/unless}}
+            "
           role="alert">
           <p>
             <strong> {{s.commentSent}}</strong> {{s.notSentSinceDemo}}
@@ -174,7 +180,7 @@
    {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
       <span
         id="commentCharCount"
-        style="color: gray; min-width: 20px;"
+        style="color: gray; {{#if desktop}}min-width: 20px;{{/if}}"
         class="comment_form_control_hideable">
       </span>
       <button
