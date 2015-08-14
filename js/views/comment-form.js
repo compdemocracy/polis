@@ -112,6 +112,8 @@ module.exports = Handlebones.ModelView.extend({
   showFormControls: function() {
     // this.$(".alert").hide();
     this.$(".comment_form_control_hideable").show();
+
+    $("#helpTextComments").hide();
   },
   hideFormControls: function() {
     this.$(".comment_form_control_hideable").hide();

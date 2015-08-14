@@ -337,6 +337,13 @@
   </div> {{! /tab content }}
 </div> {{! /tabbable }}
 
+{{!  ------------ SUBMIT COMMENT FORM ---------------  }}
+<div
+  id="commentFormParent"
+  >
+  {{view commentForm}}
+</div>
+
 {{!  ------------ SUBMIT COMMENT HELPTEXT ---------------  }}
 <div
   id="helpTextComments"
@@ -347,7 +354,7 @@
     color: #3498DB;
     padding: 15px 30px 15px 15px;
     width: 100%;
-    margin: 0px 0px 10px 0px;
+    margin: 10px 0px 0px 0px;
     border-radius: 4px;
     position: relative;
   ">
@@ -363,13 +370,6 @@
       class="fa fa-times cursorPointer">
     </i>
   </p>
-</div>
-
-{{!  ------------ SUBMIT COMMENT FORM ---------------  }}
-<div
-  id="commentFormParent"
-  >
-  {{view commentForm}}
 </div>
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
