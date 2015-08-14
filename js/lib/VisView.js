@@ -106,7 +106,7 @@ var speed = d3.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(w
 
 
 // the length of the visible part of the pin. The pin can be longer, if it is under the circle.
-var pinLength = d3.scale.linear().range([10, 30]).domain([350, 800]).clamp(true)(width);
+var pinLength = d3.scale.linear().range([14, 28]).domain([350, 800]).clamp(true)(width);
 
 
 
@@ -1715,7 +1715,13 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         ;
     var pinEnter = g.filter(isParticipantOfInterest)
         .append("circle")
-        .attr("r", 2)
+        .attr("r", function(d) {
+          if (display.xs()) {
+            return 1;
+          } else {
+            return 2;
+          }
+        })
         .attr("cx", 0)
         .attr("cy", pinLength)
         .attr("fill", "rgb(160,160,160)")
