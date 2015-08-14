@@ -1969,7 +1969,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         //     return "translate(0, "+ pinLength +")";
         // })
         .text(function(d) {
-          // TODO add crowd icon
           return "\uf0c0 " + getGroupNameForGid(d.gid);
         })
         // .classed("help", true)
