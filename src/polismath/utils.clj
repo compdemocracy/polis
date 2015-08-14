@@ -157,8 +157,8 @@
   ;(require '[alex-and-georges.debug-repl :as dr])
   (require '[clojure.tools.trace :as tr]))
 
-
 (defn clst-trace
+
   ([clsts] (clst-trace "" clsts))
   ([k clsts]
    (println "TRACE" k ":")
@@ -166,4 +166,15 @@
      (println "   " c))
    clsts))
 
+
+(comment
+  (require '[cemerick.pomegranate :refer [add-dependencies]])
+  (defn load-dep
+    [dep]
+    (add-dependencies :coordinates [dep] :repositories (merge cemerick.pomegranate.aether/maven-central {"clojars" "http://clojars.org/repo"})))
+  (load-dep '[clj-time "0.10.0"])
+  (load-dep '[clj-excel "0.0.1"])
+  )
+
+:ok
 
