@@ -2357,6 +2357,16 @@ function doUpdateNodes() {
         ;
 
 
+        update.selectAll(".summaryLabel")
+          .style("font-size", function(d) {
+            if (commentIsSelected()) {
+              return "11px";
+            } else {
+              return "14px";
+            }
+          })
+        ;
+
 
         var circleUpdate = update.selectAll(".circle.bktv").data(nodes, key)
           .style("display", chooseDisplayForOuterCircle)
