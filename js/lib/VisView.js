@@ -444,7 +444,11 @@ if (useForce) {
         .charge(function(d) {
             // slight overlap allowed
             if (isSummaryBucket(d)) {
-                return -400;
+              if (display.xs()) {
+                return -900;
+              } else {
+                return -200;
+              }
             } else {
                 return -80;
             }
@@ -1072,6 +1076,24 @@ function chooseDisplayForOuterCircle(d) {
     return shouldDisplayOuterCircle(d) ? "inherit" : "none";
 }
 
+function chooseSummaryLabelFontSize(d) {
+  var size;
+  if (display.xs()) {
+    if (commentIsSelected()) {
+      size = 9;
+    } else {
+      size = 11;
+    }
+  } else {
+    if (commentIsSelected()) {
+      size = 11;
+    } else {
+      size = 13;
+    }
+
+  }
+  return size + "px";
+}
 
 function shouldDisplayOuterCircle(d) {
     // Hide the circle so we can show the up/down arrows
@@ -1974,7 +1996,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         // .classed("help", true)
         // .classed("help_text_you", true)
         .style("font-family", "FontAwesome") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
-        .style("font-size", "14px")
+        .style("font-size", chooseSummaryLabelFontSize)
         // .style("font-weight", "bold")
         .attr("text-anchor", "middle")
         // .attr("alignment-baseline", "bottom")
@@ -2358,13 +2380,7 @@ function doUpdateNodes() {
 
 
         update.selectAll(".summaryLabel")
-          .style("font-size", function(d) {
-            if (commentIsSelected()) {
-              return "11px";
-            } else {
-              return "14px";
-            }
-          })
+          .style("font-size", chooseSummaryLabelFontSize)
         ;
 
 
