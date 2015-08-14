@@ -64,7 +64,7 @@
     {{!-- ================ FLEXBOX ================ --}}
     <div
       id="comment_form_controls"
-      style="display: none; margin-top: 12px"
+      style="margin-top: 12px"
       class="
         flexbox
         align-items-baseline
@@ -75,9 +75,33 @@
       {{!-- ================ PROTIPS ================ --}}
       <span style="margin-right: 20px" class=""> {{! protips column }}
 
+
+        <p
+          id="write_your_perspective_message"
+          class="protip flexbox align-items-baseline low_priority_tip"
+          >
+          <i
+            class="fa fa-lightbulb-o"
+            style="font-size: 24px;
+            position: relative;
+            top: 2px;
+            ">
+          </i>
+          <span style="margin-left: 12px;">
+            <strong>
+              {{s.tip}}
+            </strong>
+            <span style="margin-left: 5px">
+              {{{s.writeCommentHelpText}}}
+            </span>
+          </span>
+        </p>
+
+
         <p
           id="not_a_reply_message"
-          class="protip flexbox align-items-baseline"
+          class="protip flexbox align-items-baseline low_priority_tip"
+          style="display:none"
           >
           <i
             class="fa fa-lightbulb-o"
@@ -95,6 +119,7 @@
             </span>
           </span>
         </p>
+
         <p
           id="one_idea_per_comment_message"
           class="protip flexbox  align-items-baseline"

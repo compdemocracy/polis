@@ -46,14 +46,11 @@ module.exports = Handlebones.ModelView.extend({
   },
   hideMessage: function(id) {
     this.$(id).hide();
-    // if there are no other warnings/tips showing, show the default one
-    if (this.$(".protip:visible").length === 0) {
-      this.$("#not_a_reply_message").show();
-    }
   },
+
   showMessage: function(id) {
     // since there are now other warnings/tips showing, hide the default one
-    this.$("#not_a_reply_message").hide();
+    this.$(".low_priority_tip").hide();
     this.$(id).show();
   },
   updateOneIdeaPerCommentMessage: function(formText) {
@@ -63,6 +60,7 @@ module.exports = Handlebones.ModelView.extend({
       this.showMessage("#one_idea_per_comment_message");
     } else {
       this.hideMessage("#one_idea_per_comment_message");
+      this.maybeShowBasicTip();
     }
   },
   updateCommentNotQuestionAlert: function(formText) {
@@ -70,6 +68,24 @@ module.exports = Handlebones.ModelView.extend({
       this.showMessage("#commentNotQuestionAlert");
     } else {
       this.hideMessage("#commentNotQuestionAlert");
+      this.maybeShowBasicTip();
+    }
+  },
+  maybeShowBasicTip: function() {
+    // if there are no other warnings/tips showing, show the default one
+    if (this.$(".protip:visible").length === 0) {
+      this.chooseBasicTip();
+    }
+  },
+  chooseBasicTip: function() {
+    var form =  $("#comment_form_textarea");
+    var formText = form.val();
+    if (formText.length) {
+      this.showMessage("#not_a_reply_message");
+      this.hideMessage("#write_your_perspective_message");
+    } else {
+      this.showMessage("#write_your_perspective_message");
+      this.hideMessage("#not_a_reply_message");
     }
   },
   textChange: function() {
@@ -95,6 +111,7 @@ module.exports = Handlebones.ModelView.extend({
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
       this.hideMessage("#commentTooLongAlert");
+      this.maybeShowBasicTip();
       this.buttonActive = true;
     } else {
       txt = remaining;
@@ -102,9 +119,11 @@ module.exports = Handlebones.ModelView.extend({
       this.$("#comment_button").attr("disabled", null);
       this.$("#comment_button").css("opacity", 1);
       this.hideMessage("#commentTooLongAlert");
+      this.maybeShowBasicTip();
       this.buttonActive = true;
     }
     this.$("#commentCharCount").text(txt);
+    this.chooseBasicTip(formText);
     this.updateOneIdeaPerCommentMessage(formText);
     this.updateCommentNotQuestionAlert(formText);
     eb.trigger(eb.interacted);
@@ -112,12 +131,10 @@ module.exports = Handlebones.ModelView.extend({
   showFormControls: function() {
     // this.$(".alert").hide();
     this.$(".comment_form_control_hideable").show();
-
-    $("#helpTextComments").hide();
   },
   hideFormControls: function() {
-    this.$(".comment_form_control_hideable").hide();
-    this.$("#commentCharCount").text("");
+    // this.$(".comment_form_control_hideable").hide();
+    // this.$("#commentCharCount").text("");
   },
   reloadPagePreservingCommentText: function() {
     var wipCommentFormText = $("#comment_form_textarea").val();

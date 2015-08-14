@@ -344,33 +344,6 @@
   {{view commentForm}}
 </div>
 
-{{!  ------------ SUBMIT COMMENT HELPTEXT ---------------  }}
-<div
-  id="helpTextComments"
-  style="
-    background-color: #CAEAFF;
-    {{!-- border: 1px solid rgb(85, 172, 238); --}}
-    {{!-- color: rgb(68, 136, 189); --}}
-    color: #3498DB;
-    padding: 15px 30px 15px 15px;
-    width: 100%;
-    margin: 10px 0px 0px 0px;
-    border-radius: 4px;
-    position: relative;
-  ">
-  <p
-    style="margin: 0px;"
-    >
-    <span>
-      {{!-- TODO_SECURITY try to not use triple brackets. --}}
-    {{{s.writeCommentHelpText}}}
-    </span>
-    <i
-      style="position: absolute; top: 8px; right: 8px;"
-      class="fa fa-times cursorPointer">
-    </i>
-  </p>
-</div>
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
 

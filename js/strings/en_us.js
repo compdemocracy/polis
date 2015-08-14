@@ -20,7 +20,7 @@ s.helpWhatAmISeeingTitle = "What am I seeing?";
 s.helpWhatAmISeeing = "People who vote similarly are grouped. Click a group to see which viewpoints they share.";
 s.helpWhatDoIDoTitle = " What do I do?";
 s.helpWhatDoIDo = "Vote on other people's comments by clicking 'agree' or 'disagree'. Write a comment (keep each to a single idea). Invite your friends to the discussion!";
-s.writeCommentHelpText = "<i class='fa fa-arrow-up'> If your perspective isn't already represented, <strong>write</strong> a comment!</i>"
+s.writeCommentHelpText = "If your perspective isn't already represented, <strong>write</strong> a comment!</i>"
 s.heresHowGroupVoted = "Here's how Group {{GROUP_NUMBER}} voted:";
 s.one_person = "{{x}} person";
 s.x_people = "{{x}} people";
