@@ -306,7 +306,7 @@ module.exports = Handlebones.ModelView.extend({
             nTrials: denominator,
             repfullForAgree: repfullForAgree,
           });
-          
+
           return {
             color: dotColor,
             html: html
@@ -345,31 +345,69 @@ module.exports = Handlebones.ModelView.extend({
                 // }
                 circles.hide();
 
-                // if (!isMobile) {
-                  $("#groupCarouselParent").find("#groupCarouselPrev").remove();
-                  $("#groupCarouselParent").find("#groupCarouselNext").remove();
-                  $("#groupCarouselParent").prepend('<span id="groupCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 25%; left:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
-                  $("#groupCarouselParent").append( '<span id="groupCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 25%; right:0%; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
+                var groupCarouselPrevHTML = '<span '+
+                  'id="groupCarouselPrev" '+
+                  'class="Btn-alt Btn-small Btn" '+
+                  'style=" '+
+                    'z-index: 3;'+
+                    'position: absolute;'+
+                    'top: 60px;'+
+                    'left:0;'+
+                    'box-shadow: none;'+
+                    'cursor: pointer;'+
+                    'color: black;'+
+                    'background-color: rgba(0,0,0,0);'+
+                    'border: none;'+
+                    '">'+
+                    '<i '+
+                      'style="font-size: 48px; font-weight: bold" '+
+                      'class="fa fa-angle-left"> '+
+                    '</i>'+
+                  '</span>';
+
+                var groupCarouselNextHTML = '<span '+
+                  'id="groupCarouselNext" '+
+                  'class="Btn-alt Btn-small Btn" '+
+                  'style=" '+
+                    'z-index: 3;'+
+                    'position: absolute;'+
+                    'top: 60px;'+
+                    'right:0;'+
+                    'box-shadow: none;'+
+                    'cursor: pointer;'+
+                    'color: black;'+
+                    'background-color: rgba(0,0,0,0);'+
+                    'border: none;'+
+                    '">'+
+                    '<i '+
+                      'style="font-size: 48px; font-weight: bold" '+
+                      'class="fa fa-angle-right"> '+
+                    '</i>'+
+                '</span>';
+
+                $("#groupCarouselParent").find("#groupCarouselPrev").remove();
+                $("#groupCarouselParent").find("#groupCarouselNext").remove();
+                $("#groupCarouselParent").prepend(groupCarouselPrevHTML);
+                $("#groupCarouselParent").append(groupCarouselNextHTML);
 
 
-                  // <div id="carouselNext">next</div>")
+                // <div id="carouselNext">next</div>")
 
-                  $("#groupCarouselPrev").css("opacity", .2);
+                $("#groupCarouselPrev").css("opacity", .2);
 
-                  $("#groupCarouselNext").on("click", function(e) {
-                    if (!carouselNextDisabled) {
-                      var owl = $("#smallWindowForGroup").data('owlCarousel');
-                      owl.next();
-                    }
-                  });
+                $("#groupCarouselNext").on("click", function(e) {
+                  if (!carouselNextDisabled) {
+                    var owl = $("#smallWindowForGroup").data('owlCarousel');
+                    owl.next();
+                  }
+                });
 
-                  $("#groupCarouselPrev").on("click", function(e) {
-                    if (!carouselPrevDisabled) {
-                      var owl = $("#smallWindowForGroup").data('owlCarousel');
-                      owl.prev();
-                    }
-                  });
-                // }
+                $("#groupCarouselPrev").on("click", function(e) {
+                  if (!carouselPrevDisabled) {
+                    var owl = $("#smallWindowForGroup").data('owlCarousel');
+                    owl.prev();
+                  }
+                });
 
 
               });
