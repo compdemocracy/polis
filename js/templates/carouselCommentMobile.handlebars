@@ -1,0 +1,83 @@
+<div style='text-align: center; width: 100%'>
+  <div
+    style="
+      color: {{bodyColor}};
+      background-color: {{backgroundColor}};
+      cursor: -moz-grab;
+      cursor: -webkit-grab;
+      cursor: grab;
+      max-width: 400px;
+      text-align: left;
+      display: inline-block;
+    "
+    class="query_result_item"
+    data-idx="{{index}}"
+  >
+    {{!-- HEAD --}}
+    <div>
+      {{!-- SOCIAL IMAGE --}}
+      <img
+        style="border-radius: 3px; width: 20px; border: 1px solid lightgrey;"
+        src="{{socialCtx.img}}">
+      </img>
+
+        {{!-- SOCIAL NAME || ANONYMOUS --}}
+        <div style='margin: 0px; color: gray; font-size:13px; vertical-align: middle; margin-left: 5px; display: inline-block;'>
+          {{#unless socialCtx.anon}}
+          <a href="{{socialCtx.link}}">
+          {{/unless}}
+          <span
+            style="
+            font-weight: 700;
+            ">{{socialCtx.name}}</span>
+          {{#unless socialCtx.anon}}
+            </a>
+          {{/unless}}
+          {{!-- WROTE --}}
+          <span>
+            {{#if tweet_id}}
+              <a href="https://twitter.com/{{socialCtx.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
+            {{/if}}
+          </span>
+        </div>
+    </div> {{!-- END HEAD --}}
+
+      {{!-- BODY --}}
+      <div>
+        {{!-- PERCENTAGE AND AGREED / DISAGREED --}}
+        <p
+          class="{{leClass}}"
+          style="
+            margin: 0px;
+            font-size: 16px;
+            font-weight: 100;
+            ">{{{agreedOrDisagreed}}}
+        </p>
+
+        {{!-- COMMENT TEXT --}}
+        <p style="margin:0px">{{txt}}</p>
+
+        {{!-- N PARTICIPANTS SAW X COMMENT --}}
+        <p style="
+          font-size:12px;
+          color: gray;
+          margin: 0px
+          ">
+          <strong>{{nTrials}}</strong>
+          <em>{{s.xPtptsSawThisComment}}</em>
+        </p>
+        {{!-- N OF THOSE PARTICIPANTS AGREED / DISAGREED --}}
+        <p style="
+          font-size:12px;
+          color: gray;
+          ">
+          <strong>{{count}}</strong>
+          <em>{{#if repfullForAgree}}{{s.xOfThoseAgreed}}{{else}}{{s.xOfthoseDisagreed}}{{/if}}</em>.
+        </p>
+        {{!-- DATE OF COMMENT --}}
+        {{!-- <p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted {createdString}</em></p> --}}
+
+      </div>{{!-- END BODY --}}
+    </div>
+  </div>
+</div>

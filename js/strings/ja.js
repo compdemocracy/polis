@@ -27,8 +27,9 @@ s.acrossAllPtpts = "Across all participants∂:";
 s.xPtptsSawThisComment = "participants saw this comment.∂";
 s.xOfThoseAgreed = "of those participants agreed∂";
 s.xOfthoseDisagreed = "of those participants disagreed∂";
-s.pctAgreed = "{{pct}}% Agreed∂";
-s.pctDisagreed = "{{pct}}% Disagreed∂";
+
+
+
 s.commentSent = "Comment Sent!∂";
 s.connectFacebook = "Connect Facebook∂";
 s.connectTwitter = "Connect Twitter∂";

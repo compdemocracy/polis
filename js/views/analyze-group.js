@@ -1,3 +1,5 @@
+var carouselCommentMobileTemplate = require("../tmpl/carouselCommentMobile");
+var carouselCommentTemplate = require("../tmpl/carouselComment");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var template = require("../tmpl/analyze-group");
@@ -5,6 +7,7 @@ var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
 var Strings = require("../strings");
 var Utils = require("../util/utils");
+
 
 var SHOW_MAP = false;
 var SHOW_PARTICIPANTS = false;
@@ -250,8 +253,8 @@ module.exports = Handlebones.ModelView.extend({
           // L10N gods forgive me
           var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
           var agreedOrDisagreed = repfullForAgree ?
-            "<span class='a'>"+ Strings.pctAgreed+"</span>" :
-            "<span class='d'>"+Strings.pctDisagreed+"</span>";
+            "<span class='a'>"+ Strings.pctAgreedOfGroup+"</span>" :
+            "<span class='d'>"+Strings.pctDisagreedOfGroup+"</span>";
           agreedOrDisagreed = agreedOrDisagreed.replace("{{pct}}", percent);
           agreedOrDisagreed = agreedOrDisagreed.replace("{{group}}", selectedGroupName);
           var bodyColor = "#333";
@@ -286,91 +289,24 @@ module.exports = Handlebones.ModelView.extend({
               };
             }
           }
-          var html =
-          "<div style='text-align: center; width: 100%'>" +
-          "<div "+
-            "style="+
-              "'color:"+bodyColor+";"+
-              "background-color: " + backgroundColor + ";"+
-              "cursor: -moz-grab;"+
-              "cursor: -webkit-grab;"+
-              "cursor: grab;"+
-              "max-width: 400px;" +
-              "text-align: left;" +
-              "display: inline-block;" +
-              "' "+
-            "class='query_result_item' "+
-            "data-idx='"+(indexToTid.length-1) +
-            "'>" +
-            /* ========== HEAD ========== */
-            "<div>" +
-              /* ========== SOCIAL IMAGE ========== */
-              "<img " +
-                "style='border-radius: 3px; width: 20px; border: 1px solid lightgrey;'" +
-                "src='" + socialCtx.img + "'>" +
-              "</img>" +
 
-                /* ========== SOCIAL NAME || ANONYMOUS ========== */
-                "<div style='margin: 0px; color: gray; font-size:13px; vertical-align: middle; margin-left: 5px; display: inline-block;'>"+
-                  (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
-                  "<span "+
-                    "style='"+
-                    "font-weight: 700;"+
-                    "'>" + socialCtx.name +
-                  "</span>" +
-                  (socialCtx.anon ? "": "</a>") +
-                  /* ========== WROTE ========== */
-                  "<span style='"+
-                    "'> "+ (c.get("tweet_id") ?
-                        ("<a href=\"https://twitter.com/"+socialCtx.screen_name+"/status/"+c.get("tweet_id")+"\" target=\"_blank\">" + Strings.x_tweeted +"</a>") :
-                        Strings.x_wrote) +
-                  " </span>" +
-                "</div>" +
-            "</div>" + 
-              /* ========== END HEAD ========== */
+          var tmpl = display.xs() ? carouselCommentMobileTemplate : carouselCommentTemplate;
 
-              /* ========== BODY ========== */
-              "<div>" + 
-                /* ========== PERCENTAGE AND AGREED / DISAGREED ========== */
-                "<p "+
-                  "class='" + leClass + "'"+
-                  "style='"+
-                    "margin: 0px;" +
-                    "font-size: 16px;"+
-                    "font-weight: 100;"+
-                    "'>" + agreedOrDisagreed +
-                "</p>" +
-                /* ========== COMMENT TEXT ========== */
-                "<p " +
-                  "style='margin:0px'" +
-                  ">" +
-                  c.get("txt") +
-                "</p>" +
-
-                /* ========== N PARTICIPANTS SAW X COMMENT ========== */
-                "<p style='"+
-                  "font-size:12px;"+
-                  "color: gray;"+
-                  "margin: 0px"+
-                  "'>"+
-                  "<strong>" + v.S + "</strong>" +
-                  "<em> "+Strings.xPtptsSawThisComment+" </em>" +
-                "</p>" +
-                /* ========== N OF THOSE PARTICIPANTS AGREED / DISAGREED ========== */
-                "<p style='"+
-                  "font-size:12px;"+
-                  "color: gray;"+
-                  "'>"+
-                  "<strong>"+ count +"</strong>"+
-                  "<em> "+ (repfullForAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
-                "</p>"+
-                /* ========== DATE OF COMMENT ========== */
-                // '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
-            "</div>"+
-              /* ========== END BODY ========== */
-            "</div>"+
-          "</div>" +
-          "</div>";
+          var html = tmpl({
+            backgroundColor: backgroundColor,
+            bodyColor: bodyColor,
+            tweet_id: c.get("tweet_id"),
+            s: Strings,
+            txt: c.get("txt"),
+            index: indexToTid.length-1,
+            socialCtx: socialCtx,
+            agreedOrDisagreed: agreedOrDisagreed,
+            leClass: leClass,
+            count: count,
+            nTrials: denominator,
+            repfullForAgree: repfullForAgree,
+          });
+          
           return {
             color: dotColor,
             html: html

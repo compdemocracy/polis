@@ -1,4 +1,6 @@
 var AnalyzeCollectionView = require("../views/analyze-global-collection-view");
+var carouselCommentMobileTemplate = require("../tmpl/carouselCommentMobile");
+var carouselCommentTemplate = require("../tmpl/carouselComment");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var template = require("../tmpl/analyze-global");
@@ -293,76 +295,23 @@ module.exports = Handlebones.View.extend({
             }
           }
 
-          var html =
-          "<div "+
-            "style="+
-              "'color:"+bodyColor+";"+
-              "background-color: " + backgroundColor + ";"+
-              "cursor: -moz-grab;"+
-              "cursor: -webkit-grab;"+
-              "cursor: grab;"+
-              "' "+
-            "class='query_result_item' "+
-            "data-idx='"+(indexToTid.length-1) +
-            "'>" +
-            /* ========== SOCIAL IMAGE ========== */
-            "<img " +
-              "style='border-radius: 3px; width: 40px; border: 1px solid lightgrey; position: absolute;'" +
-              "src='" + socialCtx.img + "'>" +
-            "</img>" +
-            "<div style='margin-left: 51px; position: relative; top: -4px;'>" +
-              /* ========== SOCIAL NAME || ANONYMOUS ========== */
-              "<p style='margin: 0px'>"+
-                (socialCtx.anon ? "" : "<a href='"+ socialCtx.link +"'>") +
-                "<span "+
-                  "style='"+
-                  "font-weight: 700;"+
-                  "'>" + socialCtx.name +
-                "</span>" +
-                (socialCtx.anon ? "": "</a>") +
-                /* ========== WROTE ========== */
-                "<span style='"+
-                  "'> "+ (c.get("tweet_id") ?
-                      ("<a href=\"https://twitter.com/"+socialCtx.screen_name+"/status/"+c.get("tweet_id")+"\" target=\"_blank\">" + Strings.x_tweeted +"</a>") :
-                      Strings.x_wrote) +
-                " </span>" +
-              "</p>" +
-              /* ========== COMMENT TEXT ========== */
-              "<p " +
-                "style='margin: 0px'" +
-                ">" +
-                c.get("txt") +
-              "</p>" +
-              /* ========== PERCENTAGE AND AGREED / DISAGREED ========== */
-              "<p "+
-                "class='" + leClass + "'"+
-                "style='"+
-                  "margin: 0px;" +
-                  "font-size: 35px;"+
-                  "font-weight: 100;"+
-                  "'>" + agreedOrDisagreed +
-              "</p>" +
-              /* ========== N PARTICIPANTS SAW X COMMENT ========== */
-              "<p style='"+
-                "font-size:12px;"+
-                "color: gray;"+
-                "margin: 0px"+
-                "'>"+
-                "<strong>" + info["n-trials"] + "</strong>" +
-                "<em> "+Strings.xPtptsSawThisComment+" </em>" +
-              "</p>" +
-              /* ========== N OF THOSE PARTICIPANTS AGREED / DISAGREED ========== */
-              "<p style='"+
-                "font-size:12px;"+
-                "color: gray;"+
-                "'>"+
-                "<strong>"+ count +"</strong>"+
-                "<em> "+ (forAgree ? Strings.xOfThoseAgreed: Strings.xOfthoseDisagreed)+"</em>."+
-              "</p>"+
-              /* ========== DATE OF COMMENT ========== */
-              // '<p style="font-size: 12px; color: gray; margin-bottom: 0px;"><em>Comment submitted ' + createdString +'</em></p>' +
-            "</div>"+
-          "</div>";
+          var tmpl = display.xs() ? carouselCommentMobileTemplate : carouselCommentTemplate;
+
+          var html = tmpl({
+            majorityMode: true,
+            backgroundColor: backgroundColor,
+            bodyColor: bodyColor,
+            tweet_id: c.get("tweet_id"),
+            s: Strings,
+            txt: c.get("txt"),
+            index: indexToTid.length-1,
+            socialCtx: socialCtx,
+            agreedOrDisagreed: agreedOrDisagreed,
+            leClass: leClass,
+            count: count,
+            nTrials: info["n-trials"],
+            repfullForAgree: forAgree,
+          });
 
           return {
             html: html,
