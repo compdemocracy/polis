@@ -1363,7 +1363,7 @@ function chooseCircleRadiusOuter(d) {
 function chooseRadiusForHullCorners(d) {
     var r = 3;
     if (d.isSummaryBucket) {
-        r = anonBlobRadius;
+        r = anonBlobRadius + 8;
     }
     return r;
 }
@@ -1959,7 +1959,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
           .attr("r", anonBlobRadius)
           .attr("cx", 0)
           .attr("cy", 0)
-          .attr("fill", "white")
+          .attr("fill", "rgba(0,0,0,0)")
         ;
 
         g.filter(isSummaryBucket)
