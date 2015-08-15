@@ -12,6 +12,8 @@
             [polismath.conversation :as conv]
             [clojure.math.numeric-tower :as math]
             [clojure.core.matrix :as mat]
+            [clj-time.core :as t]
+            [clj-time.coerce :as co]
             ;; Think I'm going to use the second one here, since it's simpler (less mutable)
             [dk.ative.docjure.spreadsheet :as spreadsheet]
             [clj-excel.core :as excel]
@@ -19,7 +21,8 @@
             [clojure-csv.core :as csv]
             [clojure.pprint :refer [pprint]]
             [clojure.core.matrix :as mat]
-            [clojure.tools.trace :as tr])
+            [clojure.tools.trace :as tr]
+            [clojure.newtools.cli :refer [parse-opts]])
   (:import [java.util.zip ZipOutputStream ZipEntry]))
 
 (mat/set-current-implementation :vectorz)
@@ -49,6 +52,17 @@
 
 
 ;; Database calls for various things
+
+(defn get-zids-for-uid
+  [uid]
+  (map :zid
+    (kdb/with-db (db/db-spec)
+      (ko/select "conversations"
+        (ko/fields :zid)
+        (ko/where {:owner uid})))))
+
+(get-zids-for-uid 118877)
+
 
 (defn get-zinvite-from-zid
   [zid]
@@ -378,12 +392,6 @@
 
 
 
-(defn save-to-excel
-  [filename data]
-  (-> (excel/build-workbook data)
-      (excel/save filename)))
-
-
 ;; This zip nonsense is stolen from http://stackoverflow.com/questions/17965763/zip-a-file-in-clojure
 (defmacro ^:private with-entry
   [zip entry-name & body]
@@ -393,6 +401,11 @@
      (flush)
      (.closeEntry zip#)))
 
+(defn move-to-zip-stream
+  [zip-stream input-filename entry-point]
+  (with-open [input  (io/input-stream input-filename)]
+    (with-entry zip-stream entry-point
+      (io/copy input zip-stream))))
 
 (defn print-csv
   [table]
@@ -401,22 +414,43 @@
        csv/write-csv
        print))
 
+(defn zipfile-basename
+  [filename]
+  (clojure.string/replace filename #"\.zip$" ""))
+
+
+;; Must assert .zip in filenames or things will break on unzipping XXX
 (defn save-to-csv-zip
-  [filebase data]
-  (with-open [file (io/output-stream (str filebase ".zip"))
-              zip  (ZipOutputStream. file)
-              wrt  (io/writer zip)]
-    (binding [*out* wrt]
-      (doto zip
-        (with-entry (str filebase "/summary.csv")
-          (print-csv (:summary data)))
-        (with-entry (str filebase "/stats-history.csv")
-          (print-csv (:stats-history data)))
-        (with-entry (str filebase "/comments.csv")
-          (print-csv (:comments data)))
-        (with-entry (str filebase "/participants-votes.csv")
-          (print-csv (:participants-votes data)))))))
-  
+  ([filename data]
+   (with-open [file (io/output-stream filename)
+               zip  (ZipOutputStream. file)]
+     (save-to-csv-zip zip (zipfile-basename filename) data)))
+  ([zip-stream entry-point-base data]
+   (with-open [wrt  (io/writer zip-stream)]
+     (binding [*out* wrt]
+       (doto zip-stream
+         (with-entry (str entry-point-base "/summary.csv")
+           (print-csv (:summary data)))
+         (with-entry (str entry-point-base "/stats-history.csv")
+           (print-csv (:stats-history data)))
+         (with-entry (str entry-point-base "/comments.csv")
+           (print-csv (:comments data)))
+         (with-entry (str entry-point-base "/participants-votes.csv")
+           (print-csv (:participants-votes data))))))))
+
+   
+(defn save-to-excel
+  ([filename data]
+   (-> (excel/build-workbook data)
+       (excel/save filename)))
+  ;; Should really change both this and the above to use the .zip filename, and take basename for the main dir
+  ;; XXX
+  ([zip-stream entry-point data]
+   ;; Would be nice if we could write directly to the zip stream, but the excel library seems to be doing
+   ;; weird things...
+   (let [tmp-file-path (str "tmp/rand-" (rand-int Integer/MAX_VALUE) ".xml")]
+     (save-to-excel tmp-file-path data)
+     (move-to-zip-stream zip-stream tmp-file-path entry-point))))
 
 
 ;; Putting it all together
@@ -424,6 +458,7 @@
 
 (defn get-export-data
   [{:keys [zid zinvite env-overrides] :as kw-args}]
+  (println "zid = " zid)
   (let [zid (or zid (micro/get-zid-from-zinvite zinvite))
         votes (get-conversation-votes zid)
         comments (enriched-comments-data (get-comments-data zid) votes)
@@ -455,20 +490,75 @@
 
 (defn export-conversation
   ;; Don't forget env-overrides {:math-env "prod"}; should clean up with system
-  [& {:keys [zid zinvite format filename env-overrides at-date] :as kw-args}]
+  [{:keys [zid zinvite format filename zip-stream entry-point env-overrides at-date] :as kw-args}]
   (let [export-data (if at-date 
                       (get-export-data-at-date kw-args)
                       (get-export-data kw-args))
-        [formatter saver] (case format :excel [excel-format save-to-excel] :csv [csv-format save-to-csv-zip])]
-    (saver filename (formatter export-data))))
+        [formatter saver] (case format :excel [excel-format save-to-excel] :csv [csv-format save-to-csv-zip])
+        formatted (formatter export-data)]
+    (if zip-stream
+      (if (-> export-data :summary :n-voters (> 0))
+        (saver zip-stream entry-point formatted)
+        (println "Skipping conv" zid zinvite ", since no votes"))
+      (saver filename formatted))))
 
+
+(defn parse-date
+  [s]
+  (->> (clojure.string/split s #"\s+")
+       (map #(Integer/parseInt %))
+       (apply t/date-time)
+       co/to-long))
+
+
+(def cli-options
+  [["-z" "--zid ZID"           "ZID on which to do a rerun" :parse-fn #(Integer/parseInt %)]
+   ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform a rerun"]
+   ["-u" "--user-id USER_ID"   "Export all conversations associated with ZID, and place in zip file" :parse-fn #(Integer/parseInt %)]
+   ["-a" "--at-date AT_DATE"   "A string of YYYY MM DD HH MM SS (in UTC)" :parse-fn parse-date]
+   ["-f" "--format FORMAT"     "Either csv, excel or (soon) json" :parse-fn keyword :validate [#{:csv :excel} "Must be either csv or excel"]]
+   ;; -U ;utc offset?
+   ["-h" "--help"              "Print help and exit"]])
+
+(defn error-msg [errors]
+  (str "The following errors occurred while parsing your command:\n\n"
+       (clojure.string/join \newline errors)))
+
+(defn help-msg [options]
+  (str "Export a conversation or set of conversations according to the options below:\n\n"
+       \tab
+       "filename" \tab "Filename (or file basename, in case of zip output, implicit or explicit" \newline
+       (clojure.string/join \newline
+                            (for [opt cli-options]
+                              (apply str (interleave (repeat \tab) (take 3 opt)))))))
+
+(defn exit [status msg]
+  (println msg)
+  (System/exit status))
 
 (defn -main
-  ([zinvite format filename]
-   (-main zinvite format filename nil))
-  ([zinvite format filename at-date]
-   (export-conversation :zinvite zinvite :format (keyword format) :filename filename :at-date (when at-date (Long/parseLong at-date)) :env-overrides {:math-env "prod"})))
-
+  [& args]
+  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
+    (println options arguments)
+    (cond
+      (:help options) (exit 0 (help-msg cli-options))
+      errors          (exit 1 (error-msg errors)))
+    (let [filename (first arguments)
+          options (assoc options :env-overrides {:math-env "prod"} :filename filename)]
+      (if-let [uid (:user-id options)]
+        ;; maybe here check if filename ends in zip and add if not; safest, and easiest... XXX
+        (with-open [file (io/output-stream filename)
+                    zip  (ZipOutputStream. file)]
+          (doseq [zid (get-zids-for-uid uid)]
+            (let [zinvite (get-zinvite-from-zid zid)
+                  ext (case (:format options) :excel "xls" :csv "csv")]
+              (println "Now working on conv:" zid zinvite)
+              (export-conversation (assoc options
+                                          :zid zid
+                                          :zip-stream zip
+                                          :entry-point (str (zipfile-basename filename) "/" zinvite "." ext))))))
+        (export-conversation options))
+      (exit 0 "Export complete"))))
 
 
 :ok
