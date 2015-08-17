@@ -469,6 +469,14 @@ module.exports = Handlebones.ModelView.extend({
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
 
+
+    // doing this since we don't want to trigger a render of the whole view.
+    eb.on(eb.clusterSelectionChanged, function(gid) {
+      selectedGroupName = Utils.getGroupNameForGid(gid);
+      var str = Strings.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", selectedGroupName);
+      $("#analyzeGroupGroupName").text(str);
+    });
+
     var that = this;
     this.collection = options.collection;
     this.collection.comparator = comparatorAgree;

@@ -357,7 +357,6 @@ module.exports =  ConversationView.extend({
 
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.selectedGid = gid;
-      that.analyzeGroupModel.set("selectedGid", gid);
       that.updateLineToSelectedCluster(gid);
       that.groupNamesModel.set({
         "selectedGid": gid,
@@ -378,7 +377,7 @@ module.exports =  ConversationView.extend({
           that.tutorialView.endAnalyzeTutorial();
         }
       }
-      that.updateCarouselVisibility()
+      that.updateCarouselVisibility();
     });
     eb.on(eb.backgroundClicked, function() {
       that.conversationTabs.gotoInfoPaneTab();
