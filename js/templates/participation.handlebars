@@ -303,11 +303,13 @@
 <div id="carouselPane" class="tabbable darkPanel clickDoesNotDeselectHull unselectable"
   style="
     margin: 0px 0px 10px 0px;
+    display: none;
   "> {{! Only required for left/right tabs }}
   <div
-    class="tab-content"
-{{!--     style="min-height: 200px"
- --}}    >
+    class="tab-content lightPanel"
+    style="
+      min-height: 200px;
+    ">
     <div
       class="tab-pane"
       id="legend"
@@ -315,21 +317,21 @@
       {{view legendView}}
     </div>
     <div
-      class="tab-pane lightPanel"
+      class="tab-pane"
       style="overflow: hidden"
       id="analyze"
       >
       {{view analyzeGlobalView}}
     </div> {{! analyze tab pane }}
     <div
-      class="tab-pane lightPanel"
+      class="tab-pane"
       style="overflow: hidden"
       id="group"
       >
       {{view analyzeGroupView}}
     </div> {{! analyze tab pane }}
 {{!--     <div
-      class="tab-pane lightPanel"
+      class="tab-pane"
       id="infoSlidePane"
       >
       {{view conversationInfoSlideView}}
