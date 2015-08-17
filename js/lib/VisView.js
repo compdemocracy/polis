@@ -493,7 +493,6 @@ function setClusterActive(clusterId) {
 function showAllClustersAsActive() {
     var len = d3Hulls.length;
     for (var i = 0; i < len; i ++) {
-        console.warn(i);
         d3.select(d3Hulls[i][0][0])
             .classed("active_group", true)
         ;
