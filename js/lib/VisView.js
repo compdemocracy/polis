@@ -1286,6 +1286,7 @@ function chooseDownArrowPath(d) {
     if (isSummaryBucket(d)) {
         r += EXTRA_RADIUS_FOR_SUMMARY_HALO;
     }
+    r += haloWidth; // so it's outside the main outline
 
     var TAU = Math.PI*2;
     var start = (pieChartOrigin - Math.PI) - (TAU*ratio/2);//degrees/2;
