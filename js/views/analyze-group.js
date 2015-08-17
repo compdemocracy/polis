@@ -353,7 +353,7 @@ module.exports = Handlebones.ModelView.extend({
                   'style=" '+
                     'z-index: 3;'+
                     'position: absolute;'+
-                    'top: 60px;'+
+                    'top: 40px;'+
                     'left:-10px;'+
                     'box-shadow: none;'+
                     'cursor: pointer;'+
@@ -373,7 +373,7 @@ module.exports = Handlebones.ModelView.extend({
                   'style=" '+
                     'z-index: 3;'+
                     'position: absolute;'+
-                    'top: 60px;'+
+                    'top: 40px;'+
                     'right:-10px;'+
                     'box-shadow: none;'+
                     'cursor: pointer;'+
