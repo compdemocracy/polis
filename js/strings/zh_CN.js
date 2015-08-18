@@ -43,7 +43,7 @@ s.notSentSinceDemo = "（纯属测试，并未送出）";
 s.submitComment = "送出";
 s.tipStarred = "已经标记为重点。";
 s.participantHelpWelcomeText = "欢迎来到一种崭新的讨论方式 - 对众人的意见<span style='font-weight: 700;'>投票</span>，并且<span style='font-weight: 700;'>贡献</span>您的观点。";
-s.participantHelpGroupsText = "立场相近的人，会<span style='font-weight: 700;'>自动归类到同一个群组。</span>点击群组，<img src='http://localhost:5000/localFile/finger_group.svg'/>就可以看到就可以看到这些人的共同意见<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...</a>";
+s.participantHelpGroupsText = "立场相近的人，会<span style='font-weight: 700;'>自动归类到同一个群组。</span>点击群组，就可以看到就可以看到这些人的共同意见<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...</a>";
 s.helpWhatAreGroupsDetail = "<p>您可能在其他网站上看过「推荐产品」或「推荐电影」的服务。这些服务使用统计信息，找出和您品味相近的人，然后用那些人的纪录来向您推荐。</p> <p>当您在这里按下「赞成」或「反对」时，您就会自动将您的头像移动到相近的群组里！上方显示的每个群组，都是由立场相近的人组成的。这样的公开讨论，每次都能展现出令人意外的洞见。请点击一个群组 - 看看他们共同的意见、发现某个群组的独特之处！"
 s.socialConnectPrompt = "链接帐号，就可以看到您的朋友、追踪的人的立场如何。";
 s.connectFbButton = "与 Facebook 链接";
