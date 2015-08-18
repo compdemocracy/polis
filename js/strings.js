@@ -23,9 +23,9 @@ prioritized.forEach(function(languageCode) {
 	if (languageCode.match(/^en/)) {
 		strings = _.extend(strings, en_us);
 	}
-	else if (languageCode.match(/^ja/)) {
-		strings = _.extend(strings, ja);
-	}
+	// else if (languageCode.match(/^ja/)) {
+	// 	strings = _.extend(strings, ja);
+	// }
 	else if (
 		languageCode.match(/^zh-CN/) ||
 		languageCode.match(/^zh-SG/) ||
