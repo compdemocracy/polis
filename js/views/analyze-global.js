@@ -369,8 +369,8 @@ module.exports = Handlebones.View.extend({
                   var buttonOffset = display.xs() ? "-5px" : "0";
                   $(el_carouselSelector).find("#majorityCarouselPrev").remove();
                   $(el_carouselSelector).find("#majorityCarouselNext").remove();
-                  $(el_carouselSelector).prepend('<span id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 60px; left:'+buttonOffset+'; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
-                  $(el_carouselSelector).append( '<span id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 60px; right:'+buttonOffset+'; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
+                  $(el_carouselSelector).prepend('<span id="majorityCarouselPrev" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 40px; left:'+buttonOffset+'; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-left"></i></span>');
+                  $(el_carouselSelector).append( '<span id="majorityCarouselNext" class="Btn-alt Btn-small Btn" style="z-index: 3; position: absolute; top: 40px; right:'+buttonOffset+'; box-shadow: none; cursor: pointer; color: black; background-color: rgba(0,0,0,0); border: none;"><i style="font-size: 48px; font-weight: bold" class="fa fa-angle-right"></i></span>');
 
                   $("#majorityCarouselPrev").css("opacity", .2);
 
