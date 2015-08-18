@@ -3,7 +3,7 @@
 var en_us = require("./strings/en_us.js");
 var ja = require("./strings/ja.js");
 var zh = require("./strings/zh.js");
-
+var zh_CN = require("./strings/zh_CN.js");
 
 var acceptLanguage = preload.acceptLanguage || "";
 
@@ -20,6 +20,9 @@ prioritized.forEach(function(languageCode) {
 	}
 	else if (languageCode.match(/^ja/)) {
 		strings = _.extend(strings, ja);
+	}
+	else if (languageCode.match(/^zh-CN/)) {
+		strings = _.extend(strings, zh_CN);
 	}
 	else if (languageCode.match(/^zh/)) {
 		strings = _.extend(strings, zh);
