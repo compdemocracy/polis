@@ -2284,7 +2284,7 @@ function getBidsForPids(zid, lastVoteTimestamp, pids) {
     var mathResultsPromise = getPca(zid, lastVoteTimestamp);
 
     return Promise.all([dataPromise, mathResultsPromise]).then(function(items) {
-        var b2p = items[0].bidToPid;
+        var b2p = items[0].bidToPid || [];  // not sure yet if "|| []" is right here.
         var mathResults = items[1];
 
 
@@ -2340,7 +2340,7 @@ function(req, res) {
     var mathResultsPromise = getPca(zid, lastVoteTimestamp);
 
     Promise.all([dataPromise, pidPromise, mathResultsPromise]).then(function(items) {
-        var b2p = items[0].bidToPid;
+        var b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
         var pid = items[1];
         var mathResults = items[2];
 
