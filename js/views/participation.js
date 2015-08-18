@@ -97,10 +97,10 @@ module.exports =  ConversationView.extend({
     }
   },
   hideHelpTextWelcome: function() {
-    $("#helpTextWelcome").hide();
+    $("#helpTextWelcome").fadeOut();
   },
   hideHelpTextGroups: function() {
-    $("#helpTextGroups").hide();
+    $("#helpTextGroups").fadeOut();
   },
   expandHelpTextGroups: function(e) {
     $("#helpTextGroupsExpand").hide();
