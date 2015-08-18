@@ -73,6 +73,7 @@ module.exports =  ConversationView.extend({
     "click .hideOnClick" : "hideOnClick",
     "click #helpTextGroups": "hideHelpTextGroups",
     "click #helpTextWelcome": "hideHelpTextWelcome",
+    "click #helpTextGroupsExpand": "expandHelpTextGroups",
     // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
 
@@ -100,6 +101,11 @@ module.exports =  ConversationView.extend({
   },
   hideHelpTextGroups: function() {
     $("#helpTextGroups").hide();
+  },
+  expandHelpTextGroups: function(e) {
+    $("#helpTextGroupsExpand").hide();
+    $("#helpTextGroupsMore").show();
+    return false;
   },
   hideVis: function() {
     $("#vis_sibling_bottom").hide();
