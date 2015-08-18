@@ -2,8 +2,12 @@
 
 var en_us = require("./strings/en_us.js");
 var ja = require("./strings/ja.js");
-var zh = require("./strings/zh.js");
-var zh_CN = require("./strings/zh_CN.js");
+
+// zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
+var zh_Hant = require("./strings/zh_Hant.js");
+
+// zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
+var zh_Hans = require("./strings/zh_Hans.js");
 
 var acceptLanguage = preload.acceptLanguage || "";
 
@@ -14,6 +18,7 @@ prioritized = prioritized[0].split(",");
 prioritized = prioritized || [];
 prioritized.reverse();
 
+
 prioritized.forEach(function(languageCode) {
 	if (languageCode.match(/^en/)) {
 		strings = _.extend(strings, en_us);
@@ -21,11 +26,14 @@ prioritized.forEach(function(languageCode) {
 	else if (languageCode.match(/^ja/)) {
 		strings = _.extend(strings, ja);
 	}
-	else if (languageCode.match(/^zh-CN/)) {
-		strings = _.extend(strings, zh_CN);
+	else if (
+		languageCode.match(/^zh-CN/) ||
+		languageCode.match(/^zh-SG/) ||
+		languageCode.match(/^zh-MY/)) {
+		strings = _.extend(strings, zh_Hans);
 	}
-	else if (languageCode.match(/^zh/)) {
-		strings = _.extend(strings, zh);
+	else if (languageCode.match(/^zh/)) { // TW, MO and HK
+		strings = _.extend(strings, zh_Hant);
 	}
 });
 
