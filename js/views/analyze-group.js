@@ -347,7 +347,7 @@ module.exports = Handlebones.ModelView.extend({
                 // }
                 circles.hide();
 
-                var buttonOffset = display.xs() ? "-10px" : "0";
+                var buttonOffset = display.xs() ? "-5px" : "0";
 
                 var groupCarouselPrevHTML = '<span '+
                   'id="groupCarouselPrev" '+
