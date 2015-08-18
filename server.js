@@ -11469,6 +11469,28 @@ var conditionalIndexFetcher = (function() {
 
 app.get("/", conditionalIndexFetcher);
 
+
+app.get(/^\/localFile\/.*/, function(req, res) {
+    var filename = String(req.path).split("/");
+    filename.shift();
+    filename.shift();
+    filename = filename.join('/');
+    if (!devMode) {
+        // pretend this route doesn't exist.
+        return proxy(req, res);
+    }
+    fs.readFile(filename, function(error, content) {
+        if (error) {
+            res.writeHead(500);
+            res.end();
+        }
+        else {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(content, 'utf-8');
+        }
+    });
+});
+
 // proxy everything else
 app.get(/^\/[^(api\/)]?.*/, proxy);
 
