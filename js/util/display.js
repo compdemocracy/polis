@@ -9,6 +9,20 @@ function isVisible(tag) {
   };
 }
 
+function getWidth() {
+  return $(document.body).width();
+}
+
+var widthCache = getWidth();
+
+$(window).resize(function() {
+  widthCache = getWidth();
+});
+
+function xs() {
+  return widthCache <= 600; // nexus 7
+}
+
 module.exports = {
   init: function() {
     var body = $(document.body);
@@ -17,7 +31,7 @@ module.exports = {
     body.append("<span id='md' class='visible-md'></span>");
     body.append("<span id='lg' class='visible-lg'></span>");
   },
-  xs: isVisible('xs'),
+  xs: xs,
   sm: isVisible('sm'),
   md: isVisible('md'),
   lg: isVisible('lg')
