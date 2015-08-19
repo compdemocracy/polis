@@ -623,12 +623,27 @@ gulp.task("watchForDev", [
     });
 });
 
+function notifySlackOfDeployment(env) {
 
+  var creds = JSON.parse(fs.readFileSync('.polis_slack_creds.json'));
+
+  getGitHash().then(function(hash) {
+    var slackToken = creds.apikey;
+    var message = "deploying to " + env +
+      "\n" + hash +
+      "\n" + new Date();
+    var url = "https://slack.com/api/chat.postMessage?token="+slackToken+"&channel=C02G773HT&text="+message+"&pretty=1";
+    request(url);
+  });
+}
 
 gulp.task('deploy_TO_PRODUCTION', [
   "prodConfig",
   "dist"
 ], function() {
+
+  notifySlackOfDeployment("prod");
+  
   return deploy({
       bucket: "pol.is"
   });
@@ -638,6 +653,9 @@ gulp.task('deployPreprod', [
   "preprodConfig",
   "dist"
 ], function() {
+
+  notifySlackOfDeployment("preprod");
+
   return deploy({
       bucket: "preprod.pol.is"
   });
