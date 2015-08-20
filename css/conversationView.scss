@@ -724,16 +724,17 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
     display: none;
   }
 
-  .majority-tab {
-    // border-radius: 0px;
-    // border: 0px;
-    margin-right: -5px;
-    margin-left: -5px;
-  }
-  #group {
-    margin-right: -5px;
-    margin-left: -5px;
-  }
+  // This was for the wall-to-wall comment pane
+  // .majority-tab {
+  //   // border-radius: 0px;
+  //   // border: 0px;
+  //   margin-right: -5px;
+  //   margin-left: -5px;
+  // }
+  // #group {
+  //   margin-right: -5px;
+  //   margin-left: -5px;
+  // }
 }
 
 @media (max-width: 380px) {
