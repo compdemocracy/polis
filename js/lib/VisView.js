@@ -181,15 +181,33 @@ if (SHOW_TIP && !isIE8) {
         }
     );
 }
-function showTip() {
+var hoveredHullId = -1;
+
+function showTip(d) {
     if (tip) {
         tip.show.apply(tip, arguments);
     }
+
+  if (isParticipantOfInterest(d) && clickingPtptoiOpensProfile()) {
+    return;
+  }
+
+  var gid = bidToGid[d.bid];
+  if (_.isNumber(gid)) {
+    var hullId = gidToHullId[gid];
+    hoveredHullId = hullId;
+    visualization.selectAll(".hovered_group").classed("hovered_group", false);
+    updateHullColors();
+  }
 }
+
 function hideTip() {
     if (tip) {
         tip.hide.apply(tip, arguments);
     }
+    hoveredHullId = -1;
+    visualization.selectAll(".hovered_group").classed("hovered_group", false);
+    updateHullColors();
 }
 
 var onAnalyzeTab = false;
@@ -522,6 +540,14 @@ function updateHullColors() {
             d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
             d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
             // d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
+        }
+        for (var i = 0; i < d3Hulls.length; i++) {
+
+          if (i === hoveredHullId) {
+              d3.select(d3Hulls[i][0][0]).classed("hovered_group", true);
+              d3.select(d3HullSelections[i][0][0]).classed("hovered_group", true);
+              // d3.select(d3HullShadows[selectedCluster][0][0]).classed("hovered_group", true);
+          }
         }
    }
 }
@@ -1996,13 +2022,14 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       //   });
 
 
-        g.filter(isSummaryBucket)
-          .append("circle")
-          .attr("r", anonBlobRadius)
-          .attr("cx", 0)
-          .attr("cy", 0)
-          .attr("fill", "rgba(0,0,0,0)")
-        ;
+        // g.filter(isSummaryBucket)
+        //   .append("circle")
+        //   .classed("")
+        //   .attr("r", anonBlobRadius)
+        //   .attr("cx", 0)
+        //   .attr("cy", 0)
+        //   .attr("fill", "rgba(0,0,0,0)")
+        // ;
 
         g.filter(isSummaryBucket)
         .append("text")
@@ -2268,13 +2295,16 @@ function renderComments(comments) {
     return dfd.promise();
 }
 
+function clickingPtptoiOpensProfile() {
+  return !isMobile;
+}
 
 function onParticipantClicked(d) {
     // d3.event.stopPropagation();
     // d3.event.preventDefault(); // prevent flashing on iOS
 
 
-  if (!isMobile) {
+  if (clickingPtptoiOpensProfile()) {
       // NOTE: it may be hard to tap a hull without accidentally
       // tapping a ptptoi on mobile, so disabling on mobile for now.
       if (d.twitter && d.twitter.screen_name) {
