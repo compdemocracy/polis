@@ -91,6 +91,9 @@ $COLOR_SELECTED_HULL: true;
   cursor: pointer;
 }
 
+.hull:hover {
+  fill: #f5f5f5;
+}
 
 .hull.active_group {
   fill-opacity: 0;
