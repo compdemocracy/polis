@@ -1817,8 +1817,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         ;
 
 
-        var grayHaloEnter = g.append("circle")
-          grayHaloEnter
+        var grayHaloEnter = g.append("circle");
+        grayHaloEnter
         .classed("grayHalo", true)
         .attr("cx", 0)
         .attr("cy", 0)
@@ -1846,6 +1846,20 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             }
         })
         .attr("fill", "rgba(0,0,0,0)")
+        ;
+
+
+        var beaconEnter = g.append("circle");
+        beaconEnter
+        .classed("beacon", true)
+        .attr("cx", 0)
+        .attr("cy", 0)
+        .classed("ptptoi", isParticipantOfInterest)
+        .attr("r", 0)
+        .attr("stroke-width", 10)
+        .attr("fill", "rgba(0,0,0,0)")
+        .attr("opacity", 0)
+        .attr("display", "none")
         ;
 
 
@@ -2759,15 +2773,32 @@ function setupBlueDotHelpText(self) {
 }
 
 
-eb.on(eb.vote, function() {
+eb.on(eb.vote, function(voteType) {
+    var color = colorPass;
+    if (voteType === "agree") {
+      color = colorPull;
+    }
+    if (voteType === "disagree") {
+      color = colorPush;
+    }
+
     if (isIE8) {
     } else {
       var update = visualization.selectAll(".node").filter(isSelf);
       update
-        .attr("opacity", 0)
-        .transition(10)
-          .delay(10)
-          .attr("opacity", 1);
+        .selectAll(".beacon")
+        .attr("stroke", color)
+        .attr("r", 0)
+        .attr("opacity", 0.8)
+        .attr("display", "block")
+        .transition(1000)
+          .attr("r", 50)
+          .attr("opacity", 0)
+          .transition(10)
+            .attr("r", 0)
+            .attr("opacity", 0)
+            .attr("display", "none")
+          ;
     }
 });
 

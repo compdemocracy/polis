@@ -166,7 +166,7 @@ module.exports = Handlebones.ModelView.extend({
     }
     function onVote(result) {
       var that = this;
-      eb.trigger(eb.vote);
+      eb.trigger(eb.vote, this.mostRecentVoteType);
       eb.trigger(eb.interacted);
       if (result.nextComment) {
         showComment(result.nextComment);
@@ -252,6 +252,7 @@ module.exports = Handlebones.ModelView.extend({
       });
     },
     this.participantAgreed = function(e) {
+      this.mostRecentVoteType = "agree";
       var tid = this.model.get("tid");
       var starred = this.model.get("starred");
       if (!starred) {
@@ -268,6 +269,7 @@ module.exports = Handlebones.ModelView.extend({
           .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantDisagreed = function() {
+      this.mostRecentVoteType = "disagree";
       var tid = this.model.get("tid");
       var starred = this.model.get("starred");
       votesByMe.add({
@@ -281,6 +283,7 @@ module.exports = Handlebones.ModelView.extend({
           .then(onVote.bind(this), onFail.bind(this));
     };
     this.participantPassed = function() {
+      this.mostRecentVoteType = "pass";
       var tid = this.model.get("tid");
       var starred = this.model.get("starred");
       votesByMe.add({
