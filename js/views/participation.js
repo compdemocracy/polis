@@ -823,9 +823,6 @@ module.exports =  ConversationView.extend({
         getTidsForGroup: function() {
           return that.serverClient.getTidsForGroup.apply(0, arguments);
         },
-        getGroupInfo: function() {
-          return that.serverClient.getGroupInfo.apply(0, arguments);
-        },
         getLocations: function() {
           return that.serverClient.getLocations.apply(0, arguments);
         },
@@ -919,16 +916,10 @@ module.exports =  ConversationView.extend({
       that.showVis();
       that.hideWriteHints();
     });
-    that.conversationTabs.on("beforehide:analyze", function() {
-      // that.analyzeGlobalView.hideCarousel();
-      that.analyzeGlobalView.deselectComments();
-    });
     that.conversationTabs.on("beforehide:group", function() {
-      // that.analyzeGlobalView.hideCarousel();
       if (vis) {
         vis.deselect();
       }
-      that.analyzeGroupView.deselectComments();
       // eb.trigger(eb.commentSelected, false);
       // that.conversationTabs.doShowTabsUX();
     });
@@ -942,10 +933,8 @@ module.exports =  ConversationView.extend({
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
-        // that.analyzeGlobalView.sortAgree();
         that.analyzeGlobalView.renderWithCarousel();
       });
-      // that.analyzeGlobalView.showCarousel();
       that.updateVisibilityOfSocialButtons();
     });
       that.conversationTabs.on("beforeshow:group", function() {
@@ -959,9 +948,7 @@ module.exports =  ConversationView.extend({
           // setTimeout(function() {
           //   $("#carousel").fadeIn("slow");
           // }, 100);
-        // that.analyzeGroupView.sortRepness();
       });
-      // that.analyzeGlobalView.showCarousel();
       that.updateVisibilityOfSocialButtons();
     });
     that.conversationTabs.on("aftershow:vote", function() {
