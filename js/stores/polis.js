@@ -147,9 +147,9 @@ module.exports = function(params) {
             if (bucket.count <= 0 &&
                 !bucket.containsSelf // but don't remove PTPTOIs from cluster
             ) {
-                _.each(clusters, function(cluster, gid) {
-                    removeItemFromArray(bucket.bid, cluster.members);
-                });
+                for (var gid = 0; gid < clusters.length; gid++) {
+                    removeItemFromArray(bucket.bid, clusters[gid].members);
+                }
             }
         }
     }
@@ -790,7 +790,7 @@ function clientSideBaseCluster(things, N) {
 
     function getBidToGid(clusters) {
         var bidToGid = {};
-        var clusters = clusters || getClusters(); // TODO cleanup
+        clusters = clusters || getClusters(); // TODO cleanup
         var gids = _.keys(clusters);
         for (var g = 0; g < gids.length; g++) {
             var gid = gids[g];
@@ -836,7 +836,6 @@ function clientSideBaseCluster(things, N) {
                     counts[pmaid][gid] = answersForGroup.length;
                 });
             });
-            _.allChoicesForAnswerGrouped
             questionsWithAnswersWithChoices[pmqid] = {
                 groups: allChoicesForAnswerGrouped,
                 counts: counts
@@ -941,23 +940,27 @@ function clientSideBaseCluster(things, N) {
                 alert('removing duplicate columns: ' + _.pluck(duplicateColumns, "name"));
             }
             // Remove duplicate columns
-            for (var r = 0; r < rowCount; r++) {
+            (function() {
+              for (var r = 0; r < rowCount; r++) {
                 var row = rows[r];
-                _.each(duplicateColumns, function(c) {
-                    row.splice(c.col, 1);
-                });
-            }
+                for (var d = 0; d < duplicateColumns.length; d++) {
+                  row.splice(duplicateColumns[d].col, 1);
+                }
+              }
+            }());
             colCount = rows[0].length;
 
 
             // Replace the column names in the 0th row with objects with metadata.
-            for (var c = 0; c < colCount; c++) {
+            (function() {
+              for (var c = 0; c < colCount; c++) {
                 rows[0][c] = {
                     name: rows[0][c],
                     type: "integer", // may be disproven and become "float" or "string"
                     cardinality: 0
                 };
-            }
+              }
+            }());
 
             _.each(x2p, function(pid, xid) {
                 xidsUnaccounted[xid] = true;
@@ -965,12 +968,15 @@ function clientSideBaseCluster(things, N) {
             });
 
             var xidsFoundPerColumn = [];
-            for (var c = 0; c < colCount; c++) {
+            (function() {
+              for (var c = 0; c < colCount; c++) {
                 xidsFoundPerColumn[c] = 0;
                 valueSets[c] = {};
-            }
+              }
+            }());
             // determine xid column
-            for (var r = 0; r < rowCount; r++) {
+            (function() {
+              for (var r = 0; r < rowCount; r++) {
                 var row = rows[r];
                 if (r > 0) {
                     for (var c = 0; c < colCount; c++) {
@@ -987,7 +993,8 @@ function clientSideBaseCluster(things, N) {
 
                     }
                 }
-            }
+              }
+            }());
 
             if (_.size(xidsUnaccounted)) {
                 alert("The attached data-source is missing data on participants with these xids: " + xidsUnaccounted.join(" "));
@@ -1011,9 +1018,9 @@ function clientSideBaseCluster(things, N) {
                 };
             }
 
-            var result = argMaxForIndexOrKey(xidsFoundPerColumn);
-            var xidColumn = result.arg;
-            var maxXidCount = result.max;
+            var o = argMaxForIndexOrKey(xidsFoundPerColumn);
+            xidColumn = o.arg;
+            var maxXidCount = o.max;
             if (maxXidCount === 0) {
                 alert("xid column missing, please be sure to include a column with xids");
                 return;
@@ -1029,7 +1036,8 @@ function clientSideBaseCluster(things, N) {
             });
             rowCount = rows.length;
 
-            for (var r = 0; r < rowCount; r++) {
+            (function() {
+              for (var r = 0; r < rowCount; r++) {
                 var row = rows[r];
                 if (r > 0) {
                     for (var c = 0; c < colCount; c++) {
@@ -1051,7 +1059,8 @@ function clientSideBaseCluster(things, N) {
                         }
                     }
                 }
-            }
+              }
+            }());
 
             // Assign Cardinality
             _.each(valueSets, function(values, c) {
@@ -1071,33 +1080,36 @@ function clientSideBaseCluster(things, N) {
             });
 
             var hasNumericalColumns = false;
-            for (var c = 0; c < colCount; c++) {
+            (function() {
+              for (var c = 0; c < colCount; c++) {
                 var isNumberColumn = !notNumberColumns[c];
                 if (isNumberColumn) {
                     hasNumericalColumns = true;
                     break;
                 }
-            }
+              }
+            }());
             if (hasNumericalColumns) {
+              (function() {
                 for (var r = 0; r < rowCount; r++) {
                     var row = rows[r];
                     if (r > 0) {
-                        for (var c = 0; c < colCount; c++) {
-                            if (!notNumberColumns[c]) {
-                                row[c] = parseFloat(row[c]);
-                                if (isNaN(row[c])) {
-                                    alert("expected number for cell with value \"" + row[c] + "\" in column named \"" + rows[0][c].name + "\"");
+                        for (var ci = 0; ci < colCount; ci++) {
+                            if (!notNumberColumns[ci]) {
+                                row[ci] = parseFloat(row[ci]);
+                                if (isNaN(row[ci])) {
+                                    alert("expected number for cell with value \"" + row[ci] + "\" in column named \"" + rows[0][ci].name + "\"");
                                 }
                             }
                         }
                     }
                 }
+              }());
             }
             // Remove xid column
             var xids = [];
-            for (var r = 0; r < rowCount; r++) {
-                var row = rows[r];
-                var xid = row.splice(xidColumn, 1)[0];
+            for (var ri = 0; ri < rowCount; ri++) {
+                var xid = rows[ri].splice(xidColumn, 1)[0];
                 xids.push(xid);
             }
             var infoRow = rows.shift();
@@ -1336,7 +1348,7 @@ function clientSideBaseCluster(things, N) {
                         delete votesBase.D;
                     }
 
-                    var bidToGid = getBidToGid(clusters);
+                    bidToGid = getBidToGid(clusters); // TODO see if it's ok to delete this line since we call getBidToGid(clusters) above
                     var gidToBigBucketId = {};
                     _.each(bigBuckets, function(b) {
                         gidToBigBucketId[b.gid] = b.bid;
@@ -1413,7 +1425,9 @@ function clientSideBaseCluster(things, N) {
 
     function addParticipantsOfInterestToClusters(clusters) {
         var origClusters = deepcopy(clusters);
-        for (var pid in participantsOfInterestVotes) {
+
+        _.each(participantsOfInterestVotes, function(pid) {
+
             var data = participantsOfInterestVotes[pid];
             var originalBid = data.bid;
 
@@ -1433,7 +1447,7 @@ function clientSideBaseCluster(things, N) {
                 // clusters[c] = _.without(cluster, originalBid);
 
             });
-        }
+        });
     }
     function removeSelfFromBucketsAndClusters(buckets, clusters) {
         for (var b = 0; b < buckets.length; b++) {
