@@ -1949,13 +1949,6 @@ function clientSideBaseCluster(things, N) {
                 // default anon picture, may be overwritten
                 ptpt.picture = Utils.getAnonPicUrl();
 
-                if (ptpt.twitter) {
-                    ptpt.picture = ptpt.twitter.profile_image_url_https;
-                    ptpt.picture_size = 48; // twitter's _normal.JPG size. _mini would be 24, and _bigger would be 73
-                    ptpt.hasTwitter = true;
-                }
-
-                // override with FB if they have it
                 if (ptpt.facebook &&
                     ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
                     ) {
@@ -1973,6 +1966,14 @@ function clientSideBaseCluster(things, N) {
                     ptpt.facebook.picture = "https://graph.facebook.com/v2.2/"+ ptpt.facebook.fb_user_id +"/picture?width="+width+"&height=" + height;
                     ptpt.picture = ptpt.facebook.picture;
                 }
+
+                // override with Twitter if they have it
+                if (ptpt.twitter) {
+                    ptpt.picture = ptpt.twitter.profile_image_url_https;
+                    ptpt.picture_size = 48; // twitter's _normal.JPG size. _mini would be 24, and _bigger would be 73
+                    ptpt.hasTwitter = true;
+                }
+
                 // override with custom polis picture if they have it
                 if (ptpt.polis) {
                     ptpt.picture = ptpt.polis.polis_pic;
