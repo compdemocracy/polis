@@ -2,7 +2,7 @@ var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
-var serverClient = require("../lib/polis");
+var serverClient = require("../stores/polis");
 var Utils = require("../util/utils");
 var Strings = require("../strings");
 

@@ -4,7 +4,7 @@ var template = require("../tmpl/readReactView");
 var CommentModel = require("../models/comment");
 var VoteView = require('../views/vote-view');
 var PolisFacebookUtils = require('../util/facebookButton');
-// var serverClient = require("../lib/polis");
+// var serverClient = require("../stores/polis");
 // var Utils = require("../util/utils");
 
 // var iOS = Utils.isIos();
