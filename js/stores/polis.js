@@ -1426,9 +1426,8 @@ function clientSideBaseCluster(things, N) {
     function addParticipantsOfInterestToClusters(clusters) {
         var origClusters = deepcopy(clusters);
 
-        _.each(participantsOfInterestVotes, function(pid) {
+        _.each(participantsOfInterestVotes, function(data, pid) {
 
-            var data = participantsOfInterestVotes[pid];
             var originalBid = data.bid;
 
             _.each(clusters, function(cluster, gid) {
