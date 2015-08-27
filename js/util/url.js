@@ -29,6 +29,10 @@ if (document.domain === "localhost" && document.location.port === "8000") {
 	urlPrefix = localhost8000;
 }
 
+if (0 === document.domain.indexOf("192.168")) {
+  urlPrefix = "http://" + document.location.hostname + ":" + document.location.port + "/";
+}
+
 function isPreprod() {
 	return urlPrefix === preprod;
 }
