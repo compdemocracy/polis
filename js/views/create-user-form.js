@@ -86,7 +86,7 @@ function getInfo() {
     //   "location": {
     //      "id": "110843418940484",  ------------> we can make another call to get the lat,lng for this
     //      "name": "Seattle, Washington"
-    //   }, 
+    //   },
     //   "name":"Mike Bjorkegren"
     //   "timezone":-7
     //   "updated_time":"2014-07-03T06:38:02+0000"
@@ -211,7 +211,7 @@ function getInfo() {
     var that = this;
     that.clearFailMessage();
     event.preventDefault();
-    
+
     serialize(this, function(attrs){
       $.ajax({
         url: urlPrefix + "api/v3/auth/login",

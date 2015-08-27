@@ -40,9 +40,9 @@ function are_cookies_enabled()
     // var cookieEnabled = (navigator.cookieEnabled) ? true : false;
 
     // if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
-    // { 
+    // {
 
-    // create a temporary cookie 
+    // create a temporary cookie
     var soon = new Date(Date.now() + 1000).toUTCString();
     var teststring = "_polistest_cookiesenabled";
     document.cookie = teststring + "=1; expires=" + soon;
@@ -107,12 +107,12 @@ function isInIframe() {
 // http://www.html5rocks.com/en/tutorials/pagevisibility/intro/
 function getHiddenProp(){
     var prefixes = ['webkit','moz','ms','o'];
-    
+
     // if 'hidden' is natively supported just return it
     if ('hidden' in document) {
       return 'hidden';
     }
-    
+
     // otherwise loop over all the known prefixes until we find one
     for (var i = 0; i < prefixes.length; i++){
       if ((prefixes[i] + 'Hidden') in document) {
@@ -128,7 +128,7 @@ function isHidden() {
     if (!prop) {
       return false;
     }
-    
+
     return document[prop];
 }
 

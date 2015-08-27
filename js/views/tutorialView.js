@@ -13,7 +13,7 @@ var SECTIONS = {
   // Analyze Groups Tutorial
   B: {
     1: true
-  } 
+  }
 };
 
 var DONE_BUTTON_VISIBLE = {

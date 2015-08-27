@@ -30,7 +30,7 @@ module.exports = Handlebones.View.extend({
       }
       that.ptptois = getParticipantsOfInterestForGid(gid);
       var numBucketsThatAreNotPeople = 1; // don't count the anonbucket in the cluster
-      that.othersCount = (getGroupInfo(gid).count) - that.ptptois.length; 
+      that.othersCount = (getGroupInfo(gid).count) - that.ptptois.length;
       that.ptptois = _.map(that.ptptois, function(x) {
         x.name = (x.twitter && (x.twitter.name || "@"+x.twitter.screen_name)) || (x.facebook && x.facebook.fb_name) || "";
         if (x.twitter && x.twitter.screen_name) {

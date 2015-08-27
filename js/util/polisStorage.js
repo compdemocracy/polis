@@ -47,7 +47,7 @@ var store = (function() {
     //     clear: localStorage.clear
     // };
     return {
-        // clear: clearCookie,        
+        // clear: clearCookie,
         // set: setCookie,
         get: function(key) {
             var cookieVal = getCookie(key);

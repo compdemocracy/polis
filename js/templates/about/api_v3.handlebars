@@ -22,31 +22,31 @@ $(document).ready(switchLanguages);
   <div class="row" style="margin-top: 20px; margin-bottom: 20px">
     <div class="col-sm-12">
       <h1 class="HeadingA"> API </h1>
-      <!-- groups are very powerful... sentiment groups... correlations... we'll give you... recurring... programmatic... --> 
+      <!-- groups are very powerful... sentiment groups... correlations... we'll give you... recurring... programmatic... -->
       <ul class="nav nav-pills col-sm-6">
           <li class="pill pill_curl active"><a href="#curl">Curl</a></li>
           <li class="pill pill_ruby"><a href="#ruby">Ruby</a></li>
       </ul>
     </div>
   </div>
-  
+
 
 
 {{!-- ********************* CREATE CONVERSATIONS ********************* --}}
 
   <div id="createConversation" class="row">
   <div class="col-sm-12">
-    <h3 ><a href="#createConversation"># Create conversation</a></h3>  
+    <h3 ><a href="#createConversation"># Create conversation</a></h3>
   </div>
 
   <div class="col-sm-5">
     <h5 class="HeadingH HeadingH--dark">DEFAULTS</h5>
     <p> If you haven't created a conversation in the app yet, try it out! Just like in the app, the fields are optional and there are defaults. The API key is the only required data field.
-<pre><code data-language="javascript">short_url: false 
+<pre><code data-language="javascript">short_url: false
 topic: ""
 description: ""
 </code></pre>
-    <p> Passing <code>short_url: true</code> will return an easily typeable shortlink: <pre> <code data-language="javascript"> pol.is/b2xpm7w </code> </pre> 
+    <p> Passing <code>short_url: true</code> will return an easily typeable shortlink: <pre> <code data-language="javascript"> pol.is/b2xpm7w </code> </pre>
     <p>Some conversations are more sensitive and require security. There are two tiers: </p>
     <h5 class="HeadingH HeadingH--dark"> LONG LINKS </h5> <p> <code>short_url: false</code> assumes your users can be trusted not to share a single link to the conversation. This is similar to YouTube & Google Docs, which use very long strings of letters and numbers to ensure that no one without the link can find the location of the document or the video on the internet. Good for internal business communication - easy to share, low overhead, secure enough.</p>
 
@@ -64,7 +64,7 @@ description: ""
       -F topic="Should we raise the minimum wage?" \
       -F description="It's currently under $10/hr, What do you think?" \
       -F short_url=true \
-      -F strict_moderation=false 
+      -F strict_moderation=false
 </code>
 <code class="code_sample code_ruby" style="display:none;" data-language="ruby">#NOTE this expects that you have done something like 'export POLIS_API_KEY=your_polis_api_key' in your environment before starting your ruby process. We recommend that you avoid putting your API key directly into your source code.
 
@@ -113,7 +113,7 @@ puts response.body
 
 <div id="getConversations" class="row" style="margin-top: 20px; border-top: 2px solid lightgrey; padding-top: 50px">
   <div class="col-sm-12">
-    <h3 ><a href="#getConversations"># Get conversation(s)</a></h3>  
+    <h3 ><a href="#getConversations"># Get conversation(s)</a></h3>
   </div>
 </div>
 
@@ -166,7 +166,7 @@ puts response.body
 }
 </code></pre>
 </div>
-  
+
 </div>
 
 <div class="row" style="margin-top: 40px">
@@ -206,7 +206,7 @@ puts response.body
   <div class="col-sm-5">
     <h5 class="HeadingH HeadingH--dark">LIST OF CONVERSATIONS WITH UNIQUE URLS</h5>
     <p>Get a list of the conversations created by your account, where each URL is customized to map to a user in your system. By default, this request returns all conversations owned by the API key provided, and can be scoped down by providing a context, namely <code>user_id</code></p>
-    
+
   </div>
   <div class="col-sm-7">
 <h5 class="HeadingF HeadingF--light"> REQUEST </h5>
@@ -270,7 +270,7 @@ puts response.body
     "context": null,
     "modified": 1407571810065,
     "conversation_id": "2hfd42",
-    "is_owner": true, 
+    "is_owner": true,
     "url": "https://pol.is/2hfd42/magicUrl_3hf8Ea_for_someUser123",
     "mod_url": "https://pol.is/m/2hfd42/magicUrl_r98y23_for_someUser123"
   },
@@ -286,7 +286,7 @@ puts response.body
     "conversation_id": "2fUcoJ6fo4hllv3U",
     "is_owner": true,
     "url": "https://pol.is/2fUcoJ6fo4hllv3U/magicUrl_fDFuhe_for_someUser123",
-    "mod_url": "https://pol.is/m/2fUcoJ6fo4hllv3U/magicUrl_98wrU2_for_someUser123"    
+    "mod_url": "https://pol.is/m/2fUcoJ6fo4hllv3U/magicUrl_98wrU2_for_someUser123"
 }]
 </code></pre>
   </div>
@@ -306,12 +306,12 @@ puts response.body
 
 
 
-{{!-- 
+{{!--
         GET PARTICIPATION
  --}}
   <div id="getParticipation" class="row" style="margin-top: 20px; border-top: 2px solid lightgrey; padding-top: 50px">
   <div class="col-sm-12">
-    <h3 ><a href="#getParticipation"># Get Participation Stats</a></h3>   
+    <h3 ><a href="#getParticipation"># Get Participation Stats</a></h3>
   </div>
 
   <div class="col-sm-5">
@@ -369,7 +369,7 @@ puts response.body
   "someUser345": {
     "votes": 4,
     "comments": 3,
-    "group": 0    
+    "group": 0
   },
   "someUser456": {
     "votes": 5,
@@ -379,7 +379,7 @@ puts response.body
   "someUser567": {
     "votes": 2,
     "comments": 0,
-    "group": 1    
+    "group": 1
   }
 }
 </code></pre>
@@ -399,12 +399,12 @@ puts response.body
 
 
 
-{{!-- 
+{{!--
         METADATA QUESTIONS
  --}}
 {{!-- <div id="getUsersPerLabel"class="row">
   <div class="col-sm-12">
-    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getUsersPerLabel"># Adding custom metadata</a></h3>  
+    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getUsersPerLabel"># Adding custom metadata</a></h3>
   </div>
 
   <div class="col-sm-5">
@@ -421,7 +421,7 @@ puts response.body
   --data '{
     conversation_id: "1234abc",
     [ ["mnpq678", "city", "seattle" ], ["pkhr345", "city", "seattle"], ["wxkqe95", "pet", "llama"], ["ngk895c", "milliseconds_to_conversion", "lickitysplit"], ...]
-  }'  
+  }'
 </code></pre>
   <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
 <pre> <code data-language="javascript">{
@@ -433,18 +433,18 @@ puts response.body
 
 
 
-{{!-- 
+{{!--
         SINGLE USE URLS suurls
  --}}
 {{!-- <div id="addingUsers"class="row">
   <div class="col-sm-12">
-    <h3 name="addingUsers" style="border-bottom: 1px solid lightgrey"><a href="#addingUsers"> # Creating single-use URLs</a></h3>  
+    <h3 name="addingUsers" style="border-bottom: 1px solid lightgrey"><a href="#addingUsers"> # Creating single-use URLs</a></h3>
   </div>
 
   <div class="col-sm-5">
     <h5 class="HeadingH HeadingH--dark">API</h5>
     <p> A single-use 'join' url returned for each <code>user_id</code> sent to us in the request. When a user hits this type of url, they enter the conversation immediately (or hit the metadata page immediately) without being asked to login, whether they have an account or not. </p>
-    <p> This is a measure to prevent the conversation from spreading to users you have not invited. Once this url has been used, it becomes useless. If the user is logged in when they first hit the url, they will continue to have access to the conversation. </p>   
+    <p> This is a measure to prevent the conversation from spreading to users you have not invited. Once this url has been used, it becomes useless. If the user is logged in when they first hit the url, they will continue to have access to the conversation. </p>
 
     <p> This request uses the <code>conversation_id</code> returned by the <a href="#createConversation"> request to create a conversation </a>. Create single use tokens so that users who enter the conversation cannot share their link with anyone else. To do this, you will need to provide us with a list of <code>user_id</code>s (external ids) that can be anything you want, should made up by you & should map to your users in your database environment. The <code>user_id</code>s you provide are scoped to your own namespace in our database environment - you are free to use whatever identifier scheme you want (integers, guids, etc). </p>
     <pre><code data-language="javascript">single_use_tokens: true</code></pre>
@@ -461,7 +461,7 @@ puts response.body
   --data '{
     conversation_id: "1234abc",
     user_ids: ["mnpq678", "pkhr345", "wxkqe945", ...]
-  }'  
+  }'
 </code></pre>
   <h5 class="HeadingH HeadingH--dark">RESPONSE</h5>
 <pre> <code data-language="javascript">{
@@ -477,12 +477,12 @@ puts response.body
 </div> <!--row--> --}}
 
 
-{{!-- 
+{{!--
         GET COHORTS
  --}}
 {{!-- <div id="getLabels"class="row">
   <div class="col-sm-12">
-    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getLabels"># Getting a list of cohorts created in the Polis GUI</a></h3>  
+    <h3 name="getLabels" style="border-bottom: 1px solid lightgrey"><a href="#getLabels"># Getting a list of cohorts created in the Polis GUI</a></h3>
   </div>
 
   <div class="col-sm-5">

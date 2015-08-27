@@ -19,7 +19,7 @@ var Constants = require("../util/constants");
 var isIE8 = Utils.isIE8();
 
 // animated title
-function showThen(c, f) { return function() {document.title = c; setTimeout(f, 200);}} 
+function showThen(c, f) { return function() {document.title = c; setTimeout(f, 200);}}
 
 var PtptoiModel = Backbone.Model.extend({
   name: "ptptoi",
@@ -152,7 +152,7 @@ module.exports =  PolisModelView.extend({
     if (options.subviewName === "seed") {
       setTimeout(function() {
         $("#seedTab").first().trigger("click");
-        
+
       }, 200);
     }
 
@@ -225,7 +225,7 @@ module.exports =  PolisModelView.extend({
     this.rejectedPtptoiCountView = this.addChild(new TodoCountView({
       model: new Backbone.Model({}),
       collection: this.ptptsRejected
-    }));  
+    }));
 
 
     this.listenTo(this.commentsTodo, "sync remove add", function(){
@@ -242,7 +242,7 @@ module.exports =  PolisModelView.extend({
     });
     this.listenTo(this.commentsRejected, "sync remove add", function(){
       this.rejectedCountView.render();
-    });    
+    });
 
     this.listenTo(this.ptptsTodo, "sync remove add", function(){
       this.todoPtptoiCountView.render();
@@ -258,7 +258,7 @@ module.exports =  PolisModelView.extend({
     });
     this.listenTo(this.ptptsRejected, "sync remove add", function(){
       this.rejectedPtptoiCountView.render();
-    });    
+    });
 
 
     this.moderateCommentsTodoCollectionView = this.addChild(new ModerateCommentsCollectionView({
@@ -326,7 +326,7 @@ module.exports =  PolisModelView.extend({
         reset: false
       });
     }
-    
+
     var pollingReference = setInterval(function() {
       if (Utils.isHidden()) {
         return;

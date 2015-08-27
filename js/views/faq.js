@@ -130,6 +130,6 @@ module.exports = PolisView.extend({
     this.faqCollectionView = this.addChild(new FaqCollectionView({
       collection: this.collection
     }));
-    
+
   }
 });

@@ -107,7 +107,7 @@ module.exports = PolisView.extend({
 
             }
             // NOTE: the suurl generation must take place after the PUT conversations call, since the conversation_id may change (and the conversation_id is included in the suurls)
-            var promise = !!xids ? 
+            var promise = !!xids ?
               $.ajax({
                 url: "/api/v3/users/invite",
                 type: "POST",

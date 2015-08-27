@@ -75,7 +75,7 @@ module.exports = PolisView.extend({
       var itemHourAge = age / 1000 / 60 / 60;
       var gravity = 1.8; // https://news.ycombinator.com/item?id=1781013
       var selfVotePenalty = 0; //1; // currently zero to give weight to all stories, even those with only the vote from the poster. HN removes that vote, and relies on the "new" tab for initial visibility.
-      var val = -(c.get("upvotes") - selfVotePenalty) / 
+      var val = -(c.get("upvotes") - selfVotePenalty) /
           (Math.pow(itemHourAge, gravity));
       return val;
     };

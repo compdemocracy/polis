@@ -317,7 +317,7 @@ module.exports = Handlebones.ModelView.extend({
     this.profilePicView = this.addChild(new ProfilePicView({
       model: CurrentUserModel,
     }));
-    
+
     if (options.wipCommentFormText) {
       this.shouldAutofocusOnTextarea = true;
     }

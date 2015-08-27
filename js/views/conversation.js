@@ -16,7 +16,7 @@ var urlPrefix = URLs.urlPrefix;
 module.exports = PolisModelView.extend({
 
   selectedGid: -1,
-  
+
   groupInfo: function() {
     return this.serverClient.getGroupInfo(this.selectedGid);
   },
@@ -76,7 +76,7 @@ module.exports = PolisModelView.extend({
     eb.on(eb.clusterSelectionChanged, function(gid) {
       that.selectedGid = gid;
     });
-    
+
     var metadataCollection = new MetadataQuestionsCollection([], {
         conversation_id: conversation_id
     });

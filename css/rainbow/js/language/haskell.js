@@ -11,7 +11,7 @@ Rainbow.extend('haskell', [
 		'name': 'comment',
 		'pattern': /\{\-\-[\s\S(\w+)]+[\-\-][\}$]/gm
 		// /\{\-{2}[\s\S(.*)]+[\-\-][\}$]/gm [multiple lines]
-	}, 
+	},
 	{
 		'name': 'comment',
 		'pattern': /\-\-(.*)/g
@@ -91,4 +91,4 @@ Rainbow.extend('haskell', [
 		},
 		'pattern': /^\#([\S\s]*?)$/gm
 	}
-]); 
+]);

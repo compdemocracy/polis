@@ -3,12 +3,12 @@
 
 {{#if is_exclusive}}
   <label class="makeCursorPointer questionAnswer">
-    {{! NOTE: using pmqid as the name, since the radio button is exclusive across items with the same name }}    
+    {{! NOTE: using pmqid as the name, since the radio button is exclusive across items with the same name }}
   	<input type="radio" class="metadataCheckbox" name="{{pmqid}}" value="{{pmaid}}"> {{value}}
   </label>
 {{else}}
   <label class="makeCursorPointer questionAnswer">
-    {{! NOTE: using pmqid as the name, since the radio button is exclusive across items with the same name }}        
+    {{! NOTE: using pmqid as the name, since the radio button is exclusive across items with the same name }}
     <input type="checkbox" class="metadataCheckbox" name="{{pmqid}}" value="{{pmaid}}"> {{value}}
   </label>
 {{/if}}

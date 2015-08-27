@@ -7,7 +7,7 @@ var Utils = require("../util/utils");
 module.exports =  Handlebones.ModelView.extend({
   name: "profile-pic-view",
   template: template,
-  
+
   context: function() {
     var ctx = _.extend({}, Handlebones.ModelView.prototype.context.apply(this, arguments));
     ctx.hasTwitter = ctx.hasTwitter;

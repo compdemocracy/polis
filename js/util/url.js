@@ -25,7 +25,7 @@ if ((-1 === document.domain.indexOf("pol.is")) && (-1 === document.domain.indexO
     urlPrefix = localhost;
 }
 
-if (document.domain === "localhost" && document.location.port === "8000") { 
+if (document.domain === "localhost" && document.location.port === "8000") {
 	urlPrefix = localhost8000;
 }
 

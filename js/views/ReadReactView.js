@@ -20,7 +20,7 @@ module.exports = Handlebones.ModelView.extend({
       "click #fbNoUseBtn": "fbNoUseBtn",
       "click #fbConnectBtn": "fbConnectBtn",
       // "click #passButton": "participantPassed",
-      
+
       // "hover .starbutton": function(){
       //   this.$(".starbutton").html("<i class='fa fa-star'></i>");
       // }

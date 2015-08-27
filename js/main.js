@@ -127,7 +127,7 @@ eb.on(eb.reloadWithMoreParams, function(params) {
 });
 
 window.addEventListener("message", function(event) {
-  
+
   // NOTE: event could have any origin, since we're embedded, so be careful here
 
   if (event.data === "twitterConnected") { // this message is sent from twitterAuthReturn.html
@@ -147,7 +147,7 @@ var p = window.location.pathname;
       p.match(/^\/settings\/ep1_[A-Za-z0-9]+/) ||
       p.match(/^\/settings\/enterprise\/ep1_[A-Za-z0-9]+/) ||
       p.match(/^\/conversation\/create\//) ||
-      p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)      
+      p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)
     ) {
     // expecting params (added to support LTI)
     var params = Utils.decodeParams(encodedParams);
@@ -167,7 +167,7 @@ var p = window.location.pathname;
 
   $.ajaxPrefilter(function( options, originalOptions, jqXHR ) {
     if ( !options.beforeSend) {
-      options.beforeSend = function (xhr) { 
+      options.beforeSend = function (xhr) {
         // TODO assert that ajax request is going to our servers (in case of XSS)
         if (token) {
           xhr.setRequestHeader('x-polis', token);
@@ -393,7 +393,7 @@ uidPromise = CurrentUserModel.update().then(function(user) {
         app_id: 'nb5hla8s',
         widget: {
           activator: '#IntercomDefaultWidget'
-        }  
+        }
     };
     if (user.uid) {
       intercomOptions.user_id = user.uid + "";
@@ -419,7 +419,7 @@ uidPromise.always(function() {
     if (!isEmbedded() && !isParticipationView()) {
       // load intercom widget
       // (function(){var w=window;var ic=w.Intercom;if(typeof ic==="function"){ic('reattach_activator');ic('update',intercomSettings);}else{var d=document;var i=function(){i.c(arguments)};i.q=[];i.c=function(args){i.q.push(args)};w.Intercom=i;function l(){var s=d.createElement('script');s.type='text/javascript';s.async=true;s.src='https://static.intercomcdn.com/intercom.v1.js';var x=d.getElementsByTagName('script')[0];x.parentNode.insertBefore(s,x);}if(w.attachEvent){w.attachEvent('onload',l);}else{w.addEventListener('load',l,false);}}})();
-      
+
       // IntercomModalHack.init();
     }
 
@@ -440,7 +440,7 @@ uidPromise.always(function() {
 
       var intercomWait = 0;
       uidPromise.then(function() {
-        
+
         var u = userObject;
         if (!isEmbedded() && !isParticipationView() && (u.email || u.hasTwitter || u.hasFacebook)) {
           var intercomWait = 0;

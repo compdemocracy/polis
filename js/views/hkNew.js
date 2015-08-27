@@ -66,7 +66,7 @@ module.exports = View.extend({
           attrs.is_draft = false;
           attrs.owner_sees_participation_stats = true;
 
-          attrs.short_url = true;          
+          attrs.short_url = true;
           if (window.context) {
             attrs.context = window.context;
           }
@@ -109,7 +109,7 @@ module.exports = View.extend({
 
             }
             // NOTE: the suurl generation must take place after the PUT conversations call, since the conversation_id may change (and the conversation_id is included in the suurls)
-            var promise = !!xids ? 
+            var promise = !!xids ?
               $.ajax({
                 url: "/api/v3/users/invite",
                 type: "POST",

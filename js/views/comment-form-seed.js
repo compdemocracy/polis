@@ -78,7 +78,7 @@ module.exports = Handlebones.View.extend({
     var that = this; //that = the view
     attrs.conversation_id = this.conversation_id;
     // The vote will be attached to the original Tweet's author.
-    attrs.vote = constants.REACTIONS.AGREE; 
+    attrs.vote = constants.REACTIONS.AGREE;
     attrs.prepop = true; // this is a prepopulated comment
 
     var match = attrs.tweet_id.match(/[a-zA-Z0-9]+$/);
@@ -87,7 +87,7 @@ module.exports = Handlebones.View.extend({
     }
     attrs.twitter_tweet_id = attrs.tweet_id;
     delete attrs.txt;
-    
+
     Net.polisPost("api/v3/comments", attrs).then(function() {
       that.trigger("commentSubmitted");
       that.updateCollection();

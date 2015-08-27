@@ -267,7 +267,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^settings\/enterprise(\/ep1_[0-9A-Za-z]+)?/, "settingsEnterprise");
     this.r("inbox", "inbox");
     this.r(/^inbox\/(ep1_[0-9A-Za-z]+)$/, "inboxLti");
-    
+
     this.r("inboxApiTest(/:filter)", "inboxApiTest");
     this.r("faq", "faq");
     this.r("tut", "doShowTutorial");
@@ -301,7 +301,7 @@ var polisRouter = Backbone.Router.extend({
       /^settings\/enterprise/,
       /^summaryView/,
       /^inbox(\/.*)?$/,
-      /^inboxLti/,      
+      /^inboxLti/,
       /^inboxApiTest$/,
       /^moderationView/,
       /^pwResetInit/,
@@ -530,7 +530,7 @@ var polisRouter = Backbone.Router.extend({
       } else {
 
         // Default inbox behavior
-        
+
         // Not just the ones I started.
         filterAttrs.include_all_conversations_i_am_in = true;
       }
@@ -547,7 +547,7 @@ var polisRouter = Backbone.Router.extend({
         });
         RootView.getInstance().setView(inboxView);
       });
-      
+
     });
   },
 
@@ -579,7 +579,7 @@ var polisRouter = Backbone.Router.extend({
       } else {
 
         // Default inbox behavior
-        
+
         // Not just the ones I started.
         filterAttrs.include_all_conversations_i_am_in = true;
       }
@@ -916,7 +916,7 @@ var polisRouter = Backbone.Router.extend({
     var ptptModel = args.ptptModel;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
-    
+
     // Since nextComment is pretty slow, fire off the request way early and pass the promise into the participation view so it's (probably) ready when the page loads.
     var firstCommentPromise = $.get("/api/v3/nextComment?not_voted_by_pid=" + pid+ "&limit=1&include_social=true&conversation_id=" + conversation_id);
 
@@ -946,7 +946,7 @@ var polisRouter = Backbone.Router.extend({
     var ptptModel = args.ptptModel;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
-    
+
     this.getConversationModel(conversation_id).then(function(model) {
       var exploreView = new ExploreView({
         pid: pid,
@@ -962,7 +962,7 @@ var polisRouter = Backbone.Router.extend({
     var ptptModel = args.ptptModel;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
-    
+
     this.getConversationModel(conversation_id).then(function(model) {
       var view = new SummaryView({
         pid: pid,
@@ -979,7 +979,7 @@ var polisRouter = Backbone.Router.extend({
     var subviewName = args.subviewName;
     var conversation_id = ptptModel.get("conversation_id");
     var pid = ptptModel.get("pid");
-    
+
     this.getConversationModel(conversation_id).then(function(model) {
       if (!model.get("is_mod")) {
         alert("Sorry, only moderators can moderate this conversation.");
@@ -1057,7 +1057,7 @@ var polisRouter = Backbone.Router.extend({
     if (top.postMessage && browserCompatibleWithRedirectTrick()) {
       top.postMessage("cookieRedirect", "*");
     }
-    
+
     // don't need this view, since we have the auth header, which lets us set up a temporary session.
 
     // // give the polisHost script enough time to navigate away (if it's listening) before showing the cookiesDisabledView
@@ -1124,7 +1124,7 @@ var polisRouter = Backbone.Router.extend({
       return model;
     });
   },
-  
+
   // assumes the user already exists.
   conversationGatekeeper: function(conversation_id, suzinvite) {
     var dfd = $.Deferred();
@@ -1183,7 +1183,7 @@ var polisRouter = Backbone.Router.extend({
       create: true
     };
     $.getJSON("/api/v3/einvites?einvite=" + einvite).then(function(o) {
-      model.email = o.email;      
+      model.email = o.email;
       return model;
     }, function() {
       // einvite lookup failed somehow, go ahead and show the form - the user will have to enter their email again.

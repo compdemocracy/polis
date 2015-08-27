@@ -101,7 +101,7 @@ module.exports = PolisModelView.extend({
       }, 200);
 
     });
-    // -----------   END STRIPE CODE ----------------    
+    // -----------   END STRIPE CODE ----------------
 
 
   },

@@ -26,7 +26,7 @@ var isIE8 = navigator.userAgent.match(/MSIE [89]/);
 
 
 
-    
+
 var groupNames = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 module.exports =  PolisModelView.extend({
@@ -45,7 +45,7 @@ module.exports =  PolisModelView.extend({
   onClusterTapped : function(gid) {
     this.destroyPopovers();
     var that = this;
-  },  
+  },
   onAnalyzeTabPopulated: function() {
     $('.query_result_item').first().trigger('click');
   },
@@ -100,7 +100,7 @@ module.exports =  PolisModelView.extend({
         this.commentsCollection.fetch({
           gid: gid
         }).then(function() {
-          // that.commentCarouselMajorityView0.sortAgree();              
+          // that.commentCarouselMajorityView0.sortAgree();
         });
 
 
@@ -109,10 +109,10 @@ module.exports =  PolisModelView.extend({
           isIE8: isIE8,
           gid: gid,
           getTidsForGroup: function() {
-            return that.serverClient.getTidsForGroup(gid, 5);          
+            return that.serverClient.getTidsForGroup(gid, 5);
           },
           collection: this.commentsCollection
-        }));       
+        }));
 
       }
     });
@@ -138,7 +138,7 @@ module.exports =  PolisModelView.extend({
 
     this.summaryItemCollectionView = this.addChild(new SummaryItemCollectionView({
       collection: this.groupCollection
-     
+
     }));
 
     this.tutorialController = new TutorialController();
@@ -236,11 +236,11 @@ module.exports =  PolisModelView.extend({
     }
 
 
-    function configureGutters() {     
+    function configureGutters() {
       if (display.xs()) {
         $("#controlTabs").addClass("no-gutter");
       } else {
-        $("#controlTabs").removeClass("no-gutter");        
+        $("#controlTabs").removeClass("no-gutter");
       }
     }
 
@@ -268,7 +268,7 @@ module.exports =  PolisModelView.extend({
       }));
 
       // eb.on(eb.commentSelected, function(tid) {
- 
+
       // });
 
       // this.votesByMe.on("all", function(x) {
@@ -313,7 +313,7 @@ module.exports =  PolisModelView.extend({
 
 
       scrollTopOnFirstShow();
- 
+
       configureGutters();
 
 

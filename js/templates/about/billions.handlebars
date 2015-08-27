@@ -8,7 +8,7 @@ input::-webkit-input-placeholder {
 input::-moz-placeholder {
   color: rgba(255,255,255,.6);
 }
-input:-ms-input-placeholder { 
+input:-ms-input-placeholder {
   color: rgba(255,255,255,.6);
 }
 .navIcon {
@@ -121,7 +121,7 @@ function getInfo() {
     //   "location": {
     //      "id": "110843418940484",  ------------> we can make another call to get the lat,lng for this
     //      "name": "Seattle, Washington"
-    //   }, 
+    //   },
     //   "name":"Mike Bjorkegren"
     //   "timezone":-7
     //   "updated_time":"2014-07-03T06:38:02+0000"
@@ -283,15 +283,15 @@ fjs.parentNode.insertBefore(js, fjs);
 <link href='https://fonts.googleapis.com/css?family=Montserrat:400,700|Cardo' rel='stylesheet' type='text/css'>
 
 
-<script> 
+<script>
   $(document).ready(function(){
     $('#GetPolisAnimatedContainer').click(function(){
       $(this).animate({width: "290px"}, 400)
               .animate({height: "270px"}, 500, function(){
                 $('#GetPolisAnimatedContainer').css({"cursor": "default"})
                 $('#GetPolisFacebookEmail').fadeIn();
-                $('html, body').animate({ 
-                   scrollTop: $(document).height()-$(window).height()}, 
+                $('html, body').animate({
+                   scrollTop: $(document).height()-$(window).height()},
                    400
                 );
               })
@@ -307,8 +307,8 @@ fjs.parentNode.insertBefore(js, fjs);
     <li class="header" style="
           position: relative;
           top: 7px;
-      "> 
-      <a id="polisPlusLink" href="#" class="navIcon icon--login BillionsText HeaderLink"> 
+      ">
+      <a id="polisPlusLink" href="#" class="navIcon icon--login BillionsText HeaderLink">
         <img src="https://pol.is/landerImages/logo_white3.png" style="width: 88px;">
         <span style="
             color: rgb(106, 199, 106);
@@ -348,7 +348,7 @@ $("#polisPlusLink").on("click", function() {
   <p id="BillionsSubHeader" class="BillionsText"> The internet has scaled up our ability to talk. Polis scales up our ability to listen.</p>
 
   <p id="BillionsExplainer"> Polis is a new kind of commenting system radically enhanced with machine learning and real-time data visualization. Use it to get better bottom up feedback and host online discussions that scale effectively. </p>
-  <div id="GetPolisAnimatedContainer" class="BillionsText"> 
+  <div id="GetPolisAnimatedContainer" class="BillionsText">
     <p id="GetPolisAnimatedText" > GET POLIS </p>
     <div id="GetPolisFacebookEmail" style="display:none">
       <button class="facebookButton">
@@ -369,9 +369,9 @@ $("#polisPlusLink").on("click", function() {
       </div>
     </div>
   </div>
-  <p id="BillionsFree"> free </p> 
+  <p id="BillionsFree"> free </p>
 
-  <div id="successModal" style="display:none;">    
+  <div id="successModal" style="display:none;">
     <p style="font-family: Montserrat;text-align: center;width: 200px;margin: auto;font-size: 14px;color: white;background-color: rgba(100, 213, 119, 0.66);padding: 15px;line-height: 1.7;border-radius: 0px;margin-top: 20px;">
       <strong> Welcome! </strong> We've emailed you a confirmation. Follow the link provided in the email to verify your account.
     </p>

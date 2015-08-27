@@ -30,7 +30,7 @@
     </div>
   </div>
 
-{{!-- 
+{{!--
   <div class="panel panel-default">
     <div class="panel-heading">
       <h3 class="panel-title HeadingB">Team Members</h3>
@@ -51,8 +51,8 @@
           </div>
           <div class="row" id="errorDiv"> </div>
         </form>
-          
-          
+
+
       </div>
     </div>
   </div>
@@ -84,7 +84,7 @@
         <tr>
           <td>Enterprise{{#ifDefined proposal.maxUsers}} ({{proposal.maxUsers}} users){{/ifDefined}}</td>
           <td>{{#ifDefined proposal.monthly}} ${{proposal.monthly}}/month{{/ifDefined}}</td>
-          <td> 
+          <td>
             {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeForm"></form>
              {{/ifTrial}}
             {{#ifEnterprise}}Your plan{{/ifEnterprise}}
@@ -93,16 +93,16 @@
         {{!-- <tr>
           <td>Teacher</td>
           <td>Free (students will pay $3/month)</td>
-          <td> 
+          <td>
             {{#ifTrial}}<button id="participantsPayButton">Choose</button>
              {{/ifTrial}}
             {{#ifParticipantPays}}Your plan{{/ifParticipantPays}}
           </td>
-        </tr>        
+        </tr>
         <tr>
           <td>Student</td>
           <td>$3/month</td>
-          <td> 
+          <td>
             {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeFormStudents"></form>
              {{/ifTrial}}
             {{#ifStudent}}Your plan{{/ifStudent}}

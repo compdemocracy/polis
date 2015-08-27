@@ -49,5 +49,5 @@ module.exports = Handlebones.ModelView.extend({
       active: true
     }).then(onSaved, onFailed);
   },
- 
+
 });

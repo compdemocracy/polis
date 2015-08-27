@@ -104,11 +104,11 @@ module.exports =  ConversationView.extend({
     }
 
 
-    function configureGutters() {     
+    function configureGutters() {
       if (display.xs()) {
         $("#controlTabs").addClass("no-gutter");
       } else {
-        $("#controlTabs").removeClass("no-gutter");        
+        $("#controlTabs").removeClass("no-gutter");
       }
     }
 
@@ -169,7 +169,7 @@ module.exports =  ConversationView.extend({
         that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
           title: "CLICK ON GROUPS",
           content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
-          html: true, 
+          html: true,
           trigger: "manual",
           placement: "bottom"
         }).popover("show");
@@ -187,16 +187,16 @@ module.exports =  ConversationView.extend({
             content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='btn btn-lg btn-primary' style='display: block; margin-top:20px'> Ok, got it </button>",
             html: true,
             trigger: "manual",
-            placement: "bottom"  
+            placement: "bottom"
           });
           that.$('.query_result_item').first().trigger('click');
           that.$analyzeViewPopover.popover("show");
           that.$('#analyzeViewPopoverButton').click(function(){
             that.$analyzeViewPopover.popover("destroy");
-          })      
+          })
         },1500)
-      }) 
-    }  
+      })
+    }
 
     // just a quick hack for now.
     // we may need to look into something more general
@@ -225,7 +225,7 @@ module.exports =  ConversationView.extend({
         conversation_id: conversation_id,
         isIE8: isIE8,
         getTidsForGroup: function() {
-          return that.serverClient.getTidsForGroup.apply(0, arguments);          
+          return that.serverClient.getTidsForGroup.apply(0, arguments);
         },
         collection: this.allCommentsCollection
       }));
@@ -277,7 +277,7 @@ module.exports =  ConversationView.extend({
         if (vis) {
           vis.deselect();
         }
-      }      
+      }
       configureGutters();
       if (isIE8) {
         // Can't listen to the "resize" event since IE8 fires a resize event whenever a DOM element changes size.
@@ -285,7 +285,7 @@ module.exports =  ConversationView.extend({
        setTimeout(initPcaVis, 10); // give other UI elements a chance to load
         // document.body.onresize = _.debounce(initPcaVis, 1000)
       } else {
-        setTimeout(initPcaVis, 10); // give other UI elements a chance to load        
+        setTimeout(initPcaVis, 10); // give other UI elements a chance to load
         $(window).resize(_.debounce(function() {
           configureGutters();
           initPcaVis();
@@ -299,7 +299,7 @@ module.exports =  ConversationView.extend({
       }).then(function() {
         that.commentCarouselMajorityView.sort();
       });
-      
+
 
   }, 0); // end listenTo "render"
   });

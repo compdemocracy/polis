@@ -1,4 +1,4 @@
-var Handlebones = require("handlebones"); 
+var Handlebones = require("handlebones");
 var template = require("../tmpl/commentView");
 var CommentModel = require("../models/comment");
 

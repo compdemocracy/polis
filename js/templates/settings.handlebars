@@ -17,7 +17,7 @@
 
      {{!--  <div  style="margin: 20px;" class="Notification Notification--positive">
         <p class="HeadingF HeadingF--light "><i class="fa fa-bell-o"></i>&nbsp;<strong>Copy and paste this into the template for your site's pages (blog posts, news article, etc)</strong></p>
-        <p>Note that you'll need to replace "$page_id_from_your_blog_etc" with a variable that describes each of your pages. 
+        <p>Note that you'll need to replace "$page_id_from_your_blog_etc" with a variable that describes each of your pages.
           You will probably be rendering your page server-side on your platform or CMS (Wordpress, Django, Ruby on Rails, etc). You'll need to set the value for the data-page_id attribute. If you are just trying Polis for the first time, you can just make something up, like "ih87erhiue".
          </p>
       </div> --}}
@@ -89,7 +89,7 @@
         <tr>
           <td>Individual</td>
           <td>$100/month</td>
-          <td> 
+          <td>
             {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeForm"></form>
              {{/ifTrial}}
             {{#ifIndividual}}Your plan{{/ifIndividual}}
@@ -98,16 +98,16 @@
         {{!-- <tr>
           <td>Teacher</td>
           <td>Free (students will pay $3/month)</td>
-          <td> 
+          <td>
             {{#ifTrial}}<button id="participantsPayButton">Choose</button>
              {{/ifTrial}}
             {{#ifParticipantPays}}Your plan{{/ifParticipantPays}}
           </td>
-        </tr>        
+        </tr>
         <tr>
           <td>Student</td>
           <td>$3/month</td>
-          <td> 
+          <td>
             {{#ifTrial}}<form action="/api/v3/charge" method="POST" id="stripeFormStudents"></form>
              {{/ifTrial}}
             {{#ifStudent}}Your plan{{/ifStudent}}

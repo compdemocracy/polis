@@ -12,7 +12,6 @@ module.exports = Handlebones.ModelView.extend({
     name: "vote-view",
     template: template,
     events: {
-
       "click #agreeButton": "participantAgreed",
       "click #disagreeButton": "participantDisagreed",
       "click #passButton": "participantPassed",
@@ -25,7 +24,7 @@ module.exports = Handlebones.ModelView.extend({
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
     ctx.iOS = iOS;
-    ctx.customStyles = "";    
+    ctx.customStyles = "";
     // if (ctx.txt && ctx.txt.length < 30) {
     //   ctx.customStyles += "text-align: center; ";
       // ctx.customStyles += "padding-top: 39px; ";
@@ -95,7 +94,7 @@ module.exports = Handlebones.ModelView.extend({
       }
     });
     this.conversationModel = options.conversationModel;
-    
+
     var is_public = options.is_public;
     var conversation_id = this.conversation_id = options.conversation_id;
     var pid = this.pid = options.pid;
@@ -346,7 +345,7 @@ module.exports = Handlebones.ModelView.extend({
         delay: { show: 500, hide: 0 }
       });
 
-      
+
     });
   }
   });

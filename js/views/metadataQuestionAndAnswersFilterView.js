@@ -20,7 +20,7 @@ module.exports = Handlebones.ModelView.extend({
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.model = options.model; // question model
     this.answers = options.model.collection; // answers collection
-    
+
     this.answersCollectionView = this.addChild(new this.CV({
       collection: this.answers
     }));

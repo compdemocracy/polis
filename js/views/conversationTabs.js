@@ -78,7 +78,7 @@ module.exports =  Handlebones.ModelView.extend({
     }
     if (this.currentTab === this.LEGEND_TAB) {
       c.legendActive = true;
-    }  
+    }
     if (this.currentTab === this.INFOPANE_TAB) {
       c.infoPaneActive = true;
     }
@@ -276,7 +276,7 @@ module.exports =  Handlebones.ModelView.extend({
       setTimeout(function() {
         that.gotoTab(that.WRITE_TAB);
       });
-    } 
+    }
     // else if (options.openToAnalyzeTab) {
 
     //   // TODO ugly flash, fix later
