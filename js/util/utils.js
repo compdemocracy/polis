@@ -311,6 +311,9 @@ module.exports = {
     }
     return gid + 1;
   },
+  // toPercent: function(ratio) {
+  //   return ((ratio * 100) >> 0) + "%";
+  // },
   isInIframe: isInIframe,
   isHidden: isHidden,
   shouldFocusOnTextareaWhenWritePaneShown: shouldFocusOnTextareaWhenWritePaneShown,

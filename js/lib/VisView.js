@@ -83,6 +83,7 @@ if (isMobile) {
 var maxradboost = 8;
 var ptptOiRadius = basePtptoiRad + d3.scale.linear().range([0, maxradboost]).domain([350, 800]).clamp(true)(width);
 var maxPtptoiRad = basePtptoiRad + maxradboost;
+var ptptOiDiameter = ptptOiRadius*2;
 
 
 var friendOrFolloweeRadius = ptptOiRadius + 2;
@@ -414,7 +415,6 @@ if (isIE8) {
     overlay_layer = visualization.append(groupTag);
 
     helpLine = d3.svg.line();
-    helpArrowPoints;
 
     overlay_layer.append("path")
         .datum(helpArrowPoints)
@@ -523,6 +523,7 @@ function showAllClustersAsActive() {
 
 function updateHullColors() {
    if (isIE8) {
+    (function() {
        for (var i = 0; i < raphaelHulls.length; i++) {
             console.log('updateHullColors', selectedCluster, i);
             if (i === selectedCluster) {
@@ -535,20 +536,22 @@ function updateHullColors() {
                 .attr('stroke', hull_unselected_color);
             }
         }
+    }());
    } else {
-        if (clusterIsSelected()) {
-            d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
-            d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
-            // d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
-        }
+      if (clusterIsSelected()) {
+        d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
+        d3.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
+        // d3.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
+      }
+      (function() {
         for (var i = 0; i < d3Hulls.length; i++) {
-
           if (i === hoveredHullId) {
               d3.select(d3Hulls[i][0][0]).classed("hovered_group", true);
               d3.select(d3HullSelections[i][0][0]).classed("hovered_group", true);
               // d3.select(d3HullShadows[selectedCluster][0][0]).classed("hovered_group", true);
           }
         }
+      }());
    }
 }
 
@@ -789,14 +792,16 @@ function updateHulls() {
             //     });
             // }
 
-            for (var pi = 0; pi < hullPoints.length; pi++) {
+            (function() {
+              for (var pi = 0; pi < hullPoints.length; pi++) {
                 var p = hullPoints[pi];
                 // inset to prevent overlap caused by stroke width.
                 var dist = strokeWidth/2 + 5;
                 var inset = moveTowardsTarget(p[0], p[1], centroid.x, centroid.y, dist);
                 p[0] = inset.x;
                 p[1] = inset.y;
-            }
+              }
+            }());
 
             // another pass through the hull generator, to remove interior tesselated points.
             var points = d3.geom.hull(tessellatedPoints);
@@ -817,7 +822,7 @@ function updateHulls() {
                     // intead, make the hull into an extra large invisible touch target.
                     var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
                     var colorShadow = (clusters[i].length > 1) ? "#d4d4d4" : "#f7f7f7";
-                    var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
+                    // var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
                     var selectionStrokeWidth = (clusters[i].length > 1) ? "9px" : "43px";
                     var selectionStrokeDashArray = (clusters[i].length > 1) ? "5,5" : "1,1";
 
@@ -1032,14 +1037,15 @@ function computeClusterPointerTarget(points_WillBeMutated) {
         // ];
     }
 
+    var p;
     if (points.length === 3) {
-        var p = points;
+        p = points;
         return {
             x: (p[0][0] + p[1][0] + p[2][0])/3,
             y: (p[0][1] + p[1][1] + p[2][1])/3
         };
     } else if (points.length === 2) {
-        var p = points;
+        p = points;
         return {
             x: (p[0][0] + p[1][0]) / 2,
             y: (p[0][1] + p[1][1]) / 2
@@ -1274,25 +1280,24 @@ function chooseUpArrowPath(d) {
 
 
 var generateWedgeString = function(startX, startY, startAngle, endAngle, radius, largeArcFlag, shouldClose){
-        var x1 = startX + radius * Math.cos(startAngle);
-        var y1 = startY + radius * Math.sin(startAngle);
-        var x2 = startX + radius * Math.cos(endAngle);
-        var y2 = startY + radius * Math.sin(endAngle);
+  var x1 = startX + radius * Math.cos(startAngle);
+  var y1 = startY + radius * Math.sin(startAngle);
+  var x2 = startX + radius * Math.cos(endAngle);
+  var y2 = startY + radius * Math.sin(endAngle);
 
-        var pathString = "M";
-        if (shouldClose) {
-            pathString += startX + " " + startY + " L" + x1 + " " + y1;
-        } else {
-            pathString += x1 + " " + y1;
-        }
-        var sweepFlag = 1;
-        pathString += " A" + radius + " " + radius + " 0 " + largeArcFlag + " " + sweepFlag + " " + x2 + " " + y2;
-        if (shouldClose) {
-            pathString += " z";
-        }
-        return pathString;
-
-    }
+  var pathString = "M";
+  if (shouldClose) {
+    pathString += startX + " " + startY + " L" + x1 + " " + y1;
+  } else {
+    pathString += x1 + " " + y1;
+  }
+  var sweepFlag = 1;
+  pathString += " A" + radius + " " + radius + " 0 " + largeArcFlag + " " + sweepFlag + " " + x2 + " " + y2;
+  if (shouldClose) {
+    pathString += " z";
+  }
+  return pathString;
+};
 
 function chooseDownArrowPath(d) {
     if (!d.downs) { return; }
@@ -1362,6 +1367,24 @@ function chooseDownArrowPath(d) {
 // }
 
 
+function getImageWidth(d) {
+  if (!d.picture_size) {
+    return ptptOiDiameter;
+  }
+  if (d.picture_size < 0) {
+    // -1 used to indicate that the image should be resized (currently used for the anon profile image)
+    return ptptOiDiameter;
+  }
+  var z;
+  if (d.picture_size / 2 >= ptptOiDiameter) {
+    // check if we can scale down the image by half (scaling by half should reduce scaling blur)
+    z = d.picture_size / 2;
+  } else {
+    // no scaling
+    z = Math.max(d.picture_size, ptptOiDiameter);
+  }
+  return z;
+}
 
 
 // TODO this should probably inset along the normal of the lines connecting to the point in the hull.
@@ -1375,7 +1398,10 @@ function getInsetTarget(d) {
     // var inset = moveTowardsTarget(d.x, d.y, centroid.x, centroid.y, radius);
     // // TODO reduce inset as it approaches the target.
     // return inset;
-    return {x: d.x, y: d.y}
+    return {
+      x: d.x,
+      y: d.y
+    };
 }
 
 function isSummaryBucket(d) {
@@ -1603,13 +1629,15 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
     var bidToOldNode = _.indexBy(nodes, getBid);
 
-    for (var i = 0; i < updatedNodes.length; i++) {
+    (function() {
+      for (var i = 0; i < updatedNodes.length; i++) {
         var node = updatedNodes[i];
         var oldNode = bidToOldNode[node.bid];
         if (oldNode) {
             node.effects = oldNode.effects;
         }
-    }
+      }
+    }());
 
 
 
@@ -1644,14 +1672,16 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
               o.x = o.targetX;
               o.y = o.targetY;
           });
-          for (var i = 0; i < nodes.length; i++) {
-            var node = nodes[i];
-            var bucket = rNodes[i];
-            var x = node.x;
-            var y = node.y;
+          (function() {
+            for (var i = 0; i < nodes.length; i++) {
+              var node = nodes[i];
+              var bucket = rNodes[i];
+              var x = node.x;
+              var y = node.y;
 
-            bucket.transform(x, y);
-          }
+              bucket.transform(x, y);
+            }
+          }());
           updateHulls();
       } else {
         // see fa89dsjf8d
@@ -1679,6 +1709,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     }
 
   if (isIE8) {
+    (function() {
       for (var n = 0; n < nodes.length; n++) {
         var node = nodes[n];
         var bucket = rNodes[n];
@@ -1688,10 +1719,11 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             bucket.circle.attr("fill", colorNoVote);
         }
       }
-      // postpone to speed up init
-      setTimeout(function() {
-          _.map(_.range(nodes.length), setupRaphaelNode);
-      }, 1000);
+    }());
+    // postpone to speed up init
+    setTimeout(function() {
+      _.map(_.range(nodes.length), setupRaphaelNode);
+    }, 1000);
   } else {
 
     // TODO use key to guarantee unique items
@@ -1727,7 +1759,8 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
       ;
 
 
-    var pinEnter = g.filter(isParticipantOfInterest)
+    var pinEnter = g.filter(isParticipantOfInterest);
+    pinEnter
         .append("line")
         .classed("pin", true)
         .attr("x1", 0)
@@ -1740,7 +1773,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
             return "1px";
         })
         ;
-    var pinEnter = g.filter(isParticipantOfInterest)
+    pinEnter
         .append("circle")
         .attr("r", function(d) {
           if (display.xs()) {
@@ -1776,27 +1809,6 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
           }
       }
 
-
-    var ptptOiDiameter = ptptOiRadius*2;
-
-    function getImageWidth(d) {
-        if (!d.picture_size) {
-            return ptptOiDiameter;
-        }
-        if (d.picture_size < 0) {
-            // -1 used to indicate that the image should be resized (currently used for the anon profile image)
-            return ptptOiDiameter;
-        }
-        var z;
-        if (d.picture_size / 2 >= ptptOiDiameter) {
-            // check if we can scale down the image by half (scaling by half should reduce scaling blur)
-            z = d.picture_size / 2;
-        } else {
-            // no scaling
-            z = Math.max(d.picture_size, ptptOiDiameter);
-        }
-        return z;
-    }
       // OUTER TRANSLUCENT SHAPES
       var opacityOuter = 0.2;
       var upArrowEnter = g.append("polygon")
@@ -1816,7 +1828,7 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
         // .style("stroke-width", 1)
         ;
       var ptptoiImageZoomFactor = 1;
-      var picEnter = g.append("image")
+      var picEnter = g.append("image");
       picEnter
         // .classed("circle", true)
         .classed("bktv", true)
@@ -2319,8 +2331,8 @@ function onParticipantClicked(d) {
   }
   var gid = bidToGid[d.bid];
   if (_.isNumber(gid)) {
-    var hullId = gidToHullId[gid]
-      handleOnClusterClicked(hullId);
+    var hullId = gidToHullId[gid];
+    handleOnClusterClicked(hullId);
   }
 }
 
@@ -2470,9 +2482,6 @@ function doUpdateNodes() {
           //   }
           // });
 
-          function toPercent(ratio) {
-            return ((ratio * 100) >> 0) + "%";
-          }
 
   }
 }
@@ -2510,36 +2519,38 @@ function showVisBlocker() {
     visBlockerOn = true;
 
     blocker_layer.append("rect")
-        .classed("visBlocker", true)
-        .style("fill", "#f7f7f7")
-        .attr("x", 1) // inset so it doesn't get cut off on firefox
-        .attr("y", 1) // inset so it doesn't get cut off on firefox
-        .attr("width", w-2) // inset so it doesn't get cut off on firefox
-        .attr("height", h-2) // inset so it doesn't get cut off on firefox
-        // .style("stroke", "lightgray")
-        .attr("rx", 5)
-        .attr("ry", 5)
+      .classed("visBlocker", true)
+      .style("fill", "#f7f7f7")
+      .attr("x", 1) // inset so it doesn't get cut off on firefox
+      .attr("y", 1) // inset so it doesn't get cut off on firefox
+      .attr("width", w-2) // inset so it doesn't get cut off on firefox
+      .attr("height", h-2) // inset so it doesn't get cut off on firefox
+      // .style("stroke", "lightgray")
+      .attr("rx", 5)
+      .attr("ry", 5)
     ;
     blocker_layer.append("text")
-            .classed("visBlocker", true)
-            .classed("visBlockerMainText", true)
-            .attr("text-anchor", "middle")
-            .attr("fill", "#black")
-            .attr("transform", "translate("+
-                w/2 +
-                "," + (9*h/24) + ")")
+      .classed("visBlocker", true)
+      .classed("visBlockerMainText", true)
+      .attr("text-anchor", "middle")
+      .attr("fill", "#black")
+      .attr("transform", "translate("+
+        w/2 +
+        "," + (9*h/24) + ")")
     ;
     blocker_layer.append("text")
-            .classed("visBlocker", true)
-            .classed("visBlockerGraphic", true)
-            .attr("transform", "translate("+
-                w/2 +
-                "," + (15*h/24) +")")
-            .attr("text-anchor", "middle")
-            .attr("fill", "#black")
-        .attr('font-family', 'FontAwesome')
-        .attr('font-size', function(d) { return '2em'} )
-        ;
+      .classed("visBlocker", true)
+      .classed("visBlockerGraphic", true)
+      .attr("transform", "translate("+
+        w/2 +
+        "," + (15*h/24) +")")
+      .attr("text-anchor", "middle")
+      .attr("fill", "#black")
+      .attr('font-family', 'FontAwesome')
+      .attr('font-size', function(d) {
+        return '2em';
+      })
+    ;
 
 }
 

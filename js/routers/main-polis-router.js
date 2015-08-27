@@ -187,9 +187,10 @@ function doJoinConversation(args) {
       params.referrer = referrer;
     }
 
+    var ptpt;
     if (suzinvite) {
       // join conversation (may already have joined)
-      var ptpt = new ParticipantModel(params);
+      ptpt = new ParticipantModel(params);
       ptpt.save().then(function() {
         // Participant record was created, or already existed.
         // Go to the conversation.
@@ -225,7 +226,7 @@ function doJoinConversation(args) {
       });
     } else { // !singleUse
       // join conversation (may already have joined)
-      var ptpt = new ParticipantModel(params);
+      ptpt = new ParticipantModel(params);
       ptpt.save().then(function() {
         // Participant record was created, or already existed.
         // Go to the conversation.
