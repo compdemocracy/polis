@@ -100,11 +100,11 @@ module.exports =  PolisModelView.extend({
         this.commentsCollection.fetch({
           gid: gid
         }).then(function() {
-          // that.analyzeGlobalView0.sortAgree();              
+          // that.commentCarouselMajorityView0.sortAgree();              
         });
 
 
-        this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
+        this.commentCarouselMajorityView = this.addChild(new AnalyzeGlobalView({
           conversation_id: conversation_id,
           isIE8: isIE8,
           gid: gid,

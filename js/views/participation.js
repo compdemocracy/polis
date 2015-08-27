@@ -772,13 +772,13 @@ module.exports =  ConversationView.extend({
 
       // var gotFirstComment = (firstComment && !_.isUndefined(firstComment.txt));
       // var openToWriteTab = !gotFirstComment;
-      var allowAnalyze = this.model.get("vis_type") >= 1;
+      var allowMajority = this.model.get("vis_type") >= 1;
       this.conversationTabs = this.addChild(new ConversationTabsView({
         serverClient: serverClient,
         // openToWriteTab: openToWriteTab,
         openToAnalyzeTab: true,
         model: new Backbone.Model({
-          allowAnalyze: allowAnalyze,
+          allowMajority: allowMajority,
           showTabs: true
         })
       }));
@@ -814,7 +814,7 @@ module.exports =  ConversationView.extend({
       this.analyzeGroupModel = new Backbone.Model({
         selectedGid: this.selectedGid,
       });
-      this.analyzeGroupView = this.addChild(new AnalyzeGroupView({
+      this.commentCarouselGroupView = this.addChild(new AnalyzeGroupView({
         model: this.analyzeGroupModel,
         conversation_id: conversation_id,
         getParticipantsOfInterestForGid: function() {
@@ -829,7 +829,7 @@ module.exports =  ConversationView.extend({
         collection: this.allCommentsCollection
       }));
 
-      this.analyzeGlobalView = this.addChild(new AnalyzeGlobalView({
+      this.commentCarouselMajorityView = this.addChild(new AnalyzeGlobalView({
         conversation_id: conversation_id,
         getTidsForConsensus: function() {
           return that.serverClient.getTidsForConsensus.apply(0, arguments);
@@ -857,7 +857,7 @@ module.exports =  ConversationView.extend({
 
 
       var doReproject = _.debounce(serverClient.updateMyProjection, 1000);
-      this.analyzeGlobalView.on("searchChanged", function(o) {
+      this.commentCarouselMajorityView.on("searchChanged", function(o) {
         // serverClient.setTidSubsetForReprojection(o.tids);
         if (that.conversationTabs.onAnalyzeTab()) {
           doReproject();
@@ -924,7 +924,7 @@ module.exports =  ConversationView.extend({
       // that.conversationTabs.doShowTabsUX();
     });
 
-    that.conversationTabs.on("beforeshow:analyze", function() {
+    that.conversationTabs.on("beforeshow:majority", function() {
       that.showTutorial();
       if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
@@ -933,7 +933,7 @@ module.exports =  ConversationView.extend({
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
-        that.analyzeGlobalView.renderWithCarousel();
+        that.commentCarouselMajorityView.renderWithCarousel();
       });
       that.updateVisibilityOfSocialButtons();
     });
@@ -960,9 +960,9 @@ module.exports =  ConversationView.extend({
       that.showTutorial();
       that.updateVisibilityOfSocialButtons();
     });
-    that.conversationTabs.on("aftershow:analyze", function() {
+    that.conversationTabs.on("aftershow:majority", function() {
       that.initPcaVis();
-      that.analyzeGlobalView.renderWithCarousel();
+      that.commentCarouselMajorityView.renderWithCarousel();
 
       if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
         $(".query_result_item").first().trigger("click");
@@ -1121,7 +1121,7 @@ module.exports =  ConversationView.extend({
       }
 
       if (!isMobile) {
-        that.$("#"+that.conversationTabs.ANALYZE_TAB).tooltip({
+        that.$("#"+that.conversationTabs.MAJORITY_TAB).tooltip({
           title: "See which comments have consensus, and which comments were representative of each group.",
           placement: "top",
           delay: { show: 300, hide: 200 },

@@ -21,8 +21,8 @@ bus.deselectGroups = "deselectGroups";
 bus.interacted = "interacted"; // user has interacted (voted, written, changed tabs, etc)
 bus.twitterConnected = "twitterConnected";
 bus.visShown = "visShown";
-bus["beforehide:analyze"] = "beforehide:analyze";
-bus["aftershow:analyze"] = "aftershow:analyze";
+bus["beforehide:majority"] = "beforehide:majority";
+bus["aftershow:majority"] = "aftershow:majority";
 bus.firstRender = "firstRender";
 
 module.exports = bus;

@@ -13,7 +13,7 @@ var Utils = require("../util/utils");
 module.exports =  Handlebones.ModelView.extend({
   name: "conversation-tabs-view",
   template: template,
-  ANALYZE_TAB: "analyzeTab",
+  MAJORITY_TAB: "majorityTab",
   GROUP_TAB: "groupTab",
   LEGEND_TAB: "legendTab",
   METADATA_TAB: "metadata_pill",
@@ -35,7 +35,7 @@ module.exports =  Handlebones.ModelView.extend({
     this.stopPulsingVoteTab();
   },
   gotoAnalyzeTab: function() {
-    this.gotoTab(this.ANALYZE_TAB);
+    this.gotoTab(this.MAJORITY_TAB);
     this.maybeStartPulsingVoteTab();
   },
   gotoGroupTab: function() {
@@ -70,8 +70,8 @@ module.exports =  Handlebones.ModelView.extend({
     if (this.currentTab === this.WRITE_TAB) {
       c.writeActive = true;
     }
-    if (this.currentTab === this.ANALYZE_TAB) {
-      c.analyzeActive = true;
+    if (this.currentTab === this.MAJORITY_TAB) {
+      c.majorityActive = true;
     }
     if (this.currentTab === this.GROUP_TAB) {
       c.groupActive = true;
@@ -93,7 +93,7 @@ module.exports =  Handlebones.ModelView.extend({
     c.dropdownLabel = userObject.hname || "Login";
     c.showLogout = userObject.hasTwitter || userObject.hasFacebook || userObject.email;
     c.smallMenu = true; // don't show full name, etc as menu's button, just polis icon and caret
-    c.showAnalyzeTab = this.showAnalyzeTab;
+    c.showMajorityTab = this.showMajorityTab;
     c.selfUrl = null;
     if (Utils.isInIframe()) {
       c.selfUrl = (document.location+"").replace("embed.pol.is", "pol.is");
@@ -119,7 +119,7 @@ module.exports =  Handlebones.ModelView.extend({
     "click #twitterConnectBtn": "twitterConnectBtn",
     "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
     "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
-    "click #analyzeTab": "onAnalyzeTabClick",
+    "click #majorityTab": "onAnalyzeTabClick",
     "click #commentFormTab": "onWriteTabClick",
     "click #commentViewTab": "onVoteTabClick",
     "click #infoPaneTab": "onInfoPaneTabClick",
@@ -143,12 +143,12 @@ module.exports =  Handlebones.ModelView.extend({
       if (from && from.id === this.LEGEND_TAB) {
         this.trigger("beforehide:legend");
       }
-      if(from && from.id === this.ANALYZE_TAB) {
-        this.trigger("beforehide:analyze");
-        eb.trigger("beforehide:analyze");
+      if(from && from.id === this.MAJORITY_TAB) {
+        this.trigger("beforehide:majority");
+        eb.trigger("beforehide:majority");
       }
-      if(to && to.id === this.ANALYZE_TAB) {
-        this.trigger("beforeshow:analyze");
+      if(to && to.id === this.MAJORITY_TAB) {
+        this.trigger("beforeshow:majority");
       }
 
       if(from && from.id === this.GROUP_TAB) {
@@ -176,9 +176,9 @@ module.exports =  Handlebones.ModelView.extend({
     "shown.bs.tab": function (e) {
       var to = e.target;
       // e.relatedTarget // previous tab
-      if(e.target && e.target.id === this.ANALYZE_TAB) {
-        this.trigger("aftershow:analyze");
-        eb.trigger("aftershow:analyze");
+      if(e.target && e.target.id === this.MAJORITY_TAB) {
+        this.trigger("aftershow:majority");
+        eb.trigger("aftershow:majority");
       }
       if(e.target && e.target.id === this.GROUP_TAB) {
         this.trigger("aftershow:group");
@@ -214,7 +214,7 @@ module.exports =  Handlebones.ModelView.extend({
     this.model.set("showGroupHeader", true);
   },
   onAnalyzeTab: function() {
-    return this.ANALYZE_TAB === this.currentTab;
+    return this.MAJORITY_TAB === this.currentTab;
   },
   onVoteTab: function() {
     return this.VOTE_TAB === this.currentTab;
@@ -266,10 +266,9 @@ module.exports =  Handlebones.ModelView.extend({
     var that = this;
 
     eb.on(eb.visShown, function() {
-      $("#analyzeTab").fadeIn();
-      that.showAnalyzeTab = true;
+      $("#majorityTab").fadeIn();
+      that.showMajorityTab = true;
     });
-    // start with the analyze tab
     this.currentTab = this.WRITE_TAB;
     if (options.openToWriteTab) {
 

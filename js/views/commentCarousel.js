@@ -1,7 +1,6 @@
 var constants = require("../util/constants");
 var display = require("../util/display");
 var eb = require("../eventBus");
-var CommentModel = require("../models/comment");
 var Handlebones = require("handlebones");
 var Strings = require("../strings");
 var Utils = require("../util/utils");

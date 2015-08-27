@@ -210,14 +210,14 @@ function hideTip() {
     updateHullColors();
 }
 
-var onAnalyzeTab = false;
-eb.on("aftershow:analyze", function() {
-    console.log("aftershow:analyze");
-    onAnalyzeTab = true;
+var onMajorityTab = false;
+eb.on("aftershow:majority", function() {
+    console.log("aftershow:majority");
+    onMajorityTab = true;
 });
-eb.on("beforehide:analyze", function() {
-    console.log("beforehide:analyze");
-    onAnalyzeTab = false;
+eb.on("beforehide:majority", function() {
+    console.log("beforehide:majority");
+    onMajorityTab = false;
 });
 
 
@@ -2401,7 +2401,7 @@ function doUpdateNodes() {
         update.selectAll(".grayHalo")
                 .style("stroke", function(d) {
                     if (isSelf(d)) {
-                        if (clusterIsSelected() || onAnalyzeTab) {
+                        if (clusterIsSelected() || onMajorityTab) {
                             if (d.ups || d.downs) {
                                 return grayHaloColorSelected;
                             } else {

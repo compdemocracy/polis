@@ -39,19 +39,19 @@
         Write
       </a>
     </li>
-    {{#if allowAnalyze}}
+    {{#if allowMajority}}
     <li
-      class="{{#if analyzeActive}}active{{/if}}" 
+      class="{{#if majorityActive}}active{{/if}}" 
     >
       <a
-        href="#analyze"
-        id="analyzeTab"
+        href="#majority"
+        id="majorityTab"
         class="HeadingC polis-tab"
         style="
           padding: 10px 5px !important;
           border: none;
           text-transform: none;
-          {{#unless showAnalyzeTab}}display: none;{{/unless}}
+          {{#unless showMajorityTab}}display: none;{{/unless}}
           "
         data-toggle="tab">
         {{!-- See Consensus --}}

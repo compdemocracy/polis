@@ -785,7 +785,7 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
   }
 
   // Prevent bootstrap tabs from wrapping
-  #commentViewTab, #commentFormTab, #analyzeTab {
+  #commentViewTab, #commentFormTab, #majorityTab {
     padding: 10px 10px; // overriding from 10px 15px
   }
 }

@@ -221,7 +221,7 @@ module.exports =  ConversationView.extend({
       }));
 
 
-      this.analyzeGlobalView = this.addChild(new AnalyzeGlobalReprojectView({
+      this.commentCarouselMajorityView = this.addChild(new AnalyzeGlobalReprojectView({
         conversation_id: conversation_id,
         isIE8: isIE8,
         getTidsForGroup: function() {
@@ -297,7 +297,7 @@ module.exports =  ConversationView.extend({
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
-        that.analyzeGlobalView.sort();
+        that.commentCarouselMajorityView.sort();
       });
       
 
