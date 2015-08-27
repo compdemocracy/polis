@@ -1,4 +1,4 @@
-var AnalyzeGlobalView = require("../views/analyze-global");
+var AnalyzeGlobalView = require("../views/commentCarouselMajority");
 var Backbone = require("backbone");
 var CommentModel = require("../models/comment");
 var CommentsCollection = require("../collections/comments");

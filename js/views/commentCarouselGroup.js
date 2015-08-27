@@ -4,12 +4,12 @@ var carouselCommentTemplate = require("../tmpl/carouselComment");
 var constants = require("../util/constants");
 var display = require("../util/display");
 var eb = require("../eventBus");
-var template = require("../tmpl/analyze-group");
+var template = require("../tmpl/commentCarouselGroup");
 var Strings = require("../strings");
 var Utils = require("../util/utils");
 
 module.exports = CommentCarousel.extend({
-  name: "analyze-global-view",
+  name: "comment-carousel-group-view",
   className: "infoArea",
   el_carouselSelector: "carouselForGroup",
   el_prevButton: "groupCarouselPrev",

@@ -5,12 +5,12 @@ var carouselCommentTemplate = require("../tmpl/carouselComment");
 var constants = require("../util/constants");
 var display = require("../util/display");
 var eb = require("../eventBus");
-var template = require("../tmpl/analyze-global");
+var template = require("../tmpl/commentCarouselMajority");
 var Strings = require("../strings");
 
 
 module.exports = CommentCarousel.extend({
-  name: "analyze-global-view",
+  name: "comment-carousel-majority-view",
   className: "infoArea",
   commentLimit: 10,
   el_carouselSelector: "carouselConsensus",
