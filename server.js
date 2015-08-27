@@ -8785,6 +8785,7 @@ var socialParticipantsCache = new SimpleCacheWithTTL({
 });
 
 function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUids) {
+    // NOTE ignoring authorUids as part of cacheKey since lastVoteTimestamp will change first
     var cacheKey = [zid, limit, mod, lastVoteTimestamp].join("_");
     if (socialParticipantsCache.get(cacheKey)) {
         return socialParticipantsCache.get(cacheKey);
@@ -9417,12 +9418,20 @@ function(req, res) {
       var featuredTids = _.union(consensusTids, groupTids);
       featuredTids.sort();
       featuredTids = _.uniq(featuredTids);
-      return _getCommentsList({
-        zid: zid,
-        tids: featuredTids,
-      }).then(function(comments) {
+
+      if (featuredTids.length === 0) {
+        return [];
+      }
+
+      var q = "with "+
+        "u as (select distinct(uid) from comments where zid = ($1) and tid in ("+featuredTids.join(",") + ") order by uid) " +
+        "select u.uid from u inner join facebook_users on facebook_users.uid = u.uid " +
+        "union " +
+        "select u.uid from u inner join twitter_users on twitter_users.uid = u.uid " +
+        "order by uid;";
+
+      return pgQueryP(q, [zid]).then(function(comments) {
         var uids = _.pluck(comments, "uid");
-        uids.sort();
         uids = _.uniq(uids);
         return uids;
       });
