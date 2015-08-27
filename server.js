@@ -8780,10 +8780,18 @@ var socialParticipantsCache = new SimpleCacheWithTTL({
     maxSize: 999,
 });
 
-function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp) {
+function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUids) {
     var cacheKey = [zid, limit, mod, lastVoteTimestamp].join("_");
     if (socialParticipantsCache.get(cacheKey)) {
         return socialParticipantsCache.get(cacheKey);
+    }
+
+    var authorsQuery = authorUids.map(function(authorUid) {
+      return "select " + Number(authorUid) + " as uid, 900 as priority";
+    });
+    authorsQuery = "(" + authorsQuery.join(" union ") + ")";
+    if (authorUids.length === 0) {
+      authorsQuery = null;
     }
 
     var q = "with " +
@@ -8795,9 +8803,12 @@ function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp) {
     "twitter_ptpts as (select p.uid, 10 as priority from p inner join twitter_users on twitter_users.uid  = p.uid where p.mod >= ($4)), " +
     "all_fb_users as (select p.uid, 9 as priority from p inner join facebook_users on facebook_users.uid = p.uid where p.mod >= ($4)), " +
     "self as (select CAST($2 as INTEGER) as uid, 1000 as priority), " +
+    (authorsQuery ? ("authors as " + authorsQuery + ", ") : "") +
     "pptpts as (select prioritized_ptpts.uid, max(prioritized_ptpts.priority) as priority " +
         "from ( " +
             "select * from self " +
+            (authorsQuery ? ("union " +
+            "select * from authors ") : "") +
             // "union  " +
             // "select * from all_friends " +
             "union " +
@@ -8866,6 +8877,7 @@ function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp) {
         "left join p on final_set.uid = p.uid " +
 // "left join all_fb_usersriends on all_friends.uid = p.uid " +
     ";";
+    
     return pgQueryP_metered("getSocialParticipants", q, [zid, uid, limit, mod]).then(function(response) {
         socialParticipantsCache.set(cacheKey, response);
         return response;
@@ -9369,20 +9381,55 @@ app.get("/api/v3/votes/famous",
     want('lastVoteTimestamp', getInt, assignToP, -1),
     want('ptptoiLimit', getIntInRange(0,99), assignToP),
 function(req, res) {
-    var uid = req.p.uid;
-    var zid = req.p.zid;
-    var lastVoteTimestamp = req.p.lastVoteTimestamp;
+  var uid = req.p.uid;
+  var zid = req.p.zid;
+  var lastVoteTimestamp = req.p.lastVoteTimestamp;
 
 // NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
 
-    var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
-    var softLimit = 26;
-    var hardLimit = _.isUndefined(req.p.ptptoiLimit) ? 30 : req.p.ptptoiLimit;
-    var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
-    var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
+  var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
+  var softLimit = 26;
+  var hardLimit = _.isUndefined(req.p.ptptoiLimit) ? 30 : req.p.ptptoiLimit;
+  var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
+  var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
+
+  function getAuthorUidsOfFeaturedComments() {
+    return getPca(zid, 0).then(function(pcaData) {
+      if (!pcaData) {
+        return [];
+      }
+      pcaData.consensus = pcaData.consensus || {};
+      pcaData.consensus.agree = pcaData.consensus.agree || [];
+      pcaData.consensus.disagree = pcaData.consensus.disagree || [];
+      var consensusTids = _.union(
+        _.pluck(pcaData.consensus.agree, "tid"),
+        _.pluck(pcaData.consensus.disagree, "tid"));
+
+      var groupTids = [];
+      for (var gid in pcaData.repness) {
+        var commentData = pcaData.repness[gid];
+        groupTids = _.union(groupTids, _.pluck(commentData, "tid"));
+      }
+      var featuredTids = _.union(consensusTids, groupTids);
+      featuredTids.sort();
+      featuredTids = _.uniq(featuredTids);
+      return _getCommentsList({
+        zid: zid,
+        tids: featuredTids,
+      }).then(function(comments) {
+        var uids = _.pluck(comments, "uid");
+        uids.sort();
+        uids = _.uniq(uids);
+        return uids;
+      });
+    });
+  }
+
+
+  getAuthorUidsOfFeaturedComments().then(function(authorUids) {  
 
     Promise.all([
-        getSocialParticipants(zid, uid, hardLimit, mod, lastVoteTimestamp),
+        getSocialParticipants(zid, uid, hardLimit, mod, lastVoteTimestamp, authorUids),
         // getFacebookFriendsInConversation(zid, uid),
         // getTwitterUsersInConversation(zid, uid, twitterLimit),
         // getPolisSocialSettings(zid, uid),
@@ -9543,6 +9590,9 @@ function(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_famous_proj_get01", err);
     });
+  }).catch(function(err) {
+    fail(res, 500, "polis_err_famous_proj_get00", err);
+  });
 });
 
 app.get("/api/v3/twitter_users",
