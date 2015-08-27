@@ -354,7 +354,7 @@ gulp.task('scripts', ['templates', 'jshint'], function() {
         // transform: ['hbsfy'],
         shim : {
           jquery: {
-            path : devMode ? 'js/lib/jquery.js' : 'js/lib/jquery.min.js',
+            path : devMode ? 'js/3rdparty/jquery.js' : 'js/3rdparty/jquery.min.js',
             exports: '$',
           },
           //TODO 'handlebars': 'templates/helpers/handlebarsWithHelpers', //this one has polis custom template helpers
