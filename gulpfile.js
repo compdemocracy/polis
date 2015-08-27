@@ -45,7 +45,7 @@ var sys = require('sys');
 var url = require('url');
 
 
-var useJsHint = false;
+var useJsHint = true;
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
