@@ -76,7 +76,7 @@ var width = $(el_raphaelSelector).width();
 
 // var ptptOiRadius = d3.scale.linear().range([10, 16]).domain([350, 800]).clamp(true)(width);
 var retina = window.devicePixelRatio > 1;
-var basePtptoiRad = retina ? 12 : 20; // go smaller on retina, the image should be higher res
+var basePtptoiRad = retina ? 12 : 10; // go smaller on retina, the image should be higher res
 if (isMobile) {
     basePtptoiRad = 9;
 }
