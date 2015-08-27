@@ -45,7 +45,9 @@ var sys = require('sys');
 var url = require('url');
 
 
+// WARNING: useJsHint gets mutated in watch builds
 var useJsHint = true;
+
 const staticFilesPrefix = "cached";
 const baseDistRoot = "dist";
 var destRootBase = "devel";
@@ -291,6 +293,9 @@ gulp.task('templates', function(){
 });
 
 gulp.task('jshint', function(){
+
+  // WARNING: useJsHint gets mutated in watch builds
+
   gulp.src([
     'js/**/*.js',
     '!js/tmpl/**',
@@ -618,6 +623,11 @@ gulp.task('dist', [
 gulp.task("watchForDev", [
   "connect",
   ], function() {
+
+    // don't block watch builds on lint
+    // TODO: there's probably a way to run lint after each time the build finishes.
+    useJsHint = false;
+
     gulp.watch([
       "js/**",
       "!js/tmpl/**", // These are genterated, so don't watch!
