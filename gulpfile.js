@@ -293,7 +293,8 @@ gulp.task('templates', function(){
 gulp.task('jshint', function(){
   gulp.src([
     'js/**/*.js',
-    '!js/tmpl/**'
+    '!js/tmpl/**',
+    '!js/3rdparty/**',
     ]).pipe(gulpif(useJsHint, jshint(
 
       {
@@ -320,7 +321,7 @@ gulp.task('jshint', function(){
           boss: true,
 //          debug: true, // uncomment temporarily when you want to allow debugger; statements.
           // browser: true,
-          es3: true,          
+          // es3: true,          
           globals: {
             d3: true,
             jQuery: true,
