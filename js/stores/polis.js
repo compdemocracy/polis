@@ -1,7 +1,10 @@
+
+/*jshint -W069 */
+
 var eb = require("../eventBus");
 var deepcopy = require("deepcopy");
 var metric = require("../util/gaMetric");
-var Utils = require("../util/utils")
+var Utils = require("../util/utils");
 var shuffleWithSeed = require("../util/shuffleWithSeed");
 // var brain = require("brain");
 var URLs = require("../util/url");
@@ -13,6 +16,7 @@ var PTPOI_BID_OFFSET = 1e10;
 var polisPost = Net.polisPost;
 var polisGet = Net.polisGet;
 var polisAjax = Net.polisAjax;
+
 
 module.exports = function(params) {
 
@@ -1209,7 +1213,7 @@ function clientSideBaseCluster(things, N) {
                     var bidToGid = getBidToGid(clusters);
                     var bucketPerGroup = {};
                     _.each(buckets, function(bucket) {
-                        var gid = bidToGid[bucket.id]
+                        var gid = bidToGid[bucket.id];
                         bucketPerGroup[gid] = bucketPerGroup[gid] || [];
                         bucketPerGroup[gid].push(bucket);
                         bucket.gid = gid;
@@ -1323,7 +1327,7 @@ function clientSideBaseCluster(things, N) {
 
                     // TEMP hack for bug in data
                     if (!_.isUndefined(votesBase.tid)) {
-                        var tid = votesBase.tid
+                        var tid = votesBase.tid;
                         votesBase[tid] = {};
                         votesBase[tid].A = votesBase.A;
                         votesBase[tid].D = votesBase.D;
@@ -1453,7 +1457,7 @@ function clientSideBaseCluster(things, N) {
         return {
             buckets: buckets,
             clusters: clusters
-        }
+        };
     }
 
     function arraysToObjects(objWithArraysAsProperties) {
@@ -1577,10 +1581,10 @@ function clientSideBaseCluster(things, N) {
           return node.proj[dim];
         }
         function getX(bid) {
-          return getxy(bid, "x")
+          return getxy(bid, "x");
         }
         function getY(bid) {
-          return getxy(bid, "y")
+          return getxy(bid, "y");
         }
 
 
@@ -1608,10 +1612,10 @@ function clientSideBaseCluster(things, N) {
           var centerY = averageTheThings(ptptoiMembers, getY);
           // otherwise, just use the center of the cluster, since there are no ptptois
           if (_.isNaN(centerX)) {
-            centerX = cluster.center[0]
+            centerX = cluster.center[0];
           }
           if (_.isNaN(centerY)) {
-            centerY = cluster.center[1]
+            centerY = cluster.center[1];
           }
           var associatedBigBucket = getBigBucketForGroup(cluster.id);
           associatedBigBucket.proj.x = centerX;
@@ -1744,14 +1748,14 @@ function clientSideBaseCluster(things, N) {
             var agrees = _.map(consensusComments.agree, function(c) {
                 c.a = true;
                 return c;
-            })
+            });
             Array.prototype.push.apply(x, agrees);
         }
         if (consensusComments.disagree && consensusComments.disagree.length) {
             var disagrees = _.map(consensusComments.disagree, function(c) {
                 c.d = true;
                 return c;
-            })
+            });
             Array.prototype.push.apply(x, disagrees);
         }
         return x;
@@ -2365,13 +2369,13 @@ function clientSideBaseCluster(things, N) {
         }
         var repfulTids = {};
         if (Utils.projectRepfulTids) {
-            for (var gid in repness) {
+            _.each(repness, function(gid) {
                 _.each(repness[gid], function(c) {
                     if (c['repful-for'] === "agree") {
                         repfulTids[c.tid] = true;
                     }
                 });
-            }
+            });
         }
 
         var numComments = pcaCenter.length;
@@ -2518,3 +2522,7 @@ function clientSideBaseCluster(things, N) {
         submitComment: submitComment
     };
 };
+
+/*jshint +W069 */
+
+

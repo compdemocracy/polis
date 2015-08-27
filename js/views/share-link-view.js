@@ -25,8 +25,8 @@ module.exports = PolisModelView.extend({
             conversation_id: conversation_id
           }
         }).done(function(){
-          console.log('sent!')
-        })
+          console.log('sent!');
+        });
       },
       "click #okButton": function() {
         this.trigger("done");

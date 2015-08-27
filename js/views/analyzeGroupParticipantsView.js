@@ -42,7 +42,7 @@ module.exports = Handlebones.View.extend({
         // x.location = (x.twitter && x.twitter.location) || (x.facebook && x.facebook.location) || "";
         x.hasSocial = !!(x.twitter || x.facebook);
         return x;
-      })
+      });
       that.render();
     });
   }

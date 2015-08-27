@@ -225,7 +225,7 @@ module.exports =  ConversationView.extend({
 
     eb.on(eb.twitterConnected, function() {
       eb.trigger(eb.reload);
-    })
+    });
 
     // var dest = window.location.pathname + window.location.hash;
     // window.location = "/api/v3/twitterBtn?dest=" + dest;
@@ -543,7 +543,7 @@ module.exports =  ConversationView.extend({
       //   $("#commentView").removeClass("floating-side-panel-gradients");
       // }
 
-      that.serverClient.addPersonUpdateListener(onPersonUpdate) // TODO REMOVE DUPLICATE
+      that.serverClient.addPersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
 
 
       vis.getFirstShowDeferred().then(function() {
@@ -1206,7 +1206,7 @@ module.exports =  ConversationView.extend({
   //  but we don't want to wait until the user clicks the hull)
   setTimeout(function() {
     that.allCommentsCollection.doFetch({});
-  }, 3000)
+  }, 3000);
 
   } // end initialize
 });

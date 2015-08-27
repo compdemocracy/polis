@@ -49,7 +49,7 @@ module.exports = CommentCarousel.extend({
       indexToTid.push(tid);
       var info = tidToConsensusInfo[tid];
       var bodyColor = "#333";
-      var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
+      // var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
 
       var forAgree = !!tidToConsensusInfo[tid].a;
 
@@ -60,14 +60,12 @@ module.exports = CommentCarousel.extend({
         "<i class='fa fa-ban'></i>  " + ((info["n-success"] / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
       var leClass = forAgree ? "a": "d";
       var count = info["n-success"];
-      var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
       var agreedOrDisagreed = forAgree ?
         "<span class='a'>"+Strings.pctAgreed+"</span>" :
         "<span class='d'>"+Strings.pctDisagreed+"</span>";
       agreedOrDisagreed = agreedOrDisagreed.replace("{{pct}}", percent);
 
-      var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
-
+      // var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
       var backgroundColor = "white"; //forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
       var dotColor = forAgree ? "#00b54d" : "#e74c3c";
       var gradient = "";
@@ -126,7 +124,7 @@ module.exports = CommentCarousel.extend({
     return {
       items: items,
       indexToTid: indexToTid,
-    }
+    };
   },
 
   context: function() {

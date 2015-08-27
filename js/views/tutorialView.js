@@ -103,7 +103,7 @@ module.exports = Handlebones.ModelView.extend({
     if (!currentSection[step+1]) {
       ctx.showButton = DONE_BUTTON_VISIBLE[section];
     }
-    ctx.nxtBtnTxt = currentSection[step+1] ? "Next tutorial step" : "Done"
+    ctx.nxtBtnTxt = currentSection[step+1] ? "Next tutorial step" : "Done";
     return ctx;
   },
   initialize: function(options) {

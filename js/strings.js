@@ -20,21 +20,21 @@ prioritized.reverse();
 
 
 prioritized.forEach(function(languageCode) {
-	if (languageCode.match(/^en/)) {
-		strings = _.extend(strings, en_us);
-	}
-	// else if (languageCode.match(/^ja/)) {
-	// 	strings = _.extend(strings, ja);
-	// }
-	else if (
-		languageCode.match(/^zh-CN/) ||
-		languageCode.match(/^zh-SG/) ||
-		languageCode.match(/^zh-MY/)) {
-		strings = _.extend(strings, zh_Hans);
-	}
-	else if (languageCode.match(/^zh/)) { // TW, MO and HK
-		strings = _.extend(strings, zh_Hant);
-	}
+  if (languageCode.match(/^en/)) {
+    strings = _.extend(strings, en_us);
+  }
+  // else if (languageCode.match(/^ja/)) {
+  //   strings = _.extend(strings, ja);
+  // }
+  else if (
+    languageCode.match(/^zh-CN/) ||
+    languageCode.match(/^zh-SG/) ||
+    languageCode.match(/^zh-MY/)) {
+    strings = _.extend(strings, zh_Hans);
+  }
+  else if (languageCode.match(/^zh/)) { // TW, MO and HK
+    strings = _.extend(strings, zh_Hant);
+  }
 });
 
 module.exports = strings;

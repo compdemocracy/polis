@@ -311,7 +311,7 @@ var polisRouter = Backbone.Router.extend({
     ];
     function needsFooter(route) {
       return _.some(routesWithFooter, function(regex){
-        return route.match(regex)
+        return route.match(regex);
       });
     }
     this.on("route", function(route, params) {
@@ -594,7 +594,12 @@ var polisRouter = Backbone.Router.extend({
     });
   },
   hk: function() {
-    if (Utils.isIos() && (window.top != window)) {
+    /*eslint-disable */
+    /* jshint ignore:start */
+    var check = Utils.isIos() && (window.top != window);
+    /* jshint ignore:end */
+    /*eslint-enable */
+    if (check) {
       // this.tryCookieThing();
       window.top.location = "https://pol.is/hk";
     }
@@ -1049,7 +1054,7 @@ var polisRouter = Backbone.Router.extend({
       } else if (ua.match(/Safari/)) { // would include Chrome, but we handled Chrome above
         return true;
       } else {
-        return false
+        return false;
       }
     }
 
@@ -1231,7 +1236,7 @@ var polisRouter = Backbone.Router.extend({
     });
   },
   faq: function(){
-    var faqCollection = new FaqCollection(FaqContent)
+    var faqCollection = new FaqCollection(FaqContent);
     var faqView = new FaqView({collection: faqCollection});
     RootView.getInstance().setView(faqView);
   }

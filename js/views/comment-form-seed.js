@@ -93,7 +93,7 @@ module.exports = Handlebones.View.extend({
       that.updateCollection();
     }, function(err) {
       console.error("failed to import tweet");
-      console.error(err)
+      console.error(err);
     });
   },
   participantCommented: function(attrs) {
@@ -109,7 +109,7 @@ module.exports = Handlebones.View.extend({
       that.updateCollection();
     }, function(err) {
       console.error("failed to send comment");
-      console.error(err)
+      console.error(err);
     });
   },
   updateCollection: function() {

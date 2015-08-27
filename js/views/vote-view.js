@@ -249,7 +249,7 @@ module.exports = Handlebones.ModelView.extend({
         alert("Error subscribing");
         console.error(err);
       });
-    },
+    };
     this.participantAgreed = function(e) {
       this.mostRecentVoteType = "agree";
       var tid = this.model.get("tid");

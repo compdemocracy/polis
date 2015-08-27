@@ -48,22 +48,22 @@ module.exports = Handlebones.View.extend({
     return $("#" + this.el_carouselSelector);
   },
   getPrevButtonEl: function() {
-  	return $("#" + this.el_prevButton);
+    return $("#" + this.el_prevButton);
   },
   getNextButtonEl: function() {
-  	return $("#" + this.el_nextButton);
+    return $("#" + this.el_nextButton);
   },
   getParentEl: function() {
-	  return $("#" + this.el_parent);
+    return $("#" + this.el_parent);
   },
   getSmallWindowEl: function() {
-  	return $("#" + this.el_smallWindow);
+    return $("#" + this.el_smallWindow);
   },
   groupInfo: function() {
     return this.parent.groupInfo();
   },
   renderItems: function(items, indexToTid) {
-  	var that = this;
+    var that = this;
     var el = that.getCarouselEl();
     el.html("");
     el.append("<div id='"+ that.el_smallWindow +"' style='left: 10%; width:80%'></div>");
@@ -77,14 +77,14 @@ module.exports = Handlebones.View.extend({
 
     results.owlCarousel({
       items : that.commentLimit,
-       singleItem : true,
-       // autoHeight : true,
-     //  transitionStyle: "fade", // this should enable CSS3 transitions
+      singleItem : true,
+      // autoHeight : true,
+      //  transitionStyle: "fade", // this should enable CSS3 transitions
       afterInit : function(elem){
         if (!isMobile) {
           this.owlControls.prependTo(elem);
         }
-     // setTimeout(function() {
+        // setTimeout(function() {
         el.fadeIn(0, function() {
 
           var circles = el.find(".owl-pagination").find(".owl-page > span");
@@ -148,7 +148,7 @@ module.exports = Handlebones.View.extend({
           var prevEl = that.getPrevButtonEl();
           var nextEl = that.getNextButtonEl();
 
-          prevEl.css("opacity", .2);
+          prevEl.css("opacity", 0.2);
 
           nextEl.on("click", function(e) {
             if (!that.carouselNextDisabled) {
@@ -169,29 +169,28 @@ module.exports = Handlebones.View.extend({
       // }, 100);
 
       },
-       afterMove: (function() {return function() {
-          var tid = indexToTid[this.currentItem];
+      afterMove: function() {
+        var tid = indexToTid[this.currentItem];
 
-          var prevEl = that.getPrevButtonEl();
-          var nextEl = that.getNextButtonEl();
+        var prevEl = that.getPrevButtonEl();
+        var nextEl = that.getNextButtonEl();
 
-          nextEl.css("opacity", 1);
-          prevEl.css("opacity", 1);
-          that.carouselPrevDisabled = false;
-          that.carouselNextDisabled = false;
-          if (this.currentItem === 0) {
-            prevEl.css("opacity", .2);
-            that.carouselPrevDisabled = true;
-          }
-          if (this.currentItem >= (items.length - 1)) {
-            nextEl.css("opacity", .2);
-            that.carouselNextDisabled = true;
-          }
-          setTimeout(function() {
-              eb.trigger(eb.commentSelected, tid);
-          }, 200);
-
-      }}())
+        nextEl.css("opacity", 1);
+        prevEl.css("opacity", 1);
+        that.carouselPrevDisabled = false;
+        that.carouselNextDisabled = false;
+        if (this.currentItem === 0) {
+          prevEl.css("opacity", 0.2);
+          that.carouselPrevDisabled = true;
+        }
+        if (this.currentItem >= (items.length - 1)) {
+          nextEl.css("opacity", 0.2);
+          that.carouselNextDisabled = true;
+        }
+        setTimeout(function() {
+            eb.trigger(eb.commentSelected, tid);
+        }, 200);
+      }
     });
 
     el.on("click", function(e) {

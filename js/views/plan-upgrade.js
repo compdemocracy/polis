@@ -32,7 +32,6 @@ module.exports = PolisView.extend({
 
     /* isn't it crystal clear what's going on here? le sigh. */
     this.listenTo(this, "render", function(){
-      console.log('foo')
       setTimeout(function(){
 
         that.$("#stripeForm").html("<script "+
@@ -46,8 +45,8 @@ module.exports = PolisView.extend({
           "data-amount\""+that.plan_amount +
           "\">   </script>  <input type=\"hidden\" name=\"plan\" value=\" " + that.plan_id + "\"></input>");
 
-      }, 200)
-    })
+      }, 200);
+    });
 
   }
 });

@@ -15,11 +15,11 @@ module.exports = function() {
 
     eb.on(eb.exitConv, cleanup);
     eb.on(eb.vote, onVote);
-    eb.on(eb.clusterClicked, onClusterClicked)
+    eb.on(eb.clusterClicked, onClusterClicked);
 
     function onVote() {
         voteCounter++;
-        console.log('onvote called, votecounter at: ' + voteCounter)
+        console.log('onvote called, votecounter at: ' + voteCounter);
 
         switch (voteCounter) {
           case 3:

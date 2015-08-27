@@ -19,7 +19,7 @@ s.helpWhatAmISeeingTitle = "這是什麼？";
 s.helpWhatAmISeeing = "立場相近的人，會自動歸類到同一個群組。點擊群組，就可以看到這些人的共同意見。";
 s.helpWhatDoIDoTitle = " 我可以做什麼？";
 s.helpWhatDoIDo = "針對其他人的意見，按下「贊成」或「反對」。你也可以寫下您的觀點（每個意見單獨一則）。邀請朋友來一起討論！";
-s.writeCommentHelpText = "如果您的觀點沒有人寫過，請務必將它<strong>寫下來</strong>！</i>"
+s.writeCommentHelpText = "如果您的觀點沒有人寫過，請務必將它<strong>寫下來</strong>！</i>";
 s.heresHowGroupVoted = "這是群組 {{GROUP_NUMBER}} 的看法：";
 s.one_person = "{{x}} 人";
 s.x_people = "{{x}} 人";
@@ -44,7 +44,7 @@ s.submitComment = "送出";
 s.tipStarred = "已經標記為重點。";
 s.participantHelpWelcomeText = "歡迎來到一種嶄新的討論方式 - 對眾人的意見<span style='font-weight: 700;'>投票</span>，並且<span style='font-weight: 700;'>貢獻</span>您的觀點。";
 s.participantHelpGroupsText = "立場相近的人，會<span style='font-weight: 700;'>自動歸類到同一個群組。</span>點擊群組，就可以看到這些人的共同意見<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...</a>";
-s.helpWhatAreGroupsDetail = "<p>您可能在其他網站上看過「推薦產品」或「推薦電影」的服務。這些服務使用統計資訊，找出和您品味相近的人，然後用那些人的紀錄來向您推薦。</p> <p>當您在這裡按下「贊成」或「反對」時，您就會自動將您的頭像移動到相近的群組裡！上方顯示的每個群組，都是由立場相近的人組成的。這樣的公開討論，每次都能展現出令人意外的洞見。請點擊一個群組 - 看看他們共同的意見、發現某個群組的獨特之處！"
+s.helpWhatAreGroupsDetail = "<p>您可能在其他網站上看過「推薦產品」或「推薦電影」的服務。這些服務使用統計資訊，找出和您品味相近的人，然後用那些人的紀錄來向您推薦。</p> <p>當您在這裡按下「贊成」或「反對」時，您就會自動將您的頭像移動到相近的群組裡！上方顯示的每個群組，都是由立場相近的人組成的。這樣的公開討論，每次都能展現出令人意外的洞見。請點擊一個群組 - 看看他們共同的意見、發現某個群組的獨特之處！";
 s.socialConnectPrompt = "連結帳號，就可以看到您的朋友、追蹤的人的立場如何。";
 s.connectFbButton = "與 Facebook 連結";
 s.connectTwButton = "與 Twitter 連結";

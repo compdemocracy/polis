@@ -307,7 +307,7 @@ module.exports =  PolisModelView.extend({
         reader.onload = function (e) {
           // console.log(d3.csv.parse(e.target.result));
           serverClient.parseMetadataFromCSV(e.target.result);
-        }
+        };
       });
 
 

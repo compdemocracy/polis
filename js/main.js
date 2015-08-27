@@ -195,7 +195,11 @@ Handlebars.registerHelper("ifNotDefined", ifNotDefined);
 
 
 function isEmbedded() {
+  /*eslint-disable */
+  /* jshint ignore:start */
   return (window.top != window) || forceEmbedded;
+  /* jshint ignore:end */
+  /*eslint-enable */
 }
 
 function ifEmbedded(arg0) {

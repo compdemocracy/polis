@@ -154,7 +154,7 @@ window.color = function() {
     var update = visualization.selectAll(".node");
     update.selectAll(".up.bktvi").style("stroke", colorPull);
     update.selectAll(".down.bktvi").style("stroke", colorPush);
-}
+};
 
 var colorPass = "#bbb"; //#BDC3C7"; // SILVER
 var colorSelf = "rgb(0, 186, 255)"; // blue - like the 'you are here' in mapping software
@@ -706,7 +706,7 @@ function updateHulls() {
     function tesselatePoint(xyPair, chooseRadius) {
         var x = xyPair[0];
         var y = xyPair[1];
-        var node = xyPair[2]
+        var node = xyPair[2];
         var r = chooseRadius(node);
         var yOffset = getOffsetForPin(node);
         var points = [];
@@ -847,7 +847,7 @@ function updateHulls() {
                         // .style("stroke-opacity", hullOpacity)
                         .style("stroke-width", 1)
                         .style("stroke-dasharray", "2px 4px")
-                        .style("visibility", "visible");
+                        .style("visibility", "visible")
                         ;
 
 
@@ -997,13 +997,14 @@ function computeClusterPointerTarget(points_WillBeMutated) {
                 xDistFromPointerOriginA * xDistFromPointerOriginA +
                 yDistFromPointerOriginA * yDistFromPointerOriginA
                 // ); // Omitting sqrt for perf
+            ;
 
             var distFromOriginB =
             // Math.sqrt(
                 xDistFromPointerOriginB * xDistFromPointerOriginB +
                 yDistFromPointerOriginB * yDistFromPointerOriginB
                 // ); // Omitting sqrt for perf
-
+            ;
 
             return (distFromOriginA - distFromOriginB);
             // large number is kept

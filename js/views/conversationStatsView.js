@@ -98,7 +98,7 @@ module.exports =  PolisModelView.extend({
       .scale(xScale)
       .orient("bottom")
       .tickSize(-h, 0)
-      .tickPadding(6)
+      .tickPadding(6);
 
 
     var yAxis = d3.svg.axis()

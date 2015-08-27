@@ -37,7 +37,6 @@ module.exports = PolisModelView.extend({
 
     /* isn't it crystal clear what's going on here? le sigh. */
     this.listenTo(this, "render", function(){
-      console.log('foo')
       setTimeout(function(){
 
         $("#stripeForm").html("<script "+

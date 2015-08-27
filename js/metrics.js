@@ -6,11 +6,16 @@ function useIntercom() {
 
 function boot() {
   if (window.Intercom && useIntercom()) {
+
+    /*eslint-disable */
+    /* jshint ignore:start */
     Intercom('boot', {
       app_id: 'nb5hla8s',
       created_at: Date.now(),
       user_id: PolisStorage.uid()
     });
+    /* jshint ignore:end */
+    /*eslint-enable */
   }
 }
 

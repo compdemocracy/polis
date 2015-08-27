@@ -151,7 +151,7 @@ module.exports =  ConversationView.extend({
           el_raphaelSelector: VIS_SELECTOR, //"#raphael_div",
       });
 
-      that.serverClient.addPersonUpdateListener(onPersonUpdate)
+      that.serverClient.addPersonUpdateListener(onPersonUpdate);
 
       that.tutorialController.setHandler("blueDot", function(){
         that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
@@ -193,9 +193,9 @@ module.exports =  ConversationView.extend({
           that.$analyzeViewPopover.popover("show");
           that.$('#analyzeViewPopoverButton').click(function(){
             that.$analyzeViewPopover.popover("destroy");
-          })
-        },1500)
-      })
+          });
+        },1500);
+      });
     }
 
     // just a quick hack for now.

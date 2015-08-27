@@ -18,8 +18,8 @@ module.exports = Handlebones.ModelView.extend({
   name: "moderateCommentView",
   template: template,
   events: {
-  	"click #accept": "accept",
-  	"click #reject": "reject"
+    "click #accept": "accept",
+    "click #reject": "reject"
   },
   context: function() {
     var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);

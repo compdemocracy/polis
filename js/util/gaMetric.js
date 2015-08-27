@@ -53,7 +53,7 @@ function routeEvent(methodNameToCall, methodArgs) {
         // Apply action default as described above methodToEventMap
         args.push(methodNameToCall);
       }
-      if (args[0] == "Participation" | args[0] == "Demo") {
+      if (args[0] === "Participation" || args[0] === "Demo") {
         // XXX - need to be careful in future if we introduce more Participation category actions that trigger
         // from routes
         args.push(methodArgs[0]);

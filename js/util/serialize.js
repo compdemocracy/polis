@@ -63,7 +63,9 @@ function serialize(view, callback, options) {
     }
   });
 
-  callback && callback.call(this, attributes);
+  if (callback) {
+    callback.call(this, attributes);
+  }
   return attributes;
 }
 

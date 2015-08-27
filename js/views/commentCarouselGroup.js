@@ -74,7 +74,7 @@ module.exports = CommentCarousel.extend({
         "<i class='fa fa-ban'></i> " + ((v.D / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
       var leClass = repfullForAgree ? "a": "d";
       var count = repfullForAgree ? v.A : v.D;
-      var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
+      // var createdString = (new Date(c.get("created") * 1)).toString().match(/(.*?) [0-9]+:/)[1];
       var agreedOrDisagreed = repfullForAgree ?
         "<span class='a'>"+ Strings.pctAgreedOfGroup+"</span>" :
         "<span class='d'>"+Strings.pctDisagreedOfGroup+"</span>";
@@ -138,7 +138,7 @@ module.exports = CommentCarousel.extend({
     return {
       items: items,
       indexToTid: indexToTid,
-    }
+    };
   },
 
 

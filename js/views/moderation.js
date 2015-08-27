@@ -19,7 +19,12 @@ var Constants = require("../util/constants");
 var isIE8 = Utils.isIE8();
 
 // animated title
-function showThen(c, f) { return function() {document.title = c; setTimeout(f, 200);}}
+function showThen(c, f) {
+  return function() {
+    document.title = c;
+    setTimeout(f, 200);
+  };
+}
 
 var PtptoiModel = Backbone.Model.extend({
   name: "ptptoi",
@@ -60,7 +65,7 @@ var ModerateParticipantsCollectionView = Handlebones.CollectionView.extend({
   initialize: function() {
     Handlebones.CollectionView.prototype.initialize.apply(this, arguments);
   },
-})
+});
 
 var TodoCountView = Handlebones.ModelView.extend({
   template: countBadgeTemplate,
@@ -69,7 +74,7 @@ var TodoCountView = Handlebones.ModelView.extend({
     ctx.count = this.collection.length;
     return ctx;
   }
-})
+});
 
 module.exports =  PolisModelView.extend({
   name: "moderationView",

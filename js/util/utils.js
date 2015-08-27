@@ -47,7 +47,7 @@ function are_cookies_enabled()
     var teststring = "_polistest_cookiesenabled";
     document.cookie = teststring + "=1; expires=" + soon;
     // see if it worked
-    var cookieEnabled = document.cookie.indexOf(teststring) != -1;
+    var cookieEnabled = document.cookie.indexOf(teststring) !== -1;
     console.log("cookieEnabled  " + cookieEnabled + " "+ document.cookie);
 
     // clear the cookie
@@ -101,7 +101,11 @@ function encodeParams(o) {
 }
 
 function isInIframe() {
+  /*eslint-disable */
+  /* jshint ignore:start */
   return window.top != window;
+  /* jshint ignore:end */
+  /*eslint-enable */
 }
 
 // http://www.html5rocks.com/en/tutorials/pagevisibility/intro/
@@ -142,7 +146,7 @@ function shouldFocusOnTextareaWhenWritePaneShown() {
 
 function parseQueryParams(s) {
   if (!_.isString(s)) {
-    console.warn("2839748273")
+    console.warn("2839748273");
     return {};
   }
   if (s.charAt(0) === "?") {
