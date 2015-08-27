@@ -40,9 +40,9 @@ var TutorialSlidesButtonsPartial = require("./tmpl/tutorialSlidesButtonsPartial"
 var TutorialSlidesButtonsLeftPartial = require("./tmpl/tutorialSlidesButtonsLeftPartial");
 
 
-var LinkTosPartial = require("./tmpl/link-TOS-partial")
-var LinkPrivacyPartial = require("./tmpl/link-privacy-partial")
-var LinkAddPolisPartial = require("./tmpl/link-AddPolis-partial")
+var LinkTosPartial = require("./tmpl/link-TOS-partial");
+var LinkPrivacyPartial = require("./tmpl/link-privacy-partial");
+var LinkAddPolisPartial = require("./tmpl/link-AddPolis-partial");
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);

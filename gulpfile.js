@@ -291,8 +291,10 @@ gulp.task('templates', function(){
 });
 
 gulp.task('jshint', function(){
-  gulp.src('js/**/*.js')
-      .pipe(gulpif(useJsHint, jshint(
+  gulp.src([
+    'js/**/*.js',
+    '!js/tmpl/**'
+    ]).pipe(gulpif(useJsHint, jshint(
 
       {
          // reporter: 'jslint',
@@ -306,7 +308,7 @@ gulp.task('jshint', function(){
           // sub: true,
           // undef: true,
         //  unused: true,
-          quotmark: "double",
+          // quotmark: "double",
          // plusplus: true, // no ++ or --
         //  nonew: true,
           noarg: true, // no arguments.caller and arguments.callee (allow for optimizations)
@@ -339,6 +341,9 @@ gulp.task('jshint', function(){
         )))
       .pipe(jshint.reporter('default'))
 })
+
+gulp.task('lint', ['jshint']);
+
 
 gulp.task('scripts', ['templates', 'jshint'], function() {
   // Single entry point to browserify

@@ -1,7 +1,5 @@
 var _ = require("underscore");
-var Backbone = require("backbone")
-
-console.log('initalizing bus')
+var Backbone = require("backbone");
 
 var bus = _.extend({}, Backbone.Events);
 bus.backgroundClicked = "backgroundClicked";
