@@ -2404,7 +2404,11 @@ function(req, res) {
 
 
 function getServerNameWithProtocol(req) {
-    var server = devMode ? "http://localhost:5000" : "https://pol.is";
+    var server = "https://pol.is";
+    if (devMode) {
+      // usually localhost:5000
+      server = "http://" + req.headers.host;
+    }
 
     if (req.headers.host.indexOf("preprod.pol.is") >= 0) {
         server = "https://preprod.pol.is";
