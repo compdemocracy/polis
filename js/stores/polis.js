@@ -200,7 +200,7 @@ module.exports = function(params) {
         var params = {
             lastServerToken: (new Date(0)).getTime(),
             // not_pid: getPid(), // don't want to see own coments
-            not_voted_by_pid: getPid(),
+            not_voted_by_pid: "mypid",
             conversation_id: conversation_id
             //?
         };
@@ -277,7 +277,7 @@ module.exports = function(params) {
 
 
         var params = {
-            not_voted_by_pid: getPid(),
+            not_voted_by_pid: "mypid",
             limit: 1,
             include_social: true,
             conversation_id: conversation_id
@@ -350,6 +350,13 @@ module.exports = function(params) {
         delete commentsToVoteOn[tid];
     }
 
+    function processPidResponse(returnedPid) {
+        if (returnedPid !== myPid) {
+            myPid = returnedPid;
+            eb.trigger(eb.pidChange, returnedPid);
+        }
+    }
+
     function disagree(commentId, starred) {
         clearComment(commentId, "push");
         var o = {
@@ -387,11 +394,20 @@ module.exports = function(params) {
                 return o;
             });
         }
-        return polisPost(votesPath, $.extend({}, params, {
-                // server will find the pid
+        var promise = polisPost(votesPath, $.extend({}, params, {
+                pid: "mypid",
                 conversation_id: conversation_id
             })
         );
+        promise.then(function(response) {
+            debugger;
+            // PID_FLOW
+            if (!_.isUndefined(response.currentPid)) {
+                processPidResponse(response.currentPid);
+            }
+        });
+
+        return promise;
     }
 
     function agree(commentId, starred) {

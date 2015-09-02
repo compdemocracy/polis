@@ -16,9 +16,9 @@ var Utils = require("../util/utils");
 
 var CHARACTER_LIMIT = constants.CHARACTER_LIMIT;
 
-var CommentsByMeView = Handlebones.CollectionView.extend({
-  modelView: CommentView
-});
+// var CommentsByMeView = Handlebones.CollectionView.extend({
+//   modelView: CommentView
+// });
 
 function reject() {
   return $.Deferred().reject();
@@ -244,7 +244,6 @@ module.exports = Handlebones.ModelView.extend({
     if (Utils.isDemoMode()) {
       that.showMessage("#commentSentDemoAlert");
       that.trigger("commentSubmitted");
-      that.updateCollection();
       return resolve();
     }
 
@@ -255,7 +254,6 @@ module.exports = Handlebones.ModelView.extend({
     } else {
       promise.then(function() {
         that.trigger("commentSubmitted"); // view.trigger
-        that.updateCollection();
         $("#comment_form_textarea").hide();
         $("#commentSentAlert").fadeIn(300);
         setTimeout(function() {
@@ -295,22 +293,14 @@ module.exports = Handlebones.ModelView.extend({
       return promise;
     }
   },
-  updateCollection: function() {
-    this.collection.fetch({
-      data: $.param({
-        conversation_id: this.conversation_id,
-        pid: "mypid"
-      })
-    });
-  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.model = options.model;
     this.conversation_id = options.conversation_id;
     this.collection = options.collection;
-    this.commentsByMeView = this.addChild(new CommentsByMeView({
-      collection: options.collection
-    }));
+    // this.commentsByMeView = this.addChild(new CommentsByMeView({
+    //   collection: options.collection
+    // }));
 
     this.profilePicView = this.addChild(new ProfilePicView({
       model: CurrentUserModel,

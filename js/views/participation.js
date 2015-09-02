@@ -784,15 +784,15 @@ module.exports =  ConversationView.extend({
 
       // this.commentView.on("vote", this.tutorialController.onVote);
 
-      this.commentsByMe = new CommentsCollection({
-        conversation_id: conversation_id,
-        pid: "mypid",
-      });
+      // this.commentsByMe = new CommentsCollection({
+      //   conversation_id: conversation_id,
+      //   pid: "mypid",
+      // });
 
       this.commentForm = this.addChild(new CommentFormView({
         model: new Backbone.Model({}),
         conversationModel: this.model,
-        collection: this.commentsByMe,
+        // collection: this.commentsByMe,
         conversation_id: conversation_id,
         wipCommentFormText: this.wipCommentFormText,
       }));
@@ -884,8 +884,6 @@ module.exports =  ConversationView.extend({
       this.commentForm.on("commentSubmitted", function() {
         // $("#"+VOTE_TAB).tab("show");
       });
-
-      this.commentForm.updateCollection();
 
     // Clicking on the background dismisses the popovers.
     this.$el.on("click", function() {
