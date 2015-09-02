@@ -332,7 +332,8 @@ module.exports = function(params) {
 
         model = $.extend(model, {
             // server will find the pid
-            conversation_id: conversation_id
+            conversation_id: conversation_id,
+            agid: 1,
         });
         if (typeof model.txt !== "string" || model.txt.length === 0) {
             logger.error("bad comment");
@@ -396,7 +397,8 @@ module.exports = function(params) {
         }
         var promise = polisPost(votesPath, $.extend({}, params, {
                 pid: "mypid",
-                conversation_id: conversation_id
+                conversation_id: conversation_id,
+                agid: 1,
             })
         );
         promise.then(function(response) {
@@ -1193,7 +1195,7 @@ function clientSideBaseCluster(things, N) {
                 consensusComments = pcaData.consensus;
                 groupVotes = pcaData["group-votes"];
 
-                return $.when(getFamousVotes(), updateBid()).then(function() {
+                return getFamousVotes().then(function() {
 
                     // Check for missing comps... TODO solve
                     if (!pcaData.pca || !pcaData.pca.comps) {
@@ -1474,14 +1476,14 @@ function clientSideBaseCluster(things, N) {
             for (var i = 0; i < participantsOfInterestBids.length; i++) {
                 if (participantsOfInterestBids.indexOf(bucket.bid) >= 0) {
                     // Don't decrement if this participant is self, since we subtract for the blue dot below
-                    if (bucket.bid !== bid) {
+                    if (bucket.bid !== myBid) {
                         bucket.count -= 1;
                     }
                 }
             }
 
             // remove self
-            if (bucket.bid === bid) {
+            if (bucket.bid === myBid) {
                 bucket.count -= 1;
             }
         }
@@ -2121,7 +2123,7 @@ function clientSideBaseCluster(things, N) {
             return $.Deferred().resolve({
                 p2b: pidToBidCache,
                 b2p: bidToPid,
-                bid: bid,
+                bid: myBid,
             });
         } else {
             return getPidToBidMapping();
@@ -2157,25 +2159,6 @@ function clientSideBaseCluster(things, N) {
                 p2b: pidToBidCache,
                 b2p: bidToPid
             };
-        });
-    }
-
-    function updateBid() {
-        if (demoMode()) {
-            bid = 0;
-            return $.Deferred().resolve(bid);
-        }
-        return polisGet(bidPath, {
-            lastVoteTimestamp: lastServerTokenForBid, // use the same
-            conversation_id: conversation_id
-        }).then(function(data, textStatus, xhr) {
-            if (304 === xhr.status) {
-                // cached
-                return bid;
-            }
-            bid = data.bid;
-            lastServerTokenForBid = data.lastVoteTimestamp;
-            return bid;
         });
     }
 
