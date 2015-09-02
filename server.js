@@ -1431,33 +1431,46 @@ function getPidPromise(zid, uid) {
 }
 
 
-function resolve_pidThing(pidThingStringName, assigner) {
-  return function(req, res, next, pidThingStringName) {
+function resolve_pidThing(pidThingStringName, assigner, loggingString) {
+  if (_.isUndefined(loggingString)) {
+    loggingString = "";
+  }
+  return function(req, res, next) {
+    console.log("mike123.0", req.p.zid, req.p.uid, loggingString);
     if (!req.p) {
-        console.log("mike123.1");
+        console.log("mike123.1", loggingString);
         fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid", err);
         next("polis_err_this_middleware_should_be_after_auth_and_zid");
     }
-    console.log("mike123.2", req.p.zid, req.p.uid);
     console.dir(req.p);
 
     var existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
 
     if (existingValue === "mypid" && req.p.zid && req.p.uid) {
-        console.log("mike123.3");
+        console.log("mike123.3", loggingString);
         getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
-            console.log("mike123.4", pid);
+            console.log("mike123.4", pid, loggingString);
             if (pid >= 0) {
-                console.log("mike123.5");
+                console.log("mike123.5", loggingString);
                 assigner(req, pidThingStringName, pid);
             }
-            console.log("mike123.6");
+            console.log("mike123.6", loggingString);
             next();
         }).catch(function(err) {
-            console.log("mike123.7");
+            console.log("mike123.7", loggingString);
             fail(res, 500, "polis_err_mypid_resolve_error", err);
             next(err);
         });
+    } else if (!_.isUndefined(existingValue)) {
+        getInt(existingValue).then(function(pidNumber) {
+            assigner(req, pidThingStringName, pidNumber);
+        }).catch(function(err) {
+            fail(res, 500, "polis_err_pid_error", err);
+            next(err);
+        });
+    } else {
+        console.log("mike123.9", pidThingStringName, "not found", loggingString);
+        next();   
     }
   };
 }
@@ -5768,8 +5781,8 @@ app.get("/api/v3/comments",
     want('mod', getInt, assignToP),
     want('include_social', getBool, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
-    resolve_pidThing('not_voted_by_pid', assignToP),
-    resolve_pidThing('pid', assignToP),
+    resolve_pidThing('not_voted_by_pid', assignToP, "get:comments:not_voted_by_pid"),
+    resolve_pidThing('pid', assignToP, "get:comments:pid"),
 function(req, res) {
     var zid = req.p.zid;
     var tids = req.p.tids;
@@ -6050,10 +6063,13 @@ app.post("/api/v3/comments",
     want('vote', getIntInRange(-1, 1), assignToP),
     want('prepop', getBool, assignToP),
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
+    resolve_pidThing('pid', assignToP, "post:comments"),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var txt = req.p.txt;
+    var pid = req.p.pid; // PID_FLOW may be undefined
+    var currentPid = pid;
     var vote = req.p.vote;
     var prepopulating = req.p.prepop;
     var twitter_tweet_id = req.p.twitter_tweet_id;
@@ -6063,6 +6079,21 @@ function(req, res) {
         fail(res, 400, "polis_err_param_missing_txt");
         return;
     }
+
+    function doGetPid() {
+        // PID_FLOW 
+        if (_.isUndefined(pid)) {
+            return addParticipant(req.p.zid, req.p.uid).then(function(rows) {
+                var ptpt = rows[0];
+                pid = ptpt.pid;
+                currentPid = pid;
+                return pid;
+            });
+        }
+        return Promise.resolve(pid);
+    }
+
+
     var twitterPrepPromise = twitter_tweet_id ? prepForTwitterComment(twitter_tweet_id, zid) : Promise.resolve();
 
     twitterPrepPromise.then(function(info) {
@@ -6097,7 +6128,12 @@ function(req, res) {
 
       var conversationInfoPromise = getConversationInfo(zid);
 
-      var pidPromise = ptpt ? Promise.resolve(ptpt.pid) : getPidPromise(zid, uid);
+      var pidPromise;
+      if (ptpt) {
+        pidPromise = Promise.resolve(ptpt.pid);
+      } else {
+        pidPromise = doGetPid();
+      }
       var commentExistsPromise = commentExists(zid, txt);
 
       Promise.all([pidPromise, conversationInfoPromise, isModeratorPromise, commentExistsPromise]).then(function(results) {
@@ -6212,6 +6248,7 @@ function(req, res) {
                         
                         res.json({
                             tid: tid,
+                            currentPid: currentPid,
                         });
                     }, function(err) {
                         fail(res, 500, "polis_err_vote_on_create", err);
@@ -6377,9 +6414,10 @@ function getCommentIdCounts(voteRecords) {
 
 app.get("/api/v3/votes",
     moveToBody,
+    authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tid', getInt, assignToP),
-    resolve_pidThing('pid', assignToP),
+    resolve_pidThing('pid', assignToP, "get:votes"),
 function(req, res) {
     votesGet(res, req.p).then(function(votes) {
         finishArray(res, votes);
@@ -6567,7 +6605,7 @@ app.get("/api/v3/nextComment",
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    resolve_pidThing('not_voted_by_pid', assignToP), // TODO_SECURITY should ensure this pid is self
+    resolve_pidThing('not_voted_by_pid', assignToP, "get:nextComment"), // TODO_SECURITY should ensure this pid is self
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
 function(req, res) {
@@ -6602,11 +6640,13 @@ app.post("/api/v3/votes",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('vote', getIntInRange(-1, 1), assignToP),
     want('starred', getBool, assignToP),
-    getPidForParticipant(assignToP, pidCache),
+    resolve_pidThing('pid', assignToP, "post:votes"),
 function(req, res) {
-    var uid = req.p.uid;
+    var uid = req.p.uid; // PID_FLOW uid may be undefined here.
     var zid = req.p.zid;
+    var pid = req.p.pid; // PID_FLOW pid may be undefined here.
 
+    console.log("mike1234", uid, zid, pid);
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     var token = req.cookies[COOKIES.TOKEN];
     var apiToken = req.headers.authorization;
@@ -6616,26 +6656,38 @@ function(req, res) {
         return;
     }
 
-    votesPost(req.p.pid, req.p.zid, req.p.tid, req.p.vote).then(function(createdTime) {
+    // PID_FLOW WIP for now assume we have a uid, but need a participant record.
+    var pidReadyPromise = _.isUndefined(req.p.pid) ? addParticipant(req.p.zid, req.p.uid).then(function(rows) {
+        var ptpt = rows[0];
+        pid = ptpt.pid;
+    }) : Promise.resolve();
+
+    pidReadyPromise.then(function() {
+      
+        return votesPost(pid, req.p.zid, req.p.tid, req.p.vote);
+
+    }).then(function(createdTime) {
         setTimeout(function() {
             updateConversationModifiedTime(req.p.zid, createdTime);
             updateLastInteractionTimeForConversation(zid, uid);
 
             // NOTE: may be greater than number of comments, if they change votes
-            updateVoteCount(req.p.zid, req.p.pid);
+            updateVoteCount(req.p.zid, pid);
         }, 100);
         if (_.isUndefined(req.p.starred)) {
             return;
         } else {
-            return addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred, createdTime);
+            return addStar(req.p.zid, req.p.tid, pid, req.p.starred, createdTime);
         }
     }).then(function() {
-        return getNextComment(req.p.zid, req.p.pid, [], true);
+        return getNextComment(req.p.zid, pid, [], true);
     }).then(function(nextComment) {
         var result = {};
         if (nextComment) {
             result.nextComment = nextComment;
         }
+        // PID_FLOW This may be the first time the client gets the pid.
+        result.currentPid = req.p.pid;
         finishOne(res, result);
 
     }).catch(function(err) {
