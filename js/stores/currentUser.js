@@ -8,6 +8,8 @@ currentUserModel.update = function() {
     // set up global userObject
     window.userObject = $.extend(window.userObject, user);
 
+    window.userObject.uid = void 0;
+
     // migrating to a singleton model instead.
     that.set(user);
     return user;
