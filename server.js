@@ -1652,11 +1652,13 @@ function auth(assigner, isOptional) {
             console.log("mike12345.1", req.body.agid);
             createDummyUser().then(function(uid) {
                 return startSessionAndAddCookies(req, res, uid).then(function() {
+                    req.p = req.p || {};
                     req.p.uid = uid;
                     next();
                 });
             }).catch(function(err) {
                 res.status(500);
+                console.error(err);
                 next("polis_err_auth_token_error_5345");
             });
         } else if (isOptional) {
@@ -6693,7 +6695,7 @@ function(req, res) {
     var token = req.cookies[COOKIES.TOKEN];
     var apiToken = req.headers.authorization;
     var xPolisHeaderToken = req.headers['x-polis'];
-    if (!token && !apiToken && !xPolisHeaderToken) {
+    if (!uid && !token && !apiToken && !xPolisHeaderToken) {
         fail(res, 403, "polis_err_vote_noauth");
         return;
     }
