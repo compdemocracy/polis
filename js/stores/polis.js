@@ -120,8 +120,6 @@ module.exports = function(params) {
     var tokenStore = params.tokenStore;
     var uidStore = params.uidStore;
 
-    var needAuthCallbacks = $.Callbacks();
-
     var conversation_id = params.conversation_id;
     var zinvite = params.zinvite;
     var myPid = "unknownpid";
@@ -2520,7 +2518,6 @@ function clientSideBaseCluster(things, N) {
         syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
         addInitReadyListener: initReadyCallbacks.add,
         addAuthStatChangeListener: authStateChangeCallbacks.add,
-        addAuthNeededListener: needAuthCallbacks.add, // needed?
         removePersonUpdateListener: personUpdateCallbacks.remove,
         addPersonUpdateListener: function() {
             personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);

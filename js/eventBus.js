@@ -2,6 +2,7 @@ var _ = require("underscore");
 var Backbone = require("backbone");
 
 var bus = _.extend({}, Backbone.Events);
+bus.authNeeded = "authNeeded";
 bus.backgroundClicked = "backgroundClicked";
 bus.vote = "vote";
 bus.exitConv = "exitConv";
