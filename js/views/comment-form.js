@@ -228,7 +228,7 @@ module.exports = Handlebones.ModelView.extend({
   },
   participantCommented: function(attrs) {
     var that = this; //that = the view
-    attrs.pid = this.pid;
+    attrs.pid = "mypid";
     attrs.conversation_id = this.conversation_id;
     attrs.vote = constants.REACTIONS.AGREE; // participants' comments are automatically agreed to. Needed for now since math assumes every comment has at least one vote.
 
@@ -241,8 +241,7 @@ module.exports = Handlebones.ModelView.extend({
       return reject();
     }
 
-    // DEMO_MODE
-    if (this.pid < 0) {
+    if (Utils.isDemoMode()) {
       that.showMessage("#commentSentDemoAlert");
       that.trigger("commentSubmitted");
       that.updateCollection();
@@ -300,13 +299,12 @@ module.exports = Handlebones.ModelView.extend({
     this.collection.fetch({
       data: $.param({
         conversation_id: this.conversation_id,
-        pid: this.pid
+        pid: "mypid"
       })
     });
   },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
-    this.pid = options.pid;
     this.model = options.model;
     this.conversation_id = options.conversation_id;
     this.collection = options.collection;

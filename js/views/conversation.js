@@ -10,6 +10,7 @@ var ServerClient = require("../stores/polis");
 var TutorialController = require("../controllers/tutorialController");
 var VotesCollection = require("../collections/votes");
 var URLs = require("../util/url");
+var Utils = require("../util/utils");
 
 var urlPrefix = URLs.urlPrefix;
 
@@ -23,14 +24,13 @@ module.exports = PolisModelView.extend({
 
   updateVotesByMeCollection: function() {
     console.log("votesByMe.fetch");
-    if (this.pid < 0) {
-      // DEMO_MODE
+    if (Utils.isDemoMode()) {
       return;
     }
     this.votesByMe.fetch({
       data: $.param({
         conversation_id: this.conversation_id,
-        pid: this.pid
+        pid: "mypid",
       }),
       reset: false
     });
@@ -64,7 +64,6 @@ module.exports = PolisModelView.extend({
     PolisModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     var conversation_id = this.conversation_id = this.model.get("conversation_id");
-    var pid = this.pid = options.pid;
     var zinvite = this.zinvite = this.model.get("zinvite");
 
     this.tutorialController = new TutorialController();
@@ -97,7 +96,6 @@ module.exports = PolisModelView.extend({
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
       getPtptoiLimit: getPtptoiLimit,
-      pid: pid,
       votesByMe: this.votesByMe,
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,

@@ -1,7 +1,11 @@
+var eb = require("../eventbus");
 var URLs = require("../util/url");
+var Utils = require("../util/utils");
 
 var urlPrefix = URLs.urlPrefix;
 var basePath = "";
+
+var pid = "unknownpid";
 
 function polisAjax(api, data, type) {
     if (!_.isString(api)) {
@@ -46,6 +50,14 @@ function polisAjax(api, data, type) {
             data: JSON.stringify(data)
         }));
     }
+
+    promise.then(function() {
+        var latestPid = Utils.getCookie("pid");
+        if (pid !== latestPid) {
+            pid = latestPid;
+            eb.trigger(eb.pidChange, latestPid);
+        }
+    });
 
     promise.fail( function(jqXHR, message, errorType) {
 

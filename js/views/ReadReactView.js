@@ -46,19 +46,8 @@ module.exports = Handlebones.ModelView.extend({
     // ctx.iOS = iOS;
     var hasFacebookAttached = window.userObject.hasFacebook;
 
+    var voteCountForFacebookPrompt = 3;
 
-    // A/B testing for when we should prompt for connecting facebook
-
-    var pid = Math.abs(this.pid); // can be negative for demo mode
-    var group = pid % 3;
-    var voteCountForFacebookPrompt = 1;
-    if (group === 0) {
-      voteCountForFacebookPrompt = 2;
-    } else if (group === 1) {
-      voteCountForFacebookPrompt = 5;
-    } else if (group === 2) {
-      voteCountForFacebookPrompt = 9;
-    }
     ctx.promptFacebook = SHOULD_PROMPT_FOR_FB && !hasFacebookAttached && !this.model.get("response") && this.model.get("voteCount") > voteCountForFacebookPrompt;
     return ctx;
   },
@@ -66,7 +55,6 @@ module.exports = Handlebones.ModelView.extend({
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
     this.model = options.model;
-    this.pid = options.pid;
 
     this.voteView = this.addChild(new VoteView({
       firstCommentPromise: options.firstCommentPromise,
@@ -76,7 +64,6 @@ module.exports = Handlebones.ModelView.extend({
       votesByMe: options.votesByMe,
       is_public: options.is_public,
       isSubscribed: options.isSubscribed,
-      pid: options.pid,
       conversation_id: options.conversation_id
     }));
 

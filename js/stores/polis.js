@@ -124,8 +124,11 @@ module.exports = function(params) {
 
     var conversation_id = params.conversation_id;
     var zinvite = params.zinvite;
-    var myPid = params.pid;
-    var USE_JETPACK_FOR_SELF = (myPid % 2 === 1); // AB test where odd pids get jetpack
+    var myPid = "unknownpid";
+    eb.on(eb.pidChange, function(newPid) {
+        myPid = newPid;
+    });
+    var USE_JETPACK_FOR_SELF = false; //(myPid % 2 === 1); // AB test where odd pids get jetpack
 
     var means = null; // TODO move clustering into a separate file
 

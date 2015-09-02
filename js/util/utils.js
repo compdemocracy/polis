@@ -57,6 +57,27 @@ function are_cookies_enabled()
     return cookieEnabled;
 }
 
+//http://stackoverflow.com/questions/19189785/is-there-a-good-cookie-library-for-javascript
+function getCookie(sName)
+{
+    sName = sName.toLowerCase();
+    var oCrumbles = document.cookie.split(";");
+    for(var i=0; i<oCrumbles.length;i++)
+    {
+        var oPair= oCrumbles[i].split("=");
+        var sKey = oPair[0].trim().toLowerCase();
+        var sValue = oPair.length>1?oPair[1]:"";
+        if(sKey === sName) {
+            var val = decodeURIComponent(sValue);
+            if (val === "null") {
+                val = null;
+            }
+            return val;
+        }
+    }
+    return null;
+}
+
 
 function strToHex(str) {
 var hex, i;
@@ -303,6 +324,7 @@ module.exports = {
   getAnonPicUrl: function() {
     return "https://pol.is/landerImages/anonProfileIcon64.png";
   },
+  getCookie: getCookie,
   getGroupNameForGid: function(gid) {
     if (gid < 0) {
       return gid;
@@ -310,6 +332,9 @@ module.exports = {
       console.error("undexpected gid: " + gid);
     }
     return gid + 1;
+  },
+  isDemoMode: function() {
+    return document.location.pathname.indexOf('/demo') === 0;
   },
   // toPercent: function(ratio) {
   //   return ((ratio * 100) >> 0) + "%";

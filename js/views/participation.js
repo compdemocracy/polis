@@ -301,7 +301,6 @@ module.exports =  ConversationView.extend({
     var vis;
     var that = this;
     var conversation_id = this.conversation_id;
-    var pid = this.pid;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
     this.ptptModel = options.ptptModel;
@@ -323,7 +322,6 @@ module.exports =  ConversationView.extend({
       votesByMe: this.votesByMe,
       // is_public: Utils.isShortConversationId(this.conversation_id),
       isSubscribed: function() { return that.isSubscribed.apply(that, arguments); },
-      pid: pid,
       conversation_id: conversation_id
     }));
 
@@ -509,12 +507,6 @@ module.exports =  ConversationView.extend({
       that.serverClient.removePersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
       vis = that.vis = new VisView({
           inVisLegendCounter: that.inVisLegendCounter,
-          getPid: function() {
-            if (!_.isId(pid)) {
-              //alert("bad pid: " + pid);
-            }
-            return pid;
-          },
           isIE8: isIE8,
           isMobile: isMobile,
           getCommentsForProjection: serverClient.getCommentsForProjection,
@@ -794,11 +786,10 @@ module.exports =  ConversationView.extend({
 
       this.commentsByMe = new CommentsCollection({
         conversation_id: conversation_id,
-        pid: pid
+        pid: "mypid",
       });
 
       this.commentForm = this.addChild(new CommentFormView({
-        pid: pid,
         model: new Backbone.Model({}),
         conversationModel: this.model,
         collection: this.commentsByMe,

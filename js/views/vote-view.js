@@ -101,8 +101,7 @@ module.exports = Handlebones.ModelView.extend({
     this.isSubscribed = options.isSubscribed;
     console.dir(serverClient);
 
-    if (this.pid < 0) {
-      // DEMO_MODE
+    if (Utils.isDemoMode()) {
       votesByMeFetched.resolve();
     }
     votesByMe.on("sync", votesByMeFetched.resolve);
@@ -260,7 +259,6 @@ module.exports = Handlebones.ModelView.extend({
       votesByMe.add({
         vote: -1,
         conversation_id: conversation_id,
-        pid: pid,
         tid: tid
       });
       this.onButtonClicked();
@@ -274,7 +272,6 @@ module.exports = Handlebones.ModelView.extend({
       votesByMe.add({
         vote: 1,
         conversation_id: conversation_id,
-        pid: pid,
         tid: tid
       });
       this.onButtonClicked();
@@ -288,7 +285,6 @@ module.exports = Handlebones.ModelView.extend({
       votesByMe.add({
         vote: 0,
         conversation_id: conversation_id,
-        pid: pid,
         tid: tid
       });
       this.onButtonClicked();
@@ -301,7 +297,6 @@ module.exports = Handlebones.ModelView.extend({
         participantStarred: true,
         vote: -1,
         conversation_id: conversation_id,
-        pid: pid,
         tid: tid
       });
       this.onButtonClicked();
