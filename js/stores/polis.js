@@ -307,6 +307,9 @@ module.exports = function(params) {
             } else {
                 nextCommentCache = null;
             }
+            if (c && !_.isUndefined(c.currentPid)) {
+                processPidResponse(c.currentPid);
+            }
         });
         return p;
     }
@@ -2478,6 +2481,9 @@ function clientSideBaseCluster(things, N) {
                 nextCommentCache = c;
             } else {
                 nextCommentCache = null;
+            }
+            if (c && !_.isUndefined(c.currentPid)) {
+                processPidResponse(c.currentPid);
             }
         });
     }
