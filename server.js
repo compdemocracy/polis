@@ -6619,9 +6619,16 @@ function(req, res) {
     
     getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without, req.p.include_social).then(function(c) {
         if (c) {
+            if (!_.isUndefined(req.p.not_voted_by_pid)) {
+                c.currentPid = req.p.not_voted_by_pid;
+            }
             finishOne(res, c);
         } else {
-            res.status(200).json({});
+            var o = {};
+            if (!_.isUndefined(req.p.not_voted_by_pid)) {
+                o.currentPid = req.p.not_voted_by_pid;
+            }
+            res.status(200).json(o);
         }
     }).catch(function(err) {
         fail(res, 500, "polis_err_get_next_comment", err);
