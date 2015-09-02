@@ -5231,6 +5231,10 @@ function(req, res) {
             var width = 40;
             var height = 40;
             fbInfo.fb_picture = "https://graph.facebook.com/v2.2/"+ fbInfo.fb_user_id +"/picture?width="+width+"&height=" + height;
+            delete fbInfo[0].response;
+        }
+        if (hasTwitter) {
+            delete twInfo[0].response;
         }
         res.json({
             uid: uid,
