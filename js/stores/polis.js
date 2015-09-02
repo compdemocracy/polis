@@ -127,6 +127,7 @@ module.exports = function(params) {
     var myPid = "unknownpid";
     eb.on(eb.pidChange, function(newPid) {
         myPid = newPid;
+        prepAndSendVisData();
     });
     var USE_JETPACK_FOR_SELF = false; //(myPid % 2 === 1); // AB test where odd pids get jetpack
 
@@ -322,9 +323,6 @@ module.exports = function(params) {
     function submitComment(model) {
 
 
-        // CAUTION - possibly dead code, comments are submitted through backbone
-
-
         if (demoMode()) {
             return $.Deferred().resolve();
         }
@@ -337,12 +335,11 @@ module.exports = function(params) {
             logger.error("bad comment");
             return $.Deferred().reject().promise();
         }
-        return polisPost(commentsPath, model).pipe(function(commentResponse) {
-            // auto agree
-            return agree(commentResponse.tid).pipe(function() {
-                // return the result of the comment post, rather than the response of the auto-agree.
-                return commentResponse;
-            });
+        return polisPost(commentsPath, model).pipe(function(response) {
+            // PID_FLOW
+            if (!_.isUndefined(response.currentPid)) {
+                processPidResponse(response.currentPid);
+            }
         });
     }
 
@@ -400,7 +397,6 @@ module.exports = function(params) {
             })
         );
         promise.then(function(response) {
-            debugger;
             // PID_FLOW
             if (!_.isUndefined(response.currentPid)) {
                 processPidResponse(response.currentPid);
@@ -2486,6 +2482,29 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
+    var isSubscribedToUpdates = false;
+    function getIsSubscribed() {
+        return isSubscribedToUpdates;
+    }
+    function setIsSubscribed(val) {
+        isSubscribedToUpdates = val;
+    }
+    function prepAndSendVisData() {
+        console.log('prepAndSendVisData');
+        firstPcaCallPromise.then(function() {
+            var o = prepProjection(projectionPeopleCache);
+            var buckets = o.buckets;
+            buckets.sort(function(a, b) {
+                return b.priority - a.priority;
+            });
+            var clusters = o.clusters;
+            var projectedComments = prepCommentsProjection();
+            if (buckets.length) {
+                sendUpdatedVisData(buckets, clusters, participantCount, projectedComments);
+            }
+        });
+    }
+
     return {
         authenticated: authenticated,
         getNextComment: getNextComment,
@@ -2517,18 +2536,7 @@ function clientSideBaseCluster(things, N) {
         addPersonUpdateListener: function() {
             personUpdateCallbacks.add.apply(personUpdateCallbacks, arguments);
 
-            firstPcaCallPromise.then(function() {
-                var o = prepProjection(projectionPeopleCache);
-                var buckets = o.buckets;
-                buckets.sort(function(a, b) {
-                    return b.priority - a.priority;
-                });
-                var clusters = o.clusters;
-                var projectedComments = prepCommentsProjection();
-                if (buckets.length) {
-                    sendUpdatedVisData(buckets, clusters, participantCount, projectedComments);
-                }
-            });
+            prepAndSendVisData();
         },
         finishedTutorial: finishedTutorial,
         addCommentsAvailableListener: commentsAvailableCallbacks.add,
@@ -2544,7 +2552,8 @@ function clientSideBaseCluster(things, N) {
         getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
 
         updateMyProjection: updateMyProjection,
-
+        getIsSubscribed: getIsSubscribed,
+        setIsSubscribed: setIsSubscribed,
         shareConversationOnFacebook: shareConversationOnFacebook,
         shareConversationOnTwitter: shareConversationOnTwitter,
         startPolling: startPolling,

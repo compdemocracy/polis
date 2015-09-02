@@ -247,8 +247,7 @@ module.exports = Handlebones.ModelView.extend({
       return resolve();
     }
 
-    var comment = new CommentModel(attrs);
-    var promise = comment.save();
+    var promise = that.serverClient.submitComment(attrs);
     if (!promise) {
       return reject();
     } else {
@@ -301,6 +300,7 @@ module.exports = Handlebones.ModelView.extend({
     // this.commentsByMeView = this.addChild(new CommentsByMeView({
     //   collection: options.collection
     // }));
+    this.serverClient = options.serverClient;
 
     this.profilePicView = this.addChild(new ProfilePicView({
       model: CurrentUserModel,

@@ -239,10 +239,10 @@ module.exports =  ConversationView.extend({
   },
   isSubscribed: function(optionalCrappySetterModeValue) {
     if (!_.isUndefined(optionalCrappySetterModeValue)) {
-      this.ptptModel.set("subscribed", optionalCrappySetterModeValue);
+      this.serverClient.setIsSubscribed(optionalCrappySetterModeValue);
       return optionalCrappySetterModeValue;
     }
-    return this.ptptModel.get("subscribed");
+    this.serverClient.getIsSubscribed();
   },
   updateVisMode: function() {
     if (!this.vis) {
@@ -303,7 +303,6 @@ module.exports =  ConversationView.extend({
     var conversation_id = this.conversation_id;
     var zinvite = this.zinvite;
     var serverClient = this.serverClient;
-    this.ptptModel = options.ptptModel;
 
     // This is a wart. ServerClient should be initialized much earlier, probably as a singleton, and it should be responsible for fetching the first comment.
     serverClient.setNextCachedComment(options.firstCommentPromise);
@@ -792,6 +791,7 @@ module.exports =  ConversationView.extend({
       this.commentForm = this.addChild(new CommentFormView({
         model: new Backbone.Model({}),
         conversationModel: this.model,
+        serverClient: this.serverClient,
         // collection: this.commentsByMe,
         conversation_id: conversation_id,
         wipCommentFormText: this.wipCommentFormText,

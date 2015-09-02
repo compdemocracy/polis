@@ -924,6 +924,31 @@ var polisRouter = Backbone.Router.extend({
     });
   },
 
+  doLaunchConversation2: function(conversation_id, args) {
+
+    // Since nextComment is pretty slow, fire off the request way early and pass the promise into the participation view so it's (probably) ready when the page loads.
+    var firstCommentPromise = $.get("/api/v3/nextComment?not_voted_by_pid=mypid&limit=1&include_social=true&conversation_id=" + conversation_id);
+
+    this.getConversationModel(conversation_id).then(function(model) {
+
+      if (!_.isUndefined(args.vis_type)) {
+        // allow turning on the vis from the URL.
+      if (model.get("is_mod")) {
+          model.set("vis_type", Number(args.vis_type));
+        }
+      }
+      var participationView = new ParticipationView({
+        wipCommentFormText: args.wipCommentFormText,
+        model: model,
+        finishedTutorial: userObject.finishedTutorial,
+        firstCommentPromise: firstCommentPromise
+      });
+      RootView.getInstance().setView(participationView);
+    },function(e) {
+      console.error("error3 loading conversation model");
+    });
+  },
+
   doLaunchConversation: function(args) {
     var ptptModel = args.ptptModel;
     var conversation_id = ptptModel.get("conversation_id");
@@ -1087,14 +1112,16 @@ var polisRouter = Backbone.Router.extend({
       params = Utils.decodeParams(encodedStringifiedJson);
     }
 
-    var that = this;
-    // this.doShowTutorial().then(function() {
-      doJoinConversation.call(that, _.extend(params, {
-        suzinvite: suzinvite,
-        onSuccess: that.doLaunchConversation.bind(that), // TODO
-        conversation_id: conversation_id
-      }));
-    // });
+    this.doLaunchConversation2(conversation_id, params);
+
+    // var that = this;
+    // // this.doShowTutorial().then(function() {
+    //   doJoinConversation.call(that, _.extend(params, {
+    //     suzinvite: suzinvite,
+    //     onSuccess: that.doLaunchConversation.bind(that), // TODO
+    //     conversation_id: conversation_id
+    //   }));
+    // // });
   },
   participationViewWithQueryParams: function(conversation_id, queryParamString) {
     if (!Utils.cookiesEnabled()) {
@@ -1103,12 +1130,14 @@ var polisRouter = Backbone.Router.extend({
 
     var params = Utils.parseQueryParams(queryParamString);
     var that = this;
-    // this.doShowTutorial().then(function() {
-      doJoinConversation.call(that, _.extend(params, {
-        onSuccess: that.doLaunchConversation.bind(that), // TODO
-        conversation_id: conversation_id
-      }));
-    // });
+    this.doLaunchConversation2(conversation_id, params);
+    
+    // // this.doShowTutorial().then(function() {
+    //   doJoinConversation.call(that, _.extend(params, {
+    //     onSuccess: that.doLaunchConversation.bind(that), // TODO
+    //     conversation_id: conversation_id
+    //   }));
+    // // });
   },
   doShowTutorial: function() {
     var dfd = $.Deferred();

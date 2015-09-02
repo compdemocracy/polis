@@ -11,6 +11,7 @@ bus.clusterSelectionChanged = "clusterSelectionChanged";
 bus.commentSelected = "commentSelected";
 bus.doneUsingWipCommentFormText = "doneUsingWipCommentFormText";
 bus.participantCount = "participantCount";
+bus.pidChange = "pidChange"; // PID_FLOW
 bus.voteCount = "voteCount";
 bus.commentCount = "commentCount";
 bus.moderated = "moderated";
