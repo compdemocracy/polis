@@ -1100,19 +1100,19 @@ function assignToPCustom(name) {
 }
 
 
+function extractFromBody(req, name) {
+    if (!req.body) {
+        return void 0;
+    }
+    return req.body[name];
+}
+function extractFromCookie(req, name) {
+    if (!req.cookies) {
+        return void 0;
+    }
+    return req.cookies[name];
+}
 var prrrams = (function() {
-    function extractFromBody(req, name) {
-        if (!req.body) {
-            return void 0;
-        }
-        return req.body[name];
-    }
-    function extractFromCookie(req, name) {
-        if (!req.cookies) {
-            return void 0;
-        }
-        return req.cookies[name];
-    }
     function buildCallback(config) {
         var name = config.name;
         var parserWhichReturnsPromise = config.parserWhichReturnsPromise;
@@ -1429,6 +1429,39 @@ function getPidPromise(zid, uid) {
         });
     });        
 }
+
+
+function resolve_pidThing(pidThingStringName, assigner) {
+  return function(req, res, next, pidThingStringName) {
+    if (!req.p) {
+        console.log("mike123.1");
+        fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid", err);
+        next("polis_err_this_middleware_should_be_after_auth_and_zid");
+    }
+    console.log("mike123.2", req.p.zid, req.p.uid);
+    console.dir(req.p);
+
+    var existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
+
+    if (existingValue === "mypid" && req.p.zid && req.p.uid) {
+        console.log("mike123.3");
+        getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
+            console.log("mike123.4", pid);
+            if (pid >= 0) {
+                console.log("mike123.5");
+                assigner(req, pidThingStringName, pid);
+            }
+            console.log("mike123.6");
+            next();
+        }).catch(function(err) {
+            console.log("mike123.7");
+            fail(res, 500, "polis_err_mypid_resolve_error", err);
+            next(err);
+        });
+    }
+  };
+}
+
 
 // must follow auth and need('zid'...) middleware
 function getPidForParticipant(assigner, cache) {
@@ -3527,6 +3560,7 @@ function sendEmailByUid(uid, subject, body) {
 //     authOptional(assignToP),
 //     want('pid', getInt, assignToP),
 //     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+//     resolve_pidThing('pid', assignToP),
 // function(req, res) {
 //     var pid = req.p.pid;
 //     var uid = req.p.uid;
@@ -5500,9 +5534,6 @@ function _getCommentsList(o) {
         if (!_.isUndefined(o.tids)) {
             q = q.and(sql_comments.tid.in(o.tids));
         }
-        if (!_.isUndefined(o.not_pid)) {
-            q = q.and(sql_comments.pid.notEquals(o.not_pid));
-        }
         if (!_.isUndefined(o.mod)) {
             q = q.and(sql_comments.mod.equals(o.mod));
         }
@@ -5729,18 +5760,16 @@ app.get("/api/v3/comments",
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('tids', getArrayOfInt, assignToP),
-    want('pid', getInt, assignToP),
-    want('not_pid', getInt, assignToP),
-    want('not_voted_by_pid', getInt, assignToP),
     want('moderation', getBool, assignToP),
     want('mod', getInt, assignToP),
     want('include_social', getBool, assignToP),
 //    need('lastServerToken', _.identity, assignToP),
+    resolve_pidThing('not_voted_by_pid', assignToP),
+    resolve_pidThing('pid', assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var tids = req.p.tids;
     var pid = req.p.pid;
-    var not_pid = req.p.not_pid;
     var not_voted_by_pid = req.p.not_voted_by_pid;
     var mod = req.p.mod;
 
@@ -6341,11 +6370,12 @@ function getCommentIdCounts(voteRecords) {
 //         }); // end votes query
 //     }); // end GET selection
 
+
 app.get("/api/v3/votes",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    want('pid', getInt, assignToP),
     want('tid', getInt, assignToP),
+    resolve_pidThing('pid', assignToP),
 function(req, res) {
     votesGet(res, req.p).then(function(votes) {
         finishArray(res, votes);
@@ -6533,7 +6563,7 @@ app.get("/api/v3/nextComment",
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    need('not_voted_by_pid', getInt, assignToP), // TODO_SECURITY should ensure this pid is self
+    resolve_pidThing('not_voted_by_pid', assignToP), // TODO_SECURITY should ensure this pid is self
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
 function(req, res) {
@@ -8785,7 +8815,7 @@ var socialParticipantsCache = new SimpleCacheWithTTL({
 });
 
 function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUids) {
-    // NOTE ignoring authorUids as part of cacheKey since lastVoteTimestamp will change first
+    // NOTE ignoring authorUids as part of cacheKey for now, just because.
     var cacheKey = [zid, limit, mod, lastVoteTimestamp].join("_");
     if (socialParticipantsCache.get(cacheKey)) {
         return socialParticipantsCache.get(cacheKey);
@@ -9333,9 +9363,9 @@ function pullFbTwIntoSubObjects(ptptoiRecord) {
 app.put("/api/v3/ptptois",
     moveToBody,
     auth(assignToP),
-    need("pid", getInt, assignToP),
     need("mod", getInt, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    resolve_pidThing('pid', assignToP),
 function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
