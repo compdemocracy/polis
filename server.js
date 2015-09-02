@@ -723,11 +723,6 @@ function hasAuthToken(req) {
 }
 
 
-// input token from body or query, and populate req.body.u with userid.
-function authOptional(assigner) {
-    return auth(assigner, true);
-}
-
 function doCookieAuth(assigner, isOptional, req, res, next) {
 
     var token = req.cookies[COOKIES.TOKEN];
@@ -812,28 +807,6 @@ function doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next) {
     });
 }
 
-function auth(assigner, isOptional) {
-    return function(req, res, next) {
-        //var token = req.body.token;
-        var token = req.cookies[COOKIES.TOKEN];
-        var xPolisToken = req.headers["x-polis"];
-
-        if (xPolisToken && isPolisLtiToken(xPolisToken)) {
-            doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
-        } else if (xPolisToken) {
-            doHeaderAuth(assigner, isOptional, req, res, next);
-        } else if (token) {
-            doCookieAuth(assigner, isOptional, req, res, next);
-        } else if (req.headers.authorization) {
-            doApiKeyBasicAuth(assigner, isOptional, req, res, next);
-        } else if (isOptional) {
-            next();
-        } else {
-            res.status(401);
-            next("polis_err_auth_token_not_supplied");
-        }
-    };
-}
 
 // Consolidate query/body items in one place so other middleware has one place to look.
 function moveToBody(req, res, next) {
@@ -1445,26 +1418,33 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
     console.dir(req.p);
 
     var existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
+    console.dir("mike123.1a", existingValue);
 
     if (existingValue === "mypid" && req.p.zid && req.p.uid) {
         console.log("mike123.3", loggingString);
         getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
-            console.log("mike123.4", pid, loggingString);
+            console.log("mike123.3a", pid, loggingString);
             if (pid >= 0) {
-                console.log("mike123.5", loggingString);
+                console.log("mike123.3b", loggingString);
                 assigner(req, pidThingStringName, pid);
             }
-            console.log("mike123.6", loggingString);
+            console.log("mike123.3c", loggingString);
             next();
         }).catch(function(err) {
-            console.log("mike123.7", loggingString);
+            console.log("mike123.3d", loggingString);
             fail(res, 500, "polis_err_mypid_resolve_error", err);
             next(err);
         });
+    } else if (existingValue === "mypid" && req.p.zid) {
+        // don't assign anything, since we have no uid to look it up. 
+        next();
     } else if (!_.isUndefined(existingValue)) {
+        console.log("mike123.4", loggingString);
         getInt(existingValue).then(function(pidNumber) {
+            console.log("mike123.4a", loggingString);
             assigner(req, pidThingStringName, pidNumber);
         }).catch(function(err) {
+            console.log("mike123.4b", loggingString);
             fail(res, 500, "polis_err_pid_error", err);
             next(err);
         });
@@ -1637,6 +1617,69 @@ function redirectIfApiDomain(req, res, next) {
   }
   return next();
 }
+
+
+function createDummyUser() {
+    return new MPromise("createDummyUser", function(resolve, reject) {
+        pgQuery("INSERT INTO users (created) VALUES (default) RETURNING uid;",[], function(err, results) {
+            if (err || !results || !results.rows || !results.rows.length) {
+                console.error(err);
+                reject(new Error("polis_err_create_empty_user"));
+                return;
+            }
+            resolve(results.rows[0].uid);
+        });
+    });
+}
+
+
+function auth(assigner, isOptional) {
+    return function(req, res, next) {
+        //var token = req.body.token;
+        var token = req.cookies[COOKIES.TOKEN];
+        var xPolisToken = req.headers["x-polis"];
+
+        console.log("mike12345.0", "agid", req.body.agid);
+        if (xPolisToken && isPolisLtiToken(xPolisToken)) {
+            doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
+        } else if (xPolisToken) {
+            doHeaderAuth(assigner, isOptional, req, res, next);
+        } else if (token) {
+            doCookieAuth(assigner, isOptional, req, res, next);
+        } else if (req.headers.authorization) {
+            doApiKeyBasicAuth(assigner, isOptional, req, res, next);
+        } else if (req.body.agid) {  // Auto Gen user  ID
+            console.log("mike12345.1", req.body.agid);
+            createDummyUser().then(function(uid) {
+                return startSessionAndAddCookies(req, res, uid).then(function() {
+                    req.p.uid = uid;
+                    next();
+                });
+            }).catch(function(err) {
+                res.status(500);
+                next("polis_err_auth_token_error_5345");
+            });
+        } else if (isOptional) {
+            next();
+        } else {
+            res.status(401);
+            next("polis_err_auth_token_not_supplied");
+        }
+    };
+}
+
+
+// input token from body or query, and populate req.body.u with userid.
+function authOptional(assigner) {
+    return auth(assigner, true);
+}
+
+
+function enableAgid(req, res, next) {
+    req.body.agid = 1;
+    next();
+}
+
 
 /*
 function meter(name) {
@@ -2302,8 +2345,8 @@ function getXids(zid) {
 
 
 app.get("/api/v3/xids",
-    auth(assignToP),
     moveToBody,
+    auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
     var uid = req.p.uid;
@@ -2372,8 +2415,8 @@ function getClusters(zid, lastVoteTimestamp) {
 
 // TODO cache
 app.get("/api/v3/bid",
-    auth(assignToP),
     moveToBody,
+    auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, 0),
 function(req, res) {
@@ -2649,6 +2692,7 @@ function(req, res) {
 
 
 app.get("/api/v3/zinvites/:zid",
+    moveToBody,
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
@@ -4278,18 +4322,8 @@ function(req, res) {
 }); // /api/v3/auth/login
 
 
-function createDummyUser() {
-    return new MPromise("createDummyUser", function(resolve, reject) {
-        pgQuery("INSERT INTO users (created) VALUES (default) RETURNING uid;",[], function(err, results) {
-            if (err || !results || !results.rows || !results.rows.length) {
-                console.error(err);
-                reject(new Error("polis_err_create_empty_user"));
-                return;
-            }
-            resolve(results.rows[0].uid);
-        });
-    });
-}
+
+
 function createLtiUser(email) {
     return pgQueryP("INSERT INTO users (email) VALUES ($1) RETURNING uid;",[email]).then(function(rows) {
         if (!rows || !rows.length) {
@@ -4768,6 +4802,7 @@ function(req, res) {
 });
 
 app.post("/api/v3/auth/facebook",
+    enableAgid,
     authOptional(assignToP),
     // need('fb_user_id', getStringLimitLength(1, 9999), assignToP),
     // need('fb_login_status', getStringLimitLength(1, 9999), assignToP),
@@ -8676,9 +8711,11 @@ function getAndInsertTwitterUser(twitter_user_id, uid) {
   });
 }
 
+
 app.get("/api/v3/twitter_oauth_callback",
     moveToBody,
-    authOptional(assignToP),
+    enableAgid,
+    auth(assignToP),
     need("dest", getStringLimitLength(9999), assignToP),
     need("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
     need("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
@@ -8689,6 +8726,7 @@ function(req, res) {
     // TODO "Upon a successful authentication, your callback_url would receive a request containing the oauth_token and oauth_verifier parameters. Your application should verify that the token matches the request token received in step 1."
 
     var dest = req.p.dest;
+    winston.log("info","twitter_oauth_callback uid", uid);
     winston.log("info","twitter_oauth_callback params");
     winston.log("info",req.p);
     winston.log("info","twitter_oauth_callback params end");
