@@ -6452,6 +6452,10 @@ app.get("/api/v3/votes",
     want('tid', getInt, assignToP),
     resolve_pidThing('pid', assignToP, "get:votes"),
 function(req, res) {
+    if (_.isUndefined(req.p.pid)) {
+        res.status(200).json([]);
+        return;
+    }
     votesGet(res, req.p).then(function(votes) {
         finishArray(res, votes);
     }, function(err) {
