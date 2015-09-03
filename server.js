@@ -6097,7 +6097,7 @@ app.post("/api/v3/comments",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('txt', getOptionalStringLimitLength(997), assignToP),
-    want('vote', getIntInRange(-1, 1), assignToP),
+    want('vote', getIntInRange(-1, 1), assignToP, -1), // default to agree
     want('prepop', getBool, assignToP),
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
@@ -6271,11 +6271,7 @@ function(req, res) {
                         sendCommentModerationEmail(req, 125, zid, "?"); // email mike for all comments, since some people may not have turned on strict moderation, and we may want to babysit evaluation conversations of important customers.
                     }
 
-                    var autoVotePromise = _.isUndefined(vote) ?
-                        Promise.resolve() :
-                        votesPost(pid, zid, tid, vote);
-
-                    autoVotePromise.then(function() {
+                    votesPost(pid, zid, tid, vote).then(function() {
 
                         setTimeout(function() {
                             updateConversationModifiedTime(zid, createdTime);
