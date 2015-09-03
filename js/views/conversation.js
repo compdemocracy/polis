@@ -1,8 +1,8 @@
 var CommentsCollection = require("../collections/comments");
 var display = require("../util/display");
 var eb = require("../eventBus");
-var MetadataQuestionsCollection = require("../collections/metadataQuestions");
-var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
+// var MetadataQuestionsCollection = require("../collections/metadataQuestions");
+// var MetadataQuestionsFilterView = require("../views/metadataQuestionsFilterView");
 var PolisStorage = require("../util/polisStorage");
 var PolisModelView = require("../lib/PolisModelView");
 var popoverEach = require("../util/popoverEach");
@@ -76,16 +76,16 @@ module.exports = PolisModelView.extend({
       that.selectedGid = gid;
     });
 
-    var metadataCollection = new MetadataQuestionsCollection([], {
-        conversation_id: conversation_id
-    });
+    // var metadataCollection = new MetadataQuestionsCollection([], {
+    //     conversation_id: conversation_id
+    // });
 
-    metadataCollection.fetch({
-      data: $.param({
-        conversation_id: conversation_id
-      }),
-      processData: true
-    });
+    // metadataCollection.fetch({
+    //   data: $.param({
+    //     conversation_id: conversation_id
+    //   }),
+    //   processData: true
+    // });
 
     var getPtptoiLimit = function() {
       return display.xs() ? 12 : void 0;
@@ -134,26 +134,26 @@ module.exports = PolisModelView.extend({
 
 
 
-       // CHILD VIEWS
+      //  // CHILD VIEWS
 
-      this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
-        serverClient: serverClient,
-        conversation_id: conversation_id,
-        collection: metadataCollection
-      }));
+      // this.metadataQuestionsView = this.addChild(new MetadataQuestionsFilterView({
+      //   serverClient: serverClient,
+      //   conversation_id: conversation_id,
+      //   collection: metadataCollection
+      // }));
 
-       // LISTEN TO EVENTS
+      //  // LISTEN TO EVENTS
 
-      this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
-        if (that.allowMetadataFiltering()) {
-          console.log(enabledAnswers);
-          serverClient.queryParticipantsByMetadata(enabledAnswers).then(
-            that.emphasizeParticipants.bind(that),
-            function(err) {
-              console.error(err);
-            });
-        }
-      });
+      // this.listenTo(this.metadataQuestionsView, "answersSelected", function(enabledAnswers) {
+      //   if (that.allowMetadataFiltering()) {
+      //     console.log(enabledAnswers);
+      //     serverClient.queryParticipantsByMetadata(enabledAnswers).then(
+      //       that.emphasizeParticipants.bind(that),
+      //       function(err) {
+      //         console.error(err);
+      //       });
+      //   }
+      // });
 
       // Clicking on the background dismisses the popovers.
       this.$el.on("click", function() {
