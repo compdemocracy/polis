@@ -5571,7 +5571,7 @@ function(req, res) {
 
 function _getCommentsForModerationList(o) {
     var modClause = _.isUndefined(o.mod) ? "" : " and comments.mod = ($2)";
-    return pgQueryP("select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo left join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, [o.zid, o.mod]);
+    return pgQueryP("select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, [o.zid, o.mod]);
 }
 
 function _getCommentsList(o) {
