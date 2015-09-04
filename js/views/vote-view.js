@@ -1,5 +1,6 @@
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
+var preloadHelper = require("../util/preloadHelper");
 var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
 var serverClient = require("../stores/polis");
@@ -188,33 +189,36 @@ module.exports = Handlebones.ModelView.extend({
       that.render();
     }
     function showEmpty() {
-      var userHasVoted = !!votesByMe.size();
+      preloadHelper.firstVotesByMePromise.then(function() {
 
-      waitingForComments = true;
-      // pollForComments();
+        var userHasVoted = !!votesByMe.size();
 
-      var message1;
-      var message2;
-      if (userHasVoted) {
-        message1 = "You've voted on all the comments.";
-        message2 = "If you have something to add, try writing your own comment.";
-      } else {
-        message1 = "There aren't any comments yet.";
-        if (is_public) {
-          message2 =  "Get this conversation started by inviting more participants, or add a comment.";
+        waitingForComments = true;
+        // pollForComments();
+
+        var message1;
+        var message2;
+        if (userHasVoted) {
+          message1 = "You've voted on all the comments.";
+          message2 = "If you have something to add, try writing your own comment.";
         } else {
-          message2 =  "Get this conversation started by adding a comment.";
+          message1 = "There aren't any comments yet.";
+          if (is_public) {
+            message2 =  "Get this conversation started by inviting more participants, or add a comment.";
+          } else {
+            message2 =  "Get this conversation started by adding a comment.";
+          }
         }
-      }
 
-      // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
-      that.model.clear({silent: true});
-      that.model.set({
-        empty: true,
-        txt1: message1,
-        txt2: message2
+        // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
+        that.model.clear({silent: true});
+        that.model.set({
+          empty: true,
+          txt1: message1,
+          txt2: message2
+        });
+        that.render();
       });
-      that.render();
     }
 
     this.onButtonClicked = function() {
