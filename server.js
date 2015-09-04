@@ -6690,7 +6690,7 @@ app.get("/api/v3/participationInit",
   authOptional(assignToP),
   want('ptptoiLimit', getInt, assignToP),
   // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-  need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+  want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
 function(req, res) {
 
   var qs = {
@@ -6711,18 +6711,26 @@ function(req, res) {
     ptptoiLimit: req.p.ptptoiLimit,
   }) : qs;
 
+  function getIfConv() {
+    if (qs.conversation_id) {
+      return request.get.apply(request, arguments);
+    } else {
+      return Promise.resolve("null");
+    }
+  }
+
   Promise.all([
-    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
-    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
-    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
-    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
-    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
+    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
+    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
+    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
+    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
+    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
     res.status(200).json({
-      nextComment: JSON.parse(arr[0]),
-      conversation: JSON.parse(arr[1]),
-      user: JSON.parse(arr[2]),
+      user: JSON.parse(arr[0]),
+      nextComment: JSON.parse(arr[1]),
+      conversation: JSON.parse(arr[2]),
       votes: JSON.parse(arr[3]),
       pca: JSON.parse(arr[4]),
       famous: JSON.parse(arr[5]),
