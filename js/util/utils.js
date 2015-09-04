@@ -1,3 +1,4 @@
+var anonPicBase64 = require("../images/anon_profile");
 var PolisStorage = require("./polisStorage");
 var Url = require("./url");
 var millisPerDay = 1000 * 60 * 60 * 24;
@@ -322,7 +323,7 @@ module.exports = {
     return PolisStorage.planCode() === 1000;
   },
   getAnonPicUrl: function() {
-    return "https://pol.is/landerImages/anonProfileIcon64.png";
+    return anonPicBase64;
   },
   getCookie: getCookie,
   getGroupNameForGid: function(gid) {

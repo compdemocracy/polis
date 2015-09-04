@@ -11,7 +11,7 @@ s.group_123 = "Group:";
 s.majorityOpinion = "Majority Opinion";
 s.majorityOpinionShort = "Majority";
 s.info = "Info";
-s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&amp;format=png&amp;w=600&amp;h=208'/>";
+s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
 s.privacy = "Privacy";
 s.TOS = "TOS";
 s.writePrompt = "Share your perspective...";

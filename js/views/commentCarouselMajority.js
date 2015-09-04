@@ -7,7 +7,7 @@ var display = require("../util/display");
 var eb = require("../eventBus");
 var template = require("../tmpl/commentCarouselMajority");
 var Strings = require("../strings");
-
+var Utils = require("../util/utils");
 
 module.exports = CommentCarousel.extend({
   name: "comment-carousel-majority-view",
@@ -72,7 +72,7 @@ module.exports = CommentCarousel.extend({
       var social = c.get("social");
       var socialCtx = {
         name: Strings.anonPerson,
-        img: "https://pol.is/landerImages/anonProfileIcon64.png",
+        img: Utils.getAnonPicUrl(),
         link: "",
         anon: true,
       };

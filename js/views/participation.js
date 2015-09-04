@@ -17,6 +17,7 @@ var ResultsView = require("../views/results-view");
 var VoteModel = require("../models/vote");
 var ParticipantModel = require("../models/participant");
 var PolisFacebookUtils = require('../util/facebookButton');
+var polisLogoBase64 = require("../images/polis_logo");
 var ConversationView = require("../views/conversation");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
@@ -201,6 +202,9 @@ module.exports =  ConversationView.extend({
     ctx.showLogoInFooter = false;
 
     ctx.no_vis = ctx.vis_type === 0;
+    var temp = Strings.addPolisToYourSite;
+    temp = temp.replace("{{URL}}", polisLogoBase64);
+    ctx.addPolisToYourSite = temp;
     return ctx;
   },
 

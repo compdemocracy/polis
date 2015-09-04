@@ -10,7 +10,7 @@ s.group_123 = "群组：";
 s.majorityOpinion = "共同意见";
 s.majorityOpinionShort = "共识";
 s.info = "说明";
-s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='https://cdn.brandisty.com/img?id=542da2347b11bf3f3b0000d1&amp;format=png&amp;w=600&amp;h=208'/>";
+s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
 s.privacy = "隐私";
 s.TOS = "使用条款";
 s.writePrompt = "分享您的观点...";
