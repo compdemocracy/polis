@@ -262,6 +262,10 @@ function doJoinConversation(args) {
 
 
 var polisRouter = Backbone.Router.extend({
+  gotoRoute: function(route, options) {
+    // this.navigate(route, options);
+    window.location = route;
+  },
   initialize: function(options) {
     this.r("homepage", "homepageView");
     this.r(/^conversation\/create(\/ep1_[0-9A-Za-z]+)?/, "createConversation");
@@ -371,7 +375,7 @@ var polisRouter = Backbone.Router.extend({
     });
   },
   bail: function() {
-    this.navigate("/", {trigger: true});
+    this.gotoRoute("/", {trigger: true});
   },
   prototype: function() {
     var view = new EmptyView();
@@ -439,7 +443,7 @@ var polisRouter = Backbone.Router.extend({
   // },
   landingPageView: function() {
     if (!authenticated()) {
-      this.navigate("user/create", {trigger: true});
+      this.gotoRoute("/user/create", {trigger: true});
       // RootView.getInstance().setView(new LandingPageView());
       // RootView.getInstance().setView(new CreateUserFormView({
       //   model : new Backbone.Model({
@@ -449,7 +453,7 @@ var polisRouter = Backbone.Router.extend({
       // }));
     } else {
       // this.inbox();
-      this.navigate("inbox", {trigger: true});
+      this.gotoRoute("/inbox", {trigger: true});
     }
   },
   settings: function(encodedStringifiedJson) {
@@ -777,10 +781,10 @@ var polisRouter = Backbone.Router.extend({
 
             if (paramsFromPath.custom_canvas_assignment_id) {
               // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
-              that.navigate("/" + model.get("conversation_id"), {trigger: true});
+              that.gotoRoute("/" + model.get("conversation_id"), {trigger: true});
             } else {
               // The usual case, show the share page.
-              that.navigate("share/" + model.get("conversation_id"), {trigger: true});
+              that.gotoRoute("/share/" + model.get("conversation_id"), {trigger: true});
             }
           }
         });
@@ -851,10 +855,10 @@ var polisRouter = Backbone.Router.extend({
 
             if (paramsFromPath.custom_canvas_assignment_id) {
               // This is attached to a Canvas assignment, take the instructor right to the conversation. They shouldn't be sharing the link, because participation outside Canvas will not be graded.
-              that.navigate("/" + model.get("conversation_id"), {trigger: true});
+              that.gotoRoute("/" + model.get("conversation_id"), {trigger: true});
             } else {
               // The usual case, show the hk index
-              that.navigate("/hk", {trigger: true});
+              that.gotoRoute("/hk", {trigger: true});
             }
           }
         });
@@ -912,7 +916,7 @@ var polisRouter = Backbone.Router.extend({
         });
         that.listenTo(createConversationFormView, "all", function(eventName, data) {
           if (eventName === "done") {
-            that.navigate("/" + data.conversation_id, {trigger: true});
+            that.gotoRoute("/" + data.conversation_id, {trigger: true});
           }
         });
         RootView.getInstance().setView(createConversationFormView);
