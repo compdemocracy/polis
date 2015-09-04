@@ -1394,29 +1394,21 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
     loggingString = "";
   }
   return function(req, res, next) {
-    console.log("mike123.0", req.p.zid, req.p.uid, loggingString);
     if (!req.p) {
-        console.log("mike123.1", loggingString);
         fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid", err);
         next("polis_err_this_middleware_should_be_after_auth_and_zid");
     }
     console.dir(req.p);
 
     var existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
-    console.dir("mike123.1a", existingValue);
 
     if (existingValue === "mypid" && req.p.zid && req.p.uid) {
-        console.log("mike123.3", loggingString);
         getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
-            console.log("mike123.3a", pid, loggingString);
             if (pid >= 0) {
-                console.log("mike123.3b", loggingString);
                 assigner(req, pidThingStringName, pid);
             }
-            console.log("mike123.3c", loggingString);
             next();
         }).catch(function(err) {
-            console.log("mike123.3d", loggingString);
             fail(res, 500, "polis_err_mypid_resolve_error", err);
             next(err);
         });
@@ -1424,17 +1416,13 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
         // don't assign anything, since we have no uid to look it up. 
         next();
     } else if (!_.isUndefined(existingValue)) {
-        console.log("mike123.4", loggingString);
         getInt(existingValue).then(function(pidNumber) {
-            console.log("mike123.4a", loggingString);
             assigner(req, pidThingStringName, pidNumber);
         }).catch(function(err) {
-            console.log("mike123.4b", loggingString);
             fail(res, 500, "polis_err_pid_error", err);
             next(err);
         });
     } else {
-        console.log("mike123.9", pidThingStringName, "not found", loggingString);
         next();   
     }
   };
@@ -1624,7 +1612,6 @@ function auth(assigner, isOptional) {
         var token = req.cookies[COOKIES.TOKEN];
         var xPolisToken = req.headers["x-polis"];
 
-        console.log("mike12345.0", "agid", req.body.agid);
         if (xPolisToken && isPolisLtiToken(xPolisToken)) {
             doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next);
         } else if (xPolisToken) {
@@ -1634,7 +1621,6 @@ function auth(assigner, isOptional) {
         } else if (req.headers.authorization) {
             doApiKeyBasicAuth(assigner, isOptional, req, res, next);
         } else if (req.body.agid) {  // Auto Gen user  ID
-            console.log("mike12345.1", req.body.agid);
             createDummyUser().then(function(uid) {
                 return startSessionAndAddCookies(req, res, uid).then(function() {
                     req.p = req.p || {};
@@ -6775,7 +6761,6 @@ function(req, res) {
     var zid = req.p.zid;
     var pid = req.p.pid; // PID_FLOW pid may be undefined here.
 
-    console.log("mike1234", uid, zid, pid);
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
     var token = req.cookies[COOKIES.TOKEN];
     var apiToken = req.headers.authorization;
