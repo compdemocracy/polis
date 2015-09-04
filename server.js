@@ -6718,13 +6718,23 @@ function(req, res) {
     }
   }
 
+  function getWith304AsSuccess() {
+    return getIfConv.apply(0, arguments).catch(function(foo) {
+      if (foo.statusCode === 304) {
+        return "null";
+      } else {
+        throw foo;
+      }
+    });
+  }
+
   Promise.all([
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
     getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
-    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
+    getWith304AsSuccess({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
     res.status(200).json({
@@ -6733,7 +6743,7 @@ function(req, res) {
       nextComment: JSON.parse(arr[2]),
       conversation: JSON.parse(arr[3]),
       votes: JSON.parse(arr[4]),
-      pca: JSON.parse(arr[5]),
+      pca: arr[5] ? JSON.parse(arr[5]) : null,
       famous: JSON.parse(arr[6]),
     });
   }).catch(function(err) {
