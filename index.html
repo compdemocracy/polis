@@ -21,6 +21,7 @@
     <script>window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";</script>
 
 <script> // Fire off this ajax first. it's slower than the other CDN delivered things.
+(function() {
 
 function ajaxGet(url, success, fail) {
   var xmlhttp;
@@ -68,6 +69,56 @@ function getWindowSize() {
   };
 }
 
+
+// bootstrap initial bulk ajax call.
+// we don't have promises until main bundle loads, so this is going to be a bit messy.
+var p = window.preload;
+
+function onPreloadOk(response) {
+  var things = [
+    {src:"nextComment", dst:"firstComment", cb:"firstCommentListener"},
+    {src:"conversation", dst:"firstConv", cb:"firstConvListener"},
+    {src:"user", dst:"firstUser", cb:"firstUserListener"},
+    {src:"votes", dst:"firstVotesByMe", cb:"firstVotesByMeListener"},
+    {src:"pca", dst:"firstMath", cb:"firstMathListener"},
+    {src:"famous", dst:"firstFamous", cb:"firstFamousListener"},
+  ];
+  for (var i = 0; i < things.length; i++) {
+    var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
+
+    p[dst] = response[src];
+    if (p[cb] && p[dst]) {
+      p[cb](0, p[dst]);
+    }
+  }
+}
+
+function onPreloadFail(statusCode, failResponse) {
+  var cbs = [
+    "firstCommentListener",
+    "firstConvListener",
+    "firstUserListener",
+    "firstVotesByMeListener",
+    "firstMathListener",
+    "firstFamousListener",
+  ];
+  for (var i = 0; i < cbs.length; i++) {
+    if (p[cbs[i]]) {
+      p[cbs[i]](1);
+    }
+  }
+}
+
+
+var path = document.location.pathname;
+var shouldPreload =
+  path.match(/^([0-9][0-9A-Za-z]+)/) ||
+  path.match(/^ot\/([0-9][0-9A-Za-z]+)/) ||
+  path.match(/^demo\/([0-9][0-9A-Za-z]+)/) ||
+  path.match(/^share\/([0-9][0-9A-Za-z]+)$/) ||
+  path.match(/^m\/([0-9][0-9A-Za-z]+)\/?(.*)$/);
+
+
 window.xsThresh = 600; // nexus 7
 var wh = getWindowSize();
 
@@ -76,61 +127,21 @@ window.getPtptoiLimitForWidth = function(w) {
 };
 
 var ptptoiLimit = getPtptoiLimitForWidth(wh.w);
-var ptptoiLimitQuery = ptptoiLimit ? ("&ptptoiLimit=" + ptptoiLimit) : "";
+var ptptoiLimitQp = ptptoiLimit ? 
+  ("ptptoiLimit=" + ptptoiLimit) :
+  "";
+var conversationIdQp = (p.conversation && p.conversation.conversation_id) ?
+  ("conversation_id=" + p.conversation.conversation_id) :
+  "";
+var qp = [conversationIdQp, ptptoiLimitQp].join("&");
+qp = qp.length > 1 ? ("?" + qp) : "";
 
-// bootstrap initial bulk ajax call.
-// we don't have promises until main bundle loads, so this is going to be a bit messy.
-var p = window.preload;
-ajaxGet("/api/v3/participationInit?conversation_id=" + p.conversation.conversation_id + ptptoiLimitQuery,
-function(response) {
-  p.firstComment = response.nextComment;
-  if (p.firstCommentListener) {
-    p.firstCommentListener(0, response.nextComment);
-  }
-  p.firstConv = response.conversation;
-  if (p.firstConvListener) {
-    p.firstConvListener(0, response.conversation);
-  }
-  p.firstUser = response.user;
-  if (p.firstUserListener) {
-    p.firstUserListener(0, response.user);
-  }
-
-  p.firstVotesByMe = response.votes;
-  if (p.firstVotesByMeListener) {
-    p.firstVotesByMeListener(0, response.votes);
-  }
-
-  p.firstMath = response.pca;
-  if (p.firstMathListener) {
-    p.firstMathListener(0, response.pca);
-  }
-  p.firstFamous = response.famous;
-  if (p.firstFamousListener) {
-    p.firstFamousListener(0, response.famous);
-  }
-}, function(statusCode, failResponse) {
-  if (p.firstCommentListener) {
-    p.firstCommentListener(1);
-  }
-  if (p.firstConvListener) {
-    p.firstConvListener(1);
-  }
-  if (p.firstUserListener) {
-    p.firstUserListener(1);
-  }
-  if (p.firstVotesByMeListener) {
-    p.firstVotesByMeListener(1);
-  }
-  if (p.firstMathListener) {
-    p.firstMathListener(1);
-  }
-  if (p.firstFamousListener) {
-    p.firstFamousListener(1);
-  }
-});
+ajaxGet("/api/v3/participationInit" + qp,
+  onPreloadOk,
+  onPreloadFail);
 
 
+}());
 </script>
 
 
