@@ -43,7 +43,7 @@ var firstVotesByMePromise = p.firstVoteByMe ?
   $.Deferred().resolve(p.firstVoteByMe) :
   (function() {
     var dfd = $.Deferred();
-    p.firstVoteByMeListener = makeListener(dfd);
+    p.firstVotesByMeListener = makeListener(dfd);
     return dfd.promise();
   }());
 
