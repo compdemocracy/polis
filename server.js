@@ -9812,7 +9812,8 @@ function(req, res) {
                 });
                 res.status(200).json(pidToData);
             }).catch(function(err) {
-                fail(res, 500, "polis_err_famous_proj_get03", err);
+                // looks like there is no pca yet, so nothing to return.
+                res.status(200).json({});
             });
 
         }).catch(function(err) {
