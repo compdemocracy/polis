@@ -2484,13 +2484,6 @@ function clientSideBaseCluster(things, N) {
         });
     }
 
-    var isSubscribedToUpdates = false;
-    function getIsSubscribed() {
-        return isSubscribedToUpdates;
-    }
-    function setIsSubscribed(val) {
-        isSubscribedToUpdates = val;
-    }
     function prepAndSendVisData() {
         firstPcaCallPromise.then(function() {
             var o = prepProjection(projectionPeopleCache);
@@ -2552,8 +2545,6 @@ function clientSideBaseCluster(things, N) {
         getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
 
         updateMyProjection: updateMyProjection,
-        getIsSubscribed: getIsSubscribed,
-        setIsSubscribed: setIsSubscribed,
         shareConversationOnFacebook: shareConversationOnFacebook,
         shareConversationOnTwitter: shareConversationOnTwitter,
         startPolling: startPolling,

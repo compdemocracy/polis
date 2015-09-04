@@ -188,7 +188,10 @@ module.exports = Handlebones.ModelView.extend({
       that.render();
     }
     function showEmpty() {
-      preloadHelper.firstVotesByMePromise.then(function() {
+      $.when(
+        preloadHelper.firstVotesByMePromise,
+        preloadHelper.firstPtptPromise
+        ).then(_.defer(function() {
 
         var userHasVoted = !!votesByMe.size();
 
@@ -217,7 +220,7 @@ module.exports = Handlebones.ModelView.extend({
           txt2: message2
         });
         that.render();
-      });
+      }));
     }
 
     this.onButtonClicked = function() {

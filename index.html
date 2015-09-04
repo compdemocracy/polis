@@ -79,6 +79,7 @@ function onPreloadOk(response) {
     {src:"nextComment", dst:"firstComment", cb:"firstCommentListener"},
     {src:"conversation", dst:"firstConv", cb:"firstConvListener"},
     {src:"user", dst:"firstUser", cb:"firstUserListener"},
+    {src:"ptpt", dst:"firstPtpt", cb:"firstPtptListener"},
     {src:"votes", dst:"firstVotesByMe", cb:"firstVotesByMeListener"},
     {src:"pca", dst:"firstMath", cb:"firstMathListener"},
     {src:"famous", dst:"firstFamous", cb:"firstFamousListener"},
@@ -98,6 +99,7 @@ function onPreloadFail(statusCode, failResponse) {
     "firstCommentListener",
     "firstConvListener",
     "firstUserListener",
+    "firstPtptListener",
     "firstVotesByMeListener",
     "firstMathListener",
     "firstFamousListener",
@@ -127,13 +129,14 @@ window.getPtptoiLimitForWidth = function(w) {
 };
 
 var ptptoiLimit = getPtptoiLimitForWidth(wh.w);
-var ptptoiLimitQp = ptptoiLimit ? 
-  ("ptptoiLimit=" + ptptoiLimit) :
-  "";
-var conversationIdQp = (p.conversation && p.conversation.conversation_id) ?
-  ("conversation_id=" + p.conversation.conversation_id) :
-  "";
-var qp = [conversationIdQp, ptptoiLimitQp].join("&");
+var qp = [];
+if (ptptoiLimit) {
+  qp.push("ptptoiLimit=" + ptptoiLimit);
+}
+if (p.conversation && p.conversation.conversation_id) {
+  qp.push("conversation_id=" + p.conversation.conversation_id);
+}
+var qp = qp.join("&");
 qp = qp.length > 1 ? ("?" + qp) : "";
 
 ajaxGet("/api/v3/participationInit" + qp,

@@ -18,6 +18,7 @@ var VoteModel = require("../models/vote");
 var ParticipantModel = require("../models/participant");
 var PolisFacebookUtils = require('../util/facebookButton');
 var polisLogoBase64 = require("../images/polis_logo");
+var preloadHelper = require("../util/preloadHelper");
 var ConversationView = require("../views/conversation");
 var UserModel = require("../models/user");
 var CommentsCollection = require("../collections/comments");
@@ -243,10 +244,10 @@ module.exports =  ConversationView.extend({
   },
   isSubscribed: function(optionalCrappySetterModeValue) {
     if (!_.isUndefined(optionalCrappySetterModeValue)) {
-      this.serverClient.setIsSubscribed(optionalCrappySetterModeValue);
+      this.ptptModel.set("subscribed", optionalCrappySetterModeValue);
       return optionalCrappySetterModeValue;
     }
-    this.serverClient.getIsSubscribed();
+    return this.ptptModel.get("subscribed");
   },
   updateVisMode: function() {
     if (!this.vis) {
@@ -286,7 +287,10 @@ module.exports =  ConversationView.extend({
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     this.wipCommentFormText = options.wipCommentFormText;
-
+    this.ptptModel = new ParticipantModel();
+    preloadHelper.firstPtptPromise.then(function(ptpt) {
+      that.ptptModel.set(ptpt);
+    });
     $.when(options.firstCommentPromise).then(function(c) {
       that.doInit(options, c);
     });

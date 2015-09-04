@@ -39,6 +39,15 @@ var firstUserPromise = p.firstUser ?
     return dfd.promise();
   }());
 
+
+var firstPtptPromise = p.firstPtpt ?
+  $.Deferred().resolve(p.firstPtpt) :
+  (function() {
+    var dfd = $.Deferred();
+    p.firstPtptListener = makeListener(dfd);
+    return dfd.promise();
+  }());
+
 var firstVotesByMePromise = p.firstVoteByMe ?
   $.Deferred().resolve(p.firstVoteByMe) :
   (function() {
@@ -67,6 +76,7 @@ module.exports = {
   firstCommentPromise: firstCommentPromise,
   firstConvPromise: firstConvPromise,
   firstUserPromise: firstUserPromise,
+  firstPtptPromise: firstPtptPromise,
   firstVotesByMePromise: firstVotesByMePromise,
   firstMathPromise: firstMathPromise,
   firstFamousPromise: firstFamousPromise,
