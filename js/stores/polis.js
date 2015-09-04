@@ -141,6 +141,7 @@ module.exports = function(params) {
     var getPtptoiLimit = params.getPtptoiLimit;
 
     var usePreloadMath = true;
+    var usePreloadFamous = true;
 
     function demoMode() {
         return getPid() < 0;
@@ -1962,7 +1963,12 @@ function clientSideBaseCluster(things, N) {
         if (getPtptoiLimit()) {
             o.ptptoiLimit = getPtptoiLimit();
         }
-        return polisGet(votesFamousPath, o).then(function(x) {
+        var promise = usePreloadFamous ?
+            preloadHelper.firstFamousPromise :
+            polisGet(votesFamousPath, o);
+
+        return promise.then(function(x) {
+            usePreloadFamous = false;
             x = x || {};
             // assign fake bids for these projected participants
             for (var pid in x) {

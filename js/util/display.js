@@ -20,7 +20,7 @@ $(window).resize(function() {
 });
 
 function xs() {
-  return widthCache <= 600; // nexus 7
+  return widthCache <= window.xsThresh;
 }
 
 module.exports = {
@@ -34,6 +34,9 @@ module.exports = {
   xs: xs,
   sm: isVisible('sm'),
   md: isVisible('md'),
-  lg: isVisible('lg')
+  lg: isVisible('lg'),
+  getCachedWidth: function() {
+    return widthCache;
+  },
 };
 

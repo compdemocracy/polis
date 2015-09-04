@@ -46,10 +46,42 @@ function ajaxGet(url, success, fail) {
   xmlhttp.send();
 }
 
+
+function getWindowSize() {
+  var w = 0, h = 0;
+  if( typeof( window.innerWidth ) == 'number' ) {
+    //Non-IE
+    w = window.innerWidth;
+    h = window.innerHeight;
+  } else if( document.documentElement && ( document.documentElement.clientWidth || document.documentElement.clientHeight ) ) {
+    //IE 6+ in 'standards compliant mode'
+    w = document.documentElement.clientWidth;
+    h = document.documentElement.clientHeight;
+  } else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) ) {
+    //IE 4 compatible
+    w = document.body.clientWidth;
+    h = document.body.clientHeight;
+  }
+  return {
+    w: w,
+    h: h,
+  };
+}
+
+window.xsThresh = 600; // nexus 7
+var wh = getWindowSize();
+
+window.getPtptoiLimitForWidth = function(w) {
+  return w < window.xsThresh ? 12 : void 0;
+};
+
+var ptptoiLimit = getPtptoiLimitForWidth(wh.w);
+var ptptoiLimitQuery = ptptoiLimit ? ("&ptptoiLimit=" + ptptoiLimit) : "";
+
 // bootstrap initial bulk ajax call.
 // we don't have promises until main bundle loads, so this is going to be a bit messy.
 var p = window.preload;
-ajaxGet("/api/v3/participationInit?conversation_id=" + p.conversation.conversation_id,
+ajaxGet("/api/v3/participationInit?conversation_id=" + p.conversation.conversation_id + ptptoiLimitQuery,
 function(response) {
   p.firstComment = response.nextComment;
   if (p.firstCommentListener) {
@@ -69,9 +101,13 @@ function(response) {
     p.firstVotesByMeListener(0, response.user);
   }
 
-  p.firstMath = response.user;
+  p.firstMath = response.pca;
   if (p.firstMathListener) {
     p.firstMathListener(0, response.pca);
+  }
+  p.firstFamous = response.famous;
+  if (p.firstFamousListener) {
+    p.firstFamousListener(0, response.famous);
   }
 }, function(statusCode, failResponse) {
   if (p.firstCommentListener) {
@@ -88,6 +124,9 @@ function(response) {
   }
   if (p.firstMathListener) {
     p.firstMathListener(1);
+  }
+  if (p.firstFamousListener) {
+    p.firstFamousListener(1);
   }
 });
 

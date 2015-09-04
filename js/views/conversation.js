@@ -94,15 +94,14 @@ module.exports = PolisModelView.extend({
     //   processData: true
     // });
 
-    var getPtptoiLimit = function() {
-      return display.xs() ? 12 : void 0;
-    };
 
     var serverClient = that.serverClient = new ServerClient({
       conversation_id: conversation_id,
       zinvite: zinvite,
       tokenStore: PolisStorage.token,
-      getPtptoiLimit: getPtptoiLimit,
+      getPtptoiLimit: function() {
+        return window.getPtptoiLimitForWidth(display.getCachedWidth());
+      },
       votesByMe: this.votesByMe,
       //commentsStore: PolisStorage.comments,
       //reactionsByMeStore: PolisStorage.reactionsByMe,

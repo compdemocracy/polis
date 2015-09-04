@@ -16,7 +16,7 @@ function makeListener(dfd) {
 }
 
 var firstCommentPromise = p.firstComment ? 
-  $.Deferred.resolve(p.firstComment) :
+  $.Deferred().resolve(p.firstComment) :
   (function() {
     var dfd = $.Deferred();
     p.firstCommentListener = makeListener(dfd);
@@ -24,7 +24,7 @@ var firstCommentPromise = p.firstComment ?
   }());
 
 var firstConvPromise = p.firstConv ?
-  $.Deferred.resolve(p.firstConv) :
+  $.Deferred().resolve(p.firstConv) :
   (function() {
     var dfd = $.Deferred();
     p.firstConvListener = makeListener(dfd);
@@ -32,7 +32,7 @@ var firstConvPromise = p.firstConv ?
   }());
 
 var firstUserPromise = p.firstUser ?
-  $.Deferred.resolve(p.firstUser) :
+  $.Deferred().resolve(p.firstUser) :
   (function() {
     var dfd = $.Deferred();
     p.firstUserListener = makeListener(dfd);
@@ -40,7 +40,7 @@ var firstUserPromise = p.firstUser ?
   }());
 
 var firstVotesByMePromise = p.firstVoteByMe ?
-  $.Deferred.resolve(p.firstVoteByMe) :
+  $.Deferred().resolve(p.firstVoteByMe) :
   (function() {
     var dfd = $.Deferred();
     p.firstVoteByMeListener = makeListener(dfd);
@@ -48,10 +48,18 @@ var firstVotesByMePromise = p.firstVoteByMe ?
   }());
 
 var firstMathPromise = p.firstMath ?
-  $.Deferred.resolve(p.firstMath) :
+  $.Deferred().resolve(p.firstMath) :
   (function() {
     var dfd = $.Deferred();
     p.firstMathListener = makeListener(dfd);
+    return dfd.promise();
+  }());
+
+var firstFamousPromise = p.firstFamous ?
+  $.Deferred().resolve(p.firstFamous) :
+  (function() {
+    var dfd = $.Deferred();
+    p.firstFamousListener = makeListener(dfd);
     return dfd.promise();
   }());
 
@@ -61,4 +69,5 @@ module.exports = {
   firstUserPromise: firstUserPromise,
   firstVotesByMePromise: firstVotesByMePromise,
   firstMathPromise: firstMathPromise,
+  firstFamousPromise: firstFamousPromise,
 };
