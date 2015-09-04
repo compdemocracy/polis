@@ -100,7 +100,6 @@ module.exports = Handlebones.ModelView.extend({
     var conversation_id = this.conversation_id = options.conversation_id;
     var pid = this.pid = options.pid;
     this.isSubscribed = options.isSubscribed;
-    console.dir(serverClient);
 
     if (Utils.isDemoMode()) {
       votesByMeFetched.resolve();

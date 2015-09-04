@@ -168,7 +168,6 @@ function shouldFocusOnTextareaWhenWritePaneShown() {
 
 function parseQueryParams(s) {
   if (!_.isString(s)) {
-    console.warn("2839748273");
     return {};
   }
   if (s.charAt(0) === "?") {

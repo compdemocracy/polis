@@ -24,7 +24,6 @@ module.exports = PolisModelView.extend({
   },
 
   updateVotesByMeCollection: function(isFirstFetch) {
-    console.log("votesByMe.fetch");
     if (Utils.isDemoMode()) {
       return;
     }

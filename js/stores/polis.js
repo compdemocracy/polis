@@ -2123,7 +2123,6 @@ function clientSideBaseCluster(things, N) {
     }
 
     function updateMyProjection() {
-        console.log("updateMyProjection");
         var o = prepProjection(projectionPeopleCache);
         var people = o.buckets;
         var clusters = o.clusters;
@@ -2493,7 +2492,6 @@ function clientSideBaseCluster(things, N) {
         isSubscribedToUpdates = val;
     }
     function prepAndSendVisData() {
-        console.log('prepAndSendVisData');
         firstPcaCallPromise.then(function() {
             var o = prepProjection(projectionPeopleCache);
             var buckets = o.buckets;

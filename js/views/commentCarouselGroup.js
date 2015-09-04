@@ -24,7 +24,9 @@ module.exports = CommentCarousel.extend({
 
   generateItemsHTML: function() {
     var that = this;
-    var selectedGroupName = Utils.getGroupNameForGid(that.selectedGid);
+    var selectedGroupName = _.isUndefined(that.selectedGid) ?
+      "" :
+      Utils.getGroupNameForGid(that.selectedGid);
 
     var indexToTid = [];
 
@@ -144,7 +146,10 @@ module.exports = CommentCarousel.extend({
 
   context: function() {
     var ctx = CommentCarousel.prototype.context.apply(this, arguments);
-    ctx.selectedGroupName = Utils.getGroupNameForGid(ctx.selectedGid);
+    ctx.selectedGroupName = _.isUndefined(ctx.selectedGid) ?
+      "" :
+      Utils.getGroupNameForGid(ctx.selectedGid);
+
     ctx.s = Strings;
     ctx.s.heresHowGroupVoted_sub = ctx.s.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", ctx.selectedGroupName);
     return ctx;
@@ -156,7 +161,10 @@ module.exports = CommentCarousel.extend({
 
     // doing this since we don't want to trigger a render of the whole view.
     eb.on(eb.clusterSelectionChanged, function(gid) {
-      selectedGroupName = Utils.getGroupNameForGid(gid);
+      selectedGroupName = _.isUndefined(that.selectedGid) ?
+      "" :
+      Utils.getGroupNameForGid(that.selectedGid);
+      
       var str = Strings.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", selectedGroupName);
       $("#analyzeGroupGroupName").text(str);
     });
