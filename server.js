@@ -729,27 +729,6 @@ function hasAuthToken(req) {
 }
 
 
-function doCookieAuth(assigner, isOptional, req, res, next) {
-
-    var token = req.cookies[COOKIES.TOKEN];
-    
-    //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
-    getUserInfoForSessionToken(token, res, function(err, uid) {
-
-        if (err) {
-            res.status(403);
-            next("polis_err_auth_no_such_token");
-            return;
-        }
-        if ( req.body.uid && req.body.uid !== uid) {
-            res.status(401);
-            next("polis_err_auth_mismatch_uid");
-            return;
-        }
-        assigner(req, "uid", Number(uid));
-        next();
-    });
-}
 
 function getUidForApiKey(apikey) {
     return pgQueryP("select uid from apikeysndvweifu WHERE apikey = ($1);", [apikey]);
@@ -2627,6 +2606,34 @@ function clearCookies(req, res) {
         // }
     }
     winston.log("info","after clear res set-cookie: " + JSON.stringify(res._headers["set-cookie"]));
+}
+
+
+function doCookieAuth(assigner, isOptional, req, res, next) {
+
+    var token = req.cookies[COOKIES.TOKEN];
+    
+    //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
+    getUserInfoForSessionToken(token, res, function(err, uid) {
+
+        if (err) {
+            clearCookies(req, res); // TODO_MULTI_DATACENTER_CONSIDERATION
+            if (isOptional) {
+              next();
+            } else {
+              res.status(403);
+              next("polis_err_auth_no_such_token");
+            }
+            return;
+        }
+        if ( req.body.uid && req.body.uid !== uid) {
+            res.status(401);
+            next("polis_err_auth_mismatch_uid");
+            return;
+        }
+        assigner(req, "uid", Number(uid));
+        next();
+    });
 }
 
 app.post("/api/v3/auth/deregister",
