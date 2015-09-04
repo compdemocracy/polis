@@ -42,6 +42,14 @@ var _ = require("underscore");
 var $ = require("jquery");
 var gaEvent = require("../util/gaMetric").gaEvent;
 
+var preloadHelper = require("../util/preloadHelper");
+
+
+
+preloadHelper.firstCommentPromise.then(function(data) {
+  console.log("firstCommentPromise");
+  console.log(data);
+});
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
@@ -926,8 +934,8 @@ var polisRouter = Backbone.Router.extend({
 
   doLaunchConversation2: function(conversation_id, args) {
 
-    // Since nextComment is pretty slow, fire off the request way early and pass the promise into the participation view so it's (probably) ready when the page loads.
-    var firstCommentPromise = $.get("/api/v3/nextComment?not_voted_by_pid=mypid&limit=1&include_social=true&conversation_id=" + conversation_id);
+    // Since nextComment is pretty slow, fire off the request way early (this actually happens on the js on index.html now) and pass the promise into the participation view so it's (probably) ready when the page loads.
+    var firstCommentPromise = preloadHelper.firstCommentPromise;
 
     this.getConversationModel(conversation_id).then(function(model) {
 
@@ -1155,7 +1163,7 @@ var polisRouter = Backbone.Router.extend({
       return Promise.resolve(model);
     }
     // no preloadData copy of the conversation model, so make an ajax request for it.
-    return $.get("/api/v3/conversations?conversation_id=" + conversation_id).then(function(conv) {
+    return preloadHelper.firstConvPromise.then(function(conv) {
       model = new ConversationModel(conv);
       if (suzinvite) {
         model.set("suzinvite", suzinvite);

@@ -17,6 +17,61 @@
     </script -->
     <link rel="stylesheet" type="text/css" href="<%= basepath %>/css/polis.css"> <!-- proxy all CSS through server for respond.js -->
 
+
+    <script>window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";</script>
+
+<script> // Fire off this ajax first. it's slower than the other CDN delivered things.
+
+function ajaxGet(url, success, fail) {
+  var xmlhttp;
+  if (window.XMLHttpRequest) {
+    // code for IE7+, Firefox, Chrome, Opera, Safari
+    xmlhttp = new XMLHttpRequest();
+  } else {
+    // code for IE6, IE5
+    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+  }
+
+  xmlhttp.onreadystatechange = function() {
+    if (xmlhttp.readyState == XMLHttpRequest.DONE ) {
+      if(xmlhttp.status == 200){
+        success(JSON.parse(xmlhttp.responseText));
+      } else {
+        fail(xmlhttp.status, xmlhttp.responseText);
+      }
+    }
+  }
+
+  xmlhttp.open("GET", url, true);
+  xmlhttp.send();
+}
+
+// bootstrap initial bulk ajax call.
+// we don't have promises until main bundle loads, so this is going to be a bit messy.
+var p = window.preload;
+ajaxGet("/api/v3/participationInit?conversation_id=" + p.conversation.conversation_id,
+function(response) {
+  p.firstComment = response.nextComment;
+  if (p.firstCommentListener) {
+    p.firstCommentListener(0, response.nextComment);
+  }
+  p.firstConv = response.conversation;
+  if (p.firstConvListener) {
+    p.firstConvListener(0, response.conversation);
+  }
+}, function(statusCode, failResponse) {
+  if (p.firstCommentListener) {
+    p.firstCommentListener(1);
+  }
+  if (p.firstConvListener) {
+    p.firstConvListener(1);
+  }
+});
+
+
+</script>
+
+
     <script>
 // // add error alerting
 // if (document.domain.indexOf("preprod") || document.domain.indexOf("localhost")) {
@@ -187,7 +242,7 @@ window.initIntercom = function(){
 <script src="<%= basepath %>/js/<%= d3Filename %>"></script>
 <!--<![endif]-->
 
-    <script>window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";</script>
+
     <script src="<%= basepath %>/js/polis.js"></script>
 
 
