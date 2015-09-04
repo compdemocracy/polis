@@ -3627,49 +3627,56 @@ function sendEmailByUid(uid, subject, body) {
 
 
 // // tags: ANON_RELATED
-// app.get("/api/v3/participants",
-//     moveToBody,
-//     authOptional(assignToP),
-//     want('pid', getInt, assignToP),
-//     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-//     resolve_pidThing('pid', assignToP),
-// function(req, res) {
-//     var pid = req.p.pid;
-//     var uid = req.p.uid;
-//     var zid = req.p.zid;
+app.get("/api/v3/participants",
+    moveToBody,
+    auth(assignToP),
+    // want('pid', getInt, assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    // resolve_pidThing('pid', assignToP),
+function(req, res) {
+    // var pid = req.p.pid;
+    var uid = req.p.uid;
+    var zid = req.p.zid;
 
-//     function fetchOne() {
-//         pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
-//             if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-//             var ptpt = result.rows[0];
-//             var data = {};
-//             // choose which fields to expose
-//             data.hname = ptpt.hname;
+    pgQueryP("select * from participants where uid = ($1) and zid = ($2)", [uid, zid]).then(function(rows) {
+      var ptpt = rows && rows.length && rows[0] || null;
+      res.status(200).json(ptpt);
+    }).catch(function(err) {
+      fail(res, 500, "polis_err_get_participant", err);
+    });
 
-//             res.status(200).json(data);
-//         });
-//     }
-//     function fetchAll() {
-//         // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
-//         pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
-//             if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-//             res.json(result.rows);
-//         });
-//     }
-//     pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
-//         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
-//         if (result.rows[0].is_anon) {
-//             fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
-//             return;
-//         }
-//         if (pid !== undefined) {
-//             fetchOne();
-//         } else {
-//             fetchAll();
-//         }
+    // function fetchOne() {
+    //     pgQuery("SELECT * FROM users WHERE uid IN (SELECT uid FROM participants WHERE pid = ($1) AND zid = ($2));", [pid, zid], function(err, result) {
+    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+    //         var ptpt = result.rows[0];
+    //         var data = {};
+    //         // choose which fields to expose
+    //         data.hname = ptpt.hname;
 
-//     });
-// });
+    //         res.status(200).json(data);
+    //     });
+    // }
+    // function fetchAll() {
+    //     // NOTE: it's important to return these in order by pid, since the array index indicates the pid.
+    //     pgQuery("SELECT users.hname, users.email, participants.pid FROM users INNER JOIN participants ON users.uid = participants.uid WHERE zid = ($1) ORDER BY participants.pid;", [zid], function(err, result) {
+    //         if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+    //         res.json(result.rows);
+    //     });
+    // }
+    // pgQuery("SELECT is_anon FROM conversations WHERE zid = ($1);", [zid], function(err, result) {
+    //     if (err || !result || !result.rows || !result.rows.length) { fail(res, 500, "polis_err_fetching_participant_info", err); return; }
+    //     if (result.rows[0].is_anon) {
+    //         fail(res, 403, "polis_err_fetching_participant_info_conversation_is_anon");
+    //         return;
+    //     }
+    //     // if (pid !== undefined) {
+    //         fetchOne();
+    //     // } else {
+    //         // fetchAll();
+    //     // }
+
+    // });
+});
 
 app.get("/api/v3/dummyButton",
     moveToBody,
@@ -5753,7 +5760,6 @@ function(req, res) {
     var zid = req.p.zid;
     var uid = req.p.uid;
     var strict = req.p.strict;
-
     isOwner(zid, uid).then(function(ok) {
         if (!ok) {
             fail(res, 403, "polis_err_get_participation_auth");
@@ -6718,9 +6724,17 @@ function(req, res) {
       return Promise.resolve("null");
     }
   }
+  function getIfConvAndAuth() {
+    if (req.p.uid) {
+      return getIfConv.apply(0, arguments);
+    } else {
+      return Promise.resolve("null");
+    }
+  }
 
   Promise.all([
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
+    getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
@@ -6729,13 +6743,15 @@ function(req, res) {
   ]).then(function(arr) {
     res.status(200).json({
       user: JSON.parse(arr[0]),
-      nextComment: JSON.parse(arr[1]),
-      conversation: JSON.parse(arr[2]),
-      votes: JSON.parse(arr[3]),
-      pca: JSON.parse(arr[4]),
-      famous: JSON.parse(arr[5]),
+      ptpt: JSON.parse(arr[1]),
+      nextComment: JSON.parse(arr[2]),
+      conversation: JSON.parse(arr[3]),
+      votes: JSON.parse(arr[4]),
+      pca: JSON.parse(arr[5]),
+      famous: JSON.parse(arr[6]),
     });
   }).catch(function(err) {
+    console.error(err);
     fail(res, 500, "polis_err_get_participationInit", err);
   });
 });
