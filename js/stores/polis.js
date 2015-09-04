@@ -4,6 +4,7 @@
 var eb = require("../eventBus");
 var deepcopy = require("deepcopy");
 var metric = require("../util/gaMetric");
+var preloadHelper = require("../util/preloadHelper");
 var Utils = require("../util/utils");
 var shuffleWithSeed = require("../util/shuffleWithSeed");
 // var brain = require("brain");
@@ -138,6 +139,8 @@ module.exports = function(params) {
     var shouldPoll = true;
 
     var getPtptoiLimit = params.getPtptoiLimit;
+
+    var usePreloadMath = true;
 
     function demoMode() {
         return getPid() < 0;
@@ -1173,11 +1176,18 @@ function clientSideBaseCluster(things, N) {
             // Don't poll when the document isn't visible. (and we've already fetched the pca)
             return $.Deferred().reject();
         }
-        return polisGet(path, {
-            lastVoteTimestamp: timestamp,
-            conversation_id: conversation_id,
-            cacheBust: (Math.random()*1e9 >> 0)
-        }).pipe( function(pcaData, textStatus, xhr) {
+        var promise = usePreloadMath ?
+            preloadHelper.firstMathPromise.pipe(function(pcaData) {
+                return $.Deferred().resolve(pcaData, null, {status: 200});
+            }) :
+            polisGet(path, {
+                lastVoteTimestamp: timestamp,
+                conversation_id: conversation_id,
+                cacheBust: (Math.random()*1e9 >> 0)
+            });
+
+        return promise.pipe( function(pcaData, textStatus, xhr) {
+                usePreloadMath = false;
                 if (304 === xhr.status) {
                     // not nodified
                     firstPcaCallPromise.resolve();

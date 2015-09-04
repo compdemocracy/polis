@@ -68,6 +68,11 @@ function(response) {
   if (p.firstVotesByMeListener) {
     p.firstVotesByMeListener(0, response.user);
   }
+
+  p.firstMath = response.user;
+  if (p.firstMathListener) {
+    p.firstMathListener(0, response.pca);
+  }
 }, function(statusCode, failResponse) {
   if (p.firstCommentListener) {
     p.firstCommentListener(1);
@@ -80,6 +85,9 @@ function(response) {
   }
   if (p.firstVotesByMeListener) {
     p.firstVotesByMeListener(1);
+  }
+  if (p.firstMathListener) {
+    p.firstMathListener(1);
   }
 });
 

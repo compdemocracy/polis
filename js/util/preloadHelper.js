@@ -47,9 +47,18 @@ var firstVotesByMePromise = p.firstVoteByMe ?
     return dfd.promise();
   }());
 
+var firstMathPromise = p.firstMath ?
+  $.Deferred.resolve(p.firstMath) :
+  (function() {
+    var dfd = $.Deferred();
+    p.firstMathListener = makeListener(dfd);
+    return dfd.promise();
+  }());
+
 module.exports = {
   firstCommentPromise: firstCommentPromise,
   firstConvPromise: firstConvPromise,
   firstUserPromise: firstUserPromise,
   firstVotesByMePromise: firstVotesByMePromise,
+  firstMathPromise: firstMathPromise,
 };
