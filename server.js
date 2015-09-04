@@ -165,6 +165,12 @@ if (devMode) {
     pg.defaults.poolSize = 25; 
 }
 
+var SELF_HOSTNAME = "localhost:" + process.env.PORT;
+// if (!devMode) {
+   // ^^^ possible to use localhost on Heroku?
+  //  SELF_HOSTNAME = "polisapp.herokuapp.com"
+//}
+
 
 
 // metric name => {
@@ -6671,6 +6677,32 @@ function(req, res) {
         fail(res, 500, "polis_err_get_next_comment", err);
     });
 });
+
+app.get("/api/v3/participationInit",
+    moveToBody,
+    authOptional(assignToP),
+    // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+function(req, res) {
+    console.log(123455);
+
+    var qs = {
+        conversation_id: req.p.conversation_id,
+    };
+
+    Promise.all([
+        request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: qs, headers: req.headers}),
+    ]).then(function(arr) {
+        console.log(123456);
+        var nextComment = JSON.parse(arr[0]);
+        res.status(200).json({
+            nextComment: nextComment,
+        });
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_get_participationInit", err);
+    });
+});
+
 
 
 function updateConversationModifiedTime(zid, t) {
