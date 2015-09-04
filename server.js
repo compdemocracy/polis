@@ -6684,19 +6684,27 @@ app.get("/api/v3/participationInit",
     // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
 function(req, res) {
-    console.log(123455);
 
     var qs = {
         conversation_id: req.p.conversation_id,
     };
 
+    var nextCommentQs = _.extend({}, qs, {
+        not_voted_by_pid: "mypid",
+        limit: 1,
+        include_social: true,
+    });
+
     Promise.all([
-        request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: qs, headers: req.headers}),
+        request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers}),
+        request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers}),
+        // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers}),
     ]).then(function(arr) {
-        console.log(123456);
-        var nextComment = JSON.parse(arr[0]);
+        console.dir(arr[2]);
         res.status(200).json({
-            nextComment: nextComment,
+            nextComment: JSON.parse(arr[0]),
+            conversation: JSON.parse(arr[1]),
+            // pca: JSON.parse(arr[2]),
         });
     }).catch(function(err) {
         fail(res, 500, "polis_err_get_participationInit", err);
@@ -11534,16 +11542,16 @@ function fetchIndexForConversation(req, res) {
     }).then(function(a) {
         var conv = a[0];
         var optionalResults = a[1];
-        conv = _.pick(conv, [
-            "topic",
-            "description",
-            "created",
-            "link_url",
-            "parent_url",
-            "vis_type",
-        ]);
+        conv = {
+            topic: conv.topic,
+            description: conv.description,
+            created: conv.created,
+            link_url: conv.link_url,
+            parent_url: conv.parent_url,
+            vis_type: conv.vis_type,
+        };
         conv.conversation_id = conversation_id;
-        conv = _.extend({}, optionalItems, conv);
+        conv = _.extend({}, optionalResults, conv);
         return conv;
     }).then(function(x) {
         var preloadData = {
