@@ -11,6 +11,7 @@ var TutorialController = require("../controllers/tutorialController");
 var VotesCollection = require("../collections/votes");
 var URLs = require("../util/url");
 var Utils = require("../util/utils");
+var preloadHelper = require("../util/preloadHelper");
 
 var urlPrefix = URLs.urlPrefix;
 
@@ -22,18 +23,24 @@ module.exports = PolisModelView.extend({
     return this.serverClient.getGroupInfo(this.selectedGid);
   },
 
-  updateVotesByMeCollection: function() {
+  updateVotesByMeCollection: function(isFirstFetch) {
     console.log("votesByMe.fetch");
     if (Utils.isDemoMode()) {
       return;
     }
-    this.votesByMe.fetch({
-      data: $.param({
-        conversation_id: this.conversation_id,
-        pid: "mypid",
-      }),
-      reset: false
-    });
+    if (isFirstFetch) {
+      preloadHelper.firstVotesByMePromise.then(function(votes) {
+        this.votesByMe.add(votes);
+      }.bind(this));
+    } else {
+      this.votesByMe.fetch({
+        data: $.param({
+          conversation_id: this.conversation_id,
+          pid: "mypid",
+        }),
+        reset: false
+      });
+    }
   },
 
 
@@ -103,7 +110,7 @@ module.exports = PolisModelView.extend({
       logger: console
     });
 
-    this.updateVotesByMeCollection();
+    this.updateVotesByMeCollection(1);
     this.serverClient.addPollingScheduledCallback(function() {
       that.updateVotesByMeCollection();
     });

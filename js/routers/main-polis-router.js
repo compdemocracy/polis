@@ -33,6 +33,7 @@ var SettingsView = require("../views/settings.js");
 var ShareLinkView = require("../views/share-link-view");
 var SummaryView = require("../views/summary.js");
 var PlanUpgradeView = require("../views/plan-upgrade");
+var preloadHelper = require("../util/preloadHelper");
 var FaqView = require("../views/faq");
 var PolisStorage = require("../util/polisStorage");
 var TutorialSlidesView = require("../views/tutorialSlides");
@@ -41,15 +42,6 @@ var Utils = require("../util/utils");
 var _ = require("underscore");
 var $ = require("jquery");
 var gaEvent = require("../util/gaMetric").gaEvent;
-
-var preloadHelper = require("../util/preloadHelper");
-
-
-
-preloadHelper.firstCommentPromise.then(function(data) {
-  console.log("firstCommentPromise");
-  console.log(data);
-});
 
 
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);

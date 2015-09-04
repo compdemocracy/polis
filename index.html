@@ -59,12 +59,27 @@ function(response) {
   if (p.firstConvListener) {
     p.firstConvListener(0, response.conversation);
   }
+  p.firstUser = response.user;
+  if (p.firstUserListener) {
+    p.firstUserListener(0, response.user);
+  }
+
+  p.firstVotesByMe = response.user;
+  if (p.firstVotesByMeListener) {
+    p.firstVotesByMeListener(0, response.user);
+  }
 }, function(statusCode, failResponse) {
   if (p.firstCommentListener) {
     p.firstCommentListener(1);
   }
   if (p.firstConvListener) {
     p.firstConvListener(1);
+  }
+  if (p.firstUserListener) {
+    p.firstUserListener(1);
+  }
+  if (p.firstVotesByMeListener) {
+    p.firstVotesByMeListener(1);
   }
 });
 

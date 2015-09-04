@@ -31,7 +31,25 @@ var firstConvPromise = p.firstConv ?
     return dfd.promise();
   }());
 
+var firstUserPromise = p.firstUser ?
+  $.Deferred.resolve(p.firstUser) :
+  (function() {
+    var dfd = $.Deferred();
+    p.firstUserListener = makeListener(dfd);
+    return dfd.promise();
+  }());
+
+var firstVotesByMePromise = p.firstVoteByMe ?
+  $.Deferred.resolve(p.firstVoteByMe) :
+  (function() {
+    var dfd = $.Deferred();
+    p.firstVoteByMeListener = makeListener(dfd);
+    return dfd.promise();
+  }());
+
 module.exports = {
   firstCommentPromise: firstCommentPromise,
   firstConvPromise: firstConvPromise,
+  firstUserPromise: firstUserPromise,
+  firstVotesByMePromise: firstVotesByMePromise,
 };
