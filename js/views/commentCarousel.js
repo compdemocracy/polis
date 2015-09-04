@@ -64,6 +64,25 @@ module.exports = Handlebones.View.extend({
   },
   renderItems: function(items, indexToTid) {
     var that = this;
+
+    function updateCarouselButtons() {
+      var prevEl = that.getPrevButtonEl();
+      var nextEl = that.getNextButtonEl();
+
+      nextEl.css("opacity", 1);
+      prevEl.css("opacity", 1);
+      that.carouselPrevDisabled = false;
+      that.carouselNextDisabled = false;
+      if (this.currentItem === 0) {
+        prevEl.css("opacity", 0.2);
+        that.carouselPrevDisabled = true;
+      }
+      if (this.currentItem >= (items.length - 1)) {
+        nextEl.css("opacity", 0.2);
+        that.carouselNextDisabled = true;
+      }
+    }
+
     var el = that.getCarouselEl();
     el.html("");
     el.append("<div id='"+ that.el_smallWindow +"' style='left: 10%; width:80%'></div>");
@@ -81,6 +100,7 @@ module.exports = Handlebones.View.extend({
       // autoHeight : true,
       //  transitionStyle: "fade", // this should enable CSS3 transitions
       afterInit : function(elem){
+        var thatCarousel = this;
         if (!isMobile) {
           this.owlControls.prependTo(elem);
         }
@@ -142,6 +162,7 @@ module.exports = Handlebones.View.extend({
           that.getParentEl().prepend(groupCarouselPrevHTML);
           that.getParentEl().append(groupCarouselNextHTML);
 
+          updateCarouselButtons.call(thatCarousel);
 
           // <div id="carouselNext">next</div>")
 
@@ -172,21 +193,7 @@ module.exports = Handlebones.View.extend({
       afterMove: function() {
         var tid = indexToTid[this.currentItem];
 
-        var prevEl = that.getPrevButtonEl();
-        var nextEl = that.getNextButtonEl();
-
-        nextEl.css("opacity", 1);
-        prevEl.css("opacity", 1);
-        that.carouselPrevDisabled = false;
-        that.carouselNextDisabled = false;
-        if (this.currentItem === 0) {
-          prevEl.css("opacity", 0.2);
-          that.carouselPrevDisabled = true;
-        }
-        if (this.currentItem >= (items.length - 1)) {
-          nextEl.css("opacity", 0.2);
-          that.carouselNextDisabled = true;
-        }
+        updateCarouselButtons.call(this);
         setTimeout(function() {
             eb.trigger(eb.commentSelected, tid);
         }, 200);
