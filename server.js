@@ -6704,14 +6704,14 @@ function(req, res) {
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers}),
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers}),
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers}),
-    // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers}),
+    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
     res.status(200).json({
       nextComment: JSON.parse(arr[0]),
       conversation: JSON.parse(arr[1]),
       user: JSON.parse(arr[2]),
       votes: JSON.parse(arr[3]),
-      // pca: JSON.parse(arr[2]),
+      pca: JSON.parse(arr[4]),
     });
   }).catch(function(err) {
     fail(res, 500, "polis_err_get_participationInit", err);
