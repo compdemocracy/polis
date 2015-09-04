@@ -6681,6 +6681,7 @@ function(req, res) {
 app.get("/api/v3/participationInit",
   moveToBody,
   authOptional(assignToP),
+  want('ptptoiLimit', getInt, assignToP),
   // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
   need('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
 function(req, res) {
@@ -6699,12 +6700,17 @@ function(req, res) {
     pid: "mypid",
   });
 
+  var famousQs = req.p.ptptoiLimit ? _.extend({}, qs, {
+    ptptoiLimit: req.p.ptptoiLimit,
+  }) : qs;
+
   Promise.all([
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers}),
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers}),
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers}),
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers}),
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
+    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
     res.status(200).json({
       nextComment: JSON.parse(arr[0]),
@@ -6712,6 +6718,7 @@ function(req, res) {
       user: JSON.parse(arr[2]),
       votes: JSON.parse(arr[3]),
       pca: JSON.parse(arr[4]),
+      famous: JSON.parse(arr[5]),
     });
   }).catch(function(err) {
     fail(res, 500, "polis_err_get_participationInit", err);
