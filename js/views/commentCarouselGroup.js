@@ -67,7 +67,7 @@ module.exports = CommentCarousel.extend({
       var header;
       var v = info.votes[tid];
       var denominator = v.S; // or maybe v.S (seen)
-      if (repness["best-agree"]) {
+      if (repness["best-agree"] && (v.A > 0)) {
         repfullForAgree = true;
       }
       // var denominator = info.count; // or maybe v.S (seen)
