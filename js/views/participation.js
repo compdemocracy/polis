@@ -753,11 +753,11 @@ module.exports =  ConversationView.extend({
           that.vis.selectGroup(gid);
         }
         eb.trigger(eb.clusterClicked, gid);
-        if (gid === -1) {
-          setTimeout(function() {
-            that.vis.showAllClustersAsActive();
-          }, 1);
-        }
+        // if (gid === -1) {
+        //   setTimeout(function() {
+        //     that.vis.showAllClustersAsActive();
+        //   }, 1);
+        // }
       });
       this.groupSelectionView.addInfoPaneButtonClickedListener(function() {
         $("#infoPaneTab").click();
@@ -887,6 +887,10 @@ module.exports =  ConversationView.extend({
       // That would cause the vis blocker to flash.
       this.firstMathPollResultDeferred.then(function() {
         that.votesByMe.on("add", updateMyProjectionAfterAddingVote);
+
+        // Select "Majority Opinion" on launch.
+        that.groupSelectionView.setSelectedGroup(-1);
+
       });
 
       this.commentForm.on("commentSubmitted", function() {

@@ -15,7 +15,7 @@ module.exports =  Handlebones.ModelView.extend({
     "click .visiblePart": "onClickGroupButtonInner",
     "click .infoPaneButton": "onClickInfoPaneButton",
   },
-  foo: function(gid) {
+  setSelectedGroup: function(gid) {
     if (!_.isNaN(gid)) {
       this.model.set("selectedGid", gid);
       this.onChangedCallbacks.fire(gid);
@@ -24,12 +24,12 @@ module.exports =  Handlebones.ModelView.extend({
   onClickGroupButtonInner: function(e) {
     var $target = $(e.target).parent();
     var gid = Number($target.data("gid"));
-    this.foo(gid);
+    this.setSelectedGroup(gid);
   },
   onClick: function(e) {
     var $target = $(e.target);
     var gid = Number($target.data("gid"));
-    this.foo(gid);
+    this.setSelectedGroup(gid);
   },
   onClickInfoPaneButton: function(e) {
     this.onClickInfoPaneButtonClickedCallbacks.fire();
@@ -40,9 +40,6 @@ module.exports =  Handlebones.ModelView.extend({
   },
   show: function() {
     this.model.set("visible", true);
-  },
-  setSelectedGroup: function(gid) {
-    this.gid = gid;
   },
   addSelectionChangedListener: function(f) {
     this.onChangedCallbacks.add(f);
