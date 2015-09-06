@@ -127,21 +127,41 @@ body {
 }
 
 .groupButton {
-  border: none;
-  background-color: #f7f7f7;
-  border-bottom: 2px solid #f7f7f7;
+    color: #666;
+    text-shadow: 0px 1px 0px rgba(255,255,255,0.59);
+    font-size: 12px;
+    display: inline;
+    position: relative;
+    margin: 0px 1px 0px 1px;
+    width: auto;
+    height: auto;
+    background: #ececec;
+    padding: 6px 10px 6px 10px;
+    outline: none;
+    border: 1px solid #d8d8d8;
+    border-bottom: 1px solid #ccc;
+    border-radius: 3px;
+    cursor: pointer;
+    -webkit-box-shadow: 0px 2px 2px rgba(0,0,0,0.027), inset 0px 1px 0px rgba(255,255,255,0.69), inset 0px -1px 0px rgba(0,0,0,0.0187), inset 0px 14px 13px rgba(255,255,255,0.57);
+    -moz-box-shadow: 0px 2px 2px rgba(0,0,0,0.027), inset 0px 1px 0px rgba(255,255,255,0.69), inset 0px -1px 0px rgba(0,0,0,0.0187), inset 0px 14px 13px rgba(255,255,255,0.57);
+    -o-box-shadow: 0px 2px 2px rgba(0,0,0,0.027), inset 0px 1px 0px rgba(255,255,255,0.69), inset 0px -1px 0px rgba(0,0,0,0.0187), inset 0px 14px 13px rgba(255,255,255,0.57);
+    box-shadow: 0px 2px 2px rgba(0,0,0,0.027), inset 0px 1px 0px rgba(255,255,255,0.69), inset 0px -1px 0px rgba(0,0,0,0.0187), inset 0px 14px 13px rgba(255,255,255,0.57);
 }
 
 .groupButton:hover {
-  border-bottom: 2px solid #717171;
+
 }
 
 .selectedGroupButton {
-  border-bottom: 2px solid #717171;
+    color: #696969;
+    text-shadow: 0px 1px 0px rgba(255,255,255,0.53);
+    border: 1px solid #d2d2d2;
+    border-bottom: 1px solid #d8d8d8;
+    -webkit-box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
+    -moz-box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
+    -o-box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
+    box-shadow: 0px 1px 0px rgba(255,255,255,0.58), inset 0px 1px 6px rgba(0,0,0,0.07), inset 0px -14px 13px rgba(255,255,255,0.20);
 }
-
-.selectedGroupButton {outline:none !important; }
-.groupButton {outline:none !important; }
 
 
 .btn-vote {
