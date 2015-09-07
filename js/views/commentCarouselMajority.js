@@ -137,5 +137,6 @@ module.exports = CommentCarousel.extend({
     var that = this;
     this.collection = options.collection;
     this.getTidsForConsensus = options.getTidsForConsensus;
+    this.getPtptCount = options.getPtptCount;
   }
 });
