@@ -177,6 +177,8 @@ module.exports = Handlebones.ModelView.extend({
           that.participantCommented(attrs).then(function() {
             that.$("#comment_form_textarea").val("");
             that.hideFormControls();
+            that.showMessage("#comment_sent_message");
+
           }).always(function() {
             that.buttonActive = true;
           });
@@ -246,7 +248,7 @@ module.exports = Handlebones.ModelView.extend({
     }
 
     if (Utils.isDemoMode()) {
-      that.showMessage("#commentSentDemoAlert");
+      that.showMessage("#comment_sent_message");
       that.trigger("commentSubmitted");
       return resolve();
     }
@@ -257,13 +259,13 @@ module.exports = Handlebones.ModelView.extend({
     } else {
       promise.then(function() {
         that.trigger("commentSubmitted"); // view.trigger
-        $("#comment_form_textarea").hide();
-        $("#commentSentAlert").fadeIn(300);
-        setTimeout(function() {
-          $("#commentSentAlert").fadeOut(500, function() {
-            $("#comment_form_textarea").fadeIn(400);
-          });
-        }, 1500);
+        // $("#comment_form_textarea").hide();
+        // $("#commentSentAlert").fadeIn(300);
+        // setTimeout(function() {
+        //   $("#commentSentAlert").fadeOut(500, function() {
+        //     $("#comment_form_textarea").fadeIn(400);
+        //   });
+        // }, 1500);
       }, function(args) {
         if (!args || !args.length || !args[0].length) {
           alert("failed to send");

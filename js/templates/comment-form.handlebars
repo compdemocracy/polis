@@ -30,7 +30,7 @@
           placeholder="{{s.writePrompt}}"
           {{#if shouldAutofocusOnTextarea}}autofocus{{/if}}
           ></textarea>
-        <p
+        {{!-- <p
           id="commentSentAlert"
           class="protip"
           style="display: none;"
@@ -41,7 +41,7 @@
               </i>
               {{s.commentSent}}
               </strong>
-        </p>
+        </p> --}}
       </span>
     </div>
 
@@ -74,6 +74,21 @@
 
       {{!-- ================ PROTIPS ================ --}}
       <span style="{{#if desktop}}margin-right: 20px;{{/if}}" class=""> {{! protips column }}
+
+
+
+        <p
+          id="comment_sent_message"
+          class="protip flexbox low_priority_tip"
+          style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
+          >
+            <span style="margin-left: 5px">
+              <i
+                class="fa fa-bullhorn">
+              </i>
+              {{{s.commentSent}}}
+            </span>
+        </p>
 
 
         <p
@@ -151,7 +166,7 @@
             <strong> Comment is too long. </strong>
           </p>
         </div> --}}
-        <div
+        {{!-- <div
           id="commentSentDemoAlert"
           class="protip"
           style="
@@ -162,7 +177,7 @@
           <p>
             <strong> {{s.commentSent}}</strong> {{s.notSentSinceDemo}}
           </p>
-        </div>
+        </div> --}}
       </span> {{! end protips column}}
 
    {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
