@@ -110,8 +110,9 @@ module.exports = CommentCarousel.extend({
         agreedOrDisagreed: agreedOrDisagreed,
         leClass: leClass,
         count: count,
-        nTrials: info["n-trials"],
+        // nTrials: info["n-trials"],
         numVotedString: info["n-trials"] + " / " + that.getPtptCount(),
+        fractionAgreeOrDisagree: count + ' / ' + info["n-trials"],
         repfullForAgree: forAgree,
         commentCarouselMinHeight: constants.commentCarouselMinHeight,
       });
