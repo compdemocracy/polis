@@ -830,9 +830,6 @@ module.exports =  ConversationView.extend({
 
       this.commentCarouselMajorityView = this.addChild(new AnalyzeGlobalView({
         conversation_id: conversation_id,
-        getPtptCount: function() {
-          return that.serverClient.getPtptCount();
-        },
         getTidsForConsensus: function() {
           return that.serverClient.getTidsForConsensus.apply(0, arguments);
         },

@@ -111,7 +111,6 @@ module.exports = CommentCarousel.extend({
         leClass: leClass,
         count: count,
         nTrials: info["n-trials"],
-        numVotedString: info["n-trials"] + " / " + that.getPtptCount(),
         repfullForAgree: forAgree,
         commentCarouselMinHeight: constants.commentCarouselMinHeight,
       });
@@ -138,6 +137,5 @@ module.exports = CommentCarousel.extend({
     var that = this;
     this.collection = options.collection;
     this.getTidsForConsensus = options.getTidsForConsensus;
-    this.getPtptCount = options.getPtptCount;
   }
 });
