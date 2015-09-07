@@ -148,12 +148,12 @@ module.exports = CommentCarousel.extend({
 
   context: function() {
     var ctx = CommentCarousel.prototype.context.apply(this, arguments);
-    ctx.selectedGroupName = _.isUndefined(ctx.selectedGid) ?
-      "" :
-      Utils.getGroupNameForGid(ctx.selectedGid);
+    // ctx.selectedGroupName = _.isUndefined(ctx.selectedGid) ?
+    //   "" :
+    //   Utils.getGroupNameForGid(ctx.selectedGid);
 
     ctx.s = Strings;
-    ctx.s.heresHowGroupVoted_sub = ctx.s.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", ctx.selectedGroupName);
+    // ctx.s.heresHowGroupVoted_sub = ctx.s.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", ctx.selectedGroupName);
     return ctx;
   },
 
