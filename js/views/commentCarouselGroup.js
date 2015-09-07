@@ -116,7 +116,6 @@ module.exports = CommentCarousel.extend({
 
       var tmpl = display.xs() ? carouselCommentMobileTemplate : carouselCommentTemplate;
 
-      var numVotedString = denominator + ' / ' + info.count;
       var html = tmpl({
         backgroundColor: backgroundColor,
         bodyColor: bodyColor,
@@ -128,9 +127,8 @@ module.exports = CommentCarousel.extend({
         agreedOrDisagreed: agreedOrDisagreed,
         leClass: leClass,
         count: count,
-        numVotedString: numVotedString, // 5 / 7 saw this comment
+        numVotedString: denominator + ' / ' + info.count, // 5 / 7 saw this comment
         // nTrials: denominator,
-        fractionAgreeOrDisagree: count + ' / ' + numVotedString,
         repfullForAgree: repfullForAgree,
         commentCarouselMinHeight: constants.commentCarouselMinHeight,
       });
