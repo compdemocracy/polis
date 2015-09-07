@@ -284,17 +284,19 @@
   </div>
 </div>
 
-<div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; color: #888">
-                {{!-- <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo"> --}}
+<div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; color: #888; border-bottom: none">
+  {{!-- <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo"> --}}
   {{s.opinionGroups}}
 </div>
+
+<div class="lightPanel" style="margin-bottom: 15px;">
 
 <div id="vis_sibling_above_tab_content"></div>
 
 <div
   id="visualization_parent_div"
-  class="lightPanel clickDoesNotDeselectHull"
-  style="text-align: right; visibility: hidden"
+  class="clickDoesNotDeselectHull"
+  style="text-align: right; visibility: hidden; background-color: rgba(0,0,0,0);"
   >
   <div
     id="visualization_div"
@@ -303,24 +305,27 @@
   </div>
 </div>
 <div
-  class="darkPanel clickDoesNotDeselectHull"
+  class="clickDoesNotDeselectHull"
   style="
     text-align: center;
     min-height: 34px;
-    margin: 10px 0px 10px 0px;
+    margin: 0px;
+    padding: 10px 0px 10px 0px;
+    background-color: white;
   ">
   {{view groupSelectionView}}
 </div>
 
-<div id="carouselPane" class="tabbable darkPanel clickDoesNotDeselectHull unselectable"
+<div id="carouselPane" class="tabbable clickDoesNotDeselectHull unselectable"
   style="
     margin: 0px 0px 10px 0px;
     display: none;
   "> {{! Only required for left/right tabs }}
   <div
-    class="tab-content lightPanel"
+    class="tab-content"
     style="
       min-height: 200px;
+      background-color: white;
     ">
     <div
       class="tab-pane"
@@ -350,6 +355,7 @@
     </div> --}}
   </div> {{! /tab content }}
 </div> {{! /tabbable }}
+</div>
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
 <div
