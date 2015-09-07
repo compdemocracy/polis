@@ -60,6 +60,18 @@
           min-height: {{commentCarouselMinHeight}}px; {{!-- this is responsible for normalizing the comment heights --}}
         ">{{txt}}</p>
 
+
+        {{!-- OF N PARTICIPANTS IN (GROUP x / CONVERSATION) --}}
+        <p style="
+          font-size:12px;
+          color: gray;
+          margin: 0px
+          ">
+          <em>Of</em>
+          <strong>{{total}}</strong>
+          <em>participants in {{groupOrConversatonString}}</em>
+        </p>
+
         {{!-- N PARTICIPANTS SAW X COMMENT --}}
         <p style="
           font-size:12px;

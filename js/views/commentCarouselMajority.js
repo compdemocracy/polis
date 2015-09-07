@@ -113,6 +113,8 @@ module.exports = CommentCarousel.extend({
         nTrials: info["n-trials"],
         repfullForAgree: forAgree,
         commentCarouselMinHeight: constants.commentCarouselMinHeight,
+        total: that.getPtptCount(),
+        groupOrConversatonString: "the conversation",
       });
 
       return {

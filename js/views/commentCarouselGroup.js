@@ -116,6 +116,11 @@ module.exports = CommentCarousel.extend({
 
       var tmpl = display.xs() ? carouselCommentMobileTemplate : carouselCommentTemplate;
 
+      var selectedGroupName = _.isUndefined(that.selectedGid) ?
+        "" :
+        Utils.getGroupNameForGid(that.selectedGid);
+
+
       var html = tmpl({
         backgroundColor: backgroundColor,
         bodyColor: bodyColor,
@@ -130,6 +135,8 @@ module.exports = CommentCarousel.extend({
         nTrials: denominator,
         repfullForAgree: repfullForAgree,
         commentCarouselMinHeight: constants.commentCarouselMinHeight,
+        total: info.count,
+        groupOrConversatonString: "Group " + selectedGroupName,
       });
 
       return {
@@ -171,7 +178,6 @@ module.exports = CommentCarousel.extend({
 
     var that = this;
     this.collection = options.collection;
-
     var getTidsForGroup = options.getTidsForGroup;
     var getLocations = options.getLocations;
     var getParticipantsOfInterestForGid = options.getParticipantsOfInterestForGid;
