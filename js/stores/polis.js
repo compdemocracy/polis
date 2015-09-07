@@ -2498,6 +2498,9 @@ function clientSideBaseCluster(things, N) {
             }
         });
     }
+    function getPtptCount() {
+        return cachedPcaData.n;
+    }
 
     return {
         authenticated: authenticated,
@@ -2543,7 +2546,7 @@ function clientSideBaseCluster(things, N) {
         parseMetadataFromCSV: parseMetadataFromCSV,
 
         getParticipantsOfInterestForGid: getParticipantsOfInterestForGid,
-
+        getPtptCount: getPtptCount,
         updateMyProjection: updateMyProjection,
         shareConversationOnFacebook: shareConversationOnFacebook,
         shareConversationOnTwitter: shareConversationOnTwitter,
