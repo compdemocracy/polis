@@ -116,11 +116,6 @@ module.exports = CommentCarousel.extend({
 
       var tmpl = display.xs() ? carouselCommentMobileTemplate : carouselCommentTemplate;
 
-      var selectedGroupName = _.isUndefined(that.selectedGid) ?
-        "" :
-        Utils.getGroupNameForGid(that.selectedGid);
-
-
       var html = tmpl({
         backgroundColor: backgroundColor,
         bodyColor: bodyColor,
