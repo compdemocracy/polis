@@ -28,6 +28,7 @@ s.acrossAllPtpts = "Across all participants:";
 s.xPtptsSawThisComment = "participants saw this comment.";
 s.xOfThoseAgreed = "of those participants agreed";
 s.xOfthoseDisagreed = "of those participants disagreed";
+s.opinionGroups = "Opinion Groups";
 s.pctAgreed = "{{pct}}% Agreed";
 s.pctDisagreed = "{{pct}}% Disagreed";
 s.pctAgreedOfGroup = "{{pct}}% of Group {{group}} Agreed";
