@@ -161,30 +161,34 @@ module.exports = Handlebones.ModelView.extend({
     "paste #comment_form_textarea": "textChange",
     "click #facebookButtonCommentForm" : "facebookClicked",
     "click #twitterButtonCommentForm" : "twitterClicked",
-    "click #comment_button": function(e){
-      var that = this;
-      e.preventDefault();
+    "click #comment_button": "onSubmitClicked",
+  },
+  onSubmitClicked: function(e) {
+    e.preventDefault();
+    this.submitComment();
+  },
+  submitComment: function(e){
+    var that = this;
 
-      function doSubmitComment() {
-        if (that.buttonActive) {
-          that.buttonActive = false;
-          serialize(that, function(attrs){
-            that.participantCommented(attrs).then(function() {
-              that.$("#comment_form_textarea").val("");
-              that.hideFormControls();
-            }).always(function() {
-              that.buttonActive = true;
-            });
+    function doSubmitComment() {
+      if (that.buttonActive) {
+        that.buttonActive = false;
+        serialize(that, function(attrs){
+          that.participantCommented(attrs).then(function() {
+            that.$("#comment_form_textarea").val("");
+            that.hideFormControls();
+          }).always(function() {
+            that.buttonActive = true;
           });
-        }
+        });
       }
+    }
 
-      var hasSocial = window.userObject.hasFacebook || window.userObject.hasTwitter;
-      if (hasSocial) {
-        doSubmitComment();
-      } else {
-        this.showSocialAuthChoices();
-      }
+    var hasSocial = window.userObject.hasFacebook || window.userObject.hasTwitter;
+    if (hasSocial) {
+      doSubmitComment();
+    } else {
+      this.showSocialAuthChoices();
     }
   },
   onAuthSuccess: function() {
@@ -310,11 +314,13 @@ module.exports = Handlebones.ModelView.extend({
       this.shouldAutofocusOnTextarea = true;
     }
 
+    var that = this;
     this.listenTo(this, "render", function(){
       setTimeout(function() {
         if (!_.isUndefined(options.wipCommentFormText)) {
           $("#comment_form_textarea").val(options.wipCommentFormText);
           eb.trigger(eb.doneUsingWipCommentFormText);
+          that.submitComment();
         }
         autosize($("#comment_form_textarea"));
       },100);
