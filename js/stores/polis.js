@@ -2499,6 +2499,7 @@ function clientSideBaseCluster(things, N) {
         });
     }
     function getPtptCount() {
+        // TODO we need the count of participants that are considered the vis, not the total number of ptpts.
         return cachedPcaData.n;
     }
 
