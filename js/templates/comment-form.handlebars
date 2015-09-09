@@ -64,18 +64,16 @@
     {{!-- ================ FLEXBOX ================ --}}
     <div
       id="comment_form_controls"
-      style="margin-top: 12px"
+      style="margin-top: 12px; position: relative;"
       class="
-        flexbox
+{{!--         flexbox
         align-items-baseline
-        justify-content-space-between
+        justify-content-space-between --}}
         comment_form_control_hideable
       ">
 
       {{!-- ================ PROTIPS ================ --}}
       <span style="{{#if desktop}}margin-right: 20px;{{/if}}" class=""> {{! protips column }}
-
-
 
         <p
           id="comment_sent_message"
@@ -90,7 +88,6 @@
             </span>
         </p>
 
-
         <p
           id="write_your_perspective_message"
           class="protip flexbox low_priority_tip"
@@ -100,7 +97,6 @@
               {{{s.writeCommentHelpText}}}
             </span>
         </p>
-
 
         <p
           id="not_a_reply_message"
@@ -140,6 +136,7 @@
               {{s.tipOneIdea}}
             </span>
         </p>
+
         <p
           id="commentNotQuestionAlert"
           class="protip flexbox align-items-baseline"
@@ -157,30 +154,16 @@
                 {{s.tipNoQuestions}}
               </span>
         </p>
-{{!--         <div
-          id="commentTooLongAlert"
-          class="protip"
-          style="display:none"
-          role="alert">
-          <p>
-            <strong> Comment is too long. </strong>
-          </p>
-        </div> --}}
-        {{!-- <div
-          id="commentSentDemoAlert"
-          class="protip"
-          style="
-            display:none;
-            {{#unless desktop}}font-size:12px{{/unless}}
-            "
-          role="alert">
-          <p>
-            <strong> {{s.commentSent}}</strong> {{s.notSentSinceDemo}}
-          </p>
-        </div> --}}
+
       </span> {{! end protips column}}
 
    {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
+   <span
+    style="
+      position: absolute;
+      right: 0px;
+      top: 0px;
+      ">
       <span
         id="commentCharCount"
         style="color: gray; {{#if desktop}}min-width: 20px;{{/if}}"
@@ -209,6 +192,7 @@
           ">
         {{s.submitComment}}
       </button>
+    </span>
 
    {{!-- ================ END FLEXBOX ================ --}}
     </div>
