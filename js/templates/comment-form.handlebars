@@ -61,23 +61,25 @@
       {{/unless}}
     </div>
 
-    {{!-- ================ FLEXBOX ================ --}}
+    {{!-- ================ LOWER CONTAINER ================ --}}
     <div
       id="comment_form_controls"
       style="margin-top: 12px; position: relative;"
       class="
-{{!--         flexbox
-        align-items-baseline
-        justify-content-space-between --}}
         comment_form_control_hideable
       ">
 
       {{!-- ================ PROTIPS ================ --}}
-      <span style="{{#if desktop}}margin-right: 20px;{{/if}}" class=""> {{! protips column }}
+      <div
+        style="
+          width: 40%;
+          {{#if desktop}}{{!-- margin-right: 20px; --}}width: 60%;{{/if}}
+          margin-top: 0px;
+          "> {{! protips column }}
 
         <p
           id="comment_sent_message"
-          class="protip flexbox low_priority_tip"
+          class="protip low_priority_tip"
           style="display: none; {{#unless desktop}}font-size:12px{{/unless}}"
           >
             <span style="margin-left: 5px">
@@ -90,31 +92,32 @@
 
         <p
           id="write_your_perspective_message"
-          class="protip flexbox low_priority_tip"
+          class="protip low_priority_tip"
           style="{{#unless desktop}}font-size:12px{{/unless}}"
           >
-            <span style="margin-left: 5px">
+            <span style="">
               {{{s.writeCommentHelpText}}}
             </span>
         </p>
 
         <p
           id="not_a_reply_message"
-          class="protip flexbox low_priority_tip"
+          class="protip low_priority_tip"
           style="display:none; {{#unless desktop}}font-size:12px{{/unless}}"
           >
           <i
             class="fa fa-lightbulb-o"
-            style="font-size: 24px;
+            style="
+            font-size: 24px;
             position: relative;
             top: 2px;
             ">
           </i>
-          <span style="margin-left: 12px;">
+          <span style="margin-left: 6px;">
             <strong>
               {{s.tip}}
             </strong>
-            <span style="margin-left: 5px">
+            <span style="">
               {{s.tipCommentsRandom}}
             </span>
           </span>
@@ -122,7 +125,7 @@
 
         <p
           id="one_idea_per_comment_message"
-          class="protip flexbox  align-items-baseline"
+          class="protip"
           style="
             display: none;
             {{#unless desktop}}font-size:12px{{/unless}}
@@ -132,14 +135,14 @@
               style="font-size: 16px;
               ">
             </i>&nbsp;
-            <span style="margin-left: 12px">
+            <span style="margin-left: 6px;">
               {{s.tipOneIdea}}
             </span>
         </p>
 
         <p
           id="commentNotQuestionAlert"
-          class="protip flexbox align-items-baseline"
+          class="protip"
           role="alert"
           style="
             display:none;
@@ -150,12 +153,12 @@
               style="font-size: 16px;
               ">
             </i>&nbsp;
-              <span style="margin-left: 12px">
+              <span style="margin-left: 6px">
                 {{s.tipNoQuestions}}
               </span>
         </p>
 
-      </span> {{! end protips column}}
+      </div> {{! end protips column}}
 
    {{!-- ================ CHARACTER COUNT && BUTTON ================ --}}
    <span
@@ -194,7 +197,7 @@
       </button>
     </span>
 
-   {{!-- ================ END FLEXBOX ================ --}}
+   {{!-- ================ END LOWER CONTAINER ================ --}}
     </div>
 
   </form>
