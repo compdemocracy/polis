@@ -2502,6 +2502,9 @@ function resetSelection() {
 
 
 function selectBackground() {
+
+  selectComment(null);
+
   if (clusterIsSelected()) {
     resetSelection();
     setClusterActive(-1)

@@ -927,7 +927,7 @@ module.exports =  ConversationView.extend({
       // eb.trigger(eb.commentSelected, false);
       // that.conversationTabs.doShowTabsUX();
     });
-    that.conversationTabs.on("beforehide:majority", function() {
+    that.conversationTabs.on("afterhide:majority", function() {
       if (vis) {
         vis.selectComment(null);
       }
