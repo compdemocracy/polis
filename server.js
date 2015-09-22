@@ -59,7 +59,7 @@ var badwords = require('badwords/object'),
     request = require('request-promise'), // includes Request, but adds promise methods
     SimpleCache = require("simple-lru-cache"),
     SimpleCacheWithTTL = require("./SimpleCacheWithTTL"),
-    stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),    
+    stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),
     _ = require('underscore'),
     winston = require("winston");
 
@@ -85,7 +85,7 @@ var polisDevs = [
     125, // m@bjorkegren.com
     26347, // mike@pol.is
     91268, // michael@bjorkegren.com -- facebook and twiter attached
-    
+
     // Colin
     186, // colinmegill@gmail.com
 
@@ -169,7 +169,7 @@ akismet.verifyKey(function(err, verified) {
 if (devMode) {
     pg.defaults.poolSize = 2;
 } else {
-    pg.defaults.poolSize = 25; 
+    pg.defaults.poolSize = 25;
 }
 
 var SELF_HOSTNAME = "localhost:" + process.env.PORT;
@@ -287,7 +287,7 @@ var metric = (function() {
     var apikey = process.env.HOSTEDGRAPHITE_APIKEY;
     return function(metricName, numberValue, optionalTimestampOverride) {
         return new Promise(function(resolve, reject) {
-            var point = { 
+            var point = {
                 dur: numberValue,
                 time : new Date(),
             };
@@ -316,7 +316,7 @@ var metric = (function() {
                 }
             });
         });
-    };    
+    };
 }());
 */
 
@@ -346,7 +346,7 @@ var errorNotifications = (function() {
                 throw new Error("empty token for pushover");
             }
             console.error(token);
-            errors.push(token); 
+            errors.push(token);
         },
     };
 }());
@@ -482,7 +482,7 @@ function orderLike(itemsToBeReordered, itemsThatHaveTheRightOrder, fieldName) {
 //     }
 //     // no 1 (looks like l)
 //     // no 0 (looks like 0)
-//     var numbers8 = "23456789".split(""); 
+//     var numbers8 = "23456789".split("");
 
 //     // should fit within 32 bits
 //     function generateConversationId() {
@@ -692,7 +692,7 @@ function pgQuery() {
     pg.connect(process.env.DATABASE_URL, function(err, client, done) {
         if (err) {
             callback(err);
-            // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback 
+            // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
             done(err);
             yell("pg_connect_pool_fail");
             return;
@@ -747,7 +747,7 @@ function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
         token=header.split(/\s+/).pop() || '',            // and the encoded auth token
         auth=new Buffer(token, 'base64').toString(),    // convert from base64
         parts=auth.split(/:/),                          // split on colon
-        username=parts[0], 
+        username=parts[0],
         password=parts[1], // we don't use the password part, just use "apikey:"
         apikey=username;
     getUidForApiKey(apikey).then(function(rows) {
@@ -767,7 +767,7 @@ function doApiKeyBasicAuth(assigner, isOptional, req, res, next) {
 
 function doHeaderAuth(assigner, isOptional, req, res, next) {
     var token = req.headers["x-polis"];
-    
+
     //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
     getUserInfoForSessionToken(token, res, function(err, uid) {
 
@@ -788,7 +788,7 @@ function doHeaderAuth(assigner, isOptional, req, res, next) {
 
 function doPolisLtiTokenHeaderAuth(assigner, isOptional, req, res, next) {
     var token = req.headers["x-polis"];
-    
+
     getUserInfoForPolisLtiToken(token).then(function(uid) {
         assigner(req, "uid", Number(uid));
         next();
@@ -1120,7 +1120,7 @@ var prrrams = (function() {
         };
         return f;
     }
-    
+
     return {
         need: function(name, parserWhichReturnsPromise, assigner) {
             return buildCallback({name: name, extractor: extractFromBody, parserWhichReturnsPromise: parserWhichReturnsPromise, assigner: assigner, required: true});
@@ -1392,7 +1392,7 @@ function getPidPromise(zid, uid) {
             pidCache.set(cacheKey, pid);
             resolve(pid);
         });
-    });        
+    });
 }
 
 
@@ -1420,7 +1420,7 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
             next(err);
         });
     } else if (existingValue === "mypid" && req.p.zid) {
-        // don't assign anything, since we have no uid to look it up. 
+        // don't assign anything, since we have no uid to look it up.
         next();
     } else if (!_.isUndefined(existingValue)) {
         getInt(existingValue).then(function(pidNumber) {
@@ -1430,7 +1430,7 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
             next(err);
         });
     } else {
-        next();   
+        next();
     }
   };
 }
@@ -1466,7 +1466,7 @@ function getPidForParticipant(assigner, cache) {
 
 function recordPermanentCookieZidJoin(permanentCookieToken, zid) {
     function doInsert() {
-        return pgQueryP("insert into permanentCookieZidJoins (cookie, zid) values ($1, $2);", [permanentCookieToken, zid]);    
+        return pgQueryP("insert into permanentCookieZidJoins (cookie, zid) values ($1, $2);", [permanentCookieToken, zid]);
     }
     return pgQueryP("select zid from permanentCookieZidJoins where cookie = ($1) and zid = ($2);", [permanentCookieToken, zid]).then(
         function(rows) {
@@ -1778,14 +1778,14 @@ app.use(function(err, req, res, next) {
 
 var whitelistedCrossDomainRoutes = [
     /^\/api\/v[0-9]+\/launchPrep/,
-    /^\/api\/v[0-9]+\/setFirstCookie/,  
+    /^\/api\/v[0-9]+\/setFirstCookie/,
 ];
 
 var whitelistedDomains = [
   "http://beta7816238476123.polis.io",
-  "https://beta7816238476123.polis.io",  
+  "https://beta7816238476123.polis.io",
   "http://about.polis.io",
-  "https://about.polis.io",  
+  "https://about.polis.io",
   "http://www.polis.io",
   "https://www.polis.io",
   "http://bonn83np5g4s6k2am.herokuapp.com/",
@@ -1834,16 +1834,16 @@ var whitelistedBuckets = {
 };
 
 app.all("/api/v3/*", function(req, res, next) {
- 
+
   var host = "";
   if (domainOverride) {
       host = req.protocol + "://" + domainOverride;
   } else {
       // TODO does it make sense for this middleware to look
       // at origin || referer? is Origin for CORS preflight?
-      // or for everything? 
+      // or for everything?
       // Origin was missing from FF, so added Referer.
-      host =  req.get("Origin") || req.get("Referer") || ""; 
+      host =  req.get("Origin") || req.get("Referer") || "";
   }
 
   // Somehow the fragment identifier is being sent by IE10????
@@ -2194,7 +2194,7 @@ var pcaResultsExistForZid = {};
 app.get("/api/v3/math/pca2",
     //meter("api.math.pca.get"),
     moveToBody,
-    redirectIfHasZidButNoConversationId, // TODO remove once 
+    redirectIfHasZidButNoConversationId, // TODO remove once
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     want('lastVoteTimestamp', getInt, assignToP, -1),
 function(req, res) {
@@ -2298,7 +2298,7 @@ function(req, res) {
 
     getBidToPidMapping(zid, lastVoteTimestamp).then(function(doc) {
         var b2p = doc.bidToPid;
-        
+
         res.json({
             bidToPid: b2p
         });
@@ -2415,7 +2415,7 @@ function(req, res) {
 
 
         if (pid < 0) {
-            // NOTE: this API should not be called in /demo mode 
+            // NOTE: this API should not be called in /demo mode
             fail(res, 500, "polis_err_get_bid_bad_pid");
             return;
         }
@@ -2458,7 +2458,7 @@ function(req, res) {
 
     getUidForPwResetToken(pwresettoken, function(err, userParams) {
         if (err) { console.error(err); fail(res, 500, "Password Reset failed. Couldn't find matching pwresettoken.", err); return; }
-        var uid = Number(userParams.uid);        
+        var uid = Number(userParams.uid);
         generateHashedPassword(newPassword, function(err, hashedPassword) {
             pgQuery("UPDATE jianiuevyew SET pwhash = ($1) where uid=($2);", [hashedPassword, uid], function(err, results) {
                 if (err) { console.error(err); fail(res, 500, "Couldn't reset password.", err); return; }
@@ -2498,7 +2498,7 @@ function(req, res) {
     var email = req.p.email;
 
     var server = getServerNameWithProtocol(req);
-    
+
     // let's clear the cookies here, in case something is borked.
     clearCookies(req, res);
 
@@ -2507,7 +2507,7 @@ function(req, res) {
     }
 
     getUidByEmail(email).then(function(uid) {
-    
+
         setupPwReset(uid, function(err, pwresettoken) {
 
             sendPasswordResetEmail(uid, pwresettoken, server, function(err) {
@@ -2517,7 +2517,7 @@ function(req, res) {
                     return;
                 }
                 finish();
-            });            
+            });
         });
     }, function() {
         sendPasswordResetEmailFailure(email, server);
@@ -2530,7 +2530,7 @@ function sendPasswordResetEmailFailure(email, server) {
     "We were unable to find a pol.is account registered with the email address: " + email + "\n" +
     "\n" +
     "You may have used another email address to create your account.\n" +
-    "\n" +            
+    "\n" +
     "If you need to create a new account, you can do that here " + server + "/user/create\n" +
     "\n" +
     "Feel free to reply to this email if you need help.";
@@ -2581,12 +2581,12 @@ function clearCookies(req, res) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/", domain: ".polis.io"});
             }
-        }     
+        }
         for (cookieName in req.cookies) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/", domain: "www.polis.io"});
             }
-        }          
+        }
         for (cookieName in req.cookies) {
             if (COOKIES_TO_CLEAR[cookieName]) {
                 res.clearCookie(cookieName, {path: "/", domain: ".pol.is"});
@@ -2605,7 +2605,7 @@ function clearCookies(req, res) {
 function doCookieAuth(assigner, isOptional, req, res, next) {
 
     var token = req.cookies[COOKIES.TOKEN];
-    
+
     //if (req.body.uid) { next(401); return; } // shouldn't be in the post - TODO - see if we can do the auth in parallel for non-destructive operations
     getUserInfoForSessionToken(token, res, function(err, uid) {
 
@@ -2647,7 +2647,7 @@ function(req, res) {
             });
             var html = "" +
             "<!DOCTYPE html><html lang='en'>"+
-            "<body>"+ 
+            "<body>"+
                 "<h1>You are now signed out of pol.is</h1>" +
                 "<p>Please return to the 'setup pol.is' assignment to sign in as another user.</p>" +
             "</body></html>";
@@ -2694,7 +2694,7 @@ function(req, res) {
 //     pgQueryP("insert into metrics (uid, type, dur, created) values ("+ entries +");", []).then(function(result) {
 //         res.json({});
 //     }).catch(function(err) {
-//         fail(res, 500, "polis_err_metrics_post", err);        
+//         fail(res, 500, "polis_err_metrics_post", err);
 //     });
 // });
 
@@ -2773,7 +2773,7 @@ function generateTokenP(len, pseudoRandomOk) {
 
 function generateToken(len, pseudoRandomOk, callback) {
     // TODO store up a buffer of random bytes sampled at random times to reduce predictability. (or see if crypto module does this for us)
-    // TODO if you want more readable tokens, see ReadableIds 
+    // TODO if you want more readable tokens, see ReadableIds
     var gen;
     if (pseudoRandomOk) {
         gen = require('crypto').pseudoRandomBytes;
@@ -2805,7 +2805,7 @@ function generateToken(len, pseudoRandomOk, callback) {
         prettyToken = prettyToken.slice(0, len); // in case it's too long
 
         callback(0, prettyToken);
-    });  
+    });
 }
 
 function generateAndRegisterZinvite(zid, generateShort) {
@@ -2823,7 +2823,7 @@ function generateAndRegisterZinvite(zid, generateShort) {
 
 app.post("/api/v3/zinvites/:zid",
     moveToBody,
-    auth(assignToP),    
+    auth(assignToP),
     want('short_url', getBool, assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res) {
@@ -3092,7 +3092,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
     }
 
     var q = "select * from participant_metadata_answers where zid = ($1) and pmaid in ("+
-        answers.join(",") + 
+        answers.join(",") +
         ");";
 
     pgQuery(q, [zid], function(err, qa_results) {
@@ -3107,7 +3107,7 @@ function saveParticipantMetadataChoices(zid, pid, answers, callback) {
         });
         // make simultaneous requests to insert the choices
         async.map(
-            answers, 
+            answers,
             function(x, cb) {
                 // ...insert()
                 //     .into("participant_metadata_choices")
@@ -3187,7 +3187,7 @@ function populateParticipantLocationRecordIfPossible(zid, uid, pid) {
             console.error(err);
         });
     }).catch(function(err) {
-        yell("polis_err_fetching_user_location_name");            
+        yell("polis_err_fetching_user_location_name");
         console.error(err);
     });
 }
@@ -3284,7 +3284,7 @@ function joinConversation(zid, uid, info, pmaid_answers) {
   }, doJoin);
 }
 
-function isOwnerOrParticipant(zid, uid, callback) { 
+function isOwnerOrParticipant(zid, uid, callback) {
     // TODO should be parallel.
     // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
     getPid(zid, uid, function(err, pid) {
@@ -3340,7 +3340,7 @@ function getParticipant(zid, uid) {
             }
             resolve(results.rows[0]);
         });
-    });        
+    });
 }
 
 // returns null if it's missing
@@ -3362,7 +3362,7 @@ function getParticipantsByZidPids(zid, pids) {
             }
             resolve(results.rows[0]);
         });
-    });        
+    });
 }
 
 function getAnswersForConversation(zid, callback) {
@@ -3416,7 +3416,7 @@ function emailFeatureRequest(message) {
         ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
         "Dummy button clicked!!!",
         body).catch(function(err) {
-            yell("polis_err_failed_to_email_for_dummy_button");            
+            yell("polis_err_failed_to_email_for_dummy_button");
             yell(message);
         });
 }
@@ -3431,7 +3431,7 @@ function emailBadProblemTime(message) {
         ["mike@pol.is", "colin@pol.is", "chris@pol.is"],
         "Polis Bad Problems!!!",
         body).catch(function(err) {
-            yell("polis_err_failed_to_email_bad_problem_time");            
+            yell("polis_err_failed_to_email_bad_problem_time");
             yell(message);
         });
 }
@@ -3476,8 +3476,8 @@ function sendTextEmailWithMailgun(sender, recipient, subject, text) {
     return new Promise(function(resolve, reject) {
         mailgun.sendText(sender, [recipient], subject, text, servername, options, function(err) {
             if (err) {
-                console.error("Unable to send email via mailgun to " + recipient + " " + err);                
-                yell("polis_err_mailgun_email_send_failed");                
+                console.error("Unable to send email via mailgun to " + recipient + " " + err);
+                yell("polis_err_mailgun_email_send_failed");
                 reject(err);
             } else {
                 winston.log("info","sent email with mailgun to " + recipient);
@@ -3528,7 +3528,7 @@ function sendMultipleTextEmails(sender, recipientArray, subject, text) {
             subject,
             text);
         promise.catch(function(err) {
-            yell("polis_err_failed_to_email_for_user " + email);            
+            yell("polis_err_failed_to_email_for_user " + email);
         });
         return promise;
     }));
@@ -3782,7 +3782,7 @@ function(req, res) {
                         fail(res, 500, "polis_err_post_participants_missing_lti_user_for_uid_2", err);
                     });
                 } else {
-                    userFail(res, 403, "polis_err_post_participants_need_uid_to_check_lti_users_3");                
+                    userFail(res, 403, "polis_err_post_participants_need_uid_to_check_lti_users_3");
                 }
             } else {
                 // no LTI stuff to worry about
@@ -3991,7 +3991,7 @@ q += " ORDER BY ppl.zid, ppl.uid;";
 
 
 /*
-WITH 
+WITH
 needed_totals AS (SELECT
   zid,
   COALESCE(COUNT(*), 0) AS total
@@ -4108,14 +4108,14 @@ function notifyParticipantsOfNewComments() {
         console.error(err);
         // yell("polis_err_notifying_participants");
     });
-    
+
 }
 
 if (!devMode) {
   notifyParticipantsOfNewComments();
   setInterval(function() {
       notifyParticipantsOfNewComments();
-  }, 10*60*1000);  
+  }, 10*60*1000);
 }
 
 function updateEmail(uid, email) {
@@ -4290,7 +4290,7 @@ function(req, res) {
             bcrypt.compare(password, hashedPassword, function(errCompare, result) {
                 winston.log("info","errCompare, result", errCompare, result);
                 if (errCompare || !result) { fail(res, 403, "polis_err_login_unknown_user_or_password"); console.error("polis_err_login_unknown_user_or_password_badpassword"); return; }
-                
+
                 startSession(uid, function(errSess, token) {
                     var response_data = {
                         uid: uid,
@@ -4298,7 +4298,7 @@ function(req, res) {
                         token: token
                     };
                     addCookies(req, res, token, uid).then(function() {
-                        winston.log("info","uid", uid);                        
+                        winston.log("info","uid", uid);
                         winston.log("info","lti_user_id", lti_user_id);
                         winston.log("info","lti_context_id", lti_context_id);
                         var ltiUserPromise = lti_user_id ?
@@ -4371,7 +4371,7 @@ function(req, res) {
     //     else
     //         let them join without forcing a sign in (assuming conversation allows that)
 
-    
+
 
     return joinWithZidOrSuzinvite({
         answers: req.p.answers,
@@ -4583,7 +4583,7 @@ function renderLtiLinkageSuccessPage(req, res, o) {
     '<head>' +
     '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
     '</head>' +
-    "<body style='max-width:320px'>"+ 
+    "<body style='max-width:320px'>"+
             "<p>You are signed in as polis user " + o.email + "</p>" +
             // "<p><a href='https://pol.is/user/logout'>Change pol.is users</a></p>" +
             // "<p><a href='https://preprod.pol.is/inbox/context="+ o.context_id +"'>inbox</a></p>" +
@@ -4730,7 +4730,7 @@ function(req, res) {
             var comments = _.map(a[0], castTimestamp);
             var votes = _.map(a[1], castTimestamp);
             var uniqueHits = _.map(a[2], castTimestamp); // participants table
-            
+
             var actualParticipants = getFirstForPid(votes);  // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
             actualParticipants = _.pluck(actualParticipants, "created");
             var commenters = getFirstForPid(comments);
@@ -4770,7 +4770,7 @@ function(req, res) {
     }
 
     pgQuery(
-        "insert into conversations (topic, description, link_url, owner, modified, created, participant_count) "+ 
+        "insert into conversations (topic, description, link_url, owner, modified, created, participant_count) "+
         "(select '(SNAPSHOT) ' || topic, description, link_url, $2, now_as_millis(), created, participant_count from conversations where zid = $1) returning *;", [
         zid,
         uid,
@@ -4784,7 +4784,7 @@ function(req, res) {
         // var conv = rows[0];
         var newZid = conv.zid;
         return pgQueryP(
-            "insert into participants (pid, zid, uid, created) "+ 
+            "insert into participants (pid, zid, uid, created) "+
             "select pid, ($2), uid, created from participants where zid = ($1);", [
             zid,
             newZid,
@@ -4796,7 +4796,7 @@ function(req, res) {
                 newZid,
             ]).then(function() {
                 return pgQueryP(
-                    "insert into votes (pid, tid, zid, vote, created) "+ 
+                    "insert into votes (pid, tid, zid, vote, created) "+
                     "select pid, tid, ($2), vote, created from votes where zid = ($1);", [
                     zid,
                     newZid,
@@ -4896,7 +4896,7 @@ function(req, res) {
                                     // token: token
                                 });
                             }).catch(function(err) {
-                                fail(res, 500, "polis_err_reg_fb_start_session2", err); 
+                                fail(res, 500, "polis_err_reg_fb_start_session2", err);
                             });
                         }, function(err) {
                             fail(res, 500, "polis_err_linking_fb_friends2", err);
@@ -4909,7 +4909,7 @@ function(req, res) {
                 } else {
                     // the user with that email has a different FB account attached
                     // ruh roh..  probably rare
-                    fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account", new Error("polis_err_reg_fb_user_exists_with_different_account")); 
+                    fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account", new Error("polis_err_reg_fb_user_exists_with_different_account"));
                     emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
                 }
             } else {
@@ -5020,7 +5020,7 @@ function(req, res) {
                     return user;
                 }
             }, function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_creating_record2", err); 
+                fail(res, 500, "polis_err_reg_fb_user_creating_record2", err);
             })
             .then(function(user) {
                 winston.log("info","fb1 2");
@@ -5030,10 +5030,10 @@ function(req, res) {
                 return startSessionAndAddCookies(req, res, uid).then(function() {
                     return user;
                 }, function(err) {
-                    fail(res, 500, "polis_err_reg_fb_user_creating_record3", err); 
+                    fail(res, 500, "polis_err_reg_fb_user_creating_record3", err);
                 });
             }, function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_creating_record", err); 
+                fail(res, 500, "polis_err_reg_fb_user_creating_record", err);
             })
             .then(function(user) {
                 winston.log("info","fb1");
@@ -5074,15 +5074,15 @@ function(req, res) {
                     });
                 }
             }, function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_misc22", err); 
+                fail(res, 500, "polis_err_reg_fb_user_misc22", err);
             }).catch(function(err) {
-                fail(res, 500, "polis_err_reg_fb_user_misc2", err); 
+                fail(res, 500, "polis_err_reg_fb_user_misc2", err);
             });
         }
     }, function(err) {
-        fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err); 
+        fail(res, 500, "polis_err_reg_fb_user_looking_up_email", err);
     }).catch(function(err) {
-        fail(res, 500, "polis_err_reg_fb_user_misc", err); 
+        fail(res, 500, "polis_err_reg_fb_user_misc", err);
     });
 
 /*
@@ -5097,7 +5097,7 @@ function(req, res) {
 app.post("/api/v3/auth/new",
     want('anon', getBool, assignToP),
     want('password', getPasswordWithCreatePasswordRules, assignToP),
-    want('password2', getPasswordWithCreatePasswordRules, assignToP),    
+    want('password2', getPasswordWithCreatePasswordRules, assignToP),
     want('email', getOptionalStringLimitLength(999), assignToP),
     want('hname', getOptionalStringLimitLength(999), assignToP),
     want('oinvite', getOptionalStringLimitLength(999), assignToP),
@@ -5153,7 +5153,7 @@ function(req, res) {
     pgQueryP("SELECT * FROM users WHERE email = ($1)", [email]).then(function(rows) {
 
             if (rows.length > 0) {
-                fail(res, 403, "polis_err_reg_user_with_that_email_exists", new Error("polis_err_reg_user_exists")); 
+                fail(res, 403, "polis_err_reg_user_with_that_email_exists", new Error("polis_err_reg_user_exists"));
                 return;
             }
 
@@ -5163,7 +5163,7 @@ function(req, res) {
                         "(email, hname, zinvite, oinvite, is_owner" + (site_id? ", site_id":"")+") VALUES "+ // TODO use sql query builder
                         "($1, $2, $3, $4, $5"+ (site_id?", $6":"")+") "+ // TODO use sql query builder
                         "returning uid;";
-                    var vals = 
+                    var vals =
                         [email, hname, zinvite||null, oinvite||null, true];
                     if (site_id) {
                         vals.push(site_id); // TODO use sql query builder
@@ -5423,7 +5423,7 @@ function updateStripePlan(user, stripeToken, stripeEmail, plan) {
         });
 
     return customerPromise.then(function(customer) {
-        
+
         // throw new Error("TODO"); // TODO is "plan" the right identifier?
 
         // TODO may need to wrangle existing plans..
@@ -5438,7 +5438,7 @@ function updateStripePlan(user, stripeToken, stripeEmail, plan) {
 app.get("/api/v3/createPlanChangeCoupon_aiudhfaiodufy78sadtfiasdf",
     moveToBody,
     need('uid', getInt, assignToP),
-    need('planCode', getOptionalStringLimitLength(999), assignToP), 
+    need('planCode', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
     var uid = req.p.uid;
     var planCode = req.p.planCode;
@@ -5458,7 +5458,7 @@ function(req, res) {
 app.get("/api/v3/changePlanWithCoupon",
     moveToBody,
     authOptional(assignToP),
-    need('code', getOptionalStringLimitLength(999), assignToP),    
+    need('code', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
     var uid = req.p.uid;
     var code = req.p.code;
@@ -5534,7 +5534,7 @@ app.post("/api/v3/charge",
     auth(assignToP),
     want('stripeToken', getOptionalStringLimitLength(999), assignToP),
     want('stripeEmail', getOptionalStringLimitLength(999), assignToP),
-    need('plan', getOptionalStringLimitLength(999), assignToP),    
+    need('plan', getOptionalStringLimitLength(999), assignToP),
 function(req, res) {
 
     var stripeToken = req.p.stripeToken;
@@ -5625,7 +5625,7 @@ function _getCommentsList(o) {
         if (o.moderation) {
 
         } else {
-            q = q.and(sql_comments.active.equals(true));            
+            q = q.and(sql_comments.active.equals(true));
             if (conv.strict_moderation) {
                 q = q.and(sql_comments.mod.equals(polisTypes.mod.ok));
             } else {
@@ -5646,7 +5646,7 @@ function _getCommentsList(o) {
             q = q.limit(999); // TODO paginate
         }
         return pgQuery(q.toString(), [], function(err, docs) {
-            if (err) { 
+            if (err) {
                 reject(err);
                 return;
             }
@@ -5916,7 +5916,7 @@ function sendCommentModerationEmail(req, uid, zid, unmoderatedCommentCount) {
 
         body += "\n\nThank you for using Polis.";
 
-             // NOTE: adding a changing element (date) at the end to prevent gmail from thinking the URL is a signature, and hiding it. (since the URL doesn't change between emails, Gmail tries to be smart, and hides it)        
+             // NOTE: adding a changing element (date) at the end to prevent gmail from thinking the URL is a signature, and hiding it. (since the URL doesn't change between emails, Gmail tries to be smart, and hides it)
              // "Sent: " + Date.now() + "\n";
 
         // NOTE: Adding zid to the subject to force the email client to create a new email thread.
@@ -6130,7 +6130,7 @@ function(req, res) {
     }
 
     function doGetPid() {
-        // PID_FLOW 
+        // PID_FLOW
         if (_.isUndefined(pid)) {
             return addParticipant(req.p.zid, req.p.uid).then(function(rows) {
                 var ptpt = rows[0];
@@ -6154,12 +6154,12 @@ function(req, res) {
       if (tweet) {
         txt = tweet.text;
       }
-      var ip = 
+      var ip =
         req.headers['x-forwarded-for'] ||  // TODO This header may contain multiple IP addresses. Which should we report?
-        req.connection.remoteAddress || 
+        req.connection.remoteAddress ||
         req.socket.remoteAddress ||
         req.connection.socket.remoteAddress;
-    
+
       var isSpamPromise = isSpam({
         comment_content: txt,
         comment_author: uid,
@@ -6192,7 +6192,7 @@ function(req, res) {
         var commentExists = results[3];
 
         if (pid < 0) {
-            // NOTE: this API should not be called in /demo mode 
+            // NOTE: this API should not be called in /demo mode
             fail(res, 500, "polis_err_post_comment_bad_pid");
             return;
         }
@@ -6205,7 +6205,7 @@ function(req, res) {
         if (!conv.is_active) {
             fail(res, 403, "polis_err_conversation_is_closed", err);
         }
- 
+
         var bad = hasBadWords(txt);
         isSpamPromise.then(function(spammy) {
             winston.log("info","spam test says: " + txt + " " + (spammy?"spammy":"not_spammy"));
@@ -6246,7 +6246,7 @@ function(req, res) {
                    [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id||null],
 
                 function(err, docs) {
-                    if (err) { 
+                    if (err) {
                         winston.log("info",err);
                         if (err.code === '23505' || err.code === 23505) {
                             // duplicate comment
@@ -6265,7 +6265,7 @@ function(req, res) {
                             yell("polis_err_getting_modstatus_comment_count");
                             return void 0;
                         }).then(function(n) {
-                            
+
                             pgQueryP("select * from users where site_id = (select site_id from page_ids where zid = ($1)) UNION select * from users where uid = ($2);", [zid, conv.owner]).then(function(users) {
                                 var uids = _.pluck(users, "uid");
                                 // also notify polis team for moderation
@@ -6290,7 +6290,7 @@ function(req, res) {
                             updateLastInteractionTimeForConversation(zid, uid);
                             updateVoteCount(zid, pid);
                         }, 100);
-                        
+
                         res.json({
                             tid: tid,
                             currentPid: currentPid,
@@ -6307,7 +6307,7 @@ function(req, res) {
             });
       }, function(errors) {
         if (errors[0]) { fail(res, 500, "polis_err_getting_pid", errors[0]); return; }
-        if (errors[1]) { fail(res, 500, "polis_err_getting_conv_info", errors[1]); return; }        
+        if (errors[1]) { fail(res, 500, "polis_err_getting_conv_info", errors[1]); return; }
       });
 
     }, function(err) {
@@ -6386,7 +6386,7 @@ function getVotesForZidPids(zid, pids, callback) {
 function getCommentIdCounts(voteRecords) {
     var votes = voteRecords;
     var commentIdCountMap = {};
-    // TODO account for duplicate votes (where the current value is 
+    // TODO account for duplicate votes (where the current value is
     for (var i = 0; i < votes.length; i++) {
         var vote = votes[i];
         var count = commentIdCountMap[vote.tid];
@@ -6404,7 +6404,7 @@ function getCommentIdCounts(voteRecords) {
     // remove net negative items
     commentIdCounts = commentIdCounts.filter(function(c) { return Number(c[1]) > 0; });
     // remove net negative items ????
-    commentIdCounts.forEach(function(c) { c[0].txt += c[1]; }); 
+    commentIdCounts.forEach(function(c) { c[0].txt += c[1]; });
     commentIdCounts.sort(function(a,b) {
         return b[1] - a[1]; // descending by freq
     });
@@ -6419,7 +6419,7 @@ function getCommentIdCounts(voteRecords) {
 // function(req, res) {
 //         var zid = req.p.zid;
 //         var users = req.p.users || [];
-        
+
 //         getVotesForZidPids(zid, users, function(err, voteRecords) {
 //             if (err) { fail(res, 500, "polis_err_get_selection", err); return; }
 //             if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes", new Error("polis_err_get_selection_no_votes")); return; }
@@ -6557,7 +6557,7 @@ ORDER BY nonpass_score DESC;
 
 /*
 
-            q = q.and(sql_comments.active.equals(true));            
+            q = q.and(sql_comments.active.equals(true));
             if (conv.strict_moderation) {
                 q = q.and(sql_comments.mod.equals(polisTypes.mod.ok));
             } else {
@@ -6642,7 +6642,7 @@ q += " LIMIT 1;";
         } else {
             return comments[0];
         }
-    });  
+    });
 }
 
 function getNextComment(zid, pid, withoutTids, include_social) {
@@ -6665,7 +6665,7 @@ function(req, res) {
     //        for each participant, for currently active conversations. (this would probably be a math-poller-esque process on another
     //         hostclass)
     //         Along with this would be to cache in ram info about moderation status of each comment so we can filter before returning a comment.
-    
+
     getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without, req.p.include_social).then(function(c) {
         if (c) {
             if (!_.isUndefined(req.p.not_voted_by_pid)) {
@@ -6794,7 +6794,7 @@ function(req, res) {
     }) : Promise.resolve();
 
     pidReadyPromise.then(function() {
-      
+
         return votesPost(pid, req.p.zid, req.p.tid, req.p.vote);
 
     }).then(function(createdTime) {
@@ -6853,7 +6853,7 @@ function(req, res) {
                     fail(res, 500, "polis_err_upvote_update", err);
                 });
             }, function(err) {
-                fail(res, 500, "polis_err_upvote_insert", err);                
+                fail(res, 500, "polis_err_upvote_insert", err);
             });
         }
     }, function(err) {
@@ -7011,7 +7011,7 @@ function generateAndReplaceZinvite(zid, generateShortZinvite) {
                     resolve(zinvite);
                 }
             });
-        }); 
+        });
     });
 }
 
@@ -7056,13 +7056,13 @@ function sendGradeForAssignment(oauth_consumer_key, oauth_consumer_secret, param
         oauth.post(
             params.lis_outcome_service_url, //'https://api.twitter.com/1.1/trends/place.json?id=23424977',
             void 0, //'your user token for this app', //test user token
-            void 0, //'your user secret for this app', //test user secret            
+            void 0, //'your user secret for this app', //test user secret
             replaceResultRequestBody,
             "application/xml",
             function (e, data, res){
                 if (e) {
                     winston.log("info","grades foo failed");
-                    console.error(e);     
+                    console.error(e);
                     reject(e);
                 } else {
                     winston.log("info",'grades foo ok!');
@@ -7106,7 +7106,7 @@ function sendCanvasGradesIfNeeded(zid, ownerUid) {
         }
         var ownerLtiCreds = results[2];
         if (!ownerLtiCreds || !ownerLtiCreds.length) {
-            throw new Error("polis_err_lti_oauth_credentials_are_missing " + ownerUid);            
+            throw new Error("polis_err_lti_oauth_credentials_are_missing " + ownerUid);
         }
         ownerLtiCreds = ownerLtiCreds[0];
         if (!ownerLtiCreds.oauth_shared_secret || !ownerLtiCreds.oauth_consumer_key) {
@@ -7240,8 +7240,8 @@ app.put('/api/v3/conversations',
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
     want('launch_presentation_return_url_hex', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
     want('context', getOptionalStringLimitLength(999), assignToP),
-    want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),    
-    want('custom_canvas_assignment_id', getInt, assignToP),        
+    want('tool_consumer_instance_guid', getOptionalStringLimitLength(999), assignToP),
+    want('custom_canvas_assignment_id', getInt, assignToP),
     want('link_url', getStringLimitLength(1, 9999), assignToP),
 function(req, res){
   var generateShortUrl = req.p.short_url;
@@ -7293,7 +7293,7 @@ function(req, res){
         fields.lti_users_only = true;
     }
     if (!_.isUndefined(req.p.link_url)) {
-        fields.link_url = req.p.link_url;   
+        fields.link_url = req.p.link_url;
     }
 
 
@@ -7398,7 +7398,7 @@ function(req, res){
                     // // } else {
                     // finishOne(res, conv);
                     // // }
-                    
+
                 }).catch(function(err) {
                     fail(res, 500, "polis_err_update_conversation", err);
                 });
@@ -7482,7 +7482,7 @@ function deleteMetadataAnswer(pmaid, callback) {
         pgQuery("update participant_metadata_answers set alive = FALSE where pmaid = ($1);", [pmaid], function(err) {
             if (err) {callback(err); return;}
             callback(null);
-        });           
+        });
      // });
 }
 
@@ -7495,7 +7495,7 @@ function deleteMetadataQuestionAndAnswers(pmqid, callback) {
                 if (err) {callback(err); return;}
                 callback(null);
             });
-        });           
+        });
      // });
 }
 
@@ -7548,7 +7548,7 @@ function(req, res) {
     var zid = req.p.zid;
     var key = req.p.key;
     var uid = req.p.uid;
-  
+
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
         pgQuery("INSERT INTO participant_metadata_questions (pmqid, zid, key) VALUES (default, $1, $2) RETURNING *;", [
@@ -7563,7 +7563,7 @@ function(req, res) {
 
     isConversationOwner(zid, uid, doneChecking);
 });
-    
+
 app.post('/api/v3/metadata/answers',
     moveToBody,
     auth(assignToP),
@@ -7579,7 +7579,7 @@ function(req, res) {
     function doneChecking(err, foo) {
         if (err) { fail(res, 403, "polis_err_post_participant_metadata_auth", err); return; }
         pgQuery("INSERT INTO participant_metadata_answers (pmqid, zid, value, pmaid) VALUES ($1, $2, $3, default) RETURNING *;", [pmqid, zid, value, ], function(err, results) {
-            if (err || !results || !results.rows || !results.rows.length) { 
+            if (err || !results || !results.rows || !results.rows.length) {
                 pgQuery("UPDATE participant_metadata_answers set alive = TRUE where pmqid = ($1) AND zid = ($2) AND value = ($3) RETURNING *;", [pmqid, zid, value], function(err, results) {
                     if (err) { fail(res, 500, "polis_err_post_participant_metadata_value", err); return; }
                     finishOne(res, results.rows[0]);
@@ -7691,7 +7691,7 @@ function(req, res) {
             for (i = 0; i < keys.length; i++) {
                 // Add a map for each keyId
                 k = keys[i];
-                o[k.pmqid] = {}; 
+                o[k.pmqid] = {};
                 // keep the user-facing key name
                 keyNames[k.pmqid] = k.key;
             }
@@ -7699,7 +7699,7 @@ function(req, res) {
                 // Add an array for each possible valueId
                 k = vals[i];
                 v = vals[i];
-                o[k.pmqid][v.pmaid] = []; 
+                o[k.pmqid][v.pmaid] = [];
                 // keep the user-facing value string
                 valueNames[v.pmaid] = v.value;
             }
@@ -7785,7 +7785,7 @@ function getOneConversation(req, res) {
             conv.is_owner = conv.owner === uid;
             conv.pp = false; // participant pays (WIP)
             finishOne(res, conv);
-            
+
         }, function(err) {
             fail(res, 500, "polis_err_getting_conversation_info", err);
         }).catch(function(err) {
@@ -7899,7 +7899,7 @@ function getConversations(req, res) {
                         conv.zid,
                         conv.owner, // TODO think: conv.owner or uid?
                         _.partial(generateSingleUseUrl, req)
-                    ); 
+                    );
                 }));
             } else {
                 suurlsPromise = Promise.resolve();
@@ -8042,7 +8042,7 @@ function(req, res) {
         "<a href ='" + stripeUrl + "'>Connect Pol.is to Stripe</a>" +
     "</body></html>");
 });
- 
+
 
 app.get('/api/v3/stripe_account_connected_oauth_callback',
     moveToBody,
@@ -8051,7 +8051,7 @@ app.get('/api/v3/stripe_account_connected_oauth_callback',
     want("error", getStringLimitLength(9999), assignToP),
     want("error_description", getStringLimitLength(9999), assignToP),
 function(req, res) {
- 
+
   var code = req.p.code;
   var access_token = req.p.access_token;
   var error = req.p.error;
@@ -8284,7 +8284,7 @@ app.post('/api/v3/query_participants_by_metadata',
     need('pmaids', getArrayOfInt, assignToP, []),
 function(req, res) {
     var uid = req.p.uid;
-    var zid = req.p.zid;    
+    var zid = req.p.zid;
     var pmaids = req.p.pmaids;
 
     if (!pmaids.length) {
@@ -8302,17 +8302,17 @@ function(req, res) {
                     // 1. find the unchecked answers
                     "(select pmaid from participant_metadata_answers where alive = TRUE and zid = ($2) and pmaid not in ("+ pmaids.join(",") +"))" +
                 ")" +
-            ";", 
+            ";",
             [ zid, zid ], function( err, results) {
                 if (err) { fail(res, 500, "polis_err_metadata_query", err); return; }
                 res.status(200).json(_.pluck(results.rows, "pid"));
             });
     }
 
-    isOwnerOrParticipant(zid, uid, doneChecking);    
+    isOwnerOrParticipant(zid, uid, doneChecking);
 });
 
-app.post('/api/v3/sendCreatedLinkToEmail', 
+app.post('/api/v3/sendCreatedLinkToEmail',
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
 function(req, res){
@@ -8332,14 +8332,14 @@ function(req, res){
                 "\n" +
                 createdLink + "\n" +
                 "\n" +
-                "With gratitude,\n" + 
-                "\n" + 
+                "With gratitude,\n" +
+                "\n" +
                 "The team at pol.is";
-    
+
             return sendTextEmail(
                 POLIS_FROM_ADDRESS,
                 email,
-                "Link: " + createdLink,                
+                "Link: " + createdLink,
                 body).then(function() {
                     res.status(200).json({});
                 }).catch(function(err) {
@@ -8367,13 +8367,13 @@ function getTwitterRequestToken(returnUrl) {
         oauth.post(
             'https://api.twitter.com/oauth/request_token',
             void 0, //'your user token for this app', //test user token
-            void 0, //'your user secret for this app', //test user secret            
+            void 0, //'your user secret for this app', //test user secret
             body,
             "multipart/form-data",
             function (e, data, res){
                 if (e) {
                     console.error("get twitter token failed");
-                    console.error(e);     
+                    console.error(e);
                     reject(e);
                 } else {
                     resolve(data);
@@ -8395,7 +8395,7 @@ function(req, res) {
     dest = encodeURIComponent(getServerNameWithProtocol(req) + dest);
     var returnUrl = getServerNameWithProtocol(req) + "/api/v3/twitter_oauth_callback?dest=" + dest;
 
-    getTwitterRequestToken(returnUrl).then(function(data) {        
+    getTwitterRequestToken(returnUrl).then(function(data) {
         winston.log("info",data);
         data += "&callback_url=" + dest;
         // data += "&callback_url=" + encodeURIComponent(getServerNameWithProtocol(req) + "/foo");
@@ -8420,13 +8420,13 @@ function getTwitterAccessToken(body) {
         oauth.post(
             'https://api.twitter.com/oauth/access_token',
             void 0, //'your user token for this app', //test user token
-            void 0, //'your user secret for this app', //test user secret            
+            void 0, //'your user secret for this app', //test user secret
             body,
             "multipart/form-data",
             function (e, data, res){
                 if (e) {
                     console.error("get twitter token failed");
-                    console.error(e);     
+                    console.error(e);
                     reject(e);
                 } else {
                     resolve(data);
@@ -8461,7 +8461,7 @@ function getTwitterUserInfo(twitter_user_id, useCache) {
         oauth.post(
             'https://api.twitter.com/1.1/users/lookup.json',
             void 0, //'your user token for this app', //test user token
-            void 0, //'your user secret for this app', //test user secret            
+            void 0, //'your user secret for this app', //test user secret
             {
                 // oauth_verifier: req.p.oauth_verifier,
                 // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
@@ -8471,7 +8471,7 @@ function getTwitterUserInfo(twitter_user_id, useCache) {
             function (e, data, res){
                 if (e) {
                     console.error("get twitter token failed");
-                    console.error(e);     
+                    console.error(e);
                     reject(e);
                 } else {
                     twitterUserInfoCache.set(twitter_user_id, data);
@@ -8503,7 +8503,7 @@ function getTwitterTweetById(twitter_tweet_id) {
             function (e, data, res){
                 if (e) {
                     console.error(" - - - - get twitter tweet failed - - - -");
-                    console.error(e);     
+                    console.error(e);
                     reject(e);
                 } else {
                     data = JSON.parse(data);
@@ -8533,7 +8533,7 @@ function getTwitterUserTimeline(screen_name) {
             function (e, data, res){
                 if (e) {
                     console.error(" - - - - get twitter tweet failed - - - -");
-                    console.error(e);     
+                    console.error(e);
                     reject(e);
                 } else {
                     var foo = JSON.parse(data);
@@ -8568,7 +8568,7 @@ function getTwitterUserInfoBulk(list_of_twitter_user_id) {
         oauth.post(
             'https://api.twitter.com/1.1/users/lookup.json',
             void 0, //'your user token for this app', //test user token
-            void 0, //'your user secret for this app', //test user secret            
+            void 0, //'your user secret for this app', //test user secret
             {
                 // oauth_verifier: req.p.oauth_verifier,
                 // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
@@ -8578,7 +8578,7 @@ function getTwitterUserInfoBulk(list_of_twitter_user_id) {
             function (e, data, res){
                 if (e) {
                     console.error("get twitter token failed");
-                    console.error(e);     
+                    console.error(e);
                     reject(e);
                 } else {
                     data = JSON.parse(data);
@@ -8649,7 +8649,7 @@ function updateSomeTwitterUsers() {
                     "verified = ($6)," +
                     "profile_image_url_https = ($7)," +
                     "location = ($8)," +
-                    "modified = now_as_millis() " + 
+                    "modified = now_as_millis() " +
                 "where twitter_user_id = ($1);";
 
                 console.log(q);
@@ -8904,13 +8904,13 @@ function(req, res) {
                                 switchToUser(req, res, recordForTwitterId.uid).then(function() {
                                     res.redirect(dest);
                                 }).catch(function(err) {
-                                    fail(res, 500, "polis_err_twitter_auth_456", err);                        
+                                    fail(res, 500, "polis_err_twitter_auth_456", err);
                                 });
                             }
                         } else if (recordForUid) {
                             // currently signed in user has a twitter account attached, but it's a different twitter account, and they are now signing in with a different twitter account.
                             // the newly supplied twitter account is not attached to anything.
-                            fail(res, 500, "polis_err_twitter_already_attached", err);                        
+                            fail(res, 500, "polis_err_twitter_already_attached", err);
                         } else if (recordForTwitterId) {
                             // currently signed in user has no twitter account attached, but they just signed in with a twitter account which is attached to another user.
                             // For now, let's just have it sign in as that user.
@@ -8918,15 +8918,15 @@ function(req, res) {
                             switchToUser(req, res, recordForTwitterId.uid).then(function() {
                                 res.redirect(dest);
                             }).catch(function(err) {
-                                fail(res, 500, "polis_err_twitter_auth_234", err);                        
+                                fail(res, 500, "polis_err_twitter_auth_234", err);
                             });
                         } else {
-                            fail(res, 500, "polis_err_twitter_auth_345");                        
+                            fail(res, 500, "polis_err_twitter_auth_345");
                         }
                     });
-                    
+
                     // else check if the uid is there and has some other screen_name - if so, ????????
-                    
+
                     // else check if the screen_name is there, but for a different uid - if so, ??????
 
                 } else {
@@ -9056,13 +9056,13 @@ function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUi
 
     // "mod_pptpts2 as (select fjoisjdfio.uid, max(fjoisjdfio.priority) as priority "+
     //     "from ( " +
-    //         "select * from pptpts " + 
+    //         "select * from pptpts " +
     //         "UNION ALL " +
     //         "select uid, 999 as priority from p where mod >= 2) as fjoisjdfio " +
     //     "group by fjoisjdfio.uid order by fjoisjdfio.priority desc, fjoisjdfio.uid), " +
 
     // without blocked
-    "final_set as (select * from mod_pptpts " + 
+    "final_set as (select * from mod_pptpts " +
         // "where uid not in (select uid from p where mod < 0) "+ // remove from twitter set intead.
         "limit ($3) "+
         ") " + // in invisible_uids
@@ -9102,7 +9102,7 @@ function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUi
         "left join p on final_set.uid = p.uid " +
 // "left join all_fb_usersriends on all_friends.uid = p.uid " +
     ";";
-    
+
     return pgQueryP_metered("getSocialParticipants", q, [zid, uid, limit, mod]).then(function(response) {
         socialParticipantsCache.set(cacheKey, response);
         return response;
@@ -9120,7 +9120,7 @@ function getFacebookFriendsInConversation(zid, uid) {
                 "(select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2) union select uid from facebook_users where uid = ($2)) as friends) "+
                 // ^ as friends
             "as fb natural left join facebook_users) as fb2 "+
-              "inner join (select * from participants where zid = ($1) and (vote_count > 0 OR uid = ($2))) as p on fb2.uid = p.uid;", 
+              "inner join (select * from participants where zid = ($1) and (vote_count > 0 OR uid = ($2))) as p on fb2.uid = p.uid;",
               [zid, uid]);
         //"select * from (select * from (select friend as uid from facebook_friends where uid = ($2) union select uid from facebook_friends where friend = ($2)) as friends where uid in (select uid from participants where zid = ($1))) as fb natural left join facebook_users;", [zid, uid]);
     return p;
@@ -9327,7 +9327,7 @@ function aggregateVotesToPidVotesObj(votes) {
             greatestTid = votes[i].tid;
         }
     }
-    
+
     // use arrays or strings?
     var vectors = {}; // pid -> sparse array
     for (i = 0; i < votes.length; i++) {
@@ -9484,7 +9484,7 @@ function getFacebookShareCountForConversation(conversation_id) {
         return shares;
     });
 }
- 
+
 
 
 
@@ -9659,7 +9659,7 @@ function(req, res) {
   }
 
 
-  getAuthorUidsOfFeaturedComments().then(function(authorUids) {  
+  getAuthorUidsOfFeaturedComments().then(function(authorUids) {
 
     Promise.all([
         getSocialParticipants(zid, uid, hardLimit, mod, lastVoteTimestamp, authorUids),
@@ -9718,7 +9718,7 @@ function(req, res) {
         participantsWithSocialInfo = participantsWithSocialInfo.map(function(p) {
             var x = pullFbTwIntoSubObjects(p);
             // nest the fb and tw properties in sub objects
-           
+
             if (p.priority === 1000) {
                 x.isSelf = true;
             }
@@ -9753,7 +9753,7 @@ function(req, res) {
         //     }
         //     pids.push(p.pid);
         //     pidToData[p.pid] = pidToData[p.pid] || {};
-        //     pidToData[p.pid].facebook = _.pick(p, 
+        //     pidToData[p.pid].facebook = _.pick(p,
         //         'fb_link',
         //         'fb_name',
         //         'fb_user_id',
@@ -9893,7 +9893,7 @@ app.get("/api/v3/einvites",
     need("einvite", getStringLimitLength(1, 100), assignToP),
 function(req, res) {
     var einvite = req.p.einvite;
-    
+
     winston.log("info","select * from einvites where einvite = ($1);", [einvite]);
     pgQueryP("select * from einvites where einvite = ($1);", [einvite]).then(function(rows) {
         if (!rows.length) {
@@ -9963,7 +9963,7 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
     var tool_consumer_instance_guid = req.p.tool_consumer_instance_guid;
 
     var greeting = '';
-        
+
 
     // TODO If we're doing this basic form, we can't just return json from the /login call
 
@@ -10027,7 +10027,7 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
 '</div>' +
 '</form></p>';
 
-        
+
         res.set({
             'Content-Type': 'text/html',
         });
@@ -10038,10 +10038,10 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
         '<head>' +
             '<meta name="viewport" content="width=device-width, initial-scale=1;">' +
         '</head>' +
-        "<body style='max-width:320px; font-family: Futura, Helvetica, sans-serif;'>"+ 
+        "<body style='max-width:320px; font-family: Futura, Helvetica, sans-serif;'>"+
             greeting +
             form1 +
-            form2 +    
+            form2 +
             // " <p style='background-color: yellow;'>" +
             //     JSON.stringify(req.body)+
             //     "<img src='"+req.p.user_image+"'></img>"+
@@ -10060,7 +10060,7 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
         // accessibility - Teach Act: those who don't have dexterity
         // colors
         // screen readers
-        /* 
+        /*
 2014-09-21T23:16:15.351247+00:00 app[web.1]: course_setup
 2014-09-21T23:16:15.188414+00:00 app[web.1]: { oauth_consumer_key: 'asdfasdf',
 2014-09-21T23:16:15.188418+00:00 app[web.1]:   oauth_signature_method: 'HMAC-SHA1',
@@ -10096,7 +10096,7 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
 // Instructors see a custom inbox for the course, and can create conversations there. make it easy to copy and paste links..
 // how do we deal with sections? can't do this.
 // Conversations created here will be under the uid of the account owner... which may be problematic later with school-wide accounts... if we ever offer that
-// 
+//
 // Complication: sections -- are they needed this quarter? maybe better to just do the linkage, and then try to make it easy to post the stuff...
 //  it is possible for teachers to create a duplicate assignment, and have it show for certain sections...
 //     so we can rely on custom_canvas_assignment_id
@@ -10107,8 +10107,8 @@ function renderLtiLinkagePage(req, res, afterJoinRedirectUrl) {
 app.post("/api/v3/LTI/setup_assignment",
     authOptional(assignToP),
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-    need("user_id", getStringLimitLength(1, 9999), assignToP),    
-    need("context_id", getStringLimitLength(1, 9999), assignToP),    
+    need("user_id", getStringLimitLength(1, 9999), assignToP),
+    need("context_id", getStringLimitLength(1, 9999), assignToP),
     want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
@@ -10121,8 +10121,8 @@ function(req, res) {
     winston.log("info",req);
     var roles = req.p.roles;
     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-    var user_id = req.p.user_id;    
-    var context_id = req.p.context_id;    
+    var user_id = req.p.user_id;
+    var context_id = req.p.context_id;
     var user_image = req.p.user_image || "";
     if (!req.p.tool_consumer_instance_guid) {
         emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
@@ -10161,7 +10161,7 @@ function(req, res) {
                     //     if (you paid) {
                             renderLtiLinkageSuccessPage(req, res, {
                                 context_id: context_id,
-                                // user_image: userForLtiUserId.user_image,                                
+                                // user_image: userForLtiUserId.user_image,
                                 email: userForLtiUserId.email,
                             });
                         // } else { // you (student) have not yet paid
@@ -10182,7 +10182,7 @@ function(req, res) {
             });
         } else { // no uid (no cookies)
             // Have them sign in to set up the linkage
-            winston.log("info",'lti_linkage - no uid');            
+            winston.log("info",'lti_linkage - no uid');
             renderLtiLinkagePage(req, res);
         }
     }).catch(function(err) {
@@ -10193,8 +10193,8 @@ function(req, res) {
 
 // app.post("/api/v3/LTI/canvas_nav",
 //     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-//     need("user_id", getStringLimitLength(1, 9999), assignToP),    
-//     need("context_id", getStringLimitLength(1, 9999), assignToP),    
+//     need("user_id", getStringLimitLength(1, 9999), assignToP),
+//     need("context_id", getStringLimitLength(1, 9999), assignToP),
 //     need("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  scope to the right LTI/canvas? instance
 //     want("roles", getStringLimitLength(1, 9999), assignToP),
 //     want("user_image", getStringLimitLength(1, 9999), assignToP),
@@ -10207,8 +10207,8 @@ function(req, res) {
 //     winston.log("info",req);
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-//     var user_id = req.p.user_id;    
-//     var context_id = req.p.context_id;    
+//     var user_id = req.p.user_id;
+//     var context_id = req.p.context_id;
 //     var user_image = req.p.user_image || "";
 //     // if (!req.p.tool_consumer_instance_guid) {
 //     //     emailBadProblemTime("couldn't find tool_consumer_instance_guid, maybe this isn't Canvas?");
@@ -10239,7 +10239,7 @@ function(req, res) {
 
 //                     // renderLtiLinkageSuccessPage(req, res, {
 //                     //     context_id: context_id,
-//                     //     // user_image: userForLtiUserId.user_image,                                
+//                     //     // user_image: userForLtiUserId.user_image,
 //                     //     email: userForLtiUserId.email,
 //                     // });
 
@@ -10279,7 +10279,7 @@ function(req, res) {
 
 function addCanvasAssignmentConversationInfoIfNeeded(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id) {
     return getCanvasAssignmentInfo(tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id).then(function(rows) {
-        var exists = rows && rows.length;        
+        var exists = rows && rows.length;
         if (exists) {
             return exists;
         } else {
@@ -10333,7 +10333,7 @@ function addCanvasAssignmentConversationCallbackParamsIfNeeded(lti_user_id, lti_
 
 function getCanvasAssignmentConversationCallbackParams(lti_user_id, lti_context_id, custom_canvas_assignment_id, tool_consumer_instance_guid) {
     return pgQueryP("select * from canvas_assignment_callback_info where lti_user_id = ($1) and lti_context_id = ($2) and custom_canvas_assignment_id = ($3) and tool_consumer_instance_guid = ($4);", [
-        lti_user_id, 
+        lti_user_id,
         lti_context_id,
         custom_canvas_assignment_id,
         tool_consumer_instance_guid,
@@ -10345,16 +10345,16 @@ app.post("/api/v3/LTI/conversation_assignment",
     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school    need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
     need("oauth_signature_method", getStringLimitLength(1, 9999), assignToP), // probably "HMAC-SHA-1"
     need("oauth_nonce", getStringLimitLength(1, 9999), assignToP), //rK81yoLBZhxVeaQHOUQQV8Ug5AObZtWv4R0ezQN20
-    need("oauth_version", getStringLimitLength(1, 9999), assignToP), //'1.0'    
-    need("oauth_timestamp", getStringLimitLength(1, 9999), assignToP), //?      
-    need("oauth_callback", getStringLimitLength(1, 9999), assignToP), // about:blank      
+    need("oauth_version", getStringLimitLength(1, 9999), assignToP), //'1.0'
+    need("oauth_timestamp", getStringLimitLength(1, 9999), assignToP), //?
+    need("oauth_callback", getStringLimitLength(1, 9999), assignToP), // about:blank
 
-    need("user_id", getStringLimitLength(1, 9999), assignToP),    
-    need("context_id", getStringLimitLength(1, 9999), assignToP),    
+    need("user_id", getStringLimitLength(1, 9999), assignToP),
+    need("context_id", getStringLimitLength(1, 9999), assignToP),
     want("roles", getStringLimitLength(1, 9999), assignToP),
     want("user_image", getStringLimitLength(1, 9999), assignToP),
     // per assignment stuff
-    want("custom_canvas_assignment_id", getInt, assignToP), // NOTE: it enters our system as an int, but we'll 
+    want("custom_canvas_assignment_id", getInt, assignToP), // NOTE: it enters our system as an int, but we'll
     want("lis_outcome_service_url", getStringLimitLength(1, 9999), assignToP), //  send grades here!
     want("lis_result_sourcedid", getStringLimitLength(1, 9999), assignToP), //  grading context
     want("tool_consumer_instance_guid", getStringLimitLength(1, 9999), assignToP), //  canvas instance
@@ -10399,7 +10399,7 @@ function(req, res) {
             return getServerNameWithProtocol(req) +"/" + zinvite + "/" + encodeParams({
                 forceEmbedded: true,
                 // this token is used to support cookie-less participation, mainly needed within Canvas's Android webview
-                xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header                    
+                xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header
             });
         });
     }
@@ -10451,19 +10451,19 @@ function(req, res) {
         } else {
             // uh oh, not ready. If this is an instructor, we'll send them to the create/conversation page.
             if (isInstructor) {
-                if (user) {                
+                if (user) {
                     res.redirect(getServerNameWithProtocol(req) + "/conversation/create/" + encodeParams({
-                        forceEmbedded: true,                    
+                        forceEmbedded: true,
                         // this token is used to support cookie-less participation, mainly needed within Canvas's Android webview. It is needed to ensure the canvas user is bound to the polis user, regardless of who is signed in on pol.is
-                        xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header                    
-                        tool_consumer_instance_guid: req.p.tool_consumer_instance_guid, 
+                        xPolisLti: createPolisLtiToken(req.p.tool_consumer_instance_guid, req.p.user_id),  // x-polis-lti header
+                        tool_consumer_instance_guid: req.p.tool_consumer_instance_guid,
                         context: context_id,
                         custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
                     }));
                 } else {
                     var url = getServerNameWithProtocol(req) + "/conversation/create/" +  encodeParams({
-                        forceEmbedded: true,                    
-                        tool_consumer_instance_guid: req.p.tool_consumer_instance_guid, 
+                        forceEmbedded: true,
+                        tool_consumer_instance_guid: req.p.tool_consumer_instance_guid,
                         context: context_id,
                         custom_canvas_assignment_id: req.p.custom_canvas_assignment_id
                     });
@@ -10481,7 +10481,7 @@ function(req, res) {
                     'Content-Type': 'text/html',
                 });
                 res.send(
-                    '<head><meta name="viewport" content="width=device-width, initial-scale=1;"></head>' + 
+                    '<head><meta name="viewport" content="width=device-width, initial-scale=1;"></head>' +
                     "<body><h1 style='max-width:320px'>Sorry, the pol.is conversation has not been created yet. Please try back later.</h1></body>"
                 );
             }
@@ -10546,7 +10546,7 @@ var xml = '' +
     // https://canvas.instructure.com/doc/api/file.homework_submission_tools.html
     '<lticm:options name="homework_submission">' +
         // This is the URL that will be POSTed to when users click the button in any rich editor.
-        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/setup_assignment</lticm:property>' +        
+        '<lticm:property name="url">https://preprod.pol.is/api/v3/LTI/setup_assignment</lticm:property>' +
         '<lticm:property name="icon_url">' +
         'http://minecraft.inseng.net:8133/minecraft-16x16.png' +
         '</lticm:property>' +
@@ -10633,7 +10633,7 @@ res.status(200).send(xml);
 // // team meetings - schedule with others, smart converence room
 // // or redirect tool
 // // students already pay an online fee
-// // 
+// //
 // // ADA? 508 compliance
 // // accessibility - Teach Act: those who don't have dexterity
 // // colors
@@ -10644,8 +10644,8 @@ res.status(200).send(xml);
 // // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
 // app.post("/api/v3/LTI/editor_tool",
 //     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-//     need("user_id", getStringLimitLength(1, 9999), assignToP),    
-//     need("context_id", getStringLimitLength(1, 9999), assignToP),    
+//     need("user_id", getStringLimitLength(1, 9999), assignToP),
+//     need("context_id", getStringLimitLength(1, 9999), assignToP),
 //     want("roles", getStringLimitLength(1, 9999), assignToP),
 //     want("user_image", getStringLimitLength(1, 9999), assignToP),
 // // lis_outcome_service_url: send grades here!
@@ -10655,8 +10655,8 @@ res.status(200).send(xml);
 // function(req, res) {
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-//     var user_id = req.p.user_id;    
-//     var context_id = req.p.context_id;    
+//     var user_id = req.p.user_id;
+//     var context_id = req.p.context_id;
 //     var user_image = req.p.user_image || "";
 
 
@@ -10769,8 +10769,8 @@ function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_
 // // TODO return HTML from the auth functions. the html should contain the token? so that ajax calls can be made.
 // app.post("/api/v3/LTI/editor_tool_for_setup",
 //     need("oauth_consumer_key", getStringLimitLength(1, 9999), assignToP), // for now, this will be the professor, but may also be the school
-//     need("user_id", getStringLimitLength(1, 9999), assignToP),    
-//     need("context_id", getStringLimitLength(1, 9999), assignToP),    
+//     need("user_id", getStringLimitLength(1, 9999), assignToP),
+//     need("context_id", getStringLimitLength(1, 9999), assignToP),
 //     want("roles", getStringLimitLength(1, 9999), assignToP),
 //     want("user_image", getStringLimitLength(1, 9999), assignToP),
 // // lis_outcome_service_url: send grades here!
@@ -10780,8 +10780,8 @@ function redirectToLtiEditorDestinationWithDetailsAboutLtiLink(req, res, launch_
 // function(req, res) {
 //     var roles = req.p.roles;
 //     var isInstructor = /[iI]nstructor/.exec(roles); // others: Learner
-//     var user_id = req.p.user_id;    
-//     var context_id = req.p.context_id;    
+//     var user_id = req.p.user_id;
+//     var context_id = req.p.context_id;
 //     var user_image = req.p.user_image || "";
 //     // TODO SECURITY we need to verify the signature
 //     var oauth_consumer_key = req.p.oauth_consumer_key;
@@ -11249,7 +11249,7 @@ function(req, res) {
         o.parent_url = req.p.parent_url;
     }
 
-    
+
     // Set stuff in cookies to be retrieved when POST participants is called.
     var setOnPolisDomain = !domainOverride;
     var origin = req.headers.origin || "";
@@ -11283,7 +11283,7 @@ function(req, res) {
                     console.error('email fail');
                     console.error(err);
                 });
-                
+
                 url = appendParams(url);
                 res.redirect(url);
 
@@ -11300,7 +11300,7 @@ function(req, res) {
                 fail(res, 500, "polis_err_finding_conversation_id", err);
             });
         }
-    }).catch(function(err) {        
+    }).catch(function(err) {
         fail(res, 500, "polis_err_redirecting_to_conv", err);
     });
 });
@@ -11326,7 +11326,7 @@ function(req, res) {
 // }
 
 
-// this cache currently never expires 
+// this cache currently never expires
 // filename -> content
 var staticFileCache = {};
 function getStaticFile(contentPath, res) {
@@ -11352,7 +11352,7 @@ function getStaticFile(contentPath, res) {
         res.status(200);
         res.send(content);
     }
-    function onMissing() {   
+    function onMissing() {
         res.setHeader(404);
         res.json({status: 404});
     }
@@ -11463,7 +11463,7 @@ function makeFileFetcher(hostname, port, path, contentType, preloadData) {
         if (devMode) {
             url = "http://" + hostname + ":" + port + path;
         } else {
-            // pol.is.s3-website-us-east-1.amazonaws.com            
+            // pol.is.s3-website-us-east-1.amazonaws.com
             // preprod.pol.is.s3-website-us-east-1.amazonaws.com
 
             // TODO https - buckets would need to be renamed to have dashes instead of dots.
@@ -11524,7 +11524,7 @@ function browserSupportsPushState(req) {
     return !/MSIE [23456789]/.test(req.headers['user-agent']);
 }
 
-// serve up index.html in response to anything starting with a number 
+// serve up index.html in response to anything starting with a number
 var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
 var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", "text/html");
@@ -11532,14 +11532,14 @@ var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedB
 function fetchIndex(req, res, preloadData) {
     var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html", preloadData);
     if (isUnsupportedBrowser(req)){
-        
+
         return fetchUnsupportedBrowserPage(req, res);
 
-    } else if (!browserSupportsPushState(req) && 
+    } else if (!browserSupportsPushState(req) &&
         req.path.length > 1 &&
         !/^\/api/.exec(req.path) // TODO probably better to create a list of client-side route regexes (whitelist), rather than trying to blacklist things like API calls.
         ) {
-        
+
         // Redirect to the same URL with the path behind the fragment "#"
         res.writeHead(302, {
             Location: "https://" + req.headers.host +"/#"+ req.path,
