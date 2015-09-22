@@ -11565,28 +11565,18 @@ function fetchIndexForConversation(req, res) {
     }
     var acceptLanguage = req.headers["accept-language"] || req.headers["Accept-Language"];
 
-    var optionalItems = Promise.all([
-        getTwitterShareCountForConversation(conversation_id),
-        getFacebookShareCountForConversation(conversation_id),
-    ]).then(function(a) {
-        var twitterShareCount = a[0];
-        var fbShareCount = a[1];
-        var o = {};
-        o.twitterShareCount = twitterShareCount;
-        o.fbShareCount = fbShareCount;
-        // if (twitterShareCount.isFulfilled()) {
-            // o.twitterShareCount = twitterShareCount.value();
-        // }
-        // if (fbShareCount.isFulfilled()) {
-            // o.fbShareCount = fbShareCount.value();
-        // }
-        return o;
-    });
+    // Kick off requests to twitter and FB to get the share counts.
+    // This will be nice because we cache them so it will be fast when
+    // client requests these later.
+    // TODO actually store these values in a cache that is shared between
+    // the servers, probably just in the db.
+    getTwitterShareCountForConversation(conversation_id);
+    getFacebookShareCountForConversation(conversation_id);
 
     getZidFromConversationId(conversation_id).then(function(zid) {
         return Promise.all([
             getConversationInfo(zid),
-            optionalItems,
+            // optionalItems,
         ]);
     }).then(function(a) {
         var conv = a[0];
@@ -11600,7 +11590,7 @@ function fetchIndexForConversation(req, res) {
             vis_type: conv.vis_type,
         };
         conv.conversation_id = conversation_id;
-        conv = _.extend({}, optionalResults, conv);
+        // conv = _.extend({}, optionalResults, conv);
         return conv;
     }).then(function(x) {
         var preloadData = {
