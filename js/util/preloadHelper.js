@@ -1,4 +1,6 @@
 
+var _ = require("underscore");
+var $ = require("jquery");
 
 // bootstrap initial bulk ajax call.
 // we don't have promises until main bundle loads, so this is going to be crappy.
@@ -56,7 +58,7 @@ var firstVotesByMePromise = p.firstVoteByMe ?
     return dfd.promise();
   }());
 
-var firstMathPromise = p.firstMath ?
+var firstMathPromise = _.isObject(p.firstMath) ?
   $.Deferred().resolve(p.firstMath) :
   (function() {
     var dfd = $.Deferred();

@@ -88,7 +88,7 @@ function onPreloadOk(response) {
     var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
 
     p[dst] = response[src];
-    if (p[cb] && p[dst]) {
+    if (p[cb]) {
       p[cb](0, p[dst]);
     }
   }
