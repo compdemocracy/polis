@@ -15,7 +15,7 @@ function makeListener(dfd) {
   };
 }
 
-var firstCommentPromise = p.firstComment ? 
+var firstCommentPromise = p.firstComment ?
   $.Deferred().resolve(p.firstComment) :
   (function() {
     var dfd = $.Deferred();
