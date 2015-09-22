@@ -1303,8 +1303,8 @@ function clientSideBaseCluster(things, N) {
                                 count: 0, // total ptpt count
                                 clusterCount: groupVotes[gid]["n-members"],
                                 // ptptoiCount: getParticipantsOfInterestForGid(gid).length,
-                                x: cachedPcaData["group-clusters"][gid].center[0],
-                                y: cachedPcaData["group-clusters"][gid].center[1],
+                                x: clusters[gid].center[0],
+                                y: clusters[gid].center[1],
                                 isSummaryBucket: true
                             });
                             for (var i = 0; i < bigBucket.bids.length; i++) {
