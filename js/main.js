@@ -1,3 +1,8 @@
+
+// init this asap
+var preloadHelper = require("./util/preloadHelper");
+
+
 var $ = require("jquery");
 var eb = require("./eventBus");
 var Backbone = require("backbone");
