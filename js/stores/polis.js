@@ -136,7 +136,7 @@ module.exports = function(params) {
     var BUCKETIZE_ROWS = 8;
     var BUCKETIZE_COLUMNS = 8;
 
-    var shouldPoll = true;
+    // var shouldPoll = true;
 
     var getPtptoiLimit = params.getPtptoiLimit;
 
@@ -1177,17 +1177,29 @@ function clientSideBaseCluster(things, N) {
             // Don't poll when the document isn't visible. (and we've already fetched the pca)
             return $.Deferred().reject();
         }
-        var promise = usePreloadMath ?
-            preloadHelper.firstMathPromise.pipe(function(pcaData) {
-                return $.Deferred().resolve(pcaData, null, {status: 200});
-            }) :
-            polisGet(path, {
+
+        function fetchIt() {
+            return polisGet(path, {
                 lastVoteTimestamp: timestamp,
                 conversation_id: conversation_id,
                 cacheBust: (Math.random()*1e9 >> 0)
             });
+        }
 
-        return promise.pipe( function(pcaData, textStatus, xhr) {
+        var promise;
+        if (usePreloadMath) {
+            promise = preloadHelper.firstMathPromise.pipe(function(pcaData) {
+                usePreloadMath = false;
+                if (pcaData) {
+                    return $.Deferred().resolve(pcaData, null, {status: 200});
+                }
+                return fetchIt();
+            }, fetchIt);
+        } else {
+            promise = fetchIt();
+        }
+
+        var p2 = promise.then( function(pcaData, textStatus, xhr) {
                 usePreloadMath = false;
                 if (304 === xhr.status) {
                     // not nodified
@@ -1438,9 +1450,12 @@ function clientSideBaseCluster(things, N) {
                 } else if (500 === xhr.status) {
                     // alert("failed to get pca data");
                 }
-            }).then(function() {
-                firstPcaCallPromise.resolve();
             });
+
+        p2.then(function() {
+            firstPcaCallPromise.resolve();
+        });
+        return p2;
     }
 
 
@@ -2307,9 +2322,9 @@ function clientSideBaseCluster(things, N) {
     }
 
     function poll() {
-      if (!shouldPoll) {
-        return;
-      }
+      // if (!shouldPoll) {
+      //   return;
+      // }
       var pcaPromise = fetchLatestPca();
       pcaPromise.done(updateMyProjection);
       pcaPromise.done(function() {
@@ -2319,9 +2334,10 @@ function clientSideBaseCluster(things, N) {
             f();
           });
       });
-      pcaPromise.always(function() {
-          setTimeout(poll, 20*1000); // could compute remaining part of interval.
-      });
+      function continuePolling() {
+        setTimeout(poll, 5*1000); // could compute remaining part of interval.
+      }
+      pcaPromise.then(continuePolling, continuePolling);
     }
 
     function startPolling() {
@@ -2379,17 +2395,17 @@ function clientSideBaseCluster(things, N) {
 
     // findRepresentativeMetadata();
 
-    function stopPolling() {
-        shouldPoll = false;
-    }
+    // function stopPolling() {
+    //     shouldPoll = false;
+    // }
 
-    function jumpTo(lastVoteTimestamp) {
-        stopPolling();
-        // console.log(lastVoteTimestamp);
+    // function jumpTo(lastVoteTimestamp) {
+    //     stopPolling();
+    //     // console.log(lastVoteTimestamp);
 
-        var pcaPromise = fetchPcaPlaybackByTimestamp(lastVoteTimestamp);
-        pcaPromise.done(updateMyProjection);
-    }
+    //     var pcaPromise = fetchPcaPlaybackByTimestamp(lastVoteTimestamp);
+    //     pcaPromise.done(updateMyProjection);
+    // }
 
     function prepCommentsProjection() {
         if (!Utils.projectComments) {
@@ -2555,7 +2571,7 @@ function clientSideBaseCluster(things, N) {
         // simple way to centralize polling actions, and ensure they happen near each-other (to save battery)
         addPollingScheduledCallback: addPollingScheduledCallback,
         importTweet: importTweet,
-        jumpTo: jumpTo,
+        // jumpTo: jumpTo,
         submitComment: submitComment
     };
 };
