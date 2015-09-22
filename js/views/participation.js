@@ -434,11 +434,14 @@ module.exports =  ConversationView.extend({
     function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
       that.firstMathPollResultDeferred.resolve();
       if (updatedNodes.length >= 2) {
-        $(".vis_container").fadeIn(1000);
-        $("#vis_section").fadeIn(1000);
+        if ($("#vis_section:hidden")) {
+          $("#vis_section").fadeIn(1000, function() {
+            that.initPcaVis();
+          });
+        }
         eb.trigger(eb.visShown);
       } else {
-        $(".vis_container").hide();
+        $("#vis_section").hide();
       }
       if (vis) {
         vis.upsertNode.apply(vis, arguments);
