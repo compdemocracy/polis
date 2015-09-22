@@ -115,11 +115,11 @@ module.exports =  ConversationView.extend({
   showVis: function() {
     $("#vis_sibling_bottom").show();
   },
-  showTutorial: function() {
-    if (this.visModeModel.get("visMode") === VIS_MODE_TUT) {
-      $("#tutorialSlides").show();
-    }
-  },
+  // showTutorial: function() {
+  //   if (this.visModeModel.get("visMode") === VIS_MODE_TUT) {
+  //     $("#tutorialSlides").show();
+  //   }
+  // },
   hideWriteHints: function() {
     $("#write_hints_div").hide();
   },
@@ -935,11 +935,11 @@ module.exports =  ConversationView.extend({
     });
 
     that.conversationTabs.on("beforeshow:majority", function() {
-      that.showTutorial();
+      // that.showTutorial();
       if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
-      that.showVis();
+      // that.showVis();
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
@@ -951,7 +951,7 @@ module.exports =  ConversationView.extend({
       if (that.shouldShowVisUnderTabs()) {
         moveVisAboveQueryResults();
       }
-      that.showVis();
+      // that.showVis();
       that.allCommentsCollection.doFetch({
         gid: that.selectedGid
       }).then(function() {
@@ -966,8 +966,8 @@ module.exports =  ConversationView.extend({
     });
     that.conversationTabs.on("beforeshow:vote", function() {
       moveVisToBottom();
-      that.showVis();
-      that.showTutorial();
+      // that.showVis();
+      // that.showTutorial();
       that.updateVisibilityOfSocialButtons();
     });
     that.conversationTabs.on("aftershow:majority", function() {
@@ -993,45 +993,45 @@ module.exports =  ConversationView.extend({
       }
     });
 
-    window.playback = function() {
-      $.get("/api/v3/math/pcaPlaybackList?conversation_id="+that.conversation_id).then(function(result) {
-        if (!result) {
-          alert("couldn't find playback data");
-        }
-        result.sort(function(a, b) {
-          return a.lastVoteTimestamp - b.lastVoteTimestamp;
-        });
-        // var result = [
-        //   {lastVoteTimestamp: 123, n: 5, "n-cmts": 100},
-        //   {lastVoteTimestamp: 135, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 136, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 137, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 138, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 139, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 149, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 155, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 165, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 175, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 185, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 195, n: 6, "n-cmts": 102},
-        //   {lastVoteTimestamp: 235, n: 6, "n-cmts": 102},
-        //   ];
-        $("#visualization_div > #playbackLinks").remove();
-        $("#visualization_div").append("<div id='playbackLinks' style='max-height:100px; overflow:scroll;'></div>");
-        _.each(result, function(r) {
-          var label = [r.lastVoteTimestamp, r.n+" ptpts", r["n-cmts"]+" comments", (new Date(r.lastVoteTimestamp)).toLocaleTimeString()].join(", ");
-          $("#playbackLinks").append(
-            "<a class='playbacklink' id='"+ r.lastVoteTimestamp+"' data-foo='"+label+"'>" + r.n + " </a>");
-        });
+    // window.playback = function() {
+    //   $.get("/api/v3/math/pcaPlaybackList?conversation_id="+that.conversation_id).then(function(result) {
+    //     if (!result) {
+    //       alert("couldn't find playback data");
+    //     }
+    //     result.sort(function(a, b) {
+    //       return a.lastVoteTimestamp - b.lastVoteTimestamp;
+    //     });
+    //     // var result = [
+    //     //   {lastVoteTimestamp: 123, n: 5, "n-cmts": 100},
+    //     //   {lastVoteTimestamp: 135, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 136, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 137, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 138, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 139, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 149, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 155, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 165, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 175, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 185, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 195, n: 6, "n-cmts": 102},
+    //     //   {lastVoteTimestamp: 235, n: 6, "n-cmts": 102},
+    //     //   ];
+    //     $("#visualization_div > #playbackLinks").remove();
+    //     $("#visualization_div").append("<div id='playbackLinks' style='max-height:100px; overflow:scroll;'></div>");
+    //     _.each(result, function(r) {
+    //       var label = [r.lastVoteTimestamp, r.n+" ptpts", r["n-cmts"]+" comments", (new Date(r.lastVoteTimestamp)).toLocaleTimeString()].join(", ");
+    //       $("#playbackLinks").append(
+    //         "<a class='playbacklink' id='"+ r.lastVoteTimestamp+"' data-foo='"+label+"'>" + r.n + " </a>");
+    //     });
 
-        $("#playbackLinks > .playbacklink").on("click", function(ev) {
-          var timestamp = Number(ev.target.id);
-          $("#playbackLinks > .playbacklink").css("background-color", "rgba(0,0,0,0)");
-          $(ev.target).css("background-color", "orange");
-          that.serverClient.jumpTo(timestamp);
-        });
-      });
-    };
+    //     $("#playbackLinks > .playbacklink").on("click", function(ev) {
+    //       var timestamp = Number(ev.target.id);
+    //       $("#playbackLinks > .playbacklink").css("background-color", "rgba(0,0,0,0)");
+    //       $(ev.target).css("background-color", "orange");
+    //       that.serverClient.jumpTo(timestamp);
+    //     });
+    //   });
+    // };
 
     function tutorialStart() {
       that.tutorialSlidesModel.set("step", 1);
