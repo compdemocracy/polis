@@ -433,7 +433,7 @@ module.exports =  ConversationView.extend({
 
     function onPersonUpdate(updatedNodes, newClusters, newParticipantCount) {
       that.firstMathPollResultDeferred.resolve();
-      if (updatedNodes.length >= 2) {
+      if (updatedNodes.length >= 3) { // 2 could be the first author and the author's group. 3 ensures another group/person
         if ($("#vis_section:hidden")) {
           $("#vis_section").fadeIn(1000, function() {
             that.initPcaVis();
