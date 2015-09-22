@@ -435,6 +435,7 @@ module.exports =  ConversationView.extend({
       that.firstMathPollResultDeferred.resolve();
       if (updatedNodes.length >= 2) {
         $(".vis_container").fadeIn(1000);
+        $("#vis_section").fadeIn(1000);
         eb.trigger(eb.visShown);
       } else {
         $(".vis_container").hide();
