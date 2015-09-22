@@ -4493,19 +4493,20 @@ function joinWithZidOrSuzinvite(o) {
             return o;
         });
     })
+    // Commenting out for now until we have proper workflow for user.
+    // .then(function(o) {
+      //   winston.log("info","joinWithZidOrSuzinvite check email");
+      // if (o.conv.owner_sees_participation_stats) {
+      //   // User stats can be provided either by having the users sign in with polis
+      //   // or by having them join via suurls.
+      //   if (!(o.user && o.user.email) && !o.suzinvite) { // may want to inspect the contenst of the suzinvite info object instead of just the suzinvite
+      //     throw new Error("polis_err_need_full_user_for_zid_" + o.conv.zid + "_and_uid_" + (o.user&&o.user.uid));
+      //   }
+      // }
+      // return o;
+    // })
     .then(function(o) {
-        winston.log("info","joinWithZidOrSuzinvite check email");
-      if (o.conv.owner_sees_participation_stats) {
-        // User stats can be provided either by having the users sign in with polis
-        // or by having them join via suurls.
-        if (!(o.user && o.user.email) && !o.suzinvite) { // may want to inspect the contenst of the suzinvite info object instead of just the suzinvite
-          throw new Error("polis_err_need_full_user_for_zid_" + o.conv.zid + "_and_uid_" + (o.user&&o.user.uid));
-        }
-      }
-      return o;
-    })
-    .then(function(o) {
-        winston.log("info","joinWithZidOrSuzinvite check email done");
+        // winston.log("info","joinWithZidOrSuzinvite check email done");
       if (o.uid) {
         return o;
       } else {
