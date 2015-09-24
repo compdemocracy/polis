@@ -73,9 +73,20 @@ Promise.onPossiblyUnhandledRejection(function(error){
 
     if (_.isObject(error)) {
         // since it may just throw as [object Object]
+        console.error(1);
         console.dir(error);
+        console.error(2);
+        console.error(error);
+        console.error(3);
+        try {
+            console.error(4);
+            console.error(JSON.stringify(error));
+        } catch (e) {
+            console.error(5);
+            console.error("stringify threw");
+        }
     }
-
+    console.error(6);
     throw error;
 });
 
