@@ -69,25 +69,29 @@ var badwords = require('badwords/object'),
 // }
 
 // Bluebird uncaught error handler.
-Promise.onPossiblyUnhandledRejection(function(error){
-
-    if (_.isObject(error)) {
+Promise.onPossiblyUnhandledRejection(function(err){
+    console.log("onPossiblyUnhandledRejection");
+    if (_.isObject(err)) {
         // since it may just throw as [object Object]
         console.error(1);
-        console.dir(error);
+        console.dir(err);
         console.error(2);
-        console.error(error);
+        console.error(err);
         console.error(3);
+
+        if (err && err.stack) {
+            console.error(err.stack);
+        }
         try {
             console.error(4);
-            console.error(JSON.stringify(error));
+            console.error(JSON.stringify(err));
         } catch (e) {
             console.error(5);
             console.error("stringify threw");
         }
     }
     console.error(6);
-    throw error;
+    // throw err; // not throwing since we're printing stack traces anyway
 });
 
 
