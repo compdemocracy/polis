@@ -64,9 +64,9 @@ var badwords = require('badwords/object'),
     winston = require("winston");
 
 
-if (devMode) {
+// if (devMode) {
     Promise.longStackTraces();
-}
+// }
 
 // Bluebird uncaught error handler.
 Promise.onPossiblyUnhandledRejection(function(error){
