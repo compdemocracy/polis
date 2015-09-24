@@ -1818,6 +1818,8 @@ var whitelistedDomains = [
   "https://www.facebook.com",
   "https://facebook.com",
   "http://www.facebook.com",
+  "http://m.facebook.com",
+  "https://m.facebook.com",
   "http://facebook.com",
   "https://api.twitter.com",
   "https://connect.stripe.com",
