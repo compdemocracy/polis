@@ -1867,7 +1867,7 @@ app.all("/api/v3/*", function(req, res, next) {
       // winston.log("info",req);
       winston.log("info",req.headers);
       winston.log("info",req.path);
-      return next(new Error("unauthorized domain: " + host));
+      return next("unauthorized domain: " + host);
   }
   if (host === "") {
     // API
@@ -2078,7 +2078,7 @@ function getPca(zid, lastVoteTimestamp) {
         var queryStart = Date.now();
         collectionOfPcaResults.find({zid: zid}, function(err, cursor) {
             if (err) {
-                reject(new Error("polis_err_get_pca_results_find"));
+                reject("polis_err_get_pca_results_find");
                 return;
             }
 
@@ -2094,7 +2094,7 @@ function getPca(zid, lastVoteTimestamp) {
                 addInRamMetric("pcaGetToArray", nextObjectDuration);
 
                 if (err) {
-                    reject(new Error("polis_err_get_pca_results_find_toarray"));
+                    reject("polis_err_get_pca_results_find_toarray");
                 } else if (!item) {
                     INFO("mathpoll related", "after cache miss, unable to find item", zid, lastVoteTimestamp);
                     resolve(null);
@@ -2119,12 +2119,12 @@ function getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp) {
             {lastVoteTimestamp: lastVoteTimestamp},
             ]}, function(err, cursor) {
             if (err) {
-                reject(new Error("polis_err_get_pca_playback_result_find"));
+                reject("polis_err_get_pca_playback_result_find");
                 return;
             }
             cursor.toArray( function(err, docs) {
                 if (err) {
-                    reject(new Error("polis_err_get_pca_playback_result_find_toarray"));
+                    reject("polis_err_get_pca_playback_result_find_toarray");
                 } else if (!docs.length) {
                     resolve(null);
                 } else {
@@ -2140,13 +2140,13 @@ function getPcaPlaybackList(zid) {
     return new Promise(function(resolve, reject) {
         collectionOfPcaPlaybackResults.find({zid: zid}, function(err, cursor) {
             if (err) {
-                reject(new Error("polis_err_get_pca_playback_results_list_find"));
+                reject("polis_err_get_pca_playback_results_list_find");
                 return;
             }
             // TODO save some memory by using the cursor as a cursor
             cursor.toArray( function(err, docs) {
                 if (err) {
-                    reject(new Error("polis_err_get_pca_playback_results_list_find_toarray"));
+                    reject("polis_err_get_pca_playback_results_list_find_toarray");
                 } else if (!docs.length) {
                     resolve(null);
                 } else {
@@ -2271,7 +2271,7 @@ function getBidToPidMapping(zid, lastVoteTimestamp) {
     lastVoteTimestamp = lastVoteTimestamp || -1;
     return new MPromise("getBidToPidMapping", function(resolve, reject) {
         collectionOfBidToPidResults.find({zid: zid}, function(err, cursor) {
-            if (err) { reject(new Error("polis_err_get_pca_results_find")); return; }
+            if (err) { reject("polis_err_get_pca_results_find"); return; }
             cursor.toArray( function(err, docs) {
                 if (err) { reject(new Error("polis_err_get_pca_results_find_toarray")); return; }
                 if (!docs.length) {
@@ -4274,7 +4274,7 @@ function(req, res) {
     var afterJoinRedirectUrl = req.p.afterJoinRedirectUrl;
 
     email = email.toLowerCase();
-    if (!_.isString(password) || !password.length) { fail(res, 403, "polis_err_login_need_password", new Error("polis_err_login_need_password")); return; }
+    if (!_.isString(password) || !password.length) { fail(res, 403, "polis_err_login_need_password"); return; }
     pgQuery("SELECT * FROM users WHERE LOWER(email) = ($1);", [email], function(err, docs) {
         docs = docs.rows;
         if (err) { fail(res, 403, "polis_err_login_unknown_user_or_password", err); console.error("polis_err_login_unknown_user_or_password_err"); return; }
@@ -4912,7 +4912,7 @@ function(req, res) {
                 } else {
                     // the user with that email has a different FB account attached
                     // ruh roh..  probably rare
-                    fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account", new Error("polis_err_reg_fb_user_exists_with_different_account"));
+                    fail(res, 500, "polis_err_reg_fb_user_exists_with_different_account");
                     emailBadProblemTime("facebook auth where user exists with different facebook account " + user.uid);
                 }
             } else {
@@ -4920,7 +4920,7 @@ function(req, res) {
                     // user will be prompted for their password, and client will repeat the call with password
                         // fail(res, 409, "polis_err_reg_user_exits_with_email_but_has_no_facebook_linked")
                 if (!TRUST_FB_TO_VALIDATE_EMAIL && !password) {
-                    fail(res, 403, "polis_err_user_with_this_email_exists " + email, new Error("polis_err_user_with_this_email_exists " + email));
+                    fail(res, 403, "polis_err_user_with_this_email_exists " + email);
                 } else {
                     var pwPromise = TRUST_FB_TO_VALIDATE_EMAIL ? Promise.resolve(true) : checkPassword(user.uid, password||"");
                     pwPromise.then(function(ok) {
@@ -4952,10 +4952,10 @@ function(req, res) {
                                 fail(res, 500, "polis_err_linking_fb_to_existing_polis_account_misc", err);
                             });
                         } else {
-                            fail(res, 403, "polis_err_password_mismatch", new Error("polis_err_password_mismatch"));
+                            fail(res, 403, "polis_err_password_mismatch");
                         }
                     }, function(err) {
-                        fail(res, 500, "polis_err_password_check", new Error("polis_err_password_check"));
+                        fail(res, 500, "polis_err_password_check");
                     });
                 }
             }
@@ -5156,7 +5156,7 @@ function(req, res) {
     pgQueryP("SELECT * FROM users WHERE email = ($1)", [email]).then(function(rows) {
 
             if (rows.length > 0) {
-                fail(res, 403, "polis_err_reg_user_with_that_email_exists", new Error("polis_err_reg_user_exists"));
+                fail(res, 403, "polis_err_reg_user_with_that_email_exists");
                 return;
             }
 
@@ -5864,7 +5864,7 @@ function(req, res) {
         finishArray(res, comments);
     }).catch(function(err) {
         winston.log("info","getComments " + rid + " failed");
-        fail(res, 500, "polis_err_get_comments", new Error("polis_err_get_comments"), err);
+        fail(res, 500, "polis_err_get_comments", err);
     });
 }); // end GET /api/v3/comments
 
@@ -5992,7 +5992,7 @@ function getComment(zid, tid) {
             if (err) {
                 reject(err);
             } else if (!results || !results.rows || !results.rows.length) {
-                reject(new Error("polis_err_missing_comment"));
+                reject("polis_err_missing_comment");
             } else {
                 resolve(results.rows[0]);
             }
@@ -6425,7 +6425,7 @@ function getCommentIdCounts(voteRecords) {
 
 //         getVotesForZidPids(zid, users, function(err, voteRecords) {
 //             if (err) { fail(res, 500, "polis_err_get_selection", err); return; }
-//             if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes", new Error("polis_err_get_selection_no_votes")); return; }
+//             if (!voteRecords.length) { fail(res, 500, "polis_err_get_selection_no_votes"); return; }
 
 //             var commentIdCounts = getCommentIdCounts(voteRecords);
 //             commentIdCounts = commentIdCounts.slice(0, 10);
@@ -8139,7 +8139,7 @@ function(req, res) {
     } else if (req.p.uid || req.p.context) {
       getConversations(req, res);
     } else {
-      fail(res, 403, "polis_err_need_auth", new Error("polis_err_need_auth"));
+      fail(res, 403, "polis_err_need_auth");
     }
   });
 });
