@@ -8685,6 +8685,8 @@ function updateSomeTwitterUsers() {
             return Promise.all(updateQueries).then(function() {
                 console.log("done123");
             });
+        }).catch(function(err) {
+            console.error("error updating twitter users:" + twitter_user_ids.join(" "));
         });
     });
 }
