@@ -8570,6 +8570,13 @@ function getTwitterUserTimeline(screen_name) {
 
 
 
+// Certain twitter ids may be suspended.
+// Twitter will error if we request info on them.
+//  so keep a list of these for as long as the server is running,
+//  so we don't repeat requests for them.
+// This is probably not optimal, but is pretty easy.
+var suspendedOrPotentiallyProblematicTwitterIds = [];
+
 
 function getTwitterUserInfoBulk(list_of_twitter_user_id) {
     list_of_twitter_user_id = list_of_twitter_user_id || [];
@@ -8597,6 +8604,11 @@ function getTwitterUserInfoBulk(list_of_twitter_user_id) {
                 if (e) {
                     console.error("get twitter token failed");
                     console.error(e);
+                    // we should probably check that the error is code 17:  { statusCode: 404, data: '{"errors":[{"code":17,"message":"No user matches for specified terms."}]}' }
+                    list_of_twitter_user_id.forEach(function(id) {
+                        console.log("adding twitter_user_id to suspendedOrPotentiallyProblematicTwitterIds: " + id);
+                        suspendedOrPotentiallyProblematicTwitterIds.push(id);
+                    });
                     reject(e);
                 } else {
                     data = JSON.parse(data);
@@ -8647,14 +8659,17 @@ function retryFunctionWithPromise(f, numTries) {
 }
 
 
-
-
 function updateSomeTwitterUsers() {
     return pgQueryP("select uid, twitter_user_id from twitter_users where modified < (now_as_millis() - 30*60*1000) order by modified desc limit 100;").then(function(results) {
         var twitter_user_ids = _.pluck(results, "twitter_user_id");
         if (results.length === 0) {
             return [];
         }
+        twitter_user_ids = _.difference(twitter_user_ids, suspendedOrPotentiallyProblematicTwitterIds);
+        if (twitter_user_ids.length === 0) {
+            return [];
+        }
+
         getTwitterUserInfoBulk(twitter_user_ids).then(function(info) {
             console.dir(info);
 
