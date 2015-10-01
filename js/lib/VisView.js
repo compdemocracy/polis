@@ -22,11 +22,6 @@ var getGroupNameForGid = params.getGroupNameForGid;
 
 var firstShowDeferred = $.Deferred();
 
-var dimensions = {
-    width: params.w,
-    height: params.h
-};
-
 function getBid(d) {
     return d.bid;
 }
@@ -232,6 +227,20 @@ eb.on("beforehide:majority", function() {
 // }
 
 
+function chooseRadiusForHullCorners(d) {
+    var r = 3;
+    if (d.isSummaryBucket) {
+        r = anonBlobRadius + 8;
+    }
+    return r;
+}
+
+
+var dimensions = {
+    width: params.w,
+    height: params.h + chooseRadiusForHullCorners({isSummaryBucket: true}) + 2, // the +2 is to give 1 pixel for the hull stroke, and 1 pixel of white
+};
+
 
 var paper;
 if (isIE8) {
@@ -423,7 +432,7 @@ if (isIE8) {
         .style("display", "none")
         ;
     w = dimensions.width - xOffset; // $(el_selector).width() - xOffset;
-    h = dimensions.height; //$(el_selector).height();
+    h = params.h; //dimensions.height; //$(el_selector).height();
 }
 
 var clusterPointerFromBottom = display.xs();
@@ -1431,14 +1440,6 @@ function chooseCircleRadiusOuter(d) {
         r += SELECTED_HULL_RADIUS_BOOST;
     } else {
         r += UNSELECTED_HULL_RADIUS_BOOST;
-    }
-    return r;
-}
-
-function chooseRadiusForHullCorners(d) {
-    var r = 3;
-    if (d.isSummaryBucket) {
-        r = anonBlobRadius + 8;
     }
     return r;
 }
