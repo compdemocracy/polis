@@ -56,6 +56,9 @@ function destRoot() {
   var root = path.join(destRootBase, destRootRest);
   return root;
 }
+function destRootAbout() {
+  return destRootBase;
+}
 var devMode = true;
 var preprodMode = false;
 var prodMode = false;
@@ -102,14 +105,15 @@ gulp.task('connect', [], function() {
   app.use(/^\/api\/v[0-9]+/, proxyToPreprod);
   app.get(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
 
-  app.use(/^\/landerImages/, proxyToPreprod);  
+  app.use(/^\/landerImages/, express.static(path.join("polisStatic","landerImages")));
+  app.use(/^\/images/, express.static(path.join("polisStatic","images")));
   app.use(/^\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view
   app.use(/^\/explore\/[0-9][0-9A-Za-z]+/, fetchIndex); // power view
   app.use(/^\/share\/[0-9][0-9A-Za-z]+/, fetchIndex); // share view
   app.use(/^\/summary\/[0-9][0-9A-Za-z]+/, fetchIndex); // summary view
   app.use(/^\/m\/[0-9][0-9A-Za-z]+/, fetchIndex); // moderation view
   app.use(/^\/ot\/[0-9][0-9A-Za-z]+/, fetchIndex); // conversation view, one-time url
-  
+
   app.use(/^\/iip\/[0-9][0-9A-Za-z]+/, fetchIndex);
   app.use(/^\/iim\/[0-9][0-9A-Za-z]+/, fetchIndex);
 
@@ -147,9 +151,10 @@ gulp.task('connect', [], function() {
   app.use(/^\/blog$/, express.static(path.join(destRootBase, "blog.html")));
   app.use(/^\/tos$/, express.static(path.join(destRootBase, "tos.html")));
   app.use(/^\/privacy$/, express.static(path.join(destRootBase, "privacy.html")));
-  app.use(/^\/canvas_setup_backup_instructions$/, express.static(path.join(destRootBase, "canvas_setup_backup_instructions.html")));  
-  app.use(/^\/styleguide$/, express.static(path.join(destRootBase, "styleguide.html")));  
+  app.use(/^\/canvas_setup_backup_instructions$/, express.static(path.join(destRootBase, "canvas_setup_backup_instructions.html")));
+  app.use(/^\/styleguide$/, express.static(path.join(destRootBase, "styleguide.html")));
   // Duplicate url for content at root. Needed so we have something for "About" to link to.
+  app.use(/^\/billions$/, express.static(path.join(destRootBase, "billions.html")));
   app.use(/^\/about$/, express.static(path.join(destRootBase, "lander.html")));
   app.use(/^\/wimp$/, express.static(path.join(destRootBase, "wimp.html")));
   app.use(/^\/try$/, express.static(path.join(destRootBase, "try.html")));
@@ -190,14 +195,14 @@ gulp.task('css', function(){
 });
 
 gulp.task('cssAbout', function(){
-  gulp.src(["css/about.scss"])
+  gulp.src(["polisStatic/css/about.scss"])
       .pipe(sass({
         loadPath: [__dirname + "/css"],
         // sourcemap: true,
         // sourcemapPath: '../scss'
       }))
       .pipe(concat("about.css"))
-      .pipe(gulp.dest(destRoot() + '/css'));
+      .pipe(gulp.dest(destRootAbout() + '/css'));
 });
 
 gulp.task('fontawesome', function() {
@@ -506,14 +511,10 @@ gulp.task("scriptsOther", function() {
 
 gulp.task('about', function () {
 
-    var top = fs.readFileSync('js/templates/about/partials/staticTop.handlebars', {encoding: "utf8"});
-    var header = fs.readFileSync('js/templates/about/partials/staticHeader.handlebars', {encoding: "utf8"});
-    var footer = fs.readFileSync('js/templates/about/partials/staticFooter.handlebars', {encoding: "utf8"});
+    var headerStandard = fs.readFileSync('polisStatic/templates/partials/staticHeaderStandard.handlebars', {encoding: "utf8"});
 
     var basepath = prepPathForTemplate(destRootRest);
-    top = top.replace(/<%= *basepath *%>/g, basepath);
-    header = header.replace(/<%= *basepath *%>/g, basepath);
-    footer = footer.replace(/<%= *basepath *%>/g, basepath);
+    headerStandard = headerStandard.replace(/<%= *basepath *%>/g, basepath);
 
     var templateData = {
         foo: 'bar333'
@@ -521,18 +522,16 @@ gulp.task('about', function () {
     options = {
         ignorePartials: false, //ignores the unknown footer2 partial in the handlebars template, defaults to false
         partials : {
-               top : top,
-            header : header,
-            footer : footer
+            headerStandard: headerStandard,
         },
         helpers : {
             // capitals : function(str){
-            //     return str.toUpperCase();   
+            //     return str.toUpperCase();
             // }
         }
     }
 
-    return gulp.src('js/templates/about/*.handlebars')
+    return gulp.src('polisStatic/templates/*.handlebars')
         .pipe(compileHandlebars(templateData, options))
         .pipe(rename(function (path) {
           path.extname = ".html"
@@ -633,6 +632,7 @@ gulp.task("watchForDev", [
       "!js/tmpl/**", // These are genterated, so don't watch!
       "css/**",
       "*.html",
+      "polisStatic/**",
     ], function(e) {
       console.log("watch saw: " + e.path + " " + e.type);
       gulp.run("dev");
@@ -659,7 +659,7 @@ gulp.task('deploy_TO_PRODUCTION', [
 ], function() {
 
   notifySlackOfDeployment("prod");
-  
+
   return deploy({
       bucket: "pol.is"
   });
@@ -685,7 +685,7 @@ gulp.task('deploySurvey', [
       bucket: "survey.pol.is"
   });
 });
- 
+
 function deploy(params) {
     var creds = JSON.parse(fs.readFileSync('.polis_s3_creds_client.json'));
     creds = _.extend(creds, params);
