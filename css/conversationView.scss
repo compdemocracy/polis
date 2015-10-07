@@ -419,6 +419,9 @@ display: flex;             /* NEW, Spec - Opera 12.1, Firefox 20+ */
 
 //
 
+.vote-histogram-bar:hover {
+    fill: red !important;
+}
 
 .query_results_div {
   padding-top: 10px;

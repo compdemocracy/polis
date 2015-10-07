@@ -188,9 +188,191 @@ module.exports =  PolisModelView.extend({
     draw();
 
   },
+
+  renderVotesHistogram: function(id, values) {
+
+    function isInVis(d) {
+      return d.n_votes >= 7;
+    }
+
+    // A formatter for counts.
+    var formatCount = d3.format(",.0f");
+
+    var margin = {top: 10, right: 60, bottom: 60, left: 60},
+        width = 960 - margin.left - margin.right,
+        height = 500 - margin.top - margin.bottom;
+
+    var numItems = Math.min(20, values.length);
+    var x = d3.scale.linear()
+        .domain([0, values.length-1])
+        .range([0, width]);
+
+    // var logValues = _.map(values, function(v) {
+    //   return {
+    //     val: v,
+    //     logVal: Math.log(v),
+    //   };
+    // })
+
+
+    // var N = _.reduce(values, function(memo, count) {
+    //   if (count > 0) {
+    //     return memo + 1;
+    //   } else {
+    //     return memo;
+    //   }
+    // }, 0);
+    // Generate a histogram using N uniformly-spaced bins.
+    // debugger;
+
+    // var bins = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610];
+
+
+    // var data = d3.layout.histogram()
+    //     // .bins(
+    //     .bins(x.ticks(numItems))
+    //     (values);
+    var data = (function() {
+      var x = 0;
+      var step = 1;
+      return values.map(function(v, i) {
+        if (i === 1) {
+          v = 0; // don't show number of people who voted once. We currently prompt for social auth after one vote, and the user then changes identity, leaving a ptpt object who only voted once.
+        }
+        var histItem = {};
+        histItem.dx = step;
+        histItem.x = x;
+        histItem.y = v;
+        histItem.n_ptpts = v;
+        histItem.n_votes = i;
+        x += step;
+        return histItem;
+      });
+
+    }());
+
+
+    var tip = d3.tip()
+      .attr('class', 'd3-tip')
+      .offset(function(d) {
+        var yOffset = -10;
+        var xOffset = 0;
+
+        var barTop = y(d.y);
+        if (barTop < height/3) {
+          yOffset = 140; // don't go beyond top
+        }
+        if (x(d.x) < 3*width/4) {
+          xOffset = 100;
+        }
+        return [yOffset, xOffset];
+      })
+      .html(function(d) {
+        var extraText = isInVis(d) ? "" : "<div style='max-width: 150px'>These participants are not shown in vis due to low vote count</div>";
+        return "<span style='color:red'>" + d.n_ptpts + " voted " + d.n_votes + " times</span>" + extraText;
+      })
+    ;
+
+    var y = d3.scale.linear()
+        .domain([0, d3.max(data, function(d) { return d.y; })])
+        .range([height, 0])
+    ;
+
+    var xAxis = d3.svg.axis()
+        .scale(x)
+        .orient("bottom")
+    ;
+
+    var yAxis = d3.svg.axis()
+        .scale(y)
+        .orient("left")
+    ;
+
+    var svg = d3.select(id)
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+    ;
+
+    function barWidth(d) {
+      return Math.max(1, (x(d.dx) - 1) << 0);
+    }
+    var bar = svg.selectAll(".bar")
+        .data(data)
+      .enter().append("g")
+        .attr("class", "bar")
+        .attr("transform", function(d) { return "translate(" + (x(d.x) - barWidth(d)/2) + "," + y(d.y) + ")"; })
+    ;
+
+    function barFill(d) {
+      if (d.isHovered) {
+        return "red";
+      }
+      if (isInVis(d)) {
+        return "lightgray";
+      }
+      return "#eee";
+    }
+
+    bar.append("rect")
+        .attr("x", 1)
+        .attr("width", barWidth)
+        .attr("height", function(d) { return height - y(d.y); })
+        .style("fill", barFill)
+        .style("shape-rendering", "crispEdges")
+        .classed("vote-histogram-bar", true)
+        .on('mouseover', tip.show)
+        .on('mouseout', tip.hide)
+    ;
+
+    svg.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(0," + height + ")")
+        .style("fill", "none")
+        .style("stroke", "black")
+        .style("shape-rendering", "crispEdges")
+        .call(xAxis)
+    ;
+
+    svg.append("g")
+        .attr("class", "y axis")
+        .attr("transform", "translate(0,0)")
+        .style("fill", "none")
+        .style("stroke", "black")
+        .style("shape-rendering", "crispEdges")
+        .call(yAxis)
+    ;
+
+    svg.append("text")
+      .attr("class", "x label")
+      .attr("text-anchor", "middle")
+      .attr("x", width/2)
+      .attr("y", height + 40)
+      .text("Comments voted on")
+      .style("font-size", "18px")
+    ;
+    svg.append("text")
+      .attr("class", "y label")
+      .attr("text-anchor", "middle")
+      .attr("y", - 50)
+      .attr("x", -height/2)
+      .attr("dy", ".75em")
+      .attr("transform", "rotate(-90)")
+      .text("Voters")
+      .style("font-size", "18px")
+    ;
+    svg.call(tip);
+
+
+
+  },
   checkForLatestStats: function() {
     var that = this;
     $.get("/api/v3/conversationStats?conversation_id=" + this.model.get("conversation_id")).then(function(stats) {
+
+      var histogram = stats.votesHistogram;
+      delete stats.votesHistogram;
 
       // loop over each array, and create objects like {count: ++i, created}, then create a line plot with count as y, and created as x
       var keys = _.keys(stats);
@@ -216,10 +398,25 @@ module.exports =  PolisModelView.extend({
       // (currently has too many entries to render)
       // delete times.voteTimes
 
+
+      var histogram2 = [];
+      var maxVotes = 0;
+      histogram.forEach(function(x) {
+        histogram2[x.n_votes] = x.n_ptpts;
+        maxVotes = Math.max(maxVotes, x.n_votes);
+      });
+      for (var i = 0; i < maxVotes; i++) {
+        // replace holes with zeros
+        if (!histogram2[i]) {
+          histogram2[i] = 0;
+        }
+      }
+
       that.model.set("times", times);
       that.renderParticipantGraph("#ptptCountsVis", ["firstVoteTimes", "firstCommentTimes", "viewTimes"]);
       that.renderParticipantGraph("#voteCountsVis", ["voteTimes"]);
       that.renderParticipantGraph("#commentCountsVis", ["commentTimes"]);
+      that.renderVotesHistogram("#votesHistogram", histogram2);
 
     }, function(error) {
       console.warn("error fetching stats");
