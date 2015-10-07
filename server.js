@@ -5726,8 +5726,7 @@ function(req, res) {
 
 function _getCommentsForModerationList(o) {
     var modClause = _.isUndefined(o.mod) ? "" : " and comments.mod = ($2)";
-    // NOTE: not using pgQueryP_readOnly since multiple moderators may be working simultaneously.
-    return pgQueryP("select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, [o.zid, o.mod]);
+    return pgQueryP_metered_readOnly("_getCommentsForModerationList", "select * from (select tid, count(*) from votes where zid = ($1) group by tid) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" + modClause, [o.zid, o.mod]);
 }
 
 function _getCommentsList(o) {
@@ -9319,7 +9318,7 @@ function getSocialInforForUsers(uids) {
         return Promise.resolve([]);
     }
     var uidString = uids.join(",");
-    return pgQueryP_readOnly("with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select * from fb full outer join tw on tw.uid = fb.uid;", []);
+    return pgQueryP_metered_readOnly("getSocialInforForUsers", "with fb as (select * from facebook_users where uid in (" + uidString + ")), tw as (select * from twitter_users where uid in (" + uidString + ")) select * from fb full outer join tw on tw.uid = fb.uid;", []);
 }
 
 
