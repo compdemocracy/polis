@@ -4852,6 +4852,9 @@ function(req, res) {
             pgQueryP_readOnly("select created, pid, mod from comments where zid = ($1) order by created;", [zid]),
             pgQueryP_readOnly("select created, pid from votes where zid = ($1) order by created;", [zid]),
             pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
+            pgQueryP_readOnly("with pidvotes as (select pid, count(*) as countForPid from votes where zid = ($1)"+
+                " group by pid order by countForPid desc) select countForPid as n_votes, count(*) as n_ptpts "+
+                "from pidvotes group by countForPid order by n_ptpts asc;", [zid]),
         ]).then(function(a) {
             function castTimestamp(o) {
                 o.created = Number(o.created);
@@ -4860,6 +4863,7 @@ function(req, res) {
             var comments = _.map(a[0], castTimestamp);
             var votes = _.map(a[1], castTimestamp);
             var uniqueHits = _.map(a[2], castTimestamp); // participants table
+            var votesHistogram = a[3];
 
             var actualParticipants = getFirstForPid(votes);  // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
             actualParticipants = _.pluck(actualParticipants, "created");
@@ -4870,12 +4874,20 @@ function(req, res) {
             var totalVotes = _.pluck(votes, "created");
             var viewTimes = _.pluck(uniqueHits, "created");
 
+            votesHistogram = _.map(votesHistogram, function(x) {
+                return {
+                    n_votes: Number(x.n_votes),
+                    n_ptpts: Number(x.n_ptpts),
+                };
+            });
+
             res.status(200).json({
                 voteTimes: totalVotes,
                 firstVoteTimes: actualParticipants,
                 commentTimes: totalComments,
                 firstCommentTimes: commenters,
                 viewTimes: viewTimes,
+                votesHistogram: votesHistogram,
             });
         });
 
