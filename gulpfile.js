@@ -653,6 +653,11 @@ function notifySlackOfDeployment(env) {
   });
 }
 
+gulp.task('prodBuildNoDeploy', [
+  "prodConfig",
+  "dist"
+]);
+
 gulp.task('deploy_TO_PRODUCTION', [
   "prodConfig",
   "dist"
