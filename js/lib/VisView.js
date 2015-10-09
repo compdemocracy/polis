@@ -1,7 +1,7 @@
 var eb = require("../eventBus");
 var owl = require("owl");
 var display = require("../util/display");
-var Raphael = require("raphael");
+// var Raphael = require("raphael");
 var Utils = require("../util/utils");
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
@@ -243,96 +243,96 @@ var dimensions = {
 
 
 var paper;
-if (isIE8) {
-    paper = new Raphael($(el_raphaelSelector)[0], dimensions.width, dimensions.height);
-    paper.clear();
-    // http://stackoverflow.com/questions/15365129/manipulate-canvas-background-color-in-raphael-by-using-variable-paper
-    paper.canvas.style.backgroundColor = '#FFFFFF';
-}
+// if (isIE8) {
+//     paper = new Raphael($(el_raphaelSelector)[0], dimensions.width, dimensions.height);
+//     paper.clear();
+//     // http://stackoverflow.com/questions/15365129/manipulate-canvas-background-color-in-raphael-by-using-variable-paper
+//     paper.canvas.style.backgroundColor = '#FFFFFF';
+// }
 
 var MAX_BUCKETS = 60;
 var rNodes = [];
 var rBuckets = [];
 
-function makeBucketParts(i) {
-    var circleOuter = paper.circle(0,0,0);
-    circleOuter.attr('fill', colorNoVote);
-    circleOuter.attr('fill-opacity', 0.2);
-    circleOuter.attr('stroke-width', 0);
+// function makeBucketParts(i) {
+//     var circleOuter = paper.circle(0,0,0);
+//     circleOuter.attr('fill', colorNoVote);
+//     circleOuter.attr('fill-opacity', 0.2);
+//     circleOuter.attr('stroke-width', 0);
 
-    var circle  = paper.circle(0,0,0);
-    circle.attr('fill', colorNoVote);
-    circle.attr('stroke-width', 0);
+//     var circle  = paper.circle(0,0,0);
+//     circle.attr('fill', colorNoVote);
+//     circle.attr('stroke-width', 0);
 
-    // colorSelf
-    var up = paper.path();
-    up.attr('fill', colorPull);
-    up.attr('stroke-width', 0);
+//     // colorSelf
+//     var up = paper.path();
+//     up.attr('fill', colorPull);
+//     up.attr('stroke-width', 0);
 
-    var down = paper.path();
-    down.attr('fill', colorPush);
-    down.attr('stroke-width', 0);
+//     var down = paper.path();
+//     down.attr('fill', colorPush);
+//     down.attr('stroke-width', 0);
 
 
-        // .toFront();
-    var set = paper.set();
-    set.push(circle);
-    set.push(circleOuter);
-    set.push(up);
-    set.push(down);
-    var bucket = {
-        radius: 0,
-        x: 0,
-        y: 0,
-        circle: circle,
-        circleOuter: circleOuter,
-        up: up,
-        down: down,
-        transform: function(x, y) {
-            this.x = x;
-            this.y = y;
-            this.set.transform("");
-            this.set.transform("T" + x + "," + y);
+//         // .toFront();
+//     var set = paper.set();
+//     set.push(circle);
+//     set.push(circleOuter);
+//     set.push(up);
+//     set.push(down);
+//     var bucket = {
+//         radius: 0,
+//         x: 0,
+//         y: 0,
+//         circle: circle,
+//         circleOuter: circleOuter,
+//         up: up,
+//         down: down,
+//         transform: function(x, y) {
+//             this.x = x;
+//             this.y = y;
+//             this.set.transform("");
+//             this.set.transform("T" + x + "," + y);
 
-            // this.circle.attr("cx", x);
-            // this.circle.attr("cy", y);
+//             // this.circle.attr("cx", x);
+//             // this.circle.attr("cy", y);
 
-            // this.circleOuter.attr("cx", x);
-            // this.circleOuter.attr("cy", y);
+//             // this.circleOuter.attr("cx", x);
+//             // this.circleOuter.attr("cy", y);
 
-        },
-        scaleCircle: function(s) {
-            this.circle.attr("r", this.radius * s);
-        },
-        setUps: function(ups) {
-            var path = chooseUpArrowPath2(ups, 0, 0);
-            var _transformed = Raphael.transformPath(path,
-                'T0,0'); // TODO needed?
-            this.up.animate({path: _transformed}, 0);
-        },
+//         },
+//         scaleCircle: function(s) {
+//             this.circle.attr("r", this.radius * s);
+//         },
+//         setUps: function(ups) {
+//             var path = chooseUpArrowPath2(ups, 0, 0);
+//             var _transformed = Raphael.transformPath(path,
+//                 'T0,0'); // TODO needed?
+//             this.up.animate({path: _transformed}, 0);
+//         },
 
-        setDowns: function(downs) {
-            var path = chooseDownArrowPath2(downs, 0, 0);
-            var _transformed = Raphael.transformPath(path,
-                'T0,0'); // TODO needed?
-            this.down.animate({path: _transformed}, 0);
-        },
-        // arrowUp: arrowUp,
-        // arrowUpOuter: arrowUpOuter,
-        // arrowDown: arrowDown,
-        // arrowDownOuter: arrowDownOuter,
-        set: set
-    };
+//         setDowns: function(downs) {
+//             var path = chooseDownArrowPath2(downs, 0, 0);
+//             var _transformed = Raphael.transformPath(path,
+//                 'T0,0'); // TODO needed?
+//             this.down.animate({path: _transformed}, 0);
+//         },
+//         // arrowUp: arrowUp,
+//         // arrowUpOuter: arrowUpOuter,
+//         // arrowDown: arrowDown,
+//         // arrowDownOuter: arrowDownOuter,
+//         set: set
+//     };
 
-    return bucket;
-}
+//     return bucket;
+// }
 
 
 if (isIE8) {
-    for (var i = 0; i < MAX_BUCKETS; i++) {
-        var bucket = makeBucketParts();
-        rNodes.push(bucket);
-    }
+    // for (var i = 0; i < MAX_BUCKETS; i++) {
+    //     var bucket = makeBucketParts();
+    //     rNodes.push(bucket);
+    // }
 } else {
 
 $(el_selector)
@@ -390,9 +390,9 @@ var helpLine;
 var helpArrowPoints = [];
 
 if (isIE8) {
-    $(el_raphaelSelector).on("click", selectBackground);
-    w = $(el_raphaelSelector).width();
-    h = $(el_raphaelSelector).height();
+    // $(el_raphaelSelector).on("click", selectBackground);
+    // w = $(el_raphaelSelector).width();
+    // h = $(el_raphaelSelector).height();
 
 } else {
     //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
@@ -511,7 +511,7 @@ function setClusterActive(clusterId) {
 
     // duplicated at 938457938475438975
     if (!isIE8) {
-        main_layer.selectAll(".active_group").classed("active_group", false);
+        // main_layer.selectAll(".active_group").classed("active_group", false);
     }
 
     return $.Deferred().resolve([]);
@@ -532,20 +532,20 @@ function showAllClustersAsActive() {
 
 function updateHullColors() {
    if (isIE8) {
-    (function() {
-       for (var i = 0; i < raphaelHulls.length; i++) {
-            console.log('updateHullColors', selectedCluster, i);
-            if (i === selectedCluster) {
-              raphaelHulls[i]
-                .attr('fill', hull_selected_color)
-                .attr('stroke', hull_selected_color);
-            } else {
-              raphaelHulls[i]
-                .attr('fill', hull_unselected_color)
-                .attr('stroke', hull_unselected_color);
-            }
-        }
-    }());
+    // (function() {
+    //    for (var i = 0; i < raphaelHulls.length; i++) {
+    //         console.log('updateHullColors', selectedCluster, i);
+    //         if (i === selectedCluster) {
+    //           raphaelHulls[i]
+    //             .attr('fill', hull_selected_color)
+    //             .attr('stroke', hull_selected_color);
+    //         } else {
+    //           raphaelHulls[i]
+    //             .attr('fill', hull_unselected_color)
+    //             .attr('stroke', hull_unselected_color);
+    //         }
+    //     }
+    // }());
    } else {
       if (clusterIsSelected()) {
         d3.select(d3Hulls[selectedCluster][0][0]).classed("active_group", true);
@@ -620,32 +620,32 @@ var hull_stoke_width = hullStrokeWidthGivenVisWidth(w);
 var hull_shadow_stroke_width = hull_stoke_width + hull_shadow_thickness;
 var hull_selection_stroke_width = hull_shadow_stroke_width + hull_seletion_thickness;
 
-function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
-    return _.times(9, function(i) {
-        function handleClick(event) {
-            event.stopPropagation();
-            return onClusterClicked({
-                hullId: i
-            });
-        }
-        var hull = paper.path()
-            .attr('fill', color)
-            .attr('stroke-width', strokeWidth)
-            .attr('stroke-linejoin','round')
-            .attr('stroke', color)
-            .attr('stroke-linecap', 'round')
-            .on('touchstart', handleClick)
-            .on('mousedown', handleClick)
-            .toBack();
+// function makeRaphaelHulls(color, strokeWidth, translateX, translateY) {
+//     return _.times(9, function(i) {
+//         function handleClick(event) {
+//             event.stopPropagation();
+//             return onClusterClicked({
+//                 hullId: i
+//             });
+//         }
+//         var hull = paper.path()
+//             .attr('fill', color)
+//             .attr('stroke-width', strokeWidth)
+//             .attr('stroke-linejoin','round')
+//             .attr('stroke', color)
+//             .attr('stroke-linecap', 'round')
+//             .on('touchstart', handleClick)
+//             .on('mousedown', handleClick)
+//             .toBack();
 
-            // translate the shadow
-            if (translateX || translateY) {
-                hull.translate(translateX||0, translateY||0);
-            }
+//             // translate the shadow
+//             if (translateX || translateY) {
+//                 hull.translate(translateX||0, translateY||0);
+//             }
 
-            return hull;
-        });
-}
+//             return hull;
+//         });
+// }
 
 function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
     return _.times(9, function(i) {
@@ -663,8 +663,8 @@ function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
 }
 
 if (isIE8) {
-    raphaelHulls = makeRaphaelHulls(hull_unselected_color, hull_stoke_width);
-    raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);
+    // raphaelHulls = makeRaphaelHulls(hull_unselected_color, hull_stoke_width);
+    // raphaelHullsShadow = makeRaphaelHulls(hull_shadow_color, hull_shadow_stroke_width, 1, 1);
 } else {
     // d3HullShadows = makeD3Hulls("hull_shadow", hull_shadow_stroke_width, 1, 1);
     d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);
@@ -821,10 +821,10 @@ function updateHulls() {
                 points.hullId = i; // NOTE: d is an Array, but we're tacking on the hullId. TODO Does D3 have a better way of referring to the hulls by ID?
                 var shape = makeHullShape(points);
                 if (isIE8) {
-                    points.unshift();
-                    var _transformed = Raphael.transformPath(shape, 'T0,0');
-                    raphaelHulls[i].animate({path: _transformed}, 0);
-                    raphaelHullsShadow[i].animate({path: _transformed}, 0);
+                    // points.unshift();
+                    // var _transformed = Raphael.transformPath(shape, 'T0,0');
+                    // raphaelHulls[i].animate({path: _transformed}, 0);
+                    // raphaelHullsShadow[i].animate({path: _transformed}, 0);
                 } else {
 
                     // If the cluster has only one participant, don't show the hull.
@@ -942,13 +942,13 @@ function updateNodesOnTick(e) {
 
 
       if (isIE8) {
-          for (var i = 0; i < nodes.length; i++) {
-            var node = nodes[i];
-            var bucket = rNodes[i];
-            var x = node.x;
-            var y = node.y;
-            bucket.transform(x, y);
-          }
+          // for (var i = 0; i < nodes.length; i++) {
+          //   var node = nodes[i];
+          //   var bucket = rNodes[i];
+          //   var x = node.x;
+          //   var y = node.y;
+          //   bucket.transform(x, y);
+          // }
       } else {
           main_layer.selectAll(".node")
             .attr("transform", chooseTransformForRoots);
@@ -1667,23 +1667,23 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
 
       if (force) {
         force.nodes(nodes, key).start();
-      } else if (isIE8) {
-        // don't do force layout, do that stuff here once.
-          nodes.forEach(function(o) {
-              o.x = o.targetX;
-              o.y = o.targetY;
-          });
-          (function() {
-            for (var i = 0; i < nodes.length; i++) {
-              var node = nodes[i];
-              var bucket = rNodes[i];
-              var x = node.x;
-              var y = node.y;
+      // } else if (isIE8) {
+      //   // don't do force layout, do that stuff here once.
+      //     nodes.forEach(function(o) {
+      //         o.x = o.targetX;
+      //         o.y = o.targetY;
+      //     });
+      //     (function() {
+      //       for (var i = 0; i < nodes.length; i++) {
+      //         var node = nodes[i];
+      //         var bucket = rNodes[i];
+      //         var x = node.x;
+      //         var y = node.y;
 
-              bucket.transform(x, y);
-            }
-          }());
-          updateHulls();
+      //         bucket.transform(x, y);
+      //       }
+      //     }());
+      //     updateHulls();
       } else {
         // see fa89dsjf8d
       }
@@ -1710,21 +1710,21 @@ function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
     }
 
   if (isIE8) {
-    (function() {
-      for (var n = 0; n < nodes.length; n++) {
-        var node = nodes[n];
-        var bucket = rNodes[n];
-        if (isSelf(node)) {
-            bucket.circle.attr("fill", colorSelf);
-        } else {
-            bucket.circle.attr("fill", colorNoVote);
-        }
-      }
-    }());
-    // postpone to speed up init
-    setTimeout(function() {
-      _.map(_.range(nodes.length), setupRaphaelNode);
-    }, 1000);
+    // (function() {
+    //   for (var n = 0; n < nodes.length; n++) {
+    //     var node = nodes[n];
+    //     var bucket = rNodes[n];
+    //     if (isSelf(node)) {
+    //         bucket.circle.attr("fill", colorSelf);
+    //     } else {
+    //         bucket.circle.attr("fill", colorNoVote);
+    //     }
+    //   }
+    // }());
+    // // postpone to speed up init
+    // setTimeout(function() {
+    //   _.map(_.range(nodes.length), setupRaphaelNode);
+    // }, 1000);
   } else {
 
     // TODO use key to guarantee unique items
@@ -2343,12 +2343,12 @@ function unhoverAll() {
 
 function updateNodeVoteCounts() {
     if (isIE8) {
-        for (var i = 0; i < nodes.length; i++) {
-            var node = nodes[i];
-            var bucket = rNodes[i];
-            bucket.setUps(node.ups);
-            bucket.setDowns(node.downs);
-        }
+        // for (var i = 0; i < nodes.length; i++) {
+        //     var node = nodes[i];
+        //     var bucket = rNodes[i];
+        //     bucket.setUps(node.ups);
+        //     bucket.setDowns(node.downs);
+        // }
     }
 }
 
@@ -2358,34 +2358,34 @@ function updateNodes() {
 
 function doUpdateNodes() {
   if (isIE8) {
-      for (var i = 0; i < nodes.length; i++) {
-        var node = nodes[i];
-        var bucket = rNodes[i];
-        var r = chooseCircleRadius(node);
-        bucket.radius = r;
-        if (isSelf(node)) {
-            bucket.circleOuter.attr("r", r*2);
-        } else {
-            bucket.circleOuter.attr("r", r);
-        }
+      // for (var i = 0; i < nodes.length; i++) {
+      //   var node = nodes[i];
+      //   var bucket = rNodes[i];
+      //   var r = chooseCircleRadius(node);
+      //   bucket.radius = r;
+      //   if (isSelf(node)) {
+      //       bucket.circleOuter.attr("r", r*2);
+      //   } else {
+      //       bucket.circleOuter.attr("r", r);
+      //   }
 
-        bucket.scaleCircle(1); // sets the inner circle radius
+      //   bucket.scaleCircle(1); // sets the inner circle radius
 
-        if (shouldDisplayCircle(node)) {
-            bucket.circle.show();
-            bucket.circleOuter.show();
-        } else {
-            bucket.circle.hide();
-            bucket.circleOuter.hide();
-        }
-        if (shouldDisplayArrows(node)) {
-            bucket.up.show();
-            bucket.down.show();
-        } else {
-            bucket.up.hide();
-            bucket.down.hide();
-        }
-      }
+      //   if (shouldDisplayCircle(node)) {
+      //       bucket.circle.show();
+      //       bucket.circleOuter.show();
+      //   } else {
+      //       bucket.circle.hide();
+      //       bucket.circleOuter.hide();
+      //   }
+      //   if (shouldDisplayArrows(node)) {
+      //       bucket.up.show();
+      //       bucket.down.show();
+      //   } else {
+      //       bucket.up.hide();
+      //       bucket.down.hide();
+      //   }
+      // }
   } else {
       var update = visualization.selectAll(".node");
         var upArrowUpdateInner = update.selectAll(".up.bktvi").data(nodes, key)
@@ -2630,13 +2630,13 @@ function emphasizeParticipants(pids) {
         }
 
         if (isIE8) {
-            for (var j = 0; j < nodes.length; j++) {
-                var node = nodes[j];
-                var bucket = rNodes[j];
-                var s = chooseTransformSubsetRaphael(node);
-                bucket.scaleCircle(s);
-                // bucket.circle.scale(s, s)
-            }
+            // for (var j = 0; j < nodes.length; j++) {
+            //     var node = nodes[j];
+            //     var bucket = rNodes[j];
+            //     var s = chooseTransformSubsetRaphael(node);
+            //     bucket.scaleCircle(s);
+            //     // bucket.circle.scale(s, s)
+            // }
         } else {
             visualization.selectAll(".bktvi")
                 // .attr("stroke", chooseStroke)
