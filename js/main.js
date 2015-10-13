@@ -12,6 +12,7 @@ var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
 var Metrics = require("./metrics");
 var PolisStorage = require("./util/polisStorage");
+var preloadHelper = require("./util/preloadHelper");
 var Handlebars = require("handlebars");
 var _ = require("underscore");
 var display = require("./util/display");
@@ -415,7 +416,11 @@ uidPromise = CurrentUserModel.update().then(function(user) {
     }
   });
 // }
-uidPromise.always(function() {
+
+
+$.when(
+    preloadHelper.acceptLanguagePromise,
+    uidPromise).always(function() {
 
   initialize(function(next) {
     // Load any data that your app requires to boot

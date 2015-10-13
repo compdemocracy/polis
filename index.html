@@ -84,6 +84,7 @@ function onPreloadOk(response) {
     {src:"votes", dst:"firstVotesByMe", cb:"firstVotesByMeListener"},
     {src:"pca", dst:"firstMath", cb:"firstMathListener"},
     {src:"famous", dst:"firstFamous", cb:"firstFamousListener"},
+    {src:"acceptLanguage", dst:"acceptLanguage", cb:"acceptLanguageListener"},
   ];
   for (var i = 0; i < things.length; i++) {
     var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
@@ -104,6 +105,7 @@ function onPreloadFail(statusCode, failResponse) {
     "firstVotesByMeListener",
     "firstMathListener",
     "firstFamousListener",
+    "acceptLanguageListener",
   ];
   for (var i = 0; i < cbs.length; i++) {
     if (p[cbs[i]]) {

@@ -74,6 +74,15 @@ var firstFamousPromise = p.firstFamous ?
     return dfd.promise();
   }());
 
+var acceptLanguagePromise = p.acceptLanguage ?
+  $.Deferred().resolve(p.acceptLanguage) :
+  (function() {
+    var dfd = $.Deferred();
+    p.acceptLanguageListener = makeListener(dfd);
+    return dfd.promise();
+  }());
+
+
 module.exports = {
   firstCommentPromise: firstCommentPromise,
   firstConvPromise: firstConvPromise,
@@ -82,4 +91,5 @@ module.exports = {
   firstVotesByMePromise: firstVotesByMePromise,
   firstMathPromise: firstMathPromise,
   firstFamousPromise: firstFamousPromise,
+  acceptLanguagePromise: acceptLanguagePromise,
 };
