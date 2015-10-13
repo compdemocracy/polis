@@ -6914,6 +6914,7 @@ function(req, res) {
       votes: JSON.parse(arr[4]),
       pca: arr[5] ? JSON.parse(arr[5]) : null,
       famous: JSON.parse(arr[6]),
+      acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"],
     });
   }).catch(function(err) {
     console.error(err);
@@ -11740,7 +11741,6 @@ function fetchIndexForConversation(req, res) {
     if (match && match.length) {
         conversation_id = match[0];
     }
-    var acceptLanguage = req.headers["accept-language"] || req.headers["Accept-Language"];
 
 
     setTimeout(function() {
@@ -11779,7 +11779,7 @@ function fetchIndexForConversation(req, res) {
     }).then(function(x) {
         var preloadData = {
             conversation: x,
-            acceptLanguage: acceptLanguage,
+            // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
         };
         fetchIndex(req, res, preloadData);
     }).catch(function(err) {
