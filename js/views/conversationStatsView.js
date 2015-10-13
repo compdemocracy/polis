@@ -416,6 +416,7 @@ module.exports =  PolisModelView.extend({
       that.renderParticipantGraph("#ptptCountsVis", ["firstVoteTimes", "firstCommentTimes", "viewTimes"]);
       that.renderParticipantGraph("#voteCountsVis", ["voteTimes"]);
       that.renderParticipantGraph("#commentCountsVis", ["commentTimes"]);
+      that.renderParticipantGraph("#socialUsersVis", ["socialUsers"]);
       that.renderVotesHistogram("#votesHistogram", histogram2);
 
     }, function(error) {
