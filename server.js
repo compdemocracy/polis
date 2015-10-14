@@ -11712,7 +11712,6 @@ function fetchIndex(req, res, preloadData) {
     var headers = {'Content-Type': "text/html"};
     if (!devMode) {
         _.extend(headers, {
-          'Content-Encoding': 'gzip',
           'Cache-Control': 'no-transform,public,max-age=7200,s-maxage=7200', // Cloudflare will probably cache it for one or two hours
       });
     }
