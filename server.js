@@ -11100,7 +11100,7 @@ function(req, res) {
     } else {
         path += "app_instructions_blank.png";
     }
-    var doFetch = makeFileFetcher(hostname, port, path, "image/png");
+    var doFetch = makeFileFetcher(hostname, port, path, {'Content-Type': "image/png"});
     doFetch(req, res);
 });
 
@@ -11628,8 +11628,9 @@ function makeRedirectorTo(path) {
   };
 }
 
-// TODO cache!
-function makeFileFetcher(hostname, port, path, contentType, preloadData) {
+
+function makeFileFetcher(hostname, port, path, headers, preloadData) {
+
     return function(req, res) {
         var hostname = buildStaticHostname(req, res);
         if (!hostname) {
@@ -11667,9 +11668,8 @@ function makeFileFetcher(hostname, port, path, contentType, preloadData) {
         }
         x = x.pipe(replaceStream("<!-- REPLACE_THIS_WITH_FB_META_TAGS -->", fbMetaTagsString));
 
-        res.set({
-            'Content-Type': contentType,
-        });
+        res.set(headers);
+
         x.pipe(res);
         x.on("error", function(err) {
             fail(res, 500, "polis_err_finding_file " + path, err);
@@ -11706,10 +11706,17 @@ function browserSupportsPushState(req) {
 // serve up index.html in response to anything starting with a number
 var hostname = process.env.STATIC_FILES_HOST;
 var port = process.env.STATIC_FILES_PORT;
-var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", "text/html");
+var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", {'Content-Type': "text/html"});
 
 function fetchIndex(req, res, preloadData) {
-    var doFetch = makeFileFetcher(hostname, port, "/index.html", "text/html", preloadData);
+    var headers = {'Content-Type': "text/html"};
+    if (!devMode) {
+        _.extend(headers, {
+          'Content-Encoding': 'gzip',
+          'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours, but we can try to set it shorter regardless.
+      });
+    }
+    var doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
     if (isUnsupportedBrowser(req)){
 
         return fetchUnsupportedBrowserPage(req, res);
@@ -11852,32 +11859,32 @@ app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
 app.get(/^\/pwreset.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/prototype.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/plan.*/, fetchIndexWithoutPreloadData);
-app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
-app.get(/^\/football$/, makeFileFetcher(hostname, port, "/football.html", "text/html"));
-app.get(/^\/news$/, makeFileFetcher(hostname, port, "/news.html", "text/html"));
-app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", "text/html"));
-app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", "text/html"));
+app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/lander.html", {'Content-Type': "text/html"}));
+app.get(/^\/football$/, makeFileFetcher(hostname, port, "/football.html", {'Content-Type': "text/html"}));
+app.get(/^\/news$/, makeFileFetcher(hostname, port, "/news.html", {'Content-Type': "text/html"}));
+app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", {'Content-Type': "text/html"}));
+app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", {'Content-Type': "text/html"}));
 app.get(/^\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
 app.get(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
-app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, port, "/api_v3.html", "text/html"));
-app.get(/^\/embed$/, makeFileFetcher(hostname, port, "/embed.html", "text/html"));
-app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", "text/html"));
-app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", "text/html"));
-app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", "text/html"));
-app.get(/^\/blog$/, makeFileFetcher(hostname, port, "/blog.html", "text/html"));
-app.get(/^\/billions$/, makeFileFetcher(hostname, port, "/billions.html", "text/html"));
-app.get(/^\/plus$/, makeFileFetcher(hostname, port, "/plus.html", "text/html"));
-app.get(/^\/tos$/, makeFileFetcher(hostname, port, "/tos.html", "text/html"));
-app.get(/^\/privacy$/, makeFileFetcher(hostname, port, "/privacy.html", "text/html"));
-app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, port, "/canvas_setup_backup_instructions.html", "text/html"));
-app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", "text/html"));
+app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, port, "/api_v3.html", {'Content-Type': "text/html"}));
+app.get(/^\/embed$/, makeFileFetcher(hostname, port, "/embed.html", {'Content-Type': "text/html"}));
+app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", {'Content-Type': "text/html"}));
+app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", {'Content-Type': "text/html"}));
+app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", {'Content-Type': "text/html"}));
+app.get(/^\/blog$/, makeFileFetcher(hostname, port, "/blog.html", {'Content-Type': "text/html"}));
+app.get(/^\/billions$/, makeFileFetcher(hostname, port, "/billions.html", {'Content-Type': "text/html"}));
+app.get(/^\/plus$/, makeFileFetcher(hostname, port, "/plus.html", {'Content-Type': "text/html"}));
+app.get(/^\/tos$/, makeFileFetcher(hostname, port, "/tos.html", {'Content-Type': "text/html"}));
+app.get(/^\/privacy$/, makeFileFetcher(hostname, port, "/privacy.html", {'Content-Type': "text/html"}));
+app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, port, "/canvas_setup_backup_instructions.html", {'Content-Type': "text/html"}));
+app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", {'Content-Type': "text/html"}));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
 app.get(/^\/about$/, makeRedirectorTo("/billions"));
-app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, port, "/football.html", "text/html"));
-app.get(/^\/wimp$/, makeFileFetcher(hostname, port, "/wimp.html", "text/html"));
-app.get(/^\/edu$/, makeFileFetcher(hostname, port, "/lander.html", "text/html"));
-app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", "text/html"));
-app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, port, "/twitterAuthReturn.html", "text/html"));
+app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, port, "/football.html", {'Content-Type': "text/html"}));
+app.get(/^\/wimp$/, makeFileFetcher(hostname, port, "/wimp.html", {'Content-Type': "text/html"}));
+app.get(/^\/edu$/, makeFileFetcher(hostname, port, "/lander.html", {'Content-Type': "text/html"}));
+app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", {'Content-Type': "text/html"}));
+app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, port, "/twitterAuthReturn.html", {'Content-Type': "text/html"}));
 
 // proxy for fetching twitter profile images
 // Needed because Twitter doesn't provide profile pics in response to a request - you have to fetch the user info, then parse that to get the URL, requiring two round trips.
@@ -11924,7 +11931,7 @@ function(req, res) {
 
 
 var conditionalIndexFetcher = (function() {
-    var fetchLander = makeFileFetcher(hostname, port, "/billions.html", "text/html");
+    var fetchLander = makeFileFetcher(hostname, port, "/billions.html", {'Content-Type': "text/html"});
     return function(req, res) {
         if (hasAuthToken(req)) {
             // user is signed in, serve the app
