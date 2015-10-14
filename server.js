@@ -11713,7 +11713,7 @@ function fetchIndex(req, res, preloadData) {
     if (!devMode) {
         _.extend(headers, {
           'Content-Encoding': 'gzip',
-          'Cache-Control': 'no-transform,public,max-age=60,s-maxage=60', // Cloudflare will probably cache it for one or two hours, but we can try to set it shorter regardless.
+          'Cache-Control': 'no-transform,public,max-age=3600,s-maxage=3600', // Cloudflare will probably cache it for one or two hours
       });
     }
     var doFetch = makeFileFetcher(hostname, port, "/index.html", headers, preloadData);
