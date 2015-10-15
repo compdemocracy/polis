@@ -39,6 +39,7 @@
     "replacestream": "^4.0.0",
     "request": "~2.38.0",
     "request-promise": "~0.3.2",
+    "response-time": "^2.3.1",
     "sendgrid": "~0.4.4",
     "simple-lru-cache": "0.0.1",
     "simple-oauth2": "~0.2.0",
