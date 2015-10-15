@@ -11758,7 +11758,10 @@ function(req, res) {
         }
         data = data[0];
         var url = data.profile_image_url; // not https to save a round-trip
-        var x = request.get(url);
+        var x = request.get({
+            url: url,
+            timeout: 10*1000,
+        });
         // req.pipe(x);
         res.setHeader('Cache-Control', 'no-transform,public,max-age=18000,s-maxage=18000');
         x.pipe(res);
