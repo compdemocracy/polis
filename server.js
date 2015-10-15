@@ -1731,9 +1731,11 @@ function meter(name) {
 // app.use(express.logger());
 
 app.use(responseTime(function (req, res, time) {
-    var path = req.route.path;
-    time = time << 0;
-    addInRamMetric(path, time);
+    if (req && req.route && req.route.path) {
+        var path = req.route.path;
+        time = time << 0;
+        addInRamMetric(path, time);
+    }
 }));
 
 app.use(redirectIfNotHttps);
