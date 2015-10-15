@@ -56,6 +56,7 @@ var badwords = require('badwords/object'),
     querystring = require('querystring'),
     devMode = "localhost" === process.env.STATIC_FILES_HOST,
     replaceStream = require('replacestream'),
+    responseTime = require('response-time'),
     request = require('request-promise'), // includes Request, but adds promise methods
     SimpleCache = require("simple-lru-cache"),
     SimpleCacheWithTTL = require("./SimpleCacheWithTTL"),
@@ -1728,6 +1729,13 @@ function meter(name) {
 
 //app.use(meter("api.all"));
 // app.use(express.logger());
+
+app.use(responseTime(function (req, res, time) {
+    var path = req.route.path;
+    time = time << 0;
+    addInRamMetric(path, time);
+}));
+
 app.use(redirectIfNotHttps);
 app.use(express.cookieParser());
 app.use(express.bodyParser());
