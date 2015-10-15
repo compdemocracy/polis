@@ -29,10 +29,15 @@
     "webpack-hot-middleware": "^2.4.1"
   },
   "dependencies": {
+    "history": "^1.12.5",
     "react": "^0.14.0",
     "react-dom": "^0.14.0",
     "react-redux": "^4.0.0",
     "react-router": "^1.0.0-rc3",
-    "redux": "^3.0.2"
+    "redux": "^3.0.2",
+    "redux-devtools": "^2.1.5",
+    "redux-logger": "^2.0.4",
+    "redux-router": "^1.0.0-beta3",
+    "redux-thunk": "^1.0.0"
   }
 }

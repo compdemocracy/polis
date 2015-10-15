@@ -1,12 +1,28 @@
-import React from "react";
-import DOM from "react-dom";
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { Router, Route, Link } from 'react-router';
+import { Provider, connect } from 'react-redux';
+import { DevTools, DebugPanel, LogMonitor } from 'redux-devtools/lib/react';
+import App from "./containers/app";
+import configureStore from "./store";
 
-class App extends React.Component {
+const store = configureStore();
+
+class Root extends React.Component {
   render() {
     return (
-      <h1>It Works!</h1>
+      <div>
+        <Provider store={store}>
+          <Router>
+            <Route path="/" component={App}/>
+          </Router>
+        </Provider>
+        <DebugPanel top right bottom>
+          <DevTools store={store} monitor={LogMonitor} />
+        </DebugPanel>
+      </div>
     )
   }
 }
 
-DOM.render(<App/>, document.getElementById('root'));
+ReactDOM.render(<Root/>, document.getElementById('root'));
