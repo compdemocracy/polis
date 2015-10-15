@@ -14,11 +14,11 @@ export const receiveData = (data) => {
   };
 };
 
-export const fetchData = () => {
+export const fetchData = (message) => {
   return (dispatch) => {
-    dispatch(requestFourDollar());
+    dispatch(requestData());
     setTimeout(() => {
-      dispatch(receiveFourDollar({message: "Hello"}));
+      dispatch(receiveData({message}));
     }, 300)
   };
 };

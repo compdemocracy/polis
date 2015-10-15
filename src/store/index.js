@@ -21,7 +21,7 @@ if (process.env.NODE_ENV === 'production') {
   )(createStore);
 }
 
-const configureStore = function (initialState: Object = {}): Function {
+const configureStore = function (initialState) {
   return finalCreateStore(rootReducer, initialState);
 };
 
