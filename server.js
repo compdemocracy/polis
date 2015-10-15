@@ -61,8 +61,11 @@ var badwords = require('badwords/object'),
     SimpleCache = require("simple-lru-cache"),
     SimpleCacheWithTTL = require("./SimpleCacheWithTTL"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),
-    _ = require('underscore'),
-    winston = require("winston");
+    _ = require('underscore');
+    // winston = require("winston");
+
+var winston = console;
+
 
 
 // if (devMode) {
