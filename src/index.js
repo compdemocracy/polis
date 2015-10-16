@@ -8,7 +8,8 @@ import { Provider, connect } from 'react-redux';
 // Redux Devtools
 import { DevTools, DebugPanel, LogMonitor } from 'redux-devtools/lib/react';
 
-import App from "./containers/app";
+import App from "./components/app";
+import User from "./components/user";
 import configureStore from "./store";
 
 const store = configureStore();
@@ -20,6 +21,7 @@ class Root extends React.Component {
         <Provider store={store}>
           <Router>
             <Route path="/" component={App}/>
+            <Route path="user" component={User}/>
           </Router>
         </Provider>
         <DebugPanel top right bottom>
