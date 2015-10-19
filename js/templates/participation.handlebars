@@ -253,6 +253,7 @@
 </div>
 {{/unless}}  {{!-- hasFbAndTw --}}
 
+<span class="{{#if no_vis}}displayNone{{/if}}"> {{!-- no_vis toggle wrapper --}}
 <div id="vis_section" class="displayNone">
 
 <div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; color: #888; border-bottom: none; margin-bottom: 5px; margin-top: 10px">
@@ -359,17 +360,20 @@
 </div> {{! /tabbable }}
 
 
+</div> {{!-- end lightPanel --}}
 </div> {{!-- end vis_section --}}
 
-</div>
+</span> {{!-- end no_vis toggle wrapper --}}
+
 
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
 <div
   id="commentFormParent"
-  class="POLIS_COMMENT_FORM"
+  class="POLIS_COMMENT_FORM {{#if no_write}}displayNone{{/if}}"
   >
   {{view commentForm}}
 </div>
+
 
 {{!  ------------ BEGIN FOOTER ---------------  }}
 
@@ -377,6 +381,10 @@
     style="
       margin-top: 30px;
       border-top: 1px solid rgb(220,220,220);
+      {{#if no_write}}
+        border-top: 0px;
+        margin-top: 15px;
+      {{/if}}
     "
     class="darkPanel"
     >

@@ -57,6 +57,27 @@
       No
   </p>
   <p>
+    Show comment form to participants
+    <input
+      id="writeTypeOn"
+      type="radio"
+      name="write_type"
+      value="true"
+      {{#if write_type}}
+        checked
+      {{/if}}>
+      Yes
+    <input
+      id="writeTypeOff"
+      type="radio"
+      name="write_type"
+      value=""
+      {{#unless write_type}}
+        checked
+      {{/unless}}>
+      No
+  </p>
+  <p>
     Show visualization to participants
   	<input
       id="visTypeOn"

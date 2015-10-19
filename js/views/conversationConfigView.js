@@ -19,7 +19,9 @@ module.exports =  Handlebones.ModelView.extend({
     serialize(this, function(attrs) {
       // attrs.is_active = Boolean(attrs.is_active);
       attrs.strict_moderation = that.$("#strictOn")[0].checked;
+      attrs.write_type = that.$("#writeTypeOn")[0].checked ? 1 : 0;
       attrs.vis_type = that.$("#visTypeOn")[0].checked ? 1 : 0;
+
       attrs.conversation_id = that.model.get("conversation_id");
       var queryString = Utils.toQueryParamString(attrs);
       $.ajax({
