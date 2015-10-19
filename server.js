@@ -4860,9 +4860,9 @@ function(req, res) {
             pgQueryP_readOnly("with pidvotes as (select pid, count(*) as countForPid from votes where zid = ($1)"+
                 " group by pid order by countForPid desc) select countForPid as n_votes, count(*) as n_ptpts "+
                 "from pidvotes group by countForPid order by n_ptpts asc;", [zid]),
-            pgQueryP_readOnly("with all_social as (select uid from facebook_users union select uid from twitter_users), "+
-                "ptpts as (select created from participants where zid = ($1)) "+
-                "select ptpts.created from ptpts inner join all_social on ptpts.uid = all_social.uid;", [zid]),
+            // pgQueryP_readOnly("with all_social as (select uid from facebook_users union select uid from twitter_users), "+
+            //     "ptpts as (select created, uid from participants where zid = ($1)) "+
+            //     "select ptpts.created from ptpts inner join all_social on ptpts.uid = all_social.uid;", [zid]),
         ]).then(function(a) {
             function castTimestamp(o) {
                 o.created = Number(o.created);
@@ -4872,7 +4872,7 @@ function(req, res) {
             var votes = _.map(a[1], castTimestamp);
             var uniqueHits = _.map(a[2], castTimestamp); // participants table
             var votesHistogram = a[3];
-            var socialUsers = _.map(a[4], castTimestamp);
+            // var socialUsers = _.map(a[4], castTimestamp);
 
             var actualParticipants = getFirstForPid(votes);  // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
             actualParticipants = _.pluck(actualParticipants, "created");
@@ -4883,7 +4883,7 @@ function(req, res) {
             var totalComments = _.pluck(comments, "created");
             var totalVotes = _.pluck(votes, "created");
             var viewTimes = _.pluck(uniqueHits, "created");
-            var totalSocialUsers = _.pluck(socialUsers, "created");
+            // var totalSocialUsers = _.pluck(socialUsers, "created");
 
             votesHistogram = _.map(votesHistogram, function(x) {
                 return {
@@ -4899,7 +4899,7 @@ function(req, res) {
                 firstCommentTimes: commenters,
                 viewTimes: viewTimes,
                 votesHistogram: votesHistogram,
-                socialUsers: totalSocialUsers,
+                // socialUsers: totalSocialUsers,
             });
         });
 
