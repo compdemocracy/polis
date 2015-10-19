@@ -9,6 +9,18 @@ $light-gray: #717171;
 $medium-gray: #555555;
 $dark-gray: #171717;
 
+$darker1: rgba(0,0,0, 0.1);
+$darker2: rgba(0,0,0, 0.2);
+$darker3: rgba(0,0,0, 0.3);
+$darker4: rgba(0,0,0, 0.4);
+$darker5: rgba(0,0,0, 0.5);
+$darker6: rgba(0,0,0, 0.6);
+$darker7: rgba(0,0,0, 0.7);
+$darker8: rgba(0,0,0, 0.8);
+$darker9: rgba(0,0,0, 0.9);
+$darker10: rgba(0,0,0, 1);
+
+
 $light-blue-gray: #6f7c80;
 $blue-gray: #555f61;
 $dark-blue-gray: #373d3f;
@@ -26,7 +38,7 @@ $panel-color: #f7f7f7;
 
 $bg-color: #f7f7f7;
 $bg-alt-color: #e3e4e5;
-$text-color: $light-gray; //contrast ratio 4.5
+$text-color: $darker5; //contrast ratio 4.5
 
 $default-border-color: #e4e4e4;
 

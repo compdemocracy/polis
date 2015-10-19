@@ -1,7 +1,6 @@
 <div
   class="
   conversationViewRoot
-  darkPanel
   clickDeselectsHull
   {{#if use_background_content_class}}
   background_content
@@ -10,6 +9,7 @@
   style="
     max-width: 768px; {{!-- check pixel ratio? --}}
     margin: auto; {{!-- use flexbox rather than auto, or add a container for this container? --}}
+    background-color: {{polis_bgcolor}};
   "> {{! PARTICIPATION VIEW DIV }}
 
   {{#if useBannerHeader}}
@@ -256,7 +256,7 @@
 <span class="{{#if no_vis}}displayNone{{/if}}"> {{!-- no_vis toggle wrapper --}}
 <div id="vis_section" class="displayNone">
 
-<div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; color: #888; border-bottom: none; margin-bottom: 5px; margin-top: 10px">
+<div class="HeadingC" style="text-transform:none; cursor: default; white-space: nowrap; border-bottom: none; margin-bottom: 5px; margin-top: 10px">
   {{!-- <img src="https://pol.is/polis-favicon_favicon.png" height="20px" id="opinion_groups_logo"> --}}
   {{s.opinionGroups}}
 </div>
@@ -380,13 +380,12 @@
   <div
     style="
       margin-top: 30px;
-      border-top: 1px solid rgb(220,220,220);
+      border-top: 1px solid rgba(0,0,0, 0.2);
       {{#if no_write}}
         border-top: 0px;
         margin-top: 15px;
       {{/if}}
     "
-    class="darkPanel"
     >
     {{#if showLogoInFooter}}
     <div class="flexbox align-items-flex-end">
