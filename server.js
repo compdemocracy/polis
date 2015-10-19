@@ -4853,7 +4853,7 @@ function(req, res) {
             fail(res, 403, "polis_err_conversationStats_need_moderation_permission");
             return;
         }
-        Promise.all([
+        return Promise.all([
             pgQueryP_readOnly("select created, pid, mod from comments where zid = ($1) order by created;", [zid]),
             pgQueryP_readOnly("select created, pid from votes where zid = ($1) order by created;", [zid]),
             pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
