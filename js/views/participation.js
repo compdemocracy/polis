@@ -287,7 +287,7 @@ module.exports =  ConversationView.extend({
     return (display.xs()/* || display.sm() */) && (this.conversationTabs.onAnalyzeTab() || this.conversationTabs.onGroupTab());
   },
   initialize: function(options) {
-    $("body").addClass("darkPanel");
+    $("body").css("background-color", preload.conversation.bgcolor || "#f7f7f7");
     ConversationView.prototype.initialize.apply(this, arguments);
     var that = this;
     this.wipCommentFormText = options.wipCommentFormText;
