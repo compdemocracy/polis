@@ -99,6 +99,27 @@
       No
   </p>
   <p>
+    Show help text to participants
+    <input
+      id="helpTypeOn"
+      type="radio"
+      name="help_type"
+      value="true"
+      {{#if help_type}}
+        checked
+      {{/if}}>
+      Yes
+    <input
+      id="helpTypeOff"
+      type="radio"
+      name="help_type"
+      value=""
+      {{#unless help_type}}
+        checked
+      {{/unless}}>
+      No
+  </p>
+  <p>
     Customize background color
     <input
       style="

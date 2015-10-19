@@ -21,6 +21,7 @@ module.exports =  Handlebones.ModelView.extend({
       attrs.strict_moderation = that.$("#strictOn")[0].checked;
       attrs.write_type = that.$("#writeTypeOn")[0].checked ? 1 : 0;
       attrs.vis_type = that.$("#visTypeOn")[0].checked ? 1 : 0;
+      attrs.help_type = that.$("#helpTypeOn")[0].checked ? 1 : 0;
 
       attrs.conversation_id = that.model.get("conversation_id");
       var queryString = Utils.toQueryParamString(attrs);
