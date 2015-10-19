@@ -120,6 +120,27 @@
       No
   </p>
   <p>
+    Show social sharing buttons to participants
+    <input
+      id="socialbtnTypeOn"
+      type="radio"
+      name="socialbtn_type"
+      value="true"
+      {{#if socialbtn_type}}
+        checked
+      {{/if}}>
+      Yes
+    <input
+      id="socialbtnTypeOff"
+      type="radio"
+      name="socialbtn_type"
+      value=""
+      {{#unless socialbtn_type}}
+        checked
+      {{/unless}}>
+      No
+  </p>
+  <p>
     Customize background color
     <input
       style="
