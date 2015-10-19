@@ -86,7 +86,7 @@ CREATE TABLE metrics (
 CREATE TABLE auth_tokens(
     token VARCHAR(32),
     uid INTEGER REFERENCES users(uid),
-    created BIGINT DEFAULT now_as_millis(),    
+    created BIGINT DEFAULT now_as_millis(),
     UNIQUE(token)
 );
 
@@ -224,12 +224,12 @@ CREATE TABLE conversations(
     vis_type INTEGER NOT NULL DEFAULT 1, -- for now, vis=1 is on, vis=0 is off. in the future, other values may be used for other configurations of vis
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
-    -- owner_group_id ?? 
+    -- owner_group_id ??
     context VARCHAR(1000), -- for things like a semester of a class, etc
     course_id INTEGER REFERENCES courses(course_id),
     lti_users_only BOOLEAN DEFAULT FALSE,
     owner_sees_participation_stats BOOLEAN DEFAULT FALSE, -- currently maps to users needing a polis account, or to requiring single use urls?
-    modified BIGINT DEFAULT now_as_millis(),    
+    modified BIGINT DEFAULT now_as_millis(),
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
 );
@@ -298,8 +298,8 @@ CREATE TABLE participants(
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     vote_count INTEGER NOT NULL DEFAULT 0, -- May be greater than number of comments, if they change votes
     -- What counts as an interaction? voting, commenting, reloading the page (tbd if reloading is a good idea)
-    last_interaction BIGINT NOT NULL DEFAULT 0, 
-    
+    last_interaction BIGINT NOT NULL DEFAULT 0,
+
     -- subscription stuff
     subscribed INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for email, 2 for telegram
     last_notified BIGINT DEFAULT 0, -- time of last email
@@ -310,7 +310,7 @@ CREATE TABLE participants(
     created BIGINT DEFAULT now_as_millis(),
     -- archived (not included because creator might not be a participant) will add later somewhere else
     UNIQUE (zid, pid),
-    UNIQUE (zid, uid) 
+    UNIQUE (zid, uid)
 );
 CREATE INDEX participants_conv_uid_idx ON participants USING btree (uid); -- speed up the inbox query
 CREATE INDEX participants_conv_idx ON participants USING btree (zid); -- speed up the auto-increment trigger
@@ -322,7 +322,7 @@ CREATE TABLE participants_extended(
     referrer VARCHAR(9999), -- 2083 is listed as the max
     parent_url VARCHAR(9999), -- 2083 is listed as the max
     created BIGINT DEFAULT now_as_millis(),
-    UNIQUE (zid, uid) 
+    UNIQUE (zid, uid)
 );
 
 CREATE TABLE participant_locations (
@@ -333,7 +333,7 @@ CREATE TABLE participant_locations (
     lng DOUBLE PRECISION NOT NULL, -- longitude
     created BIGINT DEFAULT now_as_millis(),
     source INTEGER NOT NULL, -- 1: manual entry into db, 100:IP,200:HTML5,300:FB,400:Twitter
-    UNIQUE (zid, uid) 
+    UNIQUE (zid, uid)
 );
 
 
@@ -422,7 +422,7 @@ CREATE TABLE canvas_assignment_callback_info (
     lti_context_id TEXT NOT NULL, -- TODO add constraint to limit length
     lti_user_id TEXT NOT NULL, -- TODO add constraint to limit length
     custom_canvas_assignment_id BIGINT NOT NULL,
-    
+
     lis_result_sourcedid VARCHAR(256),
     lis_outcome_service_url TEXT, -- TODO add constraint to limit length
     stringified_json_of_post_content TEXT, -- TODO add constraint to limit length
@@ -434,7 +434,7 @@ CREATE TABLE canvas_assignment_callback_info (
 CREATE TABLE canvas_assignment_conversation_info (
     zid INTEGER NOT NULL REFERENCES conversations(zid),
     tool_consumer_instance_guid VARCHAR(999) NOT NULL,
-    lti_context_id VARCHAR(999) NOT NULL,    
+    lti_context_id VARCHAR(999) NOT NULL,
     custom_canvas_assignment_id BIGINT NOT NULL,
     UNIQUE(zid, tool_consumer_instance_guid, lti_context_id, custom_canvas_assignment_id)
 );
@@ -492,7 +492,7 @@ CREATE INDEX comments_zid_idx ON comments USING btree (zid);
 CREATE OR REPLACE FUNCTION tid_auto()
     RETURNS trigger AS $$
 DECLARE
-    _magic_id constant int := 873791984; -- This is a magic key used for locking conversation row-sets within the comments table. TODO keep track of these 
+    _magic_id constant int := 873791984; -- This is a magic key used for locking conversation row-sets within the comments table. TODO keep track of these
     _conversation_id int;
 BEGIN
     _conversation_id = NEW.zid;
@@ -537,7 +537,7 @@ CREATE TRIGGER tid_auto_unlock
 -- NOTE: not currently used, but is a nice example of using RETURNS TABLE, as opposed to RETURNS SET OF
 -- taking moderation settings into account, return the timestamp for the latest comment
 CREATE FUNCTION get_times_for_most_recent_visible_comments() RETURNS TABLE (zid INTEGER, modified BIGINT) AS $$
-    select zid, max(modified) from (select comments.*, conversations.strict_moderation from comments left join conversations on comments.zid = conversations.zid) as c where c.mod >= (CASE WHEN c.strict_moderation=TRUE then 1 else 0 END) group by c.zid order by c.zid;    
+    select zid, max(modified) from (select comments.*, conversations.strict_moderation from comments left join conversations on comments.zid = conversations.zid) as c where c.mod >= (CASE WHEN c.strict_moderation=TRUE then 1 else 0 END) group by c.zid order by c.zid;
 $$ LANGUAGE SQL;
 
 
@@ -616,7 +616,7 @@ CREATE TRIGGER pid_auto
 CREATE OR REPLACE FUNCTION pid_auto()
     RETURNS trigger AS $$
 DECLARE
-    _magic_id constant int := 873791983; -- This is a magic key used for locking conversation row-sets within the participants table. TODO keep track of these 
+    _magic_id constant int := 873791983; -- This is a magic key used for locking conversation row-sets within the participants table. TODO keep track of these
     _conversation_id int;
 BEGIN
     _conversation_id = NEW.zid;
@@ -684,7 +684,7 @@ COMMIT;
 
 INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft) values (45342, 1000, default, 'Legalization', 'Seattle recently ...', default, default);
 INSERT INTO conversations (zid, owner, created, topic, description, is_active, is_draft) values (983572, 1000, default, 'Legalization 2', 'Seattle recently ....', default, default);
-    
+
 BEGIN;
     INSERT INTO participants (zid, uid) VALUES ( 45342, 1001);
 COMMIT;
@@ -717,7 +717,7 @@ COMMIT;
     --_gid int;
 --BEGIN
     --_uid = NEW.uid;
-    --_gid = 
+    --_gid =
 --
     --FOR _users in users
     ---- Obtain an advisory lock on the participants table, limited to this conversation
@@ -757,7 +757,7 @@ SELECT array_to_string(
             FROM (ceil(random()*62))::int FOR 1
         )
         FROM generate_series(1, $1)
-    ), 
+    ),
     ''
 )
 $BODY$
