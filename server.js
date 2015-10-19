@@ -4872,7 +4872,7 @@ function(req, res) {
             var votes = _.map(a[1], castTimestamp);
             var uniqueHits = _.map(a[2], castTimestamp); // participants table
             var votesHistogram = a[3];
-            var socialUsers = a[4];
+            var socialUsers = _.map(a[4], castTimestamp);
 
             var actualParticipants = getFirstForPid(votes);  // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
             actualParticipants = _.pluck(actualParticipants, "created");
@@ -4883,6 +4883,7 @@ function(req, res) {
             var totalComments = _.pluck(comments, "created");
             var totalVotes = _.pluck(votes, "created");
             var viewTimes = _.pluck(uniqueHits, "created");
+            var totalSocialUsers = _.pluck(socialUsers, "created");
 
             votesHistogram = _.map(votesHistogram, function(x) {
                 return {
@@ -4898,7 +4899,7 @@ function(req, res) {
                 firstCommentTimes: commenters,
                 viewTimes: viewTimes,
                 votesHistogram: votesHistogram,
-                socialUsers: socialUsers,
+                socialUsers: totalSocialUsers,
             });
         });
 
