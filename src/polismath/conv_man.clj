@@ -59,7 +59,7 @@
 
 
 (defn prep-bidToPid
-  "Prep function for passing to format-for-mongo given bidToPid data"
+  "Prep function for passing to db/format-for-mongo given bidToPid data"
   [results]
   {:zid (:zid results)
    :bidToPid (:bid-to-pid results)
@@ -67,7 +67,7 @@
 
 
 (defn prep-main
-  "Prep function for passing to format-for-mongo and on the main polismath collection."
+  "Prep function for passing to db/format-for-mongo and on the main polismath collection."
   [results]
   (-> results
       ; REFORMAT BASE CLUSTERS
@@ -90,17 +90,6 @@
         :user-vote-counts
         :votes-base
         :group-votes})))
-
-
-(defn format-for-mongo
-  "Formats data for mongo, first passing through a prep function which may strip out uneeded junk or
-  reshape things. Takes conv and lastVoteTimestamp, though the latter may be moved into the former in update"
-  [prep-fn conv]
-  (-> conv
-    prep-fn
-    ; core.matrix & monger workaround: convert to str with cheshire then back
-    ch/generate-string
-    ch/parse-string))
 
 
 (defn mongo-upsert-results
@@ -163,7 +152,7 @@
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
-          (->> (format-for-mongo prep-fn updated-conv)
+          (->> (db/format-for-mongo prep-fn updated-conv)
                (mongo-upsert-results (db/mongo-collection-name col-name))))
         (log/info "Finished uploading mongo results for zid" zid)
         ; Return the updated conv

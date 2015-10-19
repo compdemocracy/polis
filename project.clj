@@ -10,6 +10,7 @@
   :javac-target "1.7"
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
   :plugins [[lein-git-deps "0.0.1-SNAPSHOT"]
+            ;; need to add profiles to use this to avoid clout dep issue
             [lein-gorilla "0.3.4"]
             [lein-environ "0.4.0"]]
   :git-dependencies [["https://github.com/Prismatic/hiphip.git" "master"]
@@ -38,19 +39,23 @@
                  [org.clojure/tools.trace "0.7.6"]
                  ;[org.clojure/tools.cli "0.3.1"]
                  ;; implicitly requires jetty, component and ring
+                 [ring/ring-core "1.4.0"]
                  [ring-jetty-component "0.2.3"]
-                 [compojure "1.4.0"]
+                 ;[compojure "1.1.3"] ;; update to 1.4.0 when storm moves
+                 ;; fuck it; using bidi
+                 [bidi "1.20.3"]
                  [org.apache.storm/storm-core "0.9.2-incubating"]
                  [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
                  [com.novemberain/monger "3.0.1"]
+                 [amazonica "0.3.34"]
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
                  [korma "0.3.0-RC5"]
                  [clj-time "0.6.0"]
                  [clj-excel "0.0.1"]
                  [semantic-csv "0.1.0"]
                  [dk.ative/docjure "1.8.0"]
-                 [prismatic/plumbing "0.2.0"]
+                 [prismatic/plumbing "0.4.4"]
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}

@@ -176,6 +176,14 @@
         env-name    (or (env/env :math-env) "dev")]
     (str "math_" env-name "_" schema-date "_" basename)))
 
+(defn mongo-exports-collection-name
+  "Mongo collection name based on MATH_ENV env variable. While the return value of
+  mongo-collection-name points to the actual math collections for a given environment, the
+  value of this function points to the table which contains export status information for datadumps."
+  [basename]
+  (let [env-name    (or (env/env :math-env) "dev")]
+    (str "exports_" env-name)))
+
 
 (defn- megabytes
   [^long n]
@@ -216,5 +224,16 @@
     (mongo-db (env/env :mongolab-uri))
     (mongo-collection-name "main")
     {:zid zid}))
+
+
+(defn format-for-mongo
+  "Formats data for mongo, first passing through a prep function which may strip out uneeded junk or
+  reshape things. Takes conv and lastVoteTimestamp, though the latter may be moved into the former in update"
+  [prep-fn conv]
+  (-> conv
+    prep-fn
+    ; core.matrix & monger workaround: convert to str with cheshire then back
+    ch/generate-string
+    ch/parse-string))
 
 
