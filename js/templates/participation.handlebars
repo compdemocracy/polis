@@ -115,7 +115,7 @@
     {{/if}}
     {{!-- {{/ifNotEmbedded}} --}}
 
-    <div style="margin: 10px 0px">
+    <div style="margin: 10px 0px" class="{{#if hideSocialButtons}}displayNone{{/if}}">
       <button class="facebookShareButton userWillShareOnFacebook">
         <i class="fa fa-facebook-square"></i>
         &nbsp;Share
@@ -197,8 +197,8 @@
     border-radius: 4px;
     position: relative;
   " class="
-  POLIS_HELP_WELCOME
   clickDoesNotDeselectHull
+  {{#if hideHelp}}displayNone{{/if}}
   ">
   <p
     style="margin: 0px;"
@@ -275,6 +275,7 @@
     position: relative;
   " class="
     clickDoesNotDeselectHull
+    {{#if hideHelp}}displayNone{{/if}}
   ">
   <p
     style="margin: 0px;"
