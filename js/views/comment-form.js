@@ -44,6 +44,7 @@ module.exports = Handlebones.ModelView.extend({
     ctx.hasFacebook = userObject.hasFacebook;
     ctx.s = Strings;
     ctx.desktop = !display.xs();
+    ctx.customBtnStyles = preload.conversation.style_btn || "";
     return ctx;
   },
   hideMessage: function(id) {

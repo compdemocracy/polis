@@ -37,6 +37,7 @@ module.exports = Handlebones.ModelView.extend({
       ctx.createdString = (new Date(ctx.created * 1)).toString().match(/(.*?) [0-9]+:/)[1];
     }
     ctx.s = Strings;
+    ctx.customBtnStyles = preload.conversation.style_btn || "";
 
     var social = ctx.social;
     var socialCtx = {
