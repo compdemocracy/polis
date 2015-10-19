@@ -222,6 +222,7 @@ CREATE TABLE conversations(
     spam_filter BOOLEAN DEFAULT TRUE,
     strict_moderation BOOLEAN DEFAULT FALSE,
     vis_type INTEGER NOT NULL DEFAULT 1, -- for now, vis=1 is on, vis=0 is off. in the future, other values may be used for other configurations of vis
+    write_type INTEGER NOT NULL DEFAULT 1, -- for now, 1 shows comment form, 0 hides the comment form. in the future, other values may be used for other configurations of comment form
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ??
