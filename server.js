@@ -437,6 +437,8 @@ var sql_conversations = sql.define({
     "parent_url",
     "vis_type",
     "write_type",
+    "help_type",
+    "socialbtn_type",
     "bgcolor",
     ]
 });
@@ -7401,7 +7403,9 @@ app.put('/api/v3/conversations',
     want('topic', getOptionalStringLimitLength(1000), assignToP),
     want('description', getOptionalStringLimitLength(50000), assignToP),
     want('vis_type', getInt, assignToP),
+    want('help_type', getInt, assignToP),
     want('write_type', getInt, assignToP),
+    want('socialbtn_type', getInt, assignToP),
     want('bgcolor', getOptionalStringLimitLength(20), assignToP),
     want('verifyMeta', getBool, assignToP),
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
@@ -7452,6 +7456,12 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.vis_type)) {
         fields.vis_type = req.p.vis_type;
+    }
+    if (!_.isUndefined(req.p.help_type)) {
+        fields.help_type = req.p.help_type;
+    }
+    if (!_.isUndefined(req.p.socialbtn_type)) {
+        fields.socialbtn_type = req.p.socialbtn_type;
     }
     if (!_.isUndefined(req.p.bgcolor)) {
         fields.bgcolor = req.p.bgcolor;
@@ -11789,6 +11799,8 @@ function fetchIndexForConversation(req, res) {
             parent_url: conv.parent_url,
             vis_type: conv.vis_type,
             write_type: conv.write_type,
+            help_type: conv.help_type,
+            socialbtn_type: conv.socialbtn_type,
             bgcolor: conv.bgcolor,
         };
         conv.conversation_id = conversation_id;
