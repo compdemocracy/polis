@@ -440,6 +440,7 @@ var sql_conversations = sql.define({
     "help_type",
     "socialbtn_type",
     "bgcolor",
+    "style_btn",
     ]
 });
 var sql_votes = sql.define({
@@ -7407,6 +7408,7 @@ app.put('/api/v3/conversations',
     want('write_type', getInt, assignToP),
     want('socialbtn_type', getInt, assignToP),
     want('bgcolor', getOptionalStringLimitLength(20), assignToP),
+    want('style_btn', getOptionalStringLimitLength(500), assignToP),
     want('verifyMeta', getBool, assignToP),
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
     want('launch_presentation_return_url_hex', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
@@ -7465,6 +7467,9 @@ function(req, res){
     }
     if (!_.isUndefined(req.p.bgcolor)) {
         fields.bgcolor = req.p.bgcolor;
+    }
+    if (!_.isUndefined(req.p.style_btn)) {
+        fields.style_btn = req.p.style_btn;
     }
     if (!_.isUndefined(req.p.write_type)) {
         fields.write_type = req.p.write_type;
@@ -11802,6 +11807,7 @@ function fetchIndexForConversation(req, res) {
             help_type: conv.help_type,
             socialbtn_type: conv.socialbtn_type,
             bgcolor: conv.bgcolor,
+            style_btn: conv.style_btn,
         };
         conv.conversation_id = conversation_id;
         // conv = _.extend({}, optionalResults, conv);

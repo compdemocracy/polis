@@ -224,6 +224,7 @@ CREATE TABLE conversations(
     vis_type INTEGER NOT NULL DEFAULT 1, -- for now, vis=1 is on, vis=0 is off. in the future, other values may be used for other configurations of vis
     write_type INTEGER NOT NULL DEFAULT 1, -- for now, 1 shows comment form, 0 hides the comment form. in the future, other values may be used for other configurations of comment form
     help_type INTEGER NOT NULL DEFAULT 1, -- 0 for disabled, 1 for enabled
+    style_btn VARCHAR(500),
     socialbtn_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for all,
     bgcolor VARCHAR(20),
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
