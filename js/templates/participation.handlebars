@@ -32,7 +32,7 @@
     padding-left: 0px;
     padding-right: 0px
     ">
-    <div class="conversationViewHeadline">
+    <div class="POLIS_HEADLINE conversationViewHeadline">
     {{#unless useBannerHeader}}
       {{#if showLogoAndBreadCrumbInHeader}}
           <div class="HeadingA">
@@ -197,6 +197,7 @@
     border-radius: 4px;
     position: relative;
   " class="
+  POLIS_HELP_WELCOME
   clickDoesNotDeselectHull
   ">
   <p
@@ -365,6 +366,7 @@
 {{!  ------------ SUBMIT COMMENT FORM ---------------  }}
 <div
   id="commentFormParent"
+  class="POLIS_COMMENT_FORM"
   >
   {{view commentForm}}
 </div>
