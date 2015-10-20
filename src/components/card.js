@@ -1,5 +1,7 @@
 import React from "react";
+import Radium from "radium";
 
+@Radium
 class Card extends React.Component {
   render() {
     return (

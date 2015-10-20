@@ -1,8 +1,10 @@
 import React from "react";
 import { connect } from "react-redux";
 import Card from "./card";
+import Radium from "radium";
 
 // @connect(state => state.userData)
+@Radium
 class User extends React.Component {
   createCards() {
     // replace with this.state.data.map
