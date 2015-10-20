@@ -152,7 +152,13 @@
 
 
 ;; What follows is the guts of our responding and computing.
-;; The outline of what this looks like is as follows:
+
+;; We try to respond as soon as possible to the request.
+;; If the computation takes too long, we respond with a 202 and a Location pointing to a status url.
+;; When that url is pinged, it responds a 200 saying to check back later if it's not done.
+;; If the computation is complete, it responds with a 201, and a url at which the results can be downloaded.
+
+;; A more detailed outline of what this looks like in code is as follows:
 
 ;; get export params
 ;;   * notify-mongo (:started)
@@ -192,7 +198,6 @@
 
 
 ;; Requests for exported files in aws.
-;; 
 
 (defn redirect-to-aws-url
   "Creates a redirection response, which redirects to the aws download link."
