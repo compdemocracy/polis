@@ -441,6 +441,11 @@ var sql_conversations = sql.define({
     "socialbtn_type",
     "bgcolor",
     "style_btn",
+    "auth_needed_to_vote",
+    "auth_needed_to_write",
+    "auth_opt_fb",
+    "auth_opt_tw",
+    "auth_opt_allow_3rdparty",
     ]
 });
 var sql_votes = sql.define({
@@ -7410,6 +7415,11 @@ app.put('/api/v3/conversations',
     want('socialbtn_type', getInt, assignToP),
     want('bgcolor', getOptionalStringLimitLength(20), assignToP),
     want('style_btn', getOptionalStringLimitLength(500), assignToP),
+    want('auth_needed_to_vote', getBool, assignToP),
+    want('auth_needed_to_write', getBool, assignToP),
+    want('auth_opt_fb', getBool, assignToP),
+    want('auth_opt_tw', getBool, assignToP),
+    want('auth_opt_allow_3rdparty', getBool, assignToP),
     want('verifyMeta', getBool, assignToP),
     want('send_created_email', getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
     want('launch_presentation_return_url_hex', getStringLimitLength(1, 9999), assignToP), // LTI editor tool redirect url (once conversation editing is done)
@@ -7475,6 +7485,15 @@ function(req, res){
     if (!_.isUndefined(req.p.write_type)) {
         fields.write_type = req.p.write_type;
     }
+    ifDefinedSet("auth_needed_to_vote", req.p, fields);
+    ifDefinedSet("auth_needed_to_write", req.p, fields);
+    ifDefinedSet("auth_opt_fb", req.p, fields);
+    ifDefinedSet("auth_opt_tw", req.p, fields);
+    ifDefinedSet("auth_opt_allow_3rdparty", req.p, fields);
+
+
+
+
     if (!_.isUndefined(req.p.owner_sees_participation_stats)) {
         fields.owner_sees_participation_stats = !!req.p.owner_sees_participation_stats;
     }
@@ -11441,6 +11460,11 @@ app.get(/^\/polis_site_id.*/,
     moveToBody,
     need("parent_url", getStringLimitLength(1, 10000), assignToP),
     want("referrer", getStringLimitLength(1, 10000), assignToP),
+    want("auth_needed_to_vote", getBool, assignToP),
+    want("auth_needed_to_write", getBool, assignToP),
+    want("auth_opt_fb", getBool, assignToP),
+    want("auth_opt_tw", getBool, assignToP),
+    want('auth_opt_allow_3rdparty', getBool, assignToP),
 function(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
     var page_id = /\S\/([^\/]*)/.exec(req.path);
@@ -11450,9 +11474,12 @@ function(req, res) {
     site_id = site_id[0];
     page_id = page_id[1];
     var o = {};
-    if (req.p.parent_url) {
-        o.parent_url = req.p.parent_url;
-    }
+    ifDefinedSet("parent_url", req.p, o);
+    ifDefinedSet("auth_needed_to_vote", req.p, o);
+    ifDefinedSet("auth_needed_to_write", req.p, o);
+    ifDefinedSet("auth_opt_fb", req.p, o);
+    ifDefinedSet("auth_opt_tw", req.p, o);
+    ifDefinedSet("auth_opt_allow_3rdparty", req.p, o);
 
 
     // Set stuff in cookies to be retrieved when POST participants is called.
@@ -11766,6 +11793,10 @@ function fetchIndexWithoutPreloadData(req, res) {
   return fetchIndex(req, res, {});
 }
 
+function ifDefinedFirstElseSecond(first, second) {
+    return _.isUndefined(first) ? second : first;
+}
+
 function fetchIndexForConversation(req, res) {
     console.log("fetchIndexForConversation", req.path);
     var match = req.path.match(/[0-9][0-9A-Za-z]+/);
@@ -11797,6 +11828,11 @@ function fetchIndexForConversation(req, res) {
     }).then(function(a) {
         var conv = a[0];
         var optionalResults = a[1];
+
+        var auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(conv.auth_opt_allow_3rdparty , true);
+        var auth_opt_fb_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_fb , true);
+        var auth_opt_tw_computed = auth_opt_allow_3rdparty && ifDefinedFirstElseSecond(conv.auth_opt_tw , true);
+
         conv = {
             topic: conv.topic,
             description: conv.description,
@@ -11809,6 +11845,11 @@ function fetchIndexForConversation(req, res) {
             socialbtn_type: conv.socialbtn_type,
             bgcolor: conv.bgcolor,
             style_btn: conv.style_btn,
+            auth_needed_to_vote: ifDefinedFirstElseSecond(conv.auth_needed_to_vote, false),
+            auth_needed_to_write: ifDefinedFirstElseSecond(conv.auth_needed_to_write , true),
+            auth_opt_allow_3rdparty: auth_opt_allow_3rdparty,
+            auth_opt_fb_computed: auth_opt_fb_computed,
+            auth_opt_tw_computed: auth_opt_tw_computed,
         };
         conv.conversation_id = conversation_id;
         // conv = _.extend({}, optionalResults, conv);
