@@ -189,7 +189,7 @@
   [^long n]
   (* n 1024 1024))
 
-
+;; Dear lord this is a monstrosity... need to move this to component XXX
 (def
   ^{:doc "Memoized; returns a db object for connecting to mongo"}
   mongo-db
@@ -205,6 +205,10 @@
         (doseq [c ["bidtopid" "main" "cache"]]
           (let [c (mongo-collection-name c)]
             (mc/ensure-index db c (array-map :zid 1) {:name (str c "_zid_index") :unique true})))
+        ;; An index for lastupdated on "exports" collection
+        (mc/ensure-index db "exports" {:lastupdate 1} {:expireAfterSeconds (* (try (Integer/parseInt (:export-expiry-days env/env))
+                                                                                  (catch Exception e 10)) ;; Note: make sure env variable exists and move to config component XXX
+                                                                              (* 60 60 24))})
         ; set up rolling limit on profile data
         (let [prof-coll (mongo-collection-name "profile")]
           (if-not (mc/exists? db prof-coll)

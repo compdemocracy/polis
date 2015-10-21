@@ -109,6 +109,8 @@
 
 ;; We use AWS to store conversation exports whcih took a long time to compute.
 ;; These exports are set to expire automatically.
+;; The number of days before expiry should be stored in env variable :export-expiry-days.
+;; This value is used to compute the expiry of the exports mongo collection as well.
 
 ;; move to component; uncomment on commit XXX
 ;(def aws-cred {:access-key (env/env :aws-access-key)
@@ -360,7 +362,4 @@
 ;; Auto retry conversations that somehow fail based on heart beat?
 
 ;; Require zinvite from ser request for downloaded conv, so that it's easier to secure
-
-;; Expire entries in mongo; or lifecycle of checking for old mongo reords
-
 
