@@ -78,14 +78,14 @@
   }
 
   function cookiesEnabledAtTopLevel() {
-    // create a temporary cookie 
+    // create a temporary cookie
     var soon = new Date(Date.now() + 1000).toUTCString();
     var teststring = "_polistest_cookiesenabled";
-    document.cookie = teststring + "=1; expires=" + soon;  
+    document.cookie = teststring + "=1; expires=" + soon;
     // see if it worked
     var cookieEnabled = document.cookie.indexOf(teststring) != -1;
     // clear the cookie
-    document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();  
+    document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();
     return cookieEnabled;
   }
 
