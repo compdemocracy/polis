@@ -17,6 +17,26 @@
      };
   }
 
+  var polisEventCallbacks = {
+   vote: [],
+   doneVoting: [],
+   write: [],
+  };
+
+  polis.on = function(eventName, handler) {
+    if(polisEventCallbacks[eventName]){
+      polisEventCallbacks[eventName].push(handler);
+    }
+  }
+  polis.off = function(eventName, handler) {
+    if(polisEventCallbacks[eventName]){
+      var i = -1;
+      while (-1 != (i = polisEventCallbacks[eventName].indexOf(handler))){
+        polisEventCallbacks[eventName].splice(i,1);
+      }
+    }
+  }
+
   function createPolisIframe(parent, o) {
     var iframe = document.createElement("iframe");
     var path = [];
@@ -101,29 +121,37 @@
     // }
 
     window.addEventListener("message", function(event) {
-  
-      if (!event.origin.match(/pol.is$/)) {
-        return;
-      } 
-    
-      if (event.data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
+      var data = event.data||{};
+      // if (!event.origin.match(/pol.is$/)) {
+      //   return;
+      // }
+
+      var cbList = polisEventCallbacks[data.name]||[];
+      for (var i = 0; i < cbList.length; i++) {
+        cbList[i]({
+          iframe: document.getElementById("polis_" + data.polisFrameId),
+          data: data
+        });
+      }
+
+      if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
         // temporarily redirect to polis, which will set a cookie and redirect back
         window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       }
-      // if (event.data === "twitterConnectBegin") {
+      // if (data === "twitterConnectBegin") {
       //   // open a new window where the twitter auth screen will show.
       //   // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
       //   var params = 'location=0,status=0,width=800,height=400';
       //   twitterWindow = window.open(polisUrl + "/api/v3/twitterBtn?dest=" + encodeReturnUrl(window.location+""), 'twitterWindow', params);
       // }
 
-      if (event.data && event.data.name === "resize") {
-        console.log(event.data.polisFrameId);
-        var iframe = document.getElementById("polis_" + event.data.polisFrameId);
+      if (data.name === "resize") {
+        console.log(data.polisFrameId);
+        var iframe = document.getElementById("polis_" + data.polisFrameId);
         // TODO uniquely identify each polis iframe so we can resize only the correct one
         // for (var i = 0; i < iframes.length; i++) {
           // var x = iframes[i];
-          iframe.setAttribute("height", event.data.height);
+          iframe.setAttribute("height", data.height);
         // }
       }
 

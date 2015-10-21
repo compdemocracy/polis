@@ -12,6 +12,7 @@ var RootView = require("./views/root");
 var MainPolisRouter = require("./routers/main-polis-router");
 var Metrics = require("./metrics");
 var PolisStorage = require("./util/polisStorage");
+var PostMessageUtils = require("./util/postMessageUtils");
 var preloadHelper = require("./util/preloadHelper");
 var Handlebars = require("handlebars");
 var _ = require("underscore");
@@ -57,22 +58,7 @@ var encodedParams = match ? match[0] : void 0;
 var forceEmbedded = false;
 
 // notify parent iframe when document changes height
-function getPolisFrameId() {
-  if (window.location.search) {
-    var params = Utils.parseQueryParams(window.location.search);
-    if (params.site_id && params.page_id) {
-      return [params.site_id, params.page_id].join("_");
-    }
-  }
-  var parts = window.location.pathname.split("/");
-  if (parts && parts.length > 1) {
-    // first element is emptystring, since path starts with a "/""
-    parts = parts.slice(1);
-  } else {
-    return "error2384";
-  }
-  return parts.join("_");
-}
+
 function getHeight() {
   var DOCUMENT_HEIGHT_FUDGE_FACTOR = 10; // prevent scrollbar, not sure why it's not correct without this.
   return $(document.body).outerHeight() + DOCUMENT_HEIGHT_FUDGE_FACTOR;
@@ -83,11 +69,7 @@ if (isEmbedded()) {
     var nu = getHeight();
     if (nu !== oldDocumentHeight) {
       oldDocumentHeight = nu;
-        window.top.postMessage({
-          name: "resize",
-          polisFrameId: getPolisFrameId(),
-          height: nu
-        }, "*");
+      PostMessageUtils.postResizeEvent(nu);
       }
   }, 200);
 }

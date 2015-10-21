@@ -1,5 +1,6 @@
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
+var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
 var template = require("../tmpl/vote-view");
 var CommentModel = require("../models/comment");
@@ -167,6 +168,7 @@ module.exports = Handlebones.ModelView.extend({
       var that = this;
       eb.trigger(eb.vote, this.mostRecentVoteType);
       eb.trigger(eb.interacted);
+      setTimeout(PostMessageUtils.postVoteEvent);
       if (result.nextComment) {
         showComment(result.nextComment);
       } else {
