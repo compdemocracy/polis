@@ -234,6 +234,13 @@ CREATE TABLE conversations(
     course_id INTEGER REFERENCES courses(course_id),
     lti_users_only BOOLEAN DEFAULT FALSE,
     owner_sees_participation_stats BOOLEAN DEFAULT FALSE, -- currently maps to users needing a polis account, or to requiring single use urls?
+
+    auth_needed_to_vote BOOLEAN, -- if null, server will default to FALSE
+    auth_needed_to_write BOOLEAN, -- if null, server will default to TRUE
+    auth_opt_fb BOOLEAN, -- if null, server will default to TRUE
+    auth_opt_tw BOOLEAN, -- if null, server will default to TRUE
+    auth_opt_allow_3rdparty BOOLEAN, -- if null, server will default to TRUE -- this overrides auth_opt_fb and auth_opt_tw if false
+
     modified BIGINT DEFAULT now_as_millis(),
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
