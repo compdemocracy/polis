@@ -40,6 +40,11 @@ body {
   display: none;
 }
 
+.inline-code-blurb {
+  font-family: monospace;
+  font-size: 10px;
+}
+
 .popover-title {
   font-family: $sans-font;
   text-transform: uppercase;
