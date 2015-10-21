@@ -36,9 +36,9 @@
   </div>
   {{!-- ========== MODERATION SETTINGS ========== --}}
 <h3 style="font-size: 18px; font-weight: 700;">Auth options for participants</h3>
-  <p>
-    Require auth to vote (<span class="inline-code-blurb">data-auth_needed_to_vote</span>)
-    <div><input
+  <p title="data-auth_needed_to_vote">
+    Require auth to vote
+    <div class="config-option-row"><input
       id="auth_needed_to_voteOn"
       type="radio"
       name="auth_needed_to_vote"
@@ -46,30 +46,30 @@
       {{#if auth_needed_to_voteIsOn}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="auth_needed_to_voteOff"
       type="radio"
       name="auth_needed_to_vote"
-      value=""
+      value="false"
       {{#if auth_needed_to_voteIsOff}}
         checked
       {{/if}}>
-      No
+      False
     <input
       id="auth_needed_to_voteDefault"
       type="radio"
       name="auth_needed_to_vote"
-      value=""
+      value="default"
       {{#if auth_needed_to_voteDefault}}
         checked
       {{/if}}>
-      Default (defaults to No)</div>
+      Default (defaults to False)</div>
   </p>
 
-  <p>
-    Require auth to write comments (<span class="inline-code-blurb">data-auth_needed_to_write</span>)
-    <div><input
+  <p title="data-auth_needed_to_write">
+    Require auth to write comments
+    <div class="config-option-row"><input
       id="auth_needed_to_writeOn"
       type="radio"
       name="auth_needed_to_write"
@@ -77,31 +77,30 @@
       {{#if auth_needed_to_writeIsOn}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="auth_needed_to_writeOff"
       type="radio"
       name="auth_needed_to_write"
-      value=""
+      value="false"
       {{#if auth_needed_to_writeIsOff}}
         checked
       {{/if}}>
-      No
+      False
     <input
       id="auth_needed_to_writeDefault"
       type="radio"
       name="auth_needed_to_write"
-      value=""
+      value="default"
       {{#if auth_needed_to_writeDefault}}
         checked
       {{/if}}>
-      Default (defaults to Yes)</div>
+      Default (defaults to True)</div>
   </p>
 
-  <p>
+  <p title="data-auth_opt_fb">
     Allow participants to use Facebook to auth
-    (<span class="inline-code-blurb">data-auth_opt_fb</span>)
-    <div><input
+    <div class="config-option-row"><input
       id="auth_opt_fbOn"
       type="radio"
       name="auth_opt_fb"
@@ -109,31 +108,30 @@
       {{#if auth_opt_fbIsOn}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="auth_opt_fbOff"
       type="radio"
       name="auth_opt_fb"
-      value=""
+      value="false"
       {{#if auth_opt_fbIsOff}}
         checked
       {{/if}}>
-      No
+      False
     <input
       id="auth_opt_fbDefault"
       type="radio"
       name="auth_opt_fb"
-      value=""
+      value="default"
       {{#if auth_opt_fbDefault}}
         checked
       {{/if}}>
-      Default (defaults to Yes)</div>
+      Default (defaults to True)</div>
   </p>
 
-  <p>
+  <p title="data-auth_opt_tw">
     Allow participants to use Twitter to auth
-    (<span class="inline-code-blurb">data-auth_opt_tw</span>)
-    <div><input
+    <div class="config-option-row"><input
       id="auth_opt_twOn"
       type="radio"
       name="auth_opt_tw"
@@ -141,31 +139,30 @@
       {{#if auth_opt_twIsOn}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="auth_opt_twOff"
       type="radio"
       name="auth_opt_tw"
-      value=""
+      value="false"
       {{#if auth_opt_twIsOff}}
         checked
       {{/if}}>
-      No
+      False
     <input
       id="auth_opt_twDefault"
       type="radio"
       name="auth_opt_tw"
-      value=""
+      value="default"
       {{#if auth_opt_twDefault}}
         checked
       {{/if}}>
-      Default (defaults to Yes)</div>
+      Default (defaults to True)</div>
   </p>
 
-  <p>
+  <p title="data-auth_opt_allow_3rdparty">
     Allow or disallow all third-party auth options for participants
-    (<span class="inline-code-blurb">data-auth_opt_allow_3rdparty</span>)
-    <div><input
+    <div class="config-option-row"><input
       id="auth_opt_allow_3rdpartyOn"
       type="radio"
       name="auth_opt_allow_3rdparty"
@@ -173,7 +170,7 @@
       {{#if auth_opt_allow_3rdpartyIsOn}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="auth_opt_allow_3rdpartyOff"
       type="radio"
@@ -182,23 +179,23 @@
       {{#if auth_opt_allow_3rdpartyIsOff}}
         checked
       {{/if}}>
-      No
+      False
     <input
       id="auth_opt_allow_3rdpartyDefault"
       type="radio"
       name="auth_opt_allow_3rdparty"
-      value=""
+      value="default"
       {{#if auth_opt_allow_3rdpartyDefault}}
         checked
       {{/if}}>
-      Default (defaults to Yes)</div>
+      Default (defaults to True)</div>
   </p>
 
   <p style="font-size: 18px; font-weight: 700;">Features</p>
 
   <p>
     Strict moderation (no comments shown without approval)
-    <div><input
+    <div class="config-option-row"><input
       id="strictOn"
       type="radio"
       name="strict_moderation"
@@ -206,7 +203,7 @@
       {{#if strict_moderation}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="strictOff"
       type="radio"
@@ -215,11 +212,11 @@
       {{#unless strict_moderation}}
         checked
       {{/unless}}>
-      No</div>
+      False</div>
   </p>
   <p>
     Show comment form to participants
-    <div><input
+    <div class="config-option-row"><input
       id="writeTypeOn"
       type="radio"
       name="write_type"
@@ -227,7 +224,7 @@
       {{#if write_type}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="writeTypeOff"
       type="radio"
@@ -236,11 +233,11 @@
       {{#unless write_type}}
         checked
       {{/unless}}>
-      No</div>
+      False</div>
   </p>
   <p>
     Show visualization to participants
-    <div><input
+    <div class="config-option-row"><input
       id="visTypeOn"
       type="radio"
       name="vis_type"
@@ -248,7 +245,7 @@
       {{#if vis_type}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="visTypeOff"
       type="radio"
@@ -257,12 +254,12 @@
       {{#unless vis_type}}
         checked
       {{/unless}}>
-      No</div>
+      False</div>
   </p>
 
   <p>
     Show help text to participants
-    <div><input
+    <div class="config-option-row"><input
       id="helpTypeOn"
       type="radio"
       name="help_type"
@@ -270,7 +267,7 @@
       {{#if help_type}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="helpTypeOff"
       type="radio"
@@ -279,12 +276,12 @@
       {{#unless help_type}}
         checked
       {{/unless}}>
-      No</div>
+      False</div>
   </p>
 
   <p>
     Show social sharing buttons to participants
-    <div><input
+    <div class="config-option-row"><input
       id="socialbtnTypeOn"
       type="radio"
       name="socialbtn_type"
@@ -292,7 +289,7 @@
       {{#if socialbtn_type}}
         checked
       {{/if}}>
-      Yes
+      True
     <input
       id="socialbtnTypeOff"
       type="radio"
@@ -301,14 +298,14 @@
       {{#unless socialbtn_type}}
         checked
       {{/unless}}>
-      No</div>
+      False</div>
   </p>
 
     <p style="font-size: 18px; font-weight: 700;"> Style </p>
 
   <p>
     Customize background color (type in a CSS color or hex code (#00ff00))
-    <div><input
+    <div class="config-option-row"><input
       style="
         display: inline;
         width: 80px;
@@ -321,6 +318,7 @@
   </p>
   <p>
     Customize Submit button CSS (separated by ;)
+    <div class="config-option-row">
     <textarea
       style="font-family: monospace; width: 100%;"
       style="
@@ -331,7 +329,7 @@
       "
       id="customStyleBtn"
       name="style_btn"
-      rows="1">{{style_btn}}</textarea>
+      rows="1">{{style_btn}}</textarea></div>
   </p>
   {{!-- ========== SAVE BUTTON ========== --}}
   <div class="">

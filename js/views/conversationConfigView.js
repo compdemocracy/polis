@@ -6,9 +6,20 @@ var disappearingAlert = require("../util/polisAlert").disappearingAlert;
 var serialize = require("../util/serialize");
 
 
+
+
 module.exports =  Handlebones.ModelView.extend({
   name: "conversationConfigView",
   template: template,
+  setTrueFalseOrNothing: function(name, o) {
+    if (this.$("#"+name+"On")[0].checked) {
+      o[name] = true;
+    } else if (this.$("#"+name+"Off")[0].checked) {
+      o[name] = false;
+    } else if (this.$("#"+name+"Default")[0].checked) {
+      delete o[name];
+    }
+  },
   events: {
   "click #submitButton": "onFormChange"
   },
@@ -24,13 +35,11 @@ module.exports =  Handlebones.ModelView.extend({
       attrs.help_type = that.$("#helpTypeOn")[0].checked ? 1 : 0;
       attrs.socialbtn_type = that.$("#socialbtnTypeOn")[0].checked ? 1 : 0;
 
-
-      attrs.auth_needed_to_vote = that.$("#auth_needed_to_voteOn")[0].checked ? true : false;
-      attrs.auth_needed_to_write = that.$("#auth_needed_to_writeOn")[0].checked ? true : false;
-      attrs.auth_opt_fb = that.$("#auth_opt_fbOn")[0].checked ? true : false;
-      attrs.auth_opt_tw = that.$("#auth_opt_twOn")[0].checked ? true : false;
-      attrs.auth_opt_allow_3rdparty = that.$("#auth_opt_allow_3rdpartyOn")[0].checked ? true : false;
-
+      that.setTrueFalseOrNothing("auth_needed_to_vote", attrs);
+      that.setTrueFalseOrNothing("auth_needed_to_write", attrs);
+      that.setTrueFalseOrNothing("auth_opt_fb", attrs);
+      that.setTrueFalseOrNothing("auth_opt_tw", attrs);
+      that.setTrueFalseOrNothing("auth_opt_allow_3rdparty", attrs);
 
       attrs.conversation_id = that.model.get("conversation_id");
       var queryString = Utils.toQueryParamString(attrs);
@@ -59,13 +68,13 @@ module.exports =  Handlebones.ModelView.extend({
     ctx.auth_needed_to_writeIsOn = true === ctx.auth_needed_to_write;
     ctx.auth_needed_to_writeIsOff = false === ctx.auth_needed_to_write;
 
-    ctx.auth_opt_twDefault = _.isNull(ctx.auth_opt_tw);
-    ctx.auth_opt_twIsOn = true === ctx.auth_opt_tw;
-    ctx.auth_opt_twIsOff = false === ctx.auth_opt_tw;
-
     ctx.auth_opt_fbDefault = _.isNull(ctx.auth_opt_fb);
     ctx.auth_opt_fbIsOn = true === ctx.auth_opt_fb;
     ctx.auth_opt_fbIsOff = false === ctx.auth_opt_fb;
+
+    ctx.auth_opt_twDefault = _.isNull(ctx.auth_opt_tw);
+    ctx.auth_opt_twIsOn = true === ctx.auth_opt_tw;
+    ctx.auth_opt_twIsOff = false === ctx.auth_opt_tw;
 
     ctx.auth_opt_allow_3rdpartyDefault = _.isNull(ctx.auth_opt_allow_3rdparty);
     ctx.auth_opt_allow_3rdpartyIsOn = true === ctx.auth_opt_allow_3rdparty;
