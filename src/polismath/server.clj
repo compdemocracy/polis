@@ -87,24 +87,25 @@
 ;; Here, we're setting up basic mongo read and write helpers.
 
 (defn update-export-status
-  [filename document]
+  [filename zinvite document]
   (mc/insert (db/mongo-db (:env/env :mongolab-uri))
              (db/mongo-collection-name "exports")
-             {:filename filename}
+             {:filename filename :zinvite zinvite}
              (db/format-for-mongo identity (assoc document
                                                   :filename filename
+                                                  :zinvite zinvite
                                                   :lastupdate (System/currentTimeMillis)))
              {:upsert true}))
 
 (defn get-export-status
-  [filename]
+  [filename zinvite]
   (mc/find-one (db/mongo-db (:env/env :mongolab-uri))
                (db/mongo-collection-name "exports")
-               {:filename filename}))
+               {:filename filename :zinvite zinvite}))
 
 (defn notify-mongo
   [filename status params]
-  (update-export-status filename {:status status :params params}))
+  (update-export-status filename (:zinvite params) {:status status :params params}))
 
 
 ;; We use AWS to store conversation exports whcih took a long time to compute.
@@ -211,8 +212,8 @@
   "Given aws-creds, returns a function handler function which responds to requests for an existing file on AWS."
   [aws-cred]
   (fn [{:keys [params] :as request}]
-    (let [filename (get params :filename)]
-      (if (= (get (get-export-status filename) "status") "complete")
+    (let [{:keys [filename zinvite]} params]
+      (if (= (get (get-export-status filename zinvite) "status") "complete")
         ;; Have to think about the security repercussions here. Would be nice if we could stream this and never
         ;; expose the link here. XXX
         (redirect-to-aws-url aws-cred filename)
@@ -222,22 +223,22 @@
 ;; Requests for checking the status of a computation
 
 (defn get-datadump-url
-  [filename]
-  (full-url (str "datadump/results?filename=" filename)))
+  [filename zinvite]
+  (full-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
 
 (defn complete-response
-  [filename]
+  [filename zinvite]
   {:status  201
    :headers {"Content-Type" "text/plain"
-             "Location"     (get-datadump-url filename)}
+             "Location"     (get-datadump-url filename zinvite)}
    :body    "Export is complete. Download at the Location url specified in the header"})
 
 (defn get-datadump-status-handler
   [{:keys [params] :as request}]
-  (let [filename (:filename params)]
-    (case (-> filename get-export-status (get "status"))
-      ("pending" "started" "processing") (check-back-response filename 200)
-      "complete"                         (complete-response filename)
+  (let [{:keys [filename zinvite]} params]
+    (case (-> (get-export-status filename zinvite) (get "status"))
+      ("pending" "started" "processing") (check-back-response filename zinvite 200)
+      "complete"                         (complete-response filename zinvite)
       ;; In case we don't match, 404
       respond-404)))
 
@@ -246,16 +247,16 @@
 ;; completed down the road.
 
 (defn get-status-location-url
-  [filename]
-  (full-url (str "datadump/status?filename=" filename)))
+  [filename zinvite]
+  (full-url (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
 
 (defn check-back-response
-  ([filename status]
+  ([filename zinvite status]
    {:status  status
     :headers {"Content-Type" "text/plain"
-              "Location" (get-status-location-url filename)}
+              "Location" (get-status-location-url filename zinvite)}
     :body    "Request is processing, but cannot be returned now. Please check back later with the same request url."})
-  ([filename] (check-back-response 202)))
+  ([filename zinvite] (check-back-response filename zinvite 202)))
 
 (defn run-datadump
    "Based on params this actually runs the export-conversation computation."
@@ -284,7 +285,7 @@
         (response/file-response (full-path filename)))
       (do
         (handle-timedout-datadump! aws-cred datadump filename params)
-        (check-back-response filename)))))
+        (check-back-response filename (:zinvite params))))))
 
 
 ;; Route everything together, build handlers, etc
