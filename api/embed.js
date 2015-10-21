@@ -28,14 +28,6 @@
       polisEventCallbacks[eventName].push(handler);
     }
   }
-  polis.off = function(eventName, handler) {
-    if(polisEventCallbacks[eventName]){
-      var i = -1;
-      while (-1 != (i = polisEventCallbacks[eventName].indexOf(handler))){
-        polisEventCallbacks[eventName].splice(i,1);
-      }
-    }
-  }
 
   function createPolisIframe(parent, o) {
     var iframe = document.createElement("iframe");
