@@ -11623,18 +11623,19 @@ function fetchIndexForConversation(req, res) {
     var acceptLanguage = req.headers["accept-language"] || req.headers["Accept-Language"];
 
 
-
-    // Kick off requests to twitter and FB to get the share counts.
-    // This will be nice because we cache them so it will be fast when
-    // client requests these later.
-    // TODO actually store these values in a cache that is shared between
-    // the servers, probably just in the db.
-    getTwitterShareCountForConversation(conversation_id).catch(function (err) {
-        console.log("fetchIndexForConversation/getTwitterShareCountForConversation err " + err);
-    });
-    getFacebookShareCountForConversation(conversation_id).catch(function (err) {
-        console.log("fetchIndexForConversation/getFacebookShareCountForConversation err " + err);
-    });
+    setTimeout(function() {
+        // Kick off requests to twitter and FB to get the share counts.
+        // This will be nice because we cache them so it will be fast when
+        // client requests these later.
+        // TODO actually store these values in a cache that is shared between
+        // the servers, probably just in the db.
+        getTwitterShareCountForConversation(conversation_id).catch(function (err) {
+            console.log("fetchIndexForConversation/getTwitterShareCountForConversation err " + err);
+        });
+        getFacebookShareCountForConversation(conversation_id).catch(function (err) {
+            console.log("fetchIndexForConversation/getFacebookShareCountForConversation err " + err);
+        });
+    }, 100);
 
     getZidFromConversationId(conversation_id).then(function(zid) {
         return Promise.all([
