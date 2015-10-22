@@ -11465,6 +11465,9 @@ app.get(/^\/polis_site_id.*/,
     want("auth_opt_fb", getBool, assignToP),
     want("auth_opt_tw", getBool, assignToP),
     want('auth_opt_allow_3rdparty', getBool, assignToP),
+    want('show_vis', getBool, assignToP),
+    want('ucv', getBool, assignToP), // not persisted
+    want('ucw', getBool, assignToP), // not persisted
 function(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
     var page_id = /\S\/([^\/]*)/.exec(req.path);
@@ -11473,6 +11476,8 @@ function(req, res) {
     }
     site_id = site_id[0];
     page_id = page_id[1];
+    var ucv = req.p.ucv;
+    var ucw = req.p.ucw;
     var o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -11480,7 +11485,9 @@ function(req, res) {
     ifDefinedSet("auth_opt_fb", req.p, o);
     ifDefinedSet("auth_opt_tw", req.p, o);
     ifDefinedSet("auth_opt_allow_3rdparty", req.p, o);
-
+    if (!_.isUndefined(req.p.show_vis)) {
+        o.vis_type = req.p.show_vis ? 1 : 0;
+    }
 
     // Set stuff in cookies to be retrieved when POST participants is called.
     var setOnPolisDomain = !domainOverride;
@@ -11498,6 +11505,12 @@ function(req, res) {
     function appendParams(url) {
          // These are needed to disambiguate postMessages from multiple polis conversations embedded on one page.
         url += "?site_id=" + site_id + "&page_id=" + page_id;
+        if (!_.isUndefined(ucv)) {
+            url += "?ucv=" + ucv;
+        }
+        if (!_.isUndefined(ucw)) {
+            url += "?ucw=" + ucw;
+        }
         return url;
     }
 
