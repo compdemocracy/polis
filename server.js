@@ -61,6 +61,7 @@ var badwords = require('badwords/object'),
     SimpleCache = require("simple-lru-cache"),
     SimpleCacheWithTTL = require("./SimpleCacheWithTTL"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),
+    timeout = require('connect-timeout'),
     _ = require('underscore');
     // winston = require("winston");
 
@@ -339,6 +340,19 @@ var metric = (function() {
 }());
 */
 
+function haltOnTimeout(req, res, next) {
+    if (req.timedout){
+        fail(res, 500, "polis_err_timeout_misc");
+    } else {
+        next();
+    }
+}
+
+function ifDefinedSet(name, source, dest) {
+    if (!_.isUndefined(source[name])) {
+        dest[name] = source[name];
+    }
+}
 
 //metric("api.process.launch", 1);
 
@@ -6687,15 +6701,18 @@ function getNextComment(zid, pid, withoutTids, include_social) {
     // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
 }
 
+
 app.get("/api/v3/nextComment",
+    timeout(15000),
     moveToBody,
     authOptional(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     resolve_pidThing('not_voted_by_pid', assignToP, "get:nextComment"), // TODO_SECURITY should ensure this pid is self
     want('without', getArrayOfInt, assignToP),
     want('include_social', getBool, assignToP),
+    haltOnTimeout,
 function(req, res) {
-
+    if (req.timedout) { return; }
     // NOTE: I tried to speed up this query by adding db indexes, and by removing queries like getConversationInfo and finishOne.
     //          They didn't help much, at least under current load, which is negligible. pg:diagnose isn't complaining about indexes.
     //      I think the direction to go as far as optimizing this is to asyncronously build up a synced in-ram list of next comments
@@ -6704,6 +6721,7 @@ function(req, res) {
     //         Along with this would be to cache in ram info about moderation status of each comment so we can filter before returning a comment.
 
     getNextComment(req.p.zid, req.p.not_voted_by_pid, req.p.without, req.p.include_social).then(function(c) {
+        if (req.timedout) { return; }
         if (c) {
             if (!_.isUndefined(req.p.not_voted_by_pid)) {
                 c.currentPid = req.p.not_voted_by_pid;
@@ -6716,7 +6734,11 @@ function(req, res) {
             }
             res.status(200).json(o);
         }
+    }, function(err) {
+        if (req.timedout) { return; }
+        fail(res, 500, "polis_err_get_next_comment2", err);
     }).catch(function(err) {
+        if (req.timedout) { return; }
         fail(res, 500, "polis_err_get_next_comment", err);
     });
 });

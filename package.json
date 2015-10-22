@@ -22,6 +22,7 @@
     "badwords": "0.0.3",
     "bcrypt": "~0.8.5",
     "bluebird": "^2.9.34",
+    "connect-timeout": "^1.7.0",
     "express": "~3.21.2",
     "gulp": "~3.8.6",
     "gulp-eslint": "^0.15.0",
