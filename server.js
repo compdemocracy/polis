@@ -1,6 +1,16 @@
 (function() {
     "use strict";
 
+
+/*
+spinning up a replica:
+
+heroku addons:create --app=polisapp heroku-postgresql:standard-0 --follow HEROKU_POSTGRESQL_BLUE
+
+
+*/
+
+
 /*
     DNS notes:
 
@@ -714,7 +724,7 @@ mongo.connect(process.env.MONGOLAB_URI, {
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
-function pgQuery() {
+function pgQueryImpl() {
     var args = arguments;
     var queryString = args[0];
     var params;
@@ -729,7 +739,7 @@ function pgQuery() {
         throw "unexpected db query syntax";
     }
 
-    pg.connect(process.env.DATABASE_URL, function(err, client, done) {
+    pg.connect(this.databaseUrl, function(err, client, done) {
         if (err) {
             callback(err);
             // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
@@ -749,10 +759,26 @@ function pgQuery() {
     });
 }
 
+var queryReadWriteObj = {
+    databaseUrl: process.env.DATABASE_URL,
+    isReadOnly: false,
+};
+var queryReadOnlyObj = {
+    databaseUrl: process.env[process.env.DATABASE_FOR_READS_NAME],
+    isReadOnly: true,
+};
+function pgQuery() {
+    return pgQueryImpl.apply(queryReadWriteObj, arguments);
+}
 
-function pgQueryP(queryString, params) {
+function pgQuery_readOnly() {
+    return pgQueryImpl.apply(queryReadOnlyObj, arguments);
+}
+
+function pgQueryP_impl(queryString, params) {
+    var f = this.isReadOnly ? pgQuery_readOnly : pgQuery;
     return new Promise(function(resolve, reject) {
-        pgQuery(queryString, params, function(err, result) {
+        f(queryString, params, function(err, result) {
             if (err) {
                 return reject(err);
             }
@@ -765,10 +791,38 @@ function pgQueryP(queryString, params) {
     });
 }
 
-function pgQueryP_metered(name, queryString, params) {
+function pgQueryP(queryString, params) {
+    return pgQueryP_impl.apply(queryReadWriteObj, arguments);
+}
+
+function pgQueryP_readOnly(queryString, params) {
+    return pgQueryP_impl.apply(queryReadOnlyObj, arguments);
+}
+function pgQueryP_readOnly_wRetryIfEmpty(queryString, params) {
+    return pgQueryP_impl.apply(queryReadOnlyObj, arguments).then(function(rows) {
+        if (!rows.length) {
+            // the replica DB didn't have it (yet?) so try the master.
+            return pgQueryP(queryString, params);
+        }
+        return rows;
+    }); // NOTE: this does not retry in case of errors. Not sure what's best in that case.
+}
+
+
+
+function pgQueryP_metered_impl(name, queryString, params) {
+    var f = this.isReadOnly ? pgQueryP_readOnly : pgQueryP;
     return new MPromise(name, function(resolve, reject) {
-        pgQueryP(queryString, params).then(resolve, reject);
+        f(queryString, params).then(resolve, reject);
     });
+}
+
+function pgQueryP_metered(name, queryString, params) {
+    return pgQueryP_metered_impl.apply(queryReadWriteObj, arguments);
+}
+
+function pgQueryP_metered_readOnly(name, queryString, params) {
+    return pgQueryP_metered_impl.apply(queryReadOnlyObj, arguments);
 }
 
 function hasAuthToken(req) {
