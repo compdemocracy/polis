@@ -27,7 +27,7 @@
          auth_opt_tw: d.getAttribute("data-auth_opt_tw"), // default true
          // This is here in case we add other auth providers (Google, etc), you can preemptively disable them by setting this to false.
          // Example: if auth_opt_fb is true, but auth_opt_allow_3rdparty is false, users will not be prompted to auth using Facebook.
-         auth_opt_allow_3rdparty: d.getAttribute("data-auth_opt_allow_3rdparty"); // default true
+         auth_opt_allow_3rdparty: d.getAttribute("data-auth_opt_allow_3rdparty"), // default true
 
 
          ptpts_can_vote: d.getAttribute("data-ptpts_can_vote"),
