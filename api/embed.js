@@ -15,13 +15,17 @@
          height: d.getAttribute("data-height"),
          demo: d.getAttribute("data-demo"),
 
-         ucv: d.getAttribute("ucv"),
-         ucw: d.getAttribute("ucw"),
+         ucv: d.getAttribute("data-ucv"),
+         ucw: d.getAttribute("data-ucw"),
+
+
 
          // These config variables will be used to init the conversation.
          // Subsequent loads will not update to these values in our DB.
          // To change the values, go to the config tab of
          // https://pol.is/m/<conversation_id>
+         show_vis: d.getAttribute("data-show_vis"),
+
          auth_needed_to_vote: d.getAttribute("data-auth_needed_to_vote"), // default false
          auth_needed_to_write: d.getAttribute("data-auth_needed_to_write"), // default true
          // Prompt users to auth using Facebook.
@@ -92,6 +96,7 @@
 
     appendIfPresent("ucv");
     appendIfPresent("ucw");
+    appendIfPresent("show_vis");
 
     appendIfPresent("auth_needed_to_vote");
     appendIfPresent("auth_needed_to_write");
