@@ -11790,6 +11790,8 @@ function(req, res) {
             }
         }, 9999);
 
+    }).catch(function(err) {
+        res.status(404).end();
     });
 });
 
