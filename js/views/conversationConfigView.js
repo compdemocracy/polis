@@ -36,11 +36,11 @@ module.exports =  Handlebones.ModelView.extend({
       attrs.help_type = that.$("#helpTypeOn")[0].checked ? 1 : 0;
       attrs.socialbtn_type = that.$("#socialbtnTypeOn")[0].checked ? 1 : 0;
 
-      attrs.auth_needed_to_vote = that.$("#auth_needed_to_voteOn")[0].checked ? 1 : 0;
-      attrs.auth_needed_to_write = that.$("#auth_needed_to_writeOn")[0].checked ? 1 : 0;
-      attrs.auth_opt_fb = that.$("#auth_opt_fbOn")[0].checked ? 1 : 0;
-      attrs.auth_opt_tw = that.$("#auth_opt_twOn")[0].checked ? 1 : 0;
-      attrs.auth_opt_allow_3rdparty = that.$("#auth_opt_allow_3rdpartyOn")[0].checked ? 1 : 0;
+      attrs.auth_needed_to_vote = that.$("#auth_needed_to_voteOn")[0].checked ? true : false;
+      attrs.auth_needed_to_write = that.$("#auth_needed_to_writeOn")[0].checked ? true : false;
+      attrs.auth_opt_fb = that.$("#auth_opt_fbOn")[0].checked ? true : false;
+      attrs.auth_opt_tw = that.$("#auth_opt_twOn")[0].checked ? true : false;
+      attrs.auth_opt_allow_3rdparty = that.$("#auth_opt_allow_3rdpartyOn")[0].checked ? true : false;
 
       attrs.conversation_id = that.model.get("conversation_id");
       var queryString = Utils.toQueryParamString(attrs);
