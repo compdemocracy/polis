@@ -239,6 +239,13 @@ function MPromise(name, f) {
         setTimeout(function() {
             addInRamMetric(name + ".fail", duration, end);
         }, 100);
+    }).catch(function(err) {
+        var end = Date.now();
+        var duration = end - start;
+        setTimeout(function() {
+            addInRamMetric(name + ".fail", duration, end);
+            console.log("MPromise internal error");
+        }, 100);
     });
     return p;
 }
