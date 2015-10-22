@@ -11817,7 +11817,7 @@ function(req, res) {
         var timeoutHandle = setTimeout(function() {
             if (!finished) {
                 finished = true;
-                res.writeHead(408);
+                res.writeHead(504);
                 res.end("request timed out");
                 console.log("twitter_image timeout");
             }
