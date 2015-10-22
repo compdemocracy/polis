@@ -75,12 +75,23 @@
     }
     var src = polisUrl+ "/" + path.join("/");
     var paramStrings = [];
-    if (o.parent_url) {
-      paramStrings.push("parent_url="+ encodeURIComponent(o.parent_url));
+
+    function appendIfPresent(name) {
+      if (typeof o[name] !== "undefined") {
+        paramStrings.push(name + "=" + encodeURIComponent(o[name]));
+      }
     }
+
+    appendIfPresent("parent_url");
     if (o.parent_url) {
       paramStrings.push("referrer="+ encodeURIComponent(document.referrer));
     }
+    appendIfPresent("auth_needed_to_vote");
+    appendIfPresent("auth_needed_to_write");
+    appendIfPresent("auth_opt_fb");
+    appendIfPresent("auth_opt_tw");
+    appendIfPresent("auth_opt_allow_3rdparty");
+
     if (paramStrings.length) {
       src += "?" + paramStrings.join("&");
     }
