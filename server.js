@@ -11758,16 +11758,24 @@ function(req, res) {
         }
         data = data[0];
         var url = data.profile_image_url; // not https to save a round-trip
-        var x = request.get({
-            url: url,
-            timeout: 10*1000,
+
+        var didTimeout = false;
+        http.get(url, function(twitterResponse) {
+            if (!didTimeout) {
+                res.setHeader('Cache-Control', 'no-transform,public,max-age=18000,s-maxage=18000');
+                twitterResponse.pipe(res);
+            }
+        }).on("error", function(e) {
+            fail(res, 500, "polis_err_finding_file " + url, err);
         });
-        // req.pipe(x);
-        res.setHeader('Cache-Control', 'no-transform,public,max-age=18000,s-maxage=18000');
-        x.pipe(res);
-        x.on("error", function(err) {
-            fail(res, 500, "polis_err_finding_file " + path, err);
-        });
+
+        setTimeout(function() {
+            didTimeout = true;
+            res.writeHead(408);
+            res.end("request timed out");
+            console.log("twitter_image timeout");
+        }, 9999);
+
     });
 });
 
