@@ -5898,7 +5898,13 @@ function(req, res) {
 
 
 function isDuplicateKey(err) {
-    return err.code === 23505 || err.code === '23505';
+    var isdup = err.code === 23505 ||
+        err.code === '23505' ||
+        err.sqlState === 23505 ||
+        err.sqlState === '23505' ||
+        (err.messagePrimary && err.messagePrimary.indexOf("duplicate key value") >= 0)
+    ;
+    return isdup;
 }
 
 function failWithRetryRequest(res) {
@@ -8501,7 +8507,7 @@ function getTwitterUserInfo(twitter_user_id, useCache) {
             "multipart/form-data",
             function (e, data, res){
                 if (e) {
-                    console.error("get twitter token failed");
+                    console.error("get twitter token failed for twitter_user_id: " + twitter_user_id);
                     console.error(e);
                     reject(e);
                 } else {
@@ -11759,9 +11765,11 @@ function(req, res) {
         data = data[0];
         var url = data.profile_image_url; // not https to save a round-trip
 
-        var didTimeout = false;
+        var finished = false;
         http.get(url, function(twitterResponse) {
-            if (!didTimeout) {
+            if (!finished) {
+                clearTimeout(timeoutHandle);
+                finished = true;
                 res.setHeader('Cache-Control', 'no-transform,public,max-age=18000,s-maxage=18000');
                 twitterResponse.pipe(res);
             }
@@ -11769,11 +11777,13 @@ function(req, res) {
             fail(res, 500, "polis_err_finding_file " + url, err);
         });
 
-        setTimeout(function() {
-            didTimeout = true;
-            res.writeHead(408);
-            res.end("request timed out");
-            console.log("twitter_image timeout");
+        var timeoutHandle = setTimeout(function() {
+            if (!finished) {
+                finished = true;
+                res.writeHead(408);
+                res.end("request timed out");
+                console.log("twitter_image timeout");
+            }
         }, 9999);
 
     });
