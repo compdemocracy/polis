@@ -20,7 +20,7 @@
     "akismet": "0.0.11",
     "async": "~0.1.22",
     "badwords": "0.0.3",
-    "bcrypt": "~0.7.2",
+    "bcrypt": "~0.8.5",
     "bluebird": "^2.9.34",
     "express": "~3.21.2",
     "gulp": "~3.8.6",
