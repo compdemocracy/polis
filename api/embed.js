@@ -157,9 +157,9 @@
 
     window.addEventListener("message", function(event) {
       var data = event.data||{};
-      // if (!event.origin.match(/pol.is$/)) {
-      //   return;
-      // }
+      if (!event.origin.match(/pol.is$/)) {
+        return;
+      }
 
       var cbList = polisEventCallbacks[data.name]||[];
       for (var i = 0; i < cbList.length; i++) {
