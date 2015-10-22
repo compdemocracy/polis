@@ -241,6 +241,12 @@ CREATE TABLE conversations(
     auth_opt_tw BOOLEAN, -- if null, server will default to TRUE
     auth_opt_allow_3rdparty BOOLEAN, -- if null, server will default to TRUE -- this overrides auth_opt_fb and auth_opt_tw if false
 
+
+--     ptpts_can_vote INTEGER DEFAULT 1,
+--     ptpts_can_write INTEGER DEFAULT 1,
+--     ptpts_can_see_vis INTEGER DEFAULT 1,
+
+
     modified BIGINT DEFAULT now_as_millis(),
     created BIGINT DEFAULT now_as_millis(),
     UNIQUE(zid)
