@@ -9746,7 +9746,7 @@ function(req, res) {
 
   getAuthorUidsOfFeaturedComments().then(function(authorUids) {
 
-    Promise.all([
+    return Promise.all([
         getSocialParticipants(zid, uid, hardLimit, mod, lastVoteTimestamp, authorUids),
         // getFacebookFriendsInConversation(zid, uid),
         // getTwitterUsersInConversation(zid, uid, twitterLimit),
@@ -9881,7 +9881,7 @@ function(req, res) {
         return getVotesForZidPidsWithTimestampCheck(zid, pids, lastVoteTimestamp).then(function(vectors) {
 
             // TODO parallelize with above query
-            getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
+            return getBidsForPids(zid, -1, pids).then(function(pidsToBids) {
                 _.each(vectors, function(value, pid, list) {
                     pid = parseInt(pid);
                     var bid = pidsToBids[pid];
@@ -9898,19 +9898,14 @@ function(req, res) {
                     }
                 });
                 res.status(200).json(pidToData);
-            }).catch(function(err) {
+            }, function(err) {
                 // looks like there is no pca yet, so nothing to return.
                 res.status(200).json({});
             });
-
-        }).catch(function(err) {
-            fail(res, 500, "polis_err_famous_proj_get02", err);
         });
-    }).catch(function(err) {
-        fail(res, 500, "polis_err_famous_proj_get01", err);
     });
   }).catch(function(err) {
-    fail(res, 500, "polis_err_famous_proj_get00", err);
+    fail(res, 500, "polis_err_famous_proj_get", err);
   });
 });
 
