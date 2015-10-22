@@ -84,7 +84,7 @@
     var paramStrings = [];
 
     function appendIfPresent(name) {
-      if (typeof o[name] !== "undefined") {
+      if (o[name] !== null) {
         paramStrings.push(name + "=" + encodeURIComponent(o[name]));
       }
     }
