@@ -11806,6 +11806,11 @@ function fetchIndexForConversation(req, res) {
     }
 
     setTimeout(function() {
+        // Kick off requests to twitter and FB to get the share counts.
+        // This will be nice because we cache them so it will be fast when
+        // client requests these later.
+        // TODO actually store these values in a cache that is shared between
+        // the servers, probably just in the db.
         getTwitterShareCountForConversation(conversation_id).catch(function (err) {
             console.log("fetchIndexForConversation/getTwitterShareCountForConversation err " + err);
         });
