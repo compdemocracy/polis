@@ -8495,6 +8495,9 @@ function getTwitterUserInfo(twitter_user_id, useCache) {
         if (useCache && cachedCopy) {
             return resolve(cachedCopy);
         }
+        if (suspendedOrPotentiallyProblematicTwitterIds.indexOf(twitter_user_id) >= 0) {
+            return reject();
+        }
         oauth.post(
             'https://api.twitter.com/1.1/users/lookup.json',
             void 0, //'your user token for this app', //test user token
@@ -8509,6 +8512,7 @@ function getTwitterUserInfo(twitter_user_id, useCache) {
                 if (e) {
                     console.error("get twitter token failed for twitter_user_id: " + twitter_user_id);
                     console.error(e);
+                    suspendedOrPotentiallyProblematicTwitterIds.push(twitter_user_id);
                     reject(e);
                 } else {
                     twitterUserInfoCache.set(twitter_user_id, data);
