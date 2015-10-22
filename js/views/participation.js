@@ -206,7 +206,8 @@ module.exports =  ConversationView.extend({
     ctx.showLogoInFooter = false;
 
     ctx.no_vis = ctx.vis_type === 0;
-    ctx.no_write = ctx.write_type === 0;
+    ctx.no_write = ctx.write_type === 0 || !Utils.userCanWrite();
+    ctx.no_voting = !Utils.userCanVote();
     var temp = Strings.addPolisToYourSite;
     temp = temp.replace("{{URL}}", polisLogoBase64);
     ctx.addPolisToYourSite = temp;

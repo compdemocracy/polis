@@ -15,6 +15,9 @@
          height: d.getAttribute("data-height"),
          demo: d.getAttribute("data-demo"),
 
+         ucv: d.getAttribute("ucv"),
+         ucw: d.getAttribute("ucw"),
+
          // These config variables will be used to init the conversation.
          // Subsequent loads will not update to these values in our DB.
          // To change the values, go to the config tab of
@@ -86,6 +89,10 @@
     if (o.parent_url) {
       paramStrings.push("referrer="+ encodeURIComponent(document.referrer));
     }
+
+    appendIfPresent("ucv");
+    appendIfPresent("ucw");
+
     appendIfPresent("auth_needed_to_vote");
     appendIfPresent("auth_needed_to_write");
     appendIfPresent("auth_opt_fb");

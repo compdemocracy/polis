@@ -1,8 +1,9 @@
+var _ = require("underscore");
 var anonPicBase64 = require("../images/anon_profile");
 var PolisStorage = require("./polisStorage");
 var Url = require("./url");
-var millisPerDay = 1000 * 60 * 60 * 24;
 
+var millisPerDay = 1000 * 60 * 60 * 24;
 function millisSinceJoin() {
   return Date.now() - PolisStorage.userCreated();
 }
@@ -251,8 +252,26 @@ function evenlySample(items, maxSample) {
   return newItems;
 }
 
+
+function userCanVote() {
+  var params = parseQueryParams(window.location.search);
+  var ucv = params.ucv;
+  ucv = (ucv === "true" || ucv === "1" || _.isUndefined(ucv));
+  return ucv;
+}
+
+function userCanWrite() {
+  var params = parseQueryParams(window.location.search);
+  var ucw = params.ucw;
+  ucw = (ucw === "true" || ucw === "1" || _.isUndefined(ucw));
+  return ucw;
+}
+
+
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
+  userCanVote: userCanVote,
+  userCanWrite: userCanWrite,
   argMax: argMax,
   argMin: argMin,
   mapObj: mapObj,
