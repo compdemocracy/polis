@@ -2272,12 +2272,10 @@ function(req, res) {
             if (_.isUndefined(pcaResultsExistForZid[zid])) {
                 // This server doesn't know yet if there are any PCA results in the DB
                 // So try querying from -1
-                getPca(zid, -1).then(function(data) {
+                return getPca(zid, -1).then(function(data) {
                     var exists = !!data;
                     pcaResultsExistForZid[zid] = exists;
                     finishWith304or404();
-                }).catch(function(err) {
-                    fail(res, 500, err);
                 });
             } else {
                 finishWith304or404();
