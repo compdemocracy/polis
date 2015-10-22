@@ -2494,6 +2494,8 @@ function(req, res) {
 
     }, function(err) {
         res.status(304).end();
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_get_bid_misc", err);
     });
 });
 
