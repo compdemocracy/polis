@@ -3026,6 +3026,8 @@ function finishOne(res, o) {
             delete item.zid;
         }
         res.status(200).json(item);
+    }, function(err) {
+        fail(res, 500, "polis_err_finishing_responseA", err);
     }).catch(function(err) {
         fail(res, 500, "polis_err_finishing_response", err);
     });
@@ -3042,6 +3044,8 @@ function finishArray(res, a) {
             }
         }
         res.status(200).json(items);
+    }, function(err) {
+        fail(res, 500, "polis_err_finishing_response2A", err);
     }).catch(function(err) {
         fail(res, 500, "polis_err_finishing_response2", err);
     });
