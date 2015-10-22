@@ -2923,24 +2923,18 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
 var zidToConversationIdCache = new SimpleCache({
     maxSize: 1000,
 });
+
 function getZinvite(zid, dontUseCache) {
-    return new MPromise("getZinvite", function(resolve, reject) {
-        var cachedConversationId = zidToConversationIdCache.get(zid);
-        if (!dontUseCache && cachedConversationId) {
-            resolve(cachedConversationId);
-            return;
+    var cachedConversationId = zidToConversationIdCache.get(zid);
+    if (!dontUseCache && cachedConversationId) {
+        return Promise.resolve(cachedConversationId);
+    }
+    return pgQueryP_metered("getZinvite", "select * from zinvites where zid = ($1);", [zid]).then(function(rows) {
+        var conversation_id = rows && rows[0] && rows[0].zinvite || void 0;
+        if (conversation_id) {
+            zidToConversationIdCache.set(zid, conversation_id);
         }
-        pgQuery("select * from zinvites where zid = ($1);", [zid], function(err, result) {
-            if (err) {
-                reject(err);
-            } else {
-                var conversation_id = result && result.rows && result.rows[0] && result.rows[0].zinvite || void 0;
-                if (conversation_id) {
-                    zidToConversationIdCache.set(zid, conversation_id);
-                }
-                resolve(conversation_id);
-            }
-        });
+        return conversation_id;
     });
 }
 
