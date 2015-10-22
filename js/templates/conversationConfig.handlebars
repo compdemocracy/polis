@@ -43,28 +43,19 @@
       type="radio"
       name="auth_needed_to_vote"
       value="true"
-      {{#if auth_needed_to_voteIsOn}}
+      {{#if auth_needed_to_vote}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="auth_needed_to_voteOff"
       type="radio"
       name="auth_needed_to_vote"
       value="false"
-      {{#if auth_needed_to_voteIsOff}}
+      {{#unless auth_needed_to_vote}}
         checked
-      {{/if}}>
-      False
-    <input
-      id="auth_needed_to_voteDefault"
-      type="radio"
-      name="auth_needed_to_vote"
-      value="default"
-      {{#if auth_needed_to_voteDefault}}
-        checked
-      {{/if}}>
-      Default (defaults to False)</div>
+      {{/unless}}>
+      No</div>
   </p>
 
   <p title="data-auth_needed_to_write">
@@ -74,28 +65,19 @@
       type="radio"
       name="auth_needed_to_write"
       value="true"
-      {{#if auth_needed_to_writeIsOn}}
+      {{#if auth_needed_to_write}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="auth_needed_to_writeOff"
       type="radio"
       name="auth_needed_to_write"
       value="false"
-      {{#if auth_needed_to_writeIsOff}}
+      {{#unless auth_needed_to_write}}
         checked
-      {{/if}}>
-      False
-    <input
-      id="auth_needed_to_writeDefault"
-      type="radio"
-      name="auth_needed_to_write"
-      value="default"
-      {{#if auth_needed_to_writeDefault}}
-        checked
-      {{/if}}>
-      Default (defaults to True)</div>
+      {{/unless}}>
+      No</div>
   </p>
 
   <p title="data-auth_opt_fb">
@@ -105,28 +87,19 @@
       type="radio"
       name="auth_opt_fb"
       value="true"
-      {{#if auth_opt_fbIsOn}}
+      {{#if auth_opt_fb}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="auth_opt_fbOff"
       type="radio"
       name="auth_opt_fb"
       value="false"
-      {{#if auth_opt_fbIsOff}}
+      {{#unless auth_opt_fb}}
         checked
-      {{/if}}>
-      False
-    <input
-      id="auth_opt_fbDefault"
-      type="radio"
-      name="auth_opt_fb"
-      value="default"
-      {{#if auth_opt_fbDefault}}
-        checked
-      {{/if}}>
-      Default (defaults to True)</div>
+      {{/unless}}>
+      No</div>
   </p>
 
   <p title="data-auth_opt_tw">
@@ -136,28 +109,19 @@
       type="radio"
       name="auth_opt_tw"
       value="true"
-      {{#if auth_opt_twIsOn}}
+      {{#if auth_opt_tw}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="auth_opt_twOff"
       type="radio"
       name="auth_opt_tw"
       value="false"
-      {{#if auth_opt_twIsOff}}
+      {{#unless auth_opt_tw}}
         checked
-      {{/if}}>
-      False
-    <input
-      id="auth_opt_twDefault"
-      type="radio"
-      name="auth_opt_tw"
-      value="default"
-      {{#if auth_opt_twDefault}}
-        checked
-      {{/if}}>
-      Default (defaults to True)</div>
+      {{/unless}}>
+      No</div>
   </p>
 
   <p title="data-auth_opt_allow_3rdparty">
@@ -167,28 +131,19 @@
       type="radio"
       name="auth_opt_allow_3rdparty"
       value="true"
-      {{#if auth_opt_allow_3rdpartyIsOn}}
+      {{#if auth_opt_allow_3rdparty}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="auth_opt_allow_3rdpartyOff"
       type="radio"
       name="auth_opt_allow_3rdparty"
       value=""
-      {{#if auth_opt_allow_3rdpartyIsOff}}
+      {{#unless auth_opt_allow_3rdparty}}
         checked
-      {{/if}}>
-      False
-    <input
-      id="auth_opt_allow_3rdpartyDefault"
-      type="radio"
-      name="auth_opt_allow_3rdparty"
-      value="default"
-      {{#if auth_opt_allow_3rdpartyDefault}}
-        checked
-      {{/if}}>
-      Default (defaults to True)</div>
+      {{/unless}}>
+      No</div>
   </p>
 
   <p style="font-size: 18px; font-weight: 700;">Features</p>
@@ -203,7 +158,7 @@
       {{#if strict_moderation}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="strictOff"
       type="radio"
@@ -212,7 +167,7 @@
       {{#unless strict_moderation}}
         checked
       {{/unless}}>
-      False</div>
+      No</div>
   </p>
   <p>
     Show comment form to participants
@@ -224,7 +179,7 @@
       {{#if write_type}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="writeTypeOff"
       type="radio"
@@ -233,7 +188,7 @@
       {{#unless write_type}}
         checked
       {{/unless}}>
-      False</div>
+      No</div>
   </p>
   <p>
     Show visualization to participants
@@ -245,7 +200,7 @@
       {{#if vis_type}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="visTypeOff"
       type="radio"
@@ -254,7 +209,7 @@
       {{#unless vis_type}}
         checked
       {{/unless}}>
-      False</div>
+      No</div>
   </p>
 
   <p>
@@ -267,7 +222,7 @@
       {{#if help_type}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="helpTypeOff"
       type="radio"
@@ -276,7 +231,7 @@
       {{#unless help_type}}
         checked
       {{/unless}}>
-      False</div>
+      No</div>
   </p>
 
   <p>
@@ -289,7 +244,7 @@
       {{#if socialbtn_type}}
         checked
       {{/if}}>
-      True
+      Yes
     <input
       id="socialbtnTypeOff"
       type="radio"
@@ -298,7 +253,7 @@
       {{#unless socialbtn_type}}
         checked
       {{/unless}}>
-      False</div>
+      No</div>
   </p>
 
     <p style="font-size: 18px; font-weight: 700;"> Style </p>
@@ -332,7 +287,7 @@
       rows="1">{{style_btn}}</textarea></div>
   </p>
   {{!-- ========== SAVE BUTTON ========== --}}
-  <div class="">
+  <div class="" style="margin-bottom: 30px">
   	<button
       style="margin-top: 10px"
       class="Btn Btn-primary"
