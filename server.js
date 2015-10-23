@@ -1554,7 +1554,7 @@ console.log("resolve_pidThing 8");
         getInt(existingValue).then(function(pidNumber) {
 console.log("resolve_pidThing 9");
             assigner(req, pidThingStringName, pidNumber);
-            // next();
+            next();
         }).catch(function(err) {
 console.log("resolve_pidThing 10");
             fail(res, 500, "polis_err_pid_error", err);
