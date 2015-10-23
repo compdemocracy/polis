@@ -1520,9 +1520,7 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
     loggingString = "";
   }
   return function(req, res, next) {
-console.log("resolve_pidThing 1");
     if (!req.p) {
-console.log("resolve_pidThing 2");
         fail(res, 500, "polis_err_this_middleware_should_be_after_auth_and_zid", err);
         next("polis_err_this_middleware_should_be_after_auth_and_zid");
     }
@@ -1530,38 +1528,28 @@ console.log("resolve_pidThing 2");
 
     var existingValue = extractFromBody(req, pidThingStringName) || extractFromCookie(req, pidThingStringName);
 
-console.log("resolve_pidThing 3 " + existingValue);
     if (existingValue === "mypid" && req.p.zid && req.p.uid) {
-
-console.log("resolve_pidThing 4");
         getPidPromise(req.p.zid, req.p.uid).then(function(pid) {
             if (pid >= 0) {
                 assigner(req, pidThingStringName, pid);
-console.log("resolve_pidThing 5");
             }
             next();
         }).catch(function(err) {
-console.log("resolve_pidThing 6");
             fail(res, 500, "polis_err_mypid_resolve_error", err);
             next(err);
         });
     } else if (existingValue === "mypid" && req.p.zid) {
         // don't assign anything, since we have no uid to look it up.
-console.log("resolve_pidThing 7");
         next();
     } else if (!_.isUndefined(existingValue)) {
-console.log("resolve_pidThing 8");
         getInt(existingValue).then(function(pidNumber) {
-console.log("resolve_pidThing 9");
             assigner(req, pidThingStringName, pidNumber);
             next();
         }).catch(function(err) {
-console.log("resolve_pidThing 10");
             fail(res, 500, "polis_err_pid_error", err);
             next(err);
         });
     } else {
-console.log("resolve_pidThing 20");
         next();
     }
   };
