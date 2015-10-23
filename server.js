@@ -40,6 +40,7 @@ var badwords = require('badwords/object'),
     sql = require("sql"), // see here for useful syntax: https://github.com/brianc/node-sql/blob/bbd6ed15a02d4ab8fbc5058ee2aff1ad67acd5dc/lib/node/valueExpression.js
     escapeLiteral = require('pg').Client.prototype.escapeLiteral,
     pg = require('pg').native, //.native, // native provides ssl (needed for dev laptop to access) http://stackoverflow.com/questions/10279965/authentication-error-when-connecting-to-heroku-postgresql-databa
+    parsePgConnectionString = require('pg-connection-string').parse,
     mongo = require('mongodb'),
     async = require('async'),
     fs = require('fs'),
@@ -739,7 +740,7 @@ function pgQueryImpl() {
         throw "unexpected db query syntax";
     }
 
-    pg.connect(this.databaseUrl, function(err, client, done) {
+    pg.connect(this.pgConfig, function(err, client, done) {
         if (err) {
             callback(err);
             // force the pool to destroy and remove a client by passing an instance of Error (or anything truthy, actually) to the done() callback
@@ -759,13 +760,37 @@ function pgQueryImpl() {
     });
 }
 
+
+var usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
+var prodPoolSize = usingReplica ? 25 : 12;
+var pgPoolLevelRanks=["info", "verbose"];
+var pgPoolLoggingLevel = -1;// -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
+
 var queryReadWriteObj = {
-    databaseUrl: process.env.DATABASE_URL,
     isReadOnly: false,
+    pgConfig: _.extend(parsePgConnectionString(process.env.DATABASE_URL), {
+        poolSize: (devMode ? 2 : prodPoolSize),
+        // poolIdleTimeout: 30000, // max milliseconds a client can go unused before it is removed from the pool and destroyed
+        // reapIntervalMillis: 1000, //frequeny to check for idle clients within the client pool
+        poolLog: function(str, level) {
+            if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
+                console.log("pool.primary." + level + " " + str);
+            }
+        },
+    }),
 };
 var queryReadOnlyObj = {
-    databaseUrl: process.env[process.env.DATABASE_FOR_READS_NAME],
     isReadOnly: true,
+    pgConfig: _.extend(parsePgConnectionString(process.env[process.env.DATABASE_FOR_READS_NAME]), {
+        poolSize: (devMode ? 2 : prodPoolSize),
+        // poolIdleTimeout: 30000, // max milliseconds a client can go unused before it is removed from the pool and destroyed
+        // reapIntervalMillis: 1000, //frequeny to check for idle clients within the client pool
+        poolLog: function(str, level) {
+            if (pgPoolLevelRanks.indexOf(level) <= pgPoolLoggingLevel) {
+                console.log("pool.replica." + level + " " + str);
+            }
+        },
+    }),
 };
 function pgQuery() {
     return pgQueryImpl.apply(queryReadWriteObj, arguments);
