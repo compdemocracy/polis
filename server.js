@@ -11520,19 +11520,19 @@ function(req, res) {
          // These are needed to disambiguate postMessages from multiple polis conversations embedded on one page.
         url += "?site_id=" + site_id + "&page_id=" + page_id;
         if (!_.isUndefined(ucv)) {
-            url += "&ucv=" + ucv;
+            url += ("&ucv=" + ucv);
         }
         if (!_.isUndefined(ucw)) {
-            url += "&ucw=" + ucw;
+            url += ("&ucw=" + ucw);
         }
         if (!_.isUndefined(ucst)) {
-            url += "&ucst=" + ucst;
+            url += ("&ucst=" + ucst);
         }
         if (!_.isUndefined(ucsd)) {
-            url += "&ucsd=" + ucsd;
+            url += ("&ucsd=" + ucsd);
         }
         if (!_.isUndefined(ucsv)) {
-            url += "&ucsv=" + ucsv;
+            url += ("&ucsv=" + ucsv);
         }
         return url;
     }
