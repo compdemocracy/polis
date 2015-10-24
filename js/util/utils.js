@@ -280,6 +280,12 @@ function userCanSeeDescription() {
   ucsd = (ucsd === "true" || ucsd === "1" || _.isUndefined(ucsd));
   return ucsd;
 }
+function userCanSeeVis() {
+  var params = parseQueryParams(window.location.search);
+  var ucsv = params.ucsv;
+  ucsv = (ucsv === "true" || ucsv === "1" || _.isUndefined(ucsv));
+  return ucsv;
+}
 
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
@@ -288,6 +294,7 @@ module.exports = {
   userCanWrite: userCanWrite,
   userCanSeeTopic: userCanSeeTopic,
   userCanSeeDescription: userCanSeeDescription,
+  userCanSeeVis: userCanSeeVis,
   argMax: argMax,
   argMin: argMin,
   mapObj: mapObj,
