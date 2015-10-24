@@ -1049,9 +1049,9 @@ function getBool(s) {
             return resolve(s);
         }
         s = s.toLowerCase();
-        if (s === 't' || s === 'true' || s === 'on') {
+        if (s === 't' || s === 'true' || s === 'on' || s === '1') {
             return resolve(true);
-        } else if (s === 'f' || s === 'false' || s === 'off') {
+        } else if (s === 'f' || s === 'false' || s === 'off' || s === '0') {
             return resolve(false);
         }
         reject("polis_fail_parse_boolean");
