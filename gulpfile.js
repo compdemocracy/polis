@@ -629,6 +629,7 @@ gulp.task("watchForDev", [
 
     gulp.watch([
       "js/**",
+      "api/**",
       "!js/tmpl/**", // These are genterated, so don't watch!
       "css/**",
       "*.html",
