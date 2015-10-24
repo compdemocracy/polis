@@ -1045,8 +1045,15 @@ function getStringLimitLength(min, max) {
 
 function getBool(s) {
     return new Promise(function(resolve, reject) {
-        if ("boolean" === typeof s) {
+        var type = typeof s;
+        if ("boolean" === type) {
             return resolve(s);
+        }
+        if ("number" === type) {
+            if (s === 0) {
+                return resolve(false);
+            }
+            return resolve(true);
         }
         s = s.toLowerCase();
         if (s === 't' || s === 'true' || s === 'on' || s === '1') {
