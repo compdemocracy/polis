@@ -99,8 +99,11 @@
 
     appendIfPresent("ucv");
     appendIfPresent("ucw");
-    appendIfPresent("show_vis");
+    appendIfPresent("ucst");
+    appendIfPresent("ucsd");
+    appendIfPresent("ucsv");
 
+    appendIfPresent("show_vis");
     appendIfPresent("auth_needed_to_vote");
     appendIfPresent("auth_needed_to_write");
     appendIfPresent("auth_opt_fb");
