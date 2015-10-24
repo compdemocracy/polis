@@ -20,6 +20,7 @@
          ucst: d.getAttribute("data-ucst"),
          ucsd: d.getAttribute("data-ucsd"),
          ucsv: d.getAttribute("data-ucsv"),
+         ucsf: d.getAttribute("data-ucsf"),
 
 
 
@@ -102,6 +103,7 @@
     appendIfPresent("ucst");
     appendIfPresent("ucsd");
     appendIfPresent("ucsv");
+    appendIfPresent("ucsf");
 
     appendIfPresent("show_vis");
     appendIfPresent("auth_needed_to_vote");

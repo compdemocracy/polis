@@ -286,6 +286,13 @@ function userCanSeeVis() {
   ucsv = (ucsv === "true" || ucsv === "1" || _.isUndefined(ucsv));
   return ucsv;
 }
+function userCanSeeFooter() {
+  var params = parseQueryParams(window.location.search);
+  var ucsf = params.ucsf;
+  ucsf = (ucsf === "true" || ucsf === "1" || _.isUndefined(ucsf));
+  return ucsf;
+}
+
 
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
@@ -295,6 +302,7 @@ module.exports = {
   userCanSeeTopic: userCanSeeTopic,
   userCanSeeDescription: userCanSeeDescription,
   userCanSeeVis: userCanSeeVis,
+  userCanSeeFooter: userCanSeeFooter,
   argMax: argMax,
   argMin: argMin,
   mapObj: mapObj,
