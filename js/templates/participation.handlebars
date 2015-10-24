@@ -133,6 +133,7 @@
       {{/if}}
     </div>
 
+    {{#unless no_topic}}
     {{#ifDefined topic}}
       <h3
         class="HeadingA"
@@ -153,8 +154,11 @@
         ">closed</span>
       {{/unless}}
       </h3>
-      {{/ifDefined}}
-      {{#ifDefined description}}
+    {{/ifDefined}}
+    {{/unless}}
+
+    {{#unless no_description}}
+    {{#ifDefined description}}
         <p
           title="Conversation description"
           style="
@@ -165,8 +169,10 @@
           ">
           {{{description}}}
         </p>
-      {{/ifDefined}}
-      {{#if link_url}}
+    {{/ifDefined}}
+    {{/unless}}
+
+    {{#if link_url}}
         <p
           style="
             border-left: 4px solid #2980b9;
@@ -176,7 +182,7 @@
           ">
         {{linkExternal link_url link_url}}
         </p>
-      {{/if}}
+    {{/if}}
     </div>
   </div> {{! /fake container }}
 

@@ -7,7 +7,6 @@ var serialize = require("../util/serialize");
 
 
 
-
 module.exports =  Handlebones.ModelView.extend({
   name: "conversationConfigView",
   template: template,

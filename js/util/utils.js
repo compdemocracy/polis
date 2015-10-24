@@ -267,11 +267,27 @@ function userCanWrite() {
   return ucw;
 }
 
+function userCanSeeTopic() {
+  var params = parseQueryParams(window.location.search);
+  var ucst = params.ucst;
+  ucst = (ucst === "true" || ucst === "1" || _.isUndefined(ucst));
+  return ucst;
+}
+
+function userCanSeeDescription() {
+  var params = parseQueryParams(window.location.search);
+  var ucsd = params.ucsd;
+  ucsd = (ucsd === "true" || ucsd === "1" || _.isUndefined(ucsd));
+  return ucsd;
+}
+
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
   userCanVote: userCanVote,
   userCanWrite: userCanWrite,
+  userCanSeeTopic: userCanSeeTopic,
+  userCanSeeDescription: userCanSeeDescription,
   argMax: argMax,
   argMin: argMin,
   mapObj: mapObj,

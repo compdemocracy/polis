@@ -17,6 +17,8 @@
 
          ucv: d.getAttribute("data-ucv"),
          ucw: d.getAttribute("data-ucw"),
+         ucst: d.getAttribute("data-ucst"),
+         ucsd: d.getAttribute("data-ucsd"),
 
 
 
