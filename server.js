@@ -11478,6 +11478,7 @@ app.get(/^\/polis_site_id.*/,
     want('ucst', getBool, assignToP), // not persisted
     want('ucsd', getBool, assignToP), // not persisted
     want('ucsv', getBool, assignToP), // not persisted
+    want('ucsf', getBool, assignToP), // not persisted
 function(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
     var page_id = /\S\/([^\/]*)/.exec(req.path);
@@ -11492,6 +11493,7 @@ function(req, res) {
     var ucst = req.p.ucst;
     var ucsd = req.p.ucsd;
     var ucsv = req.p.ucsv;
+    var ucsf = req.p.ucsf;
     var o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -11533,6 +11535,9 @@ function(req, res) {
         }
         if (!_.isUndefined(ucsv)) {
             url += ("&ucsv=" + ucsv);
+        }
+        if (!_.isUndefined(ucsf)) {
+            url += ("&ucsf=" + ucsf);
         }
         return url;
     }
