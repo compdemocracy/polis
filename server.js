@@ -11468,6 +11468,9 @@ app.get(/^\/polis_site_id.*/,
     want('show_vis', getBool, assignToP),
     want('ucv', getBool, assignToP), // not persisted
     want('ucw', getBool, assignToP), // not persisted
+    want('ucst', getBool, assignToP), // not persisted
+    want('ucsd', getBool, assignToP), // not persisted
+    want('ucsv', getBool, assignToP), // not persisted
 function(req, res) {
     var site_id = /polis_site_id[^\/]*/.exec(req.path);
     var page_id = /\S\/([^\/]*)/.exec(req.path);
@@ -11476,8 +11479,12 @@ function(req, res) {
     }
     site_id = site_id[0];
     page_id = page_id[1];
+
     var ucv = req.p.ucv;
     var ucw = req.p.ucw;
+    var ucst = req.p.ucst;
+    var ucsd = req.p.ucsd;
+    var ucsv = req.p.ucsv;
     var o = {};
     ifDefinedSet("parent_url", req.p, o);
     ifDefinedSet("auth_needed_to_vote", req.p, o);
@@ -11510,6 +11517,15 @@ function(req, res) {
         }
         if (!_.isUndefined(ucw)) {
             url += "&ucw=" + ucw;
+        }
+        if (!_.isUndefined(ucst)) {
+            url += "&ucst=" + ucst;
+        }
+        if (!_.isUndefined(ucsd)) {
+            url += "&ucsd=" + ucsd;
+        }
+        if (!_.isUndefined(ucsv)) {
+            url += "&ucsv=" + ucsv;
         }
         return url;
     }
