@@ -3,7 +3,9 @@
             [ring.component.jetty :refer [jetty-server]]
             [ring.util.response :as response]
             [ring.middleware.params :as ring.params]
+            [ring.middleware.ssl :as ssl]
             [ring.middleware.keyword-params :as ring.keyword-params]
+            [ring.middleware.basic-authentication :as auth :refer [wrap-basic-authentication]]
             [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
             [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
@@ -14,6 +16,7 @@
             [amazonica.core :as aws]
             [amazonica.aws.s3 :as s3]
             [amazonica.aws.s3transfer :as s3transfer]
+            [clojure.tools.logging :as log]
             [clj-time.core :as time]
             [bidi.bidi :as bidi]
             [bidi.ring]))
@@ -38,8 +41,8 @@
   "Simple ping handler. Returns response with edn representation of the request as the body.
   For testing purposes."
   [request]
-  {:status  202
-   :headers {"Content-Type" "text/plain" "Location" "chhhdkjdf"}
+  {:status  200
+   :headers {"Content-Type" "text/plain"}
    :params {:stuff "the x y"}
    :body (with-out-str (clojure.pprint/pprint request))})
 
@@ -50,9 +53,8 @@
 
 (defn generate-filename
   "Generates a filename based on request-params"
-  [{:keys [zid zinvite at-date format] :as request-params}]
-  (let [zinvite (or zinvite (export/get-zinvite-from-zid zid))
-        last-updated (or at-date (System/currentTimeMillis))
+  [{:keys [zinvite at-date format] :as request-params}]
+  (let [last-updated (or at-date (System/currentTimeMillis))
         ext (case format :excel "xlsx" :csv "zip")
         path (str "/tmp/polis-export-" zinvite "-" last-updated "." ext)]
     path))
@@ -61,16 +63,15 @@
 ;; The following is really just a bunch of parameter parsing stuff.
 ;; Tihs could all possibly be interwoven with the config component as well.
 
-(defn ->int
+(defn ->double
   "Try to parse as an integer; return nil if not possible."
   [x]
-  (try (Integer/parseInt x)
+  (try (Double/parseDouble x)
        (catch Exception e nil)))
 
-(def parsers {:zid ->int
-              :zinvite ->int})
+(def parsers {:at-date ->double})
 
-(def allowed-params #{:filename :zid :zinvite :at-date :format})
+(def allowed-params #{:filename :zinvite :at-date :format})
 
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
@@ -114,8 +115,8 @@
 ;; This value is used to compute the expiry of the exports mongo collection as well.
 
 ;; move to component; uncomment on commit XXX
-;(def aws-cred {:access-key (env/env :aws-access-key)
-               ;:secret-key (env/env :aws-secret-key)})
+(def aws-cred {:access-key (env/env :aws-access-key)
+               :secret-key (env/env :aws-secret-key)})
 
 (defn full-aws-path
   [filename]
@@ -150,7 +151,7 @@
    (let [expiration (-> expiration time/hours time/from-now)]
      (s3/generate-presigned-url aws-cred "polis-datadump" (full-aws-path filename) expiration)))
   ([aws-cred filename]
-   (let [expiration (->int (:download-link-expiration env/env))]
+   (let [expiration (->double (:export-aws-link-expiration env/env))]
      (generate-aws-url! aws-cred filename expiration))))
 
 
@@ -220,6 +221,21 @@
         respond-404))))
 
 
+;; Couple helpful things for below
+
+(defn get-status-location-url
+  [filename zinvite]
+  (full-url (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
+
+(defn check-back-response
+  ([filename zinvite status]
+   {:status  status
+    :headers {"Content-Type" "text/plain"
+              "Location" (get-status-location-url filename zinvite)}
+    :body    "Request is processing, but cannot be returned now. Please check back later with the same request url."})
+  ([filename zinvite] (check-back-response filename zinvite 202)))
+
+
 ;; Requests for checking the status of a computation
 
 (defn get-datadump-url
@@ -246,25 +262,11 @@
 ;; Top level; either run and return the computation results, or set things up for a 202-lifecycle to be
 ;; completed down the road.
 
-(defn get-status-location-url
-  [filename zinvite]
-  (full-url (str "datadump/status?filename=" filename "&zinvite=" zinvite)))
-
-(defn check-back-response
-  ([filename zinvite status]
-   {:status  status
-    :headers {"Content-Type" "text/plain"
-              "Location" (get-status-location-url filename zinvite)}
-    :body    "Request is processing, but cannot be returned now. Please check back later with the same request url."})
-  ([filename zinvite] (check-back-response filename zinvite 202)))
-
 (defn run-datadump
    "Based on params this actually runs the export-conversation computation."
-  [filename {:keys [params] :as request}]
-  (let [params (parsed-params params)
-        ;; The dissoc is just a vague security measure
-        request-params (-> request
-                           :params
+  [filename params]
+  (let [;; The dissoc is just a vague security measure
+        request-params (-> params
                            (dissoc :env-overrides)
                            (assoc :filename (full-path filename)))]
     (export/export-conversation request-params)
@@ -274,7 +276,8 @@
   "Main handler function; Attempts to return a datadump file within within a set amount of time, and if it can't, will
   respond with a 202, and set up a process for obtaining the results once they're done."
   [{:keys [params] :as request}]
-  (let [filename (generate-filename request)
+  (let [request-params (parsed-params params)
+        filename (generate-filename request-params)
         datadump (async/thread (run-datadump filename request))
         timeout (async/timeout 2000)
         [done? _] (async/alts!! [datadump timeout])]
@@ -291,24 +294,48 @@
 ;; Route everything together, build handlers, etc
 
 (def routes
-  ["/" {"ping"     ping-handler
-        "datadump" {""        get-datadump-handler
-                    "status"  get-datadump-status-handler
-                    "results" (make-filename-request-handler aws-cred)}}])
+  ["/" {"ping"      ping-handler
+        "datadump/" {"get"     get-datadump-handler
+                     "status"  get-datadump-status-handler
+                     "results" (make-filename-request-handler aws-cred)}}])
 
 (def handler
   (bidi.ring/make-handler routes))
+
+
+;; securitay ;; move env variables to config component
+(defn authenticated? [name pass]
+  (and (= name (:server-auth-username env/env))
+       (= pass (:server-auth-pass env/env))))
+
+;; Again, base on config component  XXX
+(defn redirect-http-to-https-if-required
+  [handler]
+  ;; Can cast this as bool? XXX
+  ;(if (= (:server-require-ssl env/env) "true")
+  (if false
+    (do
+      ;; Should be using log
+      (log/info "SERVER_REQUIRE_SSL set to true; using redirect middleware.")
+      (-> handler ssl/wrap-forwarded-scheme ssl/wrap-ssl-redirect))
+    (do
+      (log/info "SERVER_REQUIRE_SSL unset; ssl not being required.")
+      handler)))
 
 (def app
   {:handler
    (-> handler
        ring.keyword-params/wrap-keyword-params
        ring.params/wrap-params
+       (auth/wrap-basic-authentication authenticated?)
+       ;wrap-auth
+       ;redirect-http-to-https-if-required
        )})
 
 (defn get-port
   [default]
   (or (try
+        ;; Component XXX
         (Double/parseDouble (:server-port env/env))
         (catch Exception e default))))
 
@@ -317,8 +344,24 @@
 ;; In short we're creating a reference to hold our server, and setting up functions for starting, stopping and
 ;; reloading that reference.
 
+(def ^:dynamic *jetty-settings*
+  {:app app
+   :port (get-port 3000)
+   ;:ssl? true
+   ;; Not sure exactly what this is doing; maybe leave out XXX
+   :client-auth :need
+   ;; Need to upgrade ring for this XXX
+   ;:http? false
+   ;(require '[ring.adapter.jetty :as jetty])
+   ;; Check back on :http?
+   ;(jetty/run-jetty
+   })
+
+
 (defonce http-server
-  (jetty-server {:app app, :port (get-port 3000)}))
+  (jetty-server *jetty-settings*))
+;(def http-server
+  ;(jetty-server *jetty-settings*))
 
 (defn start-server!
   []
@@ -331,7 +374,7 @@
 (defn reset-server!
   []
   (stop-server!)
-  (def http-server (jetty-server {:app app :port (get-port 3000)}))
+  (def http-server (jetty-server *jetty-settings*))
   (start-server!))
 
 
@@ -347,7 +390,22 @@
 (comment
   (require '[clj-http.client :as client])
 
+  (start-server!)
+  (stop-server!)
   (reset-server!)
+  ;#{:filename :zid :zinvite :at-date :format})
+  (client/request)
+  (let [params {:basic-auth [(:server-auth-username env/env)
+                             (:server-auth-pass env/env)]
+                :query-params {:zinvite "6sc6vt"
+                               ;:at-date 
+                               :format "csv"}}]
+    (try
+      (-> (client/get "http://localhost:3000/ping" params)
+          (dissoc :body)
+          clojure.pprint/pprint)
+      (catch Exception e (.printStackTrace e))))
+
   (-> (client/post "http://localhost:3000/ping" {:form-params {:q "foo, bar"}})
       (dissoc :body)
       clojure.pprint/pprint)
@@ -356,11 +414,27 @@
 
 ;; TODO / Thoughts
 
+
+;; # Implement
+
+;; Set up env variables in server: :export-aws-link-expiration, :export-expiry-days, :server-port,
+;; :server-auth-username, :server-auth-pass, :aws-access-key, :aws-secret-key
+
+
+;; # Check
+
+;; Add simple auth middleware
+
+;; Require zinvite from server request for downloaded conv, so that it's easier to secure (test)
+
+
+;; # Ideas
+
+;; See if it's possible to proxy/mask the aws signed url instead of redirect
+
 ;; Mmm... how to delete pending submissions that get canceled due to a server restart? maybe we keep track of
 ;; a global of what processing are running and for which exports, and look at that when we get a status
 ;; request
 
 ;; Auto retry conversations that somehow fail based on heart beat?
-
-;; Require zinvite from ser request for downloaded conv, so that it's easier to secure
 
