@@ -1,2 +1,2 @@
 worker: ./bin/poll
-web: ./bin/util-server
+web: lein with-profile production trampoline run -m polismath.server
