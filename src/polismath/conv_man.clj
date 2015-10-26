@@ -138,6 +138,7 @@
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv votes error-callback]
   (let [start-time (System/currentTimeMillis)]
+    (log/info "Starting conversation update for zid:" (:zid conv))
     (try
       (let [updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)
@@ -162,6 +163,7 @@
       (catch Exception e
         (error-callback votes start-time (:opts' conv) e)
         ; Wait a second before returning the origin, unmodified conv, to throttle retries
+        ;; XXX This shouldn't be here... ???
         (Thread/sleep 1000)
         conv))))
 

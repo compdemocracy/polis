@@ -155,11 +155,13 @@
   ([aws-cred filename expiration]
    ;; XXX more env/env stuff
    (let [expiration (-> expiration time/hours time/from-now)]
-     (s3/generate-presigned-url aws-cred "polis-datadump" (full-aws-path filename) expiration)))
+     (str (s3/generate-presigned-url aws-cred "polis-datadump" (full-aws-path filename) expiration))))
   ([aws-cred filename]
    (let [expiration (->double (:export-aws-link-expiration env/env))]
      (generate-aws-url! aws-cred filename expiration))))
 
+;(let [filename "polis-export-6sc6vt-1445837850044.zip"]
+  ;(str (s3/generate-presigned-url aws-cred "polis-datadump" (full-aws-path filename) 3)))
 
 ;; What follows is the guts of our responding and computing.
 
@@ -213,7 +215,7 @@
   "Creates a redirection response, which redirects to the aws download link."
   [aws-cred filename]
   (response/redirect
-     (generate-aws-url! aws-cred filename)))
+    (generate-aws-url! aws-cred filename)))
 
 (defn make-filename-request-handler
   "Given aws-creds, returns a function handler function which responds to requests for an existing file on AWS."
@@ -240,7 +242,7 @@
       :headers {"Content-Type" "text/plain"
                 "Location" status-url}
       :body    (str "Request is processing, but cannot be returned now. "
-                    "Please visit the url in the \"Location\" header. (" status-url ") to check back on the status.")}))
+                    "Please visit the url in the \"Location\" header (" status-url ") to check back on the status.")}))
   ([filename zinvite] (check-back-response filename zinvite 202)))
 
 
@@ -252,10 +254,11 @@
 
 (defn complete-response
   [filename zinvite]
-  {:status  201
-   :headers {"Content-Type" "text/plain"
-             "Location"     (get-datadump-url filename zinvite)}
-   :body    "Export is complete. Download at the Location url specified in the header"})
+  (let [url (get-datadump-url filename zinvite)]
+    {:status  201
+     :headers {"Content-Type" "text/plain"
+               "Location"     url}
+     :body    (str "Export is complete. Download at the Location url specified in the header (" url ")")}))
 
 (defn get-datadump-status-handler
   [{:keys [params] :as request}]
@@ -293,7 +296,6 @@
   [{:keys [params] :as request}]
   (let [params (parsed-params params)
         ;; Check validity of params here
-        ;_ (log/info "Full request" (with-out-str (clojure.pprint/pprint request)))
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
         filename (generate-filename params)
         datadump (async/thread (run-datadump filename params))
