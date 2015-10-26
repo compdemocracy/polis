@@ -56,8 +56,8 @@
   [{:keys [zinvite at-date format] :as request-params}]
   (let [last-updated (or at-date (System/currentTimeMillis))
         ext (case format :excel "xlsx" :csv "zip")
-        path (str "/tmp/polis-export-" zinvite "-" last-updated "." ext)]
-    path))
+        filename (str "polis-export-" zinvite "-" last-updated "." ext)]
+    filename))
 
 
 ;; The following is really just a bunch of parameter parsing stuff.
@@ -69,17 +69,21 @@
   (try (Double/parseDouble x)
        (catch Exception e nil)))
 
-(def parsers {:at-date ->double})
+(def parsers {:at-date ->double :format keyword})
 
 (def allowed-params #{:filename :zinvite :at-date :format})
 
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
   [params]
+  ;(log/info "Here are the params:" params)
   (reduce
-    (fn [m [k v]] (if (allowed-params k)
-                    (assoc m k ((parsers k) v))
-                    m))
+    (fn [m [k v]]
+      ;; Don't really need this if we have params instead of query params, but whateves
+      (let [k (keyword k)]
+        (if (allowed-params k)
+                      (assoc m k ((or (parsers k) identity) v))
+                      m)))
     {}
     params))
 
@@ -89,7 +93,7 @@
 
 (defn update-export-status
   [filename zinvite document]
-  (mc/insert (db/mongo-db (:env/env :mongolab-uri))
+  (mc/update (db/mongo-db (:env/env :mongolab-uri))
              (db/mongo-collection-name "exports")
              {:filename filename :zinvite zinvite}
              (db/format-for-mongo identity (assoc document
@@ -131,11 +135,13 @@
 
 (defn handle-completion!
   [aws-cred filename params]
+  (log/info "Completed export computation for filename" filename "params:" (with-out-str (str params)))
   (upload-to-aws aws-cred filename)
   (notify-mongo filename "complete" params))
 
 (defn handle-timedout-datadump!
   [aws-cred filename compute-chan params]
+  (log/info "Timed out on datadump computation for filename" filename "params:" (with-out-str (str params)) ". Starting async lifecycle.")
   ;; First let mongo know we're working on it
   (notify-mongo filename "processing" params)
   ;; Start a go routine, which upon completion of the computation loads the data to
@@ -229,10 +235,12 @@
 
 (defn check-back-response
   ([filename zinvite status]
-   {:status  status
-    :headers {"Content-Type" "text/plain"
-              "Location" (get-status-location-url filename zinvite)}
-    :body    "Request is processing, but cannot be returned now. Please check back later with the same request url."})
+   (let [status-url (get-status-location-url filename zinvite)]
+     {:status  status
+      :headers {"Content-Type" "text/plain"
+                "Location" status-url}
+      :body    (str "Request is processing, but cannot be returned now. "
+                    "Please visit the url in the \"Location\" header. (" status-url ") to check back on the status.")}))
   ([filename zinvite] (check-back-response filename zinvite 202)))
 
 
@@ -265,29 +273,47 @@
 (defn run-datadump
    "Based on params this actually runs the export-conversation computation."
   [filename params]
-  (let [;; The dissoc is just a vague security measure
-        request-params (-> params
-                           (dissoc :env-overrides)
-                           (assoc :filename (full-path filename)))]
-    (export/export-conversation request-params)
-    filename))
+  (log/info "Params for run-datadump are:" (with-out-str (prn params)))
+  (try
+    (let [;; The dissoc is just a vague security measure
+          request-params (-> params
+                             (dissoc :env-overrides)
+                             (assoc :filename (full-path filename)))]
+      (export/export-conversation request-params)
+      ;; Return truthy :done token
+      :done)
+    (catch Exception e
+      (log/error "Error with datadump computation:" (with-out-str (prn params)))
+      (.printStackTrace e)
+      {:exception e})))
 
 (defn get-datadump-handler
   "Main handler function; Attempts to return a datadump file within within a set amount of time, and if it can't, will
   respond with a 202, and set up a process for obtaining the results once they're done."
   [{:keys [params] :as request}]
-  (let [request-params (parsed-params params)
-        filename (generate-filename request-params)
-        datadump (async/thread (run-datadump filename request))
-        timeout (async/timeout 2000)
+  (let [params (parsed-params params)
+        ;; Check validity of params here
+        ;_ (log/info "Full request" (with-out-str (clojure.pprint/pprint request)))
+        _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
+        filename (generate-filename params)
+        datadump (async/thread (run-datadump filename params))
+        timeout (async/timeout 100000)
         [done? _] (async/alts!! [datadump timeout])]
-    (if done?
+    (cond
+      ;; We'll try to catch all exceptions before this 
+      (:exception done?) 
+      {:status 500 :headers {"Content-Type" "text/plain"} :body "There was an error processing this request."}
+      ;; Any other truthy value means we have successful computation
+      done?
       (do
         (handle-completion! aws-cred filename params)
-        ;(response/file-response "6sc6vt-export.zip") ; XXX
-        (response/file-response (full-path filename)))
+        (assoc-in (response/file-response (full-path filename))
+                   [:headers "Content-Disposition"]
+                   (str "attachment; filename=" \" filename \")))
+      ;; Otherwise, the timeout hit, and we should trigger the check back later lifecycle
+      :else
       (do
-        (handle-timedout-datadump! aws-cred datadump filename params)
+        (handle-timedout-datadump! aws-cred filename datadump params)
         (check-back-response filename (:zinvite params))))))
 
 
@@ -322,14 +348,24 @@
       (log/info "SERVER_REQUIRE_SSL unset; ssl not being required.")
       handler)))
 
+;; config env var?
+(def valid-remote-addresses #{"pol.is" "preprod.pol.is" "127.0.0.1" "polis.herokuapp.com" "polis-preprod.herokuapp.com"})
+(defn restrict-remote-address
+  [handler]
+  (fn [request]
+    (if-not (valid-remote-addresses (:remote-addr request))
+      {:status 401 :header {"Content-Type" "text/plain"} :body "Domain restriction is activated, and you are not requesting from an authorized domain"}
+      (handler request))))
+
+
 (def app
   {:handler
    (-> handler
        ring.keyword-params/wrap-keyword-params
        ring.params/wrap-params
        (auth/wrap-basic-authentication authenticated?)
-       ;wrap-auth
        ;redirect-http-to-https-if-required
+       ;restrict-remote-access
        )})
 
 (defn get-port
@@ -347,21 +383,13 @@
 (def ^:dynamic *jetty-settings*
   {:app app
    :port (get-port 3000)
-   ;:ssl? true
    ;; Not sure exactly what this is doing; maybe leave out XXX
    :client-auth :need
-   ;; Need to upgrade ring for this XXX
-   ;:http? false
-   ;(require '[ring.adapter.jetty :as jetty])
-   ;; Check back on :http?
-   ;(jetty/run-jetty
    })
 
 
 (defonce http-server
   (jetty-server *jetty-settings*))
-;(def http-server
-  ;(jetty-server *jetty-settings*))
 
 (defn start-server!
   []
@@ -393,8 +421,8 @@
   (start-server!)
   (stop-server!)
   (reset-server!)
-  ;#{:filename :zid :zinvite :at-date :format})
-  (client/request)
+
+  ;(client/request)
   (let [params {:basic-auth [(:server-auth-username env/env)
                              (:server-auth-pass env/env)]
                 :query-params {:zinvite "6sc6vt"
@@ -420,12 +448,18 @@
 ;; Set up env variables in server: :export-aws-link-expiration, :export-expiry-days, :server-port,
 ;; :server-auth-username, :server-auth-pass, :aws-access-key, :aws-secret-key
 
+;; Error handling on export fail...
+
+;; Should do validations on request params and return 4xx if anything is fishy
+
 
 ;; # Check
 
-;; Add simple auth middleware
+;; auth middleware [x]
 
 ;; Require zinvite from server request for downloaded conv, so that it's easier to secure (test)
+
+;; ssl redirects and such
 
 
 ;; # Ideas
@@ -437,4 +471,7 @@
 ;; request
 
 ;; Auto retry conversations that somehow fail based on heart beat?
+
+
+:ok
 

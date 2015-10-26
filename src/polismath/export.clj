@@ -22,6 +22,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr]
+            [clojure.tools.logging :as log]
             [clojure.newtools.cli :refer [parse-opts]])
   (:import [java.util.zip ZipOutputStream ZipEntry]))
 
@@ -61,7 +62,7 @@
         (ko/fields :zid)
         (ko/where {:owner uid})))))
 
-(get-zids-for-uid 118877)
+;(get-zids-for-uid 118877)
 
 
 (defn get-zinvite-from-zid
@@ -416,7 +417,10 @@
 
 (defn zipfile-basename
   [filename]
-  (clojure.string/replace filename #"\.zip$" ""))
+  (-> filename 
+      (clojure.string/split #"\/")
+      last
+      (clojure.string/replace #"\.zip$" "")))
 
 
 ;; Must assert .zip in filenames or things will break on unzipping XXX
@@ -458,8 +462,8 @@
 
 (defn get-export-data
   [{:keys [zid zinvite env-overrides] :as kw-args}]
-  (println "zid = " zid)
   (let [zid (or zid (micro/get-zid-from-zinvite zinvite))
+        ;; assert zid
         votes (get-conversation-votes zid)
         comments (enriched-comments-data (get-comments-data zid) votes)
         participants (get-participation-data zid)
@@ -489,8 +493,13 @@
 
 
 (defn export-conversation
+  "This is the main API endpoint for the export functionality. Given either :zid or :zinvite, export data to
+  the specified :format and spit results out to :filename. Optionally, a :zip-stream and :entry point may be
+  specified, which can be used for biulding up items in a zip file. This is used in export/-main to export all
+  convs for a given uid, for example."
   ;; Don't forget env-overrides {:math-env "prod"}; should clean up with system
   [{:keys [zid zinvite format filename zip-stream entry-point env-overrides at-date] :as kw-args}]
+  (log/info "Exporting data for zid =" zid ", zinvite =" zinvite)
   (let [export-data (if at-date 
                       (get-export-data-at-date kw-args)
                       (get-export-data kw-args))
