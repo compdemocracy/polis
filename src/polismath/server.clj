@@ -25,11 +25,10 @@
 ;; First we'll just set up some basic helpers and settings/variables we'll need.
 ;; We'll really want to move these to the configuration component when that exists. XXX
 
-(def tmp-dir "/tmp/")
+(def tmp-dir (or (:export-temp-dir env/env) "/tmp/")) ; XXX
 (defn full-path [filename] (str tmp-dir filename))
 
-(def app-url-base "https://localhost:3000")
-;(def app-url-base "https://polismath-aux.heroku.com")
+(def app-url-base (or (:export-server-url-base env/env) "http://localhost:3000"))
 (defn full-url
   [& path]
   (apply str app-url-base "/" path))
@@ -43,7 +42,6 @@
   [request]
   {:status  200
    :headers {"Content-Type" "text/plain"}
-   :params {:stuff "the x y"}
    :body (with-out-str (clojure.pprint/pprint request))})
 
 
@@ -210,7 +208,7 @@
 
 
 ;; Requests for exported files in aws.
-
+:
 (defn redirect-to-aws-url
   "Creates a redirection response, which redirects to the aws download link."
   [aws-cred filename]
@@ -333,14 +331,14 @@
 
 ;; securitay ;; move env variables to config component
 (defn authenticated? [name pass]
-  (and (= name (:server-auth-username env/env))
-       (= pass (:server-auth-pass env/env))))
+  (and (= name (:export-server-auth-username env/env))
+       (= pass (:export-server-auth-pass env/env))))
 
 ;; Again, base on config component  XXX
 (defn redirect-http-to-https-if-required
   [handler]
   ;; Can cast this as bool? XXX
-  ;(if (= (:server-require-ssl env/env) "true")
+  ;(if (= (:export-server-require-ssl env/env) "true")
   (if false
     (do
       ;; Should be using log
@@ -411,9 +409,7 @@
 ;; Main function; just start the component
 
 (defn main []
-  (start-server!)
-  (stop-server!)
-  )
+  (start-server!))
 
 ;; For sketching and REPLING
 
@@ -425,8 +421,8 @@
   (reset-server!)
 
   ;(client/request)
-  (let [params {:basic-auth [(:server-auth-username env/env)
-                             (:server-auth-pass env/env)]
+  (let [params {:basic-auth [(:export-server-auth-username env/env)
+                             (:export-server-auth-pass env/env)]
                 :query-params {:zinvite "6sc6vt"
                                ;:at-date 
                                :format "csv"}}]
@@ -448,7 +444,7 @@
 ;; # Implement
 
 ;; Set up env variables in server: :export-aws-link-expiration, :export-expiry-days, :server-port,
-;; :server-auth-username, :server-auth-pass, :aws-access-key, :aws-secret-key
+;; :export-server-auth-username, :export-server-auth-pass, :aws-access-key, :aws-secret-key
 
 ;; Error handling on export fail...
 
