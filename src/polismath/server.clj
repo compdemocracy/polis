@@ -149,13 +149,13 @@
 
 (defn generate-aws-url!
   "Generate a presigned url from amazon for the given filename. Optionally set an expiration in hours (defaulting to the number
-  sourced from env variable :download-link-expiration."
+  sourced from env variable :download-link-expiration-hours."
   ([aws-cred filename expiration]
    ;; XXX more env/env stuff
    (let [expiration (-> expiration time/hours time/from-now)]
      (str (s3/generate-presigned-url aws-cred "polis-datadump" (full-aws-path filename) expiration))))
   ([aws-cred filename]
-   (let [expiration (->double (:export-aws-link-expiration env/env))]
+   (let [expiration (->double (:export-aws-link-expiration-hours env/env))]
      (generate-aws-url! aws-cred filename expiration))))
 
 ;(let [filename "polis-export-6sc6vt-1445837850044.zip"]
@@ -372,7 +372,7 @@
   [default]
   (or (try
         ;; Component XXX
-        (Double/parseDouble (:server-port env/env))
+        (Double/parseDouble (:port env/env))
         (catch Exception e default))))
 
 ;; Enter component:
