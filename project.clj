@@ -63,7 +63,7 @@
                  [clj-excel "0.0.1"]
                  [semantic-csv "0.1.0"]
                  [dk.ative/docjure "1.8.0"]
-                 [prismatic/plumbing "0.4.4"]
+                 [prismatic/plumbing "0.3.3"]
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
