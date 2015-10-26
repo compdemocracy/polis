@@ -208,7 +208,7 @@
 
 
 ;; Requests for exported files in aws.
-:
+
 (defn redirect-to-aws-url
   "Creates a redirection response, which redirects to the aws download link."
   [aws-cred filename]
