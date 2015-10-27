@@ -14,7 +14,7 @@
             ;[lein-gorilla "0.3.4"]
             ;[lein-environ "0.4.0"]
             ]
-  :git-dependencies [["https://github.com/Prismatic/hiphip.git" "master"]
+  :git-dependencies [
                      ["https://github.com/metasoarous/tools.cli.git" "master"]
                      ["https://github.com/GeorgeJahad/debug-repl.git" "master"]]
   :dependencies [[commons-collections/commons-collections "3.2.1"]
@@ -47,7 +47,7 @@
                  ;[javax.servlet/servlet-api "2.5"] ; temp
                  ;[compojure "1.1.3"] ;; update to 1.4.0 when storm moves
                  ;; fuck it; using bidi
-                 [bidi "1.20.3"]
+                 [bidi "1.20.3" :exclusions [prismatic/schema]]
                  [org.apache.storm/storm-core "0.9.2-incubating"]
                  [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
@@ -63,7 +63,7 @@
                  [clj-excel "0.0.1"]
                  [semantic-csv "0.1.0"]
                  [dk.ative/docjure "1.8.0"]
-                 [prismatic/plumbing "0.2.0"]
+                 [prismatic/plumbing "0.3.3"]
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
