@@ -408,7 +408,7 @@
 
 ;; Main function; just start the component
 
-(defn main []
+(defn -main []
   (start-server!))
 
 ;; For sketching and REPLING
