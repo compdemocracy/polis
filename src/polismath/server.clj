@@ -91,7 +91,7 @@
 
 (defn update-export-status
   [filename zinvite document]
-  (mc/update (db/mongo-db (:env/env :mongolab-uri))
+  (mc/update (db/mongo-db (:mongolab-uri env/env))
              (db/mongo-collection-name "exports")
              {:filename filename :zinvite zinvite}
              (db/format-for-mongo identity (assoc document
@@ -102,7 +102,7 @@
 
 (defn get-export-status
   [filename zinvite]
-  (mc/find-one (db/mongo-db (:env/env :mongolab-uri))
+  (mc/find-one (db/mongo-db (:mongolab-uri env/env))
                (db/mongo-collection-name "exports")
                {:filename filename :zinvite zinvite}))
 
