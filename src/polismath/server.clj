@@ -133,14 +133,20 @@
                  :key (full-aws-path filename)
                  :file (full-path filename)))
 
+;; This will end up redirecting to the aws download link
+(defn get-datadump-url
+  [filename zinvite]
+  (full-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
 
-;; This should be good enough for now... just dispatch on tag
+
+;; Email notification of completion
+
 (defn hiccup-to-plain-text-dispatch
   [hiccup-or-string]
   (if (string? hiccup-or-string)
     :type/string
     (first hiccup-or-string)))
-;(ns-unmap *ns* 'hiccup-to-plain-text)
+
 (defmulti hiccup-to-plain-text
   "Converts hiccup data to plain text."
   {:arglists '([hiccup])}
@@ -311,10 +317,6 @@
 
 
 ;; Requests for checking the status of a computation
-
-(defn get-datadump-url
-  [filename zinvite]
-  (full-url (str "datadump/results?filename=" filename "&zinvite=" zinvite)))
 
 (defn complete-response
   [filename zinvite]
