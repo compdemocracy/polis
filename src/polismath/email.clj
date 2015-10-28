@@ -12,6 +12,6 @@
                   {:basic-auth ["api" *mailgun-key*]
                    :query-params params})
      (catch Exception e (.printStackTrace e))))
-  ([from to subject text html] (send-email {:from from :to to :subject subject :text text :html html}))
-  ([from to subject text] (send-email {:from from :to to :subject subject :text text})))
+  ([from to subject text html] (send-email! {:from from :to to :subject subject :text text :html html}))
+  ([from to subject text] (send-email! {:from from :to to :subject subject :text text})))
 
