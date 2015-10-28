@@ -186,7 +186,7 @@
          " conversation " [:a {:href conv-url} conv-url] " that has just completed. "
          "You can download the results for this conversation at the following url:"]
      [:p [:a {:href download-url} download-url]]
-     [:p "Please let us know if you have any questons about the data"]
+     [:p "Please let us know if you have any questons about the data."]
      [:p "Thanks for using " polis-link "!"]
      [:p "Christopher Small" [:br] "Chief Data Scientist"]]))
 
