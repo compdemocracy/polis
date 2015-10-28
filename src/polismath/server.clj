@@ -11,8 +11,10 @@
             [plumbing.core :as pc]
             [polismath.env :as env]
             [polismath.db :as db]
+            [polismath.email :as email]
             [monger.core :as mg]
             [monger.collection :as mc]
+            [hiccup.core :as hiccup]
             [amazonica.core :as aws]
             [amazonica.aws.s3 :as s3]
             [amazonica.aws.s3transfer :as s3transfer]
@@ -69,7 +71,7 @@
 
 (def parsers {:at-date ->double :format keyword})
 
-(def allowed-params #{:filename :zinvite :at-date :format})
+(def allowed-params #{:filename :zinvite :at-date :format :email})
 
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
@@ -131,11 +133,78 @@
                  :key (full-aws-path filename)
                  :file (full-path filename)))
 
+
+;; This should be good enough for now... just dispatch on tag
+(defn hiccup-to-plain-text-dispatch
+  [hiccup-or-string]
+  (if (string? hiccup-or-string)
+    :type/string
+    (first hiccup-or-string)))
+;(ns-unmap *ns* 'hiccup-to-plain-text)
+(defmulti hiccup-to-plain-text
+  "Converts hiccup data to plain text."
+  {:arglists '([hiccup])}
+  hiccup-to-plain-text-dispatch)
+
+(defmethod hiccup-to-plain-text :default
+  [[tag & args]]
+  (let [args (if (map? (first args)) (rest args) args)]
+    (clojure.string/join "" (map hiccup-to-plain-text args))))
+
+(defmethod hiccup-to-plain-text :type/string
+  ;; This one is a little hacky... should probaby do this a different way
+  [string]
+  string)
+
+(defmethod hiccup-to-plain-text :p
+  [[tag & args]]
+  (let [args (if (map? (first args)) (rest args) args)]
+    (str (clojure.string/join "" (map hiccup-to-plain-text args)) "\n\n")))
+
+(defmethod hiccup-to-plain-text :a
+  ;; Should add metadata about what should happen with :a (href or innner)
+  [[tag attrs & args]]
+  (:href attrs))
+
+(defmethod hiccup-to-plain-text :br
+  [tag & args]
+  "\n")
+
+(defn completion-email-text
+  [zinvite download-url]
+  (let [conv-url (str "pol.is/" zinvite)
+        polis-link [:a {:href "pol.is"} "pol.is"]]
+    [:html
+     [:p "Greetings"]
+     [:p "You created a data export for " polis-link
+         " conversation " [:a {:href conv-url} conv-url] " that has just completed. "
+         "You can download the results for this conversation at the following url:"]
+     [:p [:a {:href download-url} download-url]]
+     [:p "Please let us know if you have any questons about the data"]
+     [:p "Thanks for using " polis-link "!"]
+     [:p "Christopher Small" [:br] "Chief Data Scientist"]]))
+
+(hiccup/html (completion-email-text "xkjdfkj" "xkcd.com"))
+(println (hiccup-to-plain-text (completion-email-text "xkjdfkj" "xkcd.com")))
+
+(defn send-email-notification!
+  [filename params]
+  (let [zinvite (:zinvite params)
+        download-url (get-datadump-url filename zinvite)
+        email-hiccup (completion-email-text zinvite download-url)]
+    (email/send-email
+      "Christopher Small <chris@pol.is>"
+      (:email params)
+      (str "Data export for pol.is conversation pol.is/" zinvite)
+      (hiccup-to-plain-text email-hiccup)
+      (hiccup/html email-hiccup))))
+
 (defn handle-completion!
   [aws-cred filename params]
   (log/info "Completed export computation for filename" filename "params:" (with-out-str (str params)))
   (upload-to-aws aws-cred filename)
-  (notify-mongo filename "complete" params))
+  (notify-mongo filename "complete" params)
+  (when (:email params) (send-email-notification! filename params)))
 
 (defn handle-timedout-datadump!
   [aws-cred filename compute-chan params]
