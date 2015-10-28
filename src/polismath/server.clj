@@ -184,15 +184,12 @@
      [:p "Thanks for using " polis-link "!"]
      [:p "Christopher Small" [:br] "Chief Data Scientist"]]))
 
-(hiccup/html (completion-email-text "xkjdfkj" "xkcd.com"))
-(println (hiccup-to-plain-text (completion-email-text "xkjdfkj" "xkcd.com")))
-
 (defn send-email-notification!
   [filename params]
   (let [zinvite (:zinvite params)
         download-url (get-datadump-url filename zinvite)
         email-hiccup (completion-email-text zinvite download-url)]
-    (email/send-email
+    (email/send-email!
       "Christopher Small <chris@pol.is>"
       (:email params)
       (str "Data export for pol.is conversation pol.is/" zinvite)
