@@ -263,20 +263,30 @@
     <p style="font-size: 18px; font-weight: 700;"> Style </p>
 
   <p>
-    Customize background color (type in a CSS color or hex code (#00ff00))
-    <div class="config-option-row"><input
-      style="
-        display: inline;
-        width: 80px;
-        padding: 5px;
-        margin-bottom: 20px;
-      "
-      id="customBgColor"
+    Customize background color
+    <div class="config-option-row">
+    <input
+      id="bgColorWhiteOff"
+      type="radio"
       name="bgcolor"
-      value="{{bgcolor}}" /></div>
+      value=""
+      {{#unless bgcolor_white}}
+        checked
+      {{/unless}}>
+      Default<input
+      id="bgColorWhiteOn"
+      type="radio"
+      name="bgcolor"
+      value="true"
+      {{#if bgcolor_white}}
+        checked
+      {{/if}}>
+      White</div>
+
+
   </p>
   <p>
-    Customize Submit button CSS (separated by ;)
+    Customize Submit button Color (type in a CSS color or hex code (#00ff00), or blank for default)
     <div class="config-option-row">
     <textarea
       style="font-family: monospace; width: 100%;"

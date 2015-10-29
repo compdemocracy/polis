@@ -41,6 +41,8 @@ module.exports =  Handlebones.ModelView.extend({
       attrs.auth_opt_tw = that.$("#auth_opt_twOn")[0].checked ? true : false;
       attrs.auth_opt_allow_3rdparty = that.$("#auth_opt_allow_3rdpartyOn")[0].checked ? true : false;
 
+      attrs.bgcolor = that.$("#bgColorWhiteOn")[0].checked ? "#fff" : "default";
+
       attrs.conversation_id = that.model.get("conversation_id");
       var queryString = Utils.toQueryParamString(attrs);
       $.ajax({
@@ -56,11 +58,12 @@ module.exports =  Handlebones.ModelView.extend({
     });
 
   },
-  // context: function() {
-  //   var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-  //   // ctx.created = new Date(Number(ctx.created));
-  //   return ctx;
-  // },
+  context: function() {
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    // ctx.created = new Date(Number(ctx.created));
+    ctx.bgcolor_white = ["#fff", "#ffffff", "white"].indexOf(ctx.bgcolor) >= 0;
+    return ctx;
+  },
   initialize: function(options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
