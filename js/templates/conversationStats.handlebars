@@ -22,4 +22,19 @@
     <span>Vote Count Histogram</span>
   </h3>
   <svg id="votesHistogram" width="1000" height="400"></svg>
+
+  <h3 style="margin-top: 40px">
+    <div>Data Export</div>
+
+  </h3>
+  <a href="/api/v3/dataExport?conversation_id={{conversation_id}}"
+    style="margin-top: 20px; text-transform: none; color: white"
+    id="exportButton"
+      class="Btn Btn-primary"
+    >
+    Export data to .zip file
+  </a>
+  <div style="margin-top: 10px;">NOTE: This should take a few seconds. If it takes longer than 30 seconds, check the email address associated with your pol.is account for a download link.</div>
+
+
 </div>
