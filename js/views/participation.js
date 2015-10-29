@@ -784,7 +784,7 @@ module.exports =  ConversationView.extend({
 
       // var gotFirstComment = (firstComment && !_.isUndefined(firstComment.txt));
       // var openToWriteTab = !gotFirstComment;
-      var allowMajority = this.model.get("vis_type") >= 1;
+      var allowMajority = true; //this.model.get("vis_type") >= 1;
       this.conversationTabs = this.addChild(new ConversationTabsView({
         serverClient: serverClient,
         // openToWriteTab: openToWriteTab,
