@@ -7484,7 +7484,11 @@ function(req, res){
         fields.socialbtn_type = req.p.socialbtn_type;
     }
     if (!_.isUndefined(req.p.bgcolor)) {
-        fields.bgcolor = req.p.bgcolor;
+        if (req.p.bgcolor === "default") {
+            fields.bgcolor = null;
+        } else {
+            fields.bgcolor = req.p.bgcolor;
+        }
     }
     if (!_.isUndefined(req.p.style_btn)) {
         fields.style_btn = req.p.style_btn;
