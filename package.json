@@ -1,7 +1,7 @@
 {
-  "name": "coral-boilerplate",
+  "name": "polis-react",
   "version": "0.0.1",
-  "description": "trust",
+  "description": "Polis React",
   "scripts": {
     "clean": "rimraf dist",
     "build:webpack": "NODE_ENV=production webpack --config webpack.config.js",
@@ -9,7 +9,7 @@
     "start": "node dev-server.js",
     "lint": "eslint src"
   },
-  "author": "Riley Davis",
+  "author": "Colin Megill",
   "devDependencies": {
     "babel-core": "^5.8.25",
     "babel-eslint": "^4.1.3",
