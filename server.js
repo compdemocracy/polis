@@ -2383,6 +2383,53 @@ function(req, res) {
     });
 });
 
+app.get("/api/v3/dataExport",
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP),
+function(req, res) {
+    Promise.all([
+        getUserInfoForUid2(req.p.uid),
+        getConversationInfo(req.p.zid),
+    ]).then(function(a) {
+        var user = a[0];
+        var conv = a[1];
+        var isOwner = req.p.uid === conv.owner;
+        var isAllowed = isOwner || isPolisDev(req.p.uid);
+
+        if (!isAllowed) {
+            fail(res, 403, "polis_err_permission", err);
+            return;
+        }
+        var exportServerUser = process.env.EXPORT_SERVER_AUTH_USERNAME;
+        var exportServerPass = process.env.EXPORT_SERVER_AUTH_PASS;
+
+        var url = "http://" +
+            exportServerUser+":"+exportServerPass +
+            "@polisdarwin.herokuapp.com/datadump/get?zinvite=" +
+            req.p.conversation_id +
+            "&format=csv&email=" +
+            user.email;
+
+        var x = request(url);
+        req.pipe(x);
+        x.pipe(res);
+        x.on("error", function(err) {
+            fail(res, 500, "polis_err_data_export1", err);
+        });
+
+        // "https://polisdarwin.herokuapp.com/datadump/results?filename=polis-export-2demo-1446053307819.zip&zinvite=2demo"
+
+    }, function(err) {
+        fail(res, 500, "polis_err_data_export2", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_data_export3", err);
+    });
+
+});
+
+
 app.get("/api/v3/math/pcaPlaybackList",
     moveToBody,
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
@@ -3537,7 +3584,7 @@ function getUserInfoForUid(uid, callback) {
         callback(null, results.rows[0]);
     });
 }
-function getUserInfoForUid2(uid, callback) {
+function getUserInfoForUid2(uid) {
     return new MPromise("getUserInfoForUid2", function(resolve, reject) {
         pgQuery_readOnly("SELECT * from users where uid = $1", [uid], function(err, results) {
             if (err) { return reject(err); }
