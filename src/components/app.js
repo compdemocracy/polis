@@ -16,7 +16,7 @@ class App extends React.Component {
   render() {
     return (
       <div>
-        <h1>{this.props.message}</h1>
+        <h1>{this.props.message} and reloads</h1>
         <button style={styles}>Click Me</button>
         <div>
           {this.getStats()}
