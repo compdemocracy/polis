@@ -12009,6 +12009,36 @@ function(req, res) {
 });
 // app.get(/^\/iim\/([0-9][0-9A-Za-z]+)$/, fetchIndex);
 
+
+
+
+function makeReactClientProxy(hostname, port) {
+    return function(req, res) {
+        var temp = req.path.split("/");
+        temp.shift();
+        temp.shift();
+        var path = "/" + temp.join("/");
+        var url;
+        if (devMode) {
+            url = "http://" + hostname + ":" + port + path;
+        } else {
+            fail(res, 404, "polis_err_finding_file " + path);
+            return;
+        }
+        console.log("ORIG", req.path);
+        console.log("URL", url);
+        var x = request(url);
+        req.pipe(x);
+        x.pipe(res);
+        x.on("error", function(err) {
+            fail(res, 500, "polis_err_finding_file " + path, err);
+        });
+    };
+}
+
+
+
+app.get(/^\/react(\/.*)?$/, makeReactClientProxy("localhost", 3000));
 app.get(/^\/inbox(\/.*)?$/, fetchIndexWithoutPreloadData);
 app.get(/^\/r/, fetchIndexWithoutPreloadData);
 app.get(/^\/hk/, fetchIndexWithoutPreloadData);
