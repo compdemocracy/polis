@@ -4609,8 +4609,12 @@ function(req, res) {
     .catch(function(err) {
         if (err && err.message && err.message.match(/polis_err_need_full_user/)) {
             userFail(res, 403, err.message, err);
-        } else {
+        } else if (err && err.message) {
             fail(res, 500, err.message, err);
+        } else if (err) {
+            fail(res, 500, "polis_err_joinWithZidOrSuzinvite1", err);
+        } else {
+            fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
         }
     });
 });
