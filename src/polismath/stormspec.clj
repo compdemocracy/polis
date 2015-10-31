@@ -1,11 +1,11 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
-  (:require [polismath.simulation :as sim]
-            [polismath.conv-man :as cm]
+  (:require [polismath.conv-man :as cm]
             [polismath.db :as db]
+            [polismath.env :as env]
+            ;[polismath.simulation :as sim]
             [clojure.core.matrix :as ccm]
             [plumbing.core :as pc]
-            [polismath.env :as env]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]]
             [clojure.tools.logging :as log]
@@ -26,23 +26,23 @@
 
 
 
-(let [sim-vote-chan (chan 10e5)]
-  (log/warn "Going to be polling redis for simulated votes")
-  ; Function that starts a service which polls redis and throws it onto a queue
-  (defn start-sim-poller!
-    []
-    (sim/wcar-worker*
-      "simvotes"
-      {:handler (fn [{:keys [message attempt] :as handler-args}]
-                  (if message
-                    (>!! sim-vote-chan message)
-                    (log/warn "Nil message to carmine?" handler-args))
-                  {:status :success})}))
-  ; Construct a poller that also check the channel for simulated messages and passes them through
-  (defn sim-poll
-    "Do stuff with the fake comments and sim comments"
-    [last-vote-timestamp]
-    (cm/take-all!! sim-vote-chan)))
+;(let [sim-vote-chan (chan 10e5)]
+  ;(log/warn "Going to be polling redis for simulated votes")
+  ;; Function that starts a service which polls redis and throws it onto a queue
+  ;(defn start-sim-poller!
+    ;[]
+    ;(sim/wcar-worker*
+      ;"simvotes"
+      ;{:handler (fn [{:keys [message attempt] :as handler-args}]
+                  ;(if message
+                    ;(>!! sim-vote-chan message)
+                    ;(log/warn "Nil message to carmine?" handler-args))
+                  ;{:status :success})}))
+  ;; Construct a poller that also check the channel for simulated messages and passes them through
+  ;(defn sim-poll
+    ;"Do stuff with the fake comments and sim comments"
+    ;[last-vote-timestamp]
+    ;(cm/take-all!! sim-vote-chan)))
 
 
 (defspout poll-spout ["type" "zid" "batch"] {:prepare true :params [type poll-fn timestamp-key poll-interval]}
@@ -55,7 +55,7 @@
       (nextTuple []
         (log/info "Polling" type ">" @last-timestamp)
         (let [results (({:poll db/poll
-                         :sim-poll sim-poll
+                         ;:sim-poll sim-poll
                          :mod-poll db/mod-poll} poll-fn)
                        @last-timestamp)
               grouped-batches (group-by :zid results)]
@@ -85,9 +85,9 @@
 (defn mk-topology [sim recompute]
   (let [spouts {"vote-spout" (spout-spec (poll-spout :votes :poll :created 1000))
                 "mod-spout"  (spout-spec (poll-spout :moderation :mod-poll :modified 5000))}
-        spouts (if sim
-                 (assoc spouts "sim-vote-spout" (spout-spec (poll-spout "votes" :sim-poll :created 1000)))
-                 spouts)
+        ;spouts (if sim
+                 ;(assoc spouts "sim-vote-spout" (spout-spec (poll-spout "votes" :sim-poll :created 1000)))
+                 ;spouts)
         bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
   (topology
     spouts
@@ -113,9 +113,10 @@
   "Has the same options as simulation if simulations are run"
   (into
     [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
-     ["-s" "--sim"]
+     ;["-s" "--sim"]
      ["-r" "--recompute"]]
-    sim/cli-options))
+    ;sim/cli-options
+    ))
 
 
 (defn usage [options-summary]

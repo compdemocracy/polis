@@ -19,7 +19,7 @@
                  [cheshire "5.3.1"]
                  [org.clojure/tools.reader "0.8.13"]
                  [com.taoensso/timbre "3.3.1"]
-                 [com.taoensso/carmine "2.7.0" :exclusions [org.clojure/clojure]]
+                 ;[com.taoensso/carmine "2.7.0" :exclusions [org.clojure/clojure]]
                  [net.mikera/core.matrix "0.23.0"]
                  [net.mikera/core.matrix.stats "0.3.0"]
                  [net.mikera/vectorz-clj "0.19.0"]
