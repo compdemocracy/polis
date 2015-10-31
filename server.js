@@ -4607,7 +4607,7 @@ function(req, res) {
         });
     })
     .catch(function(err) {
-        if (err.message && err.message.match(/polis_err_need_full_user/)) {
+        if (err && err.message && err.message.match(/polis_err_need_full_user/)) {
             userFail(res, 403, err.message, err);
         } else {
             fail(res, 500, err.message, err);
