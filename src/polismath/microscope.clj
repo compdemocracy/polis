@@ -20,7 +20,7 @@
       (ko/where {:zid zid})
       (ko/order [:zid :tid :pid :created] :asc))))
 
-
+;; XXX Should really move to db
 (defn get-zid-from-zinvite
   [zinvite]
   (-> 
@@ -63,6 +63,8 @@
     (env/with-env-overrides env-overrides
       (->
         (db/load-conv zid)
+        ;; This should be ok here right?
+        (cm/restructure-mongo-conv)
         (update-in
           [:repness]
           (partial pc/map-keys kw->int))))))
@@ -82,7 +84,7 @@
 (def cli-options
   [["-z" "--zid ZID" "ZID on which to do a rerun" :parse-fn #(Integer/parseInt %)]
    ["-Z" "--zinvite ZINVITE" "ZINVITE code on which to perform a rerun"]
-   ["-r" "--recompute" "ZINVITE code on which to perform a rerun"]])
+   ["-r" "--recompute" "If set, will run a full recompute"]])
 
 
 (defn -main

@@ -19,7 +19,11 @@
                  [cheshire "5.3.1"]
                  [org.clojure/tools.reader "0.8.13"]
                  [com.taoensso/timbre "3.3.1"]
+                 ;; Troublesome carmine...
                  ;[com.taoensso/carmine "2.7.0" :exclusions [org.clojure/clojure]]
+                 ;; Updates; requires fixing index conflict between named-matrix and core.matrix
+                 ;[net.mikera/core.matrix "0.37.0"]
+                 ;[net.mikera/vectorz-clj "0.33.0"]
                  [net.mikera/core.matrix "0.23.0"]
                  [net.mikera/core.matrix.stats "0.3.0"]
                  [net.mikera/vectorz-clj "0.19.0"]
@@ -34,13 +38,19 @@
                  [org.clojure/tools.logging "0.3.0"]
                  [org.clojure/tools.trace "0.7.6"]
                  ;[org.clojure/tools.cli "0.3.1"]
+                 ;; implicitly requires jetty, component and ring
+                 [ring-jetty-component "0.2.3"]
+                 [compojure "1.4.0"]
                  [org.apache.storm/storm-core "0.9.2-incubating"]
                  [bigml/sampling "2.1.0"]
                  [incanter "1.5.4"]
-                 [com.novemberain/monger "2.0.0"]
+                 [com.novemberain/monger "3.0.1"]
                  [org.postgresql/postgresql "9.2-1004-jdbc4"]
                  [korma "0.3.0-RC5"]
                  [clj-time "0.6.0"]
+                 [clj-excel "0.0.1"]
+                 [semantic-csv "0.1.0"]
+                 [dk.ative/docjure "1.8.0"]
                  [prismatic/plumbing "0.2.0"]
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
@@ -48,7 +58,6 @@
   :min-lein-version "2.3.0"
   :profiles {
     :dev {
-      :dependencies [[semantic-csv "0.1.0-alpha3"]]
       :env {
         :mongo-url "db/mongo.db"}}
     :production {
