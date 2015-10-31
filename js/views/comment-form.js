@@ -98,9 +98,6 @@ module.exports = Handlebones.ModelView.extend({
   textChange: function() {
     var form =  $(arguments[0].target);
     var formText = form.val();
-    // remove any newlines
-    formText = formText.replace(/\n/g, "");
-    form.val(formText);
     var len = formText.length;
     var remaining = CHARACTER_LIMIT - len;
     var txt;
@@ -251,6 +248,9 @@ module.exports = Handlebones.ModelView.extend({
       alert("Comment is too long");
       return reject();
     }
+
+    // replace newlines with whitespace
+    attrs.txt = attrs.txt.replace(/\n/g, " ");
 
     if (Utils.isDemoMode()) {
       that.showMessage("#comment_sent_message");
