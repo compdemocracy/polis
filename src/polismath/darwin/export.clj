@@ -1,15 +1,16 @@
-(ns polismath.export
+(ns polismath.darwin.export
   (:require [taoensso.timbre.profiling :as profiling
                :refer (pspy pspy* profile defnp p p*)]
             [clojure.java.io :as io]
             [korma.core :as ko]
             [korma.db :as kdb]
-            [polismath.db :as db]
+            [polismath.components.db :as db]
+            ;; Probably should move the function we need out, since this should be meta only XXX
+            [polismath.meta.microscope :as micro]
+            [polismath.math.clusters :as clust]
+            [polismath.math.named-matrix :as nm]
+            [polismath.math.conversation :as conv]
             [polismath.utils :as utils]
-            [polismath.clusters :as clust]
-            [polismath.named-matrix :as nm]
-            [polismath.microscope :as micro]
-            [polismath.conversation :as conv]
             [clojure.math.numeric-tower :as math]
             [clojure.core.matrix :as mat]
             [clj-time.core :as t]

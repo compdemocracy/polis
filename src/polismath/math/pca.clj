@@ -1,5 +1,6 @@
-(ns polismath.pca
+(ns polismath.math.pca
   (:refer-clojure :exclude [* - + == /])
+  ;; XXX Move all to require
   (:use polismath.utils
         [clojure.core.match :only (match)]
         clojure.core.matrix 

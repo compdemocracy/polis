@@ -1,21 +1,19 @@
-(ns polismath.repness
-  (:require [plumbing.core :as pc
-             :refer (fnk map-vals <-)]
-            [plumbing.graph :as gr]
+(ns polismath.math.repness
+  (:require [polismath.utils :as utils]
+            [polismath.math.stats :as stats]
+            [polismath.math.named-matrix :as nm]
+            [polismath.math.clusters :as clusters]
+            [clojure.core.matrix :as mat]
+            [clojure.core.matrix.operators :refer :all]
+            [clojure.core.matrix.select :as mselect]
             [clojure.tools.trace :as tr]
+            [plumbing.core :as pc :refer [fnk map-vals <-]]
+            [plumbing.graph :as gr]
             ;[alex-and-georges.debug-repl :as dbr]
             )
-  (:refer-clojure :exclude [* - + == /])
-  (:use polismath.utils
-        polismath.stats
-        polismath.named-matrix
-        polismath.clusters
-        clojure.core.matrix
-        clojure.core.matrix.stats
-        clojure.core.matrix.operators
-        clojure.core.matrix.select))
+  (:refer-clojure :exclude [* - + == /]))
 
-(set-current-implementation :vectorz)
+(mat/set-current-implementation :vectorz)
 
 
 
@@ -37,8 +35,8 @@
      ; XXX - Change when we flip votes!!!
      :pa (fnk [na ns] (/ (+ 1 na) (+ 2 ns)))
      :pd (fnk [nd ns] (/ (+ 1 nd) (+ 2 ns)))
-     :pat (fnk [na ns] (prop-test na ns))
-     :pdt (fnk [nd ns] (prop-test nd ns))}))
+     :pat (fnk [na ns] (stats/prop-test na ns))
+     :pdt (fnk [nd ns] (stats/prop-test nd ns))}))
 
 
 (defn- comment-stats
@@ -60,9 +58,9 @@
     :rd (/ (:pd in-stats)
            (/ (+ 1 (pc/sum :nd rest-stats))
               (+ 2 (pc/sum :ns rest-stats))))
-    :rat (two-prop-test (:na in-stats) (pc/sum :na rest-stats)
+    :rat (stats/two-prop-test (:na in-stats) (pc/sum :na rest-stats)
                         (:ns in-stats) (pc/sum :ns rest-stats))
-    :rdt (two-prop-test (:nd in-stats) (pc/sum :nd rest-stats) 
+    :rdt (stats/two-prop-test (:nd in-stats) (pc/sum :nd rest-stats) 
                         (:ns in-stats) (pc/sum :ns rest-stats))))
 
 
@@ -80,16 +78,16 @@
      (->> group-clusters
        ; XXX - Base clusters may not be necessary if we use the already computed bucket vote stats
        ; A vector, where each entry is a column iterator for the matrix subset of the given group
-       (mapv (comp columns
-                   get-matrix
-                   (partial rowname-subset data)
-                   #(group-members % base-clusters)))
+       (mapv (comp mat/columns
+                   nm/get-matrix
+                   (partial nm/rowname-subset data)
+                   #(clusters/group-members % base-clusters)))
        (apply
          map
          (fn [& vote-cols-for-groups]
            (->>
              (mapv comment-stats vote-cols-for-groups)
-             (mapv-rest add-comparitive-stats)))))})
+             (utils/mapv-rest add-comparitive-stats)))))})
 
 
 (defn- beats-best-by-test?
@@ -119,16 +117,17 @@
         (> (* pa pat) (apply * (map current-best [:pa :pat])))
     ; Otherwise, accept if either repness or probability look generally good
     :else
-        (or (z-sig-90? pat)
+        (or (stats/z-sig-90? pat)
             (and (> ra 1.0)
                  (> pa 0.5)))))
 
 
 (defn- passes-by-test?
   "Decide whether we should count a given comment-conv-stat hash-map as being representative."
+  ;; Should set the significance as a input variable or env variable XXX
   [{:keys [pat rat pdt rdt] :as comment-conv-stats}]
-  (or (and (z-sig-90? rat) (z-sig-90? pat))
-      (and (z-sig-90? rdt) (z-sig-90? pdt))))
+  (or (and (stats/z-sig-90? rat) (stats/z-sig-90? pat))
+      (and (stats/z-sig-90? rdt) (stats/z-sig-90? pdt))))
 
 
 (defn finalize-cmt-stats
@@ -178,7 +177,7 @@
   ; Reduce statistics into a results hash mapping group ids to rep comments
   (->>
     ; reduce with indices, so we have tids
-    (with-indices stats)
+    (utils/with-indices stats)
     ; Apply moderation
     (remove (comp (set mod-out) first))
     (reduce
@@ -211,7 +210,7 @@
                   (gr-assoc gr :best-agree (assoc comment-conv-stats :tid tid))
                   gr))))
           result
-          (zip ids stats)))
+          (utils/zip ids stats)))
       ; initialize result hash
       (into {} (map #(vector % {:best nil :best-agree nil :sufficient []}) ids)))
     ; If no sufficient, use best; otherwise sort sufficient and take 5
@@ -245,8 +244,8 @@
 (defn consensus-stats
   [data]
   (->> data
-       get-matrix
-       columns
+       nm/get-matrix
+       mat/columns
        (map comment-stats)
        (map #(assoc %2 :tid %1) (range))))
 
@@ -276,7 +275,7 @@
                                            [:dm :pd :pdt])]
                   (->> stats
                        (filter #(and (> (prob %) 0.5)
-                                     (z-sig-90? (test %))))
+                                     (stats/z-sig-90? (test %))))
                        (sort-by (comp - metric))
                        (take 5)
                        (map (partial format-stat cons-for)))))]

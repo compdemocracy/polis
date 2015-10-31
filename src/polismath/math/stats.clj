@@ -1,4 +1,5 @@
-(ns polismath.stats
+(ns polismath.math.stats
+  ;; XXX Moe to require
   (:use clojure.core.matrix)
   (:require [plumbing.core :as pc]
             [clojure.tools.trace :as tr]))

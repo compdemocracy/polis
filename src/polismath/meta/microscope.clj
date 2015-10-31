@@ -1,8 +1,8 @@
-(ns polismath.microscope
+(ns polismath.meta.microscope
   (:require [polismath.conv-man :as cm]
-            [polismath.db :as db]
-            [polismath.conversation :as conv]
-            [polismath.named-matrix :as nm]
+            [polismath.components.db :as db]
+            [polismath.math.conversation :as conv]
+            [polismath.math.named-matrix :as nm]
             [polismath.utils :refer :all]
             [plumbing.core :as pc]
             [korma.core :as ko]

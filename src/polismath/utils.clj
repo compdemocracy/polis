@@ -1,14 +1,13 @@
 (ns polismath.utils
-  (:use 
-   ; alex-and-georges.debug-repl
-        clojure.core.matrix)
+  (:use clojure.core.matrix)
   (:require [taoensso.timbre.profiling :as profiling
                :refer (pspy pspy* profile defnp p p*)]
+            [clojure.core.matrix :as matrix]
             [clojure.math.numeric-tower :as math]
             [clojure.core.matrix :as mat]
             [clojure.tools.trace :as tr]))
 
-(set-current-implementation :vectorz)
+(matrix/set-current-implementation :vectorz)
 
 
 (defn xor
@@ -60,7 +59,7 @@
 
 (defmacro f?>>
   "Modified 'penguin' operator from plumbing.core, where do-it? is a function of the threaded value
-  instead of a static value. E.g.: (->> nums (?>> #(even? (count %)) (map inc)))"
+  instead of a static value. E.g.: (->> nums (f?>> #(even? (count %)) (map inc)))"
   [do-it? & args]
   `(if (~do-it? ~(last args))
      (->> ~(last args) ~@(butlast args))
@@ -69,7 +68,7 @@
 
 (defmacro f?>
   "Modified 'penguin' operator from plumbing.core, where do-it? is a function of the threaded value
-  instead of a static value. E.g.: (-> n inc (?> even? (* 2)))"
+  instead of a static value. E.g.: (-> n inc (f?> even? (* 2)))"
   [arg do-it? & rest]
   `(if (~do-it? ~arg)
      (-> ~arg ~@rest)
@@ -100,6 +99,7 @@
   (vec (map-rest f col)))
 
 
+;; XX This should be an env variable
 (let [greedy? true]
   (defn greedy [iter]
     (if greedy?
@@ -158,7 +158,6 @@
   (require '[clojure.tools.trace :as tr]))
 
 (defn clst-trace
-
   ([clsts] (clst-trace "" clsts))
   ([k clsts]
    (println "TRACE" k ":")

@@ -1,4 +1,4 @@
-(ns polismath.env
+(ns polismath.components.env
   (:require [environ.core :as environ]))
 
 (def ^:dynamic env environ/env)

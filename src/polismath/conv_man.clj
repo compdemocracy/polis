@@ -1,23 +1,24 @@
 (ns polismath.conv-man
-  (:require [polismath.named-matrix :as nm]
-            [polismath.conversation :as conv]
-            [polismath.clusters :as clust]
-            [polismath.metrics :as met]
-            [polismath.db :as db]
+  (:require [polismath.math.named-matrix :as nm]
+            [polismath.math.conversation :as conv]
+            [polismath.math.clusters :as clust]
+            [polismath.meta.metrics :as met]
+            [polismath.components.db :as db]
+            [polismath.components.env :as env]
             [polismath.utils :refer :all]
-            [plumbing.core :as pc]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async
              :as as
              :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer
                      put! take!]]
             [clojure.tools.trace :as tr]
-            [polismath.env :as env]
+            [clojure.tools.logging :as log]
+            [plumbing.core :as pc]
             [monger.core :as mg]
             [monger.collection :as mc]
             [cheshire.core :as ch]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
-            [clojure.tools.logging :as log]))
+            ))
 
 (when-not (#{"prod" "production" "preprod"} (env/env :math-env))
   (use 'alex-and-georges.debug-repl))

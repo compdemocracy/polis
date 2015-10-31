@@ -1,18 +1,18 @@
-(ns polismath.intercom
+(ns polismath.meta.intercom
   (:require [clj-http.client :as client]
             [plumbing.core :as pc]
             [cheshire.core :as ch]
             [korma.core :as ko]
             [korma.db :as kdb]
             [alex-and-georges.debug-repl :as dbr]
+            ;; What are we using this for? XXX
             [clojure.stacktrace :refer :all]
             [clojure.tools.logging :as log]
             [clojure.tools.trace :as tr]
-            [polismath.env :as env]
+            [polismath.components.env :as env]
             [polismath.utils :refer :all]
-            [polismath.pretty-printers :as pp]
-            [polismath.db :as db]))
-
+            [polismath.util.pretty-printers :as pp]
+            [polismath.components.db :as db]))
 
 
 (def intercom-http-params

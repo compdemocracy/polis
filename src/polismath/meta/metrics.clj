@@ -1,4 +1,4 @@
-(ns polismath.metrics)
+(ns polismath.meta.metrics)
 
 
 (defn make-socket 

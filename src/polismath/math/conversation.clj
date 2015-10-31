@@ -1,29 +1,27 @@
-(ns polismath.conversation
+(ns polismath.math.conversation
   (:refer-clojure :exclude [* -  + == /])
-  (:require [plumbing.core :as plmb]
+  (:require [polismath.utils :as utils]
+            [polismath.math.pca :as pca]
+            [polismath.math.clusters :as clusters]
+            [polismath.math.repness :as repness]
+            [polismath.math.named-matrix :as nm]
+            [clojure.core.matrix :as matrix]
+            [clojure.tools.reader.edn :as edn]
+            [clojure.tools.trace :as tr]
+            [clojure.math.numeric-tower :as math]
+            [clojure.core.matrix :as matrix]
+            [clojure.core.matrix.operators :refer :all]
+            [plumbing.core :as plmb]
             [plumbing.graph :as graph]
             [monger.collection :as mc]
-            [clojure.core.matrix :as matrix]
-            [clojure.tools.trace :as tr]
-            [clojure.tools.reader.edn :as edn]
-            [clojure.math.numeric-tower :as math]
             [bigml.sampling.simple :as sampling]
-           ; [alex-and-georges.debug-repl :as dbr]
-            [clojure.tools.logging :as log])
-  ; XXX Should switch this out for more explicit specifications, or :refer :all where appropriate
-  (:use clojure.core.matrix
-        clojure.core.matrix.operators
-        polismath.utils
-        polismath.pca
-        polismath.clusters
-        polismath.repness
-        polismath.named-matrix))
-
+            ;[alex-and-georges.debug-repl :as dbr]
+            [clojure.tools.logging :as log]))
 
 
 (defn new-conv []
   "Minimal structure upon which to perform conversation updates"
-  {:rating-mat (named-matrix)})
+  {:rating-mat (nm/named-matrix)})
 
 
 (defn choose-group-k [base-clusters]
@@ -34,10 +32,10 @@
 
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
-  (if-let [idx (index (get-col-index rating-mat) tid)]
+  (if-let [idx (index (nm/get-col-index rating-mat) tid)]
     ; If we have data for the given comment...
-    (let [pid-to-row (zipmap (rownames rating-mat) (range (count (rownames rating-mat))))
-          person-rows (get-matrix rating-mat)]
+    (let [pid-to-row (zipmap (nm/rownames rating-mat) (range (count (nm/rownames rating-mat))))
+          person-rows (nm/get-matrix rating-mat)]
       (mapv ; for each bucket
         (fn [pids]
           (->> pids
@@ -117,22 +115,22 @@
                   (:votes customs))
 
    :rating-mat  (plmb/fnk [conv keep-votes]
-                  (update-nmat (:rating-mat conv)
-                               (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) keep-votes)))
+                  (nm/update-nmat (:rating-mat conv)
+                                  (map (fn [v] (vector (:pid v) (:tid v) (:vote v))) keep-votes)))
 
    :n           (plmb/fnk [rating-mat]
-                  (count (rownames rating-mat)))
+                  (count (nm/rownames rating-mat)))
 
    :n-cmts      (plmb/fnk [rating-mat]
-                  (count (colnames rating-mat)))
+                  (count (nm/colnames rating-mat)))
 
    :user-vote-counts
                 (plmb/fnk [rating-mat]
                   ; For deciding in-conv below; filter ptpts based on how much they've voted
                   (mapv
                     (fn [rowname row] [rowname (count (remove nil? row))])
-                    (rownames rating-mat)
-                    (get-matrix rating-mat)))
+                    (nm/rownames rating-mat)
+                    (nm/get-matrix rating-mat)))
 
    :in-conv     (plmb/fnk [conv user-vote-counts n-cmts]
                   ; This keeps track of which ptpts are in the conversation (to be considered
@@ -170,7 +168,7 @@
   (min
     max-max-k
     (+ 2
-       (int (/ (count (rownames data)) 12)))))
+       (int (/ (count (nm/rownames data)) 12)))))
 
 
 (def small-conv-update-graph
@@ -180,34 +178,34 @@
      {:mat (plmb/fnk [rating-mat]
              ; swap nils for zeros - most things need the 0s, but repness needs the nils"
              (mapv (fn [row] (map #(if (nil? %) 0 %) row))
-               (get-matrix rating-mat)))
+               (nm/get-matrix rating-mat)))
 
       :pca (plmb/fnk [conv mat opts']
-             (wrapped-pca mat (:n-comps opts')
-                          :start-vectors (get-in conv [:pca :comps])
-                          :iters (:pca-iters opts')))
+             (pca/wrapped-pca mat
+                              (:n-comps opts')
+                              :start-vectors (get-in conv [:pca :comps])
+                              :iters (:pca-iters opts')))
 
       :proj (plmb/fnk [rating-mat pca]
-              (sparsity-aware-project-ptpts (get-matrix rating-mat) pca))
+              (pca/sparsity-aware-project-ptpts (nm/get-matrix rating-mat) pca))
 
       :base-clusters
             (plmb/fnk [conv rating-mat proj in-conv opts']
-              (let [proj-mat
-                      (named-matrix (rownames rating-mat) ["x" "y"] proj)
-                    in-conv-mat (rowname-subset proj-mat in-conv)]
+              (let [proj-mat (nm/named-matrix (nm/rownames rating-mat) ["x" "y"] proj)
+                    in-conv-mat (nm/rowname-subset proj-mat in-conv)]
                 (sort-by :id
-                  (kmeans in-conv-mat
+                  (clusters/kmeans in-conv-mat
                     (:base-k opts')
                     :last-clusters (:base-clusters conv)
                     :cluster-iters (:base-iters opts')))))
 
       :base-clusters-proj
             (plmb/fnk [base-clusters]
-              (xy-clusters-to-nmat2 base-clusters))
+              (clusters/xy-clusters-to-nmat2 base-clusters))
       
       :bucket-dists
             (plmb/fnk [base-clusters-proj]
-              (named-dist-matrix base-clusters-proj))
+              (clusters/named-dist-matrix base-clusters-proj))
 
       :base-clusters-weights
             (plmb/fnk [base-clusters]
@@ -223,7 +221,7 @@
                 (plmb/map-from-keys
                   (fn [k]
                     (sort-by :id
-                      (kmeans base-clusters-proj k
+                      (clusters/kmeans base-clusters-proj k
                         :last-clusters
                           ; A little pedantic here in case no clustering yet for this k
                           (let [last-clusterings (:group-clusterings conv)]
@@ -237,7 +235,7 @@
       ; Compute silhouette values for the various clusterings
       :group-clusterings-silhouettes
             (plmb/fnk [group-clusterings bucket-dists]
-              (plmb/map-vals (partial silhouette bucket-dists) group-clusterings))
+              (plmb/map-vals (partial clusters/silhouette bucket-dists) group-clusterings))
 
       ; This smooths changes in cluster counts (K-vals) by remembering what the last K was, and only changing
       ; after (:group-k-buffer opts') many times on a new K value
@@ -313,12 +311,12 @@
 
 
       :repness    (plmb/fnk [conv rating-mat group-clusters base-clusters]
-                    (-> (conv-repness rating-mat group-clusters base-clusters)
-                        (select-rep-comments (:mod-out conv))))
+                    (-> (repness/conv-repness rating-mat group-clusters base-clusters)
+                        (repness/select-rep-comments (:mod-out conv))))
 
       :consensus  (plmb/fnk [conv rating-mat]
-                    (-> (consensus-stats rating-mat)
-                        (select-consensus-comments (:mod-out conv))))
+                    (-> (repness/consensus-stats rating-mat)
+                        (repness/select-consensus-comments (:mod-out conv))))
 
      ; End of large-update
      }))
@@ -331,13 +329,13 @@
   [mat pca indices & {:keys [n-comps iters learning-rate]
                       :or {n-comps 2 iters 10 learning-rate 0.01}}]
   (let [rating-subset (filter-by-index mat indices)
-        part-pca (powerit-pca rating-subset n-comps
+        part-pca (pca/powerit-pca rating-subset n-comps
                      :start-vectors (:comps pca)
                      :iters iters)
         forget-rate (- 1 learning-rate)
         learn (fn [old-val new-val]
-                (let [old-val (join old-val (repeat (- (dimension-count new-val 0)
-                                                       (dimension-count old-val 0)) 0))]
+                (let [old-val (join old-val (repeat (- (matrix/dimension-count new-val 0)
+                                                       (matrix/dimension-count old-val 0)) 0))]
                   (+ (* forget-rate old-val) (* learning-rate new-val))))]
     (fn [pca']
       ; Actual updater lambda"
@@ -356,7 +354,7 @@
       (max 
         (long (min (+ start (* slope size)) stop-y))
         start-y))))
-; For now... Will want this constructed with opts eventually
+; For now... Will want this constructed with opts eventually XXX
 (def sample-size (sample-size-fn 100 1500 1500 150000))
 
 
@@ -388,9 +386,9 @@
                                  :or {med-cutoff 100 large-cutoff 10000}
                                  :as opts}]
   (let [zid     (or (:zid conv) (:zid (first votes)))
-        ptpts   (rownames (:rating-mat conv))
+        ptpts   (nm/rownames (:rating-mat conv))
         n-ptpts (count (distinct (into ptpts (map :pid votes))))
-        n-cmts  (count (distinct (into (rownames (:rating-mat conv)) (map :tid votes))))]
+        n-cmts  (count (distinct (into (nm/rownames (:rating-mat conv)) (map :tid votes))))]
     ; This is a safety measure so we can call conv-update on an empty conversation after adding mod-out
     (if (and (= 0 n-ptpts n-cmts)
              (empty? votes))
@@ -400,8 +398,8 @@
         (->
           ; dispatch to the appropriate function
           ((cond
-             (> n-ptpts large-cutoff)   large-conv-update
-             :else             small-conv-update)
+             (> n-ptpts large-cutoff)  large-conv-update
+             :else                     small-conv-update)
                 {:conv conv :votes votes :opts opts})
           ; Remove the :votes key from customs; not needed for persistence
           (assoc-in [:customs :votes] [])
@@ -462,10 +460,10 @@
 ; a reader that uses these custom printing formats
 (defn read-vectorz-edn [text]
   (edn/read-string
-    {:readers {'mikera.vectorz.Vector matrix
-               'mikera.arrayz.NDArray matrix
-               'mikera.matrixx.Matrix matrix
-               'polismath.named-matrix.NamedMatrix named-matrix-reader}}
+    {:readers {'mikera.vectorz.Vector matrix/matrix
+               'mikera.arrayz.NDArray matrix/matrix
+               'mikera.matrixx.Matrix matrix/matrix
+               'polismath.named-matrix.NamedMatrix nm/named-matrix-reader}}
     text))
 
 

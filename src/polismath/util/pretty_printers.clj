@@ -1,4 +1,5 @@
-(ns polismath.pretty-printers
+(ns polismath.util.pretty-printers
+  ;; Shoud just switch to fipp
   (:require [clojure.pprint :refer :all]))
 
 

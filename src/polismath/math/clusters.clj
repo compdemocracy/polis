@@ -1,4 +1,4 @@
-(ns polismath.clusters
+(ns polismath.math.clusters
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
             [plumbing.core :as pc
@@ -9,8 +9,8 @@
             )
   (:refer-clojure :exclude [* - + == /])
   (:use polismath.utils
-        polismath.stats
-        polismath.named-matrix
+        polismath.math.stats
+        polismath.math.named-matrix
         clojure.core.matrix
         clojure.core.matrix.stats
         clojure.core.matrix.operators

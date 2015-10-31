@@ -1,27 +1,23 @@
-(ns polismath.server
-  (:require [polismath.export :as export]
+(ns polismath.darwin.server
+  (:require [polismath.darwin.export :as export]
+            ;; XXX Deprecate; use component config directly
+            [polismath.components.env :as env]
+            [polismath.components.db :as db]
+            [polismath.darwin.email :as email]
+            [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
+            [clojure.tools.logging :as log]
             [ring.component.jetty :refer [jetty-server]]
             [ring.util.response :as response]
             [ring.middleware.params :as ring.params]
             [ring.middleware.ssl :as ssl]
             [ring.middleware.keyword-params :as ring.keyword-params]
             [ring.middleware.basic-authentication :as auth :refer [wrap-basic-authentication]]
-            [clojure.core.async :as async :refer [chan >!! <!! >! <! go]]
+            [bidi.bidi :as bidi]
             [com.stuartsierra.component :as component]
-            [plumbing.core :as pc]
-            [polismath.env :as env]
-            [polismath.db :as db]
-            [polismath.email :as email]
-            [monger.core :as mg]
             [monger.collection :as mc]
             [hiccup.core :as hiccup]
-            [amazonica.core :as aws]
             [amazonica.aws.s3 :as s3]
-            [amazonica.aws.s3transfer :as s3transfer]
-            [clojure.tools.logging :as log]
-            [clj-time.core :as time]
-            [bidi.bidi :as bidi]
-            [bidi.ring]))
+            [clj-time.core :as time]))
 
 
 ;; First we'll just set up some basic helpers and settings/variables we'll need.

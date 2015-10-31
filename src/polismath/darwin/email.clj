@@ -1,5 +1,5 @@
-(ns polismath.email
-  (:require [polismath.env :as env]
+(ns polismath.darwin.email
+  (:require [polismath.components.env :as env]
             [clj-http.client :as client]))
 
 (def ^:dynamic *mailgun-key* (:mailgun-api-key env/env))

@@ -1,4 +1,4 @@
-(ns polismath.db
+(ns polismath.components.db
   (:require [plumbing.core :as pc]
             [cheshire.core :as ch]
             [korma.core :as ko]
@@ -6,12 +6,14 @@
             [monger.core :as mg]
             [monger.collection :as mc]
             [alex-and-georges.debug-repl :as dbr]
+            ;; Replace with :as XXX
             [clojure.stacktrace :refer :all]
             [clojure.tools.logging :as log]
             [clojure.tools.trace :as tr]
-            [polismath.env :as env]
+            [polismath.components.env :as env]
+            ;; Replace with as util XXX
             [polismath.utils :refer :all]
-            [polismath.pretty-printers :as pp]))
+            [polismath.util.pretty-printers :as pp]))
 
 
 (defn heroku-db-spec
