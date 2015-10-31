@@ -48,9 +48,9 @@
 (defspout poll-spout ["type" "zid" "batch"] {:prepare true :params [type poll-fn timestamp-key poll-interval]}
   [conf context collector]
   (let [last-timestamp (atom 0)]
-    (if (= poll-fn :sim-poll)
-      (log/info "Starting sim poller!")
-      (start-sim-poller!))
+    ;(if (= poll-fn :sim-poll)
+      ;(log/info "Starting sim poller!")
+      ;(start-sim-poller!))
     (spout
       (nextTuple []
         (log/info "Polling" type ">" @last-timestamp)
@@ -116,6 +116,7 @@
      ;["-s" "--sim"]
      ["-r" "--recompute"]]
     ;sim/cli-options
+    []
     ))
 
 
