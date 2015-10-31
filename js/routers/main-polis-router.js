@@ -519,7 +519,7 @@ var polisRouter = Backbone.Router.extend({
     } else if (!hasEmail()  && !window.authenticatedByHeader) {
       promise = this.doLogin(true);
     }
-    promise.then(function() {
+    $.when(promise, preloadHelper.firstUserPromise).then(function() {
       // TODO add to inboxview init
       // conversationsCollection.fetch({
       //     data: $.param({
@@ -1264,6 +1264,9 @@ var polisRouter = Backbone.Router.extend({
     gatekeeperView.on("authenticated", dfd.resolve);
     RootView.getInstance().setView(gatekeeperView);
     dfd.done(authenticatedDfd.resolve);
+
+    dfd.done(function(){ location.reload(); }); // TODO: need to refactor code that users doLogin to expect this reload event.
+
     return dfd.promise();
   },
   login: function(){

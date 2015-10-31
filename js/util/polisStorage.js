@@ -161,13 +161,13 @@ var store = (function() {
     // };
 
 function getUidFromUserObject() {
-    return window.userObject && window.userObject.uid;
+    return window.preload && window.preload.firstUser && window.preload.firstUser.uid;
 }
 function getPlanCodeFromUserObject() {
-    return window.userObject && window.userObject.planCode || 0;
+    return window.preload && window.preload.firstUser && window.preload.firstUser.planCode || 0;
 }
 function userCreated() {
-    return toNumberWithFalsyAsZero(window.userObject && window.userObject.created) || Date.now();
+    return toNumberWithFalsyAsZero(window.preload && window.preload.firstUser && window.preload.firstUser.created) || Date.now();
 }
 module.exports = {
         // pids: asNumber(makeCookieValueGetterForKeyWithSuffix("p")) // p for pid, expecting keys like 314p=2; 451p=12
