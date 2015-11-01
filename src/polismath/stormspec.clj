@@ -119,7 +119,7 @@
   "Has the same options as simulation if simulations are run"
   (into
     [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
-     ["-s" "--sim" "DEPRECATED! No longer works"]
+     ;["-s" "--sim" "DEPRECATED! No longer works"]
      ["-r" "--recompute"]]
     ; XXX
     ;sim/cli-options)

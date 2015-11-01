@@ -1,4 +1,4 @@
-(ns polismath.meta.simulation
+(ns polismath.simulation
   (:require [clojure.newtools.cli :refer [parse-opts]]
             [clojure.string :as string]
             [bigml.sampling [reservoir :as reservoir]
@@ -8,10 +8,11 @@
             ;[taoensso.carmine :as car]
             ;[taoensso.carmine.message-queue :as car-mq]
             )
+  ;; XXX Move to requires
   (:use polismath.utils
         ;alex-and-georges.debug-repl
-        polismath.math.named-matrix
-        polismath.math.conversation
+        polismath.named-matrix
+        polismath.conversation
         clj-time.coerce
         plumbing.core
         clj-time.local))
@@ -234,9 +235,9 @@
    (string/join \newline)))
 
 
-;; Just commenting out the redis/carmine specific stuff
+;; Removing all carmine code for now to ensure it's not messing up production
 
-;; See `wcar` docstring for opts
+; See `wcar` docstring for opts
 ;(def server1-conn {:pool {}
                    ;:spec {}})
 ;(defmacro wcar* [& body] `(car/wcar server1-conn ~@body))
@@ -257,12 +258,7 @@
         ;(wcar* (car-mq/enqueue "simvotes" (vec votes)))
         ;(recur new-convs new-last-vote-timestamp (inc polls))))))
 
-;(comment
-  ;(simulate! {:n-convs 3 :poll-interval 3})
-  ;)
 
-
-;;; XXX Move to a system
 ;(defn -main [& args]
   ;(println "Starting simulations")
   ;(let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]

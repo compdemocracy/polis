@@ -6,6 +6,8 @@
             [polismath.components.db :as db]
             [polismath.components.env :as env]
             [polismath.utils :refer :all]
+            [plumbing.core :as pc]
+            [schema.core :as s]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async
              :as as
@@ -133,6 +135,15 @@
           (.printStackTrace e)))
       (log/debug "Profile data for zid" (:zid conv) ": " prof))))
 
+;; XXX WIP; need to flesh out and think about all the ins and outs
+;; Also, should place this in conversation, but for now...
+(def Conversation
+  "A schema for what valid conversations should look like (WIP)"
+  {:zid               s/Int
+   :lastVoteTimestamp s/Int
+   :group-votes       s/Any
+   ;; Note: we let all other key-value pairs pass through
+   s/Keyword          s/Any})
 
 (defn update-fn
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
@@ -151,6 +162,8 @@
                              :finish-time finish-time
                              :recompute recompute
                              :n-votes (count votes))
+        ;; Make sure our data has the right shape
+        (s/validate Conversation updated-conv)
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
