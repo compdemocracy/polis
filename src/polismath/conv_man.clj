@@ -236,6 +236,8 @@
   [conv]
   (-> conv
       (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters})
+      (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
+             :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
       (assoc :rating-mat (nm/named-matrix))
       ; Update the base clusters to be unfolded
