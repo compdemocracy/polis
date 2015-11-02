@@ -73,6 +73,7 @@ var badwords = require('badwords/object'),
     SimpleCacheWithTTL = require("./SimpleCacheWithTTL"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),
     timeout = require('connect-timeout'),
+    zlib = require('zlib'),
     _ = require('underscore');
     // winston = require("winston");
 
@@ -1873,6 +1874,18 @@ app.use(function(req, res, next) {
 });
 app.use(redirectIfWrongDomain);
 app.use(redirectIfApiDomain);
+
+var gzipMiddleware = express.compress();
+function maybeApplyGzip(req, res, next) {
+    if (req.path && req.path.indexOf("/math/pca2") >= 0) {
+        // pca2 caches gzipped responses, so no need to gzip again.
+        next(null);
+    } else {
+        return gzipMiddleware(req, res, next);
+    }
+}
+
+
 if (devMode) {
     app.use(express.compress());
 } else {
@@ -2158,6 +2171,9 @@ var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 3000 : 0;
 var pcaCache = new SimpleCache({
     maxSize: pcaCacheSize,
 });
+var pcaBufferCache = new SimpleCache({
+    maxSize: pcaCacheSize,
+});
 
 var lastPrefetchedVoteTimestamp = -1;
 
@@ -2190,12 +2206,17 @@ function fetchAndCacheLatestPcaData() {
         }
 
         INFO("mathpoll updating", item.lastVoteTimestamp, item.zid);
+
         // var prev = pcaCache.get(item.zid);
-        pcaCache.set(item.zid, item);
-        if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
-            lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
-        }
-        cursor.nextObject(processItem);
+
+        updatePcaCache(item.zid, item).then(function(o) {
+            if (item.lastVoteTimestamp > lastPrefetchedVoteTimestamp) {
+                lastPrefetchedVoteTimestamp = item.lastVoteTimestamp;
+            }
+            cursor.nextObject(processItem);
+        }, function(err) {
+            cursor.nextObject(processItem);
+        });
     }
     cursor.nextObject(processItem);
 }
@@ -2204,14 +2225,17 @@ function fetchAndCacheLatestPcaData() {
 setTimeout(fetchAndCacheLatestPcaData, 3000);
 
 function getPca(zid, lastVoteTimestamp) {
-    var cached = pcaCache.get(zid);
-    if (cached) {
-        if (cached.lastVoteTimestamp <= lastVoteTimestamp) {
+    var cachedPOJO = pcaCache.get(zid);
+    if (cachedPOJO) {
+        if (cachedPOJO.lastVoteTimestamp <= lastVoteTimestamp) {
             INFO("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
             return Promise.resolve(null);
         } else {
             INFO("mathpoll related", "math from cache", zid, lastVoteTimestamp);
-            return Promise.resolve(cached);
+            return Promise.resolve({
+                asPOJO: cachedPOJO,
+                asBufferOfGzippedJson: pcaBufferCache.get(zid),
+            });
         }
     }
 
@@ -2249,15 +2273,40 @@ function getPca(zid, lastVoteTimestamp) {
                     resolve(null);
                 } else {
                     INFO("mathpoll related", "after cache miss, found item, adding to cache", zid, lastVoteTimestamp);
-                    // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
-                    pcaCache.set(zid, item);
-                    // return the item
-                    resolve(item);
+
+                    updatePcaCache(zid, item).then(function(o) {
+                        resolve(o);
+                    }, function(err) {
+                        reject(err);
+                    });
                 }
             });
         });
     });
 }
+
+function updatePcaCache(zid, item) {
+    return new Promise(function(resolve, reject) {
+        delete item.zid; // don't leak zid
+        var buf = new Buffer(JSON.stringify(item), 'utf-8');
+        zlib.gzip(buf, function(err, jsondGzipdPcaBuffer) {
+            if (err) {
+                return reject(err);
+            }
+
+            // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
+            pcaCache.set(zid, item);
+            pcaBufferCache.set(zid, jsondGzipdPcaBuffer);
+
+            resolve({
+                asPOJO: item,
+                asBufferOfGzippedJson: jsondGzipdPcaBuffer,
+            });
+        });
+    });
+}
+
+
 function getPcaPlaybackByLastVoteTimestamp(zid, lastVoteTimestamp) {
     return new Promise(function(resolve, reject) {
         collectionOfPcaPlaybackResults.find({$and :[
@@ -2363,7 +2412,11 @@ function(req, res) {
 
     getPca(zid, lastVoteTimestamp).then(function(data) {
         if (data) {
-            finishOne(res, data);
+            // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
+            // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
+            // is to cache the gzipped json'd buffer here on the server.
+            res.set('Content-Type', 'application/json');
+            res.send(data.asBufferOfGzippedJson);
         } else {
             // check whether we should return a 304 or a 404
             if (_.isUndefined(pcaResultsExistForZid[zid])) {
@@ -2382,6 +2435,26 @@ function(req, res) {
         fail(res, 500, err);
     });
 });
+
+/*
+
+
+    addConversationId(o).then(function(item) {
+        // ensure we don't expose zid
+        if (item.zid) {
+            delete item.zid;
+        }
+        res.status(200).json(item);
+    }, function(err) {
+        fail(res, 500, "polis_err_finishing_responseA", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_finishing_response", err);
+    });
+*/
+
+
+
+
 
 app.get("/api/v3/dataExport",
     moveToBody,
@@ -2547,7 +2620,7 @@ function getBidsForPids(zid, lastVoteTimestamp, pids) {
 
     return Promise.all([dataPromise, mathResultsPromise]).then(function(items) {
         var b2p = items[0].bidToPid || [];  // not sure yet if "|| []" is right here.
-        var mathResults = items[1];
+        var mathResults = items[1].asPOJO;
 
 
         function findBidForPid(pid) {
@@ -2582,7 +2655,7 @@ function getBidsForPids(zid, lastVoteTimestamp, pids) {
 
 function getClusters(zid, lastVoteTimestamp) {
     return getPca(zid, lastVoteTimestamp).then(function(pcaData) {
-        return pcaData["group-clusters"];
+        return pcaData.asPOJO["group-clusters"];
     });
 }
 
@@ -2604,7 +2677,7 @@ function(req, res) {
     Promise.all([dataPromise, pidPromise, mathResultsPromise]).then(function(items) {
         var b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
         var pid = items[1];
-        var mathResults = items[2];
+        var mathResults = items[2].asPOJO;
 
 
         if (pid < 0) {
@@ -4612,7 +4685,7 @@ function(req, res) {
         } else if (err && err.message) {
             fail(res, 500, err.message, err);
         } else if (err) {
-            fail(res, 500, "polis_err_joinWithZidOrSuzinvite1", err);
+            fail(res, 500, "polis_err_joinWithZidOrSuzinvite", err);
         } else {
             fail(res, 500, "polis_err_joinWithZidOrSuzinvite");
         }
@@ -9914,6 +9987,7 @@ function(req, res) {
       if (!pcaData) {
         return [];
       }
+      pcaData = pcaData.asPOJO;
       pcaData.consensus = pcaData.consensus || {};
       pcaData.consensus.agree = pcaData.consensus.agree || [];
       pcaData.consensus.disagree = pcaData.consensus.disagree || [];
