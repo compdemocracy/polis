@@ -32,7 +32,7 @@
 
 
 (defn agg-bucket-votes-for-tid [bid-to-pid rating-mat filter-cond tid]
-  (if-let [idx (index (nm/get-col-index rating-mat) tid)]
+  (if-let [idx (nm/index (nm/get-col-index rating-mat) tid)]
     ; If we have data for the given comment...
     (let [pid-to-row (zipmap (nm/rownames rating-mat) (range (count (nm/rownames rating-mat))))
           person-rows (nm/get-matrix rating-mat)]
@@ -274,11 +274,11 @@
       ;; corresponding bid in a hypothetically sorted list of the base cluster ids
       :votes-base (plmb/fnk [bid-to-pid rating-mat]
                     (->> rating-mat
-                      colnames
+                      nm/colnames
                       (plmb/map-from-keys
                         (fn [tid]
-                          {:A (agg-bucket-votes-for-tid bid-to-pid rating-mat agree? tid)
-                           :D (agg-bucket-votes-for-tid bid-to-pid rating-mat disagree? tid)
+                          {:A (agg-bucket-votes-for-tid bid-to-pid rating-mat utils/agree? tid)
+                           :D (agg-bucket-votes-for-tid bid-to-pid rating-mat utils/disagree? tid)
                            :S (agg-bucket-votes-for-tid bid-to-pid rating-mat number? tid)}))))
 
       ; {tid {gid {A _ D _ S}}}
@@ -328,14 +328,14 @@
   and make the update on that in case there have been other mini batch updates since started"
   [mat pca indices & {:keys [n-comps iters learning-rate]
                       :or {n-comps 2 iters 10 learning-rate 0.01}}]
-  (let [rating-subset (filter-by-index mat indices)
+  (let [rating-subset (utils/filter-by-index mat indices)
         part-pca (pca/powerit-pca rating-subset n-comps
                      :start-vectors (:comps pca)
                      :iters iters)
         forget-rate (- 1 learning-rate)
         learn (fn [old-val new-val]
-                (let [old-val (join old-val (repeat (- (matrix/dimension-count new-val 0)
-                                                       (matrix/dimension-count old-val 0)) 0))]
+                (let [old-val (matrix/join old-val (repeat (- (matrix/dimension-count new-val 0)
+                                                              (matrix/dimension-count old-val 0)) 0))]
                   (+ (* forget-rate old-val) (* learning-rate new-val))))]
     (fn [pca']
       ; Actual updater lambda"
@@ -473,7 +473,7 @@
   (spit (str "errorconv." (. System (nanoTime)) ".edn")
     (prn-str
       {:conv  (into {}
-                (assoc-in conv [:pca :center] (matrix (into [] (:center (:pca conv))))))
+                (assoc-in conv [:pca :center] (matrix/matrix (into [] (:center (:pca conv))))))
        :votes votes
        :opts  opts
        :error (str error)})))

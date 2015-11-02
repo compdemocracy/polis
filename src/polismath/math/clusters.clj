@@ -1,20 +1,20 @@
 (ns polismath.math.clusters
+  (:refer-clojure :exclude [* - + == /])
   (:require [taoensso.timbre.profiling :as profiling
              :refer (pspy pspy* profile defnp p p*)]
             [plumbing.core :as pc
              :refer (fnk map-vals <-)]
             [plumbing.graph :as gr]
             [clojure.tools.trace :as tr]
-           ; [alex-and-georges.debug-repl :as dbr]
-            )
-  (:refer-clojure :exclude [* - + == /])
-  (:use polismath.utils
-        polismath.math.stats
-        polismath.math.named-matrix
-        clojure.core.matrix
-        clojure.core.matrix.stats
-        clojure.core.matrix.operators
-        clojure.core.matrix.select))
+            ; [alex-and-georges.debug-repl :as dbr]
+            [polismath.utils :as utils]
+            [polismath.math.stats :as stats]
+            [polismath.math.named-matrix :as nm]
+            [clojure.core.matrix :as matrix]
+            [clojure.core.matrix.stats :as matrix-stats]
+            [clojure.core.matrix.operators :refer :all]
+            [clojure.core.matrix.select :as matrix-select]
+            ))
 
 (set-current-implementation :vectorz)
 
@@ -34,7 +34,7 @@
   [clusts item]
   (let [[clst-id clst] (apply min-key
                          (fn [[clst-id clst]]
-                           (distance (last item) (:center clst)))
+                           (matrix/distance (last item) (:center clst)))
                          clusts)]
     (assoc clusts clst-id
       (clst-append clst item))))
@@ -45,9 +45,9 @@
   [data k]
   (take k
     (map-indexed
-      (fn [id position] {:id id :members [] :center (matrix position)})
+      (fn [id position] {:id id :members [] :center (matrix/matrix position)})
       ; Have to make sure we don't have identical cluster centers
-      (distinct (rows (get-matrix data))))))
+      (distinct (rows (nm/get-matrix data))))))
 
 
 (defn same-clustering?
@@ -57,8 +57,8 @@
   (letfn [(cntrs [clsts] (sort (map :center clsts)))]
     (every?
       (fn [[x y]]
-        (< (distance x y) threshold))
-      (zip (cntrs clsts1) (cntrs clsts2)))))
+        (< (matrix/distance x y) threshold))
+      (utils/zip (cntrs clsts1) (cntrs clsts2)))))
 
 
 (defn cleared-clusters
@@ -72,8 +72,8 @@
   named matrix. For a matrix, :weights should be vector, the ith element of which is the
   weight corresponding to row i of mat. For a named matrix, it should be a hash."
   (fn [& args]
-    [(matrix? (first args))
-     (vec? (first args))]))
+    [(matrix/matrix? (first args))
+     (matrix/vec? (first args))]))
 
 ; It's a matrix
 (defmethod weighted-mean [true false]
@@ -83,28 +83,28 @@
       (* (/ (count weights) (pc/sum weights))
          (reduce
            (fn [m [row-i weight]]
-             (multiply-row m row-i weight))
+             (matrix/multiply-row m row-i weight))
            mat
-           (with-indices weights))))
-    (mean (matrix mat))))
+           (utils/with-indices weights))))
+    (matrix-stats/mean (matrix mat))))
 
 ; It's a vector...
 (defmethod weighted-mean [false true]
   [v & {:keys [weights]}]
   (if weights
-    (/ (dot weights v) (pc/sum weights))
-    (mean v)))
+    (/ (matrix/dot weights v) (pc/sum weights))
+    (matrix-stats/mean v)))
 
 ; It's a named matrix...
 (defmethod weighted-mean [false false]
   [nmat & {:keys [weights]}]
-  (weighted-mean (get-matrix nmat)
+  (weighted-mean (nm/get-matrix nmat)
                  :weights
                  (when weights
                    (reduce
                      #(conj %1 (weights %2))
                      []
-                     (rownames nmat)))))
+                     (nm/rownames nmat)))))
 
 (defn cluster-weights
   "Get a weights seq given a cluster with :members and a hash-map of weights. Returns nil
@@ -139,7 +139,7 @@
   [data clusters & {:keys [weights]}]
   (map
     (fn [clst]
-      (assoc clst :center (weighted-mean (rowname-subset data (:members clst))
+      (assoc clst :center (weighted-mean (nm/rowname-subset data (:members clst))
                                          :weights weights)))
     clusters))
 
@@ -151,8 +151,8 @@
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
     (map
       (fn [clst]
-        (let [rns (safe-rowname-subset data (:members clst))]
-          (if (empty? (rownames rns))
+        (let [rns (nm/safe-rowname-subset data (:members clst))]
+          (if (empty? (nm/rownames rns))
             nil
             (assoc clst :center (weighted-mean rns :weights weights)))))
       clsts)
@@ -162,7 +162,7 @@
     ; XXX - Should see if there is a cleaner place/way to handle this...
     (if (empty? clsts)
       [{:id (inc (apply max (map :id clusters)))
-        :members (rownames data)
+        :members (nm/rownames data)
         :center (weighted-mean data :weights weights)}]
       clsts)))
 
@@ -186,10 +186,10 @@
                 ; Find the minimum distance, cluster-id pair, and add the member name to the end
                 (conj (apply min-key #(get % 0)
                         (map
-                          #(vector (distance (get-row-by-name data mem) (:center %)) (:id %))
+                          #(vector (matrix/distance (nm/get-row-by-name data mem) (:center %)) (:id %))
                           clusters))
                    mem))
-              (rownames data)))]
+              (nm/rownames data)))]
     {:dist dist :clst-id clst-id :id id}))
 
 
@@ -198,7 +198,7 @@
     (fn [clusters clst]
       (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
         (if identical-clst
-          (assoc clusters (typed-indexof clusters identical-clst) (merge-clusters identical-clst clst))
+          (assoc clusters (utils/typed-indexof clusters identical-clst) (merge-clusters identical-clst clst))
           (conj clusters clst))))
     [] clusters))
 
@@ -213,7 +213,7 @@
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
-        possible-clusters (min k (count (distinct (rows (get-matrix data)))))]
+        possible-clusters (min k (count (distinct (rows (nm/get-matrix data)))))]
     (loop [clusters uniq-clusters]
       ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters :weights weights)]
@@ -233,7 +233,7 @@
                   ; next add a new cluster containing only said point.
                   (conj {:id (inc (apply max (map :id clusters)))
                          :members [(:id outlier)]
-                         :center (get-row-by-name data (:id outlier))})))
+                         :center (nm/get-row-by-name data (:id outlier))})))
               ; Else just return recentered clusters
               clusters))
           ; Else just return recentered clusters
@@ -264,7 +264,7 @@
 (defn kmeans
   "Performs a k-means clustering."
   [data k & {:keys [last-clusters max-iters weights] :or {max-iters 20}}]
-  (let [data-iter (zip (rownames data) (matrix (get-matrix data)))
+  (let [data-iter (zip (nm/rownames data) (matrix (nm/get-matrix data)))
         clusters  (if last-clusters
                     (clean-start-clusters data last-clusters k :weights weights)
                     (init-clusters data k))]
@@ -284,7 +284,7 @@
        (fn [r1]
          (map
            (fn [r2]
-             (distance r1 r2))
+             (matrix/distance r1 r2))
            m2))
        m1))))
 
@@ -294,9 +294,9 @@
   ([nm] (named-dist-matrix nm nm))
   ([nm1 nm2]
    (named-matrix
-     (rownames nm1)
-     (rownames nm2)
-     (dist-matrix (get-matrix nm1) (get-matrix nm2)))))
+     (nm/rownames nm1)
+     (nm/rownames nm2)
+     (dist-matrix (nm/get-matrix nm1) (nm/get-matrix nm2)))))
 
 
 (defn silhouette
@@ -304,7 +304,7 @@
   the latter just averages over the former for all members - it's likely there is a more efficient way
   to block things up."
   ([distmat clusters member]
-   (let [dist-row (rowname-subset distmat [member])
+   (let [dist-row (nm/rowname-subset distmat [member])
          [a b]
            (reduce
              (fn [[a b] clst]
@@ -317,12 +317,12 @@
                    ; Otherwise, continue...
                    (as-> membs data
                      ; Subset to just the columns for this clusters
-                     (colname-subset dist-row data)
-                     (get-matrix data)
+                     (nm/colname-subset dist-row data)
+                     (nm/get-matrix data)
                      ; This is a 2D row vector; we want 1D, so take first
                      (first data)
                      ; Take the mean of the entries
-                     (mean data)
+                     (matrix-stats/mean data)
                      (if memb-clst?
                        [data b]
                        [a (min data (or b data))])))))
@@ -334,7 +334,7 @@
    (weighted-mean
      (map
        (partial silhouette distmat clusters)
-       (rownames distmat)))))
+       (nm/rownames distmat)))))
 
 
 (defn group-members
@@ -377,7 +377,7 @@
 
 (defn xy-clusters-to-nmat [clusters]
   (let [nmat (named-matrix)]
-    (update-nmat
+    (nm/update-nmat
      nmat
      (apply concat ; flatten the list of lists below
       (mapv
