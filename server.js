@@ -2171,9 +2171,6 @@ var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 3000 : 0;
 var pcaCache = new SimpleCache({
     maxSize: pcaCacheSize,
 });
-var pcaBufferCache = new SimpleCache({
-    maxSize: pcaCacheSize,
-});
 
 var lastPrefetchedVoteTimestamp = -1;
 
@@ -2225,17 +2222,15 @@ function fetchAndCacheLatestPcaData() {
 setTimeout(fetchAndCacheLatestPcaData, 3000);
 
 function getPca(zid, lastVoteTimestamp) {
-    var cachedPOJO = pcaCache.get(zid);
+    var cached = pcaCache.get(zid);
+    var cachedPOJO = cached.asPOJO;
     if (cachedPOJO) {
         if (cachedPOJO.lastVoteTimestamp <= lastVoteTimestamp) {
             INFO("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
             return Promise.resolve(null);
         } else {
             INFO("mathpoll related", "math from cache", zid, lastVoteTimestamp);
-            return Promise.resolve({
-                asPOJO: cachedPOJO,
-                asBufferOfGzippedJson: pcaBufferCache.get(zid),
-            });
+            return Promise.resolve(cached);
         }
     }
 
@@ -2295,8 +2290,10 @@ function updatePcaCache(zid, item) {
             }
 
             // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
-            pcaCache.set(zid, item);
-            pcaBufferCache.set(zid, jsondGzipdPcaBuffer);
+            pcaCache.set(zid, {
+                asPOJO: item,
+                asBufferOfGzippedJson: jsondGzipdPcaBuffer,
+            });
 
             resolve({
                 asPOJO: item,
