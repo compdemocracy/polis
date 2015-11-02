@@ -148,11 +148,11 @@
 ;; Also, should place this in conversation, but for now...
 (def Conversation
   "A schema for what valid conversations should look like (WIP)"
-  {:zid               s/Int
-   :lastVoteTimestamp s/Int
-   :group-votes       s/Any
+  {:zid                 s/Int
+   :last-vote-timestamp s/Int
+   :group-votes         s/Any
    ;; Note: we let all other key-value pairs pass through
-   s/Keyword          s/Any})
+   s/Keyword            s/Any})
 
 (defn update-fn
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
