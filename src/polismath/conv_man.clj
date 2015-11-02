@@ -171,7 +171,11 @@
                              :recompute recompute
                              :n-votes (count votes))
         ;; Make sure our data has the right shape
-        (s/validate Conversation updated-conv)
+        (when-let [validation-errors (s/check Conversation updated-conv)]
+          ;; XXX Should really be using throw+ (slingshot) here and throutout the code base
+          ;; Also, should put in code for doing smart collapsing of collections...
+          (throw (Exception. (str "Validation error: Conversation Value does not match schema: "
+                                  validation-errors))))
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
