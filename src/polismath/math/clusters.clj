@@ -16,7 +16,7 @@
             [clojure.core.matrix.select :as matrix-select]
             ))
 
-(set-current-implementation :vectorz)
+(matrix/set-current-implementation :vectorz)
 
 
 (defn clst-append
@@ -47,7 +47,7 @@
     (map-indexed
       (fn [id position] {:id id :members [] :center (matrix/matrix position)})
       ; Have to make sure we don't have identical cluster centers
-      (distinct (rows (nm/get-matrix data))))))
+      (distinct (matrix/rows (nm/get-matrix data))))))
 
 
 (defn same-clustering?
@@ -86,7 +86,7 @@
              (matrix/multiply-row m row-i weight))
            mat
            (utils/with-indices weights))))
-    (matrix-stats/mean (matrix mat))))
+    (matrix-stats/mean (matrix/matrix mat))))
 
 ; It's a vector...
 (defmethod weighted-mean [false true]
@@ -213,7 +213,7 @@
         ; next make sure we're not dealing with any clusters that are identical to eachother
         uniq-clusters (uniqify-clusters clusters)
         ; count uniq data points to figure out how many clusters are possible
-        possible-clusters (min k (count (distinct (rows (nm/get-matrix data)))))]
+        possible-clusters (min k (count (distinct (matrix/rows (nm/get-matrix data)))))]
     (loop [clusters uniq-clusters]
       ; Whatever the case here, we want to do one more recentering
       (let [clusters (recenter-clusters data clusters :weights weights)]
@@ -256,7 +256,7 @@
               (pc/fn->> :members (map trans) set)
               clsts)
    :center (map
-             (pc/fn->> :center (mapv #(round-to % 4)))
+             (pc/fn->> :center (mapv #(utils/round-to % 4)))
              clsts)})
 
 
@@ -264,7 +264,7 @@
 (defn kmeans
   "Performs a k-means clustering."
   [data k & {:keys [last-clusters max-iters weights] :or {max-iters 20}}]
-  (let [data-iter (zip (nm/rownames data) (matrix (nm/get-matrix data)))
+  (let [data-iter (utils/zip (nm/rownames data) (matrix/matrix (nm/get-matrix data)))
         clusters  (if last-clusters
                     (clean-start-clusters data last-clusters k :weights weights)
                     (init-clusters data k))]
@@ -279,7 +279,7 @@
   "Dist matrix"
   ([m] (dist-matrix m m))
   ([m1 m2]
-   (matrix
+   (matrix/matrix
      (map
        (fn [r1]
          (map
@@ -293,7 +293,7 @@
   "Distance matrix with rownames and colnames corresponding to rownames of nm1 and nm2 respectively."
   ([nm] (named-dist-matrix nm nm))
   ([nm1 nm2]
-   (named-matrix
+   (nm/named-matrix
      (nm/rownames nm1)
      (nm/rownames nm2)
      (dist-matrix (nm/get-matrix nm1) (nm/get-matrix nm2)))))
@@ -376,7 +376,7 @@
 
 
 (defn xy-clusters-to-nmat [clusters]
-  (let [nmat (named-matrix)]
+  (let [nmat (nm/named-matrix)]
     (nm/update-nmat
      nmat
      (apply concat ; flatten the list of lists below
@@ -393,9 +393,9 @@
 
 
 (defn xy-clusters-to-nmat2 [clusters]
-  (named-matrix
+  (nm/named-matrix
     (map :id clusters) ; row names
     [:x :y] ; column names
-    (matrix (map :center clusters))))
+    (matrix/matrix (map :center clusters))))
 
 
