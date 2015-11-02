@@ -232,10 +232,15 @@
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
 
+;; XXX This is really bad, now that I think of it. There should be a data-driven declarative specification of
+;; what the sape of a conversation is, what is required, what needs to be modified etc, so everything is all
+;; in one place. This problem with teh :lastVoteTimestamp and group-votes etc came up precisely because there
+;; wasn't "one place to go" for modifying all of the potential points of interest for these kind of changes.
+
 (defn restructure-mongo-conv
   [conv]
   (-> conv
-      (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters})
+      (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :group-votes})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on
