@@ -7052,7 +7052,8 @@ function(req, res) {
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
     getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
-    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
+    // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
+    getOneConversation(req.p.zid, req.p.uid),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
     getVotesForSingleParticipant(req.p),
     getPca(req.p.zid, -1),
@@ -7064,7 +7065,7 @@ function(req, res) {
       user: JSON.parse(arr[0]),
       ptpt: JSON.parse(arr[1]),
       nextComment: JSON.parse(arr[2]),
-      conversation: JSON.parse(arr[3]),
+      conversation: arr[3],
       votes: arr[4],
       pca: arr[5] ? (arr[5].asPOJO ? arr[5].asPOJO : null) : null,
       famous: arr[6],
@@ -8123,18 +8124,16 @@ function failNotWithin(minDelay) {
     };
 }
 
-function getOneConversation(req, res) {
-  var uid = req.p.uid;
-  var zid = req.p.zid;
+function getOneConversation(zid, uid) {
     // var fail = failNotWithin(500);
     // no need for auth, since conversation_id was provided
-    Promise.all([
+    return Promise.all([
         pgQueryP_readOnly("select * from conversations left join  (select uid, site_id from users) as u on conversations.owner = u.uid where conversations.zid = ($1);", [zid]),
         getConversationHasMetadata(zid),
     ]).then(function(results) {
         var conv = results[0] && results[0][0];
         var convHasMetadata = results[1];
-        getUserInfoForUid2(conv.owner).then(function(userInfo) {
+        return getUserInfoForUid2(conv.owner).then(function(userInfo) {
             var ownername = userInfo.hname;
             if (convHasMetadata) {
                 conv.hasMetadata = true;
@@ -8145,17 +8144,8 @@ function getOneConversation(req, res) {
             conv.is_mod = conv.site_id === userInfo.site_id;
             conv.is_owner = conv.owner === uid;
             conv.pp = false; // participant pays (WIP)
-            finishOne(res, conv);
-
-        }, function(err) {
-            fail(res, 500, "polis_err_getting_conversation_info", err);
-        }).catch(function(err) {
-            fail(res, 500, "polis_err_getting_conversation", err);
+            return conv;
         });
-    }, function(err) {
-        fail(res, 500, "polis_err_getting_conversation", err);
-    }).catch(function(err) {
-        fail(res, 500, "polis_err_getting_conversation", err);
     });
 }
 
@@ -8493,7 +8483,13 @@ function(req, res) {
         req.p.course_id = course_id;
     }
     if (req.p.zid) {
-      getOneConversation(req, res);
+      getOneConversation(req.p.zid, req.p.uid).then(function(data) {
+        finishOne(res, data);
+      }, function(err) {
+          fail(res, 500, "polis_err_get_conversations_2", err);
+      }).catch(function(err) {
+          fail(res, 500, "polis_err_get_conversations_1", err);
+      });
     } else if (req.p.uid || req.p.context) {
       getConversations(req, res);
     } else {
