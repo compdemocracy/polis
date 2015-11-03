@@ -7055,10 +7055,19 @@ function(req, res) {
     }
   }
 
+  function ifConvAndAuth(f, args) {
+    if (req.p.uid) {
+        return ifConv(f, args);
+    } else {
+        return Promise.resolve(null);
+    }
+  }
+
 
   Promise.all([
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
-    getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
+    // getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
+    ifConvAndAuth(getParticipant, [req.p.zid, req.p.uid]),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
     ifConv(getNextComment, [req.p.zid, req.p.pid, [], true]),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
@@ -7072,7 +7081,7 @@ function(req, res) {
   ]).then(function(arr) {
     var o = {
       user: JSON.parse(arr[0]),
-      ptpt: JSON.parse(arr[1]),
+      ptpt: arr[1],
       nextComment: arr[2],
       conversation: arr[3],
       votes: arr[4],
