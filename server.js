@@ -7047,18 +7047,27 @@ function(req, res) {
     });
   }
 
+  function ifConv(f, args) {
+    if (req.p.conversation_id) {
+        return f.apply(null, args);
+    } else {
+        return Promise.resolve(null);
+    }
+  }
+
+
   Promise.all([
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
     getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
-    getNextComment(req.p.zid, req.p.pid, [], true),
+    ifConv(getNextComment, [req.p.zid, req.p.pid, [], true]),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
-    getOneConversation(req.p.zid, req.p.uid),
+    ifConv(getOneConversation, [req.p.zid, req.p.uid]),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
-    getVotesForSingleParticipant(req.p),
-    getPca(req.p.zid, -1),
+    ifConv(getVotesForSingleParticipant, [req.p]),
+    ifConv(getPca, [req.p.zid, -1]),
     // getWith304AsSuccess({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
-    doFamousQuery(req.p, req),
+    ifConv(doFamousQuery, [req.p, req]),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
     var o = {
