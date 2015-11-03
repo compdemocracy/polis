@@ -5575,12 +5575,21 @@ app.get("/api/v3/users",
     authOptional(assignToP),
 function(req, res) {
     var uid = req.p.uid;
+    getUser(uid).then(function(user) {
+        res.status(200).json(user);
+    }, function(err) {
+        fail(res, 500, "polis_err_getting_user_info2", err);
+    }).catch(function(err) {
+        fail(res, 500, "polis_err_getting_user_info", err);
+    });
+});
+
+function getUser(uid) {
     if (!uid) {
         // this api may be called by a new user, so we don't want to trigger a failure here.
-        res.json({});
-        return;
+        return Promise.resolve({});
     }
-    Promise.all([
+    return Promise.all([
         getUserInfoForUid2(uid),
         getFacebookInfo([uid]),
         getTwitterInfo([uid]),
@@ -5600,7 +5609,7 @@ function(req, res) {
         if (hasTwitter) {
             delete twInfo[0].response;
         }
-        res.json({
+        return {
             uid: uid,
             email: info.email,
             hname: info.hname,
@@ -5614,11 +5623,9 @@ function(req, res) {
             daysInTrial: 10 + (usersToAdditionalTrialDays[uid] || 0),
             plan: planCodeToPlanName[info.plan],
             planCode: info.plan,
-        });
-    }, function(err) {
-        fail(res, 500, "polis_err_getting_user_info", err);
+        };
     });
-});
+}
 
 // These map from non-ui string codes to number codes used in the DB
 // The string representation ("sites", etc) is also used in intercom.
@@ -7065,7 +7072,8 @@ function(req, res) {
 
 
   Promise.all([
-    request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
+    // request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
+    getUser(req.p.uid),
     // getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
     ifConvAndAuth(getParticipant, [req.p.zid, req.p.uid]),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
@@ -7080,7 +7088,7 @@ function(req, res) {
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
     var o = {
-      user: JSON.parse(arr[0]),
+      user: arr[0],
       ptpt: arr[1],
       nextComment: arr[2],
       conversation: arr[3],
