@@ -3219,12 +3219,12 @@ function getZinvites(zids) {
     });
 }
 
-function addConversationId(o) {
+function addConversationId(o, dontUseCache) {
     if (!o.zid) {
         // if no zid, resolve without fetching zinvite.
         return Promise.resolve(o);
     }
-    return getZinvite(o.zid).then(function(conversation_id) {
+    return getZinvite(o.zid, dontUseCache).then(function(conversation_id) {
         o.conversation_id = conversation_id;
         return o;
     });
@@ -3248,13 +3248,14 @@ function addConversationIds(a) {
     });
 }
 
-function finishOne(res, o) {
-    addConversationId(o).then(function(item) {
+function finishOne(res, o, dontUseCache, altStatusCode) {
+    addConversationId(o, dontUseCache).then(function(item) {
         // ensure we don't expose zid
         if (item.zid) {
             delete item.zid;
         }
-        res.status(200).json(item);
+        var statusCode = altStatusCode || 200;
+        res.status(statusCode).json(item);
     }, function(err) {
         fail(res, 500, "polis_err_finishing_responseA", err);
     }).catch(function(err) {
@@ -7719,6 +7720,8 @@ function(req, res){
                 var promise = generateShortUrl ?
                     generateAndReplaceZinvite(req.p.zid, generateShortUrl) :
                     Promise.resolve();
+                var successCode = generateShortUrl ? 201 : 200;
+
                 promise.then(function() {
 
                      // send notification email
@@ -7782,13 +7785,13 @@ function(req, res){
                             req.p.tool_consumer_instance_guid,
                             req.p.context, // lti_context_id,
                             req.p.custom_canvas_assignment_id).then(function() {
-                                finishOne(res, conv);
+                                finishOne(res, conv, true, successCode);
                             }).catch(function(err) {
                                 fail(res, 500, "polis_err_saving_assignment_grading_context", err);
                                 emailBadProblemTime("PUT conversation worked, but couldn't save assignment context");
                             });
                     } else {
-                        finishOne(res, conv);
+                        finishOne(res, conv, true, successCode);
                     }
 
 
