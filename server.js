@@ -7047,11 +7047,11 @@ function(req, res) {
     });
   }
 
-
   Promise.all([
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
     getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
-    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
+    // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
+    getNextComment(req.p.zid, req.p.pid, [], true),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
     getOneConversation(req.p.zid, req.p.uid),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
@@ -7064,7 +7064,7 @@ function(req, res) {
     var o = {
       user: JSON.parse(arr[0]),
       ptpt: JSON.parse(arr[1]),
-      nextComment: JSON.parse(arr[2]),
+      nextComment: arr[2],
       conversation: arr[3],
       votes: arr[4],
       pca: arr[5] ? (arr[5].asPOJO ? arr[5].asPOJO : null) : null,
@@ -7075,6 +7075,12 @@ function(req, res) {
     for (var i = 0; i < o.votes.length; i++) {
         delete o.votes[i].zid; // strip zid for security
         // delete o.votes[i].pid; // because it's extra crap. Feel free to delete this line if you need pid.
+    }
+    if (!o.nextComment) {
+        o.nextComment = {};
+    }
+    if (!_.isUndefined(req.p.pid)) {
+        o.nextComment.currentPid = req.p.pid;
     }
     res.status(200).json(o);
   }).catch(function(err) {
