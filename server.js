@@ -1653,7 +1653,15 @@ function votesPost(pid, zid, tid, voteType) {
     });
 }
 
-function votesGet(res, p) {
+
+function getVotesForSingleParticipant(p) {
+    if (_.isUndefined(p.pid)) {
+        return Promise.resolve([]);
+    }
+    return votesGet(p);
+}
+
+function votesGet(p) {
     return new MPromise("votesGet", function(resolve, reject) {
         var q = sql_votes.select(sql_votes.star())
             .where(sql_votes.zid.equals(p.zid));
@@ -2435,6 +2443,9 @@ function(req, res) {
         fail(res, 500, err);
     });
 });
+
+
+
 
 /*
 
@@ -6760,11 +6771,7 @@ app.get("/api/v3/votes",
     want('tid', getInt, assignToP),
     resolve_pidThing('pid', assignToP, "get:votes"),
 function(req, res) {
-    if (_.isUndefined(req.p.pid)) {
-        res.status(200).json([]);
-        return;
-    }
-    votesGet(res, req.p).then(function(votes) {
+    getVotesForSingleParticipant(req.p).then(function(votes) {
         finishArray(res, votes);
     }, function(err) {
         fail(res, 500, "polis_err_votes_get", err);
@@ -6994,6 +7001,7 @@ app.get("/api/v3/participationInit",
   want('ptptoiLimit', getInt, assignToP),
   want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
   want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+  resolve_pidThing('pid', assignToP, "get:votes"), // must be after zid getter
 function(req, res) {
 
   var qs = {
@@ -7006,13 +7014,13 @@ function(req, res) {
     include_social: true,
   });
 
-  var votesByMeQs = _.extend({}, qs, {
-    pid: "mypid",
-  });
+  // var votesByMeQs = _.extend({}, req.p, {
+  //   pid: "mypid",
+  // });
 
-  var famousQs = req.p.ptptoiLimit ? _.extend({}, qs, {
-    ptptoiLimit: req.p.ptptoiLimit,
-  }) : qs;
+  // var famousQs = req.p.ptptoiLimit ? _.extend({}, qs, {
+  //   ptptoiLimit: req.p.ptptoiLimit,
+  // }) : qs;
 
   function getIfConv() {
     if (qs.conversation_id) {
@@ -7039,28 +7047,35 @@ function(req, res) {
     });
   }
 
+
   Promise.all([
     request.get({uri: "http://" + SELF_HOSTNAME + "/api/v3/users", qs: qs, headers: req.headers, gzip: true}),
     getIfConvAndAuth({uri: "http://" + SELF_HOSTNAME + "/api/v3/participants", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
-    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
+    // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
+    getVotesForSingleParticipant(req.p),
     getPca(req.p.zid, -1),
     // getWith304AsSuccess({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
     doFamousQuery(req.p, req),
     // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
-    res.status(200).json({
+    var o = {
       user: JSON.parse(arr[0]),
       ptpt: JSON.parse(arr[1]),
       nextComment: JSON.parse(arr[2]),
       conversation: JSON.parse(arr[3]),
-      votes: JSON.parse(arr[4]),
+      votes: arr[4],
       pca: arr[5] ? (arr[5].asPOJO ? arr[5].asPOJO : null) : null,
       famous: arr[6],
       // famous: JSON.parse(arr[6]),
       acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"],
-    });
+    };
+    for (var i = 0; i < o.votes.length; i++) {
+        delete o.votes[i].zid; // strip zid for security
+        // delete o.votes[i].pid; // because it's extra crap. Feel free to delete this line if you need pid.
+    }
+    res.status(200).json(o);
   }).catch(function(err) {
     console.error(err);
     fail(res, 500, "polis_err_get_participationInit", err);
