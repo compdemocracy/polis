@@ -1,14 +1,13 @@
 (ns polismath.math.pca
   (:refer-clojure :exclude [* - + == /])
-  ;; XXX Move all to require
-  (:use polismath.utils
-        [clojure.core.match :only (match)]
-        clojure.core.matrix 
-        clojure.core.matrix.stats
-        clojure.core.matrix.operators)
-  (:require [clojure.tools.trace :as tr]))
+  (:require [clojure.tools.trace :as tr]
+            [polismath.utils :as utils]
+            [clojure.core.match :refer [match]]
+            [clojure.core.matrix :as matrix]
+            [clojure.core.matrix.stats :as matrix-stats]
+            [clojure.core.matrix.operators :refer :all]))
 
-(set-current-implementation :vectorz)
+(matrix/set-current-implementation :vectorz)
 
 (set! *unchecked-math* true)
 
@@ -16,7 +15,7 @@
 (defn repeatv
   "Utility function for making a vector of length n composed entirely of x"
   [n x]
-  (matrix (into [] (repeat n x))))
+  (matrix/matrix (into [] (repeat n x))))
 
 
 ; Should maybe hide this inside power-iteration and have that function wrap it's current
@@ -25,12 +24,12 @@
   "Will need to rename this and some of the inner variables to be easier to read...
   Computes an inner step of the power-iteration process"
   [data start-vec]
-  (let [n-cols (dimension-count data 1)
-        curr-vec (transpose (repeatv n-cols 0))]
-    (loop [data (rows data) curr-vec curr-vec]
+  (let [n-cols (matrix/dimension-count data 1)
+        curr-vec (matrix/transpose (repeatv n-cols 0))]
+    (loop [data (matrix/rows data) curr-vec curr-vec]
       (if-let [row (first data)]
         (recur (rest data)
-               (+ curr-vec (* (inner-product start-vec row) row)))
+               (+ curr-vec (* (matrix/inner-product start-vec row) row)))
         curr-vec))))
 
 
@@ -40,16 +39,16 @@
   [data & [iters start-vector]]
   ; need to clean up some of these variables names to be more descriptive
   (let [iters (or iters 100)
-        n-cols (dimension-count data 1)
+        n-cols (matrix/dimension-count data 1)
         start-vector (or start-vector (repeatv n-cols 1))
         ; XXX - this add extra cols to the start vector if we have new comments... should test
-        start-vector (matrix
+        start-vector (matrix/matrix
                        (concat start-vector
-                               (repeatv (- n-cols (dimension-count start-vector 0)) 1)))]
+                               (repeatv (- n-cols (matrix/dimension-count start-vector 0)) 1)))]
     (loop [iters iters start-vector start-vector last-eigval 0]
       (let [product-vector (xtxr data start-vector)
-            eigval (length product-vector)
-            normed (normalise product-vector)]
+            eigval (matrix/length product-vector)
+            normed (matrix/normalise product-vector)]
         (if (or (= iters 0) (= eigval last-eigval))
           normed
           (recur (dec iters) normed eigval))))))
@@ -58,7 +57,7 @@
 (defn proj-vec
   "This computes the projection of ys orthogonally onto the vector spanned by xs"
   [xs ys]
-  (let [coeff (/ (dot xs ys) (dot xs xs))]
+  (let [coeff (/ (matrix/dot xs ys) (matrix/dot xs xs))]
     (* coeff xs)))
 
 
@@ -67,16 +66,18 @@
   such that there is no remaining variance in the xs direction within the data."
   [data xs]
   ; If we have a zero eigenvector, it's safe to just assume that 0 should remain the matrix
-  (if (#{0 0.0} (dot xs xs))
+  (if (#{0 0.0} (matrix/dot xs xs))
     data
     ; Fucking weird... sometimes getting this "can't convert to persistent vector array: inconcsistent shape"
     ; error when we don't do the into [] here. Should need to though. Will have to figure out if there is some
     ; better solution
-    (matrix (mapv #(into [] (- % (proj-vec xs %))) data))))
+    (matrix/matrix (mapv #(into [] (- % (proj-vec xs %))) data))))
 
 
 (defn rand-starting-vec [data]
-  (matrix (for [x (range (dimension-count data 1))] (rand))))
+  ;; Should really throw a parallelizable random number generator in the equation here...
+  ;; With seeds fed in and persisted... XXX
+  (matrix/matrix (for [x (range (matrix/dimension-count data 1))] (rand))))
 
 
 ; Will eventually also want to add last-pcs
@@ -84,10 +85,10 @@
   "Find the first n-comps principal components of the data matrix; iters defaults to iters of
   power-iteration"
   [data n-comps & {:keys [iters start-vectors]}]
-  (let [center (mean data)
+  (let [center (matrix-stats/mean data)
         cntrd-data (- data center)
         start-vectors (or start-vectors [])
-        data-dim (min (row-count cntrd-data) (column-count cntrd-data))]
+        data-dim (min (matrix/row-count cntrd-data) (matrix/column-count cntrd-data))]
     {:center center
      :comps
         (loop [data' cntrd-data n-comps' (min n-comps data-dim) pcs [] start-vectors start-vectors]
@@ -105,16 +106,16 @@
 (defn wrapped-pca
   "This function gracefully handles weird edge cases inherent in the messiness of real world data"
   [data n-comps & {:keys [iters start-vectors] :as kwargs}]
-  (match (map (partial dimension-count data) [0 1])
+  (match (map (partial matrix/dimension-count data) [0 1])
     [1 n-cols]
-      {:center (matrix (repeatv n-comps 0))
-       :comps  (into [(normalise (get-row data 0))]
+      {:center (matrix/matrix (repeatv n-comps 0))
+       :comps  (into [(matrix/normalise (matrix/get-row data 0))]
                  (repeat (dec n-comps) (repeatv n-cols 0)))}
     [n-rows 1]
-      {:center (matrix [0])
-       :comps  (matrix [1])}
+      {:center (matrix/matrix [0])
+       :comps  (matrix/matrix [1])}
     :else
-      (apply-kwargs powerit-pca data n-comps
+      (utils/apply-kwargs powerit-pca data n-comps
                     (assoc kwargs :start-vectors
                       (if start-vectors
                         (map #(if (every? #{0 0.0} %) nil %) start-vectors)
@@ -126,7 +127,7 @@
   [data {:keys [comps center]}]
   ; Here we map each row of data to it's projection
   ; XXX - still need to verify this...
-  (mmul (- data center) (transpose comps)))
+  (matrix/mmul (- data center) (matrix/transpose comps)))
 
 
 (defn sparsity-aware-project-ptpt
@@ -149,7 +150,7 @@
                 ; ... ow (if haven't voted) return what was there
                 [n-votes p1 p2]))
             [0 0.0 0.0]
-            (zip votes center pc1 pc2))]
+            (utils/zip votes center pc1 pc2))]
     ; Now scale the projection by the following value, which pushes us out from the center
     (* (Math/sqrt (/ n-cmnts (max n-votes 1)))
        [p1 p2])))
@@ -161,4 +162,6 @@
   [data pca]
   (mapv #(sparsity-aware-project-ptpt % pca) data))
 
+
+:ok
 

@@ -4,13 +4,11 @@
             [cheshire.core :as ch]
             [korma.core :as ko]
             [korma.db :as kdb]
-            [alex-and-georges.debug-repl :as dbr]
-            ;; What are we using this for? XXX
-            [clojure.stacktrace :refer :all]
+            ;[alex-and-georges.debug-repl :as dbr]
             [clojure.tools.logging :as log]
             [clojure.tools.trace :as tr]
             [polismath.components.env :as env]
-            [polismath.utils :refer :all]
+            [polismath.utils :as utils]
             [polismath.util.pretty-printers :as pp]
             [polismath.components.db :as db]))
 
@@ -96,7 +94,7 @@
        [:email             :email]
        [:custom_attributes
           (pc/fn->
-            (hash-map-subset
+            (utils/hash-map-subset
               [:avg_n_ptpts :n_owned_convs :n_ptptd_convs :n_owned_convs_ptptd :avg_n_visitors]))]
        [:remote_created_at
           #(/ (:created %) 1000)]])))
@@ -161,11 +159,11 @@
     (println "Now updating all user records in intercom")
     (doseq [u all-users]
       (Thread/sleep 500)
-      (log/info "Running update for user:" (hash-map-subset u [:uid :email :hname :created]))
+      (log/info "Running update for user:" (utils/hash-map-subset u [:uid :email :hname :created]))
       (try
         (update-icuser-from-dbuser! u)
         (catch Exception e
-          (log/error "Problem with update for user" (hash-map-subset u [:uid :email :hname :created]))
+          (log/error "Problem with update for user" (utils/hash-map-subset u [:uid :email :hname :created]))
           (.printStackTrace e *out*))))
     ; Stab at doing batched runs
     ;(let [jobs (mapv
@@ -173,7 +171,7 @@
                    ;[us
                     ;(future
                       ;(log/info "Running update for" (count us) "users:"
-                               ;(map (pc/fn-> (hash-map-subset [:uid :email :hname :created])) us))
+                               ;(map (pc/fn-> (utils/hash-map-subset [:uid :email :hname :created])) us))
                       ;(update-icuser-from-dbuser! us))])
                    ;batched-users)
           ;failed-jobs (filterv (comp future-failed? second) jobs)]
@@ -183,4 +181,6 @@
     (println "Done!")
     (shutdown-agents)))
 
+
+:ok
 

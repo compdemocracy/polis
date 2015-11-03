@@ -1,16 +1,16 @@
 (ns polismath.meta.microscope
   (:require [polismath.conv-man :as cm]
+            [polismath.components.env :as env]
             [polismath.components.db :as db]
             [polismath.math.conversation :as conv]
             [polismath.math.named-matrix :as nm]
-            [polismath.utils :refer :all]
-            [plumbing.core :as pc]
-            [korma.core :as ko]
-            [korma.db :as kdb]
-            [polismath.env :as env]
+            [polismath.utils :as utils]
             [clojure.tools.trace :as tr]
             [clojure.tools.logging :as log]
-            [clojure.newtools.cli :refer [parse-opts]]))
+            [clojure.newtools.cli :refer [parse-opts]]
+            [plumbing.core :as pc]
+            [korma.core :as ko]
+            [korma.db :as kdb]))
 
 
 (defn conv-poll
@@ -34,7 +34,7 @@
 
 (defn recompute
   [& {:keys [zid zinvite recompute] :as args}]
-  (assert (xor zid zinvite))
+  (assert (utils/xor zid zinvite))
   (let [zid        (or zid (get-zid-from-zinvite zinvite))
         new-votes  (conv-poll zid)
         conv-actor (cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute))]
@@ -58,7 +58,7 @@
 
 (defn load-conv
   [& {:keys [zid zinvite env-overrides] :or {env-overrides {}} :as args}]
-  (assert (xor zid zinvite))
+  (assert (utils/xor zid zinvite))
   (let [zid (or zid (get-zid-from-zinvite zinvite))]
     (env/with-env-overrides env-overrides
       (->
@@ -90,7 +90,7 @@
 (defn -main
   [& args]
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)
-        conv-actor (apply-kwargs recompute options)
+        conv-actor (utils/apply-kwargs recompute options)
         done? (atom false)]
     (add-watch
       (:conv conv-actor)

@@ -1,20 +1,17 @@
 (ns polismath.meta.simulation
-  (:require [clojure.newtools.cli :refer [parse-opts]]
+  (:require [polismath.math.conversation :as conversation]
+            [polismath.math.named-matrix :as nm]
+            [polismath.utils :as utils]
+            [clojure.newtools.cli :refer [parse-opts]]
             [clojure.string :as string]
+            [plumbing.core :as pc]
             [bigml.sampling [reservoir :as reservoir]
                             [simple :as simple]]
-            [taoensso.timbre.profiling :as profiling
-              :refer (pspy pspy* profile defnp p p*)]
+            [taoensso.timbre.profiling :as profiling :refer (pspy pspy* profile defnp p p*)]
             ;[taoensso.carmine :as car]
             ;[taoensso.carmine.message-queue :as car-mq]
-            )
-  (:use polismath.utils
-        ;alex-and-georges.debug-repl
-        polismath.math.named-matrix
-        polismath.math.conversation
-        clj-time.coerce
-        plumbing.core
-        clj-time.local))
+            [clj-time.coerce :as time-coerce]
+            [clj-time.local :as time-local]))
 
 
 (defprotocol Voteable

@@ -5,22 +5,17 @@
             [polismath.meta.metrics :as met]
             [polismath.components.db :as db]
             [polismath.components.env :as env]
-            [polismath.utils :refer :all]
-            [plumbing.core :as pc]
-            [schema.core :as s]
+            [polismath.utils :as utils]
             [clojure.core.matrix.impl.ndarray]
-            [clojure.core.async
-             :as as
-             :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer
-                     put! take!]]
+            [clojure.core.async :as async :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
             [clojure.tools.trace :as tr]
             [clojure.tools.logging :as log]
             [plumbing.core :as pc]
+            [schema.core :as s]
             [monger.core :as mg]
             [monger.collection :as mc]
             [cheshire.core :as ch]
-            [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]
-            ))
+            [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]))
 
 (when-not (#{"prod" "production" "preprod"} (env/env :math-env))
   (use 'alex-and-georges.debug-repl))
@@ -78,7 +73,7 @@
       ; Whitelist of keys to be included in sent data; removes intermediates
       (assoc :lastVoteTimestamp (:last-vote-timestamp results))
       (assoc :lastModTimestamp (:last-mod-timestamp results))
-      (hash-map-subset #{
+      (utils/hash-map-subset #{
         :base-clusters
         :group-clusters
         :in-conv
@@ -127,7 +122,7 @@
       (try
         (-> prof
             (assoc :n-ptps (:n conv))
-            (merge (hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
+            (merge (utils/hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
             ((partial mongo-insert-results (db/mongo-collection-name "profile"))))
         (catch Exception e
@@ -207,7 +202,7 @@
       ; the conv-actor update?
       (try
         (log/info "Preparing to re-queue votes for failed conversation update for" zid-str)
-        (as/go (as/>! queue [:votes votes]))
+        (async/go (async/>! queue [:votes votes]))
         (catch Exception qe
           (log/error "Unable to re-queue votes after conversation update failed for" zid-str)
           (.printStackTrace qe)))
@@ -235,7 +230,7 @@
 (defn restructure-mongo-conv
   [conv]
   (-> conv
-      (hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :group-votes})
+      (utils/hash-map-subset #{:rating-mat :lastVoteTimestamp :zid :pca :in-conv :n :n-cmts :group-clusters :base-clusters :group-votes})
       (assoc :last-vote-timestamp (get conv :lastVoteTimestamp)
              :last-mod-timestamp  (get conv :lastModTimestamp))
       ; Make sure there is an empty named matrix to operate on

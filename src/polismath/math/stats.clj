@@ -1,7 +1,7 @@
 (ns polismath.math.stats
   ;; XXX Moe to require
-  (:use clojure.core.matrix)
   (:require [plumbing.core :as pc]
+            [clojure.core.matrix :as matrix]
             [clojure.tools.trace :as tr]))
 
 
@@ -9,7 +9,7 @@
   [succ n]
   (let [[succ n] (map inc [succ n])]
     (* 2
-       (sqrt n)
+       (matrix/sqrt n)
        (+ (/ succ n) -0.5))))
 
 
@@ -25,7 +25,7 @@
       ; that lets you take the ratio of the derivatives or something...
       0
       (/ (- pi1 pi2)
-         (sqrt
+         (matrix/sqrt
            (* pi-hat
               (- 1 pi-hat)
               (+ (/ 1 pop-in) (/ 1 pop-out))))))))
@@ -42,4 +42,6 @@
   [z-val]
   (> z-val 1.6449))
 
+
+:ok
 

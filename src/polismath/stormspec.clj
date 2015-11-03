@@ -1,31 +1,28 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [polismath.conv-man :as cm]
-            ;[polismath.simulation :as sim]
             [polismath.components.db :as db]
             [polismath.components.env :as env]
-            [clojure.core.matrix :as ccm]
-            [plumbing.core :as pc]
+            [polismath.math.named-matrix :as nm]
+            [polismath.utils :as utils]
+            [polismath.math.conversation :as conv]
+            ;[polismath.simulation :as sim]
+            [clojure.core.matrix :as matrix]
             [clojure.string :as string]
             [clojure.newtools.cli :refer [parse-opts]]
             [clojure.tools.logging :as log]
-            [clojure.core.async
-             :as as
-             :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]])
-  ;; Remove use calls
-  (:use [backtype.storm clojure config]
-        polismath.math.named-matrix
-        polismath.utils
-        polismath.math.conversation)
+            [clojure.core.async :as async :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
+            [backtype.storm [clojure :as storm] [config :as storm-config]]
+            [plumbing.core :as pc])
+  ;; I don't think we need this anymore on newer Clojures, so should remove XXX
   (:gen-class))
 
 
 ;; XXX Maybe loading the current implementation can be a system boot step?
 ; XXX - storm hack. Solves issue where one process or thread has started loading vectorz, but the other
 ; doesn't know to wait (at least this is what seems to be the case)
-(ccm/set-current-implementation :vectorz)
-(ccm/matrix [[1 2 3] [4 5 6]])
-
+(matrix/set-current-implementation :vectorz)
+(matrix/matrix [[1 2 3] [4 5 6]])
 
 
 ;(let [sim-vote-chan (chan 10e5)]
@@ -47,13 +44,13 @@
     ;(cm/take-all!! sim-vote-chan)))
 
 
-(defspout poll-spout ["type" "zid" "batch"] {:prepare true :params [type poll-fn timestamp-key poll-interval]}
+(storm/defspout poll-spout ["type" "zid" "batch"] {:prepare true :params [type poll-fn timestamp-key poll-interval]}
   [conf context collector]
   (let [last-timestamp (atom 0)]
     ;(if (= poll-fn :sim-poll)
       ;(log/info "Starting sim poller!")
       ;(start-sim-poller!))
-    (spout
+    (storm/spout
       (nextTuple []
         (log/info "Polling" type ">" @last-timestamp)
         (let [results (({:poll db/poll
@@ -63,7 +60,7 @@
               grouped-batches (group-by :zid results)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid batch] grouped-batches]
-            (emit-spout! collector [type zid batch]))
+            (storm/emit-spout! collector [type zid batch]))
           ; Update timestamp if needed
           (swap! last-timestamp
                  (fn [last-ts] (apply max 0 last-ts (map timestamp-key results)))))
@@ -71,47 +68,47 @@
       (ack [id]))))
 
 
-(defbolt conv-update-bolt [] {:params [recompute] :prepare true}
+(storm/defbolt conv-update-bolt [] {:params [recompute] :prepare true}
   [conf context collector]
   (let [conv-agency (atom {})] ; collection of conv-actors
-    (bolt
+    (storm/bolt
       (execute [tuple]
         (let [[type zid batch] (.getValues tuple)
               ; First construct a new conversation builder. Then either find a conversation, or call that
               ; builder in conv-agency
               conv-actor (cm/get-or-set! conv-agency zid #(cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute)))]
           (cm/snd conv-actor [type batch]))
-        (ack! collector tuple)))))
+        (storm/ack! collector tuple)))))
 
 
 (defn mk-topology [sim recompute]
-  (let [spouts {"vote-spout" (spout-spec (poll-spout :votes :poll :created 1000))
-                "mod-spout"  (spout-spec (poll-spout :moderation :mod-poll :modified 5000))}
+  (let [spouts {"vote-spout" (storm/spout-spec (poll-spout :votes :poll :created 1000))
+                "mod-spout"  (storm/spout-spec (poll-spout :moderation :mod-poll :modified 5000))}
         ;; No-op for now
         ;spouts (if sim
                  ;(do
                    ;(log/info "Simulation disabled for the moment")
-                   ;(assoc spouts "sim-vote-spout" (spout-spec (poll-spout "votes" :sim-poll :created 1000)))
+                   ;(assoc spouts "sim-vote-spout" (storm/spout-spec (poll-spout "votes" :sim-poll :created 1000)))
                    ;)
                  ;spouts)
         bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
-  (topology
+  (storm/topology
     spouts
-    {"conv-update" (bolt-spec bolt-inputs (conv-update-bolt recompute))})))
+    {"conv-update" (storm/bolt-spec bolt-inputs (conv-update-bolt recompute))})))
 
 
 (defn run-local! [{:keys [sim recompute]}]
   (let [cluster (LocalCluster.)]
     (.submitTopology cluster
                      "online-pca"
-                     {TOPOLOGY-DEBUG false}
+                     {storm-config/TOPOLOGY-DEBUG false}
                      (mk-topology sim recompute))))
 
 
 (defn submit-topology! [name {:keys [sim recompute]}]
   (StormSubmitter/submitTopology name
-    {TOPOLOGY-DEBUG false
-     TOPOLOGY-WORKERS 3}
+    {storm-config/TOPOLOGY-DEBUG false
+     storm-config/TOPOLOGY-WORKERS 3}
     (mk-topology sim recompute)))
 
 
@@ -140,8 +137,8 @@
   (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
     (log/info "Submitting storm topology")
     (cond
-      (:help options)   (exit 0 (usage summary))
-      (:errors options) (exit 1 (str "Found the following errors:" \newline (:errors options)))
+      (:help options)   (utils/exit 0 (usage summary))
+      (:errors options) (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
       :else 
         (if-let [name (:name options)]
           (submit-topology! name options)

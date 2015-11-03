@@ -190,4 +190,5 @@
   (rowname-subset nmat
     (remove (set row-names) (rownames nmat))))
 
+:ok
 
