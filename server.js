@@ -1073,7 +1073,7 @@ function getInt(s) {
         }
         var x = parseInt(s);
         if (isNaN(x)) {
-            return reject("polis_fail_parse_int");
+            return reject("polis_fail_parse_int " + s);
         }
         resolve(x);
     });
