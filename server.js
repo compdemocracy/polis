@@ -6992,7 +6992,7 @@ app.get("/api/v3/participationInit",
   moveToBody,
   authOptional(assignToP),
   want('ptptoiLimit', getInt, assignToP),
-  // need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+  want('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
   want('conversation_id', getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
 function(req, res) {
 
@@ -7045,8 +7045,10 @@ function(req, res) {
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/nextComment", qs: nextCommentQs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/conversations", qs: qs, headers: req.headers, gzip: true}),
     getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes", qs: votesByMeQs, headers: req.headers, gzip: true}),
-    getWith304AsSuccess({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
-    getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
+    getPca(req.p.zid, -1),
+    // getWith304AsSuccess({uri: "http://" + SELF_HOSTNAME + "/api/v3/math/pca2", qs: qs, headers: req.headers, gzip: true}),
+    doFamousQuery(req.p, req),
+    // getIfConv({uri: "http://" + SELF_HOSTNAME + "/api/v3/votes/famous", qs: famousQs, headers: req.headers, gzip: true}),
   ]).then(function(arr) {
     res.status(200).json({
       user: JSON.parse(arr[0]),
@@ -7054,8 +7056,9 @@ function(req, res) {
       nextComment: JSON.parse(arr[2]),
       conversation: JSON.parse(arr[3]),
       votes: JSON.parse(arr[4]),
-      pca: arr[5] ? JSON.parse(arr[5]) : null,
-      famous: JSON.parse(arr[6]),
+      pca: arr[5] ? (arr[5].asPOJO ? arr[5].asPOJO : null) : null,
+      famous: arr[6],
+      // famous: JSON.parse(arr[6]),
       acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"],
     });
   }).catch(function(err) {
@@ -9974,11 +9977,27 @@ function(req, res) {
   var zid = req.p.zid;
   var lastVoteTimestamp = req.p.lastVoteTimestamp;
 
+  doFamousQuery(req.p, req).then(function(data) {
+    res.status(200).json(data);
+  }, function(err) {
+    fail(res, 500, "polis_err_famous_proj_get2", err);
+  }).catch(function(err) {
+    fail(res, 500, "polis_err_famous_proj_get1", err);
+  });
+});
+
+
+
+function doFamousQuery(o, req) {
+  var uid = o.uid;
+  var zid = o.zid;
+  var lastVoteTimestamp = o.lastVoteTimestamp;
+
 // NOTE: if this API is running slow, it's probably because fetching the PCA from mongo is slow, and PCA caching is disabled
 
   var twitterLimit = 999; // we can actually check a lot of these, since they might be among the fb users
   var softLimit = 26;
-  var hardLimit = _.isUndefined(req.p.ptptoiLimit) ? 30 : req.p.ptptoiLimit;
+  var hardLimit = _.isUndefined(o.ptptoiLimit) ? 30 : o.ptptoiLimit;
   var ALLOW_NON_FRIENDS_WHEN_EMPTY_SOCIAL_RESULT = true;
   var mod = 0; // for now, assume all conversations will show unmoderated and approved participants.
 
@@ -10024,7 +10043,7 @@ function(req, res) {
   }
 
 
-  getAuthorUidsOfFeaturedComments().then(function(authorUids) {
+  return getAuthorUidsOfFeaturedComments().then(function(authorUids) {
 
     return Promise.all([
         getSocialParticipants(zid, uid, hardLimit, mod, lastVoteTimestamp, authorUids),
@@ -10177,17 +10196,15 @@ function(req, res) {
                         pidToData[pid].bid = bid;
                     }
                 });
-                res.status(200).json(pidToData);
+                return pidToData;
             }, function(err) {
                 // looks like there is no pca yet, so nothing to return.
-                res.status(200).json({});
+                return {};
             });
         });
     });
-  }).catch(function(err) {
-    fail(res, 500, "polis_err_famous_proj_get", err);
   });
-});
+} // end doFamousQuery
 
 app.get("/api/v3/twitter_users",
     moveToBody,
