@@ -7092,12 +7092,19 @@ function(req, res) {
       ptpt: arr[1],
       nextComment: arr[2],
       conversation: arr[3],
-      votes: arr[4],
+      votes: arr[4] || [],
       pca: arr[5] ? (arr[5].asPOJO ? arr[5].asPOJO : null) : null,
       famous: arr[6],
       // famous: JSON.parse(arr[6]),
       acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"],
     };
+    if (o.conversation) {
+        delete o.conversation.zid;
+        o.conversation.conversation_id = req.p.conversation_id;
+    }
+    if (o.ptpt) {
+        delete o.ptpt.zid;
+    }
     for (var i = 0; i < o.votes.length; i++) {
         delete o.votes[i].zid; // strip zid for security
         // delete o.votes[i].pid; // because it's extra crap. Feel free to delete this line if you need pid.
