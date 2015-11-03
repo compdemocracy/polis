@@ -271,12 +271,7 @@ module.exports = Handlebones.ModelView.extend({
         //     $("#comment_form_textarea").fadeIn(400);
         //   });
         // }, 1500);
-      }, function(args) {
-        if (!args || !args.length || !args[0].length) {
-          alert("failed to send");
-          return;
-        }
-        var err = args[0][0];
+      }, function(err) {
         if (err.status === 409) {
 
           // that.model.set({
