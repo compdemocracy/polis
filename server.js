@@ -2223,7 +2223,7 @@ setTimeout(fetchAndCacheLatestPcaData, 3000);
 
 function getPca(zid, lastVoteTimestamp) {
     var cached = pcaCache.get(zid);
-    var cachedPOJO = cached.asPOJO;
+    var cachedPOJO = cached && cached.asPOJO;
     if (cachedPOJO) {
         if (cachedPOJO.lastVoteTimestamp <= lastVoteTimestamp) {
             INFO("mathpoll related", "math was cached but not new", zid, lastVoteTimestamp);
@@ -2412,7 +2412,10 @@ function(req, res) {
             // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
             // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
             // is to cache the gzipped json'd buffer here on the server.
-            res.set('Content-Type', 'application/json');
+            res.set({
+                'Content-Type': 'application/json',
+                'Content-Encoding': 'gzip',
+            });
             res.send(data.asBufferOfGzippedJson);
         } else {
             // check whether we should return a 304 or a 404
