@@ -82,14 +82,14 @@ function onPreloadOk(response) {
     {src:"user", dst:"firstUser", cb:"firstUserListener"},
     {src:"ptpt", dst:"firstPtpt", cb:"firstPtptListener"},
     {src:"votes", dst:"firstVotesByMe", cb:"firstVotesByMeListener"},
-    {src:"pca", dst:"firstMath", cb:"firstMathListener"},
+    {src:"pca", dst:"firstMath", cb:"firstMathListener", JSON: true},
     {src:"famous", dst:"firstFamous", cb:"firstFamousListener"},
     {src:"acceptLanguage", dst:"acceptLanguage", cb:"acceptLanguageListener"},
   ];
   for (var i = 0; i < things.length; i++) {
     var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
 
-    p[dst] = response[src];
+    p[dst] = r.JSON ? JSON.parse(response[src]) : response[src];
     if (p[cb]) {
       p[cb](0, p[dst]);
     }
