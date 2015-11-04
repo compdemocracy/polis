@@ -2291,22 +2291,21 @@ function getPca(zid, lastVoteTimestamp) {
 function updatePcaCache(zid, item) {
     return new Promise(function(resolve, reject) {
         delete item.zid; // don't leak zid
-        var buf = new Buffer(JSON.stringify(item), 'utf-8');
+        var asJSON = JSON.stringify(item);
+        var buf = new Buffer(asJSON, 'utf-8');
         zlib.gzip(buf, function(err, jsondGzipdPcaBuffer) {
             if (err) {
                 return reject(err);
             }
 
+            var o = {
+                asPOJO: item,
+                asJSON: asJSON,
+                asBufferOfGzippedJson: jsondGzipdPcaBuffer,
+            };
             // save in LRU cache, but don't update the lastPrefetchedVoteTimestamp
-            pcaCache.set(zid, {
-                asPOJO: item,
-                asBufferOfGzippedJson: jsondGzipdPcaBuffer,
-            });
-
-            resolve({
-                asPOJO: item,
-                asBufferOfGzippedJson: jsondGzipdPcaBuffer,
-            });
+            pcaCache.set(zid, o);
+            resolve(o);
         });
     });
 }
@@ -7094,7 +7093,7 @@ function(req, res) {
       nextComment: arr[2],
       conversation: arr[3],
       votes: arr[4] || [],
-      pca: arr[5] ? (arr[5].asPOJO ? arr[5].asPOJO : null) : null,
+      pca: arr[5] ? (arr[5].asJSON ? arr[5].asJSON : null) : null,
       famous: arr[6],
       // famous: JSON.parse(arr[6]),
       acceptLanguage: req.headers["accept-language"] || req.headers["Accept-Language"],
