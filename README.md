@@ -1,1 +1,1 @@
-Trust, a community moderation app for Coral Project
+Polis admin console

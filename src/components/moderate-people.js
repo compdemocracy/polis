@@ -2,25 +2,23 @@ import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
-
-import UserStatsWidget from "./user-stats-widget";
+import { Link } from "react-router";
 
 @connect(state => state.data)
 @Radium
-class App extends React.Component {
-
-  getStats() {
-    return _.map(_.range(5), i => <UserStatsWidget key={i} />);
-  }
+class ModeratePeople extends React.Component {
 
   render() {
     return (
       <div>
-        <h1>{this.props.message} and reloads</h1>
-        <button style={styles}>Click Me</button>
+        <h1>Moderate People</h1>
         <div>
-          {this.getStats()}
+          "Moderate People"
         </div>
+          <Link to="participants/default">Default </Link>
+          <Link to="participants/featured">Featured </Link>
+          <Link to="participants/hidden">Hidden </Link>
+        {this.props.children}
       </div>
     );
   }
@@ -36,4 +34,4 @@ var styles = {
   }
 };
 
-export default App;
+export default ModeratePeople;
