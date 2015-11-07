@@ -9,23 +9,49 @@ import Sidebar from "react-sidebar";
 @connect(state => state.data)
 @Radium
 class App extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      sidebarOpen: false
+    };
+  }
+
+  onSetSidebarOpen (open) {
+    console.log(this)
+    this.setState({sidebarOpen: open});
+  }
+
+  handleMenuButtonClick () {
+    this.setState({sidebarOpen: !this.state.sidebarOpen})
+  }
 
   render() {
+    const sidebarContent = <b>Sidebar content</b>;
     return (
-      <div>
+      <Sidebar sidebar={sidebarContent}
+               open={this.state.sidebarOpen}
+               onSetOpen={this.onSetSidebarOpen.bind(this)}>
         <div>
-          <Link to="comments">Comments </Link>
-          <Link to="participants">Participants </Link>
-          <Link to="config">Config </Link>
-          <Link to="stats">Stats </Link>
+          <div>
+            <p
+              onClick={this.handleMenuButtonClick.bind(this)}
+              style={{marginRight: 15, display: "inline"}}>
+              |||||||||
+              </p>
+            <Link style={{marginRight: 15}} to="comments">Comments</Link>
+            <Link style={{marginRight: 15}} to="participants">Participants</Link>
+            <Link style={{marginRight: 15}} to="config">Config</Link>
+            <Link style={{marginRight: 15}} to="stats">Stats</Link>
+          </div>
+          {this.props.children}
         </div>
-        {this.props.children}
-      </div>
+      </Sidebar>
+
     );
   }
 }
 
-var styles = {
+const styles = {
   backgroundColor: `hsla(${Math.random() * 255}, 50%, 50%, ${Math.random()})`,
   padding: '5px',
   color: 'white',

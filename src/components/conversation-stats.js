@@ -78,9 +78,11 @@ class ConversationStats extends React.Component {
     ]
   }
   render() {
-    console.log(this.props)
     return (
       <div>
+      <h3>Summary</h3>
+        <p> ____ participants have visited the page. ____ have voted. ____ have commented. ____ comments have been submitted, and ____ votes have been cast. ____ percent have returned more than once. </p>
+      <h3>Charts</h3>
         <div className="=======UNIQES-VOTERS-COMMENTERS=======">
           <h3 style={{marginBottom: 0, marginLeft: 50}}>
             <span style={{color: "cornflowerblue"}}>Uniques </span>
@@ -103,7 +105,7 @@ class ConversationStats extends React.Component {
             <VictoryLine
               style={{
                 data: {
-                  strokeWidth: 1,
+                  strokeWidth: 2,
                   stroke: "gold"
                 }
               }}
@@ -111,7 +113,7 @@ class ConversationStats extends React.Component {
             <VictoryLine
               style={{
                 data: {
-                  strokeWidth: 1,
+                  strokeWidth: 2,
                   stroke: "cornflowerblue"
                 }
               }}
@@ -144,7 +146,7 @@ class ConversationStats extends React.Component {
             <VictoryLine
               style={{
                 data: {
-                  strokeWidth: 1,
+                  strokeWidth: 2,
                   stroke: "tomato"
                 }
               }}
@@ -189,7 +191,61 @@ class ConversationStats extends React.Component {
           </VictoryChart>
         </div>
         <div className="=======VOTES-PER-PARTICIPANT=======">
-
+          <h3 style={{marginBottom: 0, marginLeft: 50}}>
+            <span>Voting / engagement distribution: __ participants voted __ times.</span>
+          </h3>
+          <VictoryChart domainPadding={{x: 30, y: 30}}>
+            <VictoryAxis
+              label="Vote count"
+              tickValues={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}
+              tickFormat={(x) => x}
+              style={{
+                data: {
+                  axis: {
+                    stroke: "black",
+                    strokeWidth: 1
+                  },
+                  ticks: {
+                    stroke: "transparent"
+                  },
+                  tickLabels: {
+                    fill: "black"
+                  }
+                }
+              }}/>
+            <VictoryAxis
+              label="Participant count"
+              orientation={"left"}
+              dependentAxis
+              style={{
+                data: {
+                  axis: {
+                    stroke: "black",
+                    strokeWidth: 1
+                  },
+                  ticks: {
+                    stroke: "transparent"
+                  },
+                  tickLabels: {
+                    fill: "black"
+                  }
+                }
+              }}/>
+            <VictoryBar
+              style={{
+                data: {
+                  fill: "grey",
+                  width: 1
+                }
+              }}
+              data={_.map(_.range(80), (i) => {
+                  return {
+                    x: i+1,
+                    y: Math.random()
+                  };
+                })
+              }/>
+          </VictoryChart>
         </div>
       </div>
     );
@@ -207,28 +263,3 @@ export default ConversationStats;
 
 
 
-
-
-// <VictoryChart domainPadding={{x: 30, y: 30}}>
-//             <VictoryAxis
-//               tickValues={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}
-//               tickFormat={(x) => x}
-//               style={{data: {
-//                 axis: {stroke: "black", strokeWidth: 1},
-//                 ticks: {stroke: "transparent"},
-//                 tickLabels: {fill: "black"}
-//               }}}/>
-//             <VictoryAxis
-//               label="Participants voted x times"
-//               orientation={"left"}
-//               dependentAxis/>
-//             <VictoryBar style={{data: { fill: "grey"}}}
-//               data={_.map(_.range(20), (i) => {
-//                   if (i===0) {return null}
-//                   return {
-//                     x: i,
-//                     y: Math.random()
-//                   };
-//                 })
-//               }/>
-//           </VictoryChart>
