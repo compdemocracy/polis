@@ -12,8 +12,23 @@ class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      sidebarOpen: false
+      sidebarOpen: false,
+      sidebarDocked: true
     };
+  }
+
+  componentWillMount () {
+    var mql = window.matchMedia(`(min-width: 800px)`);
+    mql.addListener(this.mediaQueryChanged.bind(this));
+    this.setState({mql: mql, docked: mql.matches});
+  }
+
+  componentWillUnmount () {
+    this.state.mql.removeListener(this.mediaQueryChanged.bind(this));
+  }
+
+  mediaQueryChanged () {
+    this.setState({sidebarDocked: this.state.mql.matches});
   }
 
   onSetSidebarOpen (open) {
@@ -30,6 +45,7 @@ class App extends React.Component {
     return (
       <Sidebar sidebar={sidebarContent}
                open={this.state.sidebarOpen}
+               docked={this.state.sidebarDocked}
                onSetOpen={this.onSetSidebarOpen.bind(this)}>
         <div>
           <div>
