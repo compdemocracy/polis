@@ -2464,15 +2464,7 @@ function(req, res) {
 
 
 
-
-
-app.get("/api/v3/dataExport",
-    moveToBody,
-    auth(assignToP),
-    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
-    need('conversation_id', getStringLimitLength(1, 1000), assignToP),
-    want('format', getStringLimitLength(1, 100), assignToP),
-function(req, res) {
+function doProxyDataExportCall(req, res, urlBuilderFunction) {
     Promise.all([
         getUserInfoForUid2(req.p.uid),
         getConversationInfo(req.p.zid),
@@ -2489,17 +2481,7 @@ function(req, res) {
         var exportServerUser = process.env.EXPORT_SERVER_AUTH_USERNAME;
         var exportServerPass = process.env.EXPORT_SERVER_AUTH_PASS;
 
-        var format = "csv";
-        if (req.p.format === "excel") {
-            format = "excel";
-        }
-
-        var url = "http://" +
-            exportServerUser+":"+exportServerPass +
-            "@polisdarwin.herokuapp.com/datadump/get?zinvite=" +
-            req.p.conversation_id +
-            "&format="+format+"&email=" +
-            user.email;
+        var url = urlBuilderFunction(exportServerUser, exportServerPass, user.email);
 
         var x = request(url);
         req.pipe(x);
@@ -2515,9 +2497,42 @@ function(req, res) {
     }).catch(function(err) {
         fail(res, 500, "polis_err_data_export3", err);
     });
+}
 
+
+
+app.get("/api/v3/dataExport",
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP),
+    want('format', getStringLimitLength(1, 100), assignToP),
+function(req, res) {
+    doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
+        return "http://" +
+            exportServerUser+":"+exportServerPass +
+            "@polisdarwin.herokuapp.com/datadump/get?zinvite=" +
+            req.p.conversation_id +
+            "&format="+req.p.format+"&email=" +
+            email;
+    });
 });
 
+app.get("/api/v3/dataExport/results",
+    moveToBody,
+    auth(assignToP),
+    need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
+    need('conversation_id', getStringLimitLength(1, 1000), assignToP),
+    want('filename', getStringLimitLength(1, 1000), assignToP),
+function(req, res) {
+    doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
+        return "http://" +
+            exportServerUser+":"+exportServerPass +
+            "@polisdarwin.herokuapp.com/datadump/results?zinvite=" +
+            req.p.conversation_id +
+            "&filename="+req.p.filename;
+    });
+});
 
 app.get("/api/v3/math/pcaPlaybackList",
     moveToBody,
