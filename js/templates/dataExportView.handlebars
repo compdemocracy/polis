@@ -1,0 +1,38 @@
+
+  <h3 style="margin-top: 40px; font-size: 18px; font-weight: 700;">
+    <div>Data Export</div>
+
+  </h3>
+  <p style="margin-top: 20px">
+  <a href="{{exportUrl}}"
+    style="margin-top: 20px; text-transform: none; color: white"
+    id="exportButton"
+      class="Btn Btn-primary"
+    >
+    Export data to {{format_extension}} file
+  </a>
+</p>
+<form role="form">
+ <p title="data-auth_needed_to_write">
+    {{!-- Format --}}
+    <div class="config-option-row"><input
+      id="format_csv"
+      type="radio"
+      name="format"
+      value="true"
+      {{#if csv}}
+        checked
+      {{/if}}>
+      CSV
+    <input
+      id="format_excel"
+      type="radio"
+      name="format"
+      value="false"
+      {{#if excel}}
+        checked
+      {{/if}}>
+      Excel</div>
+  </p>
+</form>
+  <div style="margin-top: 10px;">NOTE: This should take a few seconds. If it takes longer than 30 seconds, check the email address associated with your pol.is account for a download link.</div>

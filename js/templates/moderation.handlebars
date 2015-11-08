@@ -100,6 +100,19 @@
     </a>
   </li>
 
+  {{!-- ========= Export TAB ========== --}}
+  <li style="margin-right: 10px;">
+    <a
+      href="#export"
+      class="HeadingC polis-tab"
+      style="
+        padding: 10px 0px !important;
+        border: none;
+        text-transform: none;"
+      data-toggle="tab">
+    Export
+    </a>
+  </li>
 </ul>
 
 {{!-- ========= TAB PANE CONTENT ========== --}}
@@ -293,4 +306,7 @@
     {{view conversationStatsView}}
   </div>
 
+  <div class="tab-pane" id="export">
+    {{view conversationExportView}}
+  </div>
 </div>
