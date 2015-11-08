@@ -29,6 +29,8 @@ import ParticipantModerationDefault from "./components/moderate-people-default";
 import ParticipantModerationFeatured from "./components/moderate-people-featured";
 import ParticipantModerationHidden from "./components/moderate-people-hidden";
 
+import Inbox from "./components/inbox";
+
 const store = configureStore();
 
 class Root extends React.Component {
@@ -38,6 +40,7 @@ class Root extends React.Component {
         <Provider store={store}>
           <Router>
             <Route path="/" component={Console}>
+              <Route path="inbox" components={Inbox}/>
               <Route path="comments" component={ModerateComments}>
                 <Route path="todo" component={ModerateCommentsTodo}/>
                 <Route path="accepted" component={ModerateCommentsAccepted}/>

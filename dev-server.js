@@ -2,6 +2,8 @@ var path = require('path');
 var express = require('express');
 var webpack = require('webpack');
 var config = require('./webpack.config.dev');
+var httpProxy = require('http-proxy');
+var request = require('request');
 
 var app = express();
 var compiler = webpack(config);
@@ -13,15 +15,36 @@ app.use(require('webpack-dev-middleware')(compiler, {
 
 app.use(require('webpack-hot-middleware')(compiler));
 
+// var routingProxy = new httpProxy.RoutingProxy();
+
+function proxy (req, res) {
+  var url = req.path;
+  var x = request({
+    // url: "http://localhost:5001" + url,
+    url: "https://preprod.pol.is" + url,
+    headers: req.headers,
+    rejectUnauthorized:false,
+  });
+  req.pipe(x);
+  x.pipe(res);
+  x.on("error", function(err) {
+    console.log(err);
+    res.status(500).send("proxy error");
+  });
+}
+
+// proxy everything else
+app.get(/^\/api\//, proxy);
+
 app.get('*', function(req, res) {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(3000, 'localhost', function(err) {
+app.listen(5000, 'localhost', function(err) {
   if (err) {
     console.log(err);
     return;
   }
 
-  console.log('Listening at http://localhost:3000');
+  console.log('Listening at http://localhost:5000');
 });

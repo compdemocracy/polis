@@ -46,7 +46,7 @@ class App extends React.Component {
       <div style={{marginLeft: 10}}>
         <h3 style={{marginRight: 10}}> Conversation Admin </h3>
         <p> <em> pol.is/55555 </em> </p>
-        <p><Link style={{marginRight: 15}} to="conversation-stats">Stats</Link></p>
+        <p><Link style={{marginRight: 15}} to="stats">Stats</Link></p>
         <p><Link style={{marginRight: 15}} to="config">Config</Link></p>
         <p><Link style={{marginRight: 15}} to="comments">Comments</Link></p>
         <p><Link style={{marginRight: 15}} to="participants">Participants</Link></p>
