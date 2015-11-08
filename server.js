@@ -2471,6 +2471,7 @@ app.get("/api/v3/dataExport",
     auth(assignToP),
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
+    want('format', getStringLimitLength(1, 100), assignToP),
 function(req, res) {
     Promise.all([
         getUserInfoForUid2(req.p.uid),
@@ -2488,11 +2489,16 @@ function(req, res) {
         var exportServerUser = process.env.EXPORT_SERVER_AUTH_USERNAME;
         var exportServerPass = process.env.EXPORT_SERVER_AUTH_PASS;
 
+        var format = "csv";
+        if (req.p.format === "excel") {
+            format = "excel";
+        }
+
         var url = "http://" +
             exportServerUser+":"+exportServerPass +
             "@polisdarwin.herokuapp.com/datadump/get?zinvite=" +
             req.p.conversation_id +
-            "&format=csv&email=" +
+            "&format="+format+"&email=" +
             user.email;
 
         var x = request(url);
