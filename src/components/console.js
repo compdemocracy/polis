@@ -13,7 +13,8 @@ class App extends React.Component {
     super(props);
     this.state = {
       sidebarOpen: false,
-      sidebarDocked: true
+      sidebarDocked: true,
+      conversationSelected: false
     };
   }
 
@@ -41,23 +42,38 @@ class App extends React.Component {
   }
 
   render() {
-    const sidebarContent = <b>Sidebar content</b>;
+    const conversationSidebarContent = (
+      <div style={{marginLeft: 10}}>
+        <h3 style={{marginRight: 10}}> Conversation Admin </h3>
+        <p> <em> pol.is/55555 </em> </p>
+        <p><Link style={{marginRight: 15}} to="conversation-stats">Stats</Link></p>
+        <p><Link style={{marginRight: 15}} to="config">Config</Link></p>
+        <p><Link style={{marginRight: 15}} to="comments">Comments</Link></p>
+        <p><Link style={{marginRight: 15}} to="participants">Participants</Link></p>
+      </div>
+    )
+    const homeSidebarContent = (
+      <div style={{marginLeft: 10}}>
+        <h3 style={{marginRight: 10}}> Polis Home </h3>
+        <p> <em> logged in user </em> </p>
+        <p><Link style={{marginRight: 15}} to="inbox">Inbox</Link></p>
+        <p><Link style={{marginRight: 15}} to="home-stats">Overall Stats</Link></p>
+        <p><a style={{marginRight: 15}} href="http://about.pol.is">Docs</a></p>
+        <p><Link style={{marginRight: 15}} to="account">Account</Link></p>
+      </div>
+    )
     return (
-      <Sidebar sidebar={sidebarContent}
-               open={this.state.sidebarOpen}
-               docked={this.state.sidebarDocked}
-               onSetOpen={this.onSetSidebarOpen.bind(this)}>
-        <div>
+      <Sidebar sidebar={this.state.conversationSelected ? conversationSidebarContent : homeSidebarContent}
+        open={this.state.sidebarOpen}
+        docked={this.state.sidebarDocked}
+        onSetOpen={this.onSetSidebarOpen.bind(this)}>
+        <div style={{width: 800, margin: 40}}>
           <div>
             <p
               onClick={this.handleMenuButtonClick.bind(this)}
               style={{marginRight: 15, display: "inline"}}>
               |||||||||
-              </p>
-            <Link style={{marginRight: 15}} to="comments">Comments</Link>
-            <Link style={{marginRight: 15}} to="participants">Participants</Link>
-            <Link style={{marginRight: 15}} to="config">Config</Link>
-            <Link style={{marginRight: 15}} to="stats">Stats</Link>
+            </p>
           </div>
           {this.props.children}
         </div>

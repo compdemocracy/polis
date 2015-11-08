@@ -80,6 +80,7 @@ class ConversationStats extends React.Component {
   render() {
     return (
       <div>
+      <h1>Conversation Stats</h1>
       <h3>Summary</h3>
         <p> ____ participants have visited the page. ____ have voted. ____ have commented. ____ comments have been submitted, and ____ votes have been cast. ____ percent have returned more than once. </p>
       <h3>Charts</h3>
