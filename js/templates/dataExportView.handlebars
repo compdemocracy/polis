@@ -1,19 +1,36 @@
 
-  <h3 style="margin-top: 40px; font-size: 18px; font-weight: 700;">
-    <div>Data Export</div>
+<form role="form" style="margin: 10px;">
+<p>
+  <h4> Compute stats up until:</h4>
+  <p class="config-option-row">
+    <select id="exportSelectYear">
+      {{#each years}}
+        <option value="{{name}}"  {{#if selected}}selected="selected"{{/if}}>{{num}} {{name}}</option>
+      {{/each}}
+    </select>
 
-  </h3>
-  <p style="margin-top: 20px">
-  <a href="{{exportUrl}}"
-    style="margin-top: 20px; text-transform: none; color: white"
-    id="exportButton"
-      class="Btn Btn-primary"
-    >
-    Export data to {{format_extension}} file
-  </a>
-</p>
-<form role="form">
- <p title="data-auth_needed_to_write">
+    <select id="exportSelectMonth">
+      {{#each months}}
+        <option value="{{name}}"  {{#if selected}}selected="selected"{{/if}}>{{num}} {{name}}</option>
+      {{/each}}
+    </select>
+
+    <select id="exportSelectDay">
+      {{#each days}}
+        <option value="{{name}}"  {{#if selected}}selected="selected"{{/if}}>{{num}} {{name}}</option>
+      {{/each}}
+    </select>
+
+    <select id="exportSelectTz">
+      {{#each tzs}}
+        <option value="{{name}}"  {{#if selected}}selected="selected"{{/if}}>{{name}}</option>
+      {{/each}}
+    </select>
+  </p>
+  </p>
+
+ <p>
+  <h4> Export format </h4>
     {{!-- Format --}}
     <div class="config-option-row"><input
       id="format_csv"
@@ -34,5 +51,17 @@
       {{/if}}>
       Excel</div>
   </p>
+
+
+  <a href="{{exportUrl}}"
+    style="margin-top: 20px; text-transform: none; color: white"
+    id="exportButton"
+      class="Btn Btn-primary"
+    >
+    Export
+  </a>
+
+
+
 </form>
   <div style="margin-top: 10px;">NOTE: This should take a few seconds. If it takes longer than 30 seconds, check the email address associated with your pol.is account for a download link.</div>
