@@ -69,9 +69,21 @@
   (try (Double/parseDouble x)
        (catch Exception e nil)))
 
-(def parsers {:at-date ->double :format keyword})
+(defn between? [a b x]
+  (and x (< a x) (> b x)))
 
-(def allowed-params #{:filename :zinvite :at-date :format :email})
+(defn parse-and-validate-timeout
+  [x]
+  (let [x (try (Long/parseLong x)
+               (catch Exception e (throw (Exception. "Invalid timeout value"))))]
+    (assert (and x (< 0 x) (>= 29000 x)) "Invalid timout value")
+    x))
+
+(def parsers {:at-date ->double
+              :format keyword
+              :timeout parse-and-validate-timeout})
+
+(def allowed-params #{:filename :zinvite :at-date :format :email :timeout})
 
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
@@ -365,7 +377,7 @@
         _ (log/info "Handling datadump request with params:" (with-out-str (prn params)))
         filename (generate-filename params)
         datadump (async/thread (run-datadump filename params))
-        timeout (async/timeout 100000)
+        timeout (async/timeout (or (:timeout parsed-params) 29000))
         [done? _] (async/alts!! [datadump timeout])]
     (cond
       ;; We'll try to catch all exceptions before this 
