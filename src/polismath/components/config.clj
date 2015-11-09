@@ -27,6 +27,7 @@
    ;; XXX Hmm... How do we express a dependency here?
    :primary-polis-url :localhost ;; Must do it in the component load...
    :database   {:pool-size 3}
+   :math-schema-date "2014_08_22"
    })
 
 (def rules
@@ -50,6 +51,7 @@
                                 :doc "This is the maximum number of participants before the conversation stops accepting new participants"}
    :math-cutoff-max-cmnts      {:path [:math :cutoffs :max-ptpts] :parse ->long
                                 :doc "This is the maximum number of comments before the conversation stops accepting new comments"}
+   :math-schema-date           {:doc "This helps us version our mongo buckets."}
    ;; XXX TODO & Thoughts
    ;; Mini batch sizes (see polismath.math.conversation)
    })
