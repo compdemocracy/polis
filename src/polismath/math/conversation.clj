@@ -382,6 +382,8 @@
 (defn conv-update
   "This function dispatches to either small- or large-conv-update, depending on the number
   of participants (as decided by call to sample-size-fn)."
+  ;; XXX This function is going to need to take config component for cutoff values
+  ;; XXX Also need to set the max globally and by conversation for plan functionality
   [conv votes & {:keys [med-cutoff large-cutoff]
                                  :or {med-cutoff 100 large-cutoff 10000}
                                  :as opts}]

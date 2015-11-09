@@ -1,0 +1,96 @@
+(ns polismath.components.config
+  (:require [polismath.utils :as utils]
+            [clojure.tools.logging :as log]
+            [com.stuartsierra.component :as component]
+            [environ.core :as environ]
+            ))
+
+
+(defn ->long [x]
+  (try
+    (Long/parseLong x)
+    (catch Exception e
+      (when-not (= x "")
+        ;; Otherwise, assume nil was intended...
+        (log/warn "Failed to parse ->long:" x))
+      nil)))
+
+(defn ->keyword [x]
+  ;; Otherwise want to return nil, so merging works
+  (when (and x (not (= x "")))
+    (keyword x)))
+
+(def defaults
+  {:nrepl-port 12345
+   :math-env   :dev
+   :darwin     {:server-port 3123}
+   ;; XXX Hmm... How do we express a dependency here?
+   :primary-polis-url :localhost ;; Must do it in the component load...
+   :database   {:pool-size 3}
+   })
+
+(def rules
+  "Mapping of env keys to parsing options"
+  {:nrepl-port                 {:parse ->long}
+   :math-env                   {:parse ->keyword}
+   ;; Have to use :port since that's what heroku expects...
+   :port                       {:path [:darwin :server-port] :parse ->long}
+   :database-url               {:path [:database :url]}
+   :database-for-reads-name    {:path [:database :reads-name]}
+   :database-pool-size         {:path [:database :pool-size] :parse ->long}
+   :mongo-url                  {:path [:mongo :url]}
+   :mailgun-api-key            {:path [:email :api-key]}
+   :primary-polis-url          {:path [:email :api-key]}
+   :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
+   :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long
+                                :doc "This is the maximum size of a conversation before running in :medium mode"}
+   :math-cutoff-large          {:path [:math :cutoffs :large] :parse ->long
+                                :doc "This is the maximum size of a conversation before running in :large mode"}
+   :math-cutoff-max-ptpts      {:path [:math :cutoffs :max-ptpts] :parse ->long
+                                :doc "This is the maximum number of participants before the conversation stops accepting new participants"}
+   :math-cutoff-max-cmnts      {:path [:math :cutoffs :max-ptpts] :parse ->long
+                                :doc "This is the maximum number of comments before the conversation stops accepting new comments"}
+   ;; XXX TODO & Thoughts
+   ;; Mini batch sizes (see polismath.math.conversation)
+   })
+
+(defn get-environ-config [rules env]
+  (reduce
+    (fn [config [name {:keys [parse path] :or {parse identity}}]]
+      (if-let [env-var-val (get env name)]
+        (assoc-in config (or path [name]) (parse env-var-val))
+        config))
+    {}
+    rules))
+
+(defn deep-merge
+  "Like merge, but merges maps recursively."
+  [& maps]
+  (if (every? #(or (map? %) (nil? %)) maps)
+    (apply merge-with deep-merge maps)
+    (last maps)))
+
+(defn get-config
+  ([overrides]
+   (deep-merge (read-string (slurp "config.edn"))
+               (get-environ-config rules environ/env)
+               overrides))
+  ([] (get-config {})))
+
+(defrecord Config [overrides]
+  component/Lifecycle
+  (start [component]
+    (log/info "Starting config component")
+    (into component (get-config overrides)))
+  (stop [component]
+    component))
+
+(defn create-config
+  "Create a new instance of a Config component, with config-overrides."
+  ([config-overrides]
+   (Config. config-overrides))
+  ([] (create-config {})))
+
+
+:ok
+
