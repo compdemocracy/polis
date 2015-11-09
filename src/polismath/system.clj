@@ -1,7 +1,7 @@
 (ns polismath.system
   (:require [polismath.utils :as utils]
             [polismath.components [db :as db]
-                                  [config :as config]
+                                  [config :as config :refer [create-config]]
                                   [core-matrix-boot :as core-matrix-boot]]
             [polismath.stormspec :as stormspec]
             [com.stuartsierra.component :as component]
@@ -10,8 +10,12 @@
 (defn base-system
   "This constructs an instance of the base system components, including config, db, etc."
   [config-overrides]
-  :TODO
-  )
+  (component/system-map
+    :config           (create-config config-overrides)
+    :core-matrix-boot (component/using (create-core-matrix-booter) [:config])
+    :database         (component/using (create-database)           [:config])
+    :mongodb          (component/using (create-mongodb)            [:config])
+    ))
 
 (defn darwin-system
   "Creates a base-system and assocs in darwin server related components."

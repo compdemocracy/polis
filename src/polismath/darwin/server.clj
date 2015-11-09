@@ -475,32 +475,6 @@
 (defn -main []
   (start-server!))
 
-;; For sketching and REPLING
-
-(comment
-  (require '[clj-http.client :as client])
-
-  (start-server!)
-  (stop-server!)
-  (reset-server!)
-
-  ;(client/request)
-  (let [params {:basic-auth [(:export-server-auth-username env/env)
-                             (:export-server-auth-pass env/env)]
-                :query-params {:zinvite "6sc6vt"
-                               ;:at-date 
-                               :format "csv"}}]
-    (try
-      (-> (client/get "http://localhost:3000/ping" params)
-          (dissoc :body)
-          clojure.pprint/pprint)
-      (catch Exception e (.printStackTrace e))))
-
-  (-> (client/post "http://localhost:3000/ping" {:form-params {:q "foo, bar"}})
-      (dissoc :body)
-      clojure.pprint/pprint)
-  )
-
 
 ;; TODO / Thoughts
 
