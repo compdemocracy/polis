@@ -2507,6 +2507,7 @@ app.get("/api/v3/dataExport",
     need('conversation_id', getConversationIdFetchZid, assignToPCustom('zid')),
     need('conversation_id', getStringLimitLength(1, 1000), assignToP),
     want('format', getStringLimitLength(1, 100), assignToP),
+    want('unixTimestamp', getStringLimitLength(99), assignToP),
 function(req, res) {
     doProxyDataExportCall(req, res, function(exportServerUser, exportServerPass, email) {
         return "http://" +
@@ -2514,7 +2515,9 @@ function(req, res) {
             "@polisdarwin.herokuapp.com/datadump/get?zinvite=" +
             req.p.conversation_id +
             "&format="+req.p.format+"&email=" +
-            email;
+            email +
+            (req.p.unixTimestamp ? ("&at-date=" + req.p.unixTimestamp * 1000) : "")
+            ;
     });
 });
 
