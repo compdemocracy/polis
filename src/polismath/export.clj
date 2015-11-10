@@ -76,7 +76,7 @@
     :zinvite))
 
 
-(defn get-conversation-votes
+(defn get-conversation-votes*
   ([zid]
    (kdb/with-db (db/db-spec)
      (ko/select db/votes
@@ -88,6 +88,12 @@
        (ko/where {:zid zid :created [<= final-vote-timestamp]})
        ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
        (ko/order [:zid :tid :pid :created] :asc)))))
+
+(defn get-conversation-votes
+  [& args]
+  ;; Flip the signs on the votes XXX (remove when we switch)
+  (map  #(update-in % [:vote] (partial * -1))
+       (apply get-conversation-votes* args)))
 
 (defn get-conversation-data
   "Return a map with :topic and :description keys"
@@ -234,8 +240,6 @@
 (defn reconstruct-vote-matrix
   [votes]
   (let [new-nmat (nm/named-matrix)
-        ;; Flip the signs on the votes XXX (remove when we switch)
-        votes (map #(update-in % [:vote] (partial * -1)) votes)
         vote-tuples (map #(map % [:pid :tid :vote]) votes)]
     (nm/update-nmat new-nmat vote-tuples)))
 
@@ -275,8 +279,10 @@
                  (count (filter #(= (:pid %) ptpt) comments))
                  (count (remove nil? row))
                  ;; XXX God damn aggree vs disagree...
-                 (count (filter #{-1} row))
-                 (count (filter #{1} row))]
+                 ;; Fixed this upstream, for now; so should be good to go once we've fixed it at the source. But
+                 ;; keep an eye on it for now... XXX
+                 (count (filter #{1} row))
+                 (count (filter #{-1} row))]
                 row))
         (nm/rownames mat)
         (.matrix mat)))))
@@ -298,8 +304,10 @@
   (map
     (fn [{:keys [pid] :as comment-data}]
       (let [comment-votes (filter #(= pid (:pid %)) votes)
-            aggrees (filter #(= -1 (:vote %)) comment-votes)
-            disagrees (filter #(= 1 (:vote %)) comment-votes)]
+            ;; Fixed this upstream, for now; so should be good to go once we've fixed it at the source. But
+            ;; keep an eye on it for now... XXX
+            aggrees (filter #(= 1 (:vote %)) comment-votes)
+            disagrees (filter #(= -1 (:vote %)) comment-votes)]
         (assoc comment-data :aggrees (count aggrees) :disagrees (count disagrees))))
     comments))
 
