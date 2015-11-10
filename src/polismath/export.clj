@@ -234,8 +234,8 @@
 (defn reconstruct-vote-matrix
   [votes]
   (let [new-nmat (nm/named-matrix)
-        ;; Flip the signs on the votes XXX
-        votes (map #(update-in % :vote (partial * -1)) votes)
+        ;; Flip the signs on the votes XXX (remove when we switch)
+        votes (map #(update-in % [:vote] (partial * -1)) votes)
         vote-tuples (map #(map % [:pid :tid :vote]) votes)]
     (nm/update-nmat new-nmat vote-tuples)))
 
