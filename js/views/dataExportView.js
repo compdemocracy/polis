@@ -11,8 +11,11 @@ module.exports =  Handlebones.ModelView.extend({
   events: {
     "click form": "onOptionsChanged",
     "change select": "onOptionsChanged",
+    "click #exportButton" : "onButtonClicked"
   },
-
+  onButtonClicked: function() {
+    this.$("#exportInProgressNotice").show();
+  },
   onOptionsChanged: function() {
     var that = this;
     serialize(this, function(attrs) {
