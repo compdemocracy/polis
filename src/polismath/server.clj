@@ -64,9 +64,15 @@
 ;; Tihs could all possibly be interwoven with the config component as well.
 
 (defn ->double
-  "Try to parse as an integer; return nil if not possible."
+  "Try to parse a decimal number as double; return nil if not possible."
   [x]
   (try (Double/parseDouble x)
+       (catch Exception e nil)))
+
+(defn ->long
+  "Try to parse as an integer as long; return nil if not possible."
+  [x]
+  (try (Long/parseLong x)
        (catch Exception e nil)))
 
 (defn between? [a b x]
@@ -79,8 +85,8 @@
     (assert (and x (< 0 x) (>= 29000 x)) "Invalid timout value")
     x))
 
-(def parsers {:at-date ->double
-              :format keyword
+(def parsers {:at-date ->long
+              :format  keyword
               :timeout parse-and-validate-timeout})
 
 (def allowed-params #{:filename :zinvite :at-date :format :email :timeout})
