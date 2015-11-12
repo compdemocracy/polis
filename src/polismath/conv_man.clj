@@ -17,35 +17,6 @@
             [cheshire.core :as ch]
             [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]))
 
-(when-not (#{"prod" "production" "preprod"} (env/env :math-env))
-  (use 'alex-and-georges.debug-repl))
-
-
-(add-encoder mikera.vectorz.Vector
-             (fn [v jsonGenerator]
-               (encode-seq (into-array v) jsonGenerator)))
-
-; CAREFUL - make sure we don't lose dimensions of the N-Dimensional array.
-(add-encoder clojure.core.matrix.impl.ndarray.NDArray
-             (fn [v jsonGenerator]
-               (encode-seq (into-array v) jsonGenerator)))
-
-
-; Create graphite sender
-(def metric (met/make-metric-sender "carbon.hostedgraphite.com" 2003 (env/env :hostedgraphite-apikey)))
-
-
-(defmacro meter
-  "Send performance metrics to graphite"
-  [metric-name & expr]
-  `(let [start# (System/currentTimeMillis)
-         ret# ~@expr
-         end# (System/currentTimeMillis)
-         duration# (- end# start#)]
-     (metric ~metric-name duration# end#)
-     (log/debug (str end# " " ~metric-name " " duration# " millis"))
-     ret#))
-
 
 (defn get-or-set!
   "Either gets the key state of a collection atom, or sets it to a val"
@@ -92,9 +63,10 @@
 
 (defn mongo-upsert-results
   "Perform upsert of new results on mongo collection name"
-  [collection-name new-results]
+  [mongo config collection-name new-results]
   (mc/update
     ; Bleg; not the cleanest separation here; should at least try to make this something rebindable
+    (:db mongo)
     (db/mongo-db (env/env :mongolab-uri))
     collection-name
     {:zid (or (:zid new-results) ; covering our bases for strings or keywords due to cheshire hack
@@ -210,7 +182,8 @@
       (try
         (let [end (System/currentTimeMillis)
               duration (- end start-time)]
-          (metric "math.pca.compute.fail" duration))
+          ;; Update to use MetricSender component
+          (met/metric "math.pca.compute.fail" duration))
         (catch Exception e
           (log/error "Unable to send metrics for failed compute for" zid-str)))
       ; Try to save conversation state for debugging purposes
@@ -221,7 +194,7 @@
 
 
 ;; XXX This is really bad, now that I think of it. There should be a data-driven declarative specification of
-;; what the sape of a conversation is, what is required, what needs to be modified etc, so everything is all
+;; what the shape of a conversation is, what is required, what needs to be modified etc, so everything is all
 ;; in one place. This problem with teh :lastVoteTimestamp and group-votes etc came up precisely because there
 ;; wasn't "one place to go" for modifying all of the potential points of interest for these kind of changes.
 

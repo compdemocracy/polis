@@ -41,6 +41,7 @@
    :database-pool-size         {:path [:database :pool-size] :parse ->long}
    :mongo-url                  {:path [:mongo :url]}
    :mailgun-api-key            {:path [:email :api-key]}
+   :mailgun-url                {:path [:email :url]}
    :primary-polis-url          {:path [:email :api-key]}
    :math-matrix-implementation {:path [:math :matrix-implementation] :parse ->keyword}
    :math-cutoff-medium         {:path [:math :cutoffs :medium] :parse ->long
@@ -52,6 +53,11 @@
    :math-cutoff-max-cmnts      {:path [:math :cutoffs :max-ptpts] :parse ->long
                                 :doc "This is the maximum number of comments before the conversation stops accepting new comments"}
    :math-schema-date           {:doc "This helps us version our mongo buckets."}
+   ;; Should change these to be more abstract in key name; not hostedgraphite-apikey; just graphite-apikey etc XXX
+   :hostedgraphite-apikey      {:path [:meta :graphite :api-key]
+                                :doc "API key for graphite db (perf monitoring)"}
+   :hostedgraphite-hostname    {:path [:meta :graphite :hostname]
+                                :doc "The hostname for sending messages to graphite"}
    ;; XXX TODO & Thoughts
    ;; Mini batch sizes (see polismath.math.conversation)
    })

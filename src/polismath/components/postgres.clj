@@ -1,4 +1,4 @@
-(ns polismath.components.db
+(ns polismath.components.postgres
   (:require [polismath.components.env :as env]
             [polismath.util.pretty-printers :as pp]
             [polismath.utils :as utils]
@@ -7,11 +7,13 @@
             [clojure.stacktrace :refer :all]
             [clojure.tools.logging :as log]
             [clojure.tools.trace :as tr]
+            [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [korma.core :as ko]
             [korma.db :as kdb]
             [cheshire.core :as ch]
-            [alex-and-georges.debug-repl :as dbr]))
+            ;[alex-and-georges.debug-repl :as dbr]
+            ))
 
 
 (defn heroku-db-spec
@@ -28,9 +30,20 @@
     (kdb/postgres settings)))
 
 
-(def db-spec
-  (memoize #(heroku-db-spec (env/env :database-url))))
+(defrecord Postgres [config db-spec]
+  component/Lifecycle
+  (start [component]
+    (log/info "Starting Postgres component")
+    (let [db-spec (-> config :db-uri heroku-db-spec)]
+      (assoc component :db-spec db-spec)))
+  (stop [component]
+    (log/info "Stopping Postgres component")
+    (assoc component :db-spec nil)))
 
+(defn create-postgres
+  "Creates a new Postgres component"
+  []
+  (map->Postgres {}))
 
 (declare users conversations votes participants)
 
@@ -63,9 +76,9 @@
 
 (defn poll
   "Query for all data since last-vote-timestamp, given a db-spec"
-  [last-vote-timestamp]
+  [component last-vote-timestamp]
   (try
-    (kdb/with-db (db-spec)
+    (kdb/with-db (:db-spec component)
       (ko/select votes
         (ko/where {:created [> last-vote-timestamp]})
         (ko/order [:zid :tid :pid :created] :asc))) ; ordering by tid is important, since we rely on this ordering to determine the index within the comps, which needs to correspond to the tid
@@ -78,9 +91,9 @@
 (defn mod-poll
   "Moderation query: basically look for when things were last modified, since this is the only time they will
   have been moderated."
-  [last-mod-timestamp]
+  [component last-mod-timestamp]
   (try
-    (kdb/with-db (db-spec)
+    (kdb/with-db (:db-spec component)
       (ko/select comments
         (ko/fields :zid :tid :mod :modified)
         (ko/where {:modified [> last-mod-timestamp]
@@ -151,8 +164,8 @@
 
 
 (defn get-users-by-uid
-  [uids]
-  (kdb/with-db (db-spec)
+  [component uids]
+  (kdb/with-db (:db-spec component)
     (->
       get-users-with-stats
       (ko/where (in :uid uids))
@@ -160,8 +173,8 @@
 
 
 (defn get-users-by-email
-  [emails]
-  (kdb/with-db (db-spec)
+  [component emails]
+  (kdb/with-db (:db-spec component)
     (->
       get-users-with-stats
       (ko/where (in :email emails))
