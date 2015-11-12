@@ -2,8 +2,8 @@ import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
-import Checkbox from "./framework/checkbox";
-import settings from "../settings";
+import Checkbox from "../framework/checkbox";
+import settings from "../../settings";
 
 @connect(state => state.data)
 @Radium

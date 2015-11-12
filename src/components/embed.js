@@ -5,18 +5,17 @@ import _ from "lodash";
 
 @connect(state => state.data)
 @Radium
-class Account extends React.Component {
+class Embed extends React.Component {
   render() {
     return (
       <div>
-        <h1>Account</h1>
+        <h1>Embed</h1>
         <div>
-          "Account"
-          <p> 2 any size conversation tokens (if you blow up on reddit) earn more by sharing and getting social signups. </p>
+          "Embed"
         </div>
       </div>
     );
   }
 }
 
-export default Account;
+export default Embed;

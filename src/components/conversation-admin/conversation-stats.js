@@ -82,6 +82,7 @@ class ConversationStats extends React.Component {
       <div>
       <h1>Conversation Stats</h1>
       <h3>Summary</h3>
+        <p> show all parent urls - maybe there are multiple places it is embedded. need to keep up</p>
         <p> ____ participants have visited the page. ____ have voted. ____ have commented. ____ comments have been submitted, and ____ votes have been cast. ____ percent have returned more than once. </p>
       <h3>Charts</h3>
         <div className="=======UNIQES-VOTERS-COMMENTERS=======">

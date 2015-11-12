@@ -42,24 +42,33 @@ class App extends React.Component {
   }
 
   render() {
+    const homeSidebarContent = (
+      <div style={{marginLeft: 10}}>
+        <h3 style={{marginRight: 10}}><Link to="/"> Polis Home </Link></h3>
+        <p> <em> logged in user </em> </p>
+        <p><Link style={{marginRight: 15}} to="new">New</Link></p>
+        <p><Link style={{marginRight: 15}} to="embed">Embed</Link></p>
+        <p><Link style={{marginRight: 15}} to="inbox">Inbox</Link></p>
+        <p><Link style={{marginRight: 15}} to="overall-stats">Overall Stats</Link></p>
+        <p><Link style={{marginRight: 15}} to="account">Account</Link></p>
+        <p> -------- </p>
+        <p><a style={{marginRight: 15}} href="http://about.pol.is">Docs</a></p>
+        <p>@UsePolis</p>
+      </div>
+    )
     const conversationSidebarContent = (
       <div style={{marginLeft: 10}}>
         <h3 style={{marginRight: 10}}> Conversation Admin </h3>
         <p> <em> pol.is/55555 </em> </p>
+        <p><Link style={{marginRight: 15}} to="share">Share & Embed</Link></p>
         <p><Link style={{marginRight: 15}} to="stats">Stats</Link></p>
         <p><Link style={{marginRight: 15}} to="config">Config</Link></p>
         <p><Link style={{marginRight: 15}} to="comments">Comments</Link></p>
         <p><Link style={{marginRight: 15}} to="participants">Participants</Link></p>
-      </div>
-    )
-    const homeSidebarContent = (
-      <div style={{marginLeft: 10}}>
-        <h3 style={{marginRight: 10}}> Polis Home </h3>
-        <p> <em> logged in user </em> </p>
-        <p><Link style={{marginRight: 15}} to="inbox">Inbox</Link></p>
-        <p><Link style={{marginRight: 15}} to="home-stats">Overall Stats</Link></p>
+        <p><Link style={{marginRight: 15}} to="conversation">iFrame of Conversation</Link></p>
+        <p> -------- </p>
         <p><a style={{marginRight: 15}} href="http://about.pol.is">Docs</a></p>
-        <p><Link style={{marginRight: 15}} to="account">Account</Link></p>
+        <p>@UsePolis</p>
       </div>
     )
     return (
@@ -84,12 +93,10 @@ class App extends React.Component {
 }
 
 const styles = {
-  backgroundColor: `hsla(${Math.random() * 255}, 50%, 50%, ${Math.random()})`,
-  padding: '5px',
-  color: 'white',
-  border: 0,
-  ':hover': {
-    backgroundColor: 'blue'
+  sidebarItem: {
+    marginRight: 15,
+    color: "darkgrey",
+    backgroundColor: "white"
   }
 };
 

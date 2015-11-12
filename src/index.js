@@ -10,26 +10,32 @@ import { DevTools, DebugPanel, LogMonitor } from 'redux-devtools/lib/react';
 
 import configureStore from "./store";
 
-// Top level component
+// controller view
 import Console from "./components/console";
 
-// Primary navigation
-import ModerateComments from "./components/moderate-comments";
-import ParticipantModeration from "./components/moderate-people";
-import ConversationConfig from "./components/conversation-config";
-import ConversationStats from "./components/conversation-stats";
-
-// Secondary navigation
-import ModerateCommentsTodo from "./components/moderate-comments-todo";
-import ModerateCommentsAccepted from "./components/moderate-comments-accepted";
-import ModerateCommentsRejected from "./components/moderate-comments-rejected";
-import ModerateCommentsSeed from "./components/moderate-comments-seed";
-
-import ParticipantModerationDefault from "./components/moderate-people-default";
-import ParticipantModerationFeatured from "./components/moderate-people-featured";
-import ParticipantModerationHidden from "./components/moderate-people-hidden";
-
+// top level navigation
 import Inbox from "./components/inbox";
+import CreateConversation from "./components/create-conversation";
+import Embed from "./components/embed";
+// this may become '/' defaultview - with instructions if no stats to show
+import OverallStats from "./components/overall-stats";
+import Account from "./components/account";
+
+// /conversation-admin
+import ConversationConfig from "./components/conversation-admin/conversation-config";
+import ConversationStats from "./components/conversation-admin/conversation-stats";
+
+import ModerateComments from "./components/conversation-admin/moderate-comments";
+import ModerateCommentsTodo from "./components/conversation-admin/moderate-comments-todo";
+import ModerateCommentsAccepted from "./components/conversation-admin/moderate-comments-accepted";
+import ModerateCommentsRejected from "./components/conversation-admin/moderate-comments-rejected";
+import ModerateCommentsSeed from "./components/conversation-admin/moderate-comments-seed";
+
+import ParticipantModeration from "./components/conversation-admin/moderate-people";
+import ParticipantModerationDefault from "./components/conversation-admin/moderate-people-default";
+import ParticipantModerationFeatured from "./components/conversation-admin/moderate-people-featured";
+import ParticipantModerationHidden from "./components/conversation-admin/moderate-people-hidden";
+
 
 const store = configureStore();
 
@@ -40,7 +46,11 @@ class Root extends React.Component {
         <Provider store={store}>
           <Router>
             <Route path="/" component={Console}>
-              <Route path="inbox" components={Inbox}/>
+              <Route path="new" component={CreateConversation}/>
+              <Route path="embed" component={Embed}/>
+              <Route path="inbox" component={Inbox}/>
+              <Route path="overall-stats" component={OverallStats}/>
+              <Route path="account" component={Account}/>
               <Route path="comments" component={ModerateComments}>
                 <Route path="todo" component={ModerateCommentsTodo}/>
                 <Route path="accepted" component={ModerateCommentsAccepted}/>
@@ -58,7 +68,7 @@ class Root extends React.Component {
           </Router>
         </Provider>
         <DebugPanel top right bottom>
-          <DevTools store={store} monitor={LogMonitor} />
+          <DevTools store={store} visibleOnLoad={false} monitor={LogMonitor} />
         </DebugPanel>
       </div>
     )
