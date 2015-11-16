@@ -3187,7 +3187,7 @@ function getZinvite(zid, dontUseCache) {
     if (!dontUseCache && cachedConversationId) {
         return Promise.resolve(cachedConversationId);
     }
-    return pgQueryP_metered_readOnly("getZinvite", "select * from zinvites where zid = ($1);", [zid]).then(function(rows) {
+    return pgQueryP_metered("getZinvite", "select * from zinvites where zid = ($1);", [zid]).then(function(rows) {
         var conversation_id = rows && rows[0] && rows[0].zinvite || void 0;
         if (conversation_id) {
             zidToConversationIdCache.set(zid, conversation_id);
