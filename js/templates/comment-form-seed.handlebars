@@ -64,5 +64,44 @@
       Import Tweet
     </button>
   </form>
+
+
+  <form id="quoteAsTwitterUserForm" role="form" class="FormVertical">
+    <div class="FormVertical-group">
+
+      <h3>Quote a twitter user</h3>
+      <p>quote text</p>
+      <textarea
+        id="import_quote_textarea"
+        class="FormControl"
+        rows="4"
+        maxlength="200"
+        name="quote_txt"
+        type="text"
+      ></textarea>
+      <p>quoted person's twitter id</p>
+      <input
+        id="import_quote_twitterId_textarea"
+        class="FormControl"
+        style="font-size: 14px;"
+        rows="1"
+        maxlength="200"
+        name="quote_twitter_screen_name"
+        type="text"
+      ></input>
+
+
+    </div>
+    <button
+      class="Btn Btn-primary"
+      id="import_quote_button"
+      style="margin-top: 10px"
+      type="submit"
+      >
+      Add quote as comment
+    </button>
+  </form>
+
+
   {{view commentsByMeView}}
 </div>
