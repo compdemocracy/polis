@@ -6450,6 +6450,8 @@ app.post("/api/v3/comments",
     want('vote', getIntInRange(-1, 1), assignToP, -1), // default to agree
     want('prepop', getBool, assignToP),
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
+    want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
+    want("quote_txt", getStringLimitLength(999), assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
 function(req, res) {
     var zid = req.p.zid;
@@ -6460,9 +6462,15 @@ function(req, res) {
     var vote = req.p.vote;
     var prepopulating = req.p.prepop;
     var twitter_tweet_id = req.p.twitter_tweet_id;
+    var quote_twitter_screen_name = req.p.quote_twitter_screen_name;
+    var quote_txt = req.p.quote_txt;
+
 
     // either include txt, or a tweet id
-    if (_.isUndefined(txt) && _.isUndefined(twitter_tweet_id)) {
+    if (_.isUndefined(txt) &&
+        _.isUndefined(twitter_tweet_id) &&
+        _.isUndefined(quote_txt)
+        ) {
         fail(res, 400, "polis_err_param_missing_txt");
         return;
     }
@@ -6481,7 +6489,12 @@ function(req, res) {
     }
 
 
-    var twitterPrepPromise = twitter_tweet_id ? prepForTwitterComment(twitter_tweet_id, zid) : Promise.resolve();
+    var twitterPrepPromise = Promise.resolve();
+    if (twitter_tweet_id) {
+        twitterPrepPromise = prepForTwitterComment(twitter_tweet_id, zid);
+    } else if (quote_twitter_screen_name) {
+        twitterPrepPromise = prepForQuoteWithTwitterUser(quote_twitter_screen_name, zid);
+    }
 
     twitterPrepPromise.then(function(info) {
 
@@ -6491,7 +6504,10 @@ function(req, res) {
 
       if (tweet) {
         txt = tweet.text;
+      } else if (quote_txt) {
+        txt = quote_txt;
       }
+
       var ip =
         req.headers['x-forwarded-for'] ||  // TODO This header may contain multiple IP addresses. Which should we report?
         req.connection.remoteAddress ||
@@ -8865,7 +8881,22 @@ var twitterUserInfoCache = new SimpleCache({
 });
 
 
-function getTwitterUserInfo(twitter_user_id, useCache) {
+function getTwitterUserInfo(o, useCache) {
+    var twitter_user_id = o.twitter_user_id;
+    var twitter_screen_name = o.twitter_screen_name;
+    var params = {
+        // oauth_verifier: req.p.oauth_verifier,
+        // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
+    };
+    var identifier; // this is way sloppy, but should be ok for caching and logging
+    if (twitter_user_id) {
+        params.user_id = twitter_user_id;
+        identifier = twitter_user_id;
+    } else if (twitter_screen_name) {
+        params.screen_name = twitter_screen_name;
+        identifier = twitter_screen_name;
+    }
+
     var oauth = new OAuth.OAuth(
         'https://api.twitter.com/oauth/request_token', // null
         'https://api.twitter.com/oauth/access_token', // null
@@ -8876,31 +8907,27 @@ function getTwitterUserInfo(twitter_user_id, useCache) {
         'HMAC-SHA1'
     );
     return new MPromise("getTwitterUserInfo", function(resolve, reject) {
-        var cachedCopy = twitterUserInfoCache.get(twitter_user_id);
+        var cachedCopy = twitterUserInfoCache.get(identifier);
         if (useCache && cachedCopy) {
             return resolve(cachedCopy);
         }
-        if (suspendedOrPotentiallyProblematicTwitterIds.indexOf(twitter_user_id) >= 0) {
+        if (suspendedOrPotentiallyProblematicTwitterIds.indexOf(identifier) >= 0) {
             return reject();
         }
         oauth.post(
             'https://api.twitter.com/1.1/users/lookup.json',
             void 0, //'your user token for this app', //test user token
             void 0, //'your user secret for this app', //test user secret
-            {
-                // oauth_verifier: req.p.oauth_verifier,
-                // oauth_token: req.p.oauth_token, // confused. needed, but docs say this: "The request token is also passed in the oauth_token portion of the header, but this will have been added by the signing process."
-                user_id: twitter_user_id,
-            },
+            params,
             "multipart/form-data",
             function (e, data, res){
                 if (e) {
-                    console.error("get twitter token failed for twitter_user_id: " + twitter_user_id);
+                    console.error("get twitter token failed for identifier: " + identifier);
                     console.error(e);
-                    suspendedOrPotentiallyProblematicTwitterIds.push(twitter_user_id);
+                    suspendedOrPotentiallyProblematicTwitterIds.push(identifier);
                     reject(e);
                 } else {
-                    twitterUserInfoCache.set(twitter_user_id, data);
+                    twitterUserInfoCache.set(identifier, data);
                     resolve(data);
                 }
                 // winston.log("info",require('util').inspect(data));
@@ -9123,9 +9150,9 @@ updateSomeTwitterUsers();
 // });
 
 
-function createUserFromTwitterInfo(twitter_user_id) {
+function createUserFromTwitterInfo(o) {
   return createDummyUser().then(function(uid) {
-    return getAndInsertTwitterUser(twitter_user_id, uid).then(function(result) {
+    return getAndInsertTwitterUser(o, uid).then(function(result) {
 
       var u = result.twitterUser;
       var twitterUserDbRecord = result.twitterUserDbRecord;
@@ -9137,8 +9164,23 @@ function createUserFromTwitterInfo(twitter_user_id) {
   });
 }
 
-function prepForTwitterComment(twitter_tweet_id, zid) {
 
+function prepForQuoteWithTwitterUser(quote_twitter_screen_name, zid) {
+    var query = pgQueryP("select * from twitter_users where screen_name = ($1);", [quote_twitter_screen_name]);
+    return addParticipantByTwitterUserId(query, {twitter_screen_name: quote_twitter_screen_name}, zid, null);
+}
+
+function prepForTwitterComment(twitter_tweet_id, zid) {
+    return getTwitterTweetById(twitter_tweet_id).then(function(tweet) {
+        var user = tweet.user;
+        var twitter_user_id = user.id_str;
+        var query = pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [twitter_user_id]);
+        return addParticipantByTwitterUserId(query, {twitter_user_id: twitter_user_id}, zid, tweet);
+    });
+}
+
+
+function addParticipantByTwitterUserId(query, o, zid, tweet) {
     function addParticipantAndFinish(uid, twitterUser, tweet) {
       return addParticipant(zid, uid).then(function(rows) {
         var ptpt = rows[0];
@@ -9149,42 +9191,38 @@ function prepForTwitterComment(twitter_tweet_id, zid) {
         };
       });
     }
-
-    return getTwitterTweetById(twitter_tweet_id).then(function(tweet) {
-        var user = tweet.user;
-        var twitter_user_id = user.id_str;
-        return pgQueryP("select * from twitter_users where twitter_user_id = ($1);", [twitter_user_id]).then(function(rows) {
-            if (rows && rows.length) {
-                var twitterUser = rows[0];
-                var uid = twitterUser.uid;
-                return getParticipant(zid, uid).then(function(ptpt) {
-                    if (!ptpt) {
-                      return addParticipantAndFinish(uid, twitterUser, tweet);
-                    }
-                    return {
-                        ptpt: ptpt,
-                        twitterUser: twitterUser,
-                        tweet: tweet,
-                    };
-                }).catch(function(err) {
+    return query.then(function(rows) {
+        if (rows && rows.length) {
+            var twitterUser = rows[0];
+            var uid = twitterUser.uid;
+            return getParticipant(zid, uid).then(function(ptpt) {
+                if (!ptpt) {
                   return addParticipantAndFinish(uid, twitterUser, tweet);
+                }
+                return {
+                    ptpt: ptpt,
+                    twitterUser: twitterUser,
+                    tweet: tweet,
+                };
+            }).catch(function(err) {
+              return addParticipantAndFinish(uid, twitterUser, tweet);
+            });
+        } else {
+            // no user records yet
+            return createUserFromTwitterInfo(o).then(function(twitterUser) {
+              var uid = twitterUser.uid;
+              return addParticipant(zid, uid).then(function(rows) {
+                  var ptpt = rows[0];
+                  return {
+                    ptpt: ptpt,
+                    twitterUser: twitterUser,
+                    tweet: tweet,
+                  };
                 });
-            } else {
-                // no user records yet
-                return createUserFromTwitterInfo(twitter_user_id).then(function(twitterUser) {
-                  var uid = twitterUser.uid;
-                  return addParticipant(zid, uid).then(function(rows) {
-                      var ptpt = rows[0];
-                      return {
-                        ptpt: ptpt,
-                        twitterUser: twitterUser,
-                        tweet: tweet,
-                      };
-                    });
-                });
-            }
-        });
+            });
+        }
     });
+
       // * fetch tweet info
     //   if fails, return failure
     // * look for author in twitter_users
@@ -9203,8 +9241,8 @@ function addParticipant(zid, uid) {
 }
 
 
-function getAndInsertTwitterUser(twitter_user_id, uid) {
-  return getTwitterUserInfo(twitter_user_id, false).then(function(u) {
+function getAndInsertTwitterUser(o, uid) {
+  return getTwitterUserInfo(o, false).then(function(u) {
     u = JSON.parse(u)[0];
     winston.log("info","TWITTER USER INFO");
     winston.log("info",u);
@@ -9287,7 +9325,7 @@ function(req, res) {
 
         // TODO - if no auth, generate a new user.
 
-        getTwitterUserInfo(kv.user_id, false).then(function(u) {
+        getTwitterUserInfo({twitter_user_id: kv.user_id}, false).then(function(u) {
             u = JSON.parse(u)[0];
             winston.log("info","TWITTER USER INFO");
             winston.log("info",u);
@@ -12257,7 +12295,7 @@ app.get("/twitter_image",
     moveToBody,
     need('id', getStringLimitLength(999), assignToP),
 function(req, res) {
-    getTwitterUserInfo(req.p.id, true).then(function(data) {
+    getTwitterUserInfo({twitter_user_id: req.p.id}, true).then(function(data) {
         data = JSON.parse(data);
         if (!data || !data.length) {
             fail(res, 500, "polis_err_finding_twitter_user_info");
