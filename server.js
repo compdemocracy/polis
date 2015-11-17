@@ -6464,6 +6464,7 @@ function(req, res) {
     var twitter_tweet_id = req.p.twitter_tweet_id;
     var quote_twitter_screen_name = req.p.quote_twitter_screen_name;
     var quote_txt = req.p.quote_txt;
+    var mustBeModerator = !!quote_txt || !!twitter_tweet_id;
 
 
     // either include txt, or a tweet id
@@ -6545,6 +6546,11 @@ function(req, res) {
         var is_moderator = results[2];
         var commentExists = results[3];
 
+        if (!is_moderator && mustBeModerator) {
+            fail(res, 403, "polis_err_post_comment_auth", err);
+            return;
+        }
+
         if (pid < 0) {
             // NOTE: this API should not be called in /demo mode
             fail(res, 500, "polis_err_post_comment_bad_pid");
@@ -6558,6 +6564,7 @@ function(req, res) {
 
         if (!conv.is_active) {
             fail(res, 403, "polis_err_conversation_is_closed", err);
+            return;
         }
 
         var bad = hasBadWords(txt);
