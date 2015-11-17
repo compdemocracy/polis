@@ -54,6 +54,7 @@ module.exports = Handlebones.ModelView.extend({
     if (social) {
       var hasTwitter = social.screen_name;
       var hasFacebook = social.fb_name;
+      var hasNyt = social.nyt_name;
       if (hasFacebook) {
         socialCtx = {
           name: social.fb_name,
@@ -67,6 +68,12 @@ module.exports = Handlebones.ModelView.extend({
           img: social.profile_image_url_https,
           link: "https://twitter.com/" + social.screen_name,
           screen_name: social.screen_name,
+        };
+      }
+      if (hasNyt) {
+        socialCtx = {
+          name: social.nyt_name,
+          img: social.nyt_img,
         };
       }
     }
