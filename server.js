@@ -81,9 +81,9 @@ var winston = console;
 
 
 
-// if (devMode) {
+if (devMode) {
     Promise.longStackTraces();
-// }
+}
 
 // Bluebird uncaught error handler.
 Promise.onPossiblyUnhandledRejection(function(err){
