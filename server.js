@@ -1757,6 +1757,30 @@ function createDummyUser() {
         });
     });
 }
+// function createDummyUsersBatch(n) {
+//     var query = "insert into users (created) values ";
+//     var values = [];
+//     for (var i = 0; i < n; i++) {
+//         values.push("(default)");
+//     }
+//     values = values.join(",");
+//     query += values;
+//     query += " returning uid;";
+
+//     return new MPromise("createDummyUser", function(resolve, reject) {
+//         pgQuery(query,[], function(err, results) {
+//             if (err || !results || !results.rows || !results.rows.length) {
+//                 console.error(err);
+//                 reject(new Error("polis_err_create_empty_user"));
+//                 return;
+//             }
+//             var uids = results.rows.map(function(row) {
+//                 return row.uid;
+//             });
+//             resolve(uids);
+//         });
+//     });
+// }
 
 
 function auth(assigner, isOptional) {
@@ -3109,6 +3133,76 @@ function generateToken(len, pseudoRandomOk, callback) {
         callback(0, prettyToken);
     });
 }
+
+function generateApiKeyForUser(uid, optionalPrefix) {
+    var prefix = _.isUndefined(optionalPrefix) ? "" : optionalPrefix;
+    var parts = ["pkey"];
+    var len = 32;
+    if (!_.isUndefined(optionalPrefix)) {
+        parts.push(optionalPrefix);
+    }
+    len -= parts[0].length;
+    len -= (parts.length - 1); // the underscores
+    parts.forEach(function(part) {
+        len -= part.length;
+    });
+    return generateTokenP(len, false).then(function(token) {
+        parts.push(token);
+        var apikey = parts.join("_");
+        return apikey;
+
+    });
+}
+
+function addApiKeyForUser(uid, optionalPrefix) {
+    return generateApiKeyForUser(uid, optionalPrefix).then(function(apikey) {
+        return pgQueryP("insert into apikeysndvweifu (uid, apikey)  VALUES ($1, $2);", [uid, apikey]);
+    });
+}
+
+// function addApiKeyForUsersBulk(uids, optionalPrefix) {
+//     var promises = uids.map(function(uid) {
+//         return generateApiKeyForUser(uid, optionalPrefix);
+//     });
+//     return Promise.all(promises).then(function(apikeys) {
+//         var query = "insert into apikeysndvweifu (uid, apikey)  VALUES ";
+//         var pairs = [];
+//         for (var i = 0; i < uids.length; i++) {
+//             var uid = uids[i];
+//             var apikey = apikeys[i];
+//             pairs.push("(" + uid + ', \'' + apikey + '\')');
+//         }
+//         query += pairs.join(',');
+//         query += 'returning uid;';
+//         return pgQueryP(query, []);
+//     });
+// }
+
+// var uidsX = [];
+// for (var i = 200200; i < 300000; i++) {
+//     uidsX.push(i);
+// }
+// addApiKeyForUsersBulk(uidsX, "test23").then(function(uids) {
+//     console.log("hihihihi", uids.length);
+//     setTimeout(function() { process.exit();}, 3000);
+// });
+
+// // var time1 = Date.now();
+// createDummyUsersBatch(3 * 1000).then(function(uids) {
+//         // var time2 = Date.now();
+//         // var dt = time2 - time1;
+//         // console.log("time foo" , dt);
+//         // console.dir(uids);
+//         uids.forEach(function(uid) {
+//             console.log("hihihihi", uid);
+//         });
+//         process.exit(0);
+
+// }).catch(function(err) {
+//     console.error("errorfooooo");
+//     console.error(err);
+// });
+
 
 function generateAndRegisterZinvite(zid, generateShort) {
     var len = 10;
