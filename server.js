@@ -201,7 +201,7 @@ akismet.verifyKey(function(err, verified) {
 if (devMode) {
     pg.defaults.poolSize = 2;
 } else {
-    pg.defaults.poolSize = 25;
+    pg.defaults.poolSize = 40;
 }
 
 var SELF_HOSTNAME = "localhost:" + process.env.PORT;
