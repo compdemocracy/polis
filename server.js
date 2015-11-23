@@ -2175,7 +2175,7 @@ function(req, res) {
 });
 
 
-var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 3000 : 0;
+var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 0;
 var pcaCache = new SimpleCache({
     maxSize: pcaCacheSize,
 });
@@ -9729,7 +9729,7 @@ function updateVoteCount(zid, pid) {
 // zid_pid => "lastVoteTimestamp:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
 // TODO consider "p2a24a2dadadu15" format
 var votesForZidPidCache = new SimpleCache({
-    maxSize: 9000,
+    maxSize: 5000,
 });
 
 function getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp) {
