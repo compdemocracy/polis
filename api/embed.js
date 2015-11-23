@@ -188,7 +188,7 @@
       if (data.name === "resize") {
         var resizeWasHandled = false;
         for (var j = 0; j < cbResults.length; j++) {
-          if (cbResults === true) {
+          if (cbResults[j] === true) {
             resizeWasHandled = true;
           }
         }
