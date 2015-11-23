@@ -1,8 +1,14 @@
 (function() {
   var firstRun = !window.polis;
-  window.polis = window.polis || {};
+  var polis = window.polis = window.polis || {};
   var iframes = [];
   var polisUrl = "https://preprod.pol.is";
+
+  polis.on = polis.on || {};
+  polis.on.vote = polis.on.vote || [];
+  polis.on.doneVoting = polis.on.doneVoting || [];
+  polis.on.write = polis.on.write || [];
+  polis.on.resize = polis.on.resize || [];
 
   function getConfig(d) {
      return {
@@ -48,17 +54,6 @@
      };
   }
 
-  var polisEventCallbacks = {
-   vote: [],
-   doneVoting: [],
-   write: [],
-  };
-
-  polis.on = function(eventName, handler) {
-    if(polisEventCallbacks[eventName]){
-      polisEventCallbacks[eventName].push(handler);
-    }
-  }
 
   function createPolisIframe(parent, o) {
     var iframe = document.createElement("iframe");
@@ -169,12 +164,13 @@
         return;
       }
 
-      var cbList = polisEventCallbacks[data.name]||[];
+      var cbList = polis.on[data.name]||[];
+      var cbResults = [];
       for (var i = 0; i < cbList.length; i++) {
-        cbList[i]({
+        cbResults.push(cbList[i]({
           iframe: document.getElementById("polis_" + data.polisFrameId),
           data: data
-        });
+        }));
       }
 
       if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
@@ -189,13 +185,21 @@
       // }
 
       if (data.name === "resize") {
-        console.log(data.polisFrameId);
-        var iframe = document.getElementById("polis_" + data.polisFrameId);
-        // TODO uniquely identify each polis iframe so we can resize only the correct one
-        // for (var i = 0; i < iframes.length; i++) {
-          // var x = iframes[i];
-          iframe.setAttribute("height", data.height);
-        // }
+        var resizeWasHandled = false;
+        for (var j = 0; j < cbResults.length; j++) {
+          if (cbResults === true) {
+            resizeWasHandled = true;
+          }
+        }
+        if (!resizeWasHandled) {
+          console.log(data.polisFrameId);
+          var iframe = document.getElementById("polis_" + data.polisFrameId);
+          // TODO uniquely identify each polis iframe so we can resize only the correct one
+          // for (var i = 0; i < iframes.length; i++) {
+            // var x = iframes[i];
+            iframe.setAttribute("height", data.height);
+          // }
+        }
       }
 
 
