@@ -21,15 +21,6 @@ module.exports = Handlebones.View.extend({
     "change #comment_form_textarea": "textChange",
     "keyup #comment_form_textarea": "textChange",
     "paste #comment_form_textarea": "textChange",
-    "click #import_quote_button" : function(e) {
-      var that = this;
-      e.preventDefault();
-      serialize(this, function(attrs){
-        that.quoteImportClicked(attrs);
-      });
-      this.$("#import_quote_textarea").val("");
-      this.$("#quote_twitter_screen_name").val("");
-    },
     "click #comment_button": function(e){
       var that = this;
       e.preventDefault();
@@ -82,29 +73,6 @@ module.exports = Handlebones.View.extend({
     } else {
       this.$("#commentNotQuestionAlert").hide();
     }
-  },
-  quoteImportClicked: function(attrs) {
-    var that = this;
-    var o = {};
-    o.conversation_id = this.conversation_id;
-    // The vote will be attached to the original Tweet's author.
-    o.vote = constants.REACTIONS.AGREE;
-    o.prepop = true; // this is a prepopulated comment
-    o.quote_txt = attrs.quote_txt;
-    o.quote_twitter_screen_name = attrs.quote_twitter_screen_name;
-
-    var atSignIndex = o.quote_twitter_screen_name.indexOf("@");
-    if (atSignIndex >= 0) {
-      o.quote_twitter_screen_name = o.quote_twitter_screen_name.slice(atSignIndex + 1);
-    }
-
-    Net.polisPost("api/v3/comments", o).then(function() {
-      that.trigger("commentSubmitted");
-      that.updateCollection();
-    }, function(err) {
-      console.error("failed to import tweet");
-      console.error(err);
-    });
   },
   tweetImportClicked: function(attrs) {
     var that = this; //that = the view
