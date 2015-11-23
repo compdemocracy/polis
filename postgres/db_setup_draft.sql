@@ -113,6 +113,11 @@ CREATE TABLE apikeysndvweifu (
     UNIQUE (apikey)
 );
 CREATE INDEX apikeysndvweifu_uid_idx ON apikeysndvweifu USING btree (uid);
+CREATE INDEX apikeysndvweifu_apikey_idx ON apikeysndvweifu USING btree (apikey);
+
+
+
+
 
 CREATE TABLE coupons_for_free_upgrades (
     uid INTEGER NOT NULL REFERENCES users(uid),
