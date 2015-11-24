@@ -152,6 +152,12 @@ module.exports = CommentCarousel.extend({
     //   "" :
     //   Utils.getGroupNameForGid(ctx.selectedGid);
 
+    if (Utils.isIphone()) {
+      var w = $(document).width();
+      ctx.carouselParentAdditionalStyles = "max-width:"+w+"px; overflow: hidden;";
+    }
+
+
     ctx.s = Strings;
     // ctx.s.heresHowGroupVoted_sub = ctx.s.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", ctx.selectedGroupName);
     return ctx;
@@ -166,7 +172,7 @@ module.exports = CommentCarousel.extend({
       selectedGroupName = _.isUndefined(that.selectedGid) ?
       "" :
       Utils.getGroupNameForGid(that.selectedGid);
-      
+
       var str = Strings.heresHowGroupVoted.replace("{{GROUP_NUMBER}}", selectedGroupName);
       $("#analyzeGroupGroupName").text(str);
     });

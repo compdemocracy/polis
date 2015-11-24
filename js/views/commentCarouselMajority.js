@@ -132,6 +132,12 @@ module.exports = CommentCarousel.extend({
   context: function() {
     var ctx = CommentCarousel.prototype.context.apply(this, arguments);
     ctx.s = Strings;
+
+    if (Utils.isIphone()) {
+      var w = $(document).width();
+      ctx.carouselParentAdditionalStyles = "max-width:"+w+"px; overflow: hidden;";
+    }
+
     return ctx;
   },
   initialize: function(options) {
