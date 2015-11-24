@@ -3,7 +3,7 @@
   var firstRun = !window.polis._hasRun;
   polis._hasRun = 1;
   var iframes = [];
-  var polisUrl = "https://preprod.pol.is";
+  var polisUrl = "https://pol.is";
 
   polis.on = polis.on || {};
   polis.on.vote = polis.on.vote || [];
