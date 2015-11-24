@@ -232,6 +232,8 @@ CREATE TABLE conversations(
     style_btn VARCHAR(500),
     socialbtn_type INTEGER NOT NULL DEFAULT 1, -- 0 for none, 1 for all,
     bgcolor VARCHAR(20),
+    help_bgcolor VARCHAR(20),
+    help_color VARCHAR(20),
     email_domain VARCHAR(200), -- space separated domain names, "microsoft.com google.com"
     owner INTEGER REFERENCES users(uid), -- TODO use groups(gid)
     -- owner_group_id ??
