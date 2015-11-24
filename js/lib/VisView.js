@@ -580,7 +580,7 @@ function removeTutorialStepOne() {
     help.style("display", "none");
 }
 
-function handleOnClusterClicked(hullId) {
+function handleOnClusterClicked(hullId, silent) {
     // // if the cluster/hull just selected was already selected...
     // if (selectedCluster === hullId) {
     //   return resetSelection();
@@ -596,8 +596,10 @@ function handleOnClusterClicked(hullId) {
             updateHulls,
             updateHulls);
 
-    eb.trigger(eb.clusterClicked, gid);
-    eb.trigger(eb.clusterSelectionChanged, gid);
+    if (!silent) {
+      eb.trigger(eb.clusterClicked, gid);
+      eb.trigger(eb.clusterSelectionChanged, gid);
+    }
 
     updateHullColors();
 
@@ -2852,9 +2854,9 @@ function getSelectedGid() {
     return selectedCluster;
 }
 
-function selectGroup(gid) {
+function selectGroup(gid, silent) {
     var hullId = gidToHullId[gid];
-    handleOnClusterClicked(hullId);
+    handleOnClusterClicked(hullId, silent);
 }
 function getFirstShowDeferred() {
     return firstShowDeferred;

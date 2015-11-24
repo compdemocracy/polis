@@ -550,7 +550,7 @@ module.exports =  ConversationView.extend({
       });
       that.updateLineToSelectedCluster();
       if (that.selectedGid >= 0) {
-        vis.selectGroup(that.selectedGid);
+        vis.selectGroup(that.selectedGid, true);
       }
       // if (display.xs()) {
       //   $("#commentView").addClass("floating-side-panel-gradients");
