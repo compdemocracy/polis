@@ -459,6 +459,8 @@ var sql_conversations = sql.define({
     "help_type",
     "socialbtn_type",
     "bgcolor",
+    "help_color",
+    "help_bgcolor",
     "style_btn",
     "auth_needed_to_vote",
     "auth_needed_to_write",
@@ -7762,6 +7764,8 @@ app.put('/api/v3/conversations',
     want('write_type', getInt, assignToP),
     want('socialbtn_type', getInt, assignToP),
     want('bgcolor', getOptionalStringLimitLength(20), assignToP),
+    want('help_color', getOptionalStringLimitLength(20), assignToP),
+    want('help_bgcolor', getOptionalStringLimitLength(20), assignToP),
     want('style_btn', getOptionalStringLimitLength(500), assignToP),
     want('auth_needed_to_vote', getBool, assignToP),
     want('auth_needed_to_write', getBool, assignToP),
@@ -7829,6 +7833,20 @@ function(req, res){
             fields.bgcolor = null;
         } else {
             fields.bgcolor = req.p.bgcolor;
+        }
+    }
+    if (!_.isUndefined(req.p.help_color)) {
+        if (req.p.help_color === "default") {
+            fields.help_color = null;
+        } else {
+            fields.help_color = req.p.help_color;
+        }
+    }
+    if (!_.isUndefined(req.p.help_bgcolor)) {
+        if (req.p.help_bgcolor === "default") {
+            fields.help_bgcolor = null;
+        } else {
+            fields.help_bgcolor = req.p.help_bgcolor;
         }
     }
     if (!_.isUndefined(req.p.style_btn)) {
@@ -12263,6 +12281,8 @@ function fetchIndexForConversation(req, res) {
             help_type: conv.help_type,
             socialbtn_type: conv.socialbtn_type,
             bgcolor: conv.bgcolor,
+            help_color: conv.help_color,
+            help_bgcolor: conv.help_bgcolor,
             style_btn: conv.style_btn,
             auth_needed_to_vote: ifDefinedFirstElseSecond(conv.auth_needed_to_vote, false),
             auth_needed_to_write: ifDefinedFirstElseSecond(conv.auth_needed_to_write , true),
