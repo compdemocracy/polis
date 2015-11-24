@@ -212,6 +212,9 @@ module.exports =  ConversationView.extend({
     ctx.no_description = !Utils.userCanSeeDescription();
     ctx.no_footer = !Utils.userCanSeeFooter();
 
+    ctx.help_bgcolor = ctx.help_bgcolor || "#CAEAFF";
+    ctx.help_color = ctx.help_color || "#3498DB";
+
     var temp = Strings.addPolisToYourSite;
     temp = temp.replace("{{URL}}", polisLogoBase64);
     ctx.addPolisToYourSite = temp;
