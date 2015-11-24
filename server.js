@@ -6134,7 +6134,7 @@ function getComments(o) {
         if (o.include_social) {
             var uids = _.pluck(comments, "uid");
             return getSocialInforForUsers(uids).then(function(socialInfos) {
-                var uidToSocialInfo = new Map();
+                var uidToSocialInfo = {}; // new Map(); // TODO_NODE_UPGRADE
                 socialInfos.forEach(function(info) {
                     // whitelist properties to send
                     var infoToReturn = _.pick(info, [
@@ -6154,10 +6154,10 @@ function getComments(o) {
                         infoToReturn.fb_picture = "https://graph.facebook.com/v2.2/"+ infoToReturn.fb_user_id +"/picture?width="+width+"&height=" + height;
                     }
 
-                    uidToSocialInfo.set(info.uid, infoToReturn);
+                    uidToSocialInfo[info.uid] = infoToReturn;
                 });
                 return comments.map(function(c) {
-                    var s = uidToSocialInfo.get(c.uid);
+                    var s = uidToSocialInfo[c.uid];
                     if (s) {
                         c.social = s;
                     }
