@@ -147,7 +147,7 @@ setInterval(function() {
     winston.log("info","heapUsed:", heapUsed, "heapTotal:", heapTotal, "rss:", rss);
     var start = Date.now();
 
-    var memUsageLimit = 467270144; //550 * 1024 * 1024;
+    var memUsageLimit = 550 * 1024 * 1024;
 
     // kill process if memory leak has gotten bad.
     // Heroku will start a fresh one.
