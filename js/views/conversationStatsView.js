@@ -29,7 +29,7 @@ module.exports =  PolisModelView.extend({
   },
   context: function() {
     var ctx = PolisModelView.prototype.context.apply(this, arguments);
-    ctx.viewTimesColor = colors.viewTimes;
+    // ctx.viewTimesColor = colors.viewTimes;
     ctx.firstVoteTimesColor = colors.firstVoteTimes;
     ctx.firstCommentTimesColor = colors.firstCommentTimes;
     ctx.votesColor = colors.voteTimes;
@@ -413,7 +413,7 @@ module.exports =  PolisModelView.extend({
       }
 
       that.model.set("times", times);
-      that.renderParticipantGraph("#ptptCountsVis", ["firstVoteTimes", "firstCommentTimes", "viewTimes"]);
+      that.renderParticipantGraph("#ptptCountsVis", ["firstVoteTimes", "firstCommentTimes"]);
       that.renderParticipantGraph("#voteCountsVis", ["voteTimes"]);
       that.renderParticipantGraph("#commentCountsVis", ["commentTimes"]);
       // that.renderParticipantGraph("#socialUsersVis", ["socialUsers"]);
