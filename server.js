@@ -5141,7 +5141,7 @@ function(req, res) {
         return Promise.all([
             pgQueryP_readOnly("select created, pid, mod from comments where zid = ($1) order by created;", [zid]),
             pgQueryP_readOnly("select created, pid from votes where zid = ($1) order by created;", [zid]),
-            pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
+            // pgQueryP_readOnly("select created from participants where zid = ($1) order by created;", [zid]),
             pgQueryP_readOnly("with pidvotes as (select pid, count(*) as countForPid from votes where zid = ($1)"+
                 " group by pid order by countForPid desc) select countForPid as n_votes, count(*) as n_ptpts "+
                 "from pidvotes group by countForPid order by n_ptpts asc;", [zid]),
@@ -5155,8 +5155,8 @@ function(req, res) {
             }
             var comments = _.map(a[0], castTimestamp);
             var votes = _.map(a[1], castTimestamp);
-            var uniqueHits = _.map(a[2], castTimestamp); // participants table
-            var votesHistogram = a[3];
+            // var uniqueHits = _.map(a[2], castTimestamp); // participants table
+            var votesHistogram = a[2];
             // var socialUsers = _.map(a[4], castTimestamp);
 
             var actualParticipants = getFirstForPid(votes);  // since an agree vote is submitted for each comment's author, this includes people who only wrote a comment, but didn't explicitly vote.
@@ -5167,7 +5167,7 @@ function(req, res) {
 
             var totalComments = _.pluck(comments, "created");
             var totalVotes = _.pluck(votes, "created");
-            var viewTimes = _.pluck(uniqueHits, "created");
+            // var viewTimes = _.pluck(uniqueHits, "created");
             // var totalSocialUsers = _.pluck(socialUsers, "created");
 
             votesHistogram = _.map(votesHistogram, function(x) {
@@ -5182,7 +5182,7 @@ function(req, res) {
                 firstVoteTimes: actualParticipants,
                 commentTimes: totalComments,
                 firstCommentTimes: commenters,
-                viewTimes: viewTimes,
+                // viewTimes: viewTimes,
                 votesHistogram: votesHistogram,
                 // socialUsers: totalSocialUsers,
             });
