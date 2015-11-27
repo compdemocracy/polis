@@ -49,6 +49,8 @@
                                  api-key
                                  values))))
 
+;; ## Public API
+
 (defn send-metric
   "Sends metric using metric sender, with optional timestamp attribute"
   ([metric-sender name value timestamp]
