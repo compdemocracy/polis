@@ -2,8 +2,7 @@
   (:require [polismath.utils :as utils]
             [clojure.tools.logging :as log]
             [com.stuartsierra.component :as component]
-            [environ.core :as environ]
-            ))
+            [environ.core :as environ]))
 
 
 (defn ->long [x]
@@ -28,6 +27,7 @@
    :primary-polis-url :localhost ;; Must do it in the component load...
    :database   {:pool-size 3}
    :math-schema-date "2014_08_22"
+   :export-expiry-days 10
    })
 
 (def rules
@@ -58,6 +58,8 @@
                                 :doc "API key for graphite db (perf monitoring)"}
    :hostedgraphite-hostname    {:path [:meta :graphite :hostname]
                                 :doc "The hostname for sending messages to graphite"}
+   :export-expiry-days         {:path [:export :expiry-days] :parse ->long
+                                :doc "The number of days before a mongo record representing a data exports gets removed"}
    ;; XXX TODO & Thoughts
    ;; Mini batch sizes (see polismath.math.conversation)
    })
