@@ -3126,9 +3126,9 @@ function generateToken(len, pseudoRandomOk, callback) {
     // TODO if you want more readable tokens, see ReadableIds
     var gen;
     if (pseudoRandomOk) {
-        gen = require('crypto').pseudoRandomBytes;
+        gen = crypto.pseudoRandomBytes;
     } else {
-        gen = require('crypto').randomBytes;
+        gen = crypto.randomBytes;
     }
     gen(len, function(err, buf) {
         if (err) {
