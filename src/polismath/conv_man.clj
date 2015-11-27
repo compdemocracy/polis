@@ -191,8 +191,8 @@
 
 (defn load-or-init
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
-  [zid & {:keys [recompute]}]
-  (if-let [conv (and (not recompute) (mongo/load-conv zid))]
+  [conv-man zid & {:keys [recompute]}]
+  (if-let [conv (and (not recompute) (mongo/load-conv (:mongo conv-man) zid))]
     (-> conv
         restructure-mongo-conv
         (assoc :recompute :reboot))
@@ -253,7 +253,7 @@
     ;; Then we already have a go loop running for this
     (>!! message-chan {:message-type message-type :message-batch message-batch})
     ;; Then we need to initialize the conversation and set up the conversation channel and go routine
-    (let [conv (load-or-init zid :recompute recompute) ;; XXX recompute should be env var?
+    (let [conv (load-or-init conv-man zid :recompute recompute) ;; XXX recompute should be env var?
           ;; XXX Need to set up message chan buffer as a env var
           message-chan (chan 100000)]
       (swap! conversations assoc zid {:conv conv :message-chan message-chan})

@@ -28,6 +28,9 @@
    :database   {:pool-size 3}
    :math-schema-date "2014_08_22"
    :export-expiry-days 10
+   :storm      {:execution    :local
+                :cluster-name "polis-cluster"
+                :workers      3}
    })
 
 (def rules
@@ -60,6 +63,19 @@
                                 :doc "The hostname for sending messages to graphite"}
    :export-expiry-days         {:path [:export :expiry-days] :parse ->long
                                 :doc "The number of days before a mongo record representing a data exports gets removed"}
+   :vote-polling-interval      {:parse ->long
+                                :doc "The polling interval for votes, in milliseconds"}
+   :mod-polling-interval       {:parse ->long
+                                :doc "The polling interval for moderation, in milliseconds"}
+   :recompute                  {:parse boolean
+                                :doc "Whether or not to perform a recompute"}
+   ;; Need to think about how to handle options
+   :storm-execution            {:path [:storm :execution] :options [:local :distributed] :parse ->keyword
+                                :doc "Whether to run storm as a distributed cluster (StormSubmitter) or in local mode (LocalCluster)"}
+   :storm-cluster-name         {:path [:storm :cluster-name]
+                                :doc "Name of the cluster to run on in distributed mode"}
+   :storm-workers              {:path [:storm :workers] :parse ->long
+                                :doc "Number of storm cluster workers for distributed mode"}
    ;; XXX TODO & Thoughts
    ;; Mini batch sizes (see polismath.math.conversation)
    })

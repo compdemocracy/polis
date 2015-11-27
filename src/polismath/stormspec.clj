@@ -1,7 +1,7 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
   (:require [polismath.conv-man :as cm]
-            [polismath.components.db :as db]
+            [polismath.components.postgres :as postgres]
             [polismath.components.env :as env]
             [polismath.math.named-matrix :as nm]
             [polismath.utils :as utils]
@@ -12,6 +12,7 @@
             [clojure.newtools.cli :refer [parse-opts]]
             [clojure.tools.logging :as log]
             [clojure.core.async :as async :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
+            [com.stuartsierra.component :as component]
             [backtype.storm [clojure :as storm] [config :as storm-config]]
             [plumbing.core :as pc])
   ;; I don't think we need this anymore on newer Clojures, so should remove XXX
@@ -21,42 +22,20 @@
 ;; XXX Maybe loading the current implementation can be a system boot step?
 ; XXX - storm hack. Solves issue where one process or thread has started loading vectorz, but the other
 ; doesn't know to wait (at least this is what seems to be the case)
-(matrix/set-current-implementation :vectorz)
-(matrix/matrix [[1 2 3] [4 5 6]])
+;(matrix/set-current-implementation :vectorz)
+;(matrix/matrix [[1 2 3] [4 5 6]])
 
 
-;(let [sim-vote-chan (chan 10e5)]
-  ;(log/warn "Going to be polling redis for simulated votes")
-  ;; Function that starts a service which polls redis and throws it onto a queue
-  ;(defn start-sim-poller!
-    ;[]
-    ;(sim/wcar-worker*
-      ;"simvotes"
-      ;{:handler (fn [{:keys [message attempt] :as handler-args}]
-                  ;(if message
-                    ;(>!! sim-vote-chan message)
-                    ;(log/warn "Nil message to carmine?" handler-args))
-                  ;{:status :success})}))
-  ;; Construct a poller that also check the channel for simulated messages and passes them through
-  ;(defn sim-poll
-    ;"Do stuff with the fake comments and sim comments"
-    ;[last-vote-timestamp]
-    ;(cm/take-all!! sim-vote-chan)))
-
-
-(storm/defspout poll-spout ["type" "zid" "batch"] {:prepare true :params [type poll-fn timestamp-key poll-interval]}
+(storm/defspout poll-spout ["type" "zid" "batch"]
+  {:params [storm-cluster type poll-fn timestamp-key poll-interval] :prepare true}
   [conf context collector]
-  (let [last-timestamp (atom 0)]
-    ;(if (= poll-fn :sim-poll)
-      ;(log/info "Starting sim poller!")
-      ;(start-sim-poller!))
+  (let [last-timestamp (atom 0)
+        postgres (-> storm-cluster :postgres)]
     (storm/spout
       (nextTuple []
         (log/info "Polling" type ">" @last-timestamp)
-        (let [results (({:poll db/poll
-                         ;:sim-poll sim-poll
-                         :mod-poll db/mod-poll} poll-fn)
-                       @last-timestamp)
+        (let [poll-function (get {:poll postgres/poll :mod-poll postgres/mod-poll} poll-fn)
+              results (poll-function postgres @last-timestamp)
               grouped-batches (group-by :zid results)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid batch] grouped-batches]
@@ -67,61 +46,75 @@
         (Thread/sleep poll-interval))
       (ack [id]))))
 
+;; XXX Should build a recompute trigger spout, which just sends a recompute message type with nil batch payload
 
-(storm/defbolt conv-update-bolt [] {:params [recompute] :prepare true}
+(storm/defbolt conv-update-bolt []
+  {:params [storm-cluster] :prepare true}
   [conf context collector]
-  (let [conv-agency (atom {})] ; collection of conv-actors
+  (let [conv-man (:conversation-manager storm-cluster)
+        config (:config storm-cluster)]
     (storm/bolt
       (execute [tuple]
-        (let [[type zid batch] (.getValues tuple)
-              ; First construct a new conversation builder. Then either find a conversation, or call that
-              ; builder in conv-agency
-              conv-actor (cm/get-or-set! conv-agency zid #(cm/new-conv-actor (partial cm/load-or-init zid :recompute recompute)))]
-          (cm/snd conv-actor [type batch]))
+        (let [[message-type zid batch] (.getValues tuple)]
+          ;; XXX Need to think more about recompute...
+          (cm/queue-message-batch! conv-man message-type zid batch (-> config :recompute)))
         (storm/ack! collector tuple)))))
 
-
-(defn mk-topology [sim recompute]
-  (let [spouts {"vote-spout" (storm/spout-spec (poll-spout :votes :poll :created 1000))
-                "mod-spout"  (storm/spout-spec (poll-spout :moderation :mod-poll :modified 5000))}
-        ;; No-op for now
-        ;spouts (if sim
-                 ;(do
-                   ;(log/info "Simulation disabled for the moment")
-                   ;(assoc spouts "sim-vote-spout" (storm/spout-spec (poll-spout "votes" :sim-poll :created 1000)))
-                   ;)
-                 ;spouts)
-        bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
-  (storm/topology
-    spouts
-    {"conv-update" (storm/bolt-spec bolt-inputs (conv-update-bolt recompute))})))
-
+(defn make-topology
+  ([{:keys [config] :as storm-cluster}]
+   (let [spouts {"vote-spout" (storm/spout-spec (poll-spout :votes :poll :created (:vote-polling-interval config)))
+                 "mod-spout"  (storm/spout-spec (poll-spout :moderation :mod-poll :modified (:mod-polling-interval config)))}
+         bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
+     (assoc storm-cluster
+            :topology
+            (storm/topology
+              spouts
+              {"conv-update" (storm/bolt-spec bolt-inputs (conv-update-bolt recompute))})))
 
 (defn run-local! [{:keys [sim recompute]}]
   (let [cluster (LocalCluster.)]
     (.submitTopology cluster
                      "online-pca"
                      {storm-config/TOPOLOGY-DEBUG false}
-                     (mk-topology sim recompute))))
+                     (make-topology sim recompute))))
 
 
-(defn submit-topology! [name {:keys [sim recompute]}]
-  (StormSubmitter/submitTopology name
-    {storm-config/TOPOLOGY-DEBUG false
-     storm-config/TOPOLOGY-WORKERS 3}
-    (mk-topology sim recompute)))
+(defn submit-topology!
+  [storm-cluster]
+  (let [{:keys [execution cluster-name workers]} (-> storm-cluster :config :storm)
+        submitter (case execution
+                    :local (LocalCluster.)
+                    :distributed (StormSubmitter.))]
+    (.submitTopology submitter
+                     cluster-name
+                     {storm-config/TOPOLOGY-DEBUG false
+                      storm-config/TOPOLOGY-WORKERS workers}
+                     (make-topology storm-cluster)))
+  storm-cluster)
+
+(defn stop-cluster!
+  [storm-cluster]
+  (let [topology (:topology storm-cluster)
+        cluster-name (-> storm-cluster :config :storm :cluster-name)]
+    (.killTopology topology cluster-name)
+    (.shutdown topology)))
+
+
+(defrecord StormCluster [config conversation-manager topology]
+  component/Lifecycle
+  (start [component]
+    (-> component
+        make-topology
+        submit-topology!))
+  (stop [component]
+    (stop-cluster! component)
+    (assoc component :topology nil)))
 
 
 (def cli-options
   "Has the same options as simulation if simulations are run"
-  (into
-    [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
-     ;["-s" "--sim" "DEPRECATED! No longer works"]
-     ["-r" "--recompute"]]
-    ; XXX
-    ;sim/cli-options)
-    [])
-  )
+  [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
+   ["-r" "--recompute"]])
 
 
 (defn usage [options-summary]
