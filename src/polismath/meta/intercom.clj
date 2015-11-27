@@ -13,6 +13,7 @@
             [polismath.components.db :as db]))
 
 
+(comment
 (def intercom-http-params
   {:accept :json
    :basic-auth ["nb5hla8s" (env/env :intercom-api-key)]
@@ -142,6 +143,7 @@
         icusers-by-email (filter #(not (get % "user_id")) icusers)
         ; Get users by id, then by email for those without id, then put them all together in one collection
         _                (println "Fetching pg db records")
+        ;; Need to update for db component XXX
         dbusers-by-id    (db/get-users-by-uid
                            (map #(Integer/parseInt (get % "user_id")) icusers-by-id))
         dbusers-by-email (db/get-users-by-email
@@ -180,7 +182,7 @@
     ; Call it a night
     (println "Done!")
     (shutdown-agents)))
-
+)
 
 :ok
 
