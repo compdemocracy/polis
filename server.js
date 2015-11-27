@@ -70,8 +70,7 @@ var akismetLib = require('akismet'),
     replaceStream = require('replacestream'),
     responseTime = require('response-time'),
     request = require('request-promise'), // includes Request, but adds promise methods
-    SimpleCache = require("simple-lru-cache"),
-    SimpleCacheWithTTL = require("./SimpleCacheWithTTL"),
+    LruCache = require("lru-cache"),
     stripe = require("stripe")(process.env.STRIPE_SECRET_KEY),
     timeout = require('connect-timeout'),
     zlib = require('zlib'),
@@ -605,8 +604,8 @@ function makeSessionToken() {
 // and generally remove sources of uncertainty about what makes
 // various queries slow. And having every single query talk to PG
 // adds a lot of variability across the board.
-var userTokenCache = new SimpleCache({
-    maxSize: 9000,
+var userTokenCache = new LruCache({
+    max: 9000,
 });
 
 function getUserInfoForSessionToken(sessionToken, res, cb) {
@@ -1104,8 +1103,8 @@ function getInt(s) {
 }
 
 
-var conversationIdToZidCache = new SimpleCache({
-    maxSize: 1000,
+var conversationIdToZidCache = new LruCache({
+    max: 1000,
 });
 
 // NOTE: currently conversation_id is stored as zinvite
@@ -1512,8 +1511,8 @@ function generateHashedPassword(password, callback) {
     });
 }
 
-var pidCache = new SimpleCache({
-    maxSize: 9000,
+var pidCache = new LruCache({
+    max: 9000,
 });
 
 // returns a pid of -1 if it's missing
@@ -2224,8 +2223,8 @@ function(req, res) {
 
 
 var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 0;
-var pcaCache = new SimpleCache({
-    maxSize: pcaCacheSize,
+var pcaCache = new LruCache({
+    max: pcaCacheSize,
 });
 
 var lastPrefetchedVoteTimestamp = -1;
@@ -3296,8 +3295,8 @@ function checkZinviteCodeValidity(zid, zinvite, callback) {
     });
 }
 
-var zidToConversationIdCache = new SimpleCache({
-    maxSize: 1000,
+var zidToConversationIdCache = new LruCache({
+    max: 1000,
 });
 
 function getZinvite(zid, dontUseCache) {
@@ -9017,8 +9016,8 @@ function getTwitterAccessToken(body) {
 }
 
 // TODO expire this stuff
-var twitterUserInfoCache = new SimpleCache({
-    maxSize: 1000,
+var twitterUserInfoCache = new LruCache({
+    max: 1000,
 });
 
 
@@ -9621,9 +9620,9 @@ function getSocialParticipantsForMod(zid, limit, mod) {
     return pgQueryP(q, [zid, limit, mod]);
 }
 
-var socialParticipantsCache = new SimpleCacheWithTTL({
-    ttlInMillis: 1000 * 30, // 30 seconds
-    maxSize: 999,
+var socialParticipantsCache = new LruCache({
+    maxAge: 1000 * 30, // 30 seconds
+    max: 999,
 });
 
 function getSocialParticipants(zid, uid, limit, mod, lastVoteTimestamp, authorUids) {
@@ -9862,8 +9861,8 @@ function updateVoteCount(zid, pid) {
 
 // zid_pid => "lastVoteTimestamp:ppaddddaadadaduuuuuuuuuuuuuuuuu"; // not using objects to save some ram
 // TODO consider "p2a24a2dadadu15" format
-var votesForZidPidCache = new SimpleCache({
-    maxSize: 5000,
+var votesForZidPidCache = new LruCache({
+    max: 5000,
 });
 
 function getVotesForZidPidWithTimestampCheck(zid, pid, lastVoteTimestamp) {
@@ -10061,9 +10060,9 @@ function geoCode(locationString) {
 }
 
 
-var twitterShareCountCache = SimpleCacheWithTTL({
-    ttlInMillis: 1000 * 60 * 30, // 30 minutes
-    maxSize: 999,
+var twitterShareCountCache = LruCache({
+    maxAge: 1000 * 60 * 30, // 30 minutes
+    max: 999,
 });
 
 function getTwitterShareCountForConversation(conversation_id) {
@@ -10090,9 +10089,9 @@ function getTwitterShareCountForConversation(conversation_id) {
     });
 }
 
-var fbShareCountCache = SimpleCacheWithTTL({
-    ttlInMillis: 1000 * 60 * 30, // 30 minutes
-    maxSize: 999,
+var fbShareCountCache = LruCache({
+    maxAge: 1000 * 60 * 30, // 30 minutes
+    max: 999,
 });
 function getFacebookShareCountForConversation(conversation_id) {
     var cached = fbShareCountCache.get(conversation_id);
