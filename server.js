@@ -236,8 +236,11 @@ var SELF_HOSTNAME = "localhost:" + process.env.PORT;
 //    index: index in circular buffer
 //}
 var METRICS_IN_RAM = {};
-
+var SHOULD_ADD_METRICS_IN_RAM = false;
 function addInRamMetric(metricName, val) {
+    if (!SHOULD_ADD_METRICS_IN_RAM) {
+        return;
+    }
     if (!METRICS_IN_RAM[metricName]) {
         METRICS_IN_RAM[metricName] = {
             values: new Array(1000),
