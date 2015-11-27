@@ -28,7 +28,8 @@ heroku addons:create --app=polisapp heroku-postgresql:standard-0 --follow HEROKU
     //[process.env.APPLICATION_NAME,'Heroku']
 //);
 
-var badwords = require('badwords/object'),
+var akismetLib = require('akismet'),
+    badwords = require('badwords/object'),
     Promise = require('bluebird'),
     dgram = require('dgram'),
     http = require('http'),
@@ -194,7 +195,7 @@ setInterval(function() {
 var POLIS_FROM_ADDRESS = "Polis Team <mike@pol.is>";
 
 
-var akismet = require('akismet').client({
+var akismet = akismetLib.client({
     blog: 'https://pol.is',  // required: your root level url
     apiKey: process.env.AKISMET_ANTISPAM_API_KEY
 });
