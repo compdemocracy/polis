@@ -1,30 +1,20 @@
 (ns polismath.conv-man
+  "This is the namesascpe for the "
   (:require [polismath.math.named-matrix :as nm]
             [polismath.math.conversation :as conv]
             [polismath.math.clusters :as clust]
             [polismath.meta.metrics :as met]
-            [polismath.components.db :as db]
             [polismath.components.env :as env]
+            [polismath.components.mongo :as mongo]
             [polismath.utils :as utils]
             [clojure.core.matrix.impl.ndarray]
             [clojure.core.async :as async :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
             [clojure.tools.trace :as tr]
             [clojure.tools.logging :as log]
+            [com.stuartsierra.component :as component]
             [plumbing.core :as pc]
             [schema.core :as s]
-            [monger.core :as mg]
-            [monger.collection :as mc]
-            [cheshire.core :as ch]
-            [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]))
-
-
-(defn get-or-set!
-  "Either gets the key state of a collection atom, or sets it to a val"
-  [coll-atom key & [init-fn]]
-  (or (get @coll-atom key)
-      (do
-        (swap! coll-atom assoc key (init-fn))
-        (get-or-set! coll-atom key))))
+            ))
 
 
 (defn prep-bidToPid
@@ -61,32 +51,9 @@
         :group-votes})))
 
 
-(defn mongo-upsert-results
-  "Perform upsert of new results on mongo collection name"
-  [mongo config collection-name new-results]
-  (mc/update
-    ; Bleg; not the cleanest separation here; should at least try to make this something rebindable
-    (:db mongo)
-    (db/mongo-db (env/env :mongolab-uri))
-    collection-name
-    {:zid (or (:zid new-results) ; covering our bases for strings or keywords due to cheshire hack
-              (get new-results "zid"))}
-    new-results
-    {:upsert true}))
-
-
-(defn mongo-insert-results
-  "Perform insert to mongo collection by zid"
-  [collection-name object]
-  (mc/insert
-    (db/mongo-db (env/env :mongolab-uri))
-    collection-name
-    object))
-
-
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
-  [conv & {:keys [recompute n-votes finish-time] :as extra-data}]
+  [conv-man conv & {:keys [recompute n-votes finish-time] :as extra-data}]
   (if-let [prof-atom (:profile-data conv)]
     (let [prof @prof-atom
           tot (apply + (map second prof))
@@ -96,7 +63,7 @@
             (assoc :n-ptps (:n conv))
             (merge (utils/hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
-            ((partial mongo-insert-results (db/mongo-collection-name "profile"))))
+            (->> (mongo/insert (:mongo conv-man) (mongo/math-collection-name "profile"))))
         (catch Exception e
           (log/warn "Unable to submit profile data for zid:" (:zid conv))
           (.printStackTrace e)))
@@ -115,17 +82,20 @@
 (defn update-fn
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
-  [conv votes error-callback]
-  (let [start-time (System/currentTimeMillis)]
+  [conv-man conv votes error-callback]
+  (let [start-time (System/currentTimeMillis)
+        mongo (:mongo conv-man)]
     (log/info "Starting conversation update for zid:" (:zid conv))
     (try
+      ;; Need to expose opts for conv-update through config... XXX
       (let [updated-conv   (conv/conv-update conv votes)
             zid            (:zid updated-conv)
             finish-time    (System/currentTimeMillis)
             ; If this is a recompute, we'll have either :full or :reboot, ow/ want to send false
             recompute      (if-let [rc (:recompute conv)] rc false)]
         (log/info "Finished computng conv-update for zid" zid "in" (- finish-time start-time) "ms")
-        (handle-profile-data updated-conv
+        (handle-profile-data conv-man
+                             updated-conv
                              :finish-time finish-time
                              :recompute recompute
                              :n-votes (count votes))
@@ -138,8 +108,11 @@
         ; Format and upload main results
         (doseq [[col-name prep-fn] [["main" prep-main] ; main math results, for client
                                     ["bidtopid" prep-bidToPid]]] ; bidtopid mapping, for server
-          (->> (db/format-for-mongo prep-fn updated-conv)
-               (mongo-upsert-results (db/mongo-collection-name col-name))))
+          ;; XXX Hmmm... format-for-mongo should be abstracted so that it always get's called, and the prep
+          ;; function gets taken care of separately; don't need to conplect these
+          (->> updated-conv
+               prep-fn
+               (mongo/zid-upsert mongo (mongo/collection-name mongo col-name))))
         (log/info "Finished uploading mongo results for zid" zid)
         ; Return the updated conv
         updated-conv)
@@ -153,6 +126,7 @@
         conv))))
 
 
+;; Maybe switch over to using this with arbitrary attrs map with zid and other data? XXX
 ;(defmacro try-with-error-log
   ;[zid message & body]
   ;`(try
@@ -162,11 +136,11 @@
 
 
 (defn build-update-error-handler
-  "Returns a clojure that can be called in case there is an update error. The closure gives access to
+  "Returns a closure that can be called in case there is an update error. The closure gives access to
   the queue so votes can be requeued"
-  [queue conv-actor]
+  [conv-man queue conv]
   (fn [votes start-time opts update-error]
-    (let [zid-str (str "zid=" (:zid @conv-actor))]
+    (let [zid-str (str "zid=" (:zid conv))]
       (log/error "Failed conversation update for" zid-str)
       (.printStackTrace update-error)
       ; Try requeing the votes that failed so that if we get more, they'll get replayed
@@ -174,6 +148,7 @@
       ; the conv-actor update?
       (try
         (log/info "Preparing to re-queue votes for failed conversation update for" zid-str)
+        ;; XXX Should we check if the queue got close due to error or manager close, and log?
         (async/go (async/>! queue [:votes votes]))
         (catch Exception qe
           (log/error "Unable to re-queue votes after conversation update failed for" zid-str)
@@ -182,13 +157,13 @@
       (try
         (let [end (System/currentTimeMillis)
               duration (- end start-time)]
-          ;; Update to use MetricSender component
-          (met/metric "math.pca.compute.fail" duration))
+          ;; Update to use MetricSender component XXX
+          (met/send-metric (:metrics conv-man) "math.pca.compute.fail" duration))
         (catch Exception e
           (log/error "Unable to send metrics for failed compute for" zid-str)))
       ; Try to save conversation state for debugging purposes
       (try
-        (conv/conv-update-dump @conv-actor votes opts update-error)
+        (conv/conv-update-dump conv votes opts update-error)
         (catch Exception e
           (log/error "Unable to perform conv-update dump for" zid-str))))))
 
@@ -217,7 +192,7 @@
 (defn load-or-init
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
   [zid & {:keys [recompute]}]
-  (if-let [conv (and (not recompute) (db/load-conv zid))]
+  (if-let [conv (and (not recompute) (mongo/load-conv zid))]
     (-> conv
         restructure-mongo-conv
         (assoc :recompute :reboot))
@@ -245,25 +220,6 @@
         acc))))
 
 
-(defprotocol PActor
-  (snd [this votes]))
-
-
-(defrecord ConvActor [msgbox conv]
-  PActor
-  (snd [_ votes]
-    (>!! msgbox votes))
-  clojure.lang.IRef
-  (deref [_]
-    @conv))
-
-
-(defn add-conv-actor-watch
-  "Add a watcher to the atom holding state in a conv-actor"
-  [conv-actor key f]
-  (add-watch (:conv conv-actor) key f))
-
-
 (defn split-batches
   "This function splits message batches as sent to conv actor up by the first item in batch vector (:votes :moderation)
   so messages can get processed properly"
@@ -277,29 +233,42 @@
                 (flatten))))))
 
 
-(defn new-conv-actor [init-fn & opts]
-  "Create a new conv actor which responds to snd. Messages should look like [<t> [...]], where <t> is either :votes or
-  :moderation, depending on what kind of batch is being sent/processed. Implements deref for state retrieval."
-  (let [msgbox (chan Long/MAX_VALUE) ; we want this to be as big as possible, since backpressure doesn't really work
-        conv (atom (init-fn)) ; keep track of conv state in atom so it can be dereffed
-        ca (ConvActor. msgbox conv)
-        err-handler (build-update-error-handler msgbox ca)]
-    ; Initialize the go loop which watches the mailbox, and runs updates all all pending messages when they
-    ; arrive
-    (go-loop []
-      (try
-        (let [first-msg (<! msgbox) ; do this so we park efficiently
-              msgs      (take-all! msgbox)
-              msgs      (concat [first-msg] msgs)
-              {votes :votes mods :moderation}
-                        (split-batches msgs)]
-          (when mods
-            (swap! conv conv/mod-update mods))
-          (swap! conv update-fn (or votes []) err-handler))
-        (catch Exception e
-          (log/error "Excpetion not handler by err-handler:" e)
-          (.printStackTrace e)))
-      (recur))
-    ca))
+(defrecord ConversationManager [config mongo metrics conversations]
+  component/Lifecycle
+  (start [component]
+    (let [conversations (atom {})]
+      (assoc component :conversations conversations)))
+  (stop [component]
+    ;; Close all our message channels for good measure
+    (doseq [[zid {:keys [message-chan]}] @conversations]
+      (async/close! message-chan))
+    ;; Not sure, but we might want this for GC
+    (reset! conversations nil)
+    (assoc component :conversations nil)))
+
+
+(defn queue-message-batch!
+  [{:keys [conversations] :as conv-man} message-type zid message-batch recompute]
+  (if-let [{:keys [conv message-chan]} (get @conversations zid)]
+    ;; Then we already have a go loop running for this
+    (>!! message-chan {:message-type message-type :message-batch message-batch})
+    ;; Then we need to initialize the conversation and set up the conversation channel and go routine
+    (let [conv (load-or-init zid :recompute recompute) ;; XXX recompute should be env var?
+          ;; XXX Need to set up message chan buffer as a env var
+          message-chan (chan 100000)]
+      (swap! conversations assoc zid {:conv conv :message-chan message-chan})
+      ;; However, we don't use the conversations atom conv state, but keep track of it explicitly in the loop,
+      ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
+      ;; just a convenience.
+      (go-loop [conv conv]
+        (let [first-msg (<! message-chan)
+              msgs (concat [first-msg] (take-all! message-chan))
+              {:keys [votes moderation]} (split-batches msgs)
+              error-handler (build-update-error-handler message-chan conv)
+              conv (-> conv
+                       (pc/?> moderation (conv/mod-update moderation))
+                       (pc/?> votes (update-fn votes error-handler)))]
+          (swap! conversations assoc-in [zid :conv] conv)
+          (recur conv))))))
 
 
