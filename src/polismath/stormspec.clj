@@ -9,7 +9,6 @@
             ;[polismath.simulation :as sim]
             [clojure.core.matrix :as matrix]
             [clojure.string :as string]
-            [clojure.newtools.cli :refer [parse-opts]]
             [clojure.tools.logging :as log]
             [clojure.core.async :as async :refer [go <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
             [com.stuartsierra.component :as component]
@@ -61,15 +60,15 @@
         (storm/ack! collector tuple)))))
 
 (defn make-topology
-  ([{:keys [config] :as storm-cluster}]
-   (let [spouts {"vote-spout" (storm/spout-spec (poll-spout :votes :poll :created (:vote-polling-interval config)))
-                 "mod-spout"  (storm/spout-spec (poll-spout :moderation :mod-poll :modified (:mod-polling-interval config)))}
-         bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
-     (assoc storm-cluster
-            :topology
-            (storm/topology
-              spouts
-              {"conv-update" (storm/bolt-spec bolt-inputs (conv-update-bolt recompute))})))
+  [{:keys [config] :as storm-cluster}]
+  (let [spouts {"vote-spout" (storm/spout-spec (poll-spout :votes :poll :created (:vote-polling-interval config)))
+                "mod-spout"  (storm/spout-spec (poll-spout :moderation :mod-poll :modified (:mod-polling-interval config)))}
+        bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
+    (assoc storm-cluster
+           :topology
+           (storm/topology
+             spouts
+             {"conv-update" (storm/bolt-spec bolt-inputs (conv-update-bolt (:recompute config)))}))))
 
 (defn run-local! [{:keys [sim recompute]}]
   (let [cluster (LocalCluster.)]
@@ -111,30 +110,7 @@
     (assoc component :topology nil)))
 
 
-(def cli-options
-  "Has the same options as simulation if simulations are run"
-  [["-n" "--name" "Cluster name; triggers submission to cluster" :default nil]
-   ["-r" "--recompute"]])
-
-
-(defn usage [options-summary]
-  (->> ["Polismath stormspec"
-        "Usage: lein run -m polismath.stormspec [options]"
-        ""
-        "Options:"
-        options-summary]
-   (string/join \newline)))
-
-
-(defn -main [& args]
-  (let [{:keys [options arguments errors summary]} (parse-opts args cli-options)]
-    (log/info "Submitting storm topology")
-    (cond
-      (:help options)   (utils/exit 0 (usage summary))
-      (:errors options) (utils/exit 1 (str "Found the following errors:" \newline (:errors options)))
-      :else 
-        (if-let [name (:name options)]
-          (submit-topology! name options)
-          (run-local! options)))))
+(defn create-storm-cluster []
+  (map->StormCluster {}))
 
 

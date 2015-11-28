@@ -246,6 +246,9 @@
     (reset! conversations nil)
     (assoc component :conversations nil)))
 
+(defn create-conversation-manager
+  []
+  (map->ConversationManager {}))
 
 (defn queue-message-batch!
   [{:keys [conversations] :as conv-man} message-type zid message-batch recompute]

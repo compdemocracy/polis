@@ -80,6 +80,10 @@
     (assoc component :conn nil :db nil)))
 
 
+(defn create-mongo []
+  (map->Mongo {}))
+
+
 ;; Public API
 
 (defn load-conv
