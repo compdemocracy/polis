@@ -18,17 +18,16 @@ app.use(require('webpack-hot-middleware')(compiler));
 // var routingProxy = new httpProxy.RoutingProxy();
 
 function proxy (req, res) {
-  var url = req.path;
   var x = request({
-    // url: "http://localhost:5001" + url,
-    url: "https://preprod.pol.is" + url,
+    url: "http://localhost:5001" + req.path,
+    qs: req.query,
     headers: req.headers,
     rejectUnauthorized:false,
   });
   req.pipe(x);
   x.pipe(res);
   x.on("error", function(err) {
-    console.log(err);
+    console.log("error", err);
     res.status(500).send("proxy error");
   });
 }
@@ -42,7 +41,7 @@ app.get('*', function(req, res) {
 
 app.listen(5000, 'localhost', function(err) {
   if (err) {
-    console.log(err);
+    console.log("error", err);
     return;
   }
 

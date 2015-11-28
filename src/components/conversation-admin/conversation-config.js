@@ -5,7 +5,7 @@ import _ from "lodash";
 import Checkbox from "../framework/checkbox";
 import settings from "../../settings";
 
-@connect(state => state.data)
+// @connect(state => state.data)
 @Radium
 class ConversationConfig extends React.Component {
 

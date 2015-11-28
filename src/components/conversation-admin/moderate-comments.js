@@ -4,22 +4,22 @@ import Radium from "radium";
 import _ from "lodash";
 import { Link } from "react-router";
 
-@connect(state => state.data)
+// @connect(state => state.data)
 @Radium
 class CommentModeration extends React.Component {
 
   render() {
+    const m = "/m/"+this.props.params.conversation+"/comments/";
     return (
       <div>
         <h1>Moderate Comments</h1>
         <div>
           "Moderate Comments"
         </div>
-          <Link to="comments/todo">Todo </Link>
-          <Link to="comments/accepted">Accepted </Link>
-          <Link to="comments/rejected">Rejected </Link>
-          <Link to="comments/seed">Seed </Link>
-
+          <Link to={m + "todo"}> Todo </Link>
+          <Link to={m + "accepted"}> Accepted </Link>
+          <Link to={m + "rejected"}> Rejected </Link>
+          <Link to={m + "seed"}> Seed </Link>
         {this.props.children}
       </div>
     );

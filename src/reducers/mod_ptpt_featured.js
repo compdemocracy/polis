@@ -1,22 +1,22 @@
 import * as types from "../actions";
 
-const conversations = (state = {
+const featured_participants = (state = {
   loading: false,
-  conversations: null
+  featured_participants: {},
 }, action) => {
   switch (action.type) {
-  case types.REQUEST_CONVERSATIONS:
+  case types.REQUEST_FEATURED_PARTICIPANTS:
     return Object.assign({}, state, {
       loading: true
     });
-  case types.RECEIVE_CONVERSATIONS:
+  case types.RECEIVE_FEATURED_PARTICIPANTS:
     return Object.assign({}, state, {
       loading: false,
-      conversations: action.data
+      featured_participants: action.data
     });
   default:
     return state;
   }
 };
 
-export default conversations;
+export default featured_participants;

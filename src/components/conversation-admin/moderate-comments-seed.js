@@ -3,7 +3,7 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
 
-@connect(state => state.data)
+// @connect(state => state.data)
 @Radium
 class ModerateCommentsSeed extends React.Component {
   render() {
