@@ -68,6 +68,7 @@
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
+  :main polismath.system
   :min-lein-version "2.3.0"
   :profiles {
     :dev {
