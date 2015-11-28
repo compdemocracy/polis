@@ -145,25 +145,8 @@ setInterval(function() {
     var rss = mem.rss;
     var heapTotal = mem.heapTotal;
     winston.log("info","heapUsed:", heapUsed, "heapTotal:", heapTotal, "rss:", rss);
-    var start = Date.now();
+    // var start = Date.now();
 
-    var memUsageLimit = 450368448; // 550 * 1024 * 1024;
-
-    // kill process if memory leak has gotten bad.
-    // Heroku will start a fresh one.
-    // Uses a random delay to prevent nodes from restarting simultaneously.
-    if (heapTotal > memUsageLimit) {
-        setTimeout(function() {
-
-            var mem = process.memoryUsage();
-            var heapTotal = mem.heapTotal;
-            if (heapTotal > memUsageLimit) {
-                // still bad. exit and let heroku restart process
-                console.error("memory leak detected, time for a restart");
-                process.exit(0);
-            }
-        }, 1000 * _.random(10, 60));
-    }
     //metric("api.process.mem.heapUsed", heapUsed, start);
     //metric("api.process.mem.rss", rss, start);
     //metric("api.process.mem.heapTotal", heapTotal, start);
