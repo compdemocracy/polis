@@ -92,7 +92,7 @@
 (defn get-conversation-votes
   [& args]
   ;; Flip the signs on the votes XXX (remove when we switch)
-  (map  #(update-in % [:vote] (partial * -1))
+  (map #(update-in % [:vote] (partial * -1))
        (apply get-conversation-votes* args)))
 
 (defn get-conversation-data
@@ -302,8 +302,8 @@
   "Just adds vote counts to the comments data"
   [comments votes]
   (map
-    (fn [{:keys [pid] :as comment-data}]
-      (let [comment-votes (filter #(= pid (:pid %)) votes)
+    (fn [{:keys [tid] :as comment-data}]
+      (let [comment-votes (filter #(= tid (:tid %)) votes)
             ;; Fixed this upstream, for now; so should be good to go once we've fixed it at the source. But
             ;; keep an eye on it for now... XXX
             aggrees (filter #(= 1 (:vote %)) comment-votes)
