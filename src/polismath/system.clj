@@ -6,6 +6,7 @@
                                   [core-matrix-boot :as core-matrix-boot :refer [create-core-matrix-booter]]]
             [polismath.conv-man :as conv-man :refer [create-conversation-manager]]
             [polismath.stormspec :as stormspec]
+            [polismath.utils :as utils]
             [clojure.tools.logging :as log]
             [clojure.tools.namespace.repl :as namespace.repl]
             [clojure.string :as string]
@@ -19,7 +20,7 @@
   {:config               (create-config config-overrides)
    :core-matrix-boot     (component/using (create-core-matrix-booter)   [:config])
    :postgres             (component/using (create-postgres)             [:config])
-   :mongodb              (component/using (create-mongo)                [:config])
+   :mongo                (component/using (create-mongo)                [:config])
    :conversation-manager (component/using (create-conversation-manager) [:config :core-matrix-boot :mongo])
    })
 
@@ -55,7 +56,7 @@
 (defn init!
   ([system-map-fn config-overrides]
    (alter-var-root #'system
-     (constantly (component/system-using (system-map-fn config-overrides)))))
+     (constantly (utils/apply-kwargs component/system-map (system-map-fn config-overrides)))))
   ([system-map-fn]
    (init! system-map-fn {})))
 
@@ -117,4 +118,8 @@
       (let [system-map-fn (subcommands (first arguments))]
         (start! system-map-fn)))))
 
-
+(comment
+  (try
+    (run! storm-system)
+    :ok (catch Exception e (.printStackTrace e) e))
+  )

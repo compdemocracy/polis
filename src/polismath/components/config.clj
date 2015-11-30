@@ -31,6 +31,7 @@
    :storm      {:execution    :local
                 :cluster-name "polis-cluster"
                 :workers      3}
+   :math       {:matrix-implementation :vectorz}
    })
 
 (def rules
@@ -98,7 +99,8 @@
 
 (defn get-config
   ([overrides]
-   (deep-merge (read-string (slurp "config.edn"))
+   (deep-merge defaults
+               ;(read-string (slurp "config.edn"))
                (get-environ-config rules environ/env)
                overrides))
   ([] (get-config {})))
