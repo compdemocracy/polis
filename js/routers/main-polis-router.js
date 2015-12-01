@@ -271,7 +271,7 @@ var polisRouter = Backbone.Router.extend({
     this.r(/^conversation\/create(\/ep1_[0-9A-Za-z]+)?/, "createConversation");
     this.r(/^hk\/new\/?$/, "hkNew");
     this.r("user/create(/:params)", "createUser");
-    this.r("user/login", "login");
+    this.r("user/login(/:redirectPath)", "login");
     this.r(/^user\/logout(\/.+)/, "deregister");
     this.r("welcome/:einvite", "createUserViewFromEinvite");
     this.r(/^settings(\/ep1_[0-9A-Za-z]+)?/, "settings");
@@ -1269,11 +1269,15 @@ var polisRouter = Backbone.Router.extend({
 
     return dfd.promise();
   },
-  login: function(){
+  login: function(redirectPath){
     var that = this;
     this.doLogin(false).done(function() {
+      if (_.isUndefined(redirectPath)) {
         // trash the JS context, don't leave password sitting around
         that.redirect("/inbox");
+      } else {
+        that.redirect("/" + redirectPath);
+      }
     });
   },
   faq: function(){
