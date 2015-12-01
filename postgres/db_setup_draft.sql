@@ -581,7 +581,7 @@ CREATE TABLE votes(
 -- needed to make nextComment query fast
 -- If updating this index becomes slow, we might consider something else. not sure what.
 -- dropped it, didn't really help (Aug 27 2014, no real load on db at the moment)
--- CREATE INDEX votes_zid_pid_idx ON votes USING btree (zid, pid);
+CREATE INDEX votes_zid_pid_idx ON votes USING btree (zid, pid);
 
 
 -- since each participant can change their vote, and those values are stored in votes, use this if you want to fetch the current state
