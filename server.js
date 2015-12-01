@@ -2205,7 +2205,7 @@ function(req, res) {
 });
 
 
-var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 0;
+var pcaCacheSize = (process.env.CACHE_MATH_RESULTS === "true") ? 300 : 1;
 var pcaCache = new LruCache({
     max: pcaCacheSize,
 });
