@@ -590,6 +590,14 @@ CREATE FUNCTION votes_lastest_unique(int) RETURNS SETOF votes AS $$
 $$ LANGUAGE SQL;
 
 
+CREATE TABLE event_ptpt_no_more_comments (
+    zid INTEGER NOT NULL,
+    pid INTEGER NOT NULL,
+    votes_placed SMALLINT NOT NULL,
+    created BIGINT DEFAULT now_as_millis()
+);
+
+
 
 
 

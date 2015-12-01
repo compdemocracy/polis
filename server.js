@@ -7107,6 +7107,12 @@ function getNextComment(zid, pid, withoutTids, include_social) {
     // return getNextCommentPrioritizingNonPassedComments(zid, pid, withoutTids, !!!!!!!!!!!!!!!!TODO IMPL!!!!!!!!!!!include_social);
 }
 
+// NOTE: only call this in response to a vote. Don't call this from a poll, like /api/v3/nextComment
+function addNoMoreCommentsRecord(zid, pid) {
+    return pgQueryP("insert into event_ptpt_no_more_comments (zid, pid, votes_placed) values ($1, $2, "+
+        "(select count(*) from votes where zid = ($1) and pid = ($2)))", [zid, pid]);
+}
+
 
 app.get("/api/v3/nextComment",
     timeout(15000),
@@ -7326,6 +7332,9 @@ function(req, res) {
         var result = {};
         if (nextComment) {
             result.nextComment = nextComment;
+        } else {
+            // no need to wait for this to finish
+            addNoMoreCommentsRecord(req.p.zid, pid);
         }
         // PID_FLOW This may be the first time the client gets the pid.
         result.currentPid = req.p.pid;
