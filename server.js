@@ -779,7 +779,7 @@ function pgQueryImpl() {
 
 
 var usingReplica = process.env.DATABASE_URL !== process.env[process.env.DATABASE_FOR_READS_NAME];
-var prodPoolSize = usingReplica ? 14 : 12;
+var prodPoolSize = usingReplica ? 9 : 12;
 var pgPoolLevelRanks=["info", "verbose"];
 var pgPoolLoggingLevel = -1;// -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
 
