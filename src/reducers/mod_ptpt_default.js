@@ -2,7 +2,7 @@ import * as types from "../actions";
 
 const default_participants = (state = {
   loading: false,
-  default_participants: {},
+  default_participants: null
 }, action) => {
   switch (action.type) {
   case types.REQUEST_DEFAULT_PARTICIPANTS:

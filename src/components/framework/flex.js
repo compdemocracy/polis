@@ -1,21 +1,26 @@
-import React from 'react';
-import Radium from 'radium';
-import Item from './flex-item';
+import React from "react";
+import Radium from "radium";
+import Item from "./flex-item";
 
 /**
   The <Flex> component automatically wraps each of its children in a <FlexItem> component.
+
   Modifiers:
   ----------
+
   Vertical alignment:
   align="top"     - Top aligned
   align="center"  - Center aligned
   align="bottom"  - Bottom aligned
   align="baseline" - Text baseline aligned
+
   Justify Content:
   justifyContent="center"  - Each Flex.Item is aligned starting from the center
                              (other options: flex-start, flex-end, space-between, space-around)
+
   Gutters:
   gutters={1.2} - Padding (em) between Flex.Items
+
   Usage:
   ----------
   <Flex align="top" gutters={1}>
@@ -24,35 +29,42 @@ import Item from './flex-item';
   </Flex>
 **/
 
-@Radium
-export default class Flex extends React.Component {
+class Flex extends React.Component {
   getStyles() {
     return {
       base: {
-        display: 'flex',
-        flexWrap: 'wrap',
-        listStyle: 'none',
-        justifyContent: this.props.justifyContent || 'center',
+        display: "flex",
+        flexWrap: "wrap",
+        listStyle: "none",
+        justifyContent: this.props.justifyContent || "center",
         margin: 0,
-        padding: 0,
+        padding: 0
       },
       top: {
-        alignItems: 'flex-start',
+        alignItems: "flex-start"
       },
       center: {
-        alignItems: 'center',
+        alignItems: "center"
       },
       bottom: {
-        alignItems: 'flex-end',
+        alignItems: "flex-end"
       },
       baseline: {
-        alignItems: 'baseline',
+        alignItems: "baseline"
       },
       gutters: {
-        margin: '-' + this.props.gutters + 'em 0 0 -' + this.props.gutters + 'em',
+        margin: "-" + this.props.gutters + "em 0 0 -" + this.props.gutters + "em"
       },
-      styleOverrides: this.props.styleOverrides,
+      styleOverrides: this.props.styleOverrides
     };
+  }
+
+  buildChildren() {
+    return React.Children.map(this.props.children, (child) => {
+      return child ?
+        React.cloneElement(child, { gutters: child.props.gutters || this.props.gutters }) :
+        undefined;
+    });
   }
 
   render() {
@@ -64,41 +76,35 @@ export default class Flex extends React.Component {
           styles.base,
           styles[this.props.align],
           this.props.gutters && styles.gutters,
-          this.props.styleOverrides && styles.styleOverrides,
+          this.props.styleOverrides && styles.styleOverrides
         ]}>
         {this.buildChildren()}
       </div>
     );
   }
-
-  buildChildren() {
-    return React.Children.map(this.props.children, (child) => {
-      return child ?
-        React.cloneElement(child, { gutters: child.props.gutters || this.props.gutters }) :
-        undefined;
-    });
-  }
 }
 
 Flex.propTypes = {
-  align: React.PropTypes.oneOf(['top', 'center', 'bottom', 'baseline']),
+  align: React.PropTypes.oneOf(["top", "center", "bottom", "baseline"]),
   children: React.PropTypes.node,
   gutters: React.PropTypes.number,
   justifyContent: React.PropTypes.oneOf([
-    'flex-start',
-    'flex-end',
-    'center',
-    'space-between',
-    'space-around',
+    "flex-start",
+    "flex-end",
+    "center",
+    "space-between",
+    "space-around"
   ]),
-  styleOverrides: React.PropTypes.object,
+  styleOverrides: React.PropTypes.object
 };
 
 Flex.defaultProps = {
-  align: 'center',
+  align: "center",
   gutters: null,
-  justifyContent: 'center',
-  styleOverrides: null,
+  justifyContent: "center",
+  styleOverrides: null
 };
 
 Flex.Item = Item;
+
+export default Radium(Flex);

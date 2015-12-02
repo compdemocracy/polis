@@ -2,7 +2,7 @@ import * as types from "../actions";
 
 const rejected_comments = (state = {
   loading: false,
-  rejected_comments: {},
+  rejected_comments: null
 }, action) => {
   switch (action.type) {
   case types.REQUEST_REJECTED_COMMENTS:

@@ -2,7 +2,7 @@ import * as types from "../actions";
 
 const hidden_participants = (state = {
   loading: false,
-  hidden_participants: {},
+  hidden_participants: null
 }, action) => {
   switch (action.type) {
   case types.REQUEST_HIDDEN_PARTICIPANTS:

@@ -19,13 +19,21 @@ class ConversationAdminContainer extends React.Component {
     this.loadZidMetadata()
   }
 
+  componentWillUnmount () {
+    // nukeZidMetadataStore
+  }
+
   render() {
-    console.log("container props", this.props)
     return (
       <div>
         <h3> {this.props.zid_metadata.topic} </h3>
         <Markdown source={this.props.zid_metadata.description} />
-        <p> {this.props.zid_metadata.} </p>
+        <p> Embedded on:
+          <a href={this.props.zid_metadata.parent_url}>
+            {this.props.zid_metadata.parent_url ? this.props.zid_metadata.parent_url : "Not embedded"}
+          </a>
+        </p>
+        <p>{"Participant count: " + this.props.zid_metadata.participant_count}</p>
         {this.props.children}
       </div>
     );

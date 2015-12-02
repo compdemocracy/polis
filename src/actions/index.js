@@ -223,14 +223,14 @@ const unmoderatedCommentsFetchError = (err) => {
   }
 }
 
-const fetchUnmoderatedComments = (zid) => {
-  return $.get('/api/v3/' + zid);
+const fetchUnmoderatedComments = (conversation_id) => {
+  return $.get('/api/v3/comments?moderation=true&mod=0&conversation_id=' + conversation_id);
 }
 
-export const populateUnmoderatedCommentsStore = (zid) => {
+export const populateUnmoderatedCommentsStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestUnmoderatedComments())
-    return fetchUnmoderatedComments(zid).then(
+    return fetchUnmoderatedComments(conversation_id).then(
       res => dispatch(receiveUnmoderatedComments(res)),
       err => dispatch(unmoderatedCommentsFetchError(err))
     )
@@ -259,14 +259,14 @@ const acceptedCommentsFetchError = (err) => {
   }
 }
 
-const fetchAcceptedComments = (zid) => {
-  return $.get('/api/v3/' + zid);
+const fetchAcceptedComments = (conversation_id) => {
+  return $.get('/api/v3/comments?moderation=true&mod=1&conversation_id=' + conversation_id);
 }
 
-export const populateAcceptedCommentsStore = (zid) => {
+export const populateAcceptedCommentsStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestAcceptedComments())
-    return fetchAcceptedComments(zid).then(
+    return fetchAcceptedComments(conversation_id).then(
       res => dispatch(receiveAcceptedComments(res)),
       err => dispatch(acceptedCommentsFetchError(err))
     )
@@ -295,14 +295,14 @@ const rejectedCommentsFetchError = (err) => {
   }
 }
 
-const fetchRejectedComments = (zid) => {
-  return $.get('/api/v3/' + zid);
+const fetchRejectedComments = (conversation_id) => {
+  return $.get('/api/v3/comments?moderation=true&mod=-1&conversation_id=' + conversation_id);
 }
 
-export const populateRejectedCommentsStore = (zid) => {
+export const populateRejectedCommentsStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestRejectedComments())
-    return fetchRejectedComments(zid).then(
+    return fetchRejectedComments(conversation_id).then(
       res => dispatch(receiveRejectedComments(res)),
       err => dispatch(rejectedCommentsFetchError(err))
     )
@@ -311,12 +311,69 @@ export const populateRejectedCommentsStore = (zid) => {
 
 /* moderator clicked accept comment */
 
-// TODO ACCEPT_COMMENT
+const optimisticCommentAccepted = () => {
+  /* don't know if this matters actually */
+}
+
+const acceptCommentSuccess = () => {
+
+}
+
+const acceptCommentError = () => {
+
+}
+
+const putCommentAccepted = (comment) => {
+  console.log(comment)
+  return $.ajax({
+    method: "PUT",
+    url: "/api/v3/comments",
+    data: comment
+  })
+}
+
+export const changeCommentStatusToAccepted = (comment) => {
+  return (dispatch) => {
+    dispatch(optimisticCommentAccepted())
+    return putCommentAccepted(comment).then(
+      res => dispatch(acceptCommentSuccess(res)),
+      err => dispatch(acceptCommentError(err))
+    )
+  }
+}
 
 /* moderator clicked reject comment */
 
-// TODO REJECT_COMMENT
+const optimisticCommentRejected = () => {
 
+}
+
+const rejectCommentSuccess = () => {
+
+}
+
+const rejectCommentError = () => {
+
+}
+
+const putCommentRejected = (comment) => {
+
+  return $.ajax({
+    method: "PUT",
+    url: "/api/v3/comments",
+    data: comment
+  })
+}
+
+export const changeCommentStatusToRejected = (comment) => {
+  return (dispatch) => {
+    dispatch(optimisticCommentRejected())
+    return putCommentRejected(conversation_id, comment).then(
+      res => dispatch(rejectCommentSuccess(res)),
+      err => dispatch(rejectCommentError(err))
+    )
+  }
+}
 /* request default participants for ptpt moderation view */
 
 const requestDefaultParticipants = () => {
@@ -339,14 +396,14 @@ const defaultParticipantFetchError = (err) => {
   }
 }
 
-const fetchDefaultParticipants = (zid) => {
-  return $.get('/api/v3/' + zid);
+const fetchDefaultParticipants = (conversation_id) => {
+  return $.get('/api/v3/ptptois?mod=0&conversation_id=' + conversation_id);
 }
 
-export const populateDefaultParticipantStore = (zid) => {
+export const populateDefaultParticipantStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestDefaultParticipants())
-    return fetchDefaultParticipants(zid).then(
+    return fetchDefaultParticipants(conversation_id).then(
       res => dispatch(receiveDefaultParticipants(res)),
       err => dispatch(defaultParticipantFetchError(err))
     )
@@ -375,14 +432,14 @@ const featuredParticipantFetchError = (err) => {
   }
 }
 
-const fetchFeaturedParticipants = (zid) => {
-  return $.get('/api/v3/' + zid);
+const fetchFeaturedParticipants = (conversation_id) => {
+  return $.get('/api/v3/ptptois?mod=1&conversation_id=' + conversation_id);
 }
 
-export const populateFeaturedParticipantStore = (zid) => {
+export const populateFeaturedParticipantStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestFeaturedParticipants())
-    return fetchFeaturedParticipants(zid).then(
+    return fetchFeaturedParticipants(conversation_id).then(
       res => dispatch(receiveFeaturedParticipants(res)),
       err => dispatch(featuredParticipantFetchError(err))
     )
@@ -411,14 +468,14 @@ const hiddenParticipantFetchError = (err) => {
   }
 }
 
-const fetchHiddenParticipants = (zid) => {
-  return $.get('/api/v3/' + zid);
+const fetchHiddenParticipants = (conversation_id) => {
+  return $.get('/api/v3/ptptois?mod=-1&conversation_id=' + conversation_id);
 }
 
-export const populateHiddenParticipantStore = (zid) => {
+export const populateHiddenParticipantStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestHiddenParticipants())
-    return fetchHiddenParticipants(zid).then(
+    return fetchHiddenParticipants(conversation_id).then(
       res => dispatch(receiveHiddenParticipants(res)),
       err => dispatch(hiddenParticipantFetchError(err))
     )
@@ -455,14 +512,14 @@ const conversationStatsFetchError = (err) => {
   }
 }
 
-const fetchConversationStats = (zid) => {
-  return $.get('/api/v3/' + zid);
+const fetchConversationStats = (conversation_id) => {
+  return $.get('/api/v3/conversationStats?conversation_id=' + conversation_id);
 }
 
-export const populateConversationStatsStore = (zid) => {
+export const populateConversationStatsStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestConversationStats())
-    return fetchConversationStats(zid).then(
+    return fetchConversationStats(conversation_id).then(
       res => dispatch(receiveConversationStats(res)),
       err => dispatch(conversationStatsFetchError(err))
     )

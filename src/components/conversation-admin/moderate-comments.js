@@ -4,7 +4,6 @@ import Radium from "radium";
 import _ from "lodash";
 import { Link } from "react-router";
 
-// @connect(state => state.data)
 @Radium
 class CommentModeration extends React.Component {
 

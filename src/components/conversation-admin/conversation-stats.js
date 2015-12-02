@@ -1,6 +1,7 @@
 import React from "react";
 import {connect} from "react-redux";
 import Radium from "radium";
+import {populateConversationStatsStore} from "../../actions";
 import {VictoryChart} from "victory-chart";
 import {VictoryLine} from "victory-line";
 import {VictoryBar} from "victory-bar";
@@ -15,6 +16,7 @@ const style = {
   }
 };
 
+@connect(state => state.stats)
 @Radium
 class ConversationStats extends React.Component {
   static defaultProps = {
@@ -77,7 +79,21 @@ class ConversationStats extends React.Component {
       {x: new Date(2015, 8, 1), y: 11750}
     ]
   }
+  loadStats() {
+    this.props.dispatch(
+      populateConversationStatsStore(this.props.params.conversation)
+    )
+  }
+  componentWillMount () {
+    this.getStatsRepeatedly = setInterval(()=>{
+      this.loadStats()
+    },1000);
+  }
+  componentWillUnmount() {
+    clearInterval(this.getStatsRepeatedly);
+  }
   render() {
+    console.log('doin render', this.props)
     return (
       <div>
       <h1>Conversation Stats</h1>

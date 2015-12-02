@@ -81,7 +81,7 @@ class App extends React.Component {
           </Link>
         </p>
         <h3 style={{marginRight: 10}}> Conversation Admin </h3>
-        <p> <em> pol.is/55555 </em> </p>
+        <p> <a href={"https://pol.is/"+this.props.params.conversation} target="_blank"> {"pol.is/"+this.props.params.conversation} </a> </p>
         <p>
           <Link
             style={{marginRight: 15}}
@@ -122,8 +122,15 @@ class App extends React.Component {
             style={{marginRight: 15}}
             to={"/m/"+this.props.params.conversation+"/conversation"}>
             iFrame of Conversation</Link></p>
+        <p>
+          <Link
+            style={{marginRight: 15}}
+            to={"/m/"+this.props.params.conversation+"/participants"}>
+            Data Export
+          </Link>
+        </p>
         <p> -------- </p>
-        <p><a style={{marginRight: 15}} href="http://about.pol.is">Docs</a></p>
+        <p><a style={{marginRight: 15}} href="http://docs.pol.is">Docs</a></p>
         <p><a style={{marginRight: 15}} href="https://twitter.com/UsePolis">@UsePolis</a></p>
       </div>
     )

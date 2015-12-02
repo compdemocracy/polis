@@ -2,7 +2,7 @@ import * as types from "../actions";
 
 const featured_participants = (state = {
   loading: false,
-  featured_participants: {},
+  featured_participants: null
 }, action) => {
   switch (action.type) {
   case types.REQUEST_FEATURED_PARTICIPANTS:

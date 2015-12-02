@@ -2,7 +2,7 @@ import * as types from "../actions";
 
 const unmoderated_comments = (state = {
   loading: false,
-  unmoderated_comments: {},
+  unmoderated_comments: null
 }, action) => {
   switch (action.type) {
   case types.REQUEST_UNMODERATED_COMMENTS:

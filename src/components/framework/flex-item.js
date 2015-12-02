@@ -1,5 +1,5 @@
-import React from 'react';
-import Radium from 'radium';
+import React from "react";
+import Radium from "radium";
 
 /**
   The <Flex> component automatically wraps each of its children in a <Flex.Item> component.
@@ -33,50 +33,49 @@ import Radium from 'radium';
   </Flex.Item>
 **/
 
-@Radium
-export default class Item extends React.Component {
+class Item extends React.Component {
   getFlex(sizeProp) {
     switch (sizeProp) {
-    case 1: return '0 0 100%';
-    case 2: return '0 0 50%';
-    case 3: return '0 0 33.3333%';
-    case 4: return '0 0 25%';
-    // no default
+    case 1: return "0 0 100%";
+    case 2: return "0 0 50%";
+    case 3: return "0 0 33.3333%";
+    case 4: return "0 0 25%";
+    case "autoSize": return "none";
     }
   }
 
   getStyles() {
     return {
       base: {
-        boxSizing: 'border-box',
-        flex: 1,
+        boxSizing: "border-box",
+        flex: "0 0 100%",
 
-        '@media (min-width: 24em)': this.props.small ? {
-          flex: this.getFlex(this.props.small),
+        "@media (min-width: 24em)": this.props.small ? {
+          flex: this.getFlex(this.props.small)
         } : null,
-        '@media (min-width: 36em)': this.props.medium ? {
-          flex: this.getFlex(this.props.medium),
+        "@media (min-width: 36em)": this.props.medium ? {
+          flex: this.getFlex(this.props.medium)
         } : null,
-        '@media (min-width: 48em)': this.props.large ? {
-          flex: this.getFlex(this.props.large),
-        } : null,
+        "@media (min-width: 48em)": this.props.large ? {
+          flex: this.getFlex(this.props.large)
+        } : null
       },
       autoSize: {
-        flex: 'none',
+        flex: "none"
       },
       gutters: {
-        padding: this.props.gutters + 'em 0 0 ' + this.props.gutters + 'em',
+        padding: this.props.gutters + "em 0 0 " + this.props.gutters + "em"
       },
       fit: {
-        flex: 1,
+        flex: 1
       },
       full: {
-        flex: '0 0 100%',
+        flex: "0 0 100%"
       },
       flex: {
-        flex: this.props.flex,
+        flex: this.props.flex
       },
-      styleOverrides: this.props.styleOverrides,
+      styleOverrides: this.props.styleOverrides
     };
   }
 
@@ -92,7 +91,7 @@ export default class Item extends React.Component {
           this.props.full && styles.full,
           this.props.flex && styles.flex,
           this.props.gutters && styles.gutters,
-          this.props.styleOverrides && styles.styleOverrides,
+          this.props.styleOverrides && styles.styleOverrides
         ]}>
         {this.props.children}
       </div>
@@ -107,10 +106,10 @@ Item.propTypes = {
   flex: React.PropTypes.string,
   full: React.PropTypes.bool,
   gutters: React.PropTypes.number,
-  large: React.PropTypes.oneOf([1, 2, 3, 4]),
-  medium: React.PropTypes.oneOf([1, 2, 3, 4]),
-  small: React.PropTypes.oneOf([1, 2, 3, 4]),
-  styleOverrides: React.PropTypes.object,
+  large: React.PropTypes.oneOf([1, 2, 3, 4, "autoSize"]),
+  medium: React.PropTypes.oneOf([1, 2, 3, 4, "autoSize"]),
+  small: React.PropTypes.oneOf([1, 2, 3, 4, "autoSize"]),
+  styleOverrides: React.PropTypes.object
 };
 
 Item.defaultProps = {
@@ -122,5 +121,7 @@ Item.defaultProps = {
   large: null,
   medium: null,
   small: null,
-  styleOverrides: null,
+  styleOverrides: null
 };
+
+export default Radium(Item);

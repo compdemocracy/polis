@@ -2,7 +2,7 @@ import * as types from "../actions";
 
 const accepted_comments = (state = {
   loading: false,
-  accepted_comments: null,
+  accepted_comments: null
 }, action) => {
   switch (action.type) {
   case types.REQUEST_ACCEPTED_COMMENTS:
