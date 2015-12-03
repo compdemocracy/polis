@@ -11,8 +11,6 @@ import settings from "../../settings";
 class ConversationConfig extends React.Component {
 
   render() {
-    console.log(this.props.zid_metadata)
-    console.log("-------"+ this.props.zid_metadata.auth_opt_fb)
     return (
       <div>
         <h1>Conversation config</h1>

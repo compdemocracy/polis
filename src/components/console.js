@@ -8,6 +8,11 @@ import Spinner from "./framework/spinner";
 import Awesome from "react-fontawesome";
 
 import Sidebar from "react-sidebar";
+import SidebarContentConversation from "./sidebar-content-conversation";
+import SidebarContentHome from "./sidebar-content-home";
+import MaterialTitlePanel from './material-title-panel';
+
+import Trial from "./framework/trial-banner";
 
 @connect(state => state.user)
 @Radium
@@ -53,115 +58,28 @@ class App extends React.Component {
         onClick={this.handleMenuButtonClick.bind(this)}
         style={{marginRight: 15, display: "inline"}}>
         <Awesome name="bars" style={{fontSize: 24, cursor: "pointer"}}/>
+        Menu
       </div>
     )
   }
 
   render() {
-    const homeSidebarContent = (
-      <div style={{marginLeft: 10}}>
-        <h3 style={{marginRight: 10}}><Link to="/"> Polis Home </Link></h3>
-        <div> {this.props.user ? this.props.user.hname : <Spinner/>} </div>
-        <p><Link style={{marginRight: 15}} to="/new">New</Link></p>
-        <p><Link style={{marginRight: 15}} to="/integrate">Integrate</Link></p>
-        <p><Link style={{marginRight: 15}} to="/conversations">Conversations</Link></p>
-        <p><Link style={{marginRight: 15}} to="/overall-stats">Overall Stats</Link></p>
-        <p><Link style={{marginRight: 15}} to="/account">Account</Link></p>
-        <p> -------- </p>
-        <p><a style={{marginRight: 15}} href="http://docs.pol.is">Docs</a></p>
-        <p><a style={{marginRight: 15}} href="https://twitter.com/UsePolis">@UsePolis</a></p>
-      </div>
-    )
-    const conversationSidebarContent = (
-      <div style={{marginLeft: 10}}>
-        <p>
-          <Link to="/">
-            <Awesome name="chevron-left" style={{fontSize: 24, cursor: "pointer"}}/>
-            <Awesome name="home" style={{fontSize: 24, cursor: "pointer"}}/>
-          </Link>
-        </p>
-        <h3 style={{marginRight: 10}}> Conversation Admin </h3>
-        <p> <a href={"https://pol.is/"+this.props.params.conversation} target="_blank"> {"pol.is/"+this.props.params.conversation} </a> </p>
-        <p>
-          <Link
-            style={{marginRight: 15}}
-            to={"/m/"+this.props.params.conversation+"/share"}>
-            Share & Embed
-          </Link>
-        </p>
-        <p>
-          <Link
-            style={{marginRight: 15}}
-            to={"/m/"+this.props.params.conversation+"/stats"}>
-            Stats
-          </Link>
-        </p>
-        <p>
-          <Link
-            style={{marginRight: 15}}
-            to={"/m/"+this.props.params.conversation+"/config"}>
-            Config
-          </Link>
-        </p>
-        <p>
-          <Link
-            style={{marginRight: 15}}
-            to={"/m/"+this.props.params.conversation+"/comments"}>
-            Comments
-          </Link>
-        </p>
-        <p>
-          <Link
-            style={{marginRight: 15}}
-            to={"/m/"+this.props.params.conversation+"/participants"}>
-            Participants
-          </Link>
-        </p>
-        <p>
-          <Link
-            style={{marginRight: 15}}
-            to={"/m/"+this.props.params.conversation+"/conversation"}>
-            iFrame of Conversation</Link></p>
-        <p>
-          <Link
-            style={{marginRight: 15}}
-            to={"/m/"+this.props.params.conversation+"/participants"}>
-            Data Export
-          </Link>
-        </p>
-        <p> -------- </p>
-        <p><a style={{marginRight: 15}} href="http://docs.pol.is">Docs</a></p>
-        <p><a style={{marginRight: 15}} href="https://twitter.com/UsePolis">@UsePolis</a></p>
-      </div>
-    )
     return (
       <Sidebar
-        sidebar={
-          this.props.params.conversation ?
-            conversationSidebarContent : homeSidebarContent
-        }
-        open={this.state.sidebarOpen}
-        docked={this.state.sidebarDocked}
-        onSetOpen={this.onSetSidebarOpen.bind(this)}>
-        <div style={{width: 800, margin: 40}}>
-          {
-            /* this.state.sidebarOpen ? "" : */
-            this.addHamburger()
-          }
-          {this.props.children}
-        </div>
+        sidebar={ this.props.params.conversation ? <SidebarContentConversation conversation_id={this.props.params.conversation}/> : <SidebarContentHome/> }
+        open={ this.state.sidebarOpen }
+        docked={ this.state.sidebarDocked }
+        onSetOpen={ this.onSetSidebarOpen.bind(this) }>
+        <MaterialTitlePanel title="Admin Dashboard">
+          {/*trial*/ true ? <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> : ""}
+            <div style={{maxWidth: 800, margin: 20}}>
+              { /* this.state.sidebarOpen ? "" : */ this.addHamburger() }
+              { this.props.children }
+            </div>
+        </MaterialTitlePanel>
       </Sidebar>
-
     );
   }
 }
-
-const styles = {
-  sidebarItem: {
-    marginRight: 15,
-    color: "darkgrey",
-    backgroundColor: "white"
-  }
-};
 
 export default App;

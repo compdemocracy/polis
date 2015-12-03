@@ -38,6 +38,8 @@ import ParticipantModerationDefault from "./components/conversation-admin/modera
 import ParticipantModerationFeatured from "./components/conversation-admin/moderate-people-featured";
 import ParticipantModerationHidden from "./components/conversation-admin/moderate-people-hidden";
 
+import DataExport from "./components/conversation-admin/data-export";
+import ShareAndEmbed from "./components/conversation-admin/share-and-embed";
 
 const store = configureStore();
 
@@ -67,6 +69,8 @@ class Root extends React.Component {
                 </Route>
                 <Route path="config" component={ConversationConfig}/>
                 <Route path="stats" component={ConversationStats}/>
+                <Route path="export" component={DataExport}/>
+                <Route path="share" component={ShareAndEmbed}/>
               </Route>
             </Route>
           </Router>

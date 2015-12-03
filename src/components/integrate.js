@@ -3,12 +3,12 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
 import Highlight from "react-highlight";
+import MaterialTitlePanel from './material-title-panel';
 
 @connect(state => state.user)
 @Radium
 class Integrate extends React.Component {
   render() {
-    console.log(this.props)
     return (
       <div>
         <h1>Integrate</h1>
