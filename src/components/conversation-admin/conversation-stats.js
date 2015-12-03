@@ -8,6 +8,8 @@ import {VictoryBar} from "victory-bar";
 import {VictoryAxis} from "victory-axis";
 import _ from "lodash";
 
+import conversationStatsMockResponse from "../../conversationStatsMockResponse";
+
 const style = {
   parent: {
     width: 500,
@@ -20,20 +22,10 @@ const style = {
 @Radium
 class ConversationStats extends React.Component {
   static defaultProps = {
+    conversationStatsMock: conversationStatsMockResponse,
     totalParticipantsAtPresent: 3000, // function of dataset
     totalCommentsAtPresent: 95, // function of dataset
     totalVotesAtPresent: 11750,
-    timeSeriesOfTotalParticipants: [
-      {x: new Date(2015, 0, 1), y: 0},
-      {x: new Date(2015, 1, 1), y: 300},
-      {x: new Date(2015, 2, 1), y: 400},
-      {x: new Date(2015, 3, 1), y: 475},
-      {x: new Date(2015, 4, 1), y: 1450},
-      {x: new Date(2015, 5, 1), y: 1500},
-      {x: new Date(2015, 6, 1), y: 2200},
-      {x: new Date(2015, 7, 1), y: 2400},
-      {x: new Date(2015, 8, 1), y: 3000}
-    ],
     timeSeriesOfVotingParticipants: [
       {x: new Date(2015, 0, 1), y: 0},
       {x: new Date(2015, 1, 1), y: 100},
@@ -79,31 +71,40 @@ class ConversationStats extends React.Component {
       {x: new Date(2015, 8, 1), y: 11750}
     ]
   }
-  loadStats() {
-    this.props.dispatch(
-      populateConversationStatsStore(this.props.params.conversation)
-    )
-  }
-  componentWillMount () {
-    this.getStatsRepeatedly = setInterval(()=>{
-      this.loadStats()
-    },1000);
-  }
-  componentWillUnmount() {
-    clearInterval(this.getStatsRepeatedly);
-  }
+  // loadStats() {
+  //   this.props.dispatch(
+  //     populateConversationStatsStore(this.props.params.conversation)
+  //   )
+  // }
+  // componentWillMount () {
+  //   this.getStatsRepeatedly = setInterval(()=>{
+  //     this.loadStats()
+  //   },1000);
+  // }
+  // componentWillUnmount() {
+  //   clearInterval(this.getStatsRepeatedly);
+  // }
   render() {
     console.log('doin render', this.props)
+    const data = this.props.conversationStatsMock; /* swap out for real data later */
     return (
       <div>
       <h1>Conversation Stats</h1>
-      <h3>Summary</h3>
+      <h3>At a glance:</h3>
         <p> show all parent urls - maybe there are multiple places it is embedded. need to keep up</p>
-        <p> ____ participants have visited the page. ____ have voted. ____ have commented. ____ comments have been submitted, and ____ votes have been cast. ____ percent have returned more than once. </p>
+        <p> {data.firstVoteTimes.length + " participants have voted."} </p>
+        <p> {data.voteTimes.length + " votes have been cast."} </p>
+        <p> {
+          "This is an average of " +
+          Math.floor(data.voteTimes.length / data.firstVoteTimes.length) +
+          " votes per voter."
+        } </p>
+        <p> {data.firstCommentTimes.length + " participants have commented."} </p>
+        <p> {data.commentTimes.length + " comments have been submitted."} </p>
+
       <h3>Charts</h3>
         <div className="=======UNIQES-VOTERS-COMMENTERS=======">
           <h3 style={{marginBottom: 0, marginLeft: 50}}>
-            <span style={{color: "cornflowerblue"}}>Uniques </span>
             <span style={{color: "gold"}}>Voters </span>
             <span style={{color: "tomato"}}>Commenters</span>
           </h3>
@@ -119,7 +120,9 @@ class ConversationStats extends React.Component {
                   stroke: "tomato"
                 }
               }}
-              data={this.props.timeSeriesOfCommentingParticipants}/>
+              data={this.props.conversationStatsMock.firstCommentTimes.map((timestamp, i) => {
+                return {x: timestamp, y: i};
+              })}/>
             <VictoryLine
               style={{
                 data: {
@@ -127,18 +130,11 @@ class ConversationStats extends React.Component {
                   stroke: "gold"
                 }
               }}
-              data={this.props.timeSeriesOfVotingParticipants}/>
-            <VictoryLine
-              style={{
-                data: {
-                  strokeWidth: 2,
-                  stroke: "cornflowerblue"
-                }
-              }}
-              data={this.props.timeSeriesOfTotalParticipants}/>
+              data={this.props.conversationStatsMock.firstVoteTimes.map((timestamp, i) => {
+                return {x: timestamp, y: i}
+              })}/>
             <VictoryAxis
               orientation="bottom"
-              domain={[new Date(2015,1,1), new Date(2015, 8, 1)]}
               tickFormat={d3.time.format("%b %Y")}/>
             <VictoryAxis
               dependentAxis
@@ -148,7 +144,6 @@ class ConversationStats extends React.Component {
                   fontSize: "8px"
                 }
               }}
-              domain={this.props.arrayContainingNumberOfParticipantsCommaZero}
               orientation={"left"}/>
           </VictoryChart>
         </div>
@@ -168,7 +163,9 @@ class ConversationStats extends React.Component {
                   stroke: "tomato"
                 }
               }}
-              data={this.props.timeSeriesOfTotalComments}/>
+              data={this.props.conversationStatsMock.commentTimes.map((timestamp, i) => {
+
+              })}/>
             <VictoryAxis
               orientation="bottom"
               domain={[new Date(2015,1,1), new Date(2015, 8, 1)]}
