@@ -2312,7 +2312,8 @@ function renderComments(comments) {
 }
 
 function clickingPtptoiOpensProfile() {
-  return !isMobile;
+  return true;
+  // return !isMobile;
 }
 
 function onParticipantClicked(d) {
