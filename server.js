@@ -6562,7 +6562,7 @@ app.post("/api/v3/comments",
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
     want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
     want("quote_txt", getStringLimitLength(999), assignToP),
-    want("quote_src_url", getStringLimitLength(999), assignToP),
+    want("quote_src_url", getStringLimitLength(999), assignToP), // TODO_SECURITY make sure this is a normal URL with no weird javascript injection or anything in it.
     want("anon", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
 function(req, res) {
