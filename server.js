@@ -6590,6 +6590,11 @@ function(req, res) {
         return;
     }
 
+    if (quote_txt && _.isUndefined(quote_src_url)) {
+        fail(res, 400, "polis_err_param_missing_quote_src_url");
+        return;
+    }
+
     function doGetPid() {
         // PID_FLOW
         if (_.isUndefined(pid)) {
