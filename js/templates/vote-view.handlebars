@@ -62,7 +62,11 @@
           {{#if tweet_id}}
             <a href="https://twitter.com/{{social.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
           {{else}}
-            {{s.x_wrote}}
+            {{#if quote_src_url}}
+              <a href="{{quote_src_url}}" target="_blank">{{s.x_wrote}}</a>
+            {{else}}
+              {{s.x_wrote}}
+            {{/if}}
           {{/if}}
         </span>
   {{!-- ========== STAR ========== --}}
