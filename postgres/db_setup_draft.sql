@@ -506,6 +506,8 @@ CREATE TABLE comments(
     mod INTEGER NOT NULL DEFAULT 0,-- {-1,0,1} where -1 is reject, 0 is no action, and 1 is accept
     active BOOLEAN NOT NULL DEFAULT TRUE, -- will be false if the comment should not be shown.
     tweet_id BIGINT, -- Used when this comment is an imported tweet, else null.
+    quote_src_url VARCHAR(1000), -- URL for a page where the (presumably) famous person's quote can be found
+    anon BOOLEAN NOT NULL DEFAULT false, -- if true, the author of the comment will not be shown.
     UNIQUE(zid, txt),    --issued this: ALTER TABLE comments ADD CONSTRAINT comments_txt_unique_constraint UNIQUE (zid, txt);
     FOREIGN KEY (zid, pid) REFERENCES participants (zid, pid)
 );

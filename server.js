@@ -477,6 +477,8 @@ var sql_comments = sql.define({
     "velocity",
     "active",
     "mod",
+    "quote_src_url",
+    "anon",
     ]
 });
 
@@ -6102,6 +6104,8 @@ function getComments(o) {
             "created",
             "uid",
             "tweet_id",
+            "quote_src_url",
+            "anon",
         ];
         if (o.moderation) {
             cols.push("velocity");
@@ -6120,9 +6124,12 @@ function getComments(o) {
         return rows;
     }).then(function(comments) {
         if (o.include_social) {
-            var uids = _.pluck(comments, "uid");
+            var nonAnonComments = comments.filter(function(c) {
+                return !c.anon;
+            });
+            var uids = _.pluck(nonAnonComments, "uid");
             return getSocialInforForUsers(uids).then(function(socialInfos) {
-                var uidToSocialInfo = {}; // new Map(); // TODO_NODE_UPGRADE
+                var uidToSocialInfo = {};
                 socialInfos.forEach(function(info) {
                     // whitelist properties to send
                     var infoToReturn = _.pick(info, [
@@ -6147,7 +6154,9 @@ function getComments(o) {
                 return comments.map(function(c) {
                     var s = uidToSocialInfo[c.uid];
                     if (s) {
-                        c.social = s;
+                        if (!c.anon) { // s should be undefined in this case, but adding a double-check here in case.
+                            c.social = s;
+                        }
                     }
                     return c;
                 });
@@ -6158,6 +6167,7 @@ function getComments(o) {
     }).then(function(comments) {
         comments.forEach(function(c) {
             delete c.uid;
+            delete c.anon;
         });
         return comments;
     });
@@ -6552,6 +6562,8 @@ app.post("/api/v3/comments",
     want("twitter_tweet_id", getStringLimitLength(999), assignToP),
     want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
     want("quote_txt", getStringLimitLength(999), assignToP),
+    want("quote_src_url", getStringLimitLength(999), assignToP),
+    want("anon", getBool, assignToP),
     resolve_pidThing('pid', assignToP, "post:comments"),
 function(req, res) {
     var zid = req.p.zid;
@@ -6564,7 +6576,9 @@ function(req, res) {
     var twitter_tweet_id = req.p.twitter_tweet_id;
     var quote_twitter_screen_name = req.p.quote_twitter_screen_name;
     var quote_txt = req.p.quote_txt;
-    var mustBeModerator = !!quote_txt || !!twitter_tweet_id;
+    var quote_src_url = req.p.quote_src_url;
+    var anon = req.p.anon;
+    var mustBeModerator = !!quote_txt || !!twitter_tweet_id || anon;
 
 
     // either include txt, or a tweet id
@@ -6702,9 +6716,9 @@ function(req, res) {
 
             pgQuery(
                 "INSERT INTO COMMENTS "+
-                  "(pid, zid, txt, velocity, active, mod, uid, tweet_id, created, tid) VALUES "+
-                  "($1,   $2,  $3,       $4,     $5,  $6, $7,  $8,       default, null) RETURNING tid, created;",
-                   [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id||null],
+                  "(pid, zid, txt, velocity, active, mod, uid, tweet_id, quote_src_url, anon, created, tid) VALUES "+
+                  "($1,   $2,  $3,       $4,     $5,  $6, $7,  $8,       $9,            $10,  default, null) RETURNING tid, created;",
+                   [pid, zid, txt, velocity, active, mod, authorUid, twitter_tweet_id||null, quote_src_url||null, anon||false],
 
                 function(err, docs) {
                     if (err) {
