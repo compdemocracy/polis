@@ -1564,7 +1564,7 @@ function resolve_pidThing(pidThingStringName, assigner, loggingString) {
             fail(res, 500, "polis_err_mypid_resolve_error", err);
             next(err);
         });
-    } else if (existingValue === "mypid" && req.p.zid) {
+    } else if (existingValue === "mypid") {
         // don't assign anything, since we have no uid to look it up.
         next();
     } else if (!_.isUndefined(existingValue)) {
