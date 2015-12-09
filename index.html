@@ -139,6 +139,7 @@ if (ptptoiLimit) {
 if (p.conversation && p.conversation.conversation_id) {
   qp.push("conversation_id=" + p.conversation.conversation_id);
 }
+qp.push("pid=mypid");
 var qp = qp.join("&");
 qp = qp.length > 1 ? ("?" + qp) : "";
 
