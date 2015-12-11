@@ -2112,8 +2112,13 @@ function clientSideBaseCluster(things, N) {
             var v = o.votes[i];
             var vote = v.vote;
             var tid = v.tid;
-            x += (vote - pcaCenter[tid]) * (pcX[tid] || 0);
-            y += (vote - pcaCenter[tid]) * (pcY[tid] || 0);
+
+            var dxi = (vote - (pcaCenter[tid] || 0)) * (pcX[tid] || 0);
+            var dyi = (vote - (pcaCenter[tid] || 0)) * (pcY[tid] || 0);
+            if (!_.isNaN(dxi) && !_.isNaN(dyi)) {
+              x += dxi;
+              y += dyi;
+            }
         }
 
         var numComments = pcaCenter.length;
