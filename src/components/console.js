@@ -52,17 +52,6 @@ class App extends React.Component {
     this.setState({sidebarOpen: !this.state.sidebarOpen})
   }
 
-  addHamburger() {
-    return (
-      <div
-        onClick={this.handleMenuButtonClick.bind(this)}
-        style={{marginRight: 15, display: "inline"}}>
-        <Awesome name="bars" style={{fontSize: 24, cursor: "pointer"}}/>
-        Menu
-      </div>
-    )
-  }
-
   render() {
     return (
       <Sidebar
@@ -73,7 +62,16 @@ class App extends React.Component {
         <MaterialTitlePanel title="Admin Dashboard">
           {/*trial*/ true ? <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> : ""}
             <div style={{maxWidth: 800, margin: 20}}>
-              { /* this.state.sidebarOpen ? "" : */ this.addHamburger() }
+              {
+                this.state.sidebarDocked ?
+                  "" :
+                  <div
+                    onClick={this.handleMenuButtonClick.bind(this)}
+                    style={{marginRight: 15, display: "inline", fontSize: 18, cursor: "pointer"}}>
+                    <Awesome name="bars"/>
+                    {" Menu"}
+                  </div>
+              }
               { this.props.children }
             </div>
         </MaterialTitlePanel>

@@ -57,7 +57,7 @@ export const REQUEST_HIDDEN_PARTICIPANTS = "REQUEST_HIDDEN_PARTICIPANTS";
 export const RECEIVE_HIDDEN_PARTICIPANTS = "RECEIVE_HIDDEN_PARTICIPANTS";
 export const HIDDEN_PARTICIPANTS_FETCH_ERROR = "HIDDEN_PARTICIPANTS_FETCH_ERROR";
 
-/* participant actions no store, state not stored on client */
+/* participant actions */
 export const FEATURE_PARTICIPANT = "FEATURE_PARTICIPANT";
 export const FEATURE_PARTICIPANT_SUCCESS = "FEATURE_PARTICIPANT_SUCCESS";
 export const FEATURE_PARTICIPANT_ERROR = "FEATURE_PARTICIPANT_ERROR";
@@ -66,10 +66,14 @@ export const HIDE_PARTICIPANT = "HIDE_PARTICIPANT";
 export const HIDE_PARTICIPANT_SUCCESS = "HIDE_PARTICIPANT_SUCCESS";
 export const HIDE_PARTICIPANT_ERROR = "HIDE_PARTICIPANT_ERROR";
 
-/* submit seed comment - no store, state not stored on client */
+/* submit seed comment */
 export const SUBMIT_SEED_COMMENT = "SUBMIT_SEED_COMMENT";
 export const SUBMIT_SEED_COMMENT_SUCCESS = "SUBMIT_SEED_COMMENT_SUCCESS";
 export const SUBMIT_SEED_COMMENT_ERROR = "SUBMIT_SEED_COMMENT_ERROR";
+
+export const REQUEST_SEED_COMMENTS = "REQUEST_SEED_COMMENTS";
+export const RECEIVE_SEED_COMMENTS = "RECEIVE_SEED_COMMENTS";
+export const SEED_COMMENTS_FETCH_ERROR = "SEED_COMMENTS_FETCH_ERROR";
 
 /* conversation stats */
 export const REQUEST_CONVERSATION_STATS = "REQUEST_CONVERSATION_STATS";
@@ -197,9 +201,83 @@ export const populateZidMetadataStore = (conversation_id) => {
   }
 }
 
-// TODO SUBMIT SEED COMMENT
+/* seed comments submit */
+
+const submitSeedCommentStart = () => {
+  return {
+    type: SUBMIT_SEED_COMMENT
+  }
+}
+
+const submitSeedCommentPostSuccess = () => {
+  return {
+    type: SUBMIT_SEED_COMMENT_SUCCESS
+  }
+}
+
+const submitSeedCommentPostError = () => {
+  return {
+    type: SUBMIT_SEED_COMMENT_ERROR
+  }
+}
+
+const postSeedComment = (comment) => {
+  return $.ajax({
+    method: "POST",
+    url: "/api/v3/comments",
+    data: comment
+  })
+}
+
+export const handleSeedCommentSubmit = (comment) => {
+  return (dispatch) => {
+    dispatch(submitSeedCommentStart())
+    return postSeedComment(comment).then(
+      res => dispatch(submitSeedCommentPostSuccess(res)),
+      err => dispatch(submitSeedCommentPostError(err))
+    ).then(dispatch(populateAllCommentStores(comment.conversation_id)))
+  }
+}
+
+/* seed comments fetch */
+
+// const requestSeedComments = () => {
+//   return {
+//     type: REQUEST_SEED_COMMENTS,
+//   };
+// };
+
+// const receiveSeedComments = (data) => {
+//   return {
+//     type: RECEIVE_SEED_COMMENTS,
+//     data: data
+//   };
+// };
+
+// const seedCommentsFetchError = (err) => {
+//   return {
+//     type: SEED_COMMENTS_FETCH_ERROR,
+//     data: err
+//   }
+// }
+
+// const fetchSeedComments = (conversation_id) => {
+//   return $.get('/api/v3/comments?moderation=true&mod=0&conversation_id=' + conversation_id);
+// }
+
+// export const populateSeedCommentStore = (conversation_id) => {
+//   return (dispatch) => {
+//     dispatch(requestSeedComments())
+//     return fetchSeedComments(conversation_id).then(
+//       res => dispatch(receiveSeedComments(res)),
+//       err => dispatch(seedCommentsFetchError(err))
+//     )
+//   }
+// }
 
 // TODO SUBMIT CONFIG
+// encodeURIComponent(JSON.stringify({"test1":"val1","test2":"val2"}))
+
 
 /* unmoderated comments */
 
@@ -309,32 +387,55 @@ export const populateRejectedCommentsStore = (conversation_id) => {
   }
 }
 
+/* populate ALL stores todo/accept/reject/seed */
+
+export const populateAllCommentStores = (conversation_id) => {
+  return (dispatch) => {
+    return $.when(
+      dispatch(populateUnmoderatedCommentsStore(conversation_id)),
+      dispatch(populateAcceptedCommentsStore(conversation_id)),
+      dispatch(populateRejectedCommentsStore(conversation_id))
+    )
+  }
+}
+
+// export const populateAllCommentStores = (conversation) => {
+// }
+
 /* moderator clicked accept comment */
 
-const optimisticCommentAccepted = () => {
-  /* don't know if this matters actually */
+const optimisticCommentAccepted = (comment) => {
+  return {
+    type: ACCEPT_COMMENT,
+    comment: comment
+  }
 }
 
-const acceptCommentSuccess = () => {
-
+const acceptCommentSuccess = (data) => {
+  return {
+    type: ACCEPT_COMMENT_SUCCESS,
+    data: data
+  }
 }
 
-const acceptCommentError = () => {
-
+const acceptCommentError = (err) => {
+  return {
+    type: ACCEPT_COMMENT_ERROR,
+    data: err
+  }
 }
 
 const putCommentAccepted = (comment) => {
-  console.log(comment)
   return $.ajax({
     method: "PUT",
     url: "/api/v3/comments",
-    data: comment
+    data: Object.assign(comment, {mod: 1})
   })
 }
 
 export const changeCommentStatusToAccepted = (comment) => {
   return (dispatch) => {
-    dispatch(optimisticCommentAccepted())
+    dispatch(optimisticCommentAccepted(comment))
     return putCommentAccepted(comment).then(
       res => dispatch(acceptCommentSuccess(res)),
       err => dispatch(acceptCommentError(err))
@@ -344,16 +445,25 @@ export const changeCommentStatusToAccepted = (comment) => {
 
 /* moderator clicked reject comment */
 
-const optimisticCommentRejected = () => {
-
+const optimisticCommentRejected = (comment) => {
+  return {
+    type: REJECT_COMMENT,
+    comment: comment
+  }
 }
 
-const rejectCommentSuccess = () => {
-
+const rejectCommentSuccess = (data) => {
+  return {
+    type: REJECT_COMMENT_SUCCESS,
+    data: data
+  }
 }
 
-const rejectCommentError = () => {
-
+const rejectCommentError = (err) => {
+  return {
+    type: REJECT_COMMENT_ERROR,
+    data: err
+  }
 }
 
 const putCommentRejected = (comment) => {
@@ -361,19 +471,26 @@ const putCommentRejected = (comment) => {
   return $.ajax({
     method: "PUT",
     url: "/api/v3/comments",
-    data: comment
+    data: Object.assign(comment, {mod: -1})
   })
 }
 
 export const changeCommentStatusToRejected = (comment) => {
   return (dispatch) => {
     dispatch(optimisticCommentRejected())
-    return putCommentRejected(conversation_id, comment).then(
-      res => dispatch(rejectCommentSuccess(res)),
+    return putCommentRejected(comment).then(
+      (res) => {
+        dispatch(rejectCommentSuccess(res));
+        /* TODO investigate why not firing */
+        // dispatch(populateAcceptedCommentsStore);
+        // dispatch(populateRejectedCommentsStore);
+        // dispatch(populateUnmoderatedCommentsStore);
+      },
       err => dispatch(rejectCommentError(err))
     )
   }
 }
+
 /* request default participants for ptpt moderation view */
 
 const requestDefaultParticipants = () => {
@@ -450,20 +567,20 @@ export const populateFeaturedParticipantStore = (conversation_id) => {
 
 const requestHiddenParticipants = () => {
   return {
-    type: REQUEST_FEATURED_PARTICIPANTS,
+    type: REQUEST_HIDDEN_PARTICIPANTS,
   };
 };
 
 const receiveHiddenParticipants = (data) => {
   return {
-    type: RECEIVE_FEATURED_PARTICIPANTS,
+    type: RECEIVE_HIDDEN_PARTICIPANTS,
     data: data
   };
 };
 
 const hiddenParticipantFetchError = (err) => {
   return {
-    type: FEATURED_PARTICIPANTS_FETCH_ERROR,
+    type: HIDDEN_PARTICIPANTS_FETCH_ERROR,
     data: err
   }
 }
@@ -482,14 +599,99 @@ export const populateHiddenParticipantStore = (conversation_id) => {
   }
 }
 
+/* populate ALL stores todo/accept/reject/seed */
+
+export const populateAllParticipantStores = (conversation_id) => {
+  return (dispatch) => {
+    return $.when(
+      dispatch(populateDefaultParticipantStore(conversation_id)),
+      dispatch(populateFeaturedParticipantStore(conversation_id)),
+      dispatch(populateHiddenParticipantStore(conversation_id))
+    )
+  }
+}
+
+
 /* moderator clicked feature ptpt */
 
-// TODO FEATURE_PARTICIPANT
+const optimisticFeatureParticipant = (participant) => {
+  return {
+    type: FEATURE_PARTICIPANT,
+    participant: participant
+  }
+}
 
+const featureParticipantSuccess = (data) => {
+  return {
+    type: FEATURE_PARTICIPANT_SUCCESS,
+    data: data
+  }
+}
+
+const featureParticipantError = (err) => {
+  return {
+    type: FEATURE_PARTICIPANT_ERROR,
+    data: err
+  }
+}
+
+const putFeatureParticipant = (participant) => {
+  return $.ajax({
+    method: "PUT",
+    url: "/api/v3/ptptois",
+    data: Object.assign(participant, {mod: 1})
+  })
+}
+
+export const changeParticipantStatusToFeatured = (participant) => {
+  return (dispatch) => {
+    dispatch(optimisticFeatureParticipant(participant))
+    return putFeatureParticipant(participant).then(
+      res => dispatch(featureParticipantSuccess(res)),
+      err => dispatch(featureParticipantError(err))
+    )
+  }
+}
 /* moderator clicked hide ptpt */
 
-// TODO HIDE_PARTICIPANT
+const optimisticHideParticipant = (participant) => {
+  return {
+    type: FEATURE_PARTICIPANT,
+    participant: participant
+  }
+}
 
+const hideParticipantSuccess = (data) => {
+  return {
+    type: FEATURE_PARTICIPANT_SUCCESS,
+    data: data
+  }
+}
+
+const hideParticipantError = (err) => {
+  return {
+    type: FEATURE_PARTICIPANT_ERROR,
+    data: err
+  }
+}
+
+const putHideParticipant = (participant) => {
+  return $.ajax({
+    method: "PUT",
+    url: "/api/v3/ptptois",
+    data: Object.assign(participant, {mod: -1})
+  })
+}
+
+export const changeParticipantStatusToHidden = (participant) => {
+  return (dispatch) => {
+    dispatch(optimisticHideParticipant(participant))
+    return putHideParticipant(participant).then(
+      res => dispatch(hideParticipantSuccess(res)),
+      err => dispatch(hideParticipantError(err))
+    )
+  }
+}
 /* request conversation stats */
 
 const requestConversationStats = () => {

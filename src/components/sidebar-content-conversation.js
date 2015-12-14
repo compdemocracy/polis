@@ -39,18 +39,20 @@ class SidebarContentConversation extends React.Component {
         <div style={styles.content}>
           <Link
             style={styles.sidebarLink}
+            to={"/"}>
+            <Awesome name="chevron-left"/>
+            {" "}
+            <Awesome style={{fontSize: 18}} name="home"/>
+          </Link>
+          <Link
+            style={styles.sidebarLink}
+            to={"/m/"+this.props.conversation_id}>
+            Config
+          </Link>
+          <Link
+            style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/share"}>
             Share & Embed
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/stats"}>
-            Stats
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/config"}>
-            Config
           </Link>
           <Link
             style={styles.sidebarLink}
@@ -64,8 +66,9 @@ class SidebarContentConversation extends React.Component {
           </Link>
           <Link
             style={styles.sidebarLink}
-            to={"/m/"+this.props.conversation_id+"/conversation"}>
-            iFrame of Conversation</Link>
+            to={"/m/"+this.props.conversation_id+"/stats"}>
+            Stats
+          </Link>
           <Link
             style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/export"}>

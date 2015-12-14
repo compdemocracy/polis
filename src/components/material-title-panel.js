@@ -15,11 +15,12 @@ const styles = {
 
 const MaterialTitlePanel = (props) => {
   const rootStyle = props.style ? {...styles.root, ...props.style} : styles.root;
-
   return (
     <div style={rootStyle}>
       <div style={styles.header}>
         { /* this.state.sidebarOpen ? "" : this.addHamburger() */ }
+        { props.hamburger ? props.hamburger() : "" }
+        { props.hamburger ? " ・ " : "" }
         { props.title }
       </div>
       {props.children}

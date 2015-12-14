@@ -26,14 +26,6 @@ class ConversationAdminContainer extends React.Component {
   render() {
     return (
       <div>
-        <h3> {this.props.zid_metadata.topic} </h3>
-        <Markdown source={this.props.zid_metadata.description} />
-        <p> Embedded on:
-          <a href={this.props.zid_metadata.parent_url}>
-            {this.props.zid_metadata.parent_url ? this.props.zid_metadata.parent_url : "Not embedded"}
-          </a>
-        </p>
-        <p>{"Participant count: " + this.props.zid_metadata.participant_count}</p>
         {this.props.children}
       </div>
     );
@@ -41,3 +33,12 @@ class ConversationAdminContainer extends React.Component {
 }
 
 export default ConversationAdminContainer;
+
+// <h3> {this.props.zid_metadata.topic} </h3>
+// <Markdown source={this.props.zid_metadata.description} />
+        // <p> Embedded on:
+        //   <a href={this.props.zid_metadata.parent_url}>
+        //     {this.props.zid_metadata.parent_url ? this.props.zid_metadata.parent_url : "Not embedded"}
+        //   </a>
+        // </p>
+        // <p>{"Participant count: " + this.props.zid_metadata.participant_count}</p>

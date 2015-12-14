@@ -1,26 +1,37 @@
 import React from "react";
 import { connect } from "react-redux";
-import { populateDefaultParticipantStore } from '../../actions'
+import {
+  changeParticipantStatusToHidden,
+  changeParticipantStatusToFeatured
+} from '../../actions';
 import Radium from "radium";
 import _ from "lodash";
+import Participant from "./participant";
 
 @connect(state => state.mod_ptpt_default)
 @Radium
 class ParticipantModerationDefault extends React.Component {
-  loadDefaultParticipants() {
-    this.props.dispatch(
-      populateDefaultParticipantStore(this.props.params.conversation)
-    )
+  onFeatureClicked(participant) {
+    this.props.dispatch(changeParticipantStatusToFeatured(participant))
   }
-  componentWillMount () {
-    this.loadDefaultParticipants()
+  onHideClicked(participant) {
+    this.props.dispatch(changeParticipantStatusToHidden(participant))
   }
   createParticipantMarkup() {
     const participants = this.props.default_participants.map((participant, i)=>{
       return (
-        <p key={i}>
-         {participant.facebook ? participant.facebook.fb_name : participant.twitter.name}
-        </p>
+        <Participant
+          participant={participant}
+          featureButton
+          hideButton
+          featureClickHandler={this.onFeatureClicked.bind(this)}
+          hideClickHandler={this.onHideClicked.bind(this)}
+          name={
+            participant.facebook ?
+            participant.facebook.fb_name :
+            participant.twitter.name
+          }
+          key={i}/>
       )
     })
     return participants;

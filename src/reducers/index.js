@@ -9,6 +9,7 @@ import mod_ptpt_default from "./mod_ptpt_default";
 import mod_ptpt_featured from "./mod_ptpt_featured";
 import mod_ptpt_hidden from "./mod_ptpt_hidden";
 import stats from "./stats";
+import seed_comments from "./seed_comments";
 
 
 const rootReducer = combineReducers({
@@ -21,6 +22,7 @@ const rootReducer = combineReducers({
   mod_ptpt_default,
   mod_ptpt_featured,
   mod_ptpt_hidden,
+  seed_comments,
   stats
 });
 

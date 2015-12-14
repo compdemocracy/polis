@@ -34,6 +34,8 @@ function proxy (req, res) {
 
 // proxy everything else
 app.get(/^\/api\//, proxy);
+app.put(/^\/api\//, proxy);
+app.post(/^\/api\//, proxy);
 
 app.get('*', function(req, res) {
   res.sendFile(path.join(__dirname, 'index.html'));

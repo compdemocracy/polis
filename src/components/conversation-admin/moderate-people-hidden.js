@@ -1,26 +1,29 @@
 import React from "react";
 import { connect } from "react-redux";
-import { populateHiddenParticipantStore } from '../../actions'
+import { changeParticipantStatusToFeatured } from '../../actions'
 import Radium from "radium";
 import _ from "lodash";
+import Participant from "./participant";
 
 @connect(state => state.mod_ptpt_hidden)
 @Radium
 class ParticipantModerationHidden extends React.Component {
-  // loadHiddenParticipants() {
-  //   this.props.dispatch(
-  //     populateHiddenParticipantStore(this.props.params.conversation)
-  //   )
-  // }
-  // componentWillMount () {
-  //   this.loadHiddenParticipants()
-  // }
+  onFeatureClicked(participant) {
+    this.props.dispatch(changeParticipantStatusToFeatured(participant))
+  }
   createParticipantMarkup() {
     const participants = this.props.hidden_participants.map((participant, i)=>{
       return (
-        <p key={i}>
-         {participant.facebook ? participant.facebook.fb_name : participant.twitter.name}
-        </p>
+        <Participant
+          participant={participant}
+          featureButton
+          featureClickHandler={this.onFeatureClicked.bind(this)}
+          name={
+            participant.facebook ?
+            participant.facebook.fb_name :
+            participant.twitter.name
+          }
+          key={i}/>
       )
     })
     return participants;
@@ -30,16 +33,14 @@ class ParticipantModerationHidden extends React.Component {
       <div>
         <h1>ParticipantModerationHidden</h1>
         <div>
-          {"grrr not sure why this data was showing up in featured instead of featured's spinner what the heck"}
           <p> These participants are not shown in the visualization, but their votes are still counted. Note that they will still be shown to other participants who are their Facebook friends.</p>
         </div>
+        {
+          this.props.hidden_participants !== null ? this.createParticipantMarkup() : "spinnrrrr"
+        }
       </div>
     );
   }
 }
 
 export default ParticipantModerationHidden;
-
-          // {
-          //   this.props.hidden_participants !== null ? this.createParticipantMarkup() : "spinnrrrr"
-          // }

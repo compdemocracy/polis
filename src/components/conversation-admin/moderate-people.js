@@ -1,12 +1,34 @@
 import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
+import { populateAllParticipantStores } from "../../actions";
 import _ from "lodash";
 import { Link } from "react-router";
 
+const mapStateToProps = (state, ownProps) => {
+  return {
+    ptpt_default: state.mod_ptpt_default,
+    ptpt_featured: state.mod_ptpt_featured,
+    ptpt_hidden: state.mod_ptpt_hidden
+  }
+}
+
+@connect(mapStateToProps)
 @Radium
 class ModeratePeople extends React.Component {
-
+  loadParticipants() {
+    this.props.dispatch(
+      populateAllParticipantStores(this.props.params.conversation)
+    )
+  }
+  componentWillMount () {
+    this.getParticipantsRepeatedly = setInterval(()=>{
+      this.loadParticipants()
+    },2000);
+  }
+  componentWillUnmount() {
+    clearInterval(this.getParticipantsRepeatedly);
+  }
   render() {
     const m = "/m/"+this.props.params.conversation+"/participants/";
     return (
@@ -25,9 +47,55 @@ class ModeratePeople extends React.Component {
           </ul>
           <p> Featured participants are always shown. Hidden participants are only shown to Facebook friends. </p>
         </div>
-          <Link to={m + "default"}> {"Default"} </Link>
-          <Link to={m + "featured"}> {"Featured"} </Link>
-          <Link to={m + "hidden"}> {"Hidden"} </Link>
+          <Link
+            style={{
+              marginLeft: -10,
+              padding: 10,
+              borderRadius: 3,
+              cursor: "pointer",
+              textDecoration: "none",
+              fontWeight: 700
+            }}
+            to={m}>
+            {"Default "}
+            {
+              this.props.ptpt_default.default_participants ?
+              this.props.ptpt_default.default_participants.length :
+              "..."
+            }
+          </Link>
+          <Link
+            style={{
+              padding: 10,
+              borderRadius: 3,
+              cursor: "pointer",
+              textDecoration: "none",
+              fontWeight: 700
+            }}
+            to={m + "featured"}>
+            {"Featured "}
+            {
+              this.props.ptpt_featured.featured_participants ?
+              this.props.ptpt_featured.featured_participants.length :
+              "..."
+            }
+          </Link>
+          <Link
+            style={{
+              padding: 10,
+              borderRadius: 3,
+              cursor: "pointer",
+              textDecoration: "none",
+              fontWeight: 700
+            }}
+            to={m + "hidden"}>
+            {"Hidden "}
+            {
+              this.props.ptpt_hidden.hidden_participants ?
+              this.props.ptpt_hidden.hidden_participants.length :
+              "..."
+            }
+          </Link>
         {this.props.children}
       </div>
     );

@@ -6,6 +6,8 @@ import Checkbox from "material-ui/lib/checkbox";
 import InputField from "material-ui/lib/text-field";
 import settings from "../../settings";
 
+/* check if refer came from 'new' and if it did, show modal saying 'get started by...' */
+
 @connect(state => state.zid_metadata)
 @Radium
 class ConversationConfig extends React.Component {
@@ -29,14 +31,6 @@ class ConversationConfig extends React.Component {
             multiLine={true} />
         </div>
         <div style={{maxWidth: 400, marginTop: 40}}>
-          <Checkbox
-            label="Strict Moderation"
-            checked={this.props.zid_metadata.strict_moderation}
-            clickHandler={ () => {console.log("this should be an action")} }
-            labelPosition={"left"}
-            labelWrapperColor={settings.darkerGray}
-            color={settings.polisBlue}/>
-            <p style={{fontSize: 10, fontStyle: "italic"}}> no comments shown without moderator approval </p>
           <h3> Customize the User Interface </h3>
           <Checkbox
             label="Visualization"
@@ -105,6 +99,14 @@ class ConversationConfig extends React.Component {
               {"Unchecked: white background"}
             </p>
           <h3> Schemes </h3>
+          <Checkbox
+            label="Strict Moderation"
+            checked={this.props.zid_metadata.strict_moderation}
+            clickHandler={ () => {console.log("this should be an action")} }
+            labelPosition={"left"}
+            labelWrapperColor={settings.darkerGray}
+            color={settings.polisBlue}/>
+            <p style={{fontSize: 10, fontStyle: "italic"}}> no comments shown without moderator approval </p>
           <Checkbox
             label="Require Auth to Comment"
             checked={this.props.zid_metadata.auth_needed_to_write}

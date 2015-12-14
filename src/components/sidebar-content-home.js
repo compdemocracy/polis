@@ -35,6 +35,7 @@ class SidebarContentHome extends React.Component {
     return (
       <MaterialTitlePanel
         title="Pol.is"
+        hamburger={this.props.hamburger}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
         <div style={styles.content}>
           <Link
@@ -51,11 +52,6 @@ class SidebarContentHome extends React.Component {
             style={styles.sidebarLink}
             to="/conversations">
             Conversations
-          </Link>
-          <Link
-            style={styles.sidebarLink}
-            to="/overall-stats">
-            Overall Stats
           </Link>
           <Link
             style={styles.sidebarLink}
@@ -88,3 +84,10 @@ export default SidebarContentHome;
 // <div>
 //   { this.props.user ? this.props.user.hname : /*<Spinner/>*/ "o" }
 // </div>
+
+
+          // <Link
+          //   style={styles.sidebarLink}
+          //   to="/overall-stats">
+          //   Overall Stats
+          // </Link>

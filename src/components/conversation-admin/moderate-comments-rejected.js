@@ -7,14 +7,6 @@ import _ from "lodash";
 @connect(state => state.mod_comments_rejected)
 @Radium
 class ModerateCommentsRejected extends React.Component {
-  loadRejectedComments() {
-    this.props.dispatch(
-      populateRejectedCommentsStore(this.props.params.conversation)
-    )
-  }
-  componentWillMount () {
-    this.loadRejectedComments()
-  }
   createCommentMarkup() {
     const comments = this.props.rejected_comments.map((comment, i)=>{
       return (

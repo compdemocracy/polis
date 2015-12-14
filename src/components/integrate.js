@@ -14,13 +14,13 @@ class Integrate extends React.Component {
         <h1>Integrate</h1>
         <p>
           {
-            "Want to integrate polis into your site as a comment system? You're in the right place! Copy and paste this code into the template for your pages. The only thing you have to do is replace \"PAGE_ID\"."
+            "Want to integrate polis into your site as a comment system? You're in the right place! Copy and paste this code into the template for your pages. The only thing you have to do is replace \"PAGE_ID\" with a unique string on each of your pages."
           }
         </p>
         <ul>
           <li>
             {
-              "When this embed code loads on your website, it will either create a new conversation (if one doesn't already exist) or load an existing conversation."
+              "When this embed code loads on your website, it will either create a new conversation (if one is not already associated with the string passed into PAGE_ID) or load an existing conversation."
             }
           </li>
           <li>

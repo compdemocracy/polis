@@ -21,7 +21,7 @@ class Conversations extends React.Component {
         <div key={i}>
           <p> {conversation.topic} </p>
           <Link to={"/m/"+conversation.conversation_id}>
-              Go to this convo {conversation.conversation_id}
+            {"Admin: " + conversation.conversation_id}
           </Link>
         </div>
       )
@@ -36,7 +36,6 @@ class Conversations extends React.Component {
       <div>
         <h1>Conversations</h1>
         <div>
-          <button onClick={this.firePopulateInboxAction.bind(this)}> Refresh </button>
           <div> {this.props.loading ? <Spinner/> : ""} </div>
           <div> {this.instantiateConvos() } </div>
         </div>
@@ -46,3 +45,5 @@ class Conversations extends React.Component {
 }
 
 export default Conversations;
+
+// <button onClick={this.firePopulateInboxAction.bind(this)}> Refresh </button>

@@ -26,9 +26,9 @@ class Comment extends React.Component {
     return (
       <div>
         <p>
-          {this.props.comment.txt}
-          {this.props.acceptButton ? this.makeAcceptButton() : ""}
-          {this.props.rejectButton ? this.makeRejectButton() : ""}
+          { this.props.comment.txt }
+          { this.props.acceptButton ? this.makeAcceptButton() : "" }
+          { this.props.rejectButton ? this.makeRejectButton() : "" }
         </p>
       </div>
     );
