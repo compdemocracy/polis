@@ -2,6 +2,7 @@ import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
+import { handleZidMetadataUpdate } from "../../actions";
 import Checkbox from "material-ui/lib/checkbox";
 import InputField from "material-ui/lib/text-field";
 import settings from "../../settings";
@@ -12,13 +13,56 @@ import settings from "../../settings";
 @Radium
 class ConversationConfig extends React.Component {
 
+  handleBoolValueChange (field) {
+    return () => {
+      this.props.dispatch(
+        handleZidMetadataUpdate(
+          this.props.zid_metadata,
+          field,
+          this.refs[field].isChecked()
+        )
+      )
+    }
+  }
+
+  transformBoolToInt(value) {
+    return value ? 1 : 0;
+  }
+
+  handleIntegerBoolValueChange (field) {
+    return () => {
+      this.props.dispatch(
+        handleZidMetadataUpdate(
+          this.props.zid_metadata,
+          field,
+          this.transformBoolToInt(this.refs[field].isChecked())
+        )
+      )
+    }
+  }
+
+  handleStringValueChange (field) {
+    return () => {
+      this.props.dispatch(
+        handleZidMetadataUpdate(
+          this.props.zid_metadata,
+          field,
+          this.refs[field].getValue()
+        )
+      )
+    }
+  }
+
   render() {
+    console.log(this.props.zid_metadata)
     return (
       <div>
         <h1>Conversation config</h1>
-        <button> Save </button>
+        {this.props.zid_metadataerror ? "error" : ""}
         <div>
           <InputField
+            ref={"topic"}
+            onBlur={()=>{console.log(this)}}
             floatingLabelText="Topic"
             value={this.props.zid_metadata.topic}
             multiLine={true} />
@@ -34,64 +78,72 @@ class ConversationConfig extends React.Component {
           <h3> Customize the User Interface </h3>
           <Checkbox
             label="Visualization"
-            checked={this.props.zid_metadata.vis_type === 1 ? true : false}
-            clickHandler={ () => {console.log("this should be an action")} }
+            ref={"vis_type"}
+            checked={ this.props.zid_metadata.vis_type === 1 ? true : false }
+            onCheck={ this.handleIntegerBoolValueChange("vis_type").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> participants can see the visualization </p>
           <Checkbox
             label="Comment form"
+            ref={"write_type"}
             checked={this.props.zid_metadata.write_type === 1 ? true : false}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleIntegerBoolValueChange("write_type").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Users can submit comments </p>
           <Checkbox
             label="Voting pane"
+            ref={"upvotes"}
             checked={this.props.zid_metadata.upvotes === 1 ? true : false}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleIntegerBoolValueChange("upvotes").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Users can vote on comments </p>
           <Checkbox
             label="Help text"
+            ref={"help_type"}
             checked={this.props.zid_metadata.help_type === 1 ? true : false}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleIntegerBoolValueChange("help_type").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Show the two explanation modals above voting and the visualization </p>
           <Checkbox
             label="Social sharing buttons"
+            ref={"socialbtn_type"}
             checked={this.props.zid_metadata.socialbtn_type === 1 ? true : false}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleIntegerBoolValueChange("socialbtn_type").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
           <Checkbox
             label="Facebook login prompt"
+            ref={"auth_opt_fb"}
             checked={this.props.zid_metadata.auth_opt_fb}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleBoolValueChange("auth_opt_fb").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
           <Checkbox
             label="Twitter login prompt"
+            ref={"auth_opt_tw"}
             checked={this.props.zid_metadata.auth_opt_tw}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleBoolValueChange("auth_opt_tw").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> </p>
           <Checkbox
             label="Gray background"
+            ref={"bgcolor"}
             checked={this.props.zid_metadata.bgcolor === null ? true : false}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleBoolValueChange("bgcolor").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
@@ -101,44 +153,31 @@ class ConversationConfig extends React.Component {
           <h3> Schemes </h3>
           <Checkbox
             label="Strict Moderation"
-            checked={this.props.zid_metadata.strict_moderation}
-            clickHandler={ () => {console.log("this should be an action")} }
+            ref={"strict_moderation"}
+            checked={ this.props.zid_metadata.strict_moderation }
+            onCheck={ this.handleBoolValueChange("strict_moderation").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> no comments shown without moderator approval </p>
           <Checkbox
             label="Require Auth to Comment"
+            ref={"auth_needed_to_write"}
             checked={this.props.zid_metadata.auth_needed_to_write}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleBoolValueChange("auth_needed_to_write").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Users cannot submit comments without first connecting either Facebook or Twitter </p>
           <Checkbox
             label="Require Auth to Vote"
+            ref={"auth_needed_to_vote"}
             checked={this.props.zid_metadata.auth_needed_to_vote}
-            clickHandler={ () => {console.log("this should be an action")} }
+            onCheck={ this.handleBoolValueChange("auth_needed_to_vote").bind(this) }
             labelPosition={"left"}
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Users cannot vote without first connecting either Facebook or Twitter </p>
-          <Checkbox
-            label="Preserve Anonymity"
-            checked={this.props.zid_metadata.is_anon}
-            clickHandler={ () => {console.log("this should be an action")} }
-            labelPosition={"left"}
-            labelWrapperColor={settings.darkerGray}
-            color={"rgb(255,0,0)"}/>
-            <p style={{fontSize: 10, fontStyle: "italic"}}> Disables visualization, does not transmit any participant statistics to you, requires social authorization for both writing and voting. </p>
-          <Checkbox
-            label="Read Only"
-            checked={false}
-            clickHandler={ () => {console.log("this should be an action")} }
-            labelPosition={"left"}
-            labelWrapperColor={settings.darkerGray}
-            color={"rgb(255,0,0)"}/>
-            <p style={{fontSize: 10, fontStyle: "italic"}}> Disables writing and commenting, enables visualization. </p>
         </div>
         <div>
           <InputField
@@ -167,3 +206,26 @@ class ConversationConfig extends React.Component {
 }
 
 export default ConversationConfig;
+
+// <Checkbox
+//   label="Preserve Anonymity"
+//   ref={"is_anon"}
+//   disabled
+//   checked={this.props.zid_metadata.is_anon}
+//   onCheck={ this.handleBoolValueChange("is_anon").bind(this) }
+//   labelPosition={"left"}
+//   labelWrapperColor={settings.darkerGray}/>
+//   <p style={{fontSize: 10, fontStyle: "italic"}}> Disables visualization, does not transmit any participant statistics to you, requires social authorization for both writing and voting. </p>
+// <Checkbox
+//   label="Read Only"
+//   disabled
+//   checked={false}
+//   onCheck={ () => {console.log("this should be an action")} }
+//   labelPosition={"left"}
+//   labelWrapperColor={settings.darkerGray}/>
+//   <p style={{fontSize: 10, fontStyle: "italic"}}> Disables writing and commenting, enables visualization. </p>
+
+/*
+  Todo
+    on config will mount fire a clear store action
+*/

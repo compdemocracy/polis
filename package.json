@@ -48,6 +48,7 @@
     "react-sidebar": "^2.0.0",
     "react-tap-event-plugin": "^0.2.1",
     "redux": "^3.0.2",
+    "redux-actions": "^0.9.0",
     "redux-devtools": "^2.1.5",
     "redux-logger": "^2.0.4",
     "redux-router": "^1.0.0-beta3",

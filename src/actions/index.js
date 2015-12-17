@@ -9,20 +9,14 @@ export const REQUEST_CONVERSATIONS = "REQUEST_CONVERSATIONS";
 export const RECEIVE_CONVERSATIONS = "RECEIVE_CONVERSATIONS";
 export const CONVERSATIONS_FETCH_ERROR = "CONVERSATIONS_FETCH_ERROR";
 
-/* zid for clarity */
+/* zid for clarity - this is conversation config */
 export const REQUEST_ZID_METADATA = "REQUEST_ZID_METADATA";
 export const RECEIVE_ZID_METADATA = "RECEIVE_ZID_METADATA";
 export const ZID_METADATA_FETCH_ERROR = "ZID_METADATA_FETCH_ERROR"
 
-/* config */
-
-export const REQUEST_CONFIG = "REQUEST_CONFIG";
-export const RECEIVE_CONFIG = "RECEIVE_CONFIG";
-export const CONFIG_FETCH_ERROR = "CONFIG_FETCH_ERROR";
-
-export const SAVE_CONFIG = "SAVE_CONFIG";
-export const SAVE_CONFIG_SUCCESS = "SAVE_CONFIG_SUCCESS";
-export const SAVE_CONFIG_ERROR = "SAVE_CONFIG_ERROR";
+export const UPDATE_ZID_METADATA_STARTED = "UPDATE_ZID_METADATA_STARTED";
+export const UPDATE_ZID_METADATA_SUCCESS = "UPDATE_ZID_METADATA_SUCCESS";
+export const UPDATE_ZID_METADATA_ERROR = "UPDATE_ZID_METADATA_ERROR";
 
 /* moderation */
 export const REQUEST_UNMODERATED_COMMENTS = "REQUEST_UNMODERATED_COMMENTS";
@@ -165,8 +159,6 @@ export const populateConversationsStore = () => {
 
 /* zid metadata */
 
-// TODO zid is now conversation_id
-
 const requestZidMetadata = () => {
   return {
     type: REQUEST_ZID_METADATA,
@@ -188,7 +180,7 @@ const zidMetadataFetchError = (err) => {
 }
 
 const fetchZidMetadata = (conversation_id) => {
-  return $.get('/api/v3/conversations?conversation_id='+conversation_id);
+  return $.get('/api/v3/conversations?conversation_id=' + conversation_id);
 }
 
 export const populateZidMetadataStore = (conversation_id) => {
@@ -198,6 +190,50 @@ export const populateZidMetadataStore = (conversation_id) => {
       res => dispatch(receiveZidMetadata(res)),
       err => dispatch(zidMetadataFetchError(err))
     )
+  }
+}
+
+/* zid metadata update */
+
+const updateZidMetadataStarted = () => {
+  return {
+    type: UPDATE_ZID_METADATA_STARTED
+  }
+}
+
+const updateZidMetadataSuccess = (data) => {
+  return {
+    type: UPDATE_ZID_METADATA_SUCCESS,
+    data: data
+  }
+}
+
+const updateZidMetadataError = (err) => {
+  return {
+    type: UPDATE_ZID_METADATA_ERROR,
+    data: err
+  }
+}
+
+const updateZidMetadata = (zm, field, value) => {
+  console.log("field", field, "value", value)
+  return $.ajax({
+    url: "/api/v3/conversations",
+    method: "PUT",
+    contentType: "application/json; charset=utf-8",
+    headers: { "Cache-Control": "max-age=0" },
+    xhrFields: { withCredentials: true },
+    dataType: "json",
+    data: JSON.stringify(Object.assign({}, zm, {field: value}))
+  })
+}
+
+export const handleZidMetadataUpdate = (zm, field, value) => {
+  return (dispatch) => {
+    dispatch(updateZidMetadataStarted())
+    return updateZidMetadata(zm, field, value)
+      .then(res => dispatch(updateZidMetadataSuccess(res)))
+      .fail(err => dispatch(updateZidMetadataError(err)))
   }
 }
 
@@ -275,8 +311,7 @@ export const handleSeedCommentSubmit = (comment) => {
 //   }
 // }
 
-// TODO SUBMIT CONFIG
-// encodeURIComponent(JSON.stringify({"test1":"val1","test2":"val2"}))
+
 
 
 /* unmoderated comments */
@@ -481,10 +516,6 @@ export const changeCommentStatusToRejected = (comment) => {
     return putCommentRejected(comment).then(
       (res) => {
         dispatch(rejectCommentSuccess(res));
-        /* TODO investigate why not firing */
-        // dispatch(populateAcceptedCommentsStore);
-        // dispatch(populateRejectedCommentsStore);
-        // dispatch(populateUnmoderatedCommentsStore);
       },
       err => dispatch(rejectCommentError(err))
     )
