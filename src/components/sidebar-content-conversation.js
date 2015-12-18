@@ -41,42 +41,51 @@ class SidebarContentConversation extends React.Component {
             style={styles.sidebarLink}
             to={"/"}>
             <Awesome name="chevron-left"/>
-            {" "}
-            <Awesome style={{fontSize: 18}} name="home"/>
+            <span style={{marginLeft: 15}}> Back </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id}>
-            Config
+            <Awesome name="gears"/>
+            <span style={{marginLeft: 10}}> Config </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/share"}>
-            Share & Embed
+            <Awesome name="code"/>
+            <span style={{marginLeft: 10}}> Share & Embed </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/comments"}>
-            Comments
+            <Awesome name="comments"/>
+            <span style={{marginLeft: 10}}> Comments </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/participants"}>
-            Participants
+            <Awesome name="users"/>
+            <span style={{marginLeft: 10}}> Participants </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/stats"}>
-            Stats
+            <Awesome name="area-chart"/>
+            <span style={{marginLeft: 10}}> Stats </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to={"/m/"+this.props.conversation_id+"/export"}>
-            Data Export
+            <Awesome name="cloud-download"/>
+            <span style={{marginLeft: 10}}> Data export </span>
           </Link>
           <div style={styles.divider} />
-          <p><a style={{marginRight: 15}} href="http://docs.pol.is">Docs</a></p>
-          <p><a style={{marginRight: 15}} href="https://twitter.com/UsePolis">Follow @UsePolis</a></p>
+          <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
+            <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
+          </a>
+          <a style={styles.sidebarLink} target="blank" href="https://twitter.com/UsePolis">
+            <Awesome name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
+          </a>
         </div>
       </MaterialTitlePanel>
     );

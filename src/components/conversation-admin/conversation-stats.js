@@ -7,6 +7,7 @@ import {VictoryLine} from "victory-line";
 import {VictoryBar} from "victory-bar";
 import {VictoryAxis} from "victory-axis";
 import _ from "lodash";
+import Spinner from "../framework/spinner";
 
 const style = {
   parent: {
@@ -32,9 +33,7 @@ class ConversationStats extends React.Component {
   componentWillUnmount() {
     clearInterval(this.getStatsRepeatedly);
   }
-  render() {
-    console.log('doin render', this.props.conversation_stats)
-    const data = this.props.conversation_stats; /* swap out for real data later */
+  createCharts (data) {
     return (
       <div>
       <h1>Conversation Stats</h1>
@@ -204,6 +203,14 @@ class ConversationStats extends React.Component {
               />
           </VictoryChart>
         </div>
+      </div>
+    )
+  }
+  render() {
+    const data = this.props.conversation_stats; /* swap out for real data later */
+    return (
+      <div>
+        {data.voteTimes ? this.createCharts(data) : <Spinner/>}
       </div>
     );
   }

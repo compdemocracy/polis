@@ -41,33 +41,33 @@ class SidebarContentHome extends React.Component {
           <Link
             style={styles.sidebarLink}
             to="/new">
-            New
-          </Link>
+            <Awesome name="plus"/>
+            <span style={{marginLeft: 10}}> New </span>
+            </Link>
           <Link
             style={styles.sidebarLink}
             to="/integrate">
-            Integrate
+            <Awesome name="code"/>
+            <span style={{marginLeft: 10}}> Integrate </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to="/conversations">
-            Conversations
+            <Awesome name="inbox"/>
+            <span style={{marginLeft: 10}}> Conversations </span>
           </Link>
           <Link
             style={styles.sidebarLink}
             to="/account">
-            Account
-          </Link>
+            <Awesome name="credit-card"/>
+            <span style={{marginLeft: 10}}> Account </span>
+            </Link>
           <div style={styles.divider} />
-          <a
-            style={styles.sidebarLink}
-            href="http://docs.pol.is">
-            Docs
+          <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
+            <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
           </a>
-          <a
-            style={styles.sidebarLink}
-            href="https://twitter.com/UsePolis">
-            <Awesome name="twitter"/> @UsePolis
+          <a style={styles.sidebarLink} target="blank" href="https://twitter.com/UsePolis">
+            <Awesome name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
           </a>
         </div>
       </MaterialTitlePanel>
@@ -76,6 +76,12 @@ class SidebarContentHome extends React.Component {
 }
 
 export default SidebarContentHome;
+
+/*
+  Todo
+    make new button point to config of fresh convo
+*/
+
 
 // <p>
 //   <Awesome name="home" style={{fontSize: 24, cursor: "pointer"}}/>
