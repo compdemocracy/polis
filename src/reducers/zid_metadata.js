@@ -5,7 +5,6 @@ const zid = (state = {
   zid_metadata: {},
   error: null
 }, action) => {
-  console.log("state", state, "action", action)
   switch (action.type) {
   case types.REQUEST_ZID_METADATA:
     return Object.assign({}, state, {
@@ -32,7 +31,7 @@ const zid = (state = {
   case types.UPDATE_ZID_METADATA_ERROR:
     return Object.assign({}, state, {
       loading: false,
-      error: action.err
+      error: action.data
     });
   default:
     return state;

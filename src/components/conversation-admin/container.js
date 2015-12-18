@@ -4,6 +4,7 @@ import { populateZidMetadataStore } from '../../actions'
 import Radium from "radium";
 import _ from "lodash";
 import Markdown from "react-markdown";
+import Spinner from "../framework/spinner";
 
 @connect(state => state.zid_metadata)
 @Radium
@@ -26,7 +27,7 @@ class ConversationAdminContainer extends React.Component {
   render() {
     return (
       <div>
-        {this.props.children}
+        {this.props.zid_metadata.topic ? this.props.children : <Spinner/>}
       </div>
     );
   }

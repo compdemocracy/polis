@@ -6,6 +6,7 @@ import { handleZidMetadataUpdate } from "../../actions";
 import Checkbox from "material-ui/lib/checkbox";
 import InputField from "material-ui/lib/text-field";
 import settings from "../../settings";
+import Spinner from "../framework/spinner";
 
 /* check if refer came from 'new' and if it did, show modal saying 'get started by...' */
 
@@ -54,24 +55,27 @@ class ConversationConfig extends React.Component {
   }
 
   render() {
-    console.log(this.props.zid_metadata)
+    console.log(this.props)
     return (
       <div>
         <h1>Conversation config</h1>
-        {this.props.zid_metadataerror ? "error" : ""}
+        {this.props.loading ? <Spinner/> : "Up to date"}
+        {this.props.error ? "error" : ""}
         <div>
           <InputField
             ref={"topic"}
-            onBlur={()=>{console.log(this)}}
+            onBlur={this.handleStringValueChange("topic").bind(this)}
             floatingLabelText="Topic"
-            value={this.props.zid_metadata.topic}
+            defaultValue={this.props.zid_metadata.topic}
             multiLine={true} />
         </div>
         <div>
           <InputField
             hintText="Can include markdown!"
+            ref={"description"}
+            onBlur={this.handleStringValueChange("description").bind(this)}
             floatingLabelText="Description"
-            value={this.props.zid_metadata.description}
+            defaultValue={this.props.zid_metadata.description}
             multiLine={true} />
         </div>
         <div style={{maxWidth: 400, marginTop: 40}}>
@@ -97,6 +101,7 @@ class ConversationConfig extends React.Component {
           <Checkbox
             label="Voting pane"
             ref={"upvotes"}
+            disabled
             checked={this.props.zid_metadata.upvotes === 1 ? true : false}
             onCheck={ this.handleIntegerBoolValueChange("upvotes").bind(this) }
             labelPosition={"left"}
@@ -142,6 +147,7 @@ class ConversationConfig extends React.Component {
           <Checkbox
             label="Gray background"
             ref={"bgcolor"}
+            disabled
             checked={this.props.zid_metadata.bgcolor === null ? true : false}
             onCheck={ this.handleBoolValueChange("bgcolor").bind(this) }
             labelPosition={"left"}
@@ -178,24 +184,41 @@ class ConversationConfig extends React.Component {
             labelWrapperColor={settings.darkerGray}
             color={settings.polisBlue}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Users cannot vote without first connecting either Facebook or Twitter </p>
+          <Checkbox
+            label="Preserve Anonymity"
+            ref={"is_anon"}
+            disabled
+            checked={this.props.zid_metadata.is_anon}
+            onCheck={ this.handleBoolValueChange("is_anon").bind(this) }
+            labelPosition={"left"}
+            labelWrapperColor={settings.darkerGray}/>
+            <p style={{fontSize: 10, fontStyle: "italic"}}> Disables visualization, does not transmit any participant statistics to you, requires social authorization for both writing and voting. </p>
         </div>
         <div>
           <InputField
+            ref={"style_btn"}
+            onBlur={this.handleStringValueChange("style_btn").bind(this)}
             hintText="ie., #e63082"
-            value={this.props.zid_metadata.style_btn}
+            defaultValue={this.props.zid_metadata.style_btn}
             floatingLabelText="Customize submit button color"
             multiLine={true} />
         </div>
         <div>
           <InputField
-            value={this.props.zid_metadata.help_bgcolor}
+            ref={"help_bgcolor"}
+            disabled
+            onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
+            defaultValue={this.props.zid_metadata.help_bgcolor}
             hintText="ie., #e63082"
             floatingLabelText="Customize help text background"
             multiLine={true} />
         </div>
         <div>
           <InputField
-            value={this.props.zid_metadata.help_color}
+            ref={"help_color"}
+            disabled
+            onBlur={this.handleStringValueChange("help_color").bind(this)}
+            defaultValue={this.props.zid_metadata.help_color}
             hintText="ie., #e63082"
             floatingLabelText="Customize help text color"
             multiLine={true} />
@@ -208,15 +231,6 @@ class ConversationConfig extends React.Component {
 export default ConversationConfig;
 
 // <Checkbox
-//   label="Preserve Anonymity"
-//   ref={"is_anon"}
-//   disabled
-//   checked={this.props.zid_metadata.is_anon}
-//   onCheck={ this.handleBoolValueChange("is_anon").bind(this) }
-//   labelPosition={"left"}
-//   labelWrapperColor={settings.darkerGray}/>
-//   <p style={{fontSize: 10, fontStyle: "italic"}}> Disables visualization, does not transmit any participant statistics to you, requires social authorization for both writing and voting. </p>
-// <Checkbox
 //   label="Read Only"
 //   disabled
 //   checked={false}
@@ -224,8 +238,3 @@ export default ConversationConfig;
 //   labelPosition={"left"}
 //   labelWrapperColor={settings.darkerGray}/>
 //   <p style={{fontSize: 10, fontStyle: "italic"}}> Disables writing and commenting, enables visualization. </p>
-
-/*
-  Todo
-    on config will mount fire a clear store action
-*/

@@ -216,7 +216,8 @@ const updateZidMetadataError = (err) => {
 }
 
 const updateZidMetadata = (zm, field, value) => {
-  console.log("field", field, "value", value)
+  let data = {};
+  data[field] = value;
   return $.ajax({
     url: "/api/v3/conversations",
     method: "PUT",
@@ -224,7 +225,7 @@ const updateZidMetadata = (zm, field, value) => {
     headers: { "Cache-Control": "max-age=0" },
     xhrFields: { withCredentials: true },
     dataType: "json",
-    data: JSON.stringify(Object.assign({}, zm, {field: value}))
+    data: JSON.stringify(Object.assign({}, zm, data))
   })
 }
 
