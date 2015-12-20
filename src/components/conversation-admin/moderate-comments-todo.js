@@ -35,7 +35,6 @@ class ModerateCommentsTodo extends React.Component {
   render() {
     return (
       <div>
-        <h1>ModerateCommentsTodo</h1>
         <div>
           {
             this.props.unmoderated_comments !== null ?

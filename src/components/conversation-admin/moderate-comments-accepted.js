@@ -27,7 +27,6 @@ class ModerateCommentsAccepted extends React.Component {
   render() {
     return (
       <div>
-        <h1>ModerateCommentsAccepted</h1>
         <div>
           {
             this.props.accepted_comments !== null ? this.createCommentMarkup() : "spinnrrrr"

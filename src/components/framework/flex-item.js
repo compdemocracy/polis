@@ -49,7 +49,6 @@ class Item extends React.Component {
       base: {
         boxSizing: "border-box",
         flex: "0 0 100%",
-
         "@media (min-width: 24em)": this.props.small ? {
           flex: this.getFlex(this.props.small)
         } : null,

@@ -13,6 +13,7 @@ export const CONVERSATIONS_FETCH_ERROR = "CONVERSATIONS_FETCH_ERROR";
 export const REQUEST_ZID_METADATA = "REQUEST_ZID_METADATA";
 export const RECEIVE_ZID_METADATA = "RECEIVE_ZID_METADATA";
 export const ZID_METADATA_FETCH_ERROR = "ZID_METADATA_FETCH_ERROR"
+export const ZID_METADATA_RESET = "ZID_METADATA_RESET";
 
 export const UPDATE_ZID_METADATA_STARTED = "UPDATE_ZID_METADATA_STARTED";
 export const UPDATE_ZID_METADATA_SUCCESS = "UPDATE_ZID_METADATA_SUCCESS";
@@ -176,6 +177,12 @@ const zidMetadataFetchError = (err) => {
   return {
     type: ZID_METADATA_FETCH_ERROR,
     data: err
+  }
+}
+
+export const resetMetadataStore = () => {
+  return {
+    type: ZID_METADATA_RESET
   }
 }
 

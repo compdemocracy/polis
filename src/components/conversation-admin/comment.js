@@ -2,8 +2,9 @@ import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
+import Flex from "../framework/flex";
+import Button from "../framework/moderate-button";
 
-// @connect(state => state.data)
 @Radium
 class Comment extends React.Component {
   onAcceptClicked() {
@@ -14,22 +15,26 @@ class Comment extends React.Component {
   }
   makeAcceptButton() {
     return (
-      <button onClick={this.onAcceptClicked.bind(this)}> accept </button>
+      <Button onClick={this.onAcceptClicked.bind(this)}> accept </Button>
     )
   }
   makeRejectButton() {
     return (
-      <button onClick={this.onRejectClicked.bind(this)}> reject </button>
+      <Button onClick={this.onRejectClicked.bind(this)}> reject </Button>
     )
   }
   render() {
     return (
-      <div>
-        <p>
-          { this.props.comment.txt }
+      <div style={{marginBottom: 30}}>
+      <Flex
+        justifyContent="space-between"
+        align={"baseline"}>
+        <Flex.Item small={2}>{ this.props.comment.txt }</Flex.Item>
+        <Flex.Item small={3}>
           { this.props.acceptButton ? this.makeAcceptButton() : "" }
           { this.props.rejectButton ? this.makeRejectButton() : "" }
-        </p>
+        </Flex.Item>
+      </Flex>
       </div>
     );
   }

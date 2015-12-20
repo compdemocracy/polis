@@ -17,6 +17,12 @@ const zid = (state = {
       zid_metadata: action.data,
       error: null
     });
+  case types.ZID_METADATA_RESET:
+    return Object.assign({}, state, {
+      loading: false,
+      zid_metadata: {},
+      error: null
+    });
   case types.UPDATE_ZID_METADATA_STARTED:
     return Object.assign({}, state, {
       loading: true,
