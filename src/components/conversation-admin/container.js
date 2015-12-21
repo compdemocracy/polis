@@ -30,7 +30,7 @@ class ConversationAdminContainer extends React.Component {
     this.resetMetadata();
   }
 
-  componentWillUpdate () {
+  componentDidUpdate () {
     this.loadZidMetadata();
   }
 
