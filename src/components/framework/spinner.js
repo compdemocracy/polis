@@ -7,6 +7,7 @@ class Spinner extends React.Component {
     return {
       __html: `
         <svg
+          style="display: inline"
           xmlns="http://www.w3.org/2000/svg"
           width="30px"
           height="30px"

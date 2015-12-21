@@ -7,9 +7,41 @@ import Checkbox from "material-ui/lib/checkbox";
 import InputField from "material-ui/lib/text-field";
 import settings from "../../settings";
 import Spinner from "../framework/spinner";
-import Flex from "../framework/flex";
+import Awesome from "react-fontawesome";
 
 /* check if refer came from 'new' and if it did, show modal saying 'get started by...' */
+
+const cardPadding = 10;
+const cardBorderRadius = 3;
+
+const styles = {
+  container: {
+    backgroundColor: "rgb(240,240,247)",
+    paddingTop: 10,
+    minHeight: "100vh"
+  },
+  configCard: {
+    margin: 10,
+    maxWidth: 400,
+    backgroundColor: "rgb(253,253,253)",
+    borderRadius: cardBorderRadius,
+    padding: cardPadding,
+    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+  },
+  sectionHeader: {
+    fontSize: 22,
+    marginTop: 0,
+    marginBottom: 0,
+    fontWeight: 500,
+    color: "rgb(160,160,160)"
+  },
+  notification: {
+    fontSize: 16,
+    fontWeight: 500,
+    color: "rgb(160,160,160)"
+  }
+}
 
 @connect(state => state.zid_metadata)
 @Radium
@@ -57,10 +89,17 @@ class ConversationConfig extends React.Component {
 
   render() {
     return (
-      <Flex>
-        {this.props.loading ? <Spinner/> : "Up to date"}
+      <div style={styles.container}>
+        <div style={styles.configCard}>
+        {
+          this.props.loading ?
+            <div style={styles.notification}> <Awesome name="cloud-upload"/> <span>Saving</span> </div> :
+            <div style={styles.notification}> <Awesome name="bolt"/> <span>Up to date</span> </div>
+        }
         {this.props.error ? "error" : ""}
-        <div>
+        </div>
+        <div style={styles.configCard}>
+          <p style={styles.sectionHeader}>Topic</p>
           <InputField
             ref={"topic"}
             onBlur={this.handleStringValueChange("topic").bind(this)}
@@ -68,7 +107,8 @@ class ConversationConfig extends React.Component {
             defaultValue={this.props.zid_metadata.topic}
             multiLine={true} />
         </div>
-        <div>
+        <div style={styles.configCard}>
+          <p style={styles.sectionHeader}>Description</p>
           <InputField
             hintText="Can include markdown!"
             ref={"description"}
@@ -77,8 +117,9 @@ class ConversationConfig extends React.Component {
             defaultValue={this.props.zid_metadata.description}
             multiLine={true} />
         </div>
-        <div style={{maxWidth: 400, marginTop: 40}}>
-          <h3> Customize the User Interface </h3>
+        <div style={styles.configCard}>
+          <p style={styles.sectionHeader}> Customize the User Interface </p>
+          <div style={{marginTop: 20}}> </div>
           <Checkbox
             label="Visualization"
             ref={"vis_type"}
@@ -155,7 +196,39 @@ class ConversationConfig extends React.Component {
             <p style={{fontSize: 10, fontStyle: "italic"}}>
               {"Unchecked: white background"}
             </p>
-          <h3> Schemes </h3>
+          <div>
+            <InputField
+              ref={"style_btn"}
+              onBlur={this.handleStringValueChange("style_btn").bind(this)}
+              hintText="ie., #e63082"
+              defaultValue={this.props.zid_metadata.style_btn}
+              floatingLabelText="Customize submit button color"
+              multiLine={true} />
+          </div>
+          <div>
+            <InputField
+              ref={"help_bgcolor"}
+              disabled
+              onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
+              defaultValue={this.props.zid_metadata.help_bgcolor}
+              hintText="ie., #e63082"
+              floatingLabelText="Customize help text background"
+              multiLine={true} />
+          </div>
+          <div>
+            <InputField
+              ref={"help_color"}
+              disabled
+              onBlur={this.handleStringValueChange("help_color").bind(this)}
+              defaultValue={this.props.zid_metadata.help_color}
+              hintText="ie., #e63082"
+              floatingLabelText="Customize help text color"
+              multiLine={true} />
+          </div>
+        </div>
+        <div style={styles.configCard}>
+          <p style={styles.sectionHeader}> Schemes </p>
+          <div style={{marginTop: 20}}> </div>
           <Checkbox
             label="Strict Moderation"
             ref={"strict_moderation"}
@@ -193,36 +266,7 @@ class ConversationConfig extends React.Component {
             labelWrapperColor={settings.darkerGray}/>
             <p style={{fontSize: 10, fontStyle: "italic"}}> Disables visualization, does not transmit any participant statistics to you, requires social authorization for both writing and voting. </p>
         </div>
-        <div>
-          <InputField
-            ref={"style_btn"}
-            onBlur={this.handleStringValueChange("style_btn").bind(this)}
-            hintText="ie., #e63082"
-            defaultValue={this.props.zid_metadata.style_btn}
-            floatingLabelText="Customize submit button color"
-            multiLine={true} />
-        </div>
-        <div>
-          <InputField
-            ref={"help_bgcolor"}
-            disabled
-            onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
-            defaultValue={this.props.zid_metadata.help_bgcolor}
-            hintText="ie., #e63082"
-            floatingLabelText="Customize help text background"
-            multiLine={true} />
-        </div>
-        <div>
-          <InputField
-            ref={"help_color"}
-            disabled
-            onBlur={this.handleStringValueChange("help_color").bind(this)}
-            defaultValue={this.props.zid_metadata.help_color}
-            hintText="ie., #e63082"
-            floatingLabelText="Customize help text color"
-            multiLine={true} />
-        </div>
-      </Flex>
+      </div>
     );
   }
 }
