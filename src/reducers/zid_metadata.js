@@ -8,6 +8,7 @@ const zid = (state = {
   switch (action.type) {
   case types.REQUEST_ZID_METADATA:
     return Object.assign({}, state, {
+      conversation_id: action.data.conversation_id,
       loading: true,
       error: null
     });

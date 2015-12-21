@@ -77,7 +77,7 @@ class App extends React.Component {
     return (
       <Sidebar
         sidebar={
-          this.props.params.conversation ?
+          this.props.params.conversation_id ?
             <SidebarContentConversation conversation_id={this.props.params.conversation_id}/> :
             <SidebarContentHome/>
         }

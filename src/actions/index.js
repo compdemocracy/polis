@@ -160,9 +160,12 @@ export const populateConversationsStore = () => {
 
 /* zid metadata */
 
-const requestZidMetadata = () => {
+const requestZidMetadata = (conversation_id) => {
   return {
     type: REQUEST_ZID_METADATA,
+    data: {
+      conversation_id: conversation_id
+    }
   };
 };
 
@@ -191,12 +194,32 @@ const fetchZidMetadata = (conversation_id) => {
 }
 
 export const populateZidMetadataStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestZidMetadata())
+  return (dispatch, getState) => {
+
+    var state = getState();
+    var hasConversationId = state.zid_metadata &&
+      state.zid_metadata.zid_metadata &&
+      state.zid_metadata.zid_metadata.conversation_id;
+
+    var isLoading = state.zid_metadata.loading;
+    // NOTE: if there are multiple calls outstanding this may be wrong.
+    var isLoadingThisConversation = (state.zid_metadata.conversation_id == conversation_id) && isLoading;
+
+
+    if (isLoadingThisConversation) {
+      return;
+    }
+
+    // don't fetch again if we already have data loaded for that conversation.
+    if (hasConversationId && state.zid_metadata.zid_metadata.conversation_id == conversation_id) {
+      return;
+    }
+
+    dispatch(requestZidMetadata(conversation_id))
     return fetchZidMetadata(conversation_id).then(
       res => dispatch(receiveZidMetadata(res)),
       err => dispatch(zidMetadataFetchError(err))
-    )
+    );
   }
 }
 
@@ -318,6 +341,52 @@ export const handleSeedCommentSubmit = (comment) => {
 //     )
 //   }
 // }
+
+
+
+/* create conversation */
+
+const createConversationStart = () => {
+  return {
+    type: CREATE_NEW_CONVERSATION
+  }
+}
+
+const createConversationPostSuccess = (res) => {
+  return {
+    type: CREATE_NEW_CONVERSATION_SUCCESS,
+    data: res,
+  }
+}
+
+const createConversationPostError = (err) => {
+  return {
+    type: CREATE_NEW_CONVERSATION_ERROR,
+    data: err,
+  }
+}
+
+const postCreateConversation = () => {
+  return $.ajax({
+    method: "POST",
+    url: "/api/v3/conversations",
+    data: {
+      is_draft: true,
+      is_active: true,
+    }
+  })
+}
+
+export const handleCreateConversationSubmit = (routeTo) => {
+  return (dispatch, getState) => {
+    dispatch(createConversationStart())
+    return postCreateConversation().then(
+      res => dispatch(createConversationPostSuccess(res)),
+      err => dispatch(createConversationPostError(err))
+    ).then(dispatch(
+      populateAllCommentStores(comment.conversation_id)))
+  }
+}
 
 
 
