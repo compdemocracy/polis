@@ -12,7 +12,7 @@ class ConversationAdminContainer extends React.Component {
 
   loadZidMetadata() {
     this.props.dispatch(
-      populateZidMetadataStore(this.props.params.conversation)
+      populateZidMetadataStore(this.props.params.conversation_id)
     )
   }
 

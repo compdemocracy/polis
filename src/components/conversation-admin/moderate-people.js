@@ -18,7 +18,7 @@ const mapStateToProps = (state, ownProps) => {
 class ModeratePeople extends React.Component {
   loadParticipants() {
     this.props.dispatch(
-      populateAllParticipantStores(this.props.params.conversation)
+      populateAllParticipantStores(this.props.params.conversation_id)
     )
   }
   componentWillMount () {
@@ -30,7 +30,7 @@ class ModeratePeople extends React.Component {
     clearInterval(this.getParticipantsRepeatedly);
   }
   render() {
-    const m = "/m/"+this.props.params.conversation+"/participants/";
+    const m = "/m/"+this.props.params.conversation_id+"/participants/";
     return (
       <div>
         <h1>Moderate Participants</h1>

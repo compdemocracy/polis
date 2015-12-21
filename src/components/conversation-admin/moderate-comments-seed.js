@@ -18,7 +18,7 @@ class ModerateCommentsSeed extends React.Component {
     const comment = {
       txt: this.refs.seed_form.value,
       pid: "mypid",
-      conversation_id: this.props.params.conversation,
+      conversation_id: this.props.params.conversation_id,
       vote: 0,
       prepop: true
     }

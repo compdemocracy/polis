@@ -35,7 +35,7 @@ const style = {
 class ConversationStats extends React.Component {
   loadStats() {
     this.props.dispatch(
-      populateConversationStatsStore(this.props.params.conversation)
+      populateConversationStatsStore(this.props.params.conversation_id)
     )
   }
   componentWillMount () {

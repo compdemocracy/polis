@@ -20,7 +20,7 @@ const mapStateToProps = (state, ownProps) => {
 class CommentModeration extends React.Component {
   loadComments() {
     this.props.dispatch(
-      populateAllCommentStores(this.props.params.conversation)
+      populateAllCommentStores(this.props.params.conversation_id)
     )
   }
   componentWillMount () {
@@ -32,7 +32,7 @@ class CommentModeration extends React.Component {
     clearInterval(this.getCommentsRepeatedly);
   }
   render() {
-    const m = "/m/"+this.props.params.conversation+"/comments/";
+    const m = "/m/"+this.props.params.conversation_id+"/comments/";
     return (
       <div>
         <div>

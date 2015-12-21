@@ -31,8 +31,8 @@ class ShareAndEmbed extends React.Component {
           <a
             style={{textDecoration: "none", fontSize: 36}}
             target="blank"
-            href={"https://pol.is/" + this.props.params.conversation}>
-            {"pol.is/" + this.props.params.conversation}
+            href={"https://pol.is/" + this.props.params.conversation_id}>
+            {"pol.is/" + this.props.params.conversation_id}
           </a>
         </p>
         <p style={{
@@ -49,7 +49,7 @@ class ShareAndEmbed extends React.Component {
           <Highlight>
           {"<div"}
           {" class='polis'"}
-          {" data-conversation_id='" + this.props.params.conversation + "'>"}
+          {" data-conversation_id='" + this.props.params.conversation_id + "'>"}
           {"</div>\n"}
           {"<script async='true' src='https://pol.is/embed.js'></script>"}
           </Highlight>
@@ -68,7 +68,7 @@ class ShareAndEmbed extends React.Component {
           fontWeight: 500
           }}> See your conversation, live: </p>
         <iframe
-          src={"https://pol.is/"+this.props.params.conversation}
+          src={"https://pol.is/"+this.props.params.conversation_id}
           style={{
             minHeight: "1000px",
             width: "100%",

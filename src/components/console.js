@@ -78,7 +78,7 @@ class App extends React.Component {
       <Sidebar
         sidebar={
           this.props.params.conversation ?
-            <SidebarContentConversation conversation_id={this.props.params.conversation}/> :
+            <SidebarContentConversation conversation_id={this.props.params.conversation_id}/> :
             <SidebarContentHome/>
         }
         open={ this.state.sidebarOpen }

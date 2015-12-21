@@ -53,7 +53,7 @@ class Root extends React.Component {
               <Route path="conversations" component={Conversations}/>
               <Route path="overall-stats" component={OverallStats}/>
               <Route path="account" component={Account}/>
-              <Route path="m/:conversation" component={ConversationAdminContainer}>
+              <Route path="m/:conversation_id" component={ConversationAdminContainer}>
                 <IndexRoute component={ConversationConfig}/>
                 <Route path="share" component={ShareAndEmbed}/>
                 <Route path="comments" component={ModerateComments}>
