@@ -6,12 +6,10 @@ import _ from "lodash";
 import {Link} from "react-router";
 import Spinner from "./framework/spinner";
 import Awesome from "react-fontawesome";
-
 import Sidebar from "react-sidebar";
 import SidebarContentConversation from "./sidebar-content-conversation";
 import SidebarContentHome from "./sidebar-content-home";
 import MaterialTitlePanel from './material-title-panel';
-
 import Trial from "./framework/trial-banner";
 
 @connect(state => state.user)
@@ -21,7 +19,7 @@ class App extends React.Component {
     super(props);
     this.state = {
       sidebarOpen: false,
-      sidebarDocked: true,
+      // sidebarDocked: true,
     };
   }
 
@@ -34,6 +32,10 @@ class App extends React.Component {
     var mql = window.matchMedia(`(min-width: 800px)`);
     mql.addListener(this.mediaQueryChanged.bind(this));
     this.setState({mql: mql, docked: mql.matches});
+  }
+
+  componentDidMount () {
+    this.mediaQueryChanged()
   }
 
   componentWillUnmount () {
@@ -51,17 +53,40 @@ class App extends React.Component {
   handleMenuButtonClick () {
     this.setState({sidebarOpen: !this.state.sidebarOpen})
   }
+  getTitleFromRoute () {
+    /* ugly, but... is what it is for now */
+    let title = "Admin Dashboard"; /* in leiu of default */
 
+    if (this.props.routes[1] && this.props.routes[1].path === "integrate") {
+      title = "Integrate";
+    } else if (this.props.routes[1] && this.props.routes[1].path === "conversations") {
+      title = "My Conversations";
+    } else if (this.props.routes[1] && this.props.routes[1].path === "account") {
+      title = "Account Management";
+    } else if (this.props.routes[2] && this.props.routes[2].path === "comments") {
+      title = "Moderate Comments";
+    } else if (this.props.routes[2] && this.props.routes[2].path === "participants") {
+      title = "Moderate Participants";
+    } else if (this.props.routes[2] && this.props.routes[2].path === "stats") {
+      title = "Conversation Statistics";
+    }
+
+    return title;
+  }
   render() {
     return (
       <Sidebar
-        sidebar={ this.props.params.conversation ? <SidebarContentConversation conversation_id={this.props.params.conversation}/> : <SidebarContentHome/> }
+        sidebar={
+          this.props.params.conversation ?
+            <SidebarContentConversation conversation_id={this.props.params.conversation}/> :
+            <SidebarContentHome/>
+        }
         open={ this.state.sidebarOpen }
         docked={ this.state.sidebarDocked }
         onSetOpen={ this.onSetSidebarOpen.bind(this) }>
-        <MaterialTitlePanel title="Admin Dashboard">
-          {/*trial*/ true ? <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> : ""}
-            <div style={{maxWidth: 800, margin: 20}}>
+        <MaterialTitlePanel title={this.getTitleFromRoute()}>
+          {/*trial condition*/ true ? <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> : ""}
+            <div>
               {
                 this.state.sidebarDocked ?
                   "" :

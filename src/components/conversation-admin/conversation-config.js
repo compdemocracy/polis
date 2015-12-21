@@ -55,7 +55,6 @@ class ConversationConfig extends React.Component {
   }
 
   render() {
-    console.log(this.props)
     return (
       <div>
         <h1>Conversation config</h1>
