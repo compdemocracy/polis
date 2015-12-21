@@ -7,6 +7,7 @@ import Checkbox from "material-ui/lib/checkbox";
 import InputField from "material-ui/lib/text-field";
 import settings from "../../settings";
 import Spinner from "../framework/spinner";
+import Flex from "../framework/flex";
 
 /* check if refer came from 'new' and if it did, show modal saying 'get started by...' */
 
@@ -56,8 +57,7 @@ class ConversationConfig extends React.Component {
 
   render() {
     return (
-      <div>
-        <h1>Conversation config</h1>
+      <Flex>
         {this.props.loading ? <Spinner/> : "Up to date"}
         {this.props.error ? "error" : ""}
         <div>
@@ -222,7 +222,7 @@ class ConversationConfig extends React.Component {
             floatingLabelText="Customize help text color"
             multiLine={true} />
         </div>
-      </div>
+      </Flex>
     );
   }
 }

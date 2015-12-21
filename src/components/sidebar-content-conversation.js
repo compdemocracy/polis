@@ -4,7 +4,7 @@ import Radium from "radium";
 import _ from "lodash";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
-import MaterialTitlePanel from './material-title-panel';
+import MaterialTitlePanel from './material-title-panel-sidebar';
 
 const styles = {
   sidebar: {
@@ -34,6 +34,7 @@ class SidebarContentConversation extends React.Component {
   render() {
     return (
       <MaterialTitlePanel
+        showHamburger={false}
         title={"Pol.is/"+this.props.conversation_id}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
         <div style={styles.content}>

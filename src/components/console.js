@@ -84,19 +84,12 @@ class App extends React.Component {
         open={ this.state.sidebarOpen }
         docked={ this.state.sidebarDocked }
         onSetOpen={ this.onSetSidebarOpen.bind(this) }>
-        <MaterialTitlePanel title={this.getTitleFromRoute()}>
+        <MaterialTitlePanel
+          handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
+          showHamburger={this.state.sidebarDocked}
+          title={this.getTitleFromRoute()}>
           {/*trial condition*/ true ? <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> : ""}
             <div>
-              {
-                this.state.sidebarDocked ?
-                  "" :
-                  <div
-                    onClick={this.handleMenuButtonClick.bind(this)}
-                    style={{marginRight: 15, display: "inline", fontSize: 18, cursor: "pointer"}}>
-                    <Awesome name="bars"/>
-                    {" Menu"}
-                  </div>
-              }
               { this.props.children }
             </div>
         </MaterialTitlePanel>

@@ -12,28 +12,23 @@ const styles = {
     padding: '16px',
     fontSize: '1.5em',
   },
+  linkout: {
+    textDecoration: "none",
+    color: "white"
+  }
 };
 
-const MaterialTitlePanel = (props) => {
+const MaterialTitlePanelSidebar = (props) => {
 
   const rootStyle = props.style ? {...styles.root, ...props.style} : styles.root;
   return (
     <div style={rootStyle}>
       <div style={styles.header}>
-        {
-          props.showHamburger ?
-            "" :
-            <div
-              onClick={props.handleHamburgerClick}
-              style={{marginRight: 15, display: "inline", fontSize: 18, cursor: "pointer"}}>
-              <Awesome name="bars"/>
-            </div>
-        }
-        { props.title }
+        <a style={styles.linkout} target="blank" href={"https://"+props.title}> { props.title } </a>
       </div>
       {props.children}
     </div>
   );
 };
 
-export default MaterialTitlePanel;
+export default MaterialTitlePanelSidebar;
