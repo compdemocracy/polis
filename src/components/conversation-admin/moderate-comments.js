@@ -35,7 +35,6 @@ class CommentModeration extends React.Component {
     const m = "/m/"+this.props.params.conversation+"/comments/";
     return (
       <div>
-        <h1 style={{marginBottom: 10}}>Comment Moderation</h1>
         <div>
           <Link
             style={{

@@ -102,6 +102,7 @@ class ConversationConfig extends React.Component {
           <p style={styles.sectionHeader}>Topic</p>
           <InputField
             ref={"topic"}
+            style={{width: 360}}
             onBlur={this.handleStringValueChange("topic").bind(this)}
             floatingLabelText="Topic"
             defaultValue={this.props.zid_metadata.topic}
@@ -111,6 +112,7 @@ class ConversationConfig extends React.Component {
           <p style={styles.sectionHeader}>Description</p>
           <InputField
             hintText="Can include markdown!"
+            style={{width: 360}}
             ref={"description"}
             onBlur={this.handleStringValueChange("description").bind(this)}
             floatingLabelText="Description"
@@ -199,6 +201,7 @@ class ConversationConfig extends React.Component {
           <div>
             <InputField
               ref={"style_btn"}
+              style={{width: 360}}
               onBlur={this.handleStringValueChange("style_btn").bind(this)}
               hintText="ie., #e63082"
               defaultValue={this.props.zid_metadata.style_btn}
@@ -208,6 +211,7 @@ class ConversationConfig extends React.Component {
           <div>
             <InputField
               ref={"help_bgcolor"}
+              style={{width: 360}}
               disabled
               onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
               defaultValue={this.props.zid_metadata.help_bgcolor}
@@ -219,6 +223,7 @@ class ConversationConfig extends React.Component {
             <InputField
               ref={"help_color"}
               disabled
+              style={{width: 360}}
               onBlur={this.handleStringValueChange("help_color").bind(this)}
               defaultValue={this.props.zid_metadata.help_color}
               hintText="ie., #e63082"
