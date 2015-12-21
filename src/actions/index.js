@@ -5,6 +5,11 @@ export const REQUEST_USER = "REQUEST_USER";
 export const RECEIVE_USER = "RECEIVE_USER";
 export const USER_FETCH_ERROR = "USER_FETCH_ERROR";
 
+
+export const CREATE_NEW_CONVERSATION = "CREATE_NEW_CONVERSATION";
+export const CREATE_NEW_CONVERSATION_SUCCESS = "CREATE_NEW_CONVERSATION_SUCCESS";
+export const CREATE_NEW_CONVERSATION_ERROR = "CREATE_NEW_CONVERSATION_ERROR";
+
 export const REQUEST_CONVERSATIONS = "REQUEST_CONVERSATIONS";
 export const RECEIVE_CONVERSATIONS = "RECEIVE_CONVERSATIONS";
 export const CONVERSATIONS_FETCH_ERROR = "CONVERSATIONS_FETCH_ERROR";
@@ -381,11 +386,15 @@ export const handleCreateConversationSubmit = (routeTo) => {
   return (dispatch, getState) => {
     dispatch(createConversationStart())
     return postCreateConversation().then(
-      res => dispatch(createConversationPostSuccess(res)),
+      function(res) {
+        dispatch(createConversationPostSuccess(res));
+        return res;
+      },
       err => dispatch(createConversationPostError(err))
-    ).then(dispatch(
-      populateAllCommentStores(comment.conversation_id)))
-  }
+    ).then(function(res) {
+      window.location = "/#/m/" + res.conversation_id;
+    });
+  };
 }
 
 

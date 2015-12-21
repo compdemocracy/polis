@@ -5,6 +5,7 @@ import _ from "lodash";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
 import MaterialTitlePanel from './material-title-panel-sidebar';
+import {handleCreateConversationSubmit} from '../actions';
 
 const styles = {
   sidebar: {
@@ -29,8 +30,14 @@ const styles = {
   },
 };
 
+@connect(state => state.zid_metadata)
 @Radium
 class SidebarContentHome extends React.Component {
+
+  onNewClicked() {
+    this.props.dispatch(handleCreateConversationSubmit());
+  }
+
   render() {
     return (
       <MaterialTitlePanel
@@ -39,12 +46,12 @@ class SidebarContentHome extends React.Component {
         hamburger={this.props.hamburger}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
         <div style={styles.content}>
-          <Link
+          <p
             style={styles.sidebarLink}
-            to="/new">
+            onClick={this.onNewClicked.bind(this)}>
             <Awesome name="plus"/>
             <span style={{marginLeft: 10}}> New </span>
-            </Link>
+          </p>
           <Link
             style={styles.sidebarLink}
             to="/integrate">
