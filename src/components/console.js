@@ -22,7 +22,6 @@ class App extends React.Component {
       // sidebarDocked: true,
     };
   }
-
   loadUserData() {
     this.props.dispatch(populateUserStore())
   }
@@ -36,6 +35,55 @@ class App extends React.Component {
 
   componentDidMount () {
     this.mediaQueryChanged()
+  }
+
+  initIntercom  () {
+    if (!this.intercomInitialized) {
+      var user = this.props.user;
+      if (user) {
+        if (!window.Intercom && user && user.uid) {
+            window.initIntercom();
+        }
+        if (user.email) {
+          /*eslint-disable */
+          /* jshint ignore:start */
+          Intercom('boot', {
+            app_id: 'nb5hla8s',
+            created_at: Date.now(),
+            user_id: user.uid
+          });
+          /* jshint ignore:end */
+          /*eslint-enable */
+        }
+        this.intercomInitialized = true;
+      }
+    }
+  }
+
+  updateIntercomSettings  () {
+    this.initIntercom();
+    var user = this.props.user;
+
+    window.intercomOptions = {
+        app_id: 'nb5hla8s',
+        widget: {
+          activator: '#IntercomDefaultWidget'
+        }
+    };
+    if (user && user.uid) {
+      intercomOptions.user_id = user.uid + "";
+    }
+    if (user && user.email) {
+      intercomOptions.email = user.email;
+    }
+    if (user && user.created) {
+      intercomOptions.created_at = user.created / 1000 >> 0;
+    }
+
+  }
+
+  componentDidUpdate () {
+    this.updateIntercomSettings();
   }
 
   componentWillUnmount () {
