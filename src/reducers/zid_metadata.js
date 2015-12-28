@@ -4,7 +4,7 @@ const zid = (state = {
   loading: false,
   zid_metadata: {},
   error: null,
-  optimistic: 0 /* trigger render because shallow comparison lolz https://github.com/rackt/redux/issues/585 */
+  optimistic: 0 /* `h4x0rz` trigger render because shallow comparison https://github.com/rackt/redux/issues/585 */
 }, action) => {
   switch (action.type) {
   case types.REQUEST_ZID_METADATA:

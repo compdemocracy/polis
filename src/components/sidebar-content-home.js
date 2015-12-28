@@ -46,12 +46,12 @@ class SidebarContentHome extends React.Component {
         hamburger={this.props.hamburger}
         style={this.props.style ? {...styles.sidebar, ...this.props.style} : styles.sidebar}>
         <div style={styles.content}>
-          <p
+          <span
             style={styles.sidebarLink}
             onClick={this.onNewClicked.bind(this)}>
             <Awesome name="plus"/>
             <span style={{marginLeft: 10}}> New </span>
-          </p>
+          </span>
           <Link
             style={styles.sidebarLink}
             to="/integrate">
