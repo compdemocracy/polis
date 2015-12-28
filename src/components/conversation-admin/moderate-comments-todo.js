@@ -7,6 +7,7 @@ import {
 import Radium from "radium";
 import _ from "lodash";
 import Comment from "./comment";
+import Spinner from "../framework/spinner";
 
 @connect(state => state.mod_comments_unmoderated )
 @Radium
@@ -39,7 +40,7 @@ class ModerateCommentsTodo extends React.Component {
           {
             this.props.unmoderated_comments !== null ?
             this.createCommentMarkup() :
-            "spinnrrrr"
+            <Spinner/>
           }
         </div>
       </div>

@@ -4,13 +4,24 @@ import Radium from "radium";
 import _ from "lodash";
 import Spinner from "./framework/spinner";
 
+const styles = {
+  card: {
+    margin: "10px 20px 10px 20px",
+    backgroundColor: "rgb(253,253,253)",
+    borderRadius: 3,
+    padding: 10,
+    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+  },
+}
+
 @connect(state => state.user)
 @Radium
 class Account extends React.Component {
   buildAccountMarkup() {
     // probably a component / series of them
     return (
-      <div>
+      <div style={styles.card}>
         <p>{this.props.user.hname}</p>
         <p>{this.props.user.email}</p>
         <p>{this.props.user.hasTwitter ? this.props.user.twitter.location : "Location Unknown"}</p>
@@ -25,13 +36,10 @@ class Account extends React.Component {
     console.log(this.props.user)
     return (
       <div>
-        <h1>Account</h1>
-        <div>
-          {
-            this.props.loading === true ? <Spinner/> :
-            this.buildAccountMarkup()
-          }
-        </div>
+        {
+          this.props.loading === true ? <Spinner/> :
+          this.buildAccountMarkup()
+        }
       </div>
     );
   }

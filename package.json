@@ -36,6 +36,7 @@
     "jquery": "^2.1.4",
     "lodash": "^3.10.1",
     "material-ui": "^0.13.4",
+    "moment": "^2.10.6",
     "radium": "^0.14.2",
     "react": "^0.14.0",
     "react-codemirror": "^0.2.1",

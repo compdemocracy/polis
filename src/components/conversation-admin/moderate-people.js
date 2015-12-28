@@ -5,6 +5,25 @@ import { populateAllParticipantStores } from "../../actions";
 import _ from "lodash";
 import { Link } from "react-router";
 
+const cardPadding = 10;
+const cardBorderRadius = 3;
+
+const styles = {
+  container: {
+    backgroundColor: "rgb(240,240,247)",
+    paddingTop: 10,
+    minHeight: "100vh"
+  },
+  navCard: {
+    margin: 20,
+    backgroundColor: "rgb(253,253,253)",
+    borderRadius: cardBorderRadius,
+    padding: cardPadding,
+    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+  },
+}
+
 const mapStateToProps = (state, ownProps) => {
   return {
     ptpt_default: state.mod_ptpt_default,
@@ -33,20 +52,7 @@ class ModeratePeople extends React.Component {
     const m = "/m/"+this.props.params.conversation_id+"/participants/";
     return (
       <div>
-        <h1>Moderate Participants</h1>
-        <div>
-          "Moderate Participants"
-          <p>
-            We automatically decide who to show in the visualization, but you can override that here. The visualization will differ per user based on whether they have Facebook friends participating. Here’s how we prioritize who gets shown:
-          </p>
-          <ul>
-            <li> Facebook friends </li>
-            <li> Participants with verified Twitter accounts </li>
-            <li> Participants with highest number of Twitter followers </li>
-            <li> Participants with Facebook connected </li>
-          </ul>
-          <p> Featured participants are always shown. Hidden participants are only shown to Facebook friends. </p>
-        </div>
+        <div style={styles.navCard}>
           <Link
             style={{
               marginLeft: -10,
@@ -96,20 +102,11 @@ class ModeratePeople extends React.Component {
               "..."
             }
           </Link>
+        </div>
         {this.props.children}
       </div>
     );
   }
 }
-
-var styles = {
-  backgroundColor: `hsla(${Math.random() * 255}, 50%, 50%, ${Math.random()})`,
-  padding: '5px',
-  color: 'white',
-  border: 0,
-  ':hover': {
-    backgroundColor: 'blue'
-  }
-};
 
 export default ModeratePeople;

@@ -1,6 +1,27 @@
 import Radium from 'radium';
 import React from 'react';
 
+@Radium
+class Button extends React.Component {
+  render() {
+    return (
+      <button
+        onClick={this.props.onClick}
+        style={[
+          styles.base,
+          this.props.style
+        ]}>
+        {this.props.children}
+      </button>
+    );
+  }
+}
+
+Button.propTypes = {
+  color: React.PropTypes.string,
+  onClick: React.PropTypes.func
+};
+
 var styles = {
   base: {
     fontSize: 16,
@@ -34,27 +55,7 @@ var styles = {
       transform: "translateY(2px)",
     }
   },
+
 };
-
-@Radium
-class Button extends React.Component {
-  render() {
-    return (
-      <button
-        onClick={this.props.onClick}
-        style={[
-          styles.base,
-          this.props.style
-        ]}>
-        {this.props.children}
-      </button>
-    );
-  }
-}
-
-Button.propTypes = {
-  onClick: React.PropTypes.func
-};
-
 
 module.exports = Button;

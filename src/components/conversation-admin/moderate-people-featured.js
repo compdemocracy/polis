@@ -4,6 +4,18 @@ import { changeParticipantStatusToHidden } from '../../actions'
 import Radium from "radium";
 import _ from "lodash";
 import Participant from "./participant";
+import Spinner from "../framework/spinner";
+
+const styles = {
+  card: {
+    margin: 20,
+    backgroundColor: "rgb(253,253,253)",
+    borderRadius: 3,
+    padding: 10,
+    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+  },
+}
 
 @connect(state => state.mod_ptpt_featured)
 @Radium
@@ -31,11 +43,12 @@ class ParticipantModerationFeatured extends React.Component {
   render() {
     return (
       <div>
-        <h1>ParticipantModerationFeatured</h1>
-        <p> Featured participants are always shown in the visualization. If their Twitter accounts are connected, they will be shown to other participants. Those with more followers will be prioritized if there are too many featured participants to show. </p>
+        <div style={styles.card}>
+          <p> Those featured participants with more followers will be prioritized if there are too many featured participants to show in the visualization. </p>
+        </div>
         <div>
           {
-            this.props.featured_participants !== null ? this.createParticipantMarkup() : "spinnrrrr"
+            this.props.featured_participants !== null ? this.createParticipantMarkup() : <Spinner/>
           }
         </div>
       </div>

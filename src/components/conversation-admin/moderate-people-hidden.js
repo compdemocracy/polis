@@ -4,6 +4,19 @@ import { changeParticipantStatusToFeatured } from '../../actions'
 import Radium from "radium";
 import _ from "lodash";
 import Participant from "./participant";
+import Spinner from "../framework/spinner";
+
+
+const styles = {
+  card: {
+    margin: 20,
+    backgroundColor: "rgb(253,253,253)",
+    borderRadius: 3,
+    padding: 10,
+    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+  },
+}
 
 @connect(state => state.mod_ptpt_hidden)
 @Radium
@@ -30,13 +43,12 @@ class ParticipantModerationHidden extends React.Component {
   }
   render() {
     return (
-      <div>
-        <h1>ParticipantModerationHidden</h1>
+      <div style={styles.card}>
         <div>
           <p> These participants are not shown in the visualization, but their votes are still counted. Note that they will still be shown to other participants who are their Facebook friends.</p>
         </div>
         {
-          this.props.hidden_participants !== null ? this.createParticipantMarkup() : "spinnrrrr"
+          this.props.hidden_participants !== null ? this.createParticipantMarkup() : <Spinner/>
         }
       </div>
     );

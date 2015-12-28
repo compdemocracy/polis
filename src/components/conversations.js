@@ -8,7 +8,6 @@ import Spinner from "./framework/spinner";
 import Flex from "./framework/flex";
 import Awesome from "react-fontawesome";
 
-
 const cardHeight = 50;
 const cardPadding = 10;
 const cardBorderRadius = 3;
@@ -20,9 +19,9 @@ const styles = {
     minHeight: "100vh"
   },
   conversationCard: {
-    width: "90%",
     height: cardHeight,
-    margin: 10,
+    width: "100%",
+    margin: "10px 20px 10px 20px",
     backgroundColor: "rgb(253,253,253)",
     borderRadius: cardBorderRadius,
     padding: cardPadding,
@@ -31,9 +30,9 @@ const styles = {
   },
   toAdminLink: {
     height: cardHeight + (2*cardPadding),
-    backgroundColor: "#03a9f4",
+    backgroundColor: "rgba(200,200,200,1)",
     marginRight: -cardPadding,
-    width: "25%",
+    width: "15%",
     borderTopRightRadius: cardBorderRadius,
     borderBottomRightRadius: cardBorderRadius,
     color: "#ffffff",
@@ -63,7 +62,6 @@ class Conversations extends React.Component {
     if (this.props.loading) { return <Spinner/> }
     if (!this.props.conversations) { return "No conversations to display" }
     let conversationsMarkup = this.props.conversations.map((conversation, i) => {
-      console.log(conversation)
       return (
         <Flex
           justifyContent={"space-between"}
@@ -76,7 +74,7 @@ class Conversations extends React.Component {
           <Link
             style={styles.toAdminLink}
             to={"/m/"+conversation.conversation_id}>
-              <span style={styles.go}>Go</span><Awesome name="chevron-right"/>
+              <Awesome name="chevron-right"/>
           </Link>
         </Flex>
       )
@@ -96,6 +94,11 @@ class Conversations extends React.Component {
 }
 
 export default Conversations;
+
+/*
+  todo
+    sorts and filters - by #'s of ptpt etc
+*/
 
             // <span>
             //   {"Admin: " + conversation.conversation_id}

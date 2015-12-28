@@ -15,6 +15,17 @@ const mapStateToProps = (state, ownProps) => {
   }
 }
 
+const styles = {
+  navCard: {
+    margin: 20,
+    backgroundColor: "rgb(253,253,253)",
+    borderRadius: 3,
+    padding: 10,
+    WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+  },
+}
+
 @connect(mapStateToProps)
 @Radium
 class CommentModeration extends React.Component {
@@ -35,7 +46,7 @@ class CommentModeration extends React.Component {
     const m = "/m/"+this.props.params.conversation_id+"/comments/";
     return (
       <div>
-        <div>
+        <div style={styles.navCard}>
           <Link
             style={{
               marginLeft: -10,
@@ -99,19 +110,6 @@ class CommentModeration extends React.Component {
               }
           </Link>
         </div>
-        <p style={{fontSize: 12, marginBottom: 40}}>
-          {"Read about "}
-          <a
-            href="http://docs.pol.is/usage/CommentModeration.html">
-              {"comment moderation"}
-          </a>
-          {" and "}
-          <a
-            href="http://docs.pol.is/usage/SeedComments.html">
-              {"seed comments"}
-          </a>
-          {" at docs.pol.is"}
-        </p>
         {this.props.children}
       </div>
     );
@@ -120,6 +118,20 @@ class CommentModeration extends React.Component {
 
 export default CommentModeration;
 
+
+// <p style={{fontSize: 12}}>
+//   {"Read about "}
+//   <a
+//     href="http://docs.pol.is/usage/CommentModeration.html">
+//       {"comment moderation"}
+//   </a>
+//   {" and "}
+//   <a
+//     href="http://docs.pol.is/usage/SeedComments.html">
+//       {"seed comments"}
+//   </a>
+//   {" at docs.pol.is"}
+// </p>
 
 /*
   todo

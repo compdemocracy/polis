@@ -12,6 +12,14 @@ import SidebarContentHome from "./sidebar-content-home";
 import MaterialTitlePanel from './material-title-panel';
 import Trial from "./framework/trial-banner";
 
+const styles = {
+  container: {
+    backgroundColor: "rgb(240,240,247)",
+    paddingTop: 10,
+    minHeight: "100vh"
+  }
+}
+
 @connect(state => state.user)
 @Radium
 class App extends React.Component {
@@ -117,6 +125,10 @@ class App extends React.Component {
       title = "Moderate Participants";
     } else if (this.props.routes[2] && this.props.routes[2].path === "stats") {
       title = "Conversation Statistics";
+    } else if (this.props.routes[2] && this.props.routes[2].path === "export") {
+      title = "Data Export"
+    } else if (this.props.routes[2] && this.props.routes[2].path === "share") {
+      title = "Share & Embed"
     }
 
     return title;
@@ -137,7 +149,7 @@ class App extends React.Component {
           showHamburger={this.state.sidebarDocked}
           title={this.getTitleFromRoute()}>
           {/*trial condition*/ true ? <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> : ""}
-            <div>
+            <div style={styles.container}>
               { this.props.children }
             </div>
         </MaterialTitlePanel>
