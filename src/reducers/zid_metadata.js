@@ -3,7 +3,8 @@ import * as types from "../actions";
 const zid = (state = {
   loading: false,
   zid_metadata: {},
-  error: null
+  error: null,
+  optimistic: 0 /* trigger render because shallow comparison lolz https://github.com/rackt/redux/issues/585 */
 }, action) => {
   switch (action.type) {
   case types.REQUEST_ZID_METADATA:
@@ -24,6 +25,13 @@ const zid = (state = {
       zid_metadata: {},
       error: null
     });
+  case types.OPTIMISTIC_ZID_METADATA_UPDATE:
+    return Object.assign({}, state, {
+      loading: false,
+      zid_metadata: action.data,
+      error: null,
+      optimistic: Math.random()
+    })
   case types.UPDATE_ZID_METADATA_STARTED:
     return Object.assign({}, state, {
       loading: true,

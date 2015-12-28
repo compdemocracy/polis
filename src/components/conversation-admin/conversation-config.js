@@ -2,7 +2,7 @@ import React from "react";
 import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
-import { handleZidMetadataUpdate } from "../../actions";
+import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from "../../actions";
 import Checkbox from "material-ui/lib/checkbox";
 import InputField from "material-ui/lib/text-field";
 import settings from "../../settings";
@@ -17,7 +17,6 @@ const cardBorderRadius = 3;
 const styles = {
   container: {
     backgroundColor: "rgb(240,240,247)",
-    paddingTop: 10,
     minHeight: "100vh"
   },
   configCard: {
@@ -87,7 +86,20 @@ class ConversationConfig extends React.Component {
     }
   }
 
+  handleConfigInputTyping (field) {
+    return (e) => {
+      this.props.dispatch(
+        optimisticZidMetadataUpdateOnTyping(
+          this.props.zid_metadata,
+          field,
+          e.target.value
+        )
+      )
+    }
+  }
+
   render() {
+    console.log("md", this.props.zid_metadata.topic)
     return (
       <div style={styles.container}>
         <div style={styles.configCard}>
@@ -96,7 +108,7 @@ class ConversationConfig extends React.Component {
             <div style={styles.notification}> <Awesome name="cloud-upload"/> <span>Saving</span> </div> :
             <div style={styles.notification}> <Awesome name="bolt"/> <span>Up to date</span> </div>
         }
-        {this.props.error ? "error" : ""}
+        {this.props.error ? <div style={styles.notification}> <Awesome name="exclamation-circle"/> Error Saving </div> : ""}
         </div>
         <div style={styles.configCard}>
           <p style={styles.sectionHeader}>Topic</p>
@@ -105,7 +117,8 @@ class ConversationConfig extends React.Component {
             style={{width: 360}}
             onBlur={this.handleStringValueChange("topic").bind(this)}
             floatingLabelText="Topic"
-            defaultValue={this.props.zid_metadata.topic}
+            onChange={this.handleConfigInputTyping("topic")}
+            value={this.props.zid_metadata.topic}
             multiLine={true} />
         </div>
         <div style={styles.configCard}>
@@ -116,7 +129,8 @@ class ConversationConfig extends React.Component {
             ref={"description"}
             onBlur={this.handleStringValueChange("description").bind(this)}
             floatingLabelText="Description"
-            defaultValue={this.props.zid_metadata.description}
+            onChange={this.handleConfigInputTyping("description")}
+            value={this.props.zid_metadata.description}
             multiLine={true} />
         </div>
         <div style={styles.configCard}>
@@ -204,7 +218,8 @@ class ConversationConfig extends React.Component {
               style={{width: 360}}
               onBlur={this.handleStringValueChange("style_btn").bind(this)}
               hintText="ie., #e63082"
-              defaultValue={this.props.zid_metadata.style_btn}
+              onChange={this.handleConfigInputTyping("style_btn")}
+              value={this.props.zid_metadata.style_btn}
               floatingLabelText="Customize submit button color"
               multiLine={true} />
           </div>
@@ -214,7 +229,8 @@ class ConversationConfig extends React.Component {
               style={{width: 360}}
               disabled
               onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
-              defaultValue={this.props.zid_metadata.help_bgcolor}
+              onChange={this.handleConfigInputTyping("help_bgcolor")}
+              value={this.props.zid_metadata.help_bgcolor}
               hintText="ie., #e63082"
               floatingLabelText="Customize help text background"
               multiLine={true} />
@@ -225,7 +241,8 @@ class ConversationConfig extends React.Component {
               disabled
               style={{width: 360}}
               onBlur={this.handleStringValueChange("help_color").bind(this)}
-              defaultValue={this.props.zid_metadata.help_color}
+              onChange={this.handleConfigInputTyping("help_color")}
+              value={this.props.zid_metadata.help_color}
               hintText="ie., #e63082"
               floatingLabelText="Customize help text color"
               multiLine={true} />
