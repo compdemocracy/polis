@@ -17,6 +17,7 @@ const styles = {
     padding: '16px 0px',
     color: '#757575',
     textDecoration: 'none',
+    cursor: "pointer"
   },
   divider: {
     margin: '8px 0',

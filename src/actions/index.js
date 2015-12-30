@@ -82,6 +82,10 @@ export const REQUEST_CONVERSATION_STATS = "REQUEST_CONVERSATION_STATS";
 export const RECEIVE_CONVERSATION_STATS = "RECEIVE_CONVERSATION_STATS";
 export const CONVERSATION_STATS_FETCH_ERROR = "CONVERSATION_STATS_FETCH_ERROR";
 
+export const DATA_EXPORT_STARTED = "DATA_EXPORT_STARTED";
+export const DATA_EXPORT_SUCCESS = "DATA_EXPORT_SUCCESS";
+export const DATA_EXPORT_ERROR = "DATA_EXPORT_ERROR";
+
 /* ======= Actions ======= */
 
 /*
@@ -851,6 +855,44 @@ export const populateConversationStatsStore = (conversation_id) => {
     return fetchConversationStats(conversation_id).then(
       res => dispatch(receiveConversationStats(res)),
       err => dispatch(conversationStatsFetchError(err))
+    )
+  }
+}
+
+/* data export */
+
+const dataExportStarted = () => {
+  return {
+    type: DATA_EXPORT_STARTED
+  };
+};
+
+const dataExportSuccess = () => {
+  return {
+    type: DATA_EXPORT_SUCCESS
+  };
+};
+
+const dataExportError = () => {
+  return {
+    type: DATA_EXPORT_ERROR
+  };
+};
+
+const dataExportGet = (conversation_id, format, unixTimestamp) => {
+  //       url += ("&unixTimestamp=" + ((ctx.date/1000) << 0));
+
+  /* https://pol.is/api/v3/dataExport?conversation_id=2arcefpshi&format=csv&unixTimestamp=1447362000 */
+  const url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}&unixTimestamp=${unixTimestamp}`
+  return $.get(url);
+}
+
+export const startDataExport = (conversation_id, format, unixTimestamp) => {
+  return (dispatch) => {
+    dispatch(dataExportStarted() )
+    return dataExportGet(conversation_id, format, unixTimestamp).then(
+      res => dispatch(dataExportSuccess(res)),
+      err => dispatch(dataExportError(err))
     )
   }
 }

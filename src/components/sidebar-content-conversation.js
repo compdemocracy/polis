@@ -24,7 +24,6 @@ const styles = {
   },
   content: {
     padding: '16px',
-    height: '100%',
     backgroundColor: 'white',
   },
 };

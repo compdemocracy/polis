@@ -17,7 +17,8 @@ const cardBorderRadius = 3;
 const styles = {
   container: {
     backgroundColor: "rgb(240,240,247)",
-    minHeight: "100vh"
+    minHeight: "100vh",
+    paddingBottom: 10
   },
   configCard: {
     margin: 10,

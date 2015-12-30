@@ -1,6 +1,6 @@
 import React from "react";
 import { connect } from "react-redux";
-import { populateUserStore } from '../actions'
+import { populateUserStore } from "../actions";
 import Radium from "radium";
 import _ from "lodash";
 import {Link} from "react-router";
