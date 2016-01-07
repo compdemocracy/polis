@@ -182,7 +182,7 @@ export const doSignin = (attrs, dest) => {
           // Force page to load so we can be sure the password is cleared from memory
           // delay a bit so the cookie has time to set
           window.location = "/#" + (dest||"");
-        }, 1000);
+        }, 3000);
       },
       err => dispatch(signinError(err))
     )
