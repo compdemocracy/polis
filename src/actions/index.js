@@ -87,7 +87,7 @@ export const DATA_EXPORT_SUCCESS = "DATA_EXPORT_SUCCESS";
 export const DATA_EXPORT_ERROR = "DATA_EXPORT_ERROR";
 
 export const SIGNIN_INITIATED = "SIGNIN_INITIATED";
-export const SIGNIN_SUCCESSFUL = "SIGNIN_SUCCESSFUL";
+// export const SIGNIN_SUCCESSFUL = "SIGNIN_SUCCESSFUL";
 export const SIGNIN_ERROR = "SIGNIN_ERROR";
 
 export const SIGNOUT_INITIATED = "SIGNOUT_INITIATED";
@@ -150,11 +150,7 @@ const signinInitiated = () => {
   };
 };
 
-const signinSuccessful = () => {
-  return {
-    type: SIGNIN_SUCCESSFUL
-  };
-};
+// SIGNIN_SUCCESSFUL Not needed since redirecting to clear password from memory
 
 const signinError = (err) => {
   return {
@@ -163,8 +159,7 @@ const signinError = (err) => {
   }
 }
 
-const signinPost = (attrs, dest) => {
-
+const signinPost = (attrs) => {
   return $.ajax({
     url:  "/api/v3/auth/login",
     type: "POST",
@@ -182,7 +177,9 @@ export const doSignin = (attrs, dest) => {
     console.log(attrs)
     dispatch(signinInitiated())
     return signinPost(attrs, dest).then(
-      res => dispatch(signinSuccessful(res)),
+      () => {
+        window.location = "/#/" + (dest||"");
+      },
       err => dispatch(signinError(err))
     )
   }

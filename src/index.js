@@ -52,8 +52,8 @@ class Root extends React.Component {
       <div>
         <Provider store={store}>
           <Router>
-            <Route path="signin" component={SignIn}/>
-            <Route path="signout" component={SignOut}/>
+            <Route path="signin/**/*" component={SignIn}/>
+            <Route path="signout/**" component={SignOut}/>
             <Route path="/" component={Console}>
               <Route path="integrate" component={Integrate}/>
               <Route path="conversations" component={Conversations}/>

@@ -50,8 +50,7 @@ class App extends React.Component {
   checkForAuth(props) {
     if (!_.isUndefined(props.isLoggedIn)) {
       if (!props.isLoggedIn) {
-        // TODO append current route to end of /signin/
-        window.location = "/#/signin";
+        window.location = "/#/signin" + this.props.location.pathname;
       }
     }
   }

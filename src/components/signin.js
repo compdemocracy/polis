@@ -7,6 +7,7 @@ import Radium from "radium";
 @connect()
 @Radium
 class SignIn extends React.Component {
+
   handleLoginClicked() {
 
     const attrs = {
@@ -14,8 +15,13 @@ class SignIn extends React.Component {
       password: this.refs.password.value
     }
 
-    this.props.dispatch(doSignin(attrs))
+    var dest = this.props.location.pathname.slice("/signin".length);
+
+    this.props.dispatch(
+      doSignin(attrs),
+      dest);
   }
+
   render() {
     return (
       <div>
