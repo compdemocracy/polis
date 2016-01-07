@@ -86,6 +86,10 @@ export const DATA_EXPORT_STARTED = "DATA_EXPORT_STARTED";
 export const DATA_EXPORT_SUCCESS = "DATA_EXPORT_SUCCESS";
 export const DATA_EXPORT_ERROR = "DATA_EXPORT_ERROR";
 
+export const SIGNIN_INITIATED = "SIGNIN_INITIATED";
+export const SIGNIN_SUCCESSFUL = "SIGNIN_SUCCESSFUL";
+export const SIGNIN_ERROR = "SIGNIN_ERROR";
+
 export const SIGNOUT_INITIATED = "SIGNOUT_INITIATED";
 export const SIGNOUT_SUCCESSFUL = "SIGNOUT_SUCCESSFUL";
 export const SIGNOUT_ERROR = "SIGNOUT_ERROR";
@@ -133,6 +137,53 @@ export const populateUserStore = () => {
     return fetchUser().then(
       res => dispatch(receiveUser(res)),
       err => dispatch(userFetchError(err))
+    )
+  }
+}
+
+
+/* signin */
+
+const signinInitiated = () => {
+  return {
+    type: SIGNIN_INITIATED
+  };
+};
+
+const signinSuccessful = () => {
+  return {
+    type: SIGNIN_SUCCESSFUL
+  };
+};
+
+const signinError = (err) => {
+  return {
+    type: SIGNIN_ERROR,
+    data: err
+  }
+}
+
+const signinPost = (attrs, dest) => {
+
+  return $.ajax({
+    url:  "/api/v3/auth/login",
+    type: "POST",
+    dataType: "json",
+    xhrFields: {
+      withCredentials: true
+    },
+    // crossDomain: true,
+    data: attrs
+  });
+}
+
+export const doSignin = (attrs, dest) => {
+  return (dispatch) => {
+    console.log(attrs)
+    dispatch(signinInitiated())
+    return signinPost(attrs, dest).then(
+      res => dispatch(signinSuccessful(res)),
+      err => dispatch(signinError(err))
     )
   }
 }
