@@ -197,11 +197,7 @@ const signoutInitiated = () => {
   };
 };
 
-const signoutSuccessful = () => {
-  return {
-    type: SIGNOUT_SUCCESSFUL
-  };
-};
+// SIGNOUT_SUCCESSFUL Not needed since redirecting to clear old user's state from memory
 
 const signoutError = (err) => {
   return {
@@ -211,18 +207,26 @@ const signoutError = (err) => {
 }
 
 const signoutPost = (dest) => {
-   // relying on server to clear cookies
-    return $.post("/api/v3/auth/deregister", {}).always(function() {
-      window.location = dest || "/about";
-      // Backbone.history.navigate("/", {trigger: true});
+  // relying on server to clear cookies
+  return $.ajax({
+    type: "POST",
+    url: "/api/v3/auth/deregister",
+    data: {},
+    dataType: "text", // server returns an empty response, so can't parse as JSON
     });
 }
 
-export const doSignout = () => {
+export const doSignout = (dest) => {
   return (dispatch) => {
-    dispatch(signoutInitiated())
+    dispatch(signoutInitiated());
     return signoutPost().then(
-      res => dispatch(signoutSuccessful(res)),
+      res => {
+        setTimeout(() => {
+          // Force page to load so we can be sure the old user's state is cleared from memory
+          // delay a bit so the cookies have time to clear too.
+          window.location = dest ? ("/#" + dest) : "/about";
+        }, 1000);
+      },
       err => dispatch(signoutError(err))
     )
   }

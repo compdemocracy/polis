@@ -9,7 +9,8 @@ import { doSignout } from "../actions";
 class SignOut extends React.Component {
 
   componentWillMount () {
-    this.props.dispatch(doSignout())
+    var dest = this.props.location.pathname.slice("/signout".length);
+    this.props.dispatch(doSignout(dest))
   }
 
   render() {
