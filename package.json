@@ -45,7 +45,7 @@
     "react-highlight": "^0.5.1",
     "react-markdown": "^1.1.0",
     "react-redux": "^4.0.0",
-    "react-router": "^1.0.0-rc3",
+    "react-router": "^2.0.0-rc4",
     "react-sidebar": "^2.0.0",
     "react-tap-event-plugin": "^0.2.1",
     "redux": "^3.0.2",
