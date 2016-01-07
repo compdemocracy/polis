@@ -10,7 +10,7 @@ class SignIn extends React.Component {
   handleLoginClicked() {
 
     const attrs = {
-      username: this.refs.username.value,
+      email: this.refs.email.value,
       password: this.refs.password.value
     }
 
@@ -21,7 +21,7 @@ class SignIn extends React.Component {
       <div>
         <h1>Sign In</h1>
         <form>
-          <input ref="username" type="text"/>
+          <input ref="email" type="text"/>
           <input ref="password" type="password"/>
           <button onClick={this.handleLoginClicked.bind(this)}>
             Sign In
