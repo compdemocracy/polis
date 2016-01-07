@@ -8,8 +8,8 @@ import Radium from "radium";
 @Radium
 class SignIn extends React.Component {
 
-  handleLoginClicked() {
-
+  handleLoginClicked(e) {
+    e.preventDefault();
     const attrs = {
       email: this.refs.email.value,
       password: this.refs.password.value
@@ -17,9 +17,7 @@ class SignIn extends React.Component {
 
     var dest = this.props.location.pathname.slice("/signin".length);
 
-    this.props.dispatch(
-      doSignin(attrs),
-      dest);
+    this.props.dispatch(doSignin(attrs, dest));
   }
 
   render() {

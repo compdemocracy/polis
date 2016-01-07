@@ -176,9 +176,13 @@ export const doSignin = (attrs, dest) => {
   return (dispatch) => {
     console.log(attrs)
     dispatch(signinInitiated())
-    return signinPost(attrs, dest).then(
+    return signinPost(attrs).then(
       () => {
-        window.location = "/#/" + (dest||"");
+        setTimeout(() => {
+          // Force page to load so we can be sure the password is cleared from memory
+          // delay a bit so the cookie has time to set
+          window.location = "/#" + (dest||"");
+        }, 1000);
       },
       err => dispatch(signinError(err))
     )
