@@ -52,10 +52,6 @@ class Root extends React.Component {
       <div>
         <Provider store={store}>
           <Router>
-            <Route path="signin" component={SignIn}/>
-            <Route path="signin/**/*" component={SignIn}/>
-            <Route path="signout" component={SignOut}/>
-            <Route path="signout/**/*" component={SignOut}/>
             <Route path="/" component={Console}>
               <Route path="integrate" component={Integrate}/>
               <Route path="conversations" component={Conversations}/>
@@ -79,6 +75,10 @@ class Root extends React.Component {
                 <Route path="export" component={DataExport}/>
               </Route>
             </Route>
+            <Route path="signin" component={SignIn}/>
+            <Route path="signin/**/*" component={SignIn}/>
+            <Route path="signout" component={SignOut}/>
+            <Route path="signout/**/*" component={SignOut}/>
           </Router>
         </Provider>
         <DebugPanel top right bottom>
