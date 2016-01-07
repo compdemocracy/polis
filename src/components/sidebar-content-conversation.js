@@ -86,6 +86,12 @@ class SidebarContentConversation extends React.Component {
           <a style={styles.sidebarLink} target="blank" href="https://twitter.com/UsePolis">
             <Awesome name="twitter"/><span style={{marginLeft: 10}}>@UsePolis</span>
           </a>
+          <Link
+            style={styles.sidebarLink}
+            to={"/signout"}>
+            <Awesome name="sign-out"/>
+            <span style={{marginLeft: 10}}>Sign Out</span>
+          </Link>
         </div>
       </MaterialTitlePanel>
     );

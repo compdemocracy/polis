@@ -16,6 +16,8 @@ import configureStore from "./store";
 import Console from "./components/console";
 
 // top level navigation
+import SignIn from "./components/signin";
+import SignOut from "./components/signout";
 import Conversations from "./components/conversations";
 import Integrate from "./components/integrate";
 // this may become '/' defaultview - with instructions if no stats to show
@@ -50,6 +52,8 @@ class Root extends React.Component {
       <div>
         <Provider store={store}>
           <Router>
+            <Route path="signin" component={SignIn}/>
+            <Route path="signout" component={SignOut}/>
             <Route path="/" component={Console}>
               <Route path="integrate" component={Integrate}/>
               <Route path="conversations" component={Conversations}/>

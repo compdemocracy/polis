@@ -86,6 +86,10 @@ export const DATA_EXPORT_STARTED = "DATA_EXPORT_STARTED";
 export const DATA_EXPORT_SUCCESS = "DATA_EXPORT_SUCCESS";
 export const DATA_EXPORT_ERROR = "DATA_EXPORT_ERROR";
 
+export const SIGNOUT_INITIATED = "SIGNOUT_INITIATED";
+export const SIGNOUT_SUCCESSFUL = "SIGNOUT_SUCCESSFUL";
+export const SIGNOUT_ERROR = "SIGNOUT_ERROR";
+
 /* ======= Actions ======= */
 
 /*
@@ -128,7 +132,46 @@ export const populateUserStore = () => {
     dispatch(requestUser())
     return fetchUser().then(
       res => dispatch(receiveUser(res)),
-      err => dispatch(conversationsError(err))
+      err => dispatch(userFetchError(err))
+    )
+  }
+}
+
+/* signout */
+
+const signoutInitiated = () => {
+  return {
+    type: SIGNOUT_INITIATED
+  };
+};
+
+const signoutSuccessful = () => {
+  return {
+    type: SIGNOUT_SUCCESSFUL
+  };
+};
+
+const signoutError = (err) => {
+  return {
+    type: SIGNOUT_ERROR,
+    data: err
+  }
+}
+
+const signoutPost = (dest) => {
+   // relying on server to clear cookies
+    return $.post("/api/v3/auth/deregister", {}).always(function() {
+      window.location = dest || "/about";
+      // Backbone.history.navigate("/", {trigger: true});
+    });
+}
+
+export const doSignout = () => {
+  return (dispatch) => {
+    dispatch(signoutInitiated())
+    return signoutPost().then(
+      res => dispatch(signoutSuccessful(res)),
+      err => dispatch(signoutError(err))
     )
   }
 }
@@ -896,3 +939,6 @@ export const startDataExport = (conversation_id, format, unixTimestamp) => {
     )
   }
 }
+
+
+

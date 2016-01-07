@@ -39,6 +39,20 @@ class App extends React.Component {
     var mql = window.matchMedia(`(min-width: 800px)`);
     mql.addListener(this.mediaQueryChanged.bind(this));
     this.setState({mql: mql, docked: mql.matches});
+    this.checkForAuth(this.props);
+  }
+
+  componentWillReceiveProps(nextProps, nextContext) {
+    this.checkForAuth(nextProps);
+  }
+
+  checkForAuth(props) {
+    if (!_.isUndefined(props.isLoggedIn)) {
+      if (!props.isLoggedIn) {
+        // TODO append current route to end of /signin/
+        window.location = "/#/signin";
+      }
+    }
   }
 
   componentDidMount () {
