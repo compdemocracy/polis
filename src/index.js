@@ -4,7 +4,7 @@ import $ from 'jquery';
 import React from 'react';
 import ReactDOM from 'react-dom';
 // React Router
-import { Router, Route, Link, IndexRoute } from 'react-router';
+import { Router, Route, Link, IndexRoute, browserHistory } from 'react-router';
 // React Redux
 import { Provider, connect } from 'react-redux';
 // Redux Devtools
@@ -51,7 +51,7 @@ class Root extends React.Component {
     return (
       <div>
         <Provider store={store}>
-          <Router>
+          <Router history={browserHistory}>
             <Route path="/" component={Console}>
               <Route path="integrate" component={Integrate}/>
               <Route path="conversations" component={Conversations}/>

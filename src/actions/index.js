@@ -181,7 +181,7 @@ export const doSignin = (attrs, dest) => {
         setTimeout(() => {
           // Force page to load so we can be sure the password is cleared from memory
           // delay a bit so the cookie has time to set
-          window.location = "/#" + (dest||"");
+          window.location = dest||"";
         }, 3000);
       },
       err => dispatch(signinError(err))
@@ -224,7 +224,7 @@ export const doSignout = (dest) => {
         setTimeout(() => {
           // Force page to load so we can be sure the old user's state is cleared from memory
           // delay a bit so the cookies have time to clear too.
-          window.location = dest ? ("/#" + dest) : "/about";
+          window.location = dest || "/about";
         }, 1000);
       },
       err => dispatch(signoutError(err))
@@ -505,7 +505,7 @@ export const handleCreateConversationSubmit = (routeTo) => {
       },
       err => dispatch(createConversationPostError(err))
     ).then(function(res) {
-      window.location = "/#/m/" + res.conversation_id;
+      window.location = "/m/" + res.conversation_id;
     });
   };
 }
