@@ -12211,10 +12211,12 @@ function browserSupportsPushState(req) {
 
 // serve up index.html in response to anything starting with a number
 var hostname = process.env.STATIC_FILES_HOST;
-var port = process.env.STATIC_FILES_PORT;
+var portForParticipationFiles = process.env.STATIC_FILES_PORT;
+var portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
+
 var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", {'Content-Type': "text/html"});
 
-function fetchIndex(req, res, preloadData) {
+function fetchIndex(req, res, preloadData, port) {
     var headers = {'Content-Type': "text/html"};
     if (!devMode) {
         _.extend(headers, {
@@ -12242,8 +12244,8 @@ function fetchIndex(req, res, preloadData) {
     }
 }
 
-function fetchIndexWithoutPreloadData(req, res) {
-  return fetchIndex(req, res, {});
+function fetchIndexWithoutPreloadData(req, res, port) {
+  return fetchIndex(req, res, {}, port);
 }
 
 function ifDefinedFirstElseSecond(first, second) {
@@ -12313,10 +12315,19 @@ function fetchIndexForConversation(req, res) {
             conversation: x,
             // Nothing user-specific can go here, since we want to cache these per-conv index files on the CDN.
         };
-        fetchIndex(req, res, preloadData);
+        fetchIndex(req, res, preloadData, portForParticipationFiles);
     }).catch(function(err) {
         fail(res, 500, "polis_err_fetching_conversation_info2", err);
     });
+}
+
+
+
+
+function fetchIndexForAdminPage(req, res) {
+    console.log("fetchIndexForAdminPage", req.path);
+
+    fetchIndex(req, res, preloadData, portForAdminFiles);
 }
 
 
@@ -12324,7 +12335,6 @@ app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversati
 app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
 app.get(/^\/share\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // share view
 app.get(/^\/summary\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // summary view
-app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // moderation view
 app.get(/^\/ot\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view, one-time url
 // TODO consider putting static files on /static, and then using a catch-all to serve the index.
 app.get(/^\/conversation\/create(\/.*)?/, fetchIndexWithoutPreloadData);
@@ -12333,6 +12343,14 @@ app.get(/^\/user\/login(\/.*)?$/, fetchIndexWithoutPreloadData);
 app.get(/^\/welcome\/.*$/, fetchIndexWithoutPreloadData);
 app.get(/^\/settings(\/.*)?$/, fetchIndexWithoutPreloadData);
 app.get(/^\/user\/logout(\/.*)?$/, fetchIndexWithoutPreloadData);
+
+// admin dash routes
+app.get(/^\/m\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/integrate(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/account(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
 
 
 app.get("/iip/:conversation_id",
