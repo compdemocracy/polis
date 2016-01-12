@@ -2006,7 +2006,8 @@ var whitelistedDomains = [
   "https://survey.pol.is",
   "http://polisapp.herokuapp.com",
   "https://polisapp.herokuapp.com",
-  "http://localhost:8000",
+  "http://localhost:5001",
+  "http://localhost:5002",
   "https://canvas.instructure.com", // LTI
   "http://canvas.uw.edu", // LTI
   "https://canvas.uw.edu", // LTI
