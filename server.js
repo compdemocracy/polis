@@ -11564,7 +11564,7 @@ function(req, res) {
     } else {
         path += "app_instructions_blank.png";
     }
-    var doFetch = makeFileFetcher(hostname, port, path, {'Content-Type': "image/png"});
+    var doFetch = makeFileFetcher(hostname, portForParticipationFiles, path, {'Content-Type': "image/png"});
     doFetch(req, res);
 });
 
@@ -12214,7 +12214,7 @@ var hostname = process.env.STATIC_FILES_HOST;
 var portForParticipationFiles = process.env.STATIC_FILES_PORT;
 var portForAdminFiles = process.env.STATIC_FILES_ADMINDASH_PORT;
 
-var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, port, "/unsupportedBrowser.html", {'Content-Type': "text/html"});
+var fetchUnsupportedBrowserPage = makeFileFetcher(hostname, portForParticipationFiles, "/unsupportedBrowser.html", {'Content-Type': "text/html"});
 
 function fetchIndex(req, res, preloadData, port) {
     var headers = {'Content-Type': "text/html"};
@@ -12322,14 +12322,7 @@ function fetchIndexForConversation(req, res) {
 }
 
 
-
-
-function fetchIndexForAdminPage(req, res) {
-    console.log("fetchIndexForAdminPage", req.path);
-
-    fetchIndex(req, res, preloadData, portForAdminFiles);
-}
-
+var fetchIndexForAdminPage = makeFileFetcher(hostname, portForAdminFiles, "/index_admin.html", {'Content-Type': "text/html"});
 
 app.get(/^\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // conversation view
 app.get(/^\/explore\/[0-9][0-9A-Za-z]+(\/.*)?/, fetchIndexForConversation); // power view
@@ -12351,6 +12344,8 @@ app.get(/^\/account(\/.*)?/, fetchIndexForAdminPage);
 app.get(/^\/conversations(\/.*)?/, fetchIndexForAdminPage);
 app.get(/^\/signout(\/.*)?/, fetchIndexForAdminPage);
 app.get(/^\/signin(\/.*)?/, fetchIndexForAdminPage);
+app.get(/^\/dist\/admin_bundle.js$/, makeFileFetcher(hostname, portForAdminFiles, "/dist/admin_bundle.js", {'Content-Type': "application/javascript"}));
+app.get(/^\/__webpack_hmr$/, makeFileFetcher(hostname, portForAdminFiles, "/__webpack_hmr", {'Content-Type': "eventsource"}));
 
 
 app.get("/iip/:conversation_id",
@@ -12432,32 +12427,32 @@ app.get(/^\/demo\/[0-9][0-9A-Za-z]+/, fetchIndexForConversation);
 app.get(/^\/pwreset.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/prototype.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/plan.*/, fetchIndexWithoutPreloadData);
-app.get(/^\/professors$/, makeFileFetcher(hostname, port, "/lander.html", {'Content-Type': "text/html"}));
-app.get(/^\/football$/, makeFileFetcher(hostname, port, "/football.html", {'Content-Type': "text/html"}));
-app.get(/^\/news$/, makeFileFetcher(hostname, port, "/news.html", {'Content-Type': "text/html"}));
-app.get(/^\/pricing$/, makeFileFetcher(hostname, port, "/pricing.html", {'Content-Type': "text/html"}));
-app.get(/^\/company$/, makeFileFetcher(hostname, port, "/company.html", {'Content-Type': "text/html"}));
+app.get(/^\/professors$/, makeFileFetcher(hostname, portForParticipationFiles, "/lander.html", {'Content-Type': "text/html"}));
+app.get(/^\/football$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {'Content-Type': "text/html"}));
+app.get(/^\/news$/, makeFileFetcher(hostname, portForParticipationFiles, "/news.html", {'Content-Type': "text/html"}));
+app.get(/^\/pricing$/, makeFileFetcher(hostname, portForParticipationFiles, "/pricing.html", {'Content-Type': "text/html"}));
+app.get(/^\/company$/, makeFileFetcher(hostname, portForParticipationFiles, "/company.html", {'Content-Type': "text/html"}));
 app.get(/^\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
 app.get(/^\/docs\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
-app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, port, "/api_v3.html", {'Content-Type': "text/html"}));
-app.get(/^\/embed$/, makeFileFetcher(hostname, port, "/embed.html", {'Content-Type': "text/html"}));
-app.get(/^\/politics$/, makeFileFetcher(hostname, port, "/politics.html", {'Content-Type': "text/html"}));
-app.get(/^\/marketers$/, makeFileFetcher(hostname, port, "/marketers.html", {'Content-Type': "text/html"}));
-app.get(/^\/faq$/, makeFileFetcher(hostname, port, "/faq.html", {'Content-Type': "text/html"}));
-app.get(/^\/blog$/, makeFileFetcher(hostname, port, "/blog.html", {'Content-Type': "text/html"}));
-app.get(/^\/billions$/, makeFileFetcher(hostname, port, "/billions.html", {'Content-Type': "text/html"}));
-app.get(/^\/plus$/, makeFileFetcher(hostname, port, "/plus.html", {'Content-Type': "text/html"}));
-app.get(/^\/tos$/, makeFileFetcher(hostname, port, "/tos.html", {'Content-Type': "text/html"}));
-app.get(/^\/privacy$/, makeFileFetcher(hostname, port, "/privacy.html", {'Content-Type': "text/html"}));
-app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, port, "/canvas_setup_backup_instructions.html", {'Content-Type': "text/html"}));
-app.get(/^\/styleguide$/, makeFileFetcher(hostname, port, "/styleguide.html", {'Content-Type': "text/html"}));
+app.get(/^\/docs\/api\/v3$/, makeFileFetcher(hostname, portForParticipationFiles, "/api_v3.html", {'Content-Type': "text/html"}));
+app.get(/^\/embed$/, makeFileFetcher(hostname, portForParticipationFiles, "/embed.html", {'Content-Type': "text/html"}));
+app.get(/^\/politics$/, makeFileFetcher(hostname, portForParticipationFiles, "/politics.html", {'Content-Type': "text/html"}));
+app.get(/^\/marketers$/, makeFileFetcher(hostname, portForParticipationFiles, "/marketers.html", {'Content-Type': "text/html"}));
+app.get(/^\/faq$/, makeFileFetcher(hostname, portForParticipationFiles, "/faq.html", {'Content-Type': "text/html"}));
+app.get(/^\/blog$/, makeFileFetcher(hostname, portForParticipationFiles, "/blog.html", {'Content-Type': "text/html"}));
+app.get(/^\/billions$/, makeFileFetcher(hostname, portForParticipationFiles, "/billions.html", {'Content-Type': "text/html"}));
+app.get(/^\/plus$/, makeFileFetcher(hostname, portForParticipationFiles, "/plus.html", {'Content-Type': "text/html"}));
+app.get(/^\/tos$/, makeFileFetcher(hostname, portForParticipationFiles, "/tos.html", {'Content-Type': "text/html"}));
+app.get(/^\/privacy$/, makeFileFetcher(hostname, portForParticipationFiles, "/privacy.html", {'Content-Type': "text/html"}));
+app.get(/^\/canvas_setup_backup_instructions$/, makeFileFetcher(hostname, portForParticipationFiles, "/canvas_setup_backup_instructions.html", {'Content-Type': "text/html"}));
+app.get(/^\/styleguide$/, makeFileFetcher(hostname, portForParticipationFiles, "/styleguide.html", {'Content-Type': "text/html"}));
 // Duplicate url for content at root. Needed so we have something for "About" to link to.
 app.get(/^\/about$/, makeRedirectorTo("/billions"));
-app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, port, "/football.html", {'Content-Type': "text/html"}));
-app.get(/^\/wimp$/, makeFileFetcher(hostname, port, "/wimp.html", {'Content-Type': "text/html"}));
-app.get(/^\/edu$/, makeFileFetcher(hostname, port, "/lander.html", {'Content-Type': "text/html"}));
-app.get(/^\/try$/, makeFileFetcher(hostname, port, "/try.html", {'Content-Type': "text/html"}));
-app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, port, "/twitterAuthReturn.html", {'Content-Type': "text/html"}));
+app.get(/^\/s\/CTE\/?$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {'Content-Type': "text/html"}));
+app.get(/^\/wimp$/, makeFileFetcher(hostname, portForParticipationFiles, "/wimp.html", {'Content-Type': "text/html"}));
+app.get(/^\/edu$/, makeFileFetcher(hostname, portForParticipationFiles, "/lander.html", {'Content-Type': "text/html"}));
+app.get(/^\/try$/, makeFileFetcher(hostname, portForParticipationFiles, "/try.html", {'Content-Type': "text/html"}));
+app.get(/^\/twitterAuthReturn$/, makeFileFetcher(hostname, portForParticipationFiles, "/twitterAuthReturn.html", {'Content-Type': "text/html"}));
 
 // proxy for fetching twitter profile images
 // Needed because Twitter doesn't provide profile pics in response to a request - you have to fetch the user info, then parse that to get the URL, requiring two round trips.
@@ -12504,7 +12499,7 @@ function(req, res) {
 
 
 var conditionalIndexFetcher = (function() {
-    var fetchLander = makeFileFetcher(hostname, port, "/billions.html", {'Content-Type': "text/html"});
+    var fetchLander = makeFileFetcher(hostname, portForParticipationFiles, "/billions.html", {'Content-Type': "text/html"});
     return function(req, res) {
         if (hasAuthToken(req)) {
             // user is signed in, serve the app
