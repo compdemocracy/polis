@@ -8,8 +8,8 @@ module.exports = {
     './src/index'
   ],
   output: {
-    path: path.join(__dirname, 'dist'),
-    filename: 'bundle.js',
+    path: path.join(__dirname, 'devel'),
+    filename: 'admin_bundle.js',
     publicPath: '/dist/'
   },
   plugins: [
