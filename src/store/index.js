@@ -10,7 +10,10 @@ const middleware = [thunk];
 let finalCreateStore;
 
 if (process.env.NODE_ENV === 'production') {
-  finalCreateStore = applyMiddleware(...middleware)(createStore);
+  finalCreateStore = compose(
+    applyMiddleware(...middleware),
+    require('redux-devtools').devTools()
+  )(createStore);
 } else {
   finalCreateStore = compose(
     applyMiddleware(...middleware),
