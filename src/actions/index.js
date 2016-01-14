@@ -123,6 +123,7 @@ const receiveUser = (data) => {
 const userFetchError = (err) => {
   return {
     type: USER_FETCH_ERROR,
+    status: err.status,
     data: err
   }
 }

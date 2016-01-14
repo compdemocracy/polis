@@ -23,6 +23,7 @@ const user = (state = {
       loading: false,
       user: null,
       error: true,
+      status: action.status,
       isLoggedIn: false
     });
   default:
