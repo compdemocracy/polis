@@ -129,7 +129,7 @@ const userFetchError = (err) => {
 }
 
 const fetchUser = () => {
-  return $.get('/api/v3/users');
+  return $.get('/api/v3/users?errIfNoAuth=true');
 }
 
 export const populateUserStore = () => {
