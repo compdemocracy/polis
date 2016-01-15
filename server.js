@@ -5699,9 +5699,16 @@ function(req, res) {
 
 app.get("/api/v3/users",
     moveToBody,
+    want("errIfNoAuth", getBool, assignToP),
     authOptional(assignToP),
 function(req, res) {
     var uid = req.p.uid;
+
+    if (req.p.errIfNoAuth && !uid) {
+        fail(res, 401, "polis_error_auth_needed", err);
+        return;
+    }
+
     getUser(uid).then(function(user) {
         res.status(200).json(user);
     }, function(err) {
