@@ -28,7 +28,7 @@
     "gulp-eslint": "^0.15.0",
     "http-proxy": "~0.10.3",
     "intercom.io": "0.0.5",
-    "lru-cache": "^3.0.0",
+    "lru-cache": "3.0.0",
     "mailgun": "~0.4.2",
     "mimelib": "~0.2.16",
     "mongodb": "2.0.46",
