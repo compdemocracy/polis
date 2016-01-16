@@ -76,8 +76,10 @@ class Root extends React.Component {
               </Route>
             </Route>
             <Route path="signin" component={SignIn}/>
+            <Route path="signin/*" component={SignIn}/>
             <Route path="signin/**/*" component={SignIn}/>
             <Route path="signout" component={SignOut}/>
+            <Route path="signout/*" component={SignOut}/>
             <Route path="signout/**/*" component={SignOut}/>
           </Router>
         </Provider>
