@@ -148,6 +148,10 @@ class App extends React.Component {
     return title;
   }
   render() {
+    if (!this.props.isLoggedIn) {
+      return <div>spinner!</div>;
+    }
+
     return (
       <Sidebar
         sidebar={
