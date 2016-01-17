@@ -6,6 +6,7 @@
   ;:aot :all
   ; faster run time in exchange for slower startup time
   :jvm-opts ^:replace []
+  :repl-options {:timeout 120000}
   :target-path "target/%s"
   :javac-target "1.7"
   :repositories {"twitter4j" "http://twitter4j.org/maven2"}
@@ -68,7 +69,7 @@
                  [environ "0.4.0"]]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
-  :main polismath.system
+  :main polismath.runner
   :min-lein-version "2.3.0"
   :profiles {
     :dev {

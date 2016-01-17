@@ -66,7 +66,7 @@
 (defrecord Mongo [config conn db]
   component/Lifecycle
   (start [component]
-    (log/info "Starting Mongo component with mongo-url:" (:mongo-url config))
+    (log/info "Starting Mongo component")
     (if-not (and conn db)
       (-> component
           get-connection-and-db!

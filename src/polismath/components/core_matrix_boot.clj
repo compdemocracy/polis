@@ -11,7 +11,9 @@
   (encode-seq (into-array v) jsonGenerator))
 
 (def matrix-types [mikera.vectorz.Vector
-                   clojure.core.matrix.impl.ndarray.NDArray])
+                   ;; XXX Need to figure out why this doesn't exist yet
+                   ;clojure.core.matrix.impl.ndarray.NDArray
+                   ])
 
 (defrecord CoreMatrixBooter [config]
   component/Lifecycle

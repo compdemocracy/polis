@@ -19,6 +19,9 @@
   (when (and x (not (= x "")))
     (keyword x)))
 
+
+;; XXX This should be computed; that is be a function of the rules.
+;; :default specification should be in the rules themselves
 (def defaults
   {:nrepl-port 12345
    :math-env   :dev
@@ -27,10 +30,13 @@
    :primary-polis-url :localhost ;; Must do it in the component load...
    :database   {:pool-size 3}
    :math-schema-date "2014_08_22"
-   :export-expiry-days 10
+   :export     {:expiry-days 10}
    :storm      {:execution    :local
                 :cluster-name "polis-cluster"
-                :workers      3}
+                :workers      3
+                :spouts {:votes {:polling-interval 2000}
+                         :moderation {:polling-interval 5000}}
+                }
    :math       {:matrix-implementation :vectorz}
    })
 
@@ -43,7 +49,7 @@
    :database-url               {:path [:database :url]}
    :database-for-reads-name    {:path [:database :reads-name]}
    :database-pool-size         {:path [:database :pool-size] :parse ->long}
-   :mongo-url                  {:path [:mongo :url]}
+   :mongolab-uri               {:path [:mongo :url]}
    :mailgun-api-key            {:path [:email :api-key]}
    :mailgun-url                {:path [:email :url]}
    :primary-polis-url          {:path [:email :api-key]}
@@ -64,10 +70,11 @@
                                 :doc "The hostname for sending messages to graphite"}
    :export-expiry-days         {:path [:export :expiry-days] :parse ->long
                                 :doc "The number of days before a mongo record representing a data exports gets removed"}
-   :vote-polling-interval      {:parse ->long
+   :vote-polling-interval      {:parse ->long :path [:storm :spouts :votes :polling-interval]
                                 :doc "The polling interval for votes, in milliseconds"}
-   :mod-polling-interval       {:parse ->long
+   :mod-polling-interval       {:parse ->long :path [:storm :spouts :moderation :polling-interval]
                                 :doc "The polling interval for moderation, in milliseconds"}
+   ;; Need to think more about the semantics of a recompute; once; always; only if not booted; etc? XXX
    :recompute                  {:parse boolean
                                 :doc "Whether or not to perform a recompute"}
    ;; Need to think about how to handle options

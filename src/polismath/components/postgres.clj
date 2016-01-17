@@ -34,7 +34,7 @@
   component/Lifecycle
   (start [component]
     (log/info "Starting Postgres component")
-    (let [db-spec (-> config :db-uri heroku-db-spec)]
+    (let [db-spec (-> config :database :url heroku-db-spec)]
       (assoc component :db-spec db-spec)))
   (stop [component]
     (log/info "Stopping Postgres component")

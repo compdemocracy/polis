@@ -1,6 +1,7 @@
 (ns polismath.stormspec
   (:import [backtype.storm StormSubmitter LocalCluster])
-  (:require [polismath.conv-man :as cm]
+  (:require [polismath.system :as system]
+            [polismath.conv-man :as cm]
             [polismath.components.postgres :as postgres]
             [polismath.components.env :as env]
             [polismath.math.named-matrix :as nm]
@@ -25,15 +26,26 @@
 ;(matrix/matrix [[1 2 3] [4 5 6]])
 
 
+(defn create-and-run-base-system!
+  [config]
+  (->> config system/base-system (utils/apply-kwargs component/system-map) component/start))
+
 (storm/defspout poll-spout ["type" "zid" "batch"]
-  {:params [storm-cluster type poll-fn timestamp-key poll-interval] :prepare true}
+  ;; Should fork timestamp key on type as well XXX
+  {:params [system-config type timestamp-key] :prepare true}
   [conf context collector]
   (let [last-timestamp (atom 0)
-        postgres (-> storm-cluster :postgres)]
+        ;; Need config for storm to be set under keys of :vote and :mod, so the spouts are configurable
+        ;; more simply from this; But I guess some of these things should maybe not be constructable this
+        ;; way...
+        ;system (-> system-config system/base-system component/system-map component/start)
+        {:as spout-config :keys [polling-interval]} (-> system-config :storm :spouts type)
+        system (create-and-run-base-system! system-config)
+        postgres (-> system :postgres)]
     (storm/spout
       (nextTuple []
         (log/info "Polling" type ">" @last-timestamp)
-        (let [poll-function (get {:poll postgres/poll :mod-poll postgres/mod-poll} poll-fn)
+        (let [poll-function (get {:votes postgres/poll :moderation postgres/mod-poll} type)
               results (poll-function postgres @last-timestamp)
               grouped-batches (group-by :zid results)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
@@ -42,64 +54,59 @@
           ; Update timestamp if needed
           (swap! last-timestamp
                  (fn [last-ts] (apply max 0 last-ts (map timestamp-key results)))))
-        (Thread/sleep poll-interval))
+        (Thread/sleep polling-interval))
       (ack [id]))))
 
 ;; XXX Should build a recompute trigger spout, which just sends a recompute message type with nil batch payload
 
 (storm/defbolt conv-update-bolt []
-  {:params [storm-cluster] :prepare true}
+  {:params [system-config] :prepare true}
   [conf context collector]
-  (let [conv-man (:conversation-manager storm-cluster)
-        config (:config storm-cluster)]
+  (let [system (create-and-run-base-system! system-config)
+        ;system (-> system-config system/base-system component/system-map component/start)
+        conv-man (:conversation-manager system)]
     (storm/bolt
       (execute [tuple]
         (let [[message-type zid batch] (.getValues tuple)]
           ;; XXX Need to think more about recompute...
-          (cm/queue-message-batch! conv-man message-type zid batch (-> config :recompute)))
+          (cm/queue-message-batch! conv-man message-type zid batch (-> system-config :recompute)))
         (storm/ack! collector tuple)))))
 
 (defn make-topology
+  ;; Note here that we're pushing through the full system configuration as config overrides, because we need
+  ;; something serializable for the nodes to boot their systems from in the prepare steps
   [{:keys [config] :as storm-cluster}]
-  (let [spouts {"vote-spout" (storm/spout-spec (poll-spout :votes :poll :created (:vote-polling-interval config)))
-                "mod-spout"  (storm/spout-spec (poll-spout :moderation :mod-poll :modified (:mod-polling-interval config)))}
+  (let [config (into {} config) ;; O/w have a non-serializable object
+        spouts {"vote-spout" (storm/spout-spec (poll-spout config :votes :created ))
+                "mod-spout"  (storm/spout-spec (poll-spout config :moderation :modified))}
         bolt-inputs (into {} (for [s (keys spouts)] [s ["zid"]]))]
     (assoc storm-cluster
            :topology
            (storm/topology
              spouts
-             {"conv-update" (storm/bolt-spec bolt-inputs (conv-update-bolt (:recompute config)))}))))
-
-(defn run-local! [{:keys [sim recompute]}]
-  (let [cluster (LocalCluster.)]
-    (.submitTopology cluster
-                     "online-pca"
-                     {storm-config/TOPOLOGY-DEBUG false}
-                     (make-topology sim recompute))))
-
+             {"conv-update" (storm/bolt-spec bolt-inputs (conv-update-bolt config))}))))
 
 (defn submit-topology!
   [storm-cluster]
   (let [{:keys [execution cluster-name workers]} (-> storm-cluster :config :storm)
-        submitter (case execution
-                    :local (LocalCluster.)
-                    :distributed (StormSubmitter.))]
-    (.submitTopology submitter
+        cluster-submitter (case execution
+                            :local (LocalCluster.)
+                            :distributed (StormSubmitter.))]
+    (.submitTopology cluster-submitter
                      cluster-name
                      {storm-config/TOPOLOGY-DEBUG false
                       storm-config/TOPOLOGY-WORKERS workers}
-                     (make-topology storm-cluster)))
-  storm-cluster)
+                     (:topology storm-cluster))
+    (assoc storm-cluster :cluster-submitter cluster-submitter)))
 
 (defn stop-cluster!
-  [storm-cluster]
-  (let [topology (:topology storm-cluster)
-        cluster-name (-> storm-cluster :config :storm :cluster-name)]
-    (.killTopology topology cluster-name)
-    (.shutdown topology)))
+  [{:as storm-cluster :keys [cluster-submitter]}]
+  (let [cluster-name (-> storm-cluster :config :storm :cluster-name)]
+    ;(.killTopology topology cluster-name)
+    (.shutdown cluster-submitter)))
 
 
-(defrecord StormCluster [config conversation-manager topology]
+(defrecord StormCluster [config conversation-manager topology cluster-submitter]
   component/Lifecycle
   (start [component]
     (-> component
@@ -112,5 +119,12 @@
 
 (defn create-storm-cluster []
   (map->StormCluster {}))
+
+
+(defn storm-system
+  "Creates a base-system and assocs in polismath storm worker related components."
+  [config-overrides]
+  (merge (system/base-system config-overrides)
+         {:storm-cluster (component/using (create-storm-cluster) [:config :conversation-manager])}))
 
 

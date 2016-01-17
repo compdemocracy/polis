@@ -267,7 +267,7 @@
         (let [first-msg (<! message-chan)
               msgs (concat [first-msg] (take-all! message-chan))
               {:keys [votes moderation]} (split-batches msgs)
-              error-handler (build-update-error-handler message-chan conv)
+              error-handler (build-update-error-handler conv-man message-chan conv)
               conv (-> conv
                        (pc/?> moderation (conv/mod-update moderation))
                        (pc/?> votes (update-fn votes error-handler)))]
