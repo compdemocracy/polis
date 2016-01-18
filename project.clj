@@ -21,7 +21,8 @@
   :dependencies [[commons-collections/commons-collections "3.2.1"]
                  [cheshire "5.3.1"]
                  [org.clojure/tools.reader "0.8.13"]
-                 [com.taoensso/timbre "3.3.1"]
+                 ;[com.taoensso/timbre "3.3.1"]
+                 [com.taoensso/timbre "4.2.1"]
                  ;; Troublesome carmine...
                  ;[com.taoensso/carmine "2.7.0" :exclusions [org.clojure/clojure]]
                  ;; Updates; requires fixing index conflict between named-matrix and core.matrix

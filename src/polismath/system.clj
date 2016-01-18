@@ -3,7 +3,8 @@
             [polismath.components [config :as config :refer [create-config]]
                                   [mongo :as mongo :refer [create-mongo]]
                                   [postgres :as postgres :refer [create-postgres]]
-                                  [core-matrix-boot :as core-matrix-boot :refer [create-core-matrix-booter]]]
+                                  [core-matrix-boot :as core-matrix-boot :refer [create-core-matrix-booter]]
+                                  [logger :as logger :refer [create-logger]]]
             [polismath.conv-man :as conv-man :refer [create-conversation-manager]]
             [polismath.utils :as utils]
             [clojure.tools.logging :as log]
@@ -16,6 +17,7 @@
   "This constructs an instance of the base system components, including config, db, etc."
   [config-overrides]
   {:config               (create-config config-overrides)
+   :logger               (component/using (create-logger)               [:config])
    :core-matrix-boot     (component/using (create-core-matrix-booter)   [:config])
    :postgres             (component/using (create-postgres)             [:config])
    :mongo                (component/using (create-mongo)                [:config])
