@@ -37,8 +37,8 @@ class Account extends React.Component {
     return (
       <div>
         {
-          this.props.loading === true ? <Spinner/> :
-          this.buildAccountMarkup()
+          this.props.user.hname ? this.buildAccountMarkup() :
+          <Spinner/>
         }
       </div>
     );

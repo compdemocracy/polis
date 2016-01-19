@@ -6,16 +6,17 @@ import Radium from "radium";
 import _ from "lodash";
 import Spinner from "./framework/spinner";
 import Flex from "./framework/flex";
+import FlexItem from "./framework/flex-item"
 import Awesome from "react-fontawesome";
 
 const cardHeight = 50;
-const cardPadding = 10;
+const cardPadding = "10px 10px 10px 10px";
 const cardBorderRadius = 3;
 
 const styles = {
   container: {
     backgroundColor: "rgb(240,240,247)",
-    paddingTop: 10,
+    padding: "10px 0px 0px 0px",
     minHeight: "100vh"
   },
   conversationCard: {
@@ -30,7 +31,7 @@ const styles = {
   },
   toAdminLink: {
     height: cardHeight + (2*cardPadding),
-    // backgroundColor: "rgba(200,200,200,1)",
+    backgroundColor: "rgba(200,200,200,1)",
     marginRight: -cardPadding,
     width: "15%",
     borderTopRightRadius: cardBorderRadius,
@@ -59,9 +60,7 @@ class Conversations extends React.Component {
     // check your connectivity and try again
   }
   instantiateConvos() {
-    if (this.props.loading) { return <Spinner/> }
-    if (!this.props.conversations) { return "No conversations to display" }
-    let conversationsMarkup = this.props.conversations.map((conversation, i) => {
+    const conversationsMarkup = this.props.conversations.map((conversation, i) => {
       return (
         <Flex
           justifyContent={"space-between"}
@@ -85,10 +84,22 @@ class Conversations extends React.Component {
     this.props.dispatch(populateConversationsStore())
   }
   render() {
+    const err = this.props.error;
     return (
-      <Flex styleOverrides={styles.container}>
-        {this.instantiateConvos() }
-      </Flex>
+      <div styleOverrides={styles.container}>
+        {this.props.loading ? <Spinner/> : ""}
+        {
+          err ?
+          "Error loading conversations: " + err.status + " " + err.statusText :
+          ""
+        }
+        {
+          !this.props.loading && !this.props.conversations && !err ?
+            "No conversations to display" :
+            ""
+        }
+        {this.props.conversations ? this.instantiateConvos() : ""}
+      </div>
     );
   }
 }

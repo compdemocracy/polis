@@ -52,6 +52,18 @@ class Flex extends React.Component {
       baseline: {
         alignItems: "baseline"
       },
+      row: {
+        flexDirection: "row"
+      },
+      rowReverse: {
+        flexDirection: "row-reverse"
+      },
+      column: {
+        flexDirection: "column"
+      },
+      columnReverse: {
+        flexDirection: "column-reverse"
+      },
       gutters: {
         margin: "-" + this.props.gutters + "em 0 0 -" + this.props.gutters + "em"
       },
@@ -75,6 +87,7 @@ class Flex extends React.Component {
         style={[
           styles.base,
           styles[this.props.align],
+          styles[this.props.direction],
           this.props.gutters && styles.gutters,
           this.props.styleOverrides && styles.styleOverrides
         ]}>
@@ -86,6 +99,7 @@ class Flex extends React.Component {
 
 Flex.propTypes = {
   align: React.PropTypes.oneOf(["top", "center", "bottom", "baseline"]),
+  direction: React.PropTypes.oneOf(["row", "rowReverse", "column", "columnReverse"]),
   children: React.PropTypes.node,
   gutters: React.PropTypes.number,
   justifyContent: React.PropTypes.oneOf([
@@ -100,6 +114,7 @@ Flex.propTypes = {
 
 Flex.defaultProps = {
   align: "center",
+  direction: "row",
   gutters: null,
   justifyContent: "center",
   styleOverrides: null

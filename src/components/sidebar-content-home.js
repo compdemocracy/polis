@@ -65,12 +65,12 @@ class SidebarContentHome extends React.Component {
             <Awesome name="inbox"/>
             <span style={{marginLeft: 10}}> Conversations </span>
           </Link>
-          <Link
+          {/*<Link
             style={styles.sidebarLink}
             to="/account">
             <Awesome name="credit-card"/>
             <span style={{marginLeft: 10}}> Account </span>
-            </Link>
+            </Link>*/}
           <div style={styles.divider} />
           <a style={styles.sidebarLink} target="blank" href="http://docs.pol.is">
             <Awesome name="align-left"/><span style={{marginLeft: 10}}>Docs</span>
