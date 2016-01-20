@@ -18,6 +18,8 @@ import Console from "./components/console";
 // top level navigation
 import SignIn from "./components/signin";
 import SignOut from "./components/signout";
+import TOS from "./components/tos";
+import Privacy from "./components/privacy";
 import Conversations from "./components/conversations";
 import Integrate from "./components/integrate";
 // this may become '/' defaultview - with instructions if no stats to show
@@ -81,6 +83,8 @@ class Root extends React.Component {
             <Route path="signout" component={SignOut}/>
             <Route path="signout/*" component={SignOut}/>
             <Route path="signout/**/*" component={SignOut}/>
+            <Route path="tos" component={TOS}/>
+            <Route path="privacy" component={Privacy}/>
           </Router>
         </Provider>
         <DebugPanel top right bottom>

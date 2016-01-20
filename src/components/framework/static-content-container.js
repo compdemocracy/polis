@@ -28,7 +28,7 @@ const styles = {
     minHeight: 50
   },
   flexContainer: {
-    height: "100vh",
+    minHeight: "100vh",
     background: "url(https://pol.is/landerImages/billions-compressor.jpeg) no-repeat center center fixed",
     backgroundSize: "cover"
   },

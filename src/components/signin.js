@@ -59,7 +59,7 @@ class SignIn extends React.Component {
   render() {
     return (
       <StaticContentContainer>
-        <Flex >
+        <Flex>
           <div style={styles.card}>
               <p style={styles.heading}><Awesome name="sign-in" /> Sign In</p>
             <form>
