@@ -16,6 +16,9 @@ import configureStore from "./store";
 import Console from "./components/console";
 
 // top level navigation
+import PasswordReset from "./components/password-reset";
+import PasswordResetInit from "./components/password-reset-init";
+import PasswordResetInitDone from "./components/password-reset-init-done";
 import SignIn from "./components/signin";
 import SignOut from "./components/signout";
 import TOS from "./components/tos";
@@ -83,6 +86,9 @@ class Root extends React.Component {
             <Route path="signout" component={SignOut}/>
             <Route path="signout/*" component={SignOut}/>
             <Route path="signout/**/*" component={SignOut}/>
+            <Route path="pwreset/*" component={PasswordReset}/>
+            <Route path="pwresetinit" component={PasswordResetInit}/>
+            <Route path="pwresetinit/done" component={PasswordResetInitDone}/>
             <Route path="tos" component={TOS}/>
             <Route path="privacy" component={Privacy}/>
           </Router>
