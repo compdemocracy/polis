@@ -45,8 +45,8 @@ class StaticContentContainer extends React.Component {
 
   render() {
     return (
-      <div style={styles.flexContainer}>
-        <Flex direction="column" justifyContent="space-between" styleOverrides={{height: "100%"}}>
+      <div>
+        <Flex direction="column" justifyContent="space-between" styleOverrides={styles.flexContainer}>
           <div style={styles.topBar}>
             <PolisLogo/>
           </div>
@@ -75,3 +75,4 @@ class StaticContentContainer extends React.Component {
 }
 
 export default StaticContentContainer;
+
