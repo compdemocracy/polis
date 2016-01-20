@@ -97,6 +97,10 @@ export const PWRESET_INIT_INITIATED = "PWRESET_INIT_INITIATED";
 export const PWRESET_INIT_SUCCESS = "PWRESET_INIT_SUCCESS";
 export const PWRESET_INIT_ERROR = "PWRESET_INIT_ERROR";
 
+export const PWRESET_INITIATED = "PWRESET_INITIATED";
+export const PWRESET_SUCCESS = "PWRESET_SUCCESS";
+export const PWRESET_ERROR = "PWRESET_ERROR";
+
 /* ======= Actions ======= */
 
 /*
@@ -245,6 +249,70 @@ export const doPasswordResetInit = (attrs) => {
     )
   }
 }
+
+
+
+/* passwordReset */
+
+const passwordResetInitiated = () => {
+  return {
+    type: PWRESET_INITIATED
+  };
+};
+
+const passwordResetSuccess = () => {
+  return {
+    type: PWRESET_SUCCESS
+  };
+};
+
+const passwordResetError = (err) => {
+  return {
+    type: PWRESET_ERROR,
+    data: err
+  }
+}
+
+const passwordResetPost = (attrs) => {
+  return $.ajax({
+    url:  "/api/v3/auth/password",
+    type: "POST",
+    dataType: "json",
+    xhrFields: {
+      withCredentials: true
+    },
+    // crossDomain: true,
+    data: attrs
+  });
+}
+
+export const doPasswordReset = (attrs) => {
+  return (dispatch) => {
+    dispatch(passwordResetInitiated())
+    return passwordResetPost(attrs).then(
+      () => {
+        setTimeout(() => {
+          // Force page to load so we can be sure the password is cleared from memory
+          // delay a bit so the cookie has time to set
+          window.location = "/";
+        }, 3000);
+
+        return dispatch(passwordResetSuccess());
+      },
+      err => dispatch(passwordResetError(err))
+    )
+  }
+}
+
+
+
+
+
+
+
+
+
+
 
 
 /* signout */

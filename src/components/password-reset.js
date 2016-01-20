@@ -1,7 +1,7 @@
 import InputField from "material-ui/lib/text-field";
 import React from "react";
 import { connect } from "react-redux";
-import { doSignin } from "../actions";
+import { doPasswordReset } from "../actions";
 import Radium from "radium";
 import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
@@ -40,16 +40,19 @@ const styles = {
 @Radium
 class SignIn extends React.Component {
 
-  handleLoginClicked(e) {
+  handleClick(e) {
     e.preventDefault();
     const attrs = {
-      email: this.refs.email.value,
-      password: this.refs.password.value
+      newPassword: this.refs.password.value,
+      pwresettoken: this.props.location.pathname.slice("/pwreset/".length),
+    };
+
+    if (attrs.newPassword !== this.refs.passwordRepeat.value) {
+      alert ("Passwords need to match");
+      return;
     }
 
-    var dest = this.props.location.pathname.slice("/signin".length);
-
-    this.props.dispatch(doSignin(attrs, dest));
+    this.props.dispatch(doPasswordReset(attrs));
   }
 
   // componentDidMount() {
@@ -59,28 +62,24 @@ class SignIn extends React.Component {
   render() {
     return (
       <StaticContentContainer>
-        <div>PASSWORD RESET</div>
         <Flex>
           <div style={styles.card}>
-              <p style={styles.heading}><Awesome name="sign-in" /> Password Reset</p>
+              <p style={styles.heading}><Awesome name="bolt" /> Password Reset</p>
             <form>
               <input
                 style={styles.input}
-                ref="email"
-                placeholder="email"
-                type="text"/>
+                ref="password"
+                placeholder="new password"
+                type="password"/>
               <input
                 style={styles.input}
-                ref="password"
-                placeholder="password"
+                ref="passwordRepeat"
+                placeholder="repeat new password"
                 type="password"/>
-              <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
-                Sign In
+              <Button style={styles.button} onClick={this.handleClick.bind(this)}>
+                Set new password
               </Button>
             </form>
-            <p style={{fontFamily: "Serif", fontSize: 12, maxWidth: 400, fontWeight: 100}}>
-              If you click "Log in with Facebook" and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy
-            </p>
           </div>
         </Flex>
       </StaticContentContainer>
