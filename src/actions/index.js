@@ -327,12 +327,11 @@ const facebookSigninFailed = () => {
 }
 
 const onFbLoginOk = (x, password) => {
-    console.log(" in onFbLoginOk");
-
+  console.log(" in onFbLoginOk", x, password);
 }
 
-const createFacebookLoginModal = () => {
-  console.log("in creating modal");
+const callFacebookLoginAPI = () => {
+  console.log("ringing facebook...");
 
   FB.login((x) =>  {
       return onFbLoginOk(x, password);
@@ -348,9 +347,11 @@ const createFacebookLoginModal = () => {
     });
 }
 
-export const doFacebookSignin = () => {
+export const doFacebookSignin = (dest) => {
   return (dispatch) => {
     dispatch(facebookSigninInitiated())
+    console.log('facebook sign in initiated', dest)
+    callFacebookLoginAPI()
   }
 }
 

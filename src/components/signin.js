@@ -67,7 +67,7 @@ class SignIn extends React.Component {
 
   facebookButtonClicked() {
     var dest = this.props.location.pathname.slice("/signin".length);
-    this.props.dispatch(doFacebookSignin())
+    this.props.dispatch(doFacebookSignin(dest))
   }
 
   render() {
@@ -94,7 +94,7 @@ class SignIn extends React.Component {
             <p style={{fontFamily: "Serif", fontSize: 12, maxWidth: 400, fontWeight: 100}}>
               If you click "Log in with Facebook" and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy
             </p>
-            <Button style={styles.facebookButton} onClick={this.facebookButtonClicked}>
+            <Button style={styles.facebookButton} onClick={this.facebookButtonClicked.bind(this)}>
               <Awesome style={{
                 color: "#3b5998",
                 backgroundColor: "white",

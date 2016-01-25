@@ -52,7 +52,7 @@ class StaticContentContainer extends React.Component {
           </div>
           {this.props.children}
           <Flex justifyContent={"space-between"} styleOverrides={styles.footer}>
-            <p style={{marginLeft: 20, fontSize: 12}}> © Polis Technology Inc. 2016 </p>
+            <p style={{marginLeft: 20, fontSize: 12}}>© Polis Technology Inc. 2016 </p>
             <div style={{marginRight: 20}}>
               <Link
                 style={styles.footerLink}
