@@ -11,6 +11,7 @@ import mod_ptpt_hidden from "./mod_ptpt_hidden";
 import stats from "./stats";
 import seed_comments from "./seed_comments";
 import signout from "./signout";
+import signin from "./signin";
 
 const rootReducer = combineReducers({
   conversations,
@@ -24,7 +25,8 @@ const rootReducer = combineReducers({
   mod_ptpt_hidden,
   seed_comments,
   stats,
-  signout
+  signout,
+  signin
 });
 
 export default rootReducer;

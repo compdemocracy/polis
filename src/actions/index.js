@@ -101,6 +101,11 @@ export const PWRESET_INITIATED = "PWRESET_INITIATED";
 export const PWRESET_SUCCESS = "PWRESET_SUCCESS";
 export const PWRESET_ERROR = "PWRESET_ERROR";
 
+export const FACEBOOK_SIGNIN_INITIATED = "FACEBOOK_SIGNIN_INITIATED";
+export const FACEBOOK_SIGNIN_SUCCESSFUL = "FACEBOOK_SIGNIN_SUCCESSFUL";
+export const FACEBOOK_SIGNIN_FAILED = "FACEBOOK_SIGNIN_FAILED";
+
+
 /* ======= Actions ======= */
 
 /*
@@ -197,7 +202,6 @@ export const doSignin = (attrs, dest) => {
   }
 }
 
-
 /* passwordResetInit */
 
 const passwordResetInitInitiated = () => {
@@ -249,8 +253,6 @@ export const doPasswordResetInit = (attrs) => {
     )
   }
 }
-
-
 
 /* passwordReset */
 
@@ -304,16 +306,63 @@ export const doPasswordReset = (attrs) => {
   }
 }
 
+/* facebook */
 
+const facebookSigninInitiated = () => {
+  return {
+    type: FACEBOOK_SIGNIN_INITIATED
+  }
+}
 
+const facebookSigninSuccessful = () => {
+  return {
+    type: FACEBOOK_SIGNIN_SUCCESSFUL
+  }
+}
 
+const facebookSigninFailed = () => {
+  return {
+    type: FACEBOOK_SIGNIN_FAILED
+  }
+}
 
+const onFbLoginOk = (x, password) => {
+    console.log(" in onFbLoginOk");
 
+}
 
+const createFacebookLoginModal = () => {
+  console.log("in creating modal");
 
+  FB.login((x) =>  {
+      return onFbLoginOk(x, password);
+    }, {
+      return_scopes: true, // response should contain the scopes the user allowed
+      scope: [
+        // 'taggable_friends', // requires review.
+        // invitable_friends NOTE: only for games with a fb Canvas presence, so don't use this
+        'public_profile',
+        'user_friends',
+        'email'
+      ].join(',')
+    });
+}
 
+export const doFacebookSignin = () => {
+  return (dispatch) => {
+    dispatch(facebookSigninInitiated())
+  }
+}
 
-
+// export const doFacebookSignin = () => {
+//   return (dispatch) => {
+//     dispatch(facebookSigninInitiated())
+//     return postFacebookSignin().then(
+//       res => dispatch(facebookLoginSuccessful(res)),
+//       err => dispatch(facebookLoginFailed(err))
+//     )
+//   }
+// }
 
 /* signout */
 

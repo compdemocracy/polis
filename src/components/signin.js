@@ -1,7 +1,7 @@
 import InputField from "material-ui/lib/text-field";
 import React from "react";
 import { connect } from "react-redux";
-import { doSignin } from "../actions";
+import { doSignin, doFacebookSignin } from "../actions";
 import Radium from "radium";
 import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
@@ -34,6 +34,15 @@ const styles = {
     borderRadius: 3,
     border: "1px solid rgba(240,240,240,1)",
   },
+  facebookButton: {
+    border: 0,
+    color: "white",
+    backgroundColor: "#3b5998",
+    fontWeight: 300,
+    padding: "8px 12px",
+    borderRadius: 5,
+    fontSize: 14,
+  }
 }
 
 @connect()
@@ -55,6 +64,11 @@ class SignIn extends React.Component {
   // componentDidMount() {
   //   window.addEventListener('resize', () => {}, true);
   // }
+
+  facebookButtonClicked() {
+    var dest = this.props.location.pathname.slice("/signin".length);
+    this.props.dispatch(doFacebookSignin())
+  }
 
   render() {
     return (
@@ -80,6 +94,15 @@ class SignIn extends React.Component {
             <p style={{fontFamily: "Serif", fontSize: 12, maxWidth: 400, fontWeight: 100}}>
               If you click "Log in with Facebook" and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy
             </p>
+            <Button style={styles.facebookButton} onClick={this.facebookButtonClicked}>
+              <Awesome style={{
+                color: "#3b5998",
+                backgroundColor: "white",
+                padding: "3px 5px",
+                borderRadius: 3,
+              }} name="facebook"/>
+              <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
+            </Button>
           </div>
         </Flex>
       </StaticContentContainer>
