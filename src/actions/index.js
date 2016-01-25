@@ -332,6 +332,7 @@ const onFbLoginOk = (x, password) => {
 
 const callFacebookLoginAPI = () => {
   console.log("ringing facebook...");
+  const password = "THIS_STRING_SHOULD_NOT_BE_HERE"
 
   FB.login((x) =>  {
       return onFbLoginOk(x, password);
