@@ -25,7 +25,7 @@
     "gulp": "^3.9.0",
     "gulp-gzip": "0.0.4",
     "gulp-rename": "~1.0.0",
-    "gulp-s3": "^0.3.0",
+    "gulp-s3": "git://github.com/mbjorkegren/gulp-s3#847e2b372204b4ceeccb0e9b567f28ff00e7fa1d",
     "json-loader": "^0.5.1",
     "react-transform-catch-errors": "^1.0.0",
     "react-transform-hmr": "^1.0.1",
