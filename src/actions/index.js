@@ -423,9 +423,10 @@ const saveFacebookFriendsData = (data) => {
     data: JSON.stringify(data),
     type: "POST"
   }).then(() => {
+    console.log('thats a wrap lets do login')
     // colin writes fire signin?
     // that.trigger("authenticated");
-    gaEvent("Session", "create", "signIn");
+    // TODO gaEvent("Session", "create", "signIn");
   }, (err) => {
     console.dir(err);
 
