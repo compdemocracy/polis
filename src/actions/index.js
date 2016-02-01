@@ -370,7 +370,7 @@ const getFriends = () => {
 const getInfo = () => {
   var dfd = $.Deferred();
 
-  FB.api('/me',function (response) {
+  FB.api('/me', (response) => {
     console.log("/me done");
     // {"id":"10152802017421079"
     //   "email":"michael@bjorkegren.com"
@@ -390,7 +390,7 @@ const getInfo = () => {
 
     if (response && !response.error) {
       if (response.location && response.location.id) {
-        FB.api('/' + response.location.id, function(locationResponse) {
+        FB.api('/' + response.location.id, (locationResponse) => {
           console.log("locationResponse");
           console.dir(locationResponse);
           if (locationResponse) {
@@ -448,41 +448,44 @@ const saveFacebookFriendsData = (data) => {
   });
 }
 
-const processFacebookFriendsData = (fb_public_profile, friendsData) => {
+const processFacebookFriendsData = (respose) => {
 
-  // alert(JSON.stringify(friendsData));
-  console.log("got info and friends");
+  return (fb_public_profile, friendsData) => {
+    // alert(JSON.stringify(friendsData));
+    console.log("got info and friends");
 
-  var data = {
-    fb_public_profile: JSON.stringify(fb_public_profile),
-    fb_friends_response: JSON.stringify(friendsData),
-    response: JSON.stringify(response)
-  };
+    var data = {
+      fb_public_profile: JSON.stringify(fb_public_profile),
+      fb_friends_response: JSON.stringify(friendsData),
+      response: JSON.stringify(response)
+    };
 
-  if (fb_public_profile.email) {
-    data.fb_email = fb_public_profile.email;
-  } else {
-    data.provided_email = prompt("Please enter your email address.");
+    if (fb_public_profile.email) {
+      data.fb_email = fb_public_profile.email;
+    } else {
+      data.provided_email = prompt("Please enter your email address.");
+    }
+
+    var hname = [
+      fb_public_profile.first_name,
+      fb_public_profile.last_name
+    ].join(" ");
+
+    if (hname.length) {
+      data.hname = hname;
+    }
+
+    if (response && response.authResponse && response.authResponse.grantedScopes) {
+      data.fb_granted_scopes = response.authResponse.grantedScopes;
+    }
+
+    if (optionalPassword) {
+      data.password = optionalPassword;
+    }
+
+    saveFacebookFriendsData(data)
   }
 
-  var hname = [
-    fb_public_profile.first_name,
-    fb_public_profile.last_name
-  ].join(" ");
-
-  if (hname.length) {
-    data.hname = hname;
-  }
-
-  if (response && response.authResponse && response.authResponse.grantedScopes) {
-    data.fb_granted_scopes = response.authResponse.grantedScopes;
-  }
-
-  if (optionalPassword) {
-    data.password = optionalPassword;
-  }
-
-  saveFacebookFriendsData(data)
 }
 
 const onFbLoginOk = (response, optionalPassword) => {
@@ -494,7 +497,7 @@ const onFbLoginOk = (response, optionalPassword) => {
     getInfo(),
     getFriends()
   ).then(
-    processFacebookFriendsData,
+    processFacebookFriendsData(response),
     (err) => {
       console.error(err);
       console.dir(arguments);
