@@ -448,17 +448,19 @@ const saveFacebookFriendsData = (data) => {
   });
 }
 
-const processFacebookFriendsData = (response) => {
+const processFacebookFriendsData = (response, optionalPassword) => {
 
   return (fb_public_profile, friendsData) => {
     // alert(JSON.stringify(friendsData));
     console.log("got info and friends");
 
-    var data = {
+    let data = {
       fb_public_profile: JSON.stringify(fb_public_profile),
       fb_friends_response: JSON.stringify(friendsData),
       response: JSON.stringify(response)
     };
+
+    // cleaner as fb_email: fb_public_profile.email ? fb_public_profile.email : null
 
     if (fb_public_profile.email) {
       data.fb_email = fb_public_profile.email;
@@ -466,7 +468,7 @@ const processFacebookFriendsData = (response) => {
       data.provided_email = prompt("Please enter your email address.");
     }
 
-    var hname = [
+    let hname = [
       fb_public_profile.first_name,
       fb_public_profile.last_name
     ].join(" ");
@@ -497,7 +499,7 @@ const onFbLoginOk = (response, optionalPassword) => {
     getInfo(response),
     getFriends(response)
   ).then(
-    processFacebookFriendsData(response),
+    processFacebookFriendsData(response, optionalPassword),
     (err) => {
       console.error(err);
       console.dir(arguments);
