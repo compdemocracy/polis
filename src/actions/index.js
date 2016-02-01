@@ -326,10 +326,10 @@ const facebookSigninFailed = () => {
   }
 }
 
-const getFriends = () => {
+const getFriends = (response) => {
   var dfd = $.Deferred();
 
-  function getMoreFriends(friendsSoFar, urlForNextCall) {
+  getMoreFriends(friendsSoFar, urlForNextCall) => {
     console.log("getMoreFriends");
 
     return $.get(urlForNextCall).then(function(response) {
@@ -367,7 +367,7 @@ const getFriends = () => {
   return dfd.promise();
 }
 
-const getInfo = () => {
+const getInfo = (response) => {
   var dfd = $.Deferred();
 
   FB.api('/me', (response) => {
@@ -494,8 +494,8 @@ const onFbLoginOk = (response, optionalPassword) => {
   console.dir(response);
 
   $.when(
-    getInfo(),
-    getFriends()
+    getInfo(response),
+    getFriends(response)
   ).then(
     processFacebookFriendsData(response),
     (err) => {
