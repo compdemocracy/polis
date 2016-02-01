@@ -329,10 +329,10 @@ const facebookSigninFailed = () => {
 const getFriends = (response) => {
   var dfd = $.Deferred();
 
-  getMoreFriends(friendsSoFar, urlForNextCall) => {
+  const getMoreFriends = (friendsSoFar, urlForNextCall) => {
     console.log("getMoreFriends");
 
-    return $.get(urlForNextCall).then(function(response) {
+    return $.get(urlForNextCall).then((response) => {
       if (response.data.length) {
         for (var i = 0; i < response.data.length; i++) {
           friendsSoFar.push(response.data[i]);
@@ -347,7 +347,7 @@ const getFriends = (response) => {
     });
   }
 
-  FB.api('/me/friends',function (response) {
+  FB.api('/me/friends', (response) => {
     console.log("/me/friends returned");
     if (response && !response.error) {
 
