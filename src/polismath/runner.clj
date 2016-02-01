@@ -80,9 +80,13 @@
       (let [system-map-fn (subcommands (first arguments))]
         (start! system-map-fn)))))
 
+
+
 (comment
   (try
-    (run! system/base-system)
+    ;(run! system/base-system)
+    ;(stop!)
+    (run! storm-system)
     :ok (catch Exception e (.printStackTrace e) e))
 
   ;(require '[polismath.conv-man :as conv-man])
@@ -92,5 +96,6 @@
   (stop!)
   ;(run!
   )
+
 
 
