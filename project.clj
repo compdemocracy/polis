@@ -67,7 +67,10 @@
                  [semantic-csv "0.1.0"]
                  [dk.ative/docjure "1.8.0"]
                  [prismatic/plumbing "0.2.2"]
-                 [environ "0.4.0"]]
+                 [environ "0.4.0"]
+
+                 [org.clojure/test.check "0.7.0"]
+                 ]
   :gorilla-options {:keymap {"command:app:save" "alt+g alt+w"}
                     :port 989796}
   :main polismath.runner
