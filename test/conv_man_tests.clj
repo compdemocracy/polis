@@ -2,39 +2,57 @@
   (:use polismath.utils
         test-helpers)
   (:require [clojure.test :refer :all]
-            [polismath.conv-man :refer :all]))
+            ;[clojure.test.check :as tc]
+            ;[clojure.test.check.generators :as gen]
+            ;[clojure.test.check.properties :as prop]
+            [clojure.core.async :as async]
+            [clojure.tools.logging :as log]
+            [polismath.math.conversation :as conv]
+            [polismath.math.named-matrix :as nm]
+            [polismath.conv-man :as conv-man]
+            [polismath.system :as system]
+            [polismath.components.config :as config]
+            ))
 
 
-(deftest get-or-set-test
-  (testing "should work when not set"
-    (let [a (atom {})]
-      (get-or-set! a :shit (fn [] "stuff"))
-      (is (= (:shit @a) "stuff"))))
-  (testing "should work when set"
-    (let [a (atom {:shit "stuff"})]
-      (is (= (get-or-set! a :shit (fn [] "crap"))
-             "stuff")))))
+;(gen/sample gen/->Generator
+
+;(let [random-matrix (gen/vector (partial gen/vector (ge
+
+;; Should make this generative
+(deftest integration-test
+  (testing "of some votes"
+    (let [messages [{:vote  0 :pid 0 :tid 0 :zid 0 :created 9000}
+                    {:vote  1 :pid 1 :tid 1 :zid 0 :created 9003}
+                    {:vote -1 :pid 2 :tid 0 :zid 0 :created 9005}
+                    {:vote -1 :pid 1 :tid 2 :zid 0 :created 9009}]
+          config {}]
+      (testing "in a new conv"
+        (let [system (system/create-and-run-base-system! config)
+              conv-man (:conversation-manager system)
+              result-chan (async/chan)
+              ;; Need to hook this up
+              error-chan (async/chan)]
+          ;; Since the conversation manager is asynchronous, we'll create a channel where we'll put the
+          ;; results of the conversation update.
+          ;; Should add an error listener as well... so we can catch information there as well
+          (conv-man/add-listener! conv-man (fn [conv] (async/>!! result-chan conv)))
+          (conv-man/queue-message-batch! conv-man :votes 0 messages)
+          ;; For right now, let's just use a timeout to check for whether the conversation updated; Really
+          ;; need to fix this... XXX
+          (is (if-let [conv (first (async/alts!! [result-chan (async/timeout 20000)]))]
+                (let [matrix (-> conv :rating-mat nm/get-matrix)]
+                  (is (m=? [[0   nil nil]
+                            [nil  1  -1 ]
+                            [-1  nil nil]] matrix)
+                      "The conversation does not have the correct rating matrix post conversation update")
+                  (not (nil? conv)))
+                ;; There's a problem; the timeout was hit
+                (do (log/error "There was an update timeout in integration-test; check log...")
+                    (/ 1 0)))))))))
 
 
-; Initialization test
-(deftest split-batches-test
-  (testing "of a missing param"
-    (let [messages [[:votes [{:a 4} {:b 5} {:c 6}]]
-                    [:votes [{:d 7} {:e 8} {:f 9}]]]]
-      (is (= (split-batches messages)
-             {:votes [{:a 4} {:b 5} {:c 6} {:d 7} {:e 8} {:f 9}]}))
-      (is (nil? (:moderation (split-batches messages))))))
-  (testing "of one message"
-    (let [messages [[:votes [{:a 4} {:b 5} {:c 6}]]]]
-      (is (= (split-batches messages)
-             {:votes [{:a 4} {:b 5} {:c 6}]}))))
-  (testing "of combined messages"
-    (let [messages [[:votes [{:a 4} {:b 5} {:c 6}]]
-                    [:votes [{:d 7} {:e 8} {:f 9}]]
-                    [:moderation [{:g 4} {:h 5} {:i 6}]]
-                    [:moderation [{:j 7} {:k 8} {:l 9}]]]]
-      (is (= (split-batches messages)
-             {:votes [{:a 4} {:b 5} {:c 6} {:d 7} {:e 8} {:f 9}]
-              :moderation [{:g 4} {:h 5} {:i 6} {:j 7} {:k 8} {:l 9}]})))))
-
+(defn -main []
+  (run-tests 'conv-man-tests)
+  )
 
