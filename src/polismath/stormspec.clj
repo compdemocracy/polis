@@ -26,50 +26,45 @@
 ;(matrix/matrix [[1 2 3] [4 5 6]])
 
 
-(defn create-and-run-base-system!
-  [config]
-  (->> config system/base-system (utils/apply-kwargs component/system-map) component/start))
-
-(storm/defspout poll-spout ["type" "zid" "batch"]
-  ;; Should fork timestamp key on type as well XXX
-  {:params [system-config type timestamp-key] :prepare true}
+(storm/defspout poll-spout ["message-type" "zid" "batch"]
+  ;; Should fork timestamp key on message-type as well XXX
+  {:params [system-config message-type timestamp-key] :prepare true}
   [conf context collector]
   (let [last-timestamp (atom 0)
         ;; Need config for storm to be set under keys of :vote and :mod, so the spouts are configurable
         ;; more simply from this; But I guess some of these things should maybe not be constructable this
         ;; way...
         ;system (-> system-config system/base-system component/system-map component/start)
-        {:as spout-config :keys [polling-interval]} (-> system-config :storm :spouts type)
-        system (create-and-run-base-system! system-config)
+        {:as spout-config :keys [polling-interval]} (-> system-config :storm :spouts message-type)
+        system (system/create-and-run-base-system! system-config)
         postgres (-> system :postgres)]
     (storm/spout
       (nextTuple []
-        (log/info "Polling" type ">" @last-timestamp)
-        (let [poll-function (get {:votes postgres/poll :moderation postgres/mod-poll} type)
+        (log/info "Polling" message-type ">" @last-timestamp)
+        (let [poll-function (get {:votes postgres/poll :moderation postgres/mod-poll} message-type)
               results (poll-function postgres @last-timestamp)
               grouped-batches (group-by :zid results)]
           ; For each chunk of votes, for each conversation, send to the appropriate spout
           (doseq [[zid batch] grouped-batches]
-            (storm/emit-spout! collector [type zid batch]))
+            (storm/emit-spout! collector [message-type zid batch]))
           ; Update timestamp if needed
           (swap! last-timestamp
                  (fn [last-ts] (apply max 0 last-ts (map timestamp-key results)))))
         (Thread/sleep polling-interval))
       (ack [id]))))
 
-;; XXX Should build a recompute trigger spout, which just sends a recompute message type with nil batch payload
+;; XXX Should build a recompute trigger spout, which just sends a recompute message message-type with nil batch payload
 
 (storm/defbolt conv-update-bolt []
   {:params [system-config] :prepare true}
   [conf context collector]
-  (let [system (create-and-run-base-system! system-config)
-        ;system (-> system-config system/base-system component/system-map component/start)
+  (let [system (system/create-and-run-base-system! system-config)
         conv-man (:conversation-manager system)]
     (storm/bolt
       (execute [tuple]
         (let [[message-type zid batch] (.getValues tuple)]
           ;; XXX Need to think more about recompute...
-          (cm/queue-message-batch! conv-man message-type zid batch (-> system-config :recompute)))
+          (cm/queue-message-batch! conv-man message-type zid batch))
         (storm/ack! collector tuple)))))
 
 (defn make-topology
