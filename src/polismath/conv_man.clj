@@ -53,7 +53,7 @@
 
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
-  [conv-man conv & {:keys [recompute n-votes finish-time] :as extra-data}]
+  [{:as conv-man :keys [mongo]} conv & {:keys [recompute n-votes finish-time] :as extra-data}]
   (if-let [prof-atom (:profile-data conv)]
     (let [prof @prof-atom
           tot (apply + (map second prof))
@@ -63,7 +63,7 @@
             (assoc :n-ptps (:n conv))
             (merge (utils/hash-map-subset conv #{:n-cmts :zid :last-vote-timestamp})
                    extra-data)
-            (->> (mongo/insert (:mongo conv-man) (mongo/math-collection-name "profile"))))
+            (->> (mongo/insert mongo (mongo/math-collection-name mongo "profile"))))
         (catch Exception e
           (log/warn "Unable to submit profile data for zid:" (:zid conv))
           (.printStackTrace e)))
@@ -79,7 +79,7 @@
    ;; Note: we let all other key-value pairs pass through
    s/Keyword            s/Any})
 
-(defn update-fn
+(defn update
   "This function is what actually gets sent to the conv-actor. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv-man conv votes error-callback]
@@ -103,6 +103,7 @@
         (when-let [validation-errors (s/check Conversation updated-conv)]
           ;; XXX Should really be using throw+ (slingshot) here and throutout the code base
           ;; Also, should put in code for doing smart collapsing of collections...
+          (log/error "Validation error: Conversation value does not match schema for conv zid:" zid)
           (throw (Exception. (str "Validation error: Conversation Value does not match schema: "
                                   validation-errors))))
         ; Format and upload main results
@@ -112,13 +113,15 @@
           ;; function gets taken care of separately; don't need to conplect these
           (->> updated-conv
                prep-fn
+               mongo/format-for-mongo
                (mongo/zid-upsert mongo (mongo/collection-name mongo col-name))))
-        (log/info "Finished uploading mongo results for zid" zid)
+        (log/info "Finished uploading mongo results for zid:" zid)
         ; Return the updated conv
         updated-conv)
       ; In case anything happens, run the error-callback handler. Agent error handlers do not work here, since
       ; they don't give us access to the votes.
       (catch Exception e
+        ;; XXX See comment below about decoupling errors
         (error-callback votes start-time (:opts' conv) e)
         ; Wait a second before returning the origin, unmodified conv, to throttle retries
         ;; XXX This shouldn't be here... ???
@@ -135,6 +138,13 @@
        ;(log/error ~message (str "(for zid=" ~zid ")")))))
 
 
+;; ### Side notes on error handling
+
+;; Should be decoupling error handling from all of this mess; create it's own logic shoot and perhaps
+;; component so we can look at inspect and reason about the error flow of the system.
+;; Make it programatic; pure; not just a ad-hoc try/catch flow control thing coupled with the logic of the
+;; application.
+
 (defn build-update-error-handler
   "Returns a closure that can be called in case there is an update error. The closure gives access to
   the queue so votes can be requeued"
@@ -149,7 +159,7 @@
       (try
         (log/info "Preparing to re-queue votes for failed conversation update for" zid-str)
         ;; XXX Should we check if the queue got close due to error or manager close, and log?
-        (async/go (async/>! queue [:votes votes]))
+        (async/go (async/>! queue {:message-type :votes :message-batch votes}))
         (catch Exception qe
           (log/error "Unable to re-queue votes after conversation update failed for" zid-str)
           (.printStackTrace qe)))
@@ -192,9 +202,13 @@
 (defn load-or-init
   "Given a zid, either load a minimal set of information from mongo, or if a new zid, create a new conv"
   [conv-man zid & {:keys [recompute]}]
+  (log/info "Running load or init")
   (if-let [conv (and (not recompute) (mongo/load-conv (:mongo conv-man) zid))]
     (-> conv
+        ;(->> (tr/trace "load-or-init (about to restructure):"))
         restructure-mongo-conv
+        ;(->> (tr/trace "load-or-init (post restructure):"))
+        ;; What the fuck is this all about? Should this really be getting set here?
         (assoc :recompute :reboot))
     ; would be nice to have :recompute :initial
     (assoc (conv/new-conv) :zid zid :recompute :full)))
@@ -225,53 +239,84 @@
   so messages can get processed properly"
   [messages]
   (->> messages
-       (group-by first)
+       (group-by :message-type)
        (pc/map-vals
          (fn [labeled-batches]
            (->> labeled-batches
-                (map second)
+                (map :message-batch)
                 (flatten))))))
 
 
-(defrecord ConversationManager [config mongo metrics conversations]
+(defrecord ConversationManager [config mongo metrics conversations listeners]
   component/Lifecycle
   (start [component]
-    (let [conversations (atom {})]
-      (assoc component :conversations conversations)))
+    (log/info "Starting ConversationManager")
+    (let [conversations (atom {})
+          listeners (atom {})]
+      (assoc component :conversations conversations :listeners listeners)))
   (stop [component]
+    (log/info "Stopping ConversationManager")
     ;; Close all our message channels for good measure
     (doseq [[zid {:keys [message-chan]}] @conversations]
       (async/close! message-chan))
     ;; Not sure, but we might want this for GC
     (reset! conversations nil)
+    (reset! listeners nil)
     (assoc component :conversations nil)))
 
 (defn create-conversation-manager
   []
   (map->ConversationManager {}))
 
+(defn add-listener!
+  ([conv-man listener-fn]
+   (add-listener! conv-man (rand-int 9999999) listener-fn))
+  ([{:as conv-man :keys [listeners]} listener-key listener-fn]
+   (swap! listeners assoc listener-key listener-fn)))
+
+;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
 (defn queue-message-batch!
-  [{:keys [conversations] :as conv-man} message-type zid message-batch recompute]
+  "Queue message batches for "
+  [{:as conv-man :keys [conversations config listeners]} message-type zid message-batch]
+  (log/info "Conversations is:" conversations)
+  (log/info "Message batch is:" message-batch)
   (if-let [{:keys [conv message-chan]} (get @conversations zid)]
     ;; Then we already have a go loop running for this
     (>!! message-chan {:message-type message-type :message-batch message-batch})
     ;; Then we need to initialize the conversation and set up the conversation channel and go routine
-    (let [conv (load-or-init conv-man zid :recompute recompute) ;; XXX recompute should be env var?
+    (let [_ (log/info "Starting message batch queue and handler routine for conv zid:" zid)
+          conv (load-or-init conv-man zid :recompute (:recompute config))
+          _ (log/info "Conversation loaded for conv zid:" zid)
           ;; XXX Need to set up message chan buffer as a env var
           message-chan (chan 100000)]
       (swap! conversations assoc zid {:conv conv :message-chan message-chan})
+      ;; Just call again to make sure the message gets on the chan :-)
+      (queue-message-batch! conv-man message-type zid message-batch)
       ;; However, we don't use the conversations atom conv state, but keep track of it explicitly in the loop,
       ;; ensuring that we don't have race conditions for conv state. The state kept in the atom is basically
       ;; just a convenience.
       (go-loop [conv conv]
+        (log/info "In conversation manager go-loop for zid:" zid)
         (let [first-msg (<! message-chan)
+              _ (log/info "Message chan put in queue-message-batch! for zid:" zid)
               msgs (concat [first-msg] (take-all! message-chan))
-              {:keys [votes moderation]} (split-batches msgs)
+              {:as split-msgs :keys [votes moderation]} (split-batches msgs)
               error-handler (build-update-error-handler conv-man message-chan conv)
+              _ (log/info "About to run updaters:")
+              _ (log/info "split-msgs: " split-msgs)
               conv (-> conv
-                       (pc/?> moderation (conv/mod-update moderation))
-                       (pc/?> votes (update-fn votes error-handler)))]
+                       (pc/?> moderation conv/mod-update moderation)
+                       (pc/?> votes (partial update conv-man) votes error-handler))]
+          (log/info "Completed computing conversation zid:" zid)
           (swap! conversations assoc-in [zid :conv] conv)
+          (doseq [[k f] @listeners] (try (f conv) (catch Exception e (log/error "Listener error") (.printStackTrace e))))
           (recur conv))))))
+
+
+;; Need to find a good way of making sure these tests don't ever get committed uncommented
+(comment
+  (require '[clojure.test :as test])
+  (test/run-tests 'conv-man-tests)
+  )
 
 

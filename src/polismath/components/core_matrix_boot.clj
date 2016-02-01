@@ -12,7 +12,7 @@
 
 (def matrix-types [mikera.vectorz.Vector
                    ;; XXX Need to figure out why this doesn't exist yet
-                   ;clojure.core.matrix.impl.ndarray.NDArray
+                   clojure.core.matrix.impl.ndarray.NDArray
                    ])
 
 (defrecord CoreMatrixBooter [config]

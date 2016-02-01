@@ -42,4 +42,8 @@
   :TODO
   )
 
+(defn create-and-run-base-system!
+  [config]
+  (->> config base-system (utils/apply-kwargs component/system-map) component/start))
+
 

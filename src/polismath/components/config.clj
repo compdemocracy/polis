@@ -38,6 +38,8 @@
                          :moderation {:polling-interval 5000}}
                 }
    :math       {:matrix-implementation :vectorz}
+   :logging    {:file "log/dev.log"
+                :level :info}
    })
 
 (def rules
@@ -84,6 +86,10 @@
                                 :doc "Name of the cluster to run on in distributed mode"}
    :storm-workers              {:path [:storm :workers] :parse ->long
                                 :doc "Number of storm cluster workers for distributed mode"}
+   :logging-level              {:path [:logging :level] :parse ->keyword
+                                :doc "Logging level for timbre; info, debug, error, etc"}
+   :logging-file               {:path [:logging :file]
+                                :doc "If set, a file to which the log will be appended"}
    ;; XXX TODO & Thoughts
    ;; Mini batch sizes (see polismath.math.conversation)
    })
