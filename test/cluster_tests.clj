@@ -3,8 +3,8 @@
         test-helpers)
   (:require [clojure.test :refer :all]
             [plumbing.core :as pc]
-            [polismath.named-matrix :refer :all]
-            [polismath.clusters :refer :all]))
+            [polismath.math.named-matrix :refer :all]
+            [polismath.math.clusters :refer :all]))
 
 (defn size-correct [clusters n]
   ; XXX - really need to rewrite as macro
@@ -287,4 +287,8 @@
       (is (= ((comp unfold-clusters fold-clusters) clusters)
              clusters)))))
 
+
+(defn -main []
+  (run-tests 'cluster-tests)
+  )
 
