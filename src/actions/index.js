@@ -326,16 +326,104 @@ const facebookSigninFailed = () => {
   }
 }
 
-const onFbLoginOk = (x, password) => {
-  console.log(" in onFbLoginOk", x, password);
+const saveFacebookFriendsData = (data) => {
+  $.ajax({
+    url: "/api/v3/auth/facebook",
+    contentType: "application/json; charset=utf-8",
+    headers: {
+      "Cache-Control": "max-age=0"
+    },
+    xhrFields: {
+        withCredentials: true
+    },
+    dataType: "json",
+    data: JSON.stringify(data),
+    type: "POST"
+  }).then(() => {
+    // colin writes fire signin?
+    // that.trigger("authenticated");
+    gaEvent("Session", "create", "signIn");
+  }, (err) => {
+    console.dir(err);
+
+    if ( err.responseText && /polis_err_user_with_this_email_exists/.test(err.responseText) ) {
+
+      // Todo handle
+
+      // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
+      // that.linkMode = true;
+
+      // that.model.set({
+      //   create: false, // don't show create account stuff, account exists.
+      //   linkMode: true,
+      //   email: data.fb_email,
+      // });
+    } else {
+      alert("error logging in with Facebook");
+    }
+  });
+}
+
+const processFacebookFriendsData = (fb_public_profile, friendsData) => {
+
+  // alert(JSON.stringify(friendsData));
+  console.log("got info and friends");
+
+  var data = {
+    fb_public_profile: JSON.stringify(fb_public_profile),
+    fb_friends_response: JSON.stringify(friendsData),
+    response: JSON.stringify(response)
+  };
+
+  if (fb_public_profile.email) {
+    data.fb_email = fb_public_profile.email;
+  } else {
+    data.provided_email = prompt("Please enter your email address.");
+  }
+
+  var hname = [
+    fb_public_profile.first_name,
+    fb_public_profile.last_name
+  ].join(" ");
+
+  if (hname.length) {
+    data.hname = hname;
+  }
+
+  if (response && response.authResponse && response.authResponse.grantedScopes) {
+    data.fb_granted_scopes = response.authResponse.grantedScopes;
+  }
+
+  if (optionalPassword) {
+    data.password = optionalPassword;
+  }
+
+  saveFacebookFriendsData(data)
+}
+
+const onFbLoginOk = (response, optionalPassword) => {
+
+  console.log("onFbLoginOk");
+  console.dir(response);
+
+  $.when(
+    getInfo(),
+    getFriends()
+  ).then(
+    processFacebookFriendsData,
+    (err) => {
+      console.error(err);
+      console.dir(arguments);
+    }
+  );
 }
 
 const callFacebookLoginAPI = () => {
   console.log("ringing facebook...");
   const password = "THIS_STRING_SHOULD_NOT_BE_HERE"
 
-  FB.login((x) =>  {
-      return onFbLoginOk(x, password);
+  FB.login((res) =>  {
+      return onFbLoginOk(res);
     }, {
       return_scopes: true, // response should contain the scopes the user allowed
       scope: [
@@ -352,19 +440,9 @@ export const doFacebookSignin = (dest) => {
   return (dispatch) => {
     dispatch(facebookSigninInitiated())
     console.log('facebook sign in initiated', dest)
-    callFacebookLoginAPI()
+    return callFacebookLoginAPI()
   }
 }
-
-// export const doFacebookSignin = () => {
-//   return (dispatch) => {
-//     dispatch(facebookSigninInitiated())
-//     return postFacebookSignin().then(
-//       res => dispatch(facebookLoginSuccessful(res)),
-//       err => dispatch(facebookLoginFailed(err))
-//     )
-//   }
-// }
 
 /* signout */
 
