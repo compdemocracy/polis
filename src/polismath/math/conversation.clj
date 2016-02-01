@@ -403,6 +403,7 @@
              (> n-ptpts large-cutoff)  large-conv-update
              :else                     small-conv-update)
                 {:conv conv :votes votes :opts opts})
+          ;; This seems hackish... XXX
           ; Remove the :votes key from customs; not needed for persistence
           (assoc-in [:customs :votes] [])
           (dissoc :keep-votes))))))

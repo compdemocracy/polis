@@ -82,8 +82,15 @@
 
 (comment
   (try
-    ;(stop!)
-    (run! storm-system)
+    (run! system/base-system)
     :ok (catch Exception e (.printStackTrace e) e))
+
+  ;(require '[polismath.conv-man :as conv-man])
+  ;(let [conv-man (:conversation-manager system)]
+    ;(conv-man/queue-message-batch! conv-man ))
+
+  (stop!)
+  ;(run!
   )
+
 
