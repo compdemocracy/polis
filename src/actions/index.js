@@ -448,7 +448,7 @@ const saveFacebookFriendsData = (data) => {
   });
 }
 
-const processFacebookFriendsData = (respose) => {
+const processFacebookFriendsData = (response) => {
 
   return (fb_public_profile, friendsData) => {
     // alert(JSON.stringify(friendsData));
