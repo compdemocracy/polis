@@ -12,7 +12,8 @@ const styles = {
   heading: {
     fontSize: 36,
     display: "block",
-    marginBottom: 20
+    marginBottom: 20,
+    marginTop: 0
   },
   card: {
     position: "relative",
@@ -24,6 +25,8 @@ const styles = {
   },
   button: {
     display: "block",
+    backgroundColor: "white",
+    color: "rgb(100,100,100)"
   },
   input: {
     display: "block",
@@ -70,39 +73,94 @@ class SignIn extends React.Component {
     this.props.dispatch(doFacebookSignin(dest))
   }
 
+  handleFacebookPasswordSubmit() {
+    var dest = this.props.location.pathname.slice("/signin".length);
+    const optionalPassword = this.refs.facebook_password.value
+    this.props.dispatch(doFacebookSignin(dest, optionalPassword))
+  }
+
   render() {
     return (
       <StaticContentContainer>
         <Flex>
           <div style={styles.card}>
-              <p style={styles.heading}><Awesome name="sign-in" /> Sign In</p>
-            <form>
-              <input
-                style={styles.input}
-                ref="email"
-                placeholder="email"
-                type="text"/>
-              <input
-                style={styles.input}
-                ref="password"
-                placeholder="password"
-                type="password"/>
-              <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
-                Sign In
-              </Button>
-            </form>
-            <p style={{fontFamily: "Serif", fontSize: 12, maxWidth: 400, fontWeight: 100}}>
-              If you click "Log in with Facebook" and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy
+            <p style={styles.heading}>
+              <Awesome name={"sign-in"} /> Sign In
             </p>
-            <Button style={styles.facebookButton} onClick={this.facebookButtonClicked.bind(this)}>
-              <Awesome style={{
-                color: "#3b5998",
-                backgroundColor: "white",
-                padding: "3px 5px",
-                borderRadius: 3,
-              }} name="facebook"/>
-              <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
-            </Button>
+            {
+              this.props.error !== "polis_err_user_with_this_email_exists" ?
+              <div>
+                <form>
+                  <input
+                    style={styles.input}
+                    ref="email"
+                    placeholder="email"
+                    type="text"/>
+                  <input
+                    style={styles.input}
+                    ref="password"
+                    placeholder="password"
+                    type="password"/>
+                  <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
+                    Sign In
+                  </Button>
+                </form>
+                <p
+                  style={{
+                    fontSize: 12,
+                    maxWidth: 400,
+                    fontWeight: 100
+                  }}>
+                  {
+                    "If you click 'Log in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
+                  }
+                </p>
+                <Button style={styles.facebookButton} onClick={this.facebookButtonClicked.bind(this)}>
+                  <Awesome style={{
+                    color: "#3b5998",
+                    backgroundColor: "white",
+                    padding: "3px 5px",
+                    borderRadius: 3,
+                  }} name="facebook"/>
+                  <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
+                </Button>
+              </div> :
+
+              <span>
+                <p
+                  style={{
+                    fontSize: 16,
+                    maxWidth: 400,
+                    fontWeight: 100,
+                    lineHeight: 1.4
+                  }}>
+                  {
+                    "A pol.is user already exists with the email address associated with this Facebook account."
+                  }
+                </p>
+                <p
+                  style={{
+                    fontSize: 16,
+                    maxWidth: 400,
+                    fontWeight: 100,
+                    lineHeight: 1.4
+                  }}>
+                  {
+                    "Please enter the password to your pol.is account to enable Facebook login."
+                  }
+                </p>
+                <input
+                  style={styles.input}
+                  ref="facebook_password"
+                  placeholder="polis password"
+                  type="password"/>
+                  <Button
+                    style={styles.button}
+                    onClick={this.handleFacebookPasswordSubmit.bind(this)}>
+                    { "Connect Facebook Account" }
+                  </Button>
+              </span>
+            }
           </div>
         </Flex>
       </StaticContentContainer>

@@ -26,7 +26,7 @@ const signin = (state = {
       loading: false,
       facebookLoading: false,
       error: false,
-      facebookError: true
+      facebookError: errorCode
     });
   default:
     return state;

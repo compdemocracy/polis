@@ -105,7 +105,6 @@ export const FACEBOOK_SIGNIN_INITIATED = "FACEBOOK_SIGNIN_INITIATED";
 export const FACEBOOK_SIGNIN_SUCCESSFUL = "FACEBOOK_SIGNIN_SUCCESSFUL";
 export const FACEBOOK_SIGNIN_FAILED = "FACEBOOK_SIGNIN_FAILED";
 
-
 /* ======= Actions ======= */
 
 /*
@@ -320,9 +319,10 @@ const facebookSigninSuccessful = () => {
   }
 }
 
-const facebookSigninFailed = () => {
+const facebookSigninFailed = (errorCode) => {
   return {
-    type: FACEBOOK_SIGNIN_FAILED
+    type: FACEBOOK_SIGNIN_FAILED,
+    errorCode: errorCode
   }
 }
 
@@ -409,7 +409,7 @@ const getInfo = (response) => {
   return dfd.promise();
 }
 
-const saveFacebookFriendsData = (data, dest) => {
+const saveFacebookFriendsData = (data, dest, dispatch) => {
   $.ajax({
     url: "/api/v3/auth/facebook",
     contentType: "application/json; charset=utf-8",
@@ -439,6 +439,8 @@ const saveFacebookFriendsData = (data, dest) => {
       // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
       // that.linkMode = true;
 
+      dispatch(facebookSigninFailed("polis_err_user_with_this_email_exists")) //handle case user already exists enter your password
+
       // that.model.set({
       //   create: false, // don't show create account stuff, account exists.
       //   linkMode: true,
@@ -450,7 +452,7 @@ const saveFacebookFriendsData = (data, dest) => {
   });
 }
 
-const processFacebookFriendsData = (response, dest, optionalPassword) => {
+const processFacebookFriendsData = (response, dest, dispatch, optionalPassword) => {
 
   return (fb_public_profile, friendsData) => {
     // alert(JSON.stringify(friendsData));
@@ -487,12 +489,12 @@ const processFacebookFriendsData = (response, dest, optionalPassword) => {
       data.password = optionalPassword;
     }
 
-    saveFacebookFriendsData(data, dest)
+    saveFacebookFriendsData(data, dest, dispatch)
   }
 
 }
 
-const onFbLoginOk = (response, dest, optionalPassword) => {
+const onFbLoginOk = (response, dest, dispatch, optionalPassword) => {
 
   console.log("onFbLoginOk");
   console.dir(response);
@@ -501,7 +503,7 @@ const onFbLoginOk = (response, dest, optionalPassword) => {
     getInfo(response),
     getFriends(response)
   ).then(
-    processFacebookFriendsData(response, dest, optionalPassword),
+    processFacebookFriendsData(response, dest, dispatch, optionalPassword),
     (err) => {
       console.error(err);
       console.dir(arguments);
@@ -509,12 +511,12 @@ const onFbLoginOk = (response, dest, optionalPassword) => {
   );
 }
 
-const callFacebookLoginAPI = (dest) => {
+const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
   console.log("ringing facebook...");
   const password = "THIS_STRING_SHOULD_NOT_BE_HERE"
 
   FB.login((res) =>  {
-      return onFbLoginOk(res, dest);
+      return onFbLoginOk(res, dest, dispatch, optionalPassword);
     }, {
       return_scopes: true, // response should contain the scopes the user allowed
       scope: [
@@ -527,11 +529,11 @@ const callFacebookLoginAPI = (dest) => {
     });
 }
 
-export const doFacebookSignin = (dest) => {
+export const doFacebookSignin = (dest, optionalPassword) => {
   return (dispatch) => {
     dispatch(facebookSigninInitiated())
     console.log('facebook sign in initiated', dest)
-    return callFacebookLoginAPI(dest)
+    return callFacebookLoginAPI(dest, dispatch, optionalPassword)
   }
 }
 

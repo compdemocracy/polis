@@ -42,16 +42,16 @@ var styles = {
       padding: "0.8em 1.5em"
     },
 
-    ':hover': {
-      backgroundColor: "#0088FF"
-    },
+    // ':hover': {
+    //   backgroundColor: "#0088FF"
+    // },
 
-    ':focus': {
-      backgroundColor: "#0088FF"
-    },
+    // ':focus': {
+    //   backgroundColor: "#0088FF"
+    // },
 
     ':active': {
-      backgroundColor: "#005299",
+      // backgroundColor: "#005299",
       transform: "translateY(2px)",
     }
   },
