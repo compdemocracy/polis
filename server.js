@@ -5257,7 +5257,7 @@ app.get("/api/v3/facebook/delete",
     moveToBody,
     auth(assignToP),
 function(req, res) {
-    deleteFacebookUserRecord(req).then(function() {
+    deleteFacebookUserRecord(req.p).then(function() {
         res.json({});
     }).catch(function(err) {
         fail(res, 500, err);
