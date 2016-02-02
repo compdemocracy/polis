@@ -5023,6 +5023,14 @@ function getUserByEmail(email) {
     });
 }
 
+function deleteFacebookUserRecord(o) {
+    if (!isPolisDev(o.uid)) {
+        // limit to test accounts for now
+        return Promise.reject("polis_err_not_implemented");
+    }
+    return pgQueryP("delete from facebook_users where uid = ($1);", [o.uid]);
+}
+
 function createFacebookUserRecord(o) {
     winston.log("info","createFacebookUserRecord");
     winston.log("info","createFacebookUserRecord", JSON.stringify(o));
@@ -5241,6 +5249,18 @@ function(req, res) {
         }).catch(function(err) {
             fail(res, 500, "polis_err_cloning_conversation_misc", err);
         });
+    });
+});
+
+// this endpoint isn't really ready for general use
+app.get("/api/v3/facebook/delete",
+    moveToBody,
+    auth(assignToP),
+function(req, res) {
+    deleteFacebookUserRecord(req).then(function() {
+        res.json({});
+    }).catch(function(err) {
+        fail(res, 500, err);
     });
 });
 
