@@ -5284,7 +5284,7 @@ app.post("/api/v3/auth/facebook",
 function(req, res) {
 
     // If a pol.is user record exists, and someone logs in with a facebook account that has the same email address, we should bind that facebook account to the pol.is account, and let the user sign in.
-    var TRUST_FB_TO_VALIDATE_EMAIL = true;
+    var TRUST_FB_TO_VALIDATE_EMAIL = false;
 
     var response = JSON.parse(req.p.response);
     var fb_public_profile = req.p.fb_public_profile;
