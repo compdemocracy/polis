@@ -88,7 +88,7 @@ class SignIn extends React.Component {
               <Awesome name={"sign-in"} /> Sign In
             </p>
             {
-              this.props.error !== "polis_err_user_with_this_email_exists" ?
+              this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
               <div>
                 <form>
                   <input
