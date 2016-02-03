@@ -21,7 +21,6 @@ const styles = {
   },
   conversationCard: {
     height: cardHeight,
-    width: "100%",
     margin: "10px 20px 10px 20px",
     backgroundColor: "rgb(253,253,253)",
     borderRadius: cardBorderRadius,
@@ -31,8 +30,8 @@ const styles = {
   },
   toAdminLink: {
     height: cardHeight + (2*cardPadding),
-    backgroundColor: "rgba(200,200,200,1)",
-    marginRight: -cardPadding,
+    // backgroundColor: "rgba(200,200,200,1)",
+    // marginRight: -cardPadding,
     width: "15%",
     borderTopRightRadius: cardBorderRadius,
     borderBottomRightRadius: cardBorderRadius,
@@ -69,6 +68,7 @@ class Conversations extends React.Component {
           <Flex.Item
             small={2}>
             <span>{conversation.topic}</span>
+          {/* <span>{conversation.description}</span> */}
           </Flex.Item>
           <Link
             style={styles.toAdminLink}

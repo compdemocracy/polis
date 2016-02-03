@@ -2,7 +2,6 @@ import React from 'react';
 
 const styles = {
   root: {
-    fontFamily: '"HelveticaNeue-Light", "Helvetica Neue Light", "Helvetica Neue", Helvetica, Arial, "Lucida Grande", sans-serif',
     fontWeight: 300,
   },
   header: {
@@ -18,9 +17,12 @@ const TrialBanner = (props) => {
 
   return (
     <div style={rootStyle}>
-      <div style={styles.header}>
-        { props.title }
-      </div>
+      {
+        false ?
+          <div style={styles.header}>
+            { props.title }
+          </div> : ""
+      }
       {props.children}
     </div>
   );
