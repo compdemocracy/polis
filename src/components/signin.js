@@ -48,7 +48,7 @@ const styles = {
   }
 }
 
-@connect()
+@connect(state => state.signin)
 @Radium
 class SignIn extends React.Component {
 
