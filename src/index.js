@@ -49,6 +49,9 @@ import ParticipantModerationHidden from "./components/conversation-admin/moderat
 import DataExport from "./components/conversation-admin/data-export";
 import ShareAndEmbed from "./components/conversation-admin/share-and-embed";
 
+/* landers */
+import News from "./components/landers/news";
+
 const store = configureStore();
 
 class Root extends React.Component {
@@ -80,6 +83,7 @@ class Root extends React.Component {
                 <Route path="export" component={DataExport}/>
               </Route>
             </Route>
+            <Route path="news" component={News}/>
             <Route path="signin" component={SignIn}/>
             <Route path="signin/*" component={SignIn}/>
             <Route path="signin/**/*" component={SignIn}/>

@@ -6,31 +6,31 @@ import {particles} from "./connected-particles";
 
 @Radium
 class BackgroundStars extends React.Component {
-
-  componentDidMount () {
-
+  static defaultProps = {
+    color: "rgba(255,255,255,1)",
+    count: Math.floor(window.innerWidth / 20),
+    width: window.innerWidth,
+    height: window.innerHeight / 2
   }
 
   render() {
-    const width = window.innerWidth;
-    const starCount = Math.floor(window.innerWidth / 20);
-    /* any content above the stars must have position relative and zindex > 1 */
+    /* any content above the stars must have position relative and zindex > -1000 */
     return (
-      <div style={{zIndex: 1}}>
+      <div style={{zIndex: -1000}}>
         <canvas
           style={{
-            position: "fixed",
+            position: "absolute",
             top: 0,
             left: 0,
           }}
-          width={window.innerWidth}
-          height={window.innerHeight / 2}>
+          width={this.props.width}
+          height={this.props.height}>
         </canvas>
         {
           particles({
-            color: "rgba(255,255,255,1)",
-            count: starCount,
-            radius: 1.5,
+            color: this.props.color,
+            count: this.props.count,
+            radius: this.props.radius || 1.5,
             lineWidth: 1
           })
         }
