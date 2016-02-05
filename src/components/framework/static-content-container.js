@@ -64,9 +64,7 @@ class StaticContentContainer extends React.Component {
           <div style={styles(this.props).topBar}>
             <PolisLogo/>
           </div>
-          <FlexItem alignSelf="flex-end">
             {this.props.children}
-          </FlexItem>
           <Flex justifyContent={"space-between"} foo="bar" styleOverrides={styles(this.props).footer}>
             <p style={{marginLeft: 20, fontSize: 12}}>© Polis Technology Inc. 2016 </p>
             <div style={{marginRight: 20}}>
