@@ -12456,7 +12456,6 @@ app.get(/^\/prototype.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/plan.*/, fetchIndexWithoutPreloadData);
 app.get(/^\/professors$/, makeFileFetcher(hostname, portForParticipationFiles, "/lander.html", {'Content-Type': "text/html"}));
 app.get(/^\/football$/, makeFileFetcher(hostname, portForParticipationFiles, "/football.html", {'Content-Type': "text/html"}));
-app.get(/^\/news$/, makeFileFetcher(hostname, portForParticipationFiles, "/news.html", {'Content-Type': "text/html"}));
 app.get(/^\/pricing$/, makeFileFetcher(hostname, portForParticipationFiles, "/pricing.html", {'Content-Type': "text/html"}));
 app.get(/^\/company$/, makeFileFetcher(hostname, portForParticipationFiles, "/company.html", {'Content-Type': "text/html"}));
 app.get(/^\/api$/, function (req, res) { res.redirect("/docs/api/v3");});
