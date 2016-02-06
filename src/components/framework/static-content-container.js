@@ -3,7 +3,6 @@ import { connect } from "react-redux";
 import Radium from "radium";
 import _ from "lodash";
 import Flex from "./flex";
-import FlexItem from "./flex-item";
 import PolisLogo from "./polis-logo";
 import {Link} from "react-router";
 import Awesome from "react-fontawesome";
@@ -14,6 +13,7 @@ const styles = (props) => {
   return {
     topBar: {
       width: "100%",
+      // height: 70,
       fontSize: 24,
       fontWeight: 700,
       color: "white",
@@ -27,10 +27,10 @@ const styles = (props) => {
       color: "white",
       position: "relative",
       zIndex: 10,
-      minHeight: 50
+      // height: 50,
     },
     flexContainer: {
-      minHeight: "100vh",
+      height: "100vh",
       background: props.image ? "url(https://pol.is/landerImages/billions-compressor.jpeg) no-repeat center center fixed" : "",
       backgroundSize: props.image ? "cover" : ""
     },
@@ -50,7 +50,7 @@ class StaticContentContainer extends React.Component {
      * image specifies whether a background image should be shown or not
      */
     image: PropTypes.bool,
-    stars: PropTypes.bool,
+    stars: PropTypes.object,
   };
 
   static defaultProps = {
@@ -60,12 +60,16 @@ class StaticContentContainer extends React.Component {
   render() {
     return (
       <div>
-        <Flex direction="column" justifyContent={'space-between'} styleOverrides={styles(this.props).flexContainer}>
-          <div style={styles(this.props).topBar}>
+        <Flex direction="column" styleOverrides={styles(this.props).flexContainer}>
+          {/* header */}
+          <Flex styleOverrides={styles(this.props).topBar}>
             <PolisLogo/>
-          </div>
+          </Flex>
             {this.props.children}
-          <Flex justifyContent={"space-between"} foo="bar" styleOverrides={styles(this.props).footer}>
+          <Flex
+            growShrinkBasis="0 1 auto"
+            justifyContent={"space-between"}
+            styleOverrides={styles(this.props).footer}>
             <p style={{marginLeft: 20, fontSize: 12}}>© Polis Technology Inc. 2016 </p>
             <div style={{marginRight: 20}}>
               <Link

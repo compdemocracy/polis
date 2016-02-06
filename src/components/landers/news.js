@@ -7,7 +7,6 @@ import Awesome from 'react-fontawesome';
 import Flex from '../framework/flex';
 import Button from '../framework/generic-button';
 import StaticContentContainer from '../framework/static-content-container';
-import FlexItem from '../framework/flex-item';
 
 @connect()
 @Radium
@@ -62,7 +61,11 @@ class News extends React.Component {
   render() {
     return (
       <StaticContentContainer image={false} stars={{visible: false, color: "darkgrey"}}>
-        <Flex direction='column' justifyContent='space-around' style={this.styles().container}>
+        <Flex
+          grow={0}
+          direction='column'
+          justifyContent='space-around'
+          style={this.styles().container}>
           {/* hero */}
           <Flex direction='column' alignItems='center'styleOverrides={this.styles().sectionColor}>
               <p style={this.styles().hero}> {'Make your content work harder'} </p>
@@ -104,9 +107,13 @@ class News extends React.Component {
               <p style={this.styles().sectionHeader}> {'Reap Usable Data'} </p>
               <p style={this.styles().subheading}> { 'Pol.is data can instruct content and editorial in real time. Use powerful dashboard tools to drill into conversations as they’re unfolding to gain insights about participation patterns, data quality and audience.' } </p>
             </Flex>
-            <Flex styleOverrides={this.styles().section} direction='column' alignItems={'center'}>
+            <Flex styleOverrides={this.styles().section} direction='column' alignItems={'flex-start'}>
               <p style={this.styles().sectionHeader}> {'10x'} </p>
               <p style={this.styles().subheading}> { 'On average, ~10x more people submit votes than comment. If you get hundreds of comments, expect thousands of voters.' } </p>
+            </Flex>
+            <Flex styleOverrides={this.styles().section} direction='column' alignItems={'flex-start'}>
+              <p style={this.styles().sectionHeader}> {'Up and Running in Minutes'} </p>
+              <p style={this.styles().subheading}> { "Just drop a script tag onto your site and you're on your way - no messy integrations." } </p>
             </Flex>
           </Flex>
           {/* lower cta */}

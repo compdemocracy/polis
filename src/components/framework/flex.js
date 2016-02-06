@@ -8,6 +8,7 @@ import Radium from "radium";
   justify-content: flex-start | flex-end | center | space-between | space-around;
   align-items: flex-start | flex-end | center | baseline | stretch;
   align-content: flex-start | flex-end | center | space-between | space-around | stretch;
+  flex is growShrinkBasis
 
 **/
 
@@ -28,6 +29,13 @@ class Flex extends React.Component {
     alignContent: React.PropTypes.oneOf([
       "flex-start", "flex-end", "center", "space-between", "space-around", "stretch"
     ]),
+    grow: React.PropTypes.number,
+    shrink: React.PropTypes.number,
+    basis: React.PropTypes.string,
+    order: React.PropTypes.number,
+    alignSelf: React.PropTypes.oneOf([
+      "auto", "flex-start", "flex-end", "center", "baseline", "stretch"
+    ]),
     styleOverrides: React.PropTypes.object,
     children: React.PropTypes.node,
   }
@@ -37,6 +45,11 @@ class Flex extends React.Component {
     justifyContent: "center",
     alignItems: "center",
     alignContent: "stretch",
+    grow: 0,
+    shrink: 1,
+    basis: "auto",
+    alignSelf: "auto",
+    order: 0,
     styleOverrides: null
   }
   getStyles() {
@@ -48,6 +61,11 @@ class Flex extends React.Component {
         justifyContent: this.props.justifyContent,
         alignItems: this.props.alignItems,
         alignContent: this.props.alignContent,
+        order: this.props.order,
+        flexGrow: this.props.grow,
+        flexShrink: this.props.shrink,
+        flexBasis: this.props.basis,
+        alignSelf: this.props.alignSelf,
       },
       styleOverrides: this.props.styleOverrides
     }

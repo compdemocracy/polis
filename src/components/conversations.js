@@ -6,7 +6,6 @@ import Radium from "radium";
 import _ from "lodash";
 import Spinner from "./framework/spinner";
 import Flex from "./framework/flex";
-import FlexItem from "./framework/flex-item"
 import Awesome from "react-fontawesome";
 
 const cardHeight = 50;
@@ -65,11 +64,12 @@ class Conversations extends React.Component {
           justifyContent={"space-between"}
           styleOverrides={styles.conversationCard}
           key={i}>
-          <Flex.Item
+          {/* TODO FLEX */}
+          <Flex
             small={2}>
             <span>{conversation.topic}</span>
           {/* <span>{conversation.description}</span> */}
-          </Flex.Item>
+          </Flex>
           <Link
             style={styles.toAdminLink}
             to={"/m/"+conversation.conversation_id}>
