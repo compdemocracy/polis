@@ -7,10 +7,18 @@ import PolisLogo from "./polis-logo";
 import {Link} from "react-router";
 import Awesome from "react-fontawesome";
 import BackgroundStars from "./background-stars";
+import Footer from "./footer";
 
 
 const styles = (props) => {
   return {
+    flexContainer: {
+      minHeight: "100%",
+      position: "relative",
+      marginBottom: 40,
+      background: props.image ? "url(https://pol.is/landerImages/billions-compressor.jpeg) no-repeat center center fixed" : "",
+      backgroundSize: props.image ? "cover" : ""
+    },
     topBar: {
       width: "100%",
       // height: 70,
@@ -18,27 +26,8 @@ const styles = (props) => {
       fontWeight: 700,
       color: "white",
       backgroundColor: "rgba(0,0,0,.3)",
-      position: "relative",
+      position: "absolute",
       zIndex: 10,
-    },
-    footer: {
-      width: "100%",
-      backgroundColor: "rgba(0,0,0,.5)",
-      color: "white",
-      position: "relative",
-      zIndex: 10,
-      // height: 50,
-    },
-    flexContainer: {
-      height: "100vh",
-      background: props.image ? "url(https://pol.is/landerImages/billions-compressor.jpeg) no-repeat center center fixed" : "",
-      backgroundSize: props.image ? "cover" : ""
-    },
-    footerLink: {
-      textDecoration: 'none',
-      cursor: "pointer",
-      color: "white",
-      fontSize: 12
     }
   }
 }
@@ -59,34 +48,16 @@ class StaticContentContainer extends React.Component {
   }
   render() {
     return (
-      <div>
+      <div style={{height: "100%"}}>
         <Flex direction="column" styleOverrides={styles(this.props).flexContainer}>
           {/* header */}
           <Flex styleOverrides={styles(this.props).topBar}>
             <PolisLogo/>
           </Flex>
             {this.props.children}
-          <Flex
-            growShrinkBasis="0 1 auto"
-            justifyContent={"space-between"}
-            styleOverrides={styles(this.props).footer}>
-            <p style={{marginLeft: 20, fontSize: 12}}>© Polis Technology Inc. 2016 </p>
-            <div style={{marginRight: 20}}>
-              <Link
-                style={styles(this.props).footerLink}
-                to="/tos">
-                <Awesome name="file-text-o"/>
-                <span style={{marginLeft: 5}}> TOS </span>
-              </Link>
-              <Link
-                style={styles(this.props).footerLink}
-                to="/privacy">
-                <span style={{marginLeft: 5}}> PRIVACY </span>
-              </Link>
-            </div>
-          </Flex>
         </Flex>
         {this.props.stars.visible ? <BackgroundStars color={this.props.stars.color}/> : ""}
+        <Footer/>
       </div>
     );
   }
