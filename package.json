@@ -37,7 +37,7 @@
     "webpack-hot-middleware": "^2.4.1"
   },
   "dependencies": {
-    "color": "0.7.3",
+    "color": "^0.7.3",
     "highlight.js": "^8.9.1",
     "history": "^1.12.5",
     "jquery": "^2.1.4",

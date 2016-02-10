@@ -1,29 +1,25 @@
-import Radium from 'radium';
-import React from 'react';
+import Radium from "radium";
+import React from "react";
+import Color from "color";
 
 @Radium
 class Button extends React.Component {
   static propTypes = {
-    color: React.PropTypes.string,
-    backgroundColor: React.PropTypes.string,
-    backgroundColorHover: React.PropTypes.string,
-    backgroundColorFocus: React.PropTypes.string,
-    backgroundColorActive: React.PropTypes.string
+    style: React.PropTypes.object
   }
   static defaultProps = {
-    color: "white",
-    backgroundColor: "black",
-    backgroundColorHover: null,
-    backgroundColorFocus: null,
-    backgroundColorActive: null
+    style: {
+      backgroundColor: "orange",
+      color: "white"
+    }
   }
   getStyles() {
     return {
       base: {
         fontSize: 16,
-        backgroundColor: this.props.backgroundColor,
-        color: this.props.color,
-        border: this.props.border ? this.props.border : 0,
+        backgroundColor: this.props.style.backgroundColor,
+        color: this.props.style.color,
+        border: this.props.style.border ? this.props.style.border : 0,
         marginRight: 10,
         borderRadius: "0.3em",
         // padding: "0.4em 1em",
@@ -31,27 +27,24 @@ class Button extends React.Component {
         cursor: "pointer",
         outline: "none",
 
-        // '@media (min-width: 992px)': {
+        // "@media (min-width: 992px)": {
         //   padding: "0.6em 1.2em"
         // },
 
-        // '@media (min-width: 1200px)': {
+        // "@media (min-width: 1200px)": {
         //   padding: "0.8em 1.5em"
         // },
 
-        ':hover': {
-          color: this.props.textColorHover ? this.props.textColorHover : this.props.color,
-          backgroundColor: this.props.backgroundColorHover ? this.props.backgroundColorHover : this.props.backgroundColor,
+        ":hover": {
+          backgroundColor: Color(this.props.style.backgroundColor).darken(.1).rgbString()
         },
 
-        ':focus': {
-          color: this.props.textColorFocus ? this.props.textColorFocus : this.props.color,
-          backgroundColor: this.props.backgroundColorFocus ? this.props.backgroundColorFocus : this.props.backgroundColor,
+        ":focus": {
+          backgroundColor: Color(this.props.style.backgroundColor).darken(.2).rgbString()
         },
 
-        ':active': {
-          color: this.props.textColorActive ? this.props.textColorActive : this.props.color,
-          backgroundColor: this.props.backgroundColorActive ? this.props.backgroundColorActive : this.props.backgroundColor,
+        ":active": {
+          backgroundColor: Color(this.props.style.backgroundColor).darken(.2).rgbString(),
           transform: "translateY(2px)",
         }
       }

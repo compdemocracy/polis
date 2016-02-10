@@ -10,7 +10,7 @@ import {handleCreateConversationSubmit} from '../actions';
 const styles = {
   sidebar: {
     width: 256,
-    height: '100%',
+    height: '100vh',
   },
   sidebarLink: {
     display: 'block',

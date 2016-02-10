@@ -1,4 +1,3 @@
-import InputField from "material-ui/lib/text-field";
 import React from "react";
 import { connect } from "react-redux";
 import { doSignin, doFacebookSignin } from "../actions";
@@ -46,7 +45,7 @@ const styles = {
     borderRadius: 5,
     fontSize: 14,
   }
-}
+};
 
 @connect(state => state.signin)
 @Radium
@@ -69,14 +68,96 @@ class SignIn extends React.Component {
   // }
 
   facebookButtonClicked() {
-    var dest = this.props.location.pathname.slice("/signin".length);
+    const dest = this.props.location.pathname.slice("/signin".length);
     this.props.dispatch(doFacebookSignin(dest))
   }
 
   handleFacebookPasswordSubmit() {
-    var dest = this.props.location.pathname.slice("/signin".length);
+    const dest = this.props.location.pathname.slice("/signin".length);
     const optionalPassword = this.refs.facebook_password.value
     this.props.dispatch(doFacebookSignin(dest, optionalPassword))
+  }
+
+  drawLoginForm() {
+    return (
+      <div>
+        <form>
+          <input
+            style={styles.input}
+            ref="email"
+            placeholder="email"
+            type="text"/>
+          <input
+            style={styles.input}
+            ref="password"
+            placeholder="password"
+            type="password"/>
+          <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
+            Sign In
+          </Button>
+        </form>
+        <p
+          style={{
+            fontSize: 12,
+            maxWidth: 400,
+            fontWeight: 100
+          }}>
+          {
+            "If you click 'Log in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
+          }
+        </p>
+        <Button
+          style={styles.facebookButton}
+          onClick={this.facebookButtonClicked.bind(this)}>
+          <Awesome style={{
+            color: "#3b5998",
+            backgroundColor: "rgb(255,255,255)",
+            padding: "3px 5px",
+            borderRadius: 3,
+          }} name="facebook"/>
+          <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
+        </Button>
+      </div>
+    )
+  }
+
+  drawPasswordConnectFacebookForm() {
+    return (
+      <span>
+        <p
+          style={{
+            fontSize: 16,
+            maxWidth: 400,
+            fontWeight: 100,
+            lineHeight: 1.4
+          }}>
+          {
+            "A pol.is user already exists with the email address associated with this Facebook account."
+          }
+        </p>
+        <p
+          style={{
+            fontSize: 16,
+            maxWidth: 400,
+            fontWeight: 100,
+            lineHeight: 1.4
+          }}>
+          {
+            "Please enter the password to your pol.is account to enable Facebook login."
+          }
+        </p>
+        <input
+          style={styles.input}
+          ref="facebook_password"
+          placeholder="polis password"
+          type="password"/>
+          <Button
+            style={styles.button}
+            onClick={this.handleFacebookPasswordSubmit.bind(this)}>
+            { "Connect Facebook Account" }
+          </Button>
+      </span>
+    )
   }
 
   render() {
@@ -89,77 +170,7 @@ class SignIn extends React.Component {
             </p>
             {
               this.props.facebookError !== "polis_err_user_with_this_email_exists" ?
-              <div>
-                <form>
-                  <input
-                    style={styles.input}
-                    ref="email"
-                    placeholder="email"
-                    type="text"/>
-                  <input
-                    style={styles.input}
-                    ref="password"
-                    placeholder="password"
-                    type="password"/>
-                  <Button style={styles.button} onClick={this.handleLoginClicked.bind(this)}>
-                    Sign In
-                  </Button>
-                </form>
-                <p
-                  style={{
-                    fontSize: 12,
-                    maxWidth: 400,
-                    fontWeight: 100
-                  }}>
-                  {
-                    "If you click 'Log in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
-                  }
-                </p>
-                <Button style={styles.facebookButton} onClick={this.facebookButtonClicked.bind(this)}>
-                  <Awesome style={{
-                    color: "#3b5998",
-                    backgroundColor: "white",
-                    padding: "3px 5px",
-                    borderRadius: 3,
-                  }} name="facebook"/>
-                  <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
-                </Button>
-              </div> :
-
-              <span>
-                <p
-                  style={{
-                    fontSize: 16,
-                    maxWidth: 400,
-                    fontWeight: 100,
-                    lineHeight: 1.4
-                  }}>
-                  {
-                    "A pol.is user already exists with the email address associated with this Facebook account."
-                  }
-                </p>
-                <p
-                  style={{
-                    fontSize: 16,
-                    maxWidth: 400,
-                    fontWeight: 100,
-                    lineHeight: 1.4
-                  }}>
-                  {
-                    "Please enter the password to your pol.is account to enable Facebook login."
-                  }
-                </p>
-                <input
-                  style={styles.input}
-                  ref="facebook_password"
-                  placeholder="polis password"
-                  type="password"/>
-                  <Button
-                    style={styles.button}
-                    onClick={this.handleFacebookPasswordSubmit.bind(this)}>
-                    { "Connect Facebook Account" }
-                  </Button>
-              </span>
+                this.drawLoginForm() : this.drawPasswordConnectFacebookForm()
             }
           </div>
         </Flex>

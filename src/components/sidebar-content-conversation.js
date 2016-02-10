@@ -4,28 +4,29 @@ import Radium from "radium";
 import _ from "lodash";
 import Awesome from "react-fontawesome";
 import {Link} from "react-router";
-import MaterialTitlePanel from './material-title-panel-sidebar';
+import MaterialTitlePanel from "./material-title-panel-sidebar";
 
 const styles = {
   sidebar: {
     width: 256,
-    height: '100%',
+    height: "100%"
   },
   sidebarLink: {
-    display: 'block',
-    padding: '16px 0px',
-    color: '#757575',
-    textDecoration: 'none',
+    display: "block",
+    padding: "16px 0px",
+    color: "#757575",
+    textDecoration: "none"
   },
   divider: {
-    margin: '8px 0',
+    margin: "8px 0",
     height: 1,
-    backgroundColor: '#757575',
+    backgroundColor: "#757575"
   },
   content: {
-    padding: '16px',
-    backgroundColor: 'white',
-  },
+    padding: "16px",
+    height: "100%",
+    backgroundColor: "white"
+  }
 };
 
 @Radium
