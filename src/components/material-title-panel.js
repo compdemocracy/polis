@@ -25,7 +25,12 @@ const MaterialTitlePanel = (props) => {
             "" :
             <div
               onClick={props.handleHamburgerClick}
-              style={{marginRight: 15, display: "inline", fontSize: 18, cursor: "pointer"}}>
+              style={{
+                marginRight: 15,
+                display: "inline",
+                fontSize: 18,
+                cursor: "pointer"
+              }}>
               <Awesome name="bars"/>
             </div>
         }

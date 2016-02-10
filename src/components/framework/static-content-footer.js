@@ -13,10 +13,10 @@ class Footer extends React.Component {
   styles () {
     return {
       footer: {
-        position: "absolute",
-        bottom: "0",
+        // position: "absolute",
+        // bottom: "0",
         width: "100%",
-        backgroundColor: "rgb(100,100,100)",
+        backgroundColor: "rgba(0,0,0,.5)",
         color: "white",
         zIndex: 10,
         height: 40,

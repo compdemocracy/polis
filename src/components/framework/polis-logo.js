@@ -52,6 +52,3 @@ class PolisLogo extends React.Component {
 }
 
 export default PolisLogo;
-
-
-
