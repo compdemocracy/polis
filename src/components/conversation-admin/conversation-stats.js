@@ -2,19 +2,18 @@ import React from "react";
 import {connect} from "react-redux";
 import Radium from "radium";
 import {populateConversationStatsStore} from "../../actions";
-import {VictoryChart} from "victory-chart";
-import {VictoryLine} from "victory-line";
-import {VictoryBar} from "victory-bar";
-import {VictoryAxis} from "victory-axis";
 import _ from "lodash";
 import Spinner from "../framework/spinner";
-import Awesome from "react-fontawesome";
 import Flex from "../framework/flex";
 import NumberCards from "./conversation-stats-number-cards";
+import Votes from "./conversation-stats-votes-timescale";
+import VotesDistribution from "./conversation-stats-vote-distribution";
+import CommentsTimescale from "./conversation-stats-comments-timescale";
+import CommentersVoters from "./conversation-stats-commenters-voters";
 
 const style = {
   container: {
-    backgroundColor: "rgb(240,240,247)"
+    backgroundColor: "rgb(240,240,247)",
   },
   chartCard: {
     backgroundColor: "rgb(253,253,253)",
@@ -23,196 +22,89 @@ const style = {
     borderRadius: 3,
     padding: 10,
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
-    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
+    BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
   },
-  chartContainer: {
-    padding: 20,
-  }
 };
 
-@connect(state => state.stats)
+@connect((state) => state.stats)
 @Radium
 class ConversationStats extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      chartContainer: 360 // untrue, just smallest size it's likely to be
+    };
+  }
+  static propTypes = {
+    dispatch: React.PropTypes.func,
+    params: React.PropTypes.object,
+    conversation_stats: React.PropTypes.object,
+  }
+  static defaultProps = {
+    style: {
+      backgroundColor: "orange",
+      color: "white"
+    }
+  }
   loadStats() {
     this.props.dispatch(
       populateConversationStatsStore(this.props.params.conversation_id)
-    )
+    );
   }
-  componentWillMount () {
+  onWindowResize() {
+    this.setState(this.refs.chartContainer.offsetWidth)
+  }
+  throttledWindowResize() {
+    return _.throttle(this.onWindowResize, 500)
+  }
+  componentWillMount() {
     this.getStatsRepeatedly = setInterval(()=>{
-      this.loadStats()
-    },10000);
+      this.loadStats();
+    }, 10000);
+    window.addEventListener("resize", this.throttledWindowResize().bind(this))
+  }
+  componentDidMount() {
   }
   componentWillUnmount() {
     clearInterval(this.getStatsRepeatedly);
+    window.removeEventListener("resize", this.throttledWindowResize().bind(this))
   }
-  createCharts (data) {
+  createCharts(data) {
+    console.log("STATE", this.state)
     return (
-      <div style={style.container}>
-        <NumberCards data={data}/>
-          <div style={style.chartContainer}>
-        <Flex justifyContent="flex-start">
+      <div ref="chartContainer" style={style.container}>
+          <NumberCards containerWidth={this.state.containerWidth} data={data}/>
+          <Flex
+            wrap="wrap"
+            justifyContent="flex-start">
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span style={{color: "gold"}}>Voters </span>
                 <span style={{color: "tomato"}}>Commenters</span>
               </h3>
-              <VictoryChart
-                height={300}
-                width={450}
-                scale={{
-                  x: d3.time.scale(data.firstVoteTimes),
-                  y: d3.scale.linear()
-                }}>
-                <VictoryLine
-                  style={{
-                    data: {
-                      strokeWidth: 2,
-                      stroke: "tomato"
-                    }
-                  }}
-                  data={data.firstCommentTimes.map((timestamp, i) => {
-                    return {x: timestamp, y: i};
-                  })}/>
-                <VictoryLine
-                  style={{
-                    data: {
-                      strokeWidth: 2,
-                      stroke: "gold"
-                    }
-                  }}
-                  data={data.firstVoteTimes.map((timestamp, i) => {
-                    return {x: timestamp, y: i}
-                  })}/>
-                <VictoryAxis
-                  orientation="bottom"/>
-                <VictoryAxis
-                  dependentAxis
-                  label={"Participants"}
-                  style={{
-                    label: {
-                      fontSize: "8px"
-                    }
-                  }}
-                  orientation={"left"}/>
-              </VictoryChart>
+              <CommentersVoters containerWidth={this.state.containerWidth} data={data}/>
             </div>
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span style={{color: "tomato"}}>Comments</span>
               </h3>
-              <VictoryChart
-                scale={{
-                  x: d3.time.scale(data.commentTimes),
-                  y: d3.scale.linear()
-                }}>
-                <VictoryLine
-                  style={{
-                    data: {
-                      strokeWidth: 2,
-                      stroke: "tomato"
-                    }
-                  }}
-                  data={data.commentTimes.map((timestamp, i) => {
-                    return {x: timestamp, y: i}
-                  })}/>
-                <VictoryAxis
-                  orientation="bottom"/>
-                <VictoryAxis
-                  dependentAxis
-                  label={"Comments"}
-                  orientation={"left"}/>
-              </VictoryChart>
+              <CommentsTimescale containerWidth={this.state.containerWidth} data={data}/>
             </div>
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span style={{color: "gold"}}>Votes</span>
               </h3>
-              <VictoryChart
-                scale={{
-                  x: d3.time.scale(data.voteTimes),
-                  y: d3.scale.linear()
-                }}>
-                <VictoryLine
-                  style={{
-                    data: {
-                      strokeWidth: 2,
-                      stroke: "gold"
-                    }
-                  }}
-                  data={data.voteTimes.map((timestamp, i) => {
-                    return {x: timestamp, y: i}
-                  })}/>            <VictoryAxis
-                  orientation="bottom"/>
-                <VictoryAxis
-                  dependentAxis
-                  label={"Votes"}
-                  orientation={"left"}/>
-              </VictoryChart>
+              <Votes containerWidth={this.state.containerWidth} data={data}/>
             </div>
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span>Votes per participant distribution</span>
               </h3>
-              <VictoryChart
-                height={600}
-                width={900}
-                domainPadding={{x: 30, y: 30}}>
-                <VictoryAxis
-                  tickCount={20}
-                  label="Vote count"
-                  style={{
-                    data: {
-                      axis: {
-                        stroke: "black",
-                        strokeWidth: 1
-                      },
-                      ticks: {
-                        stroke: "transparent"
-                      },
-                      tickLabels: {
-                        fill: "black"
-                      }
-                    }
-                  }}/>
-                <VictoryAxis
-                  label="Participant count"
-                  orientation={"left"}
-                  dependentAxis
-                  style={{
-                    data: {
-                      axis: {
-                        stroke: "black",
-                        strokeWidth: 1
-                      },
-                      ticks: {
-                        stroke: "transparent"
-                      },
-                      tickLabels: {
-                        fill: "black"
-                      }
-                    }
-                  }}/>
-                <VictoryBar
-                  style={{
-                    data: {
-                      fill: "cornflowerblue",
-                      width: 1
-                    }
-                  }}
-                  data={data.votesHistogram.map((d, i) => {
-                    return {
-                      x: d.n_ptpts,
-                      y: d.n_votes
-                    }
-                  })}
-                  />
-              </VictoryChart>
+              <VotesDistribution containerWidth={this.state.containerWidth} data={data}/>
             </div>
         </Flex>
-          </div>
       </div>
-    )
+    );
   }
   render() {
     const data = this.props.conversation_stats; /* swap out for real data later */
