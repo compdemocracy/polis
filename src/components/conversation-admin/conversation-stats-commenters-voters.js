@@ -15,12 +15,14 @@ class CommentersVoters extends React.Component {
     dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     data: React.PropTypes.object,
+    chartWidth: React.PropTypes.number,
+    chartHeight: React.PropTypes.number
   }
   render() {
     return (
       <VictoryChart
-        height={300}
-        width={450}
+        width={this.props.chartWidth}
+        height={this.props.chartHeight}
         scale={{
           x: d3.time.scale(this.props.data.firstVoteTimes),
           y: d3.scale.linear()

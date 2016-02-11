@@ -12,12 +12,8 @@ import CommentsTimescale from "./conversation-stats-comments-timescale";
 import CommentersVoters from "./conversation-stats-commenters-voters";
 
 const style = {
-  container: {
-    backgroundColor: "rgb(240,240,247)",
-  },
   chartCard: {
     backgroundColor: "rgb(253,253,253)",
-    marginRight: 14,
     marginBottom: 14,
     borderRadius: 3,
     padding: 10,
@@ -32,7 +28,7 @@ class ConversationStats extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      chartContainer: 360 // untrue, just smallest size it's likely to be
+
     };
   }
   static propTypes = {
@@ -51,66 +47,90 @@ class ConversationStats extends React.Component {
       populateConversationStatsStore(this.props.params.conversation_id)
     );
   }
-  onWindowResize() {
-    this.setState(this.refs.chartContainer.offsetWidth)
-  }
-  throttledWindowResize() {
-    return _.throttle(this.onWindowResize, 500)
-  }
   componentWillMount() {
     this.getStatsRepeatedly = setInterval(()=>{
       this.loadStats();
     }, 10000);
-    window.addEventListener("resize", this.throttledWindowResize().bind(this))
   }
   componentDidMount() {
   }
   componentWillUnmount() {
     clearInterval(this.getStatsRepeatedly);
-    window.removeEventListener("resize", this.throttledWindowResize().bind(this))
   }
   createCharts(data) {
-    console.log("STATE", this.state)
     return (
-      <div ref="chartContainer" style={style.container}>
-          <NumberCards containerWidth={this.state.containerWidth} data={data}/>
+      <div ref="chartContainer">
+        <Flex direction="column" justifyContent="center" styleOverrides={{width: "100%"}}>
+          <NumberCards data={data}/>
           <Flex
             wrap="wrap"
-            justifyContent="flex-start">
+            justifyContent="space-around">
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span style={{color: "gold"}}>Voters </span>
                 <span style={{color: "tomato"}}>Commenters</span>
               </h3>
-              <CommentersVoters containerWidth={this.state.containerWidth} data={data}/>
+              <CommentersVoters
+                chartHeight={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .45) :
+                  400 }
+                chartWidth={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .9) :
+                  (window.innerWidth * .5) }
+                data={data}/>
             </div>
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span style={{color: "tomato"}}>Comments</span>
               </h3>
-              <CommentsTimescale containerWidth={this.state.containerWidth} data={data}/>
+              <CommentsTimescale
+                chartHeight={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .45) :
+                  400 }
+                chartWidth={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .9) :
+                  (window.innerWidth * .5) }
+                data={data}/>
             </div>
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span style={{color: "gold"}}>Votes</span>
               </h3>
-              <Votes containerWidth={this.state.containerWidth} data={data}/>
+              <Votes
+                chartHeight={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .45) :
+                  400 }
+                chartWidth={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .9) :
+                  (window.innerWidth * .5) }
+                data={data}/>
             </div>
             <div style={style.chartCard}>
               <h3 style={{marginBottom: 0, marginLeft: 50}}>
                 <span>Votes per participant distribution</span>
               </h3>
-              <VotesDistribution containerWidth={this.state.containerWidth} data={data}/>
+              <VotesDistribution
+                chartHeight={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .45) :
+                  400 }
+                chartWidth={this.refs.chartContainer ?
+                  (this.refs.chartContainer.offsetWidth * .9) :
+                  (window.innerWidth * .5) }
+                data={data}/>
             </div>
+          </Flex>
         </Flex>
       </div>
     );
   }
   render() {
-    const data = this.props.conversation_stats; /* swap out for real data later */
     return (
       <div>
-        {data.voteTimes ? this.createCharts(data) : <Spinner/>}
+        {
+          this.props.conversation_stats.voteTimes ?
+            this.createCharts(this.props.conversation_stats) :
+            <Spinner/>
+        }
       </div>
     );
   }

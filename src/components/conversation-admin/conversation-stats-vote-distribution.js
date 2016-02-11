@@ -15,12 +15,14 @@ class VotesDistribution extends React.Component {
     dispatch: React.PropTypes.func,
     params: React.PropTypes.object,
     data: React.PropTypes.object,
+    chartWidth: React.PropTypes.number,
+    chartHeight: React.PropTypes.number
   }
   render() {
     return (
       <VictoryChart
-        height={600}
-        width={900}
+        width={this.props.chartWidth}
+        height={this.props.chartHeight}
         domainPadding={{x: 30, y: 30}}>
         <VictoryAxis
           tickCount={20}

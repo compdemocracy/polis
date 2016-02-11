@@ -7,10 +7,10 @@ const style = {
     paddingLeft: 20
   },
   numberCard: {
-    width: 160,
+    width: window.innerWidth < 500 ? (window.innerWidth * .9) : 170,
     minHeight: 90,
     backgroundColor: "rgb(253,253,253)",
-    marginBottom: 7,
+    margin: 7,
     borderRadius: 3,
     padding: 10,
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
