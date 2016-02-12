@@ -16,7 +16,7 @@ export const CONVERSATIONS_FETCH_ERROR = "CONVERSATIONS_FETCH_ERROR";
 /* zid for clarity - this is conversation config */
 export const REQUEST_ZID_METADATA = "REQUEST_ZID_METADATA";
 export const RECEIVE_ZID_METADATA = "RECEIVE_ZID_METADATA";
-export const ZID_METADATA_FETCH_ERROR = "ZID_METADATA_FETCH_ERROR"
+export const ZID_METADATA_FETCH_ERROR = "ZID_METADATA_FETCH_ERROR";
 export const ZID_METADATA_RESET = "ZID_METADATA_RESET";
 
 export const UPDATE_ZID_METADATA_STARTED = "UPDATE_ZID_METADATA_STARTED";
@@ -450,7 +450,7 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
       alert("error logging in with Facebook");
     }
   });
-}
+};
 
 const processFacebookFriendsData = (response, dest, dispatch, optionalPassword) => {
 
@@ -1343,6 +1343,3 @@ export const startDataExport = (conversation_id, format, unixTimestamp) => {
     )
   }
 }
-
-
-

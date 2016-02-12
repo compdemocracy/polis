@@ -1,7 +1,5 @@
 import React from "react";
-import { connect } from "react-redux";
 import Radium from "radium";
-import _ from "lodash";
 import Flex from "../framework/flex";
 import Button from "../framework/moderate-button";
 
@@ -18,6 +16,14 @@ const styles = {
 
 @Radium
 class Comment extends React.Component {
+  static propTypes = {
+    dispatch: React.PropTypes.func,
+    params: React.PropTypes.object,
+    acceptButton: React.PropTypes.bool,
+    rejectButton: React.PropTypes.bool,
+    acceptClickHandler: React.PropTypes.func,
+    rejectClickHandler: React.PropTypes.func,
+  }
   onAcceptClicked() {
     this.props.acceptClickHandler(this.props.comment)
   }
@@ -40,7 +46,7 @@ class Comment extends React.Component {
         <Flex
           justifyContent="space-between"
           align={"top"}>
-          <Flex.Item small={2}>{ this.props.comment.txt }</Flex.Item>
+          <p>{ this.props.comment.txt }</p>
           <Flex>
             { this.props.acceptButton ? this.makeAcceptButton() : "" }
             { this.props.rejectButton ? this.makeRejectButton() : "" }
