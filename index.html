@@ -90,6 +90,13 @@ function onPreloadOk(response) {
     var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
 
     p[dst] = r.JSON ? JSON.parse(response[src]) : response[src];
+
+    // weird issue probably due to setting a prop named bgcolor on a global?
+    // manually set the prop
+    if (response[src].bgcolor) {
+      p[dst].bgcolor = response[src].bgcolor;
+    }
+
     if (p[cb]) {
       p[cb](0, p[dst]);
     }
