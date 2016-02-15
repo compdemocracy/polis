@@ -1,61 +1,55 @@
 import React from "react";
 import { connect } from "react-redux";
 import { populateConversationsStore } from "../actions";
-import {Link} from "react-router";
+import { browserHistory } from "react-router";
 import Radium from "radium";
-import _ from "lodash";
+// import _ from "lodash";
 import Spinner from "./framework/spinner";
 import Flex from "./framework/flex";
-import Awesome from "react-fontawesome";
-
-const cardHeight = 50;
-const cardPadding = "10px 10px 10px 10px";
-const cardBorderRadius = 3;
+// import Awesome from "react-fontawesome";
 
 const styles = {
-  container: {
-    backgroundColor: "rgb(240,240,247)",
-    padding: "10px 0px 0px 0px",
-    minHeight: "100vh"
-  },
+
   conversationCard: {
-    height: cardHeight,
     margin: "10px 20px 10px 20px",
     backgroundColor: "rgb(253,253,253)",
-    borderRadius: cardBorderRadius,
-    padding: cardPadding,
+    borderRadius: 3,
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
-  },
-  toAdminLink: {
-    height: cardHeight + (2*cardPadding),
-    // backgroundColor: "rgba(200,200,200,1)",
-    // marginRight: -cardPadding,
-    width: "15%",
-    borderTopRightRadius: cardBorderRadius,
-    borderBottomRightRadius: cardBorderRadius,
-    color: "darkgrey",
-    fontWeight: 700,
-    fontSize: 24,
-    textDecoration: "none",
-    display: "flex",
-    flexWrap: "wrap",
-    listStyle: "none",
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  go: {
-    marginRight: 10
   }
-}
+};
 
-@connect(state => state.conversations)
+@connect((state) => state.conversations)
 @Radium
 class Conversations extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+
+    };
+  }
+  static propTypes = {
+    /* react */
+    dispatch: React.PropTypes.func,
+    params: React.PropTypes.object,
+    conversations: React.PropTypes.object,
+    error: React.PropTypes.object,
+    loading: React.PropTypes.bool
+    /* component api */
+    // foo: React.PropTypes.string
+  }
+  static defaultProps = {
+    // foo: "bar"
+  }
   componentDidMount() {
-    this.props.dispatch(populateConversationsStore())
+    this.props.dispatch(populateConversationsStore());
     // loading true or just do that in constructor
     // check your connectivity and try again
+  }
+  goToConversation(r) {
+    return () => {
+      browserHistory.push(r);
+    }
   }
   instantiateConvos() {
     const conversationsMarkup = this.props.conversations.map((conversation, i) => {
@@ -64,29 +58,24 @@ class Conversations extends React.Component {
           justifyContent={"space-between"}
           styleOverrides={styles.conversationCard}
           key={i}>
-          {/* TODO FLEX */}
-          <Flex
-            small={2}>
+          <div
+            style={{width: "100%", height: "100%", padding: 20, cursor: 'pointer'}}
+            onClick={this.goToConversation("/m/"+conversation.conversation_id)}>
             <span>{conversation.topic}</span>
           {/* <span>{conversation.description}</span> */}
-          </Flex>
-          <Link
-            style={styles.toAdminLink}
-            to={"/m/"+conversation.conversation_id}>
-              <Awesome name="chevron-right"/>
-          </Link>
+          </div>
         </Flex>
-      )
-    })
+      );
+    });
     return conversationsMarkup;
   }
   firePopulateInboxAction() {
-    this.props.dispatch(populateConversationsStore())
+    this.props.dispatch(populateConversationsStore());
   }
   render() {
     const err = this.props.error;
     return (
-      <div styleOverrides={styles.container}>
+      <div>
         {this.props.loading ? <Spinner/> : ""}
         {
           err ?
