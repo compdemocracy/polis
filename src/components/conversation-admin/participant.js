@@ -1,7 +1,6 @@
 import React from "react";
-import { connect } from "react-redux";
 import Radium from "radium";
-import _ from "lodash";
+// import _ from "lodash";
 import Flex from "../framework/flex";
 import Awesome from "react-fontawesome";
 import Button from "../framework/generic-button";
@@ -19,11 +18,21 @@ const styles = {
     padding: cardPadding,
     WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
     BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
-  },
-}
+  }
+};
 
 @Radium
 class Participant extends React.Component {
+  static propTypes = {
+    /* react */
+    // dispatch: React.PropTypes.func,
+    params: React.PropTypes.object
+    /* component api */
+    // foo: React.PropTypes.string
+  }
+  static defaultProps = {
+    // foo: "bar"
+  }
   onFeatureClicked() {
     this.props.featureClickHandler(this.props.participant)
   }
@@ -51,10 +60,7 @@ class Participant extends React.Component {
       <Flex
         justifyContent={"space-between"}
         styleOverrides={styles.card}>
-        <Flex.Item
-          small={2}>
           <span>{this.props.name}</span>
-        </Flex.Item>
         <Flex>
           {this.props.featureButton ? this.makeFeatureButton() : ""}
           {this.props.hideButton ? this.makeHideButton() : ""}
