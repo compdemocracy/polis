@@ -43,8 +43,8 @@ class ParticipantModerationHidden extends React.Component {
   }
   render() {
     return (
-      <div style={styles.card}>
-        <div>
+      <div >
+        <div style={styles.card}>
           <p> These participants are not shown in the visualization, but their votes are still counted. Note that they will still be shown to other participants who are their Facebook friends.</p>
         </div>
         {

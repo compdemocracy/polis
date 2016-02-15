@@ -136,7 +136,7 @@ class DataExport extends React.Component {
             }}
             ref="exportSelectHour">
             {
-              this.state.tzs.map((tzs, i)=>{
+              this.state.tzs.map((tzs, i) => {
                 return (
                   <option selected={tzs.selected} key={i} value={tzs.name}> {tzs.name} </option>
                 )
@@ -157,9 +157,7 @@ class DataExport extends React.Component {
           </RadioButtonGroup>
           <Button
             onClick={this.handleExportClicked().bind(this)}
-            style={{
-              marginTop: 20
-            }}>
+            >
             Export
           </Button>
           {this.state.showHelpMessage ? this.showHelpMessage() : ""}
@@ -175,4 +173,3 @@ export default DataExport;
   todo
     validation of dates with moment - should have the start date as well
 */
-
