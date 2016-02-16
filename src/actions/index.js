@@ -85,6 +85,10 @@ export const DATA_EXPORT_STARTED = "DATA_EXPORT_STARTED";
 export const DATA_EXPORT_SUCCESS = "DATA_EXPORT_SUCCESS";
 export const DATA_EXPORT_ERROR = "DATA_EXPORT_ERROR";
 
+export const CREATEUSER_INITIATED = "CREATEUSER_INITIATED";
+// export const CREATEUSER_SUCCESSFUL = "CREATEUSER_SUCCESSFUL";
+export const CREATEUSER_ERROR = "CREATEUSER_ERROR";
+
 export const SIGNIN_INITIATED = "SIGNIN_INITIATED";
 // export const SIGNIN_SUCCESSFUL = "SIGNIN_SUCCESSFUL";
 export const SIGNIN_ERROR = "SIGNIN_ERROR";
@@ -200,6 +204,60 @@ export const doSignin = (attrs, dest) => {
     )
   }
 }
+
+
+
+/* createUser */
+
+const createUserInitiated = () => {
+  return {
+    type: CREATEUSER_INITIATED
+  };
+};
+
+// SIGNIN_SUCCESSFUL Not needed since redirecting to clear password from memory
+
+const createUserError = (err) => {
+  return {
+    type: CREATEUSER_ERROR,
+    data: err
+  }
+}
+
+const createUserPost = (attrs) => {
+  return $.ajax({
+    url:  "/api/v3/auth/login",
+    type: "POST",
+    dataType: "json",
+    xhrFields: {
+      withCredentials: true
+    },
+    // crossDomain: true,
+    data: attrs
+  });
+}
+
+export const doCreateUser = (attrs, dest) => {
+  return (dispatch) => {
+    dispatch(createUserInitiated());
+    return createUserPost(attrs).then(
+      () => {
+        setTimeout(() => {
+          // Force page to load so we can be sure the password is cleared from memory
+          // delay a bit so the cookie has time to set
+          window.location = dest||"";
+        }, 3000);
+      },
+      err => dispatch(createUserError(err))
+    )
+  };
+};
+
+
+
+
+
+
 
 /* passwordResetInit */
 

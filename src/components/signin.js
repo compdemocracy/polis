@@ -111,7 +111,7 @@ class SignIn extends React.Component {
             fontWeight: 100
           }}>
           {
-            "If you click 'Log in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
+            "If you click 'Sign in with Facebook' and are not a pol.is user, you will be registered and you agree to the pol.is terms and privacy policy"
           }
         </p>
         <Button
