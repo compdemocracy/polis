@@ -8404,6 +8404,7 @@ function getOneConversation(zid, uid) {
             conv.is_mod = conv.site_id === userInfo.site_id;
             conv.is_owner = conv.owner === uid;
             conv.pp = false; // participant pays (WIP)
+            delete conv.uid; // conv.owner is what you want, uid shouldn't be returned.
             return conv;
         });
     });
