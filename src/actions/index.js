@@ -603,7 +603,7 @@ const conversationsError = (err) => {
 }
 
 const fetchConversations = () => {
-  return $.get('/api/v3/conversations');
+  return $.get('/api/v3/conversations?include_all_conversations_i_am_in=true');
 }
 
 export const populateConversationsStore = () => {
