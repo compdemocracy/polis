@@ -226,7 +226,7 @@ const createUserError = (err) => {
 
 const createUserPost = (attrs) => {
   return $.ajax({
-    url:  "/api/v3/auth/login",
+    url:  "/api/v3/auth/new",
     type: "POST",
     dataType: "json",
     xhrFields: {

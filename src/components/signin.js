@@ -5,7 +5,9 @@ import Radium from "radium";
 import Flex from "./framework/flex";
 import Button from "./framework/generic-button";
 import Awesome from "react-fontawesome";
+import {Link} from "react-router";
 import StaticContentContainer from "./framework/static-content-container";
+
 
 const styles = {
   heading: {
@@ -51,6 +53,10 @@ const styles = {
 @Radium
 class SignIn extends React.Component {
 
+  getDest() {
+    return this.props.location.pathname.slice("/signin".length);
+  }
+
   handleLoginClicked(e) {
     e.preventDefault();
     const attrs = {
@@ -58,7 +64,7 @@ class SignIn extends React.Component {
       password: this.refs.password.value
     }
 
-    var dest = this.props.location.pathname.slice("/signin".length);
+    var dest = this.getDest();
     if (!dest.length) {
       dest = "/";
     }
@@ -70,7 +76,7 @@ class SignIn extends React.Component {
   // }
 
   facebookButtonClicked() {
-    var dest = this.props.location.pathname.slice("/signin".length);
+    var dest = this.getDest();
     if (!dest.length) {
       dest = "/";
     }
@@ -78,7 +84,7 @@ class SignIn extends React.Component {
   }
 
   handleFacebookPasswordSubmit() {
-    var dest = this.props.location.pathname.slice("/signin".length);
+    var dest = this.getDest();
     if (!dest.length) {
       dest = "/";
     }
@@ -125,6 +131,9 @@ class SignIn extends React.Component {
           }} name="facebook"/>
           <span style={{marginLeft: 10}}>{"Sign in with Facebook"}</span>
         </Button>
+
+        <div>{"Don't have an account?"} <Link to={"/createuser" + this.getDest()} >Sign up</Link></div>
+
       </div>
     )
   }
