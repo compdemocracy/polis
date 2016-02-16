@@ -59,7 +59,9 @@ class SignIn extends React.Component {
     }
 
     var dest = this.props.location.pathname.slice("/signin".length);
-
+    if (!dest.length) {
+      dest = "/";
+    }
     this.props.dispatch(doSignin(attrs, dest));
   }
 
@@ -68,12 +70,18 @@ class SignIn extends React.Component {
   // }
 
   facebookButtonClicked() {
-    const dest = this.props.location.pathname.slice("/signin".length);
+    var dest = this.props.location.pathname.slice("/signin".length);
+    if (!dest.length) {
+      dest = "/";
+    }
     this.props.dispatch(doFacebookSignin(dest))
   }
 
   handleFacebookPasswordSubmit() {
-    const dest = this.props.location.pathname.slice("/signin".length);
+    var dest = this.props.location.pathname.slice("/signin".length);
+    if (!dest.length) {
+      dest = "/";
+    }
     const optionalPassword = this.refs.facebook_password.value
     this.props.dispatch(doFacebookSignin(dest, optionalPassword))
   }
