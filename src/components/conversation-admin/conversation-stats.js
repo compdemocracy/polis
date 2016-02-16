@@ -134,7 +134,7 @@ class ConversationStats extends React.Component {
         height={ window.innerHeight }
         radius={ 1.5 }
         lineWidth={ 1 }/>
-    )
+    );
   }
   render() {
     return (

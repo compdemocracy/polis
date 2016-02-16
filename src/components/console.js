@@ -16,7 +16,6 @@ import Trial from "./framework/trial-banner";
 const styles = {
   container: {
     backgroundColor: "rgb(240,240,247)",
-    paddingTop: 10,
     height: "100%"
   }
 };

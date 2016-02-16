@@ -1,5 +1,6 @@
 import React from "react";
 import Awesome from "react-fontawesome";
+import * as globals from "./framework/global-styles";
 
 const styles = {
   root: {
@@ -18,6 +19,9 @@ const styles = {
     color: "white",
     padding: "16px",
     fontSize: "1.5em",
+    // position: "fixed",
+    // width: "100%",
+    minHeight: globals.headerHeight,
   },
 };
 

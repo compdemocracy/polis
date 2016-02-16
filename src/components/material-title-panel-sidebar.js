@@ -1,5 +1,6 @@
-import React from 'react';
+import React from "react";
 import Awesome from "react-fontawesome";
+import * as globals from "./framework/global-styles";
 
 const styles = {
   root: {
@@ -7,10 +8,11 @@ const styles = {
     fontWeight: 300,
   },
   header: {
-    backgroundColor: '#03a9f4',
-    color: 'white',
-    padding: '16px',
-    fontSize: '1.5em',
+    backgroundColor: "#03a9f4",
+    color: "white",
+    padding: "16px",
+    fontSize: "1.5em",
+    height: globals.headerHeight
   },
   linkout: {
     textDecoration: "none",
@@ -24,7 +26,9 @@ const MaterialTitlePanelSidebar = (props) => {
   return (
     <div style={rootStyle}>
       <div style={styles.header}>
-        <a style={styles.linkout} target="blank" href={"https://"+props.title}> { props.title } </a>
+        <a style={styles.linkout} target="blank" href={"https://"+props.title}>
+          { props.title }
+        </a>
       </div>
       {props.children}
     </div>

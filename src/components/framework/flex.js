@@ -38,6 +38,7 @@ class Flex extends React.Component {
     ]),
     styleOverrides: React.PropTypes.object,
     children: React.PropTypes.node,
+    clickHandler: React.PropTypes.func,
   }
   static defaultProps = {
     direction: "row",
@@ -50,7 +51,7 @@ class Flex extends React.Component {
     basis: "auto",
     alignSelf: "auto",
     order: 0,
-    styleOverrides: null
+    styleOverrides: {}
   }
   getStyles() {
     return {
@@ -76,9 +77,10 @@ class Flex extends React.Component {
 
     return (
       <div
+        onClick={this.props.clickHandler}
         style={[
           styles.base,
-          this.props.styleOverrides && styles.styleOverrides
+          styles.styleOverrides
         ]}>
         {this.props.children}
       </div>
