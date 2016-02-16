@@ -61,7 +61,7 @@ class SidebarContentHome extends React.Component {
           </Link>
           <Link
             style={styles.sidebarLink}
-            to="/conversations">
+            to="/">
             <Awesome name="inbox"/>
             <span style={{marginLeft: 10}}> Conversations </span>
           </Link>

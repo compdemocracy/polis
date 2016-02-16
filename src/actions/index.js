@@ -426,7 +426,7 @@ const saveFacebookFriendsData = (data, dest, dispatch) => {
     setTimeout(() => {
         // Force page to load so we can be sure the old user's state is cleared from memory
         // delay a bit so the cookies have time to clear too.
-        window.location = dest || "/conversations";
+        window.location = dest || "/";
       }, 1000);
     }, (err) => {
     console.dir(err);

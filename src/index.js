@@ -61,8 +61,8 @@ class Root extends React.Component {
         <Provider store={store}>
           <Router history={browserHistory}>
             <Route path="/" component={Console}>
+              <IndexRoute component={Conversations}/>
               <Route path="integrate" component={Integrate}/>
-              <Route path="conversations" component={Conversations}/>
               <Route path="overall-stats" component={OverallStats}/>
               <Route path="account" component={Account}/>
               <Route path="m/:conversation_id" component={ConversationAdminContainer}>
