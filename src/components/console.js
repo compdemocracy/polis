@@ -4,46 +4,64 @@ import { populateUserStore } from "../actions";
 
 import Radium from "radium";
 import _ from "lodash";
-import {Link} from "react-router";
-import Spinner from "./framework/spinner";
-import Awesome from "react-fontawesome";
+// import {Link} from "react-router";
+import StarsSpinner from "./framework/stars-spinner";
+// import Awesome from "react-fontawesome";
 import Sidebar from "react-sidebar";
 import SidebarContentConversation from "./sidebar-content-conversation";
 import SidebarContentHome from "./sidebar-content-home";
-import MaterialTitlePanel from './material-title-panel';
+import MaterialTitlePanel from "./material-title-panel";
 import Trial from "./framework/trial-banner";
 
 const styles = {
   container: {
     backgroundColor: "rgb(240,240,247)",
     paddingTop: 10,
-    minHeight: "100vh"
+    height: "100%"
   }
-}
+};
 
-@connect(state => state.user)
+@connect((state) => {
+  return state.user;
+})
 @Radium
 class App extends React.Component {
   constructor(props) {
     super(props);
     this.state = {
-      sidebarOpen: false,
+      sidebarOpen: false
       // sidebarDocked: true,
     };
   }
-  loadUserData() {
-    this.props.dispatch(populateUserStore())
+  static propTypes = {
+    /* react */
+    dispatch: React.PropTypes.func,
+    params: React.PropTypes.object,
+    /* component api */
+    error: React.PropTypes.bool,
+    loading: React.PropTypes.bool,
+    user: React.PropTypes.object,
+    routes: React.PropTypes.array,
+    isLoggedIn: React.PropTypes.bool,
+    // foo: React.PropTypes.string
+  }
+  static defaultProps = {
+    // foo: "bar"
   }
 
-  componentWillMount () {
-    this.loadUserData()
-    var mql = window.matchMedia(`(min-width: 800px)`);
+  loadUserData() {
+    this.props.dispatch(populateUserStore());
+  }
+
+  componentWillMount() {
+    this.loadUserData();
+    let mql = window.matchMedia(`(min-width: 800px)`);
     mql.addListener(this.mediaQueryChanged.bind(this));
     this.setState({mql: mql, docked: mql.matches});
     this.checkForAuth(this.props);
   }
 
-  componentWillReceiveProps(nextProps, nextContext) {
+  componentWillReceiveProps(nextProps) {
     this.checkForAuth(nextProps);
   }
 
@@ -55,22 +73,22 @@ class App extends React.Component {
     }
   }
 
-  componentDidMount () {
-    this.mediaQueryChanged()
+  componentDidMount() {
+    this.mediaQueryChanged();
   }
 
-  initIntercom  () {
+  initIntercom() {
     if (!this.intercomInitialized) {
-      var user = this.props.user;
+      const user = this.props.user;
       if (user) {
         if (!window.Intercom && user && user.uid) {
-            window.initIntercom();
+          window.initIntercom();
         }
         if (user.email) {
           /*eslint-disable */
           /* jshint ignore:start */
-          Intercom('boot', {
-            app_id: 'nb5hla8s',
+          Intercom("boot", {
+            app_id: "nb5hla8s",
             created_at: Date.now(),
             user_id: user.uid
           });
@@ -82,15 +100,14 @@ class App extends React.Component {
     }
   }
 
-  updateIntercomSettings  () {
+  updateIntercomSettings() {
     this.initIntercom();
-    var user = this.props.user;
-
+    const user = this.props.user;
     window.intercomOptions = {
-        app_id: 'nb5hla8s',
-        widget: {
-          activator: '#IntercomDefaultWidget'
-        }
+      app_id: "nb5hla8s",
+      widget: {
+        activator: "#IntercomDefaultWidget"
+      }
     };
     if (user && user.uid) {
       intercomOptions.user_id = user.uid + "";
@@ -104,26 +121,26 @@ class App extends React.Component {
 
   }
 
-  componentDidUpdate () {
+  componentDidUpdate() {
     this.updateIntercomSettings();
   }
 
-  componentWillUnmount () {
+  componentWillUnmount() {
     this.state.mql.removeListener(this.mediaQueryChanged.bind(this));
   }
 
-  mediaQueryChanged () {
+  mediaQueryChanged() {
     this.setState({sidebarDocked: this.state.mql.matches});
   }
 
-  onSetSidebarOpen (open) {
+  onSetSidebarOpen(open) {
     this.setState({sidebarOpen: open});
   }
 
-  handleMenuButtonClick () {
-    this.setState({sidebarOpen: !this.state.sidebarOpen})
+  handleMenuButtonClick() {
+    this.setState({sidebarOpen: !this.state.sidebarOpen});
   }
-  getTitleFromRoute () {
+  getTitleFromRoute() {
     /* ugly, but... is what it is for now */
     let title = "Admin Dashboard"; /* in leiu of default */
 
@@ -140,38 +157,59 @@ class App extends React.Component {
     } else if (this.props.routes[2] && this.props.routes[2].path === "stats") {
       title = "Conversation Statistics";
     } else if (this.props.routes[2] && this.props.routes[2].path === "export") {
-      title = "Data Export"
+      title = "Data Export";
     } else if (this.props.routes[2] && this.props.routes[2].path === "share") {
-      title = "Share & Embed"
+      title = "Share & Embed";
     }
 
     return title;
   }
-  render() {
-    if (!this.props.isLoggedIn) {
-      return <div>spinner!</div>;
-    }
-
+  renderConsole() {
     return (
       <Sidebar
         sidebar={
           this.props.params.conversation_id ?
-            <SidebarContentConversation conversation_id={this.props.params.conversation_id}/> :
+          <SidebarContentConversation conversation_id={this.props.params.conversation_id}/> :
             <SidebarContentHome/>
-        }
-        open={ this.state.sidebarOpen }
-        docked={ this.state.sidebarDocked }
-        onSetOpen={ this.onSetSidebarOpen.bind(this) }>
-        <MaterialTitlePanel
-          handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
-          showHamburger={this.state.sidebarDocked}
-          title={this.getTitleFromRoute()}>
-          {/*trial condition*/ true ? <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> : ""}
-            <div style={styles.container}>
-              { this.props.children }
-            </div>
-        </MaterialTitlePanel>
+          }
+          open={ this.state.sidebarOpen }
+          docked={ this.state.sidebarDocked }
+          onSetOpen={ this.onSetSidebarOpen.bind(this) }>
+          <MaterialTitlePanel
+            handleHamburgerClick={this.handleMenuButtonClick.bind(this)}
+            showHamburger={this.state.sidebarDocked}
+            title={this.getTitleFromRoute()}>
+            {
+              /*trial condition*/ true ?
+              <Trial title={"You have x days remaining on your trial. *Upgrade*"}/> :
+                ""
+              }
+              <div style={styles.container}>
+                { this.props.children }
+              </div>
+            </MaterialTitlePanel>
       </Sidebar>
+    )
+  }
+  renderSpinner() {
+    return (
+      <StarsSpinner
+        text={""}
+        nodeColor={ "rgb(150,150,150)" }
+        count={ Math.floor(window.innerWidth / 10) }
+        width={ window.innerWidth }
+        height={ window.innerHeight }
+        radius={ 1.5 }
+        lineWidth={ 1 }/>
+    )
+  }
+  render() {
+    return (
+      <div style={{height: "100%"}}>
+        {
+          !this.props.isLoggedIn ? this.renderSpinner() : this.renderConsole()
+        }
+      </div>
     );
   }
 }

@@ -59,7 +59,12 @@ class Conversations extends React.Component {
           styleOverrides={styles.conversationCard}
           key={i}>
           <div
-            style={{width: "100%", height: "100%", padding: 20, cursor: 'pointer'}}
+            style={{
+              width: "100%",
+              height: "100%",
+              padding: 20,
+              cursor: "pointer"
+            }}
             onClick={this.goToConversation("/m/"+conversation.conversation_id)}>
             <span>{conversation.topic}</span>
           {/* <span>{conversation.description}</span> */}

@@ -10,6 +10,7 @@ import Votes from "./conversation-stats-votes-timescale";
 import VotesDistribution from "./conversation-stats-vote-distribution";
 import CommentsTimescale from "./conversation-stats-comments-timescale";
 import CommentersVoters from "./conversation-stats-commenters-voters";
+import StarsSpinner from "../framework/stars-spinner";
 
 const style = {
   chartCard: {
@@ -123,13 +124,25 @@ class ConversationStats extends React.Component {
       </div>
     );
   }
+  renderSpinner() {
+    return (
+      <StarsSpinner
+        text={"Crunching the numbers, hold on a sec..."}
+        nodeColor={ "rgb(150,150,150)" }
+        count={ Math.floor(window.innerWidth / 10) }
+        width={ window.innerWidth }
+        height={ window.innerHeight }
+        radius={ 1.5 }
+        lineWidth={ 1 }/>
+    )
+  }
   render() {
     return (
       <div>
         {
           this.props.conversation_stats.voteTimes ?
             this.createCharts(this.props.conversation_stats) :
-            <Spinner/>
+            this.renderSpinner()
         }
       </div>
     );
