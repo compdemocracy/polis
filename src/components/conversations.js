@@ -8,6 +8,7 @@ import Spinner from "./framework/spinner";
 import Flex from "./framework/flex";
 import * as globals from "./framework/global-styles";
 import Awesome from "react-fontawesome";
+import ConversationFilters from "./conversation-filters";
 
 @connect((state) => state.conversations)
 @Radium
@@ -45,23 +46,39 @@ class Conversations extends React.Component {
         minHeight: "100%"
       },
       conversationCard: {
+        width: "90%",
         padding: 20,
-        width: "95%",
         cursor: "pointer",
         margin: "10px 0px",
+        color: "rgb(100,100,100)",
         backgroundColor: "rgb(253,253,253)",
         borderRadius: 3,
         WebkitBoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)",
         BoxShadow: "3px 3px 6px -1px rgba(220,220,220,1)"
       },
       awesome: {
-        fontSize: 24,
-        marginRight: 8,
+        fontSize: 16,
+        marginRight: 6,
         position: "relative",
-        top: -3
+        top: -2
       },
       statNumber: {
-        fontSize: 24,
+        fontSize: 18,
+        marginBottom: 20
+      },
+      parentUrl: {
+        fontSize: 12,
+        marginTop: 10
+      },
+      topic: {
+        marginBottom: 10
+        // ":hover": {
+        //   color: 'red'
+        // }
+      },
+      description: {
+        fontSize: 14,
+        fontWeight: 300,
       }
     };
   }
@@ -71,7 +88,7 @@ class Conversations extends React.Component {
     };
   }
   filterCheck(c) {
-    console.log('filtering', c, this.state.filterMinParticipantCount)
+    // console.log('filtering', c, this.state.filterMinParticipantCount)
     let include = true;
     if (c.participant_count < this.state.filterMinParticipantCount) {
       include = false;
@@ -88,14 +105,21 @@ class Conversations extends React.Component {
             direction="column"
             alignItems="flex-start"
             styleOverrides={this.getStyles().conversationCard}
-            clickHandler={this.goToConversation("/m/"+c.conversation_id)}
+            clickHandler={this.goToConversation(`/m/${c.conversation_id}`)}
             key={i}>
-              <span style={this.getStyles().statNumber}>
+              <span ref={`statNumber${i}`} style={this.getStyles().statNumber}>
                 <Awesome name="users" style={this.getStyles().awesome}/>
                 {c.participant_count}
               </span>
-              <span>{c.topic}</span>
-              <span>{c.description}</span>
+              <span ref={`topic${i}`} style={this.getStyles().topic}>
+                {c.topic}
+              </span>
+              <span ref={`description${i}`} style={this.getStyles().description}>
+                {c.description}
+              </span>
+              <span ref={`parentUrl${i}`} style={this.getStyles().parentUrl}>
+                {c.parent_url ? `Embedded on ${c.parent_url}` : ""}
+              </span>
           </Flex>
         );
       }
@@ -106,11 +130,15 @@ class Conversations extends React.Component {
   firePopulateInboxAction() {
     this.props.dispatch(populateConversationsStore());
   }
+  onFilterChange() {
+    this.setState()
+  }
   render() {
     const err = this.props.error;
     return (
       <Flex
         direction="column"
+        justifyContent="flex-start"
         styleOverrides={this.getStyles().container}>
         <p style={{paddingLeft: 20, textAlign: "center"}}>
           {this.props.loading ? "Loading conversations..." : ""}
